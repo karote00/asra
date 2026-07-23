@@ -6,7 +6,7 @@ import {
   type ProviderAwarenessMessage,
   type ProviderIdentity
 } from '../../provider'
-import { cloneAwareness, clonePublication } from './cloning'
+import { cloneAwareness, clonePublication } from '../../cloning'
 
 export interface MemoryHubOptions {
   authorizeConnection?: (

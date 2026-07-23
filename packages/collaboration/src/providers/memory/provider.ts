@@ -9,7 +9,7 @@ import {
   type ProviderIdentity,
   type ProviderStatus
 } from '../../provider'
-import { cloneAwareness, clonePublication } from './cloning'
+import { cloneAwareness, clonePublication } from '../../cloning'
 import { MemoryHub, type MemoryPeer } from './hub'
 
 export class MemoryProvider implements Provider, MemoryPeer {

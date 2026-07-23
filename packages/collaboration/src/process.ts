@@ -1,5 +1,7 @@
-import { cloneSharedPublication, type SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/factory'
+
 import { Awareness, type AwarenessStateInput } from './awareness'
+import { clonePublication } from './cloning'
 import type {
   CollaborationFactory,
   CollaborationResourceOwnership,
@@ -311,7 +313,7 @@ export class Collaboration {
 
   private scheduleOutbound(publication: SharedPublication): void {
     if (this.disposed) return
-    const detached = cloneSharedPublication(publication)
+    const detached = clonePublication(publication)
     this.outboundQueue = this.outboundQueue.then(async () => {
       if (this.disposed) return
       if (!this.provider) {
@@ -342,7 +344,7 @@ export class Collaboration {
 
   private scheduleInbound(inbound: InboundPublication): void {
     if (this.disposed) return
-    const publication = cloneSharedPublication(inbound.publication)
+    const publication = clonePublication(inbound.publication)
     const context = Object.freeze({
       ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
     })

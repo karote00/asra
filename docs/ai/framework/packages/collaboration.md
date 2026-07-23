@@ -147,6 +147,19 @@ Awareness:
 - `Awareness`
 - Awareness state, observation, removal, validation, and Provider message types
 
+## Distribution
+
+The package uses the same TypeScript library build convention as the other
+framework packages. `dist/index.js` and `dist/index.d.ts` are its public root
+entrypoints. Complete tarball metadata, entrypoint, and clean-consumer
+validation remains owned by Framework Release Gate 5 for every published
+package.
+
+Runtime transport cloning uses the platform structured-clone contract.
+`@asyra/factory` remains the source of publication and Factory types, but
+loading the Collaboration package does not activate or load the Factory
+runtime. App-supplied Factory composition remains explicit.
+
 ## Reference App
 
 Asyra Design supplies a real WebSocket Provider and memory-only reference
