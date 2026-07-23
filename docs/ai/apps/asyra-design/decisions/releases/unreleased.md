@@ -6669,6 +6669,8 @@ join` constrained dashed product path across:
   - Run the dense-vector Render timing budget first with one isolated worker,
     then exclude it from the two-worker functional suite without changing its
     formal timing thresholds.
+  - Calculate the bounded 12-frame p50/p95 with the lower sample quantile while
+    retaining the separately budgeted maximum sample.
 - Consequences:
   - Reset and first-load ordinary documents always have a canonical workspace.
   - Interactive selection UI is available during active pointer sessions.
@@ -6676,5 +6678,7 @@ join` constrained dashed product path across:
     timeout budget retrying a cascade from one startup failure.
   - Performance measurements no longer compete with a second browser worker,
     while functional coverage still benefits from bounded parallelism.
+  - One allowed maximum-frame deviation cannot silently redefine p95, and the
+    existing max threshold continues to reject a real worst-frame regression.
 - Related Commit(s):
   - pending

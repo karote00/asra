@@ -77,6 +77,9 @@
 - CI runs the dense-vector Render timing budget first with one isolated worker,
   then excludes that file while parallelizing the remaining functional suite;
   the formal timing thresholds are not relaxed to absorb runner contention
+- the bounded 12-frame profile uses the lower sample quantile for p50/p95 and
+  retains a separate max assertion, preventing p95 from degenerating into the
+  same single-sample oracle while preserving every formal threshold
 - superseded runs for the same pull request or ref are cancelled, and both E2E
   jobs install only the configured Chromium browser
 - the collaboration suite may reuse manually started app and WebSocket servers;

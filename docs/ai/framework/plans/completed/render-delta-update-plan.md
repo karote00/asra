@@ -343,6 +343,11 @@ vector geometry cache. The existing element-id derived snapshot remains the
 semantic target of the delta projection; its dimension may not expand without new
 profiling.
 
+For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
+`floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit
+oracle, so the p95 and max budgets remain independent without changing any
+threshold above.
+
 ## Owner Slices
 
 1. Scene Tree committed delta and Factory ordered delivery contracts.

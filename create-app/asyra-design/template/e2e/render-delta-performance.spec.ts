@@ -45,9 +45,11 @@ const summarize = (samples: number[]): PhaseBudget => {
   const ordered = [...samples].sort((left, right) => left - right)
   const percentile = (ratio: number): number => {
     if (ordered.length === 0) return 0
+    // The bounded profile budgets p95 and max separately. Use the lower sample
+    // quantile so one maximum sample does not make those two oracles identical.
     const index = Math.min(
       ordered.length - 1,
-      Math.max(0, Math.ceil(ordered.length * ratio) - 1)
+      Math.max(0, Math.floor((ordered.length - 1) * ratio))
     )
     return ordered[index]
   }
@@ -72,6 +74,13 @@ const expectPhaseWithinBudget = (
   expect(phase.p95Ms).toBeLessThanOrEqual(budget.p95Ms)
   expect(phase.maxMs).toBeLessThanOrEqual(budget.maxMs)
 }
+
+test('keeps the bounded p95 sample distinct from the separately budgeted max', () => {
+  expect(summarize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toMatchObject({
+    p95Ms: 11,
+    maxMs: 12
+  })
+})
 
 test.describe('Render delta performance budget', () => {
   test.beforeEach(async ({ page }) => {
