@@ -1,17 +1,20 @@
 import { defineConfig, devices } from '@playwright/test'
+import {
+  loadAsyraDesignEnvironment,
+  resolveAsyraDesignEnvironment
+} from './app-environment.mjs'
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+const appEnvironment = resolveAsyraDesignEnvironment(
+  loadAsyraDesignEnvironment()
+)
+const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: 'collaboration.spec.ts',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -25,7 +28,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
+    baseURL: appEnvironment.appURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
@@ -54,8 +57,8 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: 'yarn react:start',
-        url: 'http://localhost:3000',
+        command: visualReviewWebServerCommand,
+        url: appEnvironment.appURL,
         reuseExistingServer: true,
         timeout: 120 * 1000
       }

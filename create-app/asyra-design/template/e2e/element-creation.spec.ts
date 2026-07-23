@@ -5,10 +5,57 @@ import {
   createRectangle,
   hasSelectedElement,
   getElementCount,
+  getContentsPanel,
+  getCanvasPosition,
   clickCanvas,
   dragOnCanvas,
-  getPropertiesPanel
+  getPropertiesPanel,
+  undo
 } from './test-utils'
+
+interface CreateProjectionSnapshot {
+  type: string
+  modelWidth: number
+  modelHeight: number
+  renderExists: boolean
+  renderWidth: number | null
+  renderHeight: number | null
+}
+
+const getCreateProjectionSnapshot = async (
+  page: Parameters<typeof getCanvasPosition>[0]
+): Promise<CreateProjectionSnapshot | null> =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return null
+    }
+
+    const entry = Array.from(elements.entries()).find(
+      ([, element]) => element?.get?.('type') !== 'workspace'
+    )
+    if (!entry) {
+      return null
+    }
+
+    const [elementId, element] = entry
+    const computed = element.getAllComputedData?.() ?? {}
+    const graphic = core?.deps?.render?.getElementById?.(elementId)
+    const renderData = graphic?.__asyraLastRenderDataSnapshot
+
+    return {
+      type: String(element.get?.('type') ?? ''),
+      modelWidth: Number(computed.width ?? 0),
+      modelHeight: Number(computed.height ?? 0),
+      renderExists: Boolean(graphic),
+      renderWidth:
+        typeof renderData?.width === 'number' ? renderData.width : null,
+      renderHeight:
+        typeof renderData?.height === 'number' ? renderData.height : null
+    }
+  })
 
 /**
  * E2E Tests for Element Creation
@@ -26,6 +73,109 @@ test.describe('Element Creation', () => {
     await waitForAppReady(page)
     await resetCanvas(page)
   })
+
+  for (const { key, type, label } of [
+    { key: 'r', type: 'rect', label: 'rectangle' },
+    { key: 'o', type: 'oval', label: 'oval' }
+  ]) {
+    test(`should project the new ${label} on pointer-down and throughout drag before pointer-up`, async ({
+      page
+    }, testInfo) => {
+      const initialCount = await getElementCount(page)
+      const start = await getCanvasPosition(page, 0.55, 0.5)
+      const end = await getCanvasPosition(page, 0.3, 0.25)
+
+      await page.keyboard.press(key)
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scope = window as any
+        scope.__createPreviewDeliveries = []
+        scope.__disposeCreatePreviewObserver =
+          scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+            'sceneTree',
+            (change: unknown) => scope.__createPreviewDeliveries.push(change)
+          )
+      })
+      await page.mouse.move(start.x, start.y)
+      await page.mouse.down()
+
+      try {
+        const createdRow = getContentsPanel(page).locator(
+          '[data-layer-element="true"]'
+        )
+        await expect
+          .poll(() => getElementCount(page), { timeout: 2_000 })
+          .toBe(initialCount + 1)
+        await expect(createdRow).toBeVisible()
+        await expect
+          .poll(() => hasSelectedElement(page), { timeout: 2_000 })
+          .toBe(true)
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderExists ?? false,
+            { timeout: 2_000 }
+          )
+          .toBe(true)
+
+        const pointerDownSnapshot = await getCreateProjectionSnapshot(page)
+        expect(pointerDownSnapshot).toMatchObject({ type })
+        expect(pointerDownSnapshot?.modelWidth).toBe(0.1)
+        expect(pointerDownSnapshot?.modelHeight).toBe(0.1)
+        expect(pointerDownSnapshot?.renderWidth).toBeCloseTo(0.1)
+        expect(pointerDownSnapshot?.renderHeight).toBeCloseTo(0.1)
+        await page.screenshot({
+          path: testInfo.outputPath(`${label}-pointer-down.png`)
+        })
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(window as any).__createPreviewDeliveries = []
+        })
+
+        await page.mouse.move(end.x, end.y, { steps: 2 })
+
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderWidth ?? 0,
+            { timeout: 2_000 }
+          )
+          .toBeGreaterThan(50)
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderHeight ?? 0,
+            { timeout: 2_000 }
+          )
+          .toBeGreaterThan(50)
+        expect(await getElementCount(page)).toBe(initialCount + 1)
+        await expect(createdRow).toBeVisible()
+        expect(await hasSelectedElement(page)).toBe(true)
+        const previewDeliveries = await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return (window as any).__createPreviewDeliveries ?? []
+        })
+        expect(previewDeliveries).toContainEqual(
+          expect.objectContaining({
+            action: 'updateElementComputedDataBatch',
+            options: expect.objectContaining({ sharedDelivery: 'immediate' })
+          })
+        )
+        await page.screenshot({
+          path: testInfo.outputPath(`${label}-hold-drag.png`)
+        })
+      } finally {
+        await page.mouse.up()
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const scope = window as any
+          scope.__disposeCreatePreviewObserver?.()
+          delete scope.__disposeCreatePreviewObserver
+          delete scope.__createPreviewDeliveries
+        })
+      }
+    })
+  }
 
   /**
    * Scenario: Create rectangle with default size on click
@@ -56,6 +206,12 @@ test.describe('Element Creation', () => {
     // Verify the new element is selected (Properties Panel shows properties)
     const isSelected = await hasSelectedElement(page)
     expect(isSelected).toBe(true)
+
+    const completedSnapshot = await getCreateProjectionSnapshot(page)
+    expect(completedSnapshot?.modelWidth).toBe(100)
+    expect(completedSnapshot?.modelHeight).toBe(100)
+    expect(completedSnapshot?.renderWidth).toBeCloseTo(100)
+    expect(completedSnapshot?.renderHeight).toBeCloseTo(100)
 
     // Verify the Contents Panel shows the new rectangle
     const contentsPanel = page.locator('[style*="grid-area: left-sidebar"]')
@@ -110,6 +266,92 @@ test.describe('Element Creation', () => {
     // Width and height should be greater than 0 (dynamically sized)
     expect(parseInt(widthValue)).toBeGreaterThan(50)
     expect(parseInt(heightValue)).toBeGreaterThan(50)
+  })
+
+  test('switching tools during create commits the interruption shape as one undoable action', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__transactionStatuses = []
+      core?.deps?.factory?.subscribeToTransactionStatus?.(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (status: any) => (window as any).__transactionStatuses.push(status)
+      )
+    })
+    const initialUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    const start = await getCanvasPosition(page, 0.25, 0.25)
+    const current = await getCanvasPosition(page, 0.55, 0.45)
+
+    await page.keyboard.press('r')
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(current.x, current.y, { steps: 5 })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    const interruptedSnapshot = await getCreateProjectionSnapshot(page)
+    expect(interruptedSnapshot).not.toBeNull()
+    if (!interruptedSnapshot) {
+      return
+    }
+
+    await page.keyboard.press('v')
+    await page.mouse.up()
+
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__transactionStatuses.map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (status: any) => ({
+              status: status.status,
+              error: status.error?.message ?? null,
+              failures:
+                status.error?.failures?.map(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (failure: any) => failure?.message ?? String(failure)
+                ) ?? []
+            })
+          )
+        )
+      )
+      .toContainEqual({ status: 'committed', error: null, failures: [] })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    await expect
+      .poll(async () => {
+        const committed = await getCreateProjectionSnapshot(page)
+        return committed
+          ? {
+              type: committed.type,
+              width: Math.round(committed.modelWidth),
+              height: Math.round(committed.modelHeight),
+              renderExists: committed.renderExists
+            }
+          : null
+      })
+      .toEqual({
+        type: interruptedSnapshot.type,
+        width: Math.round(interruptedSnapshot.modelWidth),
+        height: Math.round(interruptedSnapshot.modelHeight),
+        renderExists: true
+      })
+    const finalUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(finalUndoCount).toBe(initialUndoCount + 1)
+
+    await undo(page)
+    await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
   })
 
   /**
