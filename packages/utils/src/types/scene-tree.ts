@@ -58,6 +58,17 @@ export interface MoveElementsChange {
   options?: MutationOptions
 }
 
+export interface SubtreeChange {
+  action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+  undoAction:
+    | SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+    | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+  eventName: string
+  elementId: string
+  removed: SubtreeRemovalEntry[]
+  options?: MutationOptions
+}
+
 export interface UpdateElementChange {
   action: SCENE_TREE_ACTIONS
   eventName: string
@@ -133,6 +144,7 @@ export interface UpdateElementPatchChange {
 export type SceneTreeChange =
   | AddRemoveElementChange
   | MoveElementsChange
+  | SubtreeChange
   | UpdateElementChange
   | UpdateElementBatchChange
   | UpdateElementPatchChange

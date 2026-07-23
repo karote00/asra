@@ -26,6 +26,7 @@ export enum ElementEventTypes {
   FINISH_ADD_ELEMENT = 'finishAddElement',
   REMOVE_ELEMENT = 'removeElement',
   MOVE_ELEMENTS = 'moveElements',
+  CHANGE_SUBTREE = 'changeSubtree',
   UPDATE_COMPUTED_DATA = 'updateComputedData',
   UPDATE_COMPUTED_DATA_PATCH = 'updateComputedDataPatch',
   CHANGE_COMPUTED_DATA = 'changeComputedData',

@@ -10,6 +10,7 @@ import type {
   MoveHierarchyRequest,
   SceneTreeDataOwner,
   SceneTreeRawData,
+  SubtreeChange,
   UpdateElementBatchChange
 } from '@asyra/utils'
 import { EventTypes } from '../types'
@@ -58,6 +59,12 @@ export interface MoveElementsEvent {
     | {
         moves: HierarchyMove[]
       }
+  options?: EVENT_OPTIONS
+}
+
+export interface ChangeSubtreeEvent {
+  type: EventTypes
+  payload: SubtreeChange
   options?: EVENT_OPTIONS
 }
 
@@ -123,6 +130,7 @@ export type SceneTreeEvents =
   | AddElementEvent
   | RemoveElementEvent
   | MoveElementsEvent
+  | ChangeSubtreeEvent
   | UpdateComputedDataEvent
   | UpdateComputedDataBatchEvent
   | UpdateComputedDataPatchEvent

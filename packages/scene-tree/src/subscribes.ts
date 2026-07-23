@@ -10,6 +10,7 @@ import {
   subscribeToUpdateTransaction,
   sceneTreeLoadComplete,
   type AddElementEvent,
+  type ChangeSubtreeEvent,
   type RemoveElementEvent,
   type MoveElementsEvent,
   type UpdateComputedDataBatchEvent,
@@ -141,6 +142,11 @@ export const initSceneTreeSubscribes = () => {
       }
       return sceneTree.moveElements(payload.request, options).moves.length > 0
     }
+  )
+
+  subscribeToSynchronousEvent<ChangeSubtreeEvent>(
+    EventTypes.CHANGE_SUBTREE,
+    ({ payload, options }) => sceneTree.applySubtreeChange(payload, options)
   )
 
   subscribeToChangeComputedData(async ({ payload, options }) => {

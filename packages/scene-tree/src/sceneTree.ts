@@ -14,6 +14,7 @@ import type {
   MoveHierarchyResult,
   RemoveSubtreeResult,
   SceneTreeChange,
+  SubtreeChange,
   SubtreeRemovalEntry,
   UpdateElementBatchChange,
   UpdateElementChange,
@@ -148,13 +149,16 @@ export interface SceneTreeLoadValidationResult {
   diagnostics: SceneTreeLoadDiagnostic[]
 }
 
-const cloneLoadData = (data: SceneTreeRawData): SceneTreeRawData => {
+const cloneSceneTreeValue = <T>(data: T): T => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(data)
   }
 
-  return JSON.parse(JSON.stringify(data)) as SceneTreeRawData
+  return JSON.parse(JSON.stringify(data)) as T
 }
+
+const cloneLoadData = (data: SceneTreeRawData): SceneTreeRawData =>
+  cloneSceneTreeValue(data)
 
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -831,11 +835,9 @@ class SceneTree {
     return true
   }
 
-  removeSubtree(
-    elementId: string,
-    options?: EVENT_OPTIONS
-  ): RemoveSubtreeResult {
-    this.validateCanonicalHierarchy()
+  private collectSubtreeRemovalEntries(
+    elementId: string
+  ): SubtreeRemovalEntry[] {
     const root = this.getElementById(elementId)
     if (!root) {
       throw new Error(
@@ -887,22 +889,21 @@ class SceneTree {
       })
     }
     visit(root)
+    return removed
+  }
+
+  removeSubtree(
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
+    this.validateCanonicalHierarchy()
+    const removed = this.collectSubtreeRemovalEntries(elementId)
 
     const workspace = this.currentWorkspace as Workspace
     const operationChangeStart = this.changes.length
-    const removalChanges: SceneTreeChange[] = []
-    removed.forEach(({ elementId: removedId, parentId, index }) => {
+    removed.forEach(({ elementId: removedId, parentId }) => {
       const element = this.getElementById(removedId) as ElementInstanceTypes
       const parent = this.getElementById(parentId) as GroupInstanceTypes
-      removalChanges.push({
-        eventName: EventTypes.REMOVE_ELEMENT,
-        data: element.save(),
-        parentId,
-        index,
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        undoType: EventTypes.ADD_ELEMENT,
-        undoAction: EventTypes.ADD_ELEMENT
-      })
       workspace.removeElement(
         element,
         parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent,
@@ -910,12 +911,162 @@ class SceneTree {
       )
     })
     this.changes.splice(operationChangeStart)
-    this.changes.push(...removalChanges)
+    this.addChange({
+      eventName: EventTypes.CHANGE_SUBTREE,
+      elementId,
+      removed: cloneSceneTreeValue(removed),
+      action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+      undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+    })
     acknowledgeTransactionReplayApplied()
     this.commitSceneTreeTransaction(options)
     propsManager.commitChanges(options)
 
     return { elementId, removed }
+  }
+
+  restoreSubtree(
+    entries: readonly SubtreeRemovalEntry[],
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
+    this.validateCanonicalHierarchy()
+    if (!Array.isArray(entries) || entries.length === 0) {
+      throw new Error(
+        '[SceneTree] Invalid subtree restore: exact removal evidence is required'
+      )
+    }
+
+    const removed = cloneSceneTreeValue(entries)
+    const elementIds = removed.map(({ elementId }) => elementId)
+    if (new Set(elementIds).size !== elementIds.length) {
+      throw new Error(
+        '[SceneTree] Invalid subtree restore: duplicate element evidence'
+      )
+    }
+
+    const pending = new Map(
+      removed.map((entry) => [entry.elementId, entry] as const)
+    )
+    const availableIds = new Set(this._elements.keys())
+    const virtualChildren = new Map<string, string[]>()
+    this._elements.forEach((element, id) => {
+      if (isGroupEntity(element.get('type'))) {
+        virtualChildren.set(
+          id,
+          this.getContainerChildren(element, `Restore parent "${id}"`)
+        )
+      }
+    })
+
+    removed.forEach(({ elementId, data }) => {
+      if (this.getElementById(elementId)) {
+        throw new Error(
+          `[SceneTree] Invalid subtree restore: active element "${elementId}" already exists`
+        )
+      }
+      const restored = this._deletedMap.get(elementId)
+      if (!restored || data.id !== elementId) {
+        throw new Error(
+          `[SceneTree] Invalid subtree restore: deleted instance "${elementId}" is unavailable`
+        )
+      }
+      if (
+        isGroupEntity(restored.get('type')) &&
+        this.getContainerChildren(restored, `Deleted container "${elementId}"`)
+          .length > 0
+      ) {
+        throw new Error(
+          `[SceneTree] Invalid subtree restore: deleted container "${elementId}" is not empty`
+        )
+      }
+    })
+
+    const restoreOrder: SubtreeRemovalEntry[] = []
+    while (pending.size > 0) {
+      const eligible = [...pending.values()]
+        .filter(({ parentId }) => availableIds.has(parentId))
+        .sort(
+          (left, right) =>
+            left.parentId.localeCompare(right.parentId) ||
+            left.index - right.index
+        )
+      if (eligible.length === 0) {
+        throw new Error(
+          '[SceneTree] Invalid subtree restore: parent dependency cannot be resolved'
+        )
+      }
+
+      eligible.forEach((entry) => {
+        const siblings = virtualChildren.get(entry.parentId)
+        if (
+          !siblings ||
+          !Number.isInteger(entry.index) ||
+          entry.index < 0 ||
+          entry.index > siblings.length
+        ) {
+          throw new Error(
+            `[SceneTree] Invalid subtree restore: index for "${entry.elementId}" is outside the exact parent range`
+          )
+        }
+        siblings.splice(entry.index, 0, entry.elementId)
+        availableIds.add(entry.elementId)
+        const restored = this._deletedMap.get(
+          entry.elementId
+        ) as ElementInstanceTypes
+        if (isGroupEntity(restored.get('type'))) {
+          virtualChildren.set(entry.elementId, [])
+        }
+        pending.delete(entry.elementId)
+        restoreOrder.push(entry)
+      })
+    }
+
+    const workspace = this.currentWorkspace as Workspace
+    const operationChangeStart = this.changes.length
+    restoreOrder.forEach(({ elementId, parentId, index }) => {
+      const restored = this.getRestoreElementById(elementId, false)
+      const parent = this.getElementById(parentId) as GroupInstanceTypes
+      workspace.addNewElement(
+        restored,
+        parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent,
+        index
+      )
+    })
+    this.changes.splice(operationChangeStart)
+    const rootEntry = removed[removed.length - 1]
+    this.addChange({
+      eventName: EventTypes.CHANGE_SUBTREE,
+      elementId: rootEntry.elementId,
+      removed,
+      action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+      undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+    })
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+
+    return { elementId: rootEntry.elementId, removed }
+  }
+
+  applySubtreeChange(change: SubtreeChange, options?: EVENT_OPTIONS): boolean {
+    if (change.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE) {
+      this.restoreSubtree(change.removed, options)
+      return true
+    }
+    if (change.action !== SCENE_TREE_ACTIONS.REMOVE_SUBTREE) {
+      throw new Error(
+        `[SceneTree] Invalid subtree replay action "${change.action}"`
+      )
+    }
+
+    this.validateCanonicalHierarchy()
+    const currentEvidence = this.collectSubtreeRemovalEntries(change.elementId)
+    if (!isEqual(currentEvidence, change.removed)) {
+      throw new Error(
+        `[SceneTree] Cannot replay subtree removal: stale evidence for "${change.elementId}"`
+      )
+    }
+    this.removeSubtree(change.elementId, options)
+    return true
   }
 
   addToMap(element: ElementInstanceTypes) {
@@ -1072,6 +1223,11 @@ class SceneTree {
     parent?: GroupInstanceTypes,
     options?: EVENT_OPTIONS
   ): boolean {
+    const workspace = this.currentWorkspace as Workspace
+    if (!workspace) {
+      return false
+    }
+
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     if (!element) {
@@ -1082,11 +1238,46 @@ class SceneTree {
       parent?.get('id') ??
       (data.parentId as string | undefined) ??
       (element.get('parentId') as string)
-    if (resolvedParentId !== element.get('parentId')) {
+    const resolvedParent = resolvedParentId
+      ? (this.getElementById(resolvedParentId) as GroupInstanceTypes)
+      : undefined
+    const container = resolvedParent ?? workspace
+    if (!isGroupEntity(container.get('type'))) {
       return false
     }
 
-    this.removeSubtree(elementId, options)
+    const children = this.getContainerChildren(
+      container,
+      `Remove parent "${resolvedParentId}"`
+    )
+    if (
+      resolvedParentId !== element.get('parentId') ||
+      !children.includes(elementId)
+    ) {
+      return false
+    }
+
+    const operationChangeStart = this.changes.length
+    this.addChangeForRemoveElement(
+      element,
+      resolvedParentId,
+      children.indexOf(elementId)
+    )
+    const removeChange = this.changes[operationChangeStart]
+    workspace.removeElement(
+      element,
+      container.get('type') === EntityTypes.WORKSPACE
+        ? undefined
+        : resolvedParent,
+      options
+    )
+    this.changes.splice(operationChangeStart)
+    if (removeChange) {
+      this.changes.push(removeChange)
+    }
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+    propsManager.commitChanges(options)
     return true
   }
 

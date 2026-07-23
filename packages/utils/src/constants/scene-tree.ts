@@ -2,6 +2,8 @@ export enum SCENE_TREE_ACTIONS {
   ADD_ELEMENT = 'addElement',
   REMOVE_ELEMENT = 'removeElement',
   MOVE_ELEMENTS = 'moveElements',
+  REMOVE_SUBTREE = 'removeSubtree',
+  RESTORE_SUBTREE = 'restoreSubtree',
   UPDATE_ELEMENT_COMPUTED_DATA = 'updateElementComputedData',
   UPDATE_ELEMENT_COMPUTED_DATA_BATCH = 'updateElementComputedDataBatch',
   UPDATE_ELEMENT_COMPUTED_DATA_PATCH = 'updateElementComputedDataPatch'

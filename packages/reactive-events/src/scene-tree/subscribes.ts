@@ -9,7 +9,8 @@ import {
   SceneTreeInitEvent,
   SceneTreeLoadDataEvent,
   AddElementEvent,
-  MoveElementsEvent
+  MoveElementsEvent,
+  ChangeSubtreeEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -35,6 +36,9 @@ export const subscribeToRemoveElement =
 export const subscribeToMoveElements = createSubscribeEvent<MoveElementsEvent>(
   EventTypes.MOVE_ELEMENTS
 )
+
+export const subscribeToChangeSubtree =
+  createSubscribeEvent<ChangeSubtreeEvent>(EventTypes.CHANGE_SUBTREE)
 
 export const subscribeToUpdateComputedData =
   createSubscribeEvent<UpdateComputedDataEvent>(EventTypes.UPDATE_COMPUTED_DATA)

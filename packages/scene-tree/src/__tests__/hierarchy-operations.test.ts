@@ -5,6 +5,11 @@ import propsManager, {
   registerPropertyComponent
 } from '@asyra/props-manager'
 import {
+  EventTypes,
+  subscribeToUpdateTransaction,
+  type UpdateTransactionEvent
+} from '@asyra/reactive-events'
+import {
   DefaultDimensionData,
   DefaultPositionData,
   EntityTypes,
@@ -294,6 +299,11 @@ describe('canonical subtree removal', () => {
     const grandchild = new HierarchyTestElement()
     const grandchildId = addElement(grandchild, nested)
 
+    const updates: UpdateTransactionEvent[] = []
+    const subscription = subscribeToUpdateTransaction((event) =>
+      updates.push(event)
+    )
+    const before = snapshotHierarchy()
     const result = sceneTree.removeSubtree(groupId)
 
     expect(result.removed.map(({ elementId }) => elementId)).toEqual([
@@ -313,6 +323,18 @@ describe('canonical subtree removal', () => {
     expect(sceneTree.getRestoreElementById(grandchildId, false)).toBe(
       grandchild
     )
+    expect(
+      updates.filter(({ eventName }) => eventName === EventTypes.CHANGE_SUBTREE)
+    ).toHaveLength(1)
+
+    sceneTree.restoreSubtree(result.removed)
+
+    expect(snapshotHierarchy()).toEqual(before)
+    expect(sceneTree.getElementById(groupId)).toBe(group)
+    expect(sceneTree.getElementById(childId)).toBe(child)
+    expect(sceneTree.getElementById(nestedId)).toBe(nested)
+    expect(sceneTree.getElementById(grandchildId)).toBe(grandchild)
+    subscription.unsubscribe()
   })
 })
 
