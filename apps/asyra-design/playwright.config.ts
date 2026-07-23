@@ -9,6 +9,10 @@ const appEnvironment = resolveAsyraDesignEnvironment(
   loadAsyraDesignEnvironment()
 )
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
+const ordinaryTestIgnore =
+  process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
+    ? ['collaboration.spec.ts', 'render-delta-performance.spec.ts']
+    : 'collaboration.spec.ts'
 const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
@@ -16,7 +20,7 @@ const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.v
  */
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: 'collaboration.spec.ts',
+  testIgnore: ordinaryTestIgnore,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

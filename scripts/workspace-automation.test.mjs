@@ -140,6 +140,16 @@ test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace b
   assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
 })
 
+test('CI isolates the render performance budget before parallel functional E2E', () => {
+  const runner = readText('scripts/run-e2e.sh')
+
+  assert.match(
+    runner,
+    /playwright test --config playwright\.config\.ts e2e\/render-delta-performance\.spec\.ts --workers=1/
+  )
+  assert.match(runner, /ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e/)
+})
+
 test('collaboration follows the shared TypeScript library build convention', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const collaborationTypeScript = readJSON(

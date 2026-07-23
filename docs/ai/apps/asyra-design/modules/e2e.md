@@ -74,6 +74,9 @@
 - pull-request and manual CI use two workers, line reporting, no retry, and stop
   after the first product failure; scheduled CI retains one retry and completes
   the suite without the first-failure cap
+- CI runs the dense-vector Render timing budget first with one isolated worker,
+  then excludes that file while parallelizing the remaining functional suite;
+  the formal timing thresholds are not relaxed to absorb runner contention
 - superseded runs for the same pull request or ref are cancelled, and both E2E
   jobs install only the configured Chromium browser
 - the collaboration suite may reuse manually started app and WebSocket servers;

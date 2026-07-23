@@ -6666,10 +6666,15 @@ join` constrained dashed product path across:
   - Use two workers, line reporting, no PR/manual retry, first-failure stopping,
     Chromium-only installation, and same-PR/ref concurrency cancellation;
     scheduled CI retains one retry and full-suite execution.
+  - Run the dense-vector Render timing budget first with one isolated worker,
+    then exclude it from the two-worker functional suite without changing its
+    formal timing thresholds.
 - Consequences:
   - Reset and first-load ordinary documents always have a canonical workspace.
   - Interactive selection UI is available during active pointer sessions.
   - CI reports the first real regression promptly and no longer spends the
     timeout budget retrying a cascade from one startup failure.
+  - Performance measurements no longer compete with a second browser worker,
+    while functional coverage still benefits from bounded parallelism.
 - Related Commit(s):
   - pending

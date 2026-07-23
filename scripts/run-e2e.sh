@@ -51,6 +51,14 @@ echo "Step 3: Waiting for server to be ready..."
 # Using wait-on to ensure port is listening
 npx wait-on "$ASYRA_E2E_APP_URL" --timeout 60000
 
-# 4. Execute Playwright E2E tests
-echo "Step 4: Running Playwright tests..."
-yarn test:e2e
+# 4. Keep the formal timing budget free from another browser worker's CPU load,
+# then parallelize the remaining functional suite.
+if [ "${CI:-}" = "true" ]; then
+  echo "Step 4: Running isolated render performance gate..."
+  yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1
+  echo "Step 5: Running functional Playwright tests..."
+  ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e
+else
+  echo "Step 4: Running Playwright tests..."
+  yarn test:e2e
+fi
