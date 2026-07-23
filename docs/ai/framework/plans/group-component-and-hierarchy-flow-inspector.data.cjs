@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md'
+    'docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs'
 
@@ -998,7 +998,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './group-component-and-hierarchy-behaviors-plan.md',
+        href: './completed/group-component-and-hierarchy-behaviors-plan.md',
         kind: 'authority'
       },
       {

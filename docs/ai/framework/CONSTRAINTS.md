@@ -103,13 +103,13 @@
 
 9. Group hierarchy operations
 
-- Preset `CONTAINERS` currently installs the official Group component and
-  hierarchy projection, while Scene Tree owns parent ids and child order.
-- Atomic public group, ungroup, reparent/reorder, and subtree lifecycle behavior
-  is not complete yet.
-- These data/pipeline behaviors are required by Framework Release Gate 3; Group
-  UI, selection policy, shortcuts, hover, and click behavior remain app-owned.
-- See `plans/group-component-and-hierarchy-behaviors-plan.md`.
+- Framework Release Gate 3 is completed. Scene Tree owns canonical parent
+  membership, child order, validation, and subtree behavior; Factory owns
+  transaction/rollback/undo/publication grouping; Preset owns the official
+  Group adapter and basic 2D coordinates/bounds; Render projects that state.
+- Group UI, selection policy, shortcuts, hover/click behavior, remote
+  permissions, domain ordering, and conflict policy remain app/backend-owned.
+- See `plans/completed/group-component-and-hierarchy-behaviors-plan.md`.
 
 10. AI agent runtime
 

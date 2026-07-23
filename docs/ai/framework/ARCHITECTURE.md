@@ -124,11 +124,10 @@ Canonical shorthand:
 - Core observes only its injected Factory instance, serializes persistence after
   committed action/undo/redo outcomes, and reports persistence separately from
   runtime commit.
-- Scene-tree owns entity graph. In Release Gate 3 it remains the canonical owner
-  for parent membership, child order, cycle prevention, and
-  group/reparent/subtree invariants; Preset will own the optional official Group
-  defaults and basic operation adapters, while apps own Group interaction and
-  UI policy. These complete operations are planned, not current behavior.
+- Scene-tree owns entity graph and is the canonical owner for parent membership,
+  child order, cycle prevention, and group/reparent/subtree invariants. Preset
+  owns the optional official Group defaults and basic operation adapters, while
+  apps own Group interaction, remote policy, and UI behavior.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
 - Render owns state-to-engine adaptation, layer/strategy orchestration, handle

@@ -167,7 +167,7 @@ unregister-then-define route.
 
 `CONTAINERS` installs the single official invisible Group component and its
 Render projection. Preset also exports the ID-driven Group adapters defined by
-`../plans/group-component-and-hierarchy-behaviors-plan.md`.
+`../plans/completed/group-component-and-hierarchy-behaviors-plan.md`.
 
 - The adapters use public Core/Scene Tree/property boundaries and never mutate
   hierarchy or computed data directly.

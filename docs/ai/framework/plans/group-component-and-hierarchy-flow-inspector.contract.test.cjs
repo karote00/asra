@@ -45,7 +45,7 @@ test('Gate 3 Inspector and product authorities resolve', () => {
   assert.equal(data.target.title, 'Group Component and Hierarchy Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md'
+    'docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

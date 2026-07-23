@@ -42,7 +42,7 @@ Use this file to route a new framework request to the right docs first.
   - `packages/scene-tree.md`
   - `packages/preset.md`
   - `packages/factory.md`
-  - `plans/group-component-and-hierarchy-behaviors-plan.md`
+  - `plans/completed/group-component-and-hierarchy-behaviors-plan.md`
 
 - AI intent/action planning/provider/permission/transaction execution
   - `FRAMEWORK_ESSENTIALS.md`

@@ -104,7 +104,7 @@ mutation, reparent/reorder, and subtree lifecycle behavior.
   app interaction and UI policy remain outside Scene Tree.
 
 The supported cases and release-gate ownership are defined by
-`../plans/group-component-and-hierarchy-behaviors-plan.md`.
+`../plans/completed/group-component-and-hierarchy-behaviors-plan.md`.
 
 ## Validation Checklist
 
