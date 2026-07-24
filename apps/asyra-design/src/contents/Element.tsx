@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback } from 'react'
+import { type MouseEvent, type PointerEvent, useCallback } from 'react'
 import type { ElementRawData } from '@asyra/utils'
 import { useElementData } from '../providers'
 import { setHoveredElementId } from '../controllers/hovered-element'
@@ -17,8 +17,13 @@ interface ElementData {
   depth: number
   isGroup: boolean
   isExpanded: boolean
+  dropState: 'before' | 'inside' | 'after' | 'invalid' | null
   onToggleGroup: (groupId: string) => void
   onSelect: (event: MouseEvent<HTMLDivElement>, elementId: string) => void
+  onPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    elementId: string
+  ) => void
 }
 
 const Element = ({
@@ -28,8 +33,10 @@ const Element = ({
   depth,
   isGroup,
   isExpanded,
+  dropState,
   onToggleGroup,
-  onSelect
+  onSelect,
+  onPointerDown
 }: ElementData) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
@@ -48,6 +55,12 @@ const Element = ({
   const handleElementMouseLeave = useCallback(() => {
     setHoveredElementId(null)
   }, [])
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      onPointerDown(event, id)
+    },
+    [id, onPointerDown]
+  )
   const handleToggleLock = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation()
@@ -73,13 +86,27 @@ const Element = ({
           ? { background: 'rgba(13,153,255,0.15)' }
           : isHovered
             ? { background: 'rgba(255,255,255,0.04)' }
-            : {})
+            : {}),
+        ...(dropState === 'before'
+          ? { boxShadow: 'inset 0 2px 0 #4db3ff' }
+          : dropState === 'after'
+            ? { boxShadow: 'inset 0 -2px 0 #4db3ff' }
+            : dropState === 'inside'
+              ? { boxShadow: 'inset 0 0 0 2px #4db3ff' }
+              : dropState === 'invalid'
+                ? { boxShadow: 'inset 0 0 0 2px #f28b82' }
+                : {})
       }}
       onClick={handleElementClick}
+      onPointerDown={handlePointerDown}
       onMouseEnter={handleElementMouseEnter}
       onMouseLeave={handleElementMouseLeave}
       data-testid={`element-item-${id}`}
       data-layer-element="true"
+      data-layer-element-id={id}
+      data-layer-is-group={isGroup}
+      data-layer-drag-eligible={!lock}
+      data-layer-drop-state={dropState ?? undefined}
       data-selected={isSelected}
       data-layer-depth={depth}
     >

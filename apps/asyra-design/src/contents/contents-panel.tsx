@@ -1,4 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Element from './Element'
 import { GroupCommandControls } from './GroupCommandControls'
@@ -11,6 +18,30 @@ import {
 } from '../controllers/element-selection'
 import { deriveGroupCommandState } from '../controllers/group-commands'
 import { setHoveredElementId } from '../controllers/hovered-element'
+import { resolveLayerPointerTarget } from '../controllers/layer-dom-drop-target'
+import {
+  type LayerDropIntent,
+  projectLayerDropIntent
+} from '../controllers/layer-drop-intent'
+import {
+  cancelLayerHierarchyMoveSession,
+  endLayerHierarchyMoveSession,
+  startLayerHierarchyMoveSession,
+  updateLayerHierarchyMoveSession
+} from '../controllers/layer-move-session'
+import {
+  deriveLayerMoveSource,
+  type LayerMoveSourcePlan
+} from '../controllers/layer-move-source'
+import {
+  cancelLayerPointerSession,
+  createLayerPointerSession,
+  endLayerPointerSession,
+  isLayerPointerBypassTarget,
+  type LayerPointerCancellationReason,
+  type LayerPointerSession,
+  updateLayerPointerSession
+} from '../controllers/layer-pointer-session'
 import {
   useElementSelection,
   useElementDataMap,
@@ -25,6 +56,12 @@ const Contents: React.FC = () => {
   const elementSelection = useElementSelection()
   const hoveredElementId = useHoveredElementId()
   const lastSelectedId = useRef<string | null>(null)
+  const activeLayerMove = useRef<{
+    pointerSession: LayerPointerSession
+    source: LayerMoveSourcePlan
+  } | null>(null)
+  const suppressNextClick = useRef(false)
+  const [dropIntent, setDropIntent] = useState<LayerDropIntent | null>(null)
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
     () => new Set()
   )
@@ -55,14 +92,27 @@ const Contents: React.FC = () => {
     overscan: 5
   })
 
+  const consumeSuppressedClick = useCallback(() => {
+    if (!suppressNextClick.current) {
+      return false
+    }
+    suppressNextClick.current = false
+    return true
+  }, [])
   const handleContentsPanelClick = useCallback(() => {
+    if (consumeSuppressedClick()) {
+      return
+    }
     clearSelection()
-  }, [clearSelection])
+  }, [consumeSuppressedClick])
   const handleContentsPanelMouseLeave = useCallback(() => {
     setHoveredElementId(null)
   }, [])
   const handleElementSelect = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, elementId: string) => {
+      if (consumeSuppressedClick()) {
+        return
+      }
       if (!event.shiftKey) {
         selectElements([elementId])
         lastSelectedId.current = elementId
@@ -83,7 +133,13 @@ const Contents: React.FC = () => {
       selectElements(rangeSelection.selectedIds)
       lastSelectedId.current = rangeSelection.anchorId
     },
-    [elementSelection, flattenedIds, selectElements, visibleIds]
+    [
+      consumeSuppressedClick,
+      elementSelection,
+      flattenedIds,
+      selectElements,
+      visibleIds
+    ]
   )
   const handleToggleGroup = useCallback((groupId: string) => {
     setCollapsedGroupIds((current) => {
@@ -97,6 +153,268 @@ const Contents: React.FC = () => {
     })
   }, [])
 
+  const clearLayerMovePresentation = useCallback(
+    (pointerId?: number) => {
+      activeLayerMove.current = null
+      setDropIntent(null)
+      const panel = parentRef.current
+      if (
+        panel &&
+        pointerId !== undefined &&
+        typeof panel.hasPointerCapture === 'function' &&
+        panel.hasPointerCapture(pointerId)
+      ) {
+        panel.releasePointerCapture(pointerId)
+      }
+    },
+    []
+  )
+
+  const getPointerTarget = useCallback(
+    (clientX: number, clientY: number) =>
+      typeof document.elementFromPoint === 'function'
+        ? resolveLayerPointerTarget(
+            clientX,
+            clientY,
+            document.elementFromPoint.bind(document)
+          )
+        : null,
+    []
+  )
+
+  const handleLayerPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, elementId: string) => {
+      if (
+        event.button !== 0 ||
+        event.shiftKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        isLayerPointerBypassTarget(event.target)
+      ) {
+        return
+      }
+
+      const sourceResult = deriveLayerMoveSource({
+        sourceElementId: elementId,
+        selectedIds: [...elementSelection],
+        flattenedIds,
+        elementDataMap
+      })
+      if (!sourceResult.ok) {
+        return
+      }
+
+      const pointerSession = createLayerPointerSession({
+        pointerId: event.pointerId,
+        sourceElementId: elementId,
+        clientX: event.clientX,
+        clientY: event.clientY
+      })
+      activeLayerMove.current = {
+        pointerSession,
+        source: sourceResult.plan
+      }
+      setDropIntent(null)
+      if (typeof parentRef.current?.setPointerCapture === 'function') {
+        parentRef.current.setPointerCapture(event.pointerId)
+      }
+
+      void startLayerHierarchyMoveSession(
+        pointerSession,
+        sourceResult.plan
+      )
+        .then((started) => {
+          if (
+            !started &&
+            activeLayerMove.current?.pointerSession.pointerId ===
+              event.pointerId
+          ) {
+            clearLayerMovePresentation(event.pointerId)
+          }
+        })
+        .catch(() => {
+          if (
+            activeLayerMove.current?.pointerSession.pointerId ===
+            event.pointerId
+          ) {
+            clearLayerMovePresentation(event.pointerId)
+          }
+        })
+    },
+    [
+      clearLayerMovePresentation,
+      elementDataMap,
+      elementSelection,
+      flattenedIds
+    ]
+  )
+
+  const handleLayerPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const active = activeLayerMove.current
+      if (!active) {
+        return
+      }
+
+      const pointerSession = updateLayerPointerSession(
+        active.pointerSession,
+        {
+          pointerId: event.pointerId,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          target: getPointerTarget(event.clientX, event.clientY)
+        }
+      )
+      if (!pointerSession) {
+        return
+      }
+
+      active.pointerSession = pointerSession
+      const nextDropIntent =
+        pointerSession.dragActive && pointerSession.target
+          ? projectLayerDropIntent({
+              target: pointerSession.target,
+              source: active.source,
+              flattenedIds,
+              elementDataMap,
+              collapsedGroupIds
+            })
+          : null
+      setDropIntent(nextDropIntent)
+      void updateLayerHierarchyMoveSession(
+        pointerSession,
+        nextDropIntent
+      ).catch(() => {
+        if (
+          activeLayerMove.current?.pointerSession.pointerId ===
+          event.pointerId
+        ) {
+          clearLayerMovePresentation(event.pointerId)
+        }
+      })
+    },
+    [
+      clearLayerMovePresentation,
+      collapsedGroupIds,
+      elementDataMap,
+      flattenedIds,
+      getPointerTarget
+    ]
+  )
+
+  const handleLayerPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const active = activeLayerMove.current
+      if (!active) {
+        return
+      }
+
+      const pointerSession = endLayerPointerSession(active.pointerSession, {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: getPointerTarget(event.clientX, event.clientY)
+      })
+      if (!pointerSession) {
+        return
+      }
+
+      const finalDropIntent =
+        pointerSession.dragActive && pointerSession.target
+          ? projectLayerDropIntent({
+              target: pointerSession.target,
+              source: active.source,
+              flattenedIds,
+              elementDataMap,
+              collapsedGroupIds
+            })
+          : null
+      suppressNextClick.current = pointerSession.dragActive
+      clearLayerMovePresentation(event.pointerId)
+
+      if (pointerSession.dragActive && !pointerSession.target) {
+        void cancelLayerHierarchyMoveSession('outside').catch((error) => {
+          console.error(
+            '[Layers hierarchy move] Outside-drop cleanup failed',
+            error
+          )
+        })
+        return
+      }
+
+      void endLayerHierarchyMoveSession(
+        pointerSession,
+        finalDropIntent
+      )
+        .then(() => {
+          if (
+            finalDropIntent?.kind === 'valid' &&
+            finalDropIntent.expandGroupId
+          ) {
+            setCollapsedGroupIds((current) => {
+              const next = new Set(current)
+              next.delete(finalDropIntent.expandGroupId as string)
+              return next
+            })
+          }
+        })
+        .catch((error) => {
+          console.error('[Layers hierarchy move] Canonical move failed', error)
+        })
+    },
+    [
+      clearLayerMovePresentation,
+      collapsedGroupIds,
+      elementDataMap,
+      flattenedIds,
+      getPointerTarget
+    ]
+  )
+
+  const cancelActiveLayerMove = useCallback(
+    (reason: LayerPointerCancellationReason) => {
+      const active = activeLayerMove.current
+      if (!active) {
+        return
+      }
+      const cancelled = cancelLayerPointerSession(
+        active.pointerSession,
+        reason
+      )
+      if (!cancelled) {
+        return
+      }
+      clearLayerMovePresentation(cancelled.pointerId)
+      void cancelLayerHierarchyMoveSession(reason).catch((error) => {
+        console.error('[Layers hierarchy move] Session cleanup failed', error)
+      })
+    },
+    [clearLayerMovePresentation]
+  )
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        cancelActiveLayerMove('escape')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      cancelActiveLayerMove('unmount')
+    }
+  }, [cancelActiveLayerMove])
+
+  const getRowDropState = useCallback(
+    (elementId: string) => {
+      if (!dropIntent || dropIntent.targetElementId !== elementId) {
+        return null
+      }
+      return dropIntent.kind === 'invalid' ? 'invalid' : dropIntent.zone
+    },
+    [dropIntent]
+  )
+
   return (
     <div
       ref={parentRef}
@@ -108,7 +426,14 @@ const Contents: React.FC = () => {
       }}
       onClick={handleContentsPanelClick}
       onMouseLeave={handleContentsPanelMouseLeave}
+      onPointerMove={handleLayerPointerMove}
+      onPointerUp={handleLayerPointerUp}
+      onPointerCancel={() => cancelActiveLayerMove('pointer-cancel')}
+      onLostPointerCapture={() => cancelActiveLayerMove('lost-capture')}
       data-testid="contents-panel"
+      data-layer-move-state={
+        dropIntent ? (dropIntent.kind === 'valid' ? 'valid' : 'invalid') : 'idle'
+      }
     >
       {/* Panel header */}
       <div
@@ -127,7 +452,20 @@ const Contents: React.FC = () => {
       </div>
 
       {/* Layers list */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        data-layer-drop-workspace="true"
+        data-layer-drop-state={
+          dropIntent?.kind === 'valid' && dropIntent.zone === 'workspace'
+            ? 'workspace'
+            : undefined
+        }
+        style={
+          dropIntent?.kind === 'valid' && dropIntent.zone === 'workspace'
+            ? { boxShadow: 'inset 0 -2px 0 #4db3ff' }
+            : undefined
+        }
+      >
         {layerProjection.error ? (
           <div
             role="alert"
@@ -167,8 +505,10 @@ const Contents: React.FC = () => {
                   depth={row.depth}
                   isGroup={row.isGroup}
                   isExpanded={row.isExpanded}
+                  dropState={getRowDropState(elementId)}
                   onToggleGroup={handleToggleGroup}
                   onSelect={handleElementSelect}
+                  onPointerDown={handleLayerPointerDown}
                 />
               </div>
             )
