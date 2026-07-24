@@ -6,6 +6,7 @@ import {
   transactionApis
 } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
+import * as canvasHierarchyTargetApis from '../../controllers/canvas-hierarchy-target'
 import { createElementSession } from '../create-element'
 import { moveElementsSession } from '../move-elements'
 
@@ -22,6 +23,9 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     vi.spyOn(elementApis, 'changeComputedData').mockImplementation(
       () => undefined
     )
+    vi.spyOn(elementApis, 'changeElementGeometry').mockImplementation(
+      () => undefined
+    )
     vi.spyOn(elementApis, 'createElement').mockReturnValue('element-created')
     vi.spyOn(elementApis, 'getElementBounds').mockReturnValue({
       x: 0,
@@ -31,6 +35,9 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     })
     vi.spyOn(elementApis, 'getMousePosInWorkspace').mockImplementation(
       (position) => position
+    )
+    vi.spyOn(elementApis, 'getPositionInParent').mockImplementation(
+      (_parentId, position) => position
     )
     vi.spyOn(elementApis, 'hasMovedBeyondThreshold').mockReturnValue(true)
     vi.spyOn(elementApis, 'resetElementSize').mockImplementation(
@@ -45,6 +52,10 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     vi.spyOn(systemContextApis, 'switchPrimaryTool').mockImplementation(
       () => undefined
     )
+    vi.spyOn(
+      canvasHierarchyTargetApis,
+      'resolveCreateElementParentAtClientPos'
+    ).mockReturnValue('workspace')
     vi.spyOn(transactionApis, 'runTransaction').mockImplementation((run) =>
       run()
     )
@@ -56,7 +67,8 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     expect(elementApis.createElement).toHaveBeenCalledWith(
       {
         type: PrimaryToolType.RECTANGLE,
-        clientPosition: { x: 0, y: 0 }
+        clientPosition: { x: 0, y: 0 },
+        parentId: 'workspace'
       },
       { sharedDelivery: 'immediate' }
     )
@@ -73,8 +85,8 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
       state as never
     )
 
-    expect(elementApis.changeComputedData).toHaveBeenLastCalledWith(
-      ['element-created'],
+    expect(elementApis.changeElementGeometry).toHaveBeenLastCalledWith(
+      'element-created',
       { x: 0, y: 0, width: 30, height: 40 },
       { sharedDelivery: 'immediate' }
     )
@@ -118,7 +130,7 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
       state as never
     )
 
-    vi.mocked(elementApis.changeComputedData).mockClear()
+    vi.mocked(elementApis.changeElementGeometry).mockClear()
     createElementSession.onEnd?.(
       {
         ...createStartSnapshot,
@@ -126,7 +138,7 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
       } as never,
       state as never
     )
-    expect(elementApis.changeComputedData).not.toHaveBeenCalled()
+    expect(elementApis.changeElementGeometry).not.toHaveBeenCalled()
 
     createElementSession.onEnd?.(
       {
@@ -135,8 +147,8 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
       } as never,
       state as never
     )
-    expect(elementApis.changeComputedData).toHaveBeenCalledWith(
-      ['element-created'],
+    expect(elementApis.changeElementGeometry).toHaveBeenCalledWith(
+      'element-created',
       { x: 0, y: 0, width: 35, height: 45 },
       { sharedDelivery: 'immediate' }
     )

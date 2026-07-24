@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const core = {
     getUIProperty: vi.fn(),
-    removeSubtree: vi.fn()
+    removeSubtree: vi.fn(),
+    sceneTreeSaveData: vi.fn()
   }
 
   return {
@@ -95,6 +96,24 @@ describe('app hierarchy common APIs', () => {
       2,
       'elementDataMap'
     )
+  })
+
+  it('reads the canonical current workspace id from the Core facade', () => {
+    mocks.core.sceneTreeSaveData.mockReturnValue({
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {}
+    })
+
+    expect(hierarchyApis.getWorkspaceId()).toBe('workspace')
+    expect(mocks.core.sceneTreeSaveData).toHaveBeenCalledOnce()
+
+    mocks.core.sceneTreeSaveData.mockReturnValue({
+      workspace: '',
+      workspaceList: [],
+      elements: {}
+    })
+    expect(hierarchyApis.getWorkspaceId()).toBeNull()
   })
 
   it('routes reorder and reparent through Preset Group geometry normalization', () => {

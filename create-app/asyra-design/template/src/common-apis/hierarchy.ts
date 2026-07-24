@@ -15,6 +15,13 @@ import { UI_PROPERTIES } from '../constants/ui-properties'
 import core from '../contexts'
 
 export const hierarchyApis = {
+  getWorkspaceId: (): string | null => {
+    const workspaceId = core.sceneTreeSaveData().workspace
+    return typeof workspaceId === 'string' && workspaceId.length > 0
+      ? workspaceId
+      : null
+  },
+
   getFlattenedElementIds: (): string[] =>
     core.getUIProperty<string[]>(UI_PROPERTIES.FLATTENED_ELEMENT_IDS) ?? [],
 

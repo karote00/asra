@@ -18,6 +18,11 @@ export interface ResolveCanvasHierarchyTargetInput {
   elementDataMap: CanvasHierarchyElementDataMap
 }
 
+export interface ResolveCreateElementParentInput
+  extends ResolveCanvasHierarchyTargetInput {
+  workspaceId: string
+}
+
 interface ValidHierarchyProjection {
   flattenedIdSet: ReadonlySet<string>
   workspaceId: string
@@ -25,12 +30,26 @@ interface ValidHierarchyProjection {
 
 const validateHierarchyProjection = (
   flattenedIds: readonly string[],
-  elementDataMap: CanvasHierarchyElementDataMap
+  elementDataMap: CanvasHierarchyElementDataMap,
+  expectedWorkspaceId?: string
 ): ValidHierarchyProjection | null => {
   const flattenedIdSet = new Set(flattenedIds)
   const projectedIds = Object.keys(elementDataMap)
+  const hasExpectedWorkspace =
+    typeof expectedWorkspaceId === 'string' && expectedWorkspaceId.length > 0
+
+  if (flattenedIds.length === 0) {
+    if (projectedIds.length !== 0 || !hasExpectedWorkspace) {
+      return null
+    }
+
+    return {
+      flattenedIdSet,
+      workspaceId: expectedWorkspaceId
+    }
+  }
+
   if (
-    flattenedIds.length === 0 ||
     flattenedIdSet.size !== flattenedIds.length ||
     projectedIds.length !== flattenedIds.length
   ) {
@@ -78,6 +97,10 @@ const validateHierarchyProjection = (
   }
 
   const workspaceId = [...rootParentIds][0]
+  if (hasExpectedWorkspace && workspaceId !== expectedWorkspaceId) {
+    return null
+  }
+
   for (const elementId of flattenedIds) {
     const visited = new Set<string>()
     let currentId = elementId
@@ -164,6 +187,44 @@ export const resolveCanvasHierarchyTarget = ({
   return null
 }
 
+export const resolveCreateElementParent = ({
+  workspaceId,
+  ...targetInput
+}: ResolveCreateElementParentInput): string | null => {
+  const projection = validateHierarchyProjection(
+    targetInput.flattenedIds,
+    targetInput.elementDataMap,
+    workspaceId
+  )
+  if (!projection) {
+    return null
+  }
+
+  if (!targetInput.hitElementId) {
+    return projection.workspaceId
+  }
+
+  const targetId = resolveCanvasHierarchyTarget(targetInput)
+  if (!targetId) {
+    return null
+  }
+
+  const target = targetInput.elementDataMap[targetId]
+  if (target?.type === EntityTypes.GROUP) {
+    return targetId
+  }
+
+  const parentId = target?.parentId
+  if (parentId === projection.workspaceId) {
+    return projection.workspaceId
+  }
+
+  return typeof parentId === 'string' &&
+    targetInput.elementDataMap[parentId]?.type === EntityTypes.GROUP
+    ? parentId
+    : projection.workspaceId
+}
+
 export const resolveCurrentCanvasHierarchyTarget = (
   hitElementId: string | null,
   snapshot: Pick<SystemContextSnapshot, 'keyMeta' | 'keyCtrl'>
@@ -183,3 +244,23 @@ export const resolveCanvasHierarchyTargetAtClientPos = (
     elementApis.getRenderElementIdAtClientPos(snapshot.mousePosition),
     snapshot
   )
+
+export const resolveCreateElementParentAtClientPos = (
+  snapshot: Pick<SystemContextSnapshot, 'mousePosition' | 'keyMeta' | 'keyCtrl'>
+): string | null => {
+  const workspaceId = hierarchyApis.getWorkspaceId()
+  if (!workspaceId) {
+    return null
+  }
+
+  return resolveCreateElementParent({
+    hitElementId: elementApis.getRenderElementIdAtClientPos(
+      snapshot.mousePosition
+    ),
+    selectedElementIds: selectionApis.getSelectedIds(),
+    bypassParentScope: snapshot.keyMeta || snapshot.keyCtrl,
+    workspaceId,
+    flattenedIds: hierarchyApis.getFlattenedElementIds(),
+    elementDataMap: hierarchyApis.getElementDataMap()
+  })
+}

@@ -24,6 +24,7 @@ export interface VectorComputedSnapshot extends Partial<VectorPathStyle> {
 export interface CreateElementOptions {
   type: EntityType
   clientPosition?: PositionData
+  parentId?: string
   width?: number
   height?: number
   points?: Record<string, VectorPointNode>

@@ -5,6 +5,10 @@
 
 import { runTransaction } from '@asyra/core'
 import {
+  moveElementsWithGroupGeometry,
+  normalizeGroupsForElements
+} from '@asyra/preset'
+import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
   createDefaultFills,
@@ -22,6 +26,7 @@ import {
 import type { CreateElementOptions, ElementBounds } from './types'
 import { vectorApis } from './vector-apis'
 import { changeComputedData as applyComputedDataChange } from './change-computed-data'
+import { viewportApis } from '../viewport'
 
 export type { VectorPointTarget } from './types'
 export {
@@ -153,22 +158,54 @@ const boundsIntersect = (a: ElementBounds, b: ElementBounds): boolean => {
 const createElementAtWorkspacePos = (
   type: EntityType,
   workspacePos: PositionData,
+  parentId: string,
   extraData: Record<string, DataTypes> = {},
   options?: EVENT_OPTIONS
-): string => {
-  return runTransaction(() =>
-    core.createElement(
+): string | null => {
+  const workspaceId = sceneTree.workspace
+  if (!workspaceId) {
+    return null
+  }
+
+  let targetIndex: number | null = null
+  if (parentId !== workspaceId) {
+    const parent = sceneTree.getElementById(parentId)
+    if (parent?.get('type') !== EntityTypes.GROUP) {
+      return null
+    }
+    targetIndex = getElementChildren(parent).length
+  }
+
+  return runTransaction(() => {
+    const elementId = core.createElementInParent(
       {
         type,
         x: workspacePos.x,
         y: workspacePos.y,
         ...extraData
       },
-      undefined,
+      workspaceId,
       undefined,
       options
     )
-  )
+    if (!elementId) {
+      throw new Error('[Asyra Design] Canonical element creation failed')
+    }
+
+    if (targetIndex !== null) {
+      moveElementsWithGroupGeometry(
+        core,
+        {
+          elementIds: [elementId],
+          targetParentId: parentId,
+          targetIndex
+        },
+        options
+      )
+    }
+
+    return elementId
+  })
 }
 
 export const elementApis = {
@@ -332,6 +369,52 @@ export const elementApis = {
     }
   },
 
+  getPositionInParent: (
+    parentId: string,
+    workspacePosition: PositionData
+  ): PositionData | null => {
+    if (
+      typeof parentId !== 'string' ||
+      parentId.length === 0 ||
+      !Number.isFinite(workspacePosition.x) ||
+      !Number.isFinite(workspacePosition.y)
+    ) {
+      return null
+    }
+
+    if (parentId === sceneTree.workspace) {
+      return {
+        x: workspacePosition.x,
+        y: workspacePosition.y
+      }
+    }
+
+    const parent = sceneTree.getElementById(parentId)
+    if (parent?.get('type') !== EntityTypes.GROUP) {
+      return null
+    }
+
+    const renderParent = render?.getElementById(parentId)
+    if (!renderParent) {
+      return null
+    }
+
+    const canvasPosition =
+      viewportApis.getCanvasPositionFromWorkspace(workspacePosition)
+    const localPosition = renderParent.toLocal(canvasPosition)
+    if (
+      !Number.isFinite(localPosition.x) ||
+      !Number.isFinite(localPosition.y)
+    ) {
+      return null
+    }
+
+    return {
+      x: localPosition.x,
+      y: localPosition.y
+    }
+  },
+
   isPointInsideElement: (
     elementId: string,
     point: { x: number; y: number },
@@ -379,6 +462,7 @@ export const elementApis = {
       clientX: createOptions.clientPosition.x,
       clientY: createOptions.clientPosition.y
     })
+    const parentId = createOptions.parentId ?? sceneTree.workspace
 
     const initialData: Record<string, DataTypes> = {
       fills: getDefaultFillsForType(createOptions.type)
@@ -394,6 +478,7 @@ export const elementApis = {
     return createElementAtWorkspacePos(
       createOptions.type,
       workspacePos,
+      parentId,
       initialData,
       options
     )
@@ -423,14 +508,25 @@ export const elementApis = {
   },
 
   resetElementSize: (elementId: string, options?: EVENT_OPTIONS) => {
-    applyComputedDataChange(
-      [elementId],
+    elementApis.changeElementGeometry(
+      elementId,
       {
         width: DEFAULT_ELEMENT_SIZE,
         height: DEFAULT_ELEMENT_SIZE
       },
       options
     )
+  },
+
+  changeElementGeometry: (
+    elementId: string,
+    geometry: Partial<ElementBounds>,
+    options?: EVENT_OPTIONS
+  ) => {
+    runTransaction(() => {
+      core.changeComputedData([elementId], geometry, options)
+      normalizeGroupsForElements(core, [elementId], options)
+    })
   },
 
   setElementPositions: (

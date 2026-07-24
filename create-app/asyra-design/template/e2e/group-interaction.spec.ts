@@ -89,6 +89,131 @@ const getWorldPositions = (
   }, elementIds)
 
 test.describe('Asyra Design Group interaction MVP', () => {
+  test('creates in the hierarchy-target Group or explicit workspace root from mouse down', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await waitForAppReady(page)
+    await resetCanvas(page)
+
+    await createRectangle(page, 0.48, 0.46)
+    const rectId = (await getSelectedIds(page))[0]
+    const rectCenter = await getSelectedElementClientCenter(page)
+    expect(rectCenter).not.toBeNull()
+    if (!rectCenter) {
+      return
+    }
+
+    const innerGroupId = await groupLayerIds(page, [rectId])
+    const outerGroupId = await groupLayerIds(page, [innerGroupId])
+    expect(outerGroupId).not.toBe(innerGroupId)
+
+    const nestedCreatePosition = {
+      x: rectCenter.x + 1,
+      y: rectCenter.y
+    }
+    const nestedCreateEndPosition = {
+      x: nestedCreatePosition.x + 60,
+      y: nestedCreatePosition.y + 40
+    }
+    const nestedCreateWorkspacePosition = await page.evaluate(
+      ({ x, y }) =>
+        window.__Core__.deps.render.getMousePosInWorkspace({
+          clientX: x,
+          clientY: y
+        }),
+      nestedCreatePosition
+    )
+
+    await page.keyboard.press('r')
+    await page.keyboard.down('Meta')
+    try {
+      await page.mouse.move(nestedCreatePosition.x, nestedCreatePosition.y)
+      await page.mouse.down()
+      await page.mouse.move(
+        nestedCreateEndPosition.x,
+        nestedCreateEndPosition.y,
+        { steps: 2 }
+      )
+      await page.mouse.up()
+    } finally {
+      await page.keyboard.up('Meta')
+    }
+
+    const nestedCreatedId = (await getSelectedIds(page))[0]
+    const nestedCreatedParentId = await page.evaluate(
+      (elementId) =>
+        String(
+          window.__Core__.deps.sceneTree
+            .getElementById(elementId)
+            ?.get('parentId') ?? ''
+        ),
+      nestedCreatedId
+    )
+    expect(nestedCreatedParentId).toBe(innerGroupId)
+
+    const nestedWorldPosition = (
+      await getWorldPositions(page, [nestedCreatedId])
+    )[nestedCreatedId]
+    expect(nestedWorldPosition.x).toBeCloseTo(nestedCreateWorkspacePosition.x)
+    expect(nestedWorldPosition.y).toBeCloseTo(nestedCreateWorkspacePosition.y)
+    const nestedCreatedBounds = await page.evaluate((elementId) => {
+      const computed =
+        window.__Core__.deps.sceneTree
+          .getElementById(elementId)
+          ?.getAllComputedData() ?? {}
+      return {
+        width: Number(computed.width),
+        height: Number(computed.height)
+      }
+    }, nestedCreatedId)
+    expect(nestedCreatedBounds.width).toBeCloseTo(60)
+    expect(nestedCreatedBounds.height).toBeCloseTo(40)
+
+    await undo(page)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (elementId) =>
+            Boolean(window.__Core__.deps.sceneTree.getElementById(elementId)),
+          nestedCreatedId
+        )
+      )
+      .toBe(false)
+
+    await redo(page)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (elementId) =>
+            String(
+              window.__Core__.deps.sceneTree
+                .getElementById(elementId)
+                ?.get('parentId') ?? ''
+            ),
+          nestedCreatedId
+        )
+      )
+      .toBe(innerGroupId)
+
+    const emptyPosition = await getCanvasPosition(page, 0.9, 0.12)
+    await page.keyboard.press('r')
+    await page.mouse.click(emptyPosition.x, emptyPosition.y)
+
+    const workspaceCreatedId = (await getSelectedIds(page))[0]
+    const workspaceParent = await page.evaluate((elementId) => {
+      const sceneTree = window.__Core__.deps.sceneTree
+      return {
+        actual: String(
+          sceneTree.getElementById(elementId)?.get('parentId') ?? ''
+        ),
+        workspace: String(sceneTree.workspace)
+      }
+    }, workspaceCreatedId)
+    expect(workspaceParent.actual).toBe(workspaceParent.workspace)
+    expect(workspaceParent.actual).not.toBe(outerGroupId)
+  })
+
   test('resolves canvas hover and click from selection parent scope or Meta leaf access', async ({
     page
   }) => {

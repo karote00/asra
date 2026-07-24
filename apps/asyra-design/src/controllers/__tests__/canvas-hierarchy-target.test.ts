@@ -2,6 +2,7 @@ import { EntityTypes, type ElementRawData } from '@asyra/utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { elementApis, hierarchyApis, selectionApis } from '../../common-apis'
 import {
+  resolveCreateElementParent,
   resolveCanvasHierarchyTarget,
   resolveCanvasHierarchyTargetAtClientPos,
   resolveCurrentCanvasHierarchyTarget
@@ -61,6 +62,24 @@ const resolve = (
     hitElementId,
     selectedElementIds,
     bypassParentScope,
+    flattenedIds: overrides.flattenedIds ?? flattenedIds,
+    elementDataMap: overrides.elementDataMap ?? elementDataMap
+  })
+
+const resolveCreateParent = (
+  hitElementId: string | null,
+  selectedElementIds: readonly string[] = [],
+  bypassParentScope = false,
+  overrides: {
+    flattenedIds?: readonly string[]
+    elementDataMap?: Record<string, ProjectedElement>
+  } = {}
+) =>
+  resolveCreateElementParent({
+    hitElementId,
+    selectedElementIds,
+    bypassParentScope,
+    workspaceId: 'workspace',
     flattenedIds: overrides.flattenedIds ?? flattenedIds,
     elementDataMap: overrides.elementDataMap ?? elementDataMap
   })
@@ -195,5 +214,33 @@ describe('canvas hierarchy target resolution', () => {
       y: 20
     })
     expect(elementApis.getElementIdAtClientPos).not.toHaveBeenCalled()
+  })
+
+  it('derives one explicit Group or workspace create parent from the same target rules', () => {
+    expect(resolveCreateParent('nested-leaf')).toBe('group-1')
+    expect(resolveCreateParent('rect-2b', ['rect-2a'])).toBe('group-2')
+    expect(resolveCreateParent('nested-leaf', ['rect-2a'])).toBe('nested')
+    expect(resolveCreateParent('nested-leaf', ['rect-2a'], true)).toBe('nested')
+    expect(resolveCreateParent('outside')).toBe('workspace')
+    expect(resolveCreateParent(null, ['rect-2a'])).toBe('workspace')
+    expect(
+      resolveCreateParent(null, [], false, {
+        flattenedIds: [],
+        elementDataMap: {}
+      })
+    ).toBe('workspace')
+  })
+
+  it('does not produce a create parent from a rejected or malformed hierarchy target', () => {
+    expect(resolveCreateParent('rect-3a', ['rect-2a'])).toBeNull()
+    expect(resolveCreateParent('group-2', ['rect-2a'], true)).toBeNull()
+    expect(
+      resolveCreateParent('nested-leaf', [], false, {
+        elementDataMap: {
+          ...elementDataMap,
+          'group-1': element('group-1', 'nested-leaf', EntityTypes.GROUP)
+        }
+      })
+    ).toBeNull()
   })
 })
