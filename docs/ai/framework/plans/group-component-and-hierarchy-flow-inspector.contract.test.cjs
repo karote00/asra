@@ -241,6 +241,25 @@ test('Preset owns one official Group adapter and translation-only geometry', () 
   assert.match(geometry, /auto-layout or descendant scaling/i)
 })
 
+test('Preset projects every committed canonical hierarchy lifecycle to app UI context', () => {
+  const projection = contractText(
+    step('project-preset-hierarchy-ui-context')
+  )
+
+  assert.equal(
+    step('project-preset-hierarchy-ui-context').ownerPackage,
+    '@asyra/preset'
+  )
+  assert.match(
+    projection,
+    /ADD_ELEMENT.*REMOVE_ELEMENT.*MOVE_ELEMENTS.*REMOVE_SUBTREE.*RESTORE_SUBTREE/i
+  )
+  assert.match(projection, /flattenedElementIds.*elementDataMap/i)
+  assert.match(projection, /canonical Scene Tree/i)
+  assert.match(projection, /second canonical hierarchy/i)
+  assert.match(projection, /App or Render repair/i)
+})
+
 test('Factory owns atomic history/publication but no hierarchy or conflict policy', () => {
   const factory = contractText(step('settle-hierarchy-transaction'))
 

@@ -290,6 +290,53 @@
       failureOwnerStepId: 'normalize-preset-group-geometry'
     },
     {
+      id: 'project-preset-hierarchy-ui-context',
+      order: 3,
+      laneId: 'preset',
+      title: 'Project canonical hierarchy into App UI context',
+      ownerPackage: '@asyra/preset',
+      purpose:
+        'Project accepted canonical hierarchy lifecycle changes into flattenedElementIds and elementDataMap without validating, repairing, or owning hierarchy.',
+      inputs: [
+        'artifact:canonical-hierarchy-mutation',
+        'artifact:loaded-canonical-hierarchy'
+      ],
+      outputs: ['artifact:preset-hierarchy-ui-context'],
+      conditions: [
+        'ADD_ELEMENT, REMOVE_ELEMENT, MOVE_ELEMENTS, REMOVE_SUBTREE, and RESTORE_SUBTREE all refresh flattenedElementIds and elementDataMap from canonical Scene Tree state.',
+        'Validated replace-style load refreshes both projections from the loaded canonical hierarchy.',
+        'The published order, parent values, child values, additions, and removals exactly reflect canonical Scene Tree state after settlement.'
+      ],
+      bypasses: [
+        'A rejected request or rejected load produces no final UI-context projection.',
+        'Headless consumers may ignore the App-facing UI-context values without changing canonical hierarchy behavior.'
+      ],
+      allowedContributors: [
+        'artifact:canonical-hierarchy-mutation',
+        'artifact:loaded-canonical-hierarchy',
+        'canonical Scene Tree channel envelopes and read APIs',
+        'Preset UI-context property subjects'
+      ],
+      forbiddenContributors: [
+        'second canonical hierarchy',
+        'Preset hierarchy validation or repair',
+        'App or Render repair state',
+        'selection, shortcut, menu, hover, click, or conflict policy'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/preset/src/subscriptions/data-channel.ts',
+        'packages/preset/src/__tests__/selection-subscriptions.test.ts'
+      ],
+      specRefs: [
+        '#preset',
+        '#subtree-and-lifecycle',
+        '#product-cases',
+        '#definition-of-done'
+      ],
+      failureOwnerStepId: 'project-preset-hierarchy-ui-context'
+    },
+    {
       id: 'settle-hierarchy-transaction',
       order: 1,
       laneId: 'factory',
@@ -588,6 +635,15 @@
       producedArtifacts: ['artifact:canonical-hierarchy-state']
     },
     {
+      id: 'canonical-hierarchy-projects-to-preset-ui-context',
+      from: 'mutate-canonical-hierarchy',
+      to: 'project-preset-hierarchy-ui-context',
+      kind: 'projection',
+      predicate:
+        'An accepted canonical hierarchy lifecycle change is available to Preset UI-context subscribers.',
+      producedArtifacts: ['artifact:canonical-hierarchy-mutation']
+    },
+    {
       id: 'preset-geometry-ready-to-settle',
       from: 'normalize-preset-group-geometry',
       to: 'settle-hierarchy-transaction',
@@ -649,6 +705,23 @@
       producedArtifacts: ['artifact:loaded-canonical-hierarchy']
     },
     {
+      id: 'loaded-hierarchy-projects-to-preset-ui-context',
+      from: 'validate-save-load-hierarchy',
+      to: 'project-preset-hierarchy-ui-context',
+      kind: 'projection',
+      predicate:
+        'The validated replace-style load is available to Preset UI-context subscribers.',
+      producedArtifacts: ['artifact:loaded-canonical-hierarchy']
+    },
+    {
+      id: 'preset-hierarchy-ui-context-projected',
+      from: 'project-preset-hierarchy-ui-context',
+      kind: 'terminal',
+      predicate:
+        'The App-facing flattened id and element-data projections reflect canonical Scene Tree state.',
+      producedArtifacts: ['artifact:preset-hierarchy-ui-context']
+    },
+    {
       id: 'render-hierarchy-projected',
       from: 'project-render-hierarchy',
       kind: 'terminal',
@@ -708,7 +781,8 @@
       channel: 'canonical owner result',
       consumerStepIds: [
         'normalize-preset-group-geometry',
-        'settle-hierarchy-transaction'
+        'settle-hierarchy-transaction',
+        'project-preset-hierarchy-ui-context'
       ],
       terminal: false
     },
@@ -781,7 +855,10 @@
       title: 'Validated and applied load hierarchy',
       ownerStepId: 'validate-save-load-hierarchy',
       channel: 'load-complete projection',
-      consumerStepIds: ['project-render-hierarchy'],
+      consumerStepIds: [
+        'project-render-hierarchy',
+        'project-preset-hierarchy-ui-context'
+      ],
       terminal: false
     },
     {
@@ -789,6 +866,14 @@
       title: 'Pre-apply hierarchy load rejection',
       ownerStepId: 'validate-save-load-hierarchy',
       channel: 'terminal load result',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:preset-hierarchy-ui-context',
+      title: 'App-facing canonical hierarchy UI-context projection',
+      ownerStepId: 'project-preset-hierarchy-ui-context',
+      channel: 'Preset UI-context property subjects',
       consumerStepIds: [],
       terminal: true
     },
@@ -889,6 +974,23 @@
       specRefs: ['#render-and-app', '#reparent-and-reorder'],
       assertion:
         'Reparent and reorder keep the same element identity and engine ownership; no patch/fallback hierarchy or delete-and-recreate handoff exists.'
+    },
+    {
+      id: 'preset-ui-context-projects-canonical-hierarchy',
+      title: 'Preset UI context is a complete derived hierarchy projection',
+      stepIds: ['project-preset-hierarchy-ui-context'],
+      artifactIds: [
+        'artifact:canonical-hierarchy-mutation',
+        'artifact:loaded-canonical-hierarchy',
+        'artifact:preset-hierarchy-ui-context'
+      ],
+      specRefs: [
+        '#preset',
+        '#subtree-and-lifecycle',
+        '#definition-of-done'
+      ],
+      assertion:
+        'Every accepted hierarchy lifecycle and load result refreshes flattenedElementIds and elementDataMap from canonical Scene Tree state without a second hierarchy or App/Render repair.'
     }
   ]
 
@@ -976,6 +1078,21 @@
       assertions: [
         'Reparent and reorder perform the required abstract append/set-child-index handoff for the same element identity and engine handle without duplicate visuals, stale parents, or fallback hierarchy.'
       ]
+    },
+    {
+      id: 'preset-ui-context-projection-contract',
+      title: 'Complete canonical hierarchy projection for App UI context',
+      stepIds: ['project-preset-hierarchy-ui-context'],
+      specRefs: [
+        '#preset',
+        '#subtree-and-lifecycle',
+        '#product-cases',
+        '#definition-of-done'
+      ],
+      assertions: [
+        'Accepted add, remove, move, subtree removal, subtree restoration, and load results refresh flattenedElementIds and elementDataMap from canonical Scene Tree state.',
+        'Removed subtrees leave no stale ids, restored subtrees are complete, and moves expose exact canonical parent and child order without App or Render repair state.'
+      ]
     }
   ]
 
@@ -986,7 +1103,7 @@
       kind: 'system',
       title: 'Group Component and Hierarchy Inspector',
       subtitle:
-        'ID-based app and Preset requests through canonical Scene Tree hierarchy mutation, one Factory transaction/publication, exact save/load, app-owned remote policy, and identity-safe Render projection.'
+        'ID-based app and Preset requests through canonical Scene Tree hierarchy mutation, one Factory transaction/publication, exact save/load, app-owned remote policy, complete Preset UI-context projection, and identity-safe Render projection.'
     },
     authority: {
       specPath,

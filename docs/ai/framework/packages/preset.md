@@ -139,6 +139,12 @@ fails; apps customize successful defaults through ordinary Core APIs.
   Render rebuild through a synchronous lifecycle handler so a rebuild failure
   propagates to the caller; UI-context and vector-editing file-load work remains
   on their separate observer route.
+- The preset-owned UI-context Scene Tree observer derives
+  `flattenedElementIds` and `elementDataMap` from canonical Scene Tree state.
+  Accepted add, remove, move, subtree removal, and subtree restoration envelopes
+  mark both projections for the transaction-end refresh; validated file load
+  performs the same full refresh. These values are App-facing projections only
+  and never validate, repair, reorder, or become a second canonical hierarchy.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.

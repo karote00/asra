@@ -484,6 +484,231 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
+  it.each([
+    {
+      name: 'move',
+      change: {
+        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        moves: [
+          {
+            elementId: 'rect-2',
+            before: { parentId: 'workspace-1', index: 0 },
+            after: { parentId: 'group-1', index: 1 }
+          }
+        ]
+      },
+      initialIds: ['rect-2', 'group-1', 'rect-1'],
+      initialMap: {
+        'rect-2': {
+          id: 'rect-2',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'workspace-1'
+        },
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-1']
+        },
+        'rect-1': {
+          id: 'rect-1',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      workspaceChildren: ['group-1'],
+      elements: {
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-1', 'rect-2']
+        },
+        'rect-1': {
+          id: 'rect-1',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-2': {
+          id: 'rect-2',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      expectedIds: ['group-1', 'rect-1', 'rect-2']
+    },
+    {
+      name: 'subtree removal',
+      change: {
+        action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        elementId: 'group-1',
+        removed: [
+          {
+            elementId: 'rect-1',
+            parentId: 'group-1',
+            index: 0,
+            data: { id: 'rect-1', type: EntityTypes.RECTANGLE }
+          },
+          {
+            elementId: 'group-1',
+            parentId: 'workspace-1',
+            index: 0,
+            data: {
+              id: 'group-1',
+              type: EntityTypes.GROUP,
+              children: ['rect-1']
+            }
+          }
+        ]
+      },
+      initialIds: ['group-1', 'rect-1'],
+      initialMap: {
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-1']
+        },
+        'rect-1': {
+          id: 'rect-1',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      workspaceChildren: [],
+      elements: {},
+      expectedIds: []
+    },
+    {
+      name: 'subtree restoration',
+      change: {
+        action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        elementId: 'group-1',
+        removed: [
+          {
+            elementId: 'rect-1',
+            parentId: 'group-1',
+            index: 0,
+            data: { id: 'rect-1', type: EntityTypes.RECTANGLE }
+          },
+          {
+            elementId: 'group-1',
+            parentId: 'workspace-1',
+            index: 0,
+            data: {
+              id: 'group-1',
+              type: EntityTypes.GROUP,
+              children: ['rect-1']
+            }
+          }
+        ]
+      },
+      initialIds: [],
+      initialMap: {},
+      workspaceChildren: ['group-1'],
+      elements: {
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-1']
+        },
+        'rect-1': {
+          id: 'rect-1',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      expectedIds: ['group-1', 'rect-1']
+    }
+  ])(
+    'projects canonical hierarchy after $name',
+    ({
+      change,
+      initialIds,
+      initialMap,
+      workspaceChildren,
+      elements,
+      expectedIds
+    }) => {
+      const observers = new Map<
+        string,
+        { onChange: (change: unknown) => void }
+      >()
+      const core = {
+        getSelection: () => undefined,
+        registerDataChannelObserver: (registration: {
+          name: string
+          onChange: (change: unknown) => void
+        }) => observers.set(registration.name, registration),
+        unregisterDataChannelObserver: (name: string) =>
+          observers.delete(name)
+      } as unknown as PresetCoreAPIs
+      const elementRecords = Object.entries(elements).map(
+        ([elementId, data]) => [
+          elementId,
+          {
+            get: (key: string) => data[key as keyof typeof data],
+            save: () => ({
+              ...data,
+              ...('children' in data
+                ? { children: [...(data.children ?? [])] }
+                : {})
+            })
+          }
+        ]
+      )
+      const elementMap = new Map(elementRecords)
+      const dependencies = {
+        ...createDeps(),
+        sceneTree: {
+          getElementById: (elementId: string) => elementMap.get(elementId),
+          getAllElements: () => elementMap,
+          currentWorkspace: {
+            get: (key: string) =>
+              key === 'type' ? EntityTypes.WORKSPACE : undefined,
+            save: () => ({
+              id: 'workspace-1',
+              type: EntityTypes.WORKSPACE,
+              children: [...workspaceChildren]
+            })
+          }
+        }
+      } as unknown as PresetDependencies
+
+      propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+      propertyRegistry.register('elementDataMap', { defaultValue: {} })
+      uiContext.set('flattenedElementIds', [...initialIds])
+      uiContext.set('elementDataMap', { ...initialMap })
+      const dispose = registerDefaultDataChannelObservers(
+        core,
+        dependencies,
+        undefined,
+        { uiContext: true }
+      )
+
+      try {
+        const observer = observers.get('preset.uiContext.sceneTree')
+        expect(observer).toBeDefined()
+
+        observer?.onChange(change)
+        runTransaction(() => undefined)
+
+        expect(uiContext.get('flattenedElementIds')).toEqual(expectedIds)
+        expect(uiContext.get('elementDataMap')).toEqual(elements)
+      } finally {
+        dispose()
+        propertyRegistry.unregister('flattenedElementIds')
+        propertyRegistry.unregister('elementDataMap')
+      }
+    }
+  )
+
   it('applies selection channel changes and removes deleted selection ids via observers', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const selections = new Map<string, BaseSelection>()

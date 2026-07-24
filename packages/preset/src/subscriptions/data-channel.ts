@@ -546,6 +546,12 @@ const handleUIContextSceneTreeChange = (
       lifetime.pending.fullElementDataMap = true
       break
     }
+    case SCENE_TREE_ACTIONS.MOVE_ELEMENTS:
+    case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
+    case SCENE_TREE_ACTIONS.RESTORE_SUBTREE:
+      lifetime.pending.flattenedElementIds = true
+      lifetime.pending.fullElementDataMap = true
+      break
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key } = change as UpdateElementChange
       markComputedKeyPending(lifetime, id, key)
