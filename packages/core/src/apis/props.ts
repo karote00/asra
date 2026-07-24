@@ -1,7 +1,10 @@
 import type {
+  ElementPropertyOwnerRelation,
   EVENT_OPTIONS,
   PropertyComponentInstanceDataTypes,
-  PropsComponentRawData
+  PropsComponentRawData,
+  PropsRestorePlan,
+  PropsRestoreSnapshot
 } from '@asyra/utils'
 import type { PropertyFieldUpdate, PropertyOwnerRef } from '../types/props'
 
@@ -16,6 +19,14 @@ export interface PropsRequests {
   commitPropertyChanges: (options?: EVENT_OPTIONS) => void
   propsLoadData: (data: unknown) => void
   propsSaveData: () => PropsComponentRawData
+  preflightRestoreProperties: (
+    snapshot: PropsRestoreSnapshot,
+    ownerRelations: readonly ElementPropertyOwnerRelation[]
+  ) => PropsRestorePlan
+  applyRestoreProperties: (
+    plan: PropsRestorePlan,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
 }
 
 export const createPropsAPIs = (requests: PropsRequests) => ({
@@ -33,5 +44,14 @@ export const createPropsAPIs = (requests: PropsRequests) => ({
   },
   propsSaveData() {
     return requests.propsSaveData()
+  },
+  preflightRestoreProperties(
+    snapshot: PropsRestoreSnapshot,
+    ownerRelations: readonly ElementPropertyOwnerRelation[]
+  ) {
+    return requests.preflightRestoreProperties(snapshot, ownerRelations)
+  },
+  applyRestoreProperties(plan: PropsRestorePlan, options?: EVENT_OPTIONS) {
+    return requests.applyRestoreProperties(plan, options)
   }
 })

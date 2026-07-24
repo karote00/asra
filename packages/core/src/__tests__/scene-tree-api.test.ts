@@ -13,8 +13,11 @@ const createRequests = (): SceneTreeRequests => ({
   moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
   removeSubtree: vi.fn((elementId: string) => ({
     elementId,
-    removed: []
+    removed: [],
+    rootParentChildrenAfter: []
   })),
+  preflightRestoreSubtree: vi.fn(),
+  applyRestoreSubtree: vi.fn(),
   refreshComputedDataFromProperty: () => undefined,
   getAllElementsBounds: () => null,
   isContainerType: () => false

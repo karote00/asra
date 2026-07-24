@@ -19,7 +19,9 @@ import {
   id,
   MoveHierarchyRequest,
   MoveHierarchyResult,
-  RemoveSubtreeResult
+  RemoveSubtreeResult,
+  SceneTreeRestorePlan,
+  SceneTreeRestoreSnapshot
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
 
@@ -41,6 +43,13 @@ export interface SceneTreeRequests {
   ) => MoveHierarchyResult
   removeSubtree: (
     elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  preflightRestoreSubtree: (
+    snapshot: SceneTreeRestoreSnapshot
+  ) => SceneTreeRestorePlan
+  applyRestoreSubtree: (
+    plan: SceneTreeRestorePlan,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
 }
@@ -112,6 +121,12 @@ export const createSceneTreeAPIs = (
     },
     removeSubtree(elementId: string, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.removeSubtree(elementId, options)
+    },
+    preflightRestoreSubtree(snapshot: SceneTreeRestoreSnapshot) {
+      return sceneTreeRequests.preflightRestoreSubtree(snapshot)
+    },
+    applyRestoreSubtree(plan: SceneTreeRestorePlan, options?: EVENT_OPTIONS) {
+      return sceneTreeRequests.applyRestoreSubtree(plan, options)
     },
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()

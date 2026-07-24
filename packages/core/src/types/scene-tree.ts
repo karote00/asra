@@ -8,7 +8,9 @@ import {
   EVENT_OPTIONS,
   MoveHierarchyRequest,
   MoveHierarchyResult,
-  RemoveSubtreeResult
+  RemoveSubtreeResult,
+  SceneTreeRestorePlan,
+  SceneTreeRestoreSnapshot
 } from '@asyra/utils'
 
 export interface SceneTreeRawAPIs {
@@ -36,6 +38,13 @@ export interface SceneTreeRawAPIs {
   ) => MoveHierarchyResult
   removeSubtree: (
     elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  preflightRestoreSubtree: (
+    snapshot: SceneTreeRestoreSnapshot
+  ) => SceneTreeRestorePlan
+  applyRestoreSubtree: (
+    plan: SceneTreeRestorePlan,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
   changeComputedData: (
