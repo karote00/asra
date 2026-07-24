@@ -220,10 +220,11 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   pointer is outside an eligible Group and creates under the workspace root.
   The app passes that workspace id as an explicit `parentId`; it may not leave
   parent unspecified and activate Scene Tree's legacy `firstFrame` fallback.
-- Before canonical creation, the mouse-down workspace position is converted
-  into the chosen parent Group's local coordinates through that exact
-  identity-safe Render handle. The canonical hierarchy projection chooses the
-  parent; Render ancestry does not participate in that decision.
+- Before canonical creation and every create drag geometry update, the
+  mouse-down and current workspace positions are converted into the chosen
+  parent Group's local coordinates through that exact identity-safe Render
+  handle. The canonical hierarchy projection chooses the parent; Render
+  ancestry does not participate in that decision.
 - Input mouse movement refreshes the current modifier snapshot before hover
   resolution. Existing dragging, non-element overlay, path-editing,
   lock/visibility, and selection-mutation behavior remains unchanged around
@@ -448,8 +449,8 @@ an app fallback.
   refreshes current `Meta`/`Ctrl` state.
 - Create feature/common-API tests proving mouse down passes one explicit
   workspace or official Group parent, converts workspace position into nested
-  parent-local coordinates, and never activates the legacy `firstFrame`
-  fallback.
+  parent-local coordinates for initial creation and drag geometry updates, and
+  never activates the legacy `firstFrame` fallback.
 - Feature/common-API integration tests for one transaction, rollback,
   rejection/no-op, exact post-selection, and undo/redo.
 - Layers component tests for enabled/disabled controls, nested rows,

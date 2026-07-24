@@ -249,7 +249,7 @@
         'canonical current workspace id from the public Core Scene Tree facade',
         'app-local selected element ids',
         'current Meta or Ctrl modifier snapshot',
-        'create-element mouse-down workspace position',
+        'create-element mouse-down and drag workspace geometry',
         'current identity-safe Render handle for the chosen official Group parent coordinate conversion'
       ],
       outputs: [
@@ -266,7 +266,7 @@
         'Canvas hover, selection, and pointer-down move consume the same resolved target while their existing lock, visibility, selection mutation, and move-session behavior remains unchanged.',
         'Create-element mouse down consumes the same resolved hierarchy target: a resolved Group is the create parent, while a resolved non-Group uses its exact canonical parent only when that parent is an official Group.',
         'When a valid projection has a missing raw hit, creation uses the workspace root and passes its id as an explicit parentId instead of leaving parent unspecified.',
-        'The mouse-down workspace position is converted into the chosen parent Group local coordinates through that exact identity-safe Render handle before canonical creation.',
+        'The mouse-down and drag workspace geometry is converted into the chosen parent Group local coordinates through that exact identity-safe Render handle before canonical creation and every drag update.',
         'Pointer movement refreshes the current modifier snapshot before hover resolution.'
       ],
       bypasses: [

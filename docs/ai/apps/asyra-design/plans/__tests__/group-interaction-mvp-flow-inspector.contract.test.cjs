@@ -298,7 +298,7 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   )
   assert.match(
     text,
-    /workspace position.*chosen parent.*local coordinates/i
+    /mouse-down and drag workspace geometry.*chosen parent.*local coordinates/i
   )
   assert.match(text, /legacy firstFrame fallback/i)
   assert.match(text, /raw hit fallback/i)
