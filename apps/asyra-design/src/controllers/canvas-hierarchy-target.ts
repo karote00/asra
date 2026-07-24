@@ -23,6 +23,11 @@ export interface ResolveCreateElementParentInput
   workspaceId: string
 }
 
+export interface ResolveCanvasHoverHierarchyTargetInput
+  extends ResolveCanvasHierarchyTargetInput {
+  groupBoundsHitElementIds: readonly string[]
+}
+
 interface ValidHierarchyProjection {
   flattenedIdSet: ReadonlySet<string>
   workspaceId: string
@@ -187,6 +192,87 @@ export const resolveCanvasHierarchyTarget = ({
   return null
 }
 
+export const resolveCanvasHoverHierarchyTarget = ({
+  groupBoundsHitElementIds,
+  ...targetInput
+}: ResolveCanvasHoverHierarchyTargetInput): string | null => {
+  if (targetInput.hitElementId) {
+    return resolveCanvasHierarchyTarget(targetInput)
+  }
+
+  if (targetInput.bypassParentScope) {
+    return null
+  }
+
+  const projection = validateHierarchyProjection(
+    targetInput.flattenedIds,
+    targetInput.elementDataMap
+  )
+  if (!projection) {
+    return null
+  }
+
+  const groupBoundsHitIdSet = new Set(groupBoundsHitElementIds)
+  if (groupBoundsHitIdSet.size !== groupBoundsHitElementIds.length) {
+    return null
+  }
+
+  for (const elementId of groupBoundsHitElementIds) {
+    if (
+      !projection.flattenedIdSet.has(elementId) ||
+      targetInput.elementDataMap[elementId]?.type !== EntityTypes.GROUP
+    ) {
+      return null
+    }
+  }
+
+  const selectedIdSet = new Set(targetInput.selectedElementIds)
+  if (selectedIdSet.size !== targetInput.selectedElementIds.length) {
+    return null
+  }
+
+  const referenceParentIds = new Set<string>()
+  for (const selectedElementId of targetInput.selectedElementIds) {
+    if (!projection.flattenedIdSet.has(selectedElementId)) {
+      return null
+    }
+
+    const parentId = targetInput.elementDataMap[selectedElementId]?.parentId
+    if (typeof parentId !== 'string' || parentId.length === 0) {
+      return null
+    }
+    referenceParentIds.add(parentId)
+  }
+
+  for (
+    let index = targetInput.flattenedIds.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const candidateId = targetInput.flattenedIds[index]
+    if (!groupBoundsHitIdSet.has(candidateId)) {
+      continue
+    }
+
+    if (
+      targetInput.selectedElementIds.length > 0 &&
+      referenceParentIds.has(candidateId)
+    ) {
+      return candidateId
+    }
+
+    const resolvedTargetId = resolveCanvasHierarchyTarget({
+      ...targetInput,
+      hitElementId: candidateId
+    })
+    if (resolvedTargetId) {
+      return resolvedTargetId
+    }
+  }
+
+  return null
+}
+
 export const resolveCreateElementParent = ({
   workspaceId,
   ...targetInput
@@ -244,6 +330,48 @@ export const resolveCanvasHierarchyTargetAtClientPos = (
     elementApis.getRenderElementIdAtClientPos(snapshot.mousePosition),
     snapshot
   )
+
+export const resolveCanvasHoverHierarchyTargetAtClientPos = (
+  snapshot: Pick<SystemContextSnapshot, 'mousePosition' | 'keyMeta' | 'keyCtrl'>
+): string | null => {
+  const hitElementId = elementApis.getRenderElementIdAtClientPos(
+    snapshot.mousePosition
+  )
+  if (hitElementId) {
+    return resolveCurrentCanvasHierarchyTarget(hitElementId, snapshot)
+  }
+
+  const flattenedIds = hierarchyApis.getFlattenedElementIds()
+  const elementDataMap = hierarchyApis.getElementDataMap()
+  const bypassParentScope = snapshot.keyMeta || snapshot.keyCtrl
+  const groupBoundsHitElementIds: string[] = []
+
+  if (!bypassParentScope) {
+    for (let index = flattenedIds.length - 1; index >= 0; index -= 1) {
+      const elementId = flattenedIds[index]
+      if (elementDataMap[elementId]?.type !== EntityTypes.GROUP) {
+        continue
+      }
+      if (
+        elementApis.isClientPositionInsideElementBounds(
+          elementId,
+          snapshot.mousePosition
+        )
+      ) {
+        groupBoundsHitElementIds.push(elementId)
+      }
+    }
+  }
+
+  return resolveCanvasHoverHierarchyTarget({
+    hitElementId: null,
+    groupBoundsHitElementIds,
+    selectedElementIds: selectionApis.getSelectedIds(),
+    bypassParentScope,
+    flattenedIds,
+    elementDataMap
+  })
+}
 
 export const resolveCreateElementParentAtClientPos = (
   snapshot: Pick<SystemContextSnapshot, 'mousePosition' | 'keyMeta' | 'keyCtrl'>

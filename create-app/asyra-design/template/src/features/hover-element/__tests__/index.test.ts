@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   getPathEditingVectorId: vi.fn(),
   isElementLocked: vi.fn(),
   isElementVisible: vi.fn(),
-  resolveAtClientPos: vi.fn(),
+  resolveHoverAtClientPos: vi.fn(),
   resolveCurrent: vi.fn(),
   updateHoveredElementId: vi.fn()
 }))
@@ -39,7 +39,7 @@ vi.mock('../../../common-apis', () => ({
 }))
 
 vi.mock('../../../controllers/canvas-hierarchy-target', () => ({
-  resolveCanvasHierarchyTargetAtClientPos: mocks.resolveAtClientPos,
+  resolveCanvasHoverHierarchyTargetAtClientPos: mocks.resolveHoverAtClientPos,
   resolveCurrentCanvasHierarchyTarget: mocks.resolveCurrent
 }))
 
@@ -78,14 +78,14 @@ describe('canvas hierarchy hover feature', () => {
       keyMeta: true,
       keyCtrl: false
     }
-    mocks.resolveAtClientPos.mockReturnValue('nested-leaf')
+    mocks.resolveHoverAtClientPos.mockReturnValue('nested-leaf')
 
     expect(
       hoverElementFeatureDefinition.execution?.(snapshot as never)
     ).toEqual({
       hoveredId: 'nested-leaf'
     })
-    expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(snapshot)
+    expect(mocks.resolveHoverAtClientPos).toHaveBeenCalledWith(snapshot)
     expect(mocks.updateHoveredElementId).toHaveBeenCalledWith('nested-leaf')
   })
 

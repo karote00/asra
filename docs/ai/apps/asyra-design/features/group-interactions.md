@@ -26,6 +26,10 @@
   children returned by Preset/Scene Tree, including the empty result.
 - Layers rows are projected from canonical `flattenedElementIds` and
   `elementDataMap`; Group collapse state is UI-local.
+- When no visible Render geometry is hit, canvas hover may target an official
+  Group through its canonical computed bounds and current identity-safe Render
+  transform. Visible raw hits retain priority, `Meta`/`Ctrl` bypasses the Group
+  bounds candidate, and the candidate remains hover-only.
 
 ## Boundaries
 
@@ -37,6 +41,9 @@
   and hierarchy validation/mutation owner.
 - Factory owns transaction, rollback, undo/redo, and grouped publication.
 - Render projects the committed canonical hierarchy without fallback state.
+- Asyra Design owns the hover-only Group bounds candidate policy; Preset keeps
+  canonical Group bounds ownership and Render supplies only the current
+  identity-safe transform.
 
 ## Non-Goals
 
