@@ -1,4 +1,9 @@
-import { type MouseEvent, type PointerEvent, useCallback } from 'react'
+import {
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
+  useCallback
+} from 'react'
 import type { ElementRawData } from '@asyra/utils'
 import { ICON_SIZE } from '../constants'
 import { useElementData } from '../providers'
@@ -25,6 +30,10 @@ interface ElementData {
     event: PointerEvent<HTMLDivElement>,
     elementId: string
   ) => void
+}
+
+type ContentRowStyle = CSSProperties & {
+  '--content-row-indent': string
 }
 
 const Element = ({
@@ -99,15 +108,17 @@ const Element = ({
     boxShadow = 'inset 0 0 0 2px #f28b82'
   }
 
+  const contentRowStyle: ContentRowStyle = {
+    '--content-row-indent': `${depth * ICON_SIZE}px`,
+    height: '32px',
+    background,
+    boxShadow
+  }
+
   return (
     <div
-      className="layer-item flex items-center justify-between cursor-default"
-      style={{
-        height: '32px',
-        paddingLeft: `${depth * ICON_SIZE}px`,
-        background,
-        boxShadow
-      }}
+      className="layer-item flex items-center justify-between cursor-default pr-1 pl-[var(--content-row-indent)]"
+      style={contentRowStyle}
       onClick={handleElementClick}
       onPointerDown={handlePointerDown}
       onMouseEnter={handleElementMouseEnter}

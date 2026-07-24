@@ -151,19 +151,22 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
-  it('indents each hierarchy depth by one icon and pads only the text label', () => {
+  it('uses Tailwind spacing for row indentation and content padding', () => {
     render(<Contents />)
     const rootRow = screen.getByTestId('element-item-a')
     const nestedRow = screen.getByTestId('element-item-child')
     const rootContent = rootRow.firstElementChild
     const rootLabel = screen.getByText('A')
 
-    expect(rootRow.style.paddingLeft).toBe('0px')
-    expect(nestedRow.style.paddingLeft).toBe('24px')
+    expect(rootRow.classList.contains('pl-[var(--content-row-indent)]')).toBe(
+      true
+    )
+    expect(rootRow.style.getPropertyValue('--content-row-indent')).toBe('0px')
+    expect(nestedRow.style.getPropertyValue('--content-row-indent')).toBe(
+      '24px'
+    )
+    expect(rootRow.classList.contains('pr-1')).toBe(true)
     expect(rootLabel.classList.contains('px-1')).toBe(true)
-    expect(
-      [...rootRow.classList].some((className) => className.startsWith('pr-'))
-    ).toBe(false)
     expect(
       [...(rootContent?.classList ?? [])].some((className) =>
         className.startsWith('gap-')
