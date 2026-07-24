@@ -147,6 +147,21 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
+  it('keeps rows edge-aligned with a 4px content gap and depth-only indentation', () => {
+    render(<Contents />)
+    const rootRow = screen.getByTestId('element-item-a')
+    const nestedRow = screen.getByTestId('element-item-child')
+    const rootContent = rootRow.firstElementChild
+
+    expect(rootRow.style.paddingLeft).toBe('0px')
+    expect(nestedRow.style.paddingLeft).toBe('16px')
+    expect(
+      [...rootRow.classList].some((className) => className.startsWith('pr-'))
+    ).toBe(false)
+    expect(rootContent?.classList.contains('gap-1')).toBe(true)
+    expect(rootContent?.classList.contains('gap-2')).toBe(false)
+  })
+
   it('shows one inside indicator, commits once, clears preview, and reveals a collapsed Group', async () => {
     render(<Contents />)
     fireEvent.click(screen.getByTestId('layers-group-toggle-group'))

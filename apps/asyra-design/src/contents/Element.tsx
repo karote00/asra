@@ -100,10 +100,10 @@ const Element = ({
 
   return (
     <div
-      className="layer-item flex items-center justify-between pr-3 cursor-default"
+      className="layer-item flex items-center justify-between cursor-default"
       style={{
         height: '32px',
-        paddingLeft: `${12 + depth * 16}px`,
+        paddingLeft: `${depth * 16}px`,
         background,
         boxShadow
       }}
@@ -120,7 +120,7 @@ const Element = ({
       data-selected={isSelected}
       data-layer-depth={depth}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-1 min-w-0">
         {isGroup ? (
           <GroupDisclosure
             groupId={id}
