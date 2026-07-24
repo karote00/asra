@@ -61,6 +61,13 @@
 - Keep an explicit `undefined` only where an expression or data value is
   required, such as a property value, conditional expression, or returned
   object field.
+- A conditional expression must contain only one ternary level. Never place a
+  ternary inside another ternary's true or false branch.
+- Express multi-branch decisions with a named value and independent `if`
+  statements, an explicit `if`/`else` flow, or a focused helper so each
+  condition remains directly readable.
+- Root and generated-app ESLint configurations enforce this contract with
+  `no-nested-ternary`.
 
 ## Render and UI Standards
 

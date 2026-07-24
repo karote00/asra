@@ -229,12 +229,13 @@ const transientWorkspaceTopologyCache = new Map<string, VectorTopology>()
 const transientComputedSnapshotCache = new Map<string, VectorComputedData>()
 
 const recordVectorCommitError = (error: unknown) => {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : ''
+  let message = ''
+  if (typeof error === 'string') {
+    message = error
+  }
+  if (error instanceof Error) {
+    message = error.message
+  }
   if (!message) {
     return
   }

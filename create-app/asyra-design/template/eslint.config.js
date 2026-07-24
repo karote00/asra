@@ -21,6 +21,11 @@ export default tseslint.config(
   tseslint.configs.stylistic,
   eslintPluginPrettierRecommended,
   {
+    rules: {
+      'no-nested-ternary': 'error'
+    }
+  },
+  {
     files: ['src/**/*.{ts,tsx}'],
     plugins: {
       react

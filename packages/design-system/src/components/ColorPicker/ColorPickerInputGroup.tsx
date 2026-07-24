@@ -27,6 +27,19 @@ export const ColorPickerInputGroup: React.FC<ColorPickerInputGroupProps> = (
     'data-testid': dataTestId
   } = props
 
+  const getInputTestId = (index: number) => {
+    if (!dataTestId) {
+      return
+    }
+    if (showAlpha && index === values.length - 1) {
+      return `${dataTestId}-opacity`
+    }
+    if (colorFormat === 'hex' && index === 0) {
+      return `${dataTestId}-hex`
+    }
+    return
+  }
+
   return (
     <div className="px-3 flex items-center gap-2">
       <div className="w-[66px] h-6 flex items-center rounded-[3px] bg-panel-surface-hover border border-transparent hover:border-[#5c5c5c] transition-all overflow-hidden text-white">
@@ -69,15 +82,7 @@ export const ColorPickerInputGroup: React.FC<ColorPickerInputGroupProps> = (
                   className={`bg-transparent text-[11px] text-white outline-none text-center h-full flex-1 min-w-0 ${
                     colorFormat === 'hex' && i === 0 ? 'uppercase' : ''
                   } ${colorFormat === 'css' ? 'px-2' : ''}`}
-                  data-testid={
-                    dataTestId
-                      ? showAlpha && i === values.length - 1
-                        ? `${dataTestId}-opacity`
-                        : colorFormat === 'hex' && i === 0
-                          ? `${dataTestId}-hex`
-                          : undefined
-                      : undefined
-                  }
+                  data-testid={getInputTestId(i)}
                 />
                 {showAlpha && i === values.length - 1 && (
                   <span className="pr-1 text-[10px] text-white">%</span>

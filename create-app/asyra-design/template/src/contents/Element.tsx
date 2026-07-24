@@ -76,26 +76,36 @@ const Element = ({
     [id]
   )
 
+  let background: string | undefined
+  if (isHovered) {
+    background = 'rgba(255,255,255,0.04)'
+  }
+  if (isSelected) {
+    background = 'rgba(13,153,255,0.15)'
+  }
+
+  let boxShadow: string | undefined
+  if (dropState === 'before') {
+    boxShadow = 'inset 0 2px 0 #4db3ff'
+  }
+  if (dropState === 'after') {
+    boxShadow = 'inset 0 -2px 0 #4db3ff'
+  }
+  if (dropState === 'inside') {
+    boxShadow = 'inset 0 0 0 2px #4db3ff'
+  }
+  if (dropState === 'invalid') {
+    boxShadow = 'inset 0 0 0 2px #f28b82'
+  }
+
   return (
     <div
       className="layer-item flex items-center justify-between pr-3 cursor-default"
       style={{
         height: '32px',
         paddingLeft: `${12 + depth * 16}px`,
-        ...(isSelected
-          ? { background: 'rgba(13,153,255,0.15)' }
-          : isHovered
-            ? { background: 'rgba(255,255,255,0.04)' }
-            : {}),
-        ...(dropState === 'before'
-          ? { boxShadow: 'inset 0 2px 0 #4db3ff' }
-          : dropState === 'after'
-            ? { boxShadow: 'inset 0 -2px 0 #4db3ff' }
-            : dropState === 'inside'
-              ? { boxShadow: 'inset 0 0 0 2px #4db3ff' }
-              : dropState === 'invalid'
-                ? { boxShadow: 'inset 0 0 0 2px #f28b82' }
-                : {})
+        background,
+        boxShadow
       }}
       onClick={handleElementClick}
       onPointerDown={handlePointerDown}

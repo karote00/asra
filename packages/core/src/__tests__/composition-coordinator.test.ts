@@ -666,8 +666,15 @@ describe('Core composition coordinator', () => {
       properties: [{ name: 'fills', type: FILLS }]
     })
     ownedSceneTree.addToMap({
-      get: (key: string) =>
-        key === 'id' ? 'owned-active-shape' : key === 'type' ? SHAPE : undefined
+      get: (key: string) => {
+        if (key === 'id') {
+          return 'owned-active-shape'
+        }
+        if (key === 'type') {
+          return SHAPE
+        }
+        return
+      }
     } as never)
 
     expectRelationError(

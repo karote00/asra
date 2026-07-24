@@ -72,14 +72,15 @@ export const getElementGeometryWorldBounds = (
     ]
     const toGlobal = element.toGlobal
     const worldTransform = element.worldTransform
-    const projectPoint =
-      typeof toGlobal === 'function'
-        ? (point: { x: number; y: number }) =>
-            toGlobal.call(element, point, undefined, false)
-        : worldTransform
-          ? (point: { x: number; y: number }) =>
-              transformGeometryPoint(worldTransform, point)
-          : null
+    let projectPoint:
+      | ((point: { x: number; y: number }) => { x: number; y: number })
+      | null = null
+    if (worldTransform) {
+      projectPoint = (point) => transformGeometryPoint(worldTransform, point)
+    }
+    if (typeof toGlobal === 'function') {
+      projectPoint = (point) => toGlobal.call(element, point, undefined, false)
+    }
 
     if (projectPoint) {
       const topLeft = projectPoint(localCorners[0])

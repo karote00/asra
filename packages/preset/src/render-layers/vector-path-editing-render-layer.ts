@@ -124,6 +124,27 @@ interface SelectedHandleAnchorRef {
   index?: number | null
 }
 
+const getNetworkAdjacentPointIds = (
+  network: VectorNetwork,
+  pointIndex: number
+): { previousPointId: string | null; nextPointId: string | null } => {
+  let previousPointId: string | null = null
+  let nextPointId: string | null = null
+
+  if (network.closed) {
+    previousPointId = network.pointIds[network.pointIds.length - 1]
+    nextPointId = network.pointIds[0]
+  }
+  if (pointIndex > 0) {
+    previousPointId = network.pointIds[pointIndex - 1]
+  }
+  if (pointIndex < network.pointIds.length - 1) {
+    nextPointId = network.pointIds[pointIndex + 1]
+  }
+
+  return { previousPointId, nextPointId }
+}
+
 const PenPreviewMode = {
   NONE: 'none',
   CONNECTED_SEGMENT_PREVIEW: 'connected-segment-preview',
@@ -490,18 +511,10 @@ const getPathEditingVectorDataWithDeps = (
           : computedPoints[
               getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
             ]
-      const previousPointId =
-        pointIndex > 0
-          ? network.pointIds[pointIndex - 1]
-          : network.closed
-            ? network.pointIds[network.pointIds.length - 1]
-            : null
-      const nextPointId =
-        pointIndex < network.pointIds.length - 1
-          ? network.pointIds[pointIndex + 1]
-          : network.closed
-            ? network.pointIds[0]
-            : null
+      const { previousPointId, nextPointId } = getNetworkAdjacentPointIds(
+        network,
+        pointIndex
+      )
       const previousAnchor = previousPointId
         ? computedPoints[previousPointId]
         : null
@@ -1201,23 +1214,24 @@ export const registerVectorPathEditingRenderLayer = (
           (selection): selection is VectorPointSelectionRef =>
             selection !== null && selection.elementId === pathEditingVectorId
         )
-      const selectedHandleAnchorRefs: SelectedHandleAnchorRef[] =
-        selectedPointRefs.length > 0
-          ? selectedPointRefs.map((selection) => ({
-              pointId: selection.pointId,
-              index:
-                activeSelectedPoint?.pointId === selection.pointId
-                  ? activeSelectedPoint.index
-                  : null
-            }))
-          : activeSelectedPoint
-            ? [
-                {
-                  pointId: activeSelectedPoint.pointId,
-                  index: activeSelectedPoint.index
-                }
-              ]
-            : []
+      let selectedHandleAnchorRefs: SelectedHandleAnchorRef[] = []
+      if (activeSelectedPoint) {
+        selectedHandleAnchorRefs = [
+          {
+            pointId: activeSelectedPoint.pointId,
+            index: activeSelectedPoint.index
+          }
+        ]
+      }
+      if (selectedPointRefs.length > 0) {
+        selectedHandleAnchorRefs = selectedPointRefs.map((selection) => ({
+          pointId: selection.pointId,
+          index:
+            activeSelectedPoint?.pointId === selection.pointId
+              ? activeSelectedPoint.index
+              : null
+        }))
+      }
       const activeHoveredPoint =
         pathEditingVectorId &&
         hoveredVectorPoint?.elementId === pathEditingVectorId &&
@@ -1307,12 +1321,13 @@ export const registerVectorPathEditingRenderLayer = (
         snapshot.primaryTool === 'pen' &&
         !startNewSubpath &&
         previewStartPoint !== null
-      const previewMode: PenPreviewMode =
-        snapshot.primaryTool !== 'pen'
-          ? PenPreviewMode.NONE
-          : shouldRenderPreview
-            ? PenPreviewMode.CONNECTED_SEGMENT_PREVIEW
-            : PenPreviewMode.SEGMENT_INSERT_PREVIEW
+      let previewMode: PenPreviewMode = PenPreviewMode.NONE
+      if (snapshot.primaryTool === 'pen') {
+        previewMode = PenPreviewMode.SEGMENT_INSERT_PREVIEW
+      }
+      if (shouldRenderPreview) {
+        previewMode = PenPreviewMode.CONNECTED_SEGMENT_PREVIEW
+      }
       const activeGhostInsertPoint =
         activeHoveredPoint ||
         previewMode !== PenPreviewMode.SEGMENT_INSERT_PREVIEW ||

@@ -403,6 +403,14 @@ const Contents: React.FC = () => {
     [dropIntent]
   )
 
+  let layerMoveState: 'idle' | 'valid' | 'invalid' = 'idle'
+  if (dropIntent?.kind === 'valid') {
+    layerMoveState = 'valid'
+  }
+  if (dropIntent?.kind === 'invalid') {
+    layerMoveState = 'invalid'
+  }
+
   return (
     <div
       ref={parentRef}
@@ -419,13 +427,7 @@ const Contents: React.FC = () => {
       onPointerCancel={() => cancelActiveLayerMove('pointer-cancel')}
       onLostPointerCapture={() => cancelActiveLayerMove('lost-capture')}
       data-testid="contents-panel"
-      data-layer-move-state={
-        dropIntent
-          ? dropIntent.kind === 'valid'
-            ? 'valid'
-            : 'invalid'
-          : 'idle'
-      }
+      data-layer-move-state={layerMoveState}
     >
       {/* Panel header */}
       <div

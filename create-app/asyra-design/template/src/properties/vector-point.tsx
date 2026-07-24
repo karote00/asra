@@ -293,11 +293,13 @@ const VectorPoint = () => {
       : null
   const pointType = anchorPoint?.type ?? 'sharp'
   const selectedHandleMode = selectedPoint?.handleMode
-  const handleMode = isVectorHandleMode(selectedHandleMode)
-    ? selectedHandleMode
-    : elementId && pointId
-      ? elementApis.getVectorAnchorPointHandleMode(elementId, pointId)
-      : VectorHandleModes.NONE
+  let handleMode: VectorHandleMode = VectorHandleModes.NONE
+  if (elementId && pointId) {
+    handleMode = elementApis.getVectorAnchorPointHandleMode(elementId, pointId)
+  }
+  if (isVectorHandleMode(selectedHandleMode)) {
+    handleMode = selectedHandleMode
+  }
 
   const applyTargetSelection = useCallback(
     (

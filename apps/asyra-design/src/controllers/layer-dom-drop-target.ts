@@ -25,15 +25,19 @@ export const resolveLayerPointerTarget = (
     }
     const relativeY = Math.max(0, Math.min(bounds.height, clientY - bounds.top))
     const isGroup = row.dataset.layerIsGroup === 'true'
-    const zone = isGroup
-      ? relativeY < bounds.height / 3
-        ? 'before'
-        : relativeY > (bounds.height * 2) / 3
-          ? 'after'
-          : 'inside'
-      : relativeY < bounds.height / 2
-        ? 'before'
-        : 'after'
+    let zone: 'before' | 'inside' | 'after' = 'after'
+    if (!isGroup && relativeY < bounds.height / 2) {
+      zone = 'before'
+    }
+    if (isGroup) {
+      zone = 'inside'
+    }
+    if (isGroup && relativeY < bounds.height / 3) {
+      zone = 'before'
+    }
+    if (isGroup && relativeY > (bounds.height * 2) / 3) {
+      zone = 'after'
+    }
 
     return {
       kind: 'row',

@@ -345,14 +345,17 @@ export const useGradientInteractions = ({
       orderedStops[
         selectedOrderIndex >= 0 ? selectedOrderIndex : orderedStops.length - 1
       ]
-    const nextEntry =
-      orderedStops[
-        selectedOrderIndex >= 0 && selectedOrderIndex < orderedStops.length - 1
-          ? selectedOrderIndex + 1
-          : selectedOrderIndex > 0
-            ? selectedOrderIndex
-            : -1
-      ]
+    let nextEntryIndex = -1
+    if (selectedOrderIndex > 0) {
+      nextEntryIndex = selectedOrderIndex
+    }
+    if (
+      selectedOrderIndex >= 0 &&
+      selectedOrderIndex < orderedStops.length - 1
+    ) {
+      nextEntryIndex = selectedOrderIndex + 1
+    }
+    const nextEntry = orderedStops[nextEntryIndex]
 
     const nextPosition = nextEntry
       ? clampUnit((currentEntry.stop.position + nextEntry.stop.position) / 2)

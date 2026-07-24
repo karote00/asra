@@ -75,12 +75,13 @@ const dragLayerToRow = async (
   if (!sourceBox || !targetBox) {
     throw new Error('Layer drag rows must be visible')
   }
-  const targetY =
-    zone === 'before'
-      ? targetBox.y + 2
-      : zone === 'after'
-        ? targetBox.y + targetBox.height - 2
-        : targetBox.y + targetBox.height / 2
+  let targetY = targetBox.y + targetBox.height / 2
+  if (zone === 'before') {
+    targetY = targetBox.y + 2
+  }
+  if (zone === 'after') {
+    targetY = targetBox.y + targetBox.height - 2
+  }
 
   await page.mouse.move(
     sourceBox.x + sourceBox.width / 2,

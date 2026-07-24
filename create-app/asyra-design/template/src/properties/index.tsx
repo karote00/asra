@@ -65,6 +65,17 @@ const Properties: React.FC = () => {
     elementDataMap
   )
   const title = pathEditingVectorId ? 'Vector' : elementTitle
+  let panelContent = (
+    <div className="flex items-center justify-center h-full">
+      <span className="text-[11px] text-[#555]">No selection</span>
+    </div>
+  )
+  if (elementSelection.size) {
+    panelContent = <ElementPropertiesPanel title={title} />
+  }
+  if (showVectorPoint) {
+    panelContent = <VectorPointPropertiesPanel title={title} />
+  }
 
   return (
     <div
@@ -76,15 +87,7 @@ const Properties: React.FC = () => {
       }}
       data-testid="properties-panel"
     >
-      {showVectorPoint ? (
-        <VectorPointPropertiesPanel title={title} />
-      ) : elementSelection.size ? (
-        <ElementPropertiesPanel title={title} />
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <span className="text-[11px] text-[#555]">No selection</span>
-        </div>
-      )}
+      {panelContent}
     </div>
   )
 }
