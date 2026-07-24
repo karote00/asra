@@ -267,6 +267,7 @@ test('app resolves canvas target and create parent from canonical parent scopes'
 
   assert.match(text, /identity-safe raw Render hit/i)
   assert.match(text, /canonical flattenedElementIds and elementDataMap/i)
+  assert.match(text, /canonical current workspace id.*Core Scene Tree facade/i)
   assert.match(text, /selected element ids/i)
   assert.match(text, /Meta or Ctrl/i)
   assert.match(

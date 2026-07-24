@@ -190,6 +190,9 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 - Render supplies only the identity-safe raw element hit. Asyra Design owns
   resolving that identity against canonical `flattenedElementIds` and
   `elementDataMap`; Render display-object ancestry is not a hierarchy source.
+- The public Core Scene Tree facade supplies the canonical current workspace
+  id. This makes the explicit workspace-parent result available even when the
+  workspace has no projected child elements.
 - Without selected elements and without `Meta`/`Ctrl`, the reference scope is
   the workspace. The resolved target is the outermost hit ancestor that is a
   workspace direct child.
@@ -310,7 +313,8 @@ Formal product coverage must include:
   rules, preserving the mouse-down workspace position through exact parent
   local-coordinate conversion;
 - create under the explicit workspace root when mouse down has no raw element
-  hit, regardless of the current selection or the legacy first-Frame fallback;
+  hit, including an empty workspace, regardless of the current selection or
+  the legacy first-Frame fallback;
 - fail closed for missing, stale, duplicated, cyclic, invalid-root, Group
   modifier hits, and unmatched parent scopes without raw-hit fallback;
 - undo/redo Group and Ungroup with exact hierarchy, Group data, geometry, and
@@ -362,10 +366,11 @@ steps:
      expand/collapse UI state, selection interaction, malformed projection
      failure owner, and forbidden second hierarchy state.
 5. **Canvas hierarchy hover/selection/create-parent target**
-   - identity-safe raw Render hit, canonical hierarchy projection, current
-     selected ids, and `Meta`/`Ctrl` inputs; exact parent-scope or modifier
-     output; shared hover/selection/pointer-down-move handoff; malformed
-     projection and unmatched-scope bypass; explicit create parent,
+   - identity-safe raw Render hit, canonical hierarchy projection, canonical
+     current workspace id, current selected ids, and `Meta`/`Ctrl` inputs;
+     exact parent-scope or modifier output; shared
+     hover/selection/pointer-down-move handoff; malformed projection and
+     unmatched-scope bypass; explicit create parent,
      workspace-to-parent local-coordinate handoff; and forbidden raw-hit
      fallback, unspecified-parent `firstFrame` fallback, numerical-depth
      scope, Render ancestry, or second hierarchy state.

@@ -246,6 +246,7 @@
       inputs: [
         'identity-safe raw Render hit element id',
         'canonical flattenedElementIds and elementDataMap projection',
+        'canonical current workspace id from the public Core Scene Tree facade',
         'app-local selected element ids',
         'current Meta or Ctrl modifier snapshot',
         'create-element mouse-down workspace position',
@@ -277,6 +278,7 @@
       allowedContributors: [
         'identity-safe raw Render hit only',
         'canonical Preset flattenedElementIds and elementDataMap data channels',
+        'public Core Scene Tree facade current workspace id query',
         'app-local selection query',
         'System Context Meta and Ctrl key snapshot',
         'identity-safe chosen-parent Render transform for coordinate conversion only',
