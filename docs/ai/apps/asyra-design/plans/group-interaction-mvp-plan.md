@@ -209,9 +209,17 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   resolved target is the identity-safe raw hit only when it is an existing
   non-Group element. This is the first non-Group element actually hit by
   Render; the app does not infer a deeper target through Group bounds.
-- Canvas hover, selection, and pointer-down move consume the same resolved
-  target. Selection and move may not fall back to the raw hit when resolution
-  rejects it.
+- Pointer-down move first derives the current projected selection box as the
+  union of the identity-safe projected client bounds of every current selected
+  element. When the pointer is inside that selection box, including visual
+  space between multiple selected elements, the complete existing selection
+  owns the move before Group hierarchy hover resolution; the app neither
+  retargets selection nor replaces it with a Group hover result. Render
+  contributes only each selected identity's projected client bounds for this
+  app-owned union containment and never contributes ancestry.
+- When selection does not own the pointer-down move, canvas hover, selection,
+  and pointer-down move consume the same resolved hierarchy target. Selection
+  and move may not fall back to the raw hit when resolution rejects it.
 - Create-element mouse down consumes the same resolved hierarchy target.
   A resolved official Group is the create parent. A resolved non-Group uses
   its exact canonical parent only when that parent is an official Group;
@@ -462,6 +470,10 @@ an app fallback.
 - Feature integration tests proving hover, selection, and pointer-down move
   consume the same resolved target without raw-hit fallback, and pointer input
   refreshes current `Meta`/`Ctrl` state.
+- Move feature tests proving pointer down inside the current projected
+  selection box retains and drags the complete selection before Group hover
+  resolution, including nested selected elements whose canonical bounds are
+  parent-local and gaps inside a multi-selection union box.
 - Create feature/common-API tests proving mouse down passes one explicit
   workspace or official Group parent, converts workspace position into nested
   parent-local coordinates for initial creation and drag geometry updates, and

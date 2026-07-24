@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   changeComputedData: vi.fn(),
+  getRenderElementById: vi.fn(),
   moveElementsWithGroupGeometry: vi.fn(),
   normalizeGroupsForElements: vi.fn(),
   runTransaction: vi.fn((operation: () => unknown) => operation()),
-  setVectorElementPosition: vi.fn()
+  setVectorElementPosition: vi.fn(),
+  toGlobal: vi.fn()
 }))
 
 vi.mock('@asyra/core', () => ({
@@ -39,7 +41,17 @@ vi.mock('../../../contexts', () => {
       changeComputedData: mocks.changeComputedData,
       isContainerType: vi.fn(() => false)
     },
-    render: null,
+    render: {
+      app: {
+        canvas: {
+          getBoundingClientRect: () => ({
+            left: 8,
+            top: 12
+          })
+        }
+      },
+      getElementById: mocks.getRenderElementById
+    },
     sceneTree: {
       currentWorkspace: undefined,
       getElementById: vi.fn((elementId: string) =>
@@ -66,6 +78,24 @@ import { changeComputedData } from '../change-computed-data'
 describe('Group geometry mutation handoff', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.toGlobal.mockImplementation(({ x, y }: { x: number; y: number }) => ({
+      x: 100 + x * 2,
+      y: 200 + y * 2
+    }))
+    mocks.getRenderElementById.mockReturnValue({
+      toGlobal: mocks.toGlobal
+    })
+  })
+
+  it('projects identity-safe element bounds into client coordinates', () => {
+    expect(elementApis.getElementClientBounds('rect-1')).toEqual({
+      x: 108,
+      y: 212,
+      width: 60,
+      height: 80
+    })
+    expect(mocks.getRenderElementById).toHaveBeenCalledWith('rect-1')
+    expect(mocks.toGlobal).toHaveBeenCalledTimes(4)
   })
 
   it('normalizes affected ancestor Groups through explicit gesture finalization', () => {

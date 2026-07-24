@@ -286,6 +286,14 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   )
   assert.match(
     text,
+    /projected selection box.*union.*selection owns the move before Group hierarchy hover resolution/i
+  )
+  assert.match(
+    text,
+    /identity-safe selected Render bounds.*union selection-box client-space containment.*Render ancestry/i
+  )
+  assert.match(
+    text,
     /create-element mouse down.*same resolved hierarchy target/i
   )
   assert.match(

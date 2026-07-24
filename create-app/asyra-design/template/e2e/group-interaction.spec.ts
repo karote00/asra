@@ -280,6 +280,82 @@ test.describe('Asyra Design Group interaction MVP', () => {
     }
   })
 
+  test('prioritizes the projected multi-selection box over Group canvas targeting', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await waitForAppReady(page)
+    await resetCanvas(page)
+
+    await createRectangle(page, 0.3, 0.46)
+    const leftId = (await getSelectedIds(page))[0]
+    await createRectangle(page, 0.7, 0.46)
+    const rightId = (await getSelectedIds(page))[0]
+    await createRectangle(page, 0.5, 0.46)
+    const middleId = (await getSelectedIds(page))[0]
+    const middleCenter = await getSelectedElementClientCenter(page)
+    expect(middleCenter).not.toBeNull()
+    if (!middleCenter) {
+      return
+    }
+
+    const middleGroupId = await groupLayerIds(page, [middleId])
+    await layerRow(page, leftId).click()
+    await page.keyboard.down('Shift')
+    try {
+      await layerRow(page, rightId).click()
+    } finally {
+      await page.keyboard.up('Shift')
+    }
+    await expect.poll(() => getSelectedIds(page)).toEqual([leftId, rightId])
+
+    const elementIds = [leftId, rightId, middleId, middleGroupId]
+    const before = await getWorldPositions(page, elementIds)
+    const dragEnd = {
+      x: middleCenter.x + 48,
+      y: middleCenter.y + 24
+    }
+    const workspaceDelta = await page.evaluate(
+      ({ start, end }) => {
+        const render = window.__Core__.deps.render
+        const startWorkspace = render.getMousePosInWorkspace({
+          clientX: start.x,
+          clientY: start.y
+        })
+        const endWorkspace = render.getMousePosInWorkspace({
+          clientX: end.x,
+          clientY: end.y
+        })
+        return {
+          x: endWorkspace.x - startWorkspace.x,
+          y: endWorkspace.y - startWorkspace.y
+        }
+      },
+      { start: middleCenter, end: dragEnd }
+    )
+
+    await page.mouse.move(middleCenter.x, middleCenter.y)
+    await page.mouse.down()
+    await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 4 })
+    await page.mouse.up()
+
+    await expect.poll(() => getSelectedIds(page)).toEqual([leftId, rightId])
+    const after = await getWorldPositions(page, elementIds)
+    for (const selectedId of [leftId, rightId]) {
+      expect(after[selectedId].x).toBeCloseTo(
+        before[selectedId].x + workspaceDelta.x,
+        5
+      )
+      expect(after[selectedId].y).toBeCloseTo(
+        before[selectedId].y + workspaceDelta.y,
+        5
+      )
+    }
+    for (const stationaryId of [middleId, middleGroupId]) {
+      expect(after[stationaryId]).toEqual(before[stationaryId])
+    }
+  })
+
   test('writes nested Group bounds after a child pointer move without a visible jump', async ({
     page
   }) => {
@@ -293,6 +369,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     const outerGroupId = await groupLayerIds(page, [innerGroupId])
 
     await layerRow(page, rectId).click()
+    await expect.poll(() => getSelectedIds(page)).toEqual([rectId])
     const rectCenter = await getSelectedElementClientCenter(page)
     expect(rectCenter).not.toBeNull()
     if (!rectCenter) {
@@ -326,8 +403,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
 
     await page.mouse.move(rectCenter.x, rectCenter.y)
     await page.mouse.down()
+    await expect.poll(() => getSelectedIds(page)).toEqual([rectId])
     await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 4 })
+    await expect.poll(() => getSelectedIds(page)).toEqual([rectId])
     await page.mouse.up()
+
+    await expect.poll(() => getSelectedIds(page)).toEqual([rectId])
 
     for (const elementId of elementIds) {
       await expect

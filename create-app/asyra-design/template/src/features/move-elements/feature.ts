@@ -48,7 +48,16 @@ interface MoveElementsApi {
   [key: string]: unknown
 }
 
-const getSelectionBounds = (elementIds: string[]): Rect | null => {
+const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
+  )
+}
+
+const getSelectionClientBounds = (elementIds: string[]): Rect | null => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -59,7 +68,7 @@ const getSelectionBounds = (elementIds: string[]): Rect | null => {
       return
     }
 
-    const bounds = elementApis.getElementBounds(elementId)
+    const bounds = elementApis.getElementClientBounds(elementId)
     if (!bounds) {
       return
     }
@@ -80,15 +89,6 @@ const getSelectionBounds = (elementIds: string[]): Rect | null => {
     width: maxX - minX,
     height: maxY - minY
   }
-}
-
-const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
-  return (
-    point.x >= bounds.x &&
-    point.x <= bounds.x + bounds.width &&
-    point.y >= bounds.y &&
-    point.y <= bounds.y + bounds.height
-  )
 }
 
 const resolveInitialPositions = (
@@ -134,19 +134,19 @@ const api: MoveElementsApi = {
       return null
     }
 
-    const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
-      snapshot.mousePosition
-    )
+    const dragStartClientPos = snapshot.mouseDragStart ?? snapshot.mousePosition
+    const dragStartWorkspacePos =
+      elementApis.getMousePosInWorkspace(dragStartClientPos)
     if (!dragStartWorkspacePos) {
       return null
     }
 
     const selectedElementIds = selectionApis.getSelectedIds()
     if (selectedElementIds.length > 0) {
-      const selectionBounds = getSelectionBounds(selectedElementIds)
+      const selectionBounds = getSelectionClientBounds(selectedElementIds)
       if (
         selectionBounds &&
-        isPointInsideBounds(dragStartWorkspacePos, selectionBounds)
+        isPointInsideBounds(dragStartClientPos, selectionBounds)
       ) {
         const selectionInitial = resolveInitialPositions(
           dragStartWorkspacePos,

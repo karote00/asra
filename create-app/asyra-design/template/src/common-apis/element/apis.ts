@@ -357,6 +357,40 @@ export const elementApis = {
     return { x, y, width, height }
   },
 
+  getElementClientBounds: (elementId: string): ElementBounds | null => {
+    const bounds = elementApis.getElementBounds(elementId)
+    const renderElement = render?.getElementById(elementId)
+    if (!bounds || !renderElement) {
+      return null
+    }
+
+    const corners = [
+      renderElement.toGlobal({ x: 0, y: 0 }),
+      renderElement.toGlobal({ x: bounds.width, y: 0 }),
+      renderElement.toGlobal({ x: bounds.width, y: bounds.height }),
+      renderElement.toGlobal({ x: 0, y: bounds.height })
+    ]
+    const values = corners.flatMap(({ x, y }) => [x, y])
+    if (values.some((value) => !Number.isFinite(value))) {
+      return null
+    }
+
+    const canvasBounds = render?.app?.canvas?.getBoundingClientRect()
+    const canvasLeft = canvasBounds?.left ?? 0
+    const canvasTop = canvasBounds?.top ?? 0
+    const minX = Math.min(...corners.map(({ x }) => x)) + canvasLeft
+    const minY = Math.min(...corners.map(({ y }) => y)) + canvasTop
+    const maxX = Math.max(...corners.map(({ x }) => x)) + canvasLeft
+    const maxY = Math.max(...corners.map(({ y }) => y)) + canvasTop
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    }
+  },
+
   getElementPosition: (elementId: string): PositionData | null => {
     const bounds = elementApis.getElementBounds(elementId)
     if (!bounds) {

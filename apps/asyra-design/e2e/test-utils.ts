@@ -287,7 +287,27 @@ export async function getSelectedElementClientCenter(
     return null
   }
 
-  return getElementRectClientCenter(page, rect)
+  return page.evaluate(({ id, width, height }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const render = (window as any).__Core__?.deps?.render
+    const renderElement = render?.getElementById?.(id)
+    if (!renderElement) {
+      return null
+    }
+
+    const center = renderElement.toGlobal({
+      x: width / 2,
+      y: height / 2
+    })
+    const canvasBounds = render.app?.canvas?.getBoundingClientRect?.()
+    const x = center.x + (canvasBounds?.left ?? 0)
+    const y = center.y + (canvasBounds?.top ?? 0)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return null
+    }
+
+    return { x, y }
+  }, rect)
 }
 
 /**
