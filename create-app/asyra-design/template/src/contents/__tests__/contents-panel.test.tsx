@@ -151,14 +151,16 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
-  it('indents each hierarchy depth by one icon without an extra content gap', () => {
+  it('indents each hierarchy depth by one icon and pads only the text label', () => {
     render(<Contents />)
     const rootRow = screen.getByTestId('element-item-a')
     const nestedRow = screen.getByTestId('element-item-child')
     const rootContent = rootRow.firstElementChild
+    const rootLabel = screen.getByText('A')
 
     expect(rootRow.style.paddingLeft).toBe('0px')
     expect(nestedRow.style.paddingLeft).toBe('24px')
+    expect(rootLabel.classList.contains('px-1')).toBe(true)
     expect(
       [...rootRow.classList].some((className) => className.startsWith('pr-'))
     ).toBe(false)

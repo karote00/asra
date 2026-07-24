@@ -137,7 +137,7 @@ const Element = ({
           <ElementIcon elementId={id} type={type} />
         </div>
         <span
-          className={`text-[11px] truncate ${isSelected ? 'text-[#e5e5e5] font-medium' : 'text-[#ccc]'}`}
+          className={`px-1 text-[11px] truncate ${isSelected ? 'text-[#e5e5e5] font-medium' : 'text-[#ccc]'}`}
         >
           {name}
         </span>
