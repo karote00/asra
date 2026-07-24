@@ -1,6 +1,7 @@
 import { PROPS_ACTIONS } from '../constants'
 import { PropertyComponentRawData } from '../propsManager'
 import { DataTypes } from './constants'
+import type { ElementPropertyOwnerRelation } from './scene-tree'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
@@ -27,5 +28,22 @@ export interface UpdatePropertyChange {
 }
 
 export type PropsChange = AddRemovePropertyChange | UpdatePropertyChange
+
+export type PropsRestoreStrategy = 'reuse' | 'materialize'
+
+export interface PropsRestoreSnapshot {
+  readonly components: readonly PropertyComponentRawData[]
+}
+
+export interface PropsRestorePlanEntry {
+  readonly componentId: string
+  readonly strategy: PropsRestoreStrategy
+}
+
+export interface PropsRestorePlan {
+  readonly kind: 'props-restore-plan'
+  readonly entries: readonly PropsRestorePlanEntry[]
+  readonly ownerRelations: readonly ElementPropertyOwnerRelation[]
+}
 
 export interface PropsYjsChange extends YjsChange<PropsChange> {}

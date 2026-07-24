@@ -10,13 +10,22 @@ import type {
   UpdatePropertyChange,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
+  PropsRestorePlan,
+  PropsRestoreSnapshot,
+  PropsRestoreStrategy,
+  ElementPropertyOwnerRelation,
   PropsChange,
   PropsComponentRawData,
   EvnetOptions
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
+import { isEqual } from 'lodash'
 import { createProperty } from '../factories/create-property'
-import { getPropertyComponent } from '../registries/property-component'
+import {
+  getPropertyComponent,
+  getPropertyComponentConfigDefinition
+} from '../registries/property-component'
+import elementPropertyRegistry from '../registries/property-definition'
 import { setComponentAccessor } from './component-accessor'
 
 export type PropsLoadDiagnostic = LoadDiagnostic
@@ -44,6 +53,12 @@ class PropsManager {
   private validatedLoadArtifacts = new WeakMap<
     PropsLoadValidationResult,
     PropsComponentRawData
+  >()
+  private validatedRestoreArtifacts = new WeakMap<
+    PropsRestorePlan,
+    {
+      snapshot: PropsRestoreSnapshot
+    }
   >()
 
   constructor() {
@@ -213,6 +228,175 @@ class PropsManager {
 
   getRestoreComponentById(componentId: string) {
     return this._deletedMap.get(componentId)
+  }
+
+  preflightRestoreProperties(
+    snapshot: unknown,
+    ownerRelations: unknown
+  ): PropsRestorePlan {
+    if (
+      !isRecord(snapshot) ||
+      !Array.isArray(snapshot.components) ||
+      !Array.isArray(ownerRelations)
+    ) {
+      throw new Error(
+        '[PropsManager] Invalid property restore: exact snapshot and owner relations are required'
+      )
+    }
+
+    const validatedSnapshot = clonePropsValue(
+      snapshot as unknown as PropsRestoreSnapshot
+    )
+    const validatedRelations = clonePropsValue(
+      ownerRelations as ElementPropertyOwnerRelation[]
+    )
+    const components = validatedSnapshot.components
+    const componentIds = components.map(({ id }) => id)
+    if (
+      componentIds.some((componentId) => typeof componentId !== 'string') ||
+      new Set(componentIds).size !== componentIds.length
+    ) {
+      throw new Error(
+        '[PropsManager] Invalid property restore: duplicate or invalid component id'
+      )
+    }
+
+    const componentById = new Map(
+      components.map((component) => [component.id, component] as const)
+    )
+    components.forEach((component) => {
+      if (
+        !isRecord(component) ||
+        typeof component.id !== 'string' ||
+        component.id.length === 0 ||
+        typeof component.type !== 'string' ||
+        component.type.length === 0
+      ) {
+        throw new Error(
+          '[PropsManager] Invalid property restore: malformed component data'
+        )
+      }
+      if (!getPropertyComponent(component.type)) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: unregistered property type "${component.type}"`
+        )
+      }
+      if (this.getPropertyById(component.id)) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: active property "${component.id}" already exists`
+        )
+      }
+    })
+
+    const relationKeys = new Set<string>()
+    validatedRelations.forEach((relation) => {
+      if (
+        !isRecord(relation) ||
+        typeof relation.ownerElementId !== 'string' ||
+        typeof relation.ownerElementType !== 'string' ||
+        typeof relation.ownerPropertyName !== 'string' ||
+        typeof relation.componentId !== 'string'
+      ) {
+        throw new Error(
+          '[PropsManager] Invalid property restore: malformed owner relation'
+        )
+      }
+      const relationKey = `${relation.ownerElementId}:${relation.ownerPropertyName}`
+      if (relationKeys.has(relationKey)) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: duplicate owner relation "${relationKey}"`
+        )
+      }
+      relationKeys.add(relationKey)
+      const component = componentById.get(relation.componentId)
+      if (!component) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: missing owner data for "${relation.componentId}"`
+        )
+      }
+      const definition = elementPropertyRegistry.getForComponent(
+        relation.ownerElementType,
+        relation.ownerPropertyName
+      )
+      if (!definition || definition.type !== component.type) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: malformed owner relation for "${relation.componentId}"`
+        )
+      }
+    })
+
+    const reachableSnapshotIds = new Set<string>()
+    const visit = (componentId: string): void => {
+      if (reachableSnapshotIds.has(componentId)) return
+      const component = componentById.get(componentId)
+      if (!component) return
+      reachableSnapshotIds.add(componentId)
+      const config = getPropertyComponentConfigDefinition(component.type)
+      const childRelation = config?.children
+      if (!childRelation) return
+      const childIds = (component as unknown as Record<string, unknown>)[
+        childRelation.key
+      ]
+      if (
+        !Array.isArray(childIds) ||
+        childIds.some((childId) => typeof childId !== 'string') ||
+        new Set(childIds).size !== childIds.length
+      ) {
+        throw new Error(
+          `[PropsManager] Invalid property restore: malformed child relation for "${componentId}"`
+        )
+      }
+      childIds.forEach((childId) => {
+        const snapshotChild = componentById.get(childId)
+        const activeChild = this.getPropertyById(childId)
+        const childType = snapshotChild?.type ?? activeChild?.get('type')
+        if (!childType) {
+          throw new Error(
+            `[PropsManager] Invalid property restore: missing relation child "${childId}"`
+          )
+        }
+        if (childType !== childRelation.childType) {
+          throw new Error(
+            `[PropsManager] Invalid property restore: malformed child relation type for "${childId}"`
+          )
+        }
+        if (snapshotChild) visit(childId)
+      })
+    }
+    validatedRelations.forEach(({ componentId }) => visit(componentId))
+    if (reachableSnapshotIds.size !== components.length) {
+      throw new Error(
+        '[PropsManager] Invalid property restore: missing owner relation for snapshot component data'
+      )
+    }
+
+    const planEntries = components.map((component) => {
+      const tombstone = this._deletedMap.get(component.id)
+      let strategy: PropsRestoreStrategy = 'materialize'
+      if (tombstone) {
+        if (
+          tombstone.get('type') !== component.type ||
+          !isEqual(tombstone.save(), component)
+        ) {
+          throw new Error(
+            `[PropsManager] Invalid property restore: incompatible tombstone for "${component.id}"`
+          )
+        }
+        strategy = 'reuse'
+      }
+      return Object.freeze({ componentId: component.id, strategy })
+    })
+    const plan: PropsRestorePlan = Object.freeze({
+      kind: 'props-restore-plan',
+      entries: Object.freeze(planEntries),
+      ownerRelations: Object.freeze(
+        validatedRelations.map((relation) => Object.freeze(relation))
+      )
+    })
+    this.validatedRestoreArtifacts.set(plan, {
+      snapshot: validatedSnapshot
+    })
+    return plan
   }
 
   addChangeForAddProperty(property: PropertyComponentInstanceTypes) {

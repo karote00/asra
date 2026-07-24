@@ -1310,10 +1310,22 @@ class SceneTree {
       }
       return Object.freeze({ elementId: entry.elementId, strategy })
     })
+    const propertyOwnerRelations = entries.flatMap((entry) =>
+      Object.entries(entry.data.props ?? {}).map(
+        ([ownerPropertyName, componentId]) =>
+          Object.freeze({
+            ownerElementId: entry.elementId,
+            ownerElementType: entry.data.type,
+            ownerPropertyName,
+            componentId
+          })
+      )
+    )
     const plan: SceneTreeRestorePlan = Object.freeze({
       kind: 'scene-tree-restore-plan',
       elementId: rootEntry.elementId,
-      entries: Object.freeze(planEntries)
+      entries: Object.freeze(planEntries),
+      propertyOwnerRelations: Object.freeze(propertyOwnerRelations)
     })
     this.validatedRestoreArtifacts.set(plan, {
       snapshot: validated

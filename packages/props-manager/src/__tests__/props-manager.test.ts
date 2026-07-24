@@ -12,6 +12,7 @@ import {
 } from '@asyra/utils'
 import { PropsManager } from '../manager/props-manager'
 import { createProperty } from '../factories/create-property'
+import elementPropertyRegistry from '../registries/property-definition'
 import {
   propertySchemaRegistry,
   registerPropertySchema
@@ -126,7 +127,15 @@ const registerTestPropertyComponents = () => {
   propertyComponentRegistry.clear()
   registerPropertyComponent(PropertyTypes.POSITION, PositionComponent)
   registerPropertyComponent(PropertyTypes.DIMENSION, DimensionComponent)
-  registerPropertyComponent(PropertyTypes.CUSTOM, CustomComponent)
+  registerPropertyComponent(PropertyTypes.CUSTOM, CustomComponent, undefined, {
+    type: PropertyTypes.CUSTOM,
+    persistKeys: ['children'],
+    children: {
+      key: 'children',
+      childType: PropertyTypes.POSITION,
+      mode: 'ids'
+    }
+  })
   registerPropertyComponent(PropertyTypes.ANCHOR_POINT, AnchorPointComponent)
   registerPropertyComponent(PropertyTypes.ANCHOR_POINTS, AnchorPointsComponent)
 }
@@ -138,6 +147,14 @@ describe('PropsManager', () => {
     vi.clearAllMocks()
     registerTestPropertyComponents()
     registerTestSchemas()
+    elementPropertyRegistry.unregisterComponent('restore-test-element')
+    elementPropertyRegistry.register(
+      {
+        name: 'custom',
+        type: PropertyTypes.CUSTOM
+      },
+      'restore-test-element'
+    )
 
     propsManager = new PropsManager()
   })
@@ -503,6 +520,132 @@ describe('PropsManager', () => {
         data: [expect.objectContaining({ id: 'pp-2' })]
       })
     ])
+  })
+
+  describe('restore preflight', () => {
+    const ownerRelations = [
+      {
+        ownerElementId: 'element-restore',
+        ownerElementType: 'restore-test-element',
+        ownerPropertyName: 'custom',
+        componentId: 'custom-restore'
+      }
+    ]
+    const preflight = (
+      manager: PropsManager,
+      components: readonly unknown[],
+      relations: readonly unknown[] = ownerRelations
+    ) =>
+      (
+        manager as unknown as {
+          preflightRestoreProperties: (
+            snapshot: unknown,
+            ownerRelations: unknown
+          ) => {
+            entries: readonly {
+              componentId: string
+              strategy: 'reuse' | 'materialize'
+            }[]
+          }
+        }
+      ).preflightRestoreProperties({ components }, relations)
+
+    it('prepares exact known-data materialization including registered child relations', () => {
+      const components = [
+        {
+          id: 'position-child',
+          type: PropertyTypes.POSITION,
+          x: 10,
+          y: 20,
+          xUnit: Unit.PX,
+          yUnit: Unit.PX
+        },
+        {
+          id: 'custom-restore',
+          type: PropertyTypes.CUSTOM,
+          children: ['position-child'],
+          nested: { value: 42 }
+        }
+      ]
+      const before = propsManager.save()
+
+      const plan = preflight(propsManager, components)
+
+      expect(plan.entries).toEqual([
+        { componentId: 'position-child', strategy: 'materialize' },
+        { componentId: 'custom-restore', strategy: 'materialize' }
+      ])
+      expect(propsManager.save()).toEqual(before)
+    })
+
+    it('selects an exact tombstone and accepts an explicit property-free snapshot', () => {
+      const component = new CustomComponent({
+        id: 'custom-restore',
+        type: PropertyTypes.CUSTOM,
+        children: []
+      } as Partial<PropertyComponentInstanceDataTypes>)
+      propsManager.addToMap(component)
+      const exactData = component.save()
+      propsManager.removeProperty(['custom-restore'])
+      propsManager.cleanChanges()
+      const before = propsManager.save()
+
+      expect(preflight(propsManager, [exactData]).entries).toEqual([
+        { componentId: 'custom-restore', strategy: 'reuse' }
+      ])
+      expect(preflight(propsManager, [], []).entries).toEqual([])
+      expect(propsManager.save()).toEqual(before)
+    })
+
+    it('rejects duplicate, active, incompatible, unregistered, and malformed relation evidence without mutation', () => {
+      const exact = {
+        id: 'custom-restore',
+        type: PropertyTypes.CUSTOM,
+        children: []
+      }
+      const expectRejected = (
+        manager: PropsManager,
+        components: readonly unknown[],
+        pattern: RegExp,
+        relations: readonly unknown[] = ownerRelations
+      ) => {
+        const before = manager.save()
+        expect(() => preflight(manager, components, relations)).toThrow(pattern)
+        expect(manager.save()).toEqual(before)
+      }
+
+      expectRejected(propsManager, [exact, exact], /duplicate/i)
+      expectRejected(
+        propsManager,
+        [{ ...exact, type: 'missing-property-type' }],
+        /unregistered/i
+      )
+      expectRejected(
+        propsManager,
+        [{ ...exact, children: ['missing-child'] }],
+        /missing.*child/i
+      )
+      expectRejected(propsManager, [exact], /missing owner relation/i, [])
+
+      const activeManager = new PropsManager()
+      activeManager.addToMap(
+        new CustomComponent(
+          exact as Partial<PropertyComponentInstanceDataTypes>
+        )
+      )
+      activeManager.cleanChanges()
+      expectRejected(activeManager, [exact], /active property/i)
+
+      const tombstoneManager = new PropsManager()
+      const tombstone = new CustomComponent({
+        ...exact,
+        nested: { value: 1 }
+      } as Partial<PropertyComponentInstanceDataTypes>)
+      tombstoneManager.addToMap(tombstone)
+      tombstoneManager.removeProperty(['custom-restore'])
+      tombstoneManager.cleanChanges()
+      expectRejected(tombstoneManager, [exact], /incompatible tombstone/i)
+    })
   })
 
   // Test updatePropsData

@@ -48,10 +48,18 @@ export interface SceneTreeRestorePlanEntry {
   readonly strategy: SceneTreeRestoreStrategy
 }
 
+export interface ElementPropertyOwnerRelation {
+  readonly ownerElementId: string
+  readonly ownerElementType: string
+  readonly ownerPropertyName: string
+  readonly componentId: string
+}
+
 export interface SceneTreeRestorePlan {
   readonly kind: 'scene-tree-restore-plan'
   readonly elementId: string
   readonly entries: readonly SceneTreeRestorePlanEntry[]
+  readonly propertyOwnerRelations: readonly ElementPropertyOwnerRelation[]
 }
 
 export interface SceneTreeRestoreSnapshot {
