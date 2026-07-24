@@ -147,14 +147,14 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
-  it('keeps rows edge-aligned without an extra content gap', () => {
+  it('indents each hierarchy depth by one icon without an extra content gap', () => {
     render(<Contents />)
     const rootRow = screen.getByTestId('element-item-a')
     const nestedRow = screen.getByTestId('element-item-child')
     const rootContent = rootRow.firstElementChild
 
     expect(rootRow.style.paddingLeft).toBe('0px')
-    expect(nestedRow.style.paddingLeft).toBe('16px')
+    expect(nestedRow.style.paddingLeft).toBe('24px')
     expect(
       [...rootRow.classList].some((className) => className.startsWith('pr-'))
     ).toBe(false)

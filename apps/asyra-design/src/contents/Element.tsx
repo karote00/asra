@@ -1,5 +1,6 @@
 import { type MouseEvent, type PointerEvent, useCallback } from 'react'
 import type { ElementRawData } from '@asyra/utils'
+import { ICON_SIZE } from '../constants'
 import { useElementData } from '../providers'
 import { setHoveredElementId } from '../controllers/hovered-element'
 import {
@@ -103,7 +104,7 @@ const Element = ({
       className="layer-item flex items-center justify-between cursor-default"
       style={{
         height: '32px',
-        paddingLeft: `${depth * 16}px`,
+        paddingLeft: `${depth * ICON_SIZE}px`,
         background,
         boxShadow
       }}
