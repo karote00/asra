@@ -403,6 +403,7 @@ export async function redo(page: Page) {
   await page.keyboard.down('Meta')
   await page.keyboard.down('Shift')
   await page.keyboard.press('Z')
+  await page.keyboard.up('Shift')
   await page.keyboard.up('Meta')
   await page.waitForTimeout(1000) // Extra time for redo to process
 }

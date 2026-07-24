@@ -151,6 +151,9 @@ Import boundary:
     geometry, and the outer create session remains one undo commit
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: EVENT_OPTIONS): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
+  - delegates every existing non-workspace identity to the public canonical
+    `removeSubtree` boundary; deleting a Group removes its complete subtree
+    rather than leaving descendants attached to a missing parent
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`

@@ -15,7 +15,6 @@ import {
   type DataTypes,
   type EntityType,
   type EVENT_OPTIONS,
-  type GroupInstanceTypes,
   type PositionData
 } from '@asyra/utils'
 import core, { render, sceneTree } from '../../contexts'
@@ -524,20 +523,8 @@ export const elementApis = {
       return false
     }
 
-    const parentId = element.get('parentId') as string
-    if (!parentId) {
-      return false
-    }
-
-    const parent = sceneTree.getElementById(parentId) as
-      | GroupInstanceTypes
-      | undefined
-    if (!parent) {
-      return false
-    }
-
-    return runTransaction(() =>
-      sceneTree.removeElement({ id: elementId }, parent, options)
+    return runTransaction(
+      () => core.removeSubtree(elementId, options).removed.length > 0
     )
   },
 
