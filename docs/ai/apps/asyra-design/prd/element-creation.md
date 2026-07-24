@@ -17,15 +17,26 @@ Users need low-friction shape creation with both quick default-size placement an
 3. Mouse up without movement resets the completed element to the 100×100 click-creation size.
 4. Created element is selected immediately.
 5. Creation is visible in the Contents panel and property panel during the active pointer session.
+6. Mouse down uses the canvas hierarchy target rules to choose an official
+   Group parent. A missing raw element hit creates under the explicit workspace
+   root even when a Group is selected.
+7. Nested Group creation preserves world position and keeps affected Group
+   bounds canonical throughout click or drag creation.
 
 ## Constraints
 
 - behavior implemented via `create-element` feature session
-- geometry writes use `elementApis.changeComputedData`
+- parent identity is app-owned and comes from the canonical hierarchy
+  projection; Render ancestry and Group hit-area inference are not parent
+  sources
+- official Group reparent and bounds/coordinate normalization use Preset
+  adapters inside the create transaction
+- geometry writes use `elementApis.changeElementGeometry`
 
 ## Success Criteria
 
-- `element-creation.spec.ts` and `oval.spec.ts` creation scenarios pass
+- `element-creation.spec.ts`, `group-interaction.spec.ts`, and `oval.spec.ts`
+  creation scenarios pass
 - click and drag creation both work repeatedly without state corruption
 
 ## References

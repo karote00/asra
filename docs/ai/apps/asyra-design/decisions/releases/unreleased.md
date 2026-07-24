@@ -6682,3 +6682,29 @@ join` constrained dashed product path across:
     existing max threshold continues to reject a real worst-frame regression.
 - Related Commit(s):
   - pending
+
+## 2026-07-24 - Resolve create parent from canonical canvas hierarchy
+
+- Context:
+  - Element creation left Core parent unspecified, activating Scene Tree's
+    legacy first-Frame fallback and placing empty-canvas creates in the first
+    top-level Group.
+  - Nested Group creation also requires Preset-owned coordinate and bounds
+    normalization instead of app-owned Group-origin arithmetic.
+- Decision:
+  - Resolve create parent at mouse down through the same exact parent-scope and
+    Meta/Ctrl hierarchy target policy used by canvas hover, selection, and
+    move.
+  - Use the explicit workspace root when there is no raw element hit; reject
+    malformed or disallowed hierarchy targets before creation.
+  - Route official Group membership, coordinate preservation, and bounds
+    normalization through existing Preset adapters in the same create
+    transaction.
+- Consequences:
+  - Empty-canvas creation no longer falls into the first Group.
+  - Nested Group click/drag creation preserves identity and visible world
+    position while Group bounds remain canonical.
+  - Scene Tree remains the hierarchy validator, Preset remains the Group
+    geometry owner, and Render supplies no fallback hierarchy.
+- Related Commit(s):
+  - pending

@@ -344,7 +344,9 @@ Feature registry (`src/features/index.ts`):
 - `create-element`
 
   - `elementApis.createElement`
-  - `elementApis.changeComputedData`
+  - `elementApis.getPositionInParent`
+  - `elementApis.changeElementGeometry`
+  - `resolveCreateElementParentAtClientPos`
   - `selectionApis.selectElements`
 
 - `selection`
