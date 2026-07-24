@@ -2,10 +2,7 @@ import { defineFeature, EventTypes } from '@asyra/core'
 import type { RenderPointerPayload, SystemContextSnapshot } from '@asyra/utils'
 import { elementApis, systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
-import {
-  resolveCanvasHierarchyTargetAtClientPos,
-  resolveCurrentCanvasHierarchyTarget
-} from '../../controllers/canvas-hierarchy-target'
+import { resolveCurrentCanvasHierarchyTarget } from '../../controllers/canvas-hierarchy-target'
 
 const publishHoveredElementId = (elementId: string | null) => {
   if (
@@ -19,6 +16,22 @@ const publishHoveredElementId = (elementId: string | null) => {
 
   systemContextApis.updateHoveredElementId(null)
   return { hoveredId: null }
+}
+
+const resolveHoveredElementId = (
+  rawElementId: string | null,
+  snapshot: Pick<SystemContextSnapshot, 'keyMeta' | 'keyCtrl'>
+) => {
+  const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+  if (
+    pathEditingVectorId &&
+    rawElementId &&
+    rawElementId !== pathEditingVectorId
+  ) {
+    return null
+  }
+
+  return resolveCurrentCanvasHierarchyTarget(rawElementId, snapshot)
 }
 
 /**
@@ -39,8 +52,11 @@ export const hoverElementFeature = defineFeature(
         return null
       }
 
+      const rawElementId = elementApis.getRenderElementIdAtClientPos(
+        snapshot.mousePosition
+      )
       return publishHoveredElementId(
-        resolveCanvasHierarchyTargetAtClientPos(snapshot)
+        resolveHoveredElementId(rawElementId, snapshot)
       )
     }
   }
@@ -68,17 +84,8 @@ export const hoverElementRenderHoverFeature = defineFeature(
         return null
       }
       const rawElementId = payload?.elementId ?? null
-      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
-      if (
-        pathEditingVectorId &&
-        rawElementId &&
-        rawElementId !== pathEditingVectorId
-      ) {
-        return publishHoveredElementId(null)
-      }
-
       return publishHoveredElementId(
-        resolveCurrentCanvasHierarchyTarget(rawElementId, snapshot)
+        resolveHoveredElementId(rawElementId, snapshot)
       )
     }
   }

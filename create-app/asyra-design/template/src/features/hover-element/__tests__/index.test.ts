@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
       dispose: vi.fn()
     })
   ),
+  getRenderElementIdAtClientPos: vi.fn(),
   getPathEditingVectorId: vi.fn(),
   isElementLocked: vi.fn(),
   isElementVisible: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('@asyra/core', async (importOriginal) => ({
 
 vi.mock('../../../common-apis', () => ({
   elementApis: {
+    getRenderElementIdAtClientPos: mocks.getRenderElementIdAtClientPos,
     isElementLocked: mocks.isElementLocked,
     isElementVisible: mocks.isElementVisible
   },
@@ -78,15 +80,38 @@ describe('canvas hierarchy hover feature', () => {
       keyMeta: true,
       keyCtrl: false
     }
-    mocks.resolveAtClientPos.mockReturnValue('nested-leaf')
+    mocks.getRenderElementIdAtClientPos.mockReturnValue('nested-leaf')
+    mocks.resolveCurrent.mockReturnValue('nested-leaf')
 
     expect(
       hoverElementFeatureDefinition.execution?.(snapshot as never)
     ).toEqual({
       hoveredId: 'nested-leaf'
     })
-    expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(snapshot)
+    expect(mocks.getRenderElementIdAtClientPos).toHaveBeenCalledWith(
+      snapshot.mousePosition
+    )
+    expect(mocks.resolveCurrent).toHaveBeenCalledWith('nested-leaf', snapshot)
     expect(mocks.updateHoveredElementId).toHaveBeenCalledWith('nested-leaf')
+  })
+
+  it('keeps a pointer move on another element outside the active path-editing target', () => {
+    const snapshot = {
+      mouseDragging: false,
+      mousePosition: { x: 10, y: 20 },
+      keyMeta: false,
+      keyCtrl: false
+    }
+    mocks.getRenderElementIdAtClientPos.mockReturnValue('rectangle-1')
+    mocks.getPathEditingVectorId.mockReturnValue('vector-1')
+
+    expect(
+      hoverElementFeatureDefinition.execution?.(snapshot as never)
+    ).toEqual({
+      hoveredId: null
+    })
+    expect(mocks.resolveCurrent).not.toHaveBeenCalled()
+    expect(mocks.updateHoveredElementId).toHaveBeenCalledWith(null)
   })
 
   it('resolves a Render hover payload before publishing canonical hover state', () => {
