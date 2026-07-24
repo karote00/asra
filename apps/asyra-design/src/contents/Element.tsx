@@ -8,11 +8,16 @@ import {
 } from '../controllers/element-row-actions'
 import { ElementIcon } from './ElementIcon'
 import { ElementRowActions } from './ElementRowActions'
+import { GroupDisclosure } from './GroupDisclosure'
 
 interface ElementData {
   elementId: string
   isSelected: boolean
   isHovered: boolean
+  depth: number
+  isGroup: boolean
+  isExpanded: boolean
+  onToggleGroup: (groupId: string) => void
   onSelect: (event: MouseEvent<HTMLDivElement>, elementId: string) => void
 }
 
@@ -20,6 +25,10 @@ const Element = ({
   elementId,
   isSelected,
   isHovered,
+  depth,
+  isGroup,
+  isExpanded,
+  onToggleGroup,
   onSelect
 }: ElementData) => {
   const elementData = useElementData(elementId)
@@ -56,9 +65,10 @@ const Element = ({
 
   return (
     <div
-      className="layer-item flex items-center justify-between px-3 cursor-default"
+      className="layer-item flex items-center justify-between pr-3 cursor-default"
       style={{
         height: '32px',
+        paddingLeft: `${12 + depth * 16}px`,
         ...(isSelected
           ? { background: 'rgba(13,153,255,0.15)' }
           : isHovered
@@ -71,8 +81,18 @@ const Element = ({
       data-testid={`element-item-${id}`}
       data-layer-element="true"
       data-selected={isSelected}
+      data-layer-depth={depth}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {isGroup ? (
+          <GroupDisclosure
+            groupId={id}
+            isExpanded={isExpanded}
+            onToggle={onToggleGroup}
+          />
+        ) : (
+          <span className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        )}
         <div
           className={`flex items-center flex-shrink-0 ${isSelected ? 'text-[#4db3ff]' : 'text-[#999]'}`}
         >

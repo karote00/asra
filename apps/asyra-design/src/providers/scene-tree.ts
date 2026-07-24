@@ -1,16 +1,46 @@
 import { useSyncExternalStore } from 'react'
-import { useProperty } from '../hooks'
 import type { ElementRawData } from '@asyra/utils'
+import type { PropertyValue } from '@asyra/ui-context'
 import { UI_PROPERTIES } from '../constants'
 import core from '../contexts'
 
-export const useFlattenedIdsData = (): string[] =>
-  useProperty<string[]>('flattenedElementIds')
-
 type ElementDataMap = Record<string, Partial<ElementRawData>>
 
+const EMPTY_FLATTENED_IDS: string[] = []
+const EMPTY_ELEMENT_DATA_MAP: ElementDataMap = {}
+
+const useCanonicalUIProperty = <T extends PropertyValue>(
+  key: string,
+  fallback: T
+): T => {
+  const getSnapshot = () => core.getUIProperty<T>(key) ?? fallback
+
+  return useSyncExternalStore(
+    (callback) => {
+      const subject = core.getUIPropertySubject<T>(key)
+      if (!subject) {
+        return () => undefined
+      }
+
+      const subscription = subject.subscribe(callback)
+      return () => subscription.unsubscribe()
+    },
+    getSnapshot,
+    getSnapshot
+  )
+}
+
+export const useFlattenedIdsData = (): string[] =>
+  useCanonicalUIProperty(
+    UI_PROPERTIES.FLATTENED_ELEMENT_IDS,
+    EMPTY_FLATTENED_IDS
+  )
+
 export const useElementDataMap = (): ElementDataMap =>
-  useProperty<ElementDataMap>('elementDataMap') ?? {}
+  useCanonicalUIProperty(
+    UI_PROPERTIES.ELEMENT_DATA_MAP,
+    EMPTY_ELEMENT_DATA_MAP
+  )
 
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
   const elementDataMap = useElementDataMap()
@@ -18,10 +48,6 @@ export const useElementData = (elementId: string): Partial<ElementRawData> => {
 }
 
 export const useVectorIconPathMap = (elementId: string): string | null => {
-  // useSyncExternalStore requires:
-  // 1) subscribe: notify when this element's path changes
-  // 2) getSnapshot: current value for client render
-  // 3) getServerSnapshot: current value for SSR render
   const getSnapshot = () => {
     const map = core.getUIProperty<Record<string, string>>(
       UI_PROPERTIES.VECTOR_ICON_PATH_MAP
