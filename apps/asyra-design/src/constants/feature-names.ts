@@ -8,7 +8,8 @@ export const ElementFeatureNames = {
   HOVER_ELEMENT: 'hoverElement',
   SELECTION: 'selection',
   DELETE_SELECTED_ELEMENT: 'deleteSelectedElement',
-  GROUP_ELEMENTS: 'groupElements'
+  GROUP_ELEMENTS: 'groupElements',
+  MOVE_LAYER_HIERARCHY: 'moveLayerHierarchy'
 } as const
 
 export const ViewportFeatureNames = {
