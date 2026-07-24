@@ -89,6 +89,172 @@ const getWorldPositions = (
   }, elementIds)
 
 test.describe('Asyra Design Group interaction MVP', () => {
+  test('undoes and redoes a basic two-rectangle Group without losing either rectangle', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await waitForAppReady(page)
+    await resetCanvas(page)
+
+    await createRectangle(page, 0.35, 0.42)
+    await createRectangle(page, 0.65, 0.58)
+
+    const initialIds = await getLayerIds(page)
+    expect(initialIds).toHaveLength(2)
+    const initialWorldPositions = await getWorldPositions(page, initialIds)
+    const initialHierarchy = await page.evaluate((elementIds) => {
+      const sceneTree = window.__Core__.deps.sceneTree
+      const workspaceId = String(sceneTree.workspace)
+      const workspace = sceneTree.getElementById(workspaceId)
+      return {
+        workspaceId,
+        workspaceChildren: [
+          ...((workspace?.get('children') as string[] | undefined) ?? [])
+        ],
+        parentIds: elementIds.map((elementId) =>
+          String(sceneTree.getElementById(elementId)?.get('parentId') ?? '')
+        )
+      }
+    }, initialIds)
+    expect(initialHierarchy.workspaceChildren).toEqual(initialIds)
+    expect(initialHierarchy.parentIds).toEqual(
+      initialIds.map(() => initialHierarchy.workspaceId)
+    )
+    await page.evaluate((elementIds) => {
+      const core = window.__Core__
+      ;(
+        window as typeof window & {
+          __BasicGroupUndoIdentity?: {
+            sceneElements: unknown[]
+            renderElements: unknown[]
+          }
+        }
+      ).__BasicGroupUndoIdentity = {
+        sceneElements: elementIds.map((elementId) =>
+          core.deps.sceneTree.getElementById(elementId)
+        ),
+        renderElements: elementIds.map((elementId) =>
+          core.deps.render.getElementById(elementId)
+        )
+      }
+    }, initialIds)
+
+    const groupId = await groupLayerIds(page, initialIds)
+    expect(groupId).not.toBe(initialIds[0])
+    expect(groupId).not.toBe(initialIds[1])
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ createdGroupId, childIds }) => {
+            const sceneTree = window.__Core__.deps.sceneTree
+            const group = sceneTree.getElementById(createdGroupId)
+            return {
+              groupExists: Boolean(group),
+              groupChildren: [
+                ...((group?.get('children') as string[] | undefined) ?? [])
+              ],
+              childParentIds: childIds.map((childId) =>
+                String(sceneTree.getElementById(childId)?.get('parentId') ?? '')
+              )
+            }
+          },
+          { createdGroupId: groupId, childIds: initialIds }
+        )
+      )
+      .toEqual({
+        groupExists: true,
+        groupChildren: initialIds,
+        childParentIds: initialIds.map(() => groupId)
+      })
+
+    await undo(page)
+
+    await expect.poll(() => getLayerIds(page)).toEqual(initialIds)
+    await expect.poll(() => getSelectedIds(page)).toEqual(initialIds)
+    const undoHierarchy = await page.evaluate(
+      ({ createdGroupId, elementIds, workspaceId }) => {
+        const sceneTree = window.__Core__.deps.sceneTree
+        const workspace = sceneTree.getElementById(workspaceId)
+        return {
+          groupExists: Boolean(sceneTree.getElementById(createdGroupId)),
+          elementExists: elementIds.map((elementId) =>
+            Boolean(sceneTree.getElementById(elementId))
+          ),
+          workspaceChildren: [
+            ...((workspace?.get('children') as string[] | undefined) ?? [])
+          ],
+          parentIds: elementIds.map((elementId) =>
+            String(sceneTree.getElementById(elementId)?.get('parentId') ?? '')
+          )
+        }
+      },
+      {
+        createdGroupId: groupId,
+        elementIds: initialIds,
+        workspaceId: initialHierarchy.workspaceId
+      }
+    )
+    expect(undoHierarchy).toEqual({
+      groupExists: false,
+      elementExists: initialIds.map(() => true),
+      workspaceChildren: initialHierarchy.workspaceChildren,
+      parentIds: initialHierarchy.parentIds
+    })
+    expect(await getWorldPositions(page, initialIds)).toEqual(
+      initialWorldPositions
+    )
+    const undoIdentity = await page.evaluate((elementIds) => {
+      const core = window.__Core__
+      const initial = (
+        window as typeof window & {
+          __BasicGroupUndoIdentity?: {
+            sceneElements: unknown[]
+            renderElements: unknown[]
+          }
+        }
+      ).__BasicGroupUndoIdentity
+      if (!initial) {
+        throw new Error('Missing basic Group undo identity evidence')
+      }
+      return {
+        scene: elementIds.map(
+          (elementId, index) =>
+            core.deps.sceneTree.getElementById(elementId) ===
+            initial.sceneElements[index]
+        ),
+        render: elementIds.map(
+          (elementId, index) =>
+            core.deps.render.getElementById(elementId) ===
+            initial.renderElements[index]
+        ),
+        renderParentIds: elementIds.map(
+          (elementId) =>
+            core.deps.render.getElementById(elementId)?.parent?.label ?? null
+        )
+      }
+    }, initialIds)
+    expect(undoIdentity).toEqual({
+      scene: initialIds.map(() => true),
+      render: initialIds.map(() => true),
+      renderParentIds: initialIds.map(() => initialHierarchy.workspaceId)
+    })
+
+    await redo(page)
+
+    await expect.poll(() => getSelectedIds(page)).toEqual([groupId])
+    await expect(layerRow(page, groupId)).toBeVisible()
+    expect(await getWorldPositions(page, initialIds)).toEqual(
+      initialWorldPositions
+    )
+    await page.evaluate(() => {
+      delete (
+        window as typeof window & {
+          __BasicGroupUndoIdentity?: unknown
+        }
+      ).__BasicGroupUndoIdentity
+    })
+  })
+
   test('creates in the hierarchy-target Group or explicit workspace root from mouse down', async ({
     page
   }) => {
