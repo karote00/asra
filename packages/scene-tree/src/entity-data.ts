@@ -7,6 +7,8 @@ import {
 import Workspace from './components/workspace'
 import componentRegistry from './component-registry'
 import type { ISceneTreeRegistry } from './types'
+import propsManager, { type PropsManager } from '@asyra/props-manager'
+import { runWithSceneTreePropsManager } from './props-manager-context'
 
 const initWorkspaceData = {
   type: EntityTypes.WORKSPACE
@@ -26,7 +28,8 @@ export const isGroupEntity = (type: string): boolean => {
 }
 
 export const createElement = (
-  elementData: Partial<ElementRawData>
+  elementData: Partial<ElementRawData>,
+  propsManagerOwner: PropsManager = propsManager
 ): ElementInstanceTypes | null => {
   if (
     elementData.type === EntityTypes.WORKSPACE ||
@@ -42,13 +45,13 @@ export const createElement = (
   const registration = componentRegistry.get(elementType)
   if (registration) {
     const EntityClass = registration.constructor
-    // Make a shallow copy to avoid modifying original object if reference is shared
-    // but here we modify the passed object as per original logic?
-    // Original logic: delete elementData.type
-    // We should follow that.
-    delete elementData.type
+    const constructorData = { ...elementData }
+    delete constructorData.type
 
-    return new EntityClass(elementData)
+    return runWithSceneTreePropsManager(
+      propsManagerOwner,
+      () => new EntityClass(constructorData)
+    )
   }
 
   throw new Error(`No component registered for type: ${elementType}`)

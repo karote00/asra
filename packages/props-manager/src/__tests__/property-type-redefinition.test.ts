@@ -578,6 +578,33 @@ describe('declarative property type definition owner', () => {
     ])
   })
 
+  it('keeps declarative child projection on the issuing Props Manager', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const firstManager = new PropsManager()
+    const secondManager = new PropsManager()
+    const createParent = (manager: PropsManager, childValue: number) => {
+      const parent = manager.createProperty({
+        id: 'shared-parent',
+        type: TYPE,
+        children: [{ id: 'shared-child', value: childValue }]
+      })
+      manager.addProperty([parent])
+      manager.cleanChanges()
+      return parent
+    }
+    const firstParent = createParent(firstManager, 1)
+    const secondParent = createParent(secondManager, 2)
+
+    expect(firstParent.getValue().children).toEqual([
+      { id: 'shared-child', value: 1 }
+    ])
+    expect(secondParent.getValue().children).toEqual([
+      { id: 'shared-child', value: 2 }
+    ])
+  })
+
   it('treats validator exceptions as invalid runtime and load values', () => {
     registerDeclarativeType()
     const throwingDefinition: PropertyTypeDefinition = {

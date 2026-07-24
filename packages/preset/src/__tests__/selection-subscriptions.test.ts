@@ -336,6 +336,7 @@ describe('Preset Selection Subscriptions', () => {
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         eventName: EventTypes.CHANGE_SUBTREE,
         elementId: 'group-1',
+        rootParentChildrenAfter: [],
         removed: [
           {
             elementId: 'group-1',
@@ -346,6 +347,12 @@ describe('Preset Selection Subscriptions', () => {
         ]
       }
       observer?.onChange(subtreeChange)
+      const restoreSubtreeChange = {
+        ...subtreeChange,
+        action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+      }
+      observer?.onChange(restoreSubtreeChange)
 
       expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
       expect(scalar).toHaveBeenCalledWith(
@@ -383,7 +390,8 @@ describe('Preset Selection Subscriptions', () => {
         1
       )
       expect(move).toHaveBeenCalledWith(moves)
-      expect(subtree).toHaveBeenCalledWith(subtreeChange)
+      expect(subtree).toHaveBeenNthCalledWith(1, subtreeChange)
+      expect(subtree).toHaveBeenNthCalledWith(2, restoreSubtreeChange)
       expect(counters).toEqual([
         'render-projection-outcome-applied',
         'render-projection-outcome-resynced',
@@ -391,6 +399,7 @@ describe('Preset Selection Subscriptions', () => {
         'render-projection-outcome-failed',
         'render-projection-outcome-removed',
         'render-projection-outcome-applied',
+        'render-projection-outcome-removed',
         'render-projection-outcome-removed'
       ])
     } finally {
@@ -545,6 +554,7 @@ describe('Preset Selection Subscriptions', () => {
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         eventName: EventTypes.CHANGE_SUBTREE,
         elementId: 'group-1',
+        rootParentChildrenAfter: [],
         removed: [
           {
             elementId: 'rect-1',
@@ -589,6 +599,7 @@ describe('Preset Selection Subscriptions', () => {
         undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
         eventName: EventTypes.CHANGE_SUBTREE,
         elementId: 'group-1',
+        rootParentChildrenAfter: [],
         removed: [
           {
             elementId: 'rect-1',

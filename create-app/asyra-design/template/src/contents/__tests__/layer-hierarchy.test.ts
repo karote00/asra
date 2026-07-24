@@ -62,6 +62,29 @@ describe('canonical Layers hierarchy projection', () => {
     ).toEqual(['root', 'sibling'])
   })
 
+  it('projects restored normal and empty Groups from canonical stable identities', () => {
+    const restoredMap = {
+      restored: element('restored', 'workspace', EntityTypes.GROUP),
+      child: element('child', 'restored'),
+      empty: element('empty', 'workspace', EntityTypes.GROUP)
+    }
+
+    expect(
+      projectVisibleLayerRows(
+        ['restored', 'child', 'empty'],
+        restoredMap,
+        new Set()
+      )
+    ).toEqual({
+      rows: [
+        { id: 'restored', depth: 0, isGroup: true, isExpanded: true },
+        { id: 'child', depth: 1, isGroup: false, isExpanded: false },
+        { id: 'empty', depth: 0, isGroup: true, isExpanded: true }
+      ],
+      error: null
+    })
+  })
+
   it('rejects duplicate, missing, misordered, and cyclic projections', () => {
     expect(
       projectVisibleLayerRows(['root', 'root'], elementDataMap, new Set())

@@ -43,6 +43,9 @@ export const initPropXSubscribes = () => {
           newProperty = propsManager.getRestoreComponentById(
             propData.id as string
           )
+          if (newProperty) {
+            propsManager.addChangeForAddProperty(newProperty)
+          }
         }
 
         if (!newProperty) {

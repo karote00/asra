@@ -13,6 +13,7 @@ import {
 import { BasePropertyComponent } from './components'
 import {
   getPropertyComponentAccessor,
+  runWithPropertyComponentAccessor,
   type PropertyComponentAccessor
 } from './manager/component-accessor'
 
@@ -30,7 +31,8 @@ export {
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent,
   BasePropertyComponent,
-  getPropertyComponentAccessor
+  getPropertyComponentAccessor,
+  runWithPropertyComponentAccessor
 }
 export type { PropertyDefinition } from './registries/property-definition'
 export type { PropertyComponentConstructor } from './components'

@@ -417,6 +417,69 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.removeElement).not.toHaveBeenCalled()
   })
 
+  it('projects moved children into the workspace when the settled source parent is already removed', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const workspaceRaw = {
+      id: 'workspace-1',
+      type: EntityTypes.WORKSPACE,
+      children: ['group']
+    }
+    const groupRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      children: ['first', 'second']
+    }
+    const firstRaw = {
+      type: 'rectangle',
+      parentId: 'group'
+    }
+    const secondRaw = {
+      type: 'rectangle',
+      parentId: 'group'
+    }
+    const elements = new Map([
+      ['workspace-1', createElement('workspace-1', workspaceRaw, {})],
+      ['group', createElement('group', groupRaw, {})],
+      ['first', createElement('first', firstRaw, {})],
+      ['second', createElement('second', secondRaw, {})]
+    ])
+    currentWorkspace = { save: () => ({ ...workspaceRaw }) }
+    sceneTreeMock.getAllElements.mockReturnValue(elements as never)
+    sceneTreeMock.getElementById.mockImplementation(
+      (elementId) => elements.get(elementId) as never
+    )
+    store.reload()
+    renderMock.addElement.mockClear()
+    renderMock.removeElement.mockClear()
+    renderMock.projectHierarchy.mockClear()
+
+    workspaceRaw.children = ['first', 'second']
+    firstRaw.parentId = 'workspace-1'
+    secondRaw.parentId = 'workspace-1'
+    elements.delete('group')
+
+    expect(
+      store.moveElements([
+        {
+          elementId: 'first',
+          before: { parentId: 'group', index: 0 },
+          after: { parentId: 'workspace-1', index: 1 }
+        },
+        {
+          elementId: 'second',
+          before: { parentId: 'group', index: 1 },
+          after: { parentId: 'workspace-1', index: 2 }
+        }
+      ])
+    ).toEqual({ status: 'applied', elementId: 'first' })
+    expect(renderMock.projectHierarchy.mock.calls).toEqual([
+      ['workspace-1', ['first', 'second']]
+    ])
+    expect(renderMock.addElement).not.toHaveBeenCalled()
+    expect(renderMock.removeElement).not.toHaveBeenCalled()
+  })
+
   it('projects subtree removal descendant-first and restoration parent-first', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -476,6 +539,7 @@ describe('RenderSceneTree computed data mirror', () => {
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         eventName: 'changeSubtree',
         elementId: 'group',
+        rootParentChildrenAfter: [],
         removed
       })
     ).toEqual({ status: 'removed', elementId: 'group' })
@@ -494,6 +558,7 @@ describe('RenderSceneTree computed data mirror', () => {
         undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
         eventName: 'changeSubtree',
         elementId: 'group',
+        rootParentChildrenAfter: [],
         removed
       })
     ).toEqual({ status: 'applied', elementId: 'group' })

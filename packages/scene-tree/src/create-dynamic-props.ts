@@ -4,22 +4,15 @@ import type {
   PropsRawData,
   IProps
 } from '@asyra/utils'
-import propsManager from '@asyra/props-manager'
-import type { PropertyDefinition } from '@asyra/props-manager'
+import propsManager, {
+  type PropertyDefinition,
+  type PropsManager
+} from '@asyra/props-manager'
 
 export function createDynamicPropsClass(properties: PropertyDefinition[]) {
   // Build maps for efficient lookup
   const propNameToType = new Map<string, string>()
   const aliasToProperty = new Map<string, string>()
-
-  const createProperty = (prop: PropertyDefinition, id?: string) =>
-    propsManager.createProperty({
-      ...(id ? { id } : {}),
-      type: prop.type,
-      ...(prop.defaultValue === undefined
-        ? {}
-        : { [prop.name]: prop.defaultValue })
-    })
 
   properties.forEach((prop) => {
     propNameToType.set(prop.name, prop.type)
@@ -35,7 +28,11 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
     elementId: string;
     [key: string]: unknown // Generic index for class methods and properties
 
-    constructor(elementId: string, data?: Partial<PropsRawData>) {
+    constructor(
+      elementId: string,
+      data?: Partial<PropsRawData>,
+      private readonly propsManagerOwner: PropsManager = propsManager
+    ) {
       this.elementId = elementId
 
       if (data) {
@@ -50,11 +47,21 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       return typeof val === 'string' ? val : undefined
     }
 
+    private createProperty(prop: PropertyDefinition, id?: string) {
+      return this.propsManagerOwner.createProperty({
+        ...(id ? { id } : {}),
+        type: prop.type,
+        ...(prop.defaultValue === undefined
+          ? {}
+          : { [prop.name]: prop.defaultValue })
+      })
+    }
+
     init() {
       // Create property components for each property and store by name
       properties.forEach((prop) => {
-        const component = createProperty(prop)
-        propsManager.addToMap(component)
+        const component = this.createProperty(prop)
+        this.propsManagerOwner.addToMap(component)
         this[prop.name] = component.get('id')
       })
     }
@@ -64,15 +71,15 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       properties.forEach((prop) => {
         const propId = dataObj[prop.name]
         const propComponent = propId
-          ? propsManager.getPropertyById(propId)
+          ? this.propsManagerOwner.getPropertyById(propId)
           : null
 
         if (propComponent) {
           this[prop.name] = propId
-          propsManager.addToMap(propComponent)
+          this.propsManagerOwner.addToMap(propComponent)
         } else {
-          const component = createProperty(prop, propId)
-          propsManager.addToMap(component)
+          const component = this.createProperty(prop, propId)
+          this.propsManagerOwner.addToMap(component)
           this[prop.name] = component.get('id')
         }
       })
@@ -103,19 +110,20 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       }
 
       // Update the property component data
-      propsManager.updatePropsData(propId, key, data, options)
+      this.propsManagerOwner.updatePropsData(propId, key, data, options)
     }
 
     cleanup(options?: EvnetOptions) {
       properties.forEach((prop) => {
         const propId = this.getPropId(prop.name)
         if (propId) {
-          propsManager.removeProperty([propId], options)
+          this.propsManagerOwner.removeProperty([propId], options)
         }
       })
     }
   } as unknown as new (
     elementId: string,
-    data?: Partial<PropsRawData>
+    data?: Partial<PropsRawData>,
+    propsManager?: PropsManager
   ) => IProps
 }

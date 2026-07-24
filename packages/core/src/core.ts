@@ -204,6 +204,8 @@ class Core implements CoreAPIs {
   commitPropertyChanges!: CoreAPIs['commitPropertyChanges']
   propsLoadData!: CoreAPIs['propsLoadData']
   propsSaveData!: CoreAPIs['propsSaveData']
+  preflightRestoreProperties!: CoreAPIs['preflightRestoreProperties']
+  applyRestoreProperties!: CoreAPIs['applyRestoreProperties']
 
   sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
@@ -213,6 +215,8 @@ class Core implements CoreAPIs {
   getElementComputedData!: SceneTreeAPIs['getElementComputedData']
   moveElements!: SceneTreeAPIs['moveElements']
   removeSubtree!: SceneTreeAPIs['removeSubtree']
+  preflightRestoreSubtree!: SceneTreeAPIs['preflightRestoreSubtree']
+  applyRestoreSubtree!: SceneTreeAPIs['applyRestoreSubtree']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
   changeComputedDataPatch!: SceneTreeAPIs['changeComputedDataPatch']
   refreshComputedDataFromProperty!: SceneTreeAPIs['refreshComputedDataFromProperty']

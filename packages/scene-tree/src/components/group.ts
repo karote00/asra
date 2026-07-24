@@ -6,6 +6,7 @@ import type {
   ElementRawData
 } from '@asyra/utils'
 import { IDTypes, NameTypes } from '@asyra/utils'
+import type { PropsManager } from '@asyra/props-manager'
 import Element from './element'
 
 type GroupDataType = Partial<GroupRawData>
@@ -17,9 +18,15 @@ class Group<T extends GroupAttrs = GroupAttrs>
   constructor(
     data?: Partial<ElementRawData>,
     idPrefix?: string,
-    namePrefix?: string
+    namePrefix?: string,
+    propsManager?: PropsManager
   ) {
-    super(data, idPrefix || IDTypes.GROUP, namePrefix || NameTypes.GROUP)
+    super(
+      data,
+      idPrefix || IDTypes.GROUP,
+      namePrefix || NameTypes.GROUP,
+      propsManager
+    )
   }
 
   _init(): void {

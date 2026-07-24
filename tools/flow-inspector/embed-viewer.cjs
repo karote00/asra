@@ -12,6 +12,10 @@ const rendererSource = fs
 const targetEntries = [
   path.join(
     projectRoot,
+    'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
     'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html'
   ),
   path.join(

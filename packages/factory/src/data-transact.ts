@@ -674,6 +674,9 @@ class DataTransact {
       const originalType = replayEvent.type
       replayEvent.type = payload.undoType as AllEvent['type']
       ;(payload as { undoType?: unknown }).undoType = originalType
+      if ('eventName' in payload) {
+        ;(payload as { eventName?: unknown }).eventName = replayEvent.type
+      }
     }
     if ('undoAction' in payload && payload.undoAction !== undefined) {
       const originalAction = (payload as { action?: unknown }).action

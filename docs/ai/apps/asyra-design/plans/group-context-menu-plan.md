@@ -2,8 +2,9 @@
 
 ## Status and Priority
 
-Proposed as the second plan in the ordered Asyra Design implementation queue,
-immediately after `remote-subtree-restore-snapshot-plan.md`.
+Proposed as the next plan in the ordered Asyra Design implementation queue,
+after the completed
+`docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`.
 
 The Group interaction prerequisite completed, closed out, and merged through
 PR #94 on 2026-07-24. This plan must reuse the canonical Group/Ungroup features,
@@ -14,8 +15,7 @@ command eligibility, and Inspector authority from:
 
 This PR is plan-only. Production implementation may begin only after:
 
-1. the remote subtree restore snapshot plan is implemented, reviewed, closed
-   out, and merged;
+1. the completed remote subtree restore snapshot plan is merged;
 2. this plan is approved and merged; and
 3. a matching Inspector owner flow and readiness contract tests pass.
 

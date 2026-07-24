@@ -4,6 +4,7 @@ import {
   createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
+  getContentsPanel,
   getElementCount,
   getSelectedElementClientCenter,
   redo,
@@ -13,6 +14,55 @@ import {
 
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
+
+const layerRow = (page: Page, elementId: string) =>
+  page.getByTestId(`element-item-${elementId}`)
+
+const getLayerIds = (page: Page): Promise<string[]> =>
+  getContentsPanel(page)
+    .locator('[data-layer-element="true"]')
+    .evaluateAll((rows) =>
+      rows.map(
+        (row) =>
+          row.getAttribute('data-testid')?.replace('element-item-', '') ?? ''
+      )
+    )
+
+const getSelectedIds = (page: Page): Promise<string[]> =>
+  page.evaluate(
+    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+  )
+
+const groupLayerIds = async (
+  page: Page,
+  elementIds: readonly string[]
+): Promise<string> => {
+  const contentsPanel = getContentsPanel(page)
+  const panelBounds = await contentsPanel.boundingBox()
+  if (!panelBounds) {
+    throw new Error('Layers panel bounds are unavailable')
+  }
+  await page.mouse.click(
+    panelBounds.x + panelBounds.width / 2,
+    panelBounds.y + panelBounds.height - 50
+  )
+  await expect.poll(() => getSelectedIds(page)).toEqual([])
+
+  await layerRow(page, elementIds[0]).click()
+  await page.keyboard.down('Shift')
+  try {
+    for (const elementId of elementIds.slice(1)) {
+      await layerRow(page, elementId).click()
+    }
+  } finally {
+    await page.keyboard.up('Shift')
+  }
+  const groupButton = page.getByTestId('layers-group-button')
+  await expect(groupButton).toBeEnabled()
+  await groupButton.click()
+  await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
+  return (await getSelectedIds(page))[0]
+}
 
 const waitForCollaboration = async (page: Page) => {
   await expect
@@ -39,6 +89,77 @@ const getCanonicalSnapshot = (page: Page) =>
       .sort((left, right) => left.id.localeCompare(right.id))
   })
 
+const getCanonicalHierarchyGeometry = (page: Page) =>
+  page.evaluate(() => {
+    const sceneTree = window.__Core__?.deps?.sceneTree
+    const elements = sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) return []
+
+    const getFiniteNumber = (
+      value: unknown,
+      elementId: string,
+      key: string
+    ): number => {
+      const result = Number(value)
+      if (!Number.isFinite(result)) {
+        throw new Error(
+          `Element "${elementId}" has non-finite computed "${key}"`
+        )
+      }
+      return result
+    }
+
+    const getWorldPosition = (elementId: string) => {
+      let currentId = elementId
+      let x = 0
+      let y = 0
+      const visited = new Set<string>()
+
+      while (currentId) {
+        if (visited.has(currentId)) {
+          throw new Error(`Hierarchy cycle reaches "${currentId}"`)
+        }
+        visited.add(currentId)
+        const element = sceneTree?.getElementById?.(currentId)
+        if (!element) {
+          throw new Error(`Missing hierarchy element "${currentId}"`)
+        }
+        if (element.get?.('type') === 'workspace') {
+          break
+        }
+        const computed = element.getAllComputedData?.() ?? {}
+        x += getFiniteNumber(computed.x, currentId, 'x')
+        y += getFiniteNumber(computed.y, currentId, 'y')
+        currentId = String(element.get?.('parentId') ?? '')
+      }
+
+      return { x, y }
+    }
+
+    return Array.from(elements.entries())
+      .filter(([, element]) => element.get?.('type') !== 'workspace')
+      .map(([id, element]) => {
+        const computed = element.getAllComputedData?.() ?? {}
+        const type = String(element.get?.('type') ?? '')
+        const children =
+          type === 'group' ? element.get?.('children') : undefined
+        return {
+          id,
+          type,
+          parentId: String(element.get?.('parentId') ?? ''),
+          children: Array.isArray(children) ? [...children] : undefined,
+          local: {
+            x: getFiniteNumber(computed.x, id, 'x'),
+            y: getFiniteNumber(computed.y, id, 'y'),
+            width: getFiniteNumber(computed.width, id, 'width'),
+            height: getFiniteNumber(computed.height, id, 'height')
+          },
+          world: getWorldPosition(id)
+        }
+      })
+      .sort((left, right) => left.id.localeCompare(right.id))
+  })
+
 const getCollaborationDiagnostics = (page: Page) =>
   page.evaluate(() => ({
     status: window.__AsyraCollaboration__?.getStatus() ?? 'missing',
@@ -53,6 +174,66 @@ const getCanonicalRenderVisibility = (page: Page, elementId: string) =>
     (id) =>
       window.__Core__?.deps?.render?.getElementById?.(id)?.visible ?? null,
     elementId
+  )
+
+const getOwnerSave = (page: Page) =>
+  page.evaluate(() => ({
+    sceneTree: window.__Core__.deps.sceneTree.save(),
+    props: window.__Core__.deps.props.save()
+  }))
+
+const getUndoDepth = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window.__Core__.deps.factory.transact as unknown as {
+          undoStack?: unknown[]
+        }
+      ).undoStack?.length ?? 0
+  )
+
+const capturePublicationOutcomes = (page: Page) =>
+  page.evaluate(() => {
+    const runtime = globalThis as typeof globalThis & {
+      __remoteRestoreOutcomes?: unknown[]
+    }
+    runtime.__remoteRestoreOutcomes = []
+    const handle = window.__AsyraCollaboration__ as
+      | (NonNullable<Window['__AsyraCollaboration__']> & {
+          observePublicationOutcomes(
+            subscriber: (outcome: {
+              direction: string
+              status: string
+              publicationId: string
+              error?: unknown
+            }) => void
+          ): () => void
+        })
+      | undefined
+    handle?.observePublicationOutcomes((outcome) => {
+      runtime.__remoteRestoreOutcomes?.push({
+        ...outcome,
+        ...(outcome.error instanceof Error
+          ? {
+              error: {
+                name: outcome.error.name,
+                message: outcome.error.message,
+                stack: outcome.error.stack
+              }
+            }
+          : {})
+      })
+    })
+  })
+
+const getPublicationOutcomes = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        globalThis as typeof globalThis & {
+          __remoteRestoreOutcomes?: unknown[]
+        }
+      ).__remoteRestoreOutcomes ?? []
   )
 
 const getVectorTopologySummary = (page: Page) =>
@@ -232,6 +413,301 @@ test('two real Asyra Design windows converge while connected and reconnect live-
       secondContext.close(),
       isolatedContext.close()
     ])
+  }
+})
+
+test('remote undo restores an exact nested Group with and without local tombstones', async ({
+  browser
+}, testInfo) => {
+  test.setTimeout(120_000)
+  const fileId = `restore-${Date.now()}-${testInfo.workerIndex}`
+  const senderContext = await browser.newContext()
+  const tombstoneContext = await browser.newContext()
+  const sender = await senderContext.newPage()
+  const tombstonePeer = await tombstoneContext.newPage()
+  let noTombstonePeer: Page | undefined
+
+  try {
+    await Promise.all([
+      sender.goto(collaborationUrl(fileId)),
+      tombstonePeer.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(sender), waitForAppReady(tombstonePeer)])
+    await Promise.all([
+      waitForCollaboration(sender),
+      waitForCollaboration(tombstonePeer)
+    ])
+
+    await createRectangle(sender, 0.28, 0.32)
+    await createRectangle(sender, 0.48, 0.45)
+    await createRectangle(sender, 0.68, 0.58)
+    await expect.poll(() => getElementCount(tombstonePeer)).toBe(3)
+    const rectangleIds = (await getCanonicalSnapshot(sender)).map(
+      ({ id }) => id
+    )
+    const innerGroupId = await groupLayerIds(sender, rectangleIds.slice(0, 2))
+    await sender.getByTestId(`layers-group-toggle-${innerGroupId}`).click()
+    const outerGroupId = await groupLayerIds(sender, [
+      rectangleIds[2],
+      innerGroupId
+    ])
+    await sender.getByTestId(`layers-group-toggle-${innerGroupId}`).click()
+    await expect.poll(() => getElementCount(tombstonePeer)).toBe(5)
+    await expect
+      .poll(() => getOwnerSave(tombstonePeer))
+      .toEqual(await getOwnerSave(sender))
+
+    const expectedOwnerSave = await getOwnerSave(sender)
+    const expectedLayerIds = await getLayerIds(sender)
+    const expectedElementIds = (await getCanonicalSnapshot(sender)).map(
+      ({ id }) => id
+    )
+
+    await layerRow(sender, outerGroupId).click()
+    await sender.keyboard.press('Delete')
+    await expect.poll(() => getElementCount(sender)).toBe(0)
+    await expect.poll(() => getElementCount(tombstonePeer)).toBe(0)
+    await expect
+      .poll(() =>
+        tombstonePeer.evaluate((expectedSceneCount) => {
+          const sceneTree = window.__Core__.deps.sceneTree as unknown as {
+            _deletedMap?: Map<string, unknown>
+          }
+          const props = window.__Core__.deps.props as unknown as {
+            _deletedMap?: Map<string, unknown>
+          }
+          return (
+            sceneTree._deletedMap?.size === expectedSceneCount &&
+            (props._deletedMap?.size ?? 0) > 0
+          )
+        }, expectedElementIds.length)
+      )
+      .toBe(true)
+
+    await expect
+      .poll(() =>
+        sender.evaluate(
+          ({ storageKey, removedGroupId }) => {
+            const raw = localStorage.getItem(storageKey)
+            if (!raw) return false
+            const saved = JSON.parse(raw) as {
+              sceneTree?: { elements?: Record<string, unknown> }
+            }
+            return !saved.sceneTree?.elements?.[removedGroupId]
+          },
+          {
+            storageKey: `FILE:${fileId}`,
+            removedGroupId: outerGroupId
+          }
+        )
+      )
+      .toBe(true)
+
+    noTombstonePeer = await senderContext.newPage()
+    await noTombstonePeer.goto(collaborationUrl(fileId))
+    await waitForAppReady(noTombstonePeer)
+    await waitForCollaboration(noTombstonePeer)
+    expect(await getElementCount(noTombstonePeer)).toBe(0)
+    expect(
+      await noTombstonePeer.evaluate(() => {
+        const sceneTree = window.__Core__.deps.sceneTree as unknown as {
+          _deletedMap?: Map<string, unknown>
+        }
+        const props = window.__Core__.deps.props as unknown as {
+          _deletedMap?: Map<string, unknown>
+        }
+        return {
+          scene: sceneTree._deletedMap?.size ?? 0,
+          props: props._deletedMap?.size ?? 0
+        }
+      })
+    ).toEqual({ scene: 0, props: 0 })
+
+    await noTombstonePeer.evaluate(() => {
+      const runtime = globalThis as typeof globalThis & {
+        __remoteRestorePublications?: unknown[]
+        __remoteRestoreCommits?: unknown[]
+      }
+      runtime.__remoteRestorePublications = []
+      runtime.__remoteRestoreCommits = []
+      window.__Core__.deps.factory.subscribeToSharedPublication((publication) =>
+        runtime.__remoteRestorePublications?.push(publication)
+      )
+      window.__Core__.deps.factory.subscribeToTransactionStatus((status) => {
+        if (status.origin === 'remote' && status.status === 'committed') {
+          runtime.__remoteRestoreCommits?.push(status)
+        }
+      })
+    })
+    const noTombstoneUndoDepth = await getUndoDepth(noTombstonePeer)
+    await Promise.all([
+      capturePublicationOutcomes(tombstonePeer),
+      capturePublicationOutcomes(noTombstonePeer)
+    ])
+
+    await undo(sender)
+    await expect
+      .poll(async () => (await getPublicationOutcomes(tombstonePeer)).length)
+      .toBeGreaterThan(0)
+    const remoteOutcomes = {
+      tombstone: await getPublicationOutcomes(tombstonePeer),
+      noTombstone: await getPublicationOutcomes(noTombstonePeer)
+    }
+    const processFailures = Object.values(remoteOutcomes)
+      .flat()
+      .filter(
+        (outcome) =>
+          typeof outcome === 'object' &&
+          outcome !== null &&
+          'status' in outcome &&
+          outcome.status === 'process-failed'
+      )
+    if (processFailures.length > 0) {
+      throw new Error(
+        `Remote restore processing failed:\n${JSON.stringify(
+          remoteOutcomes,
+          null,
+          2
+        )}`
+      )
+    }
+
+    try {
+      await expect
+        .poll(() => getOwnerSave(tombstonePeer))
+        .toEqual(expectedOwnerSave)
+    } catch (error) {
+      await testInfo.attach('remote-restore-outcomes.json', {
+        body: JSON.stringify(
+          {
+            tombstone: await getPublicationOutcomes(tombstonePeer),
+            noTombstone: await getPublicationOutcomes(noTombstonePeer)
+          },
+          null,
+          2
+        ),
+        contentType: 'application/json'
+      })
+      throw error
+    }
+    await expect
+      .poll(() => getOwnerSave(noTombstonePeer as Page))
+      .toEqual(expectedOwnerSave)
+    await expect
+      .poll(() => getLayerIds(tombstonePeer))
+      .toEqual(expectedLayerIds)
+    await expect
+      .poll(() => getLayerIds(noTombstonePeer as Page))
+      .toEqual(expectedLayerIds)
+    await expect
+      .poll(() => getCanonicalSnapshot(noTombstonePeer as Page))
+      .toEqual(await getCanonicalSnapshot(sender))
+
+    expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
+    expect(
+      await noTombstonePeer.evaluate(() => {
+        const runtime = globalThis as typeof globalThis & {
+          __remoteRestorePublications?: unknown[]
+          __remoteRestoreCommits?: unknown[]
+        }
+        return {
+          publications: runtime.__remoteRestorePublications?.length ?? -1,
+          commits: runtime.__remoteRestoreCommits?.length ?? -1
+        }
+      })
+    ).toEqual({ publications: 0, commits: 1 })
+
+    for (const elementId of expectedElementIds) {
+      expect(
+        await getCanonicalRenderVisibility(noTombstonePeer, elementId)
+      ).not.toBeNull()
+    }
+
+    await redo(sender)
+    await expect.poll(() => getElementCount(sender)).toBe(0)
+    await expect.poll(() => getElementCount(tombstonePeer)).toBe(0)
+    await expect.poll(() => getElementCount(noTombstonePeer as Page)).toBe(0)
+    expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
+  } finally {
+    await Promise.all([senderContext.close(), tombstoneContext.close()])
+  }
+})
+
+test('remote Group redo preserves exact hierarchy and world geometry', async ({
+  browser
+}, testInfo) => {
+  const fileId = `group-redo-${Date.now()}-${testInfo.workerIndex}`
+  const firstContext = await browser.newContext()
+  const secondContext = await browser.newContext()
+  const first = await firstContext.newPage()
+  const second = await secondContext.newPage()
+
+  try {
+    await Promise.all([
+      first.goto(collaborationUrl(fileId)),
+      second.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(first), waitForAppReady(second)])
+    await Promise.all([
+      waitForCollaboration(first),
+      waitForCollaboration(second)
+    ])
+
+    await createRectangle(first, 0.3, 0.35)
+    await createRectangle(first, 0.62, 0.55)
+    await expect.poll(() => getElementCount(second)).toBe(2)
+
+    const rectangleIds = (await getCanonicalSnapshot(first)).map(({ id }) => id)
+    const ungroupedGeometry = await getCanonicalHierarchyGeometry(first)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(ungroupedGeometry)
+
+    const groupId = await groupLayerIds(first, rectangleIds)
+    await expect.poll(() => getElementCount(second)).toBe(3)
+    const groupedGeometry = await getCanonicalHierarchyGeometry(first)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(groupedGeometry)
+
+    await undo(first)
+    await expect.poll(() => getElementCount(first)).toBe(2)
+    await expect.poll(() => getElementCount(second)).toBe(2)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(first))
+      .toEqual(ungroupedGeometry)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(ungroupedGeometry)
+
+    await redo(first)
+    await expect.poll(() => getElementCount(first)).toBe(3)
+    await expect.poll(() => getElementCount(second)).toBe(3)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(first))
+      .toEqual(groupedGeometry)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(groupedGeometry)
+
+    const remoteGroup = (await getCanonicalHierarchyGeometry(second)).find(
+      ({ id }) => id === groupId
+    )
+    expect(remoteGroup).toEqual(
+      groupedGeometry.find(({ id }) => id === groupId)
+    )
+    await Promise.all([
+      first.screenshot({
+        path: testInfo.outputPath('group-redo-source.png'),
+        fullPage: true
+      }),
+      second.screenshot({
+        path: testInfo.outputPath('group-redo-peer.png'),
+        fullPage: true
+      })
+    ])
+  } finally {
+    await Promise.all([firstContext.close(), secondContext.close()])
   }
 })
 

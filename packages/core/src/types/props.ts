@@ -1,5 +1,8 @@
 import {
+  ElementPropertyOwnerRelation,
   PropsComponentRawData,
+  PropsRestorePlan,
+  PropsRestoreSnapshot,
   type EVENT_OPTIONS,
   type PropertyComponentInstanceDataTypes
 } from '@asyra/utils'
@@ -30,6 +33,14 @@ export interface PropsRawAPIs {
     ...update: PropertyFieldUpdate<TFields>
   ) => void
   commitPropertyChanges: (options?: EVENT_OPTIONS) => void
+  preflightRestoreProperties: (
+    snapshot: PropsRestoreSnapshot,
+    ownerRelations: readonly ElementPropertyOwnerRelation[]
+  ) => PropsRestorePlan
+  applyRestoreProperties: (
+    plan: PropsRestorePlan,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
 }
 
 export type PropsAPIs = PropsRawAPIs

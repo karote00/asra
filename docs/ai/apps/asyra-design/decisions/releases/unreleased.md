@@ -6756,3 +6756,29 @@ join` constrained dashed product path across:
   - PR #94 remains unmerged until the user inspects this closeout.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md`
+
+## 2026-07-25 - Complete Remote Subtree Restore Snapshot
+
+- Context:
+  - A receiving peer that had the current post-delete document but had not
+    observed the original delete lacked compatible Scene Tree and Props
+    tombstones for local restoration.
+  - Remote Group undo/redo also required exact owner snapshots so receiving
+    clients would not reconstruct defaults or repair canonical geometry.
+- Decision:
+  - Close the Remote Subtree Restore Snapshot plan after its exact Inspector
+    owner flow, formal framework/app gates, synchronized product review, and
+    explicit user approval.
+  - Preserve `element.save()` Scene Tree evidence and component `save()` Props
+    evidence in one existing Factory `SharedPublication`.
+  - Keep receiving restore atomic and tombstone-optional, with no create
+    defaults, replacement ids, Collaboration semantics, or remote Group
+    geometry repair.
+- Consequences:
+  - Valid remote subtree restores preserve stable ids, hierarchy, exact
+    properties, save output, Render/Layers projection, and redo behavior
+    whether or not the receiver has matching tombstones.
+  - The Group Context Menu plan becomes the next proposed app plan after this
+    closeout is merged and explicitly started.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`

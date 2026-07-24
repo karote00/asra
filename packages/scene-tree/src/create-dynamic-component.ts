@@ -56,15 +56,24 @@ export function createDynamicComponent(
         this.computedPropertyNames = properties.map((p) => p.name)
 
         if (propsData) {
-          this.props = new DynamicPropsClass(elementId, propsData)
+          this.props = new DynamicPropsClass(
+            elementId,
+            propsData,
+            this.propsManagerOwner
+          )
         } else {
-          this.props = new DynamicPropsClass(elementId)
+          this.props = new DynamicPropsClass(
+            elementId,
+            undefined,
+            this.propsManagerOwner
+          )
         }
 
         this.computed = new Computed(
           elementId,
           this.props,
-          properties.map((p) => p.name)
+          properties.map((p) => p.name),
+          this.propsManagerOwner
         )
       }
     }

@@ -18,7 +18,7 @@ import {
 
 import { createPropsAPIs, type PropsRequests } from './props'
 import { createRenderAPIs, type RenderRequests } from './render'
-import { createSceneTreeAPIs } from './scene-tree'
+import { createSceneTreeAPIs, type SceneTreeRequests } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
 import { createInputSystemAPIs } from './input-system'
 import { createFeatureSystemAPIs } from './feature-system'
@@ -34,7 +34,7 @@ export const createAPIs = (
   props: PropsManager,
   factory: Factory
 ): CoreAPIs => {
-  const sceneTreeRequests = {
+  const sceneTreeRequests: SceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
     getElementComputedData: (elementId: string) =>
       sceneTree.getElementById(elementId)?.getAllComputedData() as
@@ -44,6 +44,10 @@ export const createAPIs = (
       sceneTree.moveElements(request, options),
     removeSubtree: (elementId: string, options?: EVENT_OPTIONS) =>
       sceneTree.removeSubtree(elementId, options),
+    preflightRestoreSubtree: (snapshot) =>
+      sceneTree.preflightRestoreSubtree(snapshot),
+    applyRestoreSubtree: (plan, options) =>
+      sceneTree.applyRestoreSubtree(plan, options),
     refreshComputedDataFromProperty: (
       elementId: string,
       propertyName: string,
@@ -107,7 +111,11 @@ export const createAPIs = (
     commitPropertyChanges: (options) => props.commitChanges(options),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     propsLoadData: (data: unknown) => props.load(data as any),
-    propsSaveData: () => props.save() as PropsComponentRawData
+    propsSaveData: () => props.save() as PropsComponentRawData,
+    preflightRestoreProperties: (snapshot, ownerRelations) =>
+      props.preflightRestoreProperties(snapshot, ownerRelations),
+    applyRestoreProperties: (plan, options) =>
+      props.applyRestoreProperties(plan, options)
   }
 
   return {

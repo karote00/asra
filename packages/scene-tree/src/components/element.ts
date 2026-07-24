@@ -22,6 +22,8 @@ import {
 import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
+import type { PropsManager } from '@asyra/props-manager'
+import { getSceneTreePropsManager } from '../props-manager-context'
 
 const elementChangeHandler = new ElementChangeHandler('raw')
 
@@ -49,7 +51,8 @@ class Element<T extends ElementAttrs = ElementAttrs>
   constructor(
     data?: Partial<ElementRawData>,
     idPrefix?: string,
-    namePrefix?: string
+    namePrefix?: string,
+    protected readonly propsManagerOwner: PropsManager = getSceneTreePropsManager()
   ) {
     super(elementChangeHandler.addChange, acknowledgeTransactionReplayApplied)
     this._idType = idPrefix || IDTypes.ELEMENT
@@ -131,15 +134,16 @@ class Element<T extends ElementAttrs = ElementAttrs>
     const elementId = this.get('id') as string
     if (this.data.type !== EntityTypes.WORKSPACE) {
       if (propsData) {
-        this.props = new Props(elementId, propsData)
+        this.props = new Props(elementId, propsData, this.propsManagerOwner)
       } else {
-        this.props = new Props(elementId)
+        this.props = new Props(elementId, undefined, this.propsManagerOwner)
       }
 
       this.computed = new Computed(
         elementId,
         this.props,
-        this.computedPropertyNames
+        this.computedPropertyNames,
+        this.propsManagerOwner
       )
     }
   }
