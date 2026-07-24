@@ -391,6 +391,8 @@ The Inspector may authorize narrowly scoped changes under:
 - `apps/asyra-design/src/contents/*`
 - `apps/asyra-design/src/init/*`
 - `apps/asyra-design/e2e/*`
+- `create-app/asyra-design/template/*`, only as generated synchronization
+  output from the official `release:app` script after source app changes.
 - directly corresponding app contracts, BDD cases, and decision history.
 - `packages/preset/src/render-layers/selection-overlay-render-layer.ts` and its
   directly corresponding `packages/preset/src/__tests__` regression tests,

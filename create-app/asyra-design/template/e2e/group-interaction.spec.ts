@@ -1,7 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createRectangle,
+  getCanvasPosition,
   getContentsPanel,
+  getSelectedElementClientCenter,
   redo,
   resetCanvas,
   undo,
@@ -25,6 +27,32 @@ const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
     () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
   )
+
+const getHoveredId = (page: Page): Promise<string | null> =>
+  page.evaluate(
+    () => window.__Core__?.getSystemProperty('hoveredElementId') ?? null
+  )
+
+const groupLayerIds = async (
+  page: Page,
+  elementIds: readonly string[]
+): Promise<string> => {
+  await layerRow(page, elementIds[0]).click()
+  if (elementIds.length > 1) {
+    await page.keyboard.down('Shift')
+    try {
+      for (const elementId of elementIds.slice(1)) {
+        await layerRow(page, elementId).click()
+      }
+    } finally {
+      await page.keyboard.up('Shift')
+    }
+  }
+
+  await page.getByTestId('layers-group-button').click()
+  await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
+  return (await getSelectedIds(page))[0]
+}
 
 const getWorldPositions = (
   page: Page,
@@ -61,6 +89,72 @@ const getWorldPositions = (
   }, elementIds)
 
 test.describe('Asyra Design Group interaction MVP', () => {
+  test('resolves canvas hover and click from selection parent scope or Meta leaf access', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await waitForAppReady(page)
+    await resetCanvas(page)
+
+    await createRectangle(page, 0.32, 0.34)
+    const firstId = (await getSelectedIds(page))[0]
+    const firstCenter = await getSelectedElementClientCenter(page)
+    await createRectangle(page, 0.68, 0.58)
+    const secondId = (await getSelectedIds(page))[0]
+    const secondCenter = await getSelectedElementClientCenter(page)
+
+    expect(firstCenter).not.toBeNull()
+    expect(secondCenter).not.toBeNull()
+    if (!firstCenter || !secondCenter) {
+      return
+    }
+
+    const firstGroupId = await groupLayerIds(page, [firstId])
+    await page.getByTestId(`layers-group-toggle-${firstGroupId}`).click()
+    const secondGroupId = await groupLayerIds(page, [secondId])
+    await page.getByTestId(`layers-group-toggle-${secondGroupId}`).click()
+    const outerGroupId = await groupLayerIds(page, [
+      firstGroupId,
+      secondGroupId
+    ])
+    await page.getByTestId(`layers-group-toggle-${firstGroupId}`).click()
+    await page.getByTestId(`layers-group-toggle-${secondGroupId}`).click()
+
+    const emptyPosition = await getCanvasPosition(page, 0.92, 0.12)
+    await page.mouse.click(emptyPosition.x, emptyPosition.y)
+    await expect.poll(() => getSelectedIds(page)).toEqual([])
+
+    await page.mouse.move(firstCenter.x, firstCenter.y)
+    await expect.poll(() => getHoveredId(page)).toBe(outerGroupId)
+
+    await page.keyboard.down('Meta')
+    try {
+      await page.mouse.move(firstCenter.x + 1, firstCenter.y)
+      await expect.poll(() => getHoveredId(page)).toBe(firstId)
+    } finally {
+      await page.keyboard.up('Meta')
+    }
+
+    await layerRow(page, firstId).click()
+    await expect.poll(() => getSelectedIds(page)).toEqual([firstId])
+
+    await page.mouse.move(secondCenter.x, secondCenter.y)
+    await expect.poll(() => getHoveredId(page)).toBeNull()
+
+    await page.mouse.move(firstCenter.x, firstCenter.y)
+    await expect.poll(() => getHoveredId(page)).toBe(firstId)
+
+    await page.keyboard.down('Meta')
+    try {
+      await page.mouse.move(secondCenter.x + 1, secondCenter.y)
+      await expect.poll(() => getHoveredId(page)).toBe(secondId)
+      await page.mouse.click(secondCenter.x, secondCenter.y)
+      await expect.poll(() => getSelectedIds(page)).toEqual([secondId])
+    } finally {
+      await page.keyboard.up('Meta')
+    }
+  })
+
   test('groups, nests, projects, restores, reloads, and ungroups through product commands', async ({
     page
   }) => {

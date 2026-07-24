@@ -239,6 +239,10 @@ export const elementApis = {
       : null
   },
 
+  getRenderElementIdAtClientPos: (clientPos: PositionData): string | null => {
+    return render?.getElementIdAtClientPos(clientPos) ?? null
+  },
+
   getElementType: (elementId: string): string | undefined => {
     return sceneTree.getElementById(elementId)?.get('type')
   },

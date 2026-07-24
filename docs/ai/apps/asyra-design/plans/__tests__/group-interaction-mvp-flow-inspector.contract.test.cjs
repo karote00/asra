@@ -262,7 +262,8 @@ test('Layers projection derives nested visible rows without second hierarchy sta
 })
 
 test('app resolves canvas hover and selection target from canonical parent scopes', () => {
-  const text = contractText(step('resolve-canvas-hierarchy-target'))
+  const owner = step('resolve-canvas-hierarchy-target')
+  const text = contractText(owner)
 
   assert.match(text, /identity-safe raw Render hit/i)
   assert.match(text, /canonical flattenedElementIds and elementDataMap/i)
@@ -286,6 +287,9 @@ test('app resolves canvas hover and selection target from canonical parent scope
   assert.match(text, /Render display-object ancestry/i)
   assert.match(text, /second mutable parent or children map/i)
   assert.match(text, /missing.*cyclic.*stale.*fails closed/i)
+  assert.ok(
+    owner.implementationBoundary.includes('create-app/asyra-design/template')
+  )
 })
 
 test('Preset selection overlay projects canonical Group hover and selection bounds', () => {

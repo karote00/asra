@@ -1,7 +1,25 @@
 import { defineFeature, EventTypes } from '@asyra/core'
-import type { RenderPointerPayload } from '@asyra/utils'
+import type { RenderPointerPayload, SystemContextSnapshot } from '@asyra/utils'
 import { elementApis, systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
+import {
+  resolveCanvasHierarchyTargetAtClientPos,
+  resolveCurrentCanvasHierarchyTarget
+} from '../../controllers/canvas-hierarchy-target'
+
+const publishHoveredElementId = (elementId: string | null) => {
+  if (
+    elementId &&
+    !elementApis.isElementLocked(elementId) &&
+    elementApis.isElementVisible(elementId)
+  ) {
+    systemContextApis.updateHoveredElementId(elementId)
+    return { hoveredId: elementId }
+  }
+
+  systemContextApis.updateHoveredElementId(null)
+  return { hoveredId: null }
+}
 
 /**
  * Hover Element Feature
@@ -15,7 +33,16 @@ export const hoverElementFeature = defineFeature(
   InputSystemEvents.INPUT_MOUSE_MOVE,
   {
     priority: 0,
-    exclusive: false
+    exclusive: false,
+    execution: (snapshot: SystemContextSnapshot) => {
+      if (snapshot.mouseDragging) {
+        return null
+      }
+
+      return publishHoveredElementId(
+        resolveCanvasHierarchyTargetAtClientPos(snapshot)
+      )
+    }
   }
 )
 
@@ -29,7 +56,7 @@ export const hoverElementRenderHoverFeature = defineFeature(
   {
     priority: 10,
     exclusive: false,
-    execution: (snapshot) => {
+    execution: (snapshot: SystemContextSnapshot) => {
       if (snapshot.mouseDragging) {
         return null
       }
@@ -40,29 +67,19 @@ export const hoverElementRenderHoverFeature = defineFeature(
       if (payload?.targetKind && payload.targetKind !== 'element') {
         return null
       }
-      const elementId = payload?.elementId
-
-      if (elementId) {
-        const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
-        if (pathEditingVectorId && elementId !== pathEditingVectorId) {
-          systemContextApis.updateHoveredElementId(null)
-          return { hoveredId: null }
-        }
-
-        if (
-          elementApis.isElementLocked(elementId) ||
-          !elementApis.isElementVisible(elementId)
-        ) {
-          systemContextApis.updateHoveredElementId(null)
-          return { hoveredId: null }
-        }
-
-        systemContextApis.updateHoveredElementId(elementId)
-        return { hoveredId: elementId }
+      const rawElementId = payload?.elementId ?? null
+      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+      if (
+        pathEditingVectorId &&
+        rawElementId &&
+        rawElementId !== pathEditingVectorId
+      ) {
+        return publishHoveredElementId(null)
       }
 
-      systemContextApis.updateHoveredElementId(null)
-      return { hoveredId: null }
+      return publishHoveredElementId(
+        resolveCurrentCanvasHierarchyTarget(rawElementId, snapshot)
+      )
     }
   }
 )

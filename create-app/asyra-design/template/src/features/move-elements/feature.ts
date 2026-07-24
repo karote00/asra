@@ -18,6 +18,7 @@ import {
   InputSystemEvents,
   PrimaryToolType
 } from '../../constants'
+import { resolveCanvasHierarchyTargetAtClientPos } from '../../controllers/canvas-hierarchy-target'
 
 interface MoveElementsState {
   dragStartWorkspacePos: PositionData
@@ -160,9 +161,7 @@ const api: MoveElementsApi = {
       }
     }
 
-    const hoveredElementId =
-      snapshot.hoveredElementId ??
-      elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+    const hoveredElementId = resolveCanvasHierarchyTargetAtClientPos(snapshot)
     if (!hoveredElementId) {
       return null
     }
@@ -288,9 +287,7 @@ export const moveElementsSession = {
         return
       }
 
-      const hoveredElementId =
-        snapshot.hoveredElementId ??
-        elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+      const hoveredElementId = resolveCanvasHierarchyTargetAtClientPos(snapshot)
       const hoveredSelectionId =
         hoveredElementId &&
         !elementApis.isElementLocked(hoveredElementId) &&

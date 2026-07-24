@@ -208,6 +208,7 @@ export const keyCombinations = {
           down: false,
           dragging: false
         })
+        updateKeyState(raw)
       }
     }
   ],

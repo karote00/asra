@@ -289,7 +289,8 @@
         'apps/asyra-design/src/features/hover-element',
         'apps/asyra-design/src/features/selection',
         'apps/asyra-design/src/features/move-elements',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'create-app/asyra-design/template'
       ],
       specRefs: [
         '#canvas-hierarchy-hover-and-selection-target',
