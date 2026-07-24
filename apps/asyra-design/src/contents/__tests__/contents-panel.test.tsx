@@ -147,7 +147,7 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
-  it('keeps rows edge-aligned with a 4px content gap and depth-only indentation', () => {
+  it('keeps rows edge-aligned without an extra content gap', () => {
     render(<Contents />)
     const rootRow = screen.getByTestId('element-item-a')
     const nestedRow = screen.getByTestId('element-item-child')
@@ -158,8 +158,11 @@ describe('Layers pointer hierarchy presentation', () => {
     expect(
       [...rootRow.classList].some((className) => className.startsWith('pr-'))
     ).toBe(false)
-    expect(rootContent?.classList.contains('gap-1')).toBe(true)
-    expect(rootContent?.classList.contains('gap-2')).toBe(false)
+    expect(
+      [...(rootContent?.classList ?? [])].some((className) =>
+        className.startsWith('gap-')
+      )
+    ).toBe(false)
   })
 
   it('shows one inside indicator, commits once, clears preview, and reveals a collapsed Group', async () => {

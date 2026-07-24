@@ -120,7 +120,7 @@ const Element = ({
       data-selected={isSelected}
       data-layer-depth={depth}
     >
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center min-w-0">
         {isGroup ? (
           <GroupDisclosure
             groupId={id}
