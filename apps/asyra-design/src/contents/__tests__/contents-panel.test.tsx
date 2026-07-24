@@ -114,9 +114,13 @@ vi.mock('../../controllers/layer-move-session', () => ({
   cancelLayerHierarchyMoveSession: mocks.cancel
 }))
 
-vi.mock('@asyra/design-system', () => ({
-  Icon: ({ name }: { name: string }) => <span>{name}</span>
-}))
+vi.mock('@asyra/design-system', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asyra/design-system')>()
+  return {
+    ...actual,
+    Icon: ({ name }: { name: string }) => <span>{name}</span>
+  }
+})
 
 import Contents from '../contents-panel'
 

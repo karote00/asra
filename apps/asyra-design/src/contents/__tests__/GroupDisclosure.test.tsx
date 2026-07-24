@@ -25,6 +25,10 @@ describe('Layers Group disclosure', () => {
     const iconContainer = icon?.parentElement
     expect(icon).not.toBeNull()
     expect(button.textContent).toBe('')
+    expect(iconContainer?.classList.contains('h-2')).toBe(true)
+    expect(iconContainer?.classList.contains('w-2')).toBe(true)
+    expect(iconContainer?.classList.contains('[&>svg]:h-2')).toBe(true)
+    expect(iconContainer?.classList.contains('[&>svg]:w-2')).toBe(true)
     expect(iconContainer?.classList.contains('rotate-90')).toBe(true)
     fireEvent.click(button)
     expect(onToggle).toHaveBeenCalledWith('group-1')

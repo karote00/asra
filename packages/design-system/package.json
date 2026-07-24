@@ -25,7 +25,9 @@
     "dev": "concurrently \"tsc --watch --preserveWatchOutput\" \"vite build --watch\"",
     "watch:design-system": "vite build --watch",
     "prebuild:design-system": "tailwindcss -i ./src/index.css -o ./dist/index.css",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:local": "vitest run --environment jsdom --no-file-parallelism",
+    "test:ci": "vitest run --environment jsdom --no-file-parallelism --coverage --reporter=default --reporter=junit"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -41,11 +43,14 @@
     "@storybook/react-vite": "^8.6.9",
     "@storybook/test": "8.4.7",
     "@storybook/types": "^8.4.7",
+    "@testing-library/react": "^13.4.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.8",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.2",
+    "jsdom": "16.7.0",
     "postcss": "^8.4.49",
     "postcss-cli": "^11.0.0",
     "storybook": "^8.4.7",
@@ -54,7 +59,8 @@
     "vite": "^6.2.3",
     "vite-plugin-dts": "^4.5.3",
     "vite-plugin-eslint": "^1.8.1",
-    "vite-plugin-svgr": "^4.3.0"
+    "vite-plugin-svgr": "^4.3.0",
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "@asyra/utils": "workspace:*"
