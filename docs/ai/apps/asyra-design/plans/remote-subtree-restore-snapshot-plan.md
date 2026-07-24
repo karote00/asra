@@ -4,14 +4,16 @@
 
 Proposed as the highest-priority next Asyra Design implementation plan.
 
-The current combined Group interaction and Layers hierarchy work remains in its
-user-review stage. This plan does not replace that review or authorize work on
-top of its unmerged branch. Production implementation for this plan may begin
-only after:
+The Group Interaction MVP and Layers hierarchy prerequisite completed, closed
+out, and merged through PR #94 on 2026-07-24. Their canonical records remain:
 
-1. the Group review branch is approved, closed out, and merged;
-2. this plan PR is approved and merged; and
-3. a matching Inspector owner flow and readiness contract tests pass.
+1. `completed/group-interaction-mvp-plan.md`; and
+2. `completed/layer-tree-reparent-reorder-plan.md`.
+
+Production implementation for this plan may begin only after:
+
+1. this plan PR is approved and merged; and
+2. a matching Inspector owner flow and readiness contract tests pass.
 
 This PR is plan-only. It must not contain production implementation, closeout,
 or merge work.

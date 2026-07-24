@@ -5,17 +5,19 @@
 Proposed as the second plan in the ordered Asyra Design implementation queue,
 immediately after `remote-subtree-restore-snapshot-plan.md`.
 
-This plan also depends on the current Group interaction work being approved,
-closed out, and merged because it must reuse the canonical Group/Ungroup
-features and command eligibility from that work.
+The Group interaction prerequisite completed, closed out, and merged through
+PR #94 on 2026-07-24. This plan must reuse the canonical Group/Ungroup features,
+command eligibility, and Inspector authority from:
+
+- `completed/group-interaction-mvp-plan.md`; and
+- `group-interaction-mvp-flow-inspector.data.cjs`.
 
 This PR is plan-only. Production implementation may begin only after:
 
-1. the Group review branch is merged;
-2. the remote subtree restore snapshot plan is implemented, reviewed, closed
+1. the remote subtree restore snapshot plan is implemented, reviewed, closed
    out, and merged;
-3. this plan is approved and merged; and
-4. a matching Inspector owner flow and readiness contract tests pass.
+2. this plan is approved and merged; and
+3. a matching Inspector owner flow and readiness contract tests pass.
 
 ## Decision
 
