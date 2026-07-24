@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
-import { resetCanvas, waitForAppReady } from './test-utils'
+import {
+  getContentsPanel,
+  getPropertiesPanel,
+  resetCanvas,
+  waitForAppReady
+} from './test-utils'
 
 interface WorldRectangle {
   x: number
@@ -116,11 +121,28 @@ test.describe('Group hierarchy product projection', () => {
     })
 
     expect(setup.renderExists).toBe(true)
-    const canvas = page.locator('canvas').first()
-    const canvasClip = await canvas.boundingBox()
-    if (!canvasClip) {
-      throw new Error('Asyra canvas bounds are unavailable')
+    const contentsBounds = await getContentsPanel(page).boundingBox()
+    const propertiesBounds = await getPropertiesPanel(page).boundingBox()
+    if (!contentsBounds || !propertiesBounds) {
+      throw new Error('Asyra canvas viewport bounds are unavailable')
     }
+    const canvasLeft = Math.ceil(contentsBounds.x + contentsBounds.width)
+    const canvasTop = Math.ceil(Math.max(contentsBounds.y, propertiesBounds.y))
+    const canvasRight = Math.floor(propertiesBounds.x)
+    const canvasBottom = Math.floor(
+      Math.min(
+        contentsBounds.y + contentsBounds.height,
+        propertiesBounds.y + propertiesBounds.height
+      )
+    )
+    const canvasClip = {
+      x: canvasLeft,
+      y: canvasTop,
+      width: canvasRight - canvasLeft,
+      height: canvasBottom - canvasTop
+    }
+    expect(canvasClip.width).toBeGreaterThan(0)
+    expect(canvasClip.height).toBeGreaterThan(0)
     const beforeScreenshotPath = testInfo.outputPath('before-reparent.png')
     const beforePixels = await page.screenshot({
       path: beforeScreenshotPath,
@@ -261,6 +283,20 @@ test.describe('Group hierarchy product projection', () => {
     expect(result.sceneIdentityPreserved).toBe(true)
     expect(result.renderIdentityPreserved).toBe(true)
     expect(afterPixels.equals(beforePixels)).toBe(true)
+    await expect(
+      page.getByTestId(`element-item-${setup.firstId}`)
+    ).toHaveAttribute('data-layer-depth', '1')
+    const projectedRowIds = await page
+      .locator('[data-layer-element-id]')
+      .evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute('data-layer-element-id'))
+      )
+    expect(projectedRowIds).toEqual([
+      setup.sourceGroupId,
+      setup.targetGroupId,
+      setup.secondId,
+      setup.firstId
+    ])
 
     const runtimeStatePath = testInfo.outputPath('runtime-state.json')
     const runtimeState = {
