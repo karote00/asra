@@ -2,6 +2,7 @@
 
 - `create-element.md`
 - `move-elements.md`
+- `group-interactions.md`
 - `switch-primary-tool.md`
 - `selection.md`
 - `delete-element.md`

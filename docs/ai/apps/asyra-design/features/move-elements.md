@@ -1,6 +1,6 @@
 # Feature: Move Elements
 
-## Source
+## Canvas Move Source
 
 - `src/features/move-elements/feature.ts`
 
@@ -64,3 +64,56 @@
   provider send
 - `onCancel` performs no canonical write, and Factory reverses failure-path
   mutations
+
+## Layers Hierarchy Move
+
+### Sources
+
+- `src/features/layer-hierarchy-move/index.ts`
+- `src/controllers/layer-pointer-session.ts`
+- `src/controllers/layer-move-source.ts`
+- `src/controllers/layer-drop-intent.ts`
+- `src/controllers/layer-move-session.ts`
+- `src/contents/contents-panel.tsx`
+
+### Trigger
+
+- app-owned Layers DOM pointer session: `input.layerHierarchyMove`
+- mode: session
+- priority: `110`
+- exclusive: `true`
+- cancel policy: `commit-current`
+
+### Behavior
+
+1. Pointer-down derives one complete source from the clicked row and current
+   app selection. Locked, missing, duplicate, workspace, stale, or mixed-parent
+   sources reject as a whole.
+2. Pointer capture and drag feedback begin only after
+   `FEATURE_MOVEMENT_THRESHOLD.layerHierarchy`; a below-threshold interaction
+   remains ordinary row selection.
+3. Pointer updates project one UI-local `before`, `after`, `inside`,
+   `workspace`, or `invalid` state. They do not write hierarchy, geometry,
+   history, or publication.
+4. Pointer-up over a valid target invokes
+   `hierarchyApis.moveElements(...)` exactly once. The request index is measured
+   in the final target child list after moved ids in that parent are removed.
+5. Scene Tree returns canonical moved-id order; the feature applies that exact
+   post-selection in the same intended transaction.
+6. Escape, pointer cancel, lost capture, unmount, invalid target, or outside
+   drop clears all presentation state and creates no hierarchy request.
+7. A successful inside drop on a collapsed Group expands it only in UI-local
+   state after canonical commit.
+
+### Boundaries
+
+- Layers owns pointer routing, source/drop intent, selection policy, and
+  presentation.
+- Preset owns Group-boundary coordinate conversion and bounds normalization.
+- Scene Tree owns final validation, canonical order, parent membership, index,
+  self/cycle prevention, and mutation.
+- Factory owns the one transaction, rollback, undo/redo, and publication.
+- Render receives only the committed canonical hierarchy for the same entity
+  and engine handle.
+- Collaboration remains transport-only; remote permission, ordering,
+  duplicate, and conflict policy stay app/backend-owned.
