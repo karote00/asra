@@ -106,6 +106,15 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-design-remote-subtree-restore-snapshot',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
+    ),
+    dataScript: './remote-subtree-restore-snapshot-flow-inspector.data.cjs',
+    filterLaneTitle: 'Canonical Owner Restore'
+  },
+  {
     id: 'asyra-design-group-interaction-mvp',
     entryPath: path.join(
       projectRoot,
