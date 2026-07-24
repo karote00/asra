@@ -265,6 +265,39 @@ describe('PropsManager', () => {
     expect(propsManager.changes[0].action).toBe(PROPS_ACTIONS.REMOVE_PROPERTY)
   })
 
+  it('captures detached exact remove evidence before later runtime mutation', () => {
+    const nestedValue = {
+      points: [{ x: 10, y: 20 }]
+    }
+    const component = new CustomComponent({
+      id: 'pp-detached',
+      type: PropertyTypes.CUSTOM,
+      nestedValue
+    } as Partial<PropertyComponentInstanceDataTypes>)
+    propsManager.addToMap(component)
+
+    propsManager.removeProperty(['pp-detached'])
+
+    const evidence = (
+      propsManager.changes[0] as PropsChange & {
+        data: Array<Record<string, unknown>>
+      }
+    ).data[0]
+    expect(evidence).toEqual({
+      id: 'pp-detached',
+      type: PropertyTypes.CUSTOM,
+      nestedValue: {
+        points: [{ x: 10, y: 20 }]
+      }
+    })
+    expect(evidence.nestedValue).not.toBe(nestedValue)
+
+    nestedValue.points[0].x = 99
+    expect(evidence.nestedValue).toEqual({
+      points: [{ x: 10, y: 20 }]
+    })
+  })
+
   // Test component management
   it('should get a component by ID', () => {
     const p1Data = {

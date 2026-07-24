@@ -26,13 +26,16 @@ export interface PropsLoadValidationResult {
   diagnostics: PropsLoadDiagnostic[]
 }
 
-const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData => {
+const clonePropsValue = <T>(data: T): T => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(data)
   }
 
-  return JSON.parse(JSON.stringify(data)) as PropsComponentRawData
+  return JSON.parse(JSON.stringify(data)) as T
 }
+
+const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData =>
+  clonePropsValue(data)
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -215,7 +218,7 @@ class PropsManager {
   addChangeForAddProperty(property: PropertyComponentInstanceTypes) {
     this.addChange({
       eventName: EventTypes.ADD_PROPERTY,
-      data: [property.save()],
+      data: [clonePropsValue(property.save())],
       action: PROPS_ACTIONS.ADD_PROPERTY,
       undoType: EventTypes.REMOVE_PROPERTY,
       undoAction: EventTypes.REMOVE_PROPERTY
@@ -225,7 +228,7 @@ class PropsManager {
   addChangeForRemoveProperty(property: PropertyComponentInstanceTypes) {
     this.addChange({
       eventName: EventTypes.REMOVE_PROPERTY,
-      data: [property.save()],
+      data: [clonePropsValue(property.save())],
       action: PROPS_ACTIONS.REMOVE_PROPERTY,
       undoType: EventTypes.ADD_PROPERTY,
       undoAction: EventTypes.ADD_PROPERTY
