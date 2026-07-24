@@ -124,6 +124,48 @@ describe('app hierarchy common APIs', () => {
     )
   })
 
+  it('returns canonical no-op and rejection without app reinterpretation or retry', () => {
+    const noOpRequest = {
+      elementIds: ['second', 'first'],
+      targetParentId: 'workspace',
+      targetIndex: 0
+    }
+    const noOpResult = {
+      elementIds: ['first', 'second'],
+      moves: []
+    }
+    mocks.moveElementsWithGroupGeometry.mockReturnValueOnce(noOpResult)
+
+    expect(hierarchyApis.moveElements(noOpRequest)).toBe(noOpResult)
+    expect(mocks.moveElementsWithGroupGeometry).toHaveBeenNthCalledWith(
+      1,
+      mocks.core,
+      noOpRequest,
+      undefined
+    )
+
+    const rejectedRequest = {
+      elementIds: ['group-1'],
+      targetParentId: 'group-1',
+      targetIndex: 0
+    }
+    const rejection = new Error('canonical self-parent rejection')
+    mocks.moveElementsWithGroupGeometry.mockImplementationOnce(() => {
+      throw rejection
+    })
+
+    expect(() => hierarchyApis.moveElements(rejectedRequest)).toThrow(
+      rejection
+    )
+    expect(mocks.moveElementsWithGroupGeometry).toHaveBeenCalledTimes(2)
+    expect(mocks.moveElementsWithGroupGeometry).toHaveBeenNthCalledWith(
+      2,
+      mocks.core,
+      rejectedRequest,
+      undefined
+    )
+  })
+
   it('settles subtree removal inside one app transaction', () => {
     const result = {
       rootId: 'group-1',
