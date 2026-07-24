@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { Icon } from '@asyra/design-system'
 
 interface GroupDisclosureProps {
   groupId: string
@@ -19,14 +20,18 @@ export const GroupDisclosure = ({
   return (
     <button
       type="button"
-      className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-[10px] text-[#888] hover:text-[#ddd]"
+      className="flex h-6 w-6 flex-shrink-0 items-center justify-center text-[#888] hover:text-[#ddd]"
       aria-expanded={isExpanded}
       aria-label={isExpanded ? 'Collapse Group' : 'Expand Group'}
       data-testid={`layers-group-toggle-${groupId}`}
       data-layer-pointer-bypass="true"
       onClick={handleClick}
     >
-      {isExpanded ? '▾' : '›'}
+      <Icon
+        name="ChevronRight"
+        showCursor={false}
+        className={isExpanded ? 'rotate-90' : ''}
+      />
     </button>
   )
 }

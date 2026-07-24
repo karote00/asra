@@ -19,6 +19,13 @@ describe('Layers Group disclosure', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true')
     expect(button.getAttribute('aria-label')).toBe('Collapse Group')
     expect(button.dataset.layerPointerBypass).toBe('true')
+    expect(button.classList.contains('h-6')).toBe(true)
+    expect(button.classList.contains('w-6')).toBe(true)
+    const icon = button.querySelector('svg')
+    const iconContainer = icon?.parentElement
+    expect(icon).not.toBeNull()
+    expect(button.textContent).toBe('')
+    expect(iconContainer?.classList.contains('rotate-90')).toBe(true)
     fireEvent.click(button)
     expect(onToggle).toHaveBeenCalledWith('group-1')
 
@@ -31,5 +38,6 @@ describe('Layers Group disclosure', () => {
     )
     expect(button.getAttribute('aria-expanded')).toBe('false')
     expect(button.getAttribute('aria-label')).toBe('Expand Group')
+    expect(iconContainer?.classList.contains('rotate-90')).toBe(false)
   })
 })
