@@ -308,6 +308,11 @@ test('app resolves canvas target and create parent from canonical parent scopes'
     text,
     /Preset normalizeGroupsForElements.*drag geometry.*Group bounds/i
   )
+  assert.match(
+    text,
+    /every accepted discrete child geometry mutation or completed continuous pointer gesture.*before the same outer transaction commits.*deepest affected Group first/i
+  )
+  assert.match(text, /App does not derive or cache Group bounds/i)
   assert.match(text, /app-owned Group origin arithmetic/i)
   assert.match(text, /legacy firstFrame fallback/i)
   assert.match(text, /raw hit fallback/i)
@@ -415,6 +420,7 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Without selection and without Meta\/Ctrl.*workspace direct-child target/i,
     /With selection and without Meta\/Ctrl.*exact selected parentId scope.*different parent is invalid/i,
     /With Meta\/Ctrl.*first non-Group raw hit.*hover, selection, and pointer-down move/i,
+    /nested child pointer move.*Preset.*gesture transaction commits.*every affected Group bounds cache deepest first.*without a visible jump/i,
     /Selected and hovered official Groups.*canonical computed bounds/i,
     /Cmd\+1.*Group before and after.*world-space scene bounds/i,
     /One command is one undo entry and one grouped publication/i,

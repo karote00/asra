@@ -228,18 +228,30 @@ test('Scene Tree is the sole hierarchy validation and mutation owner', () => {
   assert.match(scene, /Render hierarchy state/i)
 })
 
-test('Preset owns one official Group adapter and translation-only geometry', () => {
+test('Preset owns one official Group adapter and derived canonical geometry', () => {
   const prepare = contractText(step('prepare-preset-group-operation'))
   const geometry = contractText(step('normalize-preset-group-geometry'))
 
   assert.match(prepare, /one official GROUP component.*no second Group registration/i)
   assert.match(prepare, /canonical sibling order.*first selected sibling slot/i)
   assert.match(prepare, /direct parentId or children writes/i)
+  assert.match(
+    geometry,
+    /Group x, y, width, and height are a derived canonical cache rather than independent shape geometry/i
+  )
+  assert.match(
+    geometry,
+    /accepted direct-child membership or geometry mutation.*deepest affected Group first/i
+  )
   assert.match(geometry, /subtracting the new Group origin/i)
   assert.match(geometry, /adding the removed Group origin/i)
   assert.match(geometry, /same Factory transaction/i)
   assert.match(geometry, /Render bounds as canonical input/i)
   assert.match(geometry, /auto-layout or descendant scaling/i)
+  assert.match(
+    geometry,
+    /unregistered rotation, scale, or skew values cannot contribute/i
+  )
 })
 
 test('Preset projects every committed canonical hierarchy lifecycle to app UI context', () => {
@@ -318,6 +330,7 @@ test('acceptance contracts cover every bounded Gate 3 product family and DoD', (
   ;[
     /Contiguous and non-contiguous siblings group in canonical sibling order.*nested Groups/i,
     /Normal and empty Groups ungroup deterministically.*world positions/i,
+    /direct-child geometry mutation.*deepest affected Group.*every ancestor derived bounds cache.*same transaction.*without a visible jump or per-frame recomputation/i,
     /Same-parent reorder and cross-parent reparent preserve identity.*final-target-index/i,
     /Missing ids, duplicate ids, mixed parents, invalid targets, invalid indexes, workspace movement, self-parenting, and descendant cycles reject before mutation/i,
     /complete subtree in deterministic descendant-first order/i,

@@ -312,26 +312,30 @@ export const moveElementsSession = {
       return
     }
 
+    const options = { sharedDelivery: 'immediate' } as const
     const currentWorkspacePos = elementApis.getMousePosInWorkspace(
       snapshot.mousePosition
     )
-    if (!currentWorkspacePos) {
-      return
+    if (currentWorkspacePos) {
+      const targetPositions = api.calculateTargetPositions(
+        state.dragStartWorkspacePos,
+        currentWorkspacePos,
+        state.initialPositions
+      )
+
+      if (
+        !state.latestPositions ||
+        !positionsMatch(targetPositions, state.latestPositions)
+      ) {
+        api.applyPositions(targetPositions, options)
+        state.latestPositions = targetPositions
+      }
     }
 
-    const targetPositions = api.calculateTargetPositions(
-      state.dragStartWorkspacePos,
-      currentWorkspacePos,
-      state.initialPositions
+    elementApis.normalizeGroupGeometryForElements(
+      Object.keys(state.initialPositions),
+      options
     )
-
-    if (
-      !state.latestPositions ||
-      !positionsMatch(targetPositions, state.latestPositions)
-    ) {
-      api.applyPositions(targetPositions, { sharedDelivery: 'immediate' })
-      state.latestPositions = targetPositions
-    }
   },
   onCancel: () => undefined
 }

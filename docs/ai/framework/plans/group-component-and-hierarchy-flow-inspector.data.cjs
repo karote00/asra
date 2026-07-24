@@ -239,33 +239,37 @@
       title: 'Normalize Group coordinates and bounds',
       ownerPackage: '@asyra/preset',
       purpose:
-        'Apply the official translation-only coordinate conversion and direct-child Group bounds inside the same transaction as the accepted hierarchy mutation.',
+        'Derive and write the official direct-child Group geometry cache and apply coordinate conversion inside the same transaction as the accepted hierarchy or geometry mutation.',
       inputs: [
         'artifact:preset-group-operation-plan',
-        'artifact:canonical-hierarchy-mutation'
+        'artifact:canonical-hierarchy-mutation',
+        'registered canonical direct-child x, y, width, and height values'
       ],
       outputs: ['artifact:preset-group-geometry-mutation'],
       conditions: [
+        'Group x, y, width, and height are a derived canonical cache rather than independent shape geometry.',
         'Grouping preserves child world positions by subtracting the new Group origin from direct-child coordinates.',
         'Ungrouping preserves child world positions by adding the removed Group origin in the target parent coordinate space.',
-        'Direct-child basic bounds are derived through one Preset-owned path without creating a second hierarchy or geometry authority.',
+        'Every accepted direct-child membership or geometry mutation rederives one canonical rectangle union, deepest affected Group first, without creating a second hierarchy or geometry authority.',
         'All geometry writes remain in the same Factory transaction and use ordinary property/computed validation.'
       ],
       bypasses: [
         'An empty Group ungroup has no child coordinate writes.',
+        'Unregistered rotation, scale, or skew values cannot contribute until component registration, persistence, and Render share their canonical contract.',
         'Generic containers and app-replaced Group capabilities do not use official Group geometry normalization.'
       ],
       allowedContributors: [
         'artifact:preset-group-operation-plan',
         'artifact:canonical-hierarchy-mutation',
         'public Core property/computed APIs',
-        'finite translation and rectangle-union math'
+        'finite canonical translation, rectangle-union, and coordinate-rebasing math'
       ],
       forbiddenContributors: [
         'Render bounds as canonical input',
         'auto-layout or descendant scaling',
-        'rotation, clipping, symbol, or constraint policy',
+        'unregistered transform values, clipping, symbol, or constraint policy',
         'recursive observer loop',
+        'per-frame Group bounds recomputation',
         'visible-jump fallback'
       ],
       cacheDimensions: [],
@@ -1009,6 +1013,7 @@
       assertions: [
         'Contiguous and non-contiguous siblings group in canonical sibling order at the first selected slot; nested Groups are allowed.',
         'Normal and empty Groups ungroup deterministically, preserve direct-child identities and world positions, and remove the official Group.',
+        'A direct-child geometry mutation writes the deepest affected Group and every ancestor derived bounds cache in the same transaction without a visible jump or per-frame recomputation.',
         'One official GROUP component remains installed and app selection/UI policy remains absent.'
       ]
     },

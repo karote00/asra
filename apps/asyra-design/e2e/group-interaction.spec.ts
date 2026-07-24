@@ -280,6 +280,91 @@ test.describe('Asyra Design Group interaction MVP', () => {
     }
   })
 
+  test('writes nested Group bounds after a child pointer move without a visible jump', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await waitForAppReady(page)
+    await resetCanvas(page)
+
+    await createRectangle(page, 0.48, 0.46)
+    const rectId = (await getSelectedIds(page))[0]
+    const innerGroupId = await groupLayerIds(page, [rectId])
+    const outerGroupId = await groupLayerIds(page, [innerGroupId])
+
+    await layerRow(page, rectId).click()
+    const rectCenter = await getSelectedElementClientCenter(page)
+    expect(rectCenter).not.toBeNull()
+    if (!rectCenter) {
+      return
+    }
+
+    const elementIds = [rectId, innerGroupId, outerGroupId]
+    const before = await getWorldPositions(page, elementIds)
+    const dragEnd = {
+      x: rectCenter.x + 48,
+      y: rectCenter.y + 32
+    }
+    const workspaceDelta = await page.evaluate(
+      ({ start, end }) => {
+        const render = window.__Core__.deps.render
+        const startWorkspace = render.getMousePosInWorkspace({
+          clientX: start.x,
+          clientY: start.y
+        })
+        const endWorkspace = render.getMousePosInWorkspace({
+          clientX: end.x,
+          clientY: end.y
+        })
+        return {
+          x: endWorkspace.x - startWorkspace.x,
+          y: endWorkspace.y - startWorkspace.y
+        }
+      },
+      { start: rectCenter, end: dragEnd }
+    )
+
+    await page.mouse.move(rectCenter.x, rectCenter.y)
+    await page.mouse.down()
+    await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 4 })
+    await page.mouse.up()
+
+    for (const elementId of elementIds) {
+      await expect
+        .poll(
+          async () => (await getWorldPositions(page, [elementId]))[elementId].x
+        )
+        .toBeCloseTo(before[elementId].x + workspaceDelta.x, 5)
+      await expect
+        .poll(
+          async () => (await getWorldPositions(page, [elementId]))[elementId].y
+        )
+        .toBeCloseTo(before[elementId].y + workspaceDelta.y, 5)
+    }
+
+    const normalized = await page.evaluate(
+      ({ rectId: childId, innerGroupId: innerId, outerGroupId: outerId }) => {
+        const sceneTree = window.__Core__.deps.sceneTree
+        const read = (elementId: string) =>
+          sceneTree.getElementById(elementId)?.getAllComputedData() ?? {}
+        return {
+          rect: read(childId),
+          inner: read(innerId),
+          outer: read(outerId)
+        }
+      },
+      { rectId, innerGroupId, outerGroupId }
+    )
+    expect(normalized.rect.x).toBeCloseTo(0)
+    expect(normalized.rect.y).toBeCloseTo(0)
+    expect(normalized.inner.x).toBeCloseTo(0)
+    expect(normalized.inner.y).toBeCloseTo(0)
+    expect(normalized.inner.width).toBeCloseTo(normalized.rect.width)
+    expect(normalized.inner.height).toBeCloseTo(normalized.rect.height)
+    expect(normalized.outer.width).toBeCloseTo(normalized.inner.width)
+    expect(normalized.outer.height).toBeCloseTo(normalized.inner.height)
+  })
+
   test('groups, nests, projects, restores, reloads, and ungroups through product commands', async ({
     page
   }) => {

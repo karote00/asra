@@ -240,9 +240,9 @@
       laneId: 'features',
       title: 'Resolve the canonical canvas hierarchy and create-parent target',
       ownerPackage:
-        'asyra-design canvas hierarchy and create-parent target policy',
+        'asyra-design canvas hierarchy, create-parent, and geometry-mutation handoff policy',
       purpose:
-        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice by using the canonical hierarchy projection, selected element ids, and current Meta or Ctrl state.',
+        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice, then hand accepted child geometry mutations to the Preset-owned Group normalization path.',
       inputs: [
         'identity-safe raw Render hit element id',
         'canonical flattenedElementIds and elementDataMap projection',
@@ -250,7 +250,8 @@
         'app-local selected element ids',
         'current Meta or Ctrl modifier snapshot',
         'create-element mouse-down and drag workspace geometry',
-        'current identity-safe Render handle for the chosen official Group parent coordinate conversion'
+        'current identity-safe Render handle for the chosen official Group parent coordinate conversion',
+        'accepted app-owned child position or dimension mutation ids and canonical values'
       ],
       outputs: [
         'artifact:resolved-canvas-hierarchy-target',
@@ -269,10 +270,12 @@
         'For a Group create parent, Preset moveElementsWithGroupGeometry performs the identity-preserving reparent and initial coordinate and bounds normalization inside the same transaction as explicit workspace-root creation.',
         'The mouse-down and drag workspace geometry is converted into the chosen parent current local coordinates through that exact identity-safe Render handle for every drag update.',
         'Preset normalizeGroupsForElements runs after create drag geometry writes in the same transaction so direct-child and ancestor Group bounds remain canonical without app-owned Group origin arithmetic.',
+        'Every accepted discrete child geometry mutation or completed continuous pointer gesture invokes Preset normalizeGroupsForElements after its final geometry write and before the same outer transaction commits; Preset processes the deepest affected Group first.',
         'Pointer movement refreshes the current modifier snapshot before hover resolution.'
       ],
       bypasses: [
         'Dragging, non-element overlays, and the existing path-editing guard retain their current feature bypass behavior.',
+        'Intermediate pointer-move samples defer Group normalization until gesture finalization so Group-origin rebasing cannot accumulate against drag-start-local coordinates.',
         'A missing raw hit emits no canvas target but resolves an explicit workspace-root create parent when the canonical projection is valid.',
         'A Group raw hit in modifier mode or unmatched exact parent scope emits no resolved target and no create parent.',
         'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, move, or create handoff.'
@@ -294,6 +297,7 @@
         'raw hit fallback after canonical target rejection',
         'Group canvas hit geometry or Preset-owned target selection policy',
         'app-owned Group origin arithmetic or Group bounds normalization',
+        'App does not derive or cache Group bounds',
         'unspecified create parent or Scene Tree legacy firstFrame fallback'
       ],
       cacheDimensions: [],
@@ -970,6 +974,7 @@
         'Multiple selected parent scopes choose the nearest matching ancestor to the raw hit.',
         'Create-element mouse down uses the same resolved hierarchy target to choose an explicit official Group parent, or the explicit workspace root when there is no raw hit.',
         'Nested Group creation converts the mouse-down workspace position into exact chosen-parent local coordinates without Render ancestry or the legacy firstFrame fallback.',
+        'A nested child pointer move finalizes through Preset before the gesture transaction commits, writes every affected Group bounds cache deepest first, and preserves the child world-space result without a visible jump.',
         'Missing, duplicated, cyclic, stale, invalid-root, unmatched-scope, and Group modifier hits fail closed without raw-hit fallback or a second hierarchy.'
       ],
       stepIds: ['resolve-canvas-hierarchy-target'],

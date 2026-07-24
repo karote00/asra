@@ -529,6 +529,18 @@ export const elementApis = {
     })
   },
 
+  normalizeGroupGeometryForElements: (
+    elementIds: string[],
+    options?: EVENT_OPTIONS
+  ) => {
+    const uniqueElementIds = [...new Set(elementIds)]
+    if (uniqueElementIds.length === 0) {
+      return
+    }
+
+    normalizeGroupsForElements(core, uniqueElementIds, options)
+  },
+
   setElementPositions: (
     positionsById: Record<string, PositionData>,
     options?: EVENT_OPTIONS

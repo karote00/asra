@@ -232,6 +232,14 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   participate in that decision. After the geometry write, Preset
   `normalizeGroupsForElements` refreshes affected Group bounds and rebases
   coordinates inside the same transaction.
+- Every accepted discrete child geometry mutation, including a numeric
+  position or dimension property change, invokes Preset
+  `normalizeGroupsForElements` in its transaction. A continuous pointer-move
+  gesture may defer normalization across intermediate samples, but must invoke
+  it once after the final position write and before the same gesture
+  transaction commits. Preset processes the deepest affected Group first and
+  writes every ancestor Group's derived bounds cache; the app does not derive
+  or cache Group bounds.
 - Input mouse movement refreshes the current modifier snapshot before hover
   resolution. Existing dragging, non-element overlay, path-editing,
   lock/visibility, and selection-mutation behavior remains unchanged around
@@ -517,6 +525,9 @@ an app fallback.
 - With the create tool, draw over eligible nested Group content with and
   without `Cmd`/`Ctrl`; verify the new element uses the Group selected by the
   same hierarchy target rules and does not visibly jump.
+- Move a leaf inside `Group -> Group -> leaf`; on pointer up verify both Group
+  bounds move to the leaf's final world position, their canonical dimensions
+  match the descendants, and no intermediate or final jump occurs.
 - Keep a Group selected, then draw on empty canvas outside every raw element;
   verify the new element is a workspace child rather than a child of the first
   top-level Group.

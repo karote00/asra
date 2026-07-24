@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   getSelectedIds: vi.fn(),
   isElementLocked: vi.fn(),
   isElementVisible: vi.fn(),
+  normalizeGroupGeometryForElements: vi.fn(),
   resolveAtClientPos: vi.fn(),
   runTransaction: vi.fn((operation: () => unknown) => operation()),
   selectElements: vi.fn()
@@ -38,6 +39,7 @@ vi.mock('../../../common-apis', () => ({
     hasMovedBeyondThreshold: vi.fn(),
     isElementLocked: mocks.isElementLocked,
     isElementVisible: mocks.isElementVisible,
+    normalizeGroupGeometryForElements: mocks.normalizeGroupGeometryForElements,
     setElementPositions: vi.fn()
   },
   selectionApis: {
@@ -120,5 +122,22 @@ describe('move canvas hierarchy target handoff', () => {
     expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(startSnapshot)
     expect(mocks.selectElements).toHaveBeenCalledWith(['rect-2b'])
     expect(mocks.getElementIdAtClientPos).not.toHaveBeenCalled()
+  })
+
+  it('normalizes affected Groups once after the final pointer position', () => {
+    mocks.getMousePosInWorkspace.mockReturnValue({ x: 20, y: 30 })
+
+    moveElementsSession.onEnd?.(startSnapshot as never, {
+      dragStartWorkspacePos: { x: 10, y: 20 },
+      initialPositions: { selected: { x: 30, y: 40 } },
+      latestPositions: { selected: { x: 40, y: 50 } },
+      isMoving: true,
+      startedFromSelectionBounds: true
+    })
+
+    expect(mocks.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
+      ['selected'],
+      { sharedDelivery: 'immediate' }
+    )
   })
 })

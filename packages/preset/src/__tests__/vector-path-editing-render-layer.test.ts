@@ -418,7 +418,7 @@ describe('vector path editing transaction boundary', () => {
     const source = changeComputedDataSource()
 
     expect(source).toMatch(
-      /runTransaction\(\(\) =>\s*core\.changeComputedData\(elementIds, data, options\)\s*\)/
+      /runTransaction\(\(\) => \{[\s\S]*?core\.changeComputedData\(elementIds, data, options\)[\s\S]*?normalizeGroupsForElements\(core, elementIds, options\)[\s\S]*?\}\)/
     )
     expect(source).not.toContain('startTransaction')
     expect(source).not.toContain('endTransaction')

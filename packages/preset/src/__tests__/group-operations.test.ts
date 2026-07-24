@@ -379,6 +379,130 @@ describe('official Preset Group geometry adapters', () => {
     )
   })
 
+  it('rederives a changed Group itself before every ancestor Group', () => {
+    const snapshot = createSnapshot()
+    snapshot.elements.workspace.children = ['outer']
+    snapshot.elements.outer = {
+      id: 'outer',
+      type: EntityTypes.GROUP,
+      name: 'Outer Group',
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      children: ['inner']
+    }
+    snapshot.elements.inner = {
+      id: 'inner',
+      type: EntityTypes.GROUP,
+      name: 'Inner Group',
+      parentId: 'outer',
+      visible: true,
+      lock: false,
+      children: ['first']
+    }
+    snapshot.elements.first.parentId = 'inner'
+    const computed = {
+      outer: { x: 100, y: 50, width: 999, height: 999 },
+      inner: { x: 20, y: 30, width: 999, height: 999 },
+      first: { x: 10, y: 15, width: 40, height: 25 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(
+        (elementId: keyof typeof computed) => computed[elementId]
+      ),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(),
+      changeComputedData: vi.fn(
+        (
+          [elementId]: [keyof typeof computed],
+          data: Partial<(typeof computed)[keyof typeof computed]>
+        ) => {
+          Object.assign(computed[elementId], data)
+        }
+      ),
+      removeSubtree: vi.fn()
+    }
+
+    expect(normalizeGroupsForElements(core as never, ['inner'])).toEqual([
+      {
+        groupId: 'inner',
+        bounds: { x: 30, y: 45, width: 40, height: 25 }
+      },
+      {
+        groupId: 'outer',
+        bounds: { x: 130, y: 95, width: 40, height: 25 }
+      }
+    ])
+    expect(computed).toEqual({
+      outer: { x: 130, y: 95, width: 40, height: 25 },
+      inner: { x: 0, y: 0, width: 40, height: 25 },
+      first: { x: 0, y: 0, width: 40, height: 25 }
+    })
+  })
+
+  it('rederives every nested ancestor after a leaf geometry change', () => {
+    const snapshot = createSnapshot()
+    snapshot.elements.workspace.children = ['outer']
+    snapshot.elements.outer = {
+      id: 'outer',
+      type: EntityTypes.GROUP,
+      name: 'Outer Group',
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      children: ['inner']
+    }
+    snapshot.elements.inner = {
+      id: 'inner',
+      type: EntityTypes.GROUP,
+      name: 'Inner Group',
+      parentId: 'outer',
+      visible: true,
+      lock: false,
+      children: ['first']
+    }
+    snapshot.elements.first.parentId = 'inner'
+    const computed = {
+      outer: { x: 100, y: 50, width: 40, height: 25 },
+      inner: { x: 0, y: 0, width: 40, height: 25 },
+      first: { x: 35, y: 20, width: 40, height: 25 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(
+        (elementId: keyof typeof computed) => computed[elementId]
+      ),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(),
+      changeComputedData: vi.fn(
+        (
+          [elementId]: [keyof typeof computed],
+          data: Partial<(typeof computed)[keyof typeof computed]>
+        ) => {
+          Object.assign(computed[elementId], data)
+        }
+      ),
+      removeSubtree: vi.fn()
+    }
+
+    expect(normalizeGroupsForElements(core as never, ['first'])).toEqual([
+      {
+        groupId: 'inner',
+        bounds: { x: 35, y: 20, width: 40, height: 25 }
+      },
+      {
+        groupId: 'outer',
+        bounds: { x: 135, y: 70, width: 40, height: 25 }
+      }
+    ])
+    expect(computed).toEqual({
+      outer: { x: 135, y: 70, width: 40, height: 25 },
+      inner: { x: 0, y: 0, width: 40, height: 25 },
+      first: { x: 0, y: 0, width: 40, height: 25 }
+    })
+  })
+
   it('reparents through official Groups without changing child world positions', () => {
     const snapshot = createSnapshot()
     snapshot.elements.workspace.children = ['source', 'target']

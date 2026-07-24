@@ -210,11 +210,19 @@ convergence guarantees.
 - The Group is inserted at the first selected sibling position and the selected
   elements become its children in their previous relative order.
 - Nested groups are allowed.
-- Preset establishes the default Group bounds/position and converts child
-  coordinates so visible world-space output does not jump.
-- Direct-child membership or geometry changes rederive the default Group bounds
-  through one canonical Preset-owned path; rebasing must not create a visible
-  jump, recursive mutation loop, or second geometry authority.
+- Preset establishes the Group bounds/position and converts child coordinates
+  so visible world-space output does not jump. Group `x`, `y`, `width`, and
+  `height` are a derived canonical cache of its direct children rather than
+  independent shape geometry.
+- Every accepted direct-child membership or supported canonical geometry
+  mutation rederives that cache through one Preset-owned path, deepest affected
+  Group first. Rebasing must not create a visible jump, recursive mutation
+  loop, per-frame recomputation, or second geometry authority.
+- The bounded Gate 3 geometry inputs are the registered canonical
+  `x`/`y`/`width`/`height` fields shared by persistence and Render. A future
+  canonical rotation, scale, or skew field must join this same derivation path
+  only together with its formal component registration, persistence, and
+  Render contract; an unregistered computed value is not geometry authority.
 
 ### Ungroup
 

@@ -181,12 +181,18 @@ Render projection. Preset also exports the ID-driven Group adapters defined by
   canonical plans; `groupElements(...)` and `ungroupElement(...)` execute them
   inside one transaction.
 - `moveElementsWithGroupGeometry(...)` delegates hierarchy validation/mutation
-  to Core and performs translation-only coordinate conversion and bounds
+  to Core and performs coordinate conversion plus derived bounds-cache
   normalization when direct official Group membership is involved.
 - `deriveGroupBounds(...)` and `normalizeGroupsForElements(...)` provide the
-  one direct-child rectangle-union/bounds path, deepest Group first.
-- Preset owns default 2D coordinate normalization and direct-child Group bounds
-  for the supported basic operation contract.
+  one direct-child canonical rectangle-union/bounds path, deepest affected
+  Group first.
+- Group `x`, `y`, `width`, and `height` are the persisted derived cache of
+  direct-child canonical geometry; accepted geometry changes update that cache
+  in the same transaction instead of recalculating it per frame.
+- Preset owns 2D coordinate normalization and direct-child Group bounds for the
+  registered canonical `x`/`y`/`width`/`height` contract. Rotation, scale, or
+  skew may participate only after the component, persistence, and Render
+  contracts register the same canonical fields.
 - Preset does not choose selected ids, register shortcuts or app commands,
   define post-operation selection, or own hover/click/hit/UI behavior.
 - Apps may replace the official Group capability through the ordinary
