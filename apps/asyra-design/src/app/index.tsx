@@ -6,8 +6,11 @@ import Animation from '../animation'
 import { toTailwindPixelSize } from '../tailwind-size'
 import { COLUMN_WIDTH } from '../constants'
 import RenderApp from '../render-app'
+import { useAppContextMenuSession } from './context-menu-session'
 
 const App: React.FC = () => {
+  const { open: openContextMenu } = useAppContextMenuSession()
+
   return (
     <div
       className="absolute grid h-screen w-full z-20"
@@ -23,7 +26,7 @@ const App: React.FC = () => {
         gridTemplateRows: 'auto 1fr auto'
       }}
     >
-      <RenderApp />
+      <RenderApp onContextMenuRequest={openContextMenu} />
       <ToolBar />
       <Contents />
       <Properties />
