@@ -308,6 +308,7 @@ describe('Factory action-level shared publication', () => {
             eventName: EventTypes.ADD_PROPERTY,
             payload: expect.objectContaining({
               action: PROPS_ACTIONS.ADD_PROPERTY,
+              eventName: EventTypes.ADD_PROPERTY,
               data: [
                 expect.objectContaining({
                   id: 'position-b',
