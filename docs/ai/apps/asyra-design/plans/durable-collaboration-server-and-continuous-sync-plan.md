@@ -2,9 +2,10 @@
 
 ## Status
 
-Queued as the next Asyra Design app/server implementation stage after the
-completed network collaboration transport Gate 2. It remains inactive until
-the user explicitly starts it.
+Queued behind `remote-subtree-restore-snapshot-plan.md` and
+`group-context-menu-plan.md` as a later Asyra Design app/server implementation
+stage after the completed network collaboration transport Gate 2. It remains
+inactive until the user explicitly starts it.
 
 This is an app-owned reference implementation plan. It does not make durable
 CRDT transport a framework requirement, reopen the completed Gate 2 contract,
