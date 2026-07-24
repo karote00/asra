@@ -98,11 +98,15 @@ must not hardcode Preset Group UI or design-tool selection policy.
 - owns the default 2D coordinate normalization needed to preserve world-space
   appearance when elements enter or leave the invisible Group container;
 - keeps Group geometry consistent with its direct children for the supported
-  basic translation/bounds contract.
+  basic translation/bounds contract;
+- projects committed canonical hierarchy lifecycle changes into the
+  App-facing `flattenedElementIds` and `elementDataMap` UI-context values,
+  including add, remove, move, subtree removal, subtree restoration, and load.
 
 Preset must not inspect app selection, bind shortcuts, choose the active Group,
 create hover/click policy, install product UI, or bypass canonical Scene Tree
-mutation APIs.
+mutation APIs. Its UI-context values are derived projections only: they do not
+validate, repair, reorder, or become a second canonical hierarchy.
 
 ### Render and app
 
@@ -206,11 +210,19 @@ convergence guarantees.
 - The Group is inserted at the first selected sibling position and the selected
   elements become its children in their previous relative order.
 - Nested groups are allowed.
-- Preset establishes the default Group bounds/position and converts child
-  coordinates so visible world-space output does not jump.
-- Direct-child membership or geometry changes rederive the default Group bounds
-  through one canonical Preset-owned path; rebasing must not create a visible
-  jump, recursive mutation loop, or second geometry authority.
+- Preset establishes the Group bounds/position and converts child coordinates
+  so visible world-space output does not jump. Group `x`, `y`, `width`, and
+  `height` are a derived canonical cache of its direct children rather than
+  independent shape geometry.
+- Every accepted direct-child membership or supported canonical geometry
+  mutation rederives that cache through one Preset-owned path, deepest affected
+  Group first. Rebasing must not create a visible jump, recursive mutation
+  loop, per-frame recomputation, or second geometry authority.
+- The bounded Gate 3 geometry inputs are the registered canonical
+  `x`/`y`/`width`/`height` fields shared by persistence and Render. A future
+  canonical rotation, scale, or skew field must join this same derivation path
+  only together with its formal component registration, persistence, and
+  Render contract; an unregistered computed value is not geometry authority.
 
 ### Ungroup
 
@@ -247,6 +259,10 @@ convergence guarantees.
   nested groups, and Group data.
 - Load rejects or normalizes malformed hierarchy only at the documented load
   validation boundary; runtime mutations never silently repair invalid input.
+- Preset refreshes its App-facing flattened id and element-data projections
+  from canonical Scene Tree state after every accepted hierarchy lifecycle
+  change, so removed subtrees leave no stale rows and moves/restores expose the
+  exact canonical parent and child order.
 - Destroy, reload, re-registration, and instance teardown release observers and
   projections without sharing hierarchy state across Core instances.
 
@@ -289,6 +305,9 @@ hierarchy ownership.
 - Render reparent/reorder performs one abstract hierarchy handoff for the same
   canonical element identity and never leaves a duplicate visual or stale
   parent;
+- Preset UI-context projection reflects accepted add, remove, move, subtree
+  removal, subtree restoration, and load results without stale ids, missing
+  restored ids, or App/Render repair state;
 - separate Core instances remain isolated;
 - apps can invoke the operations without importing Scene Tree internals or
   receiving any framework-owned UI behavior.
@@ -304,7 +323,8 @@ hierarchy ownership.
   convergence policy remain app/backend contracts, and Collaboration gains no
   dedupe, timestamp/LWW, ordering, conflict, or semantic-history owner;
 - Preset tests prove component installation, operation adapters, coordinate and
-  bounds behavior, cleanup, and app override boundaries;
+  bounds behavior, canonical hierarchy UI-context projection, cleanup, and app
+  override boundaries;
 - Render/engine integration tests prove identity-safe hierarchy handoff and
   canonical order without a patch/fallback output path;
 - package, monorepo, dependency, lint, build, app integration, and synchronized

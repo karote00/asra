@@ -46,7 +46,9 @@ Turbo workspace command; every package that emits `dist` must provide `clean`.
 - the committed Turbo graph against workspace manifests;
 - root/CI/deployment command wiring;
 - release command ordering and restoration behavior;
-- non-mutating generated-template synchronization.
+- non-mutating generated-template synchronization;
+- monorepo unit, integration, and contract test placement through
+  `scripts/__tests__/test-file-placement.test.mjs`.
 
 `yarn deps:validate` separately verifies declared workspace dependencies for
 source imports. It does not replace build, clean, generated-template, or

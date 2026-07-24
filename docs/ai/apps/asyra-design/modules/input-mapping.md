@@ -38,6 +38,13 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
   - keys: mouse move
   - updates hover pointer position
 
+- `input.layerHierarchyMove`
+
+  - driven directly by normalized Layers DOM pointer start/update/end phases
+  - begins pointer capture only after the app-owned movement threshold
+  - carries ids, pointer coordinates, advisory row zone, and cancel reason
+  - never carries a second hierarchy or geometry-derived parent guess
+
 - `input.wheel.scroll`
   - keys: wheel
   - updates mouse delta for zoom/pan features
@@ -69,6 +76,12 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
 
 - `input.shortcut.zoomPreset`
   - `Meta+1` or `Ctrl+1`
+
+- `input.shortcut.group`
+
+  - `Meta+G` or `Ctrl+G` -> Group
+  - `Meta+Shift+G` or `Ctrl+Shift+G` -> Ungroup
+  - editable targets bypass the shortcut
 
 ## Routing Contract
 

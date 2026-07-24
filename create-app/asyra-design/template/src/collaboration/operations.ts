@@ -148,12 +148,13 @@ const isSubtreeChange = (value: unknown): value is Record<string, unknown> => {
     return false
   }
 
-  const inverseAction =
-    value.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE
-      ? SCENE_TREE_ACTIONS.RESTORE_SUBTREE
-      : value.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE
-        ? SCENE_TREE_ACTIONS.REMOVE_SUBTREE
-        : undefined
+  let inverseAction: string | undefined
+  if (value.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE) {
+    inverseAction = SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+  }
+  if (value.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE) {
+    inverseAction = SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+  }
   if (value.undoAction !== inverseAction) {
     return false
   }

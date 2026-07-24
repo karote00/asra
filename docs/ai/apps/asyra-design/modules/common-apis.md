@@ -13,6 +13,9 @@
 - `element/apis.ts` with an export-only `element/index.ts`
 
   - create element
+  - explicit workspace/official-Group create parent handoff
+  - workspace-to-parent point conversion for active create geometry
+  - Group-normalized create geometry mutation (`changeElementGeometry`)
   - renderer-backed geometry hit-test for canvas targeting
   - element lock/visible query + toggle helpers
   - element position query + batch move helper
@@ -55,6 +58,7 @@
 
   - ID-based official Group and ungroup routing through Preset
   - reorder/reparent routing through Preset's geometry-aware Core adapter
+  - canonical current workspace id query through the public Core facade
   - atomic subtree removal through the public Core facade
   - no selection, shortcut, menu, hover/click, naming, or post-operation policy
 
@@ -84,6 +88,14 @@
   undo commit.
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also
   accept optional mutation options and forward them to Core.
+- `elementApis.createElement(...)` converts a missing caller parent into the
+  explicit canonical workspace id. For an official Group parent, it creates at
+  the workspace position and uses Preset's identity-preserving reparent adapter
+  in the same transaction; it never calls Core's unspecified-parent path.
+- `elementApis.getPositionInParent(...)` uses the current viewport and
+  identity-safe chosen-parent transform only for coordinate conversion.
+  `elementApis.changeElementGeometry(...)` applies the geometry write and
+  Preset ancestor-Group normalization in one transaction.
 - Failure in a finite common-API mutation group rolls back all recorded
   rollbackable scene-tree, props, and selection changes before rethrowing.
 - `hierarchyApis` keeps one intended group, ungroup, move/reorder, or subtree

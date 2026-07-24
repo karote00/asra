@@ -34,3 +34,18 @@ Feature: Element Creation
     And the selection outline should match the oval in the same frame
     When I release the left mouse button
     And the new oval should be selected
+
+  Scenario: Create inside a nested Group selected by hierarchy targeting
+    Given nested Groups contain a visible non-Group element
+    And I have the "Rectangle" tool selected
+    When I mouse down on that content using the canvas hierarchy modifier rules
+    Then the new rectangle should have the resolved official Group as its parent
+    And its visible world position should not jump
+    And affected Group bounds should remain canonical during drag
+
+  Scenario: Create on empty canvas while a Group is selected
+    Given an official Group is selected
+    And I have the "Rectangle" tool selected
+    When I mouse down where there is no raw canvas element hit
+    Then the new rectangle should be a direct child of the workspace
+    And it should not use the first top-level Group as an implicit parent

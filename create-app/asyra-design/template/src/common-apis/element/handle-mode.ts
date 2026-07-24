@@ -205,18 +205,21 @@ export const resolveHandleModeSwitchUpdate = (params: {
     return null
   }
 
-  const outLength =
-    outVector !== null
-      ? vectorLength(outVector)
-      : inVector
-        ? vectorLength(inVector)
-        : 0
-  const inLength =
-    inVector !== null
-      ? vectorLength(inVector)
-      : outVector
-        ? vectorLength(outVector)
-        : 0
+  let outLength = 0
+  if (inVector) {
+    outLength = vectorLength(inVector)
+  }
+  if (outVector !== null) {
+    outLength = vectorLength(outVector)
+  }
+
+  let inLength = 0
+  if (outVector) {
+    inLength = vectorLength(outVector)
+  }
+  if (inVector !== null) {
+    inLength = vectorLength(inVector)
+  }
 
   return {
     outHandle: hasOutVector

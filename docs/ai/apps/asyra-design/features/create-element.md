@@ -21,7 +21,17 @@
 1. Start
 
 - if tool is not rectangle/oval, do nothing
+- resolve the mouse-down raw Render hit through the same canonical hierarchy
+  target policy used by canvas hover/selection/move
+- use the resolved official Group as the create parent, use a resolved
+  non-Group's official Group parent, or use the explicit workspace root when
+  there is no raw hit
+- reject creation when the canonical hierarchy or exact parent scope is
+  invalid; never leave parent unspecified or activate Scene Tree's legacy
+  first-Frame fallback
 - create the element at mouse down position without supplying or mutating width/height, so its element-owned initial data remains authoritative
+- for a Group parent, keep creation and Preset's identity-preserving
+  reparent/coordinate/bounds normalization in one transaction
 - immediately project the undoable ADD_ELEMENT so the canvas and Contents panel show it before pointer-up
 - select and immediately project the created element so selection-derived UI is available during the active session
 - store drag-start workspace position and latest applied bounds in session
@@ -31,9 +41,12 @@
 
 - while dragging, compute width/height from drag delta
 - handle negative drag by flipping origin
-- apply geometry updates via `elementApis.changeComputedData` with
+- convert current workspace drag points through the current selected-parent
+  transform and apply geometry via `elementApis.changeElementGeometry` with
   `sharedDelivery: 'immediate'`; each applied input update uses the complete
   canonical shared pipeline without ending the outer session transaction
+- normalize affected official Group bounds through Preset after each geometry
+  update; the app does not calculate Group origins or bounds
 - keep selection-overlay projection aligned with the current render-frame geometry, including rapid negative-direction drag updates
 
 3. End
@@ -63,6 +76,9 @@
   delivery actions
 - canonical create and geometry data never use Awareness or a render preview
   layer
+- Render supplies identity-safe hit/transform inputs only; canonical parent
+  membership comes from the app hierarchy projection and Group geometry
+  normalization comes from Preset
 - `onEnd` owns conditional mouseup finalization; `onCancel` performs no
   canonical write because Factory owns failure rollback
 - movement threshold is app-owned and feature-level via `FEATURE_MOVEMENT_THRESHOLD.createElement`

@@ -12,6 +12,7 @@ import type {
   VectorSegment
 } from '@asyra/core'
 import {
+  EntityTypes,
   getElementGeometryWorldBounds,
   projectWorkspacePointToViewport,
   transformGeometryPoint,
@@ -48,6 +49,13 @@ interface VectorComputedData {
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
+}
+
+interface GroupComputedData {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
 }
 
 interface SelectionOverlayRenderLayerDeps
@@ -137,6 +145,73 @@ const getElementType = (
   deps: Pick<PresetDependencies, 'sceneTree'>,
   elementId: string
 ) => deps.sceneTree.getElementById(elementId)?.get('type')
+
+const isFiniteTransform = (matrix: GeometryTransformMatrix) =>
+  [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty].every(
+    Number.isFinite
+  )
+
+const getGroupBoundsCorners = (
+  deps: Pick<PresetDependencies, 'sceneTree'>,
+  elementId: string,
+  element: RenderElementShape
+): [PositionData, PositionData, PositionData, PositionData] | null => {
+  const sceneElement = deps.sceneTree.getElementById(elementId)
+  if (!sceneElement || sceneElement.get('type') !== EntityTypes.GROUP) {
+    return null
+  }
+
+  const computed = sceneElement.getAllComputedData() as GroupComputedData
+  const { x, y, width, height } = computed
+  if (
+    ![x, y, width, height].every(Number.isFinite) ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    width <= 0 ||
+    height <= 0 ||
+    !isFiniteTransform(element.worldTransform)
+  ) {
+    return null
+  }
+
+  return [
+    transformGeometryPoint(element.worldTransform, { x: 0, y: 0 }),
+    transformGeometryPoint(element.worldTransform, { x: width, y: 0 }),
+    transformGeometryPoint(element.worldTransform, { x: width, y: height }),
+    transformGeometryPoint(element.worldTransform, { x: 0, y: height })
+  ]
+}
+
+const getCornersBounds = (
+  corners: [PositionData, PositionData, PositionData, PositionData]
+): LocalBounds => {
+  const xValues = corners.map((point) => point.x)
+  const yValues = corners.map((point) => point.y)
+  const minX = Math.min(...xValues)
+  const maxX = Math.max(...xValues)
+  const minY = Math.min(...yValues)
+  const maxY = Math.max(...yValues)
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  }
+}
+
+const getElementOverlayWorldBounds = (
+  deps: Pick<PresetDependencies, 'sceneTree'>,
+  elementId: string,
+  element: RenderElementShape
+): LocalBounds | null => {
+  if (getElementType(deps, elementId) === EntityTypes.GROUP) {
+    const corners = getGroupBoundsCorners(deps, elementId, element)
+    return corners ? getCornersBounds(corners) : null
+  }
+
+  return getElementGeometryWorldBounds(element)
+}
 
 const drawRectGeometryOutline = (
   canvas: OverlayCanvas,
@@ -335,6 +410,19 @@ const drawHoverGeometryOutline = (
     }
   }
 
+  if (type === EntityTypes.GROUP) {
+    const corners = getGroupBoundsCorners(deps, elementId, hoveredElement)
+    if (corners) {
+      drawOutline(
+        canvas,
+        corners,
+        SELECTION_STROKE_COLOR,
+        SELECTION_OVERLAY_STROKE_WIDTH
+      )
+    }
+    return
+  }
+
   const hoveredSceneElement = deps.sceneTree.getElementById(elementId)
   const computed = hoveredSceneElement?.getAllComputedData() as
     | VectorComputedData
@@ -371,8 +459,45 @@ const drawHoverGeometryOutline = (
   )
 }
 
+const drawSelectedGeometryOutline = (
+  canvas: OverlayCanvas,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree'>,
+  elementId: string,
+  element: RenderElementShape
+) => {
+  const type = getElementType(deps, elementId)
+  if (type === EntityTypes.GROUP) {
+    const corners = getGroupBoundsCorners(deps, elementId, element)
+    if (corners) {
+      drawOutline(
+        canvas,
+        corners,
+        SELECTION_STROKE_COLOR,
+        SELECTION_OVERLAY_STROKE_WIDTH
+      )
+    }
+    return
+  }
+
+  drawElementBoundsOutline(
+    canvas,
+    element,
+    SELECTION_STROKE_COLOR,
+    SELECTION_OVERLAY_STROKE_WIDTH
+  )
+  if (type === 'vector') {
+    drawVectorHoverOutline(
+      canvas,
+      deps,
+      elementId,
+      deps.render.getViewportPosition(),
+      deps.render.getViewportScale()
+    )
+  }
+}
+
 const getMultiSelectionBounds = (
-  deps: Pick<PresetDependencies, 'render'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree'>,
   selectedIds: string[]
 ): LocalBounds | null => {
   if (selectedIds.length === 0) {
@@ -392,7 +517,14 @@ const getMultiSelectionBounds = (
       return
     }
 
-    const geometryBounds = getElementGeometryWorldBounds(element)
+    const geometryBounds = getElementOverlayWorldBounds(
+      deps,
+      elementId,
+      element
+    )
+    if (!geometryBounds) {
+      return
+    }
     minX = Math.min(minX, geometryBounds.x)
     minY = Math.min(minY, geometryBounds.y)
     maxX = Math.max(maxX, geometryBounds.x + geometryBounds.width)
@@ -413,6 +545,7 @@ const getMultiSelectionBounds = (
 
 const appendElementTransformSignature = (
   parts: string[],
+  deps: Pick<PresetDependencies, 'sceneTree'>,
   elementId: string,
   element: RenderElementShape | null
 ) => {
@@ -423,14 +556,20 @@ const appendElementTransformSignature = (
   }
 
   const transform = element.worldTransform
-  const bounds = getElementGeometryWorldBounds(element)
+  const bounds = getElementOverlayWorldBounds(deps, elementId, element)
   parts.push(
     String(transform.a),
     String(transform.b),
     String(transform.c),
     String(transform.d),
     String(transform.tx),
-    String(transform.ty),
+    String(transform.ty)
+  )
+  if (!bounds) {
+    parts.push('invalid-bounds')
+    return
+  }
+  parts.push(
     String(bounds.x),
     String(bounds.y),
     String(bounds.width),
@@ -523,6 +662,7 @@ export const registerSelectionOverlayRenderLayer = (
       selectedIds.forEach((selectedId) => {
         appendElementTransformSignature(
           drawSignatureParts,
+          deps,
           selectedId,
           deps.render.getElementById(selectedId) as RenderElementShape | null
         )
@@ -531,6 +671,7 @@ export const registerSelectionOverlayRenderLayer = (
       if (hoveredElementId) {
         appendElementTransformSignature(
           drawSignatureParts,
+          deps,
           hoveredElementId,
           deps.render.getElementById(
             hoveredElementId
@@ -556,21 +697,12 @@ export const registerSelectionOverlayRenderLayer = (
           ) as RenderElementShape | null
 
           if (selectedElement) {
-            drawElementBoundsOutline(
+            drawSelectedGeometryOutline(
               canvas,
-              selectedElement,
-              SELECTION_STROKE_COLOR,
-              SELECTION_OVERLAY_STROKE_WIDTH
+              deps,
+              selectedElementId,
+              selectedElement
             )
-            if (getElementType(deps, selectedElementId) === 'vector') {
-              drawVectorHoverOutline(
-                canvas,
-                deps,
-                selectedElementId,
-                deps.render.getViewportPosition(),
-                deps.render.getViewportScale()
-              )
-            }
           }
         } else {
           const bounds = getMultiSelectionBounds(deps, selectedIds)

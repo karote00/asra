@@ -300,11 +300,10 @@ const normalizeDefinition = <TFields extends object>(
       kind: field.kind as PropertyValueKind,
       defaultValue: clonePropertyDefinitionValue(field.defaultValue),
       validate: field.validate as ((value: unknown) => boolean) | undefined,
-      allowedUnits: field.allowedUnits
-        ? field.allowedUnits.length > 0
+      allowedUnits:
+        field.allowedUnits && field.allowedUnits.length > 0
           ? ([...field.allowedUnits] as PropertyUnitKind[])
-          : undefined
-        : undefined,
+          : undefined,
       persist: field.persist,
       project: field.project,
       unit: field.unit
@@ -517,11 +516,13 @@ export const createPropertyComponentFromConfig = (
         ...mapped,
         type: children.childType
       }
-      const childId = isString(childData.id)
-        ? childData.id
-        : isString(item.id)
-          ? item.id
-          : ''
+      let childId = ''
+      if (isString(item.id)) {
+        childId = item.id
+      }
+      if (isString(childData.id)) {
+        childId = childData.id
+      }
       if (!childId && 'id' in childData) delete childData.id
 
       const existing = childId ? accessor.getPropertyById(childId) : undefined

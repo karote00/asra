@@ -7,6 +7,7 @@ import Invisible from './svgs/Invisible.svg?react'
 import Lock from './svgs/Lock.svg?react'
 import Unlock from './svgs/Unlock.svg?react'
 import Select from './svgs/Select.svg?react'
+import ChevronRight from './svgs/ChevronRight.svg?react'
 
 const Icons = {
   Group,
@@ -17,7 +18,8 @@ const Icons = {
   Invisible,
   Lock,
   Unlock,
-  Select
+  Select,
+  ChevronRight
 } as const
 
 export type IconName = keyof typeof Icons

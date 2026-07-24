@@ -125,6 +125,27 @@ export const getOrderedNetworks = (
   topology: VectorTopologyLike
 ): VectorNetwork[] => sortVectorItemsById(Object.values(topology.networks))
 
+const getNetworkAdjacentPointIds = (
+  network: VectorNetwork,
+  pointIndex: number
+): { previousPointId: string | null; nextPointId: string | null } => {
+  let previousPointId: string | null = null
+  let nextPointId: string | null = null
+
+  if (network.closed) {
+    previousPointId = network.pointIds[network.pointIds.length - 1]
+    nextPointId = network.pointIds[0]
+  }
+  if (pointIndex > 0) {
+    previousPointId = network.pointIds[pointIndex - 1]
+  }
+  if (pointIndex < network.pointIds.length - 1) {
+    nextPointId = network.pointIds[pointIndex + 1]
+  }
+
+  return { previousPointId, nextPointId }
+}
+
 export const getAnchorEndpointInTopology = (
   topology: VectorTopologyLike,
   pointId: string
@@ -262,18 +283,10 @@ export const vectorTopologyToAnchorSubpaths = (
       topology.segments
     )
     network.pointIds.forEach((pointId, pointIndex) => {
-      const previousPointId =
-        pointIndex > 0
-          ? network.pointIds[pointIndex - 1]
-          : network.closed
-            ? network.pointIds[network.pointIds.length - 1]
-            : null
-      const nextPointId =
-        pointIndex < network.pointIds.length - 1
-          ? network.pointIds[pointIndex + 1]
-          : network.closed
-            ? network.pointIds[0]
-            : null
+      const { previousPointId, nextPointId } = getNetworkAdjacentPointIds(
+        network,
+        pointIndex
+      )
       const previousAnchor = previousPointId
         ? topology.points[previousPointId]
         : null
@@ -319,18 +332,10 @@ export const vectorTopologyToAnchorPoints = (
       topology.segments
     )
     network.pointIds.forEach((pointId, pointIndex) => {
-      const previousPointId =
-        pointIndex > 0
-          ? network.pointIds[pointIndex - 1]
-          : network.closed
-            ? network.pointIds[network.pointIds.length - 1]
-            : null
-      const nextPointId =
-        pointIndex < network.pointIds.length - 1
-          ? network.pointIds[pointIndex + 1]
-          : network.closed
-            ? network.pointIds[0]
-            : null
+      const { previousPointId, nextPointId } = getNetworkAdjacentPointIds(
+        network,
+        pointIndex
+      )
       const previousAnchor = previousPointId
         ? topology.points[previousPointId]
         : null

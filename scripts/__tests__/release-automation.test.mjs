@@ -1,0 +1,146 @@
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+
+const repositoryRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../..'
+)
+
+const readPlan = (script, args = []) => {
+  const result = spawnSync(process.execPath, [script, ...args, '--plan'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8'
+  })
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  return JSON.parse(result.stdout)
+}
+
+test('full release validates exact artifacts before publish and always restores workspace ranges', () => {
+  const plan = readPlan('scripts/release-full.js', ['--prod=asyra-design'])
+
+  assert.deepEqual(plan, {
+    prepare: [
+      'yarn changeset version',
+      'yarn bump:workspace --env=prod',
+      'yarn release:app --prod=asyra-design',
+      'yarn release:validate --prod=asyra-design'
+    ],
+    publish: ['yarn changeset publish'],
+    finally: ['yarn bump:workspace --env=dev']
+  })
+})
+
+test('release validation covers build, tests, dependencies, collaboration, and generated template', () => {
+  const plan = readPlan('scripts/release-validate.js', ['--prod=asyra-design'])
+
+  assert.deepEqual(plan, [
+    'yarn install --immutable',
+    'yarn gen:turbo:check',
+    'yarn clean',
+    'yarn react:build',
+    'yarn lint:ci',
+    'yarn test:ci',
+    'yarn deps:validate',
+    'yarn workspace @asyra/asyra-design test:e2e:collaboration',
+    'yarn release:app:check --prod=asyra-design',
+    'yarn release:app:build --prod=asyra-design --prebuilt'
+  ])
+})
+
+test('release template supports a non-mutating synchronization check', () => {
+  const result = spawnSync(
+    'yarn',
+    ['release:app:check', '--prod=asyra-design'],
+    { cwd: repositoryRoot, encoding: 'utf8' }
+  )
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+})
+
+test('release validation copies only repository source into an isolated workspace', async () => {
+  const { createReleaseValidationWorkspace, removeReleaseValidationWorkspace } =
+    await import('../release-validation-workspace.js')
+  const testRoot = mkdtempSync(
+    path.join(repositoryRoot, 'tmp', 'release-validation-test-')
+  )
+  const sourceRoot = path.join(testRoot, 'source')
+  const validationParent = path.join(testRoot, 'validation')
+
+  mkdirSync(path.join(sourceRoot, 'src'), { recursive: true })
+  mkdirSync(path.join(sourceRoot, 'dist'), { recursive: true })
+  mkdirSync(path.join(sourceRoot, 'node_modules'), { recursive: true })
+  mkdirSync(path.join(sourceRoot, '.git'), { recursive: true })
+  mkdirSync(path.join(sourceRoot, 'tmp'), { recursive: true })
+  writeFileSync(path.join(sourceRoot, 'package.json'), '{}')
+  writeFileSync(path.join(sourceRoot, 'src', 'index.js'), 'export {}')
+  writeFileSync(path.join(sourceRoot, 'dist', 'index.js'), 'export {}')
+  writeFileSync(path.join(sourceRoot, 'node_modules', 'package.json'), '{}')
+  writeFileSync(path.join(sourceRoot, '.git', 'HEAD'), 'ref: main')
+  writeFileSync(path.join(sourceRoot, 'tmp', 'artifact'), 'temporary')
+  writeFileSync(path.join(sourceRoot, '.env'), 'SECRET=local')
+  writeFileSync(path.join(sourceRoot, '.env.local'), 'SECRET=local')
+  writeFileSync(path.join(sourceRoot, '.env.example'), 'PUBLIC=example')
+
+  let validationRoot
+  try {
+    validationRoot = createReleaseValidationWorkspace({
+      sourceRoot,
+      validationParent
+    })
+
+    assert.notEqual(validationRoot, sourceRoot)
+    assert.equal(existsSync(path.join(validationRoot, 'package.json')), true)
+    assert.equal(existsSync(path.join(validationRoot, 'src', 'index.js')), true)
+    assert.equal(existsSync(path.join(validationRoot, '.env')), true)
+    assert.equal(existsSync(path.join(validationRoot, '.env.example')), true)
+    for (const excludedPath of [
+      '.git',
+      'dist',
+      'node_modules',
+      'tmp',
+      '.env.local'
+    ]) {
+      assert.equal(existsSync(path.join(validationRoot, excludedPath)), false)
+    }
+
+    removeReleaseValidationWorkspace(validationRoot, validationParent)
+    assert.equal(existsSync(validationRoot), false)
+    validationRoot = undefined
+  } finally {
+    if (validationRoot) {
+      removeReleaseValidationWorkspace(validationRoot, validationParent)
+    }
+    rmSync(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('release validation supplies matching app and collaboration endpoints', async () => {
+  const { createReleaseValidationEnvironment } = await import(
+    '../release-validation-environment.js'
+  )
+
+  assert.deepEqual(
+    createReleaseValidationEnvironment({
+      appPort: 4317,
+      collaborationPort: 5109,
+      environment: { RELEASE_TOKEN: 'preserved' }
+    }),
+    {
+      RELEASE_TOKEN: 'preserved',
+      ASYRA_DESIGN_APP_URL: 'http://127.0.0.1:4317',
+      ASYRA_DESIGN_COLLABORATION_WS_PORT: '5109',
+      VITE_ASYRA_DESIGN_COLLABORATION_WS_URL:
+        'ws://127.0.0.1:5109/asyra-design-collaboration'
+    }
+  )
+})

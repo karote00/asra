@@ -5,6 +5,7 @@ import {
   createVectorPath,
   getCanvasPosition,
   getElementCount,
+  getSelectedElementClientCenter,
   hasSelectedElement,
   redo,
   resetCanvas,
@@ -38,6 +39,219 @@ test.describe('Delete Selected Element', () => {
         })
       })
       .toBe(0)
+  })
+
+  test('Delete removes a complete Group subtree, keeps canvas selection usable, and persists', async ({
+    page
+  }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    await createRectangle(page, 0.42, 0.42)
+    const subtree = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const childId = core.deps.selection.getElementSelectionIds()[0]
+      return { childId }
+    })
+    await page.getByTestId('layers-group-button').click()
+    const groupId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core.deps.selection.getElementSelectionIds()[0] as string
+    })
+
+    await page.keyboard.press('Delete')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ childId, deletedGroupId }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            return {
+              childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
+              flattenedIds:
+                core.getUIProperty<string[]>('flattenedElementIds') ?? [],
+              groupExists: Boolean(
+                core.deps.sceneTree.getElementById(deletedGroupId)
+              ),
+              selectionIds:
+                core.deps.selection.getElementSelectionIds() as string[]
+            }
+          },
+          { childId: subtree.childId, deletedGroupId: groupId }
+        )
+      )
+      .toEqual({
+        childExists: false,
+        flattenedIds: [],
+        groupExists: false,
+        selectionIds: []
+      })
+
+    await undo(page)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ childId, deletedGroupId }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            return {
+              childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
+              groupExists: Boolean(
+                core.deps.sceneTree.getElementById(deletedGroupId)
+              ),
+              selectionIds:
+                core.deps.selection.getElementSelectionIds() as string[]
+            }
+          },
+          { childId: subtree.childId, deletedGroupId: groupId }
+        )
+      )
+      .toEqual({
+        childExists: true,
+        groupExists: true,
+        selectionIds: [groupId]
+      })
+
+    await redo(page)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ childId, deletedGroupId }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            return {
+              childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
+              groupExists: Boolean(
+                core.deps.sceneTree.getElementById(deletedGroupId)
+              ),
+              selectionIds:
+                core.deps.selection.getElementSelectionIds() as string[]
+            }
+          },
+          { childId: subtree.childId, deletedGroupId: groupId }
+        )
+      )
+      .toEqual({
+        childExists: false,
+        groupExists: false,
+        selectionIds: []
+      })
+
+    await createRectangle(page, 0.72, 0.48)
+    const survivingId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core.deps.selection.getElementSelectionIds()[0] as string
+    })
+    const survivingCenter = await getSelectedElementClientCenter(page)
+    expect(survivingCenter).not.toBeNull()
+    if (!survivingCenter) {
+      return
+    }
+    const emptyCanvasPoint = await getCanvasPosition(page, 0.08, 0.08)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ center, emptyPoint, expectedSurvivorId }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            return {
+              elementDataMapIds: Object.keys(
+                core.getUIProperty('elementDataMap') ?? {}
+              ),
+              emptyPointHitId:
+                core.deps.render.getElementIdAtClientPos(emptyPoint) ?? null,
+              flattenedIds:
+                core.getUIProperty<string[]>('flattenedElementIds') ?? [],
+              renderHitId:
+                core.deps.render.getElementIdAtClientPos(center) ?? null,
+              survivorExists: Boolean(
+                core.deps.sceneTree.getElementById(expectedSurvivorId)
+              )
+            }
+          },
+          {
+            center: survivingCenter,
+            emptyPoint: emptyCanvasPoint,
+            expectedSurvivorId: survivingId
+          }
+        )
+      )
+      .toEqual({
+        elementDataMapIds: [survivingId],
+        emptyPointHitId: null,
+        flattenedIds: [survivingId],
+        renderHitId: survivingId,
+        survivorExists: true
+      })
+    await page.mouse.click(emptyCanvasPoint.x, emptyCanvasPoint.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core.deps.selection.getElementSelectionIds() as string[]
+        })
+      )
+      .toEqual([])
+    await page.mouse.click(survivingCenter.x, survivingCenter.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core.deps.selection.getElementSelectionIds() as string[]
+        })
+      )
+      .toEqual([survivingId])
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ childId, deletedGroupId }) => {
+            const raw = localStorage.getItem('FILE')
+            if (!raw) {
+              return false
+            }
+            const saved = JSON.parse(raw)
+            const elements = saved.sceneTree?.elements ?? {}
+            return !elements[deletedGroupId] && !elements[childId]
+          },
+          { childId: subtree.childId, deletedGroupId: groupId }
+        )
+      )
+      .toBe(true)
+
+    await page.reload()
+    await waitForAppReady(page)
+    const afterReload = await page.evaluate(
+      ({ childId, deletedGroupId, expectedSurvivorId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        return {
+          childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
+          groupExists: Boolean(
+            core.deps.sceneTree.getElementById(deletedGroupId)
+          ),
+          survivorExists: Boolean(
+            core.deps.sceneTree.getElementById(expectedSurvivorId)
+          )
+        }
+      },
+      {
+        childId: subtree.childId,
+        deletedGroupId: groupId,
+        expectedSurvivorId: survivingId
+      }
+    )
+    expect(afterReload).toEqual({
+      childExists: false,
+      groupExists: false,
+      survivorExists: true
+    })
+    expect(pageErrors).toEqual([])
   })
 
   test('Backspace key removes the single selected element', async ({
@@ -185,17 +399,57 @@ test.describe('Delete Selected Element', () => {
 
     await page.keyboard.press('r')
     await clickCanvas(page, 0.3, 0.3)
+    const firstElement = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core.deps.selection.getElementSelectionIds()[0] as string
+    })
+    const firstElementCenter = await getSelectedElementClientCenter(page)
+    expect(firstElementCenter).not.toBeNull()
+    if (!firstElementCenter) {
+      return
+    }
+
     await page.keyboard.press('o')
     await clickCanvas(page, 0.55, 0.5)
+    const secondElement = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core.deps.selection.getElementSelectionIds()[0] as string
+    })
+    const secondElementCenter = await getSelectedElementClientCenter(page)
+    expect(secondElementCenter).not.toBeNull()
+    if (!secondElementCenter) {
+      return
+    }
+
     await page.keyboard.press('v')
 
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
 
-    await clickCanvas(page, 0.3, 0.3)
+    await page.mouse.click(firstElementCenter.x, firstElementCenter.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core.deps.selection.getElementSelectionIds() as string[]
+        })
+      )
+      .toEqual([firstElement])
     await page.keyboard.press('Delete')
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    await clickCanvas(page, 0.55, 0.5)
+    await page.mouse.click(secondElementCenter.x, secondElementCenter.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core.deps.selection.getElementSelectionIds() as string[]
+        })
+      )
+      .toEqual([secondElement])
     await page.keyboard.press('Delete')
     await expect.poll(async () => getElementCount(page)).toBe(initialCount)
 

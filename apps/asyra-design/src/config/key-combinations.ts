@@ -30,6 +30,29 @@ const updateKeyState = (raw: RawInputEvent) => {
   core.setSystemProperty(PresetSystemPropertyKeys.KEY_META, nextKeyState.meta)
 }
 
+export const isEditableShortcutTarget = (target: Element | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return (
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    target.isContentEditable ||
+    target.contentEditable === 'true'
+  )
+}
+
+const updateGroupShortcutState = (raw: RawInputEvent) => {
+  updateKeyState(raw)
+  raw.detail = {
+    ...raw.detail,
+    groupShortcut: true,
+    editableTarget: isEditableShortcutTarget(document.activeElement)
+  }
+}
+
 const getCurrentMouseState = (): MouseSnapshot => ({
   dragStart:
     core.getSystemProperty<MouseSnapshot['dragStart']>(
@@ -185,6 +208,7 @@ export const keyCombinations = {
           down: false,
           dragging: false
         })
+        updateKeyState(raw)
       }
     }
   ],
@@ -291,6 +315,22 @@ export const keyCombinations = {
       keys: [keyMap.keys.KeyZ],
       modifiers: [ModifierKey.CTRL],
       callback: updateKeyState
+    }
+  ],
+  [InputSystemEvents.INPUT_SHORTCUT_GROUP]: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyG],
+      modifiers: [ModifierKey.META],
+      detail: { groupShortcut: true },
+      callback: updateGroupShortcutState
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyG],
+      modifiers: [ModifierKey.CTRL],
+      detail: { groupShortcut: true },
+      callback: updateGroupShortcutState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [

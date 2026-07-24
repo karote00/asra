@@ -27,6 +27,18 @@
   - select/deselect via canvas and contents panel
   - drag selected element to move
 
+- `group-interaction.spec.ts`
+
+  - visible Group/Ungroup controls and standard shortcut route
+  - nested Layers projection, collapse, undo/redo, save/load, geometry, and
+    Scene Tree/Render identity preservation
+
+- `layer-tree-reparent-reorder.spec.ts`
+
+  - visible Layers pointer reorder and cross-Group reparent
+  - collapsed Group reveal, workspace drop, multi-sibling order, cancel,
+    undo/redo, save/load, geometry, and identity preservation
+
 - `delete-element.spec.ts`
 
   - Delete/Backspace behavior for selected element and path-editing point delete branch

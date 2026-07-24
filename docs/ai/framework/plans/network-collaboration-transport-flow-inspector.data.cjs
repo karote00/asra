@@ -257,7 +257,7 @@
         'apps/asyra-design/src/collaboration/protocol.ts',
         'apps/asyra-design/src/collaboration/websocket-provider.ts',
         'apps/asyra-design/collaboration-server.ts',
-        'apps/asyra-design/collaboration-server.test.mjs',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts'
       ],
       specRefs: [

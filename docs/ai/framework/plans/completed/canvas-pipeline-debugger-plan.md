@@ -187,7 +187,7 @@ existing render-engine boundary.
 - Direct-open Inspector:
   `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html`
 - Contract gate:
-  `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.contract.test.cjs`
+  `docs/ai/framework/plans/__tests__/canvas-pipeline-debugger-flow-inspector.contract.test.cjs`
 
 The product contract owns runtime behavior and public semantics. The Inspector
 owns package and data-flow boundaries. Tests own executable evidence.

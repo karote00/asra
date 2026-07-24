@@ -17,6 +17,7 @@ import {
   InputSystemEvents,
   PrimaryToolType
 } from '../../constants'
+import { resolveCanvasHierarchyTargetAtClientPos } from '../../controllers/canvas-hierarchy-target'
 
 interface SelectionAPI {
   getSelectedIds: () => string[]
@@ -125,9 +126,7 @@ export const selectionFeature = defineFeature<
         return null
       }
 
-      const hoveredElementId =
-        snapshot.hoveredElementId ??
-        elementApis.getElementIdAtClientPos(mouse.position)
+      const hoveredElementId = resolveCanvasHierarchyTargetAtClientPos(snapshot)
 
       systemContextApis.clearAreaSelection()
 

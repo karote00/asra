@@ -62,7 +62,7 @@ Purpose: keep app docs aligned with implemented source modules.
 
 - `src/animation/*`
   - placeholder panels, no runtime contract yet
-- `src/app/App.test.tsx`, `src/setupTests.ts`, `src/reportWebVitals.ts`, `src/react-app-env.d.ts`, `src/types.d.ts`
+- `src/app/__tests__/App.test.tsx`, `src/setupTests.ts`, `src/reportWebVitals.ts`, `src/react-app-env.d.ts`, `src/types.d.ts`
   - test/infra typing files
 
 If any placeholder area becomes runtime behavior, add a dedicated module/feature doc in the same change.

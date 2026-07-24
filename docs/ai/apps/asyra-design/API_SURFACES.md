@@ -95,6 +95,10 @@ Import boundary:
 - `isContainerType(type: string): boolean`
 - `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`
 - `getElementIdAtClientPos(clientPos: PositionData): string | null`
+- `getRenderElementIdAtClientPos(clientPos: PositionData): string | null`
+  - returns only the identity-safe Render hit and never falls back to
+    workspace geometry; canvas hierarchy target resolution uses this exact
+    query
 - `getElementType(elementId: string): string | undefined`
 - `isElementLocked(elementId: string): boolean`
 - `getElementBounds(elementId: string): Rect | null`
@@ -147,6 +151,9 @@ Import boundary:
     geometry, and the outer create session remains one undo commit
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: EVENT_OPTIONS): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
+  - delegates every existing non-workspace identity to the public canonical
+    `removeSubtree` boundary; deleting a Group removes its complete subtree
+    rather than leaving descendants attached to a missing parent
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
@@ -279,6 +286,19 @@ Import boundary:
 
 - `selectElements(elementIds: string[]): void`
 
+`controllers/canvas-hierarchy-target.ts`
+
+- `resolveCanvasHierarchyTarget(input): string | null`
+  - validates the complete canonical `flattenedElementIds` /
+    `elementDataMap` projection before resolving a raw Render hit
+  - without `Meta`/`Ctrl`, resolves the nearest ancestor in the workspace or
+    exact selected-`parentId` scopes; numerical depth is not a scope
+  - with `Meta`/`Ctrl`, accepts only the existing non-Group raw Render hit
+- `resolveCurrentCanvasHierarchyTarget(hitElementId, snapshot): string | null`
+- `resolveCanvasHierarchyTargetAtClientPos(snapshot): string | null`
+  - hover, selection, and pointer-down move share this current-state handoff;
+    malformed or unmatched input fails closed without a raw-hit fallback
+
 `controllers/scene-tree.ts`
 
 - `changeElementComputedData(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
@@ -327,19 +347,22 @@ Feature registry (`src/features/index.ts`):
 - `create-element`
 
   - `elementApis.createElement`
-  - `elementApis.changeComputedData`
+  - `elementApis.getPositionInParent`
+  - `elementApis.changeElementGeometry`
+  - `resolveCreateElementParentAtClientPos`
   - `selectionApis.selectElements`
 
 - `selection`
 
-  - `elementApis.getElementIdAtClientPos`
+  - `resolveCanvasHierarchyTargetAtClientPos`
   - `selectionApis.toggleSelection` / `selectElements` / `clearSelection`
 
 - `move-elements`
 
   - `selectionApis.getSelectedIds`
   - `systemContextApis.getPathEditingMode`
-  - `elementApis.getElementIdAtClientPos` / `getMousePosInWorkspace` / `isElementLocked`
+  - `resolveCanvasHierarchyTargetAtClientPos`
+  - `elementApis.getMousePosInWorkspace` / `isElementLocked`
   - `elementApis.getElementPosition` / `setElementPositions` / `hasMovedBeyondThreshold`
 
 - `delete-element`
@@ -359,7 +382,9 @@ Feature registry (`src/features/index.ts`):
 
 - `hover-element`
 
-  - `elementApis.getElementIdAtClientPos`
+  - `resolveCanvasHierarchyTargetAtClientPos` /
+    `resolveCurrentCanvasHierarchyTarget`
+  - `elementApis.getRenderElementIdAtClientPos` through the shared resolver
   - `systemContextApis.updateHoveredElementId`
 
 - `zoom` / `pan` / `zoom-fit`

@@ -5,10 +5,11 @@ Never record completed plans here.
 ## Current Status
 
 - Current plan in this index: none.
-- Proposed app validation plans for Framework Release Gate 3, both inactive
-  until user review:
-  1. `plans/group-interaction-mvp-plan.md`
-  2. `plans/layer-tree-reparent-reorder-plan.md` (depends on the first plan)
+- Group Interaction MVP and Layer Tree Reparent/Reorder completed on
+  2026-07-24. Their canonical records are:
+  1. `plans/completed/group-interaction-mvp-plan.md`
+  2. `plans/completed/layer-tree-reparent-reorder-plan.md`
+- PR #94 remains unmerged pending user inspection of the closeout.
 - Separately queued app/server plan after the completed network collaboration
   transport Gate 2; it remains inactive until the user explicitly starts it:
   `plans/durable-collaboration-server-and-continuous-sync-plan.md`.

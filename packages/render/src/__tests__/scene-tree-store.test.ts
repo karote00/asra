@@ -578,9 +578,15 @@ describe('RenderSceneTree computed data mirror', () => {
       {
         elementId: 'vector-1',
         element: {
-          get: vi.fn((key: string) =>
-            key === 'id' ? 'vector-1' : key === 'type' ? 'vector' : undefined
-          ),
+          get: vi.fn((key: string) => {
+            if (key === 'id') {
+              return 'vector-1'
+            }
+            if (key === 'type') {
+              return 'vector'
+            }
+            return
+          }),
           save: vi.fn(() => ({ id: 'other-vector', type: 'vector' })),
           getAllComputedData: vi.fn(() => ({ points: {} }))
         }

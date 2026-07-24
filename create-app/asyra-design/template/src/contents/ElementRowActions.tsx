@@ -23,6 +23,7 @@ export const ElementRowActions = ({
   return (
     <div
       className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100"
+      data-layer-pointer-bypass="true"
       style={{
         opacity: isHovered || isSelected ? 1 : 0,
         transition: 'opacity 0.12s ease'

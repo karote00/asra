@@ -42,12 +42,13 @@ const toSelectedVectorPointState = (
     return null
   }
 
-  const targetPosition =
-    selected.target === 'anchor'
-      ? { x: anchorPoint.point.x, y: anchorPoint.point.y }
-      : selected.target === 'inHandle'
-        ? anchorPoint.point.inHandle
-        : anchorPoint.point.outHandle
+  let targetPosition = anchorPoint.point.outHandle
+  if (selected.target === 'inHandle') {
+    targetPosition = anchorPoint.point.inHandle
+  }
+  if (selected.target === 'anchor') {
+    targetPosition = { x: anchorPoint.point.x, y: anchorPoint.point.y }
+  }
 
   if (!targetPosition) {
     return null
