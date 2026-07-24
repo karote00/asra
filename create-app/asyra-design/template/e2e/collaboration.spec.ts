@@ -89,6 +89,77 @@ const getCanonicalSnapshot = (page: Page) =>
       .sort((left, right) => left.id.localeCompare(right.id))
   })
 
+const getCanonicalHierarchyGeometry = (page: Page) =>
+  page.evaluate(() => {
+    const sceneTree = window.__Core__?.deps?.sceneTree
+    const elements = sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) return []
+
+    const getFiniteNumber = (
+      value: unknown,
+      elementId: string,
+      key: string
+    ): number => {
+      const result = Number(value)
+      if (!Number.isFinite(result)) {
+        throw new Error(
+          `Element "${elementId}" has non-finite computed "${key}"`
+        )
+      }
+      return result
+    }
+
+    const getWorldPosition = (elementId: string) => {
+      let currentId = elementId
+      let x = 0
+      let y = 0
+      const visited = new Set<string>()
+
+      while (currentId) {
+        if (visited.has(currentId)) {
+          throw new Error(`Hierarchy cycle reaches "${currentId}"`)
+        }
+        visited.add(currentId)
+        const element = sceneTree?.getElementById?.(currentId)
+        if (!element) {
+          throw new Error(`Missing hierarchy element "${currentId}"`)
+        }
+        if (element.get?.('type') === 'workspace') {
+          break
+        }
+        const computed = element.getAllComputedData?.() ?? {}
+        x += getFiniteNumber(computed.x, currentId, 'x')
+        y += getFiniteNumber(computed.y, currentId, 'y')
+        currentId = String(element.get?.('parentId') ?? '')
+      }
+
+      return { x, y }
+    }
+
+    return Array.from(elements.entries())
+      .filter(([, element]) => element.get?.('type') !== 'workspace')
+      .map(([id, element]) => {
+        const computed = element.getAllComputedData?.() ?? {}
+        const type = String(element.get?.('type') ?? '')
+        const children =
+          type === 'group' ? element.get?.('children') : undefined
+        return {
+          id,
+          type,
+          parentId: String(element.get?.('parentId') ?? ''),
+          children: Array.isArray(children) ? [...children] : undefined,
+          local: {
+            x: getFiniteNumber(computed.x, id, 'x'),
+            y: getFiniteNumber(computed.y, id, 'y'),
+            width: getFiniteNumber(computed.width, id, 'width'),
+            height: getFiniteNumber(computed.height, id, 'height')
+          },
+          world: getWorldPosition(id)
+        }
+      })
+      .sort((left, right) => left.id.localeCompare(right.id))
+  })
+
 const getCollaborationDiagnostics = (page: Page) =>
   page.evaluate(() => ({
     status: window.__AsyraCollaboration__?.getStatus() ?? 'missing',
@@ -559,6 +630,84 @@ test('remote undo restores an exact nested Group with and without local tombston
     expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
   } finally {
     await Promise.all([senderContext.close(), tombstoneContext.close()])
+  }
+})
+
+test('remote Group redo preserves exact hierarchy and world geometry', async ({
+  browser
+}, testInfo) => {
+  const fileId = `group-redo-${Date.now()}-${testInfo.workerIndex}`
+  const firstContext = await browser.newContext()
+  const secondContext = await browser.newContext()
+  const first = await firstContext.newPage()
+  const second = await secondContext.newPage()
+
+  try {
+    await Promise.all([
+      first.goto(collaborationUrl(fileId)),
+      second.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(first), waitForAppReady(second)])
+    await Promise.all([
+      waitForCollaboration(first),
+      waitForCollaboration(second)
+    ])
+
+    await createRectangle(first, 0.3, 0.35)
+    await createRectangle(first, 0.62, 0.55)
+    await expect.poll(() => getElementCount(second)).toBe(2)
+
+    const rectangleIds = (await getCanonicalSnapshot(first)).map(({ id }) => id)
+    const ungroupedGeometry = await getCanonicalHierarchyGeometry(first)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(ungroupedGeometry)
+
+    const groupId = await groupLayerIds(first, rectangleIds)
+    await expect.poll(() => getElementCount(second)).toBe(3)
+    const groupedGeometry = await getCanonicalHierarchyGeometry(first)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(groupedGeometry)
+
+    await undo(first)
+    await expect.poll(() => getElementCount(first)).toBe(2)
+    await expect.poll(() => getElementCount(second)).toBe(2)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(first))
+      .toEqual(ungroupedGeometry)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(ungroupedGeometry)
+
+    await redo(first)
+    await expect.poll(() => getElementCount(first)).toBe(3)
+    await expect.poll(() => getElementCount(second)).toBe(3)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(first))
+      .toEqual(groupedGeometry)
+    await expect
+      .poll(() => getCanonicalHierarchyGeometry(second))
+      .toEqual(groupedGeometry)
+
+    const remoteGroup = (await getCanonicalHierarchyGeometry(second)).find(
+      ({ id }) => id === groupId
+    )
+    expect(remoteGroup).toEqual(
+      groupedGeometry.find(({ id }) => id === groupId)
+    )
+    await Promise.all([
+      first.screenshot({
+        path: testInfo.outputPath('group-redo-source.png'),
+        fullPage: true
+      }),
+      second.screenshot({
+        path: testInfo.outputPath('group-redo-peer.png'),
+        fullPage: true
+      })
+    ])
+  } finally {
+    await Promise.all([firstContext.close(), secondContext.close()])
   }
 })
 
