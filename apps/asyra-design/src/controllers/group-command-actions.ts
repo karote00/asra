@@ -17,8 +17,7 @@ export const runGroupCommand = (
       FeatureNames.GROUP_ELEMENTS
     ) as GroupCommandFeatureAPI
     return featureApi.execute?.(command) ?? null
-  } catch (error) {
-    console.error('[group-command-actions] Group command failed:', error)
+  } catch {
     return null
   }
 }
