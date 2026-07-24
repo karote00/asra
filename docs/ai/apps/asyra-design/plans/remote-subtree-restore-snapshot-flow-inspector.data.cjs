@@ -487,7 +487,8 @@
       conditions: [
         'Every component preserves its component id, exact data, and owner relation.',
         'Tombstone-present and tombstone-absent paths produce equivalent canonical Props state.',
-        'Materialization applies no defaults and allocates no replacement ids.'
+        'Materialization applies no defaults and allocates no replacement ids.',
+        'Materialized components retain the issuing Props Manager accessor for later child relation and value projection.'
       ],
       bypasses: [
         'An empty valid Props plan performs no component mutation and still permits the Scene Tree owner step.',
@@ -508,9 +509,11 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/props-manager/src/components/base.ts',
         'packages/props-manager/src/manager/props-manager.ts',
         'packages/props-manager/src/manager/subscribes.ts',
         'packages/props-manager/src/factories/create-property.ts',
+        'packages/props-manager/src/registries/declarative-property-type.ts',
         'packages/props-manager/src/__tests__'
       ],
       specRefs: [
@@ -589,7 +592,8 @@
       outputs: ['artifact:preset-canonical-projection'],
       conditions: [
         'Existing Scene Tree channel handling derives Group bounds and canonical UI-context values after commit.',
-        'Projection consumes the same stable ids and data used by local undo.'
+        'Projection consumes the same stable ids and data used by local undo.',
+        'Official children-map components retain their issuing Props Manager accessor when projecting restored child values.'
       ],
       bypasses: [
         'A rolled-back or rejected restore produces no final projection.',
@@ -610,6 +614,8 @@
       implementationBoundary: [
         'packages/preset/src/subscriptions/data-channel.ts',
         'packages/preset/src/components/group.ts',
+        'packages/preset/src/props/components/children-map-property-component.ts',
+        'packages/preset/src/__tests__/children-map-property-component.test.ts',
         'packages/preset/src/__tests__/selection-subscriptions.test.ts',
         'packages/preset/src/__tests__/group-operations.test.ts'
       ],

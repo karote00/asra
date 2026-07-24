@@ -275,6 +275,12 @@ test('Scene Tree and Props preflight tombstone reuse or exact known-data materia
     /stable id.*parent.*root index.*child order.*raw Group data/i
   )
   assert.match(propsApply, /component id.*data.*owner relation/i)
+  assert.match(propsApply, /issuing Props Manager accessor.*child relation/i)
+  assert.ok(
+    step('materialize-props-restore').implementationBoundary.includes(
+      'packages/props-manager/src/registries/declarative-property-type.ts'
+    )
+  )
   assert.match(`${sceneApply} ${propsApply}`, /no defaults.*replacement ids/i)
 })
 
@@ -301,6 +307,12 @@ test('Preset, Render, and Layers consume only ordinary canonical projection', ()
   const layers = contractText(step('project-layers-ui'))
 
   assert.match(preset, /ordinary canonical updates.*Group bounds/i)
+  assert.match(preset, /children-map.*issuing Props Manager accessor/i)
+  assert.ok(
+    step('project-preset-group-state').implementationBoundary.includes(
+      'packages/preset/src/props/components/children-map-property-component.ts'
+    )
+  )
   assert.match(
     render,
     /same stable identities.*ordinary Scene Tree projection/i
