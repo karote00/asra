@@ -57,12 +57,13 @@ test('Group Interaction Inspector authorities resolve', () => {
   assert.ok(data.steps.every(Object.isFrozen))
 })
 
-test('all eight required owner steps expose exact readiness fields', () => {
+test('all nine required owner steps expose exact readiness fields', () => {
   const requiredStepIds = [
     'derive-group-command-intent',
     'execute-group-command-transaction',
     'route-group-command-input',
     'project-layers-hierarchy',
+    'resolve-canvas-hierarchy-target',
     'project-group-hover-selection-overlay',
     'derive-group-world-bounds-for-viewport-fit',
     'settle-history-publication-and-remote-apply',
@@ -260,6 +261,33 @@ test('Layers projection derives nested visible rows without second hierarchy sta
   assert.match(text, /Render display-object ancestry/i)
 })
 
+test('app resolves canvas hover and selection target from canonical parent scopes', () => {
+  const text = contractText(step('resolve-canvas-hierarchy-target'))
+
+  assert.match(text, /identity-safe raw Render hit/i)
+  assert.match(text, /canonical flattenedElementIds and elementDataMap/i)
+  assert.match(text, /selected element ids/i)
+  assert.match(text, /Meta or Ctrl/i)
+  assert.match(
+    text,
+    /no selected elements.*workspace direct child.*outermost/i
+  )
+  assert.match(
+    text,
+    /selected parentId scopes.*nearest matching ancestor.*exact parent/i
+  )
+  assert.match(text, /same numerical depth.*different parent.*invalid/i)
+  assert.match(text, /first non-Group element/i)
+  assert.match(
+    text,
+    /hover, selection, and pointer-down move.*same resolved target/i
+  )
+  assert.match(text, /raw hit fallback/i)
+  assert.match(text, /Render display-object ancestry/i)
+  assert.match(text, /second mutable parent or children map/i)
+  assert.match(text, /missing.*cyclic.*stale.*fails closed/i)
+})
+
 test('Preset selection overlay projects canonical Group hover and selection bounds', () => {
   const text = contractText(step('project-group-hover-selection-overlay'))
 
@@ -345,6 +373,9 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Ungroup a normal official Group.*empty official Group/i,
     /Visible Layers controls and Meta\/Ctrl\+G.*Shift variant/i,
     /Shift-range uses visible row order.*hidden-descendant selection/i,
+    /Without selection and without Meta\/Ctrl.*workspace direct-child target/i,
+    /With selection and without Meta\/Ctrl.*exact selected parentId scope.*different parent is invalid/i,
+    /With Meta\/Ctrl.*first non-Group raw hit.*hover, selection, and pointer-down move/i,
     /Selected and hovered official Groups.*canonical computed bounds/i,
     /Cmd\+1.*Group before and after.*world-space scene bounds/i,
     /One command is one undo entry and one grouped publication/i,

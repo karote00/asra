@@ -235,6 +235,72 @@
       failureOwnerStepId: 'project-layers-hierarchy'
     },
     {
+      id: 'resolve-canvas-hierarchy-target',
+      order: 2,
+      laneId: 'features',
+      title: 'Resolve the canonical canvas hierarchy target',
+      ownerPackage: 'asyra-design canvas hierarchy target policy',
+      purpose:
+        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, and pointer-down move by using the canonical hierarchy projection, selected element ids, and current Meta or Ctrl state.',
+      inputs: [
+        'identity-safe raw Render hit element id',
+        'canonical flattenedElementIds and elementDataMap projection',
+        'app-local selected element ids',
+        'current Meta or Ctrl modifier snapshot'
+      ],
+      outputs: [
+        'artifact:resolved-canvas-hierarchy-target',
+        'artifact:canvas-hierarchy-target-rejection'
+      ],
+      conditions: [
+        'With no selected elements and no Meta or Ctrl modifier, the workspace is the reference scope and the resolver returns its workspace direct child, which is the outermost element on the raw-hit parent chain.',
+        'With selected elements and no modifier, their exact selected parentId scopes are the references and the resolver returns the nearest matching ancestor to the raw hit.',
+        'Same numerical depth under a different parent is invalid; exact parent membership, not depth, defines the unmodified scope.',
+        'When selection spans multiple parents, each exact parentId is a valid scope and the nearest matching ancestor to the raw hit wins.',
+        'With Meta or Ctrl, parent scope is bypassed and the identity-safe raw hit resolves only when it is an existing first non-Group element.',
+        'Canvas hover, selection, and pointer-down move consume the same resolved target while their existing lock, visibility, selection mutation, and move-session behavior remains unchanged.',
+        'Pointer movement refreshes the current modifier snapshot before hover resolution.'
+      ],
+      bypasses: [
+        'Dragging, non-element overlays, and the existing path-editing guard retain their current feature bypass behavior.',
+        'A missing raw hit, Group raw hit in modifier mode, or unmatched exact parent scope emits no resolved target.',
+        'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, or move handoff.'
+      ],
+      allowedContributors: [
+        'identity-safe raw Render hit only',
+        'canonical Preset flattenedElementIds and elementDataMap data channels',
+        'app-local selection query',
+        'System Context Meta and Ctrl key snapshot',
+        'asyra-design hover, selection, and move features'
+      ],
+      forbiddenContributors: [
+        'Render display-object ancestry',
+        'a second mutable parent or children map',
+        'same-depth hierarchy inference',
+        'raw hit fallback after canonical target rejection',
+        'Group canvas hit geometry or Preset-owned target policy'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/config/key-combinations.ts',
+        'apps/asyra-design/src/controllers',
+        'apps/asyra-design/src/common-apis',
+        'apps/asyra-design/src/features/hover-element',
+        'apps/asyra-design/src/features/selection',
+        'apps/asyra-design/src/features/move-elements',
+        'apps/asyra-design/e2e'
+      ],
+      specRefs: [
+        '#canvas-hierarchy-hover-and-selection-target',
+        '#product-cases',
+        '#explicit-non-goals',
+        '#formal-test-plan',
+        '#definition-of-done'
+      ],
+      failureOwnerStepId: 'resolve-canvas-hierarchy-target'
+    },
+    {
       id: 'project-group-hover-selection-overlay',
       order: 2,
       laneId: 'verification',
@@ -244,6 +310,7 @@
         'Project official Group bounds through the existing registered selection overlay layer without changing canonical geometry, Render hierarchy, or canvas hit policy.',
       inputs: [
         'canonical element selection and canonical hovered element id',
+        'artifact:resolved-canvas-hierarchy-target',
         'official Group computed x, y, width, and height',
         'current identity-safe Render world transform'
       ],
@@ -534,6 +601,23 @@
       producedArtifacts: ['artifact:layers-projection-failure']
     },
     {
+      id: 'resolved-canvas-target-to-group-overlay',
+      from: 'resolve-canvas-hierarchy-target',
+      to: 'project-group-hover-selection-overlay',
+      kind: 'projection',
+      predicate:
+        'the app publishes the resolved canvas target as canonical hoveredElementId',
+      producedArtifacts: ['artifact:resolved-canvas-hierarchy-target']
+    },
+    {
+      id: 'rejected-canvas-target-terminates',
+      from: 'resolve-canvas-hierarchy-target',
+      kind: 'terminal',
+      predicate:
+        'the raw hit or canonical projection cannot produce an allowed hierarchy target',
+      producedArtifacts: ['artifact:canvas-hierarchy-target-rejection']
+    },
+    {
       id: 'group-overlay-to-verification',
       from: 'project-group-hover-selection-overlay',
       to: 'verify-group-persistence-and-render',
@@ -664,6 +748,20 @@
       terminal: true
     },
     {
+      id: 'artifact:resolved-canvas-hierarchy-target',
+      ownerStepId: 'resolve-canvas-hierarchy-target',
+      channel: 'canonical System Context hoveredElementId',
+      consumerStepIds: ['project-group-hover-selection-overlay'],
+      terminal: false
+    },
+    {
+      id: 'artifact:canvas-hierarchy-target-rejection',
+      ownerStepId: 'resolve-canvas-hierarchy-target',
+      channel: 'terminal app target result',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
       id: 'artifact:group-hover-selection-overlay',
       ownerStepId: 'project-group-hover-selection-overlay',
       channel: 'existing Preset selection overlay layer',
@@ -731,6 +829,7 @@
         'derive-group-command-intent',
         'execute-group-command-transaction',
         'project-layers-hierarchy',
+        'resolve-canvas-hierarchy-target',
         'project-group-hover-selection-overlay',
         'derive-group-world-bounds-for-viewport-fit',
         'verify-group-persistence-and-render'
@@ -738,6 +837,7 @@
       artifactIds: [
         'artifact:eligible-group-command-request',
         'artifact:visible-layer-rows',
+        'artifact:resolved-canvas-hierarchy-target',
         'artifact:group-hover-selection-overlay',
         'artifact:canonical-world-scene-bounds',
         'artifact:identity-safe-render-projection'
@@ -828,6 +928,23 @@
       specRefs: ['#layers-hierarchy-projection', '#product-cases']
     },
     {
+      id: 'canvas-hierarchy-target-product-cases',
+      title: 'Canonical canvas hierarchy target',
+      assertions: [
+        'Without selection and without Meta/Ctrl, a nested raw hit resolves to the workspace direct-child target.',
+        'With selection and without Meta/Ctrl, exact selected parentId scope controls resolution and an equal-depth element under a different parent is invalid.',
+        'With Meta/Ctrl, the first non-Group raw hit is the same target used by hover, selection, and pointer-down move.',
+        'Multiple selected parent scopes choose the nearest matching ancestor to the raw hit.',
+        'Missing, duplicated, cyclic, stale, invalid-root, unmatched-scope, and Group modifier hits fail closed without raw-hit fallback or a second hierarchy.'
+      ],
+      stepIds: ['resolve-canvas-hierarchy-target'],
+      specRefs: [
+        '#canvas-hierarchy-hover-and-selection-target',
+        '#product-cases',
+        '#explicit-non-goals'
+      ]
+    },
+    {
       id: 'group-hover-selection-overlay-product-cases',
       title: 'Canonical Group hover and selection overlay',
       assertions: [
@@ -888,6 +1005,7 @@
       ],
       stepIds: [
         'project-layers-hierarchy',
+        'resolve-canvas-hierarchy-target',
         'project-group-hover-selection-overlay',
         'derive-group-world-bounds-for-viewport-fit',
         'settle-history-publication-and-remote-apply',
@@ -908,7 +1026,7 @@
       kind: 'feature',
       title: 'Asyra Design Group Interaction MVP Inspector',
       subtitle:
-        'Exact app command, transaction, Layers projection, world-space bounds, collaboration, persistence, and Render handoffs for official Group operations.'
+        'Exact app command, transaction, hierarchy-scoped canvas targeting, Layers projection, world-space bounds, collaboration, persistence, and Render handoffs for official Group operations.'
     },
     authority: {
       specPath,
