@@ -300,6 +300,15 @@ test('app resolves canvas target and create parent from canonical parent scopes'
     text,
     /mouse-down and drag workspace geometry.*chosen parent.*local coordinates/i
   )
+  assert.match(
+    text,
+    /Preset moveElementsWithGroupGeometry.*identity-preserving reparent.*same transaction/i
+  )
+  assert.match(
+    text,
+    /Preset normalizeGroupsForElements.*drag geometry.*Group bounds/i
+  )
+  assert.match(text, /app-owned Group origin arithmetic/i)
   assert.match(text, /legacy firstFrame fallback/i)
   assert.match(text, /raw hit fallback/i)
   assert.match(text, /Render display-object ancestry/i)

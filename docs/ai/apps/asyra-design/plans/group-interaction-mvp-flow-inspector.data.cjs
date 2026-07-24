@@ -266,7 +266,9 @@
         'Canvas hover, selection, and pointer-down move consume the same resolved target while their existing lock, visibility, selection mutation, and move-session behavior remains unchanged.',
         'Create-element mouse down consumes the same resolved hierarchy target: a resolved Group is the create parent, while a resolved non-Group uses its exact canonical parent only when that parent is an official Group.',
         'When a valid projection has a missing raw hit, creation uses the workspace root and passes its id as an explicit parentId instead of leaving parent unspecified.',
-        'The mouse-down and drag workspace geometry is converted into the chosen parent Group local coordinates through that exact identity-safe Render handle before canonical creation and every drag update.',
+        'For a Group create parent, Preset moveElementsWithGroupGeometry performs the identity-preserving reparent and initial coordinate and bounds normalization inside the same transaction as explicit workspace-root creation.',
+        'The mouse-down and drag workspace geometry is converted into the chosen parent current local coordinates through that exact identity-safe Render handle for every drag update.',
+        'Preset normalizeGroupsForElements runs after create drag geometry writes in the same transaction so direct-child and ancestor Group bounds remain canonical without app-owned Group origin arithmetic.',
         'Pointer movement refreshes the current modifier snapshot before hover resolution.'
       ],
       bypasses: [
@@ -282,6 +284,7 @@
         'app-local selection query',
         'System Context Meta and Ctrl key snapshot',
         'identity-safe chosen-parent Render transform for coordinate conversion only',
+        'public Preset moveElementsWithGroupGeometry and normalizeGroupsForElements adapters for official Group geometry only',
         'asyra-design hover, selection, move, and create-element features'
       ],
       forbiddenContributors: [
@@ -289,7 +292,8 @@
         'a second mutable parent or children map',
         'same-depth hierarchy inference',
         'raw hit fallback after canonical target rejection',
-        'Group canvas hit geometry or Preset-owned target policy',
+        'Group canvas hit geometry or Preset-owned target selection policy',
+        'app-owned Group origin arithmetic or Group bounds normalization',
         'unspecified create parent or Scene Tree legacy firstFrame fallback'
       ],
       cacheDimensions: [],
