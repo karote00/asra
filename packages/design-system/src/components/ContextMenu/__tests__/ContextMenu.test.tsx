@@ -148,6 +148,62 @@ describe('ContextMenu', () => {
     ])
   })
 
+  it('contains handled keyboard and outside-pointer events from underlying handlers', () => {
+    const onDismiss = vi.fn()
+    const windowKeyDown = vi.fn()
+    const outsidePointerDown = vi.fn()
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    window.addEventListener('keydown', windowKeyDown)
+    outside.addEventListener('pointerdown', outsidePointerDown)
+
+    render(
+      <ContextMenu
+        aria-label="Canvas commands"
+        items={items}
+        position={{ x: 120, y: 80 }}
+        viewport={viewport}
+        onActivate={vi.fn()}
+        onDismiss={onDismiss}
+      />
+    )
+
+    const menu = screen.getByRole('menu')
+    const escape = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    })
+    menu.dispatchEvent(escape)
+    expect(windowKeyDown).not.toHaveBeenCalled()
+
+    const tab = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Tab'
+    })
+    menu.dispatchEvent(tab)
+    expect(tab.defaultPrevented).toBe(false)
+    expect(windowKeyDown).not.toHaveBeenCalled()
+
+    const outsidePress = new MouseEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0
+    })
+    outside.dispatchEvent(outsidePress)
+    expect(outsidePress.defaultPrevented).toBe(true)
+    expect(outsidePointerDown).not.toHaveBeenCalled()
+    expect(onDismiss.mock.calls).toEqual([
+      ['escape'],
+      ['tab'],
+      ['outside-pointer']
+    ])
+
+    window.removeEventListener('keydown', windowKeyDown)
+    outside.removeEventListener('pointerdown', outsidePointerDown)
+  })
+
   it('removes its portal and owned outside listener on unmount', () => {
     const onDismiss = vi.fn()
     const { unmount } = render(

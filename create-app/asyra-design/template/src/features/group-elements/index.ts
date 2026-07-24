@@ -10,7 +10,11 @@ import {
   type GroupCommand,
   type GroupCommandRequest
 } from '../../controllers/group-commands'
-import { FeatureNames, InputSystemEvents } from '../../constants'
+import {
+  FeatureNames,
+  GroupCommandIds,
+  InputSystemEvents
+} from '../../constants'
 
 export interface GroupCommandExecutionResult {
   [key: string]: unknown
@@ -30,7 +34,7 @@ export const executeGroupCommandRequest = (
   request: GroupCommandRequest
 ): GroupCommandExecutionResult =>
   transactionApis.runTransaction(() => {
-    if (request.command === 'group') {
+    if (request.command === GroupCommandIds.GROUP) {
       const result = hierarchyApis.groupElements(request.elementIds)
       const selectedIds = [result.groupId]
       selectionApis.selectElements(selectedIds)
@@ -70,7 +74,9 @@ export const groupCommandFeatureDefinition = {
       return null
     }
 
-    return api.execute(snapshot.keyShift ? 'ungroup' : 'group')
+    return api.execute(
+      snapshot.keyShift ? GroupCommandIds.UNGROUP : GroupCommandIds.GROUP
+    )
   }
 }
 

@@ -116,6 +116,8 @@ export const ContextMenu = ({
         event.target instanceof Node &&
         !menuRef.current?.contains(event.target)
       ) {
+        event.preventDefault()
+        event.stopPropagation()
         onDismiss('outside-pointer')
       }
     }
@@ -132,11 +134,13 @@ export const ContextMenu = ({
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
+      event.stopPropagation()
       onDismiss('escape')
       return
     }
 
     if (event.key === 'Tab') {
+      event.stopPropagation()
       onDismiss('tab')
       return
     }
@@ -150,6 +154,7 @@ export const ContextMenu = ({
 
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
+      event.stopPropagation()
       const direction = event.key === 'ArrowDown' ? 1 : -1
       let startPosition = enabledPosition
       if (enabledPosition === -1) {
@@ -164,6 +169,7 @@ export const ContextMenu = ({
 
     if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
+      event.stopPropagation()
       const targetIndex =
         event.key === 'Home'
           ? enabledIndices[0]
@@ -177,6 +183,7 @@ export const ContextMenu = ({
       enabledIndices.includes(activeIndex)
     ) {
       event.preventDefault()
+      event.stopPropagation()
       const item = items[activeIndex]
       if (item) onActivate(item.id)
     }
