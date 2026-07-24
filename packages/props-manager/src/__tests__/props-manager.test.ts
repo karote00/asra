@@ -298,7 +298,7 @@ describe('PropsManager', () => {
 
     const evidence = (
       propsManager.changes[0] as PropsChange & {
-        data: Array<Record<string, unknown>>
+        data: Record<string, unknown>[]
       }
     ).data[0]
     expect(evidence).toEqual({
