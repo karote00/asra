@@ -38,6 +38,7 @@ export interface SubtreeRemovalEntry {
 export interface RemoveSubtreeResult {
   elementId: string
   removed: readonly SubtreeRemovalEntry[]
+  rootParentChildrenAfter: readonly string[]
 }
 
 export interface AddRemoveElementChange {
@@ -66,6 +67,7 @@ export interface SubtreeChange {
   eventName: string
   elementId: string
   removed: SubtreeRemovalEntry[]
+  rootParentChildrenAfter: string[]
   options?: MutationOptions
 }
 

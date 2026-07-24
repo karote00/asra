@@ -289,6 +289,50 @@ describe('canonical hierarchy move', () => {
 })
 
 describe('canonical subtree removal', () => {
+  it('captures detached post-delete root-parent order evidence at mutation time', () => {
+    const beforeSiblingId = addElement(new HierarchyTestElement())
+    const groupId = addElement(new HierarchyTestGroup())
+    const afterSiblingId = addElement(new HierarchyTestElement())
+    const updates: UpdateTransactionEvent[] = []
+    const subscription = subscribeToUpdateTransaction((event) =>
+      updates.push(event)
+    )
+
+    const result = sceneTree.removeSubtree(groupId)
+    const published = updates.find(
+      ({ eventName, payload }) =>
+        eventName === EventTypes.CHANGE_SUBTREE &&
+        (payload as { elementId?: string }).elementId === groupId
+    )?.payload as
+      | {
+          rootParentChildrenAfter: readonly string[]
+        }
+      | undefined
+    subscription.unsubscribe()
+
+    expect(result.rootParentChildrenAfter).toEqual([
+      beforeSiblingId,
+      afterSiblingId
+    ])
+    expect(published?.rootParentChildrenAfter).toEqual([
+      beforeSiblingId,
+      afterSiblingId
+    ])
+    expect(published?.rootParentChildrenAfter).not.toBe(
+      result.rootParentChildrenAfter
+    )
+
+    addElement(new HierarchyTestElement())
+    expect(result.rootParentChildrenAfter).toEqual([
+      beforeSiblingId,
+      afterSiblingId
+    ])
+    expect(published?.rootParentChildrenAfter).toEqual([
+      beforeSiblingId,
+      afterSiblingId
+    ])
+  })
+
   it('removes descendants before their containers and keeps exact instances available for restoration', () => {
     const group = new HierarchyTestGroup()
     const groupId = addElement(group)
@@ -324,7 +368,11 @@ describe('canonical subtree removal', () => {
       grandchild
     )
     expect(
-      updates.filter(({ eventName }) => eventName === EventTypes.CHANGE_SUBTREE)
+      updates.filter(
+        ({ eventName, payload }) =>
+          eventName === EventTypes.CHANGE_SUBTREE &&
+          (payload as { elementId?: string }).elementId === groupId
+      )
     ).toHaveLength(1)
 
     sceneTree.restoreSubtree(result.removed)

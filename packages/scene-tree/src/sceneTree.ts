@@ -1039,6 +1039,22 @@ class SceneTree {
   ): RemoveSubtreeResult {
     this.validateCanonicalHierarchy()
     const removed = this.collectSubtreeRemovalEntries(elementId)
+    const rootEntry = removed[removed.length - 1]
+    const rootParent = this.getElementById(
+      rootEntry.parentId
+    ) as GroupInstanceTypes
+    const rootParentChildrenBefore = this.getContainerChildren(
+      rootParent,
+      `Subtree root parent "${rootEntry.parentId}"`
+    )
+    if (rootParentChildrenBefore[rootEntry.index] !== elementId) {
+      throw new Error(
+        `[SceneTree] Invalid subtree request: stale root membership for "${elementId}"`
+      )
+    }
+    const rootParentChildrenAfter = rootParentChildrenBefore.filter(
+      (_, index) => index !== rootEntry.index
+    )
 
     const workspace = this.currentWorkspace as Workspace
     const operationChangeStart = this.changes.length
@@ -1056,6 +1072,7 @@ class SceneTree {
       eventName: EventTypes.CHANGE_SUBTREE,
       elementId,
       removed: cloneSceneTreeValue(removed),
+      rootParentChildrenAfter: cloneSceneTreeValue(rootParentChildrenAfter),
       action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
       undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE
     })
@@ -1063,7 +1080,11 @@ class SceneTree {
     this.commitSceneTreeTransaction(options)
     propsManager.commitChanges(options)
 
-    return { elementId, removed }
+    return {
+      elementId,
+      removed,
+      rootParentChildrenAfter: cloneSceneTreeValue(rootParentChildrenAfter)
+    }
   }
 
   restoreSubtree(
@@ -1163,6 +1184,11 @@ class SceneTree {
     }
 
     const workspace = this.currentWorkspace as Workspace
+    const rootEntry = removed[removed.length - 1]
+    const rootParentChildrenAfter = this.getContainerChildren(
+      this.getElementById(rootEntry.parentId) as GroupInstanceTypes,
+      `Restore root parent "${rootEntry.parentId}"`
+    )
     const operationChangeStart = this.changes.length
     restoreOrder.forEach(({ elementId, parentId, index }) => {
       const restored = this.getRestoreElementById(elementId, false)
@@ -1170,18 +1196,22 @@ class SceneTree {
       workspace.addNewElement(restored, parent, index)
     })
     this.changes.splice(operationChangeStart)
-    const rootEntry = removed[removed.length - 1]
     this.addChange({
       eventName: EventTypes.CHANGE_SUBTREE,
       elementId: rootEntry.elementId,
       removed,
+      rootParentChildrenAfter: cloneSceneTreeValue(rootParentChildrenAfter),
       action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
       undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
     })
     acknowledgeTransactionReplayApplied()
     this.commitSceneTreeTransaction(options)
 
-    return { elementId: rootEntry.elementId, removed }
+    return {
+      elementId: rootEntry.elementId,
+      removed,
+      rootParentChildrenAfter: cloneSceneTreeValue(rootParentChildrenAfter)
+    }
   }
 
   applySubtreeChange(change: SubtreeChange, options?: EVENT_OPTIONS): boolean {
