@@ -57,13 +57,14 @@ test('Group Interaction Inspector authorities resolve', () => {
   assert.ok(data.steps.every(Object.isFrozen))
 })
 
-test('all seven required owner steps expose exact readiness fields', () => {
+test('all eight required owner steps expose exact readiness fields', () => {
   const requiredStepIds = [
     'derive-group-command-intent',
     'execute-group-command-transaction',
     'route-group-command-input',
     'project-layers-hierarchy',
     'project-group-hover-selection-overlay',
+    'derive-group-world-bounds-for-viewport-fit',
     'settle-history-publication-and-remote-apply',
     'verify-group-persistence-and-render'
   ]
@@ -274,6 +275,20 @@ test('Preset selection overlay projects canonical Group hover and selection boun
   assert.match(text, /Pixi/i)
 })
 
+test('Core derives zoom-fit bounds from canonical world coordinates', () => {
+  const owner = step('derive-group-world-bounds-for-viewport-fit')
+  const text = contractText(owner)
+
+  assert.match(owner.ownerPackage, /@asyra\/core.*Scene Tree facade/i)
+  assert.match(text, /canonical parent chain/i)
+  assert.match(text, /workspace root/i)
+  assert.match(text, /nested container offsets/i)
+  assert.match(text, /world-space scene bounds/i)
+  assert.match(text, /Group before and after.*exactly equivalent/i)
+  assert.match(text, /missing parent.*cycle.*non-finite/i)
+  assert.match(text, /app-specific.*Render.*fallback/i)
+})
+
 test('Factory/app remote step retains Gate 3 collaboration ownership', () => {
   const text = contractText(step('settle-history-publication-and-remote-apply'))
 
@@ -328,6 +343,7 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Visible Layers controls and Meta\/Ctrl\+G.*Shift variant/i,
     /Shift-range uses visible row order.*hidden-descendant selection/i,
     /Selected and hovered official Groups.*canonical computed bounds/i,
+    /Cmd\+1.*Group before and after.*world-space scene bounds/i,
     /One command is one undo entry and one grouped publication/i,
     /Accepted remote Group changes.*without selection takeover/i,
     /Save\/load preserves exact nested Group document state/i,

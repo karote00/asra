@@ -198,6 +198,23 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   create resize handles, mutate Group geometry, or introduce a second overlay
   layer, Group-specific mutable state, or app/Render fallback bounds.
 
+### World-space scene bounds and viewport fit
+
+- The public Core Scene Tree facade owns deriving overall world-space scene
+  bounds from canonical element geometry and canonical parent membership.
+- A non-workspace element's computed `x` and `y` are local to its canonical
+  parent. The bounds query accumulates every non-workspace parent offset up to
+  the workspace root before unioning that element's width and height.
+- Grouping must not change the overall world-space scene bounds when the
+  visible child geometry is unchanged. Normal and nested Groups therefore
+  produce exactly equivalent bounds before and after Group.
+- The existing app zoom-fit common API consumes these completed world-space
+  scene bounds. `Cmd+1` keeps the existing shortcut and `calculateZoomFit`
+  behavior; neither app nor Render may reinterpret local Group coordinates.
+- Empty content returns no bounds. A missing parent, cycle, invalid workspace
+  chain, or non-finite required geometry fails closed without partial bounds,
+  guessed offsets, a second hierarchy, or app/Render fallback geometry.
+
 ### Save/load and collaboration
 
 - Save/load preserves exact Group data, parent, index, child order, nested
@@ -228,6 +245,8 @@ Formal product coverage must include:
 - project nested rows, depth, canonical child order, expand, and collapse;
 - project normal and nested official Group hover/selection boxes from canonical
   computed bounds without adding a Group canvas hit area;
+- preserve exactly equivalent world-space scene bounds before and after normal
+  or nested Group, and make `Cmd+1` center and fit that complete content;
 - keep hidden-descendant selection stable across collapse/expand;
 - undo/redo Group and Ungroup with exact hierarchy, Group data, geometry, and
   selection restoration;
@@ -247,6 +266,8 @@ Formal product coverage must include:
 - Group resize/scaling of descendants, auto-layout, clipping/masking,
   constraints, symbols/components, Boolean operations, or snapping;
 - arbitrary mixed-parent grouping;
+- changes to zoom-fit shortcut routing, padding policy, viewport math, or
+  unrelated zoom and pan behavior;
 - backend permission, domain ordering, duplicate, or concurrent conflict
   policy changes;
 - any second Group component, canonical hierarchy owner, or Render-only
@@ -277,11 +298,16 @@ steps:
    - canonical selection and hovered-id inputs, official Group computed bounds,
      current Render transform, existing overlay-layer output, invalid-bounds
      bypass, no-hit-area boundary, and forbidden second layer/state/fallback.
-6. **Factory history/publication and app remote apply**
+6. **Core world-space scene bounds for viewport fit**
+   - canonical Scene Tree elements and parent-chain input, accumulated
+     world-space bounds output, workspace-root termination, empty-content
+     bypass, malformed-chain failure owner, exact Group before/after
+     equivalence, and forbidden app/Render fallback.
+7. **Factory history/publication and app remote apply**
    - one command/undo/redo publication boundary, local selection isolation,
      accepted remote canonical apply, rejected remote bypass, and explicit
      Collaboration exclusions.
-7. **Save/load and Render verification**
+8. **Save/load and Render verification**
    - exact hierarchy load output, Layers refresh, identity-safe Render handoff,
      load rejection owner, and no fallback projection.
 
@@ -314,12 +340,16 @@ The Inspector may authorize narrowly scoped changes under:
   directly corresponding `packages/preset/src/__tests__` regression tests,
   limited to projecting official Group hover/selection bounds through the
   existing registered layer.
+- `packages/core/src/apis/*` and directly corresponding
+  `packages/core/src/__tests__` regression tests, limited to deriving canonical
+  world-space scene bounds for the existing viewport-fit consumer.
 
-Except for the exact Preset selection-overlay boundary above, Framework,
-Preset, Scene Tree, Factory, Collaboration, and Render production changes are
-not pre-authorized by this app plan. If formal evidence finds another upstream
-Gate 3 contract violation, stop the current app owner step and obtain a bounded
-upstream plan/Inspector amendment. Do not add an app fallback.
+Except for the exact Preset selection-overlay and Core Scene Tree facade bounds
+boundaries above, Framework, Preset, Scene Tree, Factory, Collaboration, and
+Render production changes are not pre-authorized by this app plan. If formal
+evidence finds another upstream Gate 3 contract violation, stop the current app
+owner step and obtain a bounded upstream plan/Inspector amendment. Do not add
+an app fallback.
 
 ## Formal Test Plan
 
@@ -333,6 +363,11 @@ upstream plan/Inspector amendment. Do not add an app fallback.
   expand/collapse, visible-range selection, and stable selectors.
 - Preset selection-overlay tests for selected, hovered, nested, invalid-bounds,
   duplicate-outline suppression, and unchanged non-Group behavior.
+- Core world-bounds tests proving normal and nested Group before/after
+  equivalence plus empty, missing-parent, cycle, invalid-workspace-chain, and
+  non-finite failure behavior.
+- App viewport integration tests proving `Cmd+1` consumes the completed Core
+  bounds through the existing common API and `calculateZoomFit`.
 - App integration tests for save/load, accepted remote apply, local selection
   isolation, and instance isolation.
 - E2E tests driven through visible controls and shortcuts, not
@@ -349,8 +384,9 @@ upstream plan/Inspector amendment. Do not add an app fallback.
 - visible Layers controls and standard shortcuts execute the same feature
   contract;
 - Group/Ungroup eligibility, post-selection, nested projection,
-  expand/collapse, Group hover/selection boxes, failures, undo/redo, save/load,
-  and collaboration behavior match this plan;
+  expand/collapse, Group hover/selection boxes, exact world-space scene bounds,
+  `Cmd+1` fit, failures, undo/redo, save/load, and collaboration behavior match
+  this plan;
 - no second hierarchy state, second Group component, app-specific Render
   fallback, or Collaboration conflict policy is introduced;
 - all affected app/package tests, Inspector tests, Scene Tree/Factory/Preset/
@@ -369,6 +405,9 @@ upstream plan/Inspector amendment. Do not add an app fallback.
 - Expand/collapse nested Groups and shift-select visible rows.
 - Hover and select normal and nested Groups; confirm the ordinary canvas box
   matches canonical Group bounds and no Group canvas hit area was introduced.
+- Use `Cmd+1` before and after normal and nested Group operations; confirm the
+  same complete visible content is centered and fitted without a position or
+  scale jump caused by local Group coordinates.
 - Reload a nested Group document.
 - Confirm no canvas jump, duplicate visual, stale row, or remote selection
   takeover.
@@ -381,6 +420,8 @@ upstream plan/Inspector amendment. Do not add an app fallback.
 - Canonical Group projection is missing and would require an app fallback.
 - Canonical Group computed bounds or the current Render transform are missing
   and would require fabricated overlay geometry.
+- Canonical parent membership or computed geometry cannot produce exact
+  world-space scene bounds without partial or fallback output.
 - A requested behavior requires layer-tree drag/drop, auto-layout,
   resize/scaling, clipping, symbols, or remote conflict policy.
 - Manual product review has not approved completion.

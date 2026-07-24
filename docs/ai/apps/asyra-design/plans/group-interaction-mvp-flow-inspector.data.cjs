@@ -288,6 +288,57 @@
       failureOwnerStepId: 'project-group-hover-selection-overlay'
     },
     {
+      id: 'derive-group-world-bounds-for-viewport-fit',
+      order: 3,
+      laneId: 'verification',
+      title: 'Derive canonical world-space scene bounds for viewport fit',
+      ownerPackage: '@asyra/core Scene Tree facade bounds query',
+      purpose:
+        'Derive complete world-space scene bounds from canonical Scene Tree geometry and parent membership, then hand the completed bounds to the existing app zoom-fit consumer without changing shortcut or viewport math.',
+      inputs: [
+        'canonical Scene Tree element identities, types, and parent ids',
+        'canonical computed x, y, width, and height',
+        'canonical workspace root identity'
+      ],
+      outputs: ['artifact:canonical-world-scene-bounds'],
+      conditions: [
+        'Each non-workspace element accumulates nested container offsets along its canonical parent chain until the workspace root.',
+        'Each world-space rectangle preserves existing negative-width and negative-height min/max semantics before the complete scene union.',
+        'A normal or nested Group before and after unchanged visible geometry produces exactly equivalent world-space scene bounds.',
+        'The existing app common API passes the completed bounds to calculateZoomFit for Cmd+1 without reinterpreting Group-local coordinates.'
+      ],
+      bypasses: [
+        'Empty canonical content returns no bounds and leaves the existing zoom-fit no-op behavior unchanged.',
+        'A missing parent, cycle, invalid workspace chain, or non-finite required geometry fails closed without partial bounds or guessed offsets.'
+      ],
+      allowedContributors: [
+        'canonical Scene Tree parent membership',
+        'canonical element computed geometry',
+        'existing Core Scene Tree facade query',
+        'existing app viewport common API and calculateZoomFit consumer'
+      ],
+      forbiddenContributors: [
+        'app-specific hierarchy or coordinate reinterpretation',
+        'Render display-object ancestry or Render fallback bounds',
+        'a second mutable parent map or retained bounds cache',
+        'Group-only fixture exceptions'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/core/src/apis',
+        'packages/core/src/__tests__',
+        'apps/asyra-design/src/common-apis/viewport.ts',
+        'apps/asyra-design/src/common-apis/__tests__'
+      ],
+      specRefs: [
+        '#world-space-scene-bounds-and-viewport-fit',
+        '#product-cases',
+        '#formal-test-plan',
+        '#definition-of-done'
+      ],
+      failureOwnerStepId: 'derive-group-world-bounds-for-viewport-fit'
+    },
+    {
       id: 'settle-history-publication-and-remote-apply',
       order: 1,
       laneId: 'integration',
@@ -355,7 +406,8 @@
         'artifact:accepted-remote-group-update',
         'serialized canonical document',
         'artifact:visible-layer-rows',
-        'artifact:group-hover-selection-overlay'
+        'artifact:group-hover-selection-overlay',
+        'artifact:canonical-world-scene-bounds'
       ],
       outputs: [
         'artifact:verified-group-document',
@@ -490,6 +542,15 @@
       producedArtifacts: ['artifact:group-hover-selection-overlay']
     },
     {
+      id: 'world-scene-bounds-to-viewport-verification',
+      from: 'derive-group-world-bounds-for-viewport-fit',
+      to: 'verify-group-persistence-and-render',
+      kind: 'projection',
+      predicate:
+        'Cmd+1 requests complete canonical world-space bounds for normal or nested Group content',
+      producedArtifacts: ['artifact:canonical-world-scene-bounds']
+    },
+    {
       id: 'settled-publication-terminates',
       from: 'settle-history-publication-and-remote-apply',
       kind: 'terminal',
@@ -609,6 +670,13 @@
       terminal: false
     },
     {
+      id: 'artifact:canonical-world-scene-bounds',
+      ownerStepId: 'derive-group-world-bounds-for-viewport-fit',
+      channel: 'Core Scene Tree facade query',
+      consumerStepIds: ['verify-group-persistence-and-render'],
+      terminal: false
+    },
+    {
       id: 'artifact:settled-group-publication',
       ownerStepId: 'settle-history-publication-and-remote-apply',
       channel: 'Factory shared publication',
@@ -663,12 +731,14 @@
         'execute-group-command-transaction',
         'project-layers-hierarchy',
         'project-group-hover-selection-overlay',
+        'derive-group-world-bounds-for-viewport-fit',
         'verify-group-persistence-and-render'
       ],
       artifactIds: [
         'artifact:eligible-group-command-request',
         'artifact:visible-layer-rows',
         'artifact:group-hover-selection-overlay',
+        'artifact:canonical-world-scene-bounds',
         'artifact:identity-safe-render-projection'
       ],
       specRefs: ['#product-ownership', '#framework-owners-retained-from-gate-3']
@@ -772,6 +842,22 @@
       ]
     },
     {
+      id: 'group-world-bounds-viewport-fit-product-cases',
+      title: 'Canonical Group world bounds and Cmd+1 viewport fit',
+      assertions: [
+        'Cmd+1 preserves Group before and after unchanged visible geometry with exactly equivalent world-space scene bounds.',
+        'Normal and nested Groups accumulate every canonical parent offset to the workspace root without changing existing zoom-fit math.',
+        'Empty content remains a no-op, while missing parent, cycle, invalid workspace chain, or non-finite geometry fails closed without partial bounds.',
+        'No app-specific hierarchy, Render ancestry, fallback bounds, retained cache, or Group-only fixture exception is introduced.'
+      ],
+      stepIds: ['derive-group-world-bounds-for-viewport-fit'],
+      specRefs: [
+        '#world-space-scene-bounds-and-viewport-fit',
+        '#product-cases',
+        '#explicit-non-goals'
+      ]
+    },
+    {
       id: 'history-and-remote-product-cases',
       title: 'Exact history, publication, and remote apply',
       assertions: [
@@ -802,6 +888,7 @@
       stepIds: [
         'project-layers-hierarchy',
         'project-group-hover-selection-overlay',
+        'derive-group-world-bounds-for-viewport-fit',
         'settle-history-publication-and-remote-apply',
         'verify-group-persistence-and-render'
       ],
@@ -820,7 +907,7 @@
       kind: 'feature',
       title: 'Asyra Design Group Interaction MVP Inspector',
       subtitle:
-        'Exact app command, transaction, Layers projection, collaboration, persistence, and Render handoffs for official Group operations.'
+        'Exact app command, transaction, Layers projection, world-space bounds, collaboration, persistence, and Render handoffs for official Group operations.'
     },
     authority: {
       specPath,
