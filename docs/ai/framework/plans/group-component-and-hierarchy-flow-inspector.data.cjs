@@ -429,7 +429,7 @@
         'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/process.test.ts',
         'packages/collaboration/src/__tests__/action-publication.test.ts',
-        'docs/ai/framework/plans/network-collaboration-transport-flow-inspector.contract.test.cjs'
+        'docs/ai/framework/plans/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs'
       ],
       specRefs: [
         '#remote-hierarchy-apply',

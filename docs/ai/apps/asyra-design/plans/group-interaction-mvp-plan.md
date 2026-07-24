@@ -13,7 +13,7 @@ Architecture authority:
 
 - `group-interaction-mvp-flow-inspector.data.cjs`
 - `group-interaction-mvp-flow-inspector.html`
-- `group-interaction-mvp-flow-inspector.contract.test.cjs`
+- `__tests__/group-interaction-mvp-flow-inspector.contract.test.cjs`
 
 ## Sequence
 

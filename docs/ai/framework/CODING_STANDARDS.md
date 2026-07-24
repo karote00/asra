@@ -74,6 +74,18 @@
   `@asyra/render-engine`.
 - UI and render are outputs of data/system state updates, not authoritative sources.
 
+## Test Placement Standards
+
+- Unit, integration, and contract test files must live in a `__tests__`
+  directory at the same directory level as the source or contract area they
+  verify.
+- Do not place `*.test.*` or `*.spec.*` files directly beside production or
+  contract files.
+- Dedicated Playwright suites are the exception: their `*.spec.*` files remain
+  in the app's `e2e` directory.
+- `scripts/__tests__/test-file-placement.test.mjs` enforces this layout across
+  the monorepo, including generated app templates.
+
 ## Documentation Standards
 
 - Every architectural rule must have one source-of-truth doc in this folder.

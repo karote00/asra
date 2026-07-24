@@ -383,7 +383,7 @@ core.unregisterPropertyType(PropertyTypes.FILLS)
 - interactive viewer:
   `docs/ai/framework/plans/extendable-preset-flow-inspector.html`
 - executable contract:
-  `docs/ai/framework/plans/extendable-preset-flow-inspector.contract.test.cjs`
+  `docs/ai/framework/plans/__tests__/extendable-preset-flow-inspector.contract.test.cjs`
 
 Implementation advances one Inspector owner step at a time. The Inspector owns
 exact execution routes and implementation allowlists; this plan owns bounded

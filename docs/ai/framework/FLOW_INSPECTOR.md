@@ -172,7 +172,7 @@ verified against the target specification by the target's formal gates.
 - Shared renderer: `tools/flow-inspector/viewer.js`
 - Snapshot embedder: `tools/flow-inspector/embed-viewer.cjs`
 - Direct-open and synchronization gate:
-  `tools/flow-inspector/viewer-entry.test.cjs`
+  `tools/flow-inspector/__tests__/viewer-entry.test.cjs`
 - Target data and HTML entry: near the target's authoritative documentation
 - Target-specific semantic handoff gate: next to the target data when the
   generic structural gate cannot prove route-conditional behavior
@@ -193,7 +193,7 @@ Stroke Engine uses:
 - viewer entry:
   `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html`.
 - target-specific semantic handoff gate:
-  `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.contract.test.cjs`.
+  `docs/ai/apps/asyra-design/plans/stroke-engine-final/__tests__/stroke-flow-inspector.contract.test.cjs`.
 
 The Stroke data file exercises the generic schema with its end-to-end feature
 flow. Future features must provide their own target data and viewer entry while
