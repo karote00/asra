@@ -94,8 +94,7 @@ export const updateLayerPointerSession = (
     phase: 'update',
     clientX: input.clientX,
     clientY: input.clientY,
-    dragActive:
-      session.dragActive || crossedMovementThreshold(session, input),
+    dragActive: session.dragActive || crossedMovementThreshold(session, input),
     target: input.target
   }
 }
@@ -113,8 +112,7 @@ export const endLayerPointerSession = (
     phase: 'end',
     clientX: input.clientX,
     clientY: input.clientY,
-    dragActive:
-      session.dragActive || crossedMovementThreshold(session, input),
+    dragActive: session.dragActive || crossedMovementThreshold(session, input),
     target: input.target
   }
 }

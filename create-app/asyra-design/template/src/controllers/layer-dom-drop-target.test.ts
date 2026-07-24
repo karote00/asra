@@ -15,23 +15,17 @@ describe('Layers DOM drop target projection', () => {
         height: 30
       }) as DOMRect
 
-    expect(
-      resolveLayerPointerTarget(0, 12, pointResolver(row))
-    ).toEqual({
+    expect(resolveLayerPointerTarget(0, 12, pointResolver(row))).toEqual({
       kind: 'row',
       elementId: 'group-1',
       zone: 'before'
     })
-    expect(
-      resolveLayerPointerTarget(0, 25, pointResolver(row))
-    ).toEqual({
+    expect(resolveLayerPointerTarget(0, 25, pointResolver(row))).toEqual({
       kind: 'row',
       elementId: 'group-1',
       zone: 'inside'
     })
-    expect(
-      resolveLayerPointerTarget(0, 38, pointResolver(row))
-    ).toEqual({
+    expect(resolveLayerPointerTarget(0, 38, pointResolver(row))).toEqual({
       kind: 'row',
       elementId: 'group-1',
       zone: 'after'
@@ -49,12 +43,12 @@ describe('Layers DOM drop target projection', () => {
         height: 30
       }) as DOMRect
 
-    expect(
-      resolveLayerPointerTarget(0, 14, pointResolver(row))
-    ).toMatchObject({ zone: 'before' })
-    expect(
-      resolveLayerPointerTarget(0, 16, pointResolver(row))
-    ).toMatchObject({ zone: 'after' })
+    expect(resolveLayerPointerTarget(0, 14, pointResolver(row))).toMatchObject({
+      zone: 'before'
+    })
+    expect(resolveLayerPointerTarget(0, 16, pointResolver(row))).toMatchObject({
+      zone: 'after'
+    })
   })
 
   it('returns workspace only for the explicit empty-area target', () => {
@@ -62,9 +56,9 @@ describe('Layers DOM drop target projection', () => {
     emptyArea.dataset.layerDropWorkspace = 'true'
     const outside = document.createElement('div')
 
-    expect(
-      resolveLayerPointerTarget(0, 0, pointResolver(emptyArea))
-    ).toEqual({ kind: 'workspace' })
+    expect(resolveLayerPointerTarget(0, 0, pointResolver(emptyArea))).toEqual({
+      kind: 'workspace'
+    })
     expect(resolveLayerPointerTarget(0, 0, pointResolver(outside))).toBeNull()
     expect(resolveLayerPointerTarget(0, 0, pointResolver(null))).toBeNull()
   })

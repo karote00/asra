@@ -22,7 +22,11 @@ describe('Layers hierarchy pointer normalization', () => {
       clientY: 20,
       target: null
     })
-    const end = endLayerPointerSession(update!, {
+    expect(update).not.toBeNull()
+    if (!update) {
+      throw new Error('Expected a normalized below-threshold update')
+    }
+    const end = endLayerPointerSession(update, {
       pointerId: 7,
       clientX: 12,
       clientY: 20,
@@ -35,7 +39,7 @@ describe('Layers hierarchy pointer normalization', () => {
       sourceElementId: 'shape-a',
       dragActive: false
     })
-    expect(update?.dragActive).toBe(false)
+    expect(update.dragActive).toBe(false)
     expect(end).toMatchObject({
       phase: 'end',
       dragActive: false,

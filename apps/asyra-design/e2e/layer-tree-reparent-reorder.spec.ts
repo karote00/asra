@@ -45,8 +45,7 @@ const getWorldPositions = (
           throw new Error(`Hierarchy cycle reaches "${currentId}"`)
         }
         visited.add(currentId)
-        const element =
-          window.__Core__.deps.sceneTree.getElementById(currentId)
+        const element = window.__Core__.deps.sceneTree.getElementById(currentId)
         if (!element) {
           throw new Error(`Missing hierarchy element "${currentId}"`)
         }
@@ -178,10 +177,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     } finally {
       await page.keyboard.up('Shift')
     }
-    await expect.poll(() => getSelectedIds(page)).toEqual([
-      secondId,
-      thirdId
-    ])
+    await expect.poll(() => getSelectedIds(page)).toEqual([secondId, thirdId])
     await page.getByTestId('layers-group-button').click()
     await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const groupId = (await getSelectedIds(page))[0]
@@ -272,11 +268,9 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       sourceBox.y + sourceBox.height / 2
     )
     await page.mouse.down()
-    await page.mouse.move(
-      targetBox.x + targetBox.width / 2,
-      targetBox.y + 2,
-      { steps: 4 }
-    )
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, {
+      steps: 4
+    })
     await page.keyboard.press('Escape')
     await page.mouse.up()
     expect(await getChildren(page, groupId)).toEqual(orderBeforeCancel)

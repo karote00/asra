@@ -1,9 +1,6 @@
 import { EntityTypes, type ElementRawData } from '@asyra/utils'
 
-export type LayerMoveElementDataMap = Record<
-  string,
-  Partial<ElementRawData>
->
+export type LayerMoveElementDataMap = Record<string, Partial<ElementRawData>>
 
 export interface LayerMoveSourcePlan {
   elementIds: string[]
@@ -45,9 +42,7 @@ export const deriveLayerMoveSource = ({
   elementDataMap
 }: DeriveLayerMoveSourceInput): LayerMoveSourceResult => {
   const sourceIsSelected = selectedIds.includes(sourceElementId)
-  const candidateIds = sourceIsSelected
-    ? [...selectedIds]
-    : [sourceElementId]
+  const candidateIds = sourceIsSelected ? [...selectedIds] : [sourceElementId]
   const candidateIdSet = new Set(candidateIds)
 
   if (candidateIdSet.size !== candidateIds.length) {

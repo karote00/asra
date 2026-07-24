@@ -646,8 +646,7 @@ describe('Preset Selection Subscriptions', () => {
           name: string
           onChange: (change: unknown) => void
         }) => observers.set(registration.name, registration),
-        unregisterDataChannelObserver: (name: string) =>
-          observers.delete(name)
+        unregisterDataChannelObserver: (name: string) => observers.delete(name)
       } as unknown as PresetCoreAPIs
       const elementRecords = Object.entries(elements).map(
         ([elementId, data]) => [

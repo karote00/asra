@@ -101,9 +101,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect(page.getByTestId('layers-group-button')).toBeEnabled()
     await page.getByTestId('layers-group-button').click()
 
-    await expect
-      .poll(() => getSelectedIds(page))
-      .toHaveLength(1)
+    await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const firstGroupId = (await getSelectedIds(page))[0]
     await expect(
       page.getByTestId(`layers-group-toggle-${firstGroupId}`)
@@ -118,9 +116,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     )
     await page.keyboard.press('Meta+G')
 
-    await expect
-      .poll(() => getSelectedIds(page))
-      .toHaveLength(1)
+    await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const nestedGroupId = (await getSelectedIds(page))[0]
     expect(nestedGroupId).not.toBe(firstGroupId)
 
@@ -175,18 +171,16 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(identity).toEqual({ scene: true, render: true })
 
     await undo(page)
-    await expect.poll(() => getSelectedIds(page)).toEqual([
-      firstGroupId,
-      initialIds[2]
-    ])
+    await expect
+      .poll(() => getSelectedIds(page))
+      .toEqual([firstGroupId, initialIds[2]])
     const ungroupProjection = await page.evaluate((removedGroupId) => {
       const core = window.__Core__
       return {
         canonicalExists: Boolean(
           core.deps.sceneTree.getElementById(removedGroupId)
         ),
-        flattenedIds:
-          core.getUIProperty<string[]>('flattenedElementIds') ?? []
+        flattenedIds: core.getUIProperty<string[]>('flattenedElementIds') ?? []
       }
     }, nestedGroupId)
     expect(ungroupProjection.canonicalExists).toBe(false)
@@ -226,18 +220,16 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await layerRow(page, nestedGroupId).click()
     await expect(page.getByTestId('layers-ungroup-button')).toBeEnabled()
     await page.getByTestId('layers-ungroup-button').click()
-    await expect.poll(() => getSelectedIds(page)).toEqual([
-      firstGroupId,
-      initialIds[2]
-    ])
+    await expect
+      .poll(() => getSelectedIds(page))
+      .toEqual([firstGroupId, initialIds[2]])
     const reloadedUngroupProjection = await page.evaluate((removedGroupId) => {
       const core = window.__Core__
       return {
         canonicalExists: Boolean(
           core.deps.sceneTree.getElementById(removedGroupId)
         ),
-        flattenedIds:
-          core.getUIProperty<string[]>('flattenedElementIds') ?? []
+        flattenedIds: core.getUIProperty<string[]>('flattenedElementIds') ?? []
       }
     }, nestedGroupId)
     expect(reloadedUngroupProjection.canonicalExists).toBe(false)
@@ -248,7 +240,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await layerRow(page, firstGroupId).click()
     await expect.poll(() => getSelectedIds(page)).toEqual([firstGroupId])
     await page.keyboard.press('Meta+Shift+G')
-    await expect.poll(() => getSelectedIds(page)).toEqual(initialIds.slice(0, 2))
+    await expect
+      .poll(() => getSelectedIds(page))
+      .toEqual(initialIds.slice(0, 2))
     await expect(layerRow(page, firstGroupId)).toHaveCount(0)
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
 

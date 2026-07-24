@@ -164,22 +164,19 @@ const Contents: React.FC = () => {
     })
   }, [])
 
-  const clearLayerMovePresentation = useCallback(
-    (pointerId?: number) => {
-      activeLayerMove.current = null
-      setDropIntent(null)
-      const panel = parentRef.current
-      if (
-        panel &&
-        pointerId !== undefined &&
-        typeof panel.hasPointerCapture === 'function' &&
-        panel.hasPointerCapture(pointerId)
-      ) {
-        panel.releasePointerCapture(pointerId)
-      }
-    },
-    []
-  )
+  const clearLayerMovePresentation = useCallback((pointerId?: number) => {
+    activeLayerMove.current = null
+    setDropIntent(null)
+    const panel = parentRef.current
+    if (
+      panel &&
+      pointerId !== undefined &&
+      typeof panel.hasPointerCapture === 'function' &&
+      panel.hasPointerCapture(pointerId)
+    ) {
+      panel.releasePointerCapture(pointerId)
+    }
+  }, [])
 
   const getPointerTarget = useCallback(
     (clientX: number, clientY: number) =>
@@ -226,10 +223,7 @@ const Contents: React.FC = () => {
         source: sourceResult.plan
       }
       setDropIntent(null)
-      void startLayerHierarchyMoveSession(
-        pointerSession,
-        sourceResult.plan
-      )
+      void startLayerHierarchyMoveSession(pointerSession, sourceResult.plan)
         .then((started) => {
           if (
             !started &&
@@ -248,12 +242,7 @@ const Contents: React.FC = () => {
           }
         })
     },
-    [
-      clearLayerMovePresentation,
-      elementDataMap,
-      elementSelection,
-      flattenedIds
-    ]
+    [clearLayerMovePresentation, elementDataMap, elementSelection, flattenedIds]
   )
 
   const handleLayerPointerMove = useCallback(
@@ -264,15 +253,12 @@ const Contents: React.FC = () => {
       }
 
       const wasDragActive = active.pointerSession.dragActive
-      const pointerSession = updateLayerPointerSession(
-        active.pointerSession,
-        {
-          pointerId: event.pointerId,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          target: getPointerTarget(event.clientX, event.clientY)
-        }
-      )
+      const pointerSession = updateLayerPointerSession(active.pointerSession, {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: getPointerTarget(event.clientX, event.clientY)
+      })
       if (!pointerSession) {
         return
       }
@@ -301,8 +287,7 @@ const Contents: React.FC = () => {
         nextDropIntent
       ).catch(() => {
         if (
-          activeLayerMove.current?.pointerSession.pointerId ===
-          event.pointerId
+          activeLayerMove.current?.pointerSession.pointerId === event.pointerId
         ) {
           clearLayerMovePresentation(event.pointerId)
         }
@@ -350,19 +335,11 @@ const Contents: React.FC = () => {
       clearLayerMovePresentation(event.pointerId)
 
       if (pointerSession.dragActive && !pointerSession.target) {
-        void cancelLayerHierarchyMoveSession('outside').catch((error) => {
-          console.error(
-            '[Layers hierarchy move] Outside-drop cleanup failed',
-            error
-          )
-        })
+        void cancelLayerHierarchyMoveSession('outside').catch(() => undefined)
         return
       }
 
-      void endLayerHierarchyMoveSession(
-        pointerSession,
-        finalDropIntent
-      )
+      void endLayerHierarchyMoveSession(pointerSession, finalDropIntent)
         .then(() => {
           if (
             finalDropIntent?.kind === 'valid' &&
@@ -375,9 +352,7 @@ const Contents: React.FC = () => {
             })
           }
         })
-        .catch((error) => {
-          console.error('[Layers hierarchy move] Canonical move failed', error)
-        })
+        .catch(() => undefined)
     },
     [
       armImmediateClickSuppression,
@@ -395,17 +370,12 @@ const Contents: React.FC = () => {
       if (!active) {
         return
       }
-      const cancelled = cancelLayerPointerSession(
-        active.pointerSession,
-        reason
-      )
+      const cancelled = cancelLayerPointerSession(active.pointerSession, reason)
       if (!cancelled) {
         return
       }
       clearLayerMovePresentation(cancelled.pointerId)
-      void cancelLayerHierarchyMoveSession(reason).catch((error) => {
-        console.error('[Layers hierarchy move] Session cleanup failed', error)
-      })
+      void cancelLayerHierarchyMoveSession(reason).catch(() => undefined)
     },
     [clearLayerMovePresentation]
   )
@@ -450,7 +420,11 @@ const Contents: React.FC = () => {
       onLostPointerCapture={() => cancelActiveLayerMove('lost-capture')}
       data-testid="contents-panel"
       data-layer-move-state={
-        dropIntent ? (dropIntent.kind === 'valid' ? 'valid' : 'invalid') : 'idle'
+        dropIntent
+          ? dropIntent.kind === 'valid'
+            ? 'valid'
+            : 'invalid'
+          : 'idle'
       }
     >
       {/* Panel header */}

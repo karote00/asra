@@ -23,10 +23,7 @@ export const resolveLayerPointerTarget = (
     if (!Number.isFinite(bounds.height) || bounds.height <= 0) {
       return null
     }
-    const relativeY = Math.max(
-      0,
-      Math.min(bounds.height, clientY - bounds.top)
-    )
+    const relativeY = Math.max(0, Math.min(bounds.height, clientY - bounds.top))
     const isGroup = row.dataset.layerIsGroup === 'true'
     const zone = isGroup
       ? relativeY < bounds.height / 3

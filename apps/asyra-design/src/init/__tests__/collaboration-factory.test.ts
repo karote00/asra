@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EventTypes } from '@asyra/reactive-events'
-import {
-  SCENE_TREE_ACTIONS,
-  SharedDataChannelNames
-} from '@asyra/utils'
+import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
 
@@ -72,9 +69,7 @@ describe('Asyra Design collaboration composition', () => {
       })
     }
     const filtered = createDocumentCollaborationFactory(owner as never)
-    const runRemoteTransaction = vi.fn(
-      <T,>(mutate: () => T): T => mutate()
-    )
+    const runRemoteTransaction = vi.fn(<T>(mutate: () => T): T => mutate())
     const process = vi.fn(() => true)
     const processPublication = createAsyraDesignPublicationProcessor(
       runRemoteTransaction,

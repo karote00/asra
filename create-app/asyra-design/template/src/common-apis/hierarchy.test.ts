@@ -154,9 +154,7 @@ describe('app hierarchy common APIs', () => {
       throw rejection
     })
 
-    expect(() => hierarchyApis.moveElements(rejectedRequest)).toThrow(
-      rejection
-    )
+    expect(() => hierarchyApis.moveElements(rejectedRequest)).toThrow(rejection)
     expect(mocks.moveElementsWithGroupGeometry).toHaveBeenCalledTimes(2)
     expect(mocks.moveElementsWithGroupGeometry).toHaveBeenNthCalledWith(
       2,

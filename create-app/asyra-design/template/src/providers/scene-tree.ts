@@ -37,10 +37,7 @@ export const useFlattenedIdsData = (): string[] =>
   )
 
 export const useElementDataMap = (): ElementDataMap =>
-  useCanonicalUIProperty(
-    UI_PROPERTIES.ELEMENT_DATA_MAP,
-    EMPTY_ELEMENT_DATA_MAP
-  )
+  useCanonicalUIProperty(UI_PROPERTIES.ELEMENT_DATA_MAP, EMPTY_ELEMENT_DATA_MAP)
 
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
   const elementDataMap = useElementDataMap()

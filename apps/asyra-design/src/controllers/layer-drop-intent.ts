@@ -4,10 +4,7 @@ import {
   type GroupRawData,
   type MoveHierarchyRequest
 } from '@asyra/utils'
-import type {
-  LayerDropZone,
-  LayerPointerTarget
-} from './layer-pointer-session'
+import type { LayerDropZone, LayerPointerTarget } from './layer-pointer-session'
 import type { LayerMoveSourcePlan } from './layer-move-source'
 
 type ProjectedElement = Partial<ElementRawData & GroupRawData>
@@ -40,9 +37,7 @@ export interface InvalidLayerDropIntent {
   reason: LayerDropRejection
 }
 
-export type LayerDropIntent =
-  | ValidLayerDropIntent
-  | InvalidLayerDropIntent
+export type LayerDropIntent = ValidLayerDropIntent | InvalidLayerDropIntent
 
 interface ProjectLayerDropIntentInput {
   target: LayerPointerTarget
@@ -208,9 +203,7 @@ export const projectLayerDropIntent = ({
     if (targetElement.lock === true) {
       return invalid(zone, targetElementId, 'locked-target')
     }
-    if (
-      wouldTargetDescendant(targetElementId, movedIdSet, elementDataMap)
-    ) {
+    if (wouldTargetDescendant(targetElementId, movedIdSet, elementDataMap)) {
       return invalid(zone, targetElementId, 'descendant-target')
     }
 
@@ -233,10 +226,7 @@ export const projectLayerDropIntent = ({
   }
 
   const targetParentId = targetElement.parentId
-  if (
-    typeof targetParentId !== 'string' ||
-    targetParentId.length === 0
-  ) {
+  if (typeof targetParentId !== 'string' || targetParentId.length === 0) {
     return invalid(zone, targetElementId, 'missing-target')
   }
   if (wouldTargetDescendant(targetParentId, movedIdSet, elementDataMap)) {
