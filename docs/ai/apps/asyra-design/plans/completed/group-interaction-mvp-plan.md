@@ -1,19 +1,29 @@
 # Asyra Design Group Interaction MVP Plan
 
-## Status
+## Completion
 
-Approved and active on 2026-07-24. Framework Release Gate 3 is present on
-`main` at `d54fa92fa`.
+Completed on 2026-07-24 after iterative product review and explicit user
+closeout authorization.
 
-The first implementation segment must create a matching Inspector owner flow
-and executable readiness contract tests. Production edits may begin only after
-those readiness tests pass.
+- Outcome: Asyra Design now exposes official Group/Ungroup commands, nested
+  Layers hierarchy, hierarchy-scoped canvas interaction and creation,
+  canonical Group bounds, exact world-space viewport fit, and the required
+  transaction, persistence, collaboration, and identity-safe projection paths.
+- Final decision: later remote subtree restore and Context Menu behavior are
+  separate product requirements and do not reopen or expand this completed
+  Group interaction scope.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md`.
+- Exit criteria: the matching Inspector/readiness contracts, affected formal
+  gates, synchronized product review, and bounded direct-consumer review were
+  completed before closeout. PR #94 remains unmerged pending user inspection of
+  this closeout.
 
 Architecture authority:
 
-- `group-interaction-mvp-flow-inspector.data.cjs`
-- `group-interaction-mvp-flow-inspector.html`
-- `__tests__/group-interaction-mvp-flow-inspector.contract.test.cjs`
+- `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs`
+- `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html`
+- `docs/ai/apps/asyra-design/plans/__tests__/group-interaction-mvp-flow-inspector.contract.test.cjs`
 
 ## Sequence
 
@@ -21,10 +31,11 @@ This is the first app validation stage for Framework Release Gate 3. It makes
 the existing Group primitives usable through Asyra Design without starting the
 later layer-tree reparent/reorder interaction.
 
-The follow-up `layer-tree-reparent-reorder-plan.md` may proceed in the same
-combined review branch only after this plan's owner steps and required gates
-are complete. The user will review both plans together before either closeout
-or merge.
+The follow-up
+`docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md`
+may proceed in the same combined review branch only after this plan's owner
+steps and required gates are complete. The user will review both plans together
+before either closeout or merge.
 
 ## Goal
 

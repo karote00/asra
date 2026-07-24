@@ -48,7 +48,7 @@ test('Layer Tree move Inspector authorities resolve', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

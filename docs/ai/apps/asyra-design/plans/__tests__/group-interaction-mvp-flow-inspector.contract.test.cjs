@@ -40,7 +40,7 @@ test('Group Interaction Inspector authorities resolve', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/group-interaction-mvp-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

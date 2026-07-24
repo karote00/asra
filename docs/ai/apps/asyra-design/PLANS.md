@@ -4,13 +4,12 @@ Never record completed plans here.
 
 ## Current Status
 
-- Current approved plan:
-  `plans/group-interaction-mvp-plan.md`.
-- Approved follow-up in the same combined review branch:
-  `plans/layer-tree-reparent-reorder-plan.md`. Its readiness/implementation
-  remains blocked until the first plan's owner steps and required gates pass.
-- Both Group plans require one final user review before either closeout or
-  merge; this combined delivery must not be merged automatically.
+- Current plan in this index: none.
+- Group Interaction MVP and Layer Tree Reparent/Reorder completed on
+  2026-07-24. Their canonical records are:
+  1. `plans/completed/group-interaction-mvp-plan.md`
+  2. `plans/completed/layer-tree-reparent-reorder-plan.md`
+- PR #94 remains unmerged pending user inspection of the closeout.
 - Separately queued app/server plan after the completed network collaboration
   transport Gate 2; it remains inactive until the user explicitly starts it:
   `plans/durable-collaboration-server-and-continuous-sync-plan.md`.

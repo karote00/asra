@@ -1,18 +1,29 @@
 # Asyra Design Layer Tree Reparent and Reorder Plan
 
-## Status
+## Completion
 
-Approved on 2026-07-24 as the second sequential stage in the same combined app
-review branch. Framework Release Gate 3 is present on `main` at `d54fa92fa`.
-Production implementation remains blocked until:
+Completed on 2026-07-24 after the Group Interaction prerequisite, iterative
+product review, and explicit user closeout authorization.
 
-1. `group-interaction-mvp-plan.md` owner steps and required gates are complete;
-   and
-2. this plan's matching Inspector owner flow and executable readiness contract
-   tests pass.
+- Outcome: Layers now supports pointer-driven same-parent reorder and
+  cross-parent reparent for canonical sibling selections, including official
+  and nested Groups, with exact target-index semantics, deterministic
+  cancellation, one intended transaction, and identity-safe projection.
+- Final decision: future Context Menu commands and remote subtree restore are
+  separate product requirements; neither changes this completed Layers move
+  contract.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md`.
+- Exit criteria: the prerequisite plan, matching Inspector/readiness
+  contracts, affected formal gates, synchronized product review, and bounded
+  direct-consumer review were completed before closeout. PR #94 remains
+  unmerged pending user inspection of this closeout.
 
-Both plans remain open for one final user review. Neither plan may be closed or
-merged automatically.
+Architecture authority:
+
+- `docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs`
+- `docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.html`
+- `docs/ai/apps/asyra-design/plans/__tests__/layer-tree-reparent-reorder-flow-inspector.contract.test.cjs`
 
 ## Goal
 

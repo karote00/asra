@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/group-interaction-mvp-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs'
 
@@ -1085,7 +1085,7 @@
         id: 'group-interaction-plan',
         kind: 'authority',
         label: 'Product contract',
-        href: './group-interaction-mvp-plan.md'
+        href: './completed/group-interaction-mvp-plan.md'
       }
     ],
     lanes,

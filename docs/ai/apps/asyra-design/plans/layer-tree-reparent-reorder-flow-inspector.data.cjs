@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs'
 
@@ -933,13 +933,13 @@
         id: 'layer-tree-move-plan',
         kind: 'authority',
         label: 'Product contract',
-        href: './layer-tree-reparent-reorder-plan.md'
+        href: './completed/layer-tree-reparent-reorder-plan.md'
       },
       {
         id: 'group-interaction-prerequisite',
         kind: 'authority',
         label: 'Group Interaction prerequisite',
-        href: './group-interaction-mvp-plan.md'
+        href: './completed/group-interaction-mvp-plan.md'
       }
     ],
     lanes,
