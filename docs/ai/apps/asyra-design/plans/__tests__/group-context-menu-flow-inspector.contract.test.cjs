@@ -355,7 +355,8 @@ test('Design System presentation owns reusable layout and accessibility only', (
 })
 
 test('menu and actual shortcuts hand off once to the existing Group feature', () => {
-  const text = contractText(step('handoff-enabled-command-to-feature'))
+  const handoffStep = step('handoff-enabled-command-to-feature')
+  const text = contractText(handoffStep)
 
   assert.match(text, /menu.*closes.*first.*runGroupCommand exactly once/i)
   assert.match(text, /keyboard route.*same existing feature definition/i)
@@ -364,6 +365,9 @@ test('menu and actual shortcuts hand off once to the existing Group feature', ()
   assert.match(text, /disabled, stale, or unavailable.*no feature/i)
   assert.match(text, /canonical rejection is not retried, reinterpreted/i)
   assert.match(text, /second transaction or Group feature/i)
+  assert.ok(
+    handoffStep.implementationBoundary.includes('apps/asyra-design/src/app')
+  )
 })
 
 test('teardown and separate app roots remain isolated', () => {

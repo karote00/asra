@@ -283,6 +283,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/src/app',
         'apps/asyra-design/src/controllers',
         'apps/asyra-design/src/features/group-elements',
         'apps/asyra-design/src/render-app',
