@@ -1,4 +1,4 @@
-import propsManager from '@asyra/props-manager'
+import propsManager, { type PropsManager } from '@asyra/props-manager'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import {
   ComputedAttrs,
@@ -21,7 +21,12 @@ class Computed<T extends ComputedAttrs>
   _nameType!: string
   private subscriptions = new Map<string, () => void>()
 
-  constructor(elementId: string, props: IProps, propertyNames: string[]) {
+  constructor(
+    elementId: string,
+    props: IProps,
+    propertyNames: string[],
+    private readonly propsManagerOwner: PropsManager = propsManager
+  ) {
     super(elementChangeHandler.addChange, acknowledgeTransactionReplayApplied)
 
     this._init()
@@ -86,7 +91,7 @@ class Computed<T extends ComputedAttrs>
       const propId = props.getPropId(propName)
       if (!propId) return
 
-      const propComponent = propsManager.getPropertyById(propId)
+      const propComponent = this.propsManagerOwner.getPropertyById(propId)
       if (!propComponent) {
         return
       }

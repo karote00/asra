@@ -561,6 +561,7 @@
       implementationBoundary: [
         'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/entity-data.ts',
+        'packages/scene-tree/src/props-manager-context.ts',
         'packages/scene-tree/src/create-dynamic-component.ts',
         'packages/scene-tree/src/create-dynamic-props.ts',
         'packages/scene-tree/src/components/element.ts',

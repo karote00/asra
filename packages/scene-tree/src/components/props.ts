@@ -9,7 +9,7 @@ import type {
   PropsRawData
 } from '@asyra/utils'
 import { removeProperty } from '@asyra/reactive-events'
-import propsManager from '@asyra/props-manager'
+import propsManager, { type PropsManager } from '@asyra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 
@@ -31,7 +31,11 @@ class Props implements IProps {
   elementId: string
   private propertyIds: Map<string, string> = new Map()
 
-  constructor(elementId: string, data?: PropsDataType) {
+  constructor(
+    elementId: string,
+    data?: PropsDataType,
+    private readonly propsManagerOwner: PropsManager = propsManager
+  ) {
     this.elementId = elementId
 
     if (data) {
@@ -54,9 +58,9 @@ class Props implements IProps {
 
   init() {
     const propertyComponents = PROP_NAMES.map((propName) =>
-      propsManager.createProperty({ type: propName })
+      this.propsManagerOwner.createProperty({ type: propName })
     )
-    const propIdsMap = propsManager.addProperty(propertyComponents)
+    const propIdsMap = this.propsManagerOwner.addProperty(propertyComponents)
     if (!propIdsMap) {
       return
     }
@@ -73,16 +77,18 @@ class Props implements IProps {
     const dataObj = data as Record<string, string | undefined>
     const propertyComponents = PROP_NAMES.map((propName) => {
       const propId = dataObj[propName]
-      const propComponent = propId ? propsManager.getPropertyById(propId) : null
+      const propComponent = propId
+        ? this.propsManagerOwner.getPropertyById(propId)
+        : null
       if (propComponent) {
         // Restore existing prop component
         return propComponent
       } else {
         // Create new prop component
-        return propsManager.createProperty({ type: propName })
+        return this.propsManagerOwner.createProperty({ type: propName })
       }
     })
-    const propIdsMap = propsManager.addProperty(propertyComponents)
+    const propIdsMap = this.propsManagerOwner.addProperty(propertyComponents)
     if (!propIdsMap) {
       return
     }
@@ -114,7 +120,7 @@ class Props implements IProps {
       return
     }
 
-    propsManager.updatePropsData(propComponentId, key, data, options)
+    this.propsManagerOwner.updatePropsData(propComponentId, key, data, options)
   }
 
   cleanup(options?: EvnetOptions) {

@@ -39,7 +39,7 @@ import {
   EventTypes,
   updateTransaction
 } from '@asyra/reactive-events'
-import propsManager from '@asyra/props-manager'
+import propsManager, { type PropsManager } from '@asyra/props-manager'
 import { isEqual } from 'lodash'
 import componentRegistry from './component-registry'
 import {
@@ -191,6 +191,10 @@ class SceneTree {
       snapshot: SceneTreeRestoreSnapshot
     }
   >()
+
+  constructor(
+    private readonly propsManagerOwner: PropsManager = propsManager
+  ) {}
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
@@ -558,7 +562,7 @@ class SceneTree {
       const element =
         elementData.type === EntityTypes.WORKSPACE
           ? createWorkspace(this, elementData)
-          : createElement(elementData)
+          : createElement(elementData, this.propsManagerOwner)
       if (!element) {
         throw new Error(
           `[SceneTree] Validated hierarchy element "${elementId}" could not be constructed`
@@ -1087,7 +1091,7 @@ class SceneTree {
     })
     acknowledgeTransactionReplayApplied()
     this.commitSceneTreeTransaction(options)
-    propsManager.commitChanges(options)
+    this.propsManagerOwner.commitChanges(options)
 
     return {
       elementId,
@@ -1333,6 +1337,163 @@ class SceneTree {
     return plan
   }
 
+  applyRestoreSubtree(
+    plan: SceneTreeRestorePlan,
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
+    const artifact = this.validatedRestoreArtifacts.get(plan)
+    if (!artifact) {
+      throw new Error(
+        '[SceneTree] Expected an owner-issued one-shot subtree restore plan'
+      )
+    }
+    this.validatedRestoreArtifacts.delete(plan)
+
+    const verificationPlan = this.preflightRestoreSubtree(artifact.snapshot)
+    const verificationArtifact =
+      this.validatedRestoreArtifacts.get(verificationPlan)
+    this.validatedRestoreArtifacts.delete(verificationPlan)
+    if (
+      !verificationArtifact ||
+      !isEqual(verificationPlan.entries, plan.entries)
+    ) {
+      throw new Error(
+        '[SceneTree] Cannot apply subtree restore: restore plan is stale'
+      )
+    }
+    const snapshot = verificationArtifact.snapshot
+    const entryById = new Map(
+      snapshot.removed.map((entry) => [entry.elementId, entry] as const)
+    )
+    const prepared = new Map<string, ElementInstanceTypes>()
+    try {
+      plan.entries.forEach(({ elementId, strategy }) => {
+        const entry = entryById.get(elementId)
+        if (!entry) {
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: missing prepared evidence for "${elementId}"`
+          )
+        }
+        Object.values(entry.data.props ?? {}).forEach((componentId) => {
+          if (!this.propsManagerOwner.getPropertyById(componentId)) {
+            throw new Error(
+              `[SceneTree] Cannot apply subtree restore: property "${componentId}" is not active`
+            )
+          }
+        })
+        if (strategy === 'reuse') {
+          const tombstone = this._deletedMap.get(elementId)
+          if (!tombstone) {
+            throw new Error(
+              `[SceneTree] Cannot apply subtree restore: stale tombstone "${elementId}"`
+            )
+          }
+          prepared.set(elementId, tombstone)
+          return
+        }
+        if (strategy !== 'materialize') {
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: invalid strategy for "${elementId}"`
+          )
+        }
+        const constructorData = cloneSceneTreeValue(entry.data)
+        if (isGroupEntity(constructorData.type)) {
+          ;(constructorData as GroupRawData).children = []
+        }
+        const element = createElement(constructorData, this.propsManagerOwner)
+        if (!element || element.get('id') !== elementId) {
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: exact materialization failed for "${elementId}"`
+          )
+        }
+        const expectedPreparedData = cloneSceneTreeValue(entry.data)
+        if (isGroupEntity(expectedPreparedData.type)) {
+          ;(expectedPreparedData as GroupRawData).children = []
+        }
+        if (!isEqual(element.save(), expectedPreparedData)) {
+          ;(element.computed as unknown as { dispose?: () => void }).dispose?.()
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: exact data changed for "${elementId}"`
+          )
+        }
+        prepared.set(elementId, element)
+      })
+    } catch (error) {
+      prepared.forEach((element, elementId) => {
+        if (!this._deletedMap.has(elementId)) {
+          ;(element.computed as unknown as { dispose?: () => void }).dispose?.()
+        }
+      })
+      throw error
+    }
+
+    const workspace = this.currentWorkspace as Workspace
+    const restoreOrder = [...snapshot.removed].reverse()
+    const addedIds: string[] = []
+    const operationChangeStart = this.changes.length
+    try {
+      restoreOrder.forEach(({ elementId, parentId, index }) => {
+        const element = prepared.get(elementId)
+        const parent = this.getElementById(parentId)
+        if (!element || !parent || !isGroupEntity(parent.get('type'))) {
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: missing prepared hierarchy for "${elementId}"`
+          )
+        }
+        workspace.addNewElement(element, parent as GroupInstanceTypes, index)
+        addedIds.push(elementId)
+      })
+      this.validateCanonicalHierarchy()
+      snapshot.removed.forEach(({ elementId, data }) => {
+        if (!isEqual(this.getElementById(elementId)?.save(), data)) {
+          throw new Error(
+            `[SceneTree] Cannot apply subtree restore: final raw data changed for "${elementId}"`
+          )
+        }
+      })
+    } catch (error) {
+      this.changes.splice(operationChangeStart)
+      addedIds.reverse().forEach((elementId) => {
+        const element = this._elements.get(elementId)
+        if (!element) return
+        const parent = this.getElementById(element.get('parentId'))
+        if (parent && isGroupEntity(parent.get('type'))) {
+          ;(parent as GroupInstanceTypes).removeElement(element)
+        }
+        this._elements.delete(elementId)
+        const strategy = plan.entries.find(
+          (entry) => entry.elementId === elementId
+        )?.strategy
+        if (strategy === 'reuse') {
+          this._deletedMap.set(elementId, element)
+        } else {
+          ;(element.computed as unknown as { dispose?: () => void }).dispose?.()
+        }
+      })
+      prepared.forEach((element, elementId) => {
+        if (!addedIds.includes(elementId) && !this._deletedMap.has(elementId)) {
+          ;(element.computed as unknown as { dispose?: () => void }).dispose?.()
+        }
+      })
+      throw error
+    }
+
+    this.changes.splice(operationChangeStart)
+    this.addChange({
+      eventName: EventTypes.CHANGE_SUBTREE,
+      elementId: snapshot.elementId,
+      removed: cloneSceneTreeValue([...snapshot.removed]),
+      rootParentChildrenAfter: cloneSceneTreeValue([
+        ...snapshot.rootParentChildrenAfter
+      ]),
+      action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+      undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+    })
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+    return cloneSceneTreeValue(snapshot)
+  }
+
   restoreSubtree(
     entries: readonly SubtreeRemovalEntry[],
     options?: EVENT_OPTIONS
@@ -1567,7 +1728,10 @@ class SceneTree {
       return null
     }
 
-    const newElement = createElement(elementData) as ElementInstanceTypes
+    const newElement = createElement(
+      elementData,
+      this.propsManagerOwner
+    ) as ElementInstanceTypes
     if (recordChange) {
       this.addChangeForAddElement(newElement)
     }
@@ -1622,7 +1786,7 @@ class SceneTree {
       )
 
       acknowledgeTransactionReplayApplied()
-      propsManager.commitChanges(options)
+      this.propsManagerOwner.commitChanges(options)
       this.commitSceneTreeTransaction(options)
 
       return newElement.get('id')
@@ -1690,7 +1854,7 @@ class SceneTree {
     }
     acknowledgeTransactionReplayApplied()
     this.commitSceneTreeTransaction(options)
-    propsManager.commitChanges(options)
+    this.propsManagerOwner.commitChanges(options)
     return true
   }
 
@@ -1875,7 +2039,7 @@ class SceneTree {
       return
     }
 
-    const propComponent = propsManager.getPropertyById(propId)
+    const propComponent = this.propsManagerOwner.getPropertyById(propId)
     if (!propComponent) {
       return
     }
