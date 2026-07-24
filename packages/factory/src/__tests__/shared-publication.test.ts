@@ -4,7 +4,11 @@ import {
   TransactionEventTypes,
   subscribeToUserActionCompleted
 } from '@asyra/reactive-events'
-import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
+import {
+  PROPS_ACTIONS,
+  SCENE_TREE_ACTIONS,
+  SharedDataChannelNames
+} from '@asyra/utils'
 import { Factory, LocalSharedDataChannel, type SharedPublication } from '..'
 
 const update = (
@@ -71,7 +75,8 @@ describe('Factory action-level shared publication', () => {
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         eventName: EventTypes.CHANGE_SUBTREE,
         elementId: 'group-b',
-        removed: []
+        removed: [],
+        rootParentChildrenAfter: []
       },
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     })
@@ -216,6 +221,109 @@ describe('Factory action-level shared publication', () => {
           }),
           expect.objectContaining({
             payload: expect.objectContaining({ id: 'element-a' })
+          })
+        ]
+      })
+    )
+  })
+
+  it('publishes exact Props-before-Scene subtree restore evidence in one undo batch', () => {
+    const { factory, publications } = createHarness()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.ADD_PROPERTY,
+      () => true
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.CHANGE_SUBTREE,
+      () => true
+    )
+    const propertyData = {
+      id: 'position-b',
+      type: 'position',
+      x: 12,
+      y: 24
+    }
+    const rootParentChildrenAfter = ['element-a', 'element-c']
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.CHANGE_SUBTREE,
+      payload: {
+        action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        elementId: 'group-b',
+        removed: [
+          {
+            elementId: 'group-b',
+            parentId: 'workspace',
+            index: 1,
+            data: {
+              id: 'group-b',
+              type: 'group',
+              name: 'Group B',
+              parentId: 'workspace',
+              visible: true,
+              lock: false,
+              children: [],
+              props: { position: 'position-b' }
+            }
+          }
+        ],
+        rootParentChildrenAfter
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.REMOVE_PROPERTY,
+      payload: {
+        action: PROPS_ACTIONS.REMOVE_PROPERTY,
+        undoType: EventTypes.ADD_PROPERTY,
+        undoAction: PROPS_ACTIONS.ADD_PROPERTY,
+        eventName: EventTypes.REMOVE_PROPERTY,
+        data: [propertyData]
+      },
+      options: { shared: SharedDataChannelNames.PROPS }
+    })
+    factory.endTransaction()
+    publications.length = 0
+
+    propertyData.x = 999
+    rootParentChildrenAfter.push('later-runtime-element')
+    factory.undo()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(
+      expect.objectContaining({
+        origin: 'undo',
+        deliveries: [
+          expect.objectContaining({
+            channel: SharedDataChannelNames.PROPS,
+            eventName: EventTypes.ADD_PROPERTY,
+            payload: expect.objectContaining({
+              action: PROPS_ACTIONS.ADD_PROPERTY,
+              data: [
+                expect.objectContaining({
+                  id: 'position-b',
+                  x: 12,
+                  y: 24
+                })
+              ]
+            })
+          }),
+          expect.objectContaining({
+            channel: SharedDataChannelNames.SCENE_TREE,
+            eventName: EventTypes.CHANGE_SUBTREE,
+            payload: expect.objectContaining({
+              action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+              rootParentChildrenAfter: ['element-a', 'element-c']
+            })
           })
         ]
       })

@@ -102,6 +102,7 @@ describe('DataTransact hierarchy replay', () => {
         }
       }
     ]
+    const rootParentChildrenAfter = ['element-a']
 
     runWithOwnedTransact(transact, () => {
       transact.start()
@@ -122,7 +123,8 @@ describe('DataTransact hierarchy replay', () => {
           undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
           eventName: EventTypes.CHANGE_SUBTREE,
           elementId: 'group-b',
-          removed
+          removed,
+          rootParentChildrenAfter
         }
       })
       transact.end()
@@ -137,7 +139,8 @@ describe('DataTransact hierarchy replay', () => {
         payload: expect.objectContaining({
           action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
           undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
-          removed
+          removed,
+          rootParentChildrenAfter
         })
       },
       {
@@ -161,7 +164,8 @@ describe('DataTransact hierarchy replay', () => {
         payload: expect.objectContaining({
           action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
           undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
-          removed
+          removed,
+          rootParentChildrenAfter
         })
       }
     ])
