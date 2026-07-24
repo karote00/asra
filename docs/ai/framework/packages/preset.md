@@ -139,6 +139,12 @@ fails; apps customize successful defaults through ordinary Core APIs.
   Render rebuild through a synchronous lifecycle handler so a rebuild failure
   propagates to the caller; UI-context and vector-editing file-load work remains
   on their separate observer route.
+- The preset-owned UI-context Scene Tree observer derives
+  `flattenedElementIds` and `elementDataMap` from canonical Scene Tree state.
+  Accepted add, remove, move, subtree removal, and subtree restoration envelopes
+  mark both projections for the transaction-end refresh; validated file load
+  performs the same full refresh. These values are App-facing projections only
+  and never validate, repair, reorder, or become a second canonical hierarchy.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.
@@ -175,12 +181,18 @@ Render projection. Preset also exports the ID-driven Group adapters defined by
   canonical plans; `groupElements(...)` and `ungroupElement(...)` execute them
   inside one transaction.
 - `moveElementsWithGroupGeometry(...)` delegates hierarchy validation/mutation
-  to Core and performs translation-only coordinate conversion and bounds
+  to Core and performs coordinate conversion plus derived bounds-cache
   normalization when direct official Group membership is involved.
 - `deriveGroupBounds(...)` and `normalizeGroupsForElements(...)` provide the
-  one direct-child rectangle-union/bounds path, deepest Group first.
-- Preset owns default 2D coordinate normalization and direct-child Group bounds
-  for the supported basic operation contract.
+  one direct-child canonical rectangle-union/bounds path, deepest affected
+  Group first.
+- Group `x`, `y`, `width`, and `height` are the persisted derived cache of
+  direct-child canonical geometry; accepted geometry changes update that cache
+  in the same transaction instead of recalculating it per frame.
+- Preset owns 2D coordinate normalization and direct-child Group bounds for the
+  registered canonical `x`/`y`/`width`/`height` contract. Rotation, scale, or
+  skew may participate only after the component, persistence, and Render
+  contracts register the same canonical fields.
 - Preset does not choose selected ids, register shortcuts or app commands,
   define post-operation selection, or own hover/click/hit/UI behavior.
 - Apps may replace the official Group capability through the ordinary

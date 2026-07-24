@@ -533,6 +533,9 @@ export const normalizeGroupsForElements = (
     if (!element) {
       return failGroupPlan(`element "${elementId}" is missing`)
     }
+    if (element.type === EntityTypes.GROUP) {
+      groupIds.add(element.id)
+    }
 
     while (element.parentId) {
       const parent = data.elements[element.parentId]

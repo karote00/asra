@@ -816,7 +816,7 @@
       {
         id: 'contract-test',
         label: 'Contract test',
-        href: './preset-composition-flow-inspector.contract.test.cjs'
+        href: './__tests__/preset-composition-flow-inspector.contract.test.cjs'
       }
     ],
     lanes,

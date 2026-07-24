@@ -341,7 +341,7 @@ of scope.
 - Direct-open Inspector:
   `docs/ai/framework/plans/property-type-redefinition-flow-inspector.html`
 - Contract gate:
-  `docs/ai/framework/plans/property-type-redefinition-flow-inspector.contract.test.cjs`
+  `docs/ai/framework/plans/__tests__/property-type-redefinition-flow-inspector.contract.test.cjs`
 
 The product contract owns public behavior. The Inspector owns package and data
 flow boundaries. Formal tests own executable evidence.

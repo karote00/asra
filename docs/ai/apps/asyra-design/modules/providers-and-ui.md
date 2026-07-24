@@ -41,6 +41,12 @@ projection; the design-system package owns no canonical document behavior.
   - element selection from content panel
   - hovered row follows app hover target (`hoveredElementId`)
   - row action toggles for element `lock` and `visible`
+  - nested official Group rows projected only from canonical
+    `flattenedElementIds` and `elementDataMap`
+  - UI-local Group collapse/expand state
+  - Group/Ungroup command controls and visible availability
+  - Layers hierarchy drag indicators (`before`, `after`, `inside`, workspace,
+    or invalid) with pointer cleanup on every end/cancel route
 
 - `src/properties/*`
   - element layout editing
@@ -68,6 +74,9 @@ projection; the design-system package owns no canonical document behavior.
 - Components should use providers/hooks for state.
 - Input handlers should call controllers/common APIs.
 - Keep UI mode switches derived from app state, not local component assumptions.
+- Do not derive a fallback hierarchy from drag preview, DOM nesting, or Render.
+- Pointer preview, insertion feedback, and collapsed Group ids are not saved or
+  shared.
 
 ## Property Panel Contract
 

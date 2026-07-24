@@ -6682,3 +6682,77 @@ join` constrained dashed product path across:
     existing max threshold continues to reject a real worst-frame regression.
 - Related Commit(s):
   - pending
+
+## 2026-07-24 - Resolve create parent from canonical canvas hierarchy
+
+- Context:
+  - Element creation left Core parent unspecified, activating Scene Tree's
+    legacy first-Frame fallback and placing empty-canvas creates in the first
+    top-level Group.
+  - Nested Group creation also requires Preset-owned coordinate and bounds
+    normalization instead of app-owned Group-origin arithmetic.
+- Decision:
+  - Resolve create parent at mouse down through the same exact parent-scope and
+    Meta/Ctrl hierarchy target policy used by canvas hover, selection, and
+    move.
+  - Use the explicit workspace root when there is no raw element hit; reject
+    malformed or disallowed hierarchy targets before creation.
+  - Route official Group membership, coordinate preservation, and bounds
+    normalization through existing Preset adapters in the same create
+    transaction.
+- Consequences:
+  - Empty-canvas creation no longer falls into the first Group.
+  - Nested Group click/drag creation preserves identity and visible world
+    position while Group bounds remain canonical.
+  - Scene Tree remains the hierarchy validator, Preset remains the Group
+    geometry owner, and Render supplies no fallback hierarchy.
+- Related Commit(s):
+  - pending
+
+## 2026-07-24 - Complete the Asyra Design Group Interaction MVP
+
+- Context:
+  - Framework Release Gate 3 supplied canonical Group hierarchy, transaction,
+    persistence, collaboration handoff, and Render identity contracts, but the
+    app still needed a complete product interaction path.
+  - Iterative product review expanded the bounded app contract to include
+    nested Layers projection, hierarchy-scoped canvas hover/selection/move,
+    create-parent resolution, canonical Group bounds, and world-space viewport
+    fit.
+- Decision:
+  - Close the Group Interaction MVP after its exact Inspector owner flow,
+    formal gates, synchronized product review, and direct-consumer review.
+  - Keep Scene Tree as the only canonical hierarchy owner, Preset as the
+    official Group geometry owner, Factory as the transaction/publication
+    owner, and Collaboration as transport-only.
+  - Treat remote subtree restore and Context Menu behavior as separate product
+    requirements rather than expanding the completed Group interaction plan.
+- Consequences:
+  - Official Group/Ungroup commands, nested Layers, canvas hierarchy targeting,
+    Group overlays, Group-aware creation, and `Cmd+1` world-space fit now have
+    one completed app product contract.
+  - PR #94 remains unmerged until the user inspects this closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md`
+
+## 2026-07-24 - Complete Layers reparent and reorder
+
+- Context:
+  - The completed Group interaction stage exposed canonical nested Layers rows,
+    while Gate 3 already provided identity-preserving hierarchy movement.
+  - Asyra Design still needed pointer-session, drop-zone, target-index,
+    selection, cancellation, feedback, and projection policy for Layers moves.
+- Decision:
+  - Close the sequential Layers reparent/reorder plan after its exact Inspector
+    owner flow and required formal and product gates.
+  - Preserve one app move intent, one Scene Tree/Preset canonical handoff, one
+    Factory transaction/publication, and app-owned remote policy.
+  - Keep future Context Menu commands outside this completed Layers pointer
+    interaction scope.
+- Consequences:
+  - Same-parent reorder and cross-parent reparent preserve exact identity,
+    hierarchy, Group geometry, history, save/load, collaboration handoff, and
+    Render projection without a second hierarchy or delete/recreate path.
+  - PR #94 remains unmerged until the user inspects this closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md`

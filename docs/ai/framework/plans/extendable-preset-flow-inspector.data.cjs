@@ -939,7 +939,7 @@
       {
         id: 'contract-test',
         label: 'Contract test',
-        href: './extendable-preset-flow-inspector.contract.test.cjs'
+        href: './__tests__/extendable-preset-flow-inspector.contract.test.cjs'
       }
     ],
     lanes,

@@ -7,9 +7,12 @@ This package is a shared UI library, not part of the framework execution kernel.
 
 ## Public Surface
 
-- components: `Text`, `Icon`, `Button`, `Input`, `ColorPicker`, and
-  `PropertyControl`;
+- components: `Text`, `Icon`, `IconButton`, `Button`, `Input`, `ColorPicker`,
+  and `PropertyControl`;
 - `IconName`, the canonical public name contract accepted by `Icon`;
+- `IconButtonProps`, the accessible icon-only button contract. `IconButton`
+  owns native button semantics and composes the canonical `Icon`; apps provide
+  the accessible label, interaction handler, and presentation classes;
 - Color Picker public types and helpers exported by its component module;
 - stylesheet entrypoint: `@asyra/design-system/index.css`.
 

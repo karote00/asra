@@ -61,6 +61,13 @@
 - Keep an explicit `undefined` only where an expression or data value is
   required, such as a property value, conditional expression, or returned
   object field.
+- A conditional expression must contain only one ternary level. Never place a
+  ternary inside another ternary's true or false branch.
+- Express multi-branch decisions with a named value and independent `if`
+  statements, an explicit `if`/`else` flow, or a focused helper so each
+  condition remains directly readable.
+- Root and generated-app ESLint configurations enforce this contract with
+  `no-nested-ternary`.
 
 ## Render and UI Standards
 
@@ -73,6 +80,18 @@
 - Concrete engines and `@asyra/render` meet only through
   `@asyra/render-engine`.
 - UI and render are outputs of data/system state updates, not authoritative sources.
+
+## Test Placement Standards
+
+- Unit, integration, and contract test files must live in a `__tests__`
+  directory at the same directory level as the source or contract area they
+  verify.
+- Do not place `*.test.*` or `*.spec.*` files directly beside production or
+  contract files.
+- Dedicated Playwright suites are the exception: their `*.spec.*` files remain
+  in the app's `e2e` directory.
+- `scripts/__tests__/test-file-placement.test.mjs` enforces this layout across
+  the monorepo, including generated app templates.
 
 ## Documentation Standards
 

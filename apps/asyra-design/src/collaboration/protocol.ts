@@ -310,16 +310,18 @@ export const parseCollaborationServerMessage = (
       if (!isNonBlankString(value.requestId) || typeof value.ok !== 'boolean') {
         return
       }
-      return value.ok
-        ? { type: value.type, requestId: value.requestId, ok: true }
-        : isFailurePayload(value.error)
-          ? {
-              type: value.type,
-              requestId: value.requestId,
-              ok: false,
-              error: value.error
-            }
-          : undefined
+      if (value.ok) {
+        return { type: value.type, requestId: value.requestId, ok: true }
+      }
+      if (!isFailurePayload(value.error)) {
+        return
+      }
+      return {
+        type: value.type,
+        requestId: value.requestId,
+        ok: false,
+        error: value.error
+      }
     case CollaborationMessageTypes.PUBLICATION:
       return isSharedPublication(value.publication) &&
         isOptionalNonBlankString(value.fromActorId)

@@ -127,23 +127,26 @@ export class SessionManager {
       try {
         const shouldFinalizeCurrent =
           !forcedRollback && participant.cancelPolicy === 'commit-current'
-        const requestedOutcome = shouldFinalizeCurrent
-          ? await this.runWithTimeout(
-              () => participant.handler.onEnd?.(snapshot, state),
-              `${participant.featureName}.onEnd(interrupted)`,
-              abortController
-            )
-          : participant.handler.onCancel
-            ? await this.runWithTimeout(
-                () => participant.handler.onCancel?.(snapshot, state),
-                `${participant.featureName}.onCancel`,
-                abortController
-              )
-            : await this.runWithTimeout(
-                () => participant.handler.onEnd?.(snapshot, state),
-                `${participant.featureName}.onEnd(cancel-fallback)`,
-                abortController
-              )
+        let requestedOutcome: SessionCancelOutcome | undefined
+        if (shouldFinalizeCurrent) {
+          await this.runWithTimeout(
+            () => participant.handler.onEnd?.(snapshot, state),
+            `${participant.featureName}.onEnd(interrupted)`,
+            abortController
+          )
+        } else if (participant.handler.onCancel) {
+          requestedOutcome = await this.runWithTimeout(
+            () => participant.handler.onCancel?.(snapshot, state),
+            `${participant.featureName}.onCancel`,
+            abortController
+          )
+        } else {
+          await this.runWithTimeout(
+            () => participant.handler.onEnd?.(snapshot, state),
+            `${participant.featureName}.onEnd(cancel-fallback)`,
+            abortController
+          )
+        }
 
         let participantOutcome: SessionCancelOutcome
         if (participant.cancelPolicy === 'feature-defined') {

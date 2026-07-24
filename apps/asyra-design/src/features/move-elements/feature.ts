@@ -18,6 +18,7 @@ import {
   InputSystemEvents,
   PrimaryToolType
 } from '../../constants'
+import { resolveCanvasHierarchyTargetAtClientPos } from '../../controllers/canvas-hierarchy-target'
 
 interface MoveElementsState {
   dragStartWorkspacePos: PositionData
@@ -47,7 +48,16 @@ interface MoveElementsApi {
   [key: string]: unknown
 }
 
-const getSelectionBounds = (elementIds: string[]): Rect | null => {
+const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
+  )
+}
+
+const getSelectionClientBounds = (elementIds: string[]): Rect | null => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -58,7 +68,7 @@ const getSelectionBounds = (elementIds: string[]): Rect | null => {
       return
     }
 
-    const bounds = elementApis.getElementBounds(elementId)
+    const bounds = elementApis.getElementClientBounds(elementId)
     if (!bounds) {
       return
     }
@@ -79,15 +89,6 @@ const getSelectionBounds = (elementIds: string[]): Rect | null => {
     width: maxX - minX,
     height: maxY - minY
   }
-}
-
-const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
-  return (
-    point.x >= bounds.x &&
-    point.x <= bounds.x + bounds.width &&
-    point.y >= bounds.y &&
-    point.y <= bounds.y + bounds.height
-  )
 }
 
 const resolveInitialPositions = (
@@ -133,19 +134,19 @@ const api: MoveElementsApi = {
       return null
     }
 
-    const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
-      snapshot.mousePosition
-    )
+    const dragStartClientPos = snapshot.mouseDragStart ?? snapshot.mousePosition
+    const dragStartWorkspacePos =
+      elementApis.getMousePosInWorkspace(dragStartClientPos)
     if (!dragStartWorkspacePos) {
       return null
     }
 
     const selectedElementIds = selectionApis.getSelectedIds()
     if (selectedElementIds.length > 0) {
-      const selectionBounds = getSelectionBounds(selectedElementIds)
+      const selectionBounds = getSelectionClientBounds(selectedElementIds)
       if (
         selectionBounds &&
-        isPointInsideBounds(dragStartWorkspacePos, selectionBounds)
+        isPointInsideBounds(dragStartClientPos, selectionBounds)
       ) {
         const selectionInitial = resolveInitialPositions(
           dragStartWorkspacePos,
@@ -160,9 +161,7 @@ const api: MoveElementsApi = {
       }
     }
 
-    const hoveredElementId =
-      snapshot.hoveredElementId ??
-      elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+    const hoveredElementId = resolveCanvasHierarchyTargetAtClientPos(snapshot)
     if (!hoveredElementId) {
       return null
     }
@@ -288,9 +287,7 @@ export const moveElementsSession = {
         return
       }
 
-      const hoveredElementId =
-        snapshot.hoveredElementId ??
-        elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+      const hoveredElementId = resolveCanvasHierarchyTargetAtClientPos(snapshot)
       const hoveredSelectionId =
         hoveredElementId &&
         !elementApis.isElementLocked(hoveredElementId) &&
@@ -315,26 +312,30 @@ export const moveElementsSession = {
       return
     }
 
+    const options = { sharedDelivery: 'immediate' } as const
     const currentWorkspacePos = elementApis.getMousePosInWorkspace(
       snapshot.mousePosition
     )
-    if (!currentWorkspacePos) {
-      return
+    if (currentWorkspacePos) {
+      const targetPositions = api.calculateTargetPositions(
+        state.dragStartWorkspacePos,
+        currentWorkspacePos,
+        state.initialPositions
+      )
+
+      if (
+        !state.latestPositions ||
+        !positionsMatch(targetPositions, state.latestPositions)
+      ) {
+        api.applyPositions(targetPositions, options)
+        state.latestPositions = targetPositions
+      }
     }
 
-    const targetPositions = api.calculateTargetPositions(
-      state.dragStartWorkspacePos,
-      currentWorkspacePos,
-      state.initialPositions
+    elementApis.normalizeGroupGeometryForElements(
+      Object.keys(state.initialPositions),
+      options
     )
-
-    if (
-      !state.latestPositions ||
-      !positionsMatch(targetPositions, state.latestPositions)
-    ) {
-      api.applyPositions(targetPositions, { sharedDelivery: 'immediate' })
-      state.latestPositions = targetPositions
-    }
   },
   onCancel: () => undefined
 }

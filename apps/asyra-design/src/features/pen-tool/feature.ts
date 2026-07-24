@@ -519,11 +519,13 @@ const applyBezierDragForNewPoint = (
         )
       : null
 
-  const connectedHandle = firstSegmentHandles
-    ? firstSegmentHandles.connectedOutHandle
-    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+  let connectedHandle =
+    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
       ? computeConnectedInHandle(connectedPoint)
       : computeConnectedOutHandle(connectedPoint)
+  if (firstSegmentHandles) {
+    connectedHandle = firstSegmentHandles.connectedOutHandle
+  }
   const currentSegmentHandle = firstSegmentHandles
     ? firstSegmentHandles.currentInHandle
     : symmetric.inHandle
@@ -613,13 +615,16 @@ const removeSelectedSinglePointSubpathOnCancel = (
   const singlePointId = lastSubpath[0].id
   const selectedPoint = systemContextApis.getSelectedVectorPoint()
   const continuation = systemContextApis.getPathEditingContinuation()
-  const activePointId =
+  let activePointId: string | null = null
+  if (continuation?.elementId === elementId) {
+    activePointId = continuation.pointId
+  }
+  if (
     selectedPoint?.elementId === elementId &&
     selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-      ? selectedPoint.pointId
-      : continuation?.elementId === elementId
-        ? continuation.pointId
-        : null
+  ) {
+    activePointId = selectedPoint.pointId
+  }
 
   if (activePointId !== singlePointId) {
     return false
@@ -1329,16 +1334,16 @@ export const hoverVectorPointCursorFeature = defineFeature(
         pathEditingVectorId,
         snapshot.mousePosition
       )
-      const hoveredSegment: SelectedVectorSegmentState | null =
-        hoveredSegmentHit
-          ? snapshot.primaryTool === PrimaryToolType.PEN &&
-            previewMode === PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
-            ? null
-            : {
-                elementId: pathEditingVectorId,
-                segmentId: hoveredSegmentHit.segmentId
-              }
-          : null
+      let hoveredSegment: SelectedVectorSegmentState | null = null
+      const suppressConnectedSegmentHover =
+        snapshot.primaryTool === PrimaryToolType.PEN &&
+        previewMode === PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
+      if (hoveredSegmentHit && !suppressConnectedSegmentHover) {
+        hoveredSegment = {
+          elementId: pathEditingVectorId,
+          segmentId: hoveredSegmentHit.segmentId
+        }
+      }
 
       systemContextApis.setHoveredVectorPoint(null)
       systemContextApis.setHoveredVectorSegment(hoveredSegment)

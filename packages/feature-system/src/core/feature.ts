@@ -104,11 +104,13 @@ const registerSessionEventBinding = (
   }
 
   const inputCallback: InputCallback = async (raw) => {
-    const phase = eventName.endsWith('.start')
-      ? 'start'
-      : eventName.endsWith('.update')
-        ? 'update'
-        : 'end'
+    let phase: 'start' | 'update' | 'end' = 'end'
+    if (eventName.endsWith('.update')) {
+      phase = 'update'
+    }
+    if (eventName.endsWith('.start')) {
+      phase = 'start'
+    }
     await measureBrowserDragAsyncPhase(`feature:event:${eventName}`, () =>
       sessionManager.handleSessionInput(
         sessionName,

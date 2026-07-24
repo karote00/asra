@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asyra Design Layer Tree Reparent and Reorder Inspector</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #0d1017;
+        color: #e8edf7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+
+      header,
+      .meta,
+      .lane {
+        max-width: 960px;
+        margin: 0 auto 20px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      .meta,
+      .step {
+        border: 1px solid #2a3344;
+        border-radius: 12px;
+        background: #151a24;
+        padding: 18px;
+      }
+
+      .lane-title {
+        color: #8eb7ff;
+        margin: 30px 0 12px;
+      }
+
+      .step {
+        margin-bottom: 12px;
+      }
+
+      .owner {
+        color: #a9f5d0;
+        font-weight: 650;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+
+      code {
+        color: #f6ca87;
+      }
+
+      .failure {
+        color: #ff9a9a;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 id="title">Layer Tree Inspector</h1>
+      <p id="summary"></p>
+    </header>
+    <main id="content"></main>
+    <script src="./layer-tree-reparent-reorder-flow-inspector.data.cjs"></script>
+    <script>
+      ;(() => {
+        const root = document.querySelector('#content')
+        const data = globalThis.FLOW_INSPECTOR_DATA
+        const list = (title, values) => `
+          <section>
+            <strong>${title}</strong>
+            <ul>${values.map((value) => `<li>${value}</li>`).join('')}</ul>
+          </section>`
+
+        if (!data || !Array.isArray(data.steps) || !Array.isArray(data.lanes)) {
+          root.innerHTML =
+            '<p class="failure">Inspector data is missing or invalid.</p>'
+          return
+        }
+
+        document.querySelector('#title').textContent = data.target.title
+        document.querySelector('#summary').textContent = data.target.summary
+
+        const meta = document.createElement('section')
+        meta.className = 'meta'
+        meta.innerHTML = `
+          <h2>Authority</h2>
+          <p><code>${data.authority.specPath}</code></p>
+          <p><code>${data.authority.inspectorPath}</code></p>`
+        root.append(meta)
+
+        data.lanes
+          .slice()
+          .sort((left, right) => left.order - right.order)
+          .forEach((lane) => {
+            const section = document.createElement('section')
+            section.className = 'lane'
+            const steps = data.steps
+              .filter((step) => step.laneId === lane.id)
+              .sort((left, right) => left.order - right.order)
+            section.innerHTML = `
+              <h2 class="lane-title">${lane.order}. ${lane.title}</h2>
+              ${steps
+                .map(
+                  (step) => `
+                    <article class="step" id="${step.id}">
+                      <h3>${step.title}</h3>
+                      <p class="owner">Owner: ${step.ownerPackage}</p>
+                      <p>${step.purpose}</p>
+                      <div class="grid">
+                        ${list('Inputs', step.inputs)}
+                        ${list('Outputs', step.outputs)}
+                        ${list('Conditions', step.conditions)}
+                        ${list('Bypasses', step.bypasses)}
+                        ${list('Allowed contributors', step.allowedContributors)}
+                        ${list('Forbidden contributors', step.forbiddenContributors)}
+                        ${list('Implementation boundary', step.implementationBoundary)}
+                        ${list('Specification references', step.specRefs)}
+                      </div>
+                      <p>Failure owner: <code>${step.failureOwnerStepId}</code></p>
+                    </article>`
+                )
+                .join('')}`
+            root.append(section)
+          })
+      })()
+    </script>
+  </body>
+</html>

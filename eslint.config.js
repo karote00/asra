@@ -23,6 +23,11 @@ export default tseslint.config(
   tseslint.configs.stylistic,
   eslintPluginPrettierRecommended,
   {
+    rules: {
+      'no-nested-ternary': 'error'
+    }
+  },
+  {
     files: [
       'apps/**/*.{ts,tsx}',
       'create-app/**/*.{ts,tsx}',

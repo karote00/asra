@@ -5,13 +5,16 @@
 
 import { runTransaction } from '@asyra/core'
 import {
+  moveElementsWithGroupGeometry,
+  normalizeGroupsForElements
+} from '@asyra/preset'
+import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
   createDefaultFills,
   type DataTypes,
   type EntityType,
   type EVENT_OPTIONS,
-  type GroupInstanceTypes,
   type PositionData
 } from '@asyra/utils'
 import core, { render, sceneTree } from '../../contexts'
@@ -22,6 +25,7 @@ import {
 import type { CreateElementOptions, ElementBounds } from './types'
 import { vectorApis } from './vector-apis'
 import { changeComputedData as applyComputedDataChange } from './change-computed-data'
+import { viewportApis } from '../viewport'
 
 export type { VectorPointTarget } from './types'
 export {
@@ -153,22 +157,54 @@ const boundsIntersect = (a: ElementBounds, b: ElementBounds): boolean => {
 const createElementAtWorkspacePos = (
   type: EntityType,
   workspacePos: PositionData,
+  parentId: string,
   extraData: Record<string, DataTypes> = {},
   options?: EVENT_OPTIONS
-): string => {
-  return runTransaction(() =>
-    core.createElement(
+): string | null => {
+  const workspaceId = sceneTree.workspace
+  if (!workspaceId) {
+    return null
+  }
+
+  let targetIndex: number | null = null
+  if (parentId !== workspaceId) {
+    const parent = sceneTree.getElementById(parentId)
+    if (parent?.get('type') !== EntityTypes.GROUP) {
+      return null
+    }
+    targetIndex = getElementChildren(parent).length
+  }
+
+  return runTransaction(() => {
+    const elementId = core.createElementInParent(
       {
         type,
         x: workspacePos.x,
         y: workspacePos.y,
         ...extraData
       },
-      undefined,
+      workspaceId,
       undefined,
       options
     )
-  )
+    if (!elementId) {
+      throw new Error('[Asyra Design] Canonical element creation failed')
+    }
+
+    if (targetIndex !== null) {
+      moveElementsWithGroupGeometry(
+        core,
+        {
+          elementIds: [elementId],
+          targetParentId: parentId,
+          targetIndex
+        },
+        options
+      )
+    }
+
+    return elementId
+  })
 }
 
 export const elementApis = {
@@ -237,6 +273,10 @@ export const elementApis = {
     return workspacePos
       ? elementApis.getElementIdAtWorkspacePos(workspacePos)
       : null
+  },
+
+  getRenderElementIdAtClientPos: (clientPos: PositionData): string | null => {
+    return render?.getElementIdAtClientPos(clientPos) ?? null
   },
 
   getElementType: (elementId: string): string | undefined => {
@@ -316,6 +356,40 @@ export const elementApis = {
     return { x, y, width, height }
   },
 
+  getElementClientBounds: (elementId: string): ElementBounds | null => {
+    const bounds = elementApis.getElementBounds(elementId)
+    const renderElement = render?.getElementById(elementId)
+    if (!bounds || !renderElement) {
+      return null
+    }
+
+    const corners = [
+      renderElement.toGlobal({ x: 0, y: 0 }),
+      renderElement.toGlobal({ x: bounds.width, y: 0 }),
+      renderElement.toGlobal({ x: bounds.width, y: bounds.height }),
+      renderElement.toGlobal({ x: 0, y: bounds.height })
+    ]
+    const values = corners.flatMap(({ x, y }) => [x, y])
+    if (values.some((value) => !Number.isFinite(value))) {
+      return null
+    }
+
+    const canvasBounds = render?.app?.canvas?.getBoundingClientRect()
+    const canvasLeft = canvasBounds?.left ?? 0
+    const canvasTop = canvasBounds?.top ?? 0
+    const minX = Math.min(...corners.map(({ x }) => x)) + canvasLeft
+    const minY = Math.min(...corners.map(({ y }) => y)) + canvasTop
+    const maxX = Math.max(...corners.map(({ x }) => x)) + canvasLeft
+    const maxY = Math.max(...corners.map(({ y }) => y)) + canvasTop
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    }
+  },
+
   getElementPosition: (elementId: string): PositionData | null => {
     const bounds = elementApis.getElementBounds(elementId)
     if (!bounds) {
@@ -325,6 +399,52 @@ export const elementApis = {
     return {
       x: bounds.x,
       y: bounds.y
+    }
+  },
+
+  getPositionInParent: (
+    parentId: string,
+    workspacePosition: PositionData
+  ): PositionData | null => {
+    if (
+      typeof parentId !== 'string' ||
+      parentId.length === 0 ||
+      !Number.isFinite(workspacePosition.x) ||
+      !Number.isFinite(workspacePosition.y)
+    ) {
+      return null
+    }
+
+    if (parentId === sceneTree.workspace) {
+      return {
+        x: workspacePosition.x,
+        y: workspacePosition.y
+      }
+    }
+
+    const parent = sceneTree.getElementById(parentId)
+    if (parent?.get('type') !== EntityTypes.GROUP) {
+      return null
+    }
+
+    const renderParent = render?.getElementById(parentId)
+    if (!renderParent) {
+      return null
+    }
+
+    const canvasPosition =
+      viewportApis.getCanvasPositionFromWorkspace(workspacePosition)
+    const localPosition = renderParent.toLocal(canvasPosition)
+    if (
+      !Number.isFinite(localPosition.x) ||
+      !Number.isFinite(localPosition.y)
+    ) {
+      return null
+    }
+
+    return {
+      x: localPosition.x,
+      y: localPosition.y
     }
   },
 
@@ -375,6 +495,7 @@ export const elementApis = {
       clientX: createOptions.clientPosition.x,
       clientY: createOptions.clientPosition.y
     })
+    const parentId = createOptions.parentId ?? sceneTree.workspace
 
     const initialData: Record<string, DataTypes> = {
       fills: getDefaultFillsForType(createOptions.type)
@@ -390,6 +511,7 @@ export const elementApis = {
     return createElementAtWorkspacePos(
       createOptions.type,
       workspacePos,
+      parentId,
       initialData,
       options
     )
@@ -401,32 +523,43 @@ export const elementApis = {
       return false
     }
 
-    const parentId = element.get('parentId') as string
-    if (!parentId) {
-      return false
-    }
-
-    const parent = sceneTree.getElementById(parentId) as
-      | GroupInstanceTypes
-      | undefined
-    if (!parent) {
-      return false
-    }
-
-    return runTransaction(() =>
-      sceneTree.removeElement({ id: elementId }, parent, options)
+    return runTransaction(
+      () => core.removeSubtree(elementId, options).removed.length > 0
     )
   },
 
   resetElementSize: (elementId: string, options?: EVENT_OPTIONS) => {
-    applyComputedDataChange(
-      [elementId],
+    elementApis.changeElementGeometry(
+      elementId,
       {
         width: DEFAULT_ELEMENT_SIZE,
         height: DEFAULT_ELEMENT_SIZE
       },
       options
     )
+  },
+
+  changeElementGeometry: (
+    elementId: string,
+    geometry: Partial<ElementBounds>,
+    options?: EVENT_OPTIONS
+  ) => {
+    runTransaction(() => {
+      core.changeComputedData([elementId], geometry, options)
+      normalizeGroupsForElements(core, [elementId], options)
+    })
+  },
+
+  normalizeGroupGeometryForElements: (
+    elementIds: string[],
+    options?: EVENT_OPTIONS
+  ) => {
+    const uniqueElementIds = [...new Set(elementIds)]
+    if (uniqueElementIds.length === 0) {
+      return
+    }
+
+    normalizeGroupsForElements(core, uniqueElementIds, options)
   },
 
   setElementPositions: (

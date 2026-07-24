@@ -17,16 +17,22 @@ import {
   InputSystemEvents,
   PrimaryToolType
 } from '../../constants'
+import { resolveCreateElementParentAtClientPos } from '../../controllers/canvas-hierarchy-target'
 
 interface CreateElementState {
   elementId: string | null
+  parentId: string
   dragStartWorkspacePos: PositionData | null
   latestBounds: Rect | null
   [key: string]: unknown
 }
 
 interface CreateElementAPI {
-  createElement: (position: PositionData, type: string) => string | null
+  createElement: (
+    position: PositionData,
+    type: string,
+    parentId: string
+  ) => string | null
   updateElementSizeAndPosition: (
     elementId: string,
     dragStart: PositionData,
@@ -41,11 +47,12 @@ interface CreateElementAPI {
 }
 
 const api: CreateElementAPI = {
-  createElement: (position: PositionData, type: string) => {
+  createElement: (position: PositionData, type: string, parentId: string) => {
     return elementApis.createElement(
       {
         type,
-        clientPosition: position
+        clientPosition: position,
+        parentId
       },
       {
         sharedDelivery: 'immediate'
@@ -59,13 +66,9 @@ const api: CreateElementAPI = {
   ) => {
     const bounds = rectFromPoints(dragStart, currentPos)
 
-    elementApis.changeComputedData(
-      [elementId],
-      { ...bounds },
-      {
-        sharedDelivery: 'immediate'
-      }
-    )
+    elementApis.changeElementGeometry(elementId, bounds, {
+      sharedDelivery: 'immediate'
+    })
     return bounds
   },
   resetElementSize: (elementId, options) => {
@@ -103,6 +106,11 @@ export const createElementSession = {
     ) {
       return null
     }
+    const parentId = resolveCreateElementParentAtClientPos(snapshot)
+    if (!parentId) {
+      return null
+    }
+
     const dragStartWorkspace = elementApis.getMousePosInWorkspace({
       x: snapshot.mousePosition.x,
       y: snapshot.mousePosition.y
@@ -110,8 +118,11 @@ export const createElementSession = {
     if (!dragStartWorkspace) {
       return null
     }
-
-    const elementId = api.createElement(snapshot.mousePosition, primaryTool)
+    const elementId = api.createElement(
+      snapshot.mousePosition,
+      primaryTool,
+      parentId
+    )
     if (elementId) {
       selectionApis.selectElements([elementId], {
         sharedDelivery: 'immediate'
@@ -120,6 +131,7 @@ export const createElementSession = {
 
     return {
       elementId,
+      parentId,
       dragStartWorkspacePos: dragStartWorkspace,
       latestBounds: null
     } as CreateElementState
@@ -140,9 +152,24 @@ export const createElementSession = {
     if (!currentWorkspacePos) {
       return
     }
+    const dragStartParentPos = elementApis.getPositionInParent(
+      state.parentId,
+      state.dragStartWorkspacePos
+    )
+    const currentParentPos = elementApis.getPositionInParent(
+      state.parentId,
+      currentWorkspacePos
+    )
+    if (!dragStartParentPos || !currentParentPos) {
+      return
+    }
 
-    state.latestBounds = api.updateElementSizeAndPosition(
+    api.updateElementSizeAndPosition(
       state.elementId,
+      dragStartParentPos,
+      currentParentPos
+    )
+    state.latestBounds = rectFromPoints(
       state.dragStartWorkspacePos,
       currentWorkspacePos
     )
@@ -166,17 +193,30 @@ export const createElementSession = {
         x: snapshot.mousePosition.x,
         y: snapshot.mousePosition.y
       })
-      if (currentWorkspacePos && state.dragStartWorkspacePos) {
-        const finalBounds = rectFromPoints(
-          state.dragStartWorkspacePos,
+      const currentParentPos = currentWorkspacePos
+        ? elementApis.getPositionInParent(state.parentId, currentWorkspacePos)
+        : null
+      const dragStartWorkspacePos = state.dragStartWorkspacePos
+      const dragStartParentPos = dragStartWorkspacePos
+        ? elementApis.getPositionInParent(state.parentId, dragStartWorkspacePos)
+        : null
+      if (
+        currentWorkspacePos &&
+        currentParentPos &&
+        dragStartParentPos &&
+        dragStartWorkspacePos
+      ) {
+        const finalWorkspaceBounds = rectFromPoints(
+          dragStartWorkspacePos,
           currentWorkspacePos
         )
-        if (!boundsMatch(finalBounds, state.latestBounds)) {
-          state.latestBounds = api.updateElementSizeAndPosition(
+        if (!boundsMatch(finalWorkspaceBounds, state.latestBounds)) {
+          api.updateElementSizeAndPosition(
             state.elementId,
-            state.dragStartWorkspacePos,
-            currentWorkspacePos
+            dragStartParentPos,
+            currentParentPos
           )
+          state.latestBounds = finalWorkspaceBounds
         }
       }
     }
