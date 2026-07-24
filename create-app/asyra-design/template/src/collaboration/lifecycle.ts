@@ -1,7 +1,7 @@
 import { createCollaboration, type Collaboration } from '@asyra/collaboration'
 import { publishEvent } from '@asyra/reactive-events'
 import { idCounter } from '@asyra/utils'
-import { factory } from '../contexts'
+import core, { factory } from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
 import { createDocumentCollaborationFactory } from './factory-adapter'
 import { createAsyraDesignPublicationProcessor } from './operations'
@@ -14,14 +14,20 @@ let startPromise:
 
 const createHandle = (
   instance: Collaboration
-): NonNullable<Window['__AsyraCollaboration__']> => ({
-  identity: instance.identity,
-  getStatus: () => instance.provider?.getStatus() ?? 'offline',
-  disconnect: () => instance.disconnect(),
-  reconnect: () => instance.reconnect(),
-  whenIdle: () => instance.whenIdle(),
-  dispose: () => instance.dispose()
-})
+): NonNullable<Window['__AsyraCollaboration__']> => {
+  const handle = {
+    identity: instance.identity,
+    getStatus: () => instance.provider?.getStatus() ?? 'offline',
+    disconnect: () => instance.disconnect(),
+    reconnect: () => instance.reconnect(),
+    whenIdle: () => instance.whenIdle(),
+    observePublicationOutcomes: (
+      subscriber: Parameters<Collaboration['observePublicationOutcomes']>[0]
+    ) => instance.observePublicationOutcomes(subscriber),
+    dispose: () => instance.dispose()
+  }
+  return handle
+}
 
 const start = async (
   mode: CollaborationMode
@@ -38,7 +44,9 @@ const start = async (
   })
   const processRemotePublication = createAsyraDesignPublicationProcessor(
     factory.runRemoteTransaction.bind(factory),
-    (event) => factory.applyRemoteEvent(event, publishEvent)
+    (event) => factory.applyRemoteEvent(event, publishEvent),
+    undefined,
+    core
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,

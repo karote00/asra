@@ -30,6 +30,9 @@ beforeEach(async () => {
   vi.restoreAllMocks()
   idCounter.clear()
   harness.collaboration.updateAwareness.mockReset()
+  harness.collaboration.observePublicationOutcomes
+    .mockReset()
+    .mockReturnValue(vi.fn())
   harness.collaboration.start.mockReset().mockResolvedValue(undefined)
   harness.collaboration.dispose.mockReset().mockResolvedValue(undefined)
   delete window.__AsyraCollaboration__
@@ -68,4 +71,27 @@ it('starts the real app collaboration composition without an Awareness preview r
   expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-lifecycle-0')
   expect(harness.collaboration.updateAwareness).not.toHaveBeenCalled()
   expect(window.__AsyraCollaboration__).toBeDefined()
+})
+
+it('exposes remote publication outcomes through the local collaboration handle', async () => {
+  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
+    harness.collaboration as never
+  )
+  const handle = await startCollaboration({
+    fileId: 'file-lifecycle',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+  })
+  const subscriber = vi.fn()
+
+  const unsubscribe = (
+    handle as typeof handle & {
+      observePublicationOutcomes(callback: typeof subscriber): () => void
+    }
+  ).observePublicationOutcomes(subscriber)
+
+  expect(harness.collaboration.observePublicationOutcomes).toHaveBeenCalledWith(
+    subscriber
+  )
+  expect(unsubscribe).toEqual(expect.any(Function))
 })

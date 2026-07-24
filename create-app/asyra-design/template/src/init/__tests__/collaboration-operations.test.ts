@@ -3,7 +3,9 @@ import { EventTypes } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
-  SharedDataChannelNames
+  SharedDataChannelNames,
+  type PropsRestorePlan,
+  type SceneTreeRestorePlan
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
@@ -80,6 +82,7 @@ const validDeliveries = (): readonly SharedDelivery[] => [
     undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
     eventName: EventTypes.CHANGE_SUBTREE,
     elementId: 'group-a',
+    rootParentChildrenAfter: [],
     removed: [
       {
         elementId: 'rect-a',
@@ -120,7 +123,258 @@ const validDeliveries = (): readonly SharedDelivery[] => [
   })
 ]
 
+const restoreDeliveries = (): readonly SharedDelivery[] => [
+  delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
+    action: PROPS_ACTIONS.ADD_PROPERTY,
+    undoType: EventTypes.REMOVE_PROPERTY,
+    undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+    eventName: EventTypes.ADD_PROPERTY,
+    data: [
+      {
+        id: 'position-group-a',
+        type: 'position',
+        x: 12,
+        y: 24
+      }
+    ]
+  }),
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.CHANGE_SUBTREE, {
+    action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+    undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+    eventName: EventTypes.CHANGE_SUBTREE,
+    elementId: 'group-a',
+    rootParentChildrenAfter: [],
+    removed: [
+      {
+        elementId: 'group-a',
+        parentId: 'workspace-a',
+        index: 0,
+        data: {
+          id: 'group-a',
+          type: 'group',
+          parentId: 'workspace-a',
+          children: [],
+          props: { position: 'position-group-a' }
+        }
+      }
+    ]
+  })
+]
+
+const createRestoreOwners = () => {
+  const scenePlan = Object.freeze({
+    kind: 'scene-tree-restore-plan',
+    elementId: 'group-a',
+    entries: Object.freeze([
+      Object.freeze({
+        elementId: 'group-a',
+        strategy: 'materialize' as const
+      })
+    ]),
+    propertyOwnerRelations: Object.freeze([
+      Object.freeze({
+        ownerElementId: 'group-a',
+        ownerElementType: 'group',
+        ownerPropertyName: 'position',
+        componentId: 'position-group-a'
+      })
+    ])
+  }) satisfies SceneTreeRestorePlan
+  const propsPlan = Object.freeze({
+    kind: 'props-restore-plan',
+    entries: Object.freeze([
+      Object.freeze({
+        componentId: 'position-group-a',
+        strategy: 'materialize' as const
+      })
+    ]),
+    ownerRelations: scenePlan.propertyOwnerRelations
+  }) satisfies PropsRestorePlan
+
+  return {
+    scenePlan,
+    propsPlan,
+    owners: {
+      preflightRestoreSubtree: vi.fn(() => scenePlan),
+      preflightRestoreProperties: vi.fn(() => propsPlan),
+      applyRestoreProperties: vi.fn(() => Object.freeze(['position-group-a'])),
+      applyRestoreSubtree: vi.fn()
+    }
+  }
+}
+
 describe('Asyra Design app-owned collaboration processing', () => {
+  it('preflights one complete restore before applying Props then Scene in one remote transaction', () => {
+    const callOrder: string[] = []
+    const runRemoteTransaction = vi.fn((mutate: () => void) => {
+      callOrder.push('transaction')
+      mutate()
+    })
+    const process = vi.fn()
+    const { scenePlan, propsPlan, owners } = createRestoreOwners()
+    owners.preflightRestoreSubtree.mockImplementation((snapshot) => {
+      callOrder.push('preflight-scene')
+      expect(snapshot).toEqual(
+        expect.objectContaining({
+          elementId: 'group-a',
+          rootParentChildrenAfter: []
+        })
+      )
+      return scenePlan
+    })
+    owners.preflightRestoreProperties.mockImplementation(
+      (snapshot, ownerRelations) => {
+        callOrder.push('preflight-props')
+        expect(snapshot).toEqual({
+          components: [
+            {
+              id: 'position-group-a',
+              type: 'position',
+              x: 12,
+              y: 24
+            }
+          ]
+        })
+        expect(ownerRelations).toBe(scenePlan.propertyOwnerRelations)
+        return propsPlan
+      }
+    )
+    owners.applyRestoreProperties.mockImplementation(() => {
+      callOrder.push('apply-props')
+      return Object.freeze(['position-group-a'])
+    })
+    owners.applyRestoreSubtree.mockImplementation(() => {
+      callOrder.push('apply-scene')
+      return {
+        elementId: 'group-a',
+        removed: [],
+        rootParentChildrenAfter: []
+      }
+    })
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      (item) => item,
+      owners
+    )
+
+    processPublication(publication(restoreDeliveries(), 'restore-group-a'))
+
+    expect(callOrder).toEqual([
+      'preflight-scene',
+      'preflight-props',
+      'transaction',
+      'apply-props',
+      'apply-scene'
+    ])
+    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(propsPlan)
+    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(scenePlan)
+    expect(process).not.toHaveBeenCalled()
+  })
+
+  it('rejects mixed or out-of-order restore deliveries before owner preflight', () => {
+    const cases = [
+      [
+        ...(restoreDeliveries() as SharedDelivery[]),
+        validDeliveries()[0] as SharedDelivery
+      ],
+      [...restoreDeliveries()].reverse()
+    ]
+
+    cases.forEach((deliveries, index) => {
+      const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+      const process = vi.fn()
+      const { owners } = createRestoreOwners()
+      const processPublication = createAsyraDesignPublicationProcessor(
+        runRemoteTransaction,
+        process,
+        (item) => item,
+        owners
+      )
+
+      expect(() =>
+        processPublication(publication(deliveries, `invalid-restore-${index}`))
+      ).toThrow('invalid subtree restore publication')
+      expect(owners.preflightRestoreSubtree).not.toHaveBeenCalled()
+      expect(owners.preflightRestoreProperties).not.toHaveBeenCalled()
+      expect(runRemoteTransaction).not.toHaveBeenCalled()
+      expect(process).not.toHaveBeenCalled()
+    })
+  })
+
+  it('rejects restore evidence without detached root-parent order before policy or mutation', () => {
+    const [propsDelivery, sceneDelivery] = restoreDeliveries()
+    const malformedScene = {
+      ...sceneDelivery,
+      payload: {
+        ...(sceneDelivery?.payload as Record<string, unknown>)
+      }
+    } as SharedDelivery
+    delete (malformedScene.payload as Record<string, unknown>)
+      .rootParentChildrenAfter
+    const decide = vi.fn((item: SharedPublication) => item)
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const { owners } = createRestoreOwners()
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      vi.fn(),
+      decide,
+      owners
+    )
+
+    expect(() =>
+      processPublication(
+        publication(
+          [propsDelivery as SharedDelivery, malformedScene],
+          'malformed-root-order'
+        )
+      )
+    ).toThrow('unsupported collaboration delivery')
+    expect(decide).not.toHaveBeenCalled()
+    expect(owners.preflightRestoreSubtree).not.toHaveBeenCalled()
+    expect(runRemoteTransaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects restore policy or owner preflight failure before the remote transaction', () => {
+    const rejectedOwners = createRestoreOwners().owners
+    const rejectedTransaction = vi.fn((mutate: () => void) => mutate())
+    const rejectPublication = createAsyraDesignPublicationProcessor(
+      rejectedTransaction,
+      vi.fn(),
+      () => false,
+      rejectedOwners
+    )
+
+    rejectPublication(
+      publication(restoreDeliveries(), 'unauthorized-restore-group-a')
+    )
+
+    expect(rejectedOwners.preflightRestoreSubtree).not.toHaveBeenCalled()
+    expect(rejectedOwners.preflightRestoreProperties).not.toHaveBeenCalled()
+    expect(rejectedTransaction).not.toHaveBeenCalled()
+
+    const staleOwners = createRestoreOwners().owners
+    staleOwners.preflightRestoreProperties.mockImplementation(() => {
+      throw new Error('stale property owner evidence')
+    })
+    const staleTransaction = vi.fn((mutate: () => void) => mutate())
+    const rejectStale = createAsyraDesignPublicationProcessor(
+      staleTransaction,
+      vi.fn(),
+      (item) => item,
+      staleOwners
+    )
+
+    expect(() =>
+      rejectStale(publication(restoreDeliveries(), 'stale-restore-group-a'))
+    ).toThrow('stale property owner evidence')
+    expect(staleOwners.preflightRestoreSubtree).toHaveBeenCalledOnce()
+    expect(staleOwners.preflightRestoreProperties).toHaveBeenCalledOnce()
+    expect(staleOwners.applyRestoreProperties).not.toHaveBeenCalled()
+    expect(staleOwners.applyRestoreSubtree).not.toHaveBeenCalled()
+    expect(staleTransaction).not.toHaveBeenCalled()
+  })
+
   it('validates all supported Scene Tree and Props routes before one remote transaction', () => {
     const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
     const process = vi.fn(() => true)
