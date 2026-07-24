@@ -57,12 +57,13 @@ test('Group Interaction Inspector authorities resolve', () => {
   assert.ok(data.steps.every(Object.isFrozen))
 })
 
-test('all six required owner steps expose exact readiness fields', () => {
+test('all seven required owner steps expose exact readiness fields', () => {
   const requiredStepIds = [
     'derive-group-command-intent',
     'execute-group-command-transaction',
     'route-group-command-input',
     'project-layers-hierarchy',
+    'project-group-hover-selection-overlay',
     'settle-history-publication-and-remote-apply',
     'verify-group-persistence-and-render'
   ]
@@ -258,6 +259,21 @@ test('Layers projection derives nested visible rows without second hierarchy sta
   assert.match(text, /Render display-object ancestry/i)
 })
 
+test('Preset selection overlay projects canonical Group hover and selection bounds', () => {
+  const text = contractText(step('project-group-hover-selection-overlay'))
+
+  assert.match(text, /existing registered selection overlay layer/i)
+  assert.match(text, /canonical element selection.*hovered element id/i)
+  assert.match(text, /official Group computed.*x.*y.*width.*height/i)
+  assert.match(text, /current identity-safe Render world transform/i)
+  assert.match(text, /selected Group.*selection box/i)
+  assert.match(text, /hovered unselected Group.*hover box/i)
+  assert.match(text, /nested Group.*world transform/i)
+  assert.match(text, /second overlay layer.*Group-specific mutable state/i)
+  assert.match(text, /canvas hit area/i)
+  assert.match(text, /Pixi/i)
+})
+
 test('Factory/app remote step retains Gate 3 collaboration ownership', () => {
   const text = contractText(step('settle-history-publication-and-remote-apply'))
 
@@ -311,6 +327,7 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Ungroup a normal official Group.*empty official Group/i,
     /Visible Layers controls and Meta\/Ctrl\+G.*Shift variant/i,
     /Shift-range uses visible row order.*hidden-descendant selection/i,
+    /Selected and hovered official Groups.*canonical computed bounds/i,
     /One command is one undo entry and one grouped publication/i,
     /Accepted remote Group changes.*without selection takeover/i,
     /Save\/load preserves exact nested Group document state/i,

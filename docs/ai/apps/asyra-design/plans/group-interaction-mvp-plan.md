@@ -35,6 +35,8 @@ Provide the smallest complete Asyra Design product flow that lets a user:
 - discover both commands in the Layers panel and invoke their standard
   shortcuts;
 - see canonical parent/child hierarchy as nested Layers rows;
+- see the canonical Group bounds as the ordinary canvas hover and selection
+  box without making the invisible Group a canvas hit area;
 - retain predictable selection, undo/redo, save/load, collaboration, and
   visual behavior.
 
@@ -62,6 +64,10 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 - The Layers panel already consumes `flattenedElementIds`,
   `elementDataMap`, and element selection. The projection includes parent and
   child data; the panel currently renders every row at one visual depth.
+- Preset already owns one registered selection overlay layer. Its generic
+  Render-node bounds path does not expose the invisible Group's canonical
+  computed bounds, so selected or Layers-hovered Groups currently lack the
+  ordinary canvas box.
 
 ## Product Ownership
 
@@ -176,6 +182,22 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   may not fabricate the missing hierarchy from Render objects or a
   mutation-time patch cache.
 
+### Group canvas hover and selection overlay
+
+- A selected official Group displays the ordinary selection box, and an
+  unselected official Group with the canonical hovered id displays the
+  ordinary hover box.
+- The existing registered Preset selection overlay layer owns this projection.
+  It consumes the Group's canonical computed `x`, `y`, `width`, and `height`
+  together with the current identity-safe Render world transform.
+- Nested Groups project their bounds through the same current transform chain.
+  Selection takes precedence over hover so one Group is not outlined twice.
+- Missing, invalid, or non-finite Group bounds fail closed without inferred
+  geometry. A zero-area Group does not gain a fabricated visible area.
+- This presentation does not make the invisible Group a canvas hit target,
+  create resize handles, mutate Group geometry, or introduce a second overlay
+  layer, Group-specific mutable state, or app/Render fallback bounds.
+
 ### Save/load and collaboration
 
 - Save/load preserves exact Group data, parent, index, child order, nested
@@ -204,6 +226,8 @@ Formal product coverage must include:
   selection input without partial state;
 - preserve visible world-space output across Group and Ungroup;
 - project nested rows, depth, canonical child order, expand, and collapse;
+- project normal and nested official Group hover/selection boxes from canonical
+  computed bounds without adding a Group canvas hit area;
 - keep hidden-descendant selection stable across collapse/expand;
 - undo/redo Group and Ungroup with exact hierarchy, Group data, geometry, and
   selection restoration;
@@ -216,8 +240,9 @@ Formal product coverage must include:
 
 - layer-tree drag/drop, same-parent reorder, and cross-parent reparent;
 - canvas drag-to-reparent or canvas Group hit-area interaction;
-- context menus, a general command palette, breadcrumbs, outlines, resize
-  handles, or Group-specific canvas selection affordances;
+- context menus, a general command palette, breadcrumbs, resize handles, or
+  custom Group-specific canvas affordances beyond the ordinary hover and
+  selection box;
 - custom Group naming or layer rename;
 - Group resize/scaling of descendants, auto-layout, clipping/masking,
   constraints, symbols/components, Boolean operations, or snapping;
@@ -248,11 +273,15 @@ steps:
    - canonical projection inputs, derived depth/visibility outputs,
      expand/collapse UI state, selection interaction, malformed projection
      failure owner, and forbidden second hierarchy state.
-5. **Factory history/publication and app remote apply**
+5. **Group hover/selection overlay projection**
+   - canonical selection and hovered-id inputs, official Group computed bounds,
+     current Render transform, existing overlay-layer output, invalid-bounds
+     bypass, no-hit-area boundary, and forbidden second layer/state/fallback.
+6. **Factory history/publication and app remote apply**
    - one command/undo/redo publication boundary, local selection isolation,
      accepted remote canonical apply, rejected remote bypass, and explicit
      Collaboration exclusions.
-6. **Save/load and Render verification**
+7. **Save/load and Render verification**
    - exact hierarchy load output, Layers refresh, identity-safe Render handoff,
      load rejection owner, and no fallback projection.
 
@@ -281,11 +310,16 @@ The Inspector may authorize narrowly scoped changes under:
 - `apps/asyra-design/src/init/*`
 - `apps/asyra-design/e2e/*`
 - directly corresponding app contracts, BDD cases, and decision history.
+- `packages/preset/src/render-layers/selection-overlay-render-layer.ts` and its
+  directly corresponding `packages/preset/src/__tests__` regression tests,
+  limited to projecting official Group hover/selection bounds through the
+  existing registered layer.
 
-Framework, Preset, Scene Tree, Factory, Collaboration, and Render production
-changes are not pre-authorized by this app plan. If formal evidence finds an
-upstream Gate 3 contract violation, stop the current app owner step and obtain
-a bounded upstream plan/Inspector amendment. Do not add an app fallback.
+Except for the exact Preset selection-overlay boundary above, Framework,
+Preset, Scene Tree, Factory, Collaboration, and Render production changes are
+not pre-authorized by this app plan. If formal evidence finds another upstream
+Gate 3 contract violation, stop the current app owner step and obtain a bounded
+upstream plan/Inspector amendment. Do not add an app fallback.
 
 ## Formal Test Plan
 
@@ -297,6 +331,8 @@ a bounded upstream plan/Inspector amendment. Do not add an app fallback.
   rejection/no-op, exact post-selection, and undo/redo.
 - Layers component tests for enabled/disabled controls, nested rows,
   expand/collapse, visible-range selection, and stable selectors.
+- Preset selection-overlay tests for selected, hovered, nested, invalid-bounds,
+  duplicate-outline suppression, and unchanged non-Group behavior.
 - App integration tests for save/load, accepted remote apply, local selection
   isolation, and instance isolation.
 - E2E tests driven through visible controls and shortcuts, not
@@ -313,8 +349,8 @@ a bounded upstream plan/Inspector amendment. Do not add an app fallback.
 - visible Layers controls and standard shortcuts execute the same feature
   contract;
 - Group/Ungroup eligibility, post-selection, nested projection,
-  expand/collapse, failures, undo/redo, save/load, and collaboration behavior
-  match this plan;
+  expand/collapse, Group hover/selection boxes, failures, undo/redo, save/load,
+  and collaboration behavior match this plan;
 - no second hierarchy state, second Group component, app-specific Render
   fallback, or Collaboration conflict policy is introduced;
 - all affected app/package tests, Inspector tests, Scene Tree/Factory/Preset/
@@ -331,6 +367,8 @@ a bounded upstream plan/Inspector amendment. Do not add an app fallback.
 - Ungroup normal and empty Groups.
 - Verify post-operation selection and exact undo/redo.
 - Expand/collapse nested Groups and shift-select visible rows.
+- Hover and select normal and nested Groups; confirm the ordinary canvas box
+  matches canonical Group bounds and no Group canvas hit area was introduced.
 - Reload a nested Group document.
 - Confirm no canvas jump, duplicate visual, stale row, or remote selection
   takeover.
@@ -341,6 +379,8 @@ a bounded upstream plan/Inspector amendment. Do not add an app fallback.
 - The product contract and Inspector disagree.
 - Readiness contract tests fail.
 - Canonical Group projection is missing and would require an app fallback.
+- Canonical Group computed bounds or the current Render transform are missing
+  and would require fabricated overlay geometry.
 - A requested behavior requires layer-tree drag/drop, auto-layout,
   resize/scaling, clipping, symbols, or remote conflict policy.
 - Manual product review has not approved completion.

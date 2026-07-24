@@ -235,6 +235,59 @@
       failureOwnerStepId: 'project-layers-hierarchy'
     },
     {
+      id: 'project-group-hover-selection-overlay',
+      order: 2,
+      laneId: 'verification',
+      title: 'Project canonical Group hover and selection bounds',
+      ownerPackage: '@asyra/preset official selection overlay default',
+      purpose:
+        'Project official Group bounds through the existing registered selection overlay layer without changing canonical geometry, Render hierarchy, or canvas hit policy.',
+      inputs: [
+        'canonical element selection and canonical hovered element id',
+        'official Group computed x, y, width, and height',
+        'current identity-safe Render world transform'
+      ],
+      outputs: ['artifact:group-hover-selection-overlay'],
+      conditions: [
+        'A selected Group draws the ordinary selection box from canonical computed bounds.',
+        'A hovered unselected Group draws the ordinary hover box from the same canonical computed bounds.',
+        'A nested Group projects its bounds through the current Render world transform.',
+        'Selection takes precedence over hover so one Group is never outlined twice.',
+        'The existing Preset selection overlay registration, z-index, update loop, and cleanup lifecycle remain unchanged.'
+      ],
+      bypasses: [
+        'A missing Group, missing Render handle, invalid bounds, or non-finite computed dimension draws no inferred or fallback geometry.',
+        'A zero-area Group gains no fabricated visible area or canvas hit area.',
+        'The existing path-editing guard and selected-id hover suppression remain unchanged.'
+      ],
+      allowedContributors: [
+        'canonical Preset element selection projection',
+        'canonical System Context hovered element id',
+        'official Preset Group computed data',
+        'engine-neutral Render world transform',
+        'existing registered selection overlay layer'
+      ],
+      forbiddenContributors: [
+        'a second overlay layer or Group-specific mutable state',
+        'Group Render-strategy geometry added only to create a canvas hit area',
+        'app-specific or Render fallback bounds',
+        'direct Pixi or concrete render-engine imports'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/preset/src/render-layers/selection-overlay-render-layer.ts',
+        'packages/preset/src/__tests__',
+        'apps/asyra-design/e2e'
+      ],
+      specRefs: [
+        '#group-canvas-hover-and-selection-overlay',
+        '#product-cases',
+        '#explicit-non-goals',
+        '#definition-of-done'
+      ],
+      failureOwnerStepId: 'project-group-hover-selection-overlay'
+    },
+    {
       id: 'settle-history-publication-and-remote-apply',
       order: 1,
       laneId: 'integration',
@@ -301,7 +354,8 @@
         'artifact:committed-group-command',
         'artifact:accepted-remote-group-update',
         'serialized canonical document',
-        'artifact:visible-layer-rows'
+        'artifact:visible-layer-rows',
+        'artifact:group-hover-selection-overlay'
       ],
       outputs: [
         'artifact:verified-group-document',
@@ -311,7 +365,8 @@
       conditions: [
         'Save/load preserves exact Group data, parent, index, child order, nested hierarchy, coordinates/bounds, props references, and entity identity.',
         'A valid replace-style load refreshes Layers from canonical data channels and hands the same element identity and engine handle to Render.',
-        'Render projects committed hierarchy only, with no duplicate visual, stale parent, or visible coordinate jump.'
+        'Render projects committed hierarchy only, with no duplicate visual, stale parent, or visible coordinate jump.',
+        'Selected and hovered official Group bounds remain aligned with the same canonical geometry after Group, Ungroup, undo, redo, load, and accepted remote apply.'
       ],
       bypasses: [
         'Collapse state is UI-local and is not serialized or required to survive reload.',
@@ -426,6 +481,15 @@
       producedArtifacts: ['artifact:layers-projection-failure']
     },
     {
+      id: 'group-overlay-to-verification',
+      from: 'project-group-hover-selection-overlay',
+      to: 'verify-group-persistence-and-render',
+      kind: 'projection',
+      predicate:
+        'canonical Group selection or hover state projects through the existing overlay layer',
+      producedArtifacts: ['artifact:group-hover-selection-overlay']
+    },
+    {
       id: 'settled-publication-terminates',
       from: 'settle-history-publication-and-remote-apply',
       kind: 'terminal',
@@ -538,6 +602,13 @@
       terminal: true
     },
     {
+      id: 'artifact:group-hover-selection-overlay',
+      ownerStepId: 'project-group-hover-selection-overlay',
+      channel: 'existing Preset selection overlay layer',
+      consumerStepIds: ['verify-group-persistence-and-render'],
+      terminal: false
+    },
+    {
       id: 'artifact:settled-group-publication',
       ownerStepId: 'settle-history-publication-and-remote-apply',
       channel: 'Factory shared publication',
@@ -591,11 +662,13 @@
         'derive-group-command-intent',
         'execute-group-command-transaction',
         'project-layers-hierarchy',
+        'project-group-hover-selection-overlay',
         'verify-group-persistence-and-render'
       ],
       artifactIds: [
         'artifact:eligible-group-command-request',
         'artifact:visible-layer-rows',
+        'artifact:group-hover-selection-overlay',
         'artifact:identity-safe-render-projection'
       ],
       specRefs: ['#product-ownership', '#framework-owners-retained-from-gate-3']
@@ -684,6 +757,21 @@
       specRefs: ['#layers-hierarchy-projection', '#product-cases']
     },
     {
+      id: 'group-hover-selection-overlay-product-cases',
+      title: 'Canonical Group hover and selection overlay',
+      assertions: [
+        'Selected and hovered official Groups use canonical computed bounds and the current Render transform for the ordinary canvas box.',
+        'Nested Groups preserve world-transform alignment, and selection suppresses a duplicate hover outline.',
+        'Missing or invalid Group bounds fail closed without a second layer, Group-specific state, fallback geometry, concrete-engine import, or canvas hit area.'
+      ],
+      stepIds: ['project-group-hover-selection-overlay'],
+      specRefs: [
+        '#group-canvas-hover-and-selection-overlay',
+        '#product-cases',
+        '#explicit-non-goals'
+      ]
+    },
+    {
       id: 'history-and-remote-product-cases',
       title: 'Exact history, publication, and remote apply',
       assertions: [
@@ -713,6 +801,7 @@
       ],
       stepIds: [
         'project-layers-hierarchy',
+        'project-group-hover-selection-overlay',
         'settle-history-publication-and-remote-apply',
         'verify-group-persistence-and-render'
       ],
