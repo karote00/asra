@@ -814,8 +814,9 @@ class RenderSceneTree {
     }
 
     const canonicalParents = new Map<string, readonly string[]>()
+    const targetParentId = moves[0].after.parentId
     const affectedParentIds = [
-      moves[0].after.parentId,
+      targetParentId,
       ...moves.map((move) => move.before.parentId)
     ].filter(
       (parentId, index, parentIds) => parentIds.indexOf(parentId) === index
@@ -823,6 +824,9 @@ class RenderSceneTree {
 
     for (const parentId of affectedParentIds) {
       const parent = sceneTree.getElementById(parentId)
+      if (!parent && parentId !== targetParentId) {
+        continue
+      }
       const parentData = parent?.save() as
         | (ElementRawData & { children?: unknown })
         | undefined
@@ -862,8 +866,8 @@ class RenderSceneTree {
       (move) =>
         sceneTree.getElementById(move.elementId)?.get('parentId') ===
           move.after.parentId &&
-        canonicalParents.get(move.after.parentId)?.[move.after.index] ===
-          move.elementId
+        canonicalParents.get(move.after.parentId)?.includes(move.elementId) ===
+          true
     )
     if ((!mirrorsMatchBefore && !mirrorsMatchAfter) || !canonicalMatchesAfter) {
       return this.projectionOutcome(elementId, 'failed')
@@ -871,10 +875,8 @@ class RenderSceneTree {
 
     const affectedElementIds = new Set(moves.map((move) => move.elementId))
     affectedParentIds.forEach((parentId) => {
-      if (
-        sceneTree.getElementById(parentId)?.get('type') !==
-        EntityTypes.WORKSPACE
-      ) {
+      const parent = sceneTree.getElementById(parentId)
+      if (parent && parent.get('type') !== EntityTypes.WORKSPACE) {
         affectedElementIds.add(parentId)
       }
     })
@@ -887,11 +889,8 @@ class RenderSceneTree {
           )
         }
       })
-      affectedParentIds.forEach((parentId) => {
-        render.projectHierarchy(
-          parentId,
-          canonicalParents.get(parentId) as readonly string[]
-        )
+      canonicalParents.forEach((childIds, parentId) => {
+        render.projectHierarchy(parentId, childIds)
       })
       return this.projectionOutcome(elementId, 'applied')
     } catch {
