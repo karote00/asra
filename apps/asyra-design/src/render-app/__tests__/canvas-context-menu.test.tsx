@@ -113,4 +113,26 @@ describe('Render canvas context-menu intake', () => {
 
     await act(async () => root.unmount())
   })
+
+  it('announces canvas-host teardown exactly once on unmount', async () => {
+    const onCanvasHostTeardown = vi.fn()
+    const rootHost = document.createElement('div')
+    document.body.append(rootHost)
+    const root = createRoot(rootHost)
+
+    await act(async () => {
+      root.render(<RenderApp onCanvasHostTeardown={onCanvasHostTeardown} />)
+      await Promise.resolve()
+    })
+    expect(onCanvasHostTeardown).not.toHaveBeenCalled()
+
+    await act(async () => {
+      root.render(<RenderApp onCanvasHostTeardown={onCanvasHostTeardown} />)
+      await Promise.resolve()
+    })
+    expect(onCanvasHostTeardown).not.toHaveBeenCalled()
+
+    await act(async () => root.unmount())
+    expect(onCanvasHostTeardown).toHaveBeenCalledTimes(1)
+  })
 })

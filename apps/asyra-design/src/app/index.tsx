@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import ToolBar from '../toolbar'
 import Contents from '../contents'
 import Properties from '../properties'
@@ -10,6 +10,7 @@ import {
   createGroupCommandDescriptors,
   detectGroupCommandPlatform
 } from '../config/group-command-descriptors'
+import type { GroupCommandPlatform } from '../constants'
 import { deriveGroupCommandState } from '../controllers/group-commands'
 import {
   useElementDataMap,
@@ -19,7 +20,13 @@ import {
 import { useAppContextMenuSession } from './context-menu-session'
 import { GroupContextMenu } from './group-context-menu'
 
-const App: React.FC = () => {
+interface AppProps {
+  groupCommandPlatform?: GroupCommandPlatform
+}
+
+const App: React.FC<AppProps> = ({
+  groupCommandPlatform = detectGroupCommandPlatform()
+}) => {
   const contextMenu = useAppContextMenuSession()
   const elementSelection = useElementSelection()
   const flattenedIds = useFlattenedIdsData()
@@ -36,10 +43,14 @@ const App: React.FC = () => {
   const groupCommandDescriptors = useMemo(
     () =>
       createGroupCommandDescriptors({
-        platform: detectGroupCommandPlatform(),
+        platform: groupCommandPlatform,
         state: groupCommandState
       }),
-    [groupCommandState]
+    [groupCommandPlatform, groupCommandState]
+  )
+  const handleCanvasHostTeardown = useCallback(
+    () => contextMenu.dismiss('teardown'),
+    [contextMenu.dismiss]
   )
 
   return (
@@ -57,7 +68,10 @@ const App: React.FC = () => {
         gridTemplateRows: 'auto 1fr auto'
       }}
     >
-      <RenderApp onContextMenuRequest={contextMenu.open} />
+      <RenderApp
+        onContextMenuRequest={contextMenu.open}
+        onCanvasHostTeardown={handleCanvasHostTeardown}
+      />
       <GroupContextMenu
         session={contextMenu.session}
         descriptors={groupCommandDescriptors}

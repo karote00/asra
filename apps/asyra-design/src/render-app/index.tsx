@@ -19,9 +19,13 @@ export interface CanvasContextMenuInvocation {
 
 interface RenderAppProps {
   onContextMenuRequest?: (invocation: CanvasContextMenuInvocation) => void
+  onCanvasHostTeardown?: () => void
 }
 
-const RenderApp: React.FC<RenderAppProps> = ({ onContextMenuRequest }) => {
+const RenderApp: React.FC<RenderAppProps> = ({
+  onContextMenuRequest,
+  onCanvasHostTeardown
+}) => {
   const renderContainerRef = useRef<HTMLDivElement>(null)
   const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -117,6 +121,13 @@ const RenderApp: React.FC<RenderAppProps> = ({ onContextMenuRequest }) => {
       })
     }
   }, [])
+
+  useEffect(
+    () => () => {
+      onCanvasHostTeardown?.()
+    },
+    [onCanvasHostTeardown]
+  )
 
   return (
     <div

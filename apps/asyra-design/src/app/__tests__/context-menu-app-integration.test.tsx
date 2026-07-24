@@ -29,26 +29,35 @@ vi.mock('../../providers', () => ({
 }))
 vi.mock('../../config/group-command-descriptors', () => ({
   detectGroupCommandPlatform: () => 'macos',
-  createGroupCommandDescriptors: () => [
-    {
-      id: 'group',
-      label: 'Group',
-      ariaLabel: 'Group selected layers',
-      shortcutLabel: '⌘G',
-      shortcut: { key: 'G', modifiers: ['meta'] },
-      enabled: true,
-      execute: descriptorMocks.executeGroup
-    },
-    {
-      id: 'ungroup',
-      label: 'Ungroup',
-      ariaLabel: 'Ungroup selected layer',
-      shortcutLabel: '⇧⌘G',
-      shortcut: { key: 'G', modifiers: ['meta', 'shift'] },
-      enabled: false,
-      execute: descriptorMocks.executeUngroup
-    }
-  ]
+  createGroupCommandDescriptors: ({ platform }: { platform: string }) => {
+    const macOS = platform === 'macos'
+    return [
+      {
+        id: 'group',
+        label: 'Group',
+        ariaLabel: 'Group selected layers',
+        shortcutLabel: macOS ? '⌘G' : 'Ctrl+G',
+        shortcut: {
+          key: 'G',
+          modifiers: [macOS ? 'meta' : 'ctrl']
+        },
+        enabled: true,
+        execute: descriptorMocks.executeGroup
+      },
+      {
+        id: 'ungroup',
+        label: 'Ungroup',
+        ariaLabel: 'Ungroup selected layer',
+        shortcutLabel: macOS ? '⇧⌘G' : 'Ctrl+Shift+G',
+        shortcut: {
+          key: 'G',
+          modifiers: [macOS ? 'meta' : 'ctrl', 'shift']
+        },
+        enabled: false,
+        execute: descriptorMocks.executeUngroup
+      }
+    ]
+  }
 }))
 
 describe('App context-menu composition', () => {
@@ -74,11 +83,36 @@ describe('App context-menu composition', () => {
     render(<App />)
 
     expect(renderAppProps).toHaveBeenCalled()
-    expect(renderAppProps.mock.lastCall?.[0]).toEqual(
+    const props = renderAppProps.mock.lastCall?.[0] as {
+      onContextMenuRequest: (invocation: {
+        clientX: number
+        clientY: number
+        invoker: HTMLDivElement
+      }) => void
+      onCanvasHostTeardown: () => void
+    }
+    expect(props).toEqual(
       expect.objectContaining({
-        onContextMenuRequest: expect.any(Function)
+        onContextMenuRequest: expect.any(Function),
+        onCanvasHostTeardown: expect.any(Function)
       })
     )
+
+    const canvasHost = document.createElement('div')
+    document.body.append(canvasHost)
+    act(() => {
+      props.onContextMenuRequest({
+        clientX: 100,
+        clientY: 120,
+        invoker: canvasHost
+      })
+    })
+    expect(screen.getByRole('menu')).toBeTruthy()
+
+    act(() => props.onCanvasHostTeardown())
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(descriptorMocks.executeGroup).not.toHaveBeenCalled()
+    expect(descriptorMocks.executeUngroup).not.toHaveBeenCalled()
   })
 
   it('presents fixed rows and closes before one enabled descriptor execution', async () => {
@@ -122,5 +156,79 @@ describe('App context-menu composition', () => {
     expect(descriptorMocks.executeGroup).toHaveBeenCalledTimes(1)
     await act(async () => Promise.resolve())
     expect(document.activeElement).toBe(canvasHost)
+  })
+
+  it('isolates open state, position, focus, platform labels, and teardown across app roots', async () => {
+    const firstRoot = render(<App groupCommandPlatform="macos" />)
+    const firstRequest = (
+      renderAppProps.mock.lastCall?.[0] as {
+        onContextMenuRequest: (invocation: {
+          clientX: number
+          clientY: number
+          invoker: HTMLDivElement
+        }) => void
+      }
+    ).onContextMenuRequest
+    const secondRoot = render(<App groupCommandPlatform="windows-linux" />)
+    const secondRequest = (
+      renderAppProps.mock.lastCall?.[0] as {
+        onContextMenuRequest: (invocation: {
+          clientX: number
+          clientY: number
+          invoker: HTMLDivElement
+        }) => void
+      }
+    ).onContextMenuRequest
+    const firstCanvas = document.createElement('div')
+    const secondCanvas = document.createElement('div')
+    firstCanvas.tabIndex = -1
+    secondCanvas.tabIndex = -1
+    document.body.append(firstCanvas, secondCanvas)
+
+    act(() => {
+      firstRequest({
+        clientX: 45,
+        clientY: 60,
+        invoker: firstCanvas
+      })
+      secondRequest({
+        clientX: 420,
+        clientY: 260,
+        invoker: secondCanvas
+      })
+    })
+
+    let menus = screen.getAllByRole('menu')
+    expect(menus).toHaveLength(2)
+    expect(menus.map((menu) => [menu.style.left, menu.style.top])).toEqual([
+      ['45px', '60px'],
+      ['420px', '260px']
+    ])
+    expect(
+      screen.getAllByRole('menuitem').map((row) => row.textContent)
+    ).toEqual(['Group⌘G', 'Ungroup⇧⌘G', 'GroupCtrl+G', 'UngroupCtrl+Shift+G'])
+
+    fireEvent.keyDown(menus[0] as HTMLElement, { key: 'Escape' })
+    await act(async () => Promise.resolve())
+    menus = screen.getAllByRole('menu')
+    expect(menus).toHaveLength(1)
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+    expect(document.activeElement).toBe(firstCanvas)
+
+    act(() => {
+      firstRequest({
+        clientX: 80,
+        clientY: 90,
+        invoker: firstCanvas
+      })
+    })
+    expect(screen.getAllByRole('menu')).toHaveLength(2)
+
+    firstRoot.unmount()
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+
+    secondRoot.unmount()
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })
