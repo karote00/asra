@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const core = {
+    getUIProperty: vi.fn(),
     removeSubtree: vi.fn()
   }
 
@@ -63,6 +64,36 @@ describe('app hierarchy common APIs', () => {
       mocks.core,
       'group-1',
       options
+    )
+  })
+
+  it('reads the canonical hierarchy UI projection for app command eligibility', () => {
+    const flattenedIds = ['group-1', 'child-1']
+    const elementDataMap = {
+      'group-1': {
+        id: 'group-1',
+        type: 'group',
+        parentId: 'workspace'
+      },
+      'child-1': {
+        id: 'child-1',
+        type: 'element',
+        parentId: 'group-1'
+      }
+    }
+    mocks.core.getUIProperty.mockImplementation((key: string) =>
+      key === 'flattenedElementIds' ? flattenedIds : elementDataMap
+    )
+
+    expect(hierarchyApis.getFlattenedElementIds()).toBe(flattenedIds)
+    expect(hierarchyApis.getElementDataMap()).toBe(elementDataMap)
+    expect(mocks.core.getUIProperty).toHaveBeenNthCalledWith(
+      1,
+      'flattenedElementIds'
+    )
+    expect(mocks.core.getUIProperty).toHaveBeenNthCalledWith(
+      2,
+      'elementDataMap'
     )
   })
 
