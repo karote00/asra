@@ -13,7 +13,7 @@ import {
 import { BasePropertyComponent } from '../components'
 import type { PropertyComponentConstructor } from '../components'
 import propsManager, { PropsManager } from '../manager/props-manager'
-import { getPropertyComponentAccessor } from '../manager/component-accessor'
+import type { PropertyComponentAccessor } from '../manager/component-accessor'
 import {
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
@@ -496,13 +496,15 @@ export const createPropertyComponentFromConfig = (
   const isAllowedDynamicKey = (key: string) => !reservedDynamicKeys.has(key)
   const { persistKeys, valueKeys, unitKeys } = getConfigRoles(definition)
 
-  const normalizeChildrenValue = (value: unknown): string[] | null => {
+  const normalizeChildrenValue = (
+    value: unknown,
+    accessor: PropertyComponentAccessor
+  ): string[] | null => {
     if (!children || !Array.isArray(value)) return null
     const mode = children.mode ?? 'ids'
     if (mode === 'ids') return value.every(isString) ? value : null
 
     const childIds: string[] = []
-    const accessor = getPropertyComponentAccessor()
     value.forEach((item) => {
       if (isString(item)) {
         childIds.push(item)
@@ -556,9 +558,11 @@ export const createPropertyComponentFromConfig = (
     return childIds
   }
 
-  const toChildrenValue = (value: unknown): unknown => {
+  const toChildrenValue = (
+    value: unknown,
+    accessor: PropertyComponentAccessor
+  ): unknown => {
     if (!children?.toValue || !Array.isArray(value)) return value
-    const accessor = getPropertyComponentAccessor()
     return value
       .filter(isString)
       .map((childId) => {
@@ -595,10 +599,9 @@ export const createPropertyComponentFromConfig = (
         this.childSubscriptions.delete(childId)
       })
 
-      const accessor = getPropertyComponentAccessor()
       nextIds.forEach((childId) => {
         if (this.childSubscriptions.has(childId)) return
-        const child = accessor.getPropertyById(childId)
+        const child = this.propertyComponentAccessor.getPropertyById(childId)
         if (!child || child.get('type') !== children.childType) return
         const unsubscribe = child.on((change) => {
           this.emitChange({
@@ -619,7 +622,10 @@ export const createPropertyComponentFromConfig = (
       let nextChildIds: string[] | null = null
       persistKeys.forEach((key) => {
         if (children && key === children.key) {
-          const normalized = normalizeChildrenValue(rawData[key])
+          const normalized = normalizeChildrenValue(
+            rawData[key],
+            this.propertyComponentAccessor
+          )
           if (normalized) {
             this.data[key as keyof PropertyComponentInstanceDataTypes] =
               normalized as never
@@ -678,7 +684,10 @@ export const createPropertyComponentFromConfig = (
           key as keyof PropertyComponentInstanceDataTypes
         )
         if (current !== undefined) {
-          value[key] = toChildrenValue(current) as DataTypes
+          value[key] = toChildrenValue(
+            current,
+            this.propertyComponentAccessor
+          ) as DataTypes
         }
       })
       return value
@@ -701,7 +710,10 @@ export const createPropertyComponentFromConfig = (
       options?: EvnetOptions
     ): void {
       if (children && key === (children.key as K)) {
-        const normalized = normalizeChildrenValue(value)
+        const normalized = normalizeChildrenValue(
+          value,
+          this.propertyComponentAccessor
+        )
         if (!normalized) return
         super.set(
           key,

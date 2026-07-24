@@ -12,6 +12,10 @@ import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import { Setter, Unit, isNil } from '@asyra/utils'
 import { getPropertySchema } from '../registries/property-schema'
 import { matchesPropertyValueKind } from '../registries/property-value-kind'
+import {
+  getPropertyComponentAccessor,
+  type PropertyComponentAccessor
+} from '../manager/component-accessor'
 import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()
@@ -41,9 +45,11 @@ abstract class BaseComponent<
   implements IProperty
 {
   propNames!: string[]
+  protected readonly propertyComponentAccessor: PropertyComponentAccessor
 
   constructor() {
     super(propsChangeHandler.addChange, acknowledgeTransactionReplayApplied)
+    this.propertyComponentAccessor = getPropertyComponentAccessor()
   }
 
   private getFieldSchema(key: keyof T): PropertyFieldSchema | undefined {
