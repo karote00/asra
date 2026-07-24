@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback } from 'react'
+import { type MouseEvent, type PointerEvent, useCallback } from 'react'
 import type { ElementRawData } from '@asyra/utils'
 import { useElementData } from '../providers'
 import { setHoveredElementId } from '../controllers/hovered-element'
@@ -8,19 +8,35 @@ import {
 } from '../controllers/element-row-actions'
 import { ElementIcon } from './ElementIcon'
 import { ElementRowActions } from './ElementRowActions'
+import { GroupDisclosure } from './GroupDisclosure'
 
 interface ElementData {
   elementId: string
   isSelected: boolean
   isHovered: boolean
+  depth: number
+  isGroup: boolean
+  isExpanded: boolean
+  dropState: 'before' | 'inside' | 'after' | 'invalid' | null
+  onToggleGroup: (groupId: string) => void
   onSelect: (event: MouseEvent<HTMLDivElement>, elementId: string) => void
+  onPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    elementId: string
+  ) => void
 }
 
 const Element = ({
   elementId,
   isSelected,
   isHovered,
-  onSelect
+  depth,
+  isGroup,
+  isExpanded,
+  dropState,
+  onToggleGroup,
+  onSelect,
+  onPointerDown
 }: ElementData) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
@@ -39,6 +55,12 @@ const Element = ({
   const handleElementMouseLeave = useCallback(() => {
     setHoveredElementId(null)
   }, [])
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      onPointerDown(event, id)
+    },
+    [id, onPointerDown]
+  )
   const handleToggleLock = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation()
@@ -56,23 +78,48 @@ const Element = ({
 
   return (
     <div
-      className="layer-item flex items-center justify-between px-3 cursor-default"
+      className="layer-item flex items-center justify-between pr-3 cursor-default"
       style={{
         height: '32px',
+        paddingLeft: `${12 + depth * 16}px`,
         ...(isSelected
           ? { background: 'rgba(13,153,255,0.15)' }
           : isHovered
             ? { background: 'rgba(255,255,255,0.04)' }
-            : {})
+            : {}),
+        ...(dropState === 'before'
+          ? { boxShadow: 'inset 0 2px 0 #4db3ff' }
+          : dropState === 'after'
+            ? { boxShadow: 'inset 0 -2px 0 #4db3ff' }
+            : dropState === 'inside'
+              ? { boxShadow: 'inset 0 0 0 2px #4db3ff' }
+              : dropState === 'invalid'
+                ? { boxShadow: 'inset 0 0 0 2px #f28b82' }
+                : {})
       }}
       onClick={handleElementClick}
+      onPointerDown={handlePointerDown}
       onMouseEnter={handleElementMouseEnter}
       onMouseLeave={handleElementMouseLeave}
       data-testid={`element-item-${id}`}
       data-layer-element="true"
+      data-layer-element-id={id}
+      data-layer-is-group={isGroup}
+      data-layer-drag-eligible={!lock}
+      data-layer-drop-state={dropState ?? undefined}
       data-selected={isSelected}
+      data-layer-depth={depth}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {isGroup ? (
+          <GroupDisclosure
+            groupId={id}
+            isExpanded={isExpanded}
+            onToggle={onToggleGroup}
+          />
+        ) : (
+          <span className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        )}
         <div
           className={`flex items-center flex-shrink-0 ${isSelected ? 'text-[#4db3ff]' : 'text-[#999]'}`}
         >
