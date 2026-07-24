@@ -11,7 +11,11 @@ import {
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
-import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
+import {
+  PROPS_ACTIONS,
+  SCENE_TREE_ACTIONS,
+  SharedDataChannelNames
+} from '@asyra/utils'
 
 describe('Factory', () => {
   let factory: Factory
@@ -73,6 +77,185 @@ describe('Factory', () => {
         rollbackableChangeCount: 1
       })
     ])
+  })
+
+  it('settles Props before Scene without undo history or outbound publication', () => {
+    const projections: string[] = []
+    const publications: unknown[] = []
+    const statuses: unknown[] = []
+    const propsChannel = new LocalSharedDataChannel()
+    const sceneChannel = new LocalSharedDataChannel()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      propsChannel
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      sceneChannel
+    )
+    propsChannel.observe(() => projections.push('props'))
+    sceneChannel.observe(() => projections.push('scene'))
+    factory.subscribeToSharedPublication((value) => publications.push(value))
+    factory.subscribeToTransactionStatus((value) => statuses.push(value))
+    const replay = vi.fn(() => true)
+    factory.registerTransactionReplayHandler(EventTypes.REMOVE_PROPERTY, replay)
+    factory.registerTransactionReplayHandler(EventTypes.CHANGE_SUBTREE, replay)
+
+    factory.runRemoteTransaction(() => {
+      updateTransaction(
+        EventTypes.ADD_PROPERTY,
+        {
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [{ id: 'position-group-a', type: 'position' }]
+        },
+        {
+          shared: SharedDataChannelNames.PROPS,
+          undoable: true,
+          rollbackable: false
+        }
+      )
+      updateTransaction(
+        EventTypes.CHANGE_SUBTREE,
+        {
+          action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+          undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+          eventName: EventTypes.CHANGE_SUBTREE,
+          elementId: 'group-a',
+          removed: [
+            {
+              elementId: 'group-a',
+              parentId: 'workspace-a',
+              index: 0,
+              data: {
+                id: 'group-a',
+                type: 'group',
+                parentId: 'workspace-a',
+                children: []
+              }
+            }
+          ],
+          rootParentChildrenAfter: []
+        },
+        {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          undoable: true,
+          rollbackable: false
+        }
+      )
+    })
+
+    expect(projections).toEqual(['props', 'scene'])
+    expect(publications).toEqual([])
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'committed',
+        undoableChangeCount: 0,
+        rollbackableChangeCount: 2
+      })
+    ])
+
+    factory.undo()
+    expect(replay).not.toHaveBeenCalled()
+    expect(publications).toEqual([])
+  })
+
+  it('rolls back both restored owners when remote settlement fails', () => {
+    let propsActive = false
+    let sceneActive = false
+    const rollbackOrder: string[] = []
+    const projections: string[] = []
+    const publications: unknown[] = []
+    const propsChannel = new LocalSharedDataChannel()
+    const sceneChannel = new LocalSharedDataChannel()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      propsChannel
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      sceneChannel
+    )
+    propsChannel.observe(() => projections.push('props'))
+    sceneChannel.observe(() => projections.push('scene'))
+    factory.subscribeToSharedPublication((value) => publications.push(value))
+    factory.registerTransactionReplayHandler(
+      EventTypes.REMOVE_PROPERTY,
+      (_event, mode) => {
+        expect(mode).toBe('rollback')
+        propsActive = false
+        rollbackOrder.push('props')
+        return true
+      }
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.CHANGE_SUBTREE,
+      (event, mode) => {
+        expect(mode).toBe('rollback')
+        expect((event as { payload: unknown }).payload).toEqual(
+          expect.objectContaining({
+            action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+          })
+        )
+        sceneActive = false
+        rollbackOrder.push('scene')
+        return true
+      }
+    )
+
+    expect(() =>
+      factory.runRemoteTransaction(() => {
+        propsActive = true
+        updateTransaction(
+          EventTypes.ADD_PROPERTY,
+          {
+            action: PROPS_ACTIONS.ADD_PROPERTY,
+            undoType: EventTypes.REMOVE_PROPERTY,
+            undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+            eventName: EventTypes.ADD_PROPERTY,
+            data: [{ id: 'position-group-a', type: 'position' }]
+          },
+          { shared: SharedDataChannelNames.PROPS }
+        )
+        sceneActive = true
+        updateTransaction(
+          EventTypes.CHANGE_SUBTREE,
+          {
+            action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+            undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+            eventName: EventTypes.CHANGE_SUBTREE,
+            elementId: 'group-a',
+            removed: [
+              {
+                elementId: 'group-a',
+                parentId: 'workspace-a',
+                index: 0,
+                data: {
+                  id: 'group-a',
+                  type: 'group',
+                  parentId: 'workspace-a',
+                  children: []
+                }
+              }
+            ],
+            rootParentChildrenAfter: []
+          },
+          { shared: SharedDataChannelNames.SCENE_TREE }
+        )
+        throw new Error('remote restore settlement failed')
+      })
+    ).toThrow('remote restore settlement failed')
+
+    expect({ propsActive, sceneActive }).toEqual({
+      propsActive: false,
+      sceneActive: false
+    })
+    expect(rollbackOrder).toEqual(['scene', 'props'])
+    expect(projections).toEqual([])
+    expect(publications).toEqual([])
   })
 
   it('publishes the remote transaction end after shared projections settle', () => {
