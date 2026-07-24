@@ -238,18 +238,22 @@
       id: 'resolve-canvas-hierarchy-target',
       order: 2,
       laneId: 'features',
-      title: 'Resolve the canonical canvas hierarchy target',
-      ownerPackage: 'asyra-design canvas hierarchy target policy',
+      title: 'Resolve the canonical canvas hierarchy and create-parent target',
+      ownerPackage:
+        'asyra-design canvas hierarchy and create-parent target policy',
       purpose:
-        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, and pointer-down move by using the canonical hierarchy projection, selected element ids, and current Meta or Ctrl state.',
+        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice by using the canonical hierarchy projection, selected element ids, and current Meta or Ctrl state.',
       inputs: [
         'identity-safe raw Render hit element id',
         'canonical flattenedElementIds and elementDataMap projection',
         'app-local selected element ids',
-        'current Meta or Ctrl modifier snapshot'
+        'current Meta or Ctrl modifier snapshot',
+        'create-element mouse-down workspace position',
+        'current identity-safe Render handle for the chosen official Group parent coordinate conversion'
       ],
       outputs: [
         'artifact:resolved-canvas-hierarchy-target',
+        'artifact:resolved-create-element-parent',
         'artifact:canvas-hierarchy-target-rejection'
       ],
       conditions: [
@@ -259,26 +263,32 @@
         'When selection spans multiple parents, each exact parentId is a valid scope and the nearest matching ancestor to the raw hit wins.',
         'With Meta or Ctrl, parent scope is bypassed and the identity-safe raw hit resolves only when it is an existing first non-Group element.',
         'Canvas hover, selection, and pointer-down move consume the same resolved target while their existing lock, visibility, selection mutation, and move-session behavior remains unchanged.',
+        'Create-element mouse down consumes the same resolved hierarchy target: a resolved Group is the create parent, while a resolved non-Group uses its exact canonical parent only when that parent is an official Group.',
+        'When a valid projection has a missing raw hit, creation uses the workspace root and passes its id as an explicit parentId instead of leaving parent unspecified.',
+        'The mouse-down workspace position is converted into the chosen parent Group local coordinates through that exact identity-safe Render handle before canonical creation.',
         'Pointer movement refreshes the current modifier snapshot before hover resolution.'
       ],
       bypasses: [
         'Dragging, non-element overlays, and the existing path-editing guard retain their current feature bypass behavior.',
-        'A missing raw hit, Group raw hit in modifier mode, or unmatched exact parent scope emits no resolved target.',
-        'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, or move handoff.'
+        'A missing raw hit emits no canvas target but resolves an explicit workspace-root create parent when the canonical projection is valid.',
+        'A Group raw hit in modifier mode or unmatched exact parent scope emits no resolved target and no create parent.',
+        'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, move, or create handoff.'
       ],
       allowedContributors: [
         'identity-safe raw Render hit only',
         'canonical Preset flattenedElementIds and elementDataMap data channels',
         'app-local selection query',
         'System Context Meta and Ctrl key snapshot',
-        'asyra-design hover, selection, and move features'
+        'identity-safe chosen-parent Render transform for coordinate conversion only',
+        'asyra-design hover, selection, move, and create-element features'
       ],
       forbiddenContributors: [
         'Render display-object ancestry',
         'a second mutable parent or children map',
         'same-depth hierarchy inference',
         'raw hit fallback after canonical target rejection',
-        'Group canvas hit geometry or Preset-owned target policy'
+        'Group canvas hit geometry or Preset-owned target policy',
+        'unspecified create parent or Scene Tree legacy firstFrame fallback'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -289,11 +299,12 @@
         'apps/asyra-design/src/features/hover-element',
         'apps/asyra-design/src/features/selection',
         'apps/asyra-design/src/features/move-elements',
+        'apps/asyra-design/src/features/create-element',
         'apps/asyra-design/e2e',
         'create-app/asyra-design/template'
       ],
       specRefs: [
-        '#canvas-hierarchy-hover-and-selection-target',
+        '#canvas-hierarchy-hover-selection-and-create-parent-target',
         '#product-cases',
         '#explicit-non-goals',
         '#formal-test-plan',
@@ -611,6 +622,14 @@
       producedArtifacts: ['artifact:resolved-canvas-hierarchy-target']
     },
     {
+      id: 'resolved-create-parent-to-create-element',
+      from: 'resolve-canvas-hierarchy-target',
+      kind: 'terminal',
+      predicate:
+        'create-element mouse down receives one explicit workspace or official Group parent with parent-local coordinates',
+      producedArtifacts: ['artifact:resolved-create-element-parent']
+    },
+    {
       id: 'rejected-canvas-target-terminates',
       from: 'resolve-canvas-hierarchy-target',
       kind: 'terminal',
@@ -754,6 +773,13 @@
       channel: 'canonical System Context hoveredElementId',
       consumerStepIds: ['project-group-hover-selection-overlay'],
       terminal: false
+    },
+    {
+      id: 'artifact:resolved-create-element-parent',
+      ownerStepId: 'resolve-canvas-hierarchy-target',
+      channel: 'app-local create-element parent and coordinate handoff',
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:canvas-hierarchy-target-rejection',
@@ -936,11 +962,13 @@
         'With selection and without Meta/Ctrl, exact selected parentId scope controls resolution and an equal-depth element under a different parent is invalid.',
         'With Meta/Ctrl, the first non-Group raw hit is the same target used by hover, selection, and pointer-down move.',
         'Multiple selected parent scopes choose the nearest matching ancestor to the raw hit.',
+        'Create-element mouse down uses the same resolved hierarchy target to choose an explicit official Group parent, or the explicit workspace root when there is no raw hit.',
+        'Nested Group creation converts the mouse-down workspace position into exact chosen-parent local coordinates without Render ancestry or the legacy firstFrame fallback.',
         'Missing, duplicated, cyclic, stale, invalid-root, unmatched-scope, and Group modifier hits fail closed without raw-hit fallback or a second hierarchy.'
       ],
       stepIds: ['resolve-canvas-hierarchy-target'],
       specRefs: [
-        '#canvas-hierarchy-hover-and-selection-target',
+        '#canvas-hierarchy-hover-selection-and-create-parent-target',
         '#product-cases',
         '#explicit-non-goals'
       ]

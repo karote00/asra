@@ -261,7 +261,7 @@ test('Layers projection derives nested visible rows without second hierarchy sta
   assert.match(text, /Render display-object ancestry/i)
 })
 
-test('app resolves canvas hover and selection target from canonical parent scopes', () => {
+test('app resolves canvas target and create parent from canonical parent scopes', () => {
   const owner = step('resolve-canvas-hierarchy-target')
   const text = contractText(owner)
 
@@ -283,10 +283,35 @@ test('app resolves canvas hover and selection target from canonical parent scope
     text,
     /hover, selection, and pointer-down move.*same resolved target/i
   )
+  assert.match(
+    text,
+    /create-element mouse down.*same resolved hierarchy target/i
+  )
+  assert.match(
+    text,
+    /resolved Group.*create parent.*resolved non-Group.*exact canonical parent/i
+  )
+  assert.match(
+    text,
+    /missing raw hit.*workspace root.*explicit parentId/i
+  )
+  assert.match(
+    text,
+    /workspace position.*chosen parent.*local coordinates/i
+  )
+  assert.match(text, /legacy firstFrame fallback/i)
   assert.match(text, /raw hit fallback/i)
   assert.match(text, /Render display-object ancestry/i)
   assert.match(text, /second mutable parent or children map/i)
   assert.match(text, /missing.*cyclic.*stale.*fails closed/i)
+  assert.ok(
+    owner.outputs.includes('artifact:resolved-create-element-parent')
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/src/features/create-element'
+    )
+  )
   assert.ok(
     owner.implementationBoundary.includes('create-app/asyra-design/template')
   )

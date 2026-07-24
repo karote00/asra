@@ -185,7 +185,7 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   may not fabricate the missing hierarchy from Render objects or a
   mutation-time patch cache.
 
-### Canvas hierarchy hover and selection target
+### Canvas hierarchy hover, selection, and create-parent target
 
 - Render supplies only the identity-safe raw element hit. Asyra Design owns
   resolving that identity against canonical `flattenedElementIds` and
@@ -209,6 +209,18 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 - Canvas hover, selection, and pointer-down move consume the same resolved
   target. Selection and move may not fall back to the raw hit when resolution
   rejects it.
+- Create-element mouse down consumes the same resolved hierarchy target.
+  A resolved official Group is the create parent. A resolved non-Group uses
+  its exact canonical parent only when that parent is an official Group;
+  otherwise the create parent is the workspace root.
+- A missing raw hit on an otherwise valid canonical projection means the
+  pointer is outside an eligible Group and creates under the workspace root.
+  The app passes that workspace id as an explicit `parentId`; it may not leave
+  parent unspecified and activate Scene Tree's legacy `firstFrame` fallback.
+- Before canonical creation, the mouse-down workspace position is converted
+  into the chosen parent Group's local coordinates through that exact
+  identity-safe Render handle. The canonical hierarchy projection chooses the
+  parent; Render ancestry does not participate in that decision.
 - Input mouse movement refreshes the current modifier snapshot before hover
   resolution. Existing dragging, non-element overlay, path-editing,
   lock/visibility, and selection-mutation behavior remains unchanged around
@@ -216,8 +228,8 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 - Layers-row hover remains an explicit row-identity interaction and is not
   changed by this canvas-only policy.
 - A missing, stale, duplicated, cyclic, or invalid-root hierarchy projection,
-  a missing raw hit, a Group raw hit in modifier mode, or no matching parent
-  scope fails closed with no fabricated target or fallback hierarchy.
+  a Group raw hit in modifier mode, or no matching parent scope fails closed
+  with no fabricated target, element creation, or fallback hierarchy.
 
 ### Group canvas hover and selection overlay
 
@@ -294,6 +306,11 @@ Formal product coverage must include:
   target for hover, selection, and pointer-down move;
 - resolve multiple selected parent scopes by choosing the nearest matching
   ancestor to the raw hit;
+- create inside the official Group selected by the same hierarchy target
+  rules, preserving the mouse-down workspace position through exact parent
+  local-coordinate conversion;
+- create under the explicit workspace root when mouse down has no raw element
+  hit, regardless of the current selection or the legacy first-Frame fallback;
 - fail closed for missing, stale, duplicated, cyclic, invalid-root, Group
   modifier hits, and unmatched parent scopes without raw-hit fallback;
 - undo/redo Group and Ungroup with exact hierarchy, Group data, geometry, and
@@ -344,12 +361,14 @@ steps:
    - canonical projection inputs, derived depth/visibility outputs,
      expand/collapse UI state, selection interaction, malformed projection
      failure owner, and forbidden second hierarchy state.
-5. **Canvas hierarchy hover/selection target**
+5. **Canvas hierarchy hover/selection/create-parent target**
    - identity-safe raw Render hit, canonical hierarchy projection, current
      selected ids, and `Meta`/`Ctrl` inputs; exact parent-scope or modifier
      output; shared hover/selection/pointer-down-move handoff; malformed
-     projection and unmatched-scope bypass; and forbidden raw-hit fallback,
-     numerical-depth scope, Render ancestry, or second hierarchy state.
+     projection and unmatched-scope bypass; explicit create parent,
+     workspace-to-parent local-coordinate handoff; and forbidden raw-hit
+     fallback, unspecified-parent `firstFrame` fallback, numerical-depth
+     scope, Render ancestry, or second hierarchy state.
 6. **Group hover/selection overlay projection**
    - canonical selection and hovered-id inputs, official Group computed bounds,
      current Render transform, existing overlay-layer output, invalid-bounds
@@ -415,12 +434,17 @@ an app fallback.
   artifact, product case, and DoD mapping.
 - Unit tests for command eligibility, selection policy, editable-input bypass,
   derived row depth/visibility, and collapsed-state behavior.
-- Unit tests for canvas hierarchy target resolution across workspace scope,
-  exact selected-parent scopes, multiple selected-parent scopes, modifier
-  bypass, different-parent rejection, malformed projections, and cycles.
+- Unit tests for canvas hierarchy target and create-parent resolution across
+  workspace scope, exact selected-parent scopes, multiple selected-parent
+  scopes, modifier bypass, different-parent rejection, missing raw hit,
+  malformed projections, and cycles.
 - Feature integration tests proving hover, selection, and pointer-down move
   consume the same resolved target without raw-hit fallback, and pointer input
   refreshes current `Meta`/`Ctrl` state.
+- Create feature/common-API tests proving mouse down passes one explicit
+  workspace or official Group parent, converts workspace position into nested
+  parent-local coordinates, and never activates the legacy `firstFrame`
+  fallback.
 - Feature/common-API integration tests for one transaction, rollback,
   rejection/no-op, exact post-selection, and undo/redo.
 - Layers component tests for enabled/disabled controls, nested rows,
@@ -448,9 +472,10 @@ an app fallback.
 - visible Layers controls and standard shortcuts execute the same feature
   contract;
 - Group/Ungroup eligibility, post-selection, nested projection,
-  expand/collapse, hierarchy-scoped canvas hover/selection/move targeting,
-  Group hover/selection boxes, exact world-space scene bounds, `Cmd+1` fit,
-  failures, undo/redo, save/load, and collaboration behavior match this plan;
+  expand/collapse, hierarchy-scoped canvas hover/selection/move/create-parent
+  targeting, Group hover/selection boxes, exact world-space scene bounds,
+  `Cmd+1` fit, failures, undo/redo, save/load, and collaboration behavior
+  match this plan;
 - no second hierarchy state, second Group component, app-specific Render
   fallback, or Collaboration conflict policy is introduced;
 - all affected app/package tests, Inspector tests, Scene Tree/Factory/Preset/
@@ -475,6 +500,12 @@ an app fallback.
   and an equal-depth element inside another Group; verify only the exact parent
   scope is active without `Cmd`/`Ctrl`, while the modifier reaches the raw
   non-Group hit for hover, click selection, and pointer-down move.
+- With the create tool, draw over eligible nested Group content with and
+  without `Cmd`/`Ctrl`; verify the new element uses the Group selected by the
+  same hierarchy target rules and does not visibly jump.
+- Keep a Group selected, then draw on empty canvas outside every raw element;
+  verify the new element is a workspace child rather than a child of the first
+  top-level Group.
 - Use `Cmd+1` before and after normal and nested Group operations; confirm the
   same complete visible content is centered and fitted without a position or
   scale jump caused by local Group coordinates.
