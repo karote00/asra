@@ -13,7 +13,8 @@ command eligibility, and Inspector authority from:
 - `completed/group-interaction-mvp-plan.md`; and
 - `group-interaction-mvp-flow-inspector.data.cjs`.
 
-This PR is plan-only. Production implementation may begin only after:
+This plan is active for implementation. Production implementation may begin
+only after:
 
 1. the completed remote subtree restore snapshot plan is merged;
 2. this plan is approved and merged; and
@@ -160,6 +161,12 @@ and presentation flow.
 - Shortcut text is not manually hardcoded at each command surface. One command
   metadata formatter produces the visible platform label.
 - The display label never changes the actual Input System binding.
+- The actual bindings remain functional through the existing Group feature:
+  `Meta+G` / `Ctrl+G` invoke Group and
+  `Meta+Shift+G` / `Ctrl+Shift+G` invoke Ungroup.
+- The same command descriptor supplies the actual binding metadata and visible
+  platform label so the menu cannot advertise a shortcut that routes a
+  different command.
 
 ### Positioning and visual behavior
 
@@ -212,6 +219,9 @@ Formal coverage must include:
 12. keyboard focus/navigation and accessible roles/names/disabled state are
     correct; and
 13. separate app roots do not share menu open state or platform presentation.
+14. macOS `Meta+G` / `Meta+Shift+G` and Windows/Linux
+    `Ctrl+G` / `Ctrl+Shift+G` invoke the same existing Group/Ungroup feature
+    contract advertised by the matching menu row.
 
 ## Explicit Non-Goals
 
@@ -243,8 +253,8 @@ readiness contract tests before production edits. It must define:
      allowed UI contributors, and forbidden canonical-state writes.
 3. **Command descriptor projection**
    - shared Group/Ungroup command metadata, current selection eligibility,
-     platform formatter input/output, and drift prevention across keyboard,
-     Layers, and menu surfaces.
+     actual Meta/Ctrl shortcut bindings, platform formatter input/output, and
+     drift prevention across keyboard, Layers, and menu surfaces.
 4. **Design System presentation**
    - menu/item props, left/right row layout, visual states, accessible
      semantics, keyboard navigation, viewport fit boundary, and app-policy
@@ -284,6 +294,8 @@ direct-consumer review pass.
 - `create-app/asyra-design/template` synchronization checks;
 - focused Playwright context-menu flows on macOS-style and
   Windows/Linux-style platform fixtures;
+- focused Playwright shortcut execution on macOS-style and Windows/Linux-style
+  platform fixtures;
 - TypeScript and affected package builds;
 - dependency validation;
 - lint;
@@ -300,6 +312,8 @@ alternate Group implementations are forbidden.
 - Canvas right-click reliably opens one accessible app context menu.
 - Group and Ungroup rows show correct left labels, right OS-specific shortcuts,
   availability, and order.
+- The advertised macOS and Windows/Linux shortcuts invoke the matching existing
+  Group/Ungroup feature command.
 - Enabled rows invoke the existing commands exactly once; disabled rows and
   menu-only interaction never mutate canonical state.
 - Browser default suppression is scoped to handled canvas invocations.

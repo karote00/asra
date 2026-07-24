@@ -4,13 +4,12 @@ Never record completed plans here.
 
 ## Current Status
 
-- Ordered proposed next implementation plans:
-  1. `plans/group-context-menu-plan.md`
-- It remains plan-only until user review. Its Group prerequisite completed and
-  merged through PR #94 on 2026-07-24; its remote subtree restore prerequisite
-  completed and closed out on 2026-07-25, with merge still required before the
-  user may explicitly start the plan.
-- Current plan in this index: none.
+- Ordered proposed next implementation plans: none.
+- Current plan in this index:
+  `plans/group-context-menu-plan.md`.
+- Its Group prerequisite merged through PR #94 on 2026-07-24. Its remote
+  subtree restore prerequisite merged through PR #96 on 2026-07-25. The user
+  explicitly started implementation on 2026-07-25.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on
   2026-07-24. Remote Subtree Restore Snapshot completed on 2026-07-25. Their
   canonical records are:
