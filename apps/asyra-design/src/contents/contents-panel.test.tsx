@@ -146,6 +146,9 @@ describe('Layers pointer hierarchy presentation', () => {
     fireEvent.click(screen.getByTestId('layers-group-toggle-group'))
     const sourceRow = screen.getByTestId('element-item-a')
     const targetRow = screen.getByTestId('element-item-group')
+    const contentsPanel = screen.getByTestId('contents-panel')
+    const setPointerCapture = vi.fn()
+    contentsPanel.setPointerCapture = setPointerCapture
     targetRow.getBoundingClientRect = () =>
       ({ top: 0, bottom: 30, height: 30 }) as DOMRect
     mocks.elementAtPoint = targetRow
@@ -157,16 +160,18 @@ describe('Layers pointer hierarchy presentation', () => {
       clientY: 0
     })
     await waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1))
+    expect(setPointerCapture).not.toHaveBeenCalled()
 
-    fireEvent.pointerMove(screen.getByTestId('contents-panel'), {
+    fireEvent.pointerMove(contentsPanel, {
       pointerId: 1,
       clientX: 0,
       clientY: 15
     })
     await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1))
+    expect(setPointerCapture).toHaveBeenCalledWith(1)
     expect(targetRow.dataset.layerDropState).toBe('inside')
 
-    fireEvent.pointerUp(screen.getByTestId('contents-panel'), {
+    fireEvent.pointerUp(contentsPanel, {
       pointerId: 1,
       clientX: 0,
       clientY: 15
@@ -183,6 +188,10 @@ describe('Layers pointer hierarchy presentation', () => {
           .getAttribute('aria-expanded')
       ).toBe('true')
     )
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    fireEvent.click(screen.getByTestId('element-item-b'))
+    expect(mocks.selectElements).toHaveBeenCalledWith(['b'])
   })
 
   it('projects invalid feedback and lost-capture cleanup without a move end', async () => {

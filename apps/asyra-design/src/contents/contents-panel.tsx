@@ -61,6 +61,7 @@ const Contents: React.FC = () => {
     source: LayerMoveSourcePlan
   } | null>(null)
   const suppressNextClick = useRef(false)
+  const clickSuppressionGeneration = useRef(0)
   const [dropIntent, setDropIntent] = useState<LayerDropIntent | null>(null)
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
     () => new Set()
@@ -98,6 +99,16 @@ const Contents: React.FC = () => {
     }
     suppressNextClick.current = false
     return true
+  }, [])
+  const armImmediateClickSuppression = useCallback(() => {
+    suppressNextClick.current = true
+    const generation = clickSuppressionGeneration.current + 1
+    clickSuppressionGeneration.current = generation
+    window.setTimeout(() => {
+      if (clickSuppressionGeneration.current === generation) {
+        suppressNextClick.current = false
+      }
+    }, 0)
   }, [])
   const handleContentsPanelClick = useCallback(() => {
     if (consumeSuppressedClick()) {
@@ -215,10 +226,6 @@ const Contents: React.FC = () => {
         source: sourceResult.plan
       }
       setDropIntent(null)
-      if (typeof parentRef.current?.setPointerCapture === 'function') {
-        parentRef.current.setPointerCapture(event.pointerId)
-      }
-
       void startLayerHierarchyMoveSession(
         pointerSession,
         sourceResult.plan
@@ -256,6 +263,7 @@ const Contents: React.FC = () => {
         return
       }
 
+      const wasDragActive = active.pointerSession.dragActive
       const pointerSession = updateLayerPointerSession(
         active.pointerSession,
         {
@@ -269,6 +277,13 @@ const Contents: React.FC = () => {
         return
       }
 
+      if (
+        !wasDragActive &&
+        pointerSession.dragActive &&
+        typeof event.currentTarget.setPointerCapture === 'function'
+      ) {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }
       active.pointerSession = pointerSession
       const nextDropIntent =
         pointerSession.dragActive && pointerSession.target
@@ -329,7 +344,9 @@ const Contents: React.FC = () => {
               collapsedGroupIds
             })
           : null
-      suppressNextClick.current = pointerSession.dragActive
+      if (pointerSession.dragActive) {
+        armImmediateClickSuppression()
+      }
       clearLayerMovePresentation(event.pointerId)
 
       if (pointerSession.dragActive && !pointerSession.target) {
@@ -363,6 +380,7 @@ const Contents: React.FC = () => {
         })
     },
     [
+      armImmediateClickSuppression,
       clearLayerMovePresentation,
       collapsedGroupIds,
       elementDataMap,
