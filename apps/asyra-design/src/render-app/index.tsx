@@ -11,9 +11,36 @@ const EMPTY_DOCUMENT = {
   props: {}
 } as const satisfies CoreRawData
 
-const RenderApp: React.FC = () => {
+export interface CanvasContextMenuInvocation {
+  clientX: number
+  clientY: number
+  invoker: HTMLDivElement
+}
+
+interface RenderAppProps {
+  onContextMenuRequest?: (invocation: CanvasContextMenuInvocation) => void
+}
+
+const RenderApp: React.FC<RenderAppProps> = ({ onContextMenuRequest }) => {
   const renderContainerRef = useRef<HTMLDivElement>(null)
   const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (
+      !onContextMenuRequest ||
+      !(event.target instanceof HTMLCanvasElement) ||
+      !event.currentTarget.contains(event.target)
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    onContextMenuRequest({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      invoker: event.currentTarget
+    })
+  }
 
   useEffect(() => {
     let active = true
@@ -91,7 +118,15 @@ const RenderApp: React.FC = () => {
     }
   }, [])
 
-  return <div className="absolute top-0 left-0" ref={renderContainerRef} />
+  return (
+    <div
+      ref={renderContainerRef}
+      className="absolute top-0 left-0"
+      data-testid="asyra-canvas-host"
+      tabIndex={-1}
+      onContextMenu={handleContextMenu}
+    />
+  )
 }
 
 export default RenderApp

@@ -38,6 +38,14 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
   - keys: mouse move
   - updates hover pointer position
 
+- native canvas `contextmenu`
+
+  - remains a canvas-host DOM event rather than an Input System product event
+  - Asyra Design accepts and suppresses browser default only for the handled
+    canvas invocation
+  - editable fields and non-canvas app surfaces retain native or existing
+    behavior
+
 - `input.layerHierarchyMove`
 
   - driven directly by normalized Layers DOM pointer start/update/end phases
@@ -75,6 +83,7 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
   - `Meta+Z` or `Ctrl+Z`
 
 - `input.shortcut.zoomPreset`
+
   - `Meta+1` or `Ctrl+1`
 
 - `input.shortcut.group`

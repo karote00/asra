@@ -193,6 +193,94 @@ test('implementation boundaries and specification anchors resolve', () => {
   })
 })
 
+test('every app production step allows its formal suite registration', () => {
+  ;[
+    'intake-canvas-context-event',
+    'manage-app-menu-session',
+    'project-group-command-descriptors',
+    'handoff-enabled-command-to-feature',
+    'teardown-isolate-menu-instance'
+  ].forEach((stepId) => {
+    assert.ok(
+      step(stepId).implementationBoundary.includes(
+        'apps/asyra-design/package.json'
+      ),
+      `${stepId} must allow app formal suite registration`
+    )
+  })
+})
+
+test('Group and Context Menu Gherkin contracts are registered and allowed', () => {
+  const featureDirectory = 'docs/ai/apps/asyra-design/bdd-features'
+  const featurePaths = [
+    `${featureDirectory}/group-interactions.feature`,
+    `${featureDirectory}/group-context-menu.feature`
+  ]
+
+  featurePaths.forEach((featurePath) => {
+    assert.ok(
+      fs.existsSync(path.resolve(repoRoot, featurePath)),
+      `missing Gherkin contract ${featurePath}`
+    )
+  })
+
+  const readme = fs.readFileSync(
+    path.resolve(repoRoot, `${featureDirectory}/README.md`),
+    'utf8'
+  )
+  featurePaths.forEach((featurePath) => {
+    assert.match(readme, new RegExp(path.basename(featurePath)))
+  })
+
+  const groupFeature = fs.readFileSync(
+    path.resolve(repoRoot, featurePaths[0]),
+    'utf8'
+  )
+  assert.match(groupFeature, /one intended undo commit/)
+  assert.match(groupFeature, /Meta\+G/)
+  assert.match(groupFeature, /Meta\+Shift\+G/)
+  assert.match(groupFeature, /Ctrl\+G/)
+  assert.match(groupFeature, /Ctrl\+Shift\+G/)
+
+  const menuFeature = fs.readFileSync(
+    path.resolve(repoRoot, featurePaths[1]),
+    'utf8'
+  )
+  assert.match(menuFeature, /first command row should be "Group"/)
+  assert.match(menuFeature, /second command row should be "Ungroup"/)
+  assert.match(
+    menuFeature,
+    /app-owned context menu.*pointer client coordinates/i
+  )
+  assert.match(
+    menuFeature,
+    /existing Group feature command should run exactly once/
+  )
+  assert.match(
+    menuFeature,
+    /existing Ungroup feature command should run exactly once/
+  )
+  assert.match(menuFeature, /should not suppress the native context-menu event/)
+  assert.match(
+    menuFeature,
+    /no canonical document or selection state should change/
+  )
+
+  data.steps.forEach((item) => {
+    assert.ok(
+      item.implementationBoundary.includes(featureDirectory),
+      `${item.id} must allow synchronized Gherkin contracts`
+    )
+  })
+
+  assert.match(
+    data.acceptanceContracts
+      .flatMap((contract) => contract.assertions)
+      .join(' '),
+    /Gherkin\/BDD synchronization/
+  )
+})
+
 test('native intake removes global suppression and accepts only the canvas host', () => {
   const text = contractText(step('intake-canvas-context-event'))
 
@@ -203,6 +291,16 @@ test('native intake removes global suppression and accepts only the canvas host'
   assert.match(text, /retain native or existing behavior/i)
   assert.match(text, /does not hit test, retarget selection, transact/i)
   assert.match(text, /Input System command eligibility or menu state/i)
+  assert.ok(
+    step('intake-canvas-context-event').implementationBoundary.includes(
+      'docs/ai/framework/packages/input-system.md'
+    )
+  )
+  assert.ok(
+    step('intake-canvas-context-event').implementationBoundary.includes(
+      'docs/ai/apps/asyra-design/modules/input-mapping.md'
+    )
+  )
 })
 
 test('app menu session owns replacement, dismissal, focus return, and no writes', () => {

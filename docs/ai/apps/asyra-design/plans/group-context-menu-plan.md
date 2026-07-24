@@ -291,6 +291,8 @@ direct-consumer review pass.
 - affected Input System and Design System tests;
 - Inspector contract tests;
 - Asyra Design command, input, UI, and integration tests;
+- synchronized Group interaction and Group Context Menu Gherkin contracts in
+  the app BDD index;
 - `create-app/asyra-design/template` synchronization checks;
 - focused Playwright context-menu flows on macOS-style and
   Windows/Linux-style platform fixtures;
@@ -317,6 +319,8 @@ alternate Group implementations are forbidden.
 - Enabled rows invoke the existing commands exactly once; disabled rows and
   menu-only interaction never mutate canonical state.
 - Browser default suppression is scoped to handled canvas invocations.
+- The app BDD index and Gherkin contracts describe the shared Group/Ungroup
+  behavior, platform shortcuts, and Group Context Menu product flow.
 - Input System, App, Design System, Feature, Scene Tree, Factory, and Render
   ownership stays within the Inspector contract.
 - All formal, type, lint, build, synchronization, and visual/product gates

@@ -57,7 +57,11 @@
         'packages/input-system/src/__tests__',
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/app',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/package.json',
+        'docs/ai/framework/packages/input-system.md',
+        'docs/ai/apps/asyra-design/modules/input-mapping.md',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#open-trigger-and-scope',
@@ -112,7 +116,9 @@
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/app',
         'apps/asyra-design/src/controllers',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/package.json',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#open-trigger-and-scope',
@@ -169,7 +175,9 @@
         'apps/asyra-design/src/contents',
         'apps/asyra-design/src/features/group-elements',
         'apps/asyra-design/src/constants',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/package.json',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#command-rows',
@@ -224,7 +232,8 @@
       implementationBoundary: [
         'packages/design-system/src/components',
         'packages/design-system/src/index.tsx',
-        'packages/design-system/src/index.css'
+        'packages/design-system/src/index.css',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#positioning-and-visual-behavior',
@@ -277,7 +286,9 @@
         'apps/asyra-design/src/features/group-elements',
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/contents',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/package.json',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#command-rows',
@@ -326,7 +337,9 @@
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/app',
         'packages/design-system/src/components',
-        'apps/asyra-design/e2e'
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/package.json',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#dismissal-and-accessibility',
@@ -677,7 +690,7 @@
       id: 'completion-gates-and-exclusions',
       title: 'Bounded completion and review gates',
       assertions: [
-        'Input System, Design System, Inspector, app, E2E, dependency, lint, build, template sync, and synchronized center/edge visual gates pass.',
+        'Input System, Design System, Inspector, app, E2E, Gherkin/BDD synchronization, dependency, lint, build, template sync, and synchronized center/edge visual gates pass.',
         'No app fallback, second selection or hierarchy state, patch geometry, Render repair path, remote menu policy, extra command, or app-only duplicate menu primitive is introduced.',
         'Implementation stops for explicit user review before closeout, push, pull request, or merge.'
       ],

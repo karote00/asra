@@ -73,7 +73,7 @@ describe('InputSystem', () => {
       expect.any(Function),
       { passive: false }
     )
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
+    expect(addEventListenerSpy).not.toHaveBeenCalledWith(
       'contextmenu',
       expect.any(Function)
     )

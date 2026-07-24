@@ -15,6 +15,8 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - feature decision policy
 - scene-tree mutation logic
 - render-layer business behavior
+- app context-menu semantics, command eligibility, or menu session state
+- unconditional browser context-menu suppression outside a handled app surface
 
 ## Rules
 
@@ -22,6 +24,8 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - Key maps should be configurable by app domain.
 - Event contracts must stay stable and typed.
 - Pointer input can be temporarily blocked when render interaction capture is active.
+- App-owned surfaces decide whether a native `contextmenu` event is handled and
+  call `preventDefault()` only for that accepted invocation.
 - Runtime consumers register listeners with `on(event, callback)` and release
   the same callback with `off(event, callback)`. `off` removes only the requested
   listener, returns `false` when it was not registered, and removes an empty
