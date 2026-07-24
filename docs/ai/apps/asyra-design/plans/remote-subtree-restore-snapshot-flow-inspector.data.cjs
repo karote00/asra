@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs'
 
@@ -1317,7 +1317,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './remote-subtree-restore-snapshot-plan.md',
+        href: './completed/remote-subtree-restore-snapshot-plan.md',
         kind: 'authority'
       },
       {

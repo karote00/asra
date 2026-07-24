@@ -1,22 +1,27 @@
 # Asyra Design Remote Subtree Restore Snapshot Plan
 
-## Status and Priority
+## Completion
 
-Proposed as the highest-priority next Asyra Design implementation plan.
+Completed on 2026-07-25 after implementation review and explicit user closeout
+authorization.
 
-The Group Interaction MVP and Layers hierarchy prerequisite completed, closed
-out, and merged through PR #94 on 2026-07-24. Their canonical records remain:
+- Outcome: a local subtree undo now publishes one exact owner-partitioned
+  restore snapshot through the existing Factory `SharedPublication`; receiving
+  peers apply it atomically with or without compatible local tombstones.
+- Final decision: Scene Tree and Props remain the canonical restore owners,
+  Factory retains transaction/publication ownership, Collaboration remains
+  transport-only, and Asyra Design retains remote policy and routing.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`.
+- Exit criteria: Inspector/readiness contracts, affected framework/app tests,
+  remote undo/redo product cases, build/lint/dependency gates, synchronized
+  visual review, and bounded direct-consumer review passed before closeout.
 
-1. `completed/group-interaction-mvp-plan.md`; and
-2. `completed/layer-tree-reparent-reorder-plan.md`.
+Architecture authority:
 
-Production implementation for this plan may begin only after:
-
-1. this plan PR is approved and merged; and
-2. a matching Inspector owner flow and readiness contract tests pass.
-
-This PR is plan-only. It must not contain production implementation, closeout,
-or merge work.
+- `docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs`
+- `docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html`
+- `docs/ai/apps/asyra-design/plans/__tests__/remote-subtree-restore-snapshot-flow-inspector.contract.test.cjs`
 
 ## Decision
 

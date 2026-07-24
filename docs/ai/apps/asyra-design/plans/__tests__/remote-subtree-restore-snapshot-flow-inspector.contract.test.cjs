@@ -45,7 +45,7 @@ test('Remote Restore Inspector and product authorities resolve', () => {
   assert.equal(data.target.title, 'Remote Subtree Restore Snapshot Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
