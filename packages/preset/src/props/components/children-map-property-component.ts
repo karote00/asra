@@ -1,6 +1,5 @@
 import {
   BasePropertyComponent,
-  getPropertyComponentAccessor,
   type PropertyComponentDefinition
 } from '@asyra/core'
 import {
@@ -136,7 +135,7 @@ export const createChildrenMapPropertyComponentDefinition = (
     }
 
     private upsertChildren(entries: ChildEntry[]): string[] {
-      const accessor = getPropertyComponentAccessor()
+      const accessor = this.propertyComponentAccessor
       const nextIds: string[] = []
 
       entries.forEach((entry) => {
@@ -212,7 +211,7 @@ export const createChildrenMapPropertyComponentDefinition = (
         this.childSubscriptions.delete(childId)
       })
 
-      const accessor = getPropertyComponentAccessor()
+      const accessor = this.propertyComponentAccessor
       nextIds.forEach((childId) => {
         if (this.childSubscriptions.has(childId)) {
           return
@@ -292,7 +291,7 @@ export const createChildrenMapPropertyComponentDefinition = (
     }
 
     getValue(): Record<string, DataTypes> {
-      const accessor = getPropertyComponentAccessor()
+      const accessor = this.propertyComponentAccessor
       const value: Record<string, unknown> = {}
 
       this.getChildIds().forEach((childId) => {
