@@ -270,7 +270,10 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   assert.match(text, /canonical current workspace id.*Core Scene Tree facade/i)
   assert.match(text, /selected element ids/i)
   assert.match(text, /Meta or Ctrl/i)
-  assert.match(text, /no selected elements.*workspace direct child.*outermost/i)
+  assert.match(
+    text,
+    /no selected elements.*workspace direct child.*outermost/i
+  )
   assert.match(
     text,
     /selected parentId scopes.*nearest matching ancestor.*exact parent/i
@@ -283,26 +286,16 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   )
   assert.match(
     text,
-    /missing raw Render hit.*hover-only.*official Group.*canonical computed bounds.*identity-safe Render transform/i
-  )
-  assert.match(
-    text,
-    /visible raw Render hit.*takes precedence.*Group bounds candidate/i
-  )
-  assert.match(
-    text,
-    /Group bounds candidate.*never.*selection.*pointer-down move.*create parent/i
-  )
-  assert.match(text, /Meta or Ctrl.*Group bounds candidate.*bypass/i)
-  assert.match(
-    text,
     /create-element mouse down.*same resolved hierarchy target/i
   )
   assert.match(
     text,
     /resolved Group.*create parent.*resolved non-Group.*exact canonical parent/i
   )
-  assert.match(text, /missing raw hit.*workspace root.*explicit parentId/i)
+  assert.match(
+    text,
+    /missing raw hit.*workspace root.*explicit parentId/i
+  )
   assert.match(
     text,
     /mouse-down and drag workspace geometry.*chosen parent.*local coordinates/i
@@ -321,7 +314,9 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   assert.match(text, /Render display-object ancestry/i)
   assert.match(text, /second mutable parent or children map/i)
   assert.match(text, /missing.*cyclic.*stale.*fails closed/i)
-  assert.ok(owner.outputs.includes('artifact:resolved-create-element-parent'))
+  assert.ok(
+    owner.outputs.includes('artifact:resolved-create-element-parent')
+  )
   assert.ok(
     owner.implementationBoundary.includes(
       'apps/asyra-design/src/features/create-element'
@@ -420,8 +415,6 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Without selection and without Meta\/Ctrl.*workspace direct-child target/i,
     /With selection and without Meta\/Ctrl.*exact selected parentId scope.*different parent is invalid/i,
     /With Meta\/Ctrl.*first non-Group raw hit.*hover, selection, and pointer-down move/i,
-    /Missing raw Render hit.*hover-only.*official Group.*canonical computed bounds/i,
-    /Visible raw Render hit.*takes precedence.*Group bounds candidate/i,
     /Selected and hovered official Groups.*canonical computed bounds/i,
     /Cmd\+1.*Group before and after.*world-space scene bounds/i,
     /One command is one undo entry and one grouped publication/i,

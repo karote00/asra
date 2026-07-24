@@ -280,50 +280,6 @@ export const elementApis = {
     return render?.getElementIdAtClientPos(clientPos) ?? null
   },
 
-  isClientPositionInsideElementBounds: (
-    elementId: string,
-    clientPos: PositionData
-  ): boolean => {
-    const bounds = elementApis.getElementBounds(elementId)
-    if (
-      !bounds ||
-      ![bounds.x, bounds.y, bounds.width, bounds.height].every(
-        Number.isFinite
-      ) ||
-      bounds.width <= 0 ||
-      bounds.height <= 0
-    ) {
-      return false
-    }
-
-    const renderElement = render?.getElementById(elementId)
-    if (!renderElement) {
-      return false
-    }
-
-    const canvasBounds = render.app?.canvas?.getBoundingClientRect?.()
-    const canvasPosition = canvasBounds
-      ? {
-          x: clientPos.x - canvasBounds.left,
-          y: clientPos.y - canvasBounds.top
-        }
-      : clientPos
-    const localPosition = renderElement.toLocal(canvasPosition)
-    if (
-      !Number.isFinite(localPosition.x) ||
-      !Number.isFinite(localPosition.y)
-    ) {
-      return false
-    }
-
-    return (
-      localPosition.x >= 0 &&
-      localPosition.x <= bounds.width &&
-      localPosition.y >= 0 &&
-      localPosition.y <= bounds.height
-    )
-  },
-
   getElementType: (elementId: string): string | undefined => {
     return sceneTree.getElementById(elementId)?.get('type')
   },

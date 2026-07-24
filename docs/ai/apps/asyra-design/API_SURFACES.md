@@ -99,11 +99,6 @@ Import boundary:
   - returns only the identity-safe Render hit and never falls back to
     workspace geometry; canvas hierarchy target resolution uses this exact
     query
-- `isClientPositionInsideElementBounds(elementId: string, clientPos: PositionData): boolean`
-  - tests finite, positive canonical computed dimensions in the element's
-    current local space through its identity-safe Render transform
-  - missing bounds, a missing Render handle, or non-finite conversion fails
-    closed
 - `getElementType(elementId: string): string | undefined`
 - `isElementLocked(elementId: string): boolean`
 - `getElementBounds(elementId: string): Rect | null`
@@ -296,22 +291,10 @@ Import boundary:
   - without `Meta`/`Ctrl`, resolves the nearest ancestor in the workspace or
     exact selected-`parentId` scopes; numerical depth is not a scope
   - with `Meta`/`Ctrl`, accepts only the existing non-Group raw Render hit
-- `resolveCanvasHoverHierarchyTarget(input): string | null`
-  - preserves a visible raw Render hit as the first-priority input
-  - after a missing raw hit and without `Meta`/`Ctrl`, resolves only official
-    Group bounds candidates through the same workspace or exact selected-
-    `parentId` scopes
-  - the Group bounds candidate is hover-only and is not a selection,
-    pointer-down move, or create-parent input
 - `resolveCurrentCanvasHierarchyTarget(hitElementId, snapshot): string | null`
 - `resolveCanvasHierarchyTargetAtClientPos(snapshot): string | null`
-  - selection and pointer-down move share this raw-hit current-state handoff;
+  - hover, selection, and pointer-down move share this current-state handoff;
     malformed or unmatched input fails closed without a raw-hit fallback
-- `resolveCanvasHoverHierarchyTargetAtClientPos(snapshot): string | null`
-  - canvas hover uses the raw-hit handoff first, then tests official Groups in
-    reverse canonical flattened order through
-    `isClientPositionInsideElementBounds(...)`
-  - modifier mode, invalid bounds/transform, and invalid hierarchy fail closed
 
 `controllers/scene-tree.ts`
 

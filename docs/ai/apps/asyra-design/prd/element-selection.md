@@ -29,16 +29,10 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 13. Drag start on an unselected unlocked element in select mode should select and move that element.
 14. Shift-drag on empty canvas adds area selection to existing selection.
 15. Area selection excludes locked or hidden elements.
-16. When visible Render geometry is not hit, canvas hover may target an
-    official Group through its canonical bounds. This Group bounds target is
-    hover-only; click selection, pointer-down move, and create-parent targeting
-    continue using the raw Render hit policy.
 
 ## Constraints
 
-- identity-safe renderer geometry hit testing is the visible-element source;
-  official Group empty-bounds hover additionally uses canonical computed
-  bounds through the current identity-safe Render transform
+- renderer geometry hit testing used by app (`elementApis.getElementIdAtClientPos`)
 - selection feature wraps selection mutations in transaction boundary
 - move behavior owns drag-to-position updates through `move-elements` feature and `elementApis.setElementPositions(...)`
 

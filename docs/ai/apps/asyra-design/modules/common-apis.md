@@ -17,8 +17,6 @@
   - workspace-to-parent point conversion for active create geometry
   - Group-normalized create geometry mutation (`changeElementGeometry`)
   - renderer-backed geometry hit-test for canvas targeting
-  - canonical element-bounds client containment through the current
-    identity-safe Render transform
   - element lock/visible query + toggle helpers
   - element position query + batch move helper
   - computed data mutation helper (`changeComputedData`)
@@ -105,11 +103,7 @@
   bounds; Scene Tree remains the hierarchy validator/mutator.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
-  visible-element hover targeting follows fill or stroke geometry. When no
-  visible raw hit exists, the hover controller may separately use
-  `isClientPositionInsideElementBounds(...)` for official Group canonical
-  bounds; that query is not a Render fallback and is not used by click
-  selection, move, or create-parent targeting.
+  hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.
 - Vector handle mode helpers read/write anchor-level canonical computed data
   (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits; they

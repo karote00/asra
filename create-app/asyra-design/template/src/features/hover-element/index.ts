@@ -3,7 +3,7 @@ import type { RenderPointerPayload, SystemContextSnapshot } from '@asyra/utils'
 import { elementApis, systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 import {
-  resolveCanvasHoverHierarchyTargetAtClientPos,
+  resolveCanvasHierarchyTargetAtClientPos,
   resolveCurrentCanvasHierarchyTarget
 } from '../../controllers/canvas-hierarchy-target'
 
@@ -25,9 +25,8 @@ const publishHoveredElementId = (elementId: string | null) => {
  * Hover Element Feature
  * Coordinates hover state across the system.
  *
- * Visible geometry uses identity-safe Render hits. Mouse movement additionally
- * resolves the app-owned official Group bounds candidate when no raw hit
- * exists.
+ * This feature now relies exclusively on renderer feedback (render.* events)
+ * for precise, geometry-aware hover detection.
  */
 export const hoverElementFeature = defineFeature(
   FeatureNames.HOVER_ELEMENT,
@@ -41,7 +40,7 @@ export const hoverElementFeature = defineFeature(
       }
 
       return publishHoveredElementId(
-        resolveCanvasHoverHierarchyTargetAtClientPos(snapshot)
+        resolveCanvasHierarchyTargetAtClientPos(snapshot)
       )
     }
   }

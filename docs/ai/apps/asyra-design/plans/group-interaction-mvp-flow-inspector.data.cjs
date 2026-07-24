@@ -242,11 +242,9 @@
       ownerPackage:
         'asyra-design canvas hierarchy and create-parent target policy',
       purpose:
-        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice, while allowing hover alone to consume an app-owned official Group bounds candidate after a missing raw hit.',
+        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice by using the canonical hierarchy projection, selected element ids, and current Meta or Ctrl state.',
       inputs: [
         'identity-safe raw Render hit element id',
-        'hover-only official Group ids whose canonical computed bounds contain the current client position',
-        'current identity-safe Render transform for each tested official Group',
         'canonical flattenedElementIds and elementDataMap projection',
         'canonical current workspace id from the public Core Scene Tree facade',
         'app-local selected element ids',
@@ -266,10 +264,6 @@
         'When selection spans multiple parents, each exact parentId is a valid scope and the nearest matching ancestor to the raw hit wins.',
         'With Meta or Ctrl, parent scope is bypassed and the identity-safe raw hit resolves only when it is an existing first non-Group element.',
         'Canvas hover, selection, and pointer-down move consume the same resolved target while their existing lock, visibility, selection mutation, and move-session behavior remains unchanged.',
-        'A visible raw Render hit always takes precedence over every Group bounds candidate.',
-        'After a missing raw Render hit and without Meta or Ctrl, hover-only tests official Groups in reverse canonical flattened order through canonical computed bounds and each current identity-safe Render transform.',
-        'Without selection, a nested Group bounds candidate resolves through the workspace reference scope; with selection, a candidate equal to an exact selected parentId scope resolves to that Group and candidates in other parent scopes remain invalid.',
-        'The Group bounds candidate is hover-only and is never handed to click selection, pointer-down move, or create parent resolution.',
         'Create-element mouse down consumes the same resolved hierarchy target: a resolved Group is the create parent, while a resolved non-Group uses its exact canonical parent only when that parent is an official Group.',
         'When a valid projection has a missing raw hit, creation uses the workspace root and passes its id as an explicit parentId instead of leaving parent unspecified.',
         'For a Group create parent, Preset moveElementsWithGroupGeometry performs the identity-preserving reparent and initial coordinate and bounds normalization inside the same transaction as explicit workspace-root creation.',
@@ -279,16 +273,12 @@
       ],
       bypasses: [
         'Dragging, non-element overlays, and the existing path-editing guard retain their current feature bypass behavior.',
-        'A missing raw hit may emit only the hover-only Group bounds target, while create parent resolution still uses the explicit workspace root when the canonical projection is valid.',
-        'Meta or Ctrl causes the Group bounds candidate to bypass hover resolution.',
-        'A missing, non-finite, or zero-area Group bound or missing identity-safe Render handle produces no Group bounds candidate.',
+        'A missing raw hit emits no canvas target but resolves an explicit workspace-root create parent when the canonical projection is valid.',
         'A Group raw hit in modifier mode or unmatched exact parent scope emits no resolved target and no create parent.',
         'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, move, or create handoff.'
       ],
       allowedContributors: [
         'identity-safe raw Render hit only',
-        'canonical official Group computed bounds for hover-only containment',
-        'identity-safe Group Render transform for client-to-local coordinate conversion only',
         'canonical Preset flattenedElementIds and elementDataMap data channels',
         'public Core Scene Tree facade current workspace id query',
         'app-local selection query',
@@ -302,8 +292,7 @@
         'a second mutable parent or children map',
         'same-depth hierarchy inference',
         'raw hit fallback after canonical target rejection',
-        'Render-owned Group canvas hit geometry or Preset-owned target selection policy',
-        'Group bounds candidate use by click selection, pointer-down move, or create parent resolution',
+        'Group canvas hit geometry or Preset-owned target selection policy',
         'app-owned Group origin arithmetic or Group bounds normalization',
         'unspecified create parent or Scene Tree legacy firstFrame fallback'
       ],
@@ -336,7 +325,7 @@
       title: 'Project canonical Group hover and selection bounds',
       ownerPackage: '@asyra/preset official selection overlay default',
       purpose:
-        'Project official Group bounds through the existing registered selection overlay layer after app-owned hover target resolution without changing canonical geometry or Render hierarchy.',
+        'Project official Group bounds through the existing registered selection overlay layer without changing canonical geometry, Render hierarchy, or canvas hit policy.',
       inputs: [
         'canonical element selection and canonical hovered element id',
         'artifact:resolved-canvas-hierarchy-target',
@@ -353,7 +342,7 @@
       ],
       bypasses: [
         'A missing Group, missing Render handle, invalid bounds, or non-finite computed dimension draws no inferred or fallback geometry.',
-        'A zero-area Group gains no fabricated visible area or hover-only bounds candidate.',
+        'A zero-area Group gains no fabricated visible area or canvas hit area.',
         'The existing path-editing guard and selected-id hover suppression remain unchanged.'
       ],
       allowedContributors: [
@@ -366,7 +355,6 @@
       forbiddenContributors: [
         'a second overlay layer or Group-specific mutable state',
         'Group Render-strategy geometry added only to create a canvas hit area',
-        'Group bounds targeting for click selection, pointer-down move, or create parent resolution',
         'app-specific or Render fallback bounds',
         'direct Pixi or concrete render-engine imports'
       ],
@@ -979,9 +967,6 @@
         'Without selection and without Meta/Ctrl, a nested raw hit resolves to the workspace direct-child target.',
         'With selection and without Meta/Ctrl, exact selected parentId scope controls resolution and an equal-depth element under a different parent is invalid.',
         'With Meta/Ctrl, the first non-Group raw hit is the same target used by hover, selection, and pointer-down move.',
-        'Missing raw Render hit allows hover-only official Group resolution from canonical computed bounds and the current identity-safe Render transform.',
-        'Visible raw Render hit always takes precedence over every Group bounds candidate, and Meta/Ctrl bypasses that candidate.',
-        'The Group bounds candidate never becomes a click selection, pointer-down move, or create-parent target.',
         'Multiple selected parent scopes choose the nearest matching ancestor to the raw hit.',
         'Create-element mouse down uses the same resolved hierarchy target to choose an explicit official Group parent, or the explicit workspace root when there is no raw hit.',
         'Nested Group creation converts the mouse-down workspace position into exact chosen-parent local coordinates without Render ancestry or the legacy firstFrame fallback.',
@@ -1000,7 +985,7 @@
       assertions: [
         'Selected and hovered official Groups use canonical computed bounds and the current Render transform for the ordinary canvas box.',
         'Nested Groups preserve world-transform alignment, and selection suppresses a duplicate hover outline.',
-        'Missing or invalid Group bounds fail closed without a second layer, Group-specific state, fallback geometry, concrete-engine import, or Group bounds targeting outside hover.'
+        'Missing or invalid Group bounds fail closed without a second layer, Group-specific state, fallback geometry, concrete-engine import, or canvas hit area.'
       ],
       stepIds: ['project-group-hover-selection-overlay'],
       specRefs: [

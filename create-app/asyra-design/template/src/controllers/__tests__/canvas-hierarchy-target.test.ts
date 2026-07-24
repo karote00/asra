@@ -2,8 +2,6 @@ import { EntityTypes, type ElementRawData } from '@asyra/utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { elementApis, hierarchyApis, selectionApis } from '../../common-apis'
 import {
-  resolveCanvasHoverHierarchyTarget,
-  resolveCanvasHoverHierarchyTargetAtClientPos,
   resolveCreateElementParent,
   resolveCanvasHierarchyTarget,
   resolveCanvasHierarchyTargetAtClientPos,
@@ -82,25 +80,6 @@ const resolveCreateParent = (
     selectedElementIds,
     bypassParentScope,
     workspaceId: 'workspace',
-    flattenedIds: overrides.flattenedIds ?? flattenedIds,
-    elementDataMap: overrides.elementDataMap ?? elementDataMap
-  })
-
-const resolveHover = (
-  hitElementId: string | null,
-  groupBoundsHitElementIds: readonly string[],
-  selectedElementIds: readonly string[] = [],
-  bypassParentScope = false,
-  overrides: {
-    flattenedIds?: readonly string[]
-    elementDataMap?: Record<string, ProjectedElement>
-  } = {}
-) =>
-  resolveCanvasHoverHierarchyTarget({
-    hitElementId,
-    groupBoundsHitElementIds,
-    selectedElementIds,
-    bypassParentScope,
     flattenedIds: overrides.flattenedIds ?? flattenedIds,
     elementDataMap: overrides.elementDataMap ?? elementDataMap
   })
@@ -235,72 +214,6 @@ describe('canvas hierarchy target resolution', () => {
       y: 20
     })
     expect(elementApis.getElementIdAtClientPos).not.toHaveBeenCalled()
-  })
-
-  it('uses a canonical Group bounds candidate only when the raw Render hit is missing', () => {
-    expect(resolveHover(null, ['group-2'])).toBe('group-1')
-    expect(resolveHover(null, ['group-2'], ['rect-2a'])).toBe('group-2')
-    expect(resolveHover(null, ['group-3'], ['rect-2a'])).toBeNull()
-    expect(resolveHover('outside', ['group-2'])).toBe('outside')
-  })
-
-  it('bypasses Group bounds candidates for modifiers and rejects invalid candidates', () => {
-    expect(resolveHover(null, ['group-2'], [], true)).toBeNull()
-    expect(resolveHover(null, ['rect-2a'])).toBeNull()
-    expect(resolveHover(null, ['missing'])).toBeNull()
-  })
-
-  it('queries official Group bounds in reverse canonical order only after a missing raw hit', () => {
-    vi.spyOn(hierarchyApis, 'getFlattenedElementIds').mockReturnValue(
-      flattenedIds
-    )
-    vi.spyOn(hierarchyApis, 'getElementDataMap').mockReturnValue(elementDataMap)
-    vi.spyOn(selectionApis, 'getSelectedIds').mockReturnValue([])
-    vi.spyOn(elementApis, 'getRenderElementIdAtClientPos').mockReturnValue(null)
-    vi.spyOn(
-      elementApis,
-      'isClientPositionInsideElementBounds'
-    ).mockImplementation((elementId) => elementId === 'group-2')
-
-    expect(
-      resolveCanvasHoverHierarchyTargetAtClientPos({
-        mousePosition: { x: 10, y: 20 },
-        keyMeta: false,
-        keyCtrl: false
-      } as never)
-    ).toBe('group-1')
-    expect(
-      elementApis.isClientPositionInsideElementBounds
-    ).toHaveBeenNthCalledWith(1, 'group-3', { x: 10, y: 20 })
-    expect(
-      elementApis.isClientPositionInsideElementBounds
-    ).toHaveBeenNthCalledWith(2, 'nested', { x: 10, y: 20 })
-    expect(
-      elementApis.isClientPositionInsideElementBounds
-    ).toHaveBeenNthCalledWith(3, 'group-2', { x: 10, y: 20 })
-  })
-
-  it('does not query Group bounds when a visible raw Render hit exists', () => {
-    vi.spyOn(hierarchyApis, 'getFlattenedElementIds').mockReturnValue(
-      flattenedIds
-    )
-    vi.spyOn(hierarchyApis, 'getElementDataMap').mockReturnValue(elementDataMap)
-    vi.spyOn(selectionApis, 'getSelectedIds').mockReturnValue([])
-    vi.spyOn(elementApis, 'getRenderElementIdAtClientPos').mockReturnValue(
-      'outside'
-    )
-    vi.spyOn(elementApis, 'isClientPositionInsideElementBounds')
-
-    expect(
-      resolveCanvasHoverHierarchyTargetAtClientPos({
-        mousePosition: { x: 10, y: 20 },
-        keyMeta: false,
-        keyCtrl: false
-      } as never)
-    ).toBe('outside')
-    expect(
-      elementApis.isClientPositionInsideElementBounds
-    ).not.toHaveBeenCalled()
   })
 
   it('derives one explicit Group or workspace create parent from the same target rules', () => {

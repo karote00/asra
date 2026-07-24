@@ -46,14 +46,6 @@ Feature: Element Selection
     When I move mouse over the element's visible geometry
     Then that element should become the hovered target
 
-  Scenario: Hover an official Group through empty canonical bounds
-    Given an official Group contains a visible child
-    And the child has moved away while the Group canonical bounds remain unchanged
-    When I move the mouse over the empty part of the Group bounds without a modifier
-    Then the hierarchy-scoped Group should become the hovered target
-    When I hold Meta or Ctrl over that same empty bounds position
-    Then the Group bounds candidate should not become the hovered target
-
   Scenario: Keep element hover stable while dragging across another element
     Given element A is the hovered drag target
     And element B is elsewhere on canvas
