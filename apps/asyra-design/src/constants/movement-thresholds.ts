@@ -3,6 +3,7 @@
 export const FEATURE_MOVEMENT_THRESHOLD = {
   createElement: 3,
   moveElement: 3,
+  layerHierarchy: 3,
   areaSelection: 3,
   moveVectorPoint: 3,
   penCurveDrag: 3,

@@ -24,9 +24,11 @@ describe('Layers Group command controls', () => {
     ) as HTMLButtonElement
 
     expect(groupButton.getAttribute('aria-label')).toBe('Group selected layers')
+    expect(groupButton.dataset.layerPointerBypass).toBe('true')
     expect(ungroupButton.getAttribute('aria-label')).toBe(
       'Ungroup selected layer'
     )
+    expect(ungroupButton.dataset.layerPointerBypass).toBe('true')
     expect(groupButton.disabled).toBe(true)
     expect(ungroupButton.disabled).toBe(true)
   })

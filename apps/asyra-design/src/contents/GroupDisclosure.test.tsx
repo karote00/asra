@@ -18,6 +18,7 @@ describe('Layers Group disclosure', () => {
 
     expect(button.getAttribute('aria-expanded')).toBe('true')
     expect(button.getAttribute('aria-label')).toBe('Collapse Group')
+    expect(button.dataset.layerPointerBypass).toBe('true')
     fireEvent.click(button)
     expect(onToggle).toHaveBeenCalledWith('group-1')
 
