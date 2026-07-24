@@ -41,6 +41,25 @@ export interface RemoveSubtreeResult {
   rootParentChildrenAfter: readonly string[]
 }
 
+export type SceneTreeRestoreStrategy = 'reuse' | 'materialize'
+
+export interface SceneTreeRestorePlanEntry {
+  readonly elementId: string
+  readonly strategy: SceneTreeRestoreStrategy
+}
+
+export interface SceneTreeRestorePlan {
+  readonly kind: 'scene-tree-restore-plan'
+  readonly elementId: string
+  readonly entries: readonly SceneTreeRestorePlanEntry[]
+}
+
+export interface SceneTreeRestoreSnapshot {
+  readonly elementId: string
+  readonly removed: readonly SubtreeRemovalEntry[]
+  readonly rootParentChildrenAfter: readonly string[]
+}
+
 export interface AddRemoveElementChange {
   action: SCENE_TREE_ACTIONS
   undoType: string
