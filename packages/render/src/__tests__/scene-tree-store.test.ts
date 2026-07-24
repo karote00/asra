@@ -476,6 +476,7 @@ describe('RenderSceneTree computed data mirror', () => {
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         eventName: 'changeSubtree',
         elementId: 'group',
+        rootParentChildrenAfter: [],
         removed
       })
     ).toEqual({ status: 'removed', elementId: 'group' })
@@ -494,6 +495,7 @@ describe('RenderSceneTree computed data mirror', () => {
         undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
         eventName: 'changeSubtree',
         elementId: 'group',
+        rootParentChildrenAfter: [],
         removed
       })
     ).toEqual({ status: 'applied', elementId: 'group' })
