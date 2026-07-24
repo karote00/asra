@@ -14,14 +14,20 @@ let startPromise:
 
 const createHandle = (
   instance: Collaboration
-): NonNullable<Window['__AsyraCollaboration__']> => ({
-  identity: instance.identity,
-  getStatus: () => instance.provider?.getStatus() ?? 'offline',
-  disconnect: () => instance.disconnect(),
-  reconnect: () => instance.reconnect(),
-  whenIdle: () => instance.whenIdle(),
-  dispose: () => instance.dispose()
-})
+): NonNullable<Window['__AsyraCollaboration__']> => {
+  const handle = {
+    identity: instance.identity,
+    getStatus: () => instance.provider?.getStatus() ?? 'offline',
+    disconnect: () => instance.disconnect(),
+    reconnect: () => instance.reconnect(),
+    whenIdle: () => instance.whenIdle(),
+    observePublicationOutcomes: (
+      subscriber: Parameters<Collaboration['observePublicationOutcomes']>[0]
+    ) => instance.observePublicationOutcomes(subscriber),
+    dispose: () => instance.dispose()
+  }
+  return handle
+}
 
 const start = async (
   mode: CollaborationMode
