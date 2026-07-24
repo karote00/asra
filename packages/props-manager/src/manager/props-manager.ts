@@ -18,7 +18,11 @@ import type {
   PropsComponentRawData,
   EvnetOptions
 } from '@asyra/utils'
-import { EventTypes, updateTransaction } from '@asyra/reactive-events'
+import {
+  acknowledgeTransactionReplayApplied,
+  EventTypes,
+  updateTransaction
+} from '@asyra/reactive-events'
 import { isEqual } from 'lodash'
 import { createProperty } from '../factories/create-property'
 import {
@@ -26,7 +30,11 @@ import {
   getPropertyComponentConfigDefinition
 } from '../registries/property-component'
 import elementPropertyRegistry from '../registries/property-definition'
-import { setComponentAccessor } from './component-accessor'
+import {
+  runWithPropertyComponentAccessor,
+  setComponentAccessor,
+  type PropertyComponentAccessor
+} from './component-accessor'
 
 export type PropsLoadDiagnostic = LoadDiagnostic
 
@@ -60,14 +68,16 @@ class PropsManager {
       snapshot: PropsRestoreSnapshot
     }
   >()
+  private readonly componentAccessor: PropertyComponentAccessor
 
   constructor() {
-    setComponentAccessor({
+    this.componentAccessor = {
       getPropertyById: (propertyId) => this.getPropertyById(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
         this.createProperty(data as Partial<PropertyComponentRawData>)
-    })
+    }
+    setComponentAccessor(this.componentAccessor)
   }
 
   private createLoadValidationResult(
@@ -399,6 +409,122 @@ class PropsManager {
     return plan
   }
 
+  applyRestoreProperties(
+    plan: PropsRestorePlan,
+    options?: EVENT_OPTIONS
+  ): readonly string[] {
+    const artifact = this.validatedRestoreArtifacts.get(plan)
+    if (!artifact) {
+      throw new Error(
+        '[PropsManager] Expected an owner-issued one-shot property restore plan'
+      )
+    }
+    this.validatedRestoreArtifacts.delete(plan)
+
+    const snapshotById = new Map(
+      artifact.snapshot.components.map(
+        (component) => [component.id, component] as const
+      )
+    )
+    const materialized = new Map<string, PropertyComponentInstanceTypes>()
+    try {
+      plan.entries.forEach(({ componentId, strategy }) => {
+        const data = snapshotById.get(componentId)
+        if (!data || this.getPropertyById(componentId)) {
+          throw new Error(
+            `[PropsManager] Cannot apply property restore: stale component "${componentId}"`
+          )
+        }
+        if (strategy === 'reuse') {
+          const tombstone = this.getRestoreComponentById(componentId)
+          if (
+            !tombstone ||
+            tombstone.get('type') !== data.type ||
+            !isEqual(tombstone.save(), data)
+          ) {
+            throw new Error(
+              `[PropsManager] Cannot apply property restore: stale tombstone "${componentId}"`
+            )
+          }
+          materialized.set(componentId, tombstone)
+          return
+        }
+        if (strategy !== 'materialize') {
+          throw new Error(
+            `[PropsManager] Cannot apply property restore: invalid strategy for "${componentId}"`
+          )
+        }
+        const component = runWithPropertyComponentAccessor(
+          this.componentAccessor,
+          () => createProperty(data)
+        )
+        if (
+          component.get('id') !== componentId ||
+          !isEqual(component.save(), data)
+        ) {
+          ;(component as unknown as { dispose?: () => void }).dispose?.()
+          throw new Error(
+            `[PropsManager] Cannot apply property restore: exact materialization failed for "${componentId}"`
+          )
+        }
+        materialized.set(componentId, component)
+      })
+    } catch (error) {
+      materialized.forEach((component, componentId) => {
+        if (!this._deletedMap.has(componentId)) {
+          ;(component as unknown as { dispose?: () => void }).dispose?.()
+        }
+      })
+      throw error
+    }
+
+    const appliedIds: string[] = []
+    const changeStart = this.changes.length
+    try {
+      plan.entries.forEach(({ componentId }) => {
+        const component = materialized.get(componentId)
+        const data = snapshotById.get(componentId)
+        if (!component || !data) {
+          throw new Error(
+            `[PropsManager] Cannot apply property restore: missing prepared component "${componentId}"`
+          )
+        }
+        this.addToMap(component)
+        runWithPropertyComponentAccessor(this.componentAccessor, () =>
+          component.load(data)
+        )
+        if (!isEqual(component.save(), data)) {
+          throw new Error(
+            `[PropsManager] Cannot apply property restore: exact data changed for "${componentId}"`
+          )
+        }
+        this.addChangeForAddProperty(component)
+        appliedIds.push(componentId)
+      })
+    } catch (error) {
+      this.changes.splice(changeStart)
+      appliedIds.reverse().forEach((componentId) => {
+        const component = this._components.get(componentId)
+        this._components.delete(componentId)
+        const strategy = plan.entries.find(
+          (entry) => entry.componentId === componentId
+        )?.strategy
+        if (component && strategy === 'reuse') {
+          this._deletedMap.set(componentId, component)
+        } else {
+          ;(component as unknown as { dispose?: () => void }).dispose?.()
+        }
+      })
+      throw error
+    }
+
+    if (appliedIds.length > 0) {
+      acknowledgeTransactionReplayApplied()
+      this.commitChanges(options)
+    }
+    return Object.freeze([...appliedIds])
+  }
+
   addChangeForAddProperty(property: PropertyComponentInstanceTypes) {
     this.addChange({
       eventName: EventTypes.ADD_PROPERTY,
@@ -424,10 +550,14 @@ class PropsManager {
       throw new Error('Type is required!')
     }
 
-    const newProperty = createProperty({
-      ...propData,
-      type: propData.type as PropertyType
-    }) as PropertyComponentInstanceTypes
+    const newProperty = runWithPropertyComponentAccessor(
+      this.componentAccessor,
+      () =>
+        createProperty({
+          ...propData,
+          type: propData.type as PropertyType
+        }) as PropertyComponentInstanceTypes
+    )
     this.addChangeForAddProperty(newProperty)
     return newProperty
   }
@@ -472,14 +602,16 @@ class PropsManager {
       return
     }
 
-    if (options) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      component.set(key as any, data as any, options)
-      return
-    }
+    runWithPropertyComponentAccessor(this.componentAccessor, () => {
+      if (options) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        component.set(key as any, data as any, options)
+        return
+      }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    component.set(key as any, data as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      component.set(key as any, data as any)
+    })
   }
 
   updatePropertyById(
