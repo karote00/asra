@@ -11,6 +11,10 @@ import Element from './Element'
 import { GroupCommandControls } from './GroupCommandControls'
 import { projectVisibleLayerRows } from './layer-hierarchy'
 import { getVisibleRangeSelection } from './layer-selection'
+import {
+  createGroupCommandDescriptors,
+  detectGroupCommandPlatform
+} from '../config/group-command-descriptors'
 import { COLUMN_WIDTH, ROW_HEIGHT } from '../constants'
 import {
   clearSelection,
@@ -74,6 +78,14 @@ const Contents: React.FC = () => {
         elementDataMap
       ),
     [elementDataMap, elementSelection, flattenedIds]
+  )
+  const groupCommandDescriptors = useMemo(
+    () =>
+      createGroupCommandDescriptors({
+        platform: detectGroupCommandPlatform(),
+        state: groupCommandState
+      }),
+    [groupCommandState]
   )
   const layerProjection = useMemo(
     () =>
@@ -439,10 +451,7 @@ const Contents: React.FC = () => {
         }}
       >
         <span className="text-[11px] font-medium text-[#999]">Layers</span>
-        <GroupCommandControls
-          canGroup={groupCommandState.canGroup}
-          canUngroup={groupCommandState.canUngroup}
-        />
+        <GroupCommandControls descriptors={groupCommandDescriptors} />
       </div>
 
       {/* Layers list */}
