@@ -233,6 +233,7 @@
         'packages/design-system/src/components',
         'packages/design-system/src/index.tsx',
         'packages/design-system/src/index.css',
+        'docs/ai/framework/packages/design-system.md',
         'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [

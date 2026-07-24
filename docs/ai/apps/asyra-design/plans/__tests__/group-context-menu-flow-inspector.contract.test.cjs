@@ -334,7 +334,8 @@ test('shared descriptors own fixed rows, actual shortcuts, labels, and eligibili
 })
 
 test('Design System presentation owns reusable layout and accessibility only', () => {
-  const text = contractText(step('present-design-system-context-menu'))
+  const presentationStep = step('present-design-system-context-menu')
+  const text = contractText(presentationStep)
 
   assert.match(text, /role menu.*role menuitem/i)
   assert.match(text, /aria-disabled/i)
@@ -346,6 +347,11 @@ test('Design System presentation owns reusable layout and accessibility only', (
   assert.match(text, /disabled row cannot emit activation/i)
   assert.match(text, /Core, Factory, Feature, Preset, Render, or Input System/i)
   assert.match(text, /platform detection or Group command eligibility/i)
+  assert.ok(
+    presentationStep.implementationBoundary.includes(
+      'docs/ai/framework/packages/design-system.md'
+    )
+  )
 })
 
 test('menu and actual shortcuts hand off once to the existing Group feature', () => {
