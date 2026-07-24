@@ -327,6 +327,7 @@
       implementationBoundary: [
         'packages/core/src/apis',
         'packages/core/src/__tests__',
+        'apps/asyra-design/package.json',
         'apps/asyra-design/src/common-apis/viewport.ts',
         'apps/asyra-design/src/common-apis/__tests__'
       ],

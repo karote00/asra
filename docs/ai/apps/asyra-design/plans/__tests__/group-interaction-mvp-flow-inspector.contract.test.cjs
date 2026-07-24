@@ -287,6 +287,9 @@ test('Core derives zoom-fit bounds from canonical world coordinates', () => {
   assert.match(text, /Group before and after.*exactly equivalent/i)
   assert.match(text, /missing parent.*cycle.*non-finite/i)
   assert.match(text, /app-specific.*Render.*fallback/i)
+  assert.ok(
+    owner.implementationBoundary.includes('apps/asyra-design/package.json')
+  )
 })
 
 test('Factory/app remote step retains Gate 3 collaboration ownership', () => {
