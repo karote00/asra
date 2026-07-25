@@ -108,14 +108,17 @@ Canonical shorthand:
 
 ## Architecture Invariants
 
-- Single runtime owner for user-action execution/session/cancel: `feature-system`.
+- Single runtime owner for user-action execution/session/programmatic-task/cancel:
+  `feature-system`.
 - State ownership stays split by package boundaries (scene-tree, props-manager, system-context, selection).
 - Render and UI are downstream consumers of state.
 - State replay/synchronization must not create a second product-decision runtime.
 
 ## Ownership Rules
 
-- Feature-system owns execute/session/cancel runtime decisions.
+- Feature-system owns execute/session/programmatic-task/cancel runtime
+  decisions. Programmatic tasks perform detached non-mutating async work and do
+  not open canonical transactions.
 - Reactive-events owns public transaction depth and the nested rollback-only
   latch; Factory owns the ordered reversible journal, validation, finalization,
   undo/redo history, and local shared-channel settlement.

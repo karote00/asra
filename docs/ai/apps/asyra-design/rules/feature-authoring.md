@@ -3,6 +3,7 @@
 ## Required Definition Fields
 
 For each feature, define clearly:
+
 - trigger event name
 - priority
 - exclusive mode
@@ -11,6 +12,7 @@ For each feature, define clearly:
 ## Session Features
 
 Session features must define behavior for:
+
 - start condition
 - update behavior
 - end behavior
@@ -25,12 +27,30 @@ Session features must define behavior for:
 ## Execution Features
 
 Execution features must define behavior for:
+
 - run condition (when to execute vs return `null`)
 - one-pass side effects/result payload
 - conflict expectations with other features (priority/exclusive impact)
 - idempotency expectations for repeated trigger events
 - execution failure behavior; one-shot handlers are transaction-wrapped and
   lower-priority handlers do not run after the first failure
+
+## Programmatic Task Features
+
+Use `definition.task` only for targeted non-mutating async work that must remain
+under Feature System cancellation ownership without holding a canonical
+transaction open.
+
+Task Features must define:
+
+- a typed programmatic trigger through `invokeFeatureTask(...)`
+- explicit priority and exclusive metadata
+- provider-disabled or otherwise unavailable behavior before external work
+- cooperative abort behavior through the Feature-owned `signal`
+- overlap behavior; the same active Feature rejects a second invocation instead
+  of creating another queue
+- a later, explicit app transaction/common-API boundary for every accepted
+  canonical mutation
 
 ## Mutation Rule
 

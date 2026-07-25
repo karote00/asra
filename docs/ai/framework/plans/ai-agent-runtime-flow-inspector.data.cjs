@@ -107,7 +107,8 @@
       ],
       conditions: [
         'The app Feature owns the trigger, execution mode, priority, exclusive policy, lifecycle result, and cancellation signal.',
-        'The Feature invokes the runtime as bounded async work; the runtime creates no second command/session queue.',
+        'The Feature uses the public Feature System programmatic task lifecycle so provider wait time opens no canonical transaction.',
+        'The Feature System creates the AbortSignal, rejects overlapping invocation of the same Feature, and protects active unregister; the runtime creates no second command/session queue.',
         'Cleanup owner: cleanup-feature-invocation completes invocation cleanup while the app Feature owns lifecycle completion.'
       ],
       bypasses: [
@@ -117,7 +118,8 @@
       allowedContributors: [
         'app constants and Feature registration',
         'artifact:runtime-composition',
-        'Feature-owned intent and AbortSignal'
+        'Feature-owned intent and AbortSignal',
+        'public @asyra/feature-system task invocation and cancellation'
       ],
       forbiddenContributors: [
         'runtime-owned Feature registration or session queue',
@@ -127,9 +129,28 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/feature-system/src/types/task.ts',
+        'packages/feature-system/src/types/feature.ts',
+        'packages/feature-system/src/types/index.ts',
+        'packages/feature-system/src/core/feature-task-registry.ts',
+        'packages/feature-system/src/core/feature.ts',
+        'packages/feature-system/src/index.ts',
+        'packages/feature-system/__tests__/feature-task.test.ts',
+        'apps/asyra-design/src/ai/composition.ts',
+        'apps/asyra-design/src/ai/__tests__/composition.test.ts',
         'apps/asyra-design/src/constants/feature-names.ts',
         'apps/asyra-design/src/features/ai-agent/index.ts',
-        'apps/asyra-design/src/init/foundation/init-features.ts'
+        'apps/asyra-design/src/features/ai-agent/__tests__/index.test.ts',
+        'apps/asyra-design/src/init/foundation/init-features.ts',
+        'apps/asyra-design/src/init/foundation/__tests__/init-features.test.ts',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+        'docs/ai/framework/packages/feature-system.md',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/ARCHITECTURE.md',
+        'docs/ai/framework/RUNTIME_MATRICES.md',
+        'docs/ai/framework/design-principles/extensible-runtime-guarantees.md',
+        'docs/ai/apps/asyra-design/rules/feature-authoring.md'
       ],
       specRefs: [
         '#supported-behavior',

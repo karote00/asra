@@ -2,7 +2,8 @@
 
 ## Responsibility
 
-Feature registration, execution ordering, exclusivity, and session lifecycle.
+Feature registration, execution ordering, exclusivity, session lifecycle, and
+programmatic non-transactional task lifecycle.
 
 ## Current Position
 
@@ -18,6 +19,9 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Async feature handlers are allowed, but runtime must guard against stuck sessions.
 - One interaction queue serializes command, session start/update/end, and cancel
   operations without event coalescing.
+- A programmatic task is a targeted, non-mutating async Feature boundary. It
+  owns one Feature-created `AbortSignal`, rejects overlap for the same Feature,
+  and never opens a canonical transaction around external wait time.
 - Public `SessionManager` lifecycle entry points and one-shot commands share the
   default transaction owner's interaction queue. Multiple `SessionManager`
   instances may own separate registrations, but they participate in one active
@@ -54,7 +58,23 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
   cleanup fallback
 - if any participant requests rollback, the complete transaction rolls back
 
-3. Error behavior
+3. Programmatic task lifecycle
+
+- `definition.task(input, { signal })` declares non-transactional async Feature
+  work such as provider planning.
+- `invokeFeatureTask(name, input, { signal? })` creates a distinct
+  Feature-owned signal and forwards optional caller abort into it.
+- only one task per Feature may be active; overlapping invocation rejects with
+  `FeatureTaskActiveError` and stable `FEATURE_TASK_ACTIVE` code rather than
+  creating another queue.
+- `cancelFeatureTask(name, reason?)` cooperatively aborts the active signal and
+  returns `false` when no task is active.
+- settlement removes the caller abort listener and active ownership on success
+  or failure.
+- programmatic tasks must not mutate canonical state. They prepare detached
+  work that a later app-owned transaction boundary may accept and execute.
+
+4. Error behavior
 
 - one feature failure should not corrupt runtime state
 - handler errors and `FeatureHandlerTimeoutError` always request rollback,
@@ -72,15 +92,16 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
   asynchronous success; throw or rejection requests rollback and rethrows the
   original failure
 
-4. Registration lifecycle
+5. Registration lifecycle
 
 - `defineFeature(...)` returns its existing `api` plus a `dispose()` handle that
   delegates to `unregisterFeature(name)`.
 - `unregisterFeature(name)` returns `false` when the feature is missing and does
   not touch unrelated registrations.
-- active one-shot execution, a pending async session start, or an active session
-  rejects unregister with `FeatureUnregisterError` and stable `FEATURE_IN_USE`
-  code before partial cleanup.
+- active one-shot execution, a pending async session start, an active session,
+  or an active programmatic task rejects unregister with
+  `FeatureUnregisterError` and stable `FEATURE_IN_USE` code before partial
+  cleanup.
 - successful unregister removes the feature registry entry, pending
   registration, execution handlers, session handlers, input listeners, and
   reactive renderer-event subscription owned by that feature.
@@ -104,9 +125,12 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 
 ## Validation Checklist
 
-- Priority/exclusive behavior is deterministic.
+- Priority/exclusive behavior is deterministic and explicit for every
+  execution, session, and task Feature.
 - Switching tools or conflicting actions handles active session correctly.
 - Long-running async feature logic does not lock future execution.
+- Programmatic task tests prove no canonical transaction, overlap rejection,
+  cooperative abort, listener cleanup, and active-unregister protection.
 - Tests must distinguish normal end, cancel, rollback, commit-current, handler
   error, and timeout.
 - Feature unregister tests must prove pending, execution, session, input, and

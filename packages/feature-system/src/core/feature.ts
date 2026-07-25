@@ -15,6 +15,11 @@ import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
 import executionRegistry from './execution-registry'
 import { interactionQueue } from './interaction-queue'
+import { featureTaskRegistry } from './feature-task-registry'
+import type {
+  FeatureTaskHandler,
+  InvokeFeatureTaskOptions
+} from '../types/task'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
@@ -272,11 +277,13 @@ function registerFeatureHandlers(
 
 export function defineFeature<
   API extends Record<string, unknown> = Record<string, unknown>,
-  State extends Record<string, unknown> = Record<string, unknown>
+  State extends Record<string, unknown> = Record<string, unknown>,
+  TaskInput = unknown,
+  TaskResult = unknown
 >(
   name: string,
   keyConfig: FeatureKeyMap | undefined,
-  definition: FeatureDefinition<API, State>
+  definition: FeatureDefinition<API, State, TaskInput, TaskResult>
 ): { api: FeatureAPI<API>; dispose: () => boolean } {
   if (
     definition.session &&
@@ -292,6 +299,14 @@ export function defineFeature<
     name,
     definition as FeatureDefinition<Record<string, unknown>>
   )
+
+  if (definition.task) {
+    featureTaskRegistry.register(name, {
+      priority: definition.priority ?? 0,
+      exclusive: definition.exclusive ?? true,
+      handler: definition.task as FeatureTaskHandler
+    })
+  }
 
   const hasSession = !!definition.session
   const hasExecution = !!definition.execution
@@ -355,7 +370,8 @@ export function unregisterFeature(featureName: string): boolean {
   }
   if (
     executionRegistry.isFeatureActive(featureName) ||
-    sessionManager.isFeatureActive(featureName)
+    sessionManager.isFeatureActive(featureName) ||
+    featureTaskRegistry.isActive(featureName)
   ) {
     throw new FeatureUnregisterError(featureName)
   }
@@ -367,6 +383,7 @@ export function unregisterFeature(featureName: string): boolean {
   }
   executionRegistry.unregisterFeature(featureName)
   sessionManager.unregisterFeature(featureName)
+  featureTaskRegistry.unregister(featureName)
   const removed = featureRegistry.unregister(featureName)
   cleanupUnusedEventBindings()
   return removed
@@ -378,6 +395,21 @@ export function getFeatureRegistry(): FeatureRegistry {
 
 export function getSessionManager(): SessionManager {
   return sessionManager
+}
+
+export function invokeFeatureTask<Input, Result>(
+  featureName: string,
+  input: Input,
+  options?: InvokeFeatureTaskOptions
+): Promise<Result> {
+  return featureTaskRegistry.invoke<Input, Result>(featureName, input, options)
+}
+
+export function cancelFeatureTask(
+  featureName: string,
+  reason?: unknown
+): boolean {
+  return featureTaskRegistry.cancel(featureName, reason)
 }
 
 export { FeatureRegistry } from './feature-registry'

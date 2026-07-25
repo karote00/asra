@@ -17,6 +17,7 @@ import {
   type AiRuntimeComposition,
   type ComposeAiAgentRuntimeOptions
 } from '../ai/composition'
+import type { AiAgentFeatureRuntime } from '../features/ai-agent'
 
 export interface InitAppOptions {
   ai?: ComposeAiAgentRuntimeOptions
@@ -25,6 +26,15 @@ export interface InitAppOptions {
 export interface AppInitialization {
   readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
+}
+
+const asAiAgentFeatureRuntime = (
+  runtime: AiRuntimeComposition['runtime']
+): AiAgentFeatureRuntime | undefined => {
+  if (runtime && 'run' in runtime && typeof runtime.run === 'function') {
+    return runtime as AiAgentFeatureRuntime
+  }
+  return undefined
 }
 
 /**
@@ -76,8 +86,16 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
       enabled: false
     }
   )
+  const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
   // Initialize feature-system for application-level features
-  initFeatures()
+  initFeatures({
+    ai: {
+      enabled: aiRuntime.enabled,
+      providerEnabled:
+        aiRuntime.providerEnabled && aiFeatureRuntime !== undefined,
+      runtime: aiFeatureRuntime
+    }
+  })
 
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {

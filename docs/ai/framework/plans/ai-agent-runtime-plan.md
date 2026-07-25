@@ -22,6 +22,11 @@ vendor mandatory and does not read or expose a browser-held server API key.
 
 - An app-owned Feature receives natural-language intent and invokes one
   app-composed AI runtime instance with the Feature lifecycle `AbortSignal`.
+- The Feature uses the Feature System's programmatic task lifecycle for this
+  non-mutating async planning boundary. The Feature System creates the signal,
+  rejects overlapping invocation of the same Feature, owns explicit
+  cancellation and active-unregister protection, and does not open a canonical
+  transaction around provider work.
 - The app supplies context, schema-backed action definitions, permission
   policy, confirmation UI, transaction runner, and domain executors.
 - The runtime sends detached intent/context/action descriptions through one
@@ -97,7 +102,8 @@ vendor mandatory and does not read or expose a browser-held server API key.
 ### Ownership And Forbidden Boundaries
 
 - App Feature System owner: natural-language trigger, priority/exclusive mode,
-  execute/session/cancel lifecycle, and the lifecycle signal.
+  programmatic task execution/cancel lifecycle, active-unregister protection,
+  and the lifecycle signal.
 - App owners: context, action definitions, schemas, permission, confirmation,
   transaction adapter, domain executors, common/public API calls, collaboration
   options, and product UI.
@@ -141,6 +147,9 @@ The first production-capable adapter is a generic HTTP provider:
   runtime, listener, timer, or startup side effect.
 - Provider-disabled: the app Feature returns a stable unavailable result without
   invoking context collection or provider transport.
+- Feature task cancellation aborts the Feature-owned signal and releases its
+  external abort listener after settlement. A second invocation of the same
+  active Feature is rejected rather than placed in another runtime queue.
 - Non-collaborative: accepted actions use the same app common APIs without a
   shared channel; no Collaboration object is created by the runtime.
 - Malformed provider result, unknown/duplicate action, invalid schema,
@@ -207,6 +216,7 @@ therefore enter the system as another controlled input source, not as a new
 source of truth.
 
 The framework already has useful boundaries for AI-assisted editing:
+
 - feature/session flow for user intent execution
 - app/common APIs for domain-specific mutations and queries
 - schema validation for safe persisted data
@@ -231,6 +241,7 @@ validated app actions while leaving all app-specific domain behavior in the app
 that opts into AI.
 
 End-state:
+
 - apps can opt into AI without making AI a core framework dependency
 - natural-language intent becomes structured action plans
 - action plans are validated before execution
@@ -246,6 +257,7 @@ End-state:
 ## Non-Goals
 
 Out of scope for this framework plan:
+
 - building a full product-specific design, CAD, or whiteboard agent
 - storing, committing, or shipping API keys
 - making OpenAI, Codex, or any provider mandatory
@@ -261,6 +273,7 @@ Out of scope for this framework plan:
 No blocking conflicts were found in the prior design discussion.
 
 Clarifications:
+
 - AI changes do not automatically get undo/redo or collaboration merely because
   a model is used. They get those guarantees only when executed through Asyra
   transaction/common-API/shared mutation paths.
@@ -276,6 +289,7 @@ Clarifications:
 `@asyra/ai-agent-runtime` owns reusable orchestration only.
 
 Responsibilities:
+
 - provider interface and provider adapter boundary
 - action registry with schema-backed action definitions
 - context provider interface for app-provided scene/state summaries
@@ -318,10 +332,7 @@ export interface AiProvider {
 }
 
 export interface AiContextProvider<TContext = unknown> {
-  getContext(input: {
-    intent: string
-    signal: AbortSignal
-  }): Promise<TContext>
+  getContext(input: { intent: string; signal: AbortSignal }): Promise<TContext>
 }
 
 export interface AiActionDefinition<TArgs = unknown> {
@@ -347,6 +358,7 @@ export interface AiPermissionPolicy {
 ```
 
 Data types to define:
+
 - `AiPlan`
 - `AiPlannedAction`
 - `AiProviderInput`
@@ -406,6 +418,7 @@ Asyra mutations are the source of truth.
 ## Undo/Redo and Collaboration Rules
 
 Default behavior:
+
 - one accepted AI plan maps to one intended undo commit
 - apps may split very large plans into explicit transaction groups only when
   that matches the user-facing action model
@@ -422,6 +435,7 @@ audit logs, but it should not define app-specific history UI behavior.
 ## Security and Safety
 
 Safety rules:
+
 - no arbitrary code execution from model output
 - only registered actions are executable
 - all action arguments must pass schema validation
@@ -441,6 +455,7 @@ runtime should only execute actions that passed all preflight checks.
 ## Cost and Testing Notes
 
 Cost-control principles:
+
 - typical action-planning requests should be designed as one model call plus
   optional repair/summary calls
 - compact app context should be preferred over dumping full scene state
@@ -457,36 +472,42 @@ or provider extensions.
 ## Implementation Test Plan
 
 Action registry tests:
+
 - registers actions
 - rejects duplicate action names
 - lists available actions deterministically
 - rejects unknown planned actions
 
 Validation tests:
+
 - accepts schema-valid action arguments
 - rejects schema-invalid arguments
 - blocks actions denied by permission policy
 - preserves no-mutation behavior on invalid plans
 
 Execution tests:
+
 - executes a valid multi-action plan in one transaction
 - rolls back or prevents execution on preflight validation failure
 - returns clear execution results and action summaries
 - does not call renderer or app internals directly
 
 Provider adapter tests:
+
 - maps provider structured output into `AiPlan`
 - handles malformed provider output
 - handles provider errors and retries where configured
 - never requires a provider when AI runtime is not used
 
 Integration tests:
+
 - app registers app-owned actions and context provider
 - accepted AI action plan updates state through common APIs
 - undo reverts the full AI action batch
 - shared/collaborative mutation path receives AI-originated changes when enabled
 
 Release-boundary tests:
+
 - importing and starting an app without AI activation creates no provider,
   network request, model configuration, secret read, or AI runtime side effect
 - the production-capable adapter passes structured-output, malformed-result,

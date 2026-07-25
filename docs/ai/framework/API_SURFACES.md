@@ -581,6 +581,7 @@ See `packages/collaboration.md` and
 - `definition.api?: API`
 - `definition.execution?: (snapshot) => unknown`
 - `definition.session?: { onStart?, onUpdate?, onEnd?, onCancel? }`
+- `definition.task?: (input, { signal }) => unknown | Promise<unknown>`
 - `definition.priority?: number`
 - `definition.exclusive?: boolean`
 - `definition.cancelPolicy?: 'rollback' | 'commit-current' | 'feature-defined'`
@@ -604,6 +605,24 @@ Session mode:
 - session snapshots expose `detail.signal`; async handlers must check it after
   awaited work before performing mutations
 - handler errors/timeouts override cancel policy and roll back
+
+Programmatic task mode:
+
+- `invokeFeatureTask(name, input, { signal? })` runs the named Feature task
+  without opening a reactive-events transaction
+- the Feature System creates the handler signal and forwards optional caller
+  abort into it
+- a second active invocation of the same Feature rejects with
+  `FeatureTaskActiveError` (`FEATURE_TASK_ACTIVE`) instead of entering another
+  queue
+- `cancelFeatureTask(name, reason?)` aborts the active Feature-owned signal
+- settlement removes external abort listeners and active ownership on success
+  or failure
+- active task ownership blocks `unregisterFeature(name)` with the existing
+  `FeatureUnregisterError` (`FEATURE_IN_USE`)
+- programmatic tasks are for detached, non-mutating async preparation;
+  canonical mutation still requires the ordinary app transaction/common-API
+  path
 
 ## API Usage Rules
 

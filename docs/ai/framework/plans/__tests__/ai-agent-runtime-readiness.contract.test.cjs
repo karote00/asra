@@ -90,9 +90,14 @@ test('readiness names complete preflight, no-prefix, transaction, bypass, cleanu
     supported,
     /One accepted plan enters one app-owned transaction runner call/i
   )
+  assert.match(
+    supported,
+    /programmatic task lifecycle.*does not open a canonical transaction/i
+  )
   assert.match(bypasses, /AI-disabled: no package composition/i)
   assert.match(bypasses, /Provider-disabled:/i)
   assert.match(bypasses, /Non-collaborative:/i)
+  assert.match(bypasses, /second invocation.*rejected/i)
   assert.match(bypasses, /never repeats a transaction or action executor/i)
   assert.match(cases, /no canonical prefix/i)
   assert.match(cases, /isolated registries\/providers\/in-flight state/i)

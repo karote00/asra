@@ -81,8 +81,16 @@ describe('initApp preset composition', () => {
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
+    expect(features.initFeatures).toHaveBeenCalledWith({
+      ai: {
+        enabled: false,
+        providerEnabled: false,
+        runtime: undefined
+      }
+    })
     expect(initialization.aiRuntime).toMatchObject({
       enabled: false,
+      providerEnabled: false,
       runtime: null
     })
     expect(window.__AsyraE2E__).toEqual({
@@ -102,6 +110,30 @@ describe('initApp preset composition', () => {
       'input-system',
       'features'
     ])
+
+    await initialization.dispose()
+  })
+
+  it('routes provider-disabled AI to Feature initialization without a runtime', async () => {
+    const initialization = initApp({
+      ai: {
+        enabled: true,
+        providerEnabled: false
+      }
+    })
+
+    expect(features.initFeatures).toHaveBeenCalledWith({
+      ai: {
+        enabled: true,
+        providerEnabled: false,
+        runtime: undefined
+      }
+    })
+    expect(initialization.aiRuntime).toMatchObject({
+      enabled: true,
+      providerEnabled: false,
+      runtime: null
+    })
 
     await initialization.dispose()
   })

@@ -14,6 +14,8 @@ export {
   defineFeature,
   FeatureUnregisterError,
   getFeature,
+  invokeFeatureTask,
+  cancelFeatureTask,
   unregisterFeature,
   getFeatureRegistry,
   getSessionManager,
@@ -26,6 +28,10 @@ export {
   SessionManager
 } from './core/session-manager'
 export { InteractionQueue, interactionQueue } from './core/interaction-queue'
+export {
+  FeatureTaskActiveError,
+  FeatureTaskNotFoundError
+} from './core/feature-task-registry'
 
 export * from './types'
 

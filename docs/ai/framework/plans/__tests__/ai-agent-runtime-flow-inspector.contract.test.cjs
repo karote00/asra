@@ -191,7 +191,7 @@ test('every route, artifact, invariant, and acceptance contract resolves', () =>
 
 test('implementation boundaries stay inside the frozen Gate 4 allowlist', () => {
   const allowedBoundary =
-    /^(packages\/ai-agent-runtime\/(package\.json|tsconfig\.json|src)|packages\/(factory|scene-tree|props-manager|system-context|selection|render|collaboration)\/src|apps\/asyra-design\/(package\.json|src\/(ai|constants\/feature-names\.ts|features\/ai-agent|init\/(init-app\.ts|__tests__\/init-app\.test\.ts)|init\/foundation\/init-features\.ts|common-apis|providers|collaboration))|scripts\/__tests__\/workspace-automation\.test\.mjs|turbo\.json|yarn\.lock)/
+    /^(packages\/ai-agent-runtime\/(package\.json|tsconfig\.json|src)|packages\/feature-system\/(src|__tests__\/feature-task\.test\.ts)|packages\/(factory|scene-tree|props-manager|system-context|selection|render|collaboration)\/src|apps\/asyra-design\/(package\.json|src\/(ai|constants\/feature-names\.ts|features\/ai-agent|init\/(init-app\.ts|__tests__\/init-app\.test\.ts|foundation\/init-features\.ts|foundation\/__tests__\/init-features\.test\.ts)|common-apis|providers|collaboration))|docs\/ai\/framework\/(packages\/feature-system\.md|API_SURFACES\.md|ARCHITECTURE\.md|RUNTIME_MATRICES\.md|design-principles\/extensible-runtime-guarantees\.md)|docs\/ai\/apps\/asyra-design\/rules\/feature-authoring\.md|scripts\/__tests__\/workspace-automation\.test\.mjs|turbo\.json|yarn\.lock)/
 
   data.steps.forEach((item) => {
     item.implementationBoundary.forEach((boundary) => {
@@ -233,6 +233,9 @@ test('Feature System and app adapters retain lifecycle and domain ownership', ()
     'app-owned @asyra/feature-system Feature'
   )
   assert.match(feature, /priority\/exclusive.*execute\/session\/cancel/i)
+  assert.match(feature, /programmatic task lifecycle/i)
+  assert.match(feature, /opens no canonical transaction/i)
+  assert.match(feature, /rejects overlapping invocation/i)
   assert.match(feature, /no second command\/session queue/i)
   assert.match(context, /app-owned context/i)
   assert.match(permission, /app-owned permission policy/i)

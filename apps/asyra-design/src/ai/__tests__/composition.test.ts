@@ -30,6 +30,25 @@ describe('Asyra Design AI runtime composition', () => {
     })
 
     expect(composition.enabled).toBe(false)
+    expect(composition.providerEnabled).toBe(false)
+    expect(composition.runtime).toBeNull()
+    expect(createInput).not.toHaveBeenCalled()
+
+    await composition.dispose()
+
+    expect(createInput).not.toHaveBeenCalled()
+  })
+
+  it('keeps the Feature available without constructing a provider-disabled runtime', async () => {
+    const createInput = vi.fn(createRuntimeInput)
+    const composition = composeAiAgentRuntime({
+      enabled: true,
+      providerEnabled: false,
+      createRuntimeInput: createInput
+    })
+
+    expect(composition.enabled).toBe(true)
+    expect(composition.providerEnabled).toBe(false)
     expect(composition.runtime).toBeNull()
     expect(createInput).not.toHaveBeenCalled()
 
@@ -46,10 +65,12 @@ describe('Asyra Design AI runtime composition', () => {
     }))
     const composition = composeAiAgentRuntime({
       enabled: true,
+      providerEnabled: true,
       createRuntimeInput: createInput
     })
 
     expect(composition.enabled).toBe(true)
+    expect(composition.providerEnabled).toBe(true)
     expect(composition.runtime).not.toBeNull()
     expect(createInput).toHaveBeenCalledOnce()
 
@@ -62,7 +83,8 @@ describe('Asyra Design AI runtime composition', () => {
   it('rejects enabled composition without an app-owned runtime factory', () => {
     expect(() =>
       composeAiAgentRuntime({
-        enabled: true
+        enabled: true,
+        providerEnabled: true
       })
     ).toThrow('createRuntimeInput is required when AI is enabled')
   })
