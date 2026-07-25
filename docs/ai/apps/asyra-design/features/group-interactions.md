@@ -4,13 +4,13 @@
 
 - `src/features/group-elements/index.ts`
 - `src/controllers/group-commands.ts`
-- `src/contents/GroupCommandControls.tsx`
+- `src/app/group-context-menu.tsx`
 - `src/contents/layer-hierarchy.ts`
 
 ## Trigger
 
 - event: `input.shortcut.group`
-- visible controls: Layers `Group` and `Ungroup` buttons
+- visible commands: canvas Context Menu `Group` and `Ungroup` rows
 - mode: one-shot execution
 - priority: `100`
 - exclusive: `true`
@@ -29,8 +29,9 @@
 
 ## Boundaries
 
-- The app owns command availability, selection intent, controls, shortcuts,
-  collapsed state, and visible row projection.
+- The app owns command availability, selection intent, Context Menu routing,
+  shortcuts, collapsed state, and visible row projection.
+- The Layers/Contents header owns no Group or Ungroup command buttons.
 - Preset owns the official Group operation adapter and basic 2D
   coordinate/bounds normalization.
 - Scene Tree remains the only parent membership, child order, subtree, cycle,

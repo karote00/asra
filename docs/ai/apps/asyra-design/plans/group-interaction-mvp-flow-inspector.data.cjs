@@ -132,32 +132,31 @@
       id: 'route-group-command-input',
       order: 1,
       laneId: 'layers',
-      title: 'Route shortcuts and visible Layers controls',
-      ownerPackage: 'asyra-design input and Layers UI',
+      title: 'Route shortcuts without Layers command controls',
+      ownerPackage: 'asyra-design input and command routing',
       purpose:
-        'Normalize visible Group/Ungroup controls and platform shortcuts into the same app trigger without performing model mutation in UI code.',
+        'Normalize platform shortcuts into the app trigger while keeping the Layers/Contents header free of Group/Ungroup command controls and performing no model mutation in UI code.',
       inputs: [
-        'Layers Group or Ungroup button activation',
         'Meta/Ctrl+G keyboard input with optional Shift',
         'artifact:group-command-availability'
       ],
       outputs: ['artifact:group-command-trigger'],
       conditions: [
-        'The Layers header exposes stable accessible Group and Ungroup controls with stable data-testid values.',
+        'The Layers/Contents header exposes no Group or Ungroup buttons or command-specific data-testid values.',
         'Meta+G or Ctrl+G routes Group and the Shift variant routes Ungroup through registered input constants.',
-        'A control is enabled only by its projected command availability and every enabled surface hands off to the same feature intent route.'
+        'Each registered shortcut re-evaluates projected command availability and hands an eligible request to the same feature intent route used by the Context Menu.'
       ],
       bypasses: [
         'Editable text, number, and color inputs keep native keyboard behavior and do not emit a Group trigger.',
-        'Disabled control activation and unavailable shortcuts emit no trigger and perform no canonical mutation.'
+        'Unavailable shortcuts emit no executable feature request and perform no canonical mutation.'
       ],
       allowedContributors: [
         'artifact:group-command-availability',
         'central InputSystem event constants',
-        'central key-combination registry',
-        'Layers accessible controls'
+        'central key-combination registry'
       ],
       forbiddenContributors: [
+        'Layers/Contents Group or Ungroup buttons',
         'direct hierarchy or selection mutation in React handlers',
         'ad-hoc document keydown listener outside InputSystem',
         'fixture-only command path',
@@ -169,7 +168,11 @@
         'apps/asyra-design/src/constants',
         'apps/asyra-design/src/config/key-combinations.ts',
         'apps/asyra-design/src/contents',
-        'apps/asyra-design/src/controllers'
+        'apps/asyra-design/src/controllers',
+        'apps/asyra-design/e2e',
+        'create-app/asyra-design/template',
+        'docs/ai/apps/asyra-design/features/group-interactions.md',
+        'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
         '#command-surfaces',
@@ -552,7 +555,7 @@
 
   const routes = [
     {
-      id: 'availability-to-layers-controls',
+      id: 'availability-to-command-routing',
       from: 'derive-group-command-intent',
       to: 'route-group-command-input',
       kind: 'projection',
@@ -560,11 +563,11 @@
       producedArtifacts: ['artifact:group-command-availability']
     },
     {
-      id: 'layers-trigger-to-command-intent',
+      id: 'shortcut-trigger-to-command-intent',
       from: 'route-group-command-input',
       to: 'derive-group-command-intent',
       kind: 'command',
-      predicate: 'enabled visible control or non-editable registered shortcut',
+      predicate: 'non-editable registered shortcut',
       producedArtifacts: ['artifact:group-command-trigger']
     },
     {
@@ -719,7 +722,7 @@
     {
       id: 'artifact:group-command-trigger',
       ownerStepId: 'route-group-command-input',
-      channel: 'InputSystem or Layers control',
+      channel: 'InputSystem registered shortcut',
       consumerStepIds: ['derive-group-command-intent'],
       terminal: false
     },
@@ -949,11 +952,11 @@
     },
     {
       id: 'command-surface-product-cases',
-      title: 'Visible controls and shortcut parity',
+      title: 'Shortcut routing and absent Layers controls',
       assertions: [
-        'Visible Layers controls and Meta/Ctrl+G with the Shift variant route the same registered feature contract.',
-        'Controls expose stable accessible names and data-testid values.',
-        'Editable inputs and disabled or unavailable commands bypass without mutation.'
+        'Meta/Ctrl+G with the Shift variant routes the same registered feature contract used by the Context Menu.',
+        'The Layers/Contents header exposes no Group or Ungroup buttons or command-specific data-testid values.',
+        'Editable inputs and unavailable commands bypass without mutation.'
       ],
       stepIds: ['route-group-command-input', 'derive-group-command-intent'],
       specRefs: ['#command-surfaces', '#formal-test-plan']

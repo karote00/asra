@@ -6812,3 +6812,26 @@ join` constrained dashed product path across:
     separately queued app plan and remains inactive until explicitly started.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`
+
+## 2026-07-25 - Reopen Group Context Menu to remove Layers command buttons
+
+- Context:
+  - Post-closeout product review determined that the Group and Ungroup buttons
+    in the Layers/Contents header should not exist once the commands are
+    available through the Context Menu and operating-system shortcuts.
+  - Existing Group Interaction Inspector and tests incorrectly required those
+    buttons as a command surface.
+- Decision:
+  - Reopen the Group Context Menu plan for a bounded follow-up in PR #97.
+  - Make Context Menu and actual shortcuts the only Group/Ungroup command
+    surfaces and remove the Layers/Contents header buttons.
+  - Supersede only the old visible-control requirement; retain the existing
+    Group feature, eligibility, transaction, selection, hierarchy, and failure
+    contracts.
+- Consequences:
+  - Inspector, Gherkin, app tests, and E2E setup must reject or avoid the old
+    Layers buttons before production removal is complete.
+  - The plan requires a new review and explicit closeout after the follow-up;
+    the earlier completion record is no longer the active canonical path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/group-context-menu-plan.md`

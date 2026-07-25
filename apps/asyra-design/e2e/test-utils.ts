@@ -433,6 +433,17 @@ export function getContentsPanel(page: Page) {
   return page.getByTestId('contents-panel')
 }
 
+export async function pressGroupCommandShortcut(
+  page: Page,
+  command: 'group' | 'ungroup'
+): Promise<void> {
+  const primaryModifier = await page.evaluate(() =>
+    /mac/i.test(navigator.platform) ? 'Meta' : 'Control'
+  )
+  const shift = command === 'ungroup' ? 'Shift+' : ''
+  await page.keyboard.press(`${primaryModifier}+${shift}G`)
+}
+
 /**
  * Get the Properties Panel locator
  */

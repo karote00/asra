@@ -170,6 +170,8 @@ const openContextMenu = async (
 }
 
 const expectFixedRows = async (page: Page, fixture: PlatformFixture) => {
+  await expect(page.getByTestId('layers-group-button')).toHaveCount(0)
+  await expect(page.getByTestId('layers-ungroup-button')).toHaveCount(0)
   const rows = page.getByRole('menuitem')
   await expect(rows).toHaveCount(2)
   await expect(rows.nth(0)).toHaveText(`Group${fixture.groupLabel}`)

@@ -232,11 +232,15 @@ test('feature transaction owns one-shot execution and atomic post-selection', ()
   assert.match(text, /direct Scene Tree instance access/i)
 })
 
-test('input routing has visible controls, standard shortcuts, and editable bypass', () => {
-  const text = contractText(step('route-group-command-input'))
+test('input routing has standard shortcuts, no Layers controls, and editable bypass', () => {
+  const inputStep = step('route-group-command-input')
+  const text = contractText(inputStep)
 
-  assert.match(text, /stable accessible Group and Ungroup controls/i)
-  assert.match(text, /stable data-testid/i)
+  assert.match(
+    text,
+    /Layers\/Contents header exposes no Group or Ungroup buttons/i
+  )
+  assert.match(text, /no Group or Ungroup.*data-testid/i)
   assert.match(text, /Meta\+G or Ctrl\+G.*Shift variant/i)
   assert.match(text, /editable text, number, and color inputs/i)
   assert.match(
@@ -244,6 +248,17 @@ test('input routing has visible controls, standard shortcuts, and editable bypas
     /direct hierarchy or selection mutation in React handlers/i
   )
   assert.match(text, /window\.__AsyraE2E__/i)
+  ;[
+    'apps/asyra-design/e2e',
+    'create-app/asyra-design/template',
+    'docs/ai/apps/asyra-design/features/group-interactions.md',
+    'docs/ai/apps/asyra-design/bdd-features'
+  ].forEach((boundary) =>
+    assert.ok(
+      inputStep.implementationBoundary.includes(boundary),
+      `missing input-routing boundary ${boundary}`
+    )
+  )
 })
 
 test('Layers projection derives nested visible rows without second hierarchy state', () => {
@@ -423,7 +438,8 @@ test('acceptance contracts cover every product family and Definition of Done', (
   ;[
     /Group one, contiguous, non-contiguous, and nested sibling selections in canonical sibling order/i,
     /Ungroup a normal official Group.*empty official Group/i,
-    /Visible Layers controls and Meta\/Ctrl\+G.*Shift variant/i,
+    /Meta\/Ctrl\+G.*Shift variant.*Context Menu/i,
+    /Layers\/Contents header exposes no Group or Ungroup buttons/i,
     /Shift-range uses visible row order.*hidden-descendant selection/i,
     /Without selection and without Meta\/Ctrl.*workspace direct-child target/i,
     /With selection and without Meta\/Ctrl.*exact selected parentId scope.*different parent is invalid/i,

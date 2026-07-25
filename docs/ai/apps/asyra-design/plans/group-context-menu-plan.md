@@ -1,24 +1,16 @@
 # Asyra Design Group Context Menu Plan
 
-## Completion
+## Status and Priority
 
-Completed on 2026-07-25 after implementation review and explicit user closeout
-authorization.
+Reopened on 2026-07-25 after post-closeout product review. The prior closeout
+decision remains in append-only history but is superseded for this PR by the
+explicit requirement to remove the Group and Ungroup buttons from the
+Layers/Contents header.
 
-- Outcome: canvas right-click now opens one accessible app-owned Context Menu
-  with fixed Group and Ungroup rows, shared eligibility, accurate
-  operating-system shortcut labels, and functional matching shortcuts.
-- Final decision: Asyra Design owns menu session, command descriptors, routing,
-  and product policy; Design System owns reusable presentation; Input System
-  retains input normalization without Context Menu product semantics; and the
-  existing Group feature remains the sole command, transaction, and failure
-  owner.
-- Canonical record:
-  `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`.
-- Exit criteria: Inspector/readiness and Gherkin contracts, affected
-  package/app tests, macOS and Windows/Linux E2E, dependency/lint/build gates,
-  template synchronization, synchronized visual review, and bounded
-  direct-consumer review passed before closeout.
+This plan is active until that follow-up passes its Inspector/readiness,
+formal, E2E, template, and synchronized visual gates and receives a new user
+review. Context Menu and operating-system shortcuts are the only Group/Ungroup
+command surfaces in scope.
 
 Architecture authority:
 
@@ -38,8 +30,9 @@ The first menu contains exactly two command rows:
 
 Each row displays the command name on the left and its operating-system-specific
 keyboard shortcut on the right. The row invokes the same Group/Ungroup feature
-command used by the keyboard shortcut and other command surfaces; it is not a
-second implementation of grouping behavior.
+command used by the keyboard shortcut; it is not a second implementation of
+grouping behavior. The Layers/Contents header exposes no Group or Ungroup
+buttons.
 
 ## Goal
 
@@ -101,8 +94,8 @@ and presentation flow.
   dispatch, and product-facing failures;
 - supplies one shared source for command id, visible label, shortcut binding,
   platform display label, enabled state, and execution callback; and
-- prevents keyboard, Layers controls, and context-menu rows from drifting into
-  separate command semantics.
+- prevents keyboard and context-menu rows from drifting into separate command
+  semantics.
 
 ### Design System
 
@@ -142,6 +135,8 @@ and presentation flow.
 ### Command rows
 
 - The menu shows exactly `Group` followed by `Ungroup`.
+- The Layers/Contents header shows neither a Group button nor an Ungroup
+  button. Context Menu and shortcuts are the only command surfaces.
 - Both rows remain visible. A row whose existing command eligibility is false
   is disabled rather than removed.
 - The left side shows the localized command name contract (`Group` or
@@ -244,6 +239,7 @@ Formal coverage must include:
 - native operating-system menu integration;
 - app-specific ad hoc menu markup that bypasses the approved reusable Design
   System component.
+- Group or Ungroup buttons in the Layers/Contents header.
 
 ## Required Inspector Readiness
 
@@ -260,7 +256,9 @@ readiness contract tests before production edits. It must define:
 3. **Command descriptor projection**
    - shared Group/Ungroup command metadata, current selection eligibility,
      actual Meta/Ctrl shortcut bindings, platform formatter input/output, and
-     drift prevention across keyboard, Layers, and menu surfaces.
+     drift prevention across keyboard and menu surfaces;
+   - explicit absence of Group/Ungroup controls from the Layers/Contents
+     header.
 4. **Design System presentation**
    - menu/item props, left/right row layout, visual states, accessible
      semantics, keyboard navigation, viewport fit boundary, and app-policy
@@ -288,6 +286,9 @@ at a time.
    existing-feature execution handoff.
 6. Complete app/template synchronization and synchronized product/visual
    validation.
+7. Remove the superseded Layers/Contents Group and Ungroup buttons, migrate
+   formal product setup to shortcuts or Context Menu, and rerun synchronized
+   validation.
 
 Each slice receives a bounded local commit only after its formal tests and
 direct-consumer review pass.
@@ -304,6 +305,8 @@ direct-consumer review pass.
   Windows/Linux-style platform fixtures;
 - focused Playwright shortcut execution on macOS-style and Windows/Linux-style
   platform fixtures;
+- formal and visual proof that the Layers/Contents header exposes no Group or
+  Ungroup buttons;
 - TypeScript and affected package builds;
 - dependency validation;
 - lint;
@@ -322,6 +325,7 @@ alternate Group implementations are forbidden.
   availability, and order.
 - The advertised macOS and Windows/Linux shortcuts invoke the matching existing
   Group/Ungroup feature command.
+- The Layers/Contents header exposes no Group or Ungroup buttons.
 - Enabled rows invoke the existing commands exactly once; disabled rows and
   menu-only interaction never mutate canonical state.
 - Browser default suppression is scoped to handled canvas invocations.

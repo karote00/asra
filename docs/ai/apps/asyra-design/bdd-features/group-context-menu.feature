@@ -17,6 +17,12 @@ Feature: Group Context Menu
     Then the canvas Group Context Menu should not open
     And Asyra Design should not suppress the native context-menu event
 
+  Scenario: Keep Group commands out of the Layers header
+    Given the Layers/Contents panel is visible
+    Then its header should not expose a Group button
+    And its header should not expose an Ungroup button
+    And Group and Ungroup should remain available through the canvas Context Menu and platform shortcuts
+
   Scenario Outline: Show shortcuts from the app platform mapping
     Given the app uses the "<platform>" shortcut mapping
     When I open the Group Context Menu on the canvas

@@ -37,7 +37,7 @@ test('Group Context Menu Inspector authorities resolve', () => {
   assert.equal(data.target.title, 'Asyra Design Group Context Menu Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md'
+    'docs/ai/apps/asyra-design/plans/group-context-menu-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -265,6 +265,10 @@ test('Group and Context Menu Gherkin contracts are registered and allowed', () =
     menuFeature,
     /no canonical document or selection state should change/
   )
+  assert.match(
+    menuFeature,
+    /header should not expose a Group button.*header should not expose an Ungroup button/s
+  )
 
   data.steps.forEach((item) => {
     assert.ok(
@@ -329,6 +333,10 @@ test('shared descriptors own fixed rows, actual shortcuts, labels, and eligibili
   assert.match(text, /Ctrl\+G.*Ctrl\+G/i)
   assert.match(text, /Ctrl\+Shift\+G.*Ctrl\+Shift\+G/i)
   assert.match(text, /Editable shortcut targets.*no command intent/i)
+  assert.match(
+    text,
+    /Layers\/Contents header exposes no Group or Ungroup buttons/i
+  )
   assert.match(text, /row-local hardcoded shortcut text/i)
   assert.match(text, /second Group or Ungroup implementation/i)
 })
@@ -403,6 +411,6 @@ test('acceptance contracts cover product cases, gates, and review stop', () => {
     /invokes one existing Group\/Ungroup feature command exactly once/i,
     /Separate app roots do not share menu open state/i,
     /template sync.*synchronized center\/edge visual gates pass/i,
-    /user review before closeout, push, pull request, or merge/i
+    /update the existing PR #97.*user review before another closeout or merge/i
   ].forEach((pattern) => assert.match(text, pattern))
 })

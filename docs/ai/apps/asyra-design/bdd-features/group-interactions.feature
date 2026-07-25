@@ -52,3 +52,8 @@ Feature: Group and Ungroup interactions
       | platform      | shortcut          |
       | macOS         | Meta+Shift+G       |
       | Windows/Linux | Ctrl+Shift+G       |
+
+  Scenario: Exclude Group commands from the Layers header
+    Given the Layers/Contents panel is visible
+    Then the header should not expose Group or Ungroup buttons
+    And the existing Group and Ungroup features should remain reachable through Context Menu and platform shortcuts

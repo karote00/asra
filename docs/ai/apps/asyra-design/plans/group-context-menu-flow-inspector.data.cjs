@@ -1,8 +1,7 @@
 ;(function () {
   'use strict'
 
-  const specPath =
-    'docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md'
+  const specPath = 'docs/ai/apps/asyra-design/plans/group-context-menu-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs'
 
@@ -148,7 +147,8 @@
       conditions: [
         'The descriptor order is exactly Group then Ungroup and both descriptors remain visible.',
         'Group reuses existing canGroup eligibility and Ungroup reuses existing canUngroup eligibility; Scene Tree remains final validator.',
-        'One descriptor source supplies command id, visible label, actual key metadata, platform display label, enabled state, and runGroupCommand callback to Layers and Context Menu consumers.',
+        'One descriptor source supplies command id, visible label, actual key metadata, platform display label, enabled state, and runGroupCommand callback to the Context Menu consumer.',
+        'The Layers/Contents header exposes no Group or Ungroup buttons; Context Menu and registered shortcuts are the only command surfaces.',
         'macOS maps Group to Meta+G with visible label ⌘G and Ungroup to Meta+Shift+G with visible label ⇧⌘G.',
         'Windows and Linux map Group to Ctrl+G with visible label Ctrl+G and Ungroup to Ctrl+Shift+G with visible label Ctrl+Shift+G.',
         'Registered keyboard input emits the same group or ungroup command intent advertised by the matching descriptor and consumed by the existing Group feature.'
@@ -584,7 +584,7 @@
       id: 'one-shared-group-command-contract',
       title: 'Every command surface reaches one existing Group feature',
       statement:
-        'Layers, Context Menu, and actual Meta/Ctrl shortcuts derive from shared descriptors and dispatch the existing Group/Ungroup feature without a parallel transaction or failure path.',
+        'Context Menu and actual Meta/Ctrl shortcuts derive from shared descriptors and dispatch the existing Group/Ungroup feature without a parallel transaction or failure path; the Layers/Contents header exposes no Group or Ungroup buttons.',
       stepIds: [
         'project-group-command-descriptors',
         'handoff-enabled-command-to-feature'
@@ -648,7 +648,8 @@
         'Group appears before Ungroup with left command labels and right platform shortcut labels.',
         'macOS shows ⌘G and ⇧⌘G and actual Meta+G and Meta+Shift+G invoke the matching existing Group feature command.',
         'Windows/Linux shows Ctrl+G and Ctrl+Shift+G and actual Ctrl+G and Ctrl+Shift+G invoke the matching existing Group feature command.',
-        'Valid multi-selection enables Group; one official Group enables Ungroup; unavailable commands remain visible and disabled.'
+        'Valid multi-selection enables Group; one official Group enables Ungroup; unavailable commands remain visible and disabled.',
+        'The Layers/Contents header exposes no Group or Ungroup buttons.'
       ],
       stepIds: [
         'project-group-command-descriptors',
@@ -695,7 +696,7 @@
       assertions: [
         'Input System, Design System, Inspector, app, E2E, Gherkin/BDD synchronization, dependency, lint, build, template sync, and synchronized center/edge visual gates pass.',
         'No app fallback, second selection or hierarchy state, patch geometry, Render repair path, remote menu policy, extra command, or app-only duplicate menu primitive is introduced.',
-        'Implementation stops for explicit user review before closeout, push, pull request, or merge.'
+        'The follow-up may update the existing PR #97 but stops for explicit user review before another closeout or merge.'
       ],
       stepIds: [
         'intake-canvas-context-event',
@@ -733,7 +734,7 @@
         id: 'group-context-menu-plan',
         kind: 'authority',
         label: 'Product contract',
-        href: './completed/group-context-menu-plan.md'
+        href: './group-context-menu-plan.md'
       },
       {
         id: 'existing-group-inspector',

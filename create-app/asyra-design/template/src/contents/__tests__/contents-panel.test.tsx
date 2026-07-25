@@ -151,6 +151,13 @@ describe('Layers pointer hierarchy presentation', () => {
     cleanup()
   })
 
+  it('keeps Group and Ungroup command buttons out of the Layers header', () => {
+    render(<Contents />)
+
+    expect(screen.queryByTestId('layers-group-button')).toBeNull()
+    expect(screen.queryByTestId('layers-ungroup-button')).toBeNull()
+  })
+
   it('uses Tailwind spacing for row indentation and content padding', () => {
     render(<Contents />)
     const rootRow = screen.getByTestId('element-item-a')

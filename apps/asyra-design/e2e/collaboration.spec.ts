@@ -7,6 +7,7 @@ import {
   getContentsPanel,
   getElementCount,
   getSelectedElementClientCenter,
+  pressGroupCommandShortcut,
   redo,
   undo,
   waitForAppReady
@@ -57,9 +58,7 @@ const groupLayerIds = async (
   } finally {
     await page.keyboard.up('Shift')
   }
-  const groupButton = page.getByTestId('layers-group-button')
-  await expect(groupButton).toBeEnabled()
-  await groupButton.click()
+  await pressGroupCommandShortcut(page, 'group')
   await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
   return (await getSelectedIds(page))[0]
 }
