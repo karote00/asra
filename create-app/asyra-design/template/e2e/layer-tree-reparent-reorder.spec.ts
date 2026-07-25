@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   createRectangle,
   getContentsPanel,
+  pressGroupCommandShortcut,
   redo,
   resetCanvas,
   undo,
@@ -179,7 +180,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       await page.keyboard.up('Shift')
     }
     await expect.poll(() => getSelectedIds(page)).toEqual([secondId, thirdId])
-    await page.getByTestId('layers-group-button').click()
+    await pressGroupCommandShortcut(page, 'group')
     await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const groupId = (await getSelectedIds(page))[0]
     await expect(layerRow(page, groupId)).toBeVisible()

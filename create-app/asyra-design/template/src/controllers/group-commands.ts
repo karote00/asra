@@ -1,7 +1,8 @@
 import { EntityTypes, type ElementRawData } from '@asyra/utils'
 import { hierarchyApis, selectionApis } from '../common-apis'
+import { GroupCommandIds, type GroupCommand } from '../constants'
 
-export type GroupCommand = 'group' | 'ungroup'
+export type { GroupCommand } from '../constants'
 
 export type GroupCommandElementDataMap = Record<string, Partial<ElementRawData>>
 
@@ -83,7 +84,8 @@ export const createGroupCommandRequest = (
   command: GroupCommand,
   state: GroupCommandState
 ): GroupCommandRequest | null => {
-  const isAvailable = command === 'group' ? state.canGroup : state.canUngroup
+  const isAvailable =
+    command === GroupCommandIds.GROUP ? state.canGroup : state.canUngroup
   if (!isAvailable) {
     return null
   }

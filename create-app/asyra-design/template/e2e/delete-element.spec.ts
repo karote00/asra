@@ -7,6 +7,7 @@ import {
   getElementCount,
   getSelectedElementClientCenter,
   hasSelectedElement,
+  pressGroupCommandShortcut,
   redo,
   resetCanvas,
   undo,
@@ -54,7 +55,7 @@ test.describe('Delete Selected Element', () => {
       const childId = core.deps.selection.getElementSelectionIds()[0]
       return { childId }
     })
-    await page.getByTestId('layers-group-button').click()
+    await pressGroupCommandShortcut(page, 'group')
     const groupId = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__

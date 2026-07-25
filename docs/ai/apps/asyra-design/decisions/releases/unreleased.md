@@ -6782,3 +6782,56 @@ join` constrained dashed product path across:
     closeout is merged and explicitly started.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`
+
+## 2026-07-25 - Complete Asyra Design Group Context Menu
+
+- Context:
+  - Asyra Design had canonical Group/Ungroup features and keyboard bindings,
+    but no canvas-owned Context Menu or reusable command-row presentation.
+  - Input System still suppressed every native browser Context Menu globally,
+    while shortcut labels, eligibility, and actual command routing needed one
+    shared app-owned contract.
+- Decision:
+  - Close the Group Context Menu plan after its exact Inspector owner flow,
+    Gherkin contracts, formal package/app gates, macOS and Windows/Linux E2E,
+    template synchronization, synchronized visual review, and explicit user
+    approval.
+  - Keep menu session, platform formatting, command descriptors, eligibility,
+    and routing in Asyra Design; keep reusable accessible presentation in
+    Design System; scope browser suppression to accepted canvas invocations.
+  - Route both menu activation and `Meta`/`Ctrl` Group shortcuts through the
+    existing Group feature, transaction, selection, and failure contracts.
+- Consequences:
+  - Canvas right-click opens one pointer-positioned menu containing Group then
+    Ungroup with accurate platform labels, availability, focus, dismissal, and
+    viewport-fit behavior.
+  - Menu-only interaction remains non-mutating, and no second selection,
+    hierarchy, Group operation, transaction, Render repair, or app fallback
+    path exists.
+  - The durable collaboration server and continuous sync plan becomes the next
+    separately queued app plan and remains inactive until explicitly started.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`
+
+## 2026-07-25 - Reopen Group Context Menu to remove Layers command buttons
+
+- Context:
+  - Post-closeout product review determined that the Group and Ungroup buttons
+    in the Layers/Contents header should not exist once the commands are
+    available through the Context Menu and operating-system shortcuts.
+  - Existing Group Interaction Inspector and tests incorrectly required those
+    buttons as a command surface.
+- Decision:
+  - Reopen the Group Context Menu plan for a bounded follow-up in PR #97.
+  - Make Context Menu and actual shortcuts the only Group/Ungroup command
+    surfaces and remove the Layers/Contents header buttons.
+  - Supersede only the old visible-control requirement; retain the existing
+    Group feature, eligibility, transaction, selection, hierarchy, and failure
+    contracts.
+- Consequences:
+  - Inspector, Gherkin, app tests, and E2E setup must reject or avoid the old
+    Layers buttons before production removal is complete.
+  - The plan requires a new review and explicit closeout after the follow-up;
+    the earlier completion record is no longer the active canonical path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/group-context-menu-plan.md`

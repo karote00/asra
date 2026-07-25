@@ -2,22 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { InputType, ModifierKey } from '@asyra/utils'
 import { keyMap } from '@asyra/core'
 import { InputSystemEvents } from '../../constants'
+import { groupShortcutInputRegistrations } from '../group-command-descriptors'
 import { isEditableShortcutTarget, keyCombinations } from '../key-combinations'
 
 describe('Group shortcut routing', () => {
   it('registers one Meta and one Ctrl combo without a duplicate Shift combo', () => {
-    expect(keyCombinations[InputSystemEvents.INPUT_SHORTCUT_GROUP]).toEqual([
+    expect(keyCombinations[InputSystemEvents.INPUT_SHORTCUT_GROUP]).toEqual(
+      groupShortcutInputRegistrations.map(({ key, modifiers }) =>
+        expect.objectContaining({
+          type: InputType.KEYBOARD,
+          keys: [key],
+          modifiers: [...modifiers],
+          detail: { groupShortcut: true }
+        })
+      )
+    )
+    expect(groupShortcutInputRegistrations).toEqual([
       expect.objectContaining({
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyG],
-        modifiers: [ModifierKey.META],
-        detail: { groupShortcut: true }
+        key: keyMap.keys.KeyG,
+        modifiers: [ModifierKey.META]
       }),
       expect.objectContaining({
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyG],
-        modifiers: [ModifierKey.CTRL],
-        detail: { groupShortcut: true }
+        key: keyMap.keys.KeyG,
+        modifiers: [ModifierKey.CTRL]
       })
     ])
   })

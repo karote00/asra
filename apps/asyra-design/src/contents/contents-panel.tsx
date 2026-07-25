@@ -8,7 +8,6 @@ import React, {
 } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Element from './Element'
-import { GroupCommandControls } from './GroupCommandControls'
 import { projectVisibleLayerRows } from './layer-hierarchy'
 import { getVisibleRangeSelection } from './layer-selection'
 import { COLUMN_WIDTH, ROW_HEIGHT } from '../constants'
@@ -16,7 +15,6 @@ import {
   clearSelection,
   selectElements
 } from '../controllers/element-selection'
-import { deriveGroupCommandState } from '../controllers/group-commands'
 import { setHoveredElementId } from '../controllers/hovered-element'
 import { resolveLayerPointerTarget } from '../controllers/layer-dom-drop-target'
 import {
@@ -65,15 +63,6 @@ const Contents: React.FC = () => {
   const [dropIntent, setDropIntent] = useState<LayerDropIntent | null>(null)
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
     () => new Set()
-  )
-  const groupCommandState = useMemo(
-    () =>
-      deriveGroupCommandState(
-        [...elementSelection],
-        flattenedIds,
-        elementDataMap
-      ),
-    [elementDataMap, elementSelection, flattenedIds]
   )
   const layerProjection = useMemo(
     () =>
@@ -439,10 +428,6 @@ const Contents: React.FC = () => {
         }}
       >
         <span className="text-[11px] font-medium text-[#999]">Layers</span>
-        <GroupCommandControls
-          canGroup={groupCommandState.canGroup}
-          canUngroup={groupCommandState.canUngroup}
-        />
       </div>
 
       {/* Layers list */}

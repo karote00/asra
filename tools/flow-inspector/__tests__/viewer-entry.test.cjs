@@ -106,6 +106,15 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-design-group-context-menu',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html'
+    ),
+    dataScript: './group-context-menu-flow-inspector.data.cjs',
+    filterLaneTitle: 'App Menu and Command Policy'
+  },
+  {
     id: 'asyra-design-remote-subtree-restore-snapshot',
     entryPath: path.join(
       projectRoot,

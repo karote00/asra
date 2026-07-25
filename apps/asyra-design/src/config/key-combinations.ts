@@ -13,6 +13,7 @@ import { keyMap } from '@asyra/core'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core from '../contexts'
 import { InputSystemEvents, PrimaryToolType } from '../constants'
+import { groupShortcutInputRegistrations } from './group-command-descriptors'
 
 // Helper functions to reduce code duplication
 const updateKeyState = (raw: RawInputEvent) => {
@@ -317,22 +318,15 @@ export const keyCombinations = {
       callback: updateKeyState
     }
   ],
-  [InputSystemEvents.INPUT_SHORTCUT_GROUP]: [
-    {
+  [InputSystemEvents.INPUT_SHORTCUT_GROUP]: groupShortcutInputRegistrations.map(
+    ({ key, modifiers }) => ({
       type: InputType.KEYBOARD,
-      keys: [keyMap.keys.KeyG],
-      modifiers: [ModifierKey.META],
+      keys: [key],
+      modifiers: [...modifiers],
       detail: { groupShortcut: true },
       callback: updateGroupShortcutState
-    },
-    {
-      type: InputType.KEYBOARD,
-      keys: [keyMap.keys.KeyG],
-      modifiers: [ModifierKey.CTRL],
-      detail: { groupShortcut: true },
-      callback: updateGroupShortcutState
-    }
-  ],
+    })
+  ),
   [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [
     {
       type: InputType.KEYBOARD,

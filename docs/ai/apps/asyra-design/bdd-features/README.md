@@ -3,6 +3,7 @@
 These are app behavior contracts in Gherkin format.
 
 References:
+
 - implementation: `apps/asyra-design/src/features/*`
 - verification: `apps/asyra-design/e2e/*.spec.ts`
 
@@ -16,3 +17,5 @@ References:
 - `viewport-navigation.feature`
 - `pen-tool.feature`
 - `undo-redo.feature`
+- `group-interactions.feature`
+- `group-context-menu.feature`

@@ -4,6 +4,7 @@ import {
   getCanvasPosition,
   getContentsPanel,
   getSelectedElementClientCenter,
+  pressGroupCommandShortcut,
   redo,
   resetCanvas,
   undo,
@@ -49,7 +50,7 @@ const groupLayerIds = async (
     }
   }
 
-  await page.getByTestId('layers-group-button').click()
+  await pressGroupCommandShortcut(page, 'group')
   await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
   return (await getSelectedIds(page))[0]
 }
@@ -649,8 +650,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     } finally {
       await page.keyboard.up('Shift')
     }
-    await expect(page.getByTestId('layers-group-button')).toBeEnabled()
-    await page.getByTestId('layers-group-button').click()
+    await pressGroupCommandShortcut(page, 'group')
 
     await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const firstGroupId = (await getSelectedIds(page))[0]
@@ -665,7 +665,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
       },
       { groupId: firstGroupId, siblingId: initialIds[2] }
     )
-    await page.keyboard.press('Meta+G')
+    await pressGroupCommandShortcut(page, 'group')
 
     await expect.poll(() => getSelectedIds(page)).toHaveLength(1)
     const nestedGroupId = (await getSelectedIds(page))[0]
@@ -769,8 +769,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     )
 
     await layerRow(page, nestedGroupId).click()
-    await expect(page.getByTestId('layers-ungroup-button')).toBeEnabled()
-    await page.getByTestId('layers-ungroup-button').click()
+    await pressGroupCommandShortcut(page, 'ungroup')
     await expect
       .poll(() => getSelectedIds(page))
       .toEqual([firstGroupId, initialIds[2]])

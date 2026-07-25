@@ -84,8 +84,8 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 
 ### Asyra Design
 
-- owns command availability, selected ids, feature execution, shortcuts,
-  Layers controls, post-operation selection, collapsed-row UI state, and
+- owns command availability, selected ids, feature execution, Context Menu
+  routing, shortcuts, post-operation selection, collapsed-row UI state, and
   product-facing error/no-op behavior;
 - owns canvas hierarchy target resolution from the identity-safe Render hit,
   canonical hierarchy projection, current selection, and primary modifier
@@ -148,11 +148,11 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 
 ### Command surfaces
 
-- The Layers header exposes visible Group and Ungroup controls.
-- Controls expose stable accessible names and stable `data-testid` values.
-- Group is disabled unless the projected selection satisfies the app's
-  non-empty/common-parent eligibility check.
-- Ungroup is disabled unless exactly one projected official Group is selected.
+- The later Group Context Menu contract supersedes the original visible
+  Layers-header controls: the Layers/Contents header exposes no Group or
+  Ungroup buttons.
+- The canvas Context Menu reflects projected Group/Ungroup eligibility and
+  routes the existing feature contract.
 - `Meta+G` on macOS and `Ctrl+G` elsewhere invoke Group.
 - `Meta+Shift+G` on macOS and `Ctrl+Shift+G` elsewhere invoke Ungroup.
 - Editable text/number/color inputs retain their normal keyboard behavior and
@@ -503,7 +503,7 @@ an app fallback.
   bounds through the existing common API and `calculateZoomFit`.
 - App integration tests for save/load, accepted remote apply, local selection
   isolation, and instance isolation.
-- E2E tests driven through visible controls and shortcuts, not
+- E2E tests driven through Context Menu and shortcuts, not
   `window.__AsyraE2E__`, for Group/Ungroup, nested Layers, undo/redo, and
   reload.
 - Synchronized live-app visual review proving no visible geometry jump and
@@ -514,8 +514,8 @@ an app fallback.
 - the approved product contract and exact Inspector agree and readiness tests
   pass before implementation;
 - every Inspector owner step is completed and reviewed independently;
-- visible Layers controls and standard shortcuts execute the same feature
-  contract;
+- Context Menu and standard shortcuts execute the same feature contract, while
+  the Layers/Contents header exposes no Group or Ungroup buttons;
 - Group/Ungroup eligibility, post-selection, nested projection,
   expand/collapse, hierarchy-scoped canvas hover/selection/move/create-parent
   targeting, Group hover/selection boxes, exact world-space scene bounds,
