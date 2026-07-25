@@ -16,11 +16,14 @@ export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
 export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export {
+  AI_PLAN_TRANSACTION_LABEL,
   AiConfirmationError,
   AiPermissionError,
+  AiTransactionError,
   confirmAiPlan,
   createAiAgentRuntime,
-  evaluateAiPlanPermissions
+  evaluateAiPlanPermissions,
+  runAiPlanTransaction
 } from './runtime'
 export type {
   AiPlan,

@@ -33,6 +33,18 @@ export interface AiTransactionRunner {
   run<T>(label: string, execute: () => Promise<T>): Promise<T>
 }
 
+export const AI_PLAN_TRANSACTION_LABEL = 'AI-assisted action'
+
+export class AiTransactionError extends Error {
+  readonly code = 'AI_TRANSACTION_ABORTED' as const
+  readonly stage = 'transaction' as const
+
+  constructor() {
+    super('AI plan transaction was aborted.')
+    this.name = 'AiTransactionError'
+  }
+}
+
 export interface AiRuntimeOwnedResource {
   dispose(): void | Promise<void>
 }
@@ -317,6 +329,28 @@ export const confirmAiPlan = async (
       signal.removeEventListener('abort', abortListener)
     }
   }
+}
+
+const assertTransactionNotAborted = (signal: AbortSignal): void => {
+  if (signal.aborted) {
+    throw new AiTransactionError()
+  }
+}
+
+export const runAiPlanTransaction = async <T>(
+  _plan: AiConfirmedPlan,
+  runner: AiTransactionRunner,
+  signal: AbortSignal,
+  execute: () => Promise<T>
+): Promise<T> => {
+  assertTransactionNotAborted(signal)
+
+  return runner.run(AI_PLAN_TRANSACTION_LABEL, async () => {
+    assertTransactionNotAborted(signal)
+    const result = await execute()
+    assertTransactionNotAborted(signal)
+    return result
+  })
 }
 
 class DefaultAiAgentRuntime implements AiAgentRuntime {
