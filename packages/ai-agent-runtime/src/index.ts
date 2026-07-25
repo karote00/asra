@@ -2,9 +2,25 @@ export {
   AiActionRegistryError,
   createAiActionRegistry
 } from './action-registry'
+export {
+  AiPlanNormalizationError,
+  AiRetryPolicyError,
+  MAX_AI_PROVIDER_ATTEMPTS,
+  normalizeAiProviderOutput,
+  shouldRetryAiProviderFailure,
+  toAiPlanningFailure
+} from './plan'
 export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
+export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export { createAiAgentRuntime } from './runtime'
+export type {
+  AiPlan,
+  AiPlannedAction,
+  AiPlanningFailure,
+  AiProviderRetryContext,
+  AiRetryPolicy
+} from './plan'
 export type {
   AiProvider,
   AiProviderErrorCode,
@@ -18,6 +34,7 @@ export type {
   GenericHttpAiProvider,
   GenericHttpAiProviderOptions
 } from './providers/generic-http'
+export type { AiRedactionOptions } from './redaction'
 export type {
   AiAgentRuntime,
   AiConfirmationHandler,

@@ -76,6 +76,9 @@ vendor mandatory and does not read or expose a browser-held server API key.
 - `AiProvider`: receives a detached request containing intent, context, and
   deterministic action descriptions; it returns `unknown` provider output for
   runtime validation.
+- Candidate provider output uses the minimum JSON shape
+  `{ planId, explanation?, actions: [{ id, name, arguments }] }`. Normalizing
+  this shape does not imply action, schema, permission, or execution validity.
 - `AiPermissionPolicy`: returns `allow`, `deny`, or `confirm` for every prepared
   action before execution.
 - `AiConfirmationHandler`: receives one immutable complete preview and returns

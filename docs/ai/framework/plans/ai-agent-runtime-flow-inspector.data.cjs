@@ -357,7 +357,10 @@
       implementationBoundary: [
         'packages/ai-agent-runtime/src/runtime.ts',
         'packages/ai-agent-runtime/src/plan.ts',
-        'packages/ai-agent-runtime/src/redaction.ts'
+        'packages/ai-agent-runtime/src/redaction.ts',
+        'packages/ai-agent-runtime/src/__tests__/planning.test.ts',
+        'packages/ai-agent-runtime/src/__tests__/redaction.test.ts',
+        'packages/ai-agent-runtime/src/index.ts'
       ],
       specRefs: [
         '#public-output-contracts',
