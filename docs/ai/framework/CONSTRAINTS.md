@@ -113,14 +113,17 @@
 
 10. AI agent runtime
 
-- No reusable AI action-planning runtime or production-capable provider adapter
-  is implemented yet.
-- The AI runtime is required by Framework Release Gate 4 but remains optional to
-  install and activate; apps that omit it must create no model-provider,
-  network, secret, or AI lifecycle side effect.
+- `@asyra/ai-agent-runtime` and its generic HTTP provider adapter are
+  implemented under the completed Framework Release Gate 4 contract, but
+  remain optional to install and activate.
+- Apps that omit it create no model provider, network, secret, Feature, timer,
+  listener, or AI lifecycle side effect.
 - App-owned registered actions and ordinary transaction/validation/state paths
   remain authoritative; model output is never canonical scene state.
-- See `plans/ai-agent-runtime-plan.md`.
+- The runtime reads no implicit API key. App/backends own provider credentials,
+  authentication, rate limits, and vendor-specific repair.
+- See `packages/ai-agent-runtime.md` and
+  `plans/completed/ai-agent-runtime-plan.md`.
 
 11. App-level migration hooks
 

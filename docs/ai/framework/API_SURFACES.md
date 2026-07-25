@@ -261,6 +261,29 @@ Managed property bridges:
 
 ## Package Export Map
 
+`@asyra/ai-agent-runtime` (optional runtime)
+
+- composition: `createAiAgentRuntime(...)`, `AiAgentRuntime`,
+  `CreateAiAgentRuntimeInput`, `AiRunRequest`, and `AiRuntimeOptions`
+- terminal output: `AiRuntimeResult`, `AiRuntimeExecutedResult`,
+  `AiRuntimeCancelledResult`, `AiRuntimeFailedResult`, `AiRuntimeStage`, and
+  `AiRuntimeFailureCode`
+- registry/actions: `createAiActionRegistry()`, `AiActionRegistry`,
+  `AiActionDefinition`, `AiActionSchema`, `AiActionSchemaResult`, and
+  `AiActionDescription`
+- provider: `AiProvider`, `AiProviderInput`, `AiProviderError`, and
+  `createGenericHttpAiProvider(...)`
+- preflight/execution: plan normalization and validation, permission evaluation,
+  confirmation, registered action execution, and transaction-wrapper helpers
+- evidence: `redactAiValue(...)`, `createAiRuntimeAudit(...)`, preview,
+  execution-summary, audit, and redaction types
+- importing the package is inert; apps explicitly compose the provider,
+  context, actions, permission, confirmation, transaction, and owned resources
+- the generic HTTP adapter uses an app-selected HTTPS or same-origin endpoint;
+  it reads no API key or implicit browser credential source
+- one runtime invocation performs provider planning before one accepted
+  transaction; provider retry never repeats a transaction or executor
+
 `@asyra/collaboration` (optional runtime)
 
 - composition: `createCollaboration(...)`, `Collaboration`,

@@ -23,15 +23,16 @@ Framework-first rules:
 7. `FLOW_INSPECTOR.md`
 8. `REQUEST_ROUTING.md`
 9. `RUNTIME_MATRICES.md`
-10. `CONSTRAINTS.md`
-11. `rules/*`
-12. `packages/*`
-13. `golden-paths/*`
-14. `BEST_PRACTICES.md`
-15. `PLANS.md`
-16. `plans/completed/*` (historical completed-plan archive)
-17. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
-18. `audits/*` (historical point-in-time diagnostics; never current authority)
+10. `SECURITY.md`
+11. `CONSTRAINTS.md`
+12. `rules/*`
+13. `packages/*`
+14. `golden-paths/*`
+15. `BEST_PRACTICES.md`
+16. `PLANS.md`
+17. `plans/completed/*` (historical completed-plan archive)
+18. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
+19. `audits/*` (historical point-in-time diagnostics; never current authority)
 
 ## Interpretation Priority
 

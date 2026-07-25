@@ -48,6 +48,15 @@
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
 - foundation: `initInputSystem()`, `initFeatures()`
+- AI composition is evaluated immediately before `initFeatures()`:
+  - default/disabled creates no runtime and registers no AI Feature
+  - provider-disabled registers the Feature but performs no context/provider
+    work on invocation
+  - provider-enabled passes the one app-composed runtime to the exclusive
+    programmatic AI Feature
+- `initApp()` returns the AI composition and an idempotent async disposer;
+  disposal aborts/awaits active AI work and disposes only explicitly owned AI
+  resources
 
 2. React mount
 
@@ -121,3 +130,6 @@
   engine package owns its instance/resources, and Core owns the default
   `RenderAdapter` lifecycle.
 - Renderer/engine capability must not select an app product mode.
+- Keep AI activation explicit and default-off. Model/provider selection,
+  credentials, permission, confirmation, and app action definitions do not
+  belong in Core or Preset startup.

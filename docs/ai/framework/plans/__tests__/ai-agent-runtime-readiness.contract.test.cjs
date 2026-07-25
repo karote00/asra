@@ -10,7 +10,7 @@ const inspector = require('../ai-agent-runtime-flow-inspector.data.cjs')
 const repoRoot = path.resolve(__dirname, '../../../../..')
 const planPath = path.resolve(
   repoRoot,
-  'docs/ai/framework/plans/ai-agent-runtime-plan.md'
+  'docs/ai/framework/plans/completed/ai-agent-runtime-plan.md'
 )
 const bddPath = path.resolve(
   repoRoot,
@@ -48,9 +48,9 @@ test('thin product contract decides supported, unsupported, public, owner, case,
 
   assert.match(
     plan,
-    /Framework Release Gate 4 is active from baseline `0e3eee620`/
+    /Framework Release Gate 4 was completed on 2026-07-25 from baseline\s+`0e3eee620`/
   )
-  assert.match(plan, /Production implementation begins only after/)
+  assert.match(plan, /Production implementation began only after/)
   assert.doesNotMatch(plan, /Candidate contracts:/)
   assert.doesNotMatch(plan, /first provider adapter may target OpenAI/)
   assert.doesNotMatch(plan, /docs-only planning record/)

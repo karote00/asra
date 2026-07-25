@@ -1,0 +1,122 @@
+import {
+  cancelFeatureTask,
+  defineFeature,
+  invokeFeatureTask
+} from '@asyra/feature-system'
+import type { AiRuntimeResult } from '@asyra/ai-agent-runtime'
+import { FeatureNames } from '../../constants'
+
+export const AI_AGENT_FEATURE_PRIORITY = 100
+
+export interface AiAgentFeatureRunRequest {
+  readonly intent: string
+  readonly signal: AbortSignal
+}
+
+export interface AiAgentFeatureRuntime {
+  run(
+    request: AiAgentFeatureRunRequest
+  ): Promise<AiRuntimeResult | Record<string, unknown>>
+}
+
+export interface RegisterAiAgentFeatureOptions {
+  readonly providerEnabled: boolean
+  readonly runtime?: AiAgentFeatureRuntime
+}
+
+export interface AiAgentFeatureExecuteOptions {
+  readonly signal?: AbortSignal
+}
+
+export type AiAgentFeatureTerminalResult =
+  | {
+      readonly status: 'unavailable'
+      readonly reason: 'provider-disabled'
+    }
+  | {
+      readonly status: 'cancelled'
+      readonly reason: 'aborted'
+    }
+  | {
+      readonly status: 'failed'
+      readonly code: 'INVALID_INTENT'
+      readonly stage: 'feature'
+    }
+
+export type AiAgentFeatureResult =
+  | AiAgentFeatureTerminalResult
+  | AiRuntimeResult
+  | Record<string, unknown>
+
+export interface AiAgentFeatureApi {
+  execute(
+    intent: string,
+    options?: AiAgentFeatureExecuteOptions
+  ): Promise<AiAgentFeatureResult>
+  cancel(reason?: unknown): boolean
+  [key: string]: unknown
+}
+
+interface AiAgentFeatureTaskInput {
+  readonly intent: string
+}
+
+const AI_PROVIDER_DISABLED_RESULT = Object.freeze({
+  status: 'unavailable',
+  reason: 'provider-disabled'
+} as const)
+
+const AI_ABORTED_RESULT = Object.freeze({
+  status: 'cancelled',
+  reason: 'aborted'
+} as const)
+
+const AI_INVALID_INTENT_RESULT = Object.freeze({
+  status: 'failed',
+  code: 'INVALID_INTENT',
+  stage: 'feature'
+} as const)
+
+export const registerAiAgentFeature = (
+  options: RegisterAiAgentFeatureOptions
+) => {
+  if (options.providerEnabled && !options.runtime) {
+    throw new Error('runtime is required when the AI provider is enabled')
+  }
+
+  const api: AiAgentFeatureApi = {
+    execute: (intent, executeOptions = {}) => {
+      const normalizedIntent = intent.trim()
+      if (!normalizedIntent) {
+        return Promise.resolve(AI_INVALID_INTENT_RESULT)
+      }
+
+      return invokeFeatureTask<AiAgentFeatureTaskInput, AiAgentFeatureResult>(
+        FeatureNames.AI_AGENT,
+        { intent: normalizedIntent },
+        executeOptions
+      )
+    },
+    cancel: (reason) => cancelFeatureTask(FeatureNames.AI_AGENT, reason)
+  }
+
+  return defineFeature<
+    AiAgentFeatureApi,
+    Record<string, never>,
+    AiAgentFeatureTaskInput,
+    AiAgentFeatureResult
+  >(FeatureNames.AI_AGENT, undefined, {
+    priority: AI_AGENT_FEATURE_PRIORITY,
+    exclusive: true,
+    api,
+    task: ({ intent }, { signal }) => {
+      if (signal.aborted) {
+        return AI_ABORTED_RESULT
+      }
+      if (!options.providerEnabled || !options.runtime) {
+        return AI_PROVIDER_DISABLED_RESULT
+      }
+      return options.runtime.run({ intent, signal })
+    }
+  })
+}

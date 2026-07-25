@@ -12,3 +12,4 @@ If a golden path exists for a topic, follow it before `BEST_PRACTICES.md`.
 - `replace-render-engine.md`
 - `load-save-migration.md`
 - `feature-acceptance-checklist.md`
+- `compose-ai-agent-runtime.md`

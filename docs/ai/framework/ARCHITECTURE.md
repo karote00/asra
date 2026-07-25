@@ -324,7 +324,8 @@ The first public framework release is gated, in order, by:
    2026);
 2. optional-at-runtime network collaboration transport foundation;
 3. canonical Group hierarchy behaviors plus Preset basic operations;
-4. optional AI agent runtime with replaceable provider and app-owned actions;
+4. optional AI agent runtime with replaceable provider and app-owned actions
+   (completed July 25, 2026);
 5. framework release-readiness audit and closeout.
 
 Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
@@ -338,6 +339,7 @@ See:
 - `packages/core.md`
 - `packages/factory.md`
 - `packages/collaboration.md`
+- `packages/ai-agent-runtime.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
 - `packages/preset.md`

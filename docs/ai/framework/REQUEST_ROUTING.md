@@ -46,9 +46,10 @@ Use this file to route a new framework request to the right docs first.
 
 - AI intent/action planning/provider/permission/transaction execution
   - `FRAMEWORK_ESSENTIALS.md`
+  - `packages/ai-agent-runtime.md`
   - `packages/feature-system.md`
   - `packages/factory.md`
-  - `plans/ai-agent-runtime-plan.md`
+  - `plans/completed/ai-agent-runtime-plan.md`
 
 - auto-layout/unit-aware layout/UI aggregation Roadmap
   - `CONSTRAINTS.md`

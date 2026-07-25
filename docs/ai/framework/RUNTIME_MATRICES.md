@@ -20,6 +20,9 @@ Use these matrices for deterministic ownership and flow decisions.
 - commit persistence acknowledgement owner: injected `@asyra/core` + provider
 - optional collaboration publication transport and Awareness composition owner:
   `@asyra/collaboration`
+- optional AI intent-to-action orchestration owner:
+  `@asyra/ai-agent-runtime`; app Feature System, action schemas, permission,
+  transaction adapters, and canonical state owners remain external owners
 - collaboration authentication, room policy, persistence, recovery, ordering,
   and conflict owner: app/server
 - canonical remote mutation owner: the app callback and selected state owners,

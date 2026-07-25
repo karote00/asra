@@ -3,7 +3,8 @@
 ;(function () {
   'use strict'
 
-  const specPath = 'docs/ai/framework/plans/ai-agent-runtime-plan.md'
+  const specPath =
+    'docs/ai/framework/plans/completed/ai-agent-runtime-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs'
 

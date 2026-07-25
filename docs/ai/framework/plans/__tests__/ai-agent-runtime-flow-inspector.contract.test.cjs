@@ -49,7 +49,7 @@ test('AI Agent Runtime Inspector and product authorities resolve', () => {
   assert.equal(data.target.title, 'AI Agent Runtime Flow Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/ai-agent-runtime-plan.md'
+    'docs/ai/framework/plans/completed/ai-agent-runtime-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

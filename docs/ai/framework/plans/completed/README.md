@@ -28,6 +28,8 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
   - `network-collaboration-transport-plan.md`
 - Completed Group component and hierarchy behaviors:
   - `group-component-and-hierarchy-behaviors-plan.md`
+- Completed optional AI agent runtime:
+  - `ai-agent-runtime-plan.md`
 
 ## Update Rule
 
