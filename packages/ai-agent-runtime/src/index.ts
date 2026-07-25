@@ -16,7 +16,9 @@ export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
 export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export {
+  AiConfirmationError,
   AiPermissionError,
+  confirmAiPlan,
   createAiAgentRuntime,
   evaluateAiPlanPermissions
 } from './runtime'
@@ -47,7 +49,9 @@ export type {
 export type { AiRedactionOptions } from './redaction'
 export type {
   AiAgentRuntime,
+  AiConfirmationErrorCode,
   AiConfirmationHandler,
+  AiConfirmedPlan,
   AiContextProvider,
   AiPermissionAction,
   AiPermissionDecision,
@@ -55,6 +59,8 @@ export type {
   AiPermissionPolicy,
   AiPermissionReadyAction,
   AiPermissionReadyPlan,
+  AiPlanPreview,
+  AiPlanPreviewAction,
   AiRuntimeOwnedResource,
   AiTransactionRunner,
   CreateAiAgentRuntimeInput

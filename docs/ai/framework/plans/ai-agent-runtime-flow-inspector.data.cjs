@@ -510,7 +510,10 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/ai-agent-runtime/src/runtime.ts',
-        'apps/asyra-design/src/ai/confirmation.ts'
+        'packages/ai-agent-runtime/src/__tests__/confirmation.test.ts',
+        'packages/ai-agent-runtime/src/index.ts',
+        'apps/asyra-design/src/ai/confirmation.ts',
+        'apps/asyra-design/src/ai/__tests__/confirmation.test.ts'
       ],
       specRefs: [
         '#supported-behavior',

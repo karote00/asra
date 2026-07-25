@@ -1,5 +1,7 @@
 import type { AiProvider } from './provider'
 import type { AiPreparedAction, AiPreparedPlan } from './plan'
+import { redactAiValue, type AiRedactionOptions } from './redaction'
+import type { AiJsonValue } from './types'
 
 export interface AiContextProvider {
   getContext(input: { intent: string; signal: AbortSignal }): Promise<unknown>
@@ -21,7 +23,10 @@ export interface AiPermissionPolicy<TContext = unknown> {
 }
 
 export interface AiConfirmationHandler {
-  confirm(preview: unknown, options: { signal: AbortSignal }): Promise<boolean>
+  confirm(
+    preview: AiPlanPreview,
+    options: { signal: AbortSignal }
+  ): Promise<boolean>
 }
 
 export interface AiTransactionRunner {
@@ -57,6 +62,24 @@ export interface AiPermissionReadyPlan {
   readonly confirmationRequired: boolean
 }
 
+export interface AiPlanPreviewAction {
+  readonly id: string
+  readonly name: string
+  readonly arguments: AiJsonValue
+  readonly permission: Exclude<AiPermissionDecision, 'deny'>
+}
+
+export interface AiPlanPreview {
+  readonly planId: string
+  readonly explanation?: string
+  readonly actions: readonly AiPlanPreviewAction[]
+}
+
+export interface AiConfirmedPlan extends AiPermissionReadyPlan {
+  readonly confirmation: 'accepted' | 'bypassed'
+  readonly preview: AiPlanPreview
+}
+
 export type AiPermissionErrorCode =
   | 'AI_PERMISSION_DENIED'
   | 'AI_PERMISSION_POLICY_FAILED'
@@ -75,6 +98,22 @@ export class AiPermissionError extends Error {
     this.name = 'AiPermissionError'
     this.code = code
     this.deniedActionIds = Object.freeze([...deniedActionIds])
+  }
+}
+
+export type AiConfirmationErrorCode =
+  | 'AI_CONFIRMATION_ABORTED'
+  | 'AI_CONFIRMATION_CANCELLED'
+  | 'AI_CONFIRMATION_HANDLER_FAILED'
+
+export class AiConfirmationError extends Error {
+  readonly code: AiConfirmationErrorCode
+  readonly stage = 'confirmation' as const
+
+  constructor(code: AiConfirmationErrorCode, message: string) {
+    super(message)
+    this.name = 'AiConfirmationError'
+    this.code = code
   }
 }
 
@@ -148,6 +187,136 @@ export const evaluateAiPlanPermissions = async <TContext>(
   }
 
   return Object.freeze(ready)
+}
+
+const confirmationError = (
+  code: AiConfirmationErrorCode,
+  message: string
+): never => {
+  throw new AiConfirmationError(code, message)
+}
+
+const createAiPlanPreview = (
+  plan: AiPermissionReadyPlan,
+  redactionOptions: AiRedactionOptions
+): AiPlanPreview => {
+  const actions = plan.actions.map((action) =>
+    Object.freeze({
+      arguments: redactAiValue(action.arguments, redactionOptions),
+      id: action.id,
+      name: action.name,
+      permission: action.permission
+    })
+  )
+  const preview: AiPlanPreview = {
+    actions: Object.freeze(actions),
+    planId: plan.planId
+  }
+  if (plan.explanation !== undefined) {
+    const explanation = redactAiValue(plan.explanation, redactionOptions)
+    Object.defineProperty(preview, 'explanation', {
+      configurable: true,
+      enumerable: true,
+      value: typeof explanation === 'string' ? explanation : '[REDACTED]',
+      writable: true
+    })
+  }
+
+  return Object.freeze(preview)
+}
+
+const createConfirmedPlan = (
+  plan: AiPermissionReadyPlan,
+  preview: AiPlanPreview,
+  confirmation: AiConfirmedPlan['confirmation']
+): AiConfirmedPlan =>
+  Object.freeze({
+    ...plan,
+    confirmation,
+    preview
+  })
+
+const CONFIRMATION_ABORTED = Symbol('CONFIRMATION_ABORTED')
+
+export const confirmAiPlan = async (
+  plan: AiPermissionReadyPlan,
+  handler: AiConfirmationHandler,
+  signal: AbortSignal,
+  redactionOptions: AiRedactionOptions = {}
+): Promise<AiConfirmedPlan> => {
+  if (signal.aborted) {
+    return confirmationError(
+      'AI_CONFIRMATION_ABORTED',
+      'AI plan confirmation was aborted.'
+    )
+  }
+
+  const preview = createAiPlanPreview(plan, redactionOptions)
+  if (!plan.confirmationRequired) {
+    return createConfirmedPlan(plan, preview, 'bypassed')
+  }
+
+  let abortListener: (() => void) | undefined
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortListener = () => reject(CONFIRMATION_ABORTED)
+    signal.addEventListener('abort', abortListener, {
+      once: true
+    })
+  })
+
+  try {
+    const decision = await Promise.race([
+      Promise.resolve().then(() =>
+        handler.confirm(preview, {
+          signal
+        })
+      ),
+      aborted
+    ])
+
+    if (signal.aborted) {
+      return confirmationError(
+        'AI_CONFIRMATION_ABORTED',
+        'AI plan confirmation was aborted.'
+      )
+    }
+
+    if (typeof decision !== 'boolean') {
+      return confirmationError(
+        'AI_CONFIRMATION_HANDLER_FAILED',
+        'App confirmation handler failed.'
+      )
+    }
+
+    if (!decision) {
+      return confirmationError(
+        'AI_CONFIRMATION_CANCELLED',
+        'AI plan confirmation was cancelled.'
+      )
+    }
+
+    return createConfirmedPlan(plan, preview, 'accepted')
+  } catch (error) {
+    if (error instanceof AiConfirmationError) {
+      throw error
+    }
+
+    if (signal.aborted || error === CONFIRMATION_ABORTED) {
+      return confirmationError(
+        'AI_CONFIRMATION_ABORTED',
+        'AI plan confirmation was aborted.'
+      )
+    }
+
+    return confirmationError(
+      'AI_CONFIRMATION_HANDLER_FAILED',
+      'App confirmation handler failed.'
+    )
+  } finally {
+    if (abortListener) {
+      signal.removeEventListener('abort', abortListener)
+    }
+  }
 }
 
 class DefaultAiAgentRuntime implements AiAgentRuntime {
