@@ -357,7 +357,10 @@ export interface AiTransactionRunner {
 }
 
 export interface AiPermissionPolicy {
-  evaluate(action: AiPreparedAction): AiPermissionDecision
+  evaluate(input: {
+    action: AiPermissionAction
+    context: unknown
+  }): AiPermissionDecision | Promise<AiPermissionDecision>
 }
 ```
 
@@ -373,6 +376,7 @@ Data types to define:
 - `AiActionDescription`
 - `AiValidationError`
 - `AiPermissionDecision`
+- `AiPermissionAction`
 - `AiConfirmationHandler`
 - `AiRuntimeOptions`
 

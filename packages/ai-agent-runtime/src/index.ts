@@ -15,7 +15,11 @@ export {
 export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
 export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
-export { createAiAgentRuntime } from './runtime'
+export {
+  AiPermissionError,
+  createAiAgentRuntime,
+  evaluateAiPlanPermissions
+} from './runtime'
 export type {
   AiPlan,
   AiPlanValidationErrorCode,
@@ -45,7 +49,12 @@ export type {
   AiAgentRuntime,
   AiConfirmationHandler,
   AiContextProvider,
+  AiPermissionAction,
+  AiPermissionDecision,
+  AiPermissionErrorCode,
   AiPermissionPolicy,
+  AiPermissionReadyAction,
+  AiPermissionReadyPlan,
   AiRuntimeOwnedResource,
   AiTransactionRunner,
   CreateAiAgentRuntimeInput

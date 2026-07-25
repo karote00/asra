@@ -459,7 +459,10 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/ai-agent-runtime/src/runtime.ts',
-        'apps/asyra-design/src/ai/permission.ts'
+        'packages/ai-agent-runtime/src/__tests__/permission.test.ts',
+        'packages/ai-agent-runtime/src/index.ts',
+        'apps/asyra-design/src/ai/permission.ts',
+        'apps/asyra-design/src/ai/__tests__/permission.test.ts'
       ],
       specRefs: [
         '#supported-behavior',
