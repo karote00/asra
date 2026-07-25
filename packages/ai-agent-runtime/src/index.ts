@@ -2,6 +2,7 @@ export {
   AiActionRegistryError,
   createAiActionRegistry
 } from './action-registry'
+export { AiAuditError, createAiRuntimeAudit } from './audit'
 export {
   AiPlanNormalizationError,
   AiPlanValidationError,
@@ -27,6 +28,12 @@ export {
   executeAiActions,
   runAiPlanTransaction
 } from './runtime'
+export type {
+  AiAuditActionSummary,
+  AiAuditOutcome,
+  AiRuntimeAudit,
+  CreateAiRuntimeAuditInput
+} from './audit'
 export type {
   AiPlan,
   AiPlanValidationErrorCode,
