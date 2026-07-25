@@ -76,11 +76,15 @@ describe('initApp preset composition', () => {
     delete window.__AsyraE2E__
   })
 
-  it('applies the default preset before app-owned initialization', () => {
-    initApp()
+  it('applies the default preset with an AI-disabled lifecycle', async () => {
+    const initialization = initApp()
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
+    expect(initialization.aiRuntime).toMatchObject({
+      enabled: false,
+      runtime: null
+    })
     expect(window.__AsyraE2E__).toEqual({
       elementApis,
       hierarchyApis,
@@ -98,5 +102,7 @@ describe('initApp preset composition', () => {
       'input-system',
       'features'
     ])
+
+    await initialization.dispose()
   })
 })

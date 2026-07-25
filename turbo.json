@@ -33,12 +33,20 @@
     "test": {},
     "test:local": {},
     "test:ci": {},
+    "@asyra/ai-agent-runtime#build:ai-agent-runtime": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "@asyra/asyra-design#react:build": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
+        "@asyra/ai-agent-runtime#build:ai-agent-runtime",
         "@asyra/collaboration#build:collaboration",
         "@asyra/core#build:core",
         "@asyra/design-system#build:design-system",

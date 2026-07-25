@@ -12,6 +12,20 @@ import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
 import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
+import {
+  composeAiAgentRuntime,
+  type AiRuntimeComposition,
+  type ComposeAiAgentRuntimeOptions
+} from '../ai/composition'
+
+export interface InitAppOptions {
+  ai?: ComposeAiAgentRuntimeOptions
+}
+
+export interface AppInitialization {
+  readonly aiRuntime: AiRuntimeComposition
+  dispose(): Promise<void>
+}
 
 /**
  * Initializes all framework components and configurations.
@@ -26,15 +40,17 @@ import { strokeApis } from '../common-apis/strokes'
  *
  * export const initApp = () => {
  *   // Initialize base framework
- *   baseInitApp()
+ *   const initialization = baseInitApp()
  *
  *   // Add custom initialization
  *   customInputHandlers()
  *   customBehaviors()
+ *
+ *   return initialization
  * }
  * ```
  */
-export const initApp = (): void => {
+export const initApp = (options: InitAppOptions = {}): AppInitialization => {
   applyPreset(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
@@ -55,6 +71,11 @@ export const initApp = (): void => {
 
   // Foundation init.
   initInputSystem()
+  const aiRuntime = composeAiAgentRuntime(
+    options.ai ?? {
+      enabled: false
+    }
+  )
   // Initialize feature-system for application-level features
   initFeatures()
 
@@ -66,8 +87,8 @@ export const initApp = (): void => {
     }
   }
 
-  // Future: More framework initialization can be added here
-  // initRender()
-  // initCustomPlugins()
-  // initUserConfigurations()
+  return Object.freeze({
+    aiRuntime,
+    dispose: () => aiRuntime.dispose()
+  })
 }

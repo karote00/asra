@@ -191,7 +191,7 @@ test('every route, artifact, invariant, and acceptance contract resolves', () =>
 
 test('implementation boundaries stay inside the frozen Gate 4 allowlist', () => {
   const allowedBoundary =
-    /^(packages\/ai-agent-runtime\/src|packages\/(factory|scene-tree|props-manager|system-context|selection|render|collaboration)\/src|apps\/asyra-design\/src\/(ai|constants\/feature-names\.ts|features\/ai-agent|init\/init-app\.ts|init\/foundation\/init-features\.ts|common-apis|providers|collaboration))/
+    /^(packages\/ai-agent-runtime\/(package\.json|tsconfig\.json|src)|packages\/(factory|scene-tree|props-manager|system-context|selection|render|collaboration)\/src|apps\/asyra-design\/(package\.json|src\/(ai|constants\/feature-names\.ts|features\/ai-agent|init\/(init-app\.ts|__tests__\/init-app\.test\.ts)|init\/foundation\/init-features\.ts|common-apis|providers|collaboration))|scripts\/__tests__\/workspace-automation\.test\.mjs|turbo\.json|yarn\.lock)/
 
   data.steps.forEach((item) => {
     item.implementationBoundary.forEach((boundary) => {

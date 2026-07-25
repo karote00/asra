@@ -170,6 +170,55 @@ test('collaboration follows the shared TypeScript library build convention', () 
   assert.deepEqual(collaborationTypeScript.exclude, factoryTypeScript.exclude)
 })
 
+test('AI agent runtime is an optional zero-runtime-dependency workspace package', () => {
+  const manifestPath = path.join(
+    repositoryRoot,
+    'packages/ai-agent-runtime/package.json'
+  )
+
+  assert.ok(
+    fs.existsSync(manifestPath),
+    '@asyra/ai-agent-runtime must have a workspace manifest'
+  )
+
+  const runtime = readJSON('packages/ai-agent-runtime/package.json')
+  const runtimeTypeScript = readJSON('packages/ai-agent-runtime/tsconfig.json')
+  const app = readJSON('apps/asyra-design/package.json')
+  const factory = readJSON('packages/factory/package.json')
+  const factoryTypeScript = readJSON('packages/factory/tsconfig.json')
+  const turbo = readJSON('turbo.json')
+
+  assert.equal(runtime.name, '@asyra/ai-agent-runtime')
+  assert.equal(runtime.version, '0.2.5')
+  assert.equal(runtime.main, 'dist/index.js')
+  assert.equal(runtime.types, 'dist/index.d.ts')
+  assert.equal(
+    runtime.scripts['build:ai-agent-runtime'],
+    factory.scripts['build:factory']
+  )
+  assert.deepEqual(runtime.dependencies ?? {}, {})
+  assert.deepEqual(
+    runtimeTypeScript.compilerOptions,
+    factoryTypeScript.compilerOptions
+  )
+  assert.deepEqual(runtimeTypeScript.include, factoryTypeScript.include)
+  assert.deepEqual(runtimeTypeScript.exclude, factoryTypeScript.exclude)
+  assert.equal(
+    app.dependencies['@asyra/ai-agent-runtime'],
+    'workspace:*',
+    'Asyra Design must opt into the optional runtime explicitly'
+  )
+  assert.deepEqual(
+    turbo.tasks['@asyra/ai-agent-runtime#build:ai-agent-runtime']?.dependsOn,
+    []
+  )
+  assert.ok(
+    turbo.tasks['@asyra/asyra-design#react:build']?.dependsOn.includes(
+      '@asyra/ai-agent-runtime#build:ai-agent-runtime'
+    )
+  )
+})
+
 test('dev:all discovers collaboration and orders its Factory dependency first', async () => {
   const plan = await createWorkspaceDevAllPlan(repositoryRoot)
   const initialDirectories = plan.initialBuilds.map(({ dir }) => dir)

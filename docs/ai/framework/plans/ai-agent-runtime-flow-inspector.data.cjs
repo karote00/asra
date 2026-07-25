@@ -66,10 +66,19 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/ai-agent-runtime/package.json',
+        'packages/ai-agent-runtime/tsconfig.json',
         'packages/ai-agent-runtime/src/index.ts',
         'packages/ai-agent-runtime/src/runtime.ts',
+        'packages/ai-agent-runtime/src/__tests__/composition.test.ts',
+        'apps/asyra-design/package.json',
         'apps/asyra-design/src/ai/composition.ts',
-        'apps/asyra-design/src/init/init-app.ts'
+        'apps/asyra-design/src/ai/__tests__/composition.test.ts',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+        'scripts/__tests__/workspace-automation.test.mjs',
+        'turbo.json',
+        'yarn.lock'
       ],
       specRefs: [
         '#supported-behavior',
