@@ -409,7 +409,9 @@
       implementationBoundary: [
         'packages/ai-agent-runtime/src/plan.ts',
         'packages/ai-agent-runtime/src/action-registry.ts',
-        'packages/ai-agent-runtime/src/types.ts'
+        'packages/ai-agent-runtime/src/types.ts',
+        'packages/ai-agent-runtime/src/__tests__/validation.test.ts',
+        'packages/ai-agent-runtime/src/index.ts'
       ],
       specRefs: [
         '#supported-behavior',

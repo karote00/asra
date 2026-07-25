@@ -1,5 +1,6 @@
 import { AiProviderError, type AiProviderErrorCode } from './provider'
-import type { AiJsonValue } from './types'
+import { redactAiValue } from './redaction'
+import type { AiActionDefinition, AiActionRegistry, AiJsonValue } from './types'
 
 export interface AiPlannedAction {
   readonly id: string
@@ -86,10 +87,11 @@ const detachJsonValue = (
     if (Array.isArray(value)) {
       const result: AiJsonValue[] = []
       for (let index = 0; index < value.length; index += 1) {
-        if (!(index in value)) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
+        if (!descriptor?.enumerable || !('value' in descriptor)) {
           return malformedPlan()
         }
-        result.push(detachJsonValue(value[index], ancestors))
+        result.push(detachJsonValue(descriptor.value, ancestors))
       }
       return Object.freeze(result)
     }
@@ -173,10 +175,14 @@ export const normalizeAiProviderOutput = (value: unknown): AiPlan => {
 
   const normalizedActions: AiPlannedAction[] = []
   for (let index = 0; index < actions.value.length; index += 1) {
-    if (!(index in actions.value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      actions.value,
+      String(index)
+    )
+    if (!descriptor?.enumerable || !('value' in descriptor)) {
       return malformedPlan()
     }
-    normalizedActions.push(normalizeAction(actions.value[index]))
+    normalizedActions.push(normalizeAction(descriptor.value))
   }
   const plan: AiPlan = {
     actions: Object.freeze(normalizedActions),
@@ -193,6 +199,271 @@ export const normalizeAiProviderOutput = (value: unknown): AiPlan => {
   }
 
   return Object.freeze(plan)
+}
+
+export interface AiPreparedAction {
+  readonly id: string
+  readonly name: string
+  readonly arguments: AiJsonValue
+  readonly execute: AiActionDefinition['execute']
+}
+
+export interface AiPreparedPlan {
+  readonly planId: string
+  readonly explanation?: string
+  readonly actions: readonly AiPreparedAction[]
+}
+
+export interface AiValidationIssue {
+  readonly actionId?: string
+  readonly actionName?: string
+  readonly code: string
+  readonly message: string
+  readonly path: readonly (number | string)[]
+}
+
+export type AiPlanValidationErrorCode =
+  | 'AI_ACTION_SCHEMA_FAILED'
+  | 'AI_PLAN_DUPLICATE_ACTION_ID'
+  | 'AI_PLAN_EMPTY'
+  | 'AI_PLAN_INVALID_ARGUMENTS'
+  | 'AI_PLAN_UNKNOWN_ACTION'
+
+export class AiPlanValidationError extends Error {
+  readonly code: AiPlanValidationErrorCode
+  readonly issues: readonly AiValidationIssue[]
+  readonly stage = 'validation' as const
+
+  constructor(
+    code: AiPlanValidationErrorCode,
+    message: string,
+    issues: readonly AiValidationIssue[] = []
+  ) {
+    super(message)
+    this.name = 'AiPlanValidationError'
+    this.code = code
+    this.issues = Object.freeze([...issues])
+  }
+}
+
+const validationError = (
+  code: AiPlanValidationErrorCode,
+  message: string,
+  issues?: readonly AiValidationIssue[]
+): never => {
+  throw new AiPlanValidationError(code, message, issues)
+}
+
+const schemaFailure = (): never =>
+  validationError('AI_ACTION_SCHEMA_FAILED', 'Registered action schema failed.')
+
+const schemaDataProperty = (
+  value: Record<string, unknown>,
+  key: string
+): { readonly present: boolean; readonly value: unknown } => {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key)
+  if (!descriptor) {
+    return {
+      present: false,
+      value: undefined
+    }
+  }
+
+  if (!descriptor.enumerable || !('value' in descriptor)) {
+    return schemaFailure()
+  }
+
+  return {
+    present: true,
+    value: descriptor.value
+  }
+}
+
+const normalizeSchemaIssue = (
+  value: unknown,
+  action: AiPlannedAction
+): AiValidationIssue => {
+  if (!isPlainObject(value)) {
+    return schemaFailure()
+  }
+
+  const code = schemaDataProperty(value, 'code')
+  const message = schemaDataProperty(value, 'message')
+  const path = schemaDataProperty(value, 'path')
+  if (
+    !code.present ||
+    !nonEmptyString(code.value) ||
+    !message.present ||
+    typeof message.value !== 'string' ||
+    !path.present ||
+    !Array.isArray(path.value)
+  ) {
+    return schemaFailure()
+  }
+
+  const detachedPath: (number | string)[] = []
+  for (let index = 0; index < path.value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      path.value,
+      String(index)
+    )
+    if (!descriptor?.enumerable || !('value' in descriptor)) {
+      return schemaFailure()
+    }
+    const segment = descriptor.value
+    if (
+      typeof segment !== 'string' &&
+      (typeof segment !== 'number' || !Number.isFinite(segment))
+    ) {
+      return schemaFailure()
+    }
+    detachedPath.push(segment)
+  }
+
+  const redactedMessage = redactAiValue(message.value)
+  if (typeof redactedMessage !== 'string') {
+    return schemaFailure()
+  }
+
+  return Object.freeze({
+    actionId: action.id,
+    actionName: action.name,
+    code: code.value,
+    message: redactedMessage,
+    path: Object.freeze(detachedPath)
+  })
+}
+
+const parseActionArguments = (
+  action: AiPlannedAction,
+  definition: AiActionDefinition
+): AiJsonValue => {
+  let result: unknown
+  try {
+    result = definition.schema.parse(action.arguments)
+  } catch {
+    return schemaFailure()
+  }
+
+  if (!isPlainObject(result)) {
+    return schemaFailure()
+  }
+
+  const success = schemaDataProperty(result, 'success')
+  if (!success.present || typeof success.value !== 'boolean') {
+    return schemaFailure()
+  }
+
+  if (success.value) {
+    const parsedValue = schemaDataProperty(result, 'value')
+    if (!parsedValue.present) {
+      return schemaFailure()
+    }
+
+    try {
+      return detachJsonValue(parsedValue.value)
+    } catch {
+      return schemaFailure()
+    }
+  }
+
+  const issues = schemaDataProperty(result, 'issues')
+  if (!issues.present || !Array.isArray(issues.value)) {
+    return schemaFailure()
+  }
+
+  const normalizedIssues: AiValidationIssue[] = []
+  if (issues.value.length === 0) {
+    normalizedIssues.push(
+      Object.freeze({
+        actionId: action.id,
+        actionName: action.name,
+        code: 'invalid_arguments',
+        message: 'Action arguments failed schema validation.',
+        path: Object.freeze([] as (number | string)[])
+      })
+    )
+  } else {
+    for (let index = 0; index < issues.value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        issues.value,
+        String(index)
+      )
+      if (!descriptor?.enumerable || !('value' in descriptor)) {
+        return schemaFailure()
+      }
+      normalizedIssues.push(normalizeSchemaIssue(descriptor.value, action))
+    }
+  }
+
+  return validationError(
+    'AI_PLAN_INVALID_ARGUMENTS',
+    'Action arguments failed schema validation.',
+    normalizedIssues
+  )
+}
+
+export const validateAiPlan = (
+  plan: AiPlan,
+  registry: AiActionRegistry
+): AiPreparedPlan => {
+  if (plan.actions.length === 0) {
+    return validationError(
+      'AI_PLAN_EMPTY',
+      'AI candidate plan must contain at least one action.'
+    )
+  }
+
+  const actionIds = new Set<string>()
+  const resolved: {
+    readonly action: AiPlannedAction
+    readonly definition: AiActionDefinition
+  }[] = []
+
+  for (const action of plan.actions) {
+    if (actionIds.has(action.id)) {
+      return validationError(
+        'AI_PLAN_DUPLICATE_ACTION_ID',
+        'AI candidate plan contains a duplicate action id.'
+      )
+    }
+    actionIds.add(action.id)
+
+    const definition = registry.get(action.name)
+    if (!definition) {
+      return validationError(
+        'AI_PLAN_UNKNOWN_ACTION',
+        'AI candidate plan references an unknown action.'
+      )
+    }
+    resolved.push({
+      action,
+      definition
+    })
+  }
+
+  const preparedActions = resolved.map(({ action, definition }) =>
+    Object.freeze({
+      arguments: parseActionArguments(action, definition),
+      execute: definition.execute,
+      id: action.id,
+      name: action.name
+    })
+  )
+  const prepared: AiPreparedPlan = {
+    actions: Object.freeze(preparedActions),
+    planId: plan.planId
+  }
+  if (plan.explanation !== undefined) {
+    Object.defineProperty(prepared, 'explanation', {
+      configurable: true,
+      enumerable: true,
+      value: plan.explanation,
+      writable: true
+    })
+  }
+
+  return Object.freeze(prepared)
 }
 
 export interface AiPlanningFailure {

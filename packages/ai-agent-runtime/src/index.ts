@@ -4,11 +4,13 @@ export {
 } from './action-registry'
 export {
   AiPlanNormalizationError,
+  AiPlanValidationError,
   AiRetryPolicyError,
   MAX_AI_PROVIDER_ATTEMPTS,
   normalizeAiProviderOutput,
   shouldRetryAiProviderFailure,
-  toAiPlanningFailure
+  toAiPlanningFailure,
+  validateAiPlan
 } from './plan'
 export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
@@ -16,10 +18,14 @@ export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export { createAiAgentRuntime } from './runtime'
 export type {
   AiPlan,
+  AiPlanValidationErrorCode,
   AiPlannedAction,
+  AiPreparedAction,
+  AiPreparedPlan,
   AiPlanningFailure,
   AiProviderRetryContext,
-  AiRetryPolicy
+  AiRetryPolicy,
+  AiValidationIssue
 } from './plan'
 export type {
   AiProvider,
