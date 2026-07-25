@@ -1,24 +1,30 @@
 # Asyra Design Group Context Menu Plan
 
-## Status and Priority
+## Completion
 
-Proposed as the next plan in the ordered Asyra Design implementation queue,
-after the completed
-`docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`.
+Completed on 2026-07-25 after implementation review and explicit user closeout
+authorization.
 
-The Group interaction prerequisite completed, closed out, and merged through
-PR #94 on 2026-07-24. This plan must reuse the canonical Group/Ungroup features,
-command eligibility, and Inspector authority from:
+- Outcome: canvas right-click now opens one accessible app-owned Context Menu
+  with fixed Group and Ungroup rows, shared eligibility, accurate
+  operating-system shortcut labels, and functional matching shortcuts.
+- Final decision: Asyra Design owns menu session, command descriptors, routing,
+  and product policy; Design System owns reusable presentation; Input System
+  retains input normalization without Context Menu product semantics; and the
+  existing Group feature remains the sole command, transaction, and failure
+  owner.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`.
+- Exit criteria: Inspector/readiness and Gherkin contracts, affected
+  package/app tests, macOS and Windows/Linux E2E, dependency/lint/build gates,
+  template synchronization, synchronized visual review, and bounded
+  direct-consumer review passed before closeout.
 
-- `completed/group-interaction-mvp-plan.md`; and
-- `group-interaction-mvp-flow-inspector.data.cjs`.
+Architecture authority:
 
-This plan is active for implementation. Production implementation may begin
-only after:
-
-1. the completed remote subtree restore snapshot plan is merged;
-2. this plan is approved and merged; and
-3. a matching Inspector owner flow and readiness contract tests pass.
+- `docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs`
+- `docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html`
+- `docs/ai/apps/asyra-design/plans/__tests__/group-context-menu-flow-inspector.contract.test.cjs`
 
 ## Decision
 

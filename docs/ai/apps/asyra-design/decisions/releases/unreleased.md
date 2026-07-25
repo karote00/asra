@@ -6782,3 +6782,33 @@ join` constrained dashed product path across:
     closeout is merged and explicitly started.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`
+
+## 2026-07-25 - Complete Asyra Design Group Context Menu
+
+- Context:
+  - Asyra Design had canonical Group/Ungroup features and keyboard bindings,
+    but no canvas-owned Context Menu or reusable command-row presentation.
+  - Input System still suppressed every native browser Context Menu globally,
+    while shortcut labels, eligibility, and actual command routing needed one
+    shared app-owned contract.
+- Decision:
+  - Close the Group Context Menu plan after its exact Inspector owner flow,
+    Gherkin contracts, formal package/app gates, macOS and Windows/Linux E2E,
+    template synchronization, synchronized visual review, and explicit user
+    approval.
+  - Keep menu session, platform formatting, command descriptors, eligibility,
+    and routing in Asyra Design; keep reusable accessible presentation in
+    Design System; scope browser suppression to accepted canvas invocations.
+  - Route both menu activation and `Meta`/`Ctrl` Group shortcuts through the
+    existing Group feature, transaction, selection, and failure contracts.
+- Consequences:
+  - Canvas right-click opens one pointer-positioned menu containing Group then
+    Ungroup with accurate platform labels, availability, focus, dismissal, and
+    viewport-fit behavior.
+  - Menu-only interaction remains non-mutating, and no second selection,
+    hierarchy, Group operation, transaction, Render repair, or app fallback
+    path exists.
+  - The durable collaboration server and continuous sync plan becomes the next
+    separately queued app plan and remains inactive until explicitly started.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`
