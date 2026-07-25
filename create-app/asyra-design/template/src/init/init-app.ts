@@ -12,6 +12,27 @@ import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
 import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
+import {
+  composeAiAgentRuntime,
+  type AiRuntimeComposition,
+  type ComposeAiAgentRuntimeOptions
+} from '../ai/composition'
+import type { AiAgentFeatureRuntime } from '../features/ai-agent'
+
+export interface InitAppOptions {
+  ai?: ComposeAiAgentRuntimeOptions
+}
+
+export interface AppInitialization {
+  readonly aiRuntime: AiRuntimeComposition
+  dispose(): Promise<void>
+}
+
+const asAiAgentFeatureRuntime = (
+  runtime: AiRuntimeComposition['runtime']
+): AiAgentFeatureRuntime | undefined => {
+  return runtime ?? undefined
+}
 
 /**
  * Initializes all framework components and configurations.
@@ -26,15 +47,17 @@ import { strokeApis } from '../common-apis/strokes'
  *
  * export const initApp = () => {
  *   // Initialize base framework
- *   baseInitApp()
+ *   const initialization = baseInitApp()
  *
  *   // Add custom initialization
  *   customInputHandlers()
  *   customBehaviors()
+ *
+ *   return initialization
  * }
  * ```
  */
-export const initApp = (): void => {
+export const initApp = (options: InitAppOptions = {}): AppInitialization => {
   applyPreset(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
@@ -55,8 +78,21 @@ export const initApp = (): void => {
 
   // Foundation init.
   initInputSystem()
+  const aiRuntime = composeAiAgentRuntime(
+    options.ai ?? {
+      enabled: false
+    }
+  )
+  const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
   // Initialize feature-system for application-level features
-  initFeatures()
+  initFeatures({
+    ai: {
+      enabled: aiRuntime.enabled,
+      providerEnabled:
+        aiRuntime.providerEnabled && aiFeatureRuntime !== undefined,
+      runtime: aiFeatureRuntime
+    }
+  })
 
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {
@@ -66,8 +102,8 @@ export const initApp = (): void => {
     }
   }
 
-  // Future: More framework initialization can be added here
-  // initRender()
-  // initCustomPlugins()
-  // initUserConfigurations()
+  return Object.freeze({
+    aiRuntime,
+    dispose: () => aiRuntime.dispose()
+  })
 }

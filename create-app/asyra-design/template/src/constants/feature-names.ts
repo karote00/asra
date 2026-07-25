@@ -39,6 +39,10 @@ export const GradientFeatureNames = {
   DRAG_GRADIENT_STOP: 'dragGradientStop'
 } as const
 
+export const AiFeatureNames = {
+  AI_AGENT: 'aiAgent'
+} as const
+
 type AssertNoOverlap<A, B> =
   Extract<keyof A, keyof B> extends never
     ? true
@@ -91,6 +95,24 @@ type _HistoryVsGradient = EnsureTrue<
 type _VectorPathVsGradient = EnsureTrue<
   AssertNoOverlap<typeof VectorPathFeatureNames, typeof GradientFeatureNames>
 >
+type _ToolVsAi = EnsureTrue<
+  AssertNoOverlap<typeof ToolFeatureNames, typeof AiFeatureNames>
+>
+type _ElementVsAi = EnsureTrue<
+  AssertNoOverlap<typeof ElementFeatureNames, typeof AiFeatureNames>
+>
+type _ViewportVsAi = EnsureTrue<
+  AssertNoOverlap<typeof ViewportFeatureNames, typeof AiFeatureNames>
+>
+type _HistoryVsAi = EnsureTrue<
+  AssertNoOverlap<typeof HistoryFeatureNames, typeof AiFeatureNames>
+>
+type _VectorPathVsAi = EnsureTrue<
+  AssertNoOverlap<typeof VectorPathFeatureNames, typeof AiFeatureNames>
+>
+type _GradientVsAi = EnsureTrue<
+  AssertNoOverlap<typeof GradientFeatureNames, typeof AiFeatureNames>
+>
 
 export type FeatureNameOverlapChecks = [
   _ToolVsElement,
@@ -107,7 +129,13 @@ export type FeatureNameOverlapChecks = [
   _ElementVsGradient,
   _ViewportVsGradient,
   _HistoryVsGradient,
-  _VectorPathVsGradient
+  _VectorPathVsGradient,
+  _ToolVsAi,
+  _ElementVsAi,
+  _ViewportVsAi,
+  _HistoryVsAi,
+  _VectorPathVsAi,
+  _GradientVsAi
 ]
 
 export const FeatureNames = {
@@ -116,7 +144,8 @@ export const FeatureNames = {
   ...ViewportFeatureNames,
   ...HistoryFeatureNames,
   ...VectorPathFeatureNames,
-  ...GradientFeatureNames
+  ...GradientFeatureNames,
+  ...AiFeatureNames
 } as const
 
 export type FeatureName = (typeof FeatureNames)[keyof typeof FeatureNames]

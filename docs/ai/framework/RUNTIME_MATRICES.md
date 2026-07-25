@@ -5,7 +5,7 @@ Use these matrices for deterministic ownership and flow decisions.
 ## Runtime Owner Matrix
 
 - input normalization owner: `@asyra/input-system`
-- execution/session/cancel owner: `@asyra/feature-system`
+- execution/session/programmatic-task/cancel owner: `@asyra/feature-system`
 - entity graph owner: `@asyra/scene-tree`
 - property component owner: `@asyra/props-manager`
 - selection owner: `@asyra/selection`
@@ -20,6 +20,9 @@ Use these matrices for deterministic ownership and flow decisions.
 - commit persistence acknowledgement owner: injected `@asyra/core` + provider
 - optional collaboration publication transport and Awareness composition owner:
   `@asyra/collaboration`
+- optional AI intent-to-action orchestration owner:
+  `@asyra/ai-agent-runtime`; app Feature System, action schemas, permission,
+  transaction adapters, and canonical state owners remain external owners
 - collaboration authentication, room policy, persistence, recovery, ordering,
   and conflict owner: app/server
 - canonical remote mutation owner: the app callback and selected state owners,
@@ -69,8 +72,11 @@ Use these matrices for deterministic ownership and flow decisions.
 
 - feature author
 
-  - can: register feature behavior through explicit triggers, priority, exclusivity, and execution/session lifecycle
+  - can: register feature behavior through explicit triggers, priority,
+    exclusivity, and execution/session/programmatic-task lifecycle
   - must: call app/common APIs or core facade APIs for mutation/query work
+  - must: keep programmatic tasks non-mutating and enter a separate app
+    transaction/common-API boundary for accepted canonical changes
   - must not: mutate package internals or create a parallel decision runtime
 
 - preset author

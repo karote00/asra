@@ -42,10 +42,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@asyra/ai-agent-runtime@workspace:*, @asyra/ai-agent-runtime@workspace:packages/ai-agent-runtime":
+  version: 0.0.0-use.local
+  resolution: "@asyra/ai-agent-runtime@workspace:packages/ai-agent-runtime"
+  dependencies:
+    "@vitest/coverage-v8": "npm:^2.1.8"
+    typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
+  languageName: unknown
+  linkType: soft
+
 "@asyra/asyra-design@workspace:apps/asyra-design":
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-design@workspace:apps/asyra-design"
   dependencies:
+    "@asyra/ai-agent-runtime": "workspace:*"
     "@asyra/collaboration": "workspace:*"
     "@asyra/core": "workspace:*"
     "@asyra/design-system": "workspace:*"

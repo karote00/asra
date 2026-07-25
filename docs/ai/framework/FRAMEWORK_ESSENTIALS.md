@@ -78,6 +78,9 @@ The framework guarantees:
   optional shared-channel delivery. This is application-layer ACID-inspired
   behavior; it does not claim database serializable isolation or distributed
   transaction guarantees.
+- `ai-agent-runtime` is an optional inert-until-composed orchestration package.
+  Feature System and app-owned action/schema/permission/transaction adapters
+  remain authoritative; model output is never canonical state.
 
 ## Non-negotiable Constraints
 

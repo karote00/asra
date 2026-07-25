@@ -11,17 +11,6 @@ release. A release gate may begin implementation only after its product contract
 and matching Inspector owner flow satisfy
 `docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-4. AI agent runtime
-
-- Ship an optional reusable package for natural-language planning, structured
-  action validation, permission/confirmation policy, transaction-bounded
-  execution, provider replacement, safe secret boundaries, and app-owned domain
-  actions.
-- AI activation remains opt-in and model output never becomes canonical scene
-  state or bypasses Feature System, ordinary app/Core APIs, validation,
-  undo/redo, persistence, collaboration, or Render derivation.
-- Reference: `docs/ai/framework/plans/ai-agent-runtime-plan.md`
-
 5. Framework Release Readiness Audit and Closeout
 
 - Freeze and audit the supported public surface, package artifacts, dependency

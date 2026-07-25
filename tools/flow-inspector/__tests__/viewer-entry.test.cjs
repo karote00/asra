@@ -178,6 +178,15 @@ const targets = [
     filterLaneTitle: 'Property Runtime'
   },
   {
+    id: 'ai-agent-runtime',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html'
+    ),
+    dataScript: './ai-agent-runtime-flow-inspector.data.cjs',
+    filterLaneTitle: 'Complete Plan Preflight'
+  },
+  {
     id: 'group-component-and-hierarchy',
     entryPath: path.join(
       projectRoot,

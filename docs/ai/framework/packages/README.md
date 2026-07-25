@@ -19,3 +19,4 @@ This folder describes framework package responsibilities, boundaries, and extens
 - `render-engine-pixi.md`
 - `design-system.md`
 - `feature-system.md`
+- `ai-agent-runtime.md`

@@ -3,6 +3,7 @@ import type {
   SystemContextSnapshot
 } from '@asyra/utils'
 import type { ExecutionHandler } from './execution'
+import type { FeatureTaskHandler } from './task'
 
 export type FeatureKeyMap = string | undefined
 
@@ -66,12 +67,15 @@ export interface SessionParticipant {
 
 export interface FeatureDefinition<
   API = Record<string, unknown>,
-  State = SessionState
+  State = SessionState,
+  TaskInput = unknown,
+  TaskResult = unknown
 > {
   // Static configuration for feature registration
   api?: API
   execution?: ExecutionHandler
   session?: SessionHandler<State>
+  task?: FeatureTaskHandler<TaskInput, TaskResult>
   // Feature priority for session registration
   priority?: number
   // Whether feature blocks lower priority features

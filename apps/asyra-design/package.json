@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@asyra/ai-agent-runtime": "workspace:*",
     "@asyra/collaboration": "workspace:*",
     "@asyra/core": "workspace:*",
     "@asyra/design-system": "workspace:*",

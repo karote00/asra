@@ -13,7 +13,12 @@ inheriting unrelated preset assumptions.
 
 1. Feature Isolation Guarantee
 
-- Features define user-facing behavior through `defineFeature(...)`, explicit triggers, priority, exclusivity, and execution/session lifecycles.
+- Features define user-facing behavior through `defineFeature(...)`, explicit
+  triggers, priority, exclusivity, and execution/session/programmatic-task
+  lifecycles.
+- Programmatic tasks keep external async preparation cancellable without
+  holding a canonical transaction open; accepted mutations enter their
+  separately declared app transaction/common-API boundary.
 - Feature handlers call app/common APIs or core facade APIs for mutation and query work.
 - A feature should be testable as a bounded behavior unit without requiring direct knowledge of unrelated package internals.
 

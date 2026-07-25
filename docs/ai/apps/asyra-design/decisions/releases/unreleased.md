@@ -6922,3 +6922,42 @@ join` constrained dashed product path across:
     change is part of this closeout correction.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`
+
+## 2026-07-25 - Add bounded optional AI Agent Runtime reference composition
+
+- Context:
+  - Framework Release Gate 4 needed one reference app to prove that a
+    replaceable provider can plan app-owned actions without bypassing Feature
+    System, common APIs, Factory, canonical validation, Render, or optional
+    Collaboration.
+  - The reference app is not a model backend and has no server API key to
+    configure during deterministic implementation or CI.
+- Decision:
+  - Keep AI disabled by default and compose an isolated runtime only after
+    explicit app enablement.
+  - Register one exclusive programmatic AI Feature and keep its execute,
+    overlap rejection, cancel, abort signal, and terminal completion under
+    Feature System.
+  - Limit the reference action catalog to `set_element_visibility` and
+    `select_elements`, with strict schemas, explicit default-deny permission,
+    cancel-by-default confirmation, and one common transaction adapter.
+  - Route both actions through existing common APIs with `undoable: true` and
+    `sharedDelivery: 'transaction-end'`.
+  - Accept fake or generic HTTP providers through the same runtime input helper;
+    production apps should select an app/backend endpoint that owns vendor
+    credentials and authorization.
+- Consequences:
+  - AI-disabled startup remains unchanged; provider-disabled invocation returns
+    unavailable before context or transport.
+  - One accepted reference plan produces one common transaction and follows the
+    ordinary Factory undo/shared-publication route.
+  - The app adds no arbitrary create/delete/group/script/property action, model
+    SDK, browser-held server key, or AI-specific canonical/Render/
+    Collaboration path.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/ai-agent-runtime-plan.md`
+- Related Commit(s):
+  - `a8c042171` (`feat(feature-system): add programmatic task lifecycle`)
+  - `1e041403c` (`feat(asyra-design): add bounded AI context provider`)
+  - `4bcbcb53c` (`feat(ai-runtime): execute bounded app actions`)
+  - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)

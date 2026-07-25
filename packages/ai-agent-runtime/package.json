@@ -1,0 +1,24 @@
+{
+  "name": "@asyra/ai-agent-runtime",
+  "version": "0.2.5",
+  "description": "Optional provider-replaceable AI agent orchestration runtime for Asyra",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "build:ai-agent-runtime": "tsc",
+    "example:ai-agent-runtime": "vitest run src/__tests__/documentation-example.test.js",
+    "test": "vitest",
+    "test:local": "vitest run",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

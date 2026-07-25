@@ -2012,3 +2012,49 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md`
   - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html`
+
+## 2026-07-25 - Close optional AI Agent Runtime Release Gate 4
+
+- Context:
+  - Framework Release Gate 4 required an optional provider-replaceable agent
+    runtime without making model output, provider credentials, permission,
+    transaction history, canonical state, Render, or Collaboration framework
+    policy.
+  - Readiness completed before implementation, and the finished package,
+    generic HTTP adapter, Feature lifecycle, reference app composition,
+    canonical/transaction/projection proofs, documentation, and deterministic
+    tests passed without a live endpoint or API key.
+- Decision:
+  - Ship `@asyra/ai-agent-runtime` as an inert-until-composed orchestration
+    package with app-owned context, schema-backed actions, permission,
+    confirmation, transaction runner, and domain executors.
+  - Treat provider output as an untrusted candidate plan; normalize and
+    validate the complete plan before permission or mutation, retry only
+    provider planning, and execute one accepted action batch through one
+    app-owned transaction.
+  - Keep providers replaceable through `AiProvider`; include a generic
+    HTTPS/same-origin HTTP adapter with no SDK/schema dependency or implicit
+    credential read.
+  - Return only stable detached redacted terminal evidence and keep Feature
+    System as the sole trigger/exclusivity/cancel/session lifecycle owner.
+  - Close Gate 4 and preserve its canonical product contract under completed
+    plans while retaining the dedicated Inspector as architecture authority.
+- Consequences:
+  - Apps without explicit AI activation have no AI runtime, Feature, provider,
+    network, timer, listener, or secret side effect.
+  - Apps may replace fake, generic HTTP, self-hosted, or vendor-specific
+    providers without changing registered action, validation, permission, or
+    transaction contracts.
+  - API keys, backend authentication, rate limits, and vendor repair remain
+    app/backend responsibilities; live-provider smoke tests remain opt-in.
+  - `PLANS.md` now advances to Framework Release Gate 5 readiness/closeout.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/ai-agent-runtime-plan.md`
+  - `docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html`
+- Related Commit(s):
+  - `b8bdd5fb4` (`docs(framework): ready AI agent runtime gate`)
+  - `d37bbdd95` (`feat(ai-runtime): add optional runtime composition`)
+  - `11677fa7a` (`feat(ai-runtime): add generic HTTP provider`)
+  - `2715faf32` (`feat(ai-runtime): add single plan transaction boundary`)
+  - `4721938da` (`feat(ai-runtime): add detached audit output`)
+  - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)

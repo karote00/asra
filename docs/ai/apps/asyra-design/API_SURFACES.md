@@ -2,6 +2,32 @@
 
 This file is the app-level API contract map.
 
+## Optional AI Agent Reference
+
+- `initApp({ ai })` defaults to AI-disabled and creates no AI runtime,
+  provider, Feature, network request, listener, timer, or secret read
+- `composeAiAgentRuntime(...)` supports:
+  - AI-disabled: no runtime and no AI Feature
+  - provider-disabled: the AI Feature returns stable `unavailable` before
+    context or transport
+  - provider-enabled: one isolated `@asyra/ai-agent-runtime` instance
+- `createAsyraDesignAiRuntimeInput(...)` composes the app-owned context,
+  bounded action catalog, permission map, confirmation adapter, and common
+  transaction adapter around an app-selected provider
+- the reference action catalog contains only:
+  - `set_element_visibility`
+  - `select_elements`
+- permission rules are explicit and default-deny; confirmation defaults to
+  cancellation
+- both action executors call `src/common-apis/*` with `undoable: true` and
+  `sharedDelivery: 'transaction-end'`; Factory, canonical owners, Render, and
+  optional Collaboration retain their ordinary ownership
+- provider selection is replaceable; deterministic fake and generic HTTP
+  providers use the same runtime and app action contracts
+- the reference app does not read, store, or send a browser-held server API
+  key. Production providers should use an app/backend endpoint that owns
+  vendor credentials and authorization
+
 ## DEV Runtime Diagnostics
 
 - `initCanvasPipelineDebugger()` dynamically imports the optional Core facade

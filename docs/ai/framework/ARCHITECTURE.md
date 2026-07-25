@@ -108,14 +108,17 @@ Canonical shorthand:
 
 ## Architecture Invariants
 
-- Single runtime owner for user-action execution/session/cancel: `feature-system`.
+- Single runtime owner for user-action execution/session/programmatic-task/cancel:
+  `feature-system`.
 - State ownership stays split by package boundaries (scene-tree, props-manager, system-context, selection).
 - Render and UI are downstream consumers of state.
 - State replay/synchronization must not create a second product-decision runtime.
 
 ## Ownership Rules
 
-- Feature-system owns execute/session/cancel runtime decisions.
+- Feature-system owns execute/session/programmatic-task/cancel runtime
+  decisions. Programmatic tasks perform detached non-mutating async work and do
+  not open canonical transactions.
 - Reactive-events owns public transaction depth and the nested rollback-only
   latch; Factory owns the ordered reversible journal, validation, finalization,
   undo/redo history, and local shared-channel settlement.
@@ -321,7 +324,8 @@ The first public framework release is gated, in order, by:
    2026);
 2. optional-at-runtime network collaboration transport foundation;
 3. canonical Group hierarchy behaviors plus Preset basic operations;
-4. optional AI agent runtime with replaceable provider and app-owned actions;
+4. optional AI agent runtime with replaceable provider and app-owned actions
+   (completed July 25, 2026);
 5. framework release-readiness audit and closeout.
 
 Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
@@ -335,6 +339,7 @@ See:
 - `packages/core.md`
 - `packages/factory.md`
 - `packages/collaboration.md`
+- `packages/ai-agent-runtime.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
 - `packages/preset.md`
