@@ -1,10 +1,11 @@
-import type { AiActionDescription } from './types'
+import type { AiActionDescription, AiJsonValue } from './types'
 
 export interface AiProviderInput<TContext = unknown> {
   readonly intent: string
   readonly context: TContext
   readonly actions: readonly AiActionDescription[]
   readonly attempt: number
+  readonly metadata?: AiJsonValue
 }
 
 export interface AiProvider {

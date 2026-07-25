@@ -43,7 +43,9 @@ export const createAsyraDesignAiPermissionPolicy = (
     decisions.set(key, descriptor.value)
   }
 
-  return Object.freeze({
+  const policy: AiPermissionPolicy = {
     evaluate: async ({ action }) => decisions.get(action.name) ?? 'deny'
-  })
+  }
+
+  return Object.freeze(policy)
 }

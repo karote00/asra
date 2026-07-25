@@ -3,6 +3,7 @@ import {
   defineFeature,
   invokeFeatureTask
 } from '@asyra/feature-system'
+import type { AiRuntimeResult } from '@asyra/ai-agent-runtime'
 import { FeatureNames } from '../../constants'
 
 export const AI_AGENT_FEATURE_PRIORITY = 100
@@ -13,7 +14,9 @@ export interface AiAgentFeatureRunRequest {
 }
 
 export interface AiAgentFeatureRuntime {
-  run(request: AiAgentFeatureRunRequest): Promise<Record<string, unknown>>
+  run(
+    request: AiAgentFeatureRunRequest
+  ): Promise<AiRuntimeResult | Record<string, unknown>>
 }
 
 export interface RegisterAiAgentFeatureOptions {
@@ -42,6 +45,7 @@ export type AiAgentFeatureTerminalResult =
 
 export type AiAgentFeatureResult =
   | AiAgentFeatureTerminalResult
+  | AiRuntimeResult
   | Record<string, unknown>
 
 export interface AiAgentFeatureApi {

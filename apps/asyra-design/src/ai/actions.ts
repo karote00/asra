@@ -203,7 +203,10 @@ export const createAsyraDesignAiActions = (
         }),
         parse: parseVisibility
       }),
-      execute: async (args, context) => {
+      execute: async (
+        args: SetElementVisibilityArgs,
+        context: AiExecutionContext
+      ) => {
         assertNotAborted(context)
         const changed = apis.setElementVisible(
           args.elementId,
@@ -241,7 +244,7 @@ export const createAsyraDesignAiActions = (
       }),
       parse: parseSelection
     }),
-    execute: async (args, context) => {
+    execute: async (args: SelectElementsArgs, context: AiExecutionContext) => {
       assertNotAborted(context)
       apis.selectElements([...args.elementIds], AI_MUTATION_OPTIONS)
       return Object.freeze({

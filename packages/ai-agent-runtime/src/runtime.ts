@@ -1,7 +1,35 @@
+import {
+  AiActionRegistryError,
+  createAiActionRegistry
+} from './action-registry'
+import {
+  AiAuditError,
+  createAiRuntimeAudit,
+  type AiRuntimeAudit
+} from './audit'
+import {
+  AiPlanValidationError,
+  AiRetryPolicyError,
+  MAX_AI_PROVIDER_ATTEMPTS,
+  normalizeAiProviderOutput,
+  shouldRetryAiProviderFailure,
+  toAiPlanningFailure,
+  validateAiPlan,
+  type AiPlan,
+  type AiPlanningFailure,
+  type AiPlanValidationErrorCode,
+  type AiPreparedAction,
+  type AiPreparedPlan,
+  type AiRetryPolicy
+} from './plan'
 import type { AiProvider } from './provider'
-import type { AiPreparedAction, AiPreparedPlan } from './plan'
 import { redactAiValue, type AiRedactionOptions } from './redaction'
-import type { AiJsonValue } from './types'
+import type {
+  AiActionDefinition,
+  AiActionRegistry,
+  AiActionRegistryErrorCode,
+  AiJsonValue
+} from './types'
 
 export interface AiContextProvider {
   getContext(input: { intent: string; signal: AbortSignal }): Promise<unknown>
@@ -69,17 +97,95 @@ export interface AiRuntimeOwnedResource {
   dispose(): void | Promise<void>
 }
 
+export interface AiRuntimeOptions {
+  readonly redaction?: AiRedactionOptions
+  readonly retryPolicy?: AiRetryPolicy
+}
+
 export interface CreateAiAgentRuntimeInput {
   provider: AiProvider
-  actionDefinitions: readonly unknown[]
+  actionDefinitions: readonly AiActionDefinition[]
   contextProvider: AiContextProvider
   permissionPolicy: AiPermissionPolicy
   confirmationHandler: AiConfirmationHandler
   transactionRunner: AiTransactionRunner
+  options?: AiRuntimeOptions
   ownedResources?: readonly AiRuntimeOwnedResource[]
 }
 
+export interface AiRunRequest {
+  readonly intent: string
+  readonly metadata?: AiJsonValue
+  readonly signal: AbortSignal
+}
+
+export type AiRuntimeStage =
+  | 'audit'
+  | 'confirmation'
+  | 'context'
+  | 'execution'
+  | 'permission'
+  | 'planning'
+  | 'registry'
+  | 'runtime'
+  | 'transaction'
+  | 'validation'
+
+export type AiRuntimeFailureCode =
+  | AiActionRegistryErrorCode
+  | AiConfirmationErrorCode
+  | AiPermissionErrorCode
+  | AiPlanValidationErrorCode
+  | AiPlanningFailure['code']
+  | 'AI_ACTION_REGISTRY_FAILED'
+  | 'AI_AUDIT_FAILED'
+  | 'AI_AUDIT_INVALID_INPUT'
+  | 'AI_CONTEXT_FAILED'
+  | 'AI_EXECUTION_ABORTED'
+  | 'AI_EXECUTION_FAILED'
+  | 'AI_RETRY_POLICY_FAILED'
+  | 'AI_RETRY_POLICY_INVALID'
+  | 'AI_RUNTIME_DISPOSED'
+  | 'AI_RUNTIME_FAILED'
+  | 'AI_RUNTIME_INVALID_INTENT'
+  | 'AI_TRANSACTION_ABORTED'
+  | 'AI_TRANSACTION_FAILED'
+  | 'AI_VALIDATION_FAILED'
+
+export interface AiRuntimeExecutedResult {
+  readonly status: 'executed'
+  readonly planId: string
+  readonly preview: AiPlanPreview
+  readonly actionResults: readonly AiActionExecutionResult[]
+  readonly transaction: {
+    readonly status: 'committed'
+  }
+  readonly audit: AiRuntimeAudit
+}
+
+export interface AiRuntimeCancelledResult {
+  readonly status: 'cancelled'
+  readonly reason: 'aborted' | 'confirmation-cancelled'
+  readonly preview?: AiPlanPreview
+  readonly audit: AiRuntimeAudit
+}
+
+export interface AiRuntimeFailedResult {
+  readonly status: 'failed'
+  readonly code: AiRuntimeFailureCode
+  readonly message: string
+  readonly stage: AiRuntimeStage
+  readonly retryCount: number
+  readonly audit: AiRuntimeAudit
+}
+
+export type AiRuntimeResult =
+  | AiRuntimeCancelledResult
+  | AiRuntimeExecutedResult
+  | AiRuntimeFailedResult
+
 export interface AiAgentRuntime {
+  run(request: AiRunRequest): Promise<AiRuntimeResult>
   dispose(): Promise<void>
 }
 
@@ -407,24 +513,587 @@ export const executeAiActions = async (
   })
 }
 
+const INVOCATION_ABORTED = Symbol('INVOCATION_ABORTED')
+
+interface AiInvocationEvidence {
+  readonly plan?: Pick<AiPlan, 'explanation' | 'planId'>
+  readonly preview?: AiPlanPreview
+  readonly retryCount: number
+}
+
+interface AiStableFailure {
+  readonly code: AiRuntimeFailureCode
+  readonly message: string
+  readonly stage: AiRuntimeStage
+}
+
+interface ActiveAiInvocation {
+  readonly controller: AbortController
+  settlement: Promise<AiRuntimeResult>
+}
+
+const runAbortable = async <T>(
+  signal: AbortSignal,
+  operation: () => Promise<T>
+): Promise<T> => {
+  if (signal.aborted) {
+    throw INVOCATION_ABORTED
+  }
+
+  let abortListener: (() => void) | undefined
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortListener = () => reject(INVOCATION_ABORTED)
+    signal.addEventListener('abort', abortListener, {
+      once: true
+    })
+  })
+
+  try {
+    return await Promise.race([Promise.resolve().then(operation), aborted])
+  } finally {
+    if (abortListener) {
+      signal.removeEventListener('abort', abortListener)
+    }
+  }
+}
+
+const stableFailure = (
+  error: unknown,
+  fallback: AiStableFailure
+): AiStableFailure => {
+  if (error instanceof AiPlanValidationError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+  if (error instanceof AiPermissionError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+  if (error instanceof AiConfirmationError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+  if (error instanceof AiTransactionError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+  if (error instanceof AiExecutionError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+  if (error instanceof AiRetryPolicyError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: 'planning'
+    }
+  }
+  if (error instanceof AiActionRegistryError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: 'registry'
+    }
+  }
+  if (error instanceof AiAuditError) {
+    return {
+      code: error.code,
+      message: error.message,
+      stage: error.stage
+    }
+  }
+
+  return fallback
+}
+
+const STAGE_FAILURES: Readonly<Record<AiRuntimeStage, AiStableFailure>> =
+  Object.freeze({
+    audit: Object.freeze({
+      code: 'AI_AUDIT_FAILED',
+      message: 'AI audit output failed.',
+      stage: 'audit'
+    }),
+    confirmation: Object.freeze({
+      code: 'AI_CONFIRMATION_HANDLER_FAILED',
+      message: 'App confirmation handler failed.',
+      stage: 'confirmation'
+    }),
+    context: Object.freeze({
+      code: 'AI_CONTEXT_FAILED',
+      message: 'AI context collection failed.',
+      stage: 'context'
+    }),
+    execution: Object.freeze({
+      code: 'AI_EXECUTION_FAILED',
+      message: 'AI action execution failed.',
+      stage: 'execution'
+    }),
+    permission: Object.freeze({
+      code: 'AI_PERMISSION_POLICY_FAILED',
+      message: 'App permission policy failed.',
+      stage: 'permission'
+    }),
+    planning: Object.freeze({
+      code: 'AI_RETRY_POLICY_FAILED',
+      message: 'AI provider retry policy failed.',
+      stage: 'planning'
+    }),
+    registry: Object.freeze({
+      code: 'AI_ACTION_REGISTRY_FAILED',
+      message: 'AI action registry failed.',
+      stage: 'registry'
+    }),
+    runtime: Object.freeze({
+      code: 'AI_RUNTIME_FAILED',
+      message: 'AI runtime failed.',
+      stage: 'runtime'
+    }),
+    transaction: Object.freeze({
+      code: 'AI_TRANSACTION_FAILED',
+      message: 'AI plan transaction failed.',
+      stage: 'transaction'
+    }),
+    validation: Object.freeze({
+      code: 'AI_VALIDATION_FAILED',
+      message: 'AI plan validation failed.',
+      stage: 'validation'
+    })
+  })
+
+const createFailedResult = (
+  failure: AiStableFailure,
+  evidence: AiInvocationEvidence,
+  redactionOptions: AiRedactionOptions
+): AiRuntimeFailedResult =>
+  Object.freeze({
+    audit: createAiRuntimeAudit(
+      {
+        ...(evidence.plan?.explanation === undefined
+          ? {}
+          : {
+              explanation: evidence.plan.explanation
+            }),
+        ...(evidence.plan?.planId === undefined
+          ? {}
+          : {
+              planId: evidence.plan.planId
+            }),
+        outcome: 'failed',
+        retryCount: evidence.retryCount
+      },
+      redactionOptions
+    ),
+    code: failure.code,
+    message: failure.message,
+    retryCount: evidence.retryCount,
+    stage: failure.stage,
+    status: 'failed'
+  })
+
+const createCancelledResult = (
+  reason: AiRuntimeCancelledResult['reason'],
+  evidence: AiInvocationEvidence,
+  redactionOptions: AiRedactionOptions
+): AiRuntimeCancelledResult => {
+  const result: {
+    audit: AiRuntimeAudit
+    preview?: AiPlanPreview
+    reason: AiRuntimeCancelledResult['reason']
+    status: 'cancelled'
+  } = {
+    audit: createAiRuntimeAudit(
+      {
+        ...(evidence.plan?.explanation === undefined
+          ? {}
+          : {
+              explanation: evidence.plan.explanation
+            }),
+        ...(evidence.plan?.planId === undefined
+          ? {}
+          : {
+              planId: evidence.plan.planId
+            }),
+        outcome: 'cancelled',
+        retryCount: evidence.retryCount
+      },
+      redactionOptions
+    ),
+    reason,
+    status: 'cancelled'
+  }
+
+  if (evidence.preview) {
+    result.preview = evidence.preview
+  }
+
+  return Object.freeze(result)
+}
+
+const validateRuntimeOptions = (
+  options: AiRuntimeOptions | undefined
+): {
+  readonly redaction: AiRedactionOptions
+  readonly retryPolicy?: AiRetryPolicy
+} => {
+  const retryPolicy = options?.retryPolicy
+  if (
+    retryPolicy &&
+    (!Number.isInteger(retryPolicy.maxAttempts) ||
+      retryPolicy.maxAttempts < 1 ||
+      retryPolicy.maxAttempts > MAX_AI_PROVIDER_ATTEMPTS)
+  ) {
+    throw new AiRetryPolicyError()
+  }
+
+  const redaction: AiRedactionOptions = Object.freeze({
+    additionalSecretKeys: Object.freeze([
+      ...(options?.redaction?.additionalSecretKeys ?? [])
+    ])
+  })
+  const validated: {
+    redaction: AiRedactionOptions
+    retryPolicy?: AiRetryPolicy
+  } = {
+    redaction
+  }
+  if (retryPolicy) {
+    validated.retryPolicy = Object.freeze({
+      maxAttempts: retryPolicy.maxAttempts,
+      ...(retryPolicy.shouldRetry
+        ? {
+            shouldRetry: retryPolicy.shouldRetry
+          }
+        : {})
+    })
+  }
+
+  return Object.freeze(validated)
+}
+
 class DefaultAiAgentRuntime implements AiAgentRuntime {
+  private readonly activeInvocations = new Set<ActiveAiInvocation>()
+  private readonly confirmationHandler: AiConfirmationHandler
+  private readonly contextProvider: AiContextProvider
   private readonly ownedResources: readonly AiRuntimeOwnedResource[]
+  private readonly permissionPolicy: AiPermissionPolicy
+  private readonly provider: AiProvider
+  private readonly redactionOptions: AiRedactionOptions
+  private readonly registry: AiActionRegistry
+  private readonly retryPolicy: AiRetryPolicy | undefined
+  private readonly transactionRunner: AiTransactionRunner
   private disposal: Promise<void> | undefined
+  private disposed = false
 
   constructor(input: CreateAiAgentRuntimeInput) {
+    const options = validateRuntimeOptions(input.options)
+
+    this.provider = input.provider
+    this.contextProvider = input.contextProvider
+    this.permissionPolicy = input.permissionPolicy
+    this.confirmationHandler = input.confirmationHandler
+    this.transactionRunner = input.transactionRunner
+    this.redactionOptions = options.redaction
+    this.retryPolicy = options.retryPolicy
     this.ownedResources = Object.freeze([...(input.ownedResources ?? [])])
+    this.registry = createAiActionRegistry()
+    for (const action of input.actionDefinitions) {
+      this.registry.register(action)
+    }
+  }
+
+  run(request: AiRunRequest): Promise<AiRuntimeResult> {
+    if (this.disposed) {
+      return Promise.resolve(
+        createFailedResult(
+          {
+            code: 'AI_RUNTIME_DISPOSED',
+            message: 'AI runtime has been disposed.',
+            stage: 'runtime'
+          },
+          {
+            retryCount: 0
+          },
+          this.redactionOptions
+        )
+      )
+    }
+
+    const controller = new AbortController()
+    const abortInvocation = () => controller.abort(request.signal.reason)
+    if (request.signal.aborted) {
+      abortInvocation()
+    } else {
+      request.signal.addEventListener('abort', abortInvocation, {
+        once: true
+      })
+    }
+
+    const active: ActiveAiInvocation = {
+      controller,
+      settlement: Promise.resolve(
+        createCancelledResult(
+          'aborted',
+          {
+            retryCount: 0
+          },
+          this.redactionOptions
+        )
+      )
+    }
+    this.activeInvocations.add(active)
+    active.settlement = this.runInvocation(
+      {
+        intent: request.intent,
+        ...(request.metadata === undefined
+          ? {}
+          : {
+              metadata: redactAiValue(request.metadata, this.redactionOptions)
+            }),
+        signal: controller.signal
+      },
+      controller.signal
+    ).finally(() => {
+      request.signal.removeEventListener('abort', abortInvocation)
+      this.activeInvocations.delete(active)
+    })
+
+    return active.settlement
   }
 
   dispose(): Promise<void> {
     if (!this.disposal) {
-      this.disposal = Promise.all(
-        this.ownedResources.map((resource) =>
-          Promise.resolve().then(() => resource.dispose())
-        )
-      ).then(() => undefined)
+      this.disposal = this.disposeRuntime()
     }
 
     return this.disposal
+  }
+
+  private async disposeRuntime(): Promise<void> {
+    this.disposed = true
+    const active = [...this.activeInvocations]
+    for (const invocation of active) {
+      invocation.controller.abort()
+    }
+    await Promise.allSettled(active.map((invocation) => invocation.settlement))
+
+    this.registry.dispose()
+    const cleanups = await Promise.allSettled(
+      this.ownedResources.map((resource) =>
+        Promise.resolve().then(() => resource.dispose())
+      )
+    )
+    const failed = cleanups.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    )
+    if (failed) {
+      throw failed.reason
+    }
+  }
+
+  private async runInvocation(
+    request: AiRunRequest,
+    signal: AbortSignal
+  ): Promise<AiRuntimeResult> {
+    let evidence: AiInvocationEvidence = {
+      retryCount: 0
+    }
+    let currentStage: AiRuntimeStage = 'context'
+
+    try {
+      const intent =
+        typeof request.intent === 'string' ? request.intent.trim() : ''
+      if (!intent) {
+        return createFailedResult(
+          {
+            code: 'AI_RUNTIME_INVALID_INTENT',
+            message: 'AI runtime requires a non-empty intent.',
+            stage: 'runtime'
+          },
+          evidence,
+          this.redactionOptions
+        )
+      }
+
+      const context = redactAiValue(
+        await runAbortable(signal, () =>
+          this.contextProvider.getContext({
+            intent,
+            signal
+          })
+        ),
+        this.redactionOptions
+      )
+      currentStage = 'registry'
+      const actions = this.registry.list()
+
+      currentStage = 'planning'
+      let attempt = 1
+      let plan: AiPlan
+      while (true) {
+        try {
+          const providerOutput = await runAbortable(signal, () =>
+            this.provider.generateActionPlan(
+              Object.freeze({
+                actions,
+                attempt,
+                context,
+                intent,
+                ...(request.metadata === undefined
+                  ? {}
+                  : {
+                      metadata: request.metadata
+                    })
+              }),
+              {
+                signal
+              }
+            )
+          )
+          plan = normalizeAiProviderOutput(providerOutput)
+          break
+        } catch (error) {
+          if (signal.aborted || error === INVOCATION_ABORTED) {
+            throw INVOCATION_ABORTED
+          }
+
+          const planningFailure = toAiPlanningFailure(error, attempt)
+          if (
+            !shouldRetryAiProviderFailure(planningFailure, this.retryPolicy)
+          ) {
+            return createFailedResult(
+              {
+                code: planningFailure.code,
+                message: planningFailure.message,
+                stage: planningFailure.stage
+              },
+              {
+                retryCount: attempt - 1
+              },
+              this.redactionOptions
+            )
+          }
+
+          attempt += 1
+          evidence = {
+            retryCount: attempt - 1
+          }
+        }
+      }
+
+      evidence = {
+        plan,
+        retryCount: attempt - 1
+      }
+      currentStage = 'validation'
+      const prepared = validateAiPlan(plan, this.registry)
+      currentStage = 'permission'
+      const permissionReady = await evaluateAiPlanPermissions(
+        prepared,
+        context,
+        this.permissionPolicy
+      )
+
+      currentStage = 'confirmation'
+      let confirmed: AiConfirmedPlan
+      try {
+        confirmed = await confirmAiPlan(
+          permissionReady,
+          this.confirmationHandler,
+          signal,
+          this.redactionOptions
+        )
+      } catch (error) {
+        if (
+          error instanceof AiConfirmationError &&
+          error.code === 'AI_CONFIRMATION_CANCELLED'
+        ) {
+          return createCancelledResult(
+            'confirmation-cancelled',
+            {
+              ...evidence,
+              preview: createAiPlanPreview(
+                permissionReady,
+                this.redactionOptions
+              )
+            },
+            this.redactionOptions
+          )
+        }
+        throw error
+      }
+      evidence = {
+        ...evidence,
+        preview: confirmed.preview
+      }
+
+      currentStage = 'transaction'
+      const batch = await runAiPlanTransaction(
+        confirmed,
+        this.transactionRunner,
+        signal,
+        async () => {
+          currentStage = 'execution'
+          const result = await executeAiActions(
+            confirmed,
+            signal,
+            this.redactionOptions
+          )
+          currentStage = 'transaction'
+          return result
+        }
+      )
+      currentStage = 'audit'
+      const audit = createAiRuntimeAudit(
+        {
+          actionResults: batch.actionResults,
+          ...(confirmed.explanation === undefined
+            ? {}
+            : {
+                explanation: confirmed.explanation
+              }),
+          outcome: 'executed',
+          planId: confirmed.planId,
+          retryCount: evidence.retryCount
+        },
+        this.redactionOptions
+      )
+
+      return Object.freeze({
+        actionResults: batch.actionResults,
+        audit,
+        planId: confirmed.planId,
+        preview: confirmed.preview,
+        status: 'executed',
+        transaction: Object.freeze({
+          status: 'committed'
+        })
+      })
+    } catch (error) {
+      if (signal.aborted || error === INVOCATION_ABORTED) {
+        return createCancelledResult('aborted', evidence, this.redactionOptions)
+      }
+
+      return createFailedResult(
+        stableFailure(error, STAGE_FAILURES[currentStage]),
+        evidence,
+        this.redactionOptions
+      )
+    }
   }
 }
 

@@ -75,7 +75,15 @@ export type {
   AiPermissionReadyPlan,
   AiPlanPreview,
   AiPlanPreviewAction,
+  AiRunRequest,
+  AiRuntimeCancelledResult,
+  AiRuntimeExecutedResult,
+  AiRuntimeFailureCode,
+  AiRuntimeFailedResult,
+  AiRuntimeOptions,
   AiRuntimeOwnedResource,
+  AiRuntimeResult,
+  AiRuntimeStage,
   AiTransactionRunner,
   CreateAiAgentRuntimeInput
 } from './runtime'

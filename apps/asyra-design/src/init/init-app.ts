@@ -31,10 +31,7 @@ export interface AppInitialization {
 const asAiAgentFeatureRuntime = (
   runtime: AiRuntimeComposition['runtime']
 ): AiAgentFeatureRuntime | undefined => {
-  if (runtime && 'run' in runtime && typeof runtime.run === 'function') {
-    return runtime as AiAgentFeatureRuntime
-  }
-  return undefined
+  return runtime ?? undefined
 }
 
 /**
