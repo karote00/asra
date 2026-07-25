@@ -6865,3 +6865,38 @@ join` constrained dashed product path across:
     separately queued app plan and remains inactive until explicitly started.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`
+
+## 2026-07-25 - Close the durable collaboration backend proposal without implementation
+
+- Context:
+  - Earlier same-day Group Context Menu closeout entries made the durable
+    collaboration server and continuous sync plan the next queued app plan.
+  - Product review clarified that Asyra Design is a reference design tool
+    without a real production backend; its bundled WebSocket server is an
+    intentional public, memory-only development demo.
+  - Adding SQLite and production recovery policy inside the reference app would
+    simulate deployment responsibilities that belong to an adopting app's
+    actual backend.
+- Decision:
+  - Cancel the durable collaboration backend proposal and close only its
+    documentation correction, without implementing SQLite, durable
+    acknowledgement, restart recovery, missed-publication replay, compaction,
+    authentication, or multi-instance coordination.
+  - Keep the current live demo behavior explicit: disconnected peers miss
+    publications, reconnect receives future publications only, server restart
+    discards every room, and server health reports `durable: false`.
+  - Keep `@asyra/collaboration` provider-neutral and require production apps to
+    supply their own app-owned backend, persistence, recovery, security, and
+    operational policies.
+  - Supersede the earlier same-day statements that made this proposal the next
+    queued plan; retain those entries as append-only history.
+- Consequences:
+  - Asyra Design and Collaboration documentation now distinguish live transport
+    acknowledgement from durable database commit and warn that the bundled
+    server is not production-safe shared storage.
+  - No durable store dependency, implementation, test, BDD, or Inspector
+    artifact remains in the change.
+  - Durable collaboration can be reconsidered only through a new explicit
+    product-owner decision and bounded Level 3 plan for a real backend.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`

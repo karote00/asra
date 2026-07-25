@@ -44,11 +44,18 @@ yarn workspace @asyra/asyra-design react:start
 
 Open the URL configured by `ASYRA_DESIGN_APP_URL`.
 
-## Run Collaboration in Two Windows
+## Run the Non-Durable Collaboration Demo in Two Windows
 
-The repository includes a real public, memory-only WebSocket reference server.
-It runs the same Asyra Design, Factory publication, app-owned remote
-state-application, and Provider path that forked apps can extend or deploy.
+> [!WARNING]
+> The bundled WebSocket server is a public, memory-only development demo, not a
+> production collaboration backend. Server restart, redeploy, or process
+> failure discards every live room. A disconnected peer misses publications
+> sent while it is absent, and a successful send response does not mean the
+> document was written to durable storage.
+
+The repository includes a live public WebSocket reference server. It runs the
+same Asyra Design, Factory publication, app-owned remote state-application, and
+Provider path that forked apps can use to understand the integration boundary.
 
 Start the server and app in separate terminals:
 
@@ -74,7 +81,8 @@ http://localhost:3000/?fileId=crdt-public-reference
 If `ASYRA_DESIGN_APP_URL` uses another origin, keep the same query string on
 that URL. Matching `fileId` values join the same live in-memory room; different
 values stay isolated. The server retains no publication history, so reconnect
-receives future publications only.
+receives future publications only. The response to `send-publication` confirms
+only that the running memory transport accepted the request.
 
 The browser-local demo database is isolated by the same identity: an ordinary
 URL uses localStorage key `FILE`, while a URL with `fileId` uses
@@ -89,10 +97,12 @@ window.__AsyraCollaboration__?.identity
 ```
 
 This public reference intentionally has no login, permission check, durable
-history, or protected-document security guarantee. It can be run as-is for
-public memory-only collaboration; add the documented app/server policies
-before using protected or durable documents. See the complete ownership,
-data-flow, configuration, and extension contract in
+history, missed-publication recovery, or protected-document security
+guarantee. It can be run as-is only for public memory-only demonstration and
+development. A production app must supply its own backend, durable store,
+commit acknowledgement, recovery, conflict, security, and operational
+policies. See the complete ownership, data-flow, configuration, and extension
+contract in
 [`collaboration-reference.md`](../../docs/ai/apps/asyra-design/modules/collaboration-reference.md).
 
 ## Tests

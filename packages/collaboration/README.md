@@ -7,6 +7,11 @@ The package owns connection lifecycle and FIFO publication handoff only. Apps
 remain responsible for payload validation, permissions, canonical remote apply,
 conflict policy, persistence, snapshots, and recovery.
 
+`MemoryHub` and `MemoryProvider` are non-durable development references. They
+retain no publication history, disconnected peers miss publications, and
+Provider Promise settlement is not a disk or database acknowledgement. Product
+apps that promise durable collaboration must supply an app-owned backend.
+
 ```ts
 import {
   createCollaboration,

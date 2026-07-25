@@ -1,5 +1,9 @@
 # Collaboration Reference
 
+> **Status: non-durable development demo.** The bundled server is not a
+> production backend. It retains no shared document history, and its successful
+> response means live-memory acceptance rather than durable storage.
+
 ## Purpose
 
 Asyra Design includes a real two-window WebSocket collaboration composition.
@@ -7,9 +11,10 @@ It is open-source reference code, not a fake or mock path. The browser app,
 Provider, typed wire protocol, and memory-only server all use the same
 publication transport contract available to product apps.
 
-The reference proves live CRDT-oriented app behavior through ordinary app
+The reference proves live app collaboration behavior through ordinary app
 changes and remote canonical apply. It intentionally does not implement the
-production backend responsibilities listed below.
+production backend responsibilities listed below and must not be presented as
+continuous recovery or production-safe shared storage.
 
 ## Activation
 
@@ -125,6 +130,10 @@ socket. It:
 If a peer disconnects, publications sent during that period are missed.
 Reconnect receives future live publications only.
 
+The response to `send-publication` is a live transport acknowledgement. It does
+not prove a disk write, database commit, recoverable revision, or remote backup.
+Server restart, redeploy, or process failure discards every room.
+
 The server's memory-only contract describes live room transport, not browser
 persistence. The Asyra Design demo still saves canonical snapshots to
 localStorage; that local durability is not a production shared database or
@@ -151,6 +160,12 @@ The public memory-only server does not implement:
 A production app/backend owns these decisions. It may load a canonical snapshot
 or request domain changes after reconnect without changing the framework
 transport contract.
+
+Forks may omit collaboration, retain this server only as a development demo, or
+replace it with an app-owned production backend. A production backend must
+define durable commit, ordering, retry, duplicate/collision, recovery, backup,
+security, and deployment-topology policy; Asyra Design intentionally supplies
+no default database implementation.
 
 ## Manual Test
 
