@@ -1,7 +1,8 @@
 ;(function () {
   'use strict'
 
-  const specPath = 'docs/ai/apps/asyra-design/plans/group-context-menu-plan.md'
+  const specPath =
+    'docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs'
 
@@ -734,7 +735,7 @@
         id: 'group-context-menu-plan',
         kind: 'authority',
         label: 'Product contract',
-        href: './group-context-menu-plan.md'
+        href: './completed/group-context-menu-plan.md'
       },
       {
         id: 'existing-group-inspector',

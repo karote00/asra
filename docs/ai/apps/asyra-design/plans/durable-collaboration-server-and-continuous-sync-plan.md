@@ -4,9 +4,9 @@
 
 Queued behind
 `docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md`
-and the active
-`docs/ai/apps/asyra-design/plans/group-context-menu-plan.md` follow-up as a
-later Asyra Design app/server implementation stage after the completed network
+and
+`docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md` as the
+next Asyra Design app/server implementation stage after the completed network
 collaboration transport Gate 2. It remains inactive until the user explicitly
 starts it.
 
