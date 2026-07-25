@@ -6900,3 +6900,25 @@ join` constrained dashed product path across:
     product-owner decision and bounded Level 3 plan for a real backend.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`
+
+## 2026-07-25 - Revalidate the documentation-only durable collaboration closeout
+
+- Context:
+  - PR #99 validation found that the generated create-app Asyra Design README
+    had not been synchronized with the source app README.
+  - The failure concerned generated documentation parity, not a missing
+    durable collaboration dependency or implementation.
+- Decision:
+  - Synchronize the generated template through the official release-template
+    workflow and rerun the completed-plan closeout after every PR check passes.
+  - Keep the earlier cancellation decision unchanged: Asyra Design continues
+    to ship only an explicitly non-durable, memory-only collaboration demo.
+- Consequences:
+  - Source-app and generated-template documentation now expose the same
+    production-backend responsibility and data-loss warning.
+  - PR #99 passed `validate`, ordinary E2E, collaboration E2E, and Vercel
+    checks before returning to product-owner review.
+  - No package manifest, lockfile, production implementation, or dependency
+    change is part of this closeout correction.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`

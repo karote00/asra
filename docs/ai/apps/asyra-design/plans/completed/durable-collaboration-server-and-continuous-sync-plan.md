@@ -14,14 +14,30 @@ the durable backend proposal and approved the documentation-only outcome.
   production service inside the reference app.
 - Canonical record:
   `docs/ai/apps/asyra-design/plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`.
-- Exit criteria: the public app README, app collaboration reference, framework
-  package README, app plan index, and decision history describe the same
-  non-durable boundary; the abandoned dependency, implementation, tests, BDD,
-  and Inspector artifacts are absent; focused formatting, dependency,
-  collaboration package, server integration, and bounded diff gates pass.
+- Exit criteria: the public app README, synchronized create-app template
+  README, app collaboration reference, framework package README, app plan
+  index, and decision history describe the same non-durable boundary; the
+  abandoned dependency, implementation, tests, BDD, and Inspector artifacts
+  are absent; focused formatting, dependency, collaboration package, server
+  integration, and bounded diff gates pass.
 
 This closeout completes the cancellation and documentation correction. It does
 not claim that a durable collaboration backend was implemented.
+
+## Closeout Verification
+
+The documentation-only closeout was revalidated on 2026-07-25 after PR #99
+identified and corrected a stale generated template README.
+
+- `apps/asyra-design/README.md` and
+  `create-app/asyra-design/template/README.md` are byte-identical.
+- `yarn release:app:check --prod=asyra-design`, `yarn test:scripts`,
+  `yarn prettier --check create-app/asyra-design/template/README.md`, and
+  `yarn test:ci` pass locally.
+- PR #99 `validate`, `e2e-tests`, `collaboration-e2e-tests`, and Vercel checks
+  pass.
+- The correction adds no package manifest, lockfile, production
+  implementation, or dependency change.
 
 ## Product Decision
 
@@ -82,6 +98,7 @@ backend.
 The current boundary is documented in:
 
 - `apps/asyra-design/README.md`;
+- `create-app/asyra-design/template/README.md`;
 - `docs/ai/apps/asyra-design/modules/collaboration-reference.md`;
 - `docs/ai/framework/packages/collaboration.md`;
 - `packages/collaboration/README.md`.
