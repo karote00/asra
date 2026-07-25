@@ -1,9 +1,4 @@
-export interface AiProvider {
-  generateActionPlan(
-    input: unknown,
-    options: { signal: AbortSignal }
-  ): Promise<unknown>
-}
+import type { AiProvider } from './provider'
 
 export interface AiContextProvider {
   getContext(input: { intent: string; signal: AbortSignal }): Promise<unknown>

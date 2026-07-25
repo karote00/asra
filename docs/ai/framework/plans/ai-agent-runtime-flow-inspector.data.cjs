@@ -300,7 +300,10 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/ai-agent-runtime/src/provider.ts',
-        'packages/ai-agent-runtime/src/providers/generic-http.ts'
+        'packages/ai-agent-runtime/src/providers/generic-http.ts',
+        'packages/ai-agent-runtime/src/providers/__tests__/generic-http.test.ts',
+        'packages/ai-agent-runtime/src/runtime.ts',
+        'packages/ai-agent-runtime/src/index.ts'
       ],
       specRefs: [
         '#provider-adapter-decision',
