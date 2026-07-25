@@ -197,6 +197,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/src/ai/context.ts',
+        'apps/asyra-design/src/ai/__tests__/context.test.ts',
         'apps/asyra-design/src/common-apis'
       ],
       specRefs: [
