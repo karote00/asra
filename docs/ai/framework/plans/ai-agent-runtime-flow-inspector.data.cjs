@@ -618,7 +618,11 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/ai-agent-runtime/src/runtime.ts',
+        'packages/ai-agent-runtime/src/redaction.ts',
+        'packages/ai-agent-runtime/src/__tests__/execution.test.ts',
+        'packages/ai-agent-runtime/src/index.ts',
         'apps/asyra-design/src/ai/actions.ts',
+        'apps/asyra-design/src/ai/__tests__/actions.test.ts',
         'apps/asyra-design/src/common-apis'
       ],
       specRefs: [

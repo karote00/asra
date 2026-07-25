@@ -45,6 +45,26 @@ export class AiTransactionError extends Error {
   }
 }
 
+export interface AiActionExecutionResult {
+  readonly actionId: string
+  readonly actionName: string
+  readonly result: AiJsonValue
+}
+
+export interface AiActionExecutionBatch {
+  readonly actionResults: readonly AiActionExecutionResult[]
+}
+
+export class AiExecutionError extends Error {
+  readonly code = 'AI_EXECUTION_ABORTED' as const
+  readonly stage = 'execution' as const
+
+  constructor() {
+    super('AI action execution was aborted.')
+    this.name = 'AiExecutionError'
+  }
+}
+
 export interface AiRuntimeOwnedResource {
   dispose(): void | Promise<void>
 }
@@ -350,6 +370,40 @@ export const runAiPlanTransaction = async <T>(
     const result = await execute()
     assertTransactionNotAborted(signal)
     return result
+  })
+}
+
+const assertExecutionNotAborted = (signal: AbortSignal): void => {
+  if (signal.aborted) {
+    throw new AiExecutionError()
+  }
+}
+
+export const executeAiActions = async (
+  plan: AiConfirmedPlan,
+  signal: AbortSignal,
+  redactionOptions: AiRedactionOptions = {}
+): Promise<AiActionExecutionBatch> => {
+  const actionResults: AiActionExecutionResult[] = []
+  const context = Object.freeze({
+    signal
+  })
+
+  for (const action of plan.actions) {
+    assertExecutionNotAborted(signal)
+    const result = await action.execute(action.arguments, context)
+    assertExecutionNotAborted(signal)
+    actionResults.push(
+      Object.freeze({
+        actionId: action.id,
+        actionName: action.name,
+        result: redactAiValue(result, redactionOptions)
+      })
+    )
+  }
+
+  return Object.freeze({
+    actionResults: Object.freeze(actionResults)
   })
 }
 

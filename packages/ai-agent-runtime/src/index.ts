@@ -18,11 +18,13 @@ export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export {
   AI_PLAN_TRANSACTION_LABEL,
   AiConfirmationError,
+  AiExecutionError,
   AiPermissionError,
   AiTransactionError,
   confirmAiPlan,
   createAiAgentRuntime,
   evaluateAiPlanPermissions,
+  executeAiActions,
   runAiPlanTransaction
 } from './runtime'
 export type {
@@ -52,6 +54,8 @@ export type {
 export type { AiRedactionOptions } from './redaction'
 export type {
   AiAgentRuntime,
+  AiActionExecutionBatch,
+  AiActionExecutionResult,
   AiConfirmationErrorCode,
   AiConfirmationHandler,
   AiConfirmedPlan,

@@ -61,9 +61,10 @@ const redactValue = (
     if (Array.isArray(value)) {
       const result: AiJsonValue[] = []
       for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
         result.push(
-          index in value
-            ? redactValue(value[index], additionalSecretKeys, ancestors)
+          descriptor?.enumerable && 'value' in descriptor
+            ? redactValue(descriptor.value, additionalSecretKeys, ancestors)
             : AI_REDACTED_VALUE
         )
       }

@@ -42,6 +42,9 @@ vendor mandatory and does not read or expose a browser-held server API key.
 - App executors mutate through app common/public APIs. Canonical package owners,
   ordinary Render derivation, persistence, undo/redo, and optional
   Collaboration publication remain unchanged.
+- The bounded reference app registers only `set_element_visibility` and
+  `select_elements`; higher-risk creation, deletion, grouping, script, and
+  arbitrary property actions are not part of this first release.
 - The runtime returns detached preview, execution, audit, explanation, and
   failure results with configured secret fields redacted.
 - Abort, provider timeout, bounded retry, failure, and disposal remove runtime
