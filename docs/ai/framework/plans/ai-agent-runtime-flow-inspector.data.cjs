@@ -242,6 +242,8 @@
       implementationBoundary: [
         'packages/ai-agent-runtime/src/action-registry.ts',
         'packages/ai-agent-runtime/src/types.ts',
+        'packages/ai-agent-runtime/src/__tests__/action-registry.test.ts',
+        'packages/ai-agent-runtime/src/index.ts',
         'apps/asyra-design/src/ai/actions.ts'
       ],
       specRefs: [

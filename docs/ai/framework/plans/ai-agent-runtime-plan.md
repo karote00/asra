@@ -345,7 +345,8 @@ export interface AiActionDefinition<TArgs = unknown> {
 export interface AiActionRegistry {
   register(action: AiActionDefinition): void
   get(name: string): AiActionDefinition | undefined
-  list(): AiActionDefinition[]
+  list(): readonly AiActionDescription[]
+  dispose(): void
 }
 
 export interface AiTransactionRunner {
@@ -366,6 +367,7 @@ Data types to define:
 - `AiExecutionContext`
 - `AiExecutionResult`
 - `AiActionResult`
+- `AiActionDescription`
 - `AiValidationError`
 - `AiPermissionDecision`
 - `AiConfirmationHandler`
