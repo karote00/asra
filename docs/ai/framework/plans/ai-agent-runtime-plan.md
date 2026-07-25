@@ -2,20 +2,203 @@
 
 ## Status
 
-Framework Release Gate 4: required after the Group hierarchy gate closes and
-before the final release-readiness audit.
+Framework Release Gate 4 is active from baseline `0e3eee620`, after the
+completed Gate 1 app-level migration, Gate 2 network collaboration transport,
+and Gate 3 Group hierarchy contracts were verified on `main`.
 
 The package ships in the first public framework release but remains optional to
-install and activate at app runtime. Before implementation begins, create the
-matching Inspector owner flow for app intent/context, provider request/result,
-Feature System lifecycle, plan validation, permission/confirmation, transaction
-execution, canonical state mutation, collaboration routing, audit output,
-failure, and cleanup.
+install and activate at app runtime. Production implementation begins only after
+this product contract, the matching Inspector owner flow, the bounded product
+cases, and the readiness gates agree.
 
 Release inclusion requires at least one production-capable provider adapter or
 generic provider integration through the replaceable boundary. The exact first
-adapter is decided by the Inspector without making that provider mandatory for
-apps or exposing browser-held secrets by default.
+adapter is the generic HTTP provider defined below. It does not make a model
+vendor mandatory and does not read or expose a browser-held server API key.
+
+## Product Contract
+
+### Supported Behavior
+
+- An app-owned Feature receives natural-language intent and invokes one
+  app-composed AI runtime instance with the Feature lifecycle `AbortSignal`.
+- The app supplies context, schema-backed action definitions, permission
+  policy, confirmation UI, transaction runner, and domain executors.
+- The runtime sends detached intent/context/action descriptions through one
+  replaceable provider, treats the result as a candidate plan, and validates
+  the complete plan before the first mutation.
+- Only registered actions with schema-valid arguments may reach app executors.
+- Permission denial and required confirmation are decided before transaction
+  execution. Confirmation cancellation is a successful no-mutation terminal
+  outcome, not an execution failure.
+- One accepted plan enters one app-owned transaction runner call by default.
+  Executor failure is owned by that runner's rollback contract and leaves no
+  accepted canonical prefix.
+- App executors mutate through app common/public APIs. Canonical package owners,
+  ordinary Render derivation, persistence, undo/redo, and optional
+  Collaboration publication remain unchanged.
+- The runtime returns detached preview, execution, audit, explanation, and
+  failure results with configured secret fields redacted.
+- Abort, provider timeout, bounded retry, failure, and disposal remove runtime
+  listeners/timers and do not create a second execute/session/cancel owner.
+- Separate runtime instances keep providers, registries, policies, audit
+  results, cancellation, retry state, and in-flight work isolated.
+
+### Unsupported Behavior
+
+- No arbitrary code, script, expression, dynamic import, package-private API,
+  renderer object, engine object, or app-private store may be selected by model
+  output.
+- The runtime does not own app Feature registration, domain semantics,
+  confirmation UI, canonical state, transaction history, collaboration
+  conflict policy, persistence, or provider credentials.
+- Importing the package or starting an app without explicit AI activation must
+  not construct a provider/runtime instance, read a secret, open a network
+  connection, or install a Feature.
+- A provider-disabled composition makes no provider request. An AI-disabled app
+  omits the composition entirely.
+- Direct browser use of a server model API key is not the default or reference
+  contract. Live vendor smoke tests are opt-in and never required by CI.
+
+### Public Input Contracts
+
+- `AiRunRequest`: non-empty natural-language `intent`, Feature-owned
+  `AbortSignal`, and optional app metadata safe to disclose to the provider.
+- `AiContextProvider`: returns a detached app-owned context value for the
+  current request.
+- `AiActionDefinition<TArgs>`: stable name, description,
+  library-agnostic `AiActionSchema<TArgs>`, and app-owned executor.
+- `AiProvider`: receives a detached request containing intent, context, and
+  deterministic action descriptions; it returns `unknown` provider output for
+  runtime validation.
+- `AiPermissionPolicy`: returns `allow`, `deny`, or `confirm` for every prepared
+  action before execution.
+- `AiConfirmationHandler`: receives one immutable complete preview and returns
+  accepted or cancelled.
+- `AiTransactionRunner`: owns commit/rollback behavior for the complete accepted
+  action sequence.
+- Runtime options may define provider timeout, bounded retry policy, and
+  additional secret-key names; defaults remain finite and deterministic.
+
+### Public Output Contracts
+
+- `preview`: a detached, immutable complete plan with action names, validated
+  arguments, permission decisions, and a redacted explanation.
+- `executed`: the accepted plan id, ordered app action results, one transaction
+  outcome, and redacted audit/explanation output.
+- `cancelled`: a no-mutation confirmation or Feature abort outcome with a stable
+  reason.
+- `failed`: a stable runtime error code, stage, retry count, and redacted
+  diagnostics. Raw provider responses, credentials, authorization headers, and
+  secret-like values are never returned.
+- No result type contains canonical scene state or grants authority to apply
+  model output directly.
+
+### Ownership And Forbidden Boundaries
+
+- App Feature System owner: natural-language trigger, priority/exclusive mode,
+  execute/session/cancel lifecycle, and the lifecycle signal.
+- App owners: context, action definitions, schemas, permission, confirmation,
+  transaction adapter, domain executors, common/public API calls, collaboration
+  options, and product UI.
+- `@asyra/ai-agent-runtime`: isolated registry, provider orchestration, provider
+  result normalization, complete plan validation, preflight sequencing, redacted
+  preview/audit/failure output, bounded retry, timeout, and listener/timer
+  cleanup.
+- Replaceable provider: request transport and untrusted result production only.
+- Factory/app transaction adapter: one accepted plan to one intended undo commit
+  and rollback on executor failure.
+- Canonical state packages: their existing validation and mutation invariants.
+- Render/UI and Collaboration: existing derived and transport-only routes.
+- Forbidden contributors: Render/Pixi/Three objects, package internals,
+  local-only stores as canonical state, provider-side mutation, arbitrary model
+  code, a second session queue, framework-owned app permission/domain policy,
+  or diagnostic/audit values used as product input.
+
+### Provider Adapter Decision
+
+The first production-capable adapter is a generic HTTP provider:
+
+- it uses platform `fetch` or an injected fetch-compatible function and adds no
+  SDK or schema dependency;
+- it posts the detached `AiProviderInput` as JSON to an app-selected HTTPS or
+  same-origin endpoint and treats the JSON response as untrusted `unknown`;
+- the endpoint may be an app/backend proxy that owns vendor selection,
+  authentication, server API keys, rate limits, and provider-specific repair;
+- the adapter never reads `OPENAI_API_KEY`, environment files, local storage, or
+  browser globals for credentials;
+- app-supplied headers are accepted only as provider configuration and are
+  redacted from diagnostics; the reference app does not supply a server secret
+  to browser code;
+- transport failure, non-success status, malformed JSON, abort, timeout, and
+  disposal use stable redacted failures and release request resources;
+- deterministic fake providers remain the formal test and CI authority. A live
+  provider test is a separate opt-in smoke gate.
+
+### Failure Cleanup And Bypass Contract
+
+- AI-disabled: no package composition, provider, network, secret read, Feature,
+  runtime, listener, timer, or startup side effect.
+- Provider-disabled: the app Feature returns a stable unavailable result without
+  invoking context collection or provider transport.
+- Non-collaborative: accepted actions use the same app common APIs without a
+  shared channel; no Collaboration object is created by the runtime.
+- Malformed provider result, unknown/duplicate action, invalid schema,
+  permission denial, confirmation cancellation, abort, or timeout terminates
+  before mutation.
+- Executor failure occurs inside the one transaction runner and must roll back
+  all rollbackable canonical writes before the runtime reports failure.
+- Retry is bounded, opt-in, provider-stage-only, and never repeats a transaction
+  or action executor.
+- The app Feature owns lifecycle completion. The runtime owns only listeners,
+  timers, request attempts, and detached orchestration state created by its
+  invocation.
+
+### Product Cases
+
+Formal product cases cover:
+
+1. deterministic registration/listing and duplicate-name rejection;
+2. known action with valid arguments and unknown/invalid action rejection;
+3. permission allow/deny and confirmation accepted/cancelled;
+4. complete multi-action preflight before the first executor call;
+5. one accepted multi-action plan through one transaction runner call;
+6. executor failure rollback with no canonical prefix;
+7. malformed output, provider failure, bounded retry, abort, timeout, disposal,
+   and cleanup;
+8. redaction of configured keys, authorization values, tokens, and nested
+   provider failures;
+9. isolated registries/providers/in-flight state across runtime instances;
+10. app-owned common API execution, ordinary Render derivation, and optional
+    canonical Collaboration publication;
+11. AI-disabled and provider-disabled zero-side-effect bypasses;
+12. provider replacement between deterministic fake and generic HTTP adapters
+    without changing runtime or app action contracts.
+
+### Definition Of Done
+
+- The product contract and AI Agent Runtime Flow Inspector agree on every owner,
+  input/output, route, condition, bypass, forbidden contributor, failure owner,
+  cleanup owner, product case, and gate.
+- Inspector structure, readiness, Gherkin synchronization, and executable
+  runtime BDD contracts pass.
+- `@asyra/ai-agent-runtime` builds and exposes documented public types,
+  registry, runtime, redaction utility, deterministic fake test support, and the
+  generic HTTP provider without a model SDK or schema-library dependency.
+- Package tests prove registry, schema, permission, confirmation, preflight,
+  transaction, rollback/no-prefix, provider failure/retry, abort/timeout,
+  redaction, cleanup, and instance isolation.
+- Asyra Design proves one app-owned Feature, context provider, action registry,
+  permission/confirmation adapter, and common-API transaction execution. Its
+  disabled route has zero AI startup/network/secret side effects.
+- The reference integration proves one accepted plan is one undo commit and,
+  when Collaboration is already enabled by the app, AI-originated mutations use
+  the ordinary canonical publication route.
+- Public API, package, security, Golden Path, app behavior, and release decision
+  documents agree; all focused package/app tests, dependency validation, lint,
+  production builds, and bounded final review pass.
+- No live API key or live vendor smoke test is required for contract,
+  implementation, deterministic tests, or CI completion.
 
 ## Context
 
@@ -88,7 +271,7 @@ Clarifications:
 - API keys must come from app/server environment or user-owned configuration,
   not committed framework/app source.
 
-## Proposed Package Responsibility
+## Package Responsibility
 
 `@asyra/ai-agent-runtime` owns reusable orchestration only.
 
@@ -122,19 +305,23 @@ The package should not own app-domain actions. For example, the runtime may know
 that an action named `create_shape` exists after the app registers it, but it
 must not know how a particular product creates a shape.
 
-## Public Interface Direction
+## Public Interface Contract
 
-The first implementation should keep interfaces small and app-agnostic.
-
-Candidate contracts:
+The public interfaces remain small and app-agnostic:
 
 ```ts
 export interface AiProvider {
-  generateActionPlan(input: AiProviderInput): Promise<AiProviderResult>
+  generateActionPlan(
+    input: AiProviderInput,
+    options: { signal: AbortSignal }
+  ): Promise<unknown>
 }
 
 export interface AiContextProvider<TContext = unknown> {
-  getContext(): Promise<TContext>
+  getContext(input: {
+    intent: string
+    signal: AbortSignal
+  }): Promise<TContext>
 }
 
 export interface AiActionDefinition<TArgs = unknown> {
@@ -151,11 +338,11 @@ export interface AiActionRegistry {
 }
 
 export interface AiTransactionRunner {
-  run(label: string, execute: () => Promise<void>): Promise<void>
+  run<T>(label: string, execute: () => Promise<T>): Promise<T>
 }
 
 export interface AiPermissionPolicy {
-  evaluate(action: AiPlannedAction): AiPermissionDecision
+  evaluate(action: AiPreparedAction): AiPermissionDecision
 }
 ```
 
@@ -163,16 +350,19 @@ Data types to define:
 - `AiPlan`
 - `AiPlannedAction`
 - `AiProviderInput`
-- `AiProviderResult`
+- `AiProviderOutput`
 - `AiExecutionContext`
 - `AiExecutionResult`
 - `AiActionResult`
 - `AiValidationError`
 - `AiPermissionDecision`
+- `AiConfirmationHandler`
+- `AiRuntimeOptions`
 
-The schema abstraction should avoid forcing one validation library in the
-framework contract. A concrete app may adapt Zod, Valibot, JSON Schema, or a
-custom validator behind `AiActionSchema`.
+`AiActionSchema` returns a stable success/failure result with parsed typed
+arguments and detached issues. It does not force one validation library. A
+concrete app may adapt an existing schema tool or a custom validator behind that
+contract.
 
 ## Provider Strategy
 
@@ -180,33 +370,16 @@ The runtime owns a provider abstraction, not a hard dependency on a model
 vendor.
 
 Provider rules:
-- first provider adapter may target OpenAI or a generic HTTP provider
-- provider configuration comes from app/server environment, for example
-  `OPENAI_API_KEY`
-- committed source may include `.env.example` values, but never real secrets
-- apps may expose self-host or BYOK patterns
-- the framework should document the integration boundary without owning secret
-  storage policy for every app
-- browser clients must not expose secret API keys directly by default
 
-Recommended local development shape:
-
-```txt
-.env.example
-  ASYRA_AI_ENABLED=false
-  OPENAI_API_KEY=
-  OPENAI_MODEL=
-
-.env.local
-  ASYRA_AI_ENABLED=true
-  OPENAI_API_KEY=<developer-owned key>
-  OPENAI_MODEL=<chosen model>
-```
-
-Apps that want user-owned provider configuration should prefer a custom backend
-endpoint or self-hosted setup. Direct browser BYOK can be supported by an app,
-but it should be documented as a product-level security decision rather than a
-framework default.
+- the first adapter is the generic HTTP provider in
+  [Provider Adapter Decision](#provider-adapter-decision);
+- app/server composition owns endpoint selection, vendor credentials,
+  authentication, rate limits, and deployment secret storage;
+- the runtime and adapter never read a server API key from browser environment,
+  storage, source, test fixtures, or logs;
+- deterministic fake providers prove CI behavior without network or secrets;
+- apps may compose a self-hosted or vendor-specific provider through the same
+  public interface without changing runtime validation/execution.
 
 ## Execution Flow
 
@@ -350,9 +523,8 @@ Release-boundary tests:
 ## Assumptions
 
 - The package name is `@asyra/ai-agent-runtime`.
-- This is Framework Release Gate 4 and begins only after Gates 1-3 close.
-- This is a docs-only planning record; no package scaffolding or runtime
-  implementation is included yet.
+- Gates 1-3 are closed on the active baseline.
+- Readiness artifacts precede production package scaffolding.
 - The framework package remains app-agnostic and optional.
 - App-specific AI behavior belongs in each app, not in
   `@asyra/ai-agent-runtime`.
