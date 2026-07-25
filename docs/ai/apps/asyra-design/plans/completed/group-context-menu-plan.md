@@ -1,16 +1,24 @@
 # Asyra Design Group Context Menu Plan
 
-## Status and Priority
+## Completion
 
-Reopened on 2026-07-25 after post-closeout product review. The prior closeout
-decision remains in append-only history but is superseded for this PR by the
-explicit requirement to remove the Group and Ungroup buttons from the
-Layers/Contents header.
+Completed again on 2026-07-25 after the post-closeout product follow-up passed
+its required gates and received explicit user closeout authorization.
 
-This plan is active until that follow-up passes its Inspector/readiness,
-formal, E2E, template, and synchronized visual gates and receives a new user
-review. Context Menu and operating-system shortcuts are the only Group/Ungroup
-command surfaces in scope.
+- Outcome: canvas right-click opens one accessible app-owned Context Menu with
+  fixed Group and Ungroup rows, accurate operating-system shortcuts, and no
+  Group or Ungroup buttons in the Layers/Contents header.
+- Final decision: Context Menu and registered shortcuts are the only
+  Group/Ungroup command surfaces; Asyra Design retains session, descriptor,
+  eligibility, and routing policy; Design System retains reusable
+  presentation; and the existing Group feature remains the sole transaction,
+  selection, hierarchy, and failure path.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`.
+- Exit criteria: Inspector/readiness and Gherkin contracts, the failing
+  button-absence regression, affected app and collaboration E2E, dependency,
+  lint, build, template synchronization/build, synchronized visual review, and
+  bounded direct-consumer review passed before this closeout.
 
 Architecture authority:
 

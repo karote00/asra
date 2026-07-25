@@ -6835,3 +6835,33 @@ join` constrained dashed product path across:
     the earlier completion record is no longer the active canonical path.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/group-context-menu-plan.md`
+
+## 2026-07-25 - Complete the Group Context Menu button-removal follow-up
+
+- Context:
+  - Post-closeout review reopened the Group Context Menu plan because the
+    Layers/Contents header still exposed Group and Ungroup buttons even though
+    Context Menu and operating-system shortcuts already owned those command
+    surfaces.
+  - The follow-up added formal absence oracles, removed the controls, and
+    migrated product E2E setup to the registered shortcuts.
+- Decision:
+  - Close the reopened plan after its corrected Group Context Menu and Group
+    Interaction Inspector contracts, Gherkin/BDD, app tests, affected ordinary
+    and collaboration E2E, template gates, builds, synchronized visual review,
+    and explicit user approval.
+  - Keep Context Menu and shortcuts as the only Group/Ungroup command surfaces
+    while retaining the existing feature, eligibility, transaction, selection,
+    hierarchy, and failure owners.
+  - Supersede the 2026-07-25 reopen state and its then-active plan path with the
+    completed canonical record below; retain both earlier entries as
+    append-only decision history.
+- Consequences:
+  - The Layers/Contents header contains no Group or Ungroup button or
+    command-specific test id.
+  - PR #97 remains open for integration checks and merge review; closeout does
+    not authorize merge.
+  - The durable collaboration server and continuous sync plan becomes the next
+    separately queued app plan and remains inactive until explicitly started.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md`
