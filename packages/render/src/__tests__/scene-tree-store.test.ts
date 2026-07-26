@@ -637,6 +637,84 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('projects delayed child add envelopes against an already-final parent mirror without resync', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
+    }
+    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+    const counters = new Map<string, number>()
+    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+      counters.set(name, (counters.get(name) ?? 0) + value)
+    }
+    const parentRaw = {
+      type: 'group',
+      parentId: 'workspace-1',
+      visible: true,
+      children: ['child-a', 'child-b', 'child-c']
+    }
+    const elements = new Map([
+      ['group-1', createElement('group-1', parentRaw, {})],
+      [
+        'child-a',
+        createElement(
+          'child-a',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ],
+      [
+        'child-b',
+        createElement(
+          'child-b',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ],
+      [
+        'child-c',
+        createElement(
+          'child-c',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ]
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    try {
+      expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+        status: 'applied',
+        elementId: 'group-1'
+      })
+      for (const [index, elementId] of parentRaw.children.entries()) {
+        expect(store.addElementById(elementId, 'group-1', index)).toEqual({
+          status: 'applied',
+          elementId
+        })
+      }
+    } finally {
+      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+    }
+
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['group-1', 0],
+      ['child-a', 0],
+      ['child-b', 1],
+      ['child-c', 2]
+    ])
+    expect(counters.get('computed-mirror-projection-mismatch') ?? 0).toBe(0)
+    expect(counters.get('computed-mirror-seed-resync') ?? 0).toBe(0)
+  })
+
   it('should run: fail closed for invalid explicit add snapshots', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const cases = [

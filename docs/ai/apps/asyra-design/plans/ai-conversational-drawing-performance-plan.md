@@ -164,6 +164,15 @@ showed no meaningful mount-only improvement: three present reloads averaged
 7.026 seconds and three diagnostically omitted reloads averaged 7.074 seconds
 with the same persisted canonical digest.
 
+The first Render repair recognizes a child ADD envelope whose seeded child and
+parent mirrors already match the exact canonical after-state. It avoids
+treating transaction-end delivery as a mismatch while retaining the ordinary
+incremental path for a parent mirror that has not applied the child. After one
+warm-up, three production runs settled in 9.454–9.795 seconds (9.744-second
+median), below the 12-second balanced atomic median budget and 20-second
+worst-run budget. All 7,112 ordinary projections remained, while 7,111 parent
+mismatch/invalidate/resync cycles fell to zero.
+
 ## Performance Budgets
 
 On the reference environment:

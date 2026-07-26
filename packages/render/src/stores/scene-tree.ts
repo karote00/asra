@@ -963,6 +963,16 @@ class RenderSceneTree {
       return null
     }
 
+    if (
+      action === 'add' &&
+      index !== undefined &&
+      this.computedDataMirror.matchesElementParent(childId, parentId) &&
+      this.computedDataMirror.matchesParentChild(parentId, childId, index)
+    ) {
+      emitDiagnosticCounter('computed-mirror-add-parent-already-synchronized')
+      return this.projectionOutcome(parentId, 'applied')
+    }
+
     const applyResult = this.computedDataMirror.applyChildMembershipChange(
       parentId,
       childId,
