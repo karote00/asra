@@ -59,7 +59,7 @@ Feature: Conversational AI mock drawing
     Then the mock provider should invoke the same-origin App VTracer tool exactly once
     And an accepted WebP should be normalized to detached in-memory PNG bytes before the tool call
     And the attachment should never leave the local App origin or enter an external model request
-    And the complete raster should become ordinary editable Vectors with deterministic generic roles
+    And one or more valid traced items should become ordinary editable Vectors with deterministic generic roles inside one Group
     And the provider should return one existing insert_vector_composition action
     And the turn should create one intended undo commit
     And reloading should restore the identical committed canonical vector composition

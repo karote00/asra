@@ -302,6 +302,9 @@ the same width and height as the uploaded photo.` directly through the
   `insert_vector_composition` action. The action/runtime contracts remain
   unchanged, so the entire user turn creates one outer transaction and one
   intended Undo action regardless of element count.
+- One valid traced item still creates one ordinary Group containing that
+  Vector through the same action and transaction route; zero valid items fail
+  before mutation.
 - Abort, App disposal, malformed image data, VTracer failure, invalid SVG, or
   an empty trace settles as an explicit provider/tool failure before mutation;
   it never falls back to a fixture or bitmap insertion.

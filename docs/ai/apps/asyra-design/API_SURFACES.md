@@ -79,7 +79,9 @@ This file is the app-level API contract map.
   decoder differences cannot change accepted-input behavior. The adapter
   validates the
   complete-raster SVG into deterministic generic-role ordinary Vector items
-  and returns one existing `insert_vector_composition` action; it performs no
+  and returns one existing `insert_vector_composition` action. A trace with one
+  valid item still creates one ordinary Group containing that Vector, while an
+  empty trace fails before mutation; it performs no
   semantic segmentation, background replacement, OCR, bitmap insertion,
   external/model request, or fixture fallback
 - conversation progress contains only the runtime's stable operational

@@ -503,7 +503,7 @@ test('Conversational AI Gherkin contract is registered and covers agreed product
   assert.match(feature, /Vectorize this image/)
   assert.match(
     feature,
-    /complete raster should become ordinary editable Vectors.*one intended undo commit/is
+    /one or more valid traced items should become ordinary editable Vectors.*one intended undo commit/is
   )
   assert.match(
     feature,

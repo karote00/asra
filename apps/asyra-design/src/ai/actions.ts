@@ -54,7 +54,7 @@ export interface CreateAsyraDesignAiActionsOptions {
 
 export const hasAsyraDesignAiCompositionMinimumItemCount = (
   count: number
-): boolean => Number.isInteger(count) && count >= 2
+): boolean => Number.isInteger(count) && count >= 1
 
 const createAiMutationOptions = (
   deliveryMode: AsyraDesignAiDeliveryMode
@@ -982,7 +982,7 @@ const createCompositionActions = (
           roles.add(item.role)
           accepted.push(item)
         })
-        if (accepted.length < 2) {
+        if (!hasAsyraDesignAiCompositionMinimumItemCount(accepted.length)) {
           throw new AsyraDesignAiCompositionError(
             'AI composition cannot preserve grouping after item validation.'
           )

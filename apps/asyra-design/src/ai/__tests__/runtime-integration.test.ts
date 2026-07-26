@@ -377,6 +377,95 @@ describe('Asyra Design AI runtime integration', () => {
     expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
 
+  it('commits one valid vectorized item inside one Group and one outer transaction', async () => {
+    prepareCommonApis()
+    vi.spyOn(elementApis, 'createElement').mockReturnValue(
+      'vectorized-image-group'
+    )
+    vi.spyOn(elementApis, 'createElements').mockReturnValue([
+      'reference-vector-id'
+    ])
+    const groupElements = vi.spyOn(hierarchyApis, 'groupElements')
+    const provider: AiProvider = {
+      generateActionPlan: vi.fn(async () => ({
+        actions: [
+          {
+            arguments: {
+              compositionRole: 'vectorized-image',
+              items: [
+                {
+                  bounds: {
+                    height: 32,
+                    width: 64,
+                    x: 0,
+                    y: 0
+                  },
+                  paths: [
+                    {
+                      closed: true,
+                      points: [
+                        { x: 0, y: 0 },
+                        { x: 64, y: 0 },
+                        { x: 64, y: 32 },
+                        { x: 0, y: 32 }
+                      ]
+                    }
+                  ],
+                  primitive: 'vector',
+                  role: 'reference-vector-000001',
+                  style: {
+                    fillColor: '#2563EB'
+                  }
+                }
+              ],
+              parent: 'workspace'
+            },
+            id: 'vectorize-one-item',
+            name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+          }
+        ],
+        planId: 'vectorize-one-item-plan'
+      }))
+    }
+    const runtime = createAiAgentRuntime(
+      createAsyraDesignAiRuntimeInput({
+        permissionRules: {
+          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
+        },
+        provider
+      })
+    )
+
+    try {
+      await expect(
+        runtime.run({
+          intent: 'Vectorize this image',
+          signal: new AbortController().signal
+        })
+      ).resolves.toMatchObject({
+        actionResults: [
+          {
+            result: {
+              appliedElementIds: ['reference-vector-id'],
+              compositionId: 'vectorized-image-group',
+              status: 'complete'
+            }
+          }
+        ],
+        status: 'executed',
+        transaction: {
+          status: 'committed'
+        }
+      })
+      expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+      expect(elementApis.createElement).toHaveBeenCalledOnce()
+      expect(elementApis.createElements).toHaveBeenCalledOnce()
+      expect(groupElements).not.toHaveBeenCalled()
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
   it('commits recoverable per-object failure as a partial mock result', async () => {
     prepareCommonApis()
     let nextElement = 0

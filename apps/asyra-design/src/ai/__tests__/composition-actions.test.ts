@@ -154,6 +154,8 @@ describe('Asyra Design AI composition action schemas', () => {
       success: true,
       value: descriptor
     })
+    expect(hasAsyraDesignAiCompositionMinimumItemCount(0)).toBe(false)
+    expect(hasAsyraDesignAiCompositionMinimumItemCount(1)).toBe(true)
     expect(hasAsyraDesignAiCompositionMinimumItemCount(1_000_000)).toBe(true)
     expect(hasAsyraDesignAiCompositionMinimumItemCount(1_000_001)).toBe(true)
     expect(
@@ -305,6 +307,44 @@ describe('Asyra Design AI composition action schemas', () => {
 })
 
 describe('Asyra Design AI composition action execution', () => {
+  it('creates one canonical Group for one valid vectorized item', async () => {
+    const apis = actionApis()
+    const item = vectorItem('reference-vector-000001')
+    apis.createCompositionElements.mockReturnValue(['reference-vector-id'])
+    const action = actionByName(
+      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+      apis
+    )
+    const argumentsValue = {
+      compositionRole: 'vectorized-image',
+      items: [item],
+      parent: 'workspace'
+    }
+
+    expect(action.schema.parse(argumentsValue)).toMatchObject({
+      success: true
+    })
+    await expect(
+      action.execute(argumentsValue, executionContext())
+    ).resolves.toMatchObject({
+      appliedElementIds: ['reference-vector-id'],
+      compositionId: 'cat-group-id',
+      status: 'complete'
+    })
+    expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
+    expect(apis.createCompositionElements).toHaveBeenCalledWith(
+      [item],
+      {
+        id: 'cat-group-id',
+        workspaceOrigin: {
+          x: 472,
+          y: 372
+        }
+      },
+      mutationOptions
+    )
+  })
+
   it('submits one validated composition batch into the precreated Group', async () => {
     const apis = actionApis()
     const items = [vectorItem('fur-1'), vectorItem('fur-2')]

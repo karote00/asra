@@ -336,6 +336,62 @@ test.describe('Conversational AI Mock Drawing', () => {
     expect((await getCanvasSummary(page)).vectorCount).toBeGreaterThan(20)
   })
 
+  test('commits a one-item VTracer result as one grouped history action', async ({
+    page
+  }, testInfo) => {
+    await page.goto('/?ai=mock')
+    await waitForAppReady(page)
+    await openMockAi(page)
+    const beforeHistory = await getTransactionSnapshot(page)
+    const pngBytes = await page.evaluate(async () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 64
+      canvas.height = 32
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas context is unavailable')
+      }
+      context.fillStyle = '#2563EB'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) =>
+            result
+              ? resolve(result)
+              : reject(new Error('PNG encoding is unavailable')),
+          'image/png'
+        )
+      })
+      return Array.from(new Uint8Array(await blob.arrayBuffer()))
+    })
+
+    await page.getByLabel('Choose images').setInputFiles({
+      buffer: Buffer.from(pngBytes),
+      mimeType: 'image/png',
+      name: 'single-color.png'
+    })
+    await submitTurn(page, 'Vectorize this image', 'success', 1, 120_000)
+
+    expect(await getCanvasSummary(page)).toMatchObject({
+      groupCount: 1,
+      totalCount: 2,
+      uniqueIdCount: 2,
+      vectorCount: 1
+    })
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 1
+    )
+    await captureVisualState(
+      page,
+      testInfo,
+      'conversational-ai-one-item-vtracer-created'
+    )
+    const beforeReloadDigest = await getCoreDocumentDigest(page)
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getCoreDocumentDigest(page)).toEqual(beforeReloadDigest)
+  })
+
   test('attaches a reference, chooses balanced detail, and incrementally edits the same canonical ids with one history action per mutating turn', async ({
     page
   }, testInfo) => {
