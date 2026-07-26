@@ -10,6 +10,7 @@ import type {
   UpdatePropertyChange,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
+  AddRemovePropertyChange,
   PropsRestorePlan,
   PropsRestoreSnapshot,
   PropsRestoreStrategy,
@@ -53,6 +54,18 @@ const clonePropsValue = <T>(data: T): T => {
 
 const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData =>
   clonePropsValue(data)
+
+const isAddPropertyChange = (
+  change: PropsChange
+): change is AddRemovePropertyChange =>
+  change.action === PROPS_ACTIONS.ADD_PROPERTY &&
+  change.eventName === EventTypes.ADD_PROPERTY
+
+const isUpdatePropertyChange = (
+  change: PropsChange
+): change is UpdatePropertyChange =>
+  change.action === PROPS_ACTIONS.UPDATE_PROPERTY &&
+  change.eventName === EventTypes.UPDATE_PROPERTY
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -644,8 +657,73 @@ class PropsManager {
     Object.assign(updateChange, owner)
   }
 
+  private prepareCanonicalPropertyBatch(): PropsChange[] {
+    if (this.changes.length < 2) {
+      return this.changes
+    }
+
+    const addChanges = this.changes.filter(isAddPropertyChange)
+    if (addChanges.length === 0) {
+      return this.changes
+    }
+
+    const firstAdd = addChanges[0]
+    const { data: _firstData, ...firstAddContract } = firstAdd
+    const orderedIds: string[] = []
+    const createdIds = new Set<string>()
+    for (const addChange of addChanges) {
+      const { data: _data, ...addContract } = addChange
+      if (!isEqual(addContract, firstAddContract)) {
+        return this.changes
+      }
+      for (const propertyData of addChange.data) {
+        const propertyId = propertyData.id
+        if (
+          typeof propertyId !== 'string' ||
+          propertyId.length === 0 ||
+          createdIds.has(propertyId) ||
+          !this.getPropertyById(propertyId)
+        ) {
+          return this.changes
+        }
+        createdIds.add(propertyId)
+        orderedIds.push(propertyId)
+      }
+    }
+
+    const observedAddIds = new Set<string>()
+    const canBatch = this.changes.every((change) => {
+      if (isAddPropertyChange(change)) {
+        change.data.forEach(({ id }) => observedAddIds.add(id as string))
+        return true
+      }
+      if (
+        !isUpdatePropertyChange(change) ||
+        !observedAddIds.has(change.id) ||
+        change.ownerElementId !== undefined ||
+        change.ownerPropertyName !== undefined
+      ) {
+        return false
+      }
+      return isEqual(change.options, firstAdd.options)
+    })
+    if (!canBatch) {
+      return this.changes
+    }
+
+    const finalData = orderedIds.map((propertyId) =>
+      clonePropsValue(this.getPropertyById(propertyId)!.save())
+    )
+    return [
+      {
+        ...firstAdd,
+        data: finalData
+      }
+    ]
+  }
+
   commitChanges(options?: EVENT_OPTIONS) {
-    this.changes.forEach((change) => {
+    this.prepareCanonicalPropertyBatch().forEach((change) => {
       const changeOptions = change.options ?? options
       const routedOptions: EVENT_OPTIONS = {
         ...(changeOptions ?? {}),

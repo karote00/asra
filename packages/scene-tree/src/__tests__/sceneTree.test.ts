@@ -1844,15 +1844,26 @@ describe('SceneTree', () => {
     )
     const commit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
     const sceneChanges: SceneTreeChange[] = []
+    const propsChanges: PropsChange[] = []
     const subscription = subscribeToEvents((event) => {
       if (
         event.type === EventTypes.UPDATE_TRANSACTION &&
-        'payload' in event &&
-        Object.values(SCENE_TREE_ACTIONS).includes(
-          (event.payload as SceneTreeChange).action
-        )
+        'payload' in event
       ) {
-        sceneChanges.push(event.payload as SceneTreeChange)
+        if (
+          Object.values(SCENE_TREE_ACTIONS).includes(
+            (event.payload as SceneTreeChange).action
+          )
+        ) {
+          sceneChanges.push(event.payload as SceneTreeChange)
+        }
+        if (
+          Object.values(PROPS_ACTIONS).includes(
+            (event.payload as PropsChange).action
+          )
+        ) {
+          propsChanges.push(event.payload as PropsChange)
+        }
       }
     })
     const batchOwner = sceneTree as SceneTree & {
@@ -1903,6 +1914,21 @@ describe('SceneTree', () => {
           change.key === 'children'
       )
     ).toEqual([])
+    const propertyBatch = propsChanges.filter(
+      (change) => change.action === PROPS_ACTIONS.ADD_PROPERTY
+    )
+    expect(propertyBatch).toHaveLength(1)
+    const propertyData = (propertyBatch[0] as AddRemovePropertyChange).data
+    expect(propertyData).toHaveLength(6)
+    const propertyIds = new Set(propertyData.map(({ id }) => id))
+    ;['batch-1', 'batch-2', 'batch-3'].forEach((elementId, index) => {
+      const props = sceneTree.getElementById(elementId)?.save().props
+      expect(propertyIds.has(props?.position as string)).toBe(true)
+      expect(propertyIds.has(props?.dimension as string)).toBe(true)
+      const position = propsManager.getPropertyById(props?.position as string)
+      expect(position?.get('x')).toBe(index * 10)
+      expect(position?.get('y')).toBe(index * 10)
+    })
     expect(commit).toHaveBeenCalledOnce()
     expect(commit).toHaveBeenCalledWith({ undoable: true })
     subscription.unsubscribe()

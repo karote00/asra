@@ -926,6 +926,180 @@ describe('PropsManager', () => {
     subscription.unsubscribe()
   })
 
+  it('commits one final canonical property batch for newly created components', () => {
+    const position = createProperty({
+      id: 'pp-position',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }) as PropertyComponentInstanceTypes
+    const related = createProperty({
+      id: 'pp-related',
+      type: PropertyTypes.CUSTOM,
+      children: ['pp-position']
+    }) as PropertyComponentInstanceTypes
+    propsManager.addToMap(position)
+    propsManager.addToMap(related)
+    propsManager.addChangeForAddProperty(position)
+    propsManager.addChangeForAddProperty(related)
+
+    position.load({
+      id: 'pp-position',
+      type: PropertyTypes.POSITION,
+      x: 120,
+      y: 240,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    propsManager.addChange({
+      action: PROPS_ACTIONS.UPDATE_PROPERTY,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      id: 'pp-position',
+      key: 'x',
+      before: 0,
+      after: 120
+    })
+    propsManager.addChange({
+      action: PROPS_ACTIONS.UPDATE_PROPERTY,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      id: 'pp-position',
+      key: 'y',
+      before: 0,
+      after: 240
+    })
+
+    const { events, subscription } = captureUpdateTransactionEvents()
+    propsManager.commitChanges()
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+        payload: expect.objectContaining({
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          data: [position.save(), related.save()]
+        }),
+        options: { shared: SharedDataChannelNames.PROPS }
+      })
+    ])
+    position.load({
+      id: 'pp-position',
+      type: PropertyTypes.POSITION,
+      x: 999,
+      y: 240,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    expect(
+      (events[0]?.payload as { data: Record<string, unknown>[] }).data[0]
+    ).toMatchObject({ id: 'pp-position', x: 120, y: 240 })
+    subscription.unsubscribe()
+  })
+
+  it('preserves separate property deliveries across mutation option boundaries', () => {
+    const position = createProperty({
+      id: 'pp-option-position',
+      type: PropertyTypes.POSITION
+    }) as PropertyComponentInstanceTypes
+    const dimension = createProperty({
+      id: 'pp-option-dimension',
+      type: PropertyTypes.DIMENSION
+    }) as PropertyComponentInstanceTypes
+    propsManager.addToMap(position)
+    propsManager.addToMap(dimension)
+    propsManager.addChangeForAddProperty(position)
+    propsManager.addChangeForAddProperty(dimension)
+    propsManager.changes[1].options = { undoable: false }
+
+    const { events, subscription } = captureUpdateTransactionEvents()
+    propsManager.commitChanges()
+
+    expect(events).toHaveLength(2)
+    expect(events.map(({ eventName }) => eventName)).toEqual([
+      ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+      ReactiveEventsModule.EventTypes.ADD_PROPERTY
+    ])
+    expect(events[0].options).toEqual({
+      shared: SharedDataChannelNames.PROPS
+    })
+    expect(events[1].options).toEqual({
+      undoable: false,
+      shared: SharedDataChannelNames.PROPS
+    })
+    subscription.unsubscribe()
+  })
+
+  it('preserves owner-tagged updates for a newly created property', () => {
+    const position = createProperty({
+      id: 'pp-owner-position',
+      type: PropertyTypes.POSITION,
+      x: 0
+    }) as PropertyComponentInstanceTypes
+    propsManager.addToMap(position)
+    propsManager.addChangeForAddProperty(position)
+    position.load({
+      id: 'pp-owner-position',
+      type: PropertyTypes.POSITION,
+      x: 12
+    })
+    propsManager.addChange({
+      action: PROPS_ACTIONS.UPDATE_PROPERTY,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      id: 'pp-owner-position',
+      key: 'x',
+      before: 0,
+      after: 12,
+      ownerElementId: 'owner-element',
+      ownerPropertyName: 'position'
+    })
+
+    const { events, subscription } = captureUpdateTransactionEvents()
+    propsManager.commitChanges()
+
+    expect(events).toHaveLength(2)
+    expect(events[1]).toEqual(
+      expect.objectContaining({
+        eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+        payload: expect.objectContaining({
+          id: 'pp-owner-position',
+          key: 'x',
+          after: 12,
+          ownerElementId: 'owner-element',
+          ownerPropertyName: 'position'
+        })
+      })
+    )
+    subscription.unsubscribe()
+  })
+
+  it('preserves an invalid update-before-add delivery order for downstream rejection', () => {
+    const position = createProperty({
+      id: 'pp-out-of-order',
+      type: PropertyTypes.POSITION,
+      x: 12
+    }) as PropertyComponentInstanceTypes
+    propsManager.addToMap(position)
+    propsManager.addChange({
+      action: PROPS_ACTIONS.UPDATE_PROPERTY,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      id: 'pp-out-of-order',
+      key: 'x',
+      before: 0,
+      after: 12
+    })
+    propsManager.addChangeForAddProperty(position)
+
+    const { events, subscription } = captureUpdateTransactionEvents()
+    propsManager.commitChanges()
+
+    expect(events.map(({ eventName }) => eventName)).toEqual([
+      ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      ReactiveEventsModule.EventTypes.ADD_PROPERTY
+    ])
+    subscription.unsubscribe()
+  })
+
   it('should reject invalid numeric value by schema in updatePropsData', () => {
     const positionData = {
       id: 'pp-1',
