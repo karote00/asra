@@ -60,6 +60,7 @@ describe('AI current history Message Bar', () => {
     }
     const settledTurn = {
       conversationId: 'conversation-a',
+      durationMs: 1_250,
       intent: '畫一個貓臉',
       outcome: 'success',
       progress: [],
@@ -118,6 +119,7 @@ describe('AI current history Message Bar', () => {
     })
 
     expect(screen.getByText('Drawing updated successfully.')).toBeTruthy()
+    expect(screen.queryByText('Mock AI')).toBeNull()
     expect(screen.queryByText(/secret-canonical-id/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Undo AI change' }))
     expect(history.undoCurrent).toHaveBeenCalledOnce()

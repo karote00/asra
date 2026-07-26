@@ -124,6 +124,144 @@ describe('Asyra Design AI conversation controller', () => {
     expect(Object.isFrozen(controller.getSnapshot().settledTurns)).toBe(true)
   })
 
+  it('carries immutable detached image attachments through the active turn, Feature metadata, and settlement', async () => {
+    const pending = Promise.withResolvers<Record<string, unknown>>()
+    const feature = createFeature(() => pending.promise)
+    const controller = createAsyraDesignAiConversationController({
+      createConversationId: () => 'conversation-attachment',
+      feature,
+      getElementType: vi.fn()
+    })
+    const sourceAttachment = {
+      dataUrl: 'data:image/png;base64,dGFiYnk=',
+      mediaType: 'image/png' as const,
+      name: 'tabby.png',
+      size: 5
+    }
+    const settlement = controller.submit({
+      attachments: [sourceAttachment],
+      intent: '  請依照這張圖繪製  '
+    })
+
+    const active = controller.getSnapshot().activeTurn
+    expect(active).toMatchObject({
+      attachments: [
+        {
+          mediaType: 'image/png',
+          name: 'tabby.png',
+          size: 5
+        }
+      ],
+      intent: '請依照這張圖繪製'
+    })
+    expect(Object.isFrozen(active?.attachments)).toBe(true)
+    expect(Object.isFrozen(active?.attachments[0])).toBe(true)
+    expect(feature.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: '請依照這張圖繪製',
+        metadata: expect.objectContaining({
+          imageAttachments: [
+            {
+              dataUrl: 'data:image/png;base64,dGFiYnk=',
+              mediaType: 'image/png',
+              name: 'tabby.png',
+              size: 5
+            }
+          ]
+        })
+      })
+    )
+
+    sourceAttachment.name = 'changed-after-submit.png'
+    pending.resolve(
+      executed({
+        appliedElementIds: [],
+        skipped: [],
+        status: 'no-change'
+      })
+    )
+    await expect(settlement).resolves.toMatchObject({
+      attachments: [
+        {
+          name: 'tabby.png'
+        }
+      ],
+      intent: '請依照這張圖繪製'
+    })
+  })
+
+  it('rejects missing text and invalid detached image descriptors before Feature execution', async () => {
+    const feature = createFeature(async () => ({
+      status: 'failed'
+    }))
+    const controller = createAsyraDesignAiConversationController({
+      createConversationId: () => 'conversation-invalid-attachment',
+      feature,
+      getElementType: vi.fn()
+    })
+
+    await expect(
+      controller.submit({
+        attachments: [
+          {
+            dataUrl: 'data:image/png;base64,dGFiYnk=',
+            mediaType: 'image/png',
+            name: 'tabby.png',
+            size: 5
+          }
+        ],
+        intent: '   '
+      })
+    ).rejects.toMatchObject({
+      code: 'AI_CONVERSATION_INVALID_INTENT'
+    })
+    await expect(
+      controller.submit({
+        attachments: [
+          {
+            dataUrl: 'data:text/plain;base64,bm90LWltYWdl',
+            mediaType: 'text/plain',
+            name: 'notes.txt',
+            size: 9
+          }
+        ],
+        intent: 'draw this'
+      })
+    ).rejects.toMatchObject({
+      code: 'AI_CONVERSATION_INVALID_ATTACHMENT'
+    })
+    expect(feature.execute).not.toHaveBeenCalled()
+  })
+
+  it('records monotonic elapsed time from accepted submission through settlement', async () => {
+    let now = 2_000
+    const feature = createFeature(async () => {
+      now = 3_250
+      return executed({
+        appliedElementIds: ['face-1'],
+        skipped: [],
+        status: 'complete'
+      })
+    })
+    const controller = createAsyraDesignAiConversationController({
+      createConversationId: () => 'conversation-duration',
+      feature,
+      getElementType: vi.fn(),
+      now: () => now
+    })
+
+    await expect(controller.submit('draw')).resolves.toMatchObject({
+      durationMs: 1_250,
+      outcome: 'success'
+    })
+    expect(controller.getSnapshot().settledTurns).toMatchObject([
+      {
+        durationMs: 1_250,
+        turnId: 'conversation-duration:turn:1'
+      }
+    ])
+  })
+
   it('contains presentation observer failures without changing turn execution', async () => {
     const feature = createFeature(async () =>
       executed({

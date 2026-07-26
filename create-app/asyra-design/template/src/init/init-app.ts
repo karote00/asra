@@ -24,10 +24,12 @@ import {
 } from '../ai/conversation'
 import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
 import { createAsyraDesignAiStartup, type AsyraDesignAiMode } from '../ai/mode'
+import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 
 export interface InitAppOptions {
   ai?: ComposeAiAgentRuntimeOptions
+  aiDeliveryMode?: AsyraDesignAiDeliveryMode
   aiMode?: AsyraDesignAiMode
 }
 
@@ -97,7 +99,11 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
         mode: 'disabled' as const,
         runtimeOptions: options.ai
       }
-    : createAsyraDesignAiStartup(options.aiMode ?? 'disabled')
+    : createAsyraDesignAiStartup(
+        options.aiMode ?? 'disabled',
+        undefined,
+        options.aiDeliveryMode
+      )
   const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
   const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
   // Initialize feature-system for application-level features

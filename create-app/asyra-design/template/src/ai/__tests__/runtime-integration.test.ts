@@ -8,12 +8,17 @@ import { MouseButton, SystemMode } from '@asyra/utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   elementApis,
+  fillApis,
   hierarchyApis,
   selectionApis,
   systemContextApis,
   transactionApis
 } from '../../common-apis'
-import { AsyraDesignAiActionNames } from '../actions'
+import {
+  ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
+  AsyraDesignAiActionNames,
+  type AsyraDesignAiDeliveryMode
+} from '../actions'
 import { createAsyraDesignAiRuntimeInput } from '../composition'
 import { createAsyraDesignAiConversationController } from '../conversation'
 import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
@@ -21,6 +26,7 @@ import {
   AsyraDesignMockAiPhrases,
   createAsyraDesignMockAiProvider
 } from '../mock-provider'
+import { createAsyraDesignAiStartup } from '../mode'
 import {
   registerAiAgentFeature,
   type AiAgentFeatureApi
@@ -97,9 +103,13 @@ const prepareCommonApis = () => {
   )
 }
 
-const executeReferencePlan = async (provider: AiProvider) => {
+const executeReferencePlan = async (
+  provider: AiProvider,
+  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
+) => {
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
+      deliveryMode,
       permissionRules: {
         [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
         [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
@@ -125,7 +135,10 @@ const executeMockComposition = async (
   const provider = createAsyraDesignMockAiProvider({
     delay: async () => undefined
   })
-  vi.spyOn(elementApis, 'createElement').mockImplementation(createElement)
+  vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
+  vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
+    options.map(() => createElement())
+  )
   vi.spyOn(hierarchyApis, 'groupElements').mockReturnValue({
     bounds: {
       height: 320,
@@ -134,7 +147,7 @@ const executeMockComposition = async (
       y: 158
     },
     elementIds: [],
-    groupId: 'cat-face-group'
+    groupId: 'legacy-post-hoc-group'
   })
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
@@ -201,6 +214,105 @@ describe('Asyra Design AI runtime integration', () => {
     )
   })
 
+  it('composes progressive runtime actions through ordinary immediate delivery', async () => {
+    prepareCommonApis()
+    const provider: AiProvider = {
+      generateActionPlan: vi.fn(async () => plan())
+    }
+
+    await expect(
+      executeReferencePlan(provider, 'progressive')
+    ).resolves.toMatchObject({
+      status: 'executed',
+      transaction: {
+        status: 'committed'
+      }
+    })
+
+    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+    expect(elementApis.setElementVisible).toHaveBeenCalledWith(
+      'shape-1',
+      false,
+      {
+        sharedDelivery: 'immediate',
+        undoable: true
+      }
+    )
+    expect(selectionApis.selectElements).toHaveBeenCalledWith(
+      ['shape-1', 'shape-2'],
+      {
+        sharedDelivery: 'immediate',
+        undoable: true
+      }
+    )
+  })
+
+  it('allows the mock startup drawing-detail clarification with detached image metadata and no canonical mutation', async () => {
+    prepareCommonApis()
+    const createElement = vi.spyOn(elementApis, 'createElement')
+    const changeElementGeometry = vi.spyOn(elementApis, 'changeElementGeometry')
+    const provider = createAsyraDesignMockAiProvider({
+      delay: async () => undefined
+    })
+    const confirmation = createAsyraDesignAiConfirmationBroker()
+    const history = {
+      correlateCommittedAction: vi.fn(() => false),
+      dispose: vi.fn(),
+      getCurrentActionId: vi.fn(() => null)
+    }
+    const startup = createAsyraDesignAiStartup('mock', {
+      createConfirmation: () => confirmation,
+      createHistory: () => history as never,
+      createProvider: () => provider
+    })
+    const createRuntimeInput = startup.runtimeOptions.createRuntimeInput
+    if (!createRuntimeInput) {
+      throw new Error('Mock AI startup must provide runtime input.')
+    }
+    const runtime = createAiAgentRuntime(createRuntimeInput())
+
+    try {
+      await expect(
+        runtime.run({
+          intent: AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_ZH,
+          metadata: {
+            imageAttachments: [
+              {
+                dataUrl: 'data:image/png;base64,aW50ZWdyYXRpb24=',
+                mediaType: 'image/png',
+                name: 'integration-reference.png',
+                size: 11
+              }
+            ]
+          },
+          signal: new AbortController().signal
+        })
+      ).resolves.toMatchObject({
+        actionResults: [
+          {
+            actionName: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+            result: {
+              action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+              clarification: {
+                kind: 'drawing-detail',
+                optionIds: ['balanced', 'maximum']
+              },
+              status: 'no-change'
+            }
+          }
+        ],
+        status: 'executed'
+      })
+      expect(createElement).not.toHaveBeenCalled()
+      expect(changeElementGeometry).not.toHaveBeenCalled()
+      expect(history.correlateCommittedAction).not.toHaveBeenCalled()
+    } finally {
+      await runtime.dispose()
+      await confirmation.dispose()
+      await provider.dispose()
+    }
+  })
+
   it('replaces the fake provider with generic HTTP without changing app action contracts', async () => {
     prepareCommonApis()
     const fetch = vi.fn(async () => ({
@@ -253,8 +365,16 @@ describe('Asyra Design AI runtime integration', () => {
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElement).toHaveBeenCalledTimes(16)
-    expect(hierarchyApis.groupElements).toHaveBeenCalledOnce()
+    expect(elementApis.createElements).toHaveBeenCalledTimes(
+      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
+    )
+    expect(
+      vi
+        .mocked(elementApis.createElements)
+        .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(7111)
+    expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
 
   it('commits recoverable per-object failure as a partial mock result', async () => {
@@ -273,7 +393,7 @@ describe('Asyra Design AI runtime integration', () => {
             skipped: [
               {
                 reason: 'duplicate-role',
-                role: 'right-whisker-2'
+                role: 'right-whisker-000'
               }
             ],
             status: 'partial'
@@ -287,7 +407,14 @@ describe('Asyra Design AI runtime integration', () => {
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElement).toHaveBeenCalledTimes(16)
+    expect(elementApis.createElements).toHaveBeenCalledTimes(
+      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
+    )
+    expect(
+      vi
+        .mocked(elementApis.createElements)
+        .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(7111)
   })
 
   it('returns a fatal execution failure so the outer transaction can roll back', async () => {
@@ -322,36 +449,22 @@ describe('Asyra Design AI runtime integration', () => {
       delay: async () => undefined
     })
     let nextElement = 0
-    vi.spyOn(elementApis, 'createElement').mockImplementation(
-      () => `cat-element-${(nextElement += 1)}`
+    vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
+    vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
+      options.map(() => `cat-element-${(nextElement += 1)}`)
     )
-    vi.spyOn(elementApis, 'changeElementGeometry').mockImplementation(
-      () => undefined
-    )
-    vi.spyOn(hierarchyApis, 'groupElements').mockReturnValue({
-      bounds: {
-        height: 320,
-        width: 440,
-        x: 460,
-        y: 158
-      },
-      elementIds: [],
-      groupId: 'cat-face-group'
-    })
+    const scaleVectorElementAroundCenter = vi
+      .spyOn(elementApis, 'scaleVectorElementAroundCenter')
+      .mockReturnValue(true)
+    vi.spyOn(fillApis, 'getPrimaryFillColor').mockReturnValue('#130C06')
+    const updatePrimaryFillColor = vi
+      .spyOn(fillApis, 'updatePrimaryFillColor')
+      .mockReturnValue(true)
     vi.mocked(elementApis.getElementType).mockImplementation((elementId) => {
       if (elementId === 'cat-face-group') {
         return 'group'
       }
-      if (elementId === 'cat-element-4' || elementId === 'cat-element-5') {
-        return 'oval'
-      }
       return elementId.startsWith('cat-element-') ? 'vector' : undefined
-    })
-    vi.mocked(elementApis.getElementBounds).mockReturnValue({
-      height: 70,
-      width: 58,
-      x: 594,
-      y: 300
     })
     const runtime = createAiAgentRuntime(
       createAsyraDesignAiRuntimeInput({
@@ -384,22 +497,48 @@ describe('Asyra Design AI runtime integration', () => {
       ).resolves.toMatchObject({
         outcome: 'success'
       })
+      await expect(
+        conversation.submit(AsyraDesignMockAiPhrases.RECOLOR_PUPILS_EN)
+      ).resolves.toMatchObject({
+        outcome: 'success'
+      })
 
-      expect(elementApis.createElement).toHaveBeenCalledTimes(16)
-      expect(elementApis.changeElementGeometry).toHaveBeenCalledTimes(2)
-      expect(elementApis.changeElementGeometry).toHaveBeenNthCalledWith(
-        1,
-        'cat-element-4',
-        expect.any(Object),
-        expect.any(Object)
+      expect(elementApis.createElements).toHaveBeenCalledTimes(
+        Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
       )
-      expect(elementApis.changeElementGeometry).toHaveBeenNthCalledWith(
-        2,
-        'cat-element-5',
-        expect.any(Object),
-        expect.any(Object)
+      expect(
+        vi
+          .mocked(elementApis.createElements)
+          .mock.calls.flatMap(([options]) => options)
+      ).toHaveLength(7111)
+      expect(scaleVectorElementAroundCenter).toHaveBeenCalled()
+      expect(
+        scaleVectorElementAroundCenter.mock.calls.length
+      ).toBeGreaterThanOrEqual(2)
+      scaleVectorElementAroundCenter.mock.calls.forEach(
+        ([elementId, geometry, options]) => {
+          expect(elementId).toMatch(/^cat-element-\d+$/)
+          expect(geometry).toEqual({
+            scaleX: 1.2,
+            scaleY: 1.2
+          })
+          expect(options).toMatchObject({
+            undoable: true
+          })
+        }
       )
-      expect(transactionApis.runTransaction).toHaveBeenCalledTimes(2)
+      expect(updatePrimaryFillColor).toHaveBeenCalledTimes(2)
+      updatePrimaryFillColor.mock.calls.forEach(
+        ([elementId, color, options]) => {
+          expect(elementId).toMatch(/^cat-element-\d+$/)
+          expect(color).toBe('#DC2626')
+          expect(options).toEqual({
+            sharedDelivery: 'transaction-end',
+            undoable: true
+          })
+        }
+      )
+      expect(transactionApis.runTransaction).toHaveBeenCalledTimes(3)
     } finally {
       await conversation.dispose()
       registration.dispose()

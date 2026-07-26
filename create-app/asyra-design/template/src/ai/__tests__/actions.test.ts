@@ -8,13 +8,18 @@ import {
 const actionApis = () => ({
   changeElementGeometry: vi.fn(),
   createCompositionElement: vi.fn(),
+  createCompositionElements: vi.fn(),
+  createCompositionGroup: vi.fn(),
   getElementBounds: vi.fn(),
+  getElementFillColor: vi.fn(),
   getElementStrokeColor: vi.fn(),
   getElementType: vi.fn(),
   groupElements: vi.fn(),
   removeSubtree: vi.fn(),
+  scaleVectorElementGeometry: vi.fn(() => true),
   selectElements: vi.fn(),
   setElementVisible: vi.fn(() => true),
+  updateElementFillColor: vi.fn(),
   updateElementStrokeColor: vi.fn()
 })
 
@@ -33,6 +38,7 @@ describe('Asyra Design AI actions', () => {
     const actions = createAsyraDesignAiActions(actionApis())
 
     expect(actions.map(({ name }) => name)).toEqual([
+      AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
@@ -41,6 +47,44 @@ describe('Asyra Design AI actions', () => {
     ])
     expect(Object.isFrozen(actions)).toBe(true)
     expect(actions.every((action) => Object.isFrozen(action))).toBe(true)
+  })
+
+  it('returns App-owned drawing-detail option ids without provider wording or mutation', async () => {
+    const apis = actionApis()
+    const action = actionByName(
+      AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+      apis
+    )
+
+    expect(action.schema.parse({})).toEqual({
+      success: true,
+      value: {}
+    })
+    expect(
+      action.schema.parse({
+        maximumLabel: 'Provider-controlled warning'
+      })
+    ).toMatchObject({
+      success: false
+    })
+    await expect(
+      action.execute(
+        {},
+        {
+          signal: new AbortController().signal
+        }
+      )
+    ).resolves.toEqual({
+      action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+      clarification: {
+        kind: 'drawing-detail',
+        optionIds: ['balanced', 'maximum']
+      },
+      status: 'no-change'
+    })
+    Object.values(apis).forEach((api) => {
+      expect(api).not.toHaveBeenCalled()
+    })
   })
 
   it('strictly parses visibility arguments without coercion or extra keys', () => {

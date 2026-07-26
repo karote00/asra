@@ -13,6 +13,7 @@ import {
 } from '@asyra/core'
 import type {
   ComputedDataPatch,
+  CreateElementData,
   DataTypes,
   PositionData,
   EVENT_OPTIONS
@@ -51,6 +52,7 @@ import {
 } from './vector-geometry'
 import {
   isVectorComputedData,
+  scaleVectorTopologyAroundCenter,
   vectorGeometry,
   type VectorComputedData,
   type VectorPointUpdate
@@ -1304,6 +1306,49 @@ const createVectorElementAtWorkspacePos = (
   )
 }
 
+const prepareVectorElementData = (
+  createOptions: CreateElementOptions
+): CreateElementData | null => {
+  if (!isVectorTopology(createOptions)) {
+    return null
+  }
+
+  const topology: VectorTopology = {
+    points: createOptions.points,
+    segments: createOptions.segments,
+    networks: createOptions.networks
+  }
+  vectorGeometry.validate(topology, 'createVectorElement')
+  const bounds = calculateVectorBounds(topology)
+  const parentWorkspaceOrigin = createOptions.parentWorkspaceOrigin
+  if (
+    parentWorkspaceOrigin !== undefined &&
+    (!Number.isFinite(parentWorkspaceOrigin.x) ||
+      !Number.isFinite(parentWorkspaceOrigin.y))
+  ) {
+    return null
+  }
+  const parentOrigin = parentWorkspaceOrigin ?? { x: 0, y: 0 }
+  const normalizedTopology = normalizeVectorTopology(topology, bounds)
+  const closed =
+    createOptions.closed ?? isClosedVectorTopology(normalizedTopology)
+
+  return {
+    type: 'vector',
+    x: bounds.x - parentOrigin.x,
+    y: bounds.y - parentOrigin.y,
+    width: bounds.width,
+    height: bounds.height,
+    points: topology.points,
+    segments: normalizedTopology.segments,
+    networks: normalizedTopology.networks,
+    closed,
+    pointCoordinateSpace: 'workspace',
+    fills: createOptions.fills ?? DEFAULT_VECTOR_STYLE.fills ?? [],
+    strokes: createOptions.strokes ?? DEFAULT_VECTOR_STYLE.strokes ?? []
+  }
+}
+
 export const vectorApis = {
   getVectorAnchorPoints: (elementId: string): VectorAnchorPoint[] => {
     const topology = getVectorTopologyWorkspace(elementId)
@@ -1325,6 +1370,31 @@ export const vectorApis = {
 
   getVectorTopology: (elementId: string) => {
     return getVectorTopologyLocal(elementId)
+  },
+
+  scaleVectorElementAroundCenter: (
+    elementId: string,
+    scale: {
+      readonly scaleX: number
+      readonly scaleY: number
+    },
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const previousTopology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = scaleVectorTopologyAroundCenter(
+      previousTopology,
+      scale
+    )
+    if (!nextTopology) {
+      return false
+    }
+    commitVectorPointMutation(
+      elementId,
+      previousTopology,
+      nextTopology,
+      options
+    )
+    return true
   },
 
   getVectorAnchorPointAtWorkspacePos: (
@@ -2010,36 +2080,45 @@ export const vectorApis = {
     createOptions: CreateElementOptions,
     options?: EVENT_OPTIONS
   ): string | null => {
-    if (!isVectorTopology(createOptions)) {
+    const data = prepareVectorElementData(createOptions)
+    if (!data) {
       return null
     }
-
-    const topology: VectorTopology = {
-      points: createOptions.points,
-      segments: createOptions.segments,
-      networks: createOptions.networks
+    if (
+      createOptions.parentId &&
+      createOptions.parentWorkspaceOrigin !== undefined
+    ) {
+      return (
+        core.createElementsInParent(
+          [data],
+          createOptions.parentId,
+          undefined,
+          options
+        )[0] ?? null
+      )
     }
-    vectorGeometry.validate(topology, 'createVectorElement')
-    const bounds = calculateVectorBounds(topology)
-    const normalizedTopology = normalizeVectorTopology(topology, bounds)
-    const closed =
-      createOptions.closed ?? isClosedVectorTopology(normalizedTopology)
 
     return createVectorElementAtWorkspacePos(
-      { x: bounds.x, y: bounds.y },
-      {
-        width: bounds.width,
-        height: bounds.height,
-        points: topology.points,
-        segments: normalizedTopology.segments,
-        networks: normalizedTopology.networks,
-        closed,
-        pointCoordinateSpace: 'workspace',
-        fills: createOptions.fills ?? DEFAULT_VECTOR_STYLE.fills ?? [],
-        strokes: createOptions.strokes ?? DEFAULT_VECTOR_STYLE.strokes ?? []
-      },
+      { x: data.x as number, y: data.y as number },
+      data,
       options
     )
+  },
+
+  createVectorElementsInParent: (
+    createOptions: readonly CreateElementOptions[],
+    parentId: string,
+    options?: EVENT_OPTIONS
+  ): readonly string[] | null => {
+    const data: CreateElementData[] = []
+    for (const elementOptions of createOptions) {
+      const prepared = prepareVectorElementData(elementOptions)
+      if (!prepared) {
+        return null
+      }
+      data.push(prepared)
+    }
+    return core.createElementsInParent(data, parentId, undefined, options)
   },
 
   createVectorElementFromSinglePoint: (

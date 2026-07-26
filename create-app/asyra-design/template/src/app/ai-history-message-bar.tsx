@@ -48,12 +48,9 @@ export const AiHistoryMessageBar = ({
       data-turn-id={control.turnId}
     >
       <div className="min-w-0">
-        <p className="m-0 text-[9px] font-semibold uppercase tracking-wide text-[#a89cff]">
-          Mock AI
-        </p>
         <p
           aria-live="polite"
-          className="m-0 mt-0.5 truncate text-[11px] text-[#e3e3e6]"
+          className="m-0 truncate text-[11px] text-[#e3e3e6]"
           role="status"
         >
           {message}

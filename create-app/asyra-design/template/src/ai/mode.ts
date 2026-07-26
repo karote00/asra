@@ -1,5 +1,6 @@
 import type { AiProvider } from '@asyra/ai-agent-runtime'
-import { AsyraDesignAiActionNames } from './actions'
+import { AsyraDesignAiActionNames } from '../constants'
+import type { AsyraDesignAiDeliveryMode } from './actions'
 import {
   createAsyraDesignAiRuntimeInput,
   type ComposeAiAgentRuntimeOptions
@@ -19,6 +20,7 @@ import {
 import { createAsyraDesignAiTransactionRunner } from './transaction'
 
 export type AsyraDesignAiMode = 'disabled' | 'mock'
+export type { AsyraDesignAiDeliveryMode } from './actions'
 
 export interface AsyraDesignAiStartup {
   readonly confirmation: AsyraDesignAiConfirmationBroker | null
@@ -44,9 +46,19 @@ export const resolveAsyraDesignAiMode = (search: string): AsyraDesignAiMode => {
   return values.length === 1 && values[0] === 'mock' ? 'mock' : 'disabled'
 }
 
+export const resolveAsyraDesignAiDeliveryMode = (
+  search: string
+): AsyraDesignAiDeliveryMode => {
+  const values = new URLSearchParams(search).getAll('aiDelivery')
+  return values.length === 1 && values[0] === 'progressive'
+    ? 'progressive'
+    : 'atomic'
+}
+
 export const createAsyraDesignAiStartup = (
   mode: AsyraDesignAiMode,
-  factories: AsyraDesignAiStartupFactories = defaultFactories
+  factories: AsyraDesignAiStartupFactories = defaultFactories,
+  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
 ): AsyraDesignAiStartup => {
   if (mode !== 'mock') {
     return Object.freeze({
@@ -65,10 +77,12 @@ export const createAsyraDesignAiStartup = (
   const runtimeOptions: ComposeAiAgentRuntimeOptions = Object.freeze({
     createRuntimeInput: () =>
       createAsyraDesignAiRuntimeInput({
+        deliveryMode,
         ownedResources: [provider],
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
           [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm',
+          [AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE]: 'allow',
           [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
           [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow',
           [AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'

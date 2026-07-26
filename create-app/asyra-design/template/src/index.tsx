@@ -7,9 +7,13 @@ import DataContexts from './contexts/data-change'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 import { initApp } from './init'
-import { resolveAsyraDesignAiMode } from './ai/mode'
+import {
+  resolveAsyraDesignAiDeliveryMode,
+  resolveAsyraDesignAiMode
+} from './ai/mode'
 
 const initialization = initApp({
+  aiDeliveryMode: resolveAsyraDesignAiDeliveryMode(window.location.search),
   aiMode: resolveAsyraDesignAiMode(window.location.search)
 })
 

@@ -27,6 +27,7 @@ export interface CreateElementOptions {
   type: EntityType
   clientPosition?: PositionData
   workspacePosition?: PositionData
+  parentWorkspaceOrigin?: PositionData
   parentId?: string
   width?: number
   height?: number

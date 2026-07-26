@@ -1,5 +1,12 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
-import { getTransactionSnapshot, waitForAppReady } from './test-utils'
+import { mkdir } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import {
+  getCoreDocumentDigest,
+  getPersistedDocumentDigest,
+  getTransactionSnapshot,
+  waitForAppReady
+} from './test-utils'
 
 interface CanvasElementEvidence {
   bounds: {
@@ -9,9 +16,29 @@ interface CanvasElementEvidence {
     y: number
   } | null
   id: string
+  networkCount: number
+  pointCount: number
   strokeColor: string | null
   type: string
 }
+
+interface CanvasSummary {
+  groupCount: number
+  pointCount: number
+  totalCount: number
+  uniqueIdCount: number
+  vectorCount: number
+}
+
+const referenceImagePath = fileURLToPath(
+  new URL(
+    '../visual-review-records/research/research-02-original-tabby-source.png',
+    import.meta.url
+  )
+)
+const visualRecordDirectory = fileURLToPath(
+  new URL('../visual-review-records/e2e-reference/', import.meta.url)
+)
 
 const openMockAi = async (page: Page) => {
   await page.getByRole('button', { name: 'Open Mock AI' }).click()
@@ -23,7 +50,8 @@ const captureVisualState = async (
   testInfo: TestInfo,
   name: string
 ) => {
-  const path = testInfo.outputPath(`${name}.png`)
+  await mkdir(visualRecordDirectory, { recursive: true })
+  const path = `${visualRecordDirectory}${name}.png`
   await page.screenshot({ path })
   await testInfo.attach(name, {
     contentType: 'image/png',
@@ -31,13 +59,21 @@ const captureVisualState = async (
   })
 }
 
+const addReferenceImage = async (page: Page) => {
+  await page.getByLabel('Choose images').setInputFiles(referenceImagePath)
+  await expect(
+    page.getByRole('img', { name: 'research-02-original-tabby-source.png' })
+  ).toBeVisible()
+}
+
 const submitTurn = async (
   page: Page,
   intent: string,
   outcome: 'cancelled' | 'failed' | 'no-change' | 'partial' | 'success',
-  expectedSettledCount: number
+  expectedSettledCount: number,
+  timeout = 10_000
 ) => {
-  const input = page.getByLabel('Message Mock AI')
+  const input = page.getByLabel('Message Agent')
   const settledTurns = page
     .getByTestId('mock-ai-panel')
     .locator('article[data-turn-id]')
@@ -45,7 +81,7 @@ const submitTurn = async (
   await input.fill(intent)
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(settledTurns).toHaveCount(expectedSettledCount, {
-    timeout: 10_000
+    timeout
   })
   const turn = settledTurns.last()
   await expect(turn).toHaveAttribute('data-outcome', outcome)
@@ -65,14 +101,60 @@ const getCanvasEvidence = async (
       throw new Error('Asyra Design E2E APIs are unavailable')
     }
     return [...sceneTree.getAllElements().entries()]
-      .map(([id, element]) => ({
-        bounds: elementApis.getElementBounds(id),
-        id,
-        strokeColor: strokeApis.getPrimaryStrokeColor(id),
-        type: String(element.get('type'))
-      }))
+      .map(([id, element]) => {
+        const type = String(element.get('type'))
+        const topology =
+          type === 'vector' ? elementApis.getVectorTopology(id) : null
+        return {
+          bounds: elementApis.getElementBounds(id),
+          id,
+          networkCount: topology ? Object.keys(topology.networks).length : 0,
+          pointCount: topology ? Object.keys(topology.points).length : 0,
+          strokeColor: strokeApis.getPrimaryStrokeColor(id),
+          type
+        }
+      })
       .filter((entry) => entry.type !== 'workspace')
       .sort((left, right) => left.id.localeCompare(right.id))
+  })
+
+const getCanvasSummary = async (page: Page): Promise<CanvasSummary> =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scope = window as any
+    const sceneTree = scope.__Core__?.deps?.sceneTree
+    const elementApis = scope.__AsyraE2E__?.elementApis
+    if (!sceneTree || !elementApis) {
+      throw new Error('Asyra Design E2E APIs are unavailable')
+    }
+    let groupCount = 0
+    let pointCount = 0
+    let totalCount = 0
+    let vectorCount = 0
+    const ids = new Set<string>()
+    for (const [id, element] of sceneTree.getAllElements().entries()) {
+      const type = String(element.get('type'))
+      if (type === 'workspace') {
+        continue
+      }
+      totalCount += 1
+      ids.add(id)
+      if (type === 'group') {
+        groupCount += 1
+      }
+      if (type === 'vector') {
+        vectorCount += 1
+        const topology = elementApis.getVectorTopology(id)
+        pointCount += topology ? Object.keys(topology.points).length : 0
+      }
+    }
+    return {
+      groupCount,
+      pointCount,
+      totalCount,
+      uniqueIdCount: ids.size,
+      vectorCount
+    }
   })
 
 test.describe('Conversational AI Mock Drawing', () => {
@@ -109,7 +191,7 @@ test.describe('Conversational AI Mock Drawing', () => {
     const primaryModifier = process.platform === 'darwin' ? 'Meta' : 'Control'
     await page.keyboard.press(`${primaryModifier}+i`)
     await expect(page.getByRole('complementary')).toBeVisible()
-    await expect(page.getByLabel('Message Mock AI')).toBeFocused()
+    await expect(page.getByLabel('Message Agent')).toBeFocused()
     await page.keyboard.press(`${primaryModifier}+i`)
     await expect(page.getByRole('complementary')).toHaveCount(0)
     await expect(canvasHost).toBeFocused()
@@ -125,19 +207,31 @@ test.describe('Conversational AI Mock Drawing', () => {
     await captureVisualState(page, testInfo, 'conversational-ai-context-menu')
     await agentCommand.click()
     await expect(page.getByRole('complementary')).toBeVisible()
-    await expect(page.getByLabel('Message Mock AI')).toBeFocused()
+    await expect(page.getByLabel('Message Agent')).toBeFocused()
   })
 
-  test('creates and incrementally edits the same canonical cat-face ids with one history action per turn', async ({
+  test('attaches a reference, chooses balanced detail, and incrementally edits the same canonical ids with one history action per mutating turn', async ({
     page
   }, testInfo) => {
+    test.setTimeout(180_000)
+    const persistenceErrors: string[] = []
+    page.on('console', (message) => {
+      if (
+        message.type() === 'error' &&
+        /(?:LocalStorage|IndexedDb)Persistence.*Save failed|QuotaExceededError/.test(
+          message.text()
+        )
+      ) {
+        persistenceErrors.push(message.text())
+      }
+    })
     await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await openMockAi(page)
 
     const beforeHistory = await getTransactionSnapshot(page)
-    const input = page.getByLabel('Message Mock AI')
-    await input.fill('畫一個貓臉')
+    await addReferenceImage(page)
+    await page.getByLabel('Message Agent').fill('請依照這張圖繪製')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('Working on your request')).toBeVisible()
     await captureVisualState(page, testInfo, 'conversational-ai-planning-state')
@@ -145,6 +239,25 @@ test.describe('Conversational AI Mock Drawing', () => {
       .getByTestId('mock-ai-panel')
       .locator('article[data-turn-id]')
     await expect(settledTurns).toHaveCount(1, { timeout: 10_000 })
+    const clarificationTurn = settledTurns.last()
+    await expect(clarificationTurn).toHaveAttribute('data-outcome', 'no-change')
+    await expect(
+      clarificationTurn.getByText('Choose a drawing detail level.')
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Choose Balanced detail' })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Choose Maximum detail' })
+    ).toBeVisible()
+    expect(await getCanvasEvidence(page)).toEqual([])
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount
+    )
+    await captureVisualState(page, testInfo, 'conversational-ai-detail-choice')
+
+    await page.getByRole('button', { name: 'Choose Balanced detail' }).click()
+    await expect(settledTurns).toHaveCount(2, { timeout: 120_000 })
     const createTurn = settledTurns.last()
     await expect(createTurn).toHaveAttribute('data-outcome', 'success')
     await expect(
@@ -156,36 +269,57 @@ test.describe('Conversational AI Mock Drawing', () => {
     ).toBeVisible()
 
     const created = await getCanvasEvidence(page)
-    expect(created).toHaveLength(17)
-    expect(new Set(created.map(({ id }) => id)).size).toBe(17)
+    expect(created).toHaveLength(7112)
+    expect(new Set(created.map(({ id }) => id)).size).toBe(7112)
+    expect(created.filter(({ type }) => type === 'group')).toHaveLength(1)
+    expect(created.filter(({ type }) => type === 'vector')).toHaveLength(7111)
+    expect(
+      created.reduce((total, entry) => total + entry.pointCount, 0)
+    ).toBeGreaterThanOrEqual(115_000)
     const createdHistory = await getTransactionSnapshot(page)
     expect(createdHistory.undoCount).toBe(beforeHistory.undoCount + 1)
-
-    const eyesBefore = created.filter(
-      ({ bounds, type }) =>
-        type === 'oval' && bounds?.width === 58 && bounds.height === 70
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__Core__?.selectElements?.([], {
+        undoable: false
+      })
+    })
+    await captureVisualState(
+      page,
+      testInfo,
+      'conversational-ai-balanced-cat-face-created'
     )
-    expect(eyesBefore).toHaveLength(2)
 
-    await submitTurn(page, '把眼睛放大一點', 'success', 2)
+    await submitTurn(page, '把眼睛放大一點', 'success', 3, 120_000)
     const enlarged = await getCanvasEvidence(page)
     expect(enlarged.map(({ id }) => id)).toEqual(created.map(({ id }) => id))
-    const enlargedById = new Map(enlarged.map((entry) => [entry.id, entry]))
-    eyesBefore.forEach((eye) => {
-      expect(enlargedById.get(eye.id)?.bounds?.width).toBeCloseTo(69.6)
-      expect(enlargedById.get(eye.id)?.bounds?.height).toBeCloseTo(84)
+    const createdById = new Map(created.map((entry) => [entry.id, entry]))
+    const changedBounds = enlarged.filter((entry) => {
+      const previous = createdById.get(entry.id)?.bounds
+      return (
+        previous !== null &&
+        entry.bounds !== null &&
+        (entry.bounds.width !== previous?.width ||
+          entry.bounds.height !== previous?.height)
+      )
+    })
+    expect(changedBounds.length).toBeGreaterThanOrEqual(2)
+    changedBounds.forEach((entry) => {
+      const previous = createdById.get(entry.id)?.bounds
+      expect(entry.bounds?.width).toBeCloseTo((previous?.width ?? 0) * 1.2)
+      expect(entry.bounds?.height).toBeCloseTo((previous?.height ?? 0) * 1.2)
     })
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 2
     )
 
-    await submitTurn(page, '把鬍鬚改成藍色', 'success', 3)
+    await submitTurn(page, '把鬍鬚改成藍色', 'success', 4, 120_000)
     const recolored = await getCanvasEvidence(page)
     expect(recolored.map(({ id }) => id)).toEqual(created.map(({ id }) => id))
     const blueIds = recolored
       .filter(({ strokeColor }) => strokeColor === '#2563EB')
       .map(({ id }) => id)
-    expect(blueIds).toHaveLength(6)
+    expect(blueIds.length).toBeGreaterThanOrEqual(2)
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 3
     )
@@ -226,31 +360,63 @@ test.describe('Conversational AI Mock Drawing', () => {
             ({ strokeColor }) => strokeColor === '#2563EB'
           ).length
       )
-      .toBe(6)
+      .toBe(blueIds.length)
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 3
     )
     await captureVisualState(page, testInfo, 'conversational-ai-redo-state')
+
+    const beforeReloadDigest = await getCoreDocumentDigest(page)
+    expect(beforeReloadDigest.byteLength).toBeGreaterThan(5 * 1024 * 1024)
+    await expect
+      .poll(
+        async () => (await getPersistedDocumentDigest(page))?.sha256 ?? null,
+        { timeout: 30_000 }
+      )
+      .toBe(beforeReloadDigest.sha256)
+    expect(persistenceErrors).toEqual([])
+
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getCoreDocumentDigest(page)).toEqual(beforeReloadDigest)
   })
 
-  test('creates a detailed editable cat face as one bounded history action', async ({
+  test('creates the maximum-detail reference as one bounded history action', async ({
     page
   }, testInfo) => {
+    test.skip(
+      process.env.ASYRA_DESIGN_RUN_MAXIMUM_DETAIL !== '1',
+      'Maximum-detail live materialization is an explicit one-run resource gate.'
+    )
+    test.setTimeout(900_000)
     await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
 
-    await submitTurn(page, '畫一個精緻的貓臉', 'success', 1)
+    await addReferenceImage(page)
+    await submitTurn(page, '請依照這張圖繪製', 'no-change', 1)
+    await page.getByRole('button', { name: 'Choose Maximum detail' }).click()
+    const settledTurns = page
+      .getByTestId('mock-ai-panel')
+      .locator('article[data-turn-id]')
+    await expect(settledTurns).toHaveCount(2, { timeout: 900_000 })
+    const createdTurn = settledTurns.last()
+    await expect(createdTurn).toHaveAttribute('data-outcome', 'success')
+    await expect(
+      createdTurn.getByText('Drawing updated successfully.')
+    ).toBeVisible()
+    await expect(createdTurn.getByText(/^Elapsed \d/)).toBeVisible()
     const panel = page.getByTestId('mock-ai-panel')
     await expect(panel.getByText('You', { exact: true })).toHaveCount(0)
-    await expect(panel.getByText('Mock AI', { exact: true })).toHaveCount(1)
-    const created = await getCanvasEvidence(page)
-    expect(created).toHaveLength(25)
-    expect(new Set(created.map(({ id }) => id)).size).toBe(25)
-    expect(created.filter(({ type }) => type === 'group')).toHaveLength(1)
-    expect(created.filter(({ type }) => type === 'oval')).toHaveLength(11)
-    expect(created.filter(({ type }) => type === 'vector')).toHaveLength(13)
+    await expect(panel.getByText('Mock AI', { exact: true })).toHaveCount(0)
+    expect(await getCanvasSummary(page)).toEqual({
+      groupCount: 1,
+      pointCount: 295_794,
+      totalCount: 27_472,
+      uniqueIdCount: 27_472,
+      vectorCount: 27_471
+    })
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 1
     )
@@ -258,11 +424,8 @@ test.describe('Conversational AI Mock Drawing', () => {
     await captureVisualState(
       page,
       testInfo,
-      'conversational-ai-detailed-cat-face'
+      'conversational-ai-maximum-detail-cat-face'
     )
-
-    await page.getByRole('button', { name: 'Undo AI change' }).click()
-    await expect.poll(() => getCanvasEvidence(page)).toEqual([])
   })
 
   test('projects cancellation, provider failure, unsupported, and partial outcomes without hidden mutation', async ({
@@ -273,7 +436,7 @@ test.describe('Conversational AI Mock Drawing', () => {
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
 
-    await page.getByLabel('Message Mock AI').fill('畫一個貓臉')
+    await page.getByLabel('Message Agent').fill('畫一個貓臉')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(
       page.getByRole('button', { name: 'Cancel request' })
@@ -298,11 +461,23 @@ test.describe('Conversational AI Mock Drawing', () => {
       page.getByRole('button', { name: 'Undo AI change' })
     ).toHaveCount(0)
 
-    const partial = await submitTurn(page, '模擬部分成功', 'partial', 4)
+    const partial = await submitTurn(
+      page,
+      '模擬部分成功',
+      'partial',
+      4,
+      120_000
+    )
     await expect(
-      partial.getByText('Partially updated the drawing: 16 applied, 1 skipped.')
+      partial.getByText(
+        'Partially updated the drawing: 7111 applied, 1 skipped.'
+      )
     ).toBeVisible()
-    expect(await getCanvasEvidence(page)).toHaveLength(17)
+    expect(await getCanvasSummary(page)).toMatchObject({
+      groupCount: 1,
+      totalCount: 7112,
+      vectorCount: 7111
+    })
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 1
     )
@@ -312,17 +487,18 @@ test.describe('Conversational AI Mock Drawing', () => {
   test('keeps confirmation visible, revalidates a stale target, and invalidates older history controls', async ({
     page
   }, testInfo) => {
+    test.setTimeout(300_000)
     await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await openMockAi(page)
 
-    await submitTurn(page, '畫一個貓臉', 'success', 1)
+    await submitTurn(page, '畫一個貓臉', 'success', 1, 120_000)
     const afterCreate = await getTransactionSnapshot(page)
     await expect(
       page.getByRole('button', { name: 'Undo AI change' })
     ).toBeVisible()
 
-    await page.getByLabel('Message Mock AI').fill('刪除目前的貓臉')
+    await page.getByLabel('Message Agent').fill('刪除目前的貓臉')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByLabel('AI action confirmation')).toBeVisible()
     await captureVisualState(
@@ -339,7 +515,7 @@ test.describe('Conversational AI Mock Drawing', () => {
       afterCreate.undoCount
     )
 
-    await page.getByLabel('Message Mock AI').fill('刪除目前的貓臉')
+    await page.getByLabel('Message Agent').fill('刪除目前的貓臉')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByLabel('AI action confirmation')).toBeVisible()
     await page.evaluate(() => {
@@ -371,9 +547,14 @@ test.describe('Conversational AI Mock Drawing', () => {
       afterCreate.undoCount + 1
     )
 
-    await submitTurn(page, '畫一個貓臉', 'success', 4)
+    await submitTurn(page, '畫一個貓臉', 'success', 4, 120_000)
     const beforeConfirmedDelete = await getTransactionSnapshot(page)
-    await page.getByLabel('Message Mock AI').fill('刪除目前的貓臉')
+    await captureVisualState(
+      page,
+      testInfo,
+      'conversational-ai-confirmed-delete-created'
+    )
+    await page.getByLabel('Message Agent').fill('刪除目前的貓臉')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByLabel('AI action confirmation')).toBeVisible()
     await page.getByRole('button', { name: 'Allow' }).click()

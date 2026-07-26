@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiStartup, resolveAsyraDesignAiMode } from '../mode'
+import {
+  createAsyraDesignAiStartup,
+  resolveAsyraDesignAiDeliveryMode,
+  resolveAsyraDesignAiMode
+} from '../mode'
 
 describe('Asyra Design AI URL mode', () => {
   it.each([
@@ -14,6 +18,19 @@ describe('Asyra Design AI URL mode', () => {
     ['?other=1&ai=mock', 'mock']
   ] as const)('resolves %s to %s', (search, expected) => {
     expect(resolveAsyraDesignAiMode(search)).toBe(expected)
+  })
+
+  it.each([
+    ['', 'atomic'],
+    ['?ai=mock', 'atomic'],
+    ['?aiDelivery=', 'atomic'],
+    ['?aiDelivery=unknown', 'atomic'],
+    ['?aiDelivery=progressive&aiDelivery=atomic', 'atomic'],
+    ['?aiDelivery=progressive&aiDelivery=progressive', 'atomic'],
+    ['?aiDelivery=atomic', 'atomic'],
+    ['?other=1&aiDelivery=progressive', 'progressive']
+  ] as const)('resolves delivery %s to %s', (search, expected) => {
+    expect(resolveAsyraDesignAiDeliveryMode(search)).toBe(expected)
   })
 
   it('constructs no AI dependency for disabled or unknown startup', () => {

@@ -7,7 +7,10 @@ import {
   type AiTransactionRunner,
   type CreateAiAgentRuntimeInput
 } from '@asyra/ai-agent-runtime'
-import { createAsyraDesignAiActions } from './actions'
+import {
+  createAsyraDesignAiActions,
+  type AsyraDesignAiDeliveryMode
+} from './actions'
 import {
   createAsyraDesignAiConfirmationHandler,
   type AsyraDesignAiConfirmationRequest
@@ -20,6 +23,7 @@ import {
 import { createAsyraDesignAiTransactionRunner } from './transaction'
 
 export interface CreateAsyraDesignAiRuntimeInputOptions {
+  readonly deliveryMode?: AsyraDesignAiDeliveryMode
   readonly provider: AiProvider
   readonly permissionRules: AsyraDesignAiPermissionRules
   readonly requestConfirmation?: AsyraDesignAiConfirmationRequest
@@ -31,7 +35,9 @@ export interface CreateAsyraDesignAiRuntimeInputOptions {
 export const createAsyraDesignAiRuntimeInput = (
   options: CreateAsyraDesignAiRuntimeInputOptions
 ): CreateAiAgentRuntimeInput => ({
-  actionDefinitions: createAsyraDesignAiActions(),
+  actionDefinitions: createAsyraDesignAiActions(undefined, {
+    deliveryMode: options.deliveryMode
+  }),
   confirmationHandler: createAsyraDesignAiConfirmationHandler(
     options.requestConfirmation
   ),

@@ -10,32 +10,68 @@ import {
 
 const providerInput = (
   intent: string,
-  context: unknown = {}
+  context: unknown = {},
+  metadata?: AiProviderInput['metadata']
 ): AiProviderInput => ({
   actions: [],
   attempt: 1,
   context,
-  intent
+  intent,
+  ...(metadata === undefined ? {} : { metadata })
 })
 
 const noDelay: AsyraDesignMockAiDelay = vi.fn(async () => undefined)
+const referenceData = 'data:image/png;base64,c2VjcmV0LXJlZmVyZW5jZQ=='
+const sizedReferenceData =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABogAAAOtCAIAAAA='
+const referenceMetadata = Object.freeze({
+  imageAttachments: Object.freeze([
+    Object.freeze({
+      dataUrl: referenceData,
+      mediaType: 'image/png',
+      name: 'tabby.png',
+      size: 16
+    })
+  ])
+})
+const sizedReferenceMetadata = Object.freeze({
+  imageAttachments: Object.freeze([
+    Object.freeze({
+      dataUrl: sizedReferenceData,
+      mediaType: 'image/png',
+      name: 'tabby.png',
+      size: 29
+    })
+  ])
+})
 
 const generate = async (
   intent: string,
   context: unknown = {},
-  delay: AsyraDesignMockAiDelay = noDelay
+  delay: AsyraDesignMockAiDelay = noDelay,
+  metadata?: AiProviderInput['metadata']
 ) => {
   const provider = createAsyraDesignMockAiProvider({ delay })
-  return provider.generateActionPlan(providerInput(intent, context), {
+  return provider.generateActionPlan(providerInput(intent, context, metadata), {
     signal: new AbortController().signal
   })
 }
 
 describe('Asyra Design deterministic mock AI provider', () => {
-  it('returns one schema-shaped editable cat-face batch without internal ids or private reasoning', async () => {
-    const plan = await generate(AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH)
+  it('routes ordinary and detailed cat-face phrases to the same precise fixture', async () => {
+    const ordinaryChinese = await generate(
+      AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH
+    )
+    const ordinaryEnglish = await generate(
+      AsyraDesignMockAiPhrases.CREATE_CAT_FACE_EN
+    )
+    const detailedChinese = await generate(
+      AsyraDesignMockAiPhrases.CREATE_DETAILED_CAT_FACE_ZH
+    )
 
-    expect(plan).toMatchObject({
+    expect(ordinaryChinese).toEqual(detailedChinese)
+    expect(ordinaryEnglish).toEqual(detailedChinese)
+    expect(detailedChinese).toMatchObject({
       actions: [
         {
           arguments: {
@@ -43,68 +79,116 @@ describe('Asyra Design deterministic mock AI provider', () => {
             items: expect.any(Array),
             parent: 'workspace'
           },
-          id: 'mock-create-cat-face',
+          id: 'mock-create-detailed-cat-face',
           name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
         }
       ],
-      explanation: 'Create a simplified cat face from editable Asyra elements',
-      planId: 'mock-plan-create-cat-face'
+      explanation:
+        'Create a high-detail tabby cat portrait from editable Asyra vector layers',
+      planId: 'mock-plan-create-detailed-cat-face'
     })
-    expect(Reflect.ownKeys(plan as object)).toEqual([
-      'actions',
-      'explanation',
-      'planId'
-    ])
-
-    const action = (plan as { actions: { arguments: unknown }[] }).actions[0]
-    const descriptor = action.arguments as {
-      items: {
-        bounds: { height: number; width: number; x: number; y: number }
-        primitive: string
-        role: string
-      }[]
-    }
-    expect(descriptor.items.length).toBeGreaterThanOrEqual(12)
-    expect(descriptor.items.length).toBeLessThanOrEqual(24)
-    const fixtureBounds = {
-      maxX: Math.max(
-        ...descriptor.items.map((item) => item.bounds.x + item.bounds.width)
-      ),
-      minX: Math.min(...descriptor.items.map((item) => item.bounds.x))
-    }
-    expect(fixtureBounds).toEqual({
-      maxX: 578,
-      minX: 142
-    })
-    expect(
-      descriptor.items.every(
-        (item) =>
-          (item.primitive === 'oval' || item.primitive === 'vector') &&
-          item.bounds.x >= 0 &&
-          item.bounds.y >= 0 &&
-          item.bounds.x + item.bounds.width <= 2048 &&
-          item.bounds.y + item.bounds.height <= 2048 &&
-          !('id' in item)
-      )
-    ).toBe(true)
-    expect(descriptor.items.map((item) => item.role)).toEqual(
-      expect.arrayContaining([
-        'face',
-        'left-ear',
-        'right-ear',
-        'left-eye',
-        'right-eye',
-        'nose',
-        'left-whisker-1',
-        'right-whisker-1'
-      ])
-    )
-    expect(JSON.stringify(plan)).not.toMatch(
+    expect(JSON.stringify(detailedChinese)).not.toMatch(
       /chain-of-thought|private reasoning|api[_-]?key|authorization/i
     )
   })
 
-  it('returns one deterministic 24-item detailed cat face within the existing action boundary', async () => {
+  it('returns an App-wording-free clarification candidate for the generic attached-image phrase', async () => {
+    const clarificationPlan = await generate(
+      AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_ZH,
+      {},
+      noDelay,
+      referenceMetadata
+    )
+
+    expect(clarificationPlan).toEqual({
+      actions: [
+        {
+          arguments: {},
+          id: 'mock-request-drawing-detail-choice',
+          name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE
+        }
+      ],
+      explanation: 'Choose a drawing detail level before creating elements',
+      planId: 'mock-plan-request-drawing-detail-choice'
+    })
+    expect(JSON.stringify(clarificationPlan)).not.toContain(referenceData)
+    await expect(
+      generate(AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_ZH)
+    ).rejects.toMatchObject({
+      code: 'AI_PROVIDER_INVALID_INPUT'
+    })
+  })
+
+  it('routes the exact cat-only instruction to a same-size pure-white fixture only with an accepted attachment', async () => {
+    const plan = await generate(
+      AsyraDesignMockAiPhrases.DRAW_ONLY_CAT_ON_SAME_SIZE_WHITE_BACKGROUND_EN,
+      {},
+      noDelay,
+      sizedReferenceMetadata
+    )
+    const items = (
+      plan as {
+        actions: {
+          arguments: {
+            items: {
+              bounds: { height: number; width: number; x: number; y: number }
+              role: string
+              style: { fillColor?: string }
+            }[]
+          }
+        }[]
+      }
+    ).actions[0].arguments.items
+    const background = items.find(({ role }) => role === 'portrait-background')
+
+    expect(plan).toMatchObject({
+      actions: [
+        {
+          id: 'mock-create-cat-only-white-background',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      planId: 'mock-plan-create-cat-only-white-background'
+    })
+    expect(background).toMatchObject({
+      bounds: { height: 941, width: 1672, x: 0, y: 0 },
+      style: { fillColor: '#FFFFFF' }
+    })
+    expect(items).toHaveLength(7075)
+    expect(items.filter(({ role }) => role === 'left-pupil')).toHaveLength(1)
+    expect(items.filter(({ role }) => role === 'right-pupil')).toHaveLength(1)
+    expect(items.map(({ role }) => role)).toEqual(
+      expect.arrayContaining(['left-pupil', 'right-pupil'])
+    )
+    await expect(
+      generate(
+        AsyraDesignMockAiPhrases.DRAW_ONLY_CAT_ON_SAME_SIZE_WHITE_BACKGROUND_EN
+      )
+    ).rejects.toMatchObject({
+      code: 'AI_PROVIDER_INVALID_INPUT'
+    })
+  })
+
+  it('routes the exact balanced choice with the retained attachment to the balanced fixture', async () => {
+    const balancedPlan = await generate(
+      AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_BALANCED_ZH,
+      {},
+      noDelay,
+      referenceMetadata
+    )
+    const textOnlyPlan = await generate(
+      AsyraDesignMockAiPhrases.CREATE_DETAILED_CAT_FACE_ZH
+    )
+
+    expect(balancedPlan).toEqual(textOnlyPlan)
+    await expect(
+      generate(AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_BALANCED_ZH)
+    ).rejects.toMatchObject({
+      code: 'AI_PROVIDER_INVALID_INPUT'
+    })
+  })
+
+  it('returns one deterministic 7111-layer VTracer tabby portrait', async () => {
     const chinese = await generate(
       AsyraDesignMockAiPhrases.CREATE_DETAILED_CAT_FACE_ZH
     )
@@ -126,7 +210,7 @@ describe('Asyra Design deterministic mock AI provider', () => {
         }
       ],
       explanation:
-        'Create a detailed cat face from layered editable Asyra elements',
+        'Create a high-detail tabby cat portrait from editable Asyra vector layers',
       planId: 'mock-plan-create-detailed-cat-face'
     })
 
@@ -135,32 +219,81 @@ describe('Asyra Design deterministic mock AI provider', () => {
         actions: {
           arguments: {
             items: {
+              bounds: {
+                height: number
+                width: number
+                x: number
+                y: number
+              }
+              paths?: {
+                closed: boolean
+                points: { x: number; y: number }[]
+              }[]
+              points?: { x: number; y: number }[]
               primitive: 'oval' | 'vector'
               role: string
+              style: {
+                fillColor?: string
+                strokeColor?: string
+              }
             }[]
           }
         }[]
       }
     ).actions[0]
     const items = action.arguments.items
-    expect(items).toHaveLength(24)
-    expect(new Set(items.map(({ role }) => role)).size).toBe(24)
-    expect(items.filter(({ primitive }) => primitive === 'oval')).toHaveLength(
-      11
+    const paths = items.flatMap((item) => {
+      if (item.paths) {
+        return item.paths
+      }
+      return item.points ? [{ closed: false, points: item.points }] : []
+    })
+    const pointCount = paths.reduce(
+      (total, path) => total + path.points.length,
+      0
     )
+    const palette = new Set(
+      items.flatMap(({ style }) =>
+        [style.fillColor, style.strokeColor].filter(
+          (color): color is string => color !== undefined
+        )
+      )
+    )
+
+    expect(items).toHaveLength(7111)
+    expect(new Set(items.map(({ role }) => role)).size).toBe(7111)
+    expect(items.filter(({ primitive }) => primitive === 'vector').length).toBe(
+      7111
+    )
+    expect(paths.length).toBeGreaterThanOrEqual(7111)
+    expect(pointCount).toBeGreaterThanOrEqual(115_000)
+    expect(palette.size).toBeGreaterThanOrEqual(90)
     expect(
-      items.filter(({ primitive }) => primitive === 'vector')
-    ).toHaveLength(13)
+      items.every(
+        ({ bounds }) =>
+          bounds.x >= 0 &&
+          bounds.y >= 0 &&
+          bounds.x + bounds.width <= 2048 &&
+          bounds.y + bounds.height <= 2048
+      )
+    ).toBe(true)
     expect(items.map(({ role }) => role)).toEqual(
       expect.arrayContaining([
-        'left-inner-ear',
-        'right-inner-ear',
-        'left-iris',
-        'right-iris',
-        'left-eye-highlight',
-        'right-eye-highlight',
-        'left-muzzle',
-        'right-muzzle'
+        'portrait-background',
+        'tabby-vector-0001',
+        'left-eye',
+        'right-eye',
+        'left-eye-detail-0001',
+        'right-eye-detail-0001',
+        'left-whisker-000',
+        'right-whisker-000'
+      ])
+    )
+    expect(items.map(({ role }) => role)).not.toEqual(
+      expect.arrayContaining([
+        'face-base',
+        'center-forehead-stripe',
+        'face-fur-0000'
       ])
     )
     expect(JSON.stringify(chinese)).not.toMatch(
@@ -278,6 +411,49 @@ describe('Asyra Design deterministic mock AI provider', () => {
     })
   })
 
+  it('uses only context-exposed existing pupil ids for the red fill update fixture', async () => {
+    const plan = await generate(AsyraDesignMockAiPhrases.RECOLOR_PUPILS_EN, {
+      aiTargets: {
+        compositionId: 'group-cat',
+        roleToElementIds: {
+          pupils: ['pupil-left', 'pupil-right']
+        }
+      }
+    })
+
+    expect(plan).toEqual({
+      actions: [
+        {
+          arguments: {
+            updates: [
+              {
+                elementId: 'pupil-left',
+                style: {
+                  fillColor: '#DC2626'
+                }
+              },
+              {
+                elementId: 'pupil-right',
+                style: {
+                  fillColor: '#DC2626'
+                }
+              }
+            ]
+          },
+          id: 'mock-recolor-pupils',
+          name: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS
+        }
+      ],
+      explanation: 'Recolor the existing cat-face pupil elements red',
+      planId: 'mock-plan-recolor-pupils'
+    })
+    await expect(
+      generate(AsyraDesignMockAiPhrases.RECOLOR_PUPILS_EN)
+    ).rejects.toMatchObject({
+      code: 'AI_PROVIDER_INVALID_INPUT'
+    })
+  })
+
   it('targets the current composition for confirmation-required removal', async () => {
     const plan = await generate(AsyraDesignMockAiPhrases.DELETE_CAT_FACE_ZH, {
       aiTargets: {
@@ -317,9 +493,13 @@ describe('Asyra Design deterministic mock AI provider', () => {
           name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
         }
       ],
+      explanation:
+        'Create a high-detail cat face while demonstrating one recoverable skipped item',
       planId: 'mock-plan-partial-cat-face'
     })
-    expect(roles.filter((role) => role === 'right-whisker-2')).toHaveLength(2)
+    expect(items).toHaveLength(7112)
+    expect(new Set(roles).size).toBe(7111)
+    expect(roles.filter((role) => role === 'right-whisker-000')).toHaveLength(2)
   })
 
   it('rejects unsupported or missing follow-up targets without inventing an action or fallback composition', async () => {
