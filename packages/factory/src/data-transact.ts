@@ -12,7 +12,11 @@ import type {
   TransactionStatusPayload,
   UpdateElementPatchChange
 } from '@asyra/utils'
-import { UNDO, setOwnEnumerableValue } from '@asyra/utils'
+import {
+  UNDO,
+  measureBrowserDragPhase,
+  setOwnEnumerableValue
+} from '@asyra/utils'
 
 type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
 interface EffectiveMutationOptions {
@@ -477,25 +481,27 @@ class DataTransact {
     entries: readonly TransactionJournalEntry[],
     origin: SharedPublication['origin'] = this.transactionOrigin()
   ): SharedPublication | undefined {
-    if (this.transactionOrigin() === 'remote') return
-    const publishableEntries = entries.filter((entry) => {
-      if (!entry.shared?.delivered || entry.shared.published) {
-        return false
-      }
-      return true
+    return measureBrowserDragPhase('factory:create-shared-publication', () => {
+      if (this.transactionOrigin() === 'remote') return
+      const publishableEntries = entries.filter((entry) => {
+        if (!entry.shared?.delivered || entry.shared.published) {
+          return false
+        }
+        return true
+      })
+      const deliveries = publishableEntries.flatMap((entry) => {
+        if (!entry.shared) {
+          return []
+        }
+        const delivery = this.createForwardSharedDelivery(entry)
+        return delivery ? [delivery] : []
+      })
+      if (deliveries.length === 0) return
+      publishableEntries.forEach((entry) => {
+        if (entry.shared) entry.shared.published = true
+      })
+      return this.createSharedPublicationFromDeliveries(deliveries, origin)
     })
-    const deliveries = publishableEntries.flatMap((entry) => {
-      if (!entry.shared) {
-        return []
-      }
-      const delivery = this.createForwardSharedDelivery(entry)
-      return delivery ? [delivery] : []
-    })
-    if (deliveries.length === 0) return
-    publishableEntries.forEach((entry) => {
-      if (entry.shared) entry.shared.published = true
-    })
-    return this.createSharedPublicationFromDeliveries(deliveries, origin)
   }
 
   private createSharedPublicationFromDeliveries(
@@ -1357,17 +1363,19 @@ class DataTransact {
   }
 
   flushPendingSharedChannelChanges() {
-    this.journal.forEach((entry) => {
-      const { shared } = entry
-      if (shared && !shared.delivered) {
-        shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
-          shared.name,
-          shared.change
-        )
-        if (shared.delivered) {
-          this.emitForwardSharedDelivery(entry)
+    measureBrowserDragPhase('factory:flush-shared-channels', () => {
+      this.journal.forEach((entry) => {
+        const { shared } = entry
+        if (shared && !shared.delivered) {
+          shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
+            shared.name,
+            shared.change
+          )
+          if (shared.delivered) {
+            this.emitForwardSharedDelivery(entry)
+          }
         }
-      }
+      })
     })
   }
 

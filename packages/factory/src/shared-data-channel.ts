@@ -1,4 +1,4 @@
-import { MapRegistry } from '@asyra/utils'
+import { MapRegistry, measureBrowserDragPhase } from '@asyra/utils'
 import { cloneValue } from './value-clone'
 
 export type SharedDataChannelName = string
@@ -18,12 +18,20 @@ export class LocalSharedDataChannel implements SharedDataChannel {
   private readonly handlers = new Set<SharedDataChannelChangeHandler>()
 
   append(change: unknown): void {
-    ;[...this.handlers].forEach((handler) => {
-      try {
-        handler(cloneValue(change))
-      } catch {
-        // Local projection observers cannot invalidate an applied change.
-      }
+    measureBrowserDragPhase('factory:shared-channel-append', () => {
+      ;[...this.handlers].forEach((handler) => {
+        try {
+          const clonedChange = measureBrowserDragPhase(
+            'factory:shared-channel-clone',
+            () => cloneValue(change)
+          )
+          measureBrowserDragPhase('factory:shared-channel-observer', () =>
+            handler(clonedChange)
+          )
+        } catch {
+          // Local projection observers cannot invalidate an applied change.
+        }
+      })
     })
   }
 

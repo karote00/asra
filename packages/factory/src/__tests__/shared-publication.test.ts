@@ -47,6 +47,35 @@ const createHarness = () => {
 }
 
 describe('Factory action-level shared publication', () => {
+  it('emits detached settlement spans for channel delivery and publication', () => {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
+    const phaseNames: string[] = []
+    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const { factory } = createHarness()
+
+    try {
+      factory.startTransaction()
+      update(factory, 'element-a', 1)
+      update(factory, 'element-b', 2)
+      factory.endTransaction()
+    } finally {
+      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+    }
+
+    expect(phaseNames).toEqual(
+      expect.arrayContaining([
+        'factory:flush-shared-channels',
+        'factory:shared-channel-append',
+        'factory:shared-channel-observer',
+        'factory:create-shared-publication',
+        'factory:notify-shared-publication'
+      ])
+    )
+  })
+
   it('publishes hierarchy changes as one uninterpreted transaction group', () => {
     const { factory, publications } = createHarness()
 

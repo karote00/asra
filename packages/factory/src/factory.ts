@@ -13,6 +13,7 @@ import type {
   TransactionStatus,
   TransactionStatusPayload
 } from '@asyra/utils'
+import { measureBrowserDragPhase } from '@asyra/utils'
 import DataTransact from './data-transact'
 import {
   LocalSharedDataChannel,
@@ -96,12 +97,18 @@ class Factory {
   }
 
   private emitSharedPublication(publication: SharedPublication): void {
-    ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
-      try {
-        subscriber(cloneSharedPublication(publication))
-      } catch {
-        // Collaboration observers cannot alter local canonical settlement.
-      }
+    measureBrowserDragPhase('factory:notify-shared-publication', () => {
+      ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
+        try {
+          subscriber(
+            measureBrowserDragPhase('factory:shared-publication-clone', () =>
+              cloneSharedPublication(publication)
+            )
+          )
+        } catch {
+          // Collaboration observers cannot alter local canonical settlement.
+        }
+      })
     })
   }
 

@@ -145,9 +145,17 @@ The production atomic 7,112-element reference baseline used one unmeasured
 warm-up followed by three fresh-document measured runs. Accepted-turn product
 time was 14.582–14.722 seconds. The complete App transaction took
 13.516–13.656 seconds, while its action-execute callback took only
-4.501–4.606 seconds. The 8.961–9.050 second transaction-settlement remainder
-selects `record-history-and-shared-publication` (`@asyra/factory`) as the first
-over-budget owner step.
+4.501–4.606 seconds. This first split routed the 8.961–9.050 second
+transaction-settlement remainder through
+`record-history-and-shared-publication` (`@asyra/factory`) for finer owner
+attribution.
+
+Factory sub-profiling then showed `flush-shared-channels` at
+6.912–7.025 seconds, of which the registered local projection observer consumed
+5.718–5.826 seconds. Factory publication construction consumed about
+1.01 seconds. Because the dominant synchronous observer owns Preset and Render
+projection rather than Factory history or publication semantics, the first
+optimization owner is `project-visible-canonical-batches`, not Factory.
 
 Within action execution, ordinary canonical batch calls took
 4.485–4.592 seconds and Render add-or-update projection took
