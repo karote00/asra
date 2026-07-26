@@ -14,8 +14,16 @@ export interface SharedDataChannel {
 
 const noop = (): void => undefined
 
+const builtInLocalSharedDataChannels = new WeakSet<object>()
+
 export class LocalSharedDataChannel implements SharedDataChannel {
   private readonly handlers = new Set<SharedDataChannelChangeHandler>()
+
+  constructor() {
+    if (new.target === LocalSharedDataChannel) {
+      builtInLocalSharedDataChannels.add(this)
+    }
+  }
 
   append(change: unknown): void {
     measureBrowserDragPhase('factory:shared-channel-append', () => {
@@ -43,11 +51,42 @@ export class LocalSharedDataChannel implements SharedDataChannel {
   }
 }
 
+const builtInLocalSharedDataChannelAppend =
+  LocalSharedDataChannel.prototype.append
+
+const appendFactoryOwnedChange = (
+  channel: SharedDataChannel,
+  change: unknown
+): void => {
+  const append = channel.append
+  if (
+    builtInLocalSharedDataChannels.has(channel) &&
+    append === builtInLocalSharedDataChannelAppend
+  ) {
+    Reflect.apply(builtInLocalSharedDataChannelAppend, channel, [change])
+    return
+  }
+
+  const channelChange = measureBrowserDragPhase(
+    'factory:shared-channel-boundary-clone',
+    () => cloneValue(change)
+  )
+  Reflect.apply(append, channel, [channelChange])
+}
+
+const builtInSharedDataChannelRegistries = new WeakSet<object>()
+
 export class SharedDataChannelRegistry {
   private readonly channels = new MapRegistry<
     SharedDataChannelName,
     SharedDataChannel
   >()
+
+  constructor() {
+    if (new.target === SharedDataChannelRegistry) {
+      builtInSharedDataChannelRegistries.add(this)
+    }
+  }
 
   register(name: SharedDataChannelName, channel: SharedDataChannel): void {
     this.channels.register(name, channel, {
@@ -81,7 +120,7 @@ export class SharedDataChannelRegistry {
     if (!channel) {
       return false
     }
-    channel.append(change)
+    appendFactoryOwnedChange(channel, change)
     return true
   }
 
@@ -96,4 +135,30 @@ export class SharedDataChannelRegistry {
 
     return channel.observe(handler as SharedDataChannelChangeHandler)
   }
+}
+
+const builtInSharedDataChannelRegistryPush =
+  SharedDataChannelRegistry.prototype.pushToSharedChannel
+
+export const pushFactoryOwnedChangeToSharedChannel = (
+  sink: Pick<SharedDataChannelRegistry, 'pushToSharedChannel'>,
+  name: SharedDataChannelName,
+  change: unknown
+): boolean => {
+  const push = sink.pushToSharedChannel
+  if (
+    builtInSharedDataChannelRegistries.has(sink) &&
+    push === builtInSharedDataChannelRegistryPush
+  ) {
+    return Reflect.apply(builtInSharedDataChannelRegistryPush, sink, [
+      name,
+      change
+    ])
+  }
+
+  const sinkChange = measureBrowserDragPhase(
+    'factory:shared-sink-boundary-clone',
+    () => cloneValue(change)
+  )
+  return Reflect.apply(push, sink, [name, sinkChange])
 }

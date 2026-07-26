@@ -78,7 +78,10 @@ import {
   wasTransactionReplayApplied,
   updateUndoRedoStatus
 } from '@asyra/reactive-events'
-import type { SharedDataChannelRegistry } from './shared-data-channel'
+import {
+  pushFactoryOwnedChangeToSharedChannel,
+  SharedDataChannelRegistry
+} from './shared-data-channel'
 import {
   TransactionRollbackError,
   TransactionValidationError,
@@ -267,9 +270,7 @@ class DataTransact {
   private emittingTransactionStatuses = false
   private readonly inverters = new Map<string, TransactionInverter>()
   private readonly validators = new Map<string, TransactionValidator>()
-  private readonly onCommitCapture?: (
-    payload: TransactionStatusPayload
-  ) => void
+  private readonly onCommitCapture?: (payload: TransactionStatusPayload) => void
   private readonly onStatus?: (payload: TransactionStatusPayload) => void
   private readonly onUserActionCompleted?: (
     payload: UserActionCompletedPayload
@@ -294,9 +295,8 @@ class DataTransact {
     >,
     callbacks?: DataTransactCallbacks
   ) {
-    this.sharedDataChannelRegistry = sharedDataChannelRegistry ?? {
-      pushToSharedChannel: () => false
-    }
+    this.sharedDataChannelRegistry =
+      sharedDataChannelRegistry ?? new SharedDataChannelRegistry()
     this.onCommitCapture = callbacks?.onCommitCapture
     this.onStatus = callbacks?.onStatus
     this.onUserActionCompleted = callbacks
@@ -378,7 +378,10 @@ class DataTransact {
 
     const payload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
-    const newPayload = cloneValue(payload)
+    const newPayload = measureBrowserDragPhase(
+      'factory:journal-payload-clone',
+      () => cloneValue(payload)
+    )
     const newEvent: AllEvent = {
       type: newType,
       payload: newPayload
@@ -413,8 +416,9 @@ class DataTransact {
         origin === 'remote'
           ? { ...event.options, undoable: false, rollbackable: true }
           : event.options
-      const sharedChange = cloneValue(
-        toSharedChannelPayload(newPayload, sharedOptions)
+      const sharedChange = measureBrowserDragPhase(
+        'factory:shared-payload-normalize',
+        () => toSharedChannelPayload(newPayload, sharedOptions)
       )
       journalEntry.shared = {
         name: sharedChannelName,
@@ -436,11 +440,11 @@ class DataTransact {
     }
 
     if (journalEntry.shared && event.options?.sharedDelivery === 'immediate') {
-      journalEntry.shared.delivered =
-        this.sharedDataChannelRegistry.pushToSharedChannel(
-          journalEntry.shared.name,
-          journalEntry.shared.change
-        )
+      journalEntry.shared.delivered = pushFactoryOwnedChangeToSharedChannel(
+        this.sharedDataChannelRegistry,
+        journalEntry.shared.name,
+        journalEntry.shared.change
+      )
       if (journalEntry.shared.delivered) {
         this.emitForwardSharedDelivery(journalEntry)
         this.queueImmediatePublicationEntry(journalEntry)
@@ -866,7 +870,8 @@ class DataTransact {
         return
       }
 
-      shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
+      shared.delivered = pushFactoryOwnedChangeToSharedChannel(
+        this.sharedDataChannelRegistry,
         shared.name,
         shared.change
       )
@@ -911,11 +916,11 @@ class DataTransact {
     }
     this.journal.push(journalEntry)
     if (journalEntry.shared && sharedReplay.sharedDelivery === 'immediate') {
-      journalEntry.shared.delivered =
-        this.sharedDataChannelRegistry.pushToSharedChannel(
-          journalEntry.shared.name,
-          journalEntry.shared.change
-        )
+      journalEntry.shared.delivered = pushFactoryOwnedChangeToSharedChannel(
+        this.sharedDataChannelRegistry,
+        journalEntry.shared.name,
+        journalEntry.shared.change
+      )
       if (journalEntry.shared.delivered) {
         this.emitForwardSharedDelivery(journalEntry)
         this.queueImmediatePublicationEntry(journalEntry)
@@ -972,11 +977,11 @@ class DataTransact {
             const inversePayload = (
               inverseEvent as AllEvent & { payload: TransactionPayload }
             ).payload
-            const delivered =
-              this.sharedDataChannelRegistry.pushToSharedChannel(
-                shared.name,
-                inversePayload
-              )
+            const delivered = pushFactoryOwnedChangeToSharedChannel(
+              this.sharedDataChannelRegistry,
+              shared.name,
+              inversePayload
+            )
             if (!delivered) {
               throw new Error(
                 `Failed to compensate shared channel ${shared.name}`
@@ -1388,7 +1393,8 @@ class DataTransact {
       this.journal.forEach((entry) => {
         const { shared } = entry
         if (shared && !shared.delivered) {
-          shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
+          shared.delivered = pushFactoryOwnedChangeToSharedChannel(
+            this.sharedDataChannelRegistry,
             shared.name,
             shared.change
           )

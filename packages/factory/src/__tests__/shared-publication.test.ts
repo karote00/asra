@@ -67,6 +67,8 @@ describe('Factory action-level shared publication', () => {
 
     expect(phaseNames).toEqual(
       expect.arrayContaining([
+        'factory:journal-payload-clone',
+        'factory:shared-payload-normalize',
         'factory:flush-shared-channels',
         'factory:shared-channel-append',
         'factory:shared-channel-observer',
@@ -74,6 +76,8 @@ describe('Factory action-level shared publication', () => {
         'factory:notify-shared-publication'
       ])
     )
+    expect(phaseNames).not.toContain('factory:shared-channel-boundary-clone')
+    expect(phaseNames).not.toContain('factory:shared-sink-boundary-clone')
   })
 
   it('publishes hierarchy changes as one uninterpreted transaction group', () => {
@@ -225,7 +229,94 @@ describe('Factory action-level shared publication', () => {
     })
   })
 
-  it('publishes one inverse batch when one multi-change action is undone', () => {
+  it('compensates every flushed progressive publication in global reverse order when the action rolls back', async () => {
+    const { factory, projected, publications } = createHarness()
+
+    factory.startTransaction()
+    update(factory, 'element-a', 1, { sharedDelivery: 'immediate' })
+    await Promise.resolve()
+    update(factory, 'element-b', 2, { sharedDelivery: 'immediate' })
+    await Promise.resolve()
+
+    expect(publications).toEqual([
+      expect.objectContaining({
+        origin: 'action',
+        deliveries: [expect.objectContaining({ deliveryId: '1:0:forward' })]
+      }),
+      expect.objectContaining({
+        origin: 'action',
+        deliveries: [expect.objectContaining({ deliveryId: '1:1:forward' })]
+      })
+    ])
+
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(publications).toHaveLength(3)
+    expect(publications[2]).toEqual({
+      publicationId: '1:publication:3',
+      transactionId: 1,
+      origin: 'rollback-compensation',
+      deliveries: [
+        expect.objectContaining({
+          deliveryId: '1:1:compensation:0',
+          compensatesDeliveryId: '1:1:forward',
+          payload: expect.objectContaining({
+            id: 'element-b',
+            before: 2,
+            after: 1
+          })
+        }),
+        expect.objectContaining({
+          deliveryId: '1:0:compensation:0',
+          compensatesDeliveryId: '1:0:forward',
+          payload: expect.objectContaining({
+            id: 'element-a',
+            before: 1,
+            after: 0
+          })
+        })
+      ]
+    })
+    expect(
+      projected.map((change) => {
+        const payload = change as { id: string; after: number }
+        return `${payload.id}:${payload.after}`
+      })
+    ).toEqual(['element-a:1', 'element-b:2', 'element-b:1', 'element-a:0'])
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toEqual([])
+
+    factory.undo()
+    factory.redo()
+    expect(publications).toHaveLength(3)
+  })
+
+  it('creates no publication or history record for a zero-mutation action', async () => {
+    const { factory, projected, publications } = createHarness()
+
+    factory.startTransaction()
+    factory.endTransaction()
+    await Promise.resolve()
+
+    expect(projected).toEqual([])
+    expect(publications).toEqual([])
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toEqual([])
+
+    factory.undo()
+    factory.redo()
+    expect(publications).toEqual([])
+  })
+
+  it('publishes one atomic batch for each multi-change action, undo, and redo transition', () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_COMPUTED_DATA,
@@ -236,6 +327,19 @@ describe('Factory action-level shared publication', () => {
     update(factory, 'element-a', 1)
     update(factory, 'element-b', 2)
     factory.endTransaction()
+
+    expect(publications).toHaveLength(1)
+    expect(
+      publications[0]?.deliveries.map(
+        ({ payload }) => (payload as { id: string }).id
+      )
+    ).toEqual(['element-a', 'element-b'])
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(0)
     publications.length = 0
 
     factory.undo()
@@ -254,6 +358,44 @@ describe('Factory action-level shared publication', () => {
         ]
       })
     )
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(0)
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(1)
+
+    publications.length = 0
+    factory.redo()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(
+      expect.objectContaining({
+        origin: 'redo',
+        deliveries: [
+          expect.objectContaining({
+            sharedDelivery: 'transaction-end',
+            payload: expect.objectContaining({
+              id: 'element-a',
+              after: 1
+            })
+          }),
+          expect.objectContaining({
+            sharedDelivery: 'transaction-end',
+            payload: expect.objectContaining({
+              id: 'element-b',
+              after: 2
+            })
+          })
+        ]
+      })
+    )
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(0)
   })
 
   it('publishes exact Props-before-Scene subtree restore evidence in one undo batch', () => {
@@ -539,6 +681,72 @@ describe('Factory action-level shared publication', () => {
 
     expect(() => factory.endTransaction()).not.toThrow()
     expect(later).toHaveBeenCalledTimes(1)
+  })
+
+  it('isolates nested publication subscriber mutation from later publication and Undo', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+    const laterPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) => {
+      const payload = publication.deliveries[0]?.payload as {
+        after: { value: number }
+      }
+      payload.after.value = 99
+    })
+    factory.subscribeToSharedPublication((publication) =>
+      laterPublications.push(publication)
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'nested-publication-mutation',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(laterPublications).toEqual([
+      expect.objectContaining({
+        origin: 'action',
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              before: { value: 0 },
+              after: { value: 1 }
+            })
+          })
+        ]
+      })
+    ])
+
+    laterPublications.length = 0
+    factory.undo()
+
+    expect(laterPublications).toEqual([
+      expect.objectContaining({
+        origin: 'undo',
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              before: { value: 1 },
+              after: { value: 0 }
+            })
+          })
+        ]
+      })
+    ])
   })
 
   it('retains the outer publication when a completion observer commits reentrantly', () => {

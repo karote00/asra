@@ -56,6 +56,12 @@ export const subscribeToSharedPublication = (
 
 export default factory
 export { Factory }
-export * from './shared-data-channel'
+export {
+  LocalSharedDataChannel,
+  SharedDataChannelRegistry,
+  type SharedDataChannel,
+  type SharedDataChannelChangeHandler,
+  type SharedDataChannelName
+} from './shared-data-channel'
 export * from './shared-delivery'
 export * from './transaction'

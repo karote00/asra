@@ -19,6 +19,7 @@ import {
   type TransactionStatusPayload
 } from '@asyra/utils'
 import DataTransact from '../data-transact'
+import { SharedDataChannelRegistry } from '../shared-data-channel'
 import {
   TransactionRollbackError,
   TransactionValidationError
@@ -56,6 +57,89 @@ const runWithOwnedTransact = <T>(
     },
     callback
   )
+
+interface MutatingSharedSinkFixture {
+  sink: Pick<SharedDataChannelRegistry, 'pushToSharedChannel'>
+  received: unknown[]
+  restore?: () => void
+}
+
+const createMutatingSharedPush =
+  (received: unknown[]): SharedDataChannelRegistry['pushToSharedChannel'] =>
+  (_name, change) => {
+    received.push(change)
+    ;(change as { after: { value: number } }).after.value = 99
+    return true
+  }
+
+const mutatingSharedSinkFixtures: readonly [
+  string,
+  () => MutatingSharedSinkFixture
+][] = [
+  [
+    'prototype override',
+    () => {
+      const received: unknown[] = []
+      const sink = new SharedDataChannelRegistry()
+      const originalPush =
+        SharedDataChannelRegistry.prototype.pushToSharedChannel
+      SharedDataChannelRegistry.prototype.pushToSharedChannel =
+        createMutatingSharedPush(received)
+      return {
+        sink,
+        received,
+        restore: () => {
+          SharedDataChannelRegistry.prototype.pushToSharedChannel = originalPush
+        }
+      }
+    }
+  ],
+  [
+    'instance override',
+    () => {
+      const received: unknown[] = []
+      const sink = new SharedDataChannelRegistry()
+      sink.pushToSharedChannel = createMutatingSharedPush(received)
+      return { sink, received }
+    }
+  ],
+  [
+    'registry subclass',
+    () => {
+      const received: unknown[] = []
+      const push = createMutatingSharedPush(received)
+      class MutatingSharedDataChannelRegistry extends SharedDataChannelRegistry {
+        override pushToSharedChannel(name: string, change: unknown): boolean {
+          return Reflect.apply(push, this, [name, change])
+        }
+      }
+      return {
+        sink: new MutatingSharedDataChannelRegistry(),
+        received
+      }
+    }
+  ],
+  [
+    'registry Proxy',
+    () => {
+      const received: unknown[] = []
+      const push = createMutatingSharedPush(received)
+      const target = new SharedDataChannelRegistry()
+      return {
+        sink: new Proxy(target, {
+          get: (registry, property, receiver) =>
+            property === 'pushToSharedChannel'
+              ? push
+              : Reflect.get(registry, property, receiver),
+          getPrototypeOf: () => {
+            throw new Error('prototype inspection blocked')
+          }
+        }),
+        received
+      }
+    }
+  ]
+]
 
 describe('DataTransact hierarchy replay', () => {
   it('keeps move and subtree evidence in one undo unit with exact inverse and forward replay', () => {
@@ -352,25 +436,34 @@ describe('DataTransact user action completion', () => {
   it('compensates the mutation-time immediate snapshot after caller payload mutation', () => {
     const pushToSharedChannel = vi.fn().mockReturnValue(true)
     const transact = new DataTransact({ pushToSharedChannel })
+    const rolledBack: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => rolledBack.push(event.payload)
+    )
     const payload = {
       id: 'test.immediate-shared-snapshot',
       before: { value: 0 },
       after: { value: 1 }
     }
 
-    transact.start()
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      payload: payload as unknown as UpdateTransactionEvent['payload'],
-      options: {
-        shared: SharedDataChannelNames.SCENE_TREE,
-        sharedDelivery: 'immediate'
-      }
-    })
-    payload.before.value = 40
-    payload.after.value = 41
-    transact.end({ outcome: 'rollback' })
+    try {
+      transact.start()
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: payload as unknown as UpdateTransactionEvent['payload'],
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+      payload.before.value = 40
+      payload.after.value = 41
+      transact.end({ outcome: 'rollback' })
+    } finally {
+      subscription.unsubscribe()
+    }
 
     expect(pushToSharedChannel.mock.calls).toEqual([
       [
@@ -382,7 +475,102 @@ describe('DataTransact user action completion', () => {
         expect.objectContaining({ before: { value: 1 }, after: { value: 0 } })
       ]
     ])
+    expect(rolledBack).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
+    ])
+    expect(Object.prototype.hasOwnProperty.call(rolledBack[0], 'options')).toBe(
+      false
+    )
   })
+
+  it('isolates the owned journal snapshot from structural shared sink mutation', () => {
+    const pushToSharedChannel = vi.fn((_name: string, change: unknown) => {
+      const payload = change as {
+        after: { value: number }
+      }
+      payload.after.value = 99
+      return true
+    })
+    const transact = new DataTransact({ pushToSharedChannel })
+    const rolledBack: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => rolledBack.push(event.payload)
+    )
+
+    try {
+      transact.start()
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'structural-sink-mutation',
+          before: { value: 0 },
+          after: { value: 1 }
+        } as unknown as UpdateTransactionEvent['payload'],
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+      transact.end({ outcome: 'rollback' })
+    } finally {
+      subscription.unsubscribe()
+    }
+
+    expect(rolledBack).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
+    ])
+  })
+
+  it.each(mutatingSharedSinkFixtures)(
+    'isolates the owned journal snapshot from a shared sink %s',
+    (_name, createFixture) => {
+      const { sink, received, restore } = createFixture()
+      const transact = new DataTransact(sink)
+      const rolledBack: unknown[] = []
+      const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        (event) => rolledBack.push(event.payload)
+      )
+
+      try {
+        transact.start()
+        transact.update({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'untrusted-shared-sink-mutation',
+            before: { value: 0 },
+            after: { value: 1 }
+          } as unknown as UpdateTransactionEvent['payload'],
+          options: {
+            shared: SharedDataChannelNames.SCENE_TREE,
+            sharedDelivery: 'immediate'
+          }
+        })
+        transact.end({ outcome: 'rollback' })
+      } finally {
+        subscription.unsubscribe()
+        restore?.()
+      }
+
+      expect(received).not.toHaveLength(0)
+      expect((received[0] as { after: { value: number } }).after.value).toBe(99)
+      expect(rolledBack).toEqual([
+        expect.objectContaining({
+          before: { value: 1 },
+          after: { value: 0 }
+        })
+      ])
+    }
+  )
 
   it('does not compensate an immediate change that was not delivered', () => {
     const pushToSharedChannel = vi.fn().mockReturnValue(false)

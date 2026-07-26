@@ -15,16 +15,20 @@ vi.mock('../value-clone', async (importOriginal) => {
 
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import DataTransact from '../data-transact'
+import {
+  LocalSharedDataChannel,
+  SharedDataChannelRegistry
+} from '../shared-data-channel'
 
 describe('Factory shared payload capture budget', () => {
   beforeEach(() => {
     cloneValueSpy.mockClear()
   })
 
-  it('deep-captures one journal snapshot and one shared snapshot per canonical mutation', () => {
-    const transact = new DataTransact({
-      pushToSharedChannel: vi.fn().mockReturnValue(true)
-    })
+  it('deep-captures one Factory-owned payload snapshot per canonical mutation', () => {
+    const registry = new SharedDataChannelRegistry()
+    registry.register('sceneTree', new LocalSharedDataChannel())
+    const transact = new DataTransact(registry)
 
     transact.start()
     transact.update({
@@ -39,6 +43,6 @@ describe('Factory shared payload capture budget', () => {
     })
     transact.end()
 
-    expect(cloneValueSpy).toHaveBeenCalledTimes(2)
+    expect(cloneValueSpy).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
-import { Factory, LocalSharedDataChannel, type SharedDelivery } from '..'
+import {
+  Factory,
+  LocalSharedDataChannel,
+  type SharedDataChannel,
+  type SharedDelivery
+} from '..'
 
 const update = (
   factory: Factory,
@@ -303,6 +308,535 @@ describe('Factory local shared delivery contract', () => {
     expect(() => factory.endTransaction()).not.toThrow()
 
     expect(later).toHaveBeenCalledTimes(1)
+  })
+
+  it('isolates nested delivery subscriber mutation from later delivery and compensation', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const laterDeliveries: SharedDelivery[] = []
+    factory.subscribeToSharedDelivery((delivery) => {
+      const payload = delivery.payload as {
+        after: { value: number }
+      }
+      payload.after.value = 99
+    })
+    factory.subscribeToSharedDelivery((delivery) =>
+      laterDeliveries.push(delivery)
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'nested-shared-delivery',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: {
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate'
+      }
+    })
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(laterDeliveries).toEqual([
+      expect.objectContaining({
+        kind: 'forward',
+        payload: expect.objectContaining({
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      }),
+      expect.objectContaining({
+        kind: 'compensation',
+        payload: expect.objectContaining({
+          before: { value: 1 },
+          after: { value: 0 }
+        })
+      })
+    ])
+  })
+
+  it('isolates Factory-owned delivery and history from custom channel mutation', () => {
+    const factory = new Factory()
+    const retainedChanges: unknown[] = []
+    const channel: SharedDataChannel = {
+      append: (change) => {
+        retainedChanges.push(change)
+        const payload = change as {
+          after: { value: number }
+        }
+        payload.after.value = 99
+      },
+      observe: () => () => undefined
+    }
+    const deliveries: SharedDelivery[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'custom-channel-a',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'custom-channel-b',
+        before: { value: 10 },
+        after: { value: 11 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        origin: 'action',
+        payload: expect.objectContaining({
+          id: 'custom-channel-a',
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      }),
+      expect.objectContaining({
+        origin: 'action',
+        payload: expect.objectContaining({
+          id: 'custom-channel-b',
+          before: { value: 10 },
+          after: { value: 11 }
+        })
+      })
+    ])
+    const retainedFirst = retainedChanges[0] as {
+      before: { value: number }
+    }
+    const retainedSecond = retainedChanges[1] as {
+      after: { value: number }
+    }
+    retainedFirst.before.value = 88
+    retainedSecond.after.value = 77
+    deliveries.length = 0
+    factory.undo()
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        origin: 'undo',
+        payload: expect.objectContaining({
+          id: 'custom-channel-b',
+          before: { value: 11 },
+          after: { value: 10 }
+        })
+      }),
+      expect.objectContaining({
+        origin: 'undo',
+        payload: expect.objectContaining({
+          id: 'custom-channel-a',
+          before: { value: 1 },
+          after: { value: 0 }
+        })
+      })
+    ])
+
+    deliveries.length = 0
+    factory.redo()
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        origin: 'redo',
+        payload: expect.objectContaining({
+          id: 'custom-channel-a',
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      }),
+      expect.objectContaining({
+        origin: 'redo',
+        payload: expect.objectContaining({
+          id: 'custom-channel-b',
+          before: { value: 10 },
+          after: { value: 11 }
+        })
+      })
+    ])
+  })
+
+  it('isolates the owned snapshot when the Local channel prototype is replaced', () => {
+    const originalAppend = LocalSharedDataChannel.prototype.append
+    const retainedChanges: unknown[] = []
+    LocalSharedDataChannel.prototype.append = function (change) {
+      retainedChanges.push(change)
+      const payload = change as {
+        after: { value: number }
+      }
+      payload.after.value = 99
+    }
+
+    try {
+      const factory = new Factory()
+      const deliveries: SharedDelivery[] = []
+      factory.registerSharedDataChannel(
+        SharedDataChannelNames.SCENE_TREE,
+        new LocalSharedDataChannel()
+      )
+      factory.registerTransactionReplayHandler(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => true
+      )
+      factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+
+      factory.startTransaction()
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'prototype-channel-mutation',
+          before: { value: 0 },
+          after: { value: 1 }
+        },
+        options: { shared: SharedDataChannelNames.SCENE_TREE }
+      })
+      factory.endTransaction()
+
+      expect(deliveries).toEqual([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            before: { value: 0 },
+            after: { value: 1 }
+          })
+        })
+      ])
+      ;(
+        retainedChanges[0] as {
+          before: { value: number }
+        }
+      ).before.value = 88
+      deliveries.length = 0
+      factory.undo()
+      expect(deliveries).toEqual([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            before: { value: 1 },
+            after: { value: 0 }
+          })
+        })
+      ])
+    } finally {
+      LocalSharedDataChannel.prototype.append = originalAppend
+    }
+  })
+
+  it.each([
+    [
+      'instance append override',
+      () => {
+        const channel = new LocalSharedDataChannel()
+        channel.append = (change) => {
+          const payload = change as {
+            after: { value: number }
+          }
+          payload.after.value = 99
+        }
+        return channel
+      }
+    ],
+    [
+      'Local channel subclass',
+      () => {
+        class MutatingLocalSharedDataChannel extends LocalSharedDataChannel {
+          override append(change: unknown): void {
+            const payload = change as {
+              after: { value: number }
+            }
+            payload.after.value = 99
+          }
+        }
+        return new MutatingLocalSharedDataChannel()
+      }
+    ]
+  ])('isolates the owned snapshot from a %s', (_name, createChannel) => {
+    const factory = new Factory()
+    const deliveries: SharedDelivery[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      createChannel()
+    )
+    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'non-built-in-local-channel',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      })
+    ])
+  })
+
+  it('falls back to the isolated custom boundary without inspecting a channel Proxy prototype', () => {
+    const deliveries: SharedDelivery[] = []
+    const target: SharedDataChannel = {
+      append: (change) => {
+        const payload = change as {
+          after: { value: number }
+        }
+        payload.after.value = 99
+      },
+      observe: () => () => undefined
+    }
+    const channel = new Proxy(target, {
+      getPrototypeOf: () => {
+        throw new Error('prototype inspection blocked')
+      }
+    })
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'proxy-channel-mutation',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+
+    expect(() => factory.endTransaction()).not.toThrow()
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      })
+    ])
+  })
+
+  it('rolls back the exact journal when a custom channel mutates and rejects its input', () => {
+    const factory = new Factory()
+    const failure = new Error('custom channel append failed')
+    const channel: SharedDataChannel = {
+      append: (change) => {
+        const payload = change as {
+          after: { value: number }
+        }
+        payload.after.value = 99
+        throw failure
+      },
+      observe: () => () => undefined
+    }
+    const publications: unknown[] = []
+    const replayed: unknown[] = []
+    const statuses: { origin: string; status: string }[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event, mode) => {
+        expect(mode).toBe('rollback')
+        replayed.push((event as { payload: unknown }).payload)
+        return true
+      }
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'custom-channel-failure',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+
+    expect(() => factory.endTransaction()).toThrow(failure)
+    expect(replayed).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
+    ])
+    expect(publications).toEqual([])
+    expect(statuses.at(-1)).toEqual(
+      expect.objectContaining({ origin: 'action', status: 'rolled-back' })
+    )
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toEqual([])
+  })
+
+  it('keeps immediate compensation exact when a custom channel mutates its input', () => {
+    const factory = new Factory()
+    const channel: SharedDataChannel = {
+      append: (change) => {
+        const payload = change as {
+          after: { value: number }
+        }
+        payload.after.value = 99
+      },
+      observe: () => () => undefined
+    }
+    const deliveries: SharedDelivery[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'custom-channel-immediate',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: {
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate'
+      }
+    })
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        kind: 'forward',
+        payload: expect.objectContaining({
+          before: { value: 0 },
+          after: { value: 1 }
+        })
+      }),
+      expect.objectContaining({
+        kind: 'compensation',
+        payload: expect.objectContaining({
+          before: { value: 1 },
+          after: { value: 0 }
+        })
+      })
+    ])
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+  })
+
+  it('keeps remote rollback exact without history or publication when a custom channel mutates and rejects', () => {
+    const factory = new Factory()
+    const failure = new Error('remote custom channel append failed')
+    const channel: SharedDataChannel = {
+      append: (change) => {
+        const payload = change as {
+          after: { value: number }
+        }
+        payload.after.value = 99
+        throw failure
+      },
+      observe: () => () => undefined
+    }
+    const publications: unknown[] = []
+    const replayed: unknown[] = []
+    const statuses: { origin: string; status: string }[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event, mode) => {
+        expect(mode).toBe('rollback')
+        replayed.push((event as { payload: unknown }).payload)
+        return true
+      }
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+
+    expect(() =>
+      factory.runRemoteTransaction(() => {
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'remote-custom-channel-failure',
+            before: { value: 0 },
+            after: { value: 1 }
+          },
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
+      })
+    ).toThrow(failure)
+
+    expect(replayed).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
+    ])
+    expect(publications).toEqual([])
+    expect(statuses.at(-1)).toEqual(
+      expect.objectContaining({ origin: 'remote', status: 'rolled-back' })
+    )
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toEqual([])
   })
 
   it('isolates local projection mutation from later observers and collaboration delivery', () => {
