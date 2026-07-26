@@ -107,12 +107,14 @@ This file is the app-level API contract map.
   public client/server unions, and runtime parsing of untrusted JSON
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- Core load/save uses app-selected localStorage persistence. An ordinary URL
-  retains the `FILE` key; a non-empty `fileId` selects
+- Core load/save uses app-selected IndexedDB persistence. An ordinary URL
+  retains document identity `FILE`; a non-empty `fileId` selects
   `FILE:<encoded fileId>`, so the same file shares one browser-local demo
   snapshot and different files remain isolated. An absent ordinary or
   collaboration document is initialized as an empty workspace, while an
-  existing snapshot is not overwritten
+  existing IndexedDB snapshot is not overwritten. When IndexedDB is empty, an
+  eligible matching legacy localStorage snapshot is copied and its legacy key
+  is removed only after the durable write succeeds
 - URLs without `fileId` create no collaboration connection; production builds
   retain the dynamically loaded reference path so a deployed URL with `fileId`
   can use it without changing the persistence owner

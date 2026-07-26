@@ -1,5 +1,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
+import { IndexedDbPersistence } from '@asyra/reactive-events'
+import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
 import RenderApp, { type CanvasContextMenuInvocation } from '../index'
@@ -13,7 +15,9 @@ const setReactActEnvironment = (active: boolean) => {
 }
 
 describe('Render canvas context-menu intake', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.stubGlobal('indexedDB', indexedDB)
+    await new IndexedDbPersistence('FILE', { factory: indexedDB }).clear()
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
@@ -22,10 +26,12 @@ describe('Render canvas context-menu intake', () => {
     setReactActEnvironment(true)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     document.body.replaceChildren()
     localStorage.clear()
+    await new IndexedDbPersistence('FILE', { factory: indexedDB }).clear()
     setReactActEnvironment(false)
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
@@ -43,6 +49,7 @@ describe('Render canvas context-menu intake', () => {
       )
       await Promise.resolve()
     })
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
 
     const canvasHost = rootHost.querySelector(
       '[data-testid="asyra-canvas-host"]'
@@ -81,6 +88,7 @@ describe('Render canvas context-menu intake', () => {
       root.render(<RenderApp onContextMenuRequest={onContextMenuRequest} />)
       await Promise.resolve()
     })
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
 
     const canvasHost = rootHost.querySelector(
       '[data-testid="asyra-canvas-host"]'
@@ -124,6 +132,7 @@ describe('Render canvas context-menu intake', () => {
       root.render(<RenderApp onCanvasHostTeardown={onCanvasHostTeardown} />)
       await Promise.resolve()
     })
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
     expect(onCanvasHostTeardown).not.toHaveBeenCalled()
 
     await act(async () => {

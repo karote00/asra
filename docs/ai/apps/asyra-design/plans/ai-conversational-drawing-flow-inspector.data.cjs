@@ -518,11 +518,18 @@
         'apps/asyra-design/src/document-persistence.ts',
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/controllers/app.ts',
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/README.md',
         'apps/asyra-design/e2e',
+        'create-app/asyra-design/template',
+        'release-configs/asyra-design.json',
         'docs/ai/framework/packages/persistence.md',
         'docs/ai/apps/asyra-design/API_SURFACES.md',
         'docs/ai/apps/asyra-design/ARCHITECTURE.md',
         'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+        'docs/ai/apps/asyra-design/modules/collaboration-reference.md',
+        'docs/ai/apps/asyra-design/decisions/releases/unreleased.md',
+        'docs/ai/decisions/releases/unreleased.md',
         'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [

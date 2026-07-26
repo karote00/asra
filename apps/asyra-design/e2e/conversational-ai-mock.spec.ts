@@ -1,7 +1,12 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { getTransactionSnapshot, waitForAppReady } from './test-utils'
+import {
+  getCoreDocumentDigest,
+  getPersistedDocumentDigest,
+  getTransactionSnapshot,
+  waitForAppReady
+} from './test-utils'
 
 interface CanvasElementEvidence {
   bounds: {
@@ -209,6 +214,17 @@ test.describe('Conversational AI Mock Drawing', () => {
     page
   }, testInfo) => {
     test.setTimeout(180_000)
+    const persistenceErrors: string[] = []
+    page.on('console', (message) => {
+      if (
+        message.type() === 'error' &&
+        /(?:LocalStorage|IndexedDb)Persistence.*Save failed|QuotaExceededError/.test(
+          message.text()
+        )
+      ) {
+        persistenceErrors.push(message.text())
+      }
+    })
     await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await openMockAi(page)
@@ -349,6 +365,20 @@ test.describe('Conversational AI Mock Drawing', () => {
       beforeHistory.undoCount + 3
     )
     await captureVisualState(page, testInfo, 'conversational-ai-redo-state')
+
+    const beforeReloadDigest = await getCoreDocumentDigest(page)
+    expect(beforeReloadDigest.byteLength).toBeGreaterThan(5 * 1024 * 1024)
+    await expect
+      .poll(
+        async () => (await getPersistedDocumentDigest(page))?.sha256 ?? null,
+        { timeout: 30_000 }
+      )
+      .toBe(beforeReloadDigest.sha256)
+    expect(persistenceErrors).toEqual([])
+
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getCoreDocumentDigest(page)).toEqual(beforeReloadDigest)
   })
 
   test('creates the maximum-detail reference as one bounded history action', async ({

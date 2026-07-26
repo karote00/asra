@@ -8,6 +8,19 @@
     ".pnp.cjs",
     ".pnp.loader.mjs",
     ".DS_Store",
-    ".env*"
+    ".env*",
+    "crdt-ai-agent",
+    "e2e-full",
+    "e2e-reference",
+    "iteration-*.png",
+    "research-01-*",
+    "research-03-*",
+    "research-04-*",
+    "research-05-*",
+    "research-06-*",
+    "research-07-*",
+    "research-08-*",
+    "research-09-*",
+    "research-10-*"
   ]
 }

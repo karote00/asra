@@ -64,11 +64,13 @@
   `fileId`; that value maps to the collaboration document and room identity,
   while a full UUID actor identity is generated per page and configures the
   canonical ID-counter namespace before collaborative actions
-- selects app-owned localStorage persistence before Core startup; ordinary
-  URLs retain the legacy `FILE` key, while a collaboration `fileId` selects
-  `FILE:<encoded fileId>` so each public file keeps an independent browser-local
-  demo snapshot; when either route has no stored snapshot, RenderApp initializes
-  the valid empty workspace once before Core startup
+- selects app-owned IndexedDB persistence before Core startup; ordinary URLs
+  retain document identity `FILE`, while a collaboration `fileId` selects
+  `FILE:<encoded fileId>` so each public file keeps an independent
+  browser-local demo snapshot; when IndexedDB is empty, RenderApp migrates a
+  matching eligible legacy localStorage snapshot and removes it only after a
+  successful durable write, otherwise it initializes the valid empty workspace
+  once before Core startup
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication

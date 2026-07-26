@@ -84,10 +84,11 @@ values stay isolated. The server retains no publication history, so reconnect
 receives future publications only. The response to `send-publication` confirms
 only that the running memory transport accepted the request.
 
-The browser-local demo database is isolated by the same identity: an ordinary
-URL uses localStorage key `FILE`, while a URL with `fileId` uses
-`FILE:<encoded fileId>`. Refreshing or switching between file URLs therefore
-restores each file's own local snapshot.
+The browser-local demo database uses IndexedDB and is isolated by the same
+identity: an ordinary URL uses document key `FILE`, while a URL with `fileId`
+uses `FILE:<encoded fileId>`. On first startup, a matching legacy localStorage
+snapshot migrates only when IndexedDB has no document. Refreshing or switching
+between file URLs therefore restores each file's own local snapshot.
 
 You can inspect the connection in DevTools:
 

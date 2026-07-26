@@ -6989,3 +6989,26 @@ join` constrained dashed product path across:
   - Production and generated-app startup remain AI-disabled by default.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-07-26 - Move browser document durability from localStorage to IndexedDB
+
+- Context:
+  - The balanced high-detail cat drawing commits successfully but its complete
+    canonical snapshot exceeds localStorage quota, leaving the visible runtime
+    state without a successful persistence acknowledgement.
+- Decision:
+  - Select the framework IndexedDB provider for ordinary and collaboration
+    Asyra Design document identities.
+  - Preserve `FILE` and `FILE:<encoded fileId>` identities and migrate an
+    eligible legacy localStorage snapshot only when IndexedDB is empty.
+  - Remove the legacy value only after its IndexedDB write succeeds; keep Core
+    as the sole save-queue and persistence-status owner.
+- Consequences:
+  - High-detail editable documents are no longer constrained by localStorage's
+    small synchronous quota.
+  - Existing eligible local snapshots survive the provider transition without
+    introducing an AI-specific persistence or canonical-state path.
+  - IndexedDB remains browser-local demo durability, not a production shared
+    database or cross-device recovery contract.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`

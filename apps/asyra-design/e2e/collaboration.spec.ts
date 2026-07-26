@@ -8,6 +8,7 @@ import {
   getElementCount,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
+  readPersistedDocument,
   redo,
   undo,
   waitForAppReady
@@ -484,22 +485,12 @@ test('remote undo restores an exact nested Group with and without local tombston
       .toBe(true)
 
     await expect
-      .poll(() =>
-        sender.evaluate(
-          ({ storageKey, removedGroupId }) => {
-            const raw = localStorage.getItem(storageKey)
-            if (!raw) return false
-            const saved = JSON.parse(raw) as {
-              sceneTree?: { elements?: Record<string, unknown> }
-            }
-            return !saved.sceneTree?.elements?.[removedGroupId]
-          },
-          {
-            storageKey: `FILE:${fileId}`,
-            removedGroupId: outerGroupId
-          }
-        )
-      )
+      .poll(async () => {
+        const saved = await readPersistedDocument<{
+          sceneTree?: { elements?: Record<string, unknown> }
+        }>(sender, `FILE:${fileId}`)
+        return !saved?.sceneTree?.elements?.[outerGroupId]
+      })
       .toBe(true)
 
     noTombstonePeer = await senderContext.newPage()

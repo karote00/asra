@@ -198,3 +198,24 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
     the active Asyra Design plan.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-07-26 - Add a capacity-appropriate browser persistence provider
+
+- Context:
+  - Core already separates committed runtime state from persistence
+    acknowledgement, but the LocalStorage reference provider cannot durably
+    store Asyra Design's high-detail canonical documents.
+- Decision:
+  - Add a replaceable structured-clone IndexedDB provider to
+    `@asyra/persistence`.
+  - Keep Core save scheduling, transaction capture, status reporting, and
+    provider replacement unchanged.
+  - Let Asyra Design select the new provider and own its one-time legacy
+    localStorage migration.
+- Consequences:
+  - Framework consumers gain a large-document offline browser reference without
+    an app-specific persistence queue or fallback snapshot format.
+  - Provider failures remain explicit and never redefine whether the preceding
+    runtime transaction committed.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`

@@ -83,6 +83,7 @@ __metadata:
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
     bezier-js: "npm:^6.1.4"
+    fake-indexeddb: "npm:^6.2.5"
     playwright: "npm:^1.57.0"
     postcss: "npm:^8.4.49"
     react: "npm:^19.0.0"
