@@ -52,6 +52,12 @@ export interface SceneTreeRequests {
     plan: SceneTreeRestorePlan,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
+  createElementsInParent: (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
 }
 
 export const createSceneTreeAPIs = (
@@ -96,6 +102,23 @@ export const createSceneTreeAPIs = (
       addElementByParentId(prepared.data, parentId, index, options)
 
       return prepared.elementId
+    },
+    createElementsInParent(
+      data: readonly CreateElementData[],
+      parentId: string,
+      index?: number,
+      options?: EVENT_OPTIONS
+    ) {
+      if (data.length === 0) {
+        return []
+      }
+      const prepared = data.map(prepareElementData)
+      return sceneTreeRequests.createElementsInParent(
+        prepared.map(({ data: elementData }) => elementData),
+        parentId,
+        index,
+        options
+      )
     },
     getElementComputedData(elementId: string) {
       const data = sceneTreeRequests.getElementComputedData(elementId)

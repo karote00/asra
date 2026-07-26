@@ -90,6 +90,39 @@ class Workspace extends Group {
     this.registry.addToMap(element)
   }
 
+  addNewElements(
+    elements: readonly ElementInstanceTypes[],
+    parent?: GroupInstanceTypes,
+    index = -1
+  ): GroupInstanceTypes {
+    let availableParent = parent
+    if (!availableParent) {
+      availableParent =
+        (this.firstFrame as GroupInstanceTypes | null) ?? undefined
+    }
+    const target = (availableParent ?? this) as Group
+    const children = [...target.get('children')]
+    const insertionIndex = index > -1 ? index : children.length
+    children.splice(
+      insertionIndex,
+      0,
+      ...elements.map((element) => element.get('id'))
+    )
+    target.replaceChildrenFromCanonicalBatch(children)
+    elements.forEach((element) => {
+      element.set('parentId', target.get('id'), { undoable: false })
+      this.registry.addToMap(element)
+    })
+    return target as GroupInstanceTypes
+  }
+
+  replaceBatchParentChildren(
+    parent: GroupInstanceTypes,
+    children: readonly string[]
+  ): void {
+    ;(parent as Group).replaceChildrenFromCanonicalBatch(children)
+  }
+
   removeElement(
     element: IElement,
     parent?: GroupInstanceTypes,

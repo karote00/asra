@@ -487,18 +487,26 @@ export const elementApis = {
       return vectorApis.createVectorElement(createOptions, options)
     }
 
-    if (!render || !createOptions.clientPosition) {
+    let workspacePos: PositionData | null = null
+    if (
+      createOptions.workspacePosition &&
+      Number.isFinite(createOptions.workspacePosition.x) &&
+      Number.isFinite(createOptions.workspacePosition.y)
+    ) {
+      workspacePos = createOptions.workspacePosition
+    } else if (render && createOptions.clientPosition) {
+      workspacePos = render.getMousePosInWorkspace({
+        clientX: createOptions.clientPosition.x,
+        clientY: createOptions.clientPosition.y
+      })
+    }
+    if (!workspacePos) {
       return null
     }
-
-    const workspacePos = render.getMousePosInWorkspace({
-      clientX: createOptions.clientPosition.x,
-      clientY: createOptions.clientPosition.y
-    })
     const parentId = createOptions.parentId ?? sceneTree.workspace
 
     const initialData: Record<string, DataTypes> = {
-      fills: getDefaultFillsForType(createOptions.type)
+      fills: createOptions.fills ?? getDefaultFillsForType(createOptions.type)
     }
 
     if (createOptions.width !== undefined) {
@@ -506,6 +514,9 @@ export const elementApis = {
     }
     if (createOptions.height !== undefined) {
       initialData.height = createOptions.height
+    }
+    if (createOptions.strokes !== undefined) {
+      initialData.strokes = createOptions.strokes
     }
 
     return createElementAtWorkspacePos(

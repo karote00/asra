@@ -1,5 +1,6 @@
 import type { AiTransactionRunner } from '@asyra/ai-agent-runtime'
 import { transactionApis } from '../common-apis'
+import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 
 export type AsyraDesignAiTransactionBoundary = <T>(
   execute: () => Promise<T>
@@ -10,11 +11,22 @@ const runCommonTransaction: AsyraDesignAiTransactionBoundary = <T>(
 ): Promise<T> => transactionApis.runTransaction(execute)
 
 export const createAsyraDesignAiTransactionRunner = (
-  runTransaction: AsyraDesignAiTransactionBoundary = runCommonTransaction
+  runTransaction: AsyraDesignAiTransactionBoundary = runCommonTransaction,
+  history?: Pick<
+    AsyraDesignAiHistoryProjection,
+    'correlateCommittedAction' | 'getCurrentActionId'
+  >
 ): AiTransactionRunner => {
   const runner: AiTransactionRunner = {
-    run: async <T>(_label: string, execute: () => Promise<T>): Promise<T> =>
-      runTransaction(execute)
+    run: async <T>(_label: string, execute: () => Promise<T>): Promise<T> => {
+      const actionIdBefore = history?.getCurrentActionId() ?? null
+      const result = await runTransaction(execute)
+      const actionIdAfter = history?.getCurrentActionId() ?? null
+      if (actionIdAfter !== null && actionIdAfter !== actionIdBefore) {
+        history?.correlateCommittedAction(actionIdAfter)
+      }
+      return result
+    }
   }
 
   return Object.freeze(runner)

@@ -143,6 +143,48 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.createElement).not.toHaveBeenCalled()
   })
 
+  it('creates from an explicit workspace position without a Render coordinate dependency', () => {
+    const fills = [{ id: 'fill-1' }]
+    const strokes = [{ id: 'stroke-1' }]
+
+    expect(
+      elementApis.createElement(
+        {
+          type: 'oval',
+          workspacePosition: { x: 300, y: 240 },
+          parentId: 'workspace',
+          width: 80,
+          height: 60,
+          fills: fills as never,
+          strokes: strokes as never
+        },
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    ).toBe('new-element')
+
+    expect(mocks.getMousePosInWorkspace).not.toHaveBeenCalled()
+    expect(mocks.createElementInParent).toHaveBeenCalledWith(
+      {
+        type: 'oval',
+        x: 300,
+        y: 240,
+        fills,
+        strokes,
+        width: 80,
+        height: 60
+      },
+      'workspace',
+      undefined,
+      {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      }
+    )
+  })
+
   it('converts workspace points through the current viewport and Group transform', () => {
     expect(
       elementApis.getPositionInParent('group-2', { x: 110, y: 220 })

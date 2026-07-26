@@ -6961,3 +6961,31 @@ join` constrained dashed product path across:
   - `1e041403c` (`feat(asyra-design): add bounded AI context provider`)
   - `4bcbcb53c` (`feat(ai-runtime): execute bounded app actions`)
   - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)
+
+## 2026-07-25 - Plan explicit conversational Mock AI drawing
+
+- Context:
+  - Completed Gate 4 provides provider-replaceable orchestration but no
+    user-facing Asyra Design AI experience or live API key.
+  - Product review chose one user turn per undo action, app-owned recoverable
+    partial-item results, app-presented confirmation waits, and incremental
+    follow-up edits to existing canonical elements.
+- Decision:
+  - Keep Gate 4 closed and create a new active cross-cutting App plan.
+  - Enable the experience only through exact `ai=mock`, with deterministic
+    abortable delays and visibly labelled mock fixtures.
+  - Show operational runtime status and concise explanations, never raw or
+    fabricated private chain-of-thought.
+  - Add bounded App drawing/update/removal actions, one-turn transaction and
+    Message Bar history behavior, visible App confirmation, and in-memory
+    semantic target hints revalidated against current canonical state.
+  - Treat resolved recoverable item evidence as partial success and reserve
+    executor rejection for fatal consistency failure and rollback.
+- Consequences:
+  - The complete UI/runtime/action/history flow can be exercised without a
+    network endpoint or API key.
+  - Follow-up turns modify existing ids instead of regenerating the original
+    composition.
+  - Production and generated-app startup remain AI-disabled by default.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`

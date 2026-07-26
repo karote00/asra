@@ -18,6 +18,9 @@ const createRequests = (): SceneTreeRequests => ({
   })),
   preflightRestoreSubtree: vi.fn(),
   applyRestoreSubtree: vi.fn(),
+  createElementsInParent: vi.fn((data: readonly { id?: string }[]) =>
+    data.map(({ id }, index) => id ?? `element-${index}`)
+  ),
   refreshComputedDataFromProperty: () => undefined,
   getAllElementsBounds: () => null,
   isContainerType: () => false
@@ -60,6 +63,32 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     })
 
     subscription.unsubscribe()
+  })
+
+  it('delegates one ordered canonical batch-add request and returns every prepared id', () => {
+    const requests = createRequests()
+    const batchApis = createSceneTreeAPIs(requests)
+    const elementIds = batchApis.createElementsInParent(
+      [
+        { id: 'vector-1', type: 'vector', x: 10, y: 20 },
+        { id: 'vector-2', type: 'vector', x: 30, y: 40 }
+      ],
+      'workspace-1',
+      3,
+      { shared: 'sceneTree' }
+    )
+
+    expect(elementIds).toEqual(['vector-1', 'vector-2'])
+    expect(requests.createElementsInParent).toHaveBeenCalledOnce()
+    expect(requests.createElementsInParent).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ id: 'vector-1', type: 'vector' }),
+        expect.objectContaining({ id: 'vector-2', type: 'vector' })
+      ],
+      'workspace-1',
+      3,
+      { shared: 'sceneTree' }
+    )
   })
 
   it('returns a detached computed-data snapshot through the ID facade', () => {

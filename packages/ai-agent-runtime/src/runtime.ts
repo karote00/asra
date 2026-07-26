@@ -23,7 +23,11 @@ import {
   type AiRetryPolicy
 } from './plan'
 import type { AiProvider } from './provider'
-import { redactAiValue, type AiRedactionOptions } from './redaction'
+import {
+  AI_REDACTED_VALUE,
+  redactAiValue,
+  type AiRedactionOptions
+} from './redaction'
 import type {
   AiActionDefinition,
   AiActionRegistry,
@@ -113,9 +117,34 @@ export interface CreateAiAgentRuntimeInput {
   ownedResources?: readonly AiRuntimeOwnedResource[]
 }
 
+export type AiRuntimeProgressPhase =
+  | 'confirmation'
+  | 'context'
+  | 'execution'
+  | 'permission'
+  | 'planning'
+  | 'settled'
+  | 'validation'
+
+export type AiRuntimeProgressOutcome = 'cancelled' | 'executed' | 'failed'
+
+export interface AiRuntimeProgressUpdate {
+  readonly actionCount?: number
+  readonly attempt: number
+  readonly outcome?: AiRuntimeProgressOutcome
+  readonly phase: AiRuntimeProgressPhase
+  readonly planId?: string
+  readonly summary: string
+}
+
+export type AiRuntimeProgressObserver = (
+  update: AiRuntimeProgressUpdate
+) => void
+
 export interface AiRunRequest {
   readonly intent: string
   readonly metadata?: AiJsonValue
+  readonly progressObserver?: AiRuntimeProgressObserver
   readonly signal: AbortSignal
 }
 
@@ -532,6 +561,38 @@ interface ActiveAiInvocation {
   settlement: Promise<AiRuntimeResult>
 }
 
+const emitAiRuntimeProgress = (
+  observer: AiRuntimeProgressObserver | undefined,
+  signal: AbortSignal,
+  update: AiRuntimeProgressUpdate,
+  redactionOptions: AiRedactionOptions
+): void => {
+  if (!observer || signal.aborted) {
+    return
+  }
+
+  try {
+    let planId = update.planId
+    if (planId !== undefined) {
+      const redacted = redactAiValue({ planId }, redactionOptions)
+      const redactedPlanId =
+        typeof redacted === 'object' && redacted !== null
+          ? Reflect.get(redacted, 'planId')
+          : undefined
+      planId =
+        typeof redactedPlanId === 'string' ? redactedPlanId : AI_REDACTED_VALUE
+    }
+    observer(
+      Object.freeze({
+        ...update,
+        ...(planId === undefined ? {} : { planId })
+      })
+    )
+  } catch {
+    // Progress is observational and cannot alter runtime execution.
+  }
+}
+
 const runAbortable = async <T>(
   signal: AbortSignal,
   operation: () => Promise<T>
@@ -866,7 +927,8 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
             }),
         signal: controller.signal
       },
-      controller.signal
+      controller.signal,
+      request.progressObserver
     ).finally(() => {
       request.signal.removeEventListener('abort', abortInvocation)
       this.activeInvocations.delete(active)
@@ -907,12 +969,20 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
 
   private async runInvocation(
     request: AiRunRequest,
-    signal: AbortSignal
+    signal: AbortSignal,
+    progressObserver: AiRuntimeProgressObserver | undefined
   ): Promise<AiRuntimeResult> {
     let evidence: AiInvocationEvidence = {
       retryCount: 0
     }
     let currentStage: AiRuntimeStage = 'context'
+    const emitProgress = (update: AiRuntimeProgressUpdate): void =>
+      emitAiRuntimeProgress(
+        progressObserver,
+        signal,
+        update,
+        this.redactionOptions
+      )
 
     try {
       const intent =
@@ -929,6 +999,11 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
         )
       }
 
+      emitProgress({
+        attempt: 1,
+        phase: 'context',
+        summary: 'Understanding the request'
+      })
       const context = redactAiValue(
         await runAbortable(signal, () =>
           this.contextProvider.getContext({
@@ -945,6 +1020,11 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       let attempt = 1
       let plan: AiPlan
       while (true) {
+        emitProgress({
+          attempt,
+          phase: 'planning',
+          summary: 'Preparing an action plan'
+        })
         try {
           const providerOutput = await runAbortable(signal, () =>
             this.provider.generateActionPlan(
@@ -975,7 +1055,7 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
           if (
             !shouldRetryAiProviderFailure(planningFailure, this.retryPolicy)
           ) {
-            return createFailedResult(
+            const failed = createFailedResult(
               {
                 code: planningFailure.code,
                 message: planningFailure.message,
@@ -986,6 +1066,13 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
               },
               this.redactionOptions
             )
+            emitProgress({
+              attempt,
+              outcome: 'failed',
+              phase: 'settled',
+              summary: 'Failed'
+            })
+            return failed
           }
 
           attempt += 1
@@ -1000,8 +1087,22 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
         retryCount: attempt - 1
       }
       currentStage = 'validation'
+      emitProgress({
+        actionCount: plan.actions.length,
+        attempt,
+        phase: 'validation',
+        planId: plan.planId,
+        summary: 'Validating app actions'
+      })
       const prepared = validateAiPlan(plan, this.registry)
       currentStage = 'permission'
+      emitProgress({
+        actionCount: prepared.actions.length,
+        attempt,
+        phase: 'permission',
+        planId: prepared.planId,
+        summary: 'Checking action permissions'
+      })
       const permissionReady = await evaluateAiPlanPermissions(
         prepared,
         context,
@@ -1009,6 +1110,15 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       )
 
       currentStage = 'confirmation'
+      if (permissionReady.confirmationRequired) {
+        emitProgress({
+          actionCount: permissionReady.actions.length,
+          attempt,
+          phase: 'confirmation',
+          planId: permissionReady.planId,
+          summary: 'Waiting for confirmation'
+        })
+      }
       let confirmed: AiConfirmedPlan
       try {
         confirmed = await confirmAiPlan(
@@ -1022,7 +1132,7 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
           error instanceof AiConfirmationError &&
           error.code === 'AI_CONFIRMATION_CANCELLED'
         ) {
-          return createCancelledResult(
+          const cancelled = createCancelledResult(
             'confirmation-cancelled',
             {
               ...evidence,
@@ -1033,6 +1143,15 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
             },
             this.redactionOptions
           )
+          emitProgress({
+            actionCount: permissionReady.actions.length,
+            attempt,
+            outcome: 'cancelled',
+            phase: 'settled',
+            planId: permissionReady.planId,
+            summary: 'Cancelled'
+          })
+          return cancelled
         }
         throw error
       }
@@ -1042,6 +1161,13 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       }
 
       currentStage = 'transaction'
+      emitProgress({
+        actionCount: confirmed.actions.length,
+        attempt,
+        phase: 'execution',
+        planId: confirmed.planId,
+        summary: 'Applying changes'
+      })
       const batch = await runAiPlanTransaction(
         confirmed,
         this.transactionRunner,
@@ -1073,7 +1199,7 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
         this.redactionOptions
       )
 
-      return Object.freeze({
+      const executed: AiRuntimeExecutedResult = Object.freeze({
         actionResults: batch.actionResults,
         audit,
         planId: confirmed.planId,
@@ -1083,16 +1209,37 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
           status: 'committed'
         })
       })
+      emitProgress({
+        actionCount: confirmed.actions.length,
+        attempt,
+        outcome: 'executed',
+        phase: 'settled',
+        planId: confirmed.planId,
+        summary: 'Completed'
+      })
+      return executed
     } catch (error) {
       if (signal.aborted || error === INVOCATION_ABORTED) {
         return createCancelledResult('aborted', evidence, this.redactionOptions)
       }
 
-      return createFailedResult(
+      const failed = createFailedResult(
         stableFailure(error, STAGE_FAILURES[currentStage]),
         evidence,
         this.redactionOptions
       )
+      emitProgress({
+        attempt: evidence.retryCount + 1,
+        outcome: 'failed',
+        phase: 'settled',
+        ...(evidence.plan?.planId === undefined
+          ? {}
+          : {
+              planId: evidence.plan.planId
+            }),
+        summary: 'Failed'
+      })
+      return failed
     }
   }
 }

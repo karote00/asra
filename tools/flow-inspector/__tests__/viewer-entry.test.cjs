@@ -106,6 +106,15 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-design-ai-conversational-drawing',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-flow-inspector.html'
+    ),
+    dataScript: './ai-conversational-drawing-flow-inspector.data.cjs',
+    filterLaneTitle: 'Mock Provider and AI Runtime'
+  },
+  {
     id: 'asyra-design-group-context-menu',
     entryPath: path.join(
       projectRoot,

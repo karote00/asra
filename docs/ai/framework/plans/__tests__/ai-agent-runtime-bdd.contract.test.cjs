@@ -30,7 +30,7 @@ const scenario = (name) => {
 }
 
 test('AI runtime Gherkin scenarios are executable contract inputs', () => {
-  assert.equal(scenarios.size, 14)
+  assert.equal(scenarios.size, 15)
   ;[
     'AI-disabled startup has zero AI side effects',
     'Provider-disabled invocation fails before planning',
@@ -39,7 +39,8 @@ test('AI runtime Gherkin scenarios are executable contract inputs', () => {
     'Permission denial rejects the complete plan',
     'Required confirmation can be accepted or cancelled',
     'Valid multi-action plan creates one undo commit',
-    'Executor failure rolls back without a canonical prefix',
+    'Recoverable item failure may commit a partial app result',
+    'Fatal executor failure rolls back without a canonical prefix',
     'Provider failure retry is bounded and transaction-safe',
     'Abort timeout and disposal clean request resources',
     'Secret values are redacted from failures and audit output',
@@ -64,7 +65,7 @@ test('disabled routes assert zero side effects before planning', () => {
   )
 })
 
-test('registry schema permission and confirmation scenarios forbid partial execution', () => {
+test('registry schema permission and confirmation scenarios complete preflight before mutation', () => {
   assert.match(
     scenario('Action registration is deterministic and duplicate-safe'),
     /preserve successful registration order/
@@ -83,11 +84,15 @@ test('registry schema permission and confirmation scenarios forbid partial execu
   )
   assert.match(
     scenario('Required confirmation can be accepted or cancelled'),
-    /one immutable complete preview/
+    /one immutable redacted confirmation input/
+  )
+  assert.match(
+    scenario('Required confirmation can be accepted or cancelled'),
+    /does not require a low-level or visual user preview/
   )
 })
 
-test('accepted and failed execution scenarios preserve one transaction boundary', () => {
+test('accepted partial and fatal execution scenarios preserve one transaction boundary', () => {
   assert.match(
     scenario('Valid multi-action plan creates one undo commit'),
     /every app action executor runs in plan order/
@@ -97,11 +102,19 @@ test('accepted and failed execution scenarios preserve one transaction boundary'
     /one intended undo commit/
   )
   assert.match(
-    scenario('Executor failure rolls back without a canonical prefix'),
+    scenario('Recoverable item failure may commit a partial app result'),
+    /successful sibling mutations may commit in the same intended undo entry/
+  )
+  assert.match(
+    scenario('Recoverable item failure may commit a partial app result'),
+    /detached partial result without item compensation/
+  )
+  assert.match(
+    scenario('Fatal executor failure rolls back without a canonical prefix'),
     /every rollbackable write from the plan is reversed/
   )
   assert.match(
-    scenario('Executor failure rolls back without a canonical prefix'),
+    scenario('Fatal executor failure rolls back without a canonical prefix'),
     /no normal undo commit or accepted canonical prefix remains/
   )
 })

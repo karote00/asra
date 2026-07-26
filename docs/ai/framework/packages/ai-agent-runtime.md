@@ -16,8 +16,9 @@ Importing the package is inert. An app opts in by creating one runtime with:
 - only the resources that this runtime composition explicitly owns.
 
 The app invokes `runtime.run(...)` from its Feature System lifecycle and passes
-the Feature-owned abort signal. Feature System retains trigger, exclusivity,
-cancel, and completion ownership; the runtime creates no second session queue.
+the Feature-owned abort signal. One invocation may also pass an optional
+`progressObserver`; Feature System retains trigger, exclusivity, cancel, and
+completion ownership, and the runtime creates no second session queue.
 
 Injected providers and app adapters are borrowed by default. `dispose()` aborts
 and awaits active invocations, disposes the instance-local registry, and
@@ -36,14 +37,18 @@ app Feature intent + AbortSignal
 -> one app transaction runner
 -> registered app executors in order
 -> app common/public APIs and canonical owners
+-> optional detached operational progress observations
 -> detached redacted terminal result
 ```
 
 Provider planning and optional retry complete before the transaction opens.
 Validation, permission denial, and confirmation cancellation apply no canonical
 prefix. Once execution begins, provider retry is forbidden. Executor failure
+means a rejected/throwing executor or fatal canonical consistency failure; it
 propagates through the one app transaction runner so its ordinary rollback
-contract owns reversal.
+contract owns reversal. An app may instead resolve an executor with detached
+recoverable partial-item evidence, allowing successful sibling mutations to
+commit in the same intended undo unit.
 
 ## Public Surface
 
@@ -56,6 +61,8 @@ Composition and execution:
 - `AiRuntimeOptions`
 - `AiRuntimeResult`
 - executed, cancelled, failed, stage, and failure-code result types
+- `AiRuntimeProgressObserver`, `AiRuntimeProgressUpdate`,
+  `AiRuntimeProgressPhase`, and `AiRuntimeProgressOutcome`
 
 Actions and planning:
 
@@ -94,6 +101,17 @@ execution, and transaction wrapping. Apps should normally use
   audit.
 
 No result grants mutation authority or contains canonical scene state.
+`AiPlanPreview` is safe handler/audit input; the runtime does not require an app
+to render its low-level actions or provide a visual preview to the user.
+
+An invocation-local progress observer receives ordered frozen updates for
+context, planning attempts, validation, permission, confirmation wait when
+required, execution, and non-abort settlement. Updates contain only stable
+operational summaries plus safe attempt, plan id, action count, and terminal
+outcome fields. They never contain provider bodies, action arguments, app
+context, canonical state, secrets, or model chain-of-thought. Observer
+exceptions are contained. Caller abort or runtime disposal prevents later
+progress delivery and releases the invocation-owned reference.
 
 ## Provider and Secret Boundary
 

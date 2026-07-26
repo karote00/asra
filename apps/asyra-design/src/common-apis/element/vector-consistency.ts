@@ -208,6 +208,45 @@ export const assertVectorTopologyConsistency = (
   })
 }
 
+export const scaleVectorTopologyAroundCenter = (
+  topology: VectorTopology,
+  scale: {
+    readonly scaleX: number
+    readonly scaleY: number
+  }
+): VectorTopology | null => {
+  if (
+    !Number.isFinite(scale.scaleX) ||
+    !Number.isFinite(scale.scaleY) ||
+    scale.scaleX <= 0 ||
+    scale.scaleY <= 0 ||
+    Object.keys(topology.points).length === 0
+  ) {
+    return null
+  }
+  assertVectorTopologyConsistency(topology, 'scale-around-center:input')
+  const bounds = calculateVectorBounds(topology)
+  const centerX = bounds.x + bounds.width / 2
+  const centerY = bounds.y + bounds.height / 2
+  const points = Object.fromEntries(
+    Object.entries(topology.points).map(([pointId, point]) => [
+      pointId,
+      {
+        ...point,
+        x: centerX + (point.x - centerX) * scale.scaleX,
+        y: centerY + (point.y - centerY) * scale.scaleY
+      }
+    ])
+  )
+  const scaled = {
+    networks: topology.networks,
+    points,
+    segments: topology.segments
+  }
+  assertVectorTopologyConsistency(scaled, 'scale-around-center:output')
+  return scaled
+}
+
 export const translateAnchorAndHandles = (
   topology: VectorTopology,
   pointId: string,

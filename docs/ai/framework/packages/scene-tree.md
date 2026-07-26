@@ -64,6 +64,14 @@ Own the document entity graph and computed entity data.
   and removal records them before graph mutation. Inverse add resolves that
   parent through the owning Scene Tree and restores the same deleted instance
   at the same index.
+- `addNewElements` validates all ids and the parent slot before mutation,
+  constructs the ordered elements, applies parent membership with one child
+  list write that bypasses generic Setter clone/change capture, records one
+  reversible add change per ordinary element, and commits the state-owner
+  transaction once. Those ordered add records are the sole history, replay,
+  Render, persistence, and optional Collaboration evidence; the internal
+  clone-free write is not a second event route. It is the canonical owner
+  behind Core's `createElementsInParent`; it is not a direct-map fast path.
 
 ## Extension Points
 
@@ -109,6 +117,9 @@ The supported cases and release-gate ownership are defined by
 ## Validation Checklist
 
 - Entity creation updates graph + computed data consistently.
+- Ordered batch creation applies parent membership once without generic
+  growing-array cloning and keeps every element individually editable and
+  reversible through its ordinary add evidence.
 - Entity removal cleans graph references.
 - Rollback/undo restoration preserves parent ownership and child order.
 - Rollback/undo restores both Element-owned flags/metadata and computed values.

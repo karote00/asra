@@ -11,6 +11,7 @@ import type { Factory } from '@asyra/factory'
 import {
   type EVENT_OPTIONS,
   type MoveHierarchyRequest,
+  type GroupInstanceTypes,
   type PropertyComponentInstanceDataTypes,
   type PropsComponentRawData,
   EntityTypes
@@ -48,6 +49,27 @@ export const createAPIs = (
       sceneTree.preflightRestoreSubtree(snapshot),
     applyRestoreSubtree: (plan, options) =>
       sceneTree.applyRestoreSubtree(plan, options),
+    createElementsInParent: (data, parentId, index, options) => {
+      const parent = sceneTree.getElementById(parentId)
+      const parentType = parent?.get('type')
+      const parentIsContainer =
+        parentType === EntityTypes.WORKSPACE ||
+        parentType === EntityTypes.FRAME ||
+        parentType === EntityTypes.GROUP ||
+        (typeof parentType === 'string' &&
+          componentRegistry.get(parentType)?.isContainer === true)
+      if (!parent || !parentIsContainer) {
+        throw new Error(
+          `[Core] Cannot create element batch: parent "${parentId}" is unavailable`
+        )
+      }
+      return sceneTree.addNewElements(
+        data,
+        parent as GroupInstanceTypes,
+        index,
+        options
+      )
+    },
     refreshComputedDataFromProperty: (
       elementId: string,
       propertyName: string,

@@ -6,8 +6,16 @@ import {
 } from '../actions'
 
 const actionApis = () => ({
+  changeElementGeometry: vi.fn(),
+  createCompositionElement: vi.fn(),
+  getElementBounds: vi.fn(),
+  getElementStrokeColor: vi.fn(),
+  getElementType: vi.fn(),
+  groupElements: vi.fn(),
+  removeSubtree: vi.fn(),
   selectElements: vi.fn(),
-  setElementVisible: vi.fn(() => true)
+  setElementVisible: vi.fn(() => true),
+  updateElementStrokeColor: vi.fn()
 })
 
 const actionByName = (name: string, apis: ReturnType<typeof actionApis>) => {
@@ -25,6 +33,9 @@ describe('Asyra Design AI actions', () => {
     const actions = createAsyraDesignAiActions(actionApis())
 
     expect(actions.map(({ name }) => name)).toEqual([
+      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
       AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
       AsyraDesignAiActionNames.SELECT_ELEMENTS
     ])

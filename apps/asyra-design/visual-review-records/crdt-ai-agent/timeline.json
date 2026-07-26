@@ -1,0 +1,17 @@
+[
+  {
+    "actorAElapsed": "Elapsed 29s",
+    "capturedAtMs": 1785043341134,
+    "step": "created"
+  },
+  {
+    "actorAElapsed": "Elapsed 3.5s",
+    "capturedAtMs": 1785043352982,
+    "step": "blue-whiskers"
+  },
+  {
+    "actorAElapsed": "Elapsed 3.0s",
+    "capturedAtMs": 1785043364238,
+    "step": "red-pupils"
+  }
+]

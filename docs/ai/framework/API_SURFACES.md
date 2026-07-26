@@ -186,6 +186,12 @@ Scene/model bridge:
 - `sceneTreeSaveData(): SceneTreeRawData`
 - `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: EVENT_OPTIONS): string`
 - `createElementInParent(data: CreateElementData, parentId: string, index?: number, options?: EVENT_OPTIONS): string`
+- `createElementsInParent(data: readonly CreateElementData[], parentId: string, index?: number, options?: EVENT_OPTIONS): readonly string[]`
+  - prepares every missing id through the same Core owner, invokes the injected
+    Scene Tree batch request without a retained event payload, and preserves
+    input order; the Scene Tree owner applies its validated next parent
+    membership without generic Setter cloning and publishes only the ordered
+    per-element add evidence; an empty input is inert
 - `getElementComputedData(elementId: string): Record<string, unknown> | undefined`
 - `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
 - `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`

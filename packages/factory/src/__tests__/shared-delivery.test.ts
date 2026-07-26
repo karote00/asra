@@ -190,7 +190,7 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
-  it('omits unset mutation options from an undo replay shared payload', () => {
+  it('restores the source immediate mode when a replay handler leaves delivery unset', () => {
     const { factory, deliveries } = createHarness()
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_COMPUTED_DATA,
@@ -217,20 +217,18 @@ describe('Factory local shared delivery contract', () => {
     factory.undo()
 
     expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]?.payload).toEqual(
+    expect(deliveries[0]).toEqual(
       expect.objectContaining({
-        options: {
-          undoable: false,
-          rollbackable: true
-        }
+        sharedDelivery: 'immediate',
+        payload: expect.objectContaining({
+          options: {
+            undoable: false,
+            rollbackable: true,
+            sharedDelivery: 'immediate'
+          }
+        })
       })
     )
-    expect(
-      Object.prototype.hasOwnProperty.call(
-        (deliveries[0]?.payload as { options?: object }).options,
-        'sharedDelivery'
-      )
-    ).toBe(false)
   })
 
   it('omits an unset canonical payload options field from shared delivery', () => {

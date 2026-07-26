@@ -37,6 +37,11 @@ test('reference server is a TypeScript build with no Vite runtime dependency', a
   assert.doesNotMatch(source, /type MessageRecord/)
   assert.doesNotMatch(providerSource, /type ServerMessage/)
   assert.doesNotMatch(source, /from ['"]vite['"]|ssrLoadModule/)
+  assert.match(
+    source,
+    /new WebSocketServer\(\{\s*noServer:\s*true,\s*maxPayload:\s*0\s*\}\)/,
+    'the local reference transport must not reject a valid finite canonical publication at the ws default 100 MiB ceiling'
+  )
   assert.equal(manifest.dependencies.vite, undefined)
   assert.equal(manifest.devDependencies.vite, '^6.2.3')
   assert.match(

@@ -5,7 +5,14 @@ Never record completed plans here.
 ## Current Status
 
 - Ordered proposed next implementation plans: none.
-- Current active plan: none.
+- Current active plan:
+  `plans/ai-conversational-drawing-plan.md`.
+- The active plan adds an explicit `ai=mock` Asyra Design conversation,
+  deterministic delayed provider fixtures, operational progress, bounded
+  drawing/update actions, app-owned partial outcomes and confirmation UI,
+  incremental follow-up targeting, and current-history Message Bar Undo/Redo.
+- Its architecture authority is
+  `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on
   2026-07-24. Remote Subtree Restore Snapshot, Group Context Menu, and the
   documentation-only durable collaboration cancellation closeout completed on

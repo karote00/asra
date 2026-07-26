@@ -4,6 +4,7 @@ import {
   type AiProvider,
   type AiRuntimeOptions,
   type AiRuntimeOwnedResource,
+  type AiTransactionRunner,
   type CreateAiAgentRuntimeInput
 } from '@asyra/ai-agent-runtime'
 import { createAsyraDesignAiActions } from './actions'
@@ -24,6 +25,7 @@ export interface CreateAsyraDesignAiRuntimeInputOptions {
   readonly requestConfirmation?: AsyraDesignAiConfirmationRequest
   readonly runtimeOptions?: AiRuntimeOptions
   readonly ownedResources?: readonly AiRuntimeOwnedResource[]
+  readonly transactionRunner?: AiTransactionRunner
 }
 
 export const createAsyraDesignAiRuntimeInput = (
@@ -40,7 +42,8 @@ export const createAsyraDesignAiRuntimeInput = (
     options.permissionRules
   ),
   provider: options.provider,
-  transactionRunner: createAsyraDesignAiTransactionRunner()
+  transactionRunner:
+    options.transactionRunner ?? createAsyraDesignAiTransactionRunner()
 })
 
 export interface ComposeAiAgentRuntimeOptions {

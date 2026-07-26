@@ -91,7 +91,57 @@ const getVectorBoundsRepairPatch = (
   return Object.keys(patch).length > 0 ? patch : null
 }
 
+const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
+  const element = core.deps.sceneTree.getElementById(elementId)
+  if (!element) {
+    return null
+  }
+  const computed = element.getAllComputedData() as {
+    strokes?: unknown
+  }
+  if (!Array.isArray(computed.strokes)) {
+    return null
+  }
+  const stroke = computed.strokes[0]
+  return stroke && typeof stroke === 'object' ? (stroke as StrokeAttrs) : null
+}
+
 export const strokeApis = {
+  getPrimaryStrokeColor: (elementId: string): string | null => {
+    const stroke = getPrimaryStroke(elementId)
+    return typeof stroke?.fill?.color === 'string' ? stroke.fill.color : null
+  },
+
+  updatePrimaryStrokeColor: (
+    elementId: string,
+    color: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const stroke = getPrimaryStroke(elementId)
+    if (
+      !stroke ||
+      typeof color !== 'string' ||
+      color.length === 0 ||
+      stroke.fill.color === color
+    ) {
+      return false
+    }
+
+    strokeApis.updateStrokeFields(
+      elementId,
+      stroke.id,
+      stroke,
+      {
+        fill: {
+          ...stroke.fill,
+          color
+        }
+      },
+      options
+    )
+    return true
+  },
+
   updateStrokeFields: (
     elementId: string,
     strokeId: string,

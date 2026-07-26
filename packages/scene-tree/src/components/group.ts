@@ -39,6 +39,14 @@ class Group<T extends GroupAttrs = GroupAttrs>
     this.data.children = (data.children as string[]) || []
   }
 
+  /**
+   * Scene Tree batch-owner write. Ordered ADD_ELEMENT changes provide the
+   * external transaction and replay evidence for this membership replacement.
+   */
+  replaceChildrenFromCanonicalBatch(children: readonly string[]): void {
+    this.data.children = [...children]
+  }
+
   save(): GroupRawData {
     const data = super.save() as GroupRawData
     data.children = this.data.children

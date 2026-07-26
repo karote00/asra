@@ -18,12 +18,24 @@ import {
   type ComposeAiAgentRuntimeOptions
 } from '../ai/composition'
 import type { AiAgentFeatureRuntime } from '../features/ai-agent'
+import {
+  createAsyraDesignAiConversationController,
+  type AsyraDesignAiConversationController
+} from '../ai/conversation'
+import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
+import { createAsyraDesignAiStartup, type AsyraDesignAiMode } from '../ai/mode'
+import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 
 export interface InitAppOptions {
   ai?: ComposeAiAgentRuntimeOptions
+  aiMode?: AsyraDesignAiMode
 }
 
 export interface AppInitialization {
+  readonly aiConfirmation: AsyraDesignAiConfirmationBroker | null
+  readonly aiConversation: AsyraDesignAiConversationController | null
+  readonly aiHistory: AsyraDesignAiHistoryProjection | null
+  readonly aiMode: AsyraDesignAiMode
   readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
 }
@@ -78,14 +90,18 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
 
   // Foundation init.
   initInputSystem()
-  const aiRuntime = composeAiAgentRuntime(
-    options.ai ?? {
-      enabled: false
-    }
-  )
+  const aiStartup = options.ai
+    ? {
+        confirmation: null,
+        history: null,
+        mode: 'disabled' as const,
+        runtimeOptions: options.ai
+      }
+    : createAsyraDesignAiStartup(options.aiMode ?? 'disabled')
+  const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
   const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
   // Initialize feature-system for application-level features
-  initFeatures({
+  const initializedFeatures = initFeatures({
     ai: {
       enabled: aiRuntime.enabled,
       providerEnabled:
@@ -93,6 +109,22 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
       runtime: aiFeatureRuntime
     }
   })
+  const aiConversation = initializedFeatures?.ai
+    ? createAsyraDesignAiConversationController({
+        ...(aiStartup.confirmation
+          ? {
+              confirmation: aiStartup.confirmation
+            }
+          : {}),
+        ...(aiStartup.history
+          ? {
+              history: aiStartup.history
+            }
+          : {}),
+        feature: initializedFeatures.ai.api,
+        getElementType: (elementId) => elementApis.getElementType(elementId)
+      })
+    : null
 
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {
@@ -102,8 +134,33 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
     }
   }
 
+  let disposal: Promise<void> | null = null
+  const dispose = (): Promise<void> => {
+    if (!disposal) {
+      disposal = (async () => {
+        window.removeEventListener('pagehide', handlePageHide)
+        await aiConversation?.dispose()
+        await aiStartup.confirmation?.dispose()
+        aiStartup.history?.dispose()
+        initializedFeatures?.ai?.dispose()
+        await aiRuntime.dispose()
+      })()
+    }
+    return disposal
+  }
+  const handlePageHide = () => {
+    void dispose()
+  }
+  if (aiStartup.mode === 'mock') {
+    window.addEventListener('pagehide', handlePageHide, { once: true })
+  }
+
   return Object.freeze({
+    aiConfirmation: aiStartup.confirmation,
+    aiConversation,
+    aiHistory: aiStartup.history,
+    aiMode: aiStartup.mode,
     aiRuntime,
-    dispose: () => aiRuntime.dispose()
+    dispose
   })
 }

@@ -12,6 +12,7 @@ export interface AppContextMenuSession extends CanvasContextMenuInvocation {
 export type AppContextMenuSessionDismissReason =
   | ContextMenuDismissReason
   | 'activation'
+  | 'activation-without-focus-restore'
   | 'teardown'
 
 export interface AppContextMenuSessionController {
@@ -29,7 +30,10 @@ const getWindowViewport = (): ContextMenuViewport => ({
 
 const shouldRestoreInvokerFocus = (
   reason: AppContextMenuSessionDismissReason
-) => reason !== 'tab' && reason !== 'teardown'
+) =>
+  reason !== 'tab' &&
+  reason !== 'teardown' &&
+  reason !== 'activation-without-focus-restore'
 
 export const useAppContextMenuSession = (
   getViewport: () => ContextMenuViewport = getWindowViewport

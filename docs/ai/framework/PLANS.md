@@ -4,6 +4,19 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
+## Active Cross-Cutting App Follow-Up
+
+- Asyra Design Conversational AI Mock Drawing is the current active app plan.
+  It follows completed Gate 4 without reopening that gate.
+- Its only framework-runtime addition is an optional detached operational
+  progress observer; conversation UI, mock fixtures, drawing actions,
+  confirmation presentation, partial-item policy, target hints, and history UI
+  remain app-owned.
+- Reference:
+  `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+- Gate 5 remains the next framework release gate. This app follow-up does not
+  declare Gate 5 started or completed.
+
 ## Framework Release Gates
 
 Complete and close these plans in order before the first public Asyra Framework

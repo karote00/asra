@@ -6,6 +6,12 @@ This file is the app-level API contract map.
 
 - `initApp({ ai })` defaults to AI-disabled and creates no AI runtime,
   provider, Feature, network request, listener, timer, or secret read
+- `resolveAsyraDesignAiMode(window.location.search)` accepts only one exact
+  `ai=mock` value; missing, empty, unknown, case-mismatched, or duplicate values
+  keep the App AI-disabled
+- explicit mock startup composes one deterministic no-network provider,
+  app confirmation broker, app-root-local conversation controller, and current
+  AI history projection; it reads no API key
 - `composeAiAgentRuntime(...)` supports:
   - AI-disabled: no runtime and no AI Feature
   - provider-disabled: the AI Feature returns stable `unavailable` before
@@ -15,15 +21,49 @@ This file is the app-level API contract map.
   bounded action catalog, permission map, confirmation adapter, and common
   transaction adapter around an app-selected provider
 - the reference action catalog contains only:
+  - `request_drawing_detail_choice`
+  - `insert_vector_composition`
+  - `update_composition_elements`
+  - `remove_ai_composition`
   - `set_element_visibility`
   - `select_elements`
+- composition descriptors are strict, contain ordinary oval/vector elements
+  inside the 2048×2048 workspace, and never accept provider-selected object
+  ids or arbitrary property paths
+- vector items and complete compositions have no artificial item, subpath,
+  per-path point, or composition point-count ceiling; validation requires
+  finite coordinates, internally consistent topology, unique semantic roles,
+  and available machine resources
+- `request_drawing_detail_choice` accepts no provider-selected labels, counts,
+  warning copy, attachment data, or canonical ids. It resolves with registered
+  App option ids and no canonical mutation; the App projects Balanced
+  (7,111 elements, at least 115,000 points) and Maximum (27,471 elements,
+  295,794 points) guidance and retains the original in-memory attachment for
+  the selected follow-up turn
+- follow-up updates consume only canonical ids projected from the preceding
+  action result; each target is revalidated immediately before its common-API
+  mutation
+- recoverable per-object failures are returned as `partial` or `no-change`
+  evidence; canonical mutation or grouping consistency failures reject the
+  executor so the outer runtime transaction rolls back
 - permission rules are explicit and default-deny; confirmation defaults to
   cancellation
-- both action executors call `src/common-apis/*` with `undoable: true` and
+- action executors call `src/common-apis/*` with `undoable: true` and
   `sharedDelivery: 'transaction-end'`; Factory, canonical owners, Render, and
   optional Collaboration retain their ordinary ownership
+- composition insertion creates one canonical Group before its ordered child
+  batches. Child create options carry the known parent workspace origin so
+  ordinary Vector topology points remain in workspace coordinates while
+  computed `x/y` are written directly in Group-local coordinates; no post-hoc
+  full-composition move or geometry rewrite is part of the AI action
 - provider selection is replaceable; deterministic fake and generic HTTP
   providers use the same runtime and app action contracts
+- conversation progress contains only the runtime's stable operational
+  summaries. Settled UI summaries never render raw arguments, provider bodies,
+  canonical ids, secrets, or private chain-of-thought
+- the transaction adapter correlates a newly completed canonical action id with
+  the active AI turn. The Message Bar may call ordinary history APIs only while
+  that id remains the applicable current AI action; later actions invalidate it
 - the reference app does not read, store, or send a browser-held server API
   key. Production providers should use an app/backend endpoint that owns
   vendor credentials and authorization
@@ -137,6 +177,11 @@ Import boundary:
 - `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
 - `getVectorAnchorSubpaths(elementId: string): VectorAnchorPoint[][]`
 - `getVectorTopology(elementId: string): { points: Record<string, VectorPointNode>; segments: Record<string, VectorSegment>; networks: Record<string, VectorNetwork> }`
+- `scaleVectorElementAroundCenter(elementId: string, scale: { scaleX: number; scaleY: number }, mutationOptions?: EVENT_OPTIONS): boolean`
+  - scales every existing workspace anchor/control point around the vector's
+    current bounds center, preserves point/segment/network ids and subpath
+    topology, and commits recalculated bounds through the ordinary canonical
+    vector patch route
 - `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
@@ -168,8 +213,12 @@ Import boundary:
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
-- `createElement(options: { type: EntityType; clientPosition?: PositionData; width?: number; height?: number; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
+- `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
   - initializes default `fills` payload by element type
+  - an explicit `workspacePosition` bypasses Render/client-coordinate
+    conversion and is converted only when the chosen parent requires it
+  - explicit `fills` and `strokes` are forwarded unchanged for app-owned
+    deterministic composition creation
   - omitted `width`/`height` remain absent from the creation payload so component/property initial data owns the initial dimensions
   - create-tool sessions use `sharedDelivery: 'immediate'` for the initial undoable ADD_ELEMENT so Contents and render projection become visible before pointer-up without splitting the undo commit
   - each applied create geometry update uses `sharedDelivery: 'immediate'`;
@@ -266,6 +315,15 @@ Import boundary:
 
 - `undo(): void`
 - `redo(): void`
+- `createAsyraDesignAiHistoryProjection()` creates one disposable,
+  app-root-local observer over canonical user-action, Undo, and Redo events
+  - `beginTurn(turnId)` / `endTurn(turnId)` bracket transaction correlation
+  - `getCurrentActionId()` exposes only the latest canonical action identity
+  - `correlateCommittedAction(actionId)` accepts only that current identity
+  - `undoCurrent()` / `redoCurrent()` fail closed when the correlated action is
+    stale
+  - the projection stores no history stack, inverse, canonical snapshot, or
+    replay patch
 
 `renderLayerApis` (`src/common-apis/render-layer.ts`)
 
@@ -282,12 +340,23 @@ Import boundary:
 - `getCanvasBounds(): DOMRect | null`
 - `getCanvasPositionFromClient(clientPos: PositionData, canvasBounds?: DOMRect | null): PositionData`
 - `getFillById(elementId: string, fillId: string): FillAttrs | null`
+- `getPrimaryFillColor(elementId: string): string | null`
 - `getGradientHandleGeometry(elementId: string, fillId: string): { elementId: string; fillId: string; fill: FillAttrs; width: number; height: number; canvasHandles: [PositionData, PositionData] } | null`
 - `getGradientHandleHitAtClientPos(elementId: string, fillId: string, clientPos: PositionData, hitRadius?: number): { handleIndex: 0 | 1 } | null`
 - `getNextGradientForHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData): FillGradientData | null`
 - `getNextGradientForHandleWithDelta(baseGradient: FillGradientData, handleIndex: 0 | 1, width: number, height: number, delta: PositionData): FillGradientData`
 - `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: { undoable: boolean }): FillGradientData | null`
 - `updateFillFields(...)` / `updateFillField(...)`
+- `updatePrimaryFillColor(elementId: string, color: string, options?: EVENT_OPTIONS): boolean`
+  - reads and updates only the first canonical fill property and returns
+    `false` when the target has no fill or already has the requested color
+
+`strokeApis` (`src/common-apis/strokes.ts`)
+
+- `getPrimaryStrokeColor(elementId: string): string | null`
+- `updatePrimaryStrokeColor(elementId: string, color: string, options?: EVENT_OPTIONS): boolean`
+  - reads and updates only the first canonical stroke property and returns
+    `false` when the target has no stroke or already has the requested color
 
 `transactionApis` (`src/common-apis/transaction.ts`)
 

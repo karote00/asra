@@ -1,4 +1,6 @@
 import type {
+  FillAttrs,
+  StrokeAttrs,
   VectorAnchorPoint,
   VectorPointTarget as CoreVectorPointTarget,
   VectorPathStyle,
@@ -24,9 +26,13 @@ export interface VectorComputedSnapshot extends Partial<VectorPathStyle> {
 export interface CreateElementOptions {
   type: EntityType
   clientPosition?: PositionData
+  workspacePosition?: PositionData
+  parentWorkspaceOrigin?: PositionData
   parentId?: string
   width?: number
   height?: number
+  fills?: FillAttrs[]
+  strokes?: StrokeAttrs[]
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>

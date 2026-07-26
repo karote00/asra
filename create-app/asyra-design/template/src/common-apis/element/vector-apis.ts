@@ -2035,8 +2035,8 @@ export const vectorApis = {
         networks: normalizedTopology.networks,
         closed,
         pointCoordinateSpace: 'workspace',
-        fills: DEFAULT_VECTOR_STYLE.fills ?? [],
-        strokes: DEFAULT_VECTOR_STYLE.strokes ?? []
+        fills: createOptions.fills ?? DEFAULT_VECTOR_STYLE.fills ?? [],
+        strokes: createOptions.strokes ?? DEFAULT_VECTOR_STYLE.strokes ?? []
       },
       options
     )

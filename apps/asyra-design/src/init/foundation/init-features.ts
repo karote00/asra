@@ -2,6 +2,7 @@ import core from '../../contexts'
 import { inputSystem, systemContext } from '../../contexts'
 import {
   registerAiAgentFeature,
+  type AiAgentFeatureApi,
   type AiAgentFeatureRuntime
 } from '../../features/ai-agent'
 
@@ -18,19 +19,36 @@ export interface InitFeaturesOptions {
   readonly ai?: InitAiAgentFeatureOptions
 }
 
-export const initFeatures = (options: InitFeaturesOptions = {}): void => {
+export interface InitializedAiAgentFeature {
+  readonly api: AiAgentFeatureApi
+  dispose(): boolean
+}
+
+export interface InitializedFeatures {
+  readonly ai: InitializedAiAgentFeature | null
+}
+
+export const initFeatures = (
+  options: InitFeaturesOptions = {}
+): InitializedFeatures => {
   try {
     core.initFeatureSystem({
       inputSystem,
       systemContext
     })
     if (options.ai?.enabled) {
-      registerAiAgentFeature({
+      const registration = registerAiAgentFeature({
         providerEnabled: options.ai.providerEnabled,
         runtime: options.ai.runtime
+      })
+      return Object.freeze({
+        ai: registration
       })
     }
   } catch (error) {
     console.error('[initFeatures] Error:', error)
   }
+  return Object.freeze({
+    ai: null
+  })
 }

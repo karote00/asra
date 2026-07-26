@@ -169,3 +169,32 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
   - `docs/ai/workflows/package-release-validation.md`
   - `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
   - `docs/ai/framework/packages/collaboration.md`
+
+## 2026-07-25 - Keep conversational AI progress observational and App-owned
+
+- Context:
+  - Asyra Design needs a complete mock conversation and drawing experience
+    before a production model endpoint or API key exists.
+  - The completed framework runtime already owns orchestration, while App
+    product decisions own UI, drawing semantics, confirmation, partial-item
+    policy, target identity, and history presentation.
+- Decision:
+  - Add only an optional detached operational progress observer to the
+    framework runtime.
+  - Keep mock fixture selection, delay, conversation records, confirmation
+    presentation, drawing/update actions, recoverable partial results,
+    semantic target hints, and Message Bar Undo/Redo in Asyra Design.
+  - Preserve one rejected executor as a fatal transaction rollback, while a
+    resolved App partial result may commit successful siblings in one undo
+    unit.
+  - Expose operational phases and concise explanations only; never expose or
+    fabricate model private chain-of-thought.
+- Consequences:
+  - App UI can follow actual runtime phases without becoming an execution
+    owner.
+  - Provider replacement, canonical state ownership, Factory history, Render,
+    and optional Collaboration routes remain unchanged.
+  - Framework Release Gate 4 stays completed; the new capability is tracked by
+    the active Asyra Design plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`

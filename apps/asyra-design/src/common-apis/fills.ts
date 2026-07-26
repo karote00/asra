@@ -198,6 +198,21 @@ const getElementFill = (
   }
 }
 
+const getPrimaryFill = (elementId: string): FillAttrs | null => {
+  const element = sceneTree.getElementById(elementId)
+  if (!element) {
+    return null
+  }
+  const computed = element.getAllComputedData() as {
+    fills?: unknown
+  }
+  if (!Array.isArray(computed.fills)) {
+    return null
+  }
+  const fill = computed.fills[0]
+  return fill && typeof fill === 'object' ? (fill as FillAttrs) : null
+}
+
 const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
   const canvasBounds = render.app?.canvas?.getBoundingClientRect()
   if (!canvasBounds) {
@@ -232,6 +247,11 @@ export const fillApis = {
 
   getFillById: (elementId: string, fillId: string): FillAttrs | null => {
     return getElementFill(elementId, fillId)?.fill ?? null
+  },
+
+  getPrimaryFillColor: (elementId: string): string | null => {
+    const fill = getPrimaryFill(elementId)
+    return typeof fill?.color === 'string' ? fill.color : null
   },
 
   getNextGradientForHandleWithDelta: (
@@ -529,6 +549,33 @@ export const fillApis = {
     )
 
     return nextGradient
+  },
+
+  updatePrimaryFillColor: (
+    elementId: string,
+    color: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const fill = getPrimaryFill(elementId)
+    if (
+      !fill ||
+      typeof color !== 'string' ||
+      color.length === 0 ||
+      fill.color === color
+    ) {
+      return false
+    }
+
+    fillApis.updateFillFields(
+      elementId,
+      fill.id,
+      fill,
+      {
+        color
+      },
+      options
+    )
+    return true
   },
 
   updateFillFields: (

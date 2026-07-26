@@ -29,6 +29,12 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => string
+  createElementsInParent: (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
