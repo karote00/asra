@@ -46,6 +46,7 @@ export const ASYRA_DESIGN_AI_SCALE_MIN = 0.5
 export const ASYRA_DESIGN_AI_SCALE_MAX = 2
 export const ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET = 2048
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET = 16384
 
 export type AsyraDesignAiDeliveryMode = 'atomic' | 'progressive'
 
@@ -935,7 +936,8 @@ const getCompositionItemPointCount = (
 
 const getProgressiveCompositionBatchEnd = (
   items: readonly AsyraDesignAiCompositionItem[],
-  start: number
+  start: number,
+  pointBudget: number
 ): number => {
   let batchPointCount = 0
   let end = start
@@ -946,8 +948,7 @@ const getProgressiveCompositionBatchEnd = (
     const itemPointCount = getCompositionItemPointCount(items[end])
     if (
       end > start &&
-      batchPointCount + itemPointCount >
-        ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
+      batchPointCount + itemPointCount > pointBudget
     ) {
       break
     }
@@ -1023,13 +1024,19 @@ const createCompositionActions = (
           })
         })
         let offset = 0
+        let progressivePointBudget =
+          ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
         while (offset < accepted.length) {
           assertNotAborted(context)
           const batchEnd = measureBrowserDragPhase(
             'ai-app:prepare-composition-batch',
             () =>
               deliveryMode === 'progressive'
-                ? getProgressiveCompositionBatchEnd(accepted, offset)
+                ? getProgressiveCompositionBatchEnd(
+                    accepted,
+                    offset,
+                    progressivePointBudget
+                  )
                 : Math.min(
                     offset + ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
                     accepted.length
@@ -1062,6 +1069,10 @@ const createCompositionActions = (
           })
           offset = batchEnd
           if (progressiveYield) {
+            progressivePointBudget = Math.min(
+              ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
+              progressivePointBudget * 2
+            )
             await measureBrowserDragAsyncPhase(
               'ai-app:progressive-host-yield',
               progressiveYield

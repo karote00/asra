@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
   ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET,
   AsyraDesignAiActionError,
   AsyraDesignAiActionNames,
@@ -497,12 +498,48 @@ describe('Asyra Design AI composition action execution', () => {
     expect(yieldToHost).toHaveBeenCalledTimes(3)
   })
 
+  it('ramps the point-aware budget after the first progressive batch', async () => {
+    const apis = actionApis()
+    const items = Array.from({ length: 31 }, (_, index) =>
+      vectorItemWithPointCount(1024, `detail-${index}`)
+    )
+    const yieldToHost = vi.fn(async () => undefined)
+    apis.createCompositionElements.mockImplementation((batch) =>
+      batch.map(({ role }) => `${role}-id`)
+    )
+    const action = actionByName(
+      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+      apis,
+      {
+        deliveryMode: 'progressive',
+        yieldToHost
+      }
+    )
+
+    await action.execute(
+      {
+        compositionRole: 'cat-face',
+        items,
+        parent: 'workspace'
+      },
+      executionContext()
+    )
+
+    expect(
+      apis.createCompositionElements.mock.calls.map(([batch]) => batch.length)
+    ).toEqual([2, 4, 8, 16, 1])
+    expect(
+      apis.createCompositionElements.mock.calls.flatMap(([batch]) => batch)
+    ).toEqual(items)
+    expect(yieldToHost).toHaveBeenCalledTimes(5)
+  })
+
   it('uses a point-aware progressive soft budget without rejecting an intact over-target element', async () => {
     const items = [
+      vectorItemWithPointCount(2591, 'detail-over-target'),
       vectorItemWithPointCount(1500, 'detail-1'),
       vectorItemWithPointCount(700, 'detail-2'),
-      vectorItemWithPointCount(700, 'detail-3'),
-      vectorItemWithPointCount(2591, 'detail-over-target')
+      vectorItemWithPointCount(700, 'detail-3')
     ]
     const progressiveApis = actionApis()
     progressiveApis.createCompositionElements.mockImplementation((batch) =>
@@ -530,13 +567,14 @@ describe('Asyra Design AI composition action execution', () => {
       progressiveApis.createCompositionElements.mock.calls.map(
         ([batch]) => batch
       )
-    ).toEqual([[items[0]], [items[1], items[2]], [items[3]]])
+    ).toEqual([[items[0]], [items[1], items[2], items[3]]])
     expect(
       progressiveApis.createCompositionElements.mock.calls.flatMap(
         ([batch]) => batch
       )
     ).toEqual(items)
     expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET).toBe(2048)
+    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET).toBe(16384)
 
     const atomicApis = actionApis()
     atomicApis.createCompositionElements.mockImplementation((batch) =>
