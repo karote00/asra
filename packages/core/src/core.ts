@@ -565,6 +565,10 @@ class Core implements CoreAPIs {
       data.systemContext = systemContextData
     }
 
+    if (this.saveHooks.length === 0) {
+      return clonePersistenceSnapshot(data)
+    }
+
     data = clonePersistenceSnapshot(data)
 
     // Run before-save hooks (encryption, compression, metadata)

@@ -228,6 +228,72 @@ describe('Core transaction persistence acknowledgement', () => {
     expect(workspace.children).toEqual(['child-before-commit'])
   })
 
+  it('captures one full detached snapshot when no save hooks are registered', async () => {
+    const { core, commit, provider } = createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const structuredCloneSpy = vi.spyOn(globalThis, 'structuredClone')
+    core.setPersistence(provider(save))
+
+    try {
+      commit('single-snapshot')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+      expect(structuredCloneSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      structuredCloneSpy.mockRestore()
+    }
+  })
+
+  it('keeps save hooks isolated by detached snapshots on both boundaries', async () => {
+    const { core, commit, provider, sceneTree } = createHarness()
+    const runtimeChildren = ['child-before-commit']
+    let hookChildren: string[] | undefined
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const structuredCloneSpy = vi.spyOn(globalThis, 'structuredClone')
+    sceneTree.save.mockImplementation(() => ({
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {
+        workspace: {
+          id: 'workspace',
+          name: 'Workspace',
+          type: 'workspace',
+          visible: true,
+          lock: false,
+          children: runtimeChildren
+        }
+      }
+    }))
+    core.registerSaveHook((data) => {
+      const workspace = data.sceneTree.elements.workspace as GroupRawData
+      hookChildren = workspace.children
+      hookChildren.push('child-added-by-hook')
+      return data
+    })
+    core.setPersistence(provider(save))
+
+    try {
+      commit('hook-snapshots')
+      runtimeChildren.push('child-added-after-commit')
+      hookChildren?.push('child-added-after-hook')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+      const snapshot = save.mock.calls[0][0]
+      const workspace = snapshot.sceneTree.elements.workspace as GroupRawData
+      expect(workspace.children).toEqual([
+        'child-before-commit',
+        'child-added-by-hook'
+      ])
+      expect(runtimeChildren).toEqual([
+        'child-before-commit',
+        'child-added-after-commit'
+      ])
+      expect(structuredCloneSpy).toHaveBeenCalledTimes(2)
+    } finally {
+      structuredCloneSpy.mockRestore()
+    }
+  })
+
   it('keeps custom Core persistence bound to its injected Factory', async () => {
     const first = createHarness()
     const second = createHarness()
