@@ -302,6 +302,7 @@
       ],
       conditions: [
         'Every eligible local committed action, undo, and redo captures one deeply detached exact snapshot at that committed state and queues it for provider save in FIFO order.',
+        'Factory emits an isolated commit-capture handoff after the canonical commit is accepted and before any reentrant completion, publication, or public status observer; capture failure cannot alter the committed runtime result.',
         'Snapshot capture preserves Scene Tree, Props, system context, registered save-hook output, version, and transaction-specific evidence without retaining live mutable references.',
         'Provider acknowledgement reports persisted separately from committed; FIFO processing preserves every snapshot, one failure reports persistence-failed, and a later committed snapshot still reaches the provider.',
         'Core persistence timing distinguishes canonical snapshot capture, save-hook isolation, provider save, and browser persistence work without changing product scheduling.'
@@ -314,6 +315,7 @@
       ],
       allowedContributors: [
         'artifact:factory-history-commit',
+        '@asyra/factory pre-observer commit-capture handoff',
         'Core transaction status subscriber and public Scene Tree, Props, and system-context save facades',
         '@asyra/persistence public provider contract',
         'registered Core save hooks'
@@ -323,6 +325,7 @@
         'live mutable canonical references in queued or provider-owned data',
         'AI-specific or fixture-specific persistence paths',
         'remote-origin client persistence',
+        'public committed status or shared publication carrying a Core snapshot',
         'transaction, history, Undo, Redo, or publication boundary changes',
         'diagnostic code that changes persistence scheduling'
       ],
@@ -330,6 +333,8 @@
       implementationBoundary: [
         'packages/core/src',
         'packages/core/src/__tests__',
+        'packages/factory/src',
+        'packages/factory/src/__tests__',
         'packages/persistence/src',
         'packages/persistence/src/providers/__tests__'
       ],
@@ -535,7 +540,7 @@
       to: 'persist-committed-canonical-snapshots',
       kind: 'persistence',
       predicate:
-        'A local Factory transaction committed with canonical history evidence.',
+        'A local Factory transaction committed and emitted its isolated pre-observer durability capture handoff.',
       producedArtifacts: ['artifact:factory-history-commit']
     },
     {

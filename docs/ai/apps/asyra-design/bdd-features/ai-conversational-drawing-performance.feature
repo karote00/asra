@@ -14,6 +14,7 @@ Feature: Conversational AI drawing performance
     Then timing should distinguish App batching, Scene Tree apply, Factory recording and publication, Collaboration transport and remote apply, local Core persistence snapshot capture and provider save, and Render projection
     And timing should include Actor A and Actor B first-visible and settled milestones
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
+    And the commit-capture handoff should run before reentrant observers
     And the next optimization should belong only to the largest over-budget Inspector owner
 
   Scenario: Fast Mock AI CRDT correctness stays bounded

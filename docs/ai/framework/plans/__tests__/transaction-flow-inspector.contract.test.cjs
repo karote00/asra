@@ -248,7 +248,15 @@ test('persistence failure never owns runtime rollback', () => {
   assert.match(contract, /queue in order/i)
   assert.match(contract, /captures its configured provider and CoreRawData snapshot/i)
   assert.match(contract, /deeply detached from live mutable references/i)
+  assert.match(
+    contract,
+    /commit-capture handoff.*before.*reentrant.*observer/i
+  )
+  assert.match(contract, /remote.*does not request persistence/i)
   assert.match(contract, /do not request persistence/i)
   assert.match(contract, /never rolls back committed runtime state/i)
+  assert.ok(
+    persistence.implementationBoundary.includes('packages/factory/src/**')
+  )
   assert.equal(persistence.failureOwnerStepId, persistence.id)
 })

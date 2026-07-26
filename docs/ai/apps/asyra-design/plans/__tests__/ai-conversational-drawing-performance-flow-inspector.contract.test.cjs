@@ -339,6 +339,7 @@ test('eligible local commits have one exact persistence owner and remote commits
   assert.ok(
     persistence.implementationBoundary.includes('packages/persistence/src')
   )
+  assert.ok(persistence.implementationBoundary.includes('packages/factory/src'))
   assert.match(
     persistenceText,
     /every eligible local committed action, undo, and redo.*deeply detached.*exact snapshot/i
@@ -350,6 +351,10 @@ test('eligible local commits have one exact persistence owner and remote commits
     /remote.*does not.*capture.*provider/i
   )
   assert.match(persistenceText, /remote-origin client persistence/i)
+  assert.match(
+    persistenceText,
+    /commit-capture handoff.*before.*reentrant.*observer/i
+  )
   assert.ok(
     proof.inputs.includes('artifact:committed-persistence-snapshots')
   )
@@ -361,6 +366,10 @@ test('eligible local commits have one exact persistence owner and remote commits
   assert.match(
     feature,
     /local Core persistence snapshot capture and provider save/i
+  )
+  assert.match(
+    feature,
+    /commit-capture handoff.*before reentrant observers/i
   )
 })
 

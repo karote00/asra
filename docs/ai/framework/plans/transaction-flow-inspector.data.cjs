@@ -375,22 +375,32 @@
       outputs: ['artifact:persistence-status'],
       conditions: [
         'Committed action, undo, and redo results enter the persistence queue in order.',
+        'Factory emits an isolated commit-capture handoff after the canonical commit is accepted and before any reentrant completion, publication, or public status observer; capture failure cannot alter the committed runtime result.',
         'Each committed result captures its configured provider and CoreRawData snapshot before entering the queue; the snapshot is deeply detached from live mutable references, and queued work performs provider I/O without re-reading live runtime state.',
         'Provider success reports persisted and provider failure reports persistence-failed.'
       ],
       bypasses: [
+        'A committed remote result does not request persistence.',
         'Missing provider reports persistence-skipped.',
         'Discarded, rolled-back, and rollback-failed results do not request persistence.',
         'Persistence failure never rolls back committed runtime state.'
       ],
-      allowedContributors: ['injected factory instance', 'persistence provider'],
+      allowedContributors: [
+        'injected factory instance',
+        'instance-local pre-observer commit-capture handoff',
+        'persistence provider'
+      ],
       forbiddenContributors: [
         'global transaction-end subscription',
+        'public committed status carrying a CoreRawData snapshot',
         'runtime rollback',
         'parallel save calls'
       ],
       cacheDimensions: [],
-      implementationBoundary: ['packages/core/src/**'],
+      implementationBoundary: [
+        'packages/core/src/**',
+        'packages/factory/src/**'
+      ],
       specRefs: ['#durability', '#commit-and-persist'],
       failureOwnerStepId: 'acknowledge-persistence'
     }

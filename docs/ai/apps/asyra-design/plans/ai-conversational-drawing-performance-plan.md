@@ -218,6 +218,9 @@ Every optimized case must preserve:
 - the same persistence and collaboration canonical evidence;
 - no client persistence capture or provider save for a remote-origin
   Collaboration commit;
+- an internal Factory commit-capture handoff runs before reentrant completion,
+  publication, or public status observers so each eligible local snapshot
+  represents its own committed state;
 - exact atomic or progressive delivery selection;
 - progressive peer visibility before the Agent turn settles;
 - one outer App transaction and one intended Undo action per mutating user
