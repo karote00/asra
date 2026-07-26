@@ -106,6 +106,16 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-design-ai-conversational-drawing-live-provider-test',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.html'
+    ),
+    dataScript:
+      './ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs',
+    filterLaneTitle: 'Live Provider Boundary'
+  },
+  {
     id: 'asyra-design-ai-conversational-drawing-performance',
     entryPath: path.join(
       projectRoot,

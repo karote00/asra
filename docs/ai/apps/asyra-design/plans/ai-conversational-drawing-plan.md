@@ -30,6 +30,16 @@ apply, Render projection, and E2E overhead. It does not close this active plan
 or authorize reduced drawing detail, changed canonical identity, split
 history, an AI-only renderer, or a collaboration bypass.
 
+Queued credential-gated formal-test successor after performance:
+
+- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-plan.md`
+- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs`
+
+The second successor requires a human-owned, dedicated server-only API key and
+an explicitly authorized live-provider run. It does not change exact
+`ai=mock`, make live output ordinary CI authority, close this active plan, or
+authorize production provider deployment.
+
 ## Goal
 
 Provide a usable Asyra Design AI conversation experience before a live model

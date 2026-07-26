@@ -7,6 +7,11 @@ plan. This plan does not close, replace, or weaken that plan. Implementation
 starts only after the product owner validates the active drawing experience and
 authorizes the successor implementation.
 
+The credential-gated live-provider formal-test plan is the second queued
+successor unless the product owner explicitly reorders the queue. It does not
+change this plan's deterministic performance authority or permit an API key in
+ordinary performance runs.
+
 Architecture authority:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
@@ -16,6 +21,11 @@ Architecture authority:
 Executable product cases:
 
 - `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`
+
+Queued credential-gated successor:
+
+- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-plan.md`
+- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs`
 
 ## Goal
 

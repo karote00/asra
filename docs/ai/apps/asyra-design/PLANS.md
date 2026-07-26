@@ -6,6 +6,7 @@ Never record completed plans here.
 
 - Ordered proposed next implementation plans:
   1. `plans/ai-conversational-drawing-performance-plan.md`
+  2. `plans/ai-conversational-drawing-live-provider-test-plan.md`
 - Current active plan:
   `plans/ai-conversational-drawing-plan.md`.
 - The active plan adds an explicit `ai=mock` Asyra Design conversation,
@@ -19,6 +20,12 @@ Never record completed plans here.
   E2E measurement. The successor does not close or weaken the active plan; its
   architecture authority is
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`.
+- Its second queued successor is a credential-gated, explicitly opt-in formal
+  test against one real provider. A human owner must request a dedicated
+  server-only API key; exact Mock mode stays keyless and deterministic. The
+  successor is not ordinary CI or production provider launch authority; its
+  architecture authority is
+  `plans/ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs`.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on
   2026-07-24. Remote Subtree Restore Snapshot, Group Context Menu, and the
   documentation-only durable collaboration cancellation closeout completed on

@@ -12,6 +12,10 @@ const rendererSource = fs
 const targetEntries = [
   path.join(
     projectRoot,
+    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html'
   ),
   path.join(
