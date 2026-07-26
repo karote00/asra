@@ -14,6 +14,7 @@ import sceneTree, {
   createDynamicComponent
 } from '@asyra/scene-tree'
 import {
+  addProperty as publishAddProperty,
   EventTypes,
   runTransaction,
   runWithTransactionOwner
@@ -359,6 +360,178 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       'undo',
       'redo'
     ])
+
+    factory.transact.reset()
+  })
+
+  it('records source properties before one exact active-property element batch', () => {
+    const factory = new Factory()
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const properties = [
+      {
+        id: 'active-shared-value',
+        type: CANONICAL_PROPERTY_TYPE,
+        value: 17
+      }
+    ] as readonly PropertyComponentRawData[]
+    const elements = [
+      {
+        id: 'active-history-1',
+        type: CANONICAL_LEAF_TYPE,
+        name: 'Active History 1',
+        parentId: root.get('id'),
+        visible: true,
+        lock: false,
+        props: { value: 'active-shared-value' }
+      },
+      {
+        id: 'active-history-2',
+        type: CANONICAL_LEAF_TYPE,
+        name: 'Active History 2',
+        parentId: root.get('id'),
+        visible: true,
+        lock: false,
+        props: { value: 'active-shared-value' }
+      }
+    ] as unknown as readonly ElementRawData[]
+    let activeProperty: ReturnType<typeof propsManager.getPropertyById>
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        publishAddProperty([...properties])
+        activeProperty = propsManager.getPropertyById('active-shared-value')
+        expect(
+          sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+            elements,
+            properties,
+            root
+          )
+        ).toEqual(['active-history-1', 'active-history-2'])
+      })
+    })
+
+    expect(propsManager.getPropertyById('active-shared-value')).toBe(
+      activeProperty
+    )
+    expect(publications).toHaveLength(1)
+    expect(
+      publications[0]?.deliveries.map(({ channel, eventName, payload }) => ({
+        channel,
+        eventName,
+        action: (payload as { action?: string }).action
+      }))
+    ).toEqual([
+      {
+        channel: SharedDataChannelNames.PROPS,
+        eventName: EventTypes.ADD_PROPERTY,
+        action: PROPS_ACTIONS.ADD_PROPERTY
+      },
+      {
+        channel: SharedDataChannelNames.SCENE_TREE,
+        eventName: EventTypes.ADD_ELEMENT,
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
+      },
+      {
+        channel: SharedDataChannelNames.SCENE_TREE,
+        eventName: EventTypes.ADD_ELEMENT,
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
+      }
+    ])
+    expect(
+      (
+        publications[0]?.deliveries[0]?.payload as {
+          data: readonly PropertyComponentRawData[]
+        }
+      ).data
+    ).toEqual(properties)
+
+    factory.undo()
+    expect(childrenOf(sceneTree.workspace)).toEqual([])
+    expect(propsManager.save()).toEqual({})
+
+    factory.redo()
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'active-history-1',
+      'active-history-2'
+    ])
+    expect(propsManager.save()).toEqual({
+      'active-shared-value': properties[0]
+    })
+    expect(publications.map(({ origin }) => origin)).toEqual([
+      'action',
+      'undo',
+      'redo'
+    ])
+
+    factory.transact.reset()
+  })
+
+  it('rolls back source properties when the active-property scene batch cannot commit', () => {
+    const factory = new Factory()
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const property = {
+      id: 'active-failed-value',
+      type: CANONICAL_PROPERTY_TYPE,
+      value: 33
+    } as PropertyComponentRawData
+    const element = {
+      id: 'active-failed-element',
+      type: CANONICAL_LEAF_TYPE,
+      name: 'Active Failed Element',
+      parentId: root.get('id'),
+      visible: true,
+      lock: false,
+      props: { value: 'active-failed-value' }
+    } as unknown as ElementRawData
+    vi.spyOn(sceneTree, 'commitSceneTreeTransaction').mockImplementationOnce(
+      () => {
+        throw new Error('active scene evidence commit failed')
+      }
+    )
+
+    expect(() =>
+      runWithTransactionOwner(factory.getTransactionOwner(), () => {
+        runTransaction(() => {
+          publishAddProperty([property])
+          sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+            [element],
+            [property],
+            root
+          )
+        })
+      })
+    ).toThrow('active scene evidence commit failed')
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([])
+    expect(sceneTree.getElementById(element.id)).toBeUndefined()
+    expect(propsManager.save()).toEqual({})
+    expect(publications).toEqual([])
+    factory.undo()
+    expect(publications).toEqual([])
 
     factory.transact.reset()
   })

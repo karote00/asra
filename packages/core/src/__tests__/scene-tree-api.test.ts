@@ -11,7 +11,9 @@ import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
 type BatchExtensionContract = Pick<
   CoreExtensionAPIs,
-  'createElementsInParent' | 'createElementsInParentFromCanonicalData'
+  | 'createElementsInParent'
+  | 'createElementsInParentFromCanonicalData'
+  | 'createElementsInParentFromCanonicalDataUsingActiveProperties'
 >
 
 const acceptBatchExtensionContract = (apis: BatchExtensionContract) => apis
@@ -31,6 +33,9 @@ const createRequests = (): SceneTreeRequests => ({
     data.map(({ id }, index) => id ?? `element-${index}`)
   ),
   createElementsInParentFromCanonicalData: vi.fn(
+    (data: readonly { id: string }[]) => data.map(({ id }) => id)
+  ),
+  createElementsInParentFromCanonicalDataUsingActiveProperties: vi.fn(
     (data: readonly { id: string }[]) => data.map(({ id }) => id)
   ),
   refreshComputedDataFromProperty: () => undefined,
@@ -164,6 +169,66 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     ).toBe(apis.createElementsInParentFromCanonicalData)
   })
 
+  it('delegates exact canonical elements against already active property evidence', () => {
+    const exactElements = [
+      {
+        id: 'active-canonical-rect',
+        type: 'rect',
+        name: 'Active Canonical Rectangle',
+        parentId: 'workspace-1',
+        visible: true,
+        lock: false,
+        props: {
+          position: 'active-canonical-position',
+          dimension: 'active-canonical-dimension'
+        }
+      }
+    ] satisfies readonly ElementRawData[]
+    const exactProperties = [
+      {
+        id: 'active-canonical-position',
+        type: 'position',
+        x: 10,
+        y: 20,
+        xUnit: 'px',
+        yUnit: 'px'
+      },
+      {
+        id: 'active-canonical-dimension',
+        type: 'dimension',
+        width: 30,
+        height: 40,
+        widthUnit: 'px',
+        heightUnit: 'px'
+      }
+    ] as unknown as readonly PropertyComponentRawData[]
+    const requests = createRequests()
+    const activeCanonicalRequest =
+      requests.createElementsInParentFromCanonicalDataUsingActiveProperties
+    const apis = createSceneTreeAPIs(requests)
+
+    expect(
+      apis.createElementsInParentFromCanonicalDataUsingActiveProperties(
+        exactElements,
+        exactProperties,
+        'workspace-1',
+        4,
+        { shared: 'sceneTree' }
+      )
+    ).toEqual(['active-canonical-rect'])
+    expect(activeCanonicalRequest).toHaveBeenCalledWith(
+      exactElements,
+      exactProperties,
+      'workspace-1',
+      4,
+      { shared: 'sceneTree' }
+    )
+    expect(
+      acceptBatchExtensionContract(apis)
+        .createElementsInParentFromCanonicalDataUsingActiveProperties
+    ).toBe(apis.createElementsInParentFromCanonicalDataUsingActiveProperties)
+  })
+
   it('treats an empty exact canonical batch as a no-op and rejects orphan properties', () => {
     const requests = createRequests()
     const apis = createSceneTreeAPIs(requests)
@@ -178,6 +243,16 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     expect(
       requests.createElementsInParentFromCanonicalData
     ).not.toHaveBeenCalled()
+    expect(
+      apis.createElementsInParentFromCanonicalDataUsingActiveProperties(
+        [],
+        [],
+        'missing-parent'
+      )
+    ).toEqual([])
+    expect(
+      requests.createElementsInParentFromCanonicalDataUsingActiveProperties
+    ).not.toHaveBeenCalled()
     expect(() =>
       apis.createElementsInParentFromCanonicalData(
         [],
@@ -187,6 +262,16 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     ).toThrow(/orphan propert/i)
     expect(
       requests.createElementsInParentFromCanonicalData
+    ).not.toHaveBeenCalled()
+    expect(() =>
+      apis.createElementsInParentFromCanonicalDataUsingActiveProperties(
+        [],
+        [orphanProperty],
+        'missing-parent'
+      )
+    ).toThrow(/orphan propert/i)
+    expect(
+      requests.createElementsInParentFromCanonicalDataUsingActiveProperties
     ).not.toHaveBeenCalled()
   })
 

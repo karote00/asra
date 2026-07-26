@@ -591,6 +591,200 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([])
   })
 
+  it('reuses one exact active property graph without rebuilding or reordering it', () => {
+    const child = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-graph-child',
+        x: 12,
+        y: 24
+      }).save()
+    )
+    propsManager.addProperty([child])
+    const parent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-graph-parent',
+        children: ['active-graph-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([parent])
+    propsManager.cleanChanges()
+    const source = [parent.save(), child.save()]
+    const before = propsManager.save()
+    const plan = propsManager.preflightActivePropertyBatch(source, [
+      'active-graph-parent',
+      'active-graph-parent'
+    ])
+
+    expect(
+      propsManager.runInActivePropertyBatch(plan, () => {
+        propsManager.addProperty([parent])
+        return ['active-graph-parent']
+      })
+    ).toEqual(['active-graph-parent'])
+    expect(propsManager.getPropertyById('active-graph-child')).toBe(child)
+    expect(propsManager.getPropertyById('active-graph-parent')).toBe(parent)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+    expect(() =>
+      propsManager.runInActivePropertyBatch(plan, () => undefined)
+    ).toThrow(/owner-issued one-shot active property plan/i)
+  })
+
+  it('rejects stale or unowned active property evidence without mutation', () => {
+    const child = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-validation-child',
+        x: 1,
+        y: 2
+      }).save()
+    )
+    propsManager.addProperty([child])
+    const parent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-validation-parent',
+        children: ['active-validation-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([parent])
+    const unowned = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-validation-unowned',
+        x: 3,
+        y: 4
+      }).save()
+    )
+    propsManager.addProperty([unowned])
+    const malformedParent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-validation-missing-child',
+        children: ['missing-active-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([malformedParent])
+    const wrongTypeChild = propsManager.createProperty({
+      id: 'active-validation-wrong-type',
+      type: PropertyTypes.DIMENSION
+    })
+    propsManager.addProperty([wrongTypeChild])
+    const wrongTypeParent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-validation-wrong-type-parent',
+        children: ['active-validation-wrong-type']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([wrongTypeParent])
+    propsManager.cleanChanges()
+    const before = propsManager.save()
+
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [{ ...parent.save(), children: ['missing-active-child'] }],
+        ['active-validation-parent']
+      )
+    ).toThrow(/changed exact component data|missing relation child/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [malformedParent.save()],
+        ['active-validation-missing-child']
+      )
+    ).toThrow(/missing relation child/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [wrongTypeParent.save(), wrongTypeChild.save()],
+        ['active-validation-wrong-type-parent']
+      )
+    ).toThrow(/wrong type/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [parent.save(), child.save(), unowned.save()],
+        ['active-validation-parent']
+      )
+    ).toThrow(/unowned property/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [parent.save(), { ...child.save(), x: 999 }],
+        ['active-validation-parent']
+      )
+    ).toThrow(/changed exact component data/i)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rolls back forbidden writes inside an active property reuse batch', () => {
+    const active = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-reuse-guard',
+        x: 5,
+        y: 10
+      }).save()
+    )
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+    const before = propsManager.save()
+    const updatePlan = propsManager.preflightActivePropertyBatch(
+      [active.save()],
+      ['active-reuse-guard']
+    )
+
+    expect(() =>
+      propsManager.runInActivePropertyBatch(updatePlan, () => {
+        active.set('x' as never, 99 as never)
+      })
+    ).toThrow(/cannot update active property/i)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+
+    const creationPlan = propsManager.preflightActivePropertyBatch(
+      [active.save()],
+      ['active-reuse-guard']
+    )
+    expect(() =>
+      propsManager.runInActivePropertyBatch(creationPlan, () => {
+        propsManager.createProperty({
+          id: 'forbidden-active-reuse-property',
+          type: PropertyTypes.POSITION
+        })
+      })
+    ).toThrow(/cannot create property/i)
+    expect(
+      propsManager.getPropertyById('forbidden-active-reuse-property')
+    ).toBe(undefined)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rolls back a forbidden update to an omitted active relation child', () => {
+    const relationChild = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-reuse-omitted-child',
+        x: 7,
+        y: 14
+      }).save()
+    )
+    propsManager.addProperty([relationChild])
+    const relationParent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-reuse-parent',
+        children: ['active-reuse-omitted-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([relationParent])
+    propsManager.cleanChanges()
+    const before = propsManager.save()
+    const plan = propsManager.preflightActivePropertyBatch(
+      [relationParent.save()],
+      ['active-reuse-parent']
+    )
+
+    expect(() =>
+      propsManager.runInActivePropertyBatch(plan, () => {
+        relationChild.set('x' as never, 101 as never)
+      })
+    ).toThrow(/cannot update active property/i)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+  })
+
   it('should throw error if type is not provided for createProperty', () => {
     expect(() => propsManager.createProperty({})).toThrow('Type is required!')
   })

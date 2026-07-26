@@ -2332,6 +2332,161 @@ describe('SceneTree', () => {
     )
   })
 
+  it('reuses exact active property relationships for one ordered canonical element batch', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const strokeData = new TestStrokeComponent({
+      id: 'active-canonical-stroke',
+      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
+      width: 6
+    }).save()
+    const stroke = propsManager.createProperty(strokeData)
+    propsManager.addProperty([stroke])
+    const strokesData = {
+      id: 'active-canonical-strokes',
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      strokes: ['active-canonical-stroke']
+    } as PropertyComponentRawData
+    const strokes = propsManager.createProperty(strokesData)
+    propsManager.addProperty([strokes])
+    propsManager.cleanChanges()
+    const properties = [strokes.save(), stroke.save()]
+    const elements = [1, 2].map(
+      (suffix) =>
+        ({
+          id: `active-canonical-vector-${suffix}`,
+          type: TEST_REACTIVE_VECTOR_TYPE,
+          name: `Active Canonical Vector ${suffix}`,
+          parentId: workspace.get('id'),
+          visible: true,
+          lock: false,
+          props: {
+            strokes: 'active-canonical-strokes'
+          } as unknown as ElementRawData['props']
+        }) satisfies ElementRawData
+    )
+    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type !== EventTypes.UPDATE_TRANSACTION ||
+        !('payload' in event)
+      ) {
+        return
+      }
+      const change = event.payload as SceneTreeChange | PropsChange
+      if (
+        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
+        change.action === PROPS_ACTIONS.ADD_PROPERTY
+      ) {
+        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
+      }
+    })
+    orderedChanges.length = 0
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+        elements,
+        properties,
+        workspace as GroupInstanceTypes,
+        undefined,
+        { undoable: false }
+      )
+    ).toEqual(['active-canonical-vector-1', 'active-canonical-vector-2'])
+
+    expect(propsManager.getPropertyById(strokeData.id)).toBe(stroke)
+    expect(propsManager.getPropertyById(strokesData.id)).toBe(strokes)
+    expect(
+      elements.map(({ id }) => sceneTree.getElementById(id)?.save())
+    ).toEqual(elements)
+    expect(
+      orderedChanges.map((change) => ({
+        action: change.action,
+        data: (change as AddRemoveElementChange).data,
+        index: (change as AddRemoveElementChange).index
+      }))
+    ).toEqual([
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: elements[0],
+        index: 0
+      },
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: elements[1],
+        index: 1
+      }
+    ])
+
+    stroke.set('width' as never, 12 as never)
+    expect(
+      sceneTree
+        .getElementById('active-canonical-vector-1')
+        ?.computed.get('strokes' as never)
+    ).toMatchObject([
+      {
+        id: 'active-canonical-stroke',
+        width: 12
+      }
+    ])
+    subscription.unsubscribe()
+  })
+
+  it('rejects stale active property evidence before applying a scene prefix', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const position = propsManager.createProperty(
+      new TestPositionComponent({
+        id: 'active-stale-position',
+        x: 4,
+        y: 8
+      }).save()
+    )
+    const dimension = propsManager.createProperty(
+      new TestDimensionComponent({
+        id: 'active-stale-dimension',
+        width: 16,
+        height: 32
+      }).save()
+    )
+    propsManager.addProperty([position, dimension])
+    propsManager.cleanChanges()
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+    const element = {
+      id: 'active-stale-element',
+      type: 'rect',
+      name: 'Active Stale Element',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {
+        position: 'active-stale-position',
+        dimension: 'active-stale-dimension'
+      }
+    } satisfies ElementRawData
+
+    expect(() =>
+      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+        [element],
+        [
+          { ...position.save(), x: 999 },
+          dimension.save()
+        ] as readonly PropertyComponentRawData[],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/changed exact component data/i)
+
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+    expect(sceneCommit).not.toHaveBeenCalled()
+  })
+
   it('preserves shared new owners and rejects untracked active owners', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
@@ -2436,6 +2591,55 @@ describe('SceneTree', () => {
     ).toEqual(['canonical-empty'])
     expect(sceneTree.getElementById('canonical-empty')?.save()).toEqual(element)
     expect(propsManager.save()).toEqual({})
+  })
+
+  it('creates an exact zero-slot canonical component through the active-property route', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const element = {
+      id: 'active-canonical-empty',
+      type: TEST_EMPTY_TYPE,
+      name: 'Active Canonical Empty',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {} as unknown as ElementRawData['props']
+    } satisfies ElementRawData
+    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type !== EventTypes.UPDATE_TRANSACTION ||
+        !('payload' in event)
+      ) {
+        return
+      }
+      const change = event.payload as SceneTreeChange | PropsChange
+      if (
+        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
+        change.action === PROPS_ACTIONS.ADD_PROPERTY
+      ) {
+        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
+      }
+    })
+    orderedChanges.length = 0
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+        [element],
+        [],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['active-canonical-empty'])
+    expect(sceneTree.getElementById(element.id)?.save()).toEqual(element)
+    expect(propsManager.save()).toEqual({})
+    expect(orderedChanges).toEqual([
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: element,
+        index: 0
+      })
+    ])
+    subscription.unsubscribe()
   })
 
   it('rejects invalid canonical ownership and rolls back exact-data failures without a prefix', () => {

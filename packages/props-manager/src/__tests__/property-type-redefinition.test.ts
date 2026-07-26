@@ -664,6 +664,47 @@ describe('declarative property type definition owner', () => {
     ])
   })
 
+  it('rebinds a source-ordered active parent after its child is registered', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+    const parent = manager.createProperty({
+      id: 'active-source-parent',
+      type: TYPE,
+      children: ['active-source-child']
+    })
+    const child = manager.createProperty({
+      id: 'active-source-child',
+      type: CHILD_TYPE,
+      value: 3
+    })
+    manager.addProperty([parent, child])
+    manager.cleanChanges()
+    const plan = manager.preflightActivePropertyBatch(
+      [parent.save(), child.save()],
+      ['active-source-parent']
+    )
+
+    manager.runInActivePropertyBatch(plan, () => undefined)
+    expect(manager.changes).toEqual([])
+    expect(manager.save()).toEqual({
+      'active-source-parent': parent.save(),
+      'active-source-child': child.save()
+    })
+    const parentChanges: unknown[] = []
+    parent.on((change) => parentChanges.push(change))
+    child.set('value' as never, 9 as never)
+
+    expect(parentChanges).toEqual([
+      expect.objectContaining({
+        id: 'active-source-parent',
+        key: 'children',
+        after: 9
+      })
+    ])
+  })
+
   it('keeps an existing child relationship live when creating its parent in a batch', () => {
     registerDeclarativeType()
     registerPropertyComponent(CHILD_TYPE, ChildComponent)

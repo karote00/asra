@@ -74,6 +74,13 @@ interface PropertyCreationBatchState {
   readonly existingUpdates: UpdatePropertyChange[]
 }
 
+interface ActivePropertyBatchState {
+  readonly changeStart: number
+  readonly componentIds: Set<string>
+  readonly components: readonly PropertyComponentInstanceTypes[]
+  readonly snapshots: readonly PropertyComponentRawData[]
+}
+
 export interface PropertyCreationBatchReceipt<T> {
   readonly result: T
   rollback(): void
@@ -82,6 +89,12 @@ export interface PropertyCreationBatchReceipt<T> {
 
 export interface PropertyCreationPlan {
   readonly kind: 'property-creation-plan'
+  readonly componentIds: readonly string[]
+  readonly rootComponentIds: readonly string[]
+}
+
+export interface ActivePropertyPlan {
+  readonly kind: 'active-property-plan'
   readonly componentIds: readonly string[]
   readonly rootComponentIds: readonly string[]
 }
@@ -106,8 +119,16 @@ class PropsManager {
       components: readonly PropertyComponentRawData[]
     }
   >()
+  private validatedActivePropertyArtifacts = new WeakMap<
+    ActivePropertyPlan,
+    {
+      components: readonly PropertyComponentRawData[]
+      instances: readonly PropertyComponentInstanceTypes[]
+    }
+  >()
   private readonly componentAccessor: PropertyComponentAccessor
   private propertyCreationBatch: PropertyCreationBatchState | null = null
+  private activePropertyBatch: ActivePropertyBatchState | null = null
 
   constructor() {
     this.componentAccessor = {
@@ -223,6 +244,18 @@ class PropsManager {
   }
 
   addChange(change: PropsChange) {
+    if (this.activePropertyBatch) {
+      const activeBatch = this.activePropertyBatch
+      if (isUpdatePropertyChange(change)) {
+        this.restoreActivePropertyBatch(activeBatch, change)
+        throw new Error(
+          `[PropsManager] Active property reuse batch cannot update active property "${change.id}"`
+        )
+      }
+      throw new Error(
+        '[PropsManager] Active property reuse batch cannot record property changes'
+      )
+    }
     if (
       this.propertyCreationBatch &&
       isUpdatePropertyChange(change) &&
@@ -278,6 +311,17 @@ class PropsManager {
       return
     }
     const active = this._components.get(comId)
+    if (this.activePropertyBatch) {
+      if (
+        !this.activePropertyBatch.componentIds.has(comId) ||
+        active !== component
+      ) {
+        throw new Error(
+          `[PropsManager] Active property reuse batch cannot register property "${comId}"`
+        )
+      }
+      return
+    }
     if (
       this.propertyCreationBatch &&
       active !== undefined &&
@@ -302,6 +346,11 @@ class PropsManager {
   }
 
   removeFromMap(componentId: string) {
+    if (this.activePropertyBatch) {
+      throw new Error(
+        `[PropsManager] Active property reuse batch cannot remove property "${componentId}"`
+      )
+    }
     const component = this.getPropertyById(componentId)
     if (!component) {
       return
@@ -497,6 +546,260 @@ class PropsManager {
       components.push(component)
     })
     return Object.freeze(components.map((component) => component.get('id')))
+  }
+
+  preflightActivePropertyBatch(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown
+  ): ActivePropertyPlan {
+    if (
+      !Array.isArray(sourceComponents) ||
+      sourceComponents.length === 0 ||
+      !Array.isArray(sourceRootComponentIds) ||
+      sourceRootComponentIds.length === 0
+    ) {
+      throw new Error(
+        '[PropsManager] Active property batch requires components and owner roots'
+      )
+    }
+
+    const components = clonePropsValue(
+      sourceComponents as PropertyComponentRawData[]
+    )
+    const rootComponentIds = clonePropsValue(sourceRootComponentIds as string[])
+    if (components.some((component) => !isRecord(component))) {
+      throw new Error(
+        '[PropsManager] Active property batch has invalid component data'
+      )
+    }
+    const componentIds = components.map(({ id }) => id)
+    if (
+      componentIds.some(
+        (componentId) =>
+          typeof componentId !== 'string' || componentId.length === 0
+      ) ||
+      new Set(componentIds).size !== componentIds.length
+    ) {
+      throw new Error(
+        '[PropsManager] Active property batch has duplicate or invalid component ids'
+      )
+    }
+    if (
+      rootComponentIds.some(
+        (componentId) =>
+          typeof componentId !== 'string' || componentId.length === 0
+      )
+    ) {
+      throw new Error(
+        '[PropsManager] Active property batch has invalid owner roots'
+      )
+    }
+    const uniqueRootComponentIds = [...new Set(rootComponentIds)]
+    const componentById = new Map(
+      components.map((component) => [component.id, component] as const)
+    )
+    const instances = components.map((component) => {
+      if (
+        typeof component.type !== 'string' ||
+        component.type.length === 0 ||
+        !getPropertyComponent(component.type)
+      ) {
+        throw new Error(
+          `[PropsManager] Active property batch has invalid component "${component.id ?? ''}"`
+        )
+      }
+      const active = this.getPropertyById(component.id)
+      if (
+        !active ||
+        active.get('type') !== component.type ||
+        !isEqual(active.save(), component)
+      ) {
+        throw new Error(
+          `[PropsManager] Active property batch changed exact component data for "${component.id}"`
+        )
+      }
+      return active
+    })
+
+    uniqueRootComponentIds.forEach((componentId) => {
+      if (!componentById.has(componentId)) {
+        throw new Error(
+          `[PropsManager] Active property batch is missing owner root "${componentId}"`
+        )
+      }
+    })
+
+    const reachableComponentIds = new Set<string>()
+    const visit = (componentId: string): void => {
+      if (reachableComponentIds.has(componentId)) {
+        return
+      }
+      const component = componentById.get(componentId)
+      if (!component) {
+        return
+      }
+      reachableComponentIds.add(componentId)
+      const childRelation = getPropertyComponentConfigDefinition(
+        component.type
+      )?.children
+      if (!childRelation) {
+        return
+      }
+      const childIds = (component as Record<string, unknown>)[childRelation.key]
+      if (
+        !Array.isArray(childIds) ||
+        childIds.some((childId) => typeof childId !== 'string') ||
+        new Set(childIds).size !== childIds.length
+      ) {
+        throw new Error(
+          `[PropsManager] Active property batch has malformed child relation for "${componentId}"`
+        )
+      }
+      childIds.forEach((childId) => {
+        const sourceChild = componentById.get(childId)
+        const activeChild = this.getPropertyById(childId)
+        if (!activeChild) {
+          throw new Error(
+            `[PropsManager] Active property batch is missing relation child "${childId}"`
+          )
+        }
+        if (
+          activeChild.get('type') !== childRelation.childType ||
+          (sourceChild && sourceChild.type !== childRelation.childType)
+        ) {
+          throw new Error(
+            `[PropsManager] Active property batch child "${childId}" has the wrong type`
+          )
+        }
+        if (sourceChild) {
+          visit(childId)
+        }
+      })
+    }
+    uniqueRootComponentIds.forEach(visit)
+    if (reachableComponentIds.size !== components.length) {
+      throw new Error(
+        '[PropsManager] Active property batch contains an unowned property'
+      )
+    }
+
+    const plan = Object.freeze({
+      kind: 'active-property-plan' as const,
+      componentIds: Object.freeze([...componentIds]),
+      rootComponentIds: Object.freeze([...uniqueRootComponentIds])
+    })
+    this.validatedActivePropertyArtifacts.set(plan, {
+      components: Object.freeze(components.map((component) => component)),
+      instances: Object.freeze([...instances])
+    })
+    return plan
+  }
+
+  private restoreActivePropertyBatch(
+    batch: ActivePropertyBatchState,
+    rejectedUpdate?: UpdatePropertyChange
+  ) {
+    const shouldRestoreBatch = this.activePropertyBatch === batch
+    if (shouldRestoreBatch) {
+      this.activePropertyBatch = null
+    }
+    try {
+      if (rejectedUpdate) {
+        const rejectedComponent = this._components.get(rejectedUpdate.id)
+        if (rejectedComponent) {
+          rejectedComponent.load({
+            ...rejectedComponent.save(),
+            [rejectedUpdate.key]: clonePropsValue(rejectedUpdate.before)
+          })
+        }
+      }
+      batch.components.forEach((component, index) => {
+        const snapshot = batch.snapshots[index]
+        if (!snapshot) {
+          return
+        }
+        if (this._components.get(snapshot.id) !== component) {
+          this._components.set(snapshot.id, component)
+        }
+        component.load(clonePropsValue(snapshot))
+      })
+      this.changes.splice(batch.changeStart)
+    } finally {
+      if (shouldRestoreBatch) {
+        this.activePropertyBatch = batch
+      }
+    }
+  }
+
+  runInActivePropertyBatch<T>(plan: ActivePropertyPlan, operation: () => T): T {
+    if (this.propertyCreationBatch || this.activePropertyBatch) {
+      throw new Error(
+        '[PropsManager] Active property reuse batch cannot nest inside another property batch'
+      )
+    }
+    const artifact = this.validatedActivePropertyArtifacts.get(plan)
+    if (!artifact) {
+      throw new Error(
+        '[PropsManager] Expected an owner-issued one-shot active property plan'
+      )
+    }
+    this.validatedActivePropertyArtifacts.delete(plan)
+    artifact.components.forEach((snapshot, index) => {
+      const instance = artifact.instances[index]
+      if (
+        !instance ||
+        this.getPropertyById(snapshot.id) !== instance ||
+        !isEqual(instance.save(), snapshot)
+      ) {
+        throw new Error(
+          `[PropsManager] Active property batch changed exact component data for "${snapshot.id}"`
+        )
+      }
+    })
+
+    const batch: ActivePropertyBatchState = {
+      changeStart: this.changes.length,
+      componentIds: new Set(plan.componentIds),
+      components: artifact.instances,
+      snapshots: artifact.components
+    }
+    this.activePropertyBatch = batch
+    try {
+      batch.components.forEach((component, index) => {
+        const snapshot = batch.snapshots[index]
+        if (
+          snapshot &&
+          getPropertyComponentConfigDefinition(snapshot.type)?.children
+        ) {
+          component.load(clonePropsValue(snapshot))
+        }
+      })
+      const result = runWithPropertyComponentAccessor(
+        this.componentAccessor,
+        operation
+      )
+      if (
+        this.changes.length !== batch.changeStart ||
+        batch.components.some(
+          (component, index) =>
+            this.getPropertyById(plan.componentIds[index]) !== component ||
+            !isEqual(component.save(), batch.snapshots[index])
+        )
+      ) {
+        this.restoreActivePropertyBatch(batch)
+        throw new Error(
+          '[PropsManager] Active property reuse batch cannot update active property'
+        )
+      }
+      return result
+    } catch (error) {
+      this.restoreActivePropertyBatch(batch)
+      throw error
+    } finally {
+      if (this.activePropertyBatch === batch) {
+        this.activePropertyBatch = null
+      }
+    }
   }
 
   preflightRestoreProperties(
@@ -817,6 +1120,11 @@ class PropsManager {
   }
 
   createProperty(propData: Partial<PropertyComponentRawData>) {
+    if (this.activePropertyBatch) {
+      throw new Error(
+        '[PropsManager] Active property reuse batch cannot create property'
+      )
+    }
     if (!propData.type) {
       throw new Error('Type is required!')
     }
@@ -1145,6 +1453,7 @@ class PropsManager {
     this._deletedMap.clear()
     this.changes = []
     this.propertyCreationBatch = null
+    this.activePropertyBatch = null
   }
 
   reset() {

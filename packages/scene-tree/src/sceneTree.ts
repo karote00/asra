@@ -183,6 +183,7 @@ interface CanonicalElementPropertyBatch {
   readonly elements: readonly ElementRawData[]
   readonly properties: readonly PropertyComponentRawData[]
   readonly rootPropertyIds: readonly string[]
+  readonly propertyMode: 'create' | 'reuse-active'
 }
 
 const cloneSceneTreeValue = <T>(data: T): T => {
@@ -1858,7 +1859,42 @@ class SceneTree {
     const canonicalBatch = this.preflightCanonicalElementPropertyBatch(
       elementData,
       propertyData,
-      target
+      target,
+      'create'
+    )
+    return this.addNewElementBatch(
+      elementData,
+      target,
+      index,
+      options,
+      canonicalBatch
+    )
+  }
+
+  addNewElementsFromCanonicalDataUsingActiveProperties(
+    elementData: readonly ElementRawData[],
+    propertyData: readonly PropertyComponentRawData[],
+    parent?: GroupInstanceTypes,
+    index = -1,
+    options?: EVENT_OPTIONS
+  ): readonly string[] {
+    if (elementData.length === 0) {
+      if (propertyData.length > 0) {
+        throw new Error(
+          '[SceneTree] Canonical element batch cannot contain orphan properties'
+        )
+      }
+      return []
+    }
+    const target = this.resolveElementBatchTarget(parent)
+    if (!target) {
+      return []
+    }
+    const canonicalBatch = this.preflightCanonicalElementPropertyBatch(
+      elementData,
+      propertyData,
+      target,
+      'reuse-active'
     )
     return this.addNewElementBatch(
       elementData,
@@ -1882,7 +1918,8 @@ class SceneTree {
   private preflightCanonicalElementPropertyBatch(
     elementData: readonly ElementRawData[],
     propertyData: readonly PropertyComponentRawData[],
-    target: GroupInstanceTypes
+    target: GroupInstanceTypes,
+    propertyMode: CanonicalElementPropertyBatch['propertyMode']
   ): CanonicalElementPropertyBatch {
     const targetId = target.get('id')
     if (
@@ -1960,7 +1997,8 @@ class SceneTree {
     return Object.freeze({
       elements: Object.freeze(cloneSceneTreeValue(elementData)),
       properties: Object.freeze(cloneSceneTreeValue(propertyData)),
-      rootPropertyIds: Object.freeze(rootPropertyIds)
+      rootPropertyIds: Object.freeze(rootPropertyIds),
+      propertyMode
     })
   }
 
@@ -1996,11 +2034,20 @@ class SceneTree {
     if (insertionIndex < 0 || insertionIndex > originalChildren.length) {
       throw new Error('[SceneTree] Element batch index is outside parent order')
     }
-    const propertyPlan =
+    const hasCanonicalPropertyData =
       canonicalBatch &&
       (canonicalBatch.properties.length > 0 ||
         canonicalBatch.rootPropertyIds.length > 0)
+    const propertyPlan =
+      hasCanonicalPropertyData && canonicalBatch.propertyMode === 'create'
         ? this.propsManagerOwner.preflightPropertyCreationBatch(
+            canonicalBatch.properties,
+            canonicalBatch.rootPropertyIds
+          )
+        : undefined
+    const activePropertyPlan =
+      hasCanonicalPropertyData && canonicalBatch.propertyMode === 'reuse-active'
+        ? this.propsManagerOwner.preflightActivePropertyBatch(
             canonicalBatch.properties,
             canonicalBatch.rootPropertyIds
           )
@@ -2011,69 +2058,80 @@ class SceneTree {
     let rollbackPreparedProperties: (() => void) | undefined
     let completePreparedProperties: (() => void) | undefined
     let propsCommitCompleted = false
-    try {
-      const propertyBatch = this.propsManagerOwner.runInPropertyCreationBatch(
+    const applyElementBatch = () => {
+      if (propertyPlan) {
+        this.propsManagerOwner.applyPropertyCreationBatch(propertyPlan)
+      }
+      measureCanonicalSceneBatchPhase(
+        'scene-tree:element-batch:materialize',
         () => {
-          if (propertyPlan) {
-            this.propsManagerOwner.applyPropertyCreationBatch(propertyPlan)
-          }
-          measureCanonicalSceneBatchPhase(
-            'scene-tree:element-batch:materialize',
-            () => {
-              elementData.forEach((source) => {
-                const constructorData = { ...source }
-                const propOverrides = stripNonRawFields(constructorData)
-                const element = this.createElement(constructorData, false)
-                if (!element) {
-                  throw new Error(
-                    '[SceneTree] Canonical batch element creation failed'
-                  )
-                }
-                Object.keys(propOverrides).forEach((propKey) => {
-                  element.updateComputedData(
-                    propKey as keyof ComputedAttrs,
-                    propOverrides[propKey]
-                  )
-                })
-                elements.push(element)
-              })
+          elementData.forEach((source) => {
+            const constructorData = { ...source }
+            const propOverrides = stripNonRawFields(constructorData)
+            const element = this.createElement(constructorData, false)
+            if (!element) {
+              throw new Error(
+                '[SceneTree] Canonical batch element creation failed'
+              )
             }
-          )
-
-          measureCanonicalSceneBatchPhase(
-            'scene-tree:element-batch:parent-membership',
-            () => {
-              workspace.addNewElements(elements, target, insertionIndex)
-            }
-          )
-          if (
-            canonicalBatch &&
-            elements.some(
-              (element, elementIndex) =>
-                !isEqual(element.save(), canonicalBatch.elements[elementIndex])
-            )
-          ) {
-            throw new Error(
-              '[SceneTree] Canonical element batch changed exact element data'
-            )
-          }
-          measureCanonicalSceneBatchPhase(
-            'scene-tree:element-batch:record-evidence',
-            () => {
-              this.changes.splice(operationChangeStart)
-              elements.forEach((element, offset) => {
-                this.addChangeForAddElement(
-                  element,
-                  target.get('id'),
-                  insertionIndex + offset
-                )
-              })
-            }
-          )
+            Object.keys(propOverrides).forEach((propKey) => {
+              element.updateComputedData(
+                propKey as keyof ComputedAttrs,
+                propOverrides[propKey]
+              )
+            })
+            elements.push(element)
+          })
         }
       )
-      rollbackPreparedProperties = propertyBatch.rollback
-      completePreparedProperties = propertyBatch.complete
+
+      measureCanonicalSceneBatchPhase(
+        'scene-tree:element-batch:parent-membership',
+        () => {
+          workspace.addNewElements(elements, target, insertionIndex)
+        }
+      )
+      if (
+        canonicalBatch &&
+        elements.some(
+          (element, elementIndex) =>
+            !isEqual(element.save(), canonicalBatch.elements[elementIndex])
+        )
+      ) {
+        throw new Error(
+          '[SceneTree] Canonical element batch changed exact element data'
+        )
+      }
+      measureCanonicalSceneBatchPhase(
+        'scene-tree:element-batch:record-evidence',
+        () => {
+          this.changes.splice(operationChangeStart)
+          elements.forEach((element, offset) => {
+            this.addChangeForAddElement(
+              element,
+              target.get('id'),
+              insertionIndex + offset
+            )
+          })
+        }
+      )
+    }
+    try {
+      if (canonicalBatch?.propertyMode === 'reuse-active') {
+        if (activePropertyPlan) {
+          this.propsManagerOwner.runInActivePropertyBatch(
+            activePropertyPlan,
+            applyElementBatch
+          )
+        } else {
+          applyElementBatch()
+        }
+      } else {
+        const propertyBatch =
+          this.propsManagerOwner.runInPropertyCreationBatch(applyElementBatch)
+        rollbackPreparedProperties = propertyBatch.rollback
+        completePreparedProperties = propertyBatch.complete
+      }
 
       acknowledgeTransactionReplayApplied()
       measureCanonicalSceneBatchPhase(
@@ -2089,7 +2147,7 @@ class SceneTree {
           this.commitSceneTreeTransaction(options)
         }
       )
-      propertyBatch.complete()
+      completePreparedProperties?.()
       return Object.freeze(elements.map((element) => element.get('id')))
     } catch (error) {
       if (propsCommitCompleted) {

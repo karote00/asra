@@ -67,6 +67,13 @@ export interface SceneTreeRequests {
     index?: number,
     options?: EVENT_OPTIONS
   ) => readonly string[]
+  createElementsInParentFromCanonicalDataUsingActiveProperties: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
 }
 
 export const createSceneTreeAPIs = (
@@ -145,6 +152,29 @@ export const createSceneTreeAPIs = (
         return []
       }
       return sceneTreeRequests.createElementsInParentFromCanonicalData(
+        elements,
+        properties,
+        parentId,
+        index,
+        options
+      )
+    },
+    createElementsInParentFromCanonicalDataUsingActiveProperties(
+      elements: readonly ElementRawData[],
+      properties: readonly PropertyComponentRawData[],
+      parentId: string,
+      index?: number,
+      options?: EVENT_OPTIONS
+    ) {
+      if (elements.length === 0) {
+        if (properties.length > 0) {
+          throw new Error(
+            '[Core] Canonical element batch cannot contain orphan properties'
+          )
+        }
+        return []
+      }
+      return sceneTreeRequests.createElementsInParentFromCanonicalDataUsingActiveProperties(
         elements,
         properties,
         parentId,

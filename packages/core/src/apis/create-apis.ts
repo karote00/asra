@@ -89,6 +89,21 @@ export const createAPIs = (
         options
       )
     },
+    createElementsInParentFromCanonicalDataUsingActiveProperties: (
+      elements,
+      properties,
+      parentId,
+      index,
+      options
+    ) => {
+      return sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+        elements,
+        properties,
+        requireContainerParent(parentId),
+        index,
+        options
+      )
+    },
     refreshComputedDataFromProperty: (
       elementId: string,
       propertyName: string,

@@ -44,6 +44,13 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => readonly string[]
+  createElementsInParentFromCanonicalDataUsingActiveProperties: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
