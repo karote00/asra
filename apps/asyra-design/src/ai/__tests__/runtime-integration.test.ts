@@ -32,6 +32,7 @@ import {
   type AiAgentFeatureApi
 } from '../../features/ai-agent'
 import { FeatureNames } from '../../constants'
+import { createDeferred } from './deferred'
 
 const plan = () => ({
   planId: 'reference-plan',
@@ -665,7 +666,7 @@ describe('Asyra Design AI runtime integration', () => {
       }))
     }
     const confirmation = createAsyraDesignAiConfirmationBroker()
-    const pending = Promise.withResolvers<undefined>()
+    const pending = createDeferred<undefined>()
     const unsubscribe = confirmation.subscribe((snapshot) => {
       if (snapshot.pending) {
         pending.resolve(undefined)

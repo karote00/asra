@@ -4,6 +4,7 @@ import {
   createAsyraDesignAiConversationController,
   type AsyraDesignAiConversationFeature
 } from '../conversation'
+import { createDeferred } from './deferred'
 
 const executed = (
   result: Record<string, unknown>,
@@ -125,7 +126,7 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it('carries immutable detached image attachments through the active turn, Feature metadata, and settlement', async () => {
-    const pending = Promise.withResolvers<Record<string, unknown>>()
+    const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
     const controller = createAsyraDesignAiConversationController({
       createConversationId: () => 'conversation-attachment',
@@ -288,7 +289,7 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it('rejects whitespace and overlap without creating another task queue', async () => {
-    const pending = Promise.withResolvers<Record<string, unknown>>()
+    const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
     const controller = createAsyraDesignAiConversationController({
       createConversationId: () => 'conversation-b',
@@ -452,7 +453,7 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it('routes cancellation through Feature System and contains late settlement after disposal', async () => {
-    const pending = Promise.withResolvers<Record<string, unknown>>()
+    const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
     const controller = createAsyraDesignAiConversationController({
       createConversationId: () => 'conversation-f',
@@ -491,7 +492,7 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it('correlates confirmation lifecycle to the active turn without owning its decision', async () => {
-    const pending = Promise.withResolvers<Record<string, unknown>>()
+    const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
     const confirmation = {
       beginTurn: vi.fn(),

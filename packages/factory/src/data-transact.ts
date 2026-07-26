@@ -552,6 +552,13 @@ class DataTransact {
     }
   }
 
+  private flushReplaySharedPublications(): void {
+    this.discardPendingImmediatePublication()
+    this.flushPendingSharedChannelChanges()
+    this.queueSharedPublication(this.createSharedPublication(this.journal))
+    this.flushSharedPublications()
+  }
+
   private emitCompensationSharedDelivery(
     entry: TransactionJournalEntry,
     eventName: string,
@@ -823,8 +830,7 @@ class DataTransact {
         shared?.sharedDelivery === 'immediate' &&
         (mode === 'undo' || mode === 'redo')
       ) {
-        this.queuePendingImmediatePublication()
-        this.flushSharedPublications()
+        this.flushReplaySharedPublications()
       }
     })
 

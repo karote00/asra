@@ -8,6 +8,7 @@ import {
   type AsyraDesignMockAiDelay
 } from '../mock-provider'
 import type { AsyraDesignVTracer } from '../vtracer'
+import { createDeferred, type Deferred } from './deferred'
 
 const providerInput = (
   intent: string,
@@ -644,7 +645,7 @@ describe('Asyra Design deterministic mock AI provider', () => {
   it('uses the finite product delay and releases caller-aborted work', async () => {
     let observedDelay = -1
     let observedSignal: AbortSignal | undefined
-    const delayStarted = Promise.withResolvers<undefined>()
+    const delayStarted = createDeferred<undefined>()
     const delay: AsyraDesignMockAiDelay = vi.fn(
       (delayMs, signal) =>
         new Promise<void>((resolve, reject) => {
@@ -698,9 +699,9 @@ describe('Asyra Design deterministic mock AI provider', () => {
   })
 
   it('disposes only its own pending work and keeps provider instances isolated', async () => {
-    const firstStarted = Promise.withResolvers<undefined>()
-    const secondStarted = Promise.withResolvers<undefined>()
-    const delayFor = (started: PromiseWithResolvers<undefined>) =>
+    const firstStarted = createDeferred<undefined>()
+    const secondStarted = createDeferred<undefined>()
+    const delayFor = (started: Deferred<undefined>) =>
       vi.fn(
         (_delayMs: number, signal: AbortSignal) =>
           new Promise<void>((resolve, reject) => {

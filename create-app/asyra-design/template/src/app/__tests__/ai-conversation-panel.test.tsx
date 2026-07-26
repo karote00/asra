@@ -10,9 +10,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiConversationPanel } from '../ai-conversation-panel'
 import { createAsyraDesignAiConversationController } from '../../ai/conversation'
 import { createAsyraDesignAiConfirmationBroker } from '../../ai/confirmation'
+import { createDeferred } from '../../ai/__tests__/deferred'
 
 const createPanelHarness = () => {
-  const pending = Promise.withResolvers<Record<string, unknown>>()
+  const pending = createDeferred<Record<string, unknown>>()
   const feature = {
     cancel: vi.fn(() => true),
     execute: vi.fn(() => pending.promise)

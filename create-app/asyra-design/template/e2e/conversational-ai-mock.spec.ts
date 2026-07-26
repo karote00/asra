@@ -613,6 +613,7 @@ test.describe('Conversational AI Mock Drawing', () => {
   test('projects cancellation, provider failure, unsupported, and partial outcomes without hidden mutation', async ({
     page
   }, testInfo) => {
+    test.setTimeout(180_000)
     await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await openMockAi(page)

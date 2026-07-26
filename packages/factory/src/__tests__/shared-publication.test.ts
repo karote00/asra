@@ -398,6 +398,44 @@ describe('Factory action-level shared publication', () => {
     )
   })
 
+  it('preserves replay order when undo crosses transaction-end and immediate deliveries', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    update(factory, 'immediate-first', 1, {
+      sharedDelivery: 'immediate'
+    })
+    update(factory, 'transaction-end-second', 1)
+    factory.endTransaction()
+    await Promise.resolve()
+    publications.length = 0
+
+    factory.undo()
+
+    expect(
+      publications.flatMap(({ deliveries }) =>
+        deliveries.map(
+          ({ payload }) => (payload as { id?: unknown }).id as string
+        )
+      )
+    ).toEqual(['transaction-end-second', 'immediate-first'])
+
+    publications.length = 0
+    factory.redo()
+
+    expect(
+      publications.flatMap(({ deliveries }) =>
+        deliveries.map(
+          ({ payload }) => (payload as { id?: unknown }).id as string
+        )
+      )
+    ).toEqual(['immediate-first', 'transaction-end-second'])
+  })
+
   it('compensates already-published progressive replay when a later undo batch fails', async () => {
     const { factory, publications } = createHarness()
     let failSecondReplay = true
