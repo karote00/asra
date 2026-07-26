@@ -314,7 +314,7 @@ test('profiled batch amplification resolves to exact canonical and transport own
   )
 })
 
-test('committed persistence has one exact Core and provider owner', () => {
+test('eligible local commits have one exact persistence owner and remote commits bypass it', () => {
   const persistence = step('persist-committed-canonical-snapshots')
   const persistenceText = contractText(persistence)
   const proof = step('evaluate-performance-and-equivalence')
@@ -330,10 +330,7 @@ test('committed persistence has one exact Core and provider owner', () => {
     'utf8'
   )
 
-  assert.deepEqual(persistence.inputs, [
-    'artifact:factory-history-commit',
-    'artifact:remote-canonical-batches'
-  ])
+  assert.deepEqual(persistence.inputs, ['artifact:factory-history-commit'])
   assert.deepEqual(persistence.outputs, [
     'artifact:committed-persistence-snapshots',
     'artifact:persistence-timing-sample'
@@ -344,21 +341,26 @@ test('committed persistence has one exact Core and provider owner', () => {
   )
   assert.match(
     persistenceText,
-    /every local and remote committed transaction.*deeply detached.*exact snapshot/i
+    /every eligible local committed action, undo, and redo.*deeply detached.*exact snapshot/i
   )
   assert.match(persistenceText, /FIFO.*failure.*later committed snapshot/i)
   assert.match(persistenceText, /coalesced or dropped committed snapshot/i)
+  assert.match(
+    persistenceText,
+    /remote.*does not.*capture.*provider/i
+  )
+  assert.match(persistenceText, /remote-origin client persistence/i)
   assert.ok(
     proof.inputs.includes('artifact:committed-persistence-snapshots')
   )
   assert.ok(proof.inputs.includes('artifact:persistence-timing-sample'))
   assert.match(
     plan,
-    /Core persistence snapshot capture.*provider save/i
+    /local Core persistence snapshot capture.*provider save/i
   )
   assert.match(
     feature,
-    /Core persistence snapshot capture and provider save/i
+    /local Core persistence snapshot capture and provider save/i
   )
 })
 

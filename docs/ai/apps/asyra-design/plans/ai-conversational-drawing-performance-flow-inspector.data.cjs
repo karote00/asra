@@ -291,32 +291,29 @@
       id: 'persist-committed-canonical-snapshots',
       order: 3,
       laneId: 'shared-delivery',
-      title: 'Persist committed canonical snapshots',
+      title: 'Persist eligible local committed snapshots',
       ownerPackage: '@asyra/core and @asyra/persistence',
       purpose:
-        'Capture and persist one exact, deeply detached snapshot for every local and remote committed transaction while preserving FIFO durability evidence and separate committed and persisted statuses.',
-      inputs: [
-        'artifact:factory-history-commit',
-        'artifact:remote-canonical-batches'
-      ],
+        'Capture and persist exact local action, undo, and redo snapshots while preserving FIFO durability evidence, separate committed and persisted statuses, and remote Collaboration ownership.',
+      inputs: ['artifact:factory-history-commit'],
       outputs: [
         'artifact:committed-persistence-snapshots',
         'artifact:persistence-timing-sample'
       ],
       conditions: [
-        'Every local and remote committed transaction captures one deeply detached exact snapshot at that committed state and queues it for provider save in FIFO order.',
+        'Every eligible local committed action, undo, and redo captures one deeply detached exact snapshot at that committed state and queues it for provider save in FIFO order.',
         'Snapshot capture preserves Scene Tree, Props, system context, registered save-hook output, version, and transaction-specific evidence without retaining live mutable references.',
         'Provider acknowledgement reports persisted separately from committed; FIFO processing preserves every snapshot, one failure reports persistence-failed, and a later committed snapshot still reaches the provider.',
         'Core persistence timing distinguishes canonical snapshot capture, save-hook isolation, provider save, and browser persistence work without changing product scheduling.'
       ],
       bypasses: [
+        'A committed transaction with remote origin does not capture a snapshot or call the client persistence provider; its live canonical state remains owned by Collaboration apply and Render projection.',
         'No configured provider reports persistence-skipped without capturing or queuing a snapshot.',
         'Rollback, validation rejection, and snapshot-capture failure save no snapshot and retain the existing transaction status.',
         'Load reads the provider-authoritative snapshot through ordinary Core validation and migration before product state is exposed.'
       ],
       allowedContributors: [
         'artifact:factory-history-commit',
-        'artifact:remote-canonical-batches',
         'Core transaction status subscriber and public Scene Tree, Props, and system-context save facades',
         '@asyra/persistence public provider contract',
         'registered Core save hooks'
@@ -325,6 +322,7 @@
         'a coalesced or dropped committed snapshot',
         'live mutable canonical references in queued or provider-owned data',
         'AI-specific or fixture-specific persistence paths',
+        'remote-origin client persistence',
         'transaction, history, Undo, Redo, or publication boundary changes',
         'diagnostic code that changes persistence scheduling'
       ],
@@ -550,14 +548,6 @@
       producedArtifacts: ['artifact:remote-canonical-batches']
     },
     {
-      id: 'route-remote-commit-to-persistence',
-      from: 'transport-and-apply-remote-batches',
-      to: 'persist-committed-canonical-snapshots',
-      kind: 'persistence',
-      predicate: 'A remote canonical transaction committed.',
-      producedArtifacts: ['artifact:remote-canonical-batches']
-    },
-    {
       id: 'route-collaboration-timing-to-proof',
       from: 'transport-and-apply-remote-batches',
       to: 'evaluate-performance-and-equivalence',
@@ -668,10 +658,7 @@
       id: 'artifact:remote-canonical-batches',
       ownerStepId: 'transport-and-apply-remote-batches',
       channel: 'ordinary remote canonical apply',
-      consumerStepIds: [
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches'
-      ],
+      consumerStepIds: ['project-visible-canonical-batches'],
       terminal: false
     },
     {

@@ -131,8 +131,8 @@ The profiling harness must distinguish:
 - Factory transaction recording and history commit;
 - Factory shared-publication construction;
 - collaboration encode, send, receive, decode, and remote canonical apply;
-- Core persistence snapshot capture, save-hook isolation, provider save, and
-  persistence acknowledgement;
+- local Core persistence snapshot capture, save-hook isolation, provider save,
+  and persistence acknowledgement;
 - local and remote Render projection flush;
 - Actor A visible-first-change and settled timestamps;
 - Actor B visible-first-change and canonical-convergence timestamps;
@@ -216,6 +216,8 @@ Every optimized case must preserve:
 - the original 1,672-by-941 pure-white background in the cat-only case;
 - the same ordinary Render and Preset Vector route;
 - the same persistence and collaboration canonical evidence;
+- no client persistence capture or provider save for a remote-origin
+  Collaboration commit;
 - exact atomic or progressive delivery selection;
 - progressive peer visibility before the Agent turn settles;
 - one outer App transaction and one intended Undo action per mutating user
@@ -255,7 +257,7 @@ Candidate repairs remain hypotheses until that evidence exists:
   publication without adding a message ceiling or server semantic owner.
 - Core/Persistence: reduce snapshot capture or provider-write amplification
   while preserving one exact deeply detached FIFO snapshot and status for every
-  committed local or remote transaction.
+  eligible local action, undo, and redo commit.
 - Render: coalesce invalidation and projection once per accepted canonical
   batch while preserving the ordinary Vector strategy and visible progressive
   steps.
@@ -274,6 +276,13 @@ the matching Inspector step first with:
 - exact hit/miss equivalence test.
 
 Until then every Inspector `cacheDimensions` tuple remains empty.
+
+The App-selected IndexedDB provider remains browser-local demo durability. A
+remote-origin Collaboration commit updates live canonical and Render state but
+does not capture or save another client-side persistence snapshot. A future
+production collaboration deployment does not use client IndexedDB as shared
+durability: its socket server owns backend database checkpoint and save
+scheduling outside this plan.
 
 ## Product Cases
 
