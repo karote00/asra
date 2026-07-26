@@ -17,6 +17,9 @@ import {
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
 
+const mockAiCollaborationUrl = (fileId: string) =>
+  `${collaborationUrl(fileId)}&ai=mock&aiDelivery=atomic`
+
 const layerRow = (page: Page, elementId: string) =>
   page.getByTestId(`element-item-${elementId}`)
 
@@ -182,6 +185,78 @@ const getOwnerSave = (page: Page) =>
     props: window.__Core__.deps.props.save()
   }))
 
+const getClientPersistenceFingerprint = (page: Page, fileId: string) =>
+  page.evaluate(
+    ({ key }) =>
+      new Promise<string>((resolve, reject) => {
+        const openRequest = indexedDB.open('asyra-documents')
+        openRequest.onerror = () =>
+          reject(openRequest.error ?? new Error('IndexedDB open failed'))
+        openRequest.onsuccess = () => {
+          const database = openRequest.result
+          const transaction = database.transaction('documents', 'readonly')
+          const request = transaction.objectStore('documents').get(key)
+          request.onerror = () =>
+            reject(request.error ?? new Error('IndexedDB read failed'))
+          request.onsuccess = () =>
+            resolve(JSON.stringify(request.result ?? null))
+          transaction.oncomplete = () => database.close()
+          transaction.onabort = () => database.close()
+        }
+      }),
+    { key: `FILE:${fileId}` }
+  )
+
+const getCanonicalDocumentSave = (page: Page) =>
+  page.evaluate(() => {
+    const sceneTree = window.__Core__.deps.sceneTree
+    const sceneSave = sceneTree.save()
+    const allProps = window.__Core__.deps.props.save() as Record<
+      string,
+      Record<string, unknown>
+    >
+    const referencedPropertyIds = new Set<string>()
+    const pendingPropertyIds: string[] = []
+    const enqueuePropertyReferences = (value: unknown): void => {
+      if (typeof value === 'string') {
+        if (
+          Object.prototype.hasOwnProperty.call(allProps, value) &&
+          !referencedPropertyIds.has(value)
+        ) {
+          pendingPropertyIds.push(value)
+        }
+        return
+      }
+      if (Array.isArray(value)) {
+        value.forEach(enqueuePropertyReferences)
+        return
+      }
+      if (value && typeof value === 'object') {
+        Object.values(value).forEach(enqueuePropertyReferences)
+      }
+    }
+
+    Array.from(sceneTree.getAllElements().values()).forEach((element) => {
+      if (element.get?.('type') === 'workspace') return
+      enqueuePropertyReferences(element.save().props)
+    })
+    while (pendingPropertyIds.length > 0) {
+      const propertyId = pendingPropertyIds.shift()
+      if (!propertyId || referencedPropertyIds.has(propertyId)) continue
+      referencedPropertyIds.add(propertyId)
+      enqueuePropertyReferences(allProps[propertyId])
+    }
+
+    return {
+      sceneTree: sceneSave,
+      props: Object.fromEntries(
+        [...referencedPropertyIds]
+          .sort((left, right) => left.localeCompare(right))
+          .map((propertyId) => [propertyId, allProps[propertyId]])
+      )
+    }
+  })
+
 const getUndoDepth = (page: Page) =>
   page.evaluate(
     () =>
@@ -282,6 +357,140 @@ const expectSelectedElementInteriorToConverge = async (
     .poll(async () => (await peer.screenshot({ clip })).toString('base64'))
     .toBe(expected)
 }
+
+test('fast Mock AI CRDT fixture converges through the ordinary two-actor publication path', async ({
+  browser
+}, testInfo) => {
+  const fileId = `e2e-fast-ai-crdt-${Date.now()}-${testInfo.workerIndex}`
+  const actorAContext = await browser.newContext()
+  const actorBContext = await browser.newContext()
+  const actorA = await actorAContext.newPage()
+  const actorB = await actorBContext.newPage()
+
+  try {
+    await Promise.all([
+      actorA.goto(mockAiCollaborationUrl(fileId)),
+      actorB.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([
+      waitForAppReady(actorA),
+      waitForAppReady(actorB),
+      waitForCollaboration(actorA),
+      waitForCollaboration(actorB)
+    ])
+    await Promise.all([
+      capturePublicationOutcomes(actorA),
+      capturePublicationOutcomes(actorB)
+    ])
+
+    const [actorAUndoDepthBefore, actorBUndoDepthBefore] = await Promise.all([
+      getUndoDepth(actorA),
+      getUndoDepth(actorB)
+    ])
+    const [actorAPersistenceBefore, actorBPersistenceBefore] =
+      await Promise.all([
+        getClientPersistenceFingerprint(actorA, fileId),
+        getClientPersistenceFingerprint(actorB, fileId)
+      ])
+
+    await actorA.getByRole('button', { name: 'Open Mock AI' }).click()
+    await expect(actorA.getByTestId('mock-ai-panel')).toBeVisible()
+    await actorA
+      .getByLabel('Message Agent')
+      .fill('create the fast CRDT performance fixture')
+    await actorA.getByRole('button', { name: 'Send' }).click()
+
+    const settledTurn = actorA
+      .getByTestId('mock-ai-panel')
+      .locator('article[data-turn-id]')
+      .last()
+    await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
+      timeout: 30_000
+    })
+    await expect.poll(() => getElementCount(actorA)).toBe(17)
+    await expect.poll(() => getElementCount(actorB)).toBe(17)
+
+    const [
+      actorASnapshot,
+      actorBSnapshot,
+      actorAHierarchy,
+      actorBHierarchy,
+      actorACanonicalSave,
+      actorBCanonicalSave,
+      actorAUndoDepthAfter,
+      actorBUndoDepthAfter
+    ] = await Promise.all([
+      getCanonicalSnapshot(actorA),
+      getCanonicalSnapshot(actorB),
+      getCanonicalHierarchyGeometry(actorA),
+      getCanonicalHierarchyGeometry(actorB),
+      getCanonicalDocumentSave(actorA),
+      getCanonicalDocumentSave(actorB),
+      getUndoDepth(actorA),
+      getUndoDepth(actorB)
+    ])
+
+    expect(actorASnapshot).toEqual(actorBSnapshot)
+    expect(actorAHierarchy).toEqual(actorBHierarchy)
+    expect(actorACanonicalSave).toEqual(actorBCanonicalSave)
+    expect(actorASnapshot.filter(({ type }) => type === 'group')).toHaveLength(
+      1
+    )
+    expect(actorASnapshot.filter(({ type }) => type === 'vector')).toHaveLength(
+      16
+    )
+    expect(actorASnapshot.every(({ rendered }) => rendered)).toBe(true)
+    expect(actorAUndoDepthAfter).toBe(actorAUndoDepthBefore + 1)
+    expect(actorBUndoDepthAfter).toBe(actorBUndoDepthBefore)
+    await expect
+      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
+      .not.toBe(actorAPersistenceBefore)
+    const actorACreatedPersistence = await getClientPersistenceFingerprint(
+      actorA,
+      fileId
+    )
+    expect(await getClientPersistenceFingerprint(actorB, fileId)).toBe(
+      actorBPersistenceBefore
+    )
+    expect(await getPublicationOutcomes(actorA)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: 'process-failed' })
+      ])
+    )
+    expect(await getPublicationOutcomes(actorB)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: 'process-failed' })
+      ])
+    )
+
+    await undo(actorA)
+    await expect.poll(() => getElementCount(actorA)).toBe(0)
+    await expect.poll(() => getElementCount(actorB)).toBe(0)
+    await expect
+      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
+      .not.toBe(actorACreatedPersistence)
+    expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
+
+    await redo(actorA)
+    await expect
+      .poll(() => getCanonicalSnapshot(actorA))
+      .toEqual(actorASnapshot)
+    await expect
+      .poll(() => getCanonicalSnapshot(actorB))
+      .toEqual(actorASnapshot)
+    await expect
+      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
+      .toBe(actorACreatedPersistence)
+    expect(await getCanonicalHierarchyGeometry(actorB)).toEqual(actorAHierarchy)
+    expect(await getCanonicalDocumentSave(actorB)).toEqual(actorACanonicalSave)
+    expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
+    expect(await getClientPersistenceFingerprint(actorB, fileId)).toBe(
+      actorBPersistenceBefore
+    )
+  } finally {
+    await Promise.all([actorAContext.close(), actorBContext.close()])
+  }
+})
 
 test('two real Asyra Design windows converge while connected and reconnect live-only', async ({
   browser

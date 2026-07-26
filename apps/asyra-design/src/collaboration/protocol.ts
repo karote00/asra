@@ -5,15 +5,23 @@ import type {
   ProviderIdentity
 } from '@asyra/collaboration'
 import { isRecord } from '@asyra/utils'
+import {
+  decodeCompactBinary,
+  encodeCompactBinary,
+  encodeCompactBinaryIfSmaller
+} from './compact-binary'
+import { decodeCompactJson, encodeCompactJsonIfSmaller } from './compact-json'
 import { isNonBlankString } from './wire-values'
 
 export const CollaborationMessageTypes = {
   HELLO: 'hello',
   SEND_PUBLICATION: 'send-publication',
+  SEND_PUBLICATIONS: 'send-publications',
   SEND_AWARENESS: 'send-awareness',
   READY: 'ready',
   RESPONSE: 'response',
   PUBLICATION: 'publication',
+  PUBLICATIONS: 'publications',
   AWARENESS: 'awareness',
   AWARENESS_DISCONNECT: 'awareness-disconnect',
   FAILURE: 'failure',
@@ -31,6 +39,12 @@ export interface SendPublicationRequest {
   readonly publication: SharedPublication
 }
 
+export interface SendPublicationsRequest {
+  readonly type: typeof CollaborationMessageTypes.SEND_PUBLICATIONS
+  readonly requestId: string
+  readonly publications: readonly SharedPublication[]
+}
+
 export interface SendAwarenessRequest {
   readonly type: typeof CollaborationMessageTypes.SEND_AWARENESS
   readonly requestId: string
@@ -39,6 +53,7 @@ export interface SendAwarenessRequest {
 
 export type CollaborationRequestMessage =
   | SendPublicationRequest
+  | SendPublicationsRequest
   | SendAwarenessRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
@@ -80,6 +95,12 @@ export interface PublicationMessage {
   readonly fromActorId?: string
 }
 
+export interface PublicationsMessage {
+  readonly type: typeof CollaborationMessageTypes.PUBLICATIONS
+  readonly publications: readonly SharedPublication[]
+  readonly fromActorId?: string
+}
+
 export type AwarenessMessage = Readonly<
   {
     type: typeof CollaborationMessageTypes.AWARENESS
@@ -111,6 +132,7 @@ export type CollaborationServerMessage =
   | SuccessfulResponseMessage
   | FailedResponseMessage
   | PublicationMessage
+  | PublicationsMessage
   | AwarenessMessage
   | AwarenessDisconnectMessage
   | FailureMessage
@@ -158,77 +180,142 @@ export const isSharedPublication = (
       delivery.origin === value.origin
   )
 
-const isJsonTransportValueInternal = (
-  value: unknown,
-  ancestors: Set<object>
-): boolean => {
-  if (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'boolean'
-  ) {
-    return true
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && !Object.is(value, -0)
-  }
-  if (typeof value !== 'object') return false
+type JsonTransportTraversalFrame =
+  | {
+      readonly kind: 'value'
+      readonly depth: number
+      readonly value: unknown
+    }
+  | {
+      readonly kind: 'leave'
+      readonly value: object
+    }
 
-  const objectValue = value as object
-  if (ancestors.has(objectValue)) return false
-  ancestors.add(objectValue)
-  try {
-    if (Array.isArray(value)) {
-      const keys = Reflect.ownKeys(value)
-      if (keys.length !== value.length + 1) return false
-      return keys.every((key) => {
-        if (key === 'length') return true
-        if (typeof key !== 'string') return false
+interface JsonTransportAnalysis {
+  readonly maximumDepth: number
+}
+
+const MAX_RECURSIVE_JSON_TRANSPORT_DEPTH = 256
+
+const analyzeJsonTransportValue = (
+  value: unknown
+): JsonTransportAnalysis | null => {
+  const ancestors = new Set<object>()
+  const frames: JsonTransportTraversalFrame[] = [
+    { depth: 0, kind: 'value', value }
+  ]
+  let maximumDepth = 0
+  while (frames.length > 0) {
+    const frame = frames.pop()
+    if (!frame) return null
+    if (frame.kind === 'leave') {
+      ancestors.delete(frame.value)
+      continue
+    }
+    maximumDepth = Math.max(maximumDepth, frame.depth)
+    const child = frame.value
+    if (
+      child === null ||
+      typeof child === 'string' ||
+      typeof child === 'boolean'
+    ) {
+      continue
+    }
+    if (typeof child === 'number') {
+      if (!Number.isFinite(child) || Object.is(child, -0)) return null
+      continue
+    }
+    if (typeof child !== 'object' || ancestors.has(child)) return null
+    ancestors.add(child)
+    frames.push({ kind: 'leave', value: child })
+
+    if (Array.isArray(child)) {
+      const keys = Reflect.ownKeys(child)
+      if (keys.length !== child.length + 1) return null
+      const values = new Array<unknown>(child.length)
+      for (const key of keys) {
+        if (key === 'length') continue
+        if (typeof key !== 'string') return null
         const index = Number(key)
         if (
           !Number.isInteger(index) ||
           index < 0 ||
-          index >= value.length ||
+          index >= child.length ||
           String(index) !== key
         ) {
-          return false
+          return null
         }
-        const descriptor = Object.getOwnPropertyDescriptor(value, key)
-        return (
-          descriptor?.enumerable === true &&
-          'value' in descriptor &&
-          isJsonTransportValueInternal(descriptor.value, ancestors)
-        )
-      })
+        const descriptor = Object.getOwnPropertyDescriptor(child, key)
+        if (!descriptor?.enumerable || !('value' in descriptor)) return null
+        values[index] = descriptor.value
+      }
+      for (let index = values.length - 1; index >= 0; index -= 1) {
+        frames.push({
+          depth: frame.depth + 1,
+          kind: 'value',
+          value: values[index]
+        })
+      }
+      continue
     }
 
-    const prototype = Object.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) return false
-    return Reflect.ownKeys(value).every((key) => {
-      if (typeof key !== 'string') return false
-      const descriptor = Object.getOwnPropertyDescriptor(value, key)
-      return (
-        descriptor?.enumerable === true &&
-        'value' in descriptor &&
-        isJsonTransportValueInternal(descriptor.value, ancestors)
-      )
-    })
-  } finally {
-    ancestors.delete(objectValue)
+    const prototype = Object.getPrototypeOf(child)
+    if (prototype !== Object.prototype && prototype !== null) return null
+    const keys = Reflect.ownKeys(child)
+    for (let index = keys.length - 1; index >= 0; index -= 1) {
+      const key = keys[index]
+      if (typeof key !== 'string') return null
+      const descriptor = Object.getOwnPropertyDescriptor(child, key)
+      if (!descriptor?.enumerable || !('value' in descriptor)) return null
+      frames.push({
+        depth: frame.depth + 1,
+        kind: 'value',
+        value: descriptor.value
+      })
+    }
   }
+  return { maximumDepth }
 }
 
 export const isJsonTransportValue = (value: unknown): boolean =>
-  isJsonTransportValueInternal(value, new Set())
+  analyzeJsonTransportValue(value) !== null
 
-export const encodeCollaborationMessage = (value: unknown): string => {
-  if (!isJsonTransportValue(value)) {
+export type EncodedCollaborationMessage = string | Uint8Array
+export type EncodedCollaborationMessageInput =
+  | string
+  | ArrayBuffer
+  | ArrayBufferView
+
+export const encodeCollaborationMessage = (
+  value: unknown
+): EncodedCollaborationMessage => {
+  const analysis = analyzeJsonTransportValue(value)
+  if (!analysis) {
     throw new TypeError(
       '[collaboration] message contains a value that JSON cannot preserve'
     )
   }
-  return JSON.stringify(value)
+  if (analysis.maximumDepth > MAX_RECURSIVE_JSON_TRANSPORT_DEPTH) {
+    return encodeCompactBinary(value)
+  }
+  const plain = JSON.stringify(value)
+  if (plain === undefined) {
+    throw new TypeError(
+      '[collaboration] message contains a value that JSON cannot preserve'
+    )
+  }
+  const compactBinary = encodeCompactBinaryIfSmaller(value, plain)
+  return compactBinary instanceof Uint8Array
+    ? compactBinary
+    : encodeCompactJsonIfSmaller(value, plain)
 }
+
+export const decodeCollaborationMessage = (
+  encoded: EncodedCollaborationMessageInput
+): unknown =>
+  typeof encoded === 'string'
+    ? decodeCompactJson(encoded)
+    : decodeCompactBinary(encoded)
 
 const isProviderIdentity = (value: unknown): value is ProviderIdentity =>
   isRecord(value) &&
@@ -257,6 +344,13 @@ const isOptionalNonBlankString = (
   value: unknown
 ): value is string | undefined => value === undefined || isNonBlankString(value)
 
+const isNonEmptyPublicationArray = (
+  value: unknown
+): value is readonly SharedPublication[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every((publication) => isSharedPublication(publication))
+
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
@@ -279,6 +373,15 @@ export const parseCollaborationClientMessage = (
             type: value.type,
             requestId: value.requestId,
             publication: value.publication
+          }
+        : undefined
+    case CollaborationMessageTypes.SEND_PUBLICATIONS:
+      return isNonBlankString(value.requestId) &&
+        isNonEmptyPublicationArray(value.publications)
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            publications: value.publications
           }
         : undefined
     case CollaborationMessageTypes.SEND_AWARENESS:
@@ -328,6 +431,15 @@ export const parseCollaborationServerMessage = (
         ? {
             type: value.type,
             publication: value.publication,
+            ...(value.fromActorId ? { fromActorId: value.fromActorId } : {})
+          }
+        : undefined
+    case CollaborationMessageTypes.PUBLICATIONS:
+      return isNonEmptyPublicationArray(value.publications) &&
+        isOptionalNonBlankString(value.fromActorId)
+        ? {
+            type: value.type,
+            publications: value.publications,
             ...(value.fromActorId ? { fromActorId: value.fromActorId } : {})
           }
         : undefined

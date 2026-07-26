@@ -158,7 +158,7 @@ describe('Collaboration publication handoff', () => {
       roomId: 'room-a',
       actorId: 'actor-a'
     })
-    const sendPublication = vi.spyOn(provider, 'sendPublication')
+    const sendPublications = vi.spyOn(provider, 'sendPublications')
     const instance = createCollaboration({
       documentId: 'document-a',
       roomId: 'room-a',
@@ -174,16 +174,13 @@ describe('Collaboration publication handoff', () => {
     subscriber?.(repeated)
     await instance.whenIdle()
 
-    expect(sendPublication).toHaveBeenCalledTimes(2)
-    expect(sendPublication.mock.calls.map(([sent]) => sent)).toEqual([
-      repeated,
-      repeated
-    ])
+    expect(sendPublications).toHaveBeenCalledOnce()
+    expect(sendPublications).toHaveBeenCalledWith([repeated, repeated])
 
     await instance.dispose()
   })
 
-  it('does not hand off a later publication before the current send settles', async () => {
+  it('does not hand off a later publication batch before the current send settles', async () => {
     let subscriber: SharedPublicationSubscriber | undefined
     let acknowledgeFirst: (() => void) | undefined
     const firstAcknowledgement = new Promise<void>((resolve) => {
@@ -201,6 +198,7 @@ describe('Collaboration publication handoff', () => {
       actorId: 'actor-a'
     })
     const sendPublication = vi.spyOn(provider, 'sendPublication')
+    const sendPublications = vi.spyOn(provider, 'sendPublications')
     const instance = createCollaboration({
       documentId: 'document-a',
       roomId: 'room-a',
@@ -217,15 +215,24 @@ describe('Collaboration publication handoff', () => {
     await instance.start()
 
     subscriber?.({ ...publication(), publicationId: 'publication-1' })
-    subscriber?.({ ...publication(), publicationId: 'publication-2' })
     await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledOnce())
+    subscriber?.({ ...publication(), publicationId: 'publication-2' })
+    subscriber?.({ ...publication(), publicationId: 'publication-3' })
+    await Promise.resolve()
+
+    expect(sendPublications).not.toHaveBeenCalled()
 
     acknowledgeFirst?.()
     await instance.whenIdle()
 
     expect(
       sendPublication.mock.calls.map(([sent]) => sent.publicationId)
-    ).toEqual(['publication-1', 'publication-2'])
+    ).toEqual(['publication-1'])
+    expect(
+      sendPublications.mock.calls.map(([sent]) =>
+        sent.map(({ publicationId }) => publicationId)
+      )
+    ).toEqual([['publication-2', 'publication-3']])
 
     await instance.dispose()
   })

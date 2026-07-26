@@ -14,6 +14,7 @@ import { elementApis } from '../../common-apis/element'
 import { hierarchyApis } from '../../common-apis/hierarchy'
 import { strokeApis } from '../../common-apis/strokes'
 import { initApp } from '../init-app'
+import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 
 const calls: string[] = []
 
@@ -74,6 +75,7 @@ describe('initApp preset composition', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     delete window.__AsyraE2E__
+    delete window.__AsyraAiDrawingPerformance__
   })
 
   it('applies the default preset with an AI-disabled lifecycle', async () => {
@@ -233,5 +235,29 @@ describe('initApp preset composition', () => {
       disposed: true
     })
     expect(disposeFeature).toHaveBeenCalledOnce()
+  })
+
+  it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {
+    const detachRuntimeEvidence = vi.fn()
+    const attachRuntimeEvidence = vi
+      .spyOn(aiDrawingPerformance, 'attachAiDrawingPerformanceRuntimeEvidence')
+      .mockReturnValue(detachRuntimeEvidence)
+    window.__AsyraAiDrawingPerformance__ = {} as never
+
+    const initialization = initApp()
+
+    expect(attachRuntimeEvidence).toHaveBeenCalledOnce()
+    expect(attachRuntimeEvidence).toHaveBeenCalledWith(
+      window.__AsyraAiDrawingPerformance__,
+      {
+        readCanonicalElementCount: expect.any(Function),
+        readCanonicalElements: expect.any(Function),
+        subscribeToTransactionStatus: expect.any(Function)
+      }
+    )
+
+    await initialization.dispose()
+
+    expect(detachRuntimeEvidence).toHaveBeenCalledOnce()
   })
 })

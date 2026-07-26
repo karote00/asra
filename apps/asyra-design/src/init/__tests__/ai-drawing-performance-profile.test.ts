@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  attachAiDrawingPerformanceRuntimeEvidence,
   installAiDrawingPerformanceProfile,
+  recordAiDrawingPerformancePublication,
   resolveAiDrawingPerformanceProfile
 } from '../performance/ai-drawing-performance-profile'
 
@@ -122,6 +124,115 @@ describe('AI drawing performance profile', () => {
     })
 
     expect(profile.snapshot().releaseEvidenceEligible).toBe(false)
+
+    profile.dispose()
+  })
+
+  it('captures detached canonical and Factory evidence without exposing runtime owners', () => {
+    let transactionSubscriber:
+      | ((status: {
+          origin: string
+          status: string
+          timestamp: number
+          transactionId: number
+        }) => void)
+      | undefined
+    const detachTransactions = vi.fn()
+    const canonicalElements = [
+      {
+        computed: {
+          fills: [{ color: '#FFFFFF' }]
+        },
+        id: 'vector-1',
+        raw: {
+          props: {
+            points: {
+              pointA: { x: 1, y: 2 }
+            }
+          }
+        },
+        rendered: true,
+        type: 'vector'
+      }
+    ]
+    const epochNow = vi.fn<() => number>().mockReturnValueOnce(1_000)
+    const profile = installAiDrawingPerformanceProfile({
+      configuration: {
+        contentsMode: 'present',
+        deliveryMode: 'progressive'
+      },
+      epochNow,
+      now: () => 0,
+      runtime: 'production'
+    })
+
+    const detachRuntime = attachAiDrawingPerformanceRuntimeEvidence(profile, {
+      readCanonicalElementCount: () => canonicalElements.length,
+      readCanonicalElements: () => canonicalElements,
+      subscribeToTransactionStatus: (subscriber) => {
+        transactionSubscriber = subscriber
+        return detachTransactions
+      }
+    })
+
+    expect(profile).not.toHaveProperty('attachRuntimeEvidence')
+    expect(profile.readCanonicalElementCount()).toBe(1)
+
+    recordAiDrawingPerformancePublication(profile, {
+      deliveryCount: 2,
+      publicationId: 'publication-1'
+    })
+    transactionSubscriber?.({
+      origin: 'action',
+      status: 'committing',
+      timestamp: 700,
+      transactionId: 7
+    })
+    transactionSubscriber?.({
+      origin: 'action',
+      status: 'committed',
+      timestamp: 750,
+      transactionId: 7
+    })
+
+    expect(profile.getRuntimeEvidence()).toEqual({
+      factoryCommits: [
+        {
+          capturedAtMs: 750,
+          origin: 'action',
+          transactionId: 7
+        }
+      ],
+      factoryPublications: [
+        {
+          capturedAtMs: 1_000,
+          deliveryCount: 2,
+          publicationId: 'publication-1'
+        }
+      ]
+    })
+
+    const detachedElements = profile.readCanonicalElements()
+    expect(detachedElements).toEqual(canonicalElements)
+    expect(detachedElements).not.toBe(canonicalElements)
+    ;(
+      detachedElements[0].raw as {
+        props: { points: { pointA: { x: number } } }
+      }
+    ).props.points.pointA.x = 99
+    expect(canonicalElements[0].raw.props.points.pointA.x).toBe(1)
+
+    profile.reset()
+    expect(profile.getRuntimeEvidence()).toEqual({
+      factoryCommits: [],
+      factoryPublications: []
+    })
+
+    detachRuntime()
+    expect(detachTransactions).toHaveBeenCalledOnce()
+    expect(() => profile.readCanonicalElements()).toThrow(
+      'runtime evidence is unavailable'
+    )
 
     profile.dispose()
   })

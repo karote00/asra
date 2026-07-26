@@ -1,5 +1,6 @@
 import type { SharedPublication } from '@asyra/factory'
 import {
+  emitDiagnosticCounter,
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase
 } from '@asyra/utils'
@@ -16,15 +17,24 @@ import {
 } from '@asyra/collaboration'
 import {
   CollaborationMessageTypes,
+  decodeCollaborationMessage,
   encodeCollaborationMessage,
   parseCollaborationServerMessage,
   type CollaborationHelloMessage,
+  type EncodedCollaborationMessage,
   type CollaborationRequestInput,
   type CollaborationRequestMessage,
   type CollaborationServerMessage
 } from './protocol'
 
 type Subscriber<T> = (value: T) => void
+
+const isEncodedBinaryMessage = (
+  value: unknown
+): value is ArrayBuffer | ArrayBufferView =>
+  value instanceof ArrayBuffer ||
+  ArrayBuffer.isView(value) ||
+  Object.prototype.toString.call(value) === '[object ArrayBuffer]'
 
 interface PendingRequest {
   resolve(value: unknown): void
@@ -52,6 +62,8 @@ const toFailure = (
 
 export class CollaborationWebSocketProvider implements Provider {
   readonly identity: ProviderIdentity
+  readonly maxConcurrentPublicationSends = 16
+  readonly maxPublicationsPerSend = 4
 
   private readonly endpoint: string
   private status: ProviderStatus = 'idle'
@@ -64,6 +76,9 @@ export class CollaborationWebSocketProvider implements Provider {
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
   private readonly publicationSubscribers = new Set<
     Subscriber<InboundPublication>
+  >()
+  private readonly publicationBatchSubscribers = new Set<
+    Subscriber<readonly InboundPublication[]>
   >()
   private readonly awarenessSubscribers = new Set<
     Subscriber<ProviderAwarenessMessage>
@@ -98,6 +113,7 @@ export class CollaborationWebSocketProvider implements Provider {
       this.emit(this.failureSubscribers, failure)
       return Promise.reject(failure)
     }
+    socket.binaryType = 'arraybuffer'
     this.socket = socket
     this.connectPromise = new Promise<void>((resolve, reject) => {
       let settled = false
@@ -144,7 +160,7 @@ export class CollaborationWebSocketProvider implements Provider {
           type: CollaborationMessageTypes.HELLO,
           identity: this.identity
         }
-        let encodedHello: string
+        let encodedHello: EncodedCollaborationMessage
         try {
           encodedHello = encodeCollaborationMessage(hello)
         } catch (error) {
@@ -173,47 +189,52 @@ export class CollaborationWebSocketProvider implements Provider {
       })
       socket.addEventListener('message', (event) => {
         if (generation !== this.connectionGeneration) return
-        const message = this.parseMessage(event.data)
-        if (!message) {
-          const failure = new ProviderFailure(
-            'transport-failed',
-            '[collaboration] invalid WebSocket server message'
-          )
-          if (!settled) {
-            rejectConnection(failure)
-          } else {
-            this.rejectPending(failure)
-            this.setStatus('failed')
-            this.emit(this.failureSubscribers, failure)
-          }
-          socket.close(1002, 'invalid server message')
-          return
-        }
-        if (message.type === CollaborationMessageTypes.READY) {
-          if (!settled) {
-            if (this.status === 'disposed') {
-              rejectConnection(
-                new ProviderFailure(
-                  'disposed',
-                  '[collaboration] provider was disposed before connection ready'
-                )
+        measureBrowserDragPhase(
+          'collaboration:inbound-receive-to-dispatch',
+          () => {
+            const message = this.parseMessage(event.data)
+            if (!message) {
+              const failure = new ProviderFailure(
+                'transport-failed',
+                '[collaboration] invalid WebSocket server message'
               )
+              if (!settled) {
+                rejectConnection(failure)
+              } else {
+                this.rejectPending(failure)
+                this.setStatus('failed')
+                this.emit(this.failureSubscribers, failure)
+              }
+              socket.close(1002, 'invalid server message')
               return
             }
-            settled = true
-            this.connectPromise = null
-            this.cancelConnect = undefined
-            this.setStatus('connected')
-            resolve()
+            if (message.type === CollaborationMessageTypes.READY) {
+              if (!settled) {
+                if (this.status === 'disposed') {
+                  rejectConnection(
+                    new ProviderFailure(
+                      'disposed',
+                      '[collaboration] provider was disposed before connection ready'
+                    )
+                  )
+                  return
+                }
+                settled = true
+                this.connectPromise = null
+                this.cancelConnect = undefined
+                this.setStatus('connected')
+                resolve()
+              }
+              return
+            }
+            if (message.type === CollaborationMessageTypes.CONNECTION_ERROR) {
+              rejectConnection(toFailure(message.code, message.message))
+              socket.close()
+              return
+            }
+            this.handleMessage(message)
           }
-          return
-        }
-        if (message.type === CollaborationMessageTypes.CONNECTION_ERROR) {
-          rejectConnection(toFailure(message.code, message.message))
-          socket.close()
-          return
-        }
-        this.handleMessage(message)
+        )
       })
       socket.addEventListener('error', () => {
         rejectConnection(
@@ -308,6 +329,7 @@ export class CollaborationWebSocketProvider implements Provider {
     )
     this.statusSubscribers.clear()
     this.publicationSubscribers.clear()
+    this.publicationBatchSubscribers.clear()
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -332,8 +354,33 @@ export class CollaborationWebSocketProvider implements Provider {
     )
   }
 
+  async sendPublications(
+    publications: readonly SharedPublication[]
+  ): Promise<void> {
+    if (publications.length === 0) return
+    emitDiagnosticCounter('collaboration:outbound-batch-request-count')
+    emitDiagnosticCounter(
+      'collaboration:outbound-batch-publication-count',
+      publications.length
+    )
+    await measureBrowserDragAsyncPhase(
+      'collaboration:outbound-batch-send-to-ack',
+      () =>
+        this.request({
+          type: CollaborationMessageTypes.SEND_PUBLICATIONS,
+          publications
+        })
+    )
+  }
+
   onPublication(subscriber: Subscriber<InboundPublication>): () => void {
     return this.subscribe(this.publicationSubscribers, subscriber)
+  }
+
+  onPublications(
+    subscriber: Subscriber<readonly InboundPublication[]>
+  ): () => void {
+    return this.subscribe(this.publicationBatchSubscribers, subscriber)
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -373,7 +420,7 @@ export class CollaborationWebSocketProvider implements Provider {
       ...input,
       requestId
     }
-    let encodedMessage: string
+    let encodedMessage: EncodedCollaborationMessage
     try {
       encodedMessage = measureBrowserDragPhase(
         'collaboration:outbound-encode',
@@ -386,10 +433,18 @@ export class CollaborationWebSocketProvider implements Provider {
         error
       )
     }
+    emitDiagnosticCounter(
+      'collaboration:outbound-encoded-byte-length',
+      typeof encodedMessage === 'string'
+        ? new TextEncoder().encode(encodedMessage).byteLength
+        : encodedMessage.byteLength
+    )
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(requestId, { resolve, reject })
       try {
-        socket.send(encodedMessage)
+        measureBrowserDragPhase('collaboration:outbound-wire-send', () =>
+          socket.send(encodedMessage)
+        )
       } catch (error) {
         this.pendingRequests.delete(requestId)
         reject(toFailure('transport-failed', String(error)))
@@ -415,13 +470,11 @@ export class CollaborationWebSocketProvider implements Provider {
       return
     }
     if (message.type === CollaborationMessageTypes.PUBLICATION) {
-      this.emit(this.publicationSubscribers, {
-        publication: measureBrowserDragPhase(
-          'collaboration:inbound-provider-clone',
-          () => structuredClone(message.publication)
-        ),
-        ...(message.fromActorId ? { fromActorId: message.fromActorId } : {})
-      })
+      this.emitInboundPublications([message.publication], message.fromActorId)
+      return
+    }
+    if (message.type === CollaborationMessageTypes.PUBLICATIONS) {
+      this.emitInboundPublications(message.publications, message.fromActorId)
       return
     }
     if (message.type === CollaborationMessageTypes.AWARENESS) {
@@ -447,15 +500,59 @@ export class CollaborationWebSocketProvider implements Provider {
     }
   }
 
+  private emitInboundPublications(
+    publications: readonly SharedPublication[],
+    fromActorId?: string
+  ): void {
+    const detached = measureBrowserDragPhase(
+      'collaboration:inbound-provider-clone',
+      () => structuredClone(publications)
+    )
+    const inbound = detached.map((publication) =>
+      Object.freeze({
+        publication,
+        ...(fromActorId ? { fromActorId } : {})
+      })
+    )
+    const batchSubscribers = [...this.publicationBatchSubscribers]
+    const batchSnapshots = batchSubscribers.map((_, index) =>
+      index === 0 ? inbound : structuredClone(inbound)
+    )
+    const singleSubscribers = [...this.publicationSubscribers]
+    const singlePublicationSnapshots = singleSubscribers.map(() =>
+      structuredClone(inbound)
+    )
+    batchSubscribers.forEach((subscriber, index) => {
+      const snapshot = batchSnapshots[index]
+      if (!snapshot) return
+      try {
+        subscriber(snapshot)
+      } catch {
+        // Transport observers cannot alter provider settlement.
+      }
+    })
+    singleSubscribers.forEach((subscriber, subscriberIndex) => {
+      const snapshots = singlePublicationSnapshots[subscriberIndex]
+      if (!snapshots) return
+      for (const publication of snapshots) {
+        try {
+          subscriber(publication)
+        } catch {
+          // Transport observers cannot alter provider settlement.
+        }
+      }
+    })
+  }
+
   private parseMessage(value: unknown): CollaborationServerMessage | undefined {
     let message: CollaborationServerMessage | undefined
     try {
-      if (typeof value !== 'string') {
+      if (typeof value !== 'string' && !isEncodedBinaryMessage(value)) {
         return
       }
       const decoded = measureBrowserDragPhase(
-        'collaboration:inbound-json-parse',
-        () => JSON.parse(value) as unknown
+        'collaboration:inbound-wire-decode',
+        () => decodeCollaborationMessage(value)
       )
       message = measureBrowserDragPhase(
         'collaboration:inbound-protocol-validate',

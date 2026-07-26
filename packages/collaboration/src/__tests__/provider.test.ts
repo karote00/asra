@@ -76,6 +76,159 @@ describe('replaceable collaboration Provider contract', () => {
     expect((sent.deliveries[0]?.payload as { value: number }).value).toBe(1)
   })
 
+  it('fans out one detached ordered publication batch through the hub once', async () => {
+    const acknowledgePublication = vi.fn()
+    const acknowledgePublications = vi.fn(() => true)
+    const hub = new MemoryHub({
+      acknowledgePublication,
+      acknowledgePublications
+    })
+    const sender = new MemoryProvider(
+      hub,
+      identity('actor-a')
+    ) as MemoryProvider & {
+      sendPublications(
+        publications: readonly SharedPublication[]
+      ): Promise<void>
+    }
+    const receiver = new MemoryProvider(
+      hub,
+      identity('actor-b')
+    ) as MemoryProvider & {
+      onPublications(
+        subscriber: (
+          publications: readonly {
+            publication: SharedPublication
+            fromActorId?: string
+          }[]
+        ) => void
+      ): () => void
+    }
+    const inbound = vi.fn()
+    receiver.onPublications(inbound)
+    await sender.connect()
+    await receiver.connect()
+    const publications = [
+      publication('publication-a', 1),
+      publication('publication-b', 2)
+    ] as const
+
+    await sender.sendPublications(publications)
+
+    expect(inbound).toHaveBeenCalledOnce()
+    expect(inbound).toHaveBeenCalledWith([
+      { publication: publications[0], fromActorId: 'actor-a' },
+      { publication: publications[1], fromActorId: 'actor-a' }
+    ])
+    expect(inbound.mock.calls[0]?.[0]).not.toBe(publications)
+    expect(inbound.mock.calls[0]?.[0][0].publication).not.toBe(publications[0])
+    expect(acknowledgePublications).toHaveBeenCalledOnce()
+    expect(acknowledgePublications).toHaveBeenCalledWith(
+      publications,
+      sender.identity
+    )
+    expect(acknowledgePublication).not.toHaveBeenCalled()
+  })
+
+  it('does not fall back to per-publication clone work for an unguarded hub batch', async () => {
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const inbound = vi.fn()
+    receiver.onPublications(inbound)
+    await sender.connect()
+    await receiver.connect()
+    const phaseSink = vi.fn()
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraBrowserDragPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraBrowserDragPhaseSink = phaseSink
+
+    try {
+      await sender.sendPublications([
+        publication('publication-a', 1),
+        publication('publication-b', 2)
+      ])
+    } finally {
+      delete (
+        globalThis as typeof globalThis & {
+          __asyraBrowserDragPhaseSink?: unknown
+        }
+      ).__asyraBrowserDragPhaseSink
+    }
+
+    expect(inbound).toHaveBeenCalledOnce()
+    const phaseNames = phaseSink.mock.calls.map(([phaseName]) => phaseName)
+    expect(phaseNames).not.toContain('collaboration:clone-publication')
+    expect(
+      phaseNames.filter(
+        (phaseName) => phaseName === 'collaboration:clone-publications'
+      )
+    ).toHaveLength(2)
+    expect(phaseNames).not.toContain('collaboration:clone-inbound-publications')
+  })
+
+  it('isolates multiple batch subscribers without adding a single-item path', async () => {
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const secondInbound = vi.fn()
+    receiver.onPublications((inbound) => {
+      const payload = inbound[0]?.publication.deliveries[0]?.payload as {
+        value: number
+      }
+      payload.value = 999
+    })
+    receiver.onPublications(secondInbound)
+    await sender.connect()
+    await receiver.connect()
+    const sent = publication('publication-a', 1)
+
+    await sender.sendPublications([sent, publication('publication-b', 2)])
+
+    expect(secondInbound).toHaveBeenCalledOnce()
+    expect(
+      (
+        secondInbound.mock.calls[0]?.[0][0].publication.deliveries[0]
+          ?.payload as { value: number }
+      ).value
+    ).toBe(1)
+    expect((sent.deliveries[0]?.payload as { value: number }).value).toBe(1)
+  })
+
+  it('isolates legacy single subscribers from batch subscriber mutation', async () => {
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const singleInbound = vi.fn()
+    receiver.onPublications((inbound) => {
+      const payload = inbound[0]?.publication.deliveries[0]?.payload as {
+        value: number
+      }
+      payload.value = 999
+    })
+    receiver.onPublication(singleInbound)
+    await sender.connect()
+    await receiver.connect()
+
+    await sender.sendPublications([
+      publication('publication-a', 1),
+      publication('publication-b', 2)
+    ])
+
+    expect(
+      (
+        singleInbound.mock.calls[0]?.[0].publication.deliveries[0]?.payload as {
+          value: number
+        }
+      ).value
+    ).toBe(1)
+  })
+
   it('forwards repeated equal publications instead of deduplicating them', async () => {
     const hub = new MemoryHub()
     const sender = new MemoryProvider(hub, identity('actor-a'))

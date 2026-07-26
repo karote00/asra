@@ -3,10 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clonePublication } from '../cloning'
 
 const profilerGlobal = globalThis as typeof globalThis & {
-  __asyraBrowserDragPhaseSink?: (
-    phaseName: string,
-    durationMs: number
-  ) => void
+  __asyraBrowserDragPhaseSink?: (phaseName: string, durationMs: number) => void
 }
 
 afterEach(() => {

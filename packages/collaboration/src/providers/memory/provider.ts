@@ -9,7 +9,12 @@ import {
   type ProviderIdentity,
   type ProviderStatus
 } from '../../provider'
-import { cloneAwareness, clonePublication } from '../../cloning'
+import {
+  cloneAwareness,
+  cloneInboundPublications,
+  clonePublication,
+  clonePublications
+} from '../../cloning'
 import { MemoryHub, type MemoryPeer } from './hub'
 
 export class MemoryProvider implements Provider, MemoryPeer {
@@ -25,6 +30,9 @@ export class MemoryProvider implements Provider, MemoryPeer {
   >()
   private readonly publicationSubscribers = new Set<
     (publication: InboundPublication) => void
+  >()
+  private readonly publicationBatchSubscribers = new Set<
+    (publications: readonly InboundPublication[]) => void
   >()
   private readonly awarenessSubscribers = new Set<
     (message: ProviderAwarenessMessage) => void
@@ -181,6 +189,7 @@ export class MemoryProvider implements Provider, MemoryPeer {
     )
     this.statusSubscribers.clear()
     this.publicationSubscribers.clear()
+    this.publicationBatchSubscribers.clear()
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -203,10 +212,28 @@ export class MemoryProvider implements Provider, MemoryPeer {
     }
   }
 
+  async sendPublications(
+    publications: readonly SharedPublication[]
+  ): Promise<void> {
+    this.requireConnected()
+    if (publications.length === 0) return
+    try {
+      await this.hub.receivePublications(this, clonePublications(publications))
+    } catch (error) {
+      this.failTransport(error)
+    }
+  }
+
   onPublication(
     subscriber: (publication: InboundPublication) => void
   ): () => void {
     return this.subscribe(this.publicationSubscribers, subscriber)
+  }
+
+  onPublications(
+    subscriber: (publications: readonly InboundPublication[]) => void
+  ): () => void {
+    return this.subscribe(this.publicationBatchSubscribers, subscriber)
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -242,18 +269,39 @@ export class MemoryProvider implements Provider, MemoryPeer {
     return this.subscribe(this.failureSubscribers, subscriber)
   }
 
-  receivePublication(inbound: InboundPublication): void {
+  receivePublications(inbound: readonly InboundPublication[]): void {
     if (this.status !== 'connected') return
-    ;[...this.publicationSubscribers].forEach((subscriber) => {
+    const singlePublicationSnapshots =
+      this.publicationSubscribers.size > 0
+        ? cloneInboundPublications(inbound)
+        : undefined
+    const batchSubscribers = [...this.publicationBatchSubscribers]
+    const batchSnapshots = batchSubscribers.map((_, index) =>
+      index === 0 ? inbound : cloneInboundPublications(inbound)
+    )
+    batchSubscribers.forEach((subscriber, index) => {
+      const snapshot = batchSnapshots[index]
+      if (!snapshot) return
       try {
-        subscriber(
-          Object.freeze({
-            publication: clonePublication(inbound.publication),
-            ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
-          })
-        )
+        subscriber(snapshot)
       } catch {
         // Provider observers cannot alter transport settlement.
+      }
+    })
+    ;[...this.publicationSubscribers].forEach((subscriber) => {
+      for (const publication of singlePublicationSnapshots ?? []) {
+        try {
+          subscriber(
+            Object.freeze({
+              publication: clonePublication(publication.publication),
+              ...(publication.fromActorId
+                ? { fromActorId: publication.fromActorId }
+                : {})
+            })
+          )
+        } catch {
+          // Provider observers cannot alter transport settlement.
+        }
       }
     })
   }

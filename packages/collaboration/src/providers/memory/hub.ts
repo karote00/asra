@@ -6,7 +6,11 @@ import {
   type ProviderAwarenessMessage,
   type ProviderIdentity
 } from '../../provider'
-import { cloneAwareness, clonePublication } from '../../cloning'
+import {
+  cloneAwareness,
+  clonePublication,
+  clonePublications
+} from '../../cloning'
 
 export interface MemoryHubOptions {
   authorizeConnection?: (
@@ -16,11 +20,15 @@ export interface MemoryHubOptions {
     publication: SharedPublication,
     identity: ProviderIdentity
   ) => boolean | Promise<boolean>
+  acknowledgePublications?: (
+    publications: readonly SharedPublication[],
+    identity: ProviderIdentity
+  ) => boolean | Promise<boolean>
 }
 
 export interface MemoryPeer {
   readonly identity: ProviderIdentity
-  receivePublication(publication: InboundPublication): void
+  receivePublications(publications: readonly InboundPublication[]): void
   receiveAwareness(message: ProviderAwarenessMessage): void
   receiveAwarenessDisconnect(event: ProviderAwarenessDisconnect): void
 }
@@ -36,10 +44,12 @@ export class MemoryHub {
   private readonly rooms = new Map<string, MemoryRoom>()
   private readonly authorizeConnection?: MemoryHubOptions['authorizeConnection']
   private readonly acknowledgePublication?: MemoryHubOptions['acknowledgePublication']
+  private readonly acknowledgePublications?: MemoryHubOptions['acknowledgePublications']
 
   constructor(options: MemoryHubOptions = {}) {
     this.authorizeConnection = options.authorizeConnection
     this.acknowledgePublication = options.acknowledgePublication
+    this.acknowledgePublications = options.acknowledgePublications
   }
 
   async connect(peer: MemoryPeer, connectionToken: symbol): Promise<void> {
@@ -88,13 +98,76 @@ export class MemoryHub {
     sender: MemoryPeer,
     publication: SharedPublication
   ): Promise<void> {
+    await this.receivePublications(sender, [publication])
+  }
+
+  async receivePublications(
+    sender: MemoryPeer,
+    publications: readonly SharedPublication[]
+  ): Promise<void> {
+    if (publications.length === 0) return
     const room = this.room(sender.identity)
+    const detached = publications
+    if (this.acknowledgePublications) {
+      await this.requireBatchAcknowledgement(detached, sender.identity)
+    } else {
+      for (const publication of detached) {
+        await this.requirePublicationAcknowledgement(
+          publication,
+          sender.identity
+        )
+      }
+    }
+
+    room.providers.forEach((_token, peer) => {
+      if (peer === sender) return
+      peer.receivePublications(
+        clonePublications(detached).map((publication) =>
+          Object.freeze({
+            publication,
+            fromActorId: sender.identity.actorId
+          })
+        )
+      )
+    })
+  }
+
+  private async requireBatchAcknowledgement(
+    publications: readonly SharedPublication[],
+    identity: ProviderIdentity
+  ): Promise<void> {
+    let acknowledged = true
+    try {
+      acknowledged =
+        (await this.acknowledgePublications?.(
+          clonePublications(publications),
+          identity
+        )) ?? true
+    } catch (error) {
+      throw new ProviderFailure(
+        'acknowledgement-failed',
+        '[collaboration] publication batch acknowledgement failed',
+        error
+      )
+    }
+    if (!acknowledged) {
+      throw new ProviderFailure(
+        'acknowledgement-failed',
+        '[collaboration] publication batch acknowledgement was rejected'
+      )
+    }
+  }
+
+  private async requirePublicationAcknowledgement(
+    publication: SharedPublication,
+    identity: ProviderIdentity
+  ): Promise<void> {
     let acknowledged = true
     try {
       acknowledged =
         (await this.acknowledgePublication?.(
           clonePublication(publication),
-          sender.identity
+          identity
         )) ?? true
     } catch (error) {
       throw new ProviderFailure(
@@ -112,16 +185,6 @@ export class MemoryHub {
         publication.publicationId
       )
     }
-
-    room.providers.forEach((_token, peer) => {
-      if (peer === sender) return
-      peer.receivePublication(
-        Object.freeze({
-          publication: clonePublication(publication),
-          fromActorId: sender.identity.actorId
-        })
-      )
-    })
   }
 
   receiveAwareness(

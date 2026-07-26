@@ -3,6 +3,7 @@ import { EventTypes } from '@asyra/reactive-events'
 import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
+import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 
 describe('Asyra Design collaboration composition', () => {
   it('forwards only app-owned document channels', () => {
@@ -42,6 +43,58 @@ describe('Asyra Design collaboration composition', () => {
     })
     expect('runRemoteTransaction' in filtered).toBe(false)
     expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
+  })
+
+  it('records profiling evidence from the existing document publication clone without affecting transport', () => {
+    let publicationSubscriber:
+      | ((publication: {
+          publicationId: string
+          deliveries: { channel: string }[]
+        }) => void)
+      | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const profile = {} as NonNullable<Window['__AsyraAiDrawingPerformance__']>
+    window.__AsyraAiDrawingPerformance__ = profile
+    const recordPublication = vi
+      .spyOn(aiDrawingPerformance, 'recordAiDrawingPerformancePublication')
+      .mockImplementation(() => {
+        throw new Error('diagnostic failure')
+      })
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.({
+      publicationId: 'selection-only',
+      deliveries: [{ channel: 'selection' }]
+    })
+    publicationSubscriber?.({
+      publicationId: 'document-action',
+      deliveries: [
+        { channel: 'selection' },
+        { channel: 'sceneTree' },
+        { channel: 'props' }
+      ]
+    })
+
+    expect(owner.subscribeToSharedPublication).toHaveBeenCalledOnce()
+    expect(recordPublication).toHaveBeenCalledOnce()
+    expect(recordPublication).toHaveBeenCalledWith(profile, {
+      deliveryCount: 2,
+      publicationId: 'document-action'
+    })
+    expect(received).toHaveBeenCalledOnce()
+    expect(received).toHaveBeenCalledWith({
+      publicationId: 'document-action',
+      deliveries: [{ channel: 'sceneTree' }, { channel: 'props' }]
+    })
+
+    delete window.__AsyraAiDrawingPerformance__
   })
 
   it('applies accepted Group hierarchy deliveries once without remote selection takeover', () => {

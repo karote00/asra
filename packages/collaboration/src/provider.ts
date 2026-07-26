@@ -85,6 +85,8 @@ export class ProviderFailure extends Error {
 
 export interface Provider {
   readonly identity: ProviderIdentity
+  readonly maxConcurrentPublicationSends?: number
+  readonly maxPublicationsPerSend?: number
   connect(): Promise<void>
   disconnect(): Promise<void>
   reconnect(): Promise<void>
@@ -92,8 +94,12 @@ export interface Provider {
   getStatus(): ProviderStatus
   onStatusChange(subscriber: (status: ProviderStatus) => void): () => void
   sendPublication(publication: SharedPublication): Promise<void>
+  sendPublications?(publications: readonly SharedPublication[]): Promise<void>
   onPublication(
     subscriber: (publication: InboundPublication) => void
+  ): () => void
+  onPublications?(
+    subscriber: (publications: readonly InboundPublication[]) => void
   ): () => void
   sendAwareness(message: ProviderAwarenessMessage): Promise<void>
   onAwareness(

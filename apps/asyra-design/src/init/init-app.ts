@@ -26,6 +26,7 @@ import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
 import { createAsyraDesignAiStartup, type AsyraDesignAiMode } from '../ai/mode'
 import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
+import { attachAiDrawingPerformanceRuntimeEvidence } from './performance/ai-drawing-performance-profile'
 
 export interface InitAppOptions {
   ai?: ComposeAiAgentRuntimeOptions
@@ -140,11 +141,32 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
     }
   }
 
+  const performanceProfile = window.__AsyraAiDrawingPerformance__
+  const detachPerformanceRuntimeEvidence = performanceProfile
+    ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
+        readCanonicalElementCount: () =>
+          core.deps.sceneTree.getAllElements().size,
+        readCanonicalElements: () =>
+          Array.from(core.deps.sceneTree.getAllElements().entries()).map(
+            ([id, element]) => ({
+              computed: element.getAllComputedData(),
+              id,
+              raw: element.save(),
+              rendered: Boolean(core.deps.render.getElementById(id)),
+              type: String(element.get('type'))
+            })
+          ),
+        subscribeToTransactionStatus: (subscriber) =>
+          core.deps.factory.subscribeToTransactionStatus(subscriber)
+      })
+    : undefined
+
   let disposal: Promise<void> | null = null
   const dispose = (): Promise<void> => {
     if (!disposal) {
       disposal = (async () => {
         window.removeEventListener('pagehide', handlePageHide)
+        detachPerformanceRuntimeEvidence?.()
         await aiConversation?.dispose()
         await aiStartup.confirmation?.dispose()
         aiStartup.history?.dispose()

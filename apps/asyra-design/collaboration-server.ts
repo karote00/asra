@@ -1,9 +1,11 @@
 import console from 'node:console'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { createServer as createHttpServer } from 'node:http'
 import { resolve } from 'node:path'
+import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import { clearTimeout, setTimeout } from 'node:timers'
-import { WebSocket, WebSocketServer } from 'ws'
+import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import {
   MemoryHub,
   MemoryProvider,
@@ -15,6 +17,8 @@ import {
 } from './app-environment.mjs'
 import {
   CollaborationMessageTypes,
+  decodeCollaborationMessage,
+  encodeCollaborationMessage,
   parseCollaborationClientMessage,
   type CollaborationFailurePayload,
   type CollaborationHelloMessage,
@@ -31,13 +35,77 @@ const host = appEnvironment.collaborationWebSocketHost
 const port = appEnvironment.collaborationWebSocketPort
 const socketPath = '/asyra-design-collaboration'
 const allowedOrigin = appEnvironment.appURL
+const collaborationProfilingEnabled =
+  process.env.ASYRA_DESIGN_COLLABORATION_PROFILE === '1'
+
+interface CollaborationServerRequestProfile {
+  readonly receivedAtMs: number
+  readonly queuedAtMs: number
+  readonly frameBytes: number
+  readonly wireDecodeMs: number
+  readonly protocolValidateMs: number
+  readonly type: 'send-publication' | 'send-publications'
+  readonly publicationCount: number
+  queueWaitMs: number
+  providerMs: number
+  peerEncodeMs: number
+  peerSendMs: number
+  cloneMs: number
+}
+
+interface SendTiming {
+  readonly encodeMs: number
+  readonly sendMs: number
+}
+
+const requestProfileContext =
+  new AsyncLocalStorage<CollaborationServerRequestProfile>()
+
+if (collaborationProfilingEnabled) {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink = (_phaseName, durationMs) => {
+    const requestProfile = requestProfileContext.getStore()
+    if (requestProfile) {
+      requestProfile.cloneMs += durationMs
+    }
+  }
+}
+
+const elapsed = (startedAtMs: number): number => performance.now() - startedAtMs
+
+const rounded = (value: number): number => Math.round(value * 1_000) / 1_000
 
 const safeSend = (
   socket: WebSocket,
   message: CollaborationServerMessage
-): void => {
-  if (socket.readyState !== WebSocket.OPEN) return
-  socket.send(JSON.stringify(message))
+): SendTiming => {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return { encodeMs: 0, sendMs: 0 }
+  }
+  const encodeStartedAtMs = performance.now()
+  const encoded = encodeCollaborationMessage(message)
+  const encodeMs = elapsed(encodeStartedAtMs)
+  const sendStartedAtMs = performance.now()
+  socket.send(encoded, { binary: typeof encoded !== 'string' })
+  const sendMs = elapsed(sendStartedAtMs)
+  if (
+    requestProfileContext.getStore() &&
+    (message.type === CollaborationMessageTypes.PUBLICATION ||
+      message.type === CollaborationMessageTypes.PUBLICATIONS)
+  ) {
+    const requestProfile = requestProfileContext.getStore()
+    if (requestProfile) {
+      requestProfile.peerEncodeMs += encodeMs
+      requestProfile.peerSendMs += sendMs
+    }
+  }
+  return { encodeMs, sendMs }
 }
 
 const failureMessage = (error: unknown): CollaborationFailurePayload => ({
@@ -47,6 +115,27 @@ const failureMessage = (error: unknown): CollaborationFailurePayload => ({
       ? error.message
       : '[collaboration] reference server request failed'
 })
+
+const rawDataToBytes = (data: RawData): Uint8Array => {
+  if (Array.isArray(data)) {
+    const byteLength = data.reduce(
+      (total, chunk) => total + chunk.byteLength,
+      0
+    )
+    const output = new Uint8Array(byteLength)
+    let offset = 0
+    data.forEach((chunk) => {
+      output.set(
+        new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
+        offset
+      )
+      offset += chunk.byteLength
+    })
+    return output
+  }
+  if (data instanceof ArrayBuffer) return new Uint8Array(data)
+  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+}
 
 const hub = new MemoryHub()
 const activeActors = new Map<string, symbol>()
@@ -116,13 +205,12 @@ webSocketServer.on('connection', (socket) => {
     if (provider) await provider.destroy().catch(() => undefined)
   }
 
-  const sendResponse = (requestId: string): void => {
+  const sendResponse = (requestId: string): SendTiming =>
     safeSend(socket, {
       type: CollaborationMessageTypes.RESPONSE,
       requestId,
       ok: true
     })
-  }
   const sendResponseError = (requestId: string, error: unknown): void => {
     safeSend(socket, {
       type: CollaborationMessageTypes.RESPONSE,
@@ -130,6 +218,32 @@ webSocketServer.on('connection', (socket) => {
       ok: false,
       error: failureMessage(error)
     })
+  }
+  const emitRequestProfile = (
+    requestProfile: CollaborationServerRequestProfile,
+    acknowledgements: readonly SendTiming[]
+  ): void => {
+    console.log(
+      `AI_COLLABORATION_SERVER_PROFILE ${JSON.stringify({
+        type: requestProfile.type,
+        publicationCount: requestProfile.publicationCount,
+        frameBytes: requestProfile.frameBytes,
+        queueWaitMs: rounded(requestProfile.queueWaitMs),
+        wireDecodeMs: rounded(requestProfile.wireDecodeMs),
+        protocolValidateMs: rounded(requestProfile.protocolValidateMs),
+        providerMs: rounded(requestProfile.providerMs),
+        cloneMs: rounded(requestProfile.cloneMs),
+        peerEncodeMs: rounded(requestProfile.peerEncodeMs),
+        peerSendMs: rounded(requestProfile.peerSendMs),
+        ackEncodeMs: rounded(
+          acknowledgements.reduce((total, item) => total + item.encodeMs, 0)
+        ),
+        ackSendMs: rounded(
+          acknowledgements.reduce((total, item) => total + item.sendMs, 0)
+        ),
+        totalMs: rounded(elapsed(requestProfile.receivedAtMs))
+      })}`
+    )
   }
 
   const handleHello = async (
@@ -174,11 +288,22 @@ webSocketServer.on('connection', (socket) => {
       actorId: identity.actorId,
       connectionMetadata: { ...connectionMetadata }
     })
-    provider.onPublication((inbound) => {
+    provider.onPublications((inbound) => {
+      const firstInbound = inbound[0]
+      if (!firstInbound) return
+      const fromActorId = firstInbound.fromActorId
+      if (inbound.length === 1) {
+        safeSend(socket, {
+          type: CollaborationMessageTypes.PUBLICATION,
+          publication: firstInbound.publication,
+          ...(fromActorId ? { fromActorId } : {})
+        })
+        return
+      }
       safeSend(socket, {
-        type: CollaborationMessageTypes.PUBLICATION,
-        publication: inbound.publication,
-        ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+        type: CollaborationMessageTypes.PUBLICATIONS,
+        publications: inbound.map(({ publication }) => publication),
+        ...(fromActorId ? { fromActorId } : {})
       })
     })
     provider.onAwareness((awareness) => {
@@ -210,7 +335,8 @@ webSocketServer.on('connection', (socket) => {
   }
 
   const handleRequest = async (
-    message: CollaborationRequestMessage
+    message: CollaborationRequestMessage,
+    requestProfile?: CollaborationServerRequestProfile
   ): Promise<void> => {
     if (!provider || !ready) {
       throw new ProviderFailure(
@@ -218,17 +344,34 @@ webSocketServer.on('connection', (socket) => {
         '[collaboration] provider handshake is incomplete'
       )
     }
+    const connectedProvider = provider
     const requestId = message.requestId
     try {
-      switch (message.type) {
-        case CollaborationMessageTypes.SEND_PUBLICATION:
-          await provider.sendPublication(message.publication)
-          sendResponse(requestId)
-          return
-        case CollaborationMessageTypes.SEND_AWARENESS:
-          await provider.sendAwareness(message.message)
-          sendResponse(requestId)
-          return
+      const providerStartedAtMs = performance.now()
+      const sendToProvider = async (): Promise<void> => {
+        switch (message.type) {
+          case CollaborationMessageTypes.SEND_PUBLICATION:
+            await connectedProvider.sendPublication(message.publication)
+            break
+          case CollaborationMessageTypes.SEND_PUBLICATIONS:
+            await connectedProvider.sendPublications(message.publications)
+            break
+          case CollaborationMessageTypes.SEND_AWARENESS:
+            await connectedProvider.sendAwareness(message.message)
+            break
+        }
+      }
+      if (requestProfile) {
+        await requestProfileContext.run(requestProfile, sendToProvider)
+      } else {
+        await sendToProvider()
+      }
+      if (requestProfile) {
+        requestProfile.providerMs = elapsed(providerStartedAtMs)
+      }
+      const acknowledgement = sendResponse(requestId)
+      if (requestProfile) {
+        emitRequestProfile(requestProfile, [acknowledgement])
       }
     } catch (error) {
       sendResponseError(requestId, error)
@@ -236,24 +379,61 @@ webSocketServer.on('connection', (socket) => {
   }
 
   socket.on('message', (data, isBinary) => {
-    if (isBinary) {
-      socket.close(1003, 'text protocol required')
-      return
-    }
+    const receivedAtMs = performance.now()
+    const rawBytes = rawDataToBytes(data)
+    const encoded = isBinary
+      ? rawBytes
+      : Buffer.from(
+          rawBytes.buffer,
+          rawBytes.byteOffset,
+          rawBytes.byteLength
+        ).toString('utf8')
     let message
+    let wireDecodeMs = 0
+    let protocolValidateMs = 0
     try {
-      const decoded: unknown = JSON.parse(data.toString())
+      const wireDecodeStartedAtMs = performance.now()
+      const decoded = decodeCollaborationMessage(encoded)
+      wireDecodeMs = elapsed(wireDecodeStartedAtMs)
+      const protocolValidateStartedAtMs = performance.now()
       message = parseCollaborationClientMessage(decoded)
+      protocolValidateMs = elapsed(protocolValidateStartedAtMs)
       if (!message) {
         socket.close(1008, 'invalid protocol message')
         return
       }
     } catch {
-      socket.close(1007, 'invalid JSON')
+      socket.close(1007, 'invalid wire message')
       return
     }
+    const queuedAtMs = performance.now()
+    const requestProfile: CollaborationServerRequestProfile | undefined =
+      collaborationProfilingEnabled &&
+      (message.type === CollaborationMessageTypes.SEND_PUBLICATION ||
+        message.type === CollaborationMessageTypes.SEND_PUBLICATIONS)
+        ? {
+            receivedAtMs,
+            queuedAtMs,
+            frameBytes: rawBytes.byteLength,
+            wireDecodeMs,
+            protocolValidateMs,
+            type: message.type,
+            publicationCount:
+              message.type === CollaborationMessageTypes.SEND_PUBLICATIONS
+                ? message.publications.length
+                : 1,
+            queueWaitMs: 0,
+            providerMs: 0,
+            peerEncodeMs: 0,
+            peerSendMs: 0,
+            cloneMs: 0
+          }
+        : undefined
     queue = queue
       .then(async () => {
+        if (requestProfile) {
+          requestProfile.queueWaitMs = elapsed(requestProfile.queuedAtMs)
+        }
         if (!ready) {
           if (message.type !== CollaborationMessageTypes.HELLO) {
             throw new ProviderFailure(
@@ -270,7 +450,7 @@ webSocketServer.on('connection', (socket) => {
             '[collaboration] identity hello can only be sent once'
           )
         }
-        await handleRequest(message)
+        await handleRequest(message, requestProfile)
       })
       .catch((error) => {
         safeSend(socket, {

@@ -1,7 +1,11 @@
 import type { SharedPublication } from '@asyra/factory'
 
 import { Awareness, type AwarenessStateInput } from './awareness'
-import { clonePublication } from './cloning'
+import {
+  cloneInboundPublications,
+  clonePublication,
+  clonePublications
+} from './cloning'
 import type {
   CollaborationFactory,
   CollaborationResourceOwnership,
@@ -35,6 +39,12 @@ type Definition = Readonly<
     resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
   }
 >
+
+// Keep transport serialization and acknowledgement bounded without splitting a
+// canonical publication. High-detail profiling showed that one unbounded
+// 50-plus-publication request held its acknowledgement for more than 50 s.
+const MAX_PUBLICATIONS_PER_TRANSPORT_BATCH = 4
+const MAX_CONCURRENT_PUBLICATION_SENDS = 16
 
 export type CollaborationPublicationOutcome =
   | Readonly<{
@@ -104,7 +114,6 @@ const define = (input: CreateCollaborationInput): Definition => {
   if (typeof input.processRemotePublication !== 'function') {
     throw new Error('[collaboration] processRemotePublication is required')
   }
-
   return Object.freeze({
     documentId,
     roomId,
@@ -161,6 +170,16 @@ export class Collaboration {
     (outcome: CollaborationPublicationOutcome) => void
   >()
   private outboundQueue: Promise<void> = Promise.resolve()
+  private readonly pendingOutboundPublications: SharedPublication[] = []
+  private readonly settledOutboundBatches = new Map<
+    number,
+    readonly CollaborationPublicationOutcome[]
+  >()
+  private outboundIdleResolve: (() => void) | undefined
+  private outboundPumpScheduled = false
+  private outboundInFlight = 0
+  private outboundBatchSequence = 0
+  private nextOutboundOutcomeSequence = 1
   private inboundQueue: Promise<void> = Promise.resolve()
   private observersBound = false
   private started = false
@@ -283,11 +302,19 @@ export class Collaboration {
       })
     )
     if (!this.provider) return
-    this.addDisposer(
-      this.provider.onPublication((inbound) => {
-        this.scheduleInbound(inbound)
-      })
-    )
+    if (this.provider.onPublications) {
+      this.addDisposer(
+        this.provider.onPublications((publications) => {
+          this.scheduleInboundBatch(publications)
+        })
+      )
+    } else {
+      this.addDisposer(
+        this.provider.onPublication((inbound) => {
+          this.scheduleInbound(inbound)
+        })
+      )
+    }
     this.addDisposer(
       this.provider.onAwareness((message) => {
         if (!this.disposed) this.awareness.applyRemote(message)
@@ -313,59 +340,206 @@ export class Collaboration {
 
   private scheduleOutbound(publication: SharedPublication): void {
     if (this.disposed) return
-    const detached = clonePublication(publication)
-    this.outboundQueue = this.outboundQueue.then(async () => {
-      if (this.disposed) return
-      if (!this.provider) {
-        this.emitOutcome({
-          direction: 'local',
-          status: 'skipped',
-          publicationId: detached.publicationId
-        })
-        return
-      }
-      try {
-        await this.provider.sendPublication(detached)
-        this.emitOutcome({
-          direction: 'local',
-          status: 'sent',
-          publicationId: detached.publicationId
-        })
-      } catch (error) {
-        this.emitOutcome({
-          direction: 'local',
-          status: 'send-failed',
-          publicationId: detached.publicationId,
-          error
-        })
-      }
+    this.pendingOutboundPublications.push(publication)
+    this.ensureOutboundIdleBoundary()
+    this.scheduleOutboundPump()
+  }
+
+  private ensureOutboundIdleBoundary(): void {
+    if (this.outboundIdleResolve) return
+    this.outboundQueue = new Promise<void>((resolve) => {
+      this.outboundIdleResolve = resolve
     })
   }
 
-  private scheduleInbound(inbound: InboundPublication): void {
-    if (this.disposed) return
-    const publication = clonePublication(inbound.publication)
-    const context = Object.freeze({
-      ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+  private scheduleOutboundPump(): void {
+    if (this.outboundPumpScheduled) return
+    this.outboundPumpScheduled = true
+    queueMicrotask(() => {
+      this.outboundPumpScheduled = false
+      this.pumpOutboundPublications()
     })
-    this.inboundQueue = this.inboundQueue.then(async () => {
-      if (this.disposed) return
+  }
+
+  private pumpOutboundPublications(): void {
+    if (this.disposed) {
+      this.pendingOutboundPublications.length = 0
+      this.settleOutboundIdleBoundary()
+      return
+    }
+    const providerSendWindow = this.provider?.maxConcurrentPublicationSends
+    const requestedWindow =
+      this.provider?.sendPublications &&
+      typeof providerSendWindow === 'number' &&
+      Number.isInteger(providerSendWindow) &&
+      providerSendWindow > 0
+        ? providerSendWindow
+        : 1
+    const sendWindow = Math.min(
+      requestedWindow,
+      MAX_CONCURRENT_PUBLICATION_SENDS
+    )
+    const providerBatchSize = this.provider?.maxPublicationsPerSend
+    const requestedBatchSize =
+      this.provider?.sendPublications &&
+      typeof providerBatchSize === 'number' &&
+      Number.isInteger(providerBatchSize) &&
+      providerBatchSize > 0
+        ? providerBatchSize
+        : MAX_PUBLICATIONS_PER_TRANSPORT_BATCH
+    const publicationBatchSize = this.provider?.sendPublications
+      ? Math.min(requestedBatchSize, MAX_PUBLICATIONS_PER_TRANSPORT_BATCH)
+      : 1
+
+    while (
+      this.outboundInFlight < sendWindow &&
+      this.pendingOutboundPublications.length > 0
+    ) {
+      const pendingBatch = this.pendingOutboundPublications.splice(
+        0,
+        publicationBatchSize
+      )
+      const sequence = ++this.outboundBatchSequence
+      let detached: readonly SharedPublication[]
       try {
-        await this.processRemotePublication(publication, context)
-        this.emitOutcome({
-          direction: 'remote',
-          status: 'processed',
+        detached = clonePublications(pendingBatch)
+      } catch (error) {
+        this.settledOutboundBatches.set(
+          sequence,
+          pendingBatch.map((publication) => ({
+            direction: 'local',
+            status: 'send-failed',
+            publicationId: publication.publicationId,
+            error
+          }))
+        )
+        this.flushSettledOutboundOutcomes()
+        continue
+      }
+      this.outboundInFlight += 1
+      void this.dispatchOutboundPublications(detached).then((outcomes) => {
+        this.settledOutboundBatches.set(sequence, outcomes)
+        this.outboundInFlight -= 1
+        this.flushSettledOutboundOutcomes()
+        this.pumpOutboundPublications()
+      })
+    }
+    this.settleOutboundIdleBoundary()
+  }
+
+  private async dispatchOutboundPublications(
+    publications: readonly SharedPublication[]
+  ): Promise<readonly CollaborationPublicationOutcome[]> {
+    if (!this.provider) {
+      return publications.map((publication) => ({
+        direction: 'local',
+        status: 'skipped',
+        publicationId: publication.publicationId
+      }))
+    }
+    if (publications.length > 1 && this.provider.sendPublications) {
+      try {
+        await this.provider.sendPublications(publications)
+        return publications.map((publication) => ({
+          direction: 'local',
+          status: 'sent',
+          publicationId: publication.publicationId
+        }))
+      } catch (error) {
+        return publications.map((publication) => ({
+          direction: 'local',
+          status: 'send-failed',
           publicationId: publication.publicationId,
-          ...context
+          error
+        }))
+      }
+    }
+    const outcomes: CollaborationPublicationOutcome[] = []
+    for (const publication of publications) {
+      try {
+        await this.provider.sendPublication(publication)
+        outcomes.push({
+          direction: 'local',
+          status: 'sent',
+          publicationId: publication.publicationId
         })
       } catch (error) {
-        this.emitOutcome({
-          direction: 'remote',
-          status: 'process-failed',
+        outcomes.push({
+          direction: 'local',
+          status: 'send-failed',
           publicationId: publication.publicationId,
-          ...context,
           error
         })
+      }
+    }
+    return outcomes
+  }
+
+  private flushSettledOutboundOutcomes(): void {
+    let outcomes = this.settledOutboundBatches.get(
+      this.nextOutboundOutcomeSequence
+    )
+    while (outcomes) {
+      this.settledOutboundBatches.delete(this.nextOutboundOutcomeSequence)
+      outcomes.forEach((outcome) => this.emitOutcome(outcome))
+      this.nextOutboundOutcomeSequence += 1
+      outcomes = this.settledOutboundBatches.get(
+        this.nextOutboundOutcomeSequence
+      )
+    }
+  }
+
+  private settleOutboundIdleBoundary(): void {
+    if (
+      this.pendingOutboundPublications.length > 0 ||
+      this.outboundInFlight > 0 ||
+      this.settledOutboundBatches.size > 0 ||
+      this.outboundPumpScheduled
+    ) {
+      return
+    }
+    const resolve = this.outboundIdleResolve
+    this.outboundIdleResolve = undefined
+    resolve?.()
+  }
+
+  private scheduleInbound(inbound: InboundPublication): void {
+    this.scheduleInboundBatch([
+      Object.freeze({
+        publication: clonePublication(inbound.publication),
+        ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+      })
+    ])
+  }
+
+  private scheduleInboundBatch(
+    inboundPublications: readonly InboundPublication[]
+  ): void {
+    if (this.disposed || inboundPublications.length === 0) return
+    const detached = cloneInboundPublications(inboundPublications)
+    this.inboundQueue = this.inboundQueue.then(async () => {
+      if (this.disposed) return
+      for (const inbound of detached) {
+        const context = Object.freeze({
+          ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+        })
+        try {
+          await this.processRemotePublication(inbound.publication, context)
+          this.emitOutcome({
+            direction: 'remote',
+            status: 'processed',
+            publicationId: inbound.publication.publicationId,
+            ...context
+          })
+        } catch (error) {
+          this.emitOutcome({
+            direction: 'remote',
+            status: 'process-failed',
+            publicationId: inbound.publication.publicationId,
+            ...context,
+            error
+          })
+        }
       }
     })
   }
