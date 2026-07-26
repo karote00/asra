@@ -467,7 +467,7 @@ class DataTransact {
       kind: 'forward',
       channel: shared.name,
       eventName: entry.event.type,
-      payload: cloneValue(shared.change),
+      payload: shared.change,
       sharedDelivery: entry.options.sharedDelivery
     }
   }
