@@ -2,6 +2,7 @@ import {
   Bounds,
   ComputedDataPatch,
   CreateElementData,
+  ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData,
   DataTypes,
@@ -9,6 +10,7 @@ import {
   MoveHierarchyRequest,
   MoveHierarchyResult,
   RemoveSubtreeResult,
+  PropertyComponentRawData,
   SceneTreeRestorePlan,
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
@@ -31,6 +33,13 @@ export interface SceneTreeRawAPIs {
   ) => string
   createElementsInParent: (
     data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
+  createElementsInParentFromCanonicalData: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
     parentId: string,
     index?: number,
     options?: EVENT_OPTIONS

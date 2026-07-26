@@ -622,6 +622,48 @@ describe('declarative property type definition owner', () => {
     ])
   })
 
+  it('keeps child subscriptions live after applying an explicit child-first creation plan', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const sourceManager = new PropsManager()
+    const sourceChild = sourceManager.createProperty({
+      id: 'planned-live-child',
+      type: CHILD_TYPE
+    })
+    sourceManager.addProperty([sourceChild])
+    const sourceParent = sourceManager.createProperty({
+      id: 'planned-live-parent',
+      type: TYPE,
+      children: ['planned-live-child']
+    })
+    sourceManager.addProperty([sourceParent])
+    const snapshots = [sourceChild.save(), sourceParent.save()]
+    sourceManager.dispose()
+
+    const manager = new PropsManager()
+    const plan = manager.preflightPropertyCreationBatch(snapshots, [
+      'planned-live-parent'
+    ])
+    manager.runInPropertyCreationBatch(() => {
+      manager.applyPropertyCreationBatch(plan)
+    })
+    const child = manager.getPropertyById('planned-live-child')
+    const parent = manager.getPropertyById('planned-live-parent')
+    const parentChanges: unknown[] = []
+    parent?.on((change) => parentChanges.push(change))
+
+    child?.set('value' as never, 9 as never)
+
+    expect(parentChanges).toEqual([
+      expect.objectContaining({
+        id: 'planned-live-parent',
+        key: 'children',
+        after: 9
+      })
+    ])
+  })
+
   it('keeps an existing child relationship live when creating its parent in a batch', () => {
     registerDeclarativeType()
     registerPropertyComponent(CHILD_TYPE, ChildComponent)

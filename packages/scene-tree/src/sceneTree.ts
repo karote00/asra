@@ -22,6 +22,7 @@ import type {
   UpdateElementBatchChange,
   UpdateElementChange,
   UpdateElementPatchChange,
+  PropertyComponentRawData,
   EVENT_OPTIONS,
   EvnetOptions,
   CreateElementData
@@ -176,6 +177,12 @@ export interface SceneTreeLoadValidationResult {
   data: SceneTreeRawData
   diagnostics: SceneTreeLoadDiagnostic[]
   valid: boolean
+}
+
+interface CanonicalElementPropertyBatch {
+  readonly elements: readonly ElementRawData[]
+  readonly properties: readonly PropertyComponentRawData[]
+  readonly rootPropertyIds: readonly string[]
 }
 
 const cloneSceneTreeValue = <T>(data: T): T => {
@@ -1826,6 +1833,144 @@ class SceneTree {
     index = -1,
     options?: EVENT_OPTIONS
   ): readonly string[] {
+    return this.addNewElementBatch(elementData, parent, index, options)
+  }
+
+  addNewElementsFromCanonicalData(
+    elementData: readonly ElementRawData[],
+    propertyData: readonly PropertyComponentRawData[],
+    parent?: GroupInstanceTypes,
+    index = -1,
+    options?: EVENT_OPTIONS
+  ): readonly string[] {
+    if (elementData.length === 0) {
+      if (propertyData.length > 0) {
+        throw new Error(
+          '[SceneTree] Canonical element batch cannot contain orphan properties'
+        )
+      }
+      return []
+    }
+    const target = this.resolveElementBatchTarget(parent)
+    if (!target) {
+      return []
+    }
+    const canonicalBatch = this.preflightCanonicalElementPropertyBatch(
+      elementData,
+      propertyData,
+      target
+    )
+    return this.addNewElementBatch(
+      elementData,
+      target,
+      index,
+      options,
+      canonicalBatch
+    )
+  }
+
+  private resolveElementBatchTarget(
+    parent?: GroupInstanceTypes
+  ): GroupInstanceTypes | undefined {
+    const workspace = this.currentWorkspace as Workspace
+    if (!workspace) {
+      return undefined
+    }
+    return (parent ?? workspace.firstFrame ?? workspace) as GroupInstanceTypes
+  }
+
+  private preflightCanonicalElementPropertyBatch(
+    elementData: readonly ElementRawData[],
+    propertyData: readonly PropertyComponentRawData[],
+    target: GroupInstanceTypes
+  ): CanonicalElementPropertyBatch {
+    const targetId = target.get('id')
+    if (
+      this.getElementById(targetId) !== target ||
+      !isGroupEntity(target.get('type'))
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires an active container parent'
+      )
+    }
+    const propertyById = new Map<string, PropertyComponentRawData>()
+    propertyData.forEach((property) => {
+      if (
+        !isRecord(property) ||
+        typeof property.id !== 'string' ||
+        property.id.length === 0 ||
+        propertyById.has(property.id)
+      ) {
+        throw new Error(
+          '[SceneTree] Canonical element batch has duplicate or invalid property data'
+        )
+      }
+      propertyById.set(property.id, property as PropertyComponentRawData)
+    })
+
+    const rootPropertyIds: string[] = []
+    elementData.forEach((element) => {
+      if (!isRecord(element) || typeof element.type !== 'string') {
+        throw new Error(
+          '[SceneTree] Canonical element batch has invalid element data'
+        )
+      }
+      const registration = componentRegistry.get(element.type)
+      if (!registration) {
+        throw new Error(
+          `[SceneTree] Canonical element batch has unregistered type "${element.type}"`
+        )
+      }
+      if (element.parentId !== targetId || !isRecord(element.props)) {
+        throw new Error(
+          `[SceneTree] Canonical element "${element.id}" requires exact parent and property owners`
+        )
+      }
+
+      const propertyDefinitions = registration.properties
+      const propertyNames = Object.keys(element.props)
+      if (
+        propertyNames.length !== propertyDefinitions.length ||
+        propertyDefinitions.some(
+          ({ name }) =>
+            !Object.prototype.hasOwnProperty.call(element.props, name)
+        )
+      ) {
+        throw new Error(
+          `[SceneTree] Canonical element "${element.id}" has an inexact property owner map`
+        )
+      }
+
+      propertyDefinitions.forEach(({ name, type }) => {
+        const propertyId = element.props?.[name]
+        const property = propertyById.get(propertyId as string)
+        if (
+          typeof propertyId !== 'string' ||
+          propertyId.length === 0 ||
+          property?.type !== type
+        ) {
+          throw new Error(
+            `[SceneTree] Canonical element "${element.id}" has an invalid "${name}" property owner`
+          )
+        }
+        rootPropertyIds.push(propertyId)
+      })
+    })
+
+    return Object.freeze({
+      elements: Object.freeze(cloneSceneTreeValue(elementData)),
+      properties: Object.freeze(cloneSceneTreeValue(propertyData)),
+      rootPropertyIds: Object.freeze(rootPropertyIds)
+    })
+  }
+
+  private addNewElementBatch(
+    elementData: readonly (CreateElementData | ElementRawData)[],
+    parent?: GroupInstanceTypes,
+    index = -1,
+    options?: EVENT_OPTIONS,
+    canonicalBatch?: CanonicalElementPropertyBatch
+  ): readonly string[] {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace || elementData.length === 0) {
       return []
@@ -1845,14 +1990,21 @@ class SceneTree {
       )
     }
 
-    const target = (parent ??
-      workspace.firstFrame ??
-      workspace) as GroupInstanceTypes
+    const target = this.resolveElementBatchTarget(parent) as GroupInstanceTypes
     const originalChildren = [...target.get('children')]
     const insertionIndex = index > -1 ? index : originalChildren.length
     if (insertionIndex < 0 || insertionIndex > originalChildren.length) {
       throw new Error('[SceneTree] Element batch index is outside parent order')
     }
+    const propertyPlan =
+      canonicalBatch &&
+      (canonicalBatch.properties.length > 0 ||
+        canonicalBatch.rootPropertyIds.length > 0)
+        ? this.propsManagerOwner.preflightPropertyCreationBatch(
+            canonicalBatch.properties,
+            canonicalBatch.rootPropertyIds
+          )
+        : undefined
 
     const elements: ElementInstanceTypes[] = []
     const operationChangeStart = this.changes.length
@@ -1862,6 +2014,9 @@ class SceneTree {
     try {
       const propertyBatch = this.propsManagerOwner.runInPropertyCreationBatch(
         () => {
+          if (propertyPlan) {
+            this.propsManagerOwner.applyPropertyCreationBatch(propertyPlan)
+          }
           measureCanonicalSceneBatchPhase(
             'scene-tree:element-batch:materialize',
             () => {
@@ -1891,6 +2046,17 @@ class SceneTree {
               workspace.addNewElements(elements, target, insertionIndex)
             }
           )
+          if (
+            canonicalBatch &&
+            elements.some(
+              (element, elementIndex) =>
+                !isEqual(element.save(), canonicalBatch.elements[elementIndex])
+            )
+          ) {
+            throw new Error(
+              '[SceneTree] Canonical element batch changed exact element data'
+            )
+          }
           measureCanonicalSceneBatchPhase(
             'scene-tree:element-batch:record-evidence',
             () => {

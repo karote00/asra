@@ -519,6 +519,78 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([])
   })
 
+  it('applies one owner-issued canonical property creation plan with child-first evidence', () => {
+    const child = new PositionComponent({
+      id: 'planned-child',
+      x: 12,
+      y: 24
+    }).save()
+    const parent = new CustomComponent({
+      id: 'planned-parent',
+      children: ['planned-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [child, parent],
+      ['planned-parent', 'planned-parent']
+    )
+
+    expect(
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      ).result
+    ).toEqual(['planned-child', 'planned-parent'])
+    expect(propsManager.save()).toEqual({
+      'planned-child': child,
+      'planned-parent': parent
+    })
+    expect(propsManager.changes).toEqual([
+      expect.objectContaining({
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        data: [child, parent]
+      })
+    ])
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/one-shot property creation plan/i)
+  })
+
+  it('rejects invalid canonical property graphs and one-shot plan misuse without mutation', () => {
+    const child = new PositionComponent({
+      id: 'graph-child',
+      x: 1,
+      y: 2
+    }).save()
+    const parent = new CustomComponent({
+      id: 'graph-parent',
+      children: ['graph-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+
+    expect(() =>
+      propsManager.preflightPropertyCreationBatch(
+        [parent, child],
+        ['graph-parent']
+      )
+    ).toThrow(/child-first/i)
+    expect(() =>
+      propsManager.preflightPropertyCreationBatch(
+        [child, parent],
+        ['graph-child']
+      )
+    ).toThrow(/unowned property/i)
+
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [child, parent],
+      ['graph-parent']
+    )
+    expect(() => propsManager.applyPropertyCreationBatch(plan)).toThrow(
+      /active property creation batch/i
+    )
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
   it('should throw error if type is not provided for createProperty', () => {
     expect(() => propsManager.createProperty({})).toThrow('Type is required!')
   })

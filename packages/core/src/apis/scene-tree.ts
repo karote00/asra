@@ -12,8 +12,10 @@ import {
   ComputedDataPatch,
   CreateElementData,
   DataTypes,
+  ElementRawData,
   EVENT_OPTIONS,
   GroupInstanceTypes,
+  PropertyComponentRawData,
   SceneTreeRawData,
   EntityTypes,
   id,
@@ -54,6 +56,13 @@ export interface SceneTreeRequests {
   ) => RemoveSubtreeResult
   createElementsInParent: (
     data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
+  createElementsInParentFromCanonicalData: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
     parentId: string,
     index?: number,
     options?: EVENT_OPTIONS
@@ -115,6 +124,29 @@ export const createSceneTreeAPIs = (
       const prepared = data.map(prepareElementData)
       return sceneTreeRequests.createElementsInParent(
         prepared.map(({ data: elementData }) => elementData),
+        parentId,
+        index,
+        options
+      )
+    },
+    createElementsInParentFromCanonicalData(
+      elements: readonly ElementRawData[],
+      properties: readonly PropertyComponentRawData[],
+      parentId: string,
+      index?: number,
+      options?: EVENT_OPTIONS
+    ) {
+      if (elements.length === 0) {
+        if (properties.length > 0) {
+          throw new Error(
+            '[Core] Canonical element batch cannot contain orphan properties'
+          )
+        }
+        return []
+      }
+      return sceneTreeRequests.createElementsInParentFromCanonicalData(
+        elements,
+        properties,
         parentId,
         index,
         options

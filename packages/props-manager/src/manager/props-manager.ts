@@ -80,6 +80,12 @@ export interface PropertyCreationBatchReceipt<T> {
   complete(): void
 }
 
+export interface PropertyCreationPlan {
+  readonly kind: 'property-creation-plan'
+  readonly componentIds: readonly string[]
+  readonly rootComponentIds: readonly string[]
+}
+
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
   _deletedMap: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -92,6 +98,12 @@ class PropsManager {
     PropsRestorePlan,
     {
       snapshot: PropsRestoreSnapshot
+    }
+  >()
+  private validatedPropertyCreationArtifacts = new WeakMap<
+    PropertyCreationPlan,
+    {
+      components: readonly PropertyComponentRawData[]
     }
   >()
   private readonly componentAccessor: PropertyComponentAccessor
@@ -309,6 +321,182 @@ class PropsManager {
 
   getRestoreComponentById(componentId: string) {
     return this._deletedMap.get(componentId)
+  }
+
+  preflightPropertyCreationBatch(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown
+  ): PropertyCreationPlan {
+    if (
+      !Array.isArray(sourceComponents) ||
+      sourceComponents.length === 0 ||
+      !Array.isArray(sourceRootComponentIds) ||
+      sourceRootComponentIds.length === 0
+    ) {
+      throw new Error(
+        '[PropsManager] Canonical property creation requires components and owner roots'
+      )
+    }
+
+    const components = clonePropsValue(
+      sourceComponents as PropertyComponentRawData[]
+    )
+    const rootComponentIds = clonePropsValue(sourceRootComponentIds as string[])
+    const componentIds = components.map(({ id }) => id)
+    if (
+      componentIds.some(
+        (componentId) =>
+          typeof componentId !== 'string' || componentId.length === 0
+      ) ||
+      new Set(componentIds).size !== componentIds.length
+    ) {
+      throw new Error(
+        '[PropsManager] Canonical property creation has duplicate or invalid component ids'
+      )
+    }
+    if (
+      rootComponentIds.some(
+        (componentId) =>
+          typeof componentId !== 'string' || componentId.length === 0
+      )
+    ) {
+      throw new Error(
+        '[PropsManager] Canonical property creation has invalid owner roots'
+      )
+    }
+    const uniqueRootComponentIds = [...new Set(rootComponentIds)]
+
+    const componentById = new Map(
+      components.map((component) => [component.id, component] as const)
+    )
+    const sourceIndexById = new Map(
+      componentIds.map((componentId, index) => [componentId, index] as const)
+    )
+    components.forEach((component) => {
+      if (
+        !isRecord(component) ||
+        typeof component.type !== 'string' ||
+        component.type.length === 0 ||
+        !getPropertyComponent(component.type)
+      ) {
+        throw new Error(
+          `[PropsManager] Canonical property creation has invalid component "${component.id ?? ''}"`
+        )
+      }
+      if (
+        this._components.has(component.id) ||
+        this._deletedMap.has(component.id)
+      ) {
+        throw new Error(
+          `[PropsManager] Canonical property creation component "${component.id}" is already registered`
+        )
+      }
+    })
+    uniqueRootComponentIds.forEach((componentId) => {
+      if (!componentById.has(componentId)) {
+        throw new Error(
+          `[PropsManager] Canonical property creation is missing owner root "${componentId}"`
+        )
+      }
+    })
+
+    const reachableComponentIds = new Set<string>()
+    const visit = (componentId: string): void => {
+      if (reachableComponentIds.has(componentId)) {
+        return
+      }
+      const component = componentById.get(componentId)
+      if (!component) {
+        return
+      }
+      reachableComponentIds.add(componentId)
+      const childRelation = getPropertyComponentConfigDefinition(
+        component.type
+      )?.children
+      if (!childRelation) {
+        return
+      }
+      const childIds = (component as Record<string, unknown>)[childRelation.key]
+      if (
+        !Array.isArray(childIds) ||
+        childIds.some((childId) => typeof childId !== 'string') ||
+        new Set(childIds).size !== childIds.length
+      ) {
+        throw new Error(
+          `[PropsManager] Canonical property creation has malformed child relation for "${componentId}"`
+        )
+      }
+      childIds.forEach((childId) => {
+        const sourceChild = componentById.get(childId)
+        const activeChild = this.getPropertyById(childId)
+        const childType = sourceChild?.type ?? activeChild?.get('type')
+        if (!childType) {
+          throw new Error(
+            `[PropsManager] Canonical property creation is missing relation child "${childId}"`
+          )
+        }
+        if (childType !== childRelation.childType) {
+          throw new Error(
+            `[PropsManager] Canonical property creation child "${childId}" has the wrong type`
+          )
+        }
+        if (sourceChild) {
+          if (
+            (sourceIndexById.get(childId) as number) >=
+            (sourceIndexById.get(componentId) as number)
+          ) {
+            throw new Error(
+              `[PropsManager] Canonical property creation requires child-first order for "${childId}"`
+            )
+          }
+          visit(childId)
+        }
+      })
+    }
+    uniqueRootComponentIds.forEach(visit)
+    if (reachableComponentIds.size !== components.length) {
+      throw new Error(
+        '[PropsManager] Canonical property creation contains an unowned property'
+      )
+    }
+
+    const plan = Object.freeze({
+      kind: 'property-creation-plan' as const,
+      componentIds: Object.freeze([...componentIds]),
+      rootComponentIds: Object.freeze([...uniqueRootComponentIds])
+    })
+    this.validatedPropertyCreationArtifacts.set(plan, {
+      components: Object.freeze(components.map((component) => component))
+    })
+    return plan
+  }
+
+  applyPropertyCreationBatch(plan: PropertyCreationPlan): readonly string[] {
+    if (!this.propertyCreationBatch) {
+      throw new Error(
+        '[PropsManager] Canonical property creation plan requires an active property creation batch'
+      )
+    }
+    const artifact = this.validatedPropertyCreationArtifacts.get(plan)
+    if (!artifact) {
+      throw new Error(
+        '[PropsManager] Expected an owner-issued one-shot property creation plan'
+      )
+    }
+    this.validatedPropertyCreationArtifacts.delete(plan)
+
+    const components: PropertyComponentInstanceTypes[] = []
+    artifact.components.forEach((sourceComponent) => {
+      const component = this.createProperty(sourceComponent)
+      this.addProperty([component])
+      if (!isEqual(component.save(), sourceComponent)) {
+        throw new Error(
+          '[PropsManager] Canonical property creation changed exact component data'
+        )
+      }
+      components.push(component)
+    })
+    return Object.freeze(components.map((component) => component.get('id')))
   }
 
   preflightRestoreProperties(
@@ -956,6 +1144,7 @@ class PropsManager {
     this._components.clear()
     this._deletedMap.clear()
     this.changes = []
+    this.propertyCreationBatch = null
   }
 
   reset() {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   BasePropertyComponent,
+  createPropertyComponentFromConfig,
   propertyComponentRegistry,
   registerPropertyComponent,
   registerPropertySchema,
@@ -28,7 +29,9 @@ import {
   type AddRemoveElementChange,
   type AddRemovePropertyChange,
   type ComputedAttrs,
+  type CreateElementData,
   type ElementRawData,
+  type PropertyComponentRawData,
   type PropsChange
 } from '@asyra/utils'
 import sceneTreeSingleton, { SceneTree } from '../sceneTree'
@@ -90,6 +93,16 @@ class TestPositionComponent extends BasePropertyComponent<PositionAttrs> {
       yUnit: this.data.yUnit
     }
   }
+
+  save(): PositionComponentRawData {
+    return {
+      ...super.save(),
+      x: this.data.x,
+      y: this.data.y,
+      xUnit: this.data.xUnit,
+      yUnit: this.data.yUnit
+    } as PositionComponentRawData
+  }
 }
 
 class TestDimensionComponent extends BasePropertyComponent<DimensionAttrs> {
@@ -125,6 +138,16 @@ class TestDimensionComponent extends BasePropertyComponent<DimensionAttrs> {
       heightUnit: this.data.heightUnit
     }
   }
+
+  save(): DimensionComponentRawData {
+    return {
+      ...super.save(),
+      width: this.data.width,
+      height: this.data.height,
+      widthUnit: this.data.widthUnit,
+      heightUnit: this.data.heightUnit
+    } as DimensionComponentRawData
+  }
 }
 
 interface TestPaint {
@@ -149,6 +172,9 @@ interface TestStrokesAttrs {
 const TEST_STROKE_PROPERTY_TYPE = 'test-stroke'
 const TEST_STROKES_PROPERTY_TYPE = 'test-strokes'
 const TEST_VECTOR_TYPE = 'test-vector'
+const TEST_REACTIVE_STROKES_PROPERTY_TYPE = 'test-reactive-strokes'
+const TEST_REACTIVE_VECTOR_TYPE = 'test-reactive-vector'
+const TEST_EMPTY_TYPE = 'test-empty'
 
 class TestStrokeComponent extends BasePropertyComponent<TestStrokeAttrs> {
   data: TestStrokeAttrs = {
@@ -182,6 +208,14 @@ class TestStrokeComponent extends BasePropertyComponent<TestStrokeAttrs> {
 
   getUnit(): Record<string, Unit> {
     return {}
+  }
+
+  save(): PropertyComponentRawData {
+    return {
+      ...super.save(),
+      fill: this.data.fill,
+      width: this.data.width
+    } as PropertyComponentRawData
   }
 }
 
@@ -230,6 +264,13 @@ class TestStrokesComponent extends BasePropertyComponent<TestStrokesAttrs> {
   getUnit(): Record<string, Unit> {
     return {}
   }
+
+  save(): PropertyComponentRawData {
+    return {
+      ...super.save(),
+      strokes: [...this.data.strokes]
+    } as PropertyComponentRawData
+  }
 }
 
 describe('SceneTree', () => {
@@ -247,6 +288,42 @@ describe('SceneTree', () => {
     registerPropertyComponent(PropertyTypes.DIMENSION, TestDimensionComponent)
     registerPropertyComponent(TEST_STROKE_PROPERTY_TYPE, TestStrokeComponent)
     registerPropertyComponent(TEST_STROKES_PROPERTY_TYPE, TestStrokesComponent)
+    registerPropertyComponent(
+      TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      createPropertyComponentFromConfig({
+        type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+        defaults: { strokes: [] },
+        persistKeys: ['strokes'],
+        valueKeys: ['strokes'],
+        children: {
+          key: 'strokes',
+          childType: TEST_STROKE_PROPERTY_TYPE,
+          mode: 'ids',
+          toValue: (child, childId) => ({
+            id: childId,
+            fill: child.get('fill'),
+            width: child.get('width')
+          })
+        }
+      }),
+      undefined,
+      {
+        type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+        defaults: { strokes: [] },
+        persistKeys: ['strokes'],
+        valueKeys: ['strokes'],
+        children: {
+          key: 'strokes',
+          childType: TEST_STROKE_PROPERTY_TYPE,
+          mode: 'ids',
+          toValue: (child, childId) => ({
+            id: childId,
+            fill: child.get('fill'),
+            width: child.get('width')
+          })
+        }
+      }
+    )
 
     // Clear any existing registrations before adding our test component
     componentRegistry.getAll().forEach((_, type) => {
@@ -261,7 +338,32 @@ describe('SceneTree', () => {
       constructor: MockRectangle as new (
         data?: Partial<ElementRawData>
       ) => Element,
-      properties: [],
+      properties: [
+        { name: PropertyTypes.POSITION, type: PropertyTypes.POSITION },
+        { name: PropertyTypes.DIMENSION, type: PropertyTypes.DIMENSION }
+      ],
+      defaults: {}
+    })
+
+    componentRegistry.register({
+      type: TEST_REACTIVE_VECTOR_TYPE,
+      idPrefix: TEST_REACTIVE_VECTOR_TYPE,
+      namePrefix: 'Test Reactive Vector',
+      constructor: createDynamicComponent(
+        TEST_REACTIVE_VECTOR_TYPE,
+        TEST_REACTIVE_VECTOR_TYPE,
+        'Test Reactive Vector',
+        [
+          {
+            name: 'strokes',
+            type: TEST_REACTIVE_STROKES_PROPERTY_TYPE
+          }
+        ],
+        {}
+      ),
+      properties: [
+        { name: 'strokes', type: TEST_REACTIVE_STROKES_PROPERTY_TYPE }
+      ],
       defaults: {}
     })
 
@@ -277,6 +379,21 @@ describe('SceneTree', () => {
         {}
       ),
       properties: [{ name: 'strokes', type: TEST_STROKES_PROPERTY_TYPE }],
+      defaults: {}
+    })
+
+    componentRegistry.register({
+      type: TEST_EMPTY_TYPE,
+      idPrefix: TEST_EMPTY_TYPE,
+      namePrefix: 'Test Empty',
+      constructor: createDynamicComponent(
+        TEST_EMPTY_TYPE,
+        TEST_EMPTY_TYPE,
+        'Test Empty',
+        [],
+        {}
+      ),
+      properties: [],
       defaults: {}
     })
   })
@@ -1994,6 +2111,401 @@ describe('SceneTree', () => {
     expect(commit).toHaveBeenCalledOnce()
     expect(commit).toHaveBeenCalledWith({ undoable: true })
     subscription.unsubscribe()
+  })
+
+  it('keeps empty, partial, and mixed ordinary props on the existing creation path', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          { id: 'empty-props', type: 'rect', x: 1, y: 2, props: {} },
+          {
+            id: 'partial-props',
+            type: 'rect',
+            x: 3,
+            y: 4,
+            props: { position: 'missing-requested-position' }
+          },
+          { id: 'implicit-props', type: 'rect', x: 5, y: 6 }
+        ] as CreateElementData[],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['empty-props', 'partial-props', 'implicit-props'])
+    ;['empty-props', 'partial-props', 'implicit-props'].forEach((elementId) => {
+      const propertyIds = Object.values(
+        sceneTree.getElementById(elementId)?.save().props ?? {}
+      )
+      expect(propertyIds).toHaveLength(2)
+      propertyIds.forEach((propertyId) => {
+        expect(propsManager.getPropertyById(propertyId)).toBeDefined()
+      })
+    })
+  })
+
+  it('creates exact canonical properties and elements as one ordered owner batch', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const properties = [
+      new TestPositionComponent({
+        id: 'canonical-position-1',
+        x: 12,
+        y: 24
+      }).save(),
+      new TestDimensionComponent({
+        id: 'canonical-dimension-1',
+        width: 80,
+        height: 40
+      }).save(),
+      new TestPositionComponent({
+        id: 'canonical-position-2',
+        x: 36,
+        y: 48
+      }).save(),
+      new TestDimensionComponent({
+        id: 'canonical-dimension-2',
+        width: 120,
+        height: 60
+      }).save()
+    ]
+    const elements = [
+      {
+        id: 'canonical-element-1',
+        type: 'rect',
+        name: 'Canonical Rectangle 1',
+        parentId: workspace.get('id'),
+        visible: true,
+        lock: false,
+        props: {
+          position: 'canonical-position-1',
+          dimension: 'canonical-dimension-1'
+        }
+      },
+      {
+        id: 'canonical-element-2',
+        type: 'rect',
+        name: 'Canonical Rectangle 2',
+        parentId: workspace.get('id'),
+        visible: true,
+        lock: false,
+        props: {
+          position: 'canonical-position-2',
+          dimension: 'canonical-dimension-2'
+        }
+      }
+    ] satisfies readonly ElementRawData[]
+    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
+    const { subscription } = (() => {
+      const subscription = subscribeToEvents((event) => {
+        if (
+          event.type !== EventTypes.UPDATE_TRANSACTION ||
+          !('payload' in event)
+        ) {
+          return
+        }
+        const change = event.payload as SceneTreeChange | PropsChange
+        if (
+          change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
+          change.action === PROPS_ACTIONS.ADD_PROPERTY
+        ) {
+          orderedChanges.push(change as PropsChange | AddRemoveElementChange)
+        }
+      })
+      orderedChanges.length = 0
+      return { subscription }
+    })()
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalData(
+        elements,
+        properties,
+        workspace as GroupInstanceTypes,
+        undefined,
+        { undoable: false }
+      )
+    ).toEqual(['canonical-element-1', 'canonical-element-2'])
+
+    expect(propsManager.save()).toEqual(
+      Object.fromEntries(properties.map((property) => [property.id, property]))
+    )
+    expect(
+      elements.map(({ id }) => sceneTree.getElementById(id)?.save())
+    ).toEqual(elements)
+    expect(
+      orderedChanges.map((change) =>
+        change.action === PROPS_ACTIONS.ADD_PROPERTY
+          ? {
+              action: change.action,
+              data: (change as AddRemovePropertyChange).data
+            }
+          : {
+              action: change.action,
+              data: (change as AddRemoveElementChange).data,
+              index: (change as AddRemoveElementChange).index
+            }
+      )
+    ).toEqual([
+      { action: PROPS_ACTIONS.ADD_PROPERTY, data: properties },
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: elements[0],
+        index: 0
+      },
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: elements[1],
+        index: 1
+      }
+    ])
+    subscription.unsubscribe()
+  })
+
+  it('binds child-first canonical property relationships through the owner batch', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const stroke = new TestStrokeComponent({
+      id: 'canonical-stroke',
+      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
+      width: 6
+    }).save()
+    const strokes = {
+      id: 'canonical-strokes',
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      strokes: ['canonical-stroke']
+    } as PropertyComponentRawData
+    const element = {
+      id: 'canonical-vector',
+      type: TEST_REACTIVE_VECTOR_TYPE,
+      name: 'Canonical Vector',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {
+        strokes: 'canonical-strokes'
+      } as unknown as ElementRawData['props']
+    } satisfies ElementRawData
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalData(
+        [element],
+        [stroke, strokes],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['canonical-vector'])
+
+    expect(sceneTree.getElementById('canonical-vector')?.save()).toEqual(
+      element
+    )
+    expect(
+      sceneTree.getElementById('canonical-vector')?.getAllComputedData()
+    ).toMatchObject({
+      strokes: [
+        {
+          id: 'canonical-stroke',
+          fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
+          width: 6
+        }
+      ]
+    })
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+    const createdStroke = propsManager.getPropertyById('canonical-stroke')
+    createdStroke?.set('width' as never, 12 as never)
+    expect(
+      sceneTree
+        .getElementById('canonical-vector')
+        ?.computed.get('strokes' as never)
+    ).toMatchObject([
+      {
+        id: 'canonical-stroke',
+        fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
+        width: 12
+      }
+    ])
+    expect(propsManager.changes).toContainEqual(
+      expect.objectContaining({
+        id: 'canonical-stroke',
+        key: 'width',
+        after: 12
+      })
+    )
+  })
+
+  it('preserves shared new owners and rejects untracked active owners', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const sharedStroke = new TestStrokeComponent({
+      id: 'canonical-shared-stroke',
+      width: 4
+    }).save()
+    const sharedStrokes = {
+      id: 'canonical-shared-strokes',
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      strokes: ['canonical-shared-stroke']
+    } as PropertyComponentRawData
+    const sharedElements = [1, 2].map(
+      (suffix) =>
+        ({
+          id: `canonical-shared-${suffix}`,
+          type: TEST_REACTIVE_VECTOR_TYPE,
+          name: `Canonical Shared ${suffix}`,
+          parentId: workspace.get('id'),
+          visible: true,
+          lock: false,
+          props: {
+            strokes: 'canonical-shared-strokes'
+          } as unknown as ElementRawData['props']
+        }) satisfies ElementRawData
+    )
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalData(
+        sharedElements,
+        [sharedStroke, sharedStrokes],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['canonical-shared-1', 'canonical-shared-2'])
+    expect(
+      sharedElements.map(({ id }) => sceneTree.getElementById(id)?.save())
+    ).toEqual(sharedElements)
+
+    const active = propsManager.createProperty({
+      id: 'existing-shared-strokes',
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      strokes: []
+    })
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+    const ordinaryElement = {
+      id: 'ordinary-existing-owner',
+      type: TEST_REACTIVE_VECTOR_TYPE,
+      name: 'Ordinary Existing Owner',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {
+        strokes: 'existing-shared-strokes'
+      } as unknown as ElementRawData['props']
+    } satisfies ElementRawData
+    const canonicalElement = {
+      ...ordinaryElement,
+      id: 'canonical-existing-owner',
+      name: 'Canonical Existing Owner'
+    } satisfies ElementRawData
+
+    expect(
+      sceneTree.addNewElement(
+        ordinaryElement as unknown as CreateElementData,
+        workspace as GroupInstanceTypes
+      )
+    ).toBe('ordinary-existing-owner')
+    expect(() =>
+      sceneTree.addNewElementsFromCanonicalData(
+        [canonicalElement],
+        [],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/property owner/i)
+    expect(sceneTree.getElementById('ordinary-existing-owner')?.save()).toEqual(
+      ordinaryElement
+    )
+    expect(sceneTree.getElementById('canonical-existing-owner')).toBeUndefined()
+    expect(propsManager.getPropertyById('existing-shared-strokes')).toBe(active)
+  })
+
+  it('creates an exact zero-slot canonical component without inventing properties', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const element = {
+      id: 'canonical-empty',
+      type: TEST_EMPTY_TYPE,
+      name: 'Canonical Empty',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {} as unknown as ElementRawData['props']
+    } satisfies ElementRawData
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalData(
+        [element],
+        [],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['canonical-empty'])
+    expect(sceneTree.getElementById('canonical-empty')?.save()).toEqual(element)
+    expect(propsManager.save()).toEqual({})
+  })
+
+  it('rejects invalid canonical ownership and rolls back exact-data failures without a prefix', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    const position = new TestPositionComponent({
+      id: 'canonical-rollback-position',
+      x: 4,
+      y: 8
+    }).save()
+    const dimension = new TestDimensionComponent({
+      id: 'canonical-rollback-dimension',
+      width: 16,
+      height: 32
+    }).save()
+    const element = {
+      id: 'canonical-rollback-element',
+      type: 'rect',
+      name: 'Canonical Rollback Element',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {
+        position: position.id,
+        dimension: dimension.id
+      },
+      unexpected: 'must not be dropped'
+    } as ElementRawData
+    const propsCommit = vi.spyOn(propsManager, 'commitChanges')
+    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+
+    expect(() =>
+      sceneTree.addNewElementsFromCanonicalData(
+        [element],
+        [position, dimension],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/changed exact element data/i)
+
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+    expect(propsCommit).not.toHaveBeenCalled()
+    expect(sceneCommit).not.toHaveBeenCalled()
+
+    expect(() =>
+      sceneTree.addNewElementsFromCanonicalData(
+        [
+          {
+            ...element,
+            unexpected: undefined,
+            props: {
+              position: dimension.id,
+              dimension: position.id
+            }
+          } as ElementRawData
+        ],
+        [position, dimension],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/invalid "position" property owner/i)
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(propsManager.save()).toEqual(beforeProps)
   })
 
   it('rejects a failed canonical element batch without a scene or property prefix', () => {

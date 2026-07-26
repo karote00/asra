@@ -35,6 +35,7 @@ export {
   runWithPropertyComponentAccessor
 }
 export type { PropertyDefinition } from './registries/property-definition'
+export type { PropertyCreationPlan } from './manager/props-manager'
 export type { PropertyComponentConstructor } from './components'
 export {
   propertySchemaRegistry,

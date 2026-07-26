@@ -277,6 +277,7 @@ type CoreExtensionApiKeys =
   | 'createElement'
   | 'createElementInParent'
   | 'createElementsInParent'
+  | 'createElementsInParentFromCanonicalData'
   | 'getElementComputedData'
   | 'moveElements'
   | 'removeSubtree'

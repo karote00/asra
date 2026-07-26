@@ -217,6 +217,7 @@ class Core implements CoreAPIs {
   createElement!: SceneTreeAPIs['createElement']
   createElementInParent!: SceneTreeAPIs['createElementInParent']
   createElementsInParent!: SceneTreeAPIs['createElementsInParent']
+  createElementsInParentFromCanonicalData!: SceneTreeAPIs['createElementsInParentFromCanonicalData']
   getElementComputedData!: SceneTreeAPIs['getElementComputedData']
   moveElements!: SceneTreeAPIs['moveElements']
   removeSubtree!: SceneTreeAPIs['removeSubtree']
@@ -584,15 +585,13 @@ class Core implements CoreAPIs {
       }
 
       if (this.saveHooks.length === 0) {
-        return measureBrowserDragPhase(
-          'core:persistence-capture:detach',
-          () => clonePersistenceSnapshot(data)
+        return measureBrowserDragPhase('core:persistence-capture:detach', () =>
+          clonePersistenceSnapshot(data)
         )
       }
 
-      data = measureBrowserDragPhase(
-        'core:persistence-capture:detach',
-        () => clonePersistenceSnapshot(data)
+      data = measureBrowserDragPhase('core:persistence-capture:detach', () =>
+        clonePersistenceSnapshot(data)
       )
 
       data = measureBrowserDragPhase(
@@ -606,9 +605,8 @@ class Core implements CoreAPIs {
         }
       )
 
-      return measureBrowserDragPhase(
-        'core:persistence-capture:detach',
-        () => clonePersistenceSnapshot(data)
+      return measureBrowserDragPhase('core:persistence-capture:detach', () =>
+        clonePersistenceSnapshot(data)
       )
     })
   }

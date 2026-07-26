@@ -5,12 +5,13 @@ import {
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch
 } from '@asyra/reactive-events'
+import type { ElementRawData, PropertyComponentRawData } from '@asyra/utils'
 import type { CoreExtensionAPIs } from '../index'
 import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
 type BatchExtensionContract = Pick<
   CoreExtensionAPIs,
-  'createElementsInParent'
+  'createElementsInParent' | 'createElementsInParentFromCanonicalData'
 >
 
 const acceptBatchExtensionContract = (apis: BatchExtensionContract) => apis
@@ -28,6 +29,9 @@ const createRequests = (): SceneTreeRequests => ({
   applyRestoreSubtree: vi.fn(),
   createElementsInParent: vi.fn((data: readonly { id?: string }[]) =>
     data.map(({ id }, index) => id ?? `element-${index}`)
+  ),
+  createElementsInParentFromCanonicalData: vi.fn(
+    (data: readonly { id: string }[]) => data.map(({ id }) => id)
   ),
   refreshComputedDataFromProperty: () => undefined,
   getAllElementsBounds: () => null,
@@ -97,9 +101,93 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
       3,
       { shared: 'sceneTree' }
     )
+    expect(acceptBatchExtensionContract(batchApis).createElementsInParent).toBe(
+      batchApis.createElementsInParent
+    )
+  })
+
+  it('delegates exact canonical property and element data without preparing it twice', () => {
+    const exactElements = [
+      {
+        id: 'canonical-rect',
+        type: 'rect',
+        name: 'Canonical Rectangle',
+        parentId: 'workspace-1',
+        visible: true,
+        lock: false,
+        props: {
+          position: 'canonical-position',
+          dimension: 'canonical-dimension'
+        }
+      }
+    ] satisfies readonly ElementRawData[]
+    const exactProperties = [
+      {
+        id: 'canonical-position',
+        type: 'position',
+        x: 10,
+        y: 20,
+        xUnit: 'px',
+        yUnit: 'px'
+      },
+      {
+        id: 'canonical-dimension',
+        type: 'dimension',
+        width: 30,
+        height: 40,
+        widthUnit: 'px',
+        heightUnit: 'px'
+      }
+    ] as unknown as readonly PropertyComponentRawData[]
+    const requests = createRequests()
+    const canonicalRequest = requests.createElementsInParentFromCanonicalData
+    const apis = createSceneTreeAPIs(requests)
+
     expect(
-      acceptBatchExtensionContract(batchApis).createElementsInParent
-    ).toBe(batchApis.createElementsInParent)
+      apis.createElementsInParentFromCanonicalData(
+        exactElements,
+        exactProperties,
+        'workspace-1',
+        4,
+        { shared: 'sceneTree' }
+      )
+    ).toEqual(['canonical-rect'])
+    expect(canonicalRequest).toHaveBeenCalledWith(
+      exactElements,
+      exactProperties,
+      'workspace-1',
+      4,
+      { shared: 'sceneTree' }
+    )
+    expect(
+      acceptBatchExtensionContract(apis).createElementsInParentFromCanonicalData
+    ).toBe(apis.createElementsInParentFromCanonicalData)
+  })
+
+  it('treats an empty exact canonical batch as a no-op and rejects orphan properties', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const orphanProperty = {
+      id: 'orphan-position',
+      type: 'position'
+    } as PropertyComponentRawData
+
+    expect(
+      apis.createElementsInParentFromCanonicalData([], [], 'missing-parent')
+    ).toEqual([])
+    expect(
+      requests.createElementsInParentFromCanonicalData
+    ).not.toHaveBeenCalled()
+    expect(() =>
+      apis.createElementsInParentFromCanonicalData(
+        [],
+        [orphanProperty],
+        'missing-parent'
+      )
+    ).toThrow(/orphan propert/i)
+    expect(
+      requests.createElementsInParentFromCanonicalData
+    ).not.toHaveBeenCalled()
   })
 
   it('returns a detached computed-data snapshot through the ID facade', () => {
