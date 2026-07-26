@@ -1,5 +1,9 @@
 import type { SharedPublication } from '@asyra/factory'
 import {
+  measureBrowserDragAsyncPhase,
+  measureBrowserDragPhase
+} from '@asyra/utils'
+import {
   ProviderFailure,
   createProviderIdentitySnapshot,
   isProviderFailureCode,
@@ -318,10 +322,14 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   async sendPublication(publication: SharedPublication): Promise<void> {
-    await this.request({
-      type: CollaborationMessageTypes.SEND_PUBLICATION,
-      publication
-    })
+    await measureBrowserDragAsyncPhase(
+      'collaboration:outbound-send-to-ack',
+      () =>
+        this.request({
+          type: CollaborationMessageTypes.SEND_PUBLICATION,
+          publication
+        })
+    )
   }
 
   onPublication(subscriber: Subscriber<InboundPublication>): () => void {
@@ -367,7 +375,10 @@ export class CollaborationWebSocketProvider implements Provider {
     }
     let encodedMessage: string
     try {
-      encodedMessage = encodeCollaborationMessage(message)
+      encodedMessage = measureBrowserDragPhase(
+        'collaboration:outbound-encode',
+        () => encodeCollaborationMessage(message)
+      )
     } catch (error) {
       throw new ProviderFailure(
         'transport-failed',
@@ -405,7 +416,10 @@ export class CollaborationWebSocketProvider implements Provider {
     }
     if (message.type === CollaborationMessageTypes.PUBLICATION) {
       this.emit(this.publicationSubscribers, {
-        publication: structuredClone(message.publication),
+        publication: measureBrowserDragPhase(
+          'collaboration:inbound-provider-clone',
+          () => structuredClone(message.publication)
+        ),
         ...(message.fromActorId ? { fromActorId: message.fromActorId } : {})
       })
       return
@@ -436,10 +450,17 @@ export class CollaborationWebSocketProvider implements Provider {
   private parseMessage(value: unknown): CollaborationServerMessage | undefined {
     let message: CollaborationServerMessage | undefined
     try {
-      message =
-        typeof value === 'string'
-          ? parseCollaborationServerMessage(JSON.parse(value) as unknown)
-          : undefined
+      if (typeof value !== 'string') {
+        return
+      }
+      const decoded = measureBrowserDragPhase(
+        'collaboration:inbound-json-parse',
+        () => JSON.parse(value) as unknown
+      )
+      message = measureBrowserDragPhase(
+        'collaboration:inbound-protocol-validate',
+        () => parseCollaborationServerMessage(decoded)
+      )
     } catch {
       // Report the same protocol failure for invalid JSON and invalid payloads.
     }

@@ -92,6 +92,11 @@ beforeEach(() => {
 afterEach(async () => {
   await Promise.all([...servers].map((server) => server.close()))
   servers.clear()
+  delete (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: unknown
+    }
+  ).__asyraBrowserDragPhaseSink
   Object.defineProperty(globalThis, 'WebSocket', {
     configurable: true,
     writable: true,
@@ -173,6 +178,15 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
   it('sends one publication and settles only after server response', async () => {
     let sent: SharedPublication | undefined
+    const phaseSink = vi.fn()
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraBrowserDragPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraBrowserDragPhaseSink = phaseSink
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -194,6 +208,20 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.sendPublication(publication)
 
     expect(sent).toEqual(publication)
+    expect(phaseSink.mock.calls.map(([phaseName]) => phaseName)).toEqual(
+      expect.arrayContaining([
+        'collaboration:outbound-encode',
+        'collaboration:outbound-send-to-ack'
+      ])
+    )
+    expect(
+      phaseSink.mock.calls.every(
+        ([, durationMs]) =>
+          typeof durationMs === 'number' &&
+          Number.isFinite(durationMs) &&
+          durationMs >= 0
+      )
+    ).toBe(true)
     await provider.destroy()
   })
 

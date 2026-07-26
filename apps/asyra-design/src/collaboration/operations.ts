@@ -10,7 +10,8 @@ import {
   type SceneTreeRestorePlan,
   type SceneTreeRestoreSnapshot,
   SharedDataChannelNames,
-  isRecord
+  isRecord,
+  measureBrowserDragPhase
 } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
 
@@ -341,14 +342,28 @@ export const createAsyraDesignPublicationProcessor =
     restoreOwners?: RemoteRestoreOwnerFacades
   ): ((publication: SharedPublication) => void) =>
   (publication) => {
-    publication.deliveries.forEach(toEvent)
-    const inboundRestore = classifyRemoteRestore(publication)
-    const acceptedPublication = decideRemotePublication(publication)
+    measureBrowserDragPhase('collaboration:remote-input-preflight', () =>
+      publication.deliveries.forEach(toEvent)
+    )
+    const inboundRestore = measureBrowserDragPhase(
+      'collaboration:remote-restore-classify',
+      () => classifyRemoteRestore(publication)
+    )
+    const acceptedPublication = measureBrowserDragPhase(
+      'collaboration:remote-policy',
+      () => decideRemotePublication(publication)
+    )
     if (acceptedPublication === false) {
       return
     }
-    const events = acceptedPublication.deliveries.map(toEvent)
-    const acceptedRestore = classifyRemoteRestore(acceptedPublication)
+    const events = measureBrowserDragPhase(
+      'collaboration:remote-event-materialization',
+      () => acceptedPublication.deliveries.map(toEvent)
+    )
+    const acceptedRestore = measureBrowserDragPhase(
+      'collaboration:remote-accepted-restore-classify',
+      () => classifyRemoteRestore(acceptedPublication)
+    )
     if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
       throw new Error(
         '[asyra-design collaboration] invalid subtree restore publication'
@@ -367,13 +382,17 @@ export const createAsyraDesignPublicationProcessor =
         acceptedRestore.propsSnapshot,
         scenePlan.propertyOwnerRelations
       )
-      runRemoteTransaction(() => {
-        restoreOwners.applyRestoreProperties(propsPlan)
-        restoreOwners.applyRestoreSubtree(scenePlan)
-      })
+      measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
+        runRemoteTransaction(() => {
+          restoreOwners.applyRestoreProperties(propsPlan)
+          restoreOwners.applyRestoreSubtree(scenePlan)
+        })
+      )
       return
     }
-    runRemoteTransaction(() => {
-      events.forEach((event) => process(event))
-    })
+    measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
+      runRemoteTransaction(() => {
+        events.forEach((event) => process(event))
+      })
+    )
   }
