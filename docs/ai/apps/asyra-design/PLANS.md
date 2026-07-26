@@ -4,7 +4,8 @@ Never record completed plans here.
 
 ## Current Status
 
-- Ordered proposed next implementation plans: none.
+- Ordered proposed next implementation plans:
+  1. `plans/ai-conversational-drawing-performance-plan.md`
 - Current active plan:
   `plans/ai-conversational-drawing-plan.md`.
 - The active plan adds an explicit `ai=mock` Asyra Design conversation,
@@ -13,6 +14,11 @@ Never record completed plans here.
   incremental follow-up targeting, and current-history Message Bar Undo/Redo.
 - Its architecture authority is
   `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
+- Its first queued successor is profiling-first performance remediation for
+  local canonical creation, progressive collaboration, Render projection, and
+  E2E measurement. The successor does not close or weaken the active plan; its
+  architecture authority is
+  `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on
   2026-07-24. Remote Subtree Restore Snapshot, Group Context Menu, and the
   documentation-only durable collaboration cancellation closeout completed on
