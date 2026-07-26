@@ -108,4 +108,131 @@ describe('stroke common API primary-color boundary', () => {
     ).toBe(false)
     expect(mocks.updatePropertyById).not.toHaveBeenCalled()
   })
+
+  it('applies ordered primary stroke colors with one transaction and property commit', () => {
+    mocks.getElementById.mockImplementation((elementId: string) => ({
+      get: (key: string) => (key === 'type' ? 'vector' : undefined),
+      getAllComputedData: () => ({
+        strokes: [
+          {
+            id: `stroke-${elementId}`,
+            type: 'stroke',
+            fill: {
+              color: '#5B3A29',
+              id: `stroke-${elementId}`,
+              type: 'fill'
+            }
+          }
+        ]
+      })
+    }))
+    const options = {
+      sharedDelivery: 'immediate',
+      undoable: true
+    } as const
+
+    expect(
+      strokeApis.updatePrimaryStrokeColors(
+        [
+          { color: '#2563EB', elementId: 'whisker-left' },
+          { color: '#2563EB', elementId: 'whisker-right' }
+        ],
+        options
+      )
+    ).toEqual([true, true])
+    expect(mocks.updatePropertyById.mock.calls).toEqual([
+      [
+        'stroke-whisker-left',
+        'fill',
+        {
+          color: '#2563EB',
+          id: 'stroke-whisker-left',
+          type: 'fill'
+        },
+        {
+          ownerElementId: 'whisker-left',
+          ownerPropertyName: 'strokes'
+        },
+        options
+      ],
+      [
+        'stroke-whisker-right',
+        'fill',
+        {
+          color: '#2563EB',
+          id: 'stroke-whisker-right',
+          type: 'fill'
+        },
+        {
+          ownerElementId: 'whisker-right',
+          ownerPropertyName: 'strokes'
+        },
+        options
+      ]
+    ])
+    expect(mocks.runTransaction).toHaveBeenCalledOnce()
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledOnce()
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledWith(options)
+  })
+
+  it('aligns partial batch results and skips an empty transaction', () => {
+    mocks.getElementById.mockImplementation((elementId: string) => {
+      if (elementId === 'missing') {
+        return undefined
+      }
+      return {
+        get: (key: string) => (key === 'type' ? 'vector' : undefined),
+        getAllComputedData: () => ({
+          strokes: [
+            {
+              fill: {
+                color: '#5B3A29',
+                id: `stroke-${elementId}`,
+                type: 'fill'
+              },
+              id: `stroke-${elementId}`,
+              type: 'stroke'
+            }
+          ]
+        })
+      }
+    })
+
+    expect(
+      strokeApis.updatePrimaryStrokeColors([
+        { color: '#2563EB', elementId: 'changed' },
+        { color: '#5B3A29', elementId: 'unchanged' },
+        { color: '#2563EB', elementId: 'missing' }
+      ])
+    ).toEqual([true, false, false])
+    expect(mocks.updatePropertyById).toHaveBeenCalledOnce()
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledOnce()
+    expect(mocks.runTransaction).toHaveBeenCalledOnce()
+
+    vi.clearAllMocks()
+    mocks.getElementById.mockReturnValue({
+      get: (key: string) => (key === 'type' ? 'vector' : undefined),
+      getAllComputedData: () => ({
+        strokes: [
+          {
+            fill: {
+              color: '#5B3A29',
+              id: 'stroke-unchanged',
+              type: 'fill'
+            },
+            id: 'stroke-unchanged',
+            type: 'stroke'
+          }
+        ]
+      })
+    })
+    expect(
+      strokeApis.updatePrimaryStrokeColors([
+        { color: '#5B3A29', elementId: 'unchanged' }
+      ])
+    ).toEqual([false])
+    expect(mocks.updatePropertyById).not.toHaveBeenCalled()
+    expect(mocks.commitPropertyChanges).not.toHaveBeenCalled()
+    expect(mocks.runTransaction).not.toHaveBeenCalled()
+  })
 })

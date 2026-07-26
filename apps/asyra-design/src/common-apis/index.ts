@@ -17,8 +17,12 @@ export {
   type AppendVectorAnchorPointOptions,
   type VectorPointUpdate
 } from './element'
-export { fillApis, type FillPatch } from './fills'
-export { strokeApis, type StrokePatch } from './strokes'
+export { fillApis, type FillPatch, type PrimaryFillColorUpdate } from './fills'
+export {
+  strokeApis,
+  type PrimaryStrokeColorUpdate,
+  type StrokePatch
+} from './strokes'
 export { viewportApis } from './viewport'
 export { systemContextApis } from './system-context'
 export { historyApis } from './history'

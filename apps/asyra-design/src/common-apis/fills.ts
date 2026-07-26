@@ -12,6 +12,11 @@ import { getChangedDefinedPatchEntries } from './property-patch'
 
 export type FillPatch = Partial<Pick<FillAttrs, FillWritableKey>>
 
+export interface PrimaryFillColorUpdate {
+  readonly color: string
+  readonly elementId: string
+}
+
 const updateFillPropertyById = core.updatePropertyById as <
   K extends FillWritableKey
 >(
@@ -551,32 +556,63 @@ export const fillApis = {
     return nextGradient
   },
 
+  updatePrimaryFillColors: (
+    updates: readonly PrimaryFillColorUpdate[],
+    options?: EVENT_OPTIONS
+  ): readonly boolean[] => {
+    const prepared = updates.map(({ color, elementId }) => {
+      const fill = getPrimaryFill(elementId)
+      if (
+        !fill ||
+        typeof color !== 'string' ||
+        color.length === 0 ||
+        fill.color === color
+      ) {
+        return null
+      }
+      return {
+        color,
+        elementId,
+        fill
+      }
+    })
+    if (!prepared.some((update) => update !== null)) {
+      return Object.freeze(prepared.map(() => false))
+    }
+
+    prepared.forEach((update) => {
+      if (!update) {
+        return
+      }
+      updateFillPropertyById(
+        update.fill.id,
+        'color',
+        update.color,
+        {
+          ownerElementId: update.elementId,
+          ownerPropertyName: PropertyTypes.FILLS
+        },
+        options
+      )
+    })
+    core.commitPropertyChanges(options)
+    return Object.freeze(prepared.map((update) => update !== null))
+  },
+
   updatePrimaryFillColor: (
     elementId: string,
     color: string,
     options?: EVENT_OPTIONS
-  ): boolean => {
-    const fill = getPrimaryFill(elementId)
-    if (
-      !fill ||
-      typeof color !== 'string' ||
-      color.length === 0 ||
-      fill.color === color
-    ) {
-      return false
-    }
-
-    fillApis.updateFillFields(
-      elementId,
-      fill.id,
-      fill,
-      {
-        color
-      },
+  ): boolean =>
+    fillApis.updatePrimaryFillColors(
+      [
+        {
+          color,
+          elementId
+        }
+      ],
       options
-    )
-    return true
-  },
+    )[0] ?? false,
 
   updateFillFields: (
     elementId: string,

@@ -102,7 +102,13 @@ const actionApis = () => ({
   selectElements: vi.fn(),
   setElementVisible: vi.fn(() => true),
   updateElementFillColor: vi.fn(() => true),
-  updateElementStrokeColor: vi.fn(() => true)
+  updateElementFillColors: vi.fn((updates: readonly unknown[]) =>
+    updates.map(() => true)
+  ),
+  updateElementStrokeColor: vi.fn(() => true),
+  updateElementStrokeColors: vi.fn((updates: readonly unknown[]) =>
+    updates.map(() => true)
+  )
 })
 
 const actionByName = (
@@ -846,14 +852,19 @@ describe('Asyra Design AI composition action execution', () => {
       },
       mutationOptions
     )
-    expect(apis.updateElementStrokeColor).toHaveBeenCalledWith(
-      'whisker-present',
-      '#2563EB',
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledWith(
+      [
+        {
+          color: '#2563EB',
+          elementId: 'whisker-present'
+        }
+      ],
       mutationOptions
     )
+    expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
   })
 
-  it('yields after each applied progressive update while retaining one action execution', async () => {
+  it('applies one ordered progressive style batch before yielding once', async () => {
     const apis = actionApis()
     const yieldToHost = vi.fn(async () => undefined)
     apis.getElementType.mockReturnValue('vector')
@@ -887,19 +898,202 @@ describe('Asyra Design AI composition action execution', () => {
       appliedElementIds: ['whisker-left', 'whisker-right'],
       status: 'complete'
     })
-    expect(apis.updateElementStrokeColor).toHaveBeenNthCalledWith(
-      1,
-      'whisker-left',
-      '#2563EB',
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledWith(
+      [
+        {
+          color: '#2563EB',
+          elementId: 'whisker-left'
+        },
+        {
+          color: '#2563EB',
+          elementId: 'whisker-right'
+        }
+      ],
       progressiveMutationOptions
     )
-    expect(apis.updateElementStrokeColor).toHaveBeenNthCalledWith(
-      2,
-      'whisker-right',
-      '#2563EB',
-      progressiveMutationOptions
+    expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
+    expect(yieldToHost).toHaveBeenCalledOnce()
+  })
+
+  it('bounds progressive style batches at 256 items without reordering', async () => {
+    const apis = actionApis()
+    const yieldToHost = vi.fn(async () => undefined)
+    const updates = Array.from({ length: 513 }, (_, index) => ({
+      elementId: `whisker-${index}`,
+      style: { strokeColor: '#2563EB' }
+    }))
+    apis.getElementType.mockReturnValue('vector')
+    apis.getElementStrokeColor.mockReturnValue('#5B3A29')
+    const action = actionByName(
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      apis,
+      {
+        deliveryMode: 'progressive',
+        yieldToHost
+      }
     )
-    expect(yieldToHost).toHaveBeenCalledTimes(2)
+
+    await expect(
+      action.execute({ updates }, executionContext())
+    ).resolves.toMatchObject({
+      appliedElementIds: updates.map(({ elementId }) => elementId),
+      status: 'complete'
+    })
+    expect(
+      apis.updateElementStrokeColors.mock.calls.map(([batch]) => batch.length)
+    ).toEqual([256, 256, 1])
+    expect(
+      apis.updateElementStrokeColors.mock.calls.flatMap(([batch]) =>
+        batch.map(({ elementId }) => elementId)
+      )
+    ).toEqual(updates.map(({ elementId }) => elementId))
+    expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
+    expect(yieldToHost).toHaveBeenCalledTimes(3)
+  })
+
+  it('stops before the next progressive style batch after cancellation', async () => {
+    const apis = actionApis()
+    const controller = new AbortController()
+    const yieldToHost = vi.fn(async () => {
+      controller.abort()
+    })
+    const updates = Array.from({ length: 257 }, (_, index) => ({
+      elementId: `whisker-${index}`,
+      style: { strokeColor: '#2563EB' }
+    }))
+    apis.getElementType.mockReturnValue('vector')
+    apis.getElementStrokeColor.mockReturnValue('#5B3A29')
+    const action = actionByName(
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      apis,
+      {
+        deliveryMode: 'progressive',
+        yieldToHost
+      }
+    )
+
+    await expect(
+      action.execute({ updates }, { signal: controller.signal })
+    ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
+    expect(apis.updateElementStrokeColors.mock.calls[0]?.[0]).toHaveLength(256)
+    expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
+    expect(yieldToHost).toHaveBeenCalledOnce()
+  })
+
+  it('aligns applied and no-change outcomes from a style batch', async () => {
+    const apis = actionApis()
+    apis.getElementType.mockReturnValue('vector')
+    apis.getElementFillColor.mockReturnValue('#050504')
+    apis.updateElementFillColors.mockReturnValue([true, false, true])
+    const action = actionByName(
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      apis
+    )
+
+    await expect(
+      action.execute(
+        {
+          updates: ['left', 'middle', 'right'].map((suffix) => ({
+            elementId: `pupil-${suffix}`,
+            style: { fillColor: '#DC2626' }
+          }))
+        },
+        executionContext()
+      )
+    ).resolves.toEqual({
+      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      appliedElementIds: ['pupil-left', 'pupil-right'],
+      skipped: [
+        {
+          elementId: 'pupil-middle',
+          reason: 'no-change'
+        }
+      ],
+      status: 'partial'
+    })
+  })
+
+  it('rejects a style batch result that is not index-aligned', async () => {
+    const apis = actionApis()
+    apis.getElementType.mockReturnValue('vector')
+    apis.getElementFillColor.mockReturnValue('#050504')
+    apis.updateElementFillColors.mockReturnValue([true])
+    const action = actionByName(
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      apis
+    )
+
+    await expect(
+      action.execute(
+        {
+          updates: [
+            {
+              elementId: 'pupil-left',
+              style: { fillColor: '#DC2626' }
+            },
+            {
+              elementId: 'pupil-right',
+              style: { fillColor: '#DC2626' }
+            }
+          ]
+        },
+        executionContext()
+      )
+    ).rejects.toThrow(
+      'AI composition style batch did not preserve the requested item count.'
+    )
+  })
+
+  it('preserves contiguous fill and stroke batch order', async () => {
+    const apis = actionApis()
+    const yieldToHost = vi.fn(async () => undefined)
+    apis.getElementType.mockReturnValue('vector')
+    apis.getElementFillColor.mockReturnValue('#050504')
+    apis.getElementStrokeColor.mockReturnValue('#5B3A29')
+    const action = actionByName(
+      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      apis,
+      {
+        deliveryMode: 'progressive',
+        yieldToHost
+      }
+    )
+
+    await expect(
+      action.execute(
+        {
+          updates: [
+            {
+              elementId: 'pupil-left',
+              style: { fillColor: '#DC2626' }
+            },
+            {
+              elementId: 'whisker-left',
+              style: { strokeColor: '#2563EB' }
+            },
+            {
+              elementId: 'pupil-right',
+              style: { fillColor: '#DC2626' }
+            }
+          ]
+        },
+        executionContext()
+      )
+    ).resolves.toMatchObject({
+      appliedElementIds: ['pupil-left', 'whisker-left', 'pupil-right'],
+      status: 'complete'
+    })
+    expect(apis.updateElementFillColors).toHaveBeenCalledTimes(2)
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
+    expect(
+      apis.updateElementFillColors.mock.invocationCallOrder[0]
+    ).toBeLessThan(apis.updateElementStrokeColors.mock.invocationCallOrder[0])
+    expect(
+      apis.updateElementStrokeColors.mock.invocationCallOrder[0]
+    ).toBeLessThan(apis.updateElementFillColors.mock.invocationCallOrder[1])
+    expect(yieldToHost).toHaveBeenCalledTimes(3)
   })
 
   it('rejects a progressive update when cancellation arrives during its final host yield', async () => {
@@ -932,7 +1126,8 @@ describe('Asyra Design AI composition action execution', () => {
         { signal: controller.signal }
       )
     ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
-    expect(apis.updateElementStrokeColor).toHaveBeenCalledOnce()
+    expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
+    expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
     expect(yieldToHost).toHaveBeenCalledOnce()
   })
 
@@ -1015,19 +1210,21 @@ describe('Asyra Design AI composition action execution', () => {
       skipped: [],
       status: 'complete'
     })
-    expect(apis.updateElementFillColor).toHaveBeenCalledTimes(2)
-    expect(apis.updateElementFillColor).toHaveBeenNthCalledWith(
-      1,
-      'pupil-left',
-      '#DC2626',
+    expect(apis.updateElementFillColors).toHaveBeenCalledOnce()
+    expect(apis.updateElementFillColors).toHaveBeenCalledWith(
+      [
+        {
+          color: '#DC2626',
+          elementId: 'pupil-left'
+        },
+        {
+          color: '#DC2626',
+          elementId: 'pupil-right'
+        }
+      ],
       mutationOptions
     )
-    expect(apis.updateElementFillColor).toHaveBeenNthCalledWith(
-      2,
-      'pupil-right',
-      '#DC2626',
-      mutationOptions
-    )
+    expect(apis.updateElementFillColor).not.toHaveBeenCalled()
     expect(apis.createCompositionElement).not.toHaveBeenCalled()
     expect(apis.createCompositionElements).not.toHaveBeenCalled()
     expect(apis.removeSubtree).not.toHaveBeenCalled()
@@ -1075,12 +1272,17 @@ describe('Asyra Design AI composition action execution', () => {
       ],
       status: 'partial'
     })
-    expect(apis.updateElementFillColor).toHaveBeenCalledOnce()
-    expect(apis.updateElementFillColor).toHaveBeenCalledWith(
-      'pupil-right',
-      '#DC2626',
+    expect(apis.updateElementFillColors).toHaveBeenCalledOnce()
+    expect(apis.updateElementFillColors).toHaveBeenCalledWith(
+      [
+        {
+          color: '#DC2626',
+          elementId: 'pupil-right'
+        }
+      ],
       mutationOptions
     )
+    expect(apis.updateElementFillColor).not.toHaveBeenCalled()
   })
 
   it('returns no-change for a missing removal target and removes an existing Group once', async () => {

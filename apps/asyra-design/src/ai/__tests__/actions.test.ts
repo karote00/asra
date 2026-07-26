@@ -20,7 +20,9 @@ const actionApis = () => ({
   selectElements: vi.fn(),
   setElementVisible: vi.fn(() => true),
   updateElementFillColor: vi.fn(),
-  updateElementStrokeColor: vi.fn()
+  updateElementFillColors: vi.fn(() => []),
+  updateElementStrokeColor: vi.fn(),
+  updateElementStrokeColors: vi.fn(() => [])
 })
 
 const actionByName = (name: string, apis: ReturnType<typeof actionApis>) => {

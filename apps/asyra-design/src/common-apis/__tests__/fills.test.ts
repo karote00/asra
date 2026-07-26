@@ -81,4 +81,115 @@ describe('fill common API primary-color boundary', () => {
     )
     expect(mocks.updatePropertyById).not.toHaveBeenCalled()
   })
+
+  it('applies ordered primary fill colors with one property commit', () => {
+    mocks.getElementById.mockImplementation((elementId: string) => ({
+      getAllComputedData: () => ({
+        fills: [
+          {
+            color: '#050504',
+            id: `fill-${elementId}`,
+            type: 'fill'
+          }
+        ]
+      })
+    }))
+    const options = {
+      sharedDelivery: 'immediate',
+      undoable: true
+    } as const
+
+    expect(
+      fillApis.updatePrimaryFillColors(
+        [
+          { color: '#DC2626', elementId: 'pupil-left' },
+          { color: '#DC2626', elementId: 'pupil-right' }
+        ],
+        options
+      )
+    ).toEqual([true, true])
+    expect(mocks.updatePropertyById.mock.calls).toEqual([
+      [
+        'fill-pupil-left',
+        'color',
+        '#DC2626',
+        {
+          ownerElementId: 'pupil-left',
+          ownerPropertyName: 'fills'
+        },
+        options
+      ],
+      [
+        'fill-pupil-right',
+        'color',
+        '#DC2626',
+        {
+          ownerElementId: 'pupil-right',
+          ownerPropertyName: 'fills'
+        },
+        options
+      ]
+    ])
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledOnce()
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledWith(options)
+  })
+
+  it('aligns partial batch results and skips an empty property commit', () => {
+    mocks.getElementById.mockImplementation((elementId: string) => {
+      if (elementId === 'missing') {
+        return undefined
+      }
+      return {
+        getAllComputedData: () => ({
+          fills: [
+            {
+              color: '#050504',
+              id: `fill-${elementId}`,
+              type: 'fill'
+            }
+          ]
+        })
+      }
+    })
+
+    expect(
+      fillApis.updatePrimaryFillColors([
+        { color: '#DC2626', elementId: 'changed' },
+        { color: '#050504', elementId: 'unchanged' },
+        { color: '#DC2626', elementId: 'missing' }
+      ])
+    ).toEqual([true, false, false])
+    expect(mocks.updatePropertyById).toHaveBeenCalledOnce()
+    expect(mocks.updatePropertyById).toHaveBeenCalledWith(
+      'fill-changed',
+      'color',
+      '#DC2626',
+      {
+        ownerElementId: 'changed',
+        ownerPropertyName: 'fills'
+      },
+      undefined
+    )
+    expect(mocks.commitPropertyChanges).toHaveBeenCalledOnce()
+
+    vi.clearAllMocks()
+    mocks.getElementById.mockReturnValue({
+      getAllComputedData: () => ({
+        fills: [
+          {
+            color: '#050504',
+            id: 'fill-unchanged',
+            type: 'fill'
+          }
+        ]
+      })
+    })
+    expect(
+      fillApis.updatePrimaryFillColors([
+        { color: '#050504', elementId: 'unchanged' }
+      ])
+    ).toEqual([false])
+    expect(mocks.updatePropertyById).not.toHaveBeenCalled()
+    expect(mocks.commitPropertyChanges).not.toHaveBeenCalled()
+  })
 })

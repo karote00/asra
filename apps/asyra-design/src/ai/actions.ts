@@ -148,6 +148,11 @@ export interface UpdateCompositionElementsArgs {
   readonly updates: readonly UpdateCompositionItem[]
 }
 
+export interface AsyraDesignAiColorUpdate {
+  readonly color: string
+  readonly elementId: string
+}
+
 export interface RemoveAiCompositionArgs {
   readonly compositionId: string
 }
@@ -205,11 +210,19 @@ export interface AsyraDesignAiActionApis {
     color: string,
     options?: EVENT_OPTIONS
   ): boolean
+  updateElementFillColors(
+    updates: readonly AsyraDesignAiColorUpdate[],
+    options?: EVENT_OPTIONS
+  ): readonly boolean[]
   updateElementStrokeColor(
     elementId: string,
     color: string,
     options?: EVENT_OPTIONS
   ): boolean
+  updateElementStrokeColors(
+    updates: readonly AsyraDesignAiColorUpdate[],
+    options?: EVENT_OPTIONS
+  ): readonly boolean[]
 }
 
 export class AsyraDesignAiActionError extends Error {
@@ -414,8 +427,12 @@ const defaultApis: AsyraDesignAiActionApis = {
     selectionApis.selectElements(elementIds, options),
   updateElementFillColor: (elementId, color, options) =>
     fillApis.updatePrimaryFillColor(elementId, color, options),
+  updateElementFillColors: (updates, options) =>
+    fillApis.updatePrimaryFillColors(updates, options),
   updateElementStrokeColor: (elementId, color, options) =>
-    strokeApis.updatePrimaryStrokeColor(elementId, color, options)
+    strokeApis.updatePrimaryStrokeColor(elementId, color, options),
+  updateElementStrokeColors: (updates, options) =>
+    strokeApis.updatePrimaryStrokeColors(updates, options)
 }
 
 const invalidArguments = (
@@ -946,10 +963,7 @@ const getProgressiveCompositionBatchEnd = (
     end - start < ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE
   ) {
     const itemPointCount = getCompositionItemPointCount(items[end])
-    if (
-      end > start &&
-      batchPointCount + itemPointCount > pointBudget
-    ) {
+    if (end > start && batchPointCount + itemPointCount > pointBudget) {
       break
     }
     batchPointCount += itemPointCount
@@ -1140,128 +1154,162 @@ const createCompositionActions = (
         }[] = []
         const skipped: { elementId: string; reason: string }[] = []
         const seen = new Set<string>()
-        for (const updateItem of args.updates) {
-          if (seen.has(updateItem.elementId)) {
-            skipped.push(
-              Object.freeze({
-                elementId: updateItem.elementId,
-                reason: 'duplicate-target'
-              })
-            )
-            continue
-          }
-          seen.add(updateItem.elementId)
-          const targetType = apis.getElementType(updateItem.elementId)
-          if (!targetType) {
-            skipped.push(
-              Object.freeze({
-                elementId: updateItem.elementId,
-                reason: 'missing-target'
-              })
-            )
-            continue
-          }
-          if ('geometry' in updateItem) {
-            if (targetType === 'vector') {
-              prepared.push({
-                elementId: updateItem.elementId,
-                targetType,
-                vectorScale: updateItem.geometry
-              })
-              continue
-            }
-            const bounds = apis.getElementBounds(updateItem.elementId)
-            if (targetType !== 'oval' || !bounds) {
+        measureBrowserDragPhase('ai-app:prepare-update-operations', () => {
+          for (const updateItem of args.updates) {
+            if (seen.has(updateItem.elementId)) {
               skipped.push(
                 Object.freeze({
                   elementId: updateItem.elementId,
-                  reason: 'unsupported-target'
+                  reason: 'duplicate-target'
                 })
               )
               continue
             }
-            const width = bounds.width * updateItem.geometry.scaleX
-            const height = bounds.height * updateItem.geometry.scaleY
+            seen.add(updateItem.elementId)
+            const targetType = apis.getElementType(updateItem.elementId)
+            if (!targetType) {
+              skipped.push(
+                Object.freeze({
+                  elementId: updateItem.elementId,
+                  reason: 'missing-target'
+                })
+              )
+              continue
+            }
+            if ('geometry' in updateItem) {
+              if (targetType === 'vector') {
+                prepared.push({
+                  elementId: updateItem.elementId,
+                  targetType,
+                  vectorScale: updateItem.geometry
+                })
+                continue
+              }
+              const bounds = apis.getElementBounds(updateItem.elementId)
+              if (targetType !== 'oval' || !bounds) {
+                skipped.push(
+                  Object.freeze({
+                    elementId: updateItem.elementId,
+                    reason: 'unsupported-target'
+                  })
+                )
+                continue
+              }
+              const width = bounds.width * updateItem.geometry.scaleX
+              const height = bounds.height * updateItem.geometry.scaleY
+              prepared.push({
+                elementId: updateItem.elementId,
+                geometry: Object.freeze({
+                  height,
+                  width,
+                  x: bounds.x - (width - bounds.width) / 2,
+                  y: bounds.y - (height - bounds.height) / 2
+                }),
+                targetType
+              })
+              continue
+            }
+            const updatesFill = 'fillColor' in updateItem.style
+            const currentColor = updatesFill
+              ? apis.getElementFillColor(updateItem.elementId)
+              : apis.getElementStrokeColor(updateItem.elementId)
+            if (currentColor === null) {
+              skipped.push(
+                Object.freeze({
+                  elementId: updateItem.elementId,
+                  reason: updatesFill ? 'missing-fill' : 'missing-stroke'
+                })
+              )
+              continue
+            }
+            const nextColor = updatesFill
+              ? updateItem.style.fillColor
+              : updateItem.style.strokeColor
+            if (currentColor === nextColor) {
+              skipped.push(
+                Object.freeze({
+                  elementId: updateItem.elementId,
+                  reason: 'no-change'
+                })
+              )
+              continue
+            }
             prepared.push({
               elementId: updateItem.elementId,
-              geometry: Object.freeze({
-                height,
-                width,
-                x: bounds.x - (width - bounds.width) / 2,
-                y: bounds.y - (height - bounds.height) / 2
-              }),
+              ...(updatesFill
+                ? { fillColor: nextColor }
+                : { strokeColor: nextColor }),
               targetType
             })
-            continue
           }
-          const updatesFill = 'fillColor' in updateItem.style
-          const currentColor = updatesFill
-            ? apis.getElementFillColor(updateItem.elementId)
-            : apis.getElementStrokeColor(updateItem.elementId)
-          if (currentColor === null) {
-            skipped.push(
-              Object.freeze({
-                elementId: updateItem.elementId,
-                reason: updatesFill ? 'missing-fill' : 'missing-stroke'
-              })
-            )
-            continue
-          }
-          const nextColor = updatesFill
-            ? updateItem.style.fillColor
-            : updateItem.style.strokeColor
-          if (currentColor === nextColor) {
-            skipped.push(
-              Object.freeze({
-                elementId: updateItem.elementId,
-                reason: 'no-change'
-              })
-            )
-            continue
-          }
-          prepared.push({
-            elementId: updateItem.elementId,
-            ...(updatesFill
-              ? { fillColor: nextColor }
-              : { strokeColor: nextColor }),
-            targetType
-          })
-        }
+        })
 
         const appliedElementIds: string[] = []
-        for (const operation of prepared) {
+        let operationIndex = 0
+        while (operationIndex < prepared.length) {
           assertNotAborted(context)
-          if (
-            apis.getElementType(operation.elementId) !== operation.targetType
-          ) {
-            skipped.push(
-              Object.freeze({
-                elementId: operation.elementId,
-                reason: 'missing-target'
-              })
-            )
-            continue
-          }
-          if (operation.geometry) {
-            apis.changeElementGeometry(
-              operation.elementId,
-              operation.geometry,
-              mutationOptions
-            )
-            appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
-            continue
-          }
-          if (operation.vectorScale) {
+          const operation = prepared[operationIndex]
+          const geometry = operation.geometry
+          if (geometry) {
+            operationIndex += 1
             if (
-              apis.scaleVectorElementGeometry(
+              apis.getElementType(operation.elementId) !== operation.targetType
+            ) {
+              skipped.push(
+                Object.freeze({
+                  elementId: operation.elementId,
+                  reason: 'missing-target'
+                })
+              )
+              continue
+            }
+            measureBrowserDragPhase('ai-app:apply-update-batch', () => {
+              apis.changeElementGeometry(
                 operation.elementId,
-                operation.vectorScale,
+                geometry,
                 mutationOptions
               )
+            })
+            appliedElementIds.push(operation.elementId)
+            if (progressiveYield) {
+              await measureBrowserDragAsyncPhase(
+                'ai-app:progressive-host-yield',
+                progressiveYield
+              )
+            }
+            continue
+          }
+          const vectorScale = operation.vectorScale
+          if (vectorScale) {
+            operationIndex += 1
+            if (
+              apis.getElementType(operation.elementId) !== operation.targetType
             ) {
+              skipped.push(
+                Object.freeze({
+                  elementId: operation.elementId,
+                  reason: 'missing-target'
+                })
+              )
+              continue
+            }
+            const applied = measureBrowserDragPhase(
+              'ai-app:apply-update-batch',
+              () =>
+                apis.scaleVectorElementGeometry(
+                  operation.elementId,
+                  vectorScale,
+                  mutationOptions
+                )
+            )
+            if (applied) {
               appliedElementIds.push(operation.elementId)
-              await progressiveYield?.()
+              if (progressiveYield) {
+                await measureBrowserDragAsyncPhase(
+                  'ai-app:progressive-host-yield',
+                  progressiveYield
+                )
+              }
             } else {
               skipped.push(
                 Object.freeze({
@@ -1272,32 +1320,103 @@ const createCompositionActions = (
             }
             continue
           }
-          if (
-            operation.fillColor !== undefined &&
-            apis.updateElementFillColor(
-              operation.elementId,
-              operation.fillColor,
-              mutationOptions
+
+          const isFillBatch = operation.fillColor !== undefined
+          if (!isFillBatch && operation.strokeColor === undefined) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition update preparation produced an invalid operation.'
             )
-          ) {
-            appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
-          } else if (
-            operation.strokeColor !== undefined &&
-            apis.updateElementStrokeColor(
-              operation.elementId,
-              operation.strokeColor,
-              mutationOptions
+          }
+          const { batchOperations, nextOperationIndex } =
+            measureBrowserDragPhase('ai-app:prepare-update-batch', () => {
+              const batchOperations: (typeof prepared)[number][] = []
+              let nextOperationIndex = operationIndex
+              while (
+                nextOperationIndex < prepared.length &&
+                batchOperations.length <
+                  ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE
+              ) {
+                assertNotAborted(context)
+                const candidate = prepared[nextOperationIndex]
+                const candidateIsFill = candidate.fillColor !== undefined
+                const candidateIsStroke = candidate.strokeColor !== undefined
+                if (
+                  candidate.geometry ||
+                  candidate.vectorScale ||
+                  (!candidateIsFill && !candidateIsStroke) ||
+                  candidateIsFill !== isFillBatch
+                ) {
+                  break
+                }
+                nextOperationIndex += 1
+                if (
+                  apis.getElementType(candidate.elementId) !==
+                  candidate.targetType
+                ) {
+                  skipped.push(
+                    Object.freeze({
+                      elementId: candidate.elementId,
+                      reason: 'missing-target'
+                    })
+                  )
+                  continue
+                }
+                batchOperations.push(candidate)
+              }
+              return {
+                batchOperations,
+                nextOperationIndex
+              }
+            })
+          operationIndex = nextOperationIndex
+          if (batchOperations.length === 0) {
+            continue
+          }
+          const colorUpdates = batchOperations.map((candidate) => {
+            const color = isFillBatch
+              ? candidate.fillColor
+              : candidate.strokeColor
+            if (color === undefined) {
+              throw new AsyraDesignAiCompositionError(
+                'AI composition update preparation produced an invalid style operation.'
+              )
+            }
+            return {
+              color,
+              elementId: candidate.elementId
+            }
+          })
+          const batchResults = measureBrowserDragPhase(
+            'ai-app:apply-update-batch',
+            () =>
+              isFillBatch
+                ? apis.updateElementFillColors(colorUpdates, mutationOptions)
+                : apis.updateElementStrokeColors(colorUpdates, mutationOptions)
+          )
+          if (batchResults.length !== batchOperations.length) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition style batch did not preserve the requested item count.'
             )
-          ) {
-            appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
-          } else {
+          }
+          let appliedBatchCount = 0
+          batchResults.forEach((applied, index) => {
+            const batchOperation = batchOperations[index]
+            if (applied) {
+              appliedElementIds.push(batchOperation.elementId)
+              appliedBatchCount += 1
+              return
+            }
             skipped.push(
               Object.freeze({
-                elementId: operation.elementId,
+                elementId: batchOperation.elementId,
                 reason: 'no-change'
               })
+            )
+          })
+          if (appliedBatchCount > 0 && progressiveYield) {
+            await measureBrowserDragAsyncPhase(
+              'ai-app:progressive-host-yield',
+              progressiveYield
             )
           }
         }

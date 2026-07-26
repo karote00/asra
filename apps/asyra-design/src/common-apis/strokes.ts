@@ -20,6 +20,11 @@ import { transactionApis } from './transaction'
 
 export type StrokePatch = Partial<Pick<StrokeAttrs, StrokeWritableKey>>
 
+export interface PrimaryStrokeColorUpdate {
+  readonly color: string
+  readonly elementId: string
+}
+
 const updateStrokePropertyById = core.updatePropertyById as <
   K extends StrokeWritableKey
 >(
@@ -112,35 +117,68 @@ export const strokeApis = {
     return typeof stroke?.fill?.color === 'string' ? stroke.fill.color : null
   },
 
+  updatePrimaryStrokeColors: (
+    updates: readonly PrimaryStrokeColorUpdate[],
+    options?: EVENT_OPTIONS
+  ): readonly boolean[] => {
+    const prepared = updates.map(({ color, elementId }) => {
+      const stroke = getPrimaryStroke(elementId)
+      if (
+        !stroke ||
+        typeof color !== 'string' ||
+        color.length === 0 ||
+        stroke.fill.color === color
+      ) {
+        return null
+      }
+      return {
+        elementId,
+        nextFill: {
+          ...stroke.fill,
+          color
+        },
+        strokeId: stroke.id
+      }
+    })
+    if (!prepared.some((update) => update !== null)) {
+      return Object.freeze(prepared.map(() => false))
+    }
+
+    transactionApis.runTransaction(() => {
+      prepared.forEach((update) => {
+        if (!update) {
+          return
+        }
+        updateStrokePropertyById(
+          update.strokeId,
+          'fill',
+          update.nextFill,
+          {
+            ownerElementId: update.elementId,
+            ownerPropertyName: PropertyTypes.STROKES
+          },
+          options
+        )
+      })
+      core.commitPropertyChanges(options)
+    })
+    return Object.freeze(prepared.map((update) => update !== null))
+  },
+
   updatePrimaryStrokeColor: (
     elementId: string,
     color: string,
     options?: EVENT_OPTIONS
-  ): boolean => {
-    const stroke = getPrimaryStroke(elementId)
-    if (
-      !stroke ||
-      typeof color !== 'string' ||
-      color.length === 0 ||
-      stroke.fill.color === color
-    ) {
-      return false
-    }
-
-    strokeApis.updateStrokeFields(
-      elementId,
-      stroke.id,
-      stroke,
-      {
-        fill: {
-          ...stroke.fill,
-          color
+  ): boolean =>
+    strokeApis.updatePrimaryStrokeColors(
+      [
+        {
+          color,
+          elementId
         }
-      },
+      ],
       options
-    )
-    return true
-  },
+    )[0] ?? false,
 
   updateStrokeFields: (
     elementId: string,

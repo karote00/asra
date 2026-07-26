@@ -547,9 +547,10 @@ describe('Asyra Design AI runtime integration', () => {
       .spyOn(elementApis, 'scaleVectorElementAroundCenter')
       .mockReturnValue(true)
     vi.spyOn(fillApis, 'getPrimaryFillColor').mockReturnValue('#130C06')
-    const updatePrimaryFillColor = vi
-      .spyOn(fillApis, 'updatePrimaryFillColor')
-      .mockReturnValue(true)
+    const updatePrimaryFillColor = vi.spyOn(fillApis, 'updatePrimaryFillColor')
+    const updatePrimaryFillColors = vi
+      .spyOn(fillApis, 'updatePrimaryFillColors')
+      .mockImplementation((updates) => updates.map(() => true))
     vi.mocked(elementApis.getElementType).mockImplementation((elementId) => {
       if (elementId === 'cat-face-group') {
         return 'group'
@@ -617,17 +618,19 @@ describe('Asyra Design AI runtime integration', () => {
           })
         }
       )
-      expect(updatePrimaryFillColor).toHaveBeenCalledTimes(2)
-      updatePrimaryFillColor.mock.calls.forEach(
-        ([elementId, color, options]) => {
+      expect(updatePrimaryFillColors).toHaveBeenCalledOnce()
+      updatePrimaryFillColors.mock.calls.forEach(([updates, options]) => {
+        expect(updates).toHaveLength(2)
+        updates.forEach(({ color, elementId }) => {
           expect(elementId).toMatch(/^cat-element-\d+$/)
           expect(color).toBe('#DC2626')
-          expect(options).toEqual({
-            sharedDelivery: 'transaction-end',
-            undoable: true
-          })
-        }
-      )
+        })
+        expect(options).toEqual({
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        })
+      })
+      expect(updatePrimaryFillColor).not.toHaveBeenCalled()
       expect(transactionApis.runTransaction).toHaveBeenCalledTimes(3)
     } finally {
       await conversation.dispose()

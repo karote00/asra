@@ -1729,6 +1729,7 @@ test('proves the high-detail progressive CRDT flow without generating media', as
       canonicalSummary(blueWhiskers)
     )
     const whiskerConvergedAtMs = Date.now()
+    const whiskerDiagnostics = await getCollaborationDiagnostics(actorA)
     await expectActorBPersistenceUnchanged('blue-whiskers follow-up')
     expect((await getTransactionSnapshot(actorA)).undoCount).toBe(
       actorATransactionBaseline.undoCount + 2
@@ -1741,7 +1742,13 @@ test('proves the high-detail progressive CRDT flow without generating media', as
     expect(blueWhiskers.ids).toEqual(created.ids)
     expect(blueWhiskers.totalCount).toBe(created.totalCount)
     expect(blueWhiskers.pointCount).toBe(created.pointCount)
-    expect(blueWhiskers.blueStrokeIds.length).toBeGreaterThanOrEqual(2)
+    expect(blueWhiskers.blueStrokeIds).toHaveLength(49)
+    expect(whiskerDiagnostics.factoryPublications).toHaveLength(1)
+    expect(
+      whiskerDiagnostics.factoryCommits.filter(
+        ({ origin }) => origin === 'action'
+      )
+    ).toHaveLength(1)
     timings.blueWhiskerHarnessMs = whiskerSettledAtMs - whiskerStartedAtMs
     timings.blueWhiskerProductMs =
       productProfiles.blueWhiskers.productDurationMs
@@ -1771,6 +1778,7 @@ test('proves the high-detail progressive CRDT flow without generating media', as
       canonicalSummary(redPupils)
     )
     const pupilConvergedAtMs = Date.now()
+    const pupilDiagnostics = await getCollaborationDiagnostics(actorA)
     await expectActorBPersistenceUnchanged('red-pupils follow-up')
     expect((await getTransactionSnapshot(actorA)).undoCount).toBe(
       actorATransactionBaseline.undoCount + 3
@@ -1785,6 +1793,12 @@ test('proves the high-detail progressive CRDT flow without generating media', as
     expect(redPupils.pointCount).toBe(created.pointCount)
     expect(redPupils.blueStrokeIds).toEqual(blueWhiskers.blueStrokeIds)
     expect(redPupils.redFillIds).toHaveLength(2)
+    expect(pupilDiagnostics.factoryPublications).toHaveLength(1)
+    expect(
+      pupilDiagnostics.factoryCommits.filter(
+        ({ origin }) => origin === 'action'
+      )
+    ).toHaveLength(1)
     timings.redPupilHarnessMs = pupilSettledAtMs - pupilStartedAtMs
     timings.redPupilProductMs = productProfiles.redPupils.productDurationMs
     timings.redPupilPeerConvergenceMs = pupilConvergedAtMs - pupilSettledAtMs
