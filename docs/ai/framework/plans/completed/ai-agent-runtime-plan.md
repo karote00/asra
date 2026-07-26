@@ -35,10 +35,10 @@ Conversational AI plan:
   user preview; and
 - conversation UI, operational progress presentation, Message Bar history
   controls, drawing actions, and incremental follow-up targeting belong to the
-  succeeding app plan rather than this completed release gate.
+  completed successor App plan rather than this completed release gate.
 
-Successor:
-`docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`.
+Completed successor:
+`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`.
 
 ## Product Contract
 

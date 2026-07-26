@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-flow-inspector.data.cjs'
 
@@ -1198,7 +1198,7 @@
         id: 'ai-conversational-drawing-plan',
         kind: 'authority',
         label: 'Product contract',
-        href: './ai-conversational-drawing-plan.md'
+        href: './completed/ai-conversational-drawing-plan.md'
       },
       {
         id: 'ai-agent-runtime-inspector',

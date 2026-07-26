@@ -63,14 +63,14 @@ const anchorForHeading = (heading) =>
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
 
-test('Conversational AI Inspector authorities and active-plan routing resolve', () => {
+test('Conversational AI Inspector authorities and completed-plan routing resolve', () => {
   assert.equal(
     data.target.title,
     'Asyra Design Conversational AI Mock Drawing Inspector'
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -93,9 +93,14 @@ test('Conversational AI Inspector authorities and active-plan routing resolve', 
     path.resolve(repoRoot, 'docs/ai/apps/asyra-design/PLANS.md'),
     'utf8'
   )
-  assert.match(
+  assert.match(plansIndex, /No App implementation plan is active/)
+  assert.doesNotMatch(
     plansIndex,
     /Current active plan:\s+`plans\/ai-conversational-drawing-plan\.md`/
+  )
+  assert.match(
+    plansIndex,
+    /plans\/completed\/ai-conversational-drawing-plan\.md/
   )
   assert.match(
     plansIndex,
@@ -548,7 +553,7 @@ test('completed Gate 4 clarification remains compatible and points to the succes
   assert.match(completedPlan, /rejected\/throwing executor.*fatal/s)
   assert.match(
     completedPlan,
-    /apps\/asyra-design\/plans\/ai-conversational-drawing-plan\.md/
+    /apps\/asyra-design\/plans\/completed\/ai-conversational-drawing-plan\.md/
   )
 
   assert.match(packageContract, /recoverable partial-item evidence/)

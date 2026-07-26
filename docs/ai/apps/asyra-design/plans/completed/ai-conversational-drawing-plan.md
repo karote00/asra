@@ -1,13 +1,26 @@
 # Asyra Design Conversational AI Mock Drawing Plan
 
-## Status
+## Completion
 
-Active cross-cutting app plan. It follows the completed Framework Release Gate
-4 AI Agent Runtime and does not reopen that gate.
+Completed on 2026-07-26 after every Inspector owner step and the bounded
+completion route passed formal, E2E, template, build, and synchronized live-app
+visual gates.
 
-Implementation may begin only after this product contract, the matching
-Inspector, the bounded Gherkin cases, and the readiness gates agree. Work then
-advances one Inspector owner step at a time.
+- Outcome: exact `ai=mock` now provides the complete non-modal Agent
+  conversation, deterministic drawing/refinement, arbitrary local
+  PNG/JPEG/WebP whole-image vectorization, partial/confirmation/cancellation
+  outcomes, elapsed time, canonical-id follow-ups, and current-action
+  Undo/Redo without an API key.
+- Final decision: keep Mock deterministic and keyless; keep the App-owned
+  prompt/tool catalog, VTracer adapter, transaction policy, confirmation UI,
+  target hints, and result projection in Asyra Design; keep Framework runtime,
+  canonical, Render, persistence, and Collaboration owners unchanged.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`.
+- Exit criteria: Inspector/readiness and BDD contracts, App and Framework
+  tests, ordinary and Maximum-detail E2E, dependency validation, lint, all
+  workspace builds, generated-template synchronization/build, and synchronized
+  screenshot review passed before closeout.
 
 Architecture authority:
 
@@ -26,7 +39,7 @@ Queued performance successor:
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 
 The successor profiles and reduces local creation, shared publication, remote
-apply, Render projection, and E2E overhead. It does not close this active plan
+apply, Render projection, and E2E overhead. It does not reopen this completed plan
 or authorize reduced drawing detail, changed canonical identity, split
 history, an AI-only renderer, or a collaboration bypass.
 
@@ -37,7 +50,7 @@ Queued credential-gated formal-test successor after performance:
 
 The second successor requires a human-owned, dedicated server-only API key and
 an explicitly authorized live-provider run. It does not change exact
-`ai=mock`, make live output ordinary CI authority, close this active plan, or
+`ai=mock`, make live output ordinary CI authority, reopen this completed plan, or
 authorize production provider deployment.
 
 ## Goal

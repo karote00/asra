@@ -7012,3 +7012,45 @@ join` constrained dashed product path across:
     database or cross-device recovery contract.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-07-26 - Complete Conversational AI Mock Drawing
+
+- Context:
+  - The explicit Mock experience now covers non-modal conversation, safe
+    operational progress, local attachments, resource-aware detail choice,
+    ordinary editable drawing, canonical-id follow-ups, partial results,
+    App-presented confirmation, cancellation/failure, elapsed time, and
+    current-action Undo/Redo.
+  - App-owned prompt analysis and registered-tool policy now route explicit
+    whole-image PNG/JPEG/WebP requests through the installed same-origin
+    VTracer tool; arbitrary results remain ordinary canonical Vectors.
+  - Browser-local IndexedDB durability, official generated-template parity,
+    ordinary and Maximum-detail E2E, full builds, and synchronized live-app
+    screenshot review have passed.
+- Decision:
+  - Close the Conversational AI Mock Drawing plan without enabling AI by
+    default or adding a live provider, browser API key, external upload,
+    private chain-of-thought, alternate canonical path, or second transaction/
+    history owner.
+  - Keep exact `ai=mock` deterministic and keyless; retain App ownership of
+    prompt/tool policy, VTracer validation, confirmation presentation,
+    recoverable partial classification, canonical target hints, and Message
+    Bar projection.
+  - Leave performance remediation and credential-gated live-provider formal
+    testing as separate proposed successor plans requiring explicit start and,
+    for the latter, a dedicated server-only API key.
+- Consequences:
+  - Asyra Design can now demonstrate the complete Agent product flow and
+    arbitrary local whole-image vectorization without a real model provider.
+  - Every mutating turn remains one intended Undo action, follow-ups revalidate
+    existing canonical IDs, and fatal consistency failures retain ordinary
+    rollback.
+  - Browser IndexedDB and the bundled same-origin VTracer endpoint remain demo
+    infrastructure; production derivatives must supply their own server
+    database and deployment-grade tool/provider boundary.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`
+- Related Commit(s):
+  - `90a1b2e0e` (`feat(asyra-design): vectorize arbitrary image attachments`)
+  - `c43f614f6` (`fix(asyra-design): accept single-item vector traces`)
+  - `a6aa55b9a` (`chore(create-app): sync VTracer image workflow`)

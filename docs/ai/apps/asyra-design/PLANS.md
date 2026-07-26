@@ -4,23 +4,20 @@ Never record completed plans here.
 
 ## Current Status
 
+- No App implementation plan is active.
 - Ordered proposed next implementation plans:
   1. `plans/ai-conversational-drawing-performance-plan.md`
   2. `plans/ai-conversational-drawing-live-provider-test-plan.md`
-- Current active plan:
-  `plans/ai-conversational-drawing-plan.md`.
-- The active plan adds an explicit `ai=mock` Asyra Design conversation,
-  deterministic delayed provider fixtures, operational progress, bounded
-  drawing/update actions, app-owned partial outcomes and confirmation UI,
-  incremental follow-up targeting, and current-history Message Bar Undo/Redo.
-- Its architecture authority is
+- Conversational AI Mock Drawing completed on 2026-07-26. Its canonical record
+  is `plans/completed/ai-conversational-drawing-plan.md`.
+- Its retained architecture authority is
   `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
-- Its first queued successor is profiling-first performance remediation for
+- The first proposed successor is profiling-first performance remediation for
   local canonical creation, progressive collaboration, Render projection, and
-  E2E measurement. The successor does not close or weaken the active plan; its
+  E2E measurement. It does not reopen or weaken the completed plan; its
   architecture authority is
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`.
-- Its second queued successor is a credential-gated, explicitly opt-in formal
+- The second proposed successor is a credential-gated, explicitly opt-in formal
   test against one real provider. A human owner must request a dedicated
   server-only API key; exact Mock mode stays keyless and deterministic. The
   successor is not ordinary CI or production provider launch authority; its
@@ -35,6 +32,7 @@ Never record completed plans here.
   3. `plans/completed/remote-subtree-restore-snapshot-plan.md`
   4. `plans/completed/group-context-menu-plan.md`
   5. `plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`
+  6. `plans/completed/ai-conversational-drawing-plan.md`
 - The durable collaboration backend itself was not implemented. The completed
   record closes only the product-owner cancellation and documentation
   correction; it must not be treated as a durable server capability.
