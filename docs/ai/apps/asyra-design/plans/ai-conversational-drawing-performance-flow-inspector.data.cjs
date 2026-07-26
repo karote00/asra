@@ -27,14 +27,16 @@
         'exact ai=mock and aiDelivery URL values',
         'fresh canonical and collaboration document identity',
         'production App build',
-        'reference host and warm-run protocol'
+        'reference host and warm-run protocol',
+        'deterministic 16-item Mock AI CRDT fixture'
       ],
       outputs: ['artifact:profiled-ai-drawing-turn'],
       conditions: [
         'One unmeasured warm-up precedes three measured runs on the same reference host, fixture, build, browser configuration, and fresh-document lifecycle.',
         'The profiled turn records atomic or progressive mode exactly as resolved by the App and retains the accepted item, point, and semantic-role inputs unchanged.',
         'Product monotonic marks and harness wall time use separate channels; server build/start, browser launch, full-snapshot assertions, screenshots, recording, and teardown never enter product spans.',
-        'Detached observers cannot alter batching, shared delivery, transaction, history, canonical state, Render scheduling, retry, cancellation, or settlement.'
+        'Detached observers cannot alter batching, shared delivery, transaction, history, canonical state, Render scheduling, retry, cancellation, or settlement.',
+        'One matched attribution-only run compares the Contents panel present and diagnostically omitted while preserving exact canonical and history results; neither variant is release budget evidence.'
       ],
       bypasses: [
         'A development build, stale document, reused server, missing fixture, or incomplete timing channel produces no release-budget evidence.',
@@ -44,20 +46,24 @@
         'Asyra Design E2E-owned App and collaboration servers',
         'browser performance and monotonic clock APIs',
         'read-only owner timing observers',
-        'committed deterministic provider and drawing fixtures'
+        'committed deterministic provider and drawing fixtures',
+        'exact profiling-only Contents-panel attribution mode'
       ],
       forbiddenContributors: [
         'Date-based cross-process duration reconstruction',
         'diagnostics that mutate product scheduling or state',
         'test-only canonical or Render shortcuts',
-        'generated screenshot or recording data as semantic authority'
+        'generated screenshot or recording data as semantic authority',
+        'using the diagnostically omitted Contents panel as release budget evidence'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/e2e',
+        'apps/asyra-design/src/app',
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/init',
         'apps/asyra-design/__tests__',
+        'apps/asyra-design/src/app/__tests__',
         'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
@@ -348,6 +354,7 @@
         'The evaluator reports median and worst owner spans separately from harness overhead and names the first over-budget product owner.',
         'Balanced atomic, balanced progressive, peer-first-visible, peer-convergence, follow-up, full-flow, and maximum-detail budgets use the exact plan thresholds.',
         'Canonical equivalence compares ids, element and point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, background size, and transaction evidence before visual review.',
+        'The default 16-item Mock AI CRDT correctness case proves ordinary two-actor convergence; the 7,112-element balanced gate remains change-aware and high-detail performance and CRDT gates remain independent opt-ins.',
         'Actor A gains exactly one Undo action per mutating turn, Actor B gains none, and Undo/Redo retain one action in each direction.',
         'Synchronized screenshots inspect the same measured live state with complete uncropped output, while generated screenshots, recordings, traces, profiles, and thumbnails remain ignored local artifacts.'
       ],
@@ -738,6 +745,7 @@
       title: 'Profiling, formal, visual, and artifact completion',
       assertions: [
         'Three-run profiling separates every product owner span from harness overhead and names the first over-budget owner.',
+        'The default 16-item Mock AI CRDT correctness gate passes while balanced correctness, high-detail performance, and high-detail CRDT retain their declared change-aware or opt-in isolation.',
         'Formal package, App, collaboration, E2E, lint, build, Inspector, BDD, and synchronized live visual gates pass.',
         'Generated screenshots, recordings, traces, profiles, and thumbnail media remain ignored local artifacts and are never committed.'
       ],

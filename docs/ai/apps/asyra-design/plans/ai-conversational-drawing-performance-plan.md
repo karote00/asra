@@ -96,6 +96,23 @@ Server build/start time, browser launch, screenshot encoding, video encoding,
 and full-snapshot assertion serialization are recorded as harness overhead and
 do not enter product budgets.
 
+### Gate partitioning and diagnostic attribution
+
+- The default fast Mock AI CRDT correctness fixture has 16 items and runs
+  through the ordinary Feature, App transaction, Factory publication,
+  Collaboration remote-apply, Render, and history routes.
+- The 7,112-element balanced correctness gate is change-aware or explicitly
+  requested; it is not part of the default fast CRDT command.
+- High-detail performance and CRDT suites remain independent and explicitly
+  opt-in so one expensive gate cannot hide or delay the other.
+- The 7,076-element two-window full recording remains manual opt-in. Its video,
+  screenshots, traces, and profiles are transient ignored artifacts and are
+  never committed.
+- One matched profiling-only A/B compares the ordinary App with the Contents
+  panel present and diagnostically omitted. This comparison may attribute cost
+  to Contents/UI projection, but neither diagnostic variant is release budget
+  evidence and both must preserve identical canonical and history results.
+
 ### Required spans
 
 The profiling harness must distinguish:
@@ -225,6 +242,21 @@ Actor B sees at least two increasing non-final canonical element counts before
 Actor A settles. Both actors then converge on the exact ids, topology, style,
 hierarchy, and background. Network batches never become local history steps.
 
+### Fast Mock AI CRDT correctness
+
+The default collaboration correctness case creates one deterministic 16-item
+Mock AI composition. Two independent actors converge through ordinary
+publication and remote apply, Actor A gains one Undo action, and Actor B gains
+none. This fast case does not replace the balanced high-detail gate.
+
+### Contents panel attribution
+
+One profiling-only matched run compares the same accepted composition with the
+ordinary Contents panel present and diagnostically omitted. The result may
+select a Contents/UI projection owner only when canonical output, history, and
+all non-UI timing inputs remain equivalent. The omitted-panel variant cannot
+satisfy a product performance budget.
+
 ### Existing-id follow-ups
 
 Blue whiskers and red pupils mutate only revalidated existing ids, preserve all
@@ -266,6 +298,9 @@ one owner step.
   canonical equivalence oracle.
 - All local, collaboration, follow-up, maximum-detail, history, cancellation,
   and failure budgets pass.
+- The default 16-item Mock AI CRDT gate passes; the change-aware 7,112-element
+  gate and independent high-detail suites pass when their path or explicit
+  opt-in requires them.
 - App AI, App local/integration, Factory, Scene Tree, Core, Collaboration,
   Render, Preset, E2E, lint, and production builds pass.
 - A synchronized side-by-side live review shows complete, uncropped Actor A and

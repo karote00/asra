@@ -331,3 +331,37 @@ test('performance BDD and local-artifact ignore contract are registered', () => 
     /!apps\/asyra-design\/visual-review-records\/research\/research-02-original-tabby-source\.png/
   )
 })
+
+test('fast CRDT, high-detail opt-in, and Contents-panel attribution gates stay explicit', () => {
+  const plan = fs.readFileSync(
+    path.resolve(repoRoot, data.authority.specPath),
+    'utf8'
+  )
+  const feature = fs.readFileSync(
+    path.resolve(
+      repoRoot,
+      'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+    ),
+    'utf8'
+  )
+  const intake = contractText(step('accept-profiled-ai-drawing-turn'))
+  const proof = contractText(step('evaluate-performance-and-equivalence'))
+
+  assert.match(plan, /default fast Mock AI CRDT correctness fixture has 16 items/i)
+  assert.match(plan, /7,112-element balanced correctness.*change-aware/i)
+  assert.match(
+    plan,
+    /high-detail performance and CRDT suites remain independent[\s\S]*opt-in/i
+  )
+  assert.match(
+    plan,
+    /7,076-element two-window full recording remains manual opt-in/i
+  )
+  assert.match(
+    intake,
+    /Contents panel present and diagnostically omitted[\s\S]*release budget/i
+  )
+  assert.match(proof, /16-item Mock AI CRDT correctness/i)
+  assert.match(feature, /Scenario: Fast Mock AI CRDT correctness stays bounded/)
+  assert.match(feature, /Scenario: Contents panel attribution stays diagnostic/)
+})

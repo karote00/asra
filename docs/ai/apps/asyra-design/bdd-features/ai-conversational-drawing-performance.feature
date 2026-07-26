@@ -16,6 +16,21 @@ Feature: Conversational AI drawing performance
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
     And the next optimization should belong only to the largest over-budget Inspector owner
 
+  Scenario: Fast Mock AI CRDT correctness stays bounded
+    Given two browser actors share one fresh collaboration document
+    And the default deterministic Mock AI CRDT fixture contains 16 items
+    When Actor A accepts the fixture through the ordinary Agent route
+    Then both actors should converge on identical canonical ids, topology, hierarchy, and styles
+    And Actor A should gain one Undo action while Actor B gains no local Undo action
+    And the 7112-element balanced correctness gate should remain change-aware or explicitly requested
+    And high-detail performance and CRDT suites should remain independent and explicitly opt-in
+
+  Scenario: Contents panel attribution stays diagnostic
+    When matched profiling runs keep the Contents panel present and diagnostically omit it
+    Then canonical output, history, delivery mode, and non-UI inputs should remain identical
+    And the comparison may attribute cost to Contents or UI projection
+    But neither diagnostic variant should satisfy a release performance budget
+
   Scenario: Balanced atomic creation meets the local budget
     Given the URL resolves exact "aiDelivery=atomic"
     When Actor A creates the balanced cat-only composition
