@@ -3,6 +3,7 @@ import type {
   ComputedDataRecordValue,
   DataTypes,
   ElementRawData,
+  GroupInstanceTypes,
   HierarchyMove,
   SceneTreeDataOwner,
   SubtreeChange,
@@ -47,6 +48,12 @@ type RenderProjectionStatus = 'applied' | 'resynced' | 'removed' | 'failed'
 interface RenderProjectionOutcome {
   status: RenderProjectionStatus
   elementId: string
+}
+
+interface RenderElementAddition {
+  elementId: string
+  parentId?: string
+  index?: number
 }
 
 const hasOwn = (record: object, key: PropertyKey) =>
@@ -556,6 +563,61 @@ class ComputedDataMirror {
     )
   }
 
+  applyChildAdditionBatch(
+    elementId: string,
+    additions: readonly RenderElementAddition[],
+    canonicalChildren: unknown
+  ): TopLevelApplyResult | null {
+    const entry = this.get(elementId)
+    const currentChildren = entry?.rawDataSnapshot.children
+    if (
+      !entry ||
+      !Array.isArray(currentChildren) ||
+      !Array.isArray(canonicalChildren) ||
+      additions.length === 0 ||
+      canonicalChildren.some((candidate) => typeof candidate !== 'string') ||
+      new Set(canonicalChildren).size !== canonicalChildren.length
+    ) {
+      return null
+    }
+
+    const nextChildren = cloneArrayWithEnumerableProperties(currentChildren)
+    const insertedIds = new Set<string>()
+    for (const { elementId: childId, index } of additions) {
+      if (
+        typeof childId !== 'string' ||
+        childId.length === 0 ||
+        insertedIds.has(childId) ||
+        index === undefined ||
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index > nextChildren.length ||
+        nextChildren.includes(childId)
+      ) {
+        return null
+      }
+      insertedIds.add(childId)
+      nextChildren.splice(index, 0, childId)
+    }
+    if (!isDataEqual(nextChildren, canonicalChildren)) {
+      return null
+    }
+
+    const canonicalSnapshot =
+      cloneArrayWithEnumerableProperties(canonicalChildren)
+    const applyResult = this.applyTopLevelChange(
+      elementId,
+      'raw',
+      'children',
+      currentChildren,
+      canonicalSnapshot
+    )
+    if (applyResult) {
+      emitDiagnosticCounter('computed-mirror-child-add-batch-apply')
+    }
+    return applyResult
+  }
+
   composeRenderData(elementId: string): RenderElementData | null {
     const entry = this.get(elementId)
     if (!entry) {
@@ -729,7 +791,10 @@ class RenderSceneTree {
     return this.projectionOutcome(elementId, 'resynced')
   }
 
-  addElementById(id: string, parentId?: string, index?: number) {
+  private projectAddedElement(
+    id: string,
+    index?: number
+  ): RenderProjectionOutcome {
     let entry: ComputedDataMirrorEntry | null
     try {
       entry = this.computedDataMirror.seed(id, 'add')
@@ -749,21 +814,6 @@ class RenderSceneTree {
 
     try {
       this.addElement(entry.renderDataSnapshot, index)
-      const parentOutcome = this.synchronizeParentMembership(
-        parentId,
-        id,
-        index,
-        'add'
-      )
-      if (
-        parentOutcome?.status === 'failed' ||
-        parentOutcome?.status === 'removed'
-      ) {
-        this.pendingElementUpdates.delete(id)
-        this.releaseProjectedElement(id)
-        this.computedDataMirror.delete(id)
-        return this.projectionOutcome(id, 'failed')
-      }
       return this.projectionOutcome(id, 'applied')
     } catch {
       this.pendingElementUpdates.delete(id)
@@ -772,6 +822,90 @@ class RenderSceneTree {
       this.computedDataMirror.delete(id)
       return this.projectionOutcome(id, 'failed')
     }
+  }
+
+  private synchronizeAddedElement(
+    outcome: RenderProjectionOutcome,
+    parentId?: string,
+    index?: number
+  ): RenderProjectionOutcome {
+    if (outcome.status !== 'applied') {
+      return outcome
+    }
+    const parentOutcome = this.synchronizeParentMembership(
+      parentId,
+      outcome.elementId,
+      index,
+      'add'
+    )
+    if (
+      parentOutcome?.status !== 'failed' &&
+      parentOutcome?.status !== 'removed'
+    ) {
+      return outcome
+    }
+
+    this.pendingElementUpdates.delete(outcome.elementId)
+    this.releaseProjectedElement(outcome.elementId)
+    this.computedDataMirror.delete(outcome.elementId)
+    return this.projectionOutcome(outcome.elementId, 'failed')
+  }
+
+  addElementById(id: string, parentId?: string, index?: number) {
+    return this.synchronizeAddedElement(
+      this.projectAddedElement(id, index),
+      parentId,
+      index
+    )
+  }
+
+  addElementsById(
+    additions: readonly RenderElementAddition[]
+  ): readonly RenderProjectionOutcome[] {
+    if (additions.length === 0) {
+      return []
+    }
+    const parentId = additions[0]?.parentId
+    if (
+      typeof parentId !== 'string' ||
+      parentId.length === 0 ||
+      additions.some((addition) => addition.parentId !== parentId)
+    ) {
+      return additions.map(({ elementId, parentId, index }) =>
+        this.addElementById(elementId, parentId, index)
+      )
+    }
+
+    const outcomes = additions.map(({ elementId, index }) =>
+      this.projectAddedElement(elementId, index)
+    )
+    if (outcomes.some(({ status }) => status !== 'applied')) {
+      return outcomes.map((outcome, additionIndex) =>
+        this.synchronizeAddedElement(
+          outcome,
+          parentId,
+          additions[additionIndex]?.index
+        )
+      )
+    }
+
+    const parentOutcome = this.synchronizeParentMembershipBatch(
+      parentId,
+      additions
+    )
+    if (
+      parentOutcome?.status !== 'failed' &&
+      parentOutcome?.status !== 'removed'
+    ) {
+      return outcomes
+    }
+
+    return outcomes.map(({ elementId }) => {
+      this.pendingElementUpdates.delete(elementId)
+      this.releaseProjectedElement(elementId)
+      this.computedDataMirror.delete(elementId)
+      return this.projectionOutcome(elementId, 'failed')
+    })
   }
 
   addElement(data: RenderElementData, siblingIndex?: number) {
@@ -986,6 +1120,57 @@ class RenderSceneTree {
     this.recordDirtyChange(
       parentId,
       1,
+      this.pendingElementUpdates.has(parentId)
+    )
+    this.pendingElementUpdates.add(parentId)
+    this.scheduleFlush()
+    return this.projectionOutcome(parentId, 'applied')
+  }
+
+  private synchronizeParentMembershipBatch(
+    parentId: string,
+    additions: readonly RenderElementAddition[]
+  ): RenderProjectionOutcome | null {
+    const parent = sceneTree.getElementById(parentId)
+    if (!parent || parent.get('type') === EntityTypes.WORKSPACE) {
+      return null
+    }
+
+    const alreadySynchronized = additions.every(
+      ({ elementId, index }) =>
+        index !== undefined &&
+        this.computedDataMirror.matchesElementParent(elementId, parentId) &&
+        this.computedDataMirror.matchesParentChild(parentId, elementId, index)
+    )
+    if (alreadySynchronized) {
+      emitDiagnosticCounter(
+        'computed-mirror-add-parent-already-synchronized',
+        additions.length
+      )
+      return this.projectionOutcome(parentId, 'applied')
+    }
+    if (
+      additions.some(
+        ({ elementId }) =>
+          !this.computedDataMirror.matchesElementParent(elementId, parentId)
+      )
+    ) {
+      return this.resyncElement(parentId)
+    }
+
+    const canonicalChildren = (parent as GroupInstanceTypes).get('children')
+    const applyResult = this.computedDataMirror.applyChildAdditionBatch(
+      parentId,
+      additions,
+      canonicalChildren
+    )
+    if (!applyResult) {
+      return this.resyncElement(parentId)
+    }
+
+    this.recordDirtyChange(
+      parentId,
+      additions.length,
       this.pendingElementUpdates.has(parentId)
     )
     this.pendingElementUpdates.add(parentId)

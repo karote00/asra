@@ -224,7 +224,7 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('routes complete Scene Tree deltas and records Render projection outcomes', () => {
+  it('routes complete Scene Tree deltas and records Render projection outcomes', async () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -353,6 +353,7 @@ describe('Preset Selection Subscriptions', () => {
         undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
       }
       observer?.onChange(restoreSubtreeChange)
+      await Promise.resolve()
 
       expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
       expect(scalar).toHaveBeenCalledWith(
@@ -413,6 +414,117 @@ describe('Preset Selection Subscriptions', () => {
       move.mockRestore()
       subtree.mockRestore()
       reload.mockRestore()
+    }
+  })
+
+  it('routes contiguous same-parent additions through one Render relationship batch', async () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const addSingle = vi.spyOn(renderSceneTreeStore, 'addElementById')
+    const addBatch = vi
+      .spyOn(renderSceneTreeStore, 'addElementsById')
+      .mockReturnValue([
+        { status: 'applied', elementId: 'child-a' },
+        { status: 'applied', elementId: 'child-b' }
+      ])
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { renderScene: true }
+    )
+    const observer = observers.get('preset.render.sceneTree')
+
+    try {
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'child-a', type: 'vector' },
+        parentId: 'group-1',
+        index: 0
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'child-b', type: 'vector' },
+        parentId: 'group-1',
+        index: 1
+      })
+      await Promise.resolve()
+
+      expect(addBatch).toHaveBeenCalledOnce()
+      expect(addBatch).toHaveBeenCalledWith([
+        { elementId: 'child-a', parentId: 'group-1', index: 0 },
+        { elementId: 'child-b', parentId: 'group-1', index: 1 }
+      ])
+      expect(addSingle).not.toHaveBeenCalled()
+    } finally {
+      dispose()
+      addSingle.mockRestore()
+      addBatch.mockRestore()
+      reload.mockRestore()
+    }
+  })
+
+  it('drops a pending Render relationship batch when its observer lifetime is disposed', async () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const addSingle = vi.spyOn(renderSceneTreeStore, 'addElementById')
+    const addBatch = vi.spyOn(renderSceneTreeStore, 'addElementsById')
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+    const clearProjection = vi
+      .spyOn(renderSceneTreeStore, 'clearProjection')
+      .mockImplementation(() => undefined)
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { renderScene: true }
+    )
+    const observer = observers.get('preset.render.sceneTree')
+
+    try {
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'child-a', type: 'vector' },
+        parentId: 'group-1',
+        index: 0
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'child-b', type: 'vector' },
+        parentId: 'group-1',
+        index: 1
+      })
+      dispose()
+      await Promise.resolve()
+
+      expect(addBatch).not.toHaveBeenCalled()
+      expect(addSingle).not.toHaveBeenCalled()
+      expect(clearProjection).toHaveBeenCalledOnce()
+    } finally {
+      dispose()
+      addSingle.mockRestore()
+      addBatch.mockRestore()
+      reload.mockRestore()
+      clearProjection.mockRestore()
     }
   })
 

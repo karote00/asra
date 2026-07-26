@@ -179,6 +179,72 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
   }
 }
 
+const toRenderElementAddition = (
+  change: SceneTreeChange
+):
+  | {
+      elementId: string
+      parentId: string
+      index: number
+    }
+  | undefined => {
+  if (change.action !== SCENE_TREE_ACTIONS.ADD_ELEMENT) {
+    return
+  }
+  const { data, parentId, index } = change as AddRemoveElementChange
+  if (
+    typeof data.id !== 'string' ||
+    data.id.length === 0 ||
+    typeof parentId !== 'string' ||
+    parentId.length === 0 ||
+    !Number.isInteger(index) ||
+    (index as number) < 0
+  ) {
+    return
+  }
+  return {
+    elementId: data.id,
+    parentId,
+    index: index as number
+  }
+}
+
+const updateRenderSceneTreeBatch = (changes: readonly SceneTreeChange[]) => {
+  let changeIndex = 0
+  while (changeIndex < changes.length) {
+    const change = changes[changeIndex]
+    const firstAddition = toRenderElementAddition(change)
+    if (!firstAddition) {
+      updateRenderSceneTree(change)
+      changeIndex += 1
+      continue
+    }
+
+    const additions = [firstAddition]
+    let nextIndex = changeIndex + 1
+    while (nextIndex < changes.length) {
+      const nextAddition = toRenderElementAddition(changes[nextIndex])
+      if (
+        !nextAddition ||
+        nextAddition.parentId !== firstAddition.parentId
+      ) {
+        break
+      }
+      additions.push(nextAddition)
+      nextIndex += 1
+    }
+
+    if (additions.length === 1) {
+      updateRenderSceneTree(change)
+    } else {
+      renderSceneTreeStore
+        .addElementsById(additions)
+        .forEach(recordRenderProjectionOutcome)
+    }
+    changeIndex = nextIndex
+  }
+}
+
 // Render selection mirror used by overlay/render behavior.
 const updateRenderSelection = (change: SelectionChange) => {
   switch (change.action) {
@@ -198,12 +264,6 @@ const updateRenderSelection = (change: SelectionChange) => {
 }
 
 // Data-channel observer definitions for render defaults.
-const renderSceneTreeDataChannelObserver = defineDataChannelObserver({
-  name: 'preset.render.sceneTree',
-  channel: SharedDataChannelNames.SCENE_TREE,
-  onChange: updateRenderSceneTree
-})
-
 const renderSelectionDataChannelObserver = defineDataChannelObserver({
   name: 'preset.render.selection',
   channel: SharedDataChannelNames.SELECTION,
@@ -674,11 +734,39 @@ export const registerDefaultDataChannelObservers = (
   const eventSubscriptions: RuntimeSubscription[] = []
   const registeredObserverNames: string[] = []
   const uiContextSyncLifetime = createUIContextSyncLifetime()
+  const pendingRenderSceneTreeChanges: SceneTreeChange[] = []
+  let renderSceneTreeFlushScheduled = false
+  let renderSceneTreeLifetimeDisposed = false
   let disposed = false
+
+  const flushPendingRenderSceneTreeChanges = (): void => {
+    renderSceneTreeFlushScheduled = false
+    if (
+      renderSceneTreeLifetimeDisposed ||
+      pendingRenderSceneTreeChanges.length === 0
+    ) {
+      pendingRenderSceneTreeChanges.length = 0
+      return
+    }
+    updateRenderSceneTreeBatch(pendingRenderSceneTreeChanges.splice(0))
+  }
+
+  const scheduleRenderSceneTreeChange = (change: SceneTreeChange): void => {
+    if (renderSceneTreeLifetimeDisposed) {
+      return
+    }
+    pendingRenderSceneTreeChanges.push(change)
+    if (renderSceneTreeFlushScheduled) {
+      return
+    }
+    renderSceneTreeFlushScheduled = true
+    queueMicrotask(flushPendingRenderSceneTreeChanges)
+  }
 
   const dispose = (): void => {
     if (disposed) return
 
+    renderSceneTreeLifetimeDisposed = true
     const failures: unknown[] = []
     for (let index = registeredObserverNames.length - 1; index >= 0; index--) {
       const name = registeredObserverNames[index]
@@ -706,6 +794,7 @@ export const registerDefaultDataChannelObservers = (
     }
     uiContextSyncLifetime.disposed = true
     resetPendingUIContextSync(uiContextSyncLifetime)
+    pendingRenderSceneTreeChanges.length = 0
 
     if (failures.length > 0) {
       throw failures[0]
@@ -730,6 +819,12 @@ export const registerDefaultDataChannelObservers = (
         schedulePendingUIContextSync(uiContextSyncLifetime, core, deps)
       }
     }
+  })
+
+  const renderSceneTreeDataChannelObserver = defineDataChannelObserver({
+    name: 'preset.render.sceneTree',
+    channel: SharedDataChannelNames.SCENE_TREE,
+    onChange: scheduleRenderSceneTreeChange
   })
 
   const uiContextSelectionDataChannelObserver = defineDataChannelObserver({
