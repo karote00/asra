@@ -485,6 +485,7 @@
       ],
       conditions: [
         'Asyra Design selects the framework IndexedDB provider for ordinary and collaboration document identities so a complete high-detail canonical document is not constrained by localStorage quota.',
+        'This IndexedDB selection is browser-local durability for the open-source reference demo only; a production product derived from Asyra Design replaces the App-selected provider with a server-backed database integration that owns authentication, authorization, backup, and migration policy.',
         'Save and reload preserve the complete detached canonical snapshot, including ids, topology, hierarchy, styles, bounds, and document version, without an AI-specific storage representation.',
         'When IndexedDB has no document and the matching legacy localStorage key contains a valid snapshot, App startup writes that value to IndexedDB and removes the legacy key only after the durable write succeeds.',
         'Core remains the sole commit-time snapshot, serial save queue, and persistence-status owner; persisted acknowledgement and persistence-failed evidence remain separate from runtime commit.',
@@ -507,7 +508,8 @@
         'drawing-detail reduction, bitmap replacement, or dropped canonical elements',
         'attachment, conversation, progress, target-hint, or provider persistence',
         'silent fallback to a failed localStorage write',
-        'runtime rollback caused only by provider acknowledgement failure'
+        'runtime rollback caused only by provider acknowledgement failure',
+        'production database claim or implicit production durability from the browser-local demo provider'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -750,7 +752,7 @@
     {
       id: 'route-document-persistence-failure',
       from: 'persist-committed-document-snapshot',
-      kind: 'failure',
+      kind: 'terminal',
       predicate:
         'Snapshot capture, migration, IndexedDB open, transaction, or provider save fails and Core reports persistence-failed without reversing runtime commit.',
       producedArtifacts: ['artifact:document-persistence-failure']
@@ -1004,7 +1006,7 @@
     {
       id: 'high-detail-commit-is-durable',
       statement:
-        'A committed high-detail canonical snapshot persists and reloads through the App-selected IndexedDB provider without localStorage quota loss, canonical reduction, AI-owned storage, or runtime rollback on provider failure.',
+        'A committed high-detail canonical snapshot persists and reloads through the App-selected IndexedDB provider without localStorage quota loss, canonical reduction, AI-owned storage, or runtime rollback on provider failure; this provider is reference-demo durability only and a production derivation replaces it with a server-backed database integration.',
       stepIds: [
         'execute-one-app-composition-transaction',
         'persist-committed-document-snapshot'
@@ -1110,7 +1112,8 @@
         'A canonical drawing larger than localStorage quota saves and reloads with identical ids, topology, hierarchy, styles, bounds, and version through IndexedDB.',
         'Ordinary and collaboration document identities remain isolated and an existing valid legacy localStorage value migrates only when IndexedDB is empty.',
         'The legacy key is removed only after the IndexedDB write succeeds; provider failure remains explicit and does not reverse runtime commit.',
-        'Attachments, conversation turns, progress, semantic target hints, and provider data are never persisted.'
+        'Attachments, conversation turns, progress, semantic target hints, and provider data are never persisted.',
+        'IndexedDB is browser-local reference-demo durability only; a production derivation replaces the App-selected provider with a server-backed database integration that owns authentication, authorization, backup, and migration policy.'
       ],
       stepIds: [
         'execute-one-app-composition-transaction',

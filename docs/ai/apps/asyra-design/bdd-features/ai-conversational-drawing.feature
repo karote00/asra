@@ -84,6 +84,8 @@ Feature: Conversational AI mock drawing
     And an existing valid "FILE" or "FILE:<encoded fileId>" localStorage snapshot should migrate only when IndexedDB has no document
     And the legacy value should be removed only after the IndexedDB write succeeds
     And attachment, conversation, progress, and semantic target-hint data should not be persisted
+    And IndexedDB should be described as browser-local reference-demo durability only
+    And a production derivation should replace the App-selected provider with a server-backed database integration
     But when IndexedDB persistence fails
     Then Core should report persistence-failed without reversing the committed runtime state
 

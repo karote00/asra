@@ -372,6 +372,15 @@ test('high-detail commit persistence is capacity-appropriate and keeps Core owne
     persistence,
     /Attachments, conversation turns, progress, semantic target hints.*never enter/i
   )
+  assert.match(
+    persistence,
+    /reference demo only.*production product derived from Asyra Design replaces.*server-backed database integration/i
+  )
+  assert.match(
+    persistence,
+    /authentication, authorization, backup, and migration policy/i
+  )
+  assert.match(persistence, /production database claim/)
   assert.match(persistence, /packages\/persistence\/src/)
   assert.match(persistence, /apps\/asyra-design\/src\/document-persistence\.ts/)
 })

@@ -114,7 +114,11 @@ This file is the app-level API contract map.
   collaboration document is initialized as an empty workspace, while an
   existing IndexedDB snapshot is not overwritten. When IndexedDB is empty, an
   eligible matching legacy localStorage snapshot is copied and its legacy key
-  is removed only after the durable write succeeds
+  is removed only after the durable write succeeds. This is browser-local
+  durability for the open-source reference demo, not a production shared
+  database. A production product derived from Asyra Design must replace the
+  App-selected provider with a server-backed database integration that owns
+  authentication, authorization, backup, and migration policy
 - URLs without `fileId` create no collaboration connection; production builds
   retain the dynamically loaded reference path so a deployed URL with `fileId`
   can use it without changing the persistence owner

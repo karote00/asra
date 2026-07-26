@@ -312,6 +312,11 @@ the same width and height as the uploaded photo.` directly through the
   the framework's IndexedDB document provider for ordinary and collaboration
   document identities instead of treating `localStorage` as the active
   database.
+- This IndexedDB selection is browser-local durability for the open-source
+  reference demo only. A production product derived from Asyra Design must
+  replace the App-selected provider with a server-backed database integration
+  that owns authentication, authorization, backup, and migration policy; this
+  plan does not implement or claim that production backend.
 - The App preserves the existing `FILE` and `FILE:<encoded fileId>` document
   identities. When IndexedDB has no value and a valid legacy `localStorage`
   snapshot exists, startup copies that snapshot into IndexedDB and removes the
@@ -824,7 +829,9 @@ only after its focused formal tests and direct-consumer review pass.
 - A high-detail committed document that exceeds `localStorage` quota persists
   through the ordinary Core save queue, reloads from IndexedDB with identical
   canonical state, and migrates an existing legacy local snapshot without data
-  loss.
+  loss. IndexedDB remains reference-demo persistence only, and the documented
+  production derivation boundary requires replacing the App-selected provider
+  with a server-backed database integration.
 - App/runtime/provider instances, timers, observers, confirmations,
   conversations, target hints, and UI state remain isolated and disposed.
 - Focused tests, full affected gates, generated template checks, and
