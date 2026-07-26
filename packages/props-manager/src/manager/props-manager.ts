@@ -629,16 +629,16 @@ class PropsManager {
       }
     })
 
-    const reachableComponentIds = new Set<string>()
+    const visitedComponentIds = new Set<string>()
     const visit = (componentId: string): void => {
-      if (reachableComponentIds.has(componentId)) {
+      if (visitedComponentIds.has(componentId)) {
         return
       }
       const component = componentById.get(componentId)
       if (!component) {
         return
       }
-      reachableComponentIds.add(componentId)
+      visitedComponentIds.add(componentId)
       const childRelation = getPropertyComponentConfigDefinition(
         component.type
       )?.children
@@ -677,11 +677,7 @@ class PropsManager {
       })
     }
     uniqueRootComponentIds.forEach(visit)
-    if (reachableComponentIds.size !== components.length) {
-      throw new Error(
-        '[PropsManager] Active property batch contains an unowned property'
-      )
-    }
+    componentIds.forEach(visit)
 
     const plan = Object.freeze({
       kind: 'active-property-plan' as const,

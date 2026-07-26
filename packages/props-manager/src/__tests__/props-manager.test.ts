@@ -630,7 +630,57 @@ describe('PropsManager', () => {
     ).toThrow(/owner-issued one-shot active property plan/i)
   })
 
-  it('rejects stale or unowned active property evidence without mutation', () => {
+  it('accepts exact active source extras without rebuilding or reordering them', () => {
+    const child = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-source-extra-child',
+        x: 1,
+        y: 2
+      }).save()
+    )
+    propsManager.addProperty([child])
+    const parent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'active-source-extra-parent',
+        children: ['active-source-extra-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([parent])
+    const extra = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-source-extra',
+        x: 3,
+        y: 4
+      }).save()
+    )
+    propsManager.addProperty([extra])
+    propsManager.cleanChanges()
+    const before = propsManager.save()
+    const beforeIds = Object.keys(before)
+    const plan = propsManager.preflightActivePropertyBatch(
+      [parent.save(), child.save(), extra.save()],
+      ['active-source-extra-parent']
+    )
+
+    expect(
+      propsManager.runInActivePropertyBatch(plan, () => {
+        propsManager.addProperty([parent])
+        return ['active-source-extra-parent']
+      })
+    ).toEqual(['active-source-extra-parent'])
+    expect(propsManager.getPropertyById('active-source-extra-child')).toBe(
+      child
+    )
+    expect(propsManager.getPropertyById('active-source-extra-parent')).toBe(
+      parent
+    )
+    expect(propsManager.getPropertyById('active-source-extra')).toBe(extra)
+    expect(propsManager.save()).toEqual(before)
+    expect(Object.keys(propsManager.save())).toEqual(beforeIds)
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects stale or malformed active property evidence without mutation', () => {
     const child = propsManager.createProperty(
       new PositionComponent({
         id: 'active-validation-child',
@@ -646,14 +696,14 @@ describe('PropsManager', () => {
       } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
     )
     propsManager.addProperty([parent])
-    const unowned = propsManager.createProperty(
+    const staleExtra = propsManager.createProperty(
       new PositionComponent({
-        id: 'active-validation-unowned',
+        id: 'active-validation-stale-extra',
         x: 3,
         y: 4
       }).save()
     )
-    propsManager.addProperty([unowned])
+    propsManager.addProperty([staleExtra])
     const malformedParent = propsManager.createProperty(
       new CustomComponent({
         id: 'active-validation-missing-child',
@@ -690,16 +740,33 @@ describe('PropsManager', () => {
     ).toThrow(/missing relation child/i)
     expect(() =>
       propsManager.preflightActivePropertyBatch(
+        [parent.save(), child.save(), malformedParent.save()],
+        ['active-validation-parent']
+      )
+    ).toThrow(/missing relation child/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
         [wrongTypeParent.save(), wrongTypeChild.save()],
         ['active-validation-wrong-type-parent']
       )
     ).toThrow(/wrong type/i)
     expect(() =>
       propsManager.preflightActivePropertyBatch(
-        [parent.save(), child.save(), unowned.save()],
+        [
+          parent.save(),
+          child.save(),
+          wrongTypeParent.save(),
+          wrongTypeChild.save()
+        ],
         ['active-validation-parent']
       )
-    ).toThrow(/unowned property/i)
+    ).toThrow(/wrong type/i)
+    expect(() =>
+      propsManager.preflightActivePropertyBatch(
+        [parent.save(), child.save(), { ...staleExtra.save(), x: 999 }],
+        ['active-validation-parent']
+      )
+    ).toThrow(/changed exact component data/i)
     expect(() =>
       propsManager.preflightActivePropertyBatch(
         [parent.save(), { ...child.save(), x: 999 }],
