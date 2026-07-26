@@ -271,6 +271,34 @@ test('performance work cannot weaken canonical or history semantics', () => {
   assert.match(proof, /screenshots as canonical semantics authority/i)
 })
 
+test('profiled batch amplification resolves to exact canonical and transport owners', () => {
+  const canonical = step('apply-canonical-scene-batch')
+  const canonicalText = contractText(canonical)
+  const transport = step('transport-and-apply-remote-batches')
+
+  assert.ok(
+    canonical.implementationBoundary.includes('packages/props-manager/src')
+  )
+  assert.ok(
+    canonical.implementationBoundary.includes(
+      'packages/props-manager/src/__tests__'
+    )
+  )
+  assert.match(
+    canonicalText,
+    /property component.*instance.*relationship.*registration.*batch/i
+  )
+  assert.match(
+    canonicalText,
+    /final canonical.*ids.*order.*invalid.*history.*replay/i
+  )
+  assert.ok(
+    transport.implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration'
+    )
+  )
+})
+
 test('cache stays profiling-gated and owner-specific', () => {
   const plan = fs.readFileSync(
     path.resolve(repoRoot, data.authority.specPath),

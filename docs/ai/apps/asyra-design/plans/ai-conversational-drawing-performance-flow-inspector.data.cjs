@@ -145,6 +145,8 @@
       conditions: [
         'One canonical Group exists before ordered children and each child retains its original workspace topology under the ordinary group-local projection contract.',
         'Batch hierarchy application preserves exact ids, bounds, transforms, roles, fills, strokes, visibility, path order, and point order.',
+        'Property component instance creation, child relationship binding, and owner registration may use a canonical batch path instead of repeating single-item delivery work.',
+        'A batched property path preserves final canonical component ids and order, invalid-write rejection, history boundaries, replay evidence, persistence, and Collaboration exactly.',
         'The canonical owner emits the same ordered ADD_ELEMENT and property evidence consumed by transaction, replay, persistence, Render, and Collaboration.',
         'Any reduced traversal or allocation path is exactly equivalent to the ordinary valid-write and invalid-rejection semantics.'
       ],
@@ -155,11 +157,13 @@
       allowedContributors: [
         'artifact:ordered-app-composition-batches',
         '@asyra/core public Scene Tree facade',
-        '@asyra/scene-tree canonical component and hierarchy owners'
+        '@asyra/scene-tree canonical component and hierarchy owners',
+        '@asyra/props-manager canonical property component owner'
       ],
       forbiddenContributors: [
         'direct package-private store mutation from the App',
         'discarded canonical change evidence',
+        'batching that skips component construction, relationship binding, owner registration, or observable component changes',
         'post-hoc full-composition move or geometry rewrite',
         'fixture-specific Scene Tree behavior'
       ],
@@ -167,8 +171,10 @@
       implementationBoundary: [
         'packages/scene-tree/src',
         'packages/core/src',
+        'packages/props-manager/src',
         'packages/scene-tree/src/__tests__',
-        'packages/core/src/__tests__'
+        'packages/core/src/__tests__',
+        'packages/props-manager/src/__tests__'
       ],
       specRefs: [
         '#non-negotiable-equivalence',
@@ -265,6 +271,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src',
+        'apps/asyra-design/src/collaboration',
         'apps/asyra-design/src/init',
         'apps/asyra-design/src/features',
         'apps/asyra-design/src/init/__tests__',
