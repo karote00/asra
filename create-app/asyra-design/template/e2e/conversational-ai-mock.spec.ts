@@ -121,6 +121,31 @@ const getCanvasEvidence = async (
       .sort((left, right) => left.id.localeCompare(right.id))
   })
 
+const getPrimaryStrokeColorCount = async (
+  page: Page,
+  expectedColor: string
+): Promise<number> =>
+  page.evaluate((color) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scope = window as any
+    const sceneTree = scope.__Core__?.deps?.sceneTree
+    const strokeApis = scope.__AsyraE2E__?.strokeApis
+    if (!sceneTree || !strokeApis) {
+      throw new Error('Asyra Design E2E APIs are unavailable')
+    }
+
+    let count = 0
+    for (const [id, element] of sceneTree.getAllElements().entries()) {
+      if (
+        String(element.get('type')) !== 'workspace' &&
+        strokeApis.getPrimaryStrokeColor(id) === color
+      ) {
+        count += 1
+      }
+    }
+    return count
+  }, expectedColor)
+
 const getCanvasSummary = async (page: Page): Promise<CanvasSummary> =>
   page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -519,12 +544,7 @@ test.describe('Conversational AI Mock Drawing', () => {
       page.getByRole('button', { name: 'Redo AI change' })
     ).toBeVisible()
     await expect
-      .poll(
-        async () =>
-          (await getCanvasEvidence(page)).filter(
-            ({ strokeColor }) => strokeColor === '#2563EB'
-          ).length
-      )
+      .poll(async () => getPrimaryStrokeColorCount(page, '#2563EB'))
       .toBe(0)
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 2
@@ -536,12 +556,7 @@ test.describe('Conversational AI Mock Drawing', () => {
       page.getByRole('button', { name: 'Undo AI change' })
     ).toBeVisible()
     await expect
-      .poll(
-        async () =>
-          (await getCanvasEvidence(page)).filter(
-            ({ strokeColor }) => strokeColor === '#2563EB'
-          ).length
-      )
+      .poll(async () => getPrimaryStrokeColorCount(page, '#2563EB'))
       .toBe(blueIds.length)
     expect((await getTransactionSnapshot(page)).undoCount).toBe(
       beforeHistory.undoCount + 3
