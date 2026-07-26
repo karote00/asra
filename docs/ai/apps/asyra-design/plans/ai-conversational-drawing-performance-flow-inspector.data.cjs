@@ -288,6 +288,62 @@
       failureOwnerStepId: 'transport-and-apply-remote-batches'
     },
     {
+      id: 'persist-committed-canonical-snapshots',
+      order: 3,
+      laneId: 'shared-delivery',
+      title: 'Persist committed canonical snapshots',
+      ownerPackage: '@asyra/core and @asyra/persistence',
+      purpose:
+        'Capture and persist one exact, deeply detached snapshot for every local and remote committed transaction while preserving FIFO durability evidence and separate committed and persisted statuses.',
+      inputs: [
+        'artifact:factory-history-commit',
+        'artifact:remote-canonical-batches'
+      ],
+      outputs: [
+        'artifact:committed-persistence-snapshots',
+        'artifact:persistence-timing-sample'
+      ],
+      conditions: [
+        'Every local and remote committed transaction captures one deeply detached exact snapshot at that committed state and queues it for provider save in FIFO order.',
+        'Snapshot capture preserves Scene Tree, Props, system context, registered save-hook output, version, and transaction-specific evidence without retaining live mutable references.',
+        'Provider acknowledgement reports persisted separately from committed; FIFO processing preserves every snapshot, one failure reports persistence-failed, and a later committed snapshot still reaches the provider.',
+        'Core persistence timing distinguishes canonical snapshot capture, save-hook isolation, provider save, and browser persistence work without changing product scheduling.'
+      ],
+      bypasses: [
+        'No configured provider reports persistence-skipped without capturing or queuing a snapshot.',
+        'Rollback, validation rejection, and snapshot-capture failure save no snapshot and retain the existing transaction status.',
+        'Load reads the provider-authoritative snapshot through ordinary Core validation and migration before product state is exposed.'
+      ],
+      allowedContributors: [
+        'artifact:factory-history-commit',
+        'artifact:remote-canonical-batches',
+        'Core transaction status subscriber and public Scene Tree, Props, and system-context save facades',
+        '@asyra/persistence public provider contract',
+        'registered Core save hooks'
+      ],
+      forbiddenContributors: [
+        'a coalesced or dropped committed snapshot',
+        'live mutable canonical references in queued or provider-owned data',
+        'AI-specific or fixture-specific persistence paths',
+        'transaction, history, Undo, Redo, or publication boundary changes',
+        'diagnostic code that changes persistence scheduling'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/core/src',
+        'packages/core/src/__tests__',
+        'packages/persistence/src',
+        'packages/persistence/src/providers/__tests__'
+      ],
+      specRefs: [
+        '#performance-measurement-contract',
+        '#non-negotiable-equivalence',
+        '#profiling-first-owner-decisions',
+        '#product-cases'
+      ],
+      failureOwnerStepId: 'persist-committed-canonical-snapshots'
+    },
+    {
       id: 'project-visible-canonical-batches',
       order: 1,
       laneId: 'projection-proof',
@@ -355,6 +411,8 @@
         'artifact:factory-history-commit',
         'artifact:factory-timing-sample',
         'artifact:collaboration-timing-sample',
+        'artifact:committed-persistence-snapshots',
+        'artifact:persistence-timing-sample',
         'artifact:visible-local-projection',
         'artifact:visible-remote-projection',
         'artifact:render-timing-sample'
@@ -474,12 +532,29 @@
       ]
     },
     {
+      id: 'route-local-commit-to-persistence',
+      from: 'record-history-and-shared-publication',
+      to: 'persist-committed-canonical-snapshots',
+      kind: 'persistence',
+      predicate:
+        'A local Factory transaction committed with canonical history evidence.',
+      producedArtifacts: ['artifact:factory-history-commit']
+    },
+    {
       id: 'route-remote-batches-to-render',
       from: 'transport-and-apply-remote-batches',
       to: 'project-visible-canonical-batches',
       kind: 'projection',
       predicate:
         'A remote canonical batch is ready for ordinary peer projection.',
+      producedArtifacts: ['artifact:remote-canonical-batches']
+    },
+    {
+      id: 'route-remote-commit-to-persistence',
+      from: 'transport-and-apply-remote-batches',
+      to: 'persist-committed-canonical-snapshots',
+      kind: 'persistence',
+      predicate: 'A remote canonical transaction committed.',
       producedArtifacts: ['artifact:remote-canonical-batches']
     },
     {
@@ -490,6 +565,18 @@
       predicate:
         'Collaboration transport and remote apply emitted bounded spans.',
       producedArtifacts: ['artifact:collaboration-timing-sample']
+    },
+    {
+      id: 'route-persistence-evidence-to-proof',
+      from: 'persist-committed-canonical-snapshots',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'Committed snapshot and provider persistence evidence reached a terminal status.',
+      producedArtifacts: [
+        'artifact:committed-persistence-snapshots',
+        'artifact:persistence-timing-sample'
+      ]
     },
     {
       id: 'route-visible-projections-to-proof',
@@ -557,7 +644,10 @@
       id: 'artifact:factory-history-commit',
       ownerStepId: 'record-history-and-shared-publication',
       channel: 'Factory history evidence',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'persist-committed-canonical-snapshots',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -578,13 +668,30 @@
       id: 'artifact:remote-canonical-batches',
       ownerStepId: 'transport-and-apply-remote-batches',
       channel: 'ordinary remote canonical apply',
-      consumerStepIds: ['project-visible-canonical-batches'],
+      consumerStepIds: [
+        'persist-committed-canonical-snapshots',
+        'project-visible-canonical-batches'
+      ],
       terminal: false
     },
     {
       id: 'artifact:collaboration-timing-sample',
       ownerStepId: 'transport-and-apply-remote-batches',
       channel: 'detached monotonic timing',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:committed-persistence-snapshots',
+      ownerStepId: 'persist-committed-canonical-snapshots',
+      channel: 'exact committed snapshot and durability evidence',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:persistence-timing-sample',
+      ownerStepId: 'persist-committed-canonical-snapshots',
+      channel: 'detached monotonic persistence timing',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
@@ -629,6 +736,7 @@
         'apply-canonical-scene-batch',
         'record-history-and-shared-publication',
         'transport-and-apply-remote-batches',
+        'persist-committed-canonical-snapshots',
         'project-visible-canonical-batches',
         'evaluate-performance-and-equivalence'
       ],
@@ -637,6 +745,7 @@
         'artifact:scene-tree-timing-sample',
         'artifact:factory-timing-sample',
         'artifact:collaboration-timing-sample',
+        'artifact:persistence-timing-sample',
         'artifact:render-timing-sample'
       ],
       specRefs: ['#performance-measurement-contract']
@@ -650,6 +759,7 @@
         'apply-canonical-scene-batch',
         'record-history-and-shared-publication',
         'transport-and-apply-remote-batches',
+        'persist-committed-canonical-snapshots',
         'project-visible-canonical-batches',
         'evaluate-performance-and-equivalence'
       ],
@@ -658,6 +768,7 @@
         'artifact:canonical-scene-batches',
         'artifact:factory-history-commit',
         'artifact:remote-canonical-batches',
+        'artifact:committed-persistence-snapshots',
         'artifact:performance-equivalence-proof'
       ],
       specRefs: ['#non-negotiable-equivalence']
@@ -711,6 +822,7 @@
         'prepare-ordered-app-composition-batches',
         'apply-canonical-scene-batch',
         'record-history-and-shared-publication',
+        'persist-committed-canonical-snapshots',
         'project-visible-canonical-batches',
         'evaluate-performance-and-equivalence'
       ],
@@ -727,6 +839,7 @@
       stepIds: [
         'record-history-and-shared-publication',
         'transport-and-apply-remote-batches',
+        'persist-committed-canonical-snapshots',
         'project-visible-canonical-batches',
         'evaluate-performance-and-equivalence'
       ],
@@ -745,6 +858,7 @@
         'apply-canonical-scene-batch',
         'record-history-and-shared-publication',
         'transport-and-apply-remote-batches',
+        'persist-committed-canonical-snapshots',
         'project-visible-canonical-batches',
         'evaluate-performance-and-equivalence'
       ],
@@ -774,7 +888,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'Profiling-first local creation, canonical Scene Tree apply, Factory history and publication, Collaboration convergence, ordinary Render projection, and exact performance-equivalence proof.'
+        'Profiling-first local creation, canonical Scene Tree apply, Factory history and publication, Collaboration convergence, committed persistence, ordinary Render projection, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

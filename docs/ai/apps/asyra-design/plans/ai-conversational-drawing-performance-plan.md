@@ -131,6 +131,8 @@ The profiling harness must distinguish:
 - Factory transaction recording and history commit;
 - Factory shared-publication construction;
 - collaboration encode, send, receive, decode, and remote canonical apply;
+- Core persistence snapshot capture, save-hook isolation, provider save, and
+  persistence acknowledgement;
 - local and remote Render projection flush;
 - Actor A visible-first-change and settled timestamps;
 - Actor B visible-first-change and canonical-convergence timestamps;
@@ -251,6 +253,9 @@ Candidate repairs remain hypotheses until that evidence exists:
   bookkeeping inside one transaction.
 - Collaboration: reduce encode/decode/apply amplification per progressive
   publication without adding a message ceiling or server semantic owner.
+- Core/Persistence: reduce snapshot capture or provider-write amplification
+  while preserving one exact deeply detached FIFO snapshot and status for every
+  committed local or remote transaction.
 - Render: coalesce invalidation and projection once per accepted canonical
   batch while preserving the ordinary Vector strategy and visible progressive
   steps.

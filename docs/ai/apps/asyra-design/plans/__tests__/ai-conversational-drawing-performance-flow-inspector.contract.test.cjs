@@ -31,6 +31,7 @@ const requiredStepIds = [
   'apply-canonical-scene-batch',
   'record-history-and-shared-publication',
   'transport-and-apply-remote-batches',
+  'persist-committed-canonical-snapshots',
   'project-visible-canonical-batches',
   'evaluate-performance-and-equivalence'
 ]
@@ -102,7 +103,7 @@ test('performance Inspector authorities and active-plan routing resolve', () => 
   )
 })
 
-test('performance Inspector exposes seven exact single-owner steps', () => {
+test('performance Inspector exposes eight exact single-owner steps', () => {
   assert.deepEqual(
     new Set(data.steps.map((item) => item.id)),
     new Set(requiredStepIds)
@@ -310,6 +311,54 @@ test('profiled batch amplification resolves to exact canonical and transport own
   assert.match(
     contractText(transport),
     /memory-only reference server.*without.*semantic owner/i
+  )
+})
+
+test('committed persistence has one exact Core and provider owner', () => {
+  const persistence = step('persist-committed-canonical-snapshots')
+  const persistenceText = contractText(persistence)
+  const proof = step('evaluate-performance-and-equivalence')
+  const plan = fs.readFileSync(
+    path.resolve(repoRoot, data.authority.specPath),
+    'utf8'
+  )
+  const feature = fs.readFileSync(
+    path.resolve(
+      repoRoot,
+      'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+    ),
+    'utf8'
+  )
+
+  assert.deepEqual(persistence.inputs, [
+    'artifact:factory-history-commit',
+    'artifact:remote-canonical-batches'
+  ])
+  assert.deepEqual(persistence.outputs, [
+    'artifact:committed-persistence-snapshots',
+    'artifact:persistence-timing-sample'
+  ])
+  assert.ok(persistence.implementationBoundary.includes('packages/core/src'))
+  assert.ok(
+    persistence.implementationBoundary.includes('packages/persistence/src')
+  )
+  assert.match(
+    persistenceText,
+    /every local and remote committed transaction.*deeply detached.*exact snapshot/i
+  )
+  assert.match(persistenceText, /FIFO.*failure.*later committed snapshot/i)
+  assert.match(persistenceText, /coalesced or dropped committed snapshot/i)
+  assert.ok(
+    proof.inputs.includes('artifact:committed-persistence-snapshots')
+  )
+  assert.ok(proof.inputs.includes('artifact:persistence-timing-sample'))
+  assert.match(
+    plan,
+    /Core persistence snapshot capture.*provider save/i
+  )
+  assert.match(
+    feature,
+    /Core persistence snapshot capture and provider save/i
   )
 })
 

@@ -11,7 +11,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: Profiling identifies the first product-owned bottleneck
     When the balanced cat-only turn creates 7075 editable Vectors and one Group
-    Then timing should distinguish App batching, Scene Tree apply, Factory recording and publication, Collaboration transport and remote apply, and Render projection
+    Then timing should distinguish App batching, Scene Tree apply, Factory recording and publication, Collaboration transport and remote apply, Core persistence snapshot capture and provider save, and Render projection
     And timing should include Actor A and Actor B first-visible and settled milestones
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
     And the next optimization should belong only to the largest over-budget Inspector owner
