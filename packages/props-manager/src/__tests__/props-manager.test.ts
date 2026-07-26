@@ -926,6 +926,77 @@ describe('PropsManager', () => {
     subscription.unsubscribe()
   })
 
+  it('reuses owner-issued add snapshots and rematerializes only updated components', () => {
+    const unchanged = createProperty({
+      id: 'pp-unchanged',
+      type: PropertyTypes.CUSTOM,
+      children: ['child-a']
+    }) as PropertyComponentInstanceTypes
+    const updated = createProperty({
+      id: 'pp-updated',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }) as PropertyComponentInstanceTypes
+    const unchangedSave = vi.fn(unchanged.save.bind(unchanged))
+    const updatedSave = vi.fn(updated.save.bind(updated))
+    unchanged.save = unchangedSave
+    updated.save = updatedSave
+    propsManager.addToMap(unchanged)
+    propsManager.addToMap(updated)
+    propsManager.addChangeForAddProperty(unchanged)
+    propsManager.addChangeForAddProperty(updated)
+
+    updated.load({
+      id: 'pp-updated',
+      type: PropertyTypes.POSITION,
+      x: 120,
+      y: 240,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    propsManager.addChange({
+      action: PROPS_ACTIONS.UPDATE_PROPERTY,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      id: 'pp-updated',
+      key: 'x',
+      before: 0,
+      after: 120
+    })
+
+    const { events, subscription } = captureUpdateTransactionEvents()
+    propsManager.commitChanges()
+
+    expect(unchangedSave).toHaveBeenCalledTimes(1)
+    expect(updatedSave).toHaveBeenCalledTimes(2)
+    expect(events).toHaveLength(1)
+    expect(
+      (events[0]?.payload as { data: Record<string, unknown>[] }).data
+    ).toEqual([
+      expect.objectContaining({
+        id: 'pp-unchanged',
+        children: ['child-a']
+      }),
+      expect.objectContaining({
+        id: 'pp-updated',
+        x: 120,
+        y: 240
+      })
+    ])
+
+    unchanged.load({
+      id: 'pp-unchanged',
+      type: PropertyTypes.CUSTOM,
+      children: ['child-b']
+    })
+    expect(
+      (events[0]?.payload as { data: Record<string, unknown>[] }).data[0]
+    ).toMatchObject({ id: 'pp-unchanged', children: ['child-a'] })
+    subscription.unsubscribe()
+  })
+
   it('commits one final canonical property batch for newly created components', () => {
     const position = createProperty({
       id: 'pp-position',

@@ -671,6 +671,7 @@ class PropsManager {
     const { data: _firstData, ...firstAddContract } = firstAdd
     const orderedIds: string[] = []
     const createdIds = new Set<string>()
+    const initialSnapshots = new Map<string, PropertyComponentRawData>()
     for (const addChange of addChanges) {
       const { data: _data, ...addContract } = addChange
       if (!isEqual(addContract, firstAddContract)) {
@@ -688,10 +689,12 @@ class PropsManager {
         }
         createdIds.add(propertyId)
         orderedIds.push(propertyId)
+        initialSnapshots.set(propertyId, propertyData)
       }
     }
 
     const observedAddIds = new Set<string>()
+    const updatedIds = new Set<string>()
     const canBatch = this.changes.every((change) => {
       if (isAddPropertyChange(change)) {
         change.data.forEach(({ id }) => observedAddIds.add(id as string))
@@ -705,15 +708,20 @@ class PropsManager {
       ) {
         return false
       }
+      updatedIds.add(change.id)
       return isEqual(change.options, firstAdd.options)
     })
     if (!canBatch) {
       return this.changes
     }
 
-    const finalData = orderedIds.map((propertyId) =>
-      clonePropsValue(this.getPropertyById(propertyId)!.save())
-    )
+    const finalData = orderedIds.map((propertyId) => {
+      if (!updatedIds.has(propertyId)) {
+        return initialSnapshots.get(propertyId)!
+      }
+
+      return clonePropsValue(this.getPropertyById(propertyId)!.save())
+    })
     return [
       {
         ...firstAdd,
