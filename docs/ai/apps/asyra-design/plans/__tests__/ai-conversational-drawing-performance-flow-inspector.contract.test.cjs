@@ -297,6 +297,20 @@ test('profiled batch amplification resolves to exact canonical and transport own
       'apps/asyra-design/src/collaboration'
     )
   )
+  assert.ok(
+    transport.implementationBoundary.includes(
+      'apps/asyra-design/collaboration-server.ts'
+    )
+  )
+  assert.ok(
+    transport.implementationBoundary.includes(
+      'apps/asyra-design/__tests__/collaboration-server.test.mjs'
+    )
+  )
+  assert.match(
+    contractText(transport),
+    /memory-only reference server.*without.*semantic owner/i
+  )
 })
 
 test('cache stays profiling-gated and owner-specific', () => {

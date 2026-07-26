@@ -260,6 +260,7 @@
         'artifact:shared-publications',
         '@asyra/collaboration public protocol',
         'Asyra Design collaboration lifecycle and WebSocket adapter',
+        'Asyra Design memory-only reference server transport composition without a semantic owner',
         'ordinary remote Factory apply'
       ],
       forbiddenContributors: [
@@ -272,6 +273,8 @@
       implementationBoundary: [
         'packages/collaboration/src',
         'apps/asyra-design/src/collaboration',
+        'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
         'apps/asyra-design/src/init',
         'apps/asyra-design/src/features',
         'apps/asyra-design/src/init/__tests__',
