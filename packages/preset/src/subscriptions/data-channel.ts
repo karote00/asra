@@ -401,10 +401,14 @@ const createPendingUIContextSync = (): PendingUIContextSync => ({
 })
 
 interface UIContextSyncLifetime {
+  disposed: boolean
+  immediateFlushScheduled: boolean
   pending: PendingUIContextSync
 }
 
 const createUIContextSyncLifetime = (): UIContextSyncLifetime => ({
+  disposed: false,
+  immediateFlushScheduled: false,
   pending: createPendingUIContextSync()
 })
 
@@ -418,6 +422,23 @@ const hasPendingUIContextSync = (lifetime: UIContextSyncLifetime): boolean =>
   lifetime.pending.elementSelectionAndDerived ||
   lifetime.pending.dirtyElementDataMapIds.size > 0 ||
   lifetime.pending.dirtyPropertyKeys.size > 0
+
+const schedulePendingUIContextSync = (
+  lifetime: UIContextSyncLifetime,
+  core: PresetCoreAPIs,
+  deps: PresetDependencies
+): void => {
+  if (lifetime.disposed || lifetime.immediateFlushScheduled) {
+    return
+  }
+  lifetime.immediateFlushScheduled = true
+  queueMicrotask(() => {
+    lifetime.immediateFlushScheduled = false
+    if (!lifetime.disposed) {
+      flushPendingUIContextSync(lifetime, core, deps)
+    }
+  })
+}
 
 const flushPendingUIContextSync = (
   lifetime: UIContextSyncLifetime,
@@ -683,6 +704,7 @@ export const registerDefaultDataChannelObservers = (
         failures.push(error)
       }
     }
+    uiContextSyncLifetime.disposed = true
     resetPendingUIContextSync(uiContextSyncLifetime)
 
     if (failures.length > 0) {
@@ -705,7 +727,7 @@ export const registerDefaultDataChannelObservers = (
     onChange: (change: SceneTreeChange) => {
       handleUIContextSceneTreeChange(change, core, deps, uiContextSyncLifetime)
       if (change.options?.sharedDelivery === 'immediate') {
-        flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
+        schedulePendingUIContextSync(uiContextSyncLifetime, core, deps)
       }
     }
   })

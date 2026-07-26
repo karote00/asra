@@ -493,6 +493,114 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
+  it('projects one UI context snapshot per synchronous immediate canonical batch', async () => {
+    const observers = new Map<
+      string,
+      { onChange: (change: unknown) => void }
+    >()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+      },
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+    const elements = new Map<
+      string,
+      {
+        get: (key: string) => unknown
+        save: () => Record<string, unknown>
+      }
+    >()
+    const workspaceChildren: string[] = []
+    const getAllElements = vi.fn(() => elements)
+    dependencies.sceneTree.getElementById = (elementId: string) =>
+      elements.get(elementId)
+    dependencies.sceneTree.getAllElements = getAllElements
+    dependencies.sceneTree.currentWorkspace = {
+      get: (key: string) =>
+        key === 'type' ? EntityTypes.WORKSPACE : undefined,
+      save: () => ({
+        id: 'workspace-1',
+        type: EntityTypes.WORKSPACE,
+        children: [...workspaceChildren]
+      })
+    }
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', [])
+    uiContext.set('elementDataMap', {})
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { uiContext: true }
+    )
+
+    const addElement = (elementId: string) => {
+      const saved = {
+        id: elementId,
+        type: EntityTypes.RECTANGLE,
+        parentId: 'workspace-1'
+      }
+      elements.set(elementId, {
+        get: (key: string) => saved[key as keyof typeof saved],
+        save: () => ({ ...saved })
+      })
+      workspaceChildren.push(elementId)
+      observers.get('preset.uiContext.sceneTree')?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: saved,
+        options: { sharedDelivery: 'immediate' },
+        parentId: 'workspace-1'
+      })
+    }
+
+    try {
+      addElement('rect-1')
+      addElement('rect-2')
+
+      expect(getAllElements).not.toHaveBeenCalled()
+      await Promise.resolve()
+
+      expect(getAllElements).toHaveBeenCalledOnce()
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'rect-1',
+        'rect-2'
+      ])
+      expect(uiContext.get('elementDataMap')).toEqual({
+        'rect-1': {
+          id: 'rect-1',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'workspace-1'
+        },
+        'rect-2': {
+          id: 'rect-2',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'workspace-1'
+        }
+      })
+
+      addElement('rect-3')
+      await Promise.resolve()
+
+      expect(getAllElements).toHaveBeenCalledTimes(2)
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'rect-1',
+        'rect-2',
+        'rect-3'
+      ])
+    } finally {
+      dispose()
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+    }
+  })
+
   it.each([
     {
       name: 'move',
