@@ -176,11 +176,12 @@
       order: 1,
       laneId: 'provider-runtime',
       title: 'Produce one delayed deterministic mock candidate',
-      ownerPackage: 'Asyra Design mock AI provider',
+      ownerPackage: 'Asyra Design mock AI provider and VTracer tool adapter',
       purpose:
-        'Map one bounded provider request to a deterministic fixture after a finite abortable delay and return only the public untrusted candidate-plan shape or a stable provider failure.',
+        'Map one bounded provider request to a deterministic fixture or App-prompt-authorized local VTracer whole-image conversion after a finite abortable delay and return only the public untrusted candidate-plan shape or a stable provider failure.',
       inputs: [
         'artifact:provider-plan-request',
+        'stable App-owned prompt and VTracer tool policy in collected App context',
         'bounded Traditional Chinese and English fixture table',
         'detached image attachment descriptors in provider metadata',
         'injected scheduler or product mock delay',
@@ -191,6 +192,10 @@
         'artifact:mock-provider-failure'
       ],
       conditions: [
+        'The stable App-owned prompt describes only registered actions, safe operational status, canonical-id follow-up targeting, and the installed VTracer capability; it contains no attachment bytes, secrets, provider-selected tools, or hidden reasoning.',
+        'An explicit whole-image vectorization intent with one accepted detached image attachment invokes the same-origin App tool endpoint and VTracer exactly once; the attachment never leaves the local App origin and no external/model request occurs.',
+        'The VTracer adapter traces the complete raster, validates finite non-degenerate SVG topology and presentation, and returns deterministic generic-role items as one ordinary editable Vector composition through one existing insert_vector_composition action.',
+        'Whole-image vectorization does not infer subject-only segmentation, background replacement, or OCR and never substitutes the deterministic cat fixture.',
         'A bounded draw-this-image phrase with at least one accepted detached image attachment returns only the registered non-mutating request_drawing_detail_choice candidate; it does not select or materialize a drawing fixture.',
         'The exact English draw-only-the-cat instruction with one accepted detached image attachment directly returns the balanced cat-only fixture: its original photographic background is absent and one pure-white ordinary editable background Vector has workspace bounds equal to the uploaded image intrinsic pixel width and height decoded locally from the accepted data URL.',
         'The exact App-owned Balanced detail selection intent with the retained accepted attachment and the ordinary or explicitly detailed text-only cat-face phrases use the balanced frontal tabby fixture with 7,111 ordinary editable VTracer-derived polygon items, at least 115,000 canonical points, and at least 90 editable colors.',
@@ -202,6 +207,8 @@
         'The explanation describes intended visible work and never contains fabricated private chain-of-thought.'
       ],
       bypasses: [
+        'A whole-image vectorization intent without exactly one accepted attachment is unsupported and produces no VTracer call or action candidate.',
+        'Malformed image data, same-origin tool failure, invalid or empty SVG, abort, and disposal settle before mutation without fixture or bitmap fallback.',
         'A draw-this-image phrase without an accepted detached image attachment is unsupported and produces no action candidate.',
         'A balanced or maximum detail-selection intent without its retained accepted attachment is unsupported and produces no drawing candidate.',
         'An unsupported phrase returns the declared no-mutation fixture and never invents an unregistered action.',
@@ -210,13 +217,17 @@
       ],
       allowedContributors: [
         'artifact:provider-plan-request',
+        'App-owned provider prompt and explicit VTracer tool policy',
+        'same-origin Asyra Design VTracer demo endpoint and validated SVG adapter',
         'app-owned deterministic fixture table',
         'detached provider metadata describing accepted image attachments',
         'injected scheduler and finite delay',
         '@asyra/ai-agent-runtime AiProvider public contract'
       ],
       forbiddenContributors: [
-        'network fetch, model SDK, API key, browser secret, or backend proxy',
+        'external network fetch, model SDK, API key, browser secret, remote upload, or external backend proxy',
+        'provider-selected, remote, or unrestricted tool invocation',
+        'semantic segmentation, background replacement, OCR, fixture fallback, or bitmap insertion for whole-image vectorization',
         'attachment upload or image data copied into action arguments, explanation, or progress',
         'canonical state or app common-API mutation',
         'permission, confirmation, transaction, or history decisions',
@@ -226,8 +237,11 @@
       implementationBoundary: [
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/vite.config.ts',
         'apps/asyra-design/package.json',
         'apps/asyra-design/e2e',
+        'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md',
         'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [

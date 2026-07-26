@@ -206,6 +206,11 @@ tabby cat portrait from editable Asyra vector layers`; it does not fabricate
 
 - Mock behavior is selected from deterministic, schema-valid fixtures rather
   than a hidden model or general natural-language parser.
+- Asyra Design supplies a stable App-owned provider prompt as part of the
+  collected App context. It describes the registered action boundary, safe
+  operational-status policy, canonical-id follow-up rule, and the App-owned
+  VTracer capability; it is not model chain-of-thought and contains no
+  attachment bytes or secrets.
 - The provider recognizes the bounded Traditional Chinese and English phrases
   declared in its fixture table. At minimum:
   - draw according to the attached reference image, including
@@ -243,6 +248,37 @@ the same width and height as the uploaded photo.` directly through the
   shapes.
 - Mock fixture selection, delay, retry count, and terminal outcome are isolated
   per app/runtime instance.
+
+### App-owned whole-image vectorization tool
+
+- When one accepted PNG, JPEG, or WebP attachment accompanies the explicit
+  whole-image intent `Vectorize this image` or
+  `將這張圖片轉換成可編輯向量圖形`, the mock provider follows the App-owned
+  prompt and invokes the App's installed VTracer tool through a same-origin
+  demo endpoint.
+- VTracer receives the attachment bytes only inside the local App tool
+  boundary. The image never leaves the local App origin, and the endpoint
+  performs no external/model request, persistent upload, or attachment
+  logging.
+- The tool traces the complete attached raster. It does not infer subject-only
+  segmentation, background replacement, OCR, or semantic object roles. Those
+  operations require a separately declared deterministic fixture or a future
+  live multimodal provider.
+- The adapter validates the VTracer SVG, discards invalid or degenerate
+  subpaths, preserves finite path topology and fill/stroke presentation, and
+  maps the result to ordinary editable Asyra Vector items with deterministic
+  generic roles.
+- The mock provider returns those items through one existing
+  `insert_vector_composition` action. The action/runtime contracts remain
+  unchanged, so the entire user turn creates one outer transaction and one
+  intended Undo action regardless of element count.
+- Abort, App disposal, malformed image data, VTracer failure, invalid SVG, or
+  an empty trace settles as an explicit provider/tool failure before mutation;
+  it never falls back to a fixture or bitmap insertion.
+- This local VTracer endpoint is part of the open-source demo toolchain, not a
+  production upload or conversion service. A deployed derivative must provide
+  an equivalent same-origin server implementation or replace the tool while
+  preserving the App prompt, action, transaction, and canonical contracts.
 
 ### App-owned drawing and update actions
 
@@ -472,6 +508,9 @@ the same width and height as the uploaded photo.` directly through the
 
 - owns deterministic phrase-to-fixture mapping, finite abortable delay,
   provider explanation, and fake failure scenarios;
+- consumes the stable App-owned prompt from collected App context and owns the
+  explicit whole-image vectorization phrases that invoke the App's VTracer
+  tool;
 - recognizes the bounded reference-image phrase only when the detached provider
   input contains an accepted image attachment, then returns the non-mutating
   detail-choice candidate;
@@ -532,7 +571,9 @@ Formal product cases cover:
 1. AI-disabled startup and unknown `ai` query values create no AI side effect or
    UI.
 2. Exact `ai=mock` activation exposes one toolbar trigger and one isolated
-   mock conversation controller without network or secret reads.
+   mock conversation controller without external/model network or secret
+   reads. The same-origin VTracer endpoint remains inert until an accepted
+   attachment is submitted with an explicit whole-image vectorization intent.
 3. Opening, closing, and reopening the non-modal panel preserves settled
    in-memory turns for the mounted app root and leaks no listeners or timers.
 4. The Agent prompt accepts local PNG, JPEG, and WebP images through either
@@ -577,35 +618,42 @@ Formal product cases cover:
    validated representation choice, not an action-schema acceptance ceiling.
 9. Unsupported files and failed image reads produce a concise draft error,
    preserve the editable draft, and create no Feature/provider request.
-10. No progress event or assistant message exposes raw provider output, action
+10. Submitting an arbitrary accepted PNG, JPEG, or WebP attachment with
+    `Vectorize this image` or `將這張圖片轉換成可編輯向量圖形` invokes the
+    same-origin App VTracer tool exactly once, traces the complete raster into
+    ordinary editable Vector items with generic deterministic roles, commits
+    one `insert_vector_composition` action and one Undo action, and makes no
+    external/model request. It does not silently segment a subject, replace
+    the background, perform OCR, or reuse the cat fixtures.
+11. No progress event or assistant message exposes raw provider output, action
     arguments, secret-like values, or private chain-of-thought.
-11. One successful cat-face turn creates one transaction and one undo commit;
+12. One successful cat-face turn creates one transaction and one undo commit;
     Message Bar Undo/Redo follows the current history top.
-12. `把眼睛放大一點` updates the existing eye ids in one new transaction without
+13. `把眼睛放大一點` updates the existing eye ids in one new transaction without
     recreating the face, ears, nose, or whiskers.
-13. `把鬍鬚改成藍色` updates existing whisker ids and preserves unrelated
+14. `把鬍鬚改成藍色` updates existing whisker ids and preserves unrelated
     composition members.
-14. `make the pupils red` updates only the existing revalidated pupil ids,
+15. `make the pupils red` updates only the existing revalidated pupil ids,
     preserves their topology and every unrelated composition member, and does
     not regenerate the portrait.
-15. A recoverable missing/duplicate item in the same balanced fixture
+16. A recoverable missing/duplicate item in the same balanced fixture
     returns partial evidence, commits
     successful siblings, reports skipped roles, and remains one undo unit.
-16. A fatal canonical/executor rejection rolls back rollbackable writes and
+17. A fatal canonical/executor rejection rolls back rollbackable writes and
     exposes no partial accepted result or Undo control.
-17. A confirmation-required delete pauses visibly, accept executes once, reject
+18. A confirmation-required delete pauses visibly, accept executes once, reject
     opens no transaction, and abort/teardown releases the wait.
-18. Mock cancellation during delay or runtime work removes timers/listeners and
+19. Mock cancellation during delay or runtime work removes timers/listeners and
     applies no later mutation.
-19. Mock provider failure and unsupported prompts produce stable no-mutation
+20. Mock provider failure and unsupported prompts produce stable no-mutation
     conversation results.
-20. A later non-AI committed action prevents an older AI Message Bar control
+21. A later non-AI committed action prevents an older AI Message Bar control
     from undoing that unrelated action.
-21. Two mounted app roots keep mock provider state, progress, conversation,
+22. Two mounted app roots keep mock provider state, progress, conversation,
     confirmation, target hints, and Message Bars isolated.
-22. Existing generic HTTP and deterministic provider contracts remain
+23. Existing generic HTTP and deterministic provider contracts remain
     replaceable without changing App action or conversation result semantics.
-23. A two-actor collaboration E2E opens the same document in independent
+24. A two-actor collaboration E2E opens the same document in independent
     browser contexts, records both 1280-by-720 live app views side-by-side in
     one 2560-by-720 WebM, and drives Actor A through image drag-and-drop, the
     exact cat-only same-size-white-background request, blue-whisker follow-up,
@@ -622,7 +670,7 @@ Formal product cases cover:
     remain visible throughout drawing and synchronization. The explicit E2E
     command owns dedicated App/collaboration ports and never reuses a stale
     long-running development server.
-24. Exact `aiDelivery=atomic` publishes a mutating AI turn once after commit.
+25. Exact `aiDelivery=atomic` publishes a mutating AI turn once after commit.
     Exact `aiDelivery=progressive` lets the peer observe more than one ordered
     canonical creation batch while Actor A is still working, then converges to
     the same ids and topology. Both modes retain one Actor A undo entry per
@@ -633,9 +681,9 @@ Formal product cases cover:
     plus the existing 256-item transient maximum; an intact over-target element
     remains accepted in one batch, so the target is never a composition or
     topology ceiling.
-25. Generated-template synchronization preserves explicit mock opt-in and
+26. Generated-template synchronization preserves explicit mock opt-in and
     AI-disabled default startup.
-26. Every terminal conversation outcome shows a concise elapsed duration
+27. Every terminal conversation outcome shows a concise elapsed duration
     measured from accepted submission through final settlement.
 
 ## Explicit Non-Goals
@@ -643,13 +691,15 @@ Formal product cases cover:
 - a live model vendor, API key, backend proxy, production authentication,
   quotas, billing, or rate limits;
 - raw or summarized private model chain-of-thought;
-- streaming model tokens, tool calls, web search, image generation, or video
-  generation;
+- streaming model tokens, provider-selected remote or unrestricted tool calls,
+  web search, image generation, or video generation;
 - remote image upload, persistent attachment library, URL import, camera
   capture, OCR, or a live multimodal/model provider;
 - a visual ghost/dry-run scene before confirmation;
-- arbitrary drawing, scripting, expressions, plugins, package-private APIs, or
-  unrestricted property mutation;
+- arbitrary prompt-to-drawing generation, semantic image segmentation,
+  scripting, expressions, plugins, package-private APIs, or unrestricted
+  property mutation; explicit whole-image raster vectorization through the
+  App-owned VTracer tool is in scope;
 - persistent/shared conversation history or durable semantic tags;
 - background agents, autonomous loops, parallel AI turns, or another session
   queue;
@@ -674,7 +724,8 @@ The matching Inspector defines these exact owner steps:
      revalidation, detached attachment handoff, active-turn isolation, and
      terminal record ownership.
 3. **Produce deterministic mock candidate**
-   - bounded phrase fixture, abortable delay, provider explanation, stable
+   - App-owned provider prompt, bounded phrase fixture, abortable delay,
+     same-origin VTracer whole-image tool call, provider explanation, stable
      clarification/balanced/maximum fixtures, stable failure fixture, and no
      mutation authority.
 4. **Orchestrate runtime preflight and progress**
@@ -755,6 +806,11 @@ only after its focused formal tests and direct-consumer review pass.
   labels/counts/warning are App-owned, selection retains the original
   attachment, and only the selected second turn requests balanced or maximum
   drawing;
+- App prompt/provider/tool tests prove an arbitrary accepted non-cat image with
+  an explicit whole-image vectorization intent invokes VTracer exactly once,
+  maps validated SVG paths to ordinary editable Vector items, exposes no raw
+  attachment data, performs no external/model request, and settles abort or
+  conversion failure before mutation;
 - deterministic controller-clock tests prove elapsed time covers the accepted
   turn through every terminal settlement without adding a timer lifecycle;
 - one resolved partial result commits successful siblings in one undo entry;
@@ -777,6 +833,10 @@ only after its focused formal tests and direct-consumer review pass.
   each actor before Actor A submits the drawing request;
 - the high-detail creation E2E attaches a real local reference image through
   the visible Agent panel before submitting `請依照這張圖繪製`;
+- one non-cat whole-image vectorization E2E uses a checked-in arbitrary raster
+  through the visible Agent panel, asserts VTracer-derived ordinary editable
+  vectors and one Undo action, reloads the persisted canonical result, and
+  retains a synchronized live-app screenshot outside version control;
 - canonical ids, types, bounds, roles, styles, group membership, and transaction
   evidence asserted before screenshots;
 - the two-actor recording asserts canonical convergence, stable ids/topology,
@@ -803,12 +863,19 @@ only after its focused formal tests and direct-consumer review pass.
 - The active product contract, Inspector, BDD cases, package/App docs, and
   release decision history agree.
 - Exact `ai=mock` mode provides the complete conversation experience without an
-  API key, network request, live provider, hidden chain-of-thought, or
-  AI-default startup side effect.
+  API key, external/model network request, live provider, hidden
+  chain-of-thought, or AI-default startup side effect; the same-origin VTracer
+  demo endpoint is invoked only for explicit whole-image vectorization.
 - The Agent prompt accepts local reference images through both file selection
   and drag-and-drop, previews and removes draft attachments accessibly, and
   carries submitted attachment data through the App-owned turn context without
   upload, persistence, collaboration state, or canonical canvas mutation.
+- The stable App-owned provider prompt advertises only registered App actions
+  and the installed VTracer capability. An explicit whole-image vectorization
+  turn accepts an arbitrary PNG, JPEG, or WebP attachment, uses the same-origin
+  VTracer tool, creates ordinary editable vectors through one existing insert
+  action, and produces one intended Undo action without inferring semantic
+  segmentation.
 - A generic reference request pauses as a settled no-mutation clarification
   with balanced and maximum editable-detail choices; no canvas/history work
   begins until the user chooses, and the maximum option carries an explicit

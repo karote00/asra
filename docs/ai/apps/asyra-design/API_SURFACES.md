@@ -9,9 +9,11 @@ This file is the app-level API contract map.
 - `resolveAsyraDesignAiMode(window.location.search)` accepts only one exact
   `ai=mock` value; missing, empty, unknown, case-mismatched, or duplicate values
   keep the App AI-disabled
-- explicit mock startup composes one deterministic no-network provider,
+- explicit mock startup composes one deterministic provider with no
+  external/model network access,
   app confirmation broker, app-root-local conversation controller, and current
-  AI history projection; it reads no API key
+  AI history projection; it reads no API key. Its same-origin VTracer demo tool
+  remains inert until an explicit whole-image vectorization turn
 - `composeAiAgentRuntime(...)` supports:
   - AI-disabled: no runtime and no AI Feature
   - provider-disabled: the AI Feature returns stable `unavailable` before
@@ -58,6 +60,16 @@ This file is the app-level API contract map.
   full-composition move or geometry rewrite is part of the AI action
 - provider selection is replaceable; deterministic fake and generic HTTP
   providers use the same runtime and app action contracts
+- collected App context includes a stable App-owned provider prompt that
+  advertises only registered actions, safe status summaries, canonical-id
+  follow-up targeting, and the installed VTracer capability
+- an accepted PNG, JPEG, or WebP attachment plus exact
+  `Vectorize this image` or `將這張圖片轉換成可編輯向量圖形` intent invokes
+  the same-origin App VTracer tool exactly once. The adapter validates the
+  complete-raster SVG into deterministic generic-role ordinary Vector items
+  and returns one existing `insert_vector_composition` action; it performs no
+  semantic segmentation, background replacement, OCR, bitmap insertion,
+  external/model request, or fixture fallback
 - conversation progress contains only the runtime's stable operational
   summaries. Settled UI summaries never render raw arguments, provider bodies,
   canonical ids, secrets, or private chain-of-thought

@@ -52,6 +52,20 @@ Feature: Conversational AI mock drawing
     And no Feature or provider request should be created
     And a draft without trimmed text should remain inert
 
+  Scenario: An arbitrary attached raster is vectorized through the App-owned VTracer tool
+    Given the stable App-owned provider prompt advertises registered actions and the installed VTracer capability
+    When the user attaches an arbitrary non-cat PNG, JPEG, or WebP image
+    And the user submits "Vectorize this image"
+    Then the mock provider should invoke the same-origin App VTracer tool exactly once
+    And the attachment should never leave the local App origin or enter an external model request
+    And the complete raster should become ordinary editable Vectors with deterministic generic roles
+    And the provider should return one existing insert_vector_composition action
+    And the turn should create one intended undo commit
+    And reloading should restore the identical committed canonical vector composition
+    And the tool should not infer subject-only segmentation, background replacement, OCR, a cat fixture, or bitmap insertion
+    But when the attachment, VTracer result, or validated SVG is invalid or empty
+    Then the turn should fail before mutation without a fixture fallback
+
   Scenario: Every accepted terminal turn reports its elapsed time
     Given the conversation controller uses an instance-local monotonic clock
     When an accepted turn reaches success, partial, no-change, cancelled, unavailable, or failed settlement

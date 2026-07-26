@@ -54,6 +54,10 @@
     work on invocation
   - provider-enabled passes the one app-composed runtime to the exclusive
     programmatic AI Feature
+  - explicit mock mode supplies the stable App-owned provider prompt and an
+    abortable same-origin VTracer client; the local tool endpoint remains inert
+    until an accepted attachment accompanies an explicit whole-image
+    vectorization intent
 - `initApp()` returns the AI composition and an idempotent async disposer;
   disposal aborts/awaits active AI work and disposes only explicitly owned AI
   resources

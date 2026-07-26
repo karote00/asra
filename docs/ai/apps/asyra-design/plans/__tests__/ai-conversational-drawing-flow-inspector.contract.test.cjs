@@ -196,6 +196,23 @@ test('mock mode and provider boundary stay explicit, deterministic, and inert by
 
   assert.match(provider, /deterministic fixture/)
   assert.match(provider, /finite.*abortable delay/i)
+  assert.match(provider, /App-owned prompt/)
+  assert.match(
+    provider,
+    /explicit whole-image vectorization intent.*accepted detached image attachment.*VTracer/i
+  )
+  assert.match(
+    provider,
+    /same-origin App tool endpoint.*never leaves the local App origin/i
+  )
+  assert.match(
+    provider,
+    /ordinary editable Vector composition.*one existing insert_vector_composition action/i
+  )
+  assert.match(
+    provider,
+    /does not infer subject-only segmentation, background replacement, or OCR/i
+  )
   assert.match(
     provider,
     /draw-this-image phrase with at least one accepted detached image attachment.*request_drawing_detail_choice/i
@@ -219,7 +236,7 @@ test('mock mode and provider boundary stay explicit, deterministic, and inert by
   assert.match(provider, /raw image data never enters action arguments/i)
   assert.match(provider, /cat-face.*eye-size.*whisker-color.*pupil-color/i)
   assert.match(provider, /apps\/asyra-design\/e2e/)
-  assert.match(provider, /network fetch.*model SDK.*API key/i)
+  assert.match(provider, /external network fetch.*model SDK.*API key/i)
   assert.match(provider, /never contains fabricated private chain-of-thought/)
 })
 
@@ -464,6 +481,12 @@ test('Conversational AI Gherkin contract is registered and covers agreed product
   )
   assert.match(feature, /survives browser reload/)
   assert.match(feature, /acknowledge the complete snapshot in IndexedDB/)
+  assert.match(feature, /arbitrary attached raster.*App-owned VTracer tool/i)
+  assert.match(feature, /Vectorize this image/)
+  assert.match(
+    feature,
+    /complete raster should become ordinary editable Vectors.*one intended undo commit/is
+  )
   assert.match(
     feature,
     /legacy value should be removed only after the IndexedDB write succeeds/
