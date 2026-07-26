@@ -305,6 +305,24 @@ the same width and height as the uploaded photo.` directly through the
   structured choice kind and App-owned option ids as a no-change result; the
   presentation owner supplies all visible option wording and resource impact.
 
+### High-detail document durability
+
+- A committed high-detail drawing must remain reloadable when its canonical
+  document is larger than browser `localStorage` quota. Asyra Design selects
+  the framework's IndexedDB document provider for ordinary and collaboration
+  document identities instead of treating `localStorage` as the active
+  database.
+- The App preserves the existing `FILE` and `FILE:<encoded fileId>` document
+  identities. When IndexedDB has no value and a valid legacy `localStorage`
+  snapshot exists, startup copies that snapshot into IndexedDB and removes the
+  legacy value only after the durable write succeeds.
+- Core remains the sole save scheduling and persistence-status owner. A
+  provider failure reports `persistence-failed` without reversing already
+  committed runtime state or fabricating an Agent success/failure result.
+- Reference-image attachments, conversation turns, operational progress, and
+  semantic target hints remain app-root-local memory and never enter the
+  persisted canonical document.
+
 ### Partial and fatal failure classification
 
 - Provider shape/schema failure, unknown action, permission denial, and
@@ -634,6 +652,8 @@ Formal product cases cover:
   target;
 - changing existing canonical transaction, undo/redo, collaboration,
   persistence, or Render ownership;
+- using `localStorage` quota failure, drawing-detail reduction, or an
+  AI-specific snapshot as the high-detail persistence policy;
 - making mock mode the default production or generated-app startup path.
 
 ## Inspector Owner Steps
@@ -662,7 +682,11 @@ The matching Inspector defines these exact owner steps:
    - strict action schemas, semantic preflight, canonical common APIs,
      non-mutating detail-choice result, complete/partial/fatal classification,
      one transaction, and detached result.
-7. **Project conversation and current history action**
+7. **Persist the committed document snapshot**
+   - capacity-appropriate IndexedDB storage, stable document identity,
+     one-time legacy localStorage migration, explicit provider failure, and no
+     change to Core commit or save scheduling.
+8. **Project conversation and current history action**
    - ordered messages, operational timeline, result/warning summary, current
      drawing-detail option UI, Message Bar Undo/Redo, accessibility, teardown,
      and instance isolation.
@@ -797,6 +821,10 @@ only after its focused formal tests and direct-consumer review pass.
   accept, reject, abort, panel teardown, and app teardown.
 - Current canonical state, not regenerated original prompt text, owns follow-up
   target truth.
+- A high-detail committed document that exceeds `localStorage` quota persists
+  through the ordinary Core save queue, reloads from IndexedDB with identical
+  canonical state, and migrates an existing legacy local snapshot without data
+  loss.
 - App/runtime/provider instances, timers, observers, confirmations,
   conversations, target hints, and UI state remain isolated and disposed.
 - Focused tests, full affected gates, generated template checks, and

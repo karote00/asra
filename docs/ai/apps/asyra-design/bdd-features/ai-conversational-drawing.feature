@@ -76,6 +76,17 @@ Feature: Conversational AI mock drawing
     And the creation turn should settle within the explicit 900-second live E2E budget
     And the synchronized live screenshot should show a high-detail frontal tabby portrait beside the Agent panel
 
+  Scenario: A high-detail committed drawing survives browser reload
+    Given the balanced cat-only canonical document exceeds localStorage quota
+    When Core persists the committed drawing through the App-selected document provider
+    Then the provider should acknowledge the complete snapshot in IndexedDB
+    And reloading the same ordinary or collaboration document identity should restore identical canonical ids, topology, hierarchy, styles, and bounds
+    And an existing valid "FILE" or "FILE:<encoded fileId>" localStorage snapshot should migrate only when IndexedDB has no document
+    And the legacy value should be removed only after the IndexedDB write succeeds
+    And attachment, conversation, progress, and semantic target-hint data should not be persisted
+    But when IndexedDB persistence fails
+    Then Core should report persistence-failed without reversing the committed runtime state
+
   Scenario: Text-only cat-face aliases retain the balanced fixture
     When the user submits "畫一個精緻的貓臉"
     And the text-only alias "畫一個貓臉" remains supported

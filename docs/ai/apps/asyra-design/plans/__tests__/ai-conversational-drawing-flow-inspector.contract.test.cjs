@@ -32,6 +32,7 @@ const requiredStepIds = [
   'orchestrate-runtime-preflight-and-progress',
   'resolve-app-confirmation',
   'execute-one-app-composition-transaction',
+  'persist-committed-document-snapshot',
   'project-conversation-and-current-history'
 ]
 
@@ -102,7 +103,7 @@ test('Conversational AI Inspector authorities and active-plan routing resolve', 
   )
 })
 
-test('Conversational AI Inspector exposes the seven exact owner steps', () => {
+test('Conversational AI Inspector exposes the eight exact owner steps', () => {
   assert.deepEqual(
     new Set(data.steps.map((item) => item.id)),
     new Set(requiredStepIds)
@@ -350,6 +351,31 @@ test('App execution owns bounded creation, incremental updates, partial commit, 
   assert.match(execution, /AI-specific publication protocol/)
 })
 
+test('high-detail commit persistence is capacity-appropriate and keeps Core ownership', () => {
+  const persistence = contractText(
+    step('persist-committed-document-snapshot')
+  )
+
+  assert.match(persistence, /framework IndexedDB provider/)
+  assert.match(persistence, /not constrained by localStorage quota/)
+  assert.match(
+    persistence,
+    /preserve.*ids, topology, hierarchy, styles, bounds, and document version/i
+  )
+  assert.match(
+    persistence,
+    /legacy localStorage key.*removes the legacy key only after the durable write succeeds/i
+  )
+  assert.match(persistence, /Core remains the sole commit-time snapshot/)
+  assert.match(persistence, /persistence-failed.*separate from runtime commit/i)
+  assert.match(
+    persistence,
+    /Attachments, conversation turns, progress, semantic target hints.*never enter/i
+  )
+  assert.match(persistence, /packages\/persistence\/src/)
+  assert.match(persistence, /apps\/asyra-design\/src\/document-persistence\.ts/)
+})
+
 test('Message Bar controls only the current AI history action through app APIs', () => {
   const projection = contractText(
     step('project-conversation-and-current-history')
@@ -426,6 +452,12 @@ test('Conversational AI Gherkin contract is registered and covers agreed product
   assert.match(
     feature,
     /Factory canonical replay should retain the source delivery mode and batch boundaries/
+  )
+  assert.match(feature, /survives browser reload/)
+  assert.match(feature, /acknowledge the complete snapshot in IndexedDB/)
+  assert.match(
+    feature,
+    /legacy value should be removed only after the IndexedDB write succeeds/
   )
 
   data.steps.forEach((item) => {

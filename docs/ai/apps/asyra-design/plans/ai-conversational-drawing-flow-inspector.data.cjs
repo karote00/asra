@@ -15,9 +15,14 @@
     { id: 'provider-runtime', title: 'Mock Provider and AI Runtime', order: 2 },
     { id: 'app-execution', title: 'App Action and Transaction', order: 3 },
     {
+      id: 'document-durability',
+      title: 'Committed Document Durability',
+      order: 4
+    },
+    {
       id: 'result-projection',
       title: 'Conversation and History Projection',
-      order: 4
+      order: 5
     }
   ]
 
@@ -375,7 +380,8 @@
       ],
       outputs: [
         'artifact:app-action-execution-result',
-        'artifact:fatal-app-action-rejection'
+        'artifact:fatal-app-action-rejection',
+        'artifact:committed-canonical-persistence-snapshot'
       ],
       conditions: [
         'The registered request_drawing_detail_choice action accepts no provider-selected labels, counts, warnings, attachments, or canonical ids and resolves with App-owned drawing-detail option ids as structured no-change evidence.',
@@ -458,6 +464,72 @@
         '#one-turn-one-transaction-one-history-message'
       ],
       failureOwnerStepId: 'execute-one-app-composition-transaction'
+    },
+    {
+      id: 'persist-committed-document-snapshot',
+      order: 1,
+      laneId: 'document-durability',
+      title: 'Persist the committed canonical document snapshot',
+      ownerPackage: '@asyra/persistence selected by Asyra Design',
+      purpose:
+        'Store and reload the complete committed canonical document through capacity-appropriate browser persistence while preserving Core save scheduling, stable App document identity, explicit failure evidence, and one-time legacy localStorage migration.',
+      inputs: [
+        'artifact:committed-canonical-persistence-snapshot',
+        'Core persistence save queue and transaction status',
+        'App-selected FILE or FILE:<encoded fileId> document identity',
+        'optional valid legacy localStorage snapshot'
+      ],
+      outputs: [
+        'artifact:persisted-canonical-document',
+        'artifact:document-persistence-failure'
+      ],
+      conditions: [
+        'Asyra Design selects the framework IndexedDB provider for ordinary and collaboration document identities so a complete high-detail canonical document is not constrained by localStorage quota.',
+        'Save and reload preserve the complete detached canonical snapshot, including ids, topology, hierarchy, styles, bounds, and document version, without an AI-specific storage representation.',
+        'When IndexedDB has no document and the matching legacy localStorage key contains a valid snapshot, App startup writes that value to IndexedDB and removes the legacy key only after the durable write succeeds.',
+        'Core remains the sole commit-time snapshot, serial save queue, and persistence-status owner; persisted acknowledgement and persistence-failed evidence remain separate from runtime commit.',
+        'Attachments, conversation turns, progress, semantic target hints, and provider data never enter the canonical persistence snapshot.'
+      ],
+      bypasses: [
+        'A non-mutating or rolled-back turn produces no committed snapshot for this step.',
+        'An existing IndexedDB document bypasses legacy localStorage migration and remains authoritative for that App document identity.',
+        'A missing legacy snapshot initializes the ordinary canonical empty document through the same IndexedDB provider.'
+      ],
+      allowedContributors: [
+        'artifact:committed-canonical-persistence-snapshot',
+        '@asyra/core existing persistence queue and status reporting',
+        '@asyra/persistence IndexedDB provider',
+        'Asyra Design document identity and startup migration composition',
+        'browser IndexedDB and legacy localStorage APIs'
+      ],
+      forbiddenContributors: [
+        'AI-specific canonical snapshot or persistence queue',
+        'drawing-detail reduction, bitmap replacement, or dropped canonical elements',
+        'attachment, conversation, progress, target-hint, or provider persistence',
+        'silent fallback to a failed localStorage write',
+        'runtime rollback caused only by provider acknowledgement failure'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/persistence/src',
+        'packages/persistence/src/providers/__tests__',
+        'packages/persistence/package.json',
+        'apps/asyra-design/src/document-persistence.ts',
+        'apps/asyra-design/src/render-app',
+        'apps/asyra-design/src/controllers/app.ts',
+        'apps/asyra-design/e2e',
+        'docs/ai/framework/packages/persistence.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+        'docs/ai/apps/asyra-design/bdd-features'
+      ],
+      specRefs: [
+        '#high-detail-document-durability',
+        '#app-owned-drawing-and-update-actions',
+        '#definition-of-done'
+      ],
+      failureOwnerStepId: 'persist-committed-document-snapshot'
     },
     {
       id: 'project-conversation-and-current-history',
@@ -633,6 +705,15 @@
       producedArtifacts: ['artifact:app-action-execution-result']
     },
     {
+      id: 'route-committed-document-to-persistence',
+      from: 'execute-one-app-composition-transaction',
+      to: 'persist-committed-document-snapshot',
+      kind: 'persistence',
+      predicate:
+        'The outer App transaction commits at least one canonical mutation and Core captures its detached persistence snapshot.',
+      producedArtifacts: ['artifact:committed-canonical-persistence-snapshot']
+    },
+    {
       id: 'route-fatal-app-action-rejection',
       from: 'execute-one-app-composition-transaction',
       to: 'orchestrate-runtime-preflight-and-progress',
@@ -649,6 +730,22 @@
       predicate:
         'The invocation settles exactly once with executed, cancelled, failed, unavailable, or no-change evidence.',
       producedArtifacts: ['artifact:runtime-terminal-result']
+    },
+    {
+      id: 'route-persisted-document',
+      from: 'persist-committed-document-snapshot',
+      kind: 'terminal',
+      predicate:
+        'The App-selected IndexedDB provider acknowledges the complete canonical snapshot.',
+      producedArtifacts: ['artifact:persisted-canonical-document']
+    },
+    {
+      id: 'route-document-persistence-failure',
+      from: 'persist-committed-document-snapshot',
+      kind: 'failure',
+      predicate:
+        'Snapshot capture, migration, IndexedDB open, transaction, or provider save fails and Core reports persistence-failed without reversing runtime commit.',
+      producedArtifacts: ['artifact:document-persistence-failure']
     },
     {
       id: 'route-settled-turn-projection',
@@ -763,6 +860,13 @@
       terminal: false
     },
     {
+      id: 'artifact:committed-canonical-persistence-snapshot',
+      ownerStepId: 'execute-one-app-composition-transaction',
+      channel: 'Core commit-time persistence handoff',
+      consumerStepIds: ['persist-committed-document-snapshot'],
+      terminal: false
+    },
+    {
       id: 'artifact:fatal-app-action-rejection',
       ownerStepId: 'execute-one-app-composition-transaction',
       channel: 'transaction failure',
@@ -775,6 +879,20 @@
       channel: 'Feature task result',
       consumerStepIds: ['manage-one-conversation-turn'],
       terminal: false
+    },
+    {
+      id: 'artifact:persisted-canonical-document',
+      ownerStepId: 'persist-committed-document-snapshot',
+      channel: 'terminal persistence acknowledgement',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:document-persistence-failure',
+      ownerStepId: 'persist-committed-document-snapshot',
+      channel: 'terminal persistence failure evidence',
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:projected-ai-conversation-and-history',
@@ -874,6 +992,21 @@
         'artifact:mock-candidate-plan'
       ],
       specRefs: ['#explicit-mock-activation', '#deterministic-mock-provider']
+    },
+    {
+      id: 'high-detail-commit-is-durable',
+      statement:
+        'A committed high-detail canonical snapshot persists and reloads through the App-selected IndexedDB provider without localStorage quota loss, canonical reduction, AI-owned storage, or runtime rollback on provider failure.',
+      stepIds: [
+        'execute-one-app-composition-transaction',
+        'persist-committed-document-snapshot'
+      ],
+      artifactIds: [
+        'artifact:committed-canonical-persistence-snapshot',
+        'artifact:persisted-canonical-document',
+        'artifact:document-persistence-failure'
+      ],
+      specRefs: ['#high-detail-document-durability']
     }
   ]
 
@@ -963,6 +1096,25 @@
       ]
     },
     {
+      id: 'high-detail-document-durability-cases',
+      title: 'High-detail commit persistence and legacy migration',
+      assertions: [
+        'A canonical drawing larger than localStorage quota saves and reloads with identical ids, topology, hierarchy, styles, bounds, and version through IndexedDB.',
+        'Ordinary and collaboration document identities remain isolated and an existing valid legacy localStorage value migrates only when IndexedDB is empty.',
+        'The legacy key is removed only after the IndexedDB write succeeds; provider failure remains explicit and does not reverse runtime commit.',
+        'Attachments, conversation turns, progress, semantic target hints, and provider data are never persisted.'
+      ],
+      stepIds: [
+        'execute-one-app-composition-transaction',
+        'persist-committed-document-snapshot'
+      ],
+      specRefs: [
+        '#high-detail-document-durability',
+        '#product-cases',
+        '#definition-of-done'
+      ]
+    },
+    {
       id: 'bounded-completion-gates',
       title: 'Formal, visual, template, and boundary completion',
       assertions: [
@@ -979,6 +1131,7 @@
         'orchestrate-runtime-preflight-and-progress',
         'resolve-app-confirmation',
         'execute-one-app-composition-transaction',
+        'persist-committed-document-snapshot',
         'project-conversation-and-current-history'
       ],
       specRefs: [
@@ -996,7 +1149,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Mock Drawing Inspector',
       subtitle:
-        'Explicit mock conversation intake, Feature-owned turns, deterministic delayed planning, Gate 4 preflight and confirmation, bounded app composition transactions, partial/fatal outcomes, incremental targets, and current-history UI.'
+        'Explicit mock conversation intake, Feature-owned turns, deterministic delayed planning, Gate 4 preflight and confirmation, bounded app composition transactions, durable high-detail documents, partial/fatal outcomes, incremental targets, and current-history UI.'
     },
     authority: {
       specPath,
