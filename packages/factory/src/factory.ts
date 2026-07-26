@@ -55,6 +55,9 @@ class Factory {
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
+  private readonly commitCaptureSubscribers = new Set<
+    (payload: TransactionStatusPayload) => void
+  >()
   private readonly sharedDeliverySubscribers =
     new Set<SharedDeliverySubscriber>()
   private readonly sharedPublicationSubscribers =
@@ -68,6 +71,7 @@ class Factory {
   constructor(options: FactoryOptions = {}) {
     this.bridgeToReactiveEvents = options.bridgeToReactiveEvents === true
     this.transact = new DataTransact(this.sharedDataChannels, {
+      onCommitCapture: (payload) => this.emitCommitCapture(payload),
       onStatus: (payload) => this.emitTransactionStatus(payload),
       onUserActionCompleted: this.bridgeToReactiveEvents
         ? userActionCompleted
@@ -84,6 +88,16 @@ class Factory {
       undo: () => this.undo(),
       redo: () => this.redo()
     }
+  }
+
+  private emitCommitCapture(payload: TransactionStatusPayload): void {
+    ;[...this.commitCaptureSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(Object.freeze({ ...payload }))
+      } catch {
+        // Persistence capture observers cannot alter canonical settlement.
+      }
+    })
   }
 
   private emitSharedDelivery(delivery: SharedDelivery): void {
@@ -257,6 +271,15 @@ class Factory {
     this.transactionStatusSubscribers.add(subscriber)
     return () => {
       this.transactionStatusSubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToCommitCapture(
+    subscriber: (payload: TransactionStatusPayload) => void
+  ): () => void {
+    this.commitCaptureSubscribers.add(subscriber)
+    return () => {
+      this.commitCaptureSubscribers.delete(subscriber)
     }
   }
 

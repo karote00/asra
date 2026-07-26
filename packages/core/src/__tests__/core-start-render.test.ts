@@ -19,6 +19,7 @@ const createCoreForTest = (
     inputSystem: {} as never,
     factory: {
       registerTransactionReplayHandler: vi.fn(() => () => undefined),
+      subscribeToCommitCapture: vi.fn(() => () => undefined),
       subscribeToTransactionStatus: vi.fn(() => () => undefined),
       reportPersistenceStatus: vi.fn(),
       ...factoryOverrides

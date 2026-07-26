@@ -16,6 +16,7 @@ import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames
 } from '@asyra/utils'
+import type { TransactionStatusPayload } from '@asyra/utils'
 
 describe('Factory', () => {
   let factory: Factory
@@ -374,6 +375,36 @@ describe('Factory', () => {
     disposeSecond()
   })
 
+  it('isolates commit-capture subscribers and runs them before public status observers', () => {
+    const order: string[] = []
+    factory.subscribeToCommitCapture((payload) => {
+      order.push('capture-failed-observer')
+      ;(
+        payload as TransactionStatusPayload & { transactionId: number }
+      ).transactionId = 999
+    })
+    factory.subscribeToCommitCapture(({ transactionId }) => {
+      order.push(`capture-later-observer-${transactionId}`)
+    })
+    factory.subscribeToTransactionStatus(({ status }) => {
+      if (status === 'committed') order.push('public-status')
+    })
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'capture-order', before: 0, after: 1 }
+    })
+
+    expect(() => factory.endTransaction()).not.toThrow()
+    expect(order).toEqual([
+      'capture-failed-observer',
+      'capture-later-observer-1',
+      'public-status'
+    ])
+  })
+
   it('isolates transaction status listener failures from canonical commit', () => {
     const laterStatus = vi.fn()
     factory.subscribeToTransactionStatus(() => {
@@ -419,6 +450,38 @@ describe('Factory', () => {
     ])
 
     dispose()
+  })
+
+  it('hands action, undo, and redo commits to capture subscribers', () => {
+    const origins: string[] = []
+    factory.subscribeToCommitCapture(({ origin }) => origins.push(origin))
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'capture-replay', before: 0, after: 1 }
+    })
+    factory.endTransaction()
+    factory.undo()
+    factory.redo()
+
+    expect(origins).toEqual(['action', 'undo', 'redo'])
+  })
+
+  it('does not hand remote commits to client persistence capture subscribers', () => {
+    const capture = vi.fn()
+    factory.subscribeToCommitCapture(capture)
+
+    factory.runRemoteTransaction(() => {
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'remote-capture-bypass', before: 0, after: 1 }
+      })
+    })
+
+    expect(capture).not.toHaveBeenCalled()
   })
 
   it('does not bridge custom Factory completion to the global event bus', () => {

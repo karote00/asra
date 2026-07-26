@@ -49,6 +49,7 @@ interface HistorySharedReplay {
   sharedDelivery: SharedDeliveryMode
 }
 interface DataTransactCallbacks {
+  onCommitCapture?: (payload: TransactionStatusPayload) => void
   onStatus?: (payload: TransactionStatusPayload) => void
   onUserActionCompleted?: (payload: UserActionCompletedPayload) => void
   onReplayEvent?: (
@@ -266,6 +267,9 @@ class DataTransact {
   private emittingTransactionStatuses = false
   private readonly inverters = new Map<string, TransactionInverter>()
   private readonly validators = new Map<string, TransactionValidator>()
+  private readonly onCommitCapture?: (
+    payload: TransactionStatusPayload
+  ) => void
   private readonly onStatus?: (payload: TransactionStatusPayload) => void
   private readonly onUserActionCompleted?: (
     payload: UserActionCompletedPayload
@@ -293,6 +297,7 @@ class DataTransact {
     this.sharedDataChannelRegistry = sharedDataChannelRegistry ?? {
       pushToSharedChannel: () => false
     }
+    this.onCommitCapture = callbacks?.onCommitCapture
     this.onStatus = callbacks?.onStatus
     this.onUserActionCompleted = callbacks
       ? callbacks.onUserActionCompleted
@@ -1056,8 +1061,19 @@ class DataTransact {
     this.flushStatuses()
   }
 
+  private emitCommitCapture(payload: TransactionStatusPayload): void {
+    if (!['action', 'undo', 'redo'].includes(payload.origin)) {
+      return
+    }
+    try {
+      this.onCommitCapture?.(payload)
+    } catch {
+      // Persistence capture observers cannot alter canonical settlement.
+    }
+  }
+
   private emitReplayCommitted(events: readonly AllEvent[]) {
-    this.onStatus?.({
+    const payload: TransactionStatusPayload = {
       transactionId: this.currentTransactionId,
       origin: this.transactionOrigin(),
       status: 'committed',
@@ -1066,7 +1082,9 @@ class DataTransact {
       rollbackableChangeCount: events.length,
       nonRollbackableChangeCount: 0,
       timestamp: Date.now()
-    })
+    }
+    this.emitCommitCapture(payload)
+    this.onStatus?.(payload)
   }
 
   private commitNestedReplayHistory(events: AllEvent[]) {
@@ -1340,7 +1358,10 @@ class DataTransact {
               !this.isInRedo()
                 ? this.createStatusPayload('committed')
                 : undefined
-            if (committedStatus) this.queueStatus(committedStatus)
+            if (committedStatus) {
+              this.queueStatus(committedStatus)
+              this.emitCommitCapture(committedStatus)
+            }
             historyTransition?.complete()
             this.flushSharedPublications()
             this.flushStatuses()

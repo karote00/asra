@@ -599,4 +599,41 @@ describe('Factory action-level shared publication', () => {
       { transactionId: 2, changeCount: 1 }
     ])
   })
+
+  it('hands off each commit before a completion observer can commit reentrantly', () => {
+    const factory = new Factory({ bridgeToReactiveEvents: true })
+    const order: string[] = []
+    factory.subscribeToCommitCapture(({ transactionId }) => {
+      order.push(`capture-${transactionId}`)
+    })
+    factory.subscribeToTransactionStatus(({ status, transactionId }) => {
+      if (status === 'committed') order.push(`status-${transactionId}`)
+    })
+    let nested = false
+    const completionSubscription = subscribeToUserActionCompleted(() => {
+      order.push('completion')
+      if (nested) return
+      nested = true
+      factory.startTransaction()
+      update(factory, 'element-nested', 2)
+      factory.endTransaction()
+    })
+
+    try {
+      factory.startTransaction()
+      update(factory, 'element-outer', 1)
+      factory.endTransaction()
+    } finally {
+      completionSubscription.unsubscribe()
+    }
+
+    expect(order).toEqual([
+      'capture-1',
+      'completion',
+      'capture-2',
+      'completion',
+      'status-1',
+      'status-2'
+    ])
+  })
 })

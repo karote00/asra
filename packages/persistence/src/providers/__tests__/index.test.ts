@@ -65,6 +65,32 @@ describe('LocalStoragePersistence', () => {
 })
 
 describe('IndexedDbPersistence', () => {
+  it('attributes open, structured-clone put, and transaction acknowledgement separately', async () => {
+    const persistence = new IndexedDbPersistence('FILE', {
+      databaseName: 'asyra-persistence-attribution-test',
+      factory: indexedDB
+    })
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previousSink = runtimeGlobal.__asyraBrowserDragPhaseSink
+    const phases: string[] = []
+    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phases.push(name)
+
+    try {
+      await persistence.save(DOCUMENT_A)
+
+      expect(phases).toEqual([
+        'persistence:indexeddb-open',
+        'persistence:indexeddb-put',
+        'persistence:indexeddb-transaction'
+      ])
+      await expect(persistence.load()).resolves.toEqual(DOCUMENT_A)
+    } finally {
+      runtimeGlobal.__asyraBrowserDragPhaseSink = previousSink
+    }
+  })
+
   it('persists a document larger than localStorage quota without using localStorage', async () => {
     const localStorageSetItem = vi.fn(() => {
       throw new DOMException('Storage quota exceeded', 'QuotaExceededError')

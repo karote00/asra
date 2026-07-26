@@ -4,7 +4,11 @@ import type {
   PropertySchema,
   TransactionStatusPayload
 } from '@asyra/utils'
-import { isRecord } from '@asyra/utils'
+import {
+  isRecord,
+  measureBrowserDragAsyncPhase,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
@@ -483,8 +487,11 @@ class Core implements CoreAPIs {
   }
 
   private initAutoSave(): void {
-    this.deps.factory.subscribeToTransactionStatus((status) => {
-      if (status.status !== 'committed') {
+    this.deps.factory.subscribeToCommitCapture((status) => {
+      if (
+        status.status !== 'committed' ||
+        !['action', 'undo', 'redo'].includes(status.origin)
+      ) {
         return
       }
 
@@ -537,7 +544,9 @@ class Core implements CoreAPIs {
     }
 
     try {
-      await pending.provider.save(pending.data)
+      await measureBrowserDragAsyncPhase('core:persistence-save', () =>
+        pending.provider.save(pending.data)
+      )
       this.deps.factory.reportPersistenceStatus(
         pending.transaction,
         'persisted',
@@ -554,29 +563,54 @@ class Core implements CoreAPIs {
   }
 
   private createPersistenceSnapshot(): CoreRawData {
-    const systemContextData = this.deps.systemContext.saveManagedProperties()
+    return measureBrowserDragPhase('core:persistence-capture', () => {
+      const systemContextData = measureBrowserDragPhase(
+        'core:persistence-capture:system-context',
+        () => this.deps.systemContext.saveManagedProperties()
+      )
 
-    let data: CoreRawData = {
-      version: this.version,
-      sceneTree: this.sceneTreeSaveData(),
-      props: this.deps.props.save()
-    }
-    if (Object.keys(systemContextData).length > 0) {
-      data.systemContext = systemContextData
-    }
+      let data: CoreRawData = {
+        version: this.version,
+        sceneTree: measureBrowserDragPhase(
+          'core:persistence-capture:scene-tree',
+          () => this.sceneTreeSaveData()
+        ),
+        props: measureBrowserDragPhase('core:persistence-capture:props', () =>
+          this.deps.props.save()
+        )
+      }
+      if (Object.keys(systemContextData).length > 0) {
+        data.systemContext = systemContextData
+      }
 
-    if (this.saveHooks.length === 0) {
-      return clonePersistenceSnapshot(data)
-    }
+      if (this.saveHooks.length === 0) {
+        return measureBrowserDragPhase(
+          'core:persistence-capture:detach',
+          () => clonePersistenceSnapshot(data)
+        )
+      }
 
-    data = clonePersistenceSnapshot(data)
+      data = measureBrowserDragPhase(
+        'core:persistence-capture:detach',
+        () => clonePersistenceSnapshot(data)
+      )
 
-    // Run before-save hooks (encryption, compression, metadata)
-    for (const hook of this.saveHooks) {
-      data = hook(data)
-    }
+      data = measureBrowserDragPhase(
+        'core:persistence-capture:save-hooks',
+        () => {
+          // Run before-save hooks (encryption, compression, metadata)
+          for (const hook of this.saveHooks) {
+            data = hook(data)
+          }
+          return data
+        }
+      )
 
-    return clonePersistenceSnapshot(data)
+      return measureBrowserDragPhase(
+        'core:persistence-capture:detach',
+        () => clonePersistenceSnapshot(data)
+      )
+    })
   }
 
   private async loadFromPersistence(): Promise<void> {

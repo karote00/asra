@@ -14,6 +14,7 @@ const createCoreWithRender = (_name: string) => {
     inputSystem: {} as never,
     factory: {
       registerTransactionReplayHandler: vi.fn(() => () => undefined),
+      subscribeToCommitCapture: vi.fn(() => () => undefined),
       subscribeToTransactionStatus: vi.fn(() => () => undefined)
     } as never,
     props: new PropsManager(),

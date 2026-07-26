@@ -1,4 +1,8 @@
 import type { CoreRawData } from '@asyra/utils'
+import {
+  measureBrowserDragAsyncPhase,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import type { IPersistenceProvider } from '../persistence'
 
 const INDEXED_DB_DATABASE_NAME = 'asyra-documents'
@@ -89,16 +93,24 @@ export class IndexedDbPersistence implements IPersistenceProvider {
 
   async save(data: CoreRawData): Promise<void> {
     try {
-      const database = await this.openDatabase()
+      const database = await measureBrowserDragAsyncPhase(
+        'persistence:indexeddb-open',
+        () => this.openDatabase()
+      )
       try {
         const transaction = database.transaction(
           INDEXED_DB_OBJECT_STORE_NAME,
           'readwrite'
         )
-        transaction
-          .objectStore(INDEXED_DB_OBJECT_STORE_NAME)
-          .put(data, this.storageKey)
-        await waitForTransaction(transaction, 'save')
+        measureBrowserDragPhase('persistence:indexeddb-put', () =>
+          transaction
+            .objectStore(INDEXED_DB_OBJECT_STORE_NAME)
+            .put(data, this.storageKey)
+        )
+        await measureBrowserDragAsyncPhase(
+          'persistence:indexeddb-transaction',
+          () => waitForTransaction(transaction, 'save')
+        )
       } finally {
         database.close()
       }
