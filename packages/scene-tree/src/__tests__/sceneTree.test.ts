@@ -1925,7 +1925,9 @@ describe('SceneTree', () => {
       const props = sceneTree.getElementById(elementId)?.save().props
       expect(propertyIds.has(props?.position as string)).toBe(true)
       expect(propertyIds.has(props?.dimension as string)).toBe(true)
-      const position = propsManager.getPropertyById(props?.position as string)
+      const position = propsManager.getPropertyById(
+        props?.position as string
+      ) as TestPositionComponent | undefined
       expect(position?.get('x')).toBe(index * 10)
       expect(position?.get('y')).toBe(index * 10)
     })
