@@ -98,6 +98,14 @@ do not enter product budgets.
 
 ### Gate partitioning and diagnostic attribution
 
+- Production profiling activates only for one exact `ai=mock`,
+  `aiPerformance=profile`, and optional exact `aiDelivery=atomic|progressive`
+  query. `aiPerformanceContents=present|omitted` controls the attribution-only
+  Contents mount; the omitted variant is never release-budget evidence.
+- `ASYRA_DESIGN_RUN_AI_DRAWING_PERFORMANCE=1` enables the committed profiling
+  E2E. Owner-baseline, fixed-state Contents attribution, and high-detail A/B
+  remain independent explicit opt-ins so they cannot enter the ordinary E2E
+  suite accidentally.
 - The default fast Mock AI CRDT correctness fixture has 16 items and runs
   through the ordinary Feature, App transaction, Factory publication,
   Collaboration remote-apply, Render, and history routes.
@@ -130,6 +138,23 @@ The profiling harness must distinguish:
 
 Span collection is detached diagnostics. It cannot change batching, delivery,
 history, canonical state, render scheduling, retry, or terminal results.
+
+### First production owner baseline
+
+The production atomic 7,112-element reference baseline used one unmeasured
+warm-up followed by three fresh-document measured runs. Accepted-turn product
+time was 14.582–14.722 seconds. The complete App transaction took
+13.516–13.656 seconds, while its action-execute callback took only
+4.501–4.606 seconds. The 8.961–9.050 second transaction-settlement remainder
+selects `record-history-and-shared-publication` (`@asyra/factory`) as the first
+over-budget owner step.
+
+Within action execution, ordinary canonical batch calls took
+4.485–4.592 seconds and Render add-or-update projection took
+2.986–3.020 seconds. The fixed persisted 7,112-element Contents attribution
+showed no meaningful mount-only improvement: three present reloads averaged
+7.026 seconds and three diagnostically omitted reloads averaged 7.074 seconds
+with the same persisted canonical digest.
 
 ## Performance Budgets
 

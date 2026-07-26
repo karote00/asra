@@ -60,6 +60,56 @@ const generate = async (
 }
 
 describe('Asyra Design deterministic mock AI provider', () => {
+  it('separates provider delay from deterministic plan materialization', async () => {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
+    const phaseNames: string[] = []
+    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+
+    try {
+      await generate(AsyraDesignMockAiPhrases.CREATE_FAST_CRDT_FIXTURE_EN)
+    } finally {
+      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+    }
+
+    expect(phaseNames).toEqual(
+      expect.arrayContaining([
+        'ai-provider:delay',
+        'ai-provider:materialize-plan'
+      ])
+    )
+  })
+
+  it('returns the committed 16-item fast CRDT composition through the ordinary insert action', async () => {
+    const plan = await generate(
+      AsyraDesignMockAiPhrases.CREATE_FAST_CRDT_FIXTURE_EN
+    )
+
+    expect(plan).toMatchObject({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture',
+            items: expect.any(Array),
+            parent: 'workspace'
+          },
+          id: 'mock-create-fast-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      planId: 'mock-plan-create-fast-crdt-fixture'
+    })
+    expect(
+      (
+        plan.actions[0].arguments as {
+          items: readonly unknown[]
+        }
+      ).items
+    ).toHaveLength(16)
+  })
+
   it('routes ordinary and detailed cat-face phrases to the same precise fixture', async () => {
     const ordinaryChinese = await generate(
       AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH

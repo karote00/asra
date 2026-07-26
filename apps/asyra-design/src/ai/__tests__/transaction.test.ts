@@ -5,6 +5,33 @@ import {
 } from '../transaction'
 
 describe('Asyra Design AI transaction adapter', () => {
+  it('measures the complete common transaction without changing its result', async () => {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
+    const phaseNames: string[] = []
+    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const runner = createAsyraDesignAiTransactionRunner(
+      async <T>(execute: () => Promise<T>) => execute()
+    )
+
+    try {
+      await expect(
+        runner.run('AI-assisted action', async () => 'complete')
+      ).resolves.toBe('complete')
+    } finally {
+      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+    }
+
+    expect(phaseNames).toEqual(
+      expect.arrayContaining([
+        'ai-app:transaction',
+        'ai-app:transaction-execute'
+      ])
+    )
+  })
+
   it('forwards one async callback through the common transaction boundary', async () => {
     const boundaryCalls = vi.fn()
     const boundary: AsyraDesignAiTransactionBoundary = async <T>(

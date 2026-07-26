@@ -7,6 +7,7 @@ import {
   AsyraDesignAiActionNames,
   AsyraDesignAiDrawingDetailSelectionIntents
 } from '../constants'
+import { measureBrowserDragAsyncPhase } from '@asyra/utils'
 import {
   createAsyraDesignVTracerClient,
   type AsyraDesignVTracer,
@@ -21,6 +22,7 @@ export const AsyraDesignMockAiPhrases = Object.freeze({
   CREATE_CAT_FACE_ZH: '畫一個貓臉',
   CREATE_DETAILED_CAT_FACE_EN: 'draw a detailed cat face',
   CREATE_DETAILED_CAT_FACE_ZH: '畫一個精緻的貓臉',
+  CREATE_FAST_CRDT_FIXTURE_EN: 'create the fast CRDT performance fixture',
   DELETE_CAT_FACE_EN: 'delete the current cat face',
   DELETE_CAT_FACE_ZH: '刪除目前的貓臉',
   DRAW_REFERENCE_IMAGE_EN: 'draw this image',
@@ -99,6 +101,7 @@ interface MockCompositionItem {
 type MockFixture =
   | 'create-balanced-cat-face'
   | 'create-cat-only-white-background'
+  | 'create-fast-crdt-fixture'
   | 'create-maximum-cat-face'
   | 'delete-cat-face'
   | 'enlarge-eyes'
@@ -172,6 +175,33 @@ const multiPathVector = (
   role,
   style
 })
+
+const createFastCrdtFixtureItems = (): MockCompositionItem[] =>
+  Array.from({ length: 16 }, (_, index) => {
+    const column = index % 4
+    const row = Math.floor(index / 4)
+    const x = 80 + column * 56
+    const y = 80 + row * 56
+    return multiPathVector(
+      indexedRole('performance-vector', index, 2),
+      [
+        {
+          closed: true,
+          points: [
+            { x, y },
+            { x: x + 32, y },
+            { x: x + 32, y: y + 32 },
+            { x, y: y + 32 }
+          ]
+        }
+      ],
+      {
+        fillColor: index % 2 === 0 ? '#C9825B' : '#355070',
+        strokeColor: '#1F2937',
+        strokeWidth: 1
+      }
+    )
+  })
 
 const indexedRole = (prefix: string, index: number, width: number) =>
   `${prefix}-${String(index).padStart(width, '0')}`
@@ -721,6 +751,7 @@ const phraseToFixture = (input: AiProviderInput): MockFixture | null => {
     return hasAcceptedImageAttachment(input) ? 'create-maximum-cat-face' : null
   }
   const fixtures: readonly [readonly string[], MockFixture][] = [
+    [[phrases.CREATE_FAST_CRDT_FIXTURE_EN], 'create-fast-crdt-fixture'],
     [
       [
         phrases.CREATE_CAT_FACE_ZH,
@@ -884,6 +915,25 @@ const planForFixture = async (
       explanation:
         'Create a high-detail tabby cat portrait from editable Asyra vector layers',
       planId: 'mock-plan-create-detailed-cat-face'
+    })
+  }
+
+  if (fixture === 'create-fast-crdt-fixture') {
+    return deepFreeze({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture',
+            items: createFastCrdtFixtureItems(),
+            parent: 'workspace'
+          },
+          id: 'mock-create-fast-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      explanation:
+        'Create the deterministic fast CRDT fixture as ordinary editable vector elements',
+      planId: 'mock-plan-create-fast-crdt-fixture'
     })
   }
 
@@ -1107,7 +1157,9 @@ export const createAsyraDesignMockAiProvider = (
       active.add(controller)
 
       try {
-        await delay(delayMs, controller.signal)
+        await measureBrowserDragAsyncPhase('ai-provider:delay', () =>
+          delay(delayMs, controller.signal)
+        )
         if (controller.signal.aborted) {
           throw abortError(disposed)
         }
@@ -1115,7 +1167,10 @@ export const createAsyraDesignMockAiProvider = (
         if (!fixture) {
           return invalidInput()
         }
-        return planForFixture(fixture, input, vectorizer, controller.signal)
+        return measureBrowserDragAsyncPhase(
+          'ai-provider:materialize-plan',
+          () => planForFixture(fixture, input, vectorizer, controller.signal)
+        )
       } catch (error) {
         if (controller.signal.aborted) {
           throw abortError(disposed)

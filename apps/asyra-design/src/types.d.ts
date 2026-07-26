@@ -4,6 +4,7 @@ import { hierarchyApis } from './common-apis/hierarchy'
 import { strokeApis } from './common-apis/strokes'
 import type { CanvasPipelineDebugger } from '@asyra/core/canvas-pipeline-debugger'
 import type { ProviderStatus } from '@asyra/collaboration'
+import type { AiDrawingPerformanceProfile } from './init/performance/ai-drawing-performance-profile'
 
 // For local debug
 declare global {
@@ -27,5 +28,6 @@ declare global {
       whenIdle(): Promise<void>
       dispose(): Promise<void>
     }
+    __AsyraAiDrawingPerformance__?: AiDrawingPerformanceProfile
   }
 }

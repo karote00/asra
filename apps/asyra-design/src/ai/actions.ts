@@ -20,6 +20,8 @@ import {
   createDefaultFills,
   createDefaultStrokes,
   id,
+  measureBrowserDragAsyncPhase,
+  measureBrowserDragPhase,
   type EVENT_OPTIONS
 } from '@asyra/utils'
 import { deriveGroupBounds } from '@asyra/preset'
@@ -966,22 +968,34 @@ const createCompositionActions = (
       description:
         'Insert validated editable oval or vector elements as one grouped composition.',
       execute: async (args, context) => {
-        const accepted: AsyraDesignAiCompositionItem[] = []
-        const skipped: { reason: string; role: string }[] = []
-        const roles = new Set<string>()
-        args.items.forEach((item) => {
-          if (roles.has(item.role)) {
-            skipped.push(
-              Object.freeze({
-                reason: 'duplicate-role',
-                role: item.role
-              })
-            )
-            return
+        const { accepted, groupBounds, skipped } = measureBrowserDragPhase(
+          'ai-app:prepare-composition',
+          () => {
+            const accepted: AsyraDesignAiCompositionItem[] = []
+            const skipped: { reason: string; role: string }[] = []
+            const roles = new Set<string>()
+            args.items.forEach((item) => {
+              if (roles.has(item.role)) {
+                skipped.push(
+                  Object.freeze({
+                    reason: 'duplicate-role',
+                    role: item.role
+                  })
+                )
+                return
+              }
+              roles.add(item.role)
+              accepted.push(item)
+            })
+            return {
+              accepted,
+              groupBounds: deriveGroupBounds(
+                accepted.map((item) => item.bounds)
+              ),
+              skipped
+            }
           }
-          roles.add(item.role)
-          accepted.push(item)
-        })
+        )
         if (!hasAsyraDesignAiCompositionMinimumItemCount(accepted.length)) {
           throw new AsyraDesignAiCompositionError(
             'AI composition cannot preserve grouping after item validation.'
@@ -992,12 +1006,9 @@ const createCompositionActions = (
         const roleToElementIds: Record<string, readonly string[]> = {}
         const pupils: string[] = []
         const whiskers: string[] = []
-        const groupBounds = deriveGroupBounds(
-          accepted.map((item) => item.bounds)
-        )
-        const groupId = apis.createCompositionGroup(
-          groupBounds,
-          mutationOptions
+        const groupId = measureBrowserDragPhase(
+          'ai-app:create-composition-group',
+          () => apis.createCompositionGroup(groupBounds, mutationOptions)
         )
         if (!groupId) {
           throw new AsyraDesignAiCompositionError(
@@ -1014,39 +1025,48 @@ const createCompositionActions = (
         let offset = 0
         while (offset < accepted.length) {
           assertNotAborted(context)
-          const batchEnd =
-            deliveryMode === 'progressive'
-              ? getProgressiveCompositionBatchEnd(accepted, offset)
-              : Math.min(
-                  offset + ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
-                  accepted.length
-                )
-          const batch = accepted.slice(offset, batchEnd)
-          const createdElementIds = apis.createCompositionElements(
-            batch,
-            parent,
-            mutationOptions
+          const batchEnd = measureBrowserDragPhase(
+            'ai-app:prepare-composition-batch',
+            () =>
+              deliveryMode === 'progressive'
+                ? getProgressiveCompositionBatchEnd(accepted, offset)
+                : Math.min(
+                    offset + ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
+                    accepted.length
+                  )
           )
-          for (let index = 0; index < batch.length; index += 1) {
-            assertNotAborted(context)
-            const item = batch[index]
-            const elementId = createdElementIds[index]
-            if (!elementId) {
-              throw new AsyraDesignAiCompositionError(
-                `AI composition creation failed for role "${item.role}".`
-              )
+          const batch = accepted.slice(offset, batchEnd)
+          const createdElementIds = measureBrowserDragPhase(
+            'ai-app:create-composition-batch',
+            () => apis.createCompositionElements(batch, parent, mutationOptions)
+          )
+          measureBrowserDragPhase('ai-app:record-created-elements', () => {
+            for (let index = 0; index < batch.length; index += 1) {
+              assertNotAborted(context)
+              const item = batch[index]
+              const elementId = createdElementIds[index]
+              if (!elementId) {
+                throw new AsyraDesignAiCompositionError(
+                  `AI composition creation failed for role "${item.role}".`
+                )
+              }
+              appliedElementIds.push(elementId)
+              roleToElementIds[item.role] = Object.freeze([elementId])
+              if (item.role.includes('pupil')) {
+                pupils.push(elementId)
+              }
+              if (item.role.includes('whisker')) {
+                whiskers.push(elementId)
+              }
             }
-            appliedElementIds.push(elementId)
-            roleToElementIds[item.role] = Object.freeze([elementId])
-            if (item.role.includes('pupil')) {
-              pupils.push(elementId)
-            }
-            if (item.role.includes('whisker')) {
-              whiskers.push(elementId)
-            }
-          }
+          })
           offset = batchEnd
-          await progressiveYield?.()
+          if (progressiveYield) {
+            await measureBrowserDragAsyncPhase(
+              'ai-app:progressive-host-yield',
+              progressiveYield
+            )
+          }
         }
 
         if (appliedElementIds.length !== accepted.length) {

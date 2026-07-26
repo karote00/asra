@@ -28,6 +28,7 @@ import { AiHistoryMessageBar } from './ai-history-message-bar'
 import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
 import type { AsyraDesignAiConversationController } from '../ai/conversation'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
+import type { AiDrawingPerformanceContentsMode } from '../init/performance/ai-drawing-performance-profile'
 
 interface AppProps {
   ai?: {
@@ -36,11 +37,13 @@ interface AppProps {
     readonly history: AsyraDesignAiHistoryProjection
   }
   groupCommandPlatform?: GroupCommandPlatform
+  performanceContentsMode?: AiDrawingPerformanceContentsMode
 }
 
 const App: React.FC<AppProps> = ({
   ai,
-  groupCommandPlatform = detectGroupCommandPlatform()
+  groupCommandPlatform = detectGroupCommandPlatform(),
+  performanceContentsMode = 'present'
 }) => {
   const appRootRef = useRef<HTMLDivElement>(null)
   const aiFocusReturnRef = useRef<HTMLElement | null>(null)
@@ -237,7 +240,7 @@ const App: React.FC<AppProps> = ({
           history={ai.history}
         />
       ) : null}
-      <Contents />
+      {performanceContentsMode === 'present' ? <Contents /> : null}
       <Properties />
       <Animation />
       <div

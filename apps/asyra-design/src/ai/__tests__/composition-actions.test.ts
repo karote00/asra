@@ -307,6 +307,46 @@ describe('Asyra Design AI composition action schemas', () => {
 })
 
 describe('Asyra Design AI composition action execution', () => {
+  it('emits detached preparation and canonical batch spans', async () => {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
+    const phaseNames: string[] = []
+    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const apis = actionApis()
+    apis.createCompositionElements.mockReturnValue([
+      'eye-left-id',
+      'whisker-left-id'
+    ])
+    const action = actionByName(
+      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+      apis
+    )
+
+    try {
+      await action.execute(
+        {
+          compositionRole: 'cat-face',
+          items: [ovalItem(), vectorItem()],
+          parent: 'workspace'
+        },
+        executionContext()
+      )
+    } finally {
+      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+    }
+
+    expect(phaseNames).toEqual(
+      expect.arrayContaining([
+        'ai-app:prepare-composition',
+        'ai-app:create-composition-group',
+        'ai-app:create-composition-batch',
+        'ai-app:record-created-elements'
+      ])
+    )
+  })
+
   it('creates one canonical Group for one valid vectorized item', async () => {
     const apis = actionApis()
     const item = vectorItem('reference-vector-000001')

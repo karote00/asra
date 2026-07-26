@@ -1,4 +1,5 @@
 import type { AiTransactionRunner } from '@asyra/ai-agent-runtime'
+import { measureBrowserDragAsyncPhase } from '@asyra/utils'
 import { transactionApis } from '../common-apis'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 
@@ -19,13 +20,17 @@ export const createAsyraDesignAiTransactionRunner = (
 ): AiTransactionRunner => {
   const runner: AiTransactionRunner = {
     run: async <T>(_label: string, execute: () => Promise<T>): Promise<T> => {
-      const actionIdBefore = history?.getCurrentActionId() ?? null
-      const result = await runTransaction(execute)
-      const actionIdAfter = history?.getCurrentActionId() ?? null
-      if (actionIdAfter !== null && actionIdAfter !== actionIdBefore) {
-        history?.correlateCommittedAction(actionIdAfter)
-      }
-      return result
+      return measureBrowserDragAsyncPhase('ai-app:transaction', async () => {
+        const actionIdBefore = history?.getCurrentActionId() ?? null
+        const result = await runTransaction(() =>
+          measureBrowserDragAsyncPhase('ai-app:transaction-execute', execute)
+        )
+        const actionIdAfter = history?.getCurrentActionId() ?? null
+        if (actionIdAfter !== null && actionIdAfter !== actionIdBefore) {
+          history?.correlateCommittedAction(actionIdAfter)
+        }
+        return result
+      })
     }
   }
 
