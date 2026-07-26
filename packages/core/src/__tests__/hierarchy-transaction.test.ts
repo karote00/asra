@@ -147,6 +147,104 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
+  it('undoes and redoes one canonical element batch as one history action', () => {
+    const factory = new Factory()
+    const channel = new LocalSharedDataChannel()
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const batch = [
+      { id: 'batch-history-1', type: LEAF_TYPE },
+      { id: 'batch-history-2', type: LEAF_TYPE },
+      { id: 'batch-history-3', type: LEAF_TYPE }
+    ] as CreateElementData[]
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        expect(sceneTree.addNewElements(batch, root)).toEqual([
+          'batch-history-1',
+          'batch-history-2',
+          'batch-history-3'
+        ])
+      })
+    })
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'batch-history-1',
+      'batch-history-2',
+      'batch-history-3'
+    ])
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.deliveries).toHaveLength(3)
+
+    factory.undo()
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([])
+    expect(sceneTree.getElementById('batch-history-1')).toBeUndefined()
+    expect(sceneTree.getElementById('batch-history-2')).toBeUndefined()
+    expect(sceneTree.getElementById('batch-history-3')).toBeUndefined()
+    expect(publications).toHaveLength(2)
+    expect(publications[1]?.origin).toBe('undo')
+
+    factory.redo()
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'batch-history-1',
+      'batch-history-2',
+      'batch-history-3'
+    ])
+    expect(publications).toHaveLength(3)
+    expect(publications[2]?.origin).toBe('redo')
+
+    factory.transact.reset()
+  })
+
+  it('rolls back a completed canonical element batch with no published prefix', () => {
+    const factory = new Factory()
+    const channel = new LocalSharedDataChannel()
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+
+    expect(() =>
+      runWithTransactionOwner(factory.getTransactionOwner(), () => {
+        runTransaction(() => {
+          sceneTree.addNewElements(
+            [
+              { id: 'rolled-back-batch-1', type: LEAF_TYPE },
+              { id: 'rolled-back-batch-2', type: LEAF_TYPE }
+            ] as CreateElementData[],
+            root
+          )
+          throw new Error('cancel canonical element batch')
+        })
+      })
+    ).toThrow('cancel canonical element batch')
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([])
+    expect(sceneTree.getElementById('rolled-back-batch-1')).toBeUndefined()
+    expect(sceneTree.getElementById('rolled-back-batch-2')).toBeUndefined()
+    expect(publications).toEqual([])
+
+    factory.undo()
+    expect(childrenOf(sceneTree.workspace)).toEqual([])
+    expect(publications).toEqual([])
+
+    factory.transact.reset()
+  })
+
   it('rolls back hierarchy evidence without history, publication, or partial state', () => {
     const factory = new Factory()
     const channel = new LocalSharedDataChannel()

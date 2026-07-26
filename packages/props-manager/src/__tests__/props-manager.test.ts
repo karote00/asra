@@ -432,6 +432,93 @@ describe('PropsManager', () => {
     expect(propsManager.changes[0].action).toBe(PROPS_ACTIONS.ADD_PROPERTY)
   })
 
+  it('materializes one ordered property creation batch with one final add journal', () => {
+    const created = propsManager.runInPropertyCreationBatch(() => {
+      const position = propsManager.createProperty({
+        id: 'batch-position',
+        type: PropertyTypes.POSITION,
+        x: Number.NaN,
+        y: 20,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      })
+      const dimension = propsManager.createProperty({
+        id: 'batch-dimension',
+        type: PropertyTypes.DIMENSION,
+        width: 100,
+        height: 200,
+        widthUnit: Unit.PX,
+        heightUnit: Unit.PX
+      })
+      propsManager.addProperty([position, dimension])
+      return [position, dimension] as const
+    }).result
+
+    expect(created.map((component) => component.get('id'))).toEqual([
+      'batch-position',
+      'batch-dimension'
+    ])
+    expect(propsManager.changes).toEqual([
+      expect.objectContaining({
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+        data: [
+          expect.objectContaining({
+            id: 'batch-position',
+            type: PropertyTypes.POSITION,
+            x: 0,
+            y: 20
+          }),
+          expect.objectContaining({
+            id: 'batch-dimension',
+            type: PropertyTypes.DIMENSION,
+            width: 100,
+            height: 200
+          })
+        ]
+      })
+    ])
+  })
+
+  it('removes a failed property creation batch without a live or journal prefix', () => {
+    const before = propsManager.save()
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() => {
+        const first = propsManager.createProperty({
+          id: 'duplicate-batch-property',
+          type: PropertyTypes.POSITION
+        })
+        propsManager.addProperty([first])
+        propsManager.createProperty({
+          id: 'duplicate-batch-property',
+          type: PropertyTypes.POSITION
+        })
+      })
+    ).toThrow(/duplicate.*property/i)
+
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects re-registering an active owner property inside a creation batch', () => {
+    const active = propsManager.createProperty({
+      id: 'active-owner-property',
+      type: PropertyTypes.POSITION
+    })
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() => {
+        propsManager.addProperty([active])
+      })
+    ).toThrow(/cannot register active owner property/i)
+
+    expect(propsManager.getPropertyById('active-owner-property')).toBe(active)
+    expect(propsManager.changes).toEqual([])
+  })
+
   it('should throw error if type is not provided for createProperty', () => {
     expect(() => propsManager.createProperty({})).toThrow('Type is required!')
   })

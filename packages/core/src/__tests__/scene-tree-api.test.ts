@@ -5,7 +5,15 @@ import {
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch
 } from '@asyra/reactive-events'
+import type { CoreExtensionAPIs } from '../index'
 import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
+
+type BatchExtensionContract = Pick<
+  CoreExtensionAPIs,
+  'createElementsInParent'
+>
+
+const acceptBatchExtensionContract = (apis: BatchExtensionContract) => apis
 
 const createRequests = (): SceneTreeRequests => ({
   sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
@@ -89,6 +97,9 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
       3,
       { shared: 'sceneTree' }
     )
+    expect(
+      acceptBatchExtensionContract(batchApis).createElementsInParent
+    ).toBe(batchApis.createElementsInParent)
   })
 
   it('returns a detached computed-data snapshot through the ID facade', () => {

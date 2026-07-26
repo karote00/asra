@@ -1,4 +1,7 @@
-import type { PropertyComponentInstanceTypes } from '@asyra/utils'
+import type {
+  PropertyComponentInstanceTypes,
+  SetterChangeRecord
+} from '@asyra/utils'
 
 interface ComponentAccessor {
   getPropertyById: (
@@ -8,12 +11,14 @@ interface ComponentAccessor {
   createComponent: (
     data: Record<string, unknown>
   ) => PropertyComponentInstanceTypes | null
+  addChange: (change: SetterChangeRecord) => void
 }
 
 const noopAccessor: ComponentAccessor = {
   getPropertyById: () => undefined,
   addToMap: () => undefined,
-  createComponent: () => null
+  createComponent: () => null,
+  addChange: () => undefined
 }
 
 let accessor: ComponentAccessor = noopAccessor

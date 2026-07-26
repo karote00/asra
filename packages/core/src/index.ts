@@ -276,6 +276,7 @@ type CoreExtensionApiKeys =
   | 'sceneTreeSaveData'
   | 'createElement'
   | 'createElementInParent'
+  | 'createElementsInParent'
   | 'getElementComputedData'
   | 'moveElements'
   | 'removeSubtree'

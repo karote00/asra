@@ -67,6 +67,19 @@ const isUpdatePropertyChange = (
   change.action === PROPS_ACTIONS.UPDATE_PROPERTY &&
   change.eventName === EventTypes.UPDATE_PROPERTY
 
+interface PropertyCreationBatchState {
+  readonly changeStart: number
+  readonly components: PropertyComponentInstanceTypes[]
+  readonly componentIds: Set<string>
+  readonly existingUpdates: UpdatePropertyChange[]
+}
+
+export interface PropertyCreationBatchReceipt<T> {
+  readonly result: T
+  rollback(): void
+  complete(): void
+}
+
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
   _deletedMap: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -82,13 +95,20 @@ class PropsManager {
     }
   >()
   private readonly componentAccessor: PropertyComponentAccessor
+  private propertyCreationBatch: PropertyCreationBatchState | null = null
 
   constructor() {
     this.componentAccessor = {
       getPropertyById: (propertyId) => this.getPropertyById(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
-        this.createProperty(data as Partial<PropertyComponentRawData>)
+        this.createProperty(data as Partial<PropertyComponentRawData>),
+      addChange: (change) =>
+        this.addChange({
+          action: PROPS_ACTIONS.UPDATE_PROPERTY,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          ...change
+        })
     }
     setComponentAccessor(this.componentAccessor)
   }
@@ -191,6 +211,25 @@ class PropsManager {
   }
 
   addChange(change: PropsChange) {
+    if (
+      this.propertyCreationBatch &&
+      isUpdatePropertyChange(change) &&
+      this.propertyCreationBatch.componentIds.has(change.id)
+    ) {
+      if (
+        change.ownerElementId !== undefined ||
+        change.ownerPropertyName !== undefined ||
+        change.options !== undefined
+      ) {
+        throw new Error(
+          '[PropsManager] Canonical property creation batch received an incompatible update'
+        )
+      }
+      return
+    }
+    if (this.propertyCreationBatch && isUpdatePropertyChange(change)) {
+      this.propertyCreationBatch.existingUpdates.push(change)
+    }
     this.changes.push(change)
   }
 
@@ -225,6 +264,25 @@ class PropsManager {
     const comId = component.get('id')
     if (!component || !comId) {
       return
+    }
+    const active = this._components.get(comId)
+    if (
+      this.propertyCreationBatch &&
+      active !== undefined &&
+      active !== component
+    ) {
+      throw new Error(
+        `[PropsManager] Canonical property creation batch cannot replace active property "${comId}"`
+      )
+    }
+    if (
+      this.propertyCreationBatch &&
+      active === component &&
+      !this.propertyCreationBatch.componentIds.has(comId)
+    ) {
+      throw new Error(
+        `[PropsManager] Canonical property creation batch cannot register active owner property "${comId}"`
+      )
     }
 
     this.removeFromDeletedMap(comId)
@@ -548,6 +606,18 @@ class PropsManager {
     })
   }
 
+  private addChangeForAddProperties(
+    properties: readonly PropertyComponentInstanceTypes[]
+  ) {
+    this.addChange({
+      eventName: EventTypes.ADD_PROPERTY,
+      data: clonePropsValue(properties.map((property) => property.save())),
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      undoType: EventTypes.REMOVE_PROPERTY,
+      undoAction: EventTypes.REMOVE_PROPERTY
+    })
+  }
+
   addChangeForRemoveProperty(property: PropertyComponentInstanceTypes) {
     this.addChange({
       eventName: EventTypes.REMOVE_PROPERTY,
@@ -563,16 +633,137 @@ class PropsManager {
       throw new Error('Type is required!')
     }
 
-    const newProperty = runWithPropertyComponentAccessor(
-      this.componentAccessor,
-      () =>
-        createProperty({
-          ...propData,
-          type: propData.type as PropertyType
-        }) as PropertyComponentInstanceTypes
-    )
-    this.addChangeForAddProperty(newProperty)
+    const create = () =>
+      createProperty({
+        ...propData,
+        type: propData.type as PropertyType
+      }) as PropertyComponentInstanceTypes
+    const newProperty = this.propertyCreationBatch
+      ? create()
+      : runWithPropertyComponentAccessor(this.componentAccessor, create)
+    if (this.propertyCreationBatch) {
+      const propertyId = newProperty.get('id')
+      if (
+        typeof propertyId !== 'string' ||
+        propertyId.length === 0 ||
+        this.propertyCreationBatch.componentIds.has(propertyId) ||
+        this._components.has(propertyId) ||
+        this._deletedMap.has(propertyId)
+      ) {
+        ;(newProperty as unknown as { dispose?: () => void }).dispose?.()
+        throw new Error(
+          `[PropsManager] Canonical property creation batch has duplicate property "${propertyId}"`
+        )
+      }
+      this.propertyCreationBatch.componentIds.add(propertyId)
+      this.propertyCreationBatch.components.push(newProperty)
+    } else {
+      this.addChangeForAddProperty(newProperty)
+    }
     return newProperty
+  }
+
+  private rollbackPropertyCreationBatch(batch: PropertyCreationBatchState) {
+    batch.existingUpdates
+      .slice()
+      .reverse()
+      .forEach((change) => {
+        const component = this._components.get(change.id)
+        if (!component) {
+          return
+        }
+        component.load({
+          ...component.save(),
+          [change.key]: clonePropsValue(change.before)
+        })
+        component.emitChange({
+          id: change.id,
+          key: change.key,
+          before: clonePropsValue(change.after),
+          after: clonePropsValue(change.before)
+        })
+      })
+    batch.components
+      .slice()
+      .reverse()
+      .forEach((component) => {
+        const propertyId = component.get('id')
+        if (this._components.get(propertyId) === component) {
+          this._components.delete(propertyId)
+        }
+        ;(component as unknown as { dispose?: () => void }).dispose?.()
+      })
+    this.changes.splice(batch.changeStart)
+  }
+
+  runInPropertyCreationBatch<T>(
+    operation: () => T
+  ): PropertyCreationBatchReceipt<T> {
+    if (this.propertyCreationBatch) {
+      return Object.freeze({
+        result: operation(),
+        rollback: () => undefined,
+        complete: () => undefined
+      })
+    }
+
+    const batch: PropertyCreationBatchState = {
+      changeStart: this.changes.length,
+      components: [],
+      componentIds: new Set(),
+      existingUpdates: []
+    }
+    this.propertyCreationBatch = batch
+    try {
+      const result = runWithPropertyComponentAccessor(
+        this.componentAccessor,
+        operation
+      )
+      const operationChanges = this.changes.slice(batch.changeStart)
+      if (
+        operationChanges.length !== batch.existingUpdates.length ||
+        operationChanges.some(
+          (change, index) => change !== batch.existingUpdates[index]
+        )
+      ) {
+        throw new Error(
+          '[PropsManager] Canonical property creation batch produced incompatible pending changes'
+        )
+      }
+      batch.components.forEach((component) => {
+        const propertyId = component.get('id')
+        if (this._components.get(propertyId) !== component) {
+          throw new Error(
+            `[PropsManager] Canonical property creation batch did not register property "${propertyId}"`
+          )
+        }
+      })
+      if (batch.components.length > 0) {
+        this.addChangeForAddProperties(batch.components)
+      }
+      let active = true
+      return Object.freeze({
+        result,
+        rollback: () => {
+          if (!active) {
+            return
+          }
+          active = false
+          this.rollbackPropertyCreationBatch(batch)
+        },
+        complete: () => {
+          active = false
+        }
+      })
+    } catch (error) {
+      this.propertyCreationBatch = null
+      this.rollbackPropertyCreationBatch(batch)
+      throw error
+    } finally {
+      if (this.propertyCreationBatch === batch) {
+        this.propertyCreationBatch = null
+      }
+    }
   }
 
   addProperty(
@@ -717,10 +908,22 @@ class PropsManager {
 
     const finalData = orderedIds.map((propertyId) => {
       if (!updatedIds.has(propertyId)) {
-        return initialSnapshots.get(propertyId)!
+        const initialSnapshot = initialSnapshots.get(propertyId)
+        if (!initialSnapshot) {
+          throw new Error(
+            `[PropsManager] Canonical property batch is missing initial snapshot "${propertyId}"`
+          )
+        }
+        return initialSnapshot
       }
 
-      return clonePropsValue(this.getPropertyById(propertyId)!.save())
+      const property = this.getPropertyById(propertyId)
+      if (!property) {
+        throw new Error(
+          `[PropsManager] Canonical property batch is missing active property "${propertyId}"`
+        )
+      }
+      return clonePropsValue(property.save())
     })
     return [
       {

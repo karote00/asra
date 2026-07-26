@@ -574,8 +574,174 @@ describe('declarative property type definition owner', () => {
       expect.objectContaining({
         action: 'addProperty',
         data: [expect.objectContaining({ id: 'child-property' })]
+      }),
+      expect.objectContaining({
+        action: 'updateProperty',
+        id: 'parent-property',
+        key: 'children',
+        before: [],
+        after: ['child-property']
       })
     ])
+  })
+
+  it('keeps nested child-before-parent order in one property creation batch', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+
+    const parent = manager.runInPropertyCreationBatch(() => {
+      const created = manager.createProperty({
+        id: 'batch-parent-property',
+        type: TYPE,
+        children: [{ id: 'batch-child-property', value: 7 }]
+      })
+      manager.addProperty([created])
+      return created
+    }).result
+
+    expect(parent.getValue().children).toEqual([
+      { id: 'batch-child-property', value: 7 }
+    ])
+    expect(manager.changes).toEqual([
+      expect.objectContaining({
+        action: 'addProperty',
+        data: [
+          expect.objectContaining({
+            id: 'batch-child-property',
+            type: CHILD_TYPE
+          }),
+          expect.objectContaining({
+            id: 'batch-parent-property',
+            type: TYPE,
+            children: ['batch-child-property']
+          })
+        ]
+      })
+    ])
+  })
+
+  it('keeps an existing child relationship live when creating its parent in a batch', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+    const child = manager.createProperty({
+      id: 'existing-batch-child',
+      type: CHILD_TYPE,
+      value: 3
+    })
+    manager.addProperty([child])
+    manager.cleanChanges()
+
+    const parent = manager.runInPropertyCreationBatch(() => {
+      const created = manager.createProperty({
+        id: 'batch-parent-with-existing-child',
+        type: TYPE,
+        children: ['existing-batch-child']
+      })
+      manager.addProperty([created])
+      return created
+    }).result
+
+    expect(parent.getValue().children).toEqual([
+      { id: 'existing-batch-child', value: 3 }
+    ])
+    child.set('value' as never, 9 as never)
+    expect(parent.getValue().children).toEqual([
+      { id: 'existing-batch-child', value: 9 }
+    ])
+    expect(manager.changes[0]).toEqual(
+      expect.objectContaining({
+        action: 'addProperty',
+        data: [
+          expect.objectContaining({
+            id: 'batch-parent-with-existing-child',
+            children: ['existing-batch-child']
+          })
+        ]
+      })
+    )
+  })
+
+  it('journals an existing child object upsert on the issuing batch owner', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+    const child = manager.createProperty({
+      id: 'existing-upsert-child',
+      type: CHILD_TYPE,
+      value: 3
+    })
+    manager.addProperty([child])
+    manager.cleanChanges()
+
+    const parent = manager.runInPropertyCreationBatch(() => {
+      const created = manager.createProperty({
+        id: 'batch-parent-with-upsert-child',
+        type: TYPE,
+        children: [{ id: 'existing-upsert-child', value: 7 }]
+      })
+      manager.addProperty([created])
+      return created
+    }).result
+
+    expect(child.get('value' as never)).toBe(7)
+    expect(parent.getValue().children).toEqual([
+      { id: 'existing-upsert-child', value: 7 }
+    ])
+    expect(manager.changes).toEqual([
+      expect.objectContaining({
+        action: 'updateProperty',
+        id: 'existing-upsert-child',
+        key: 'value',
+        before: 3,
+        after: 7
+      }),
+      expect.objectContaining({
+        action: 'addProperty',
+        data: [
+          expect.objectContaining({
+            id: 'batch-parent-with-upsert-child',
+            children: ['existing-upsert-child']
+          })
+        ]
+      })
+    ])
+  })
+
+  it('rolls back an existing child object upsert when its batch fails', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+    const child = manager.createProperty({
+      id: 'existing-rollback-child',
+      type: CHILD_TYPE,
+      value: 3
+    })
+    manager.addProperty([child])
+    manager.cleanChanges()
+
+    expect(() =>
+      manager.runInPropertyCreationBatch(() => {
+        const parent = manager.createProperty({
+          id: 'failed-parent-with-upsert-child',
+          type: TYPE,
+          children: [{ id: 'existing-rollback-child', value: 7 }]
+        })
+        manager.addProperty([parent])
+        throw new Error('later canonical failure')
+      })
+    ).toThrow('later canonical failure')
+
+    expect(child.get('value' as never)).toBe(3)
+    expect(manager.getPropertyById('failed-parent-with-upsert-child')).toBe(
+      undefined
+    )
+    expect(manager.changes).toEqual([])
   })
 
   it('keeps declarative child projection on the issuing Props Manager', () => {

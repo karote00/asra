@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   BasePropertyComponent,
   propertyComponentRegistry,
-  registerPropertyComponent
+  registerPropertyComponent,
+  registerPropertySchema,
+  unregisterPropertySchema
 } from '@asyra/props-manager'
 import propsManager from '@asyra/props-manager'
 import {
@@ -1842,14 +1844,17 @@ describe('SceneTree', () => {
       workspace,
       'replaceChildrenFromCanonicalBatch'
     )
+    const createPropertyBatch = vi.spyOn(
+      propsManager,
+      'runInPropertyCreationBatch'
+    )
     const commit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
     const sceneChanges: SceneTreeChange[] = []
     const propsChanges: PropsChange[] = []
+    const transactionEvents: UpdateTransactionEvent[] = []
     const subscription = subscribeToEvents((event) => {
-      if (
-        event.type === EventTypes.UPDATE_TRANSACTION &&
-        'payload' in event
-      ) {
+      if (event.type === EventTypes.UPDATE_TRANSACTION && 'payload' in event) {
+        transactionEvents.push(event as UpdateTransactionEvent)
         if (
           Object.values(SCENE_TREE_ACTIONS).includes(
             (event.payload as SceneTreeChange).action
@@ -1895,6 +1900,7 @@ describe('SceneTree', () => {
     expect(workspace.get('children')).toEqual(['batch-1', 'batch-2', 'batch-3'])
     expect(set.mock.calls.filter(([key]) => key === 'children')).toHaveLength(0)
     expect(replaceChildren).toHaveBeenCalledOnce()
+    expect(createPropertyBatch).toHaveBeenCalledOnce()
     expect(
       sceneChanges
         .filter(
@@ -1921,8 +1927,13 @@ describe('SceneTree', () => {
     const propertyData = (propertyBatch[0] as AddRemovePropertyChange).data
     expect(propertyData).toHaveLength(6)
     const propertyIds = new Set(propertyData.map(({ id }) => id))
+    const expectedPropertyIds: string[] = []
     ;['batch-1', 'batch-2', 'batch-3'].forEach((elementId, index) => {
       const props = sceneTree.getElementById(elementId)?.save().props
+      expectedPropertyIds.push(
+        props?.position as string,
+        props?.dimension as string
+      )
       expect(propertyIds.has(props?.position as string)).toBe(true)
       expect(propertyIds.has(props?.dimension as string)).toBe(true)
       const position = propsManager.getPropertyById(
@@ -1931,8 +1942,240 @@ describe('SceneTree', () => {
       expect(position?.get('x')).toBe(index * 10)
       expect(position?.get('y')).toBe(index * 10)
     })
+    expect(propertyData.map(({ id }) => id)).toEqual(expectedPropertyIds)
+    expect(propertyData).toEqual(
+      expectedPropertyIds.map((propertyId) =>
+        propsManager.getPropertyById(propertyId)?.save()
+      )
+    )
+    const orderedBatchEvents = transactionEvents.filter(({ payload }) => {
+      const change = payload as PropsChange | SceneTreeChange
+      if (change.action === PROPS_ACTIONS.ADD_PROPERTY) {
+        return true
+      }
+      return (
+        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
+        'data' in change &&
+        change.data.id.startsWith('batch-')
+      )
+    })
+    expect(
+      orderedBatchEvents.map(({ payload }) => {
+        const change = payload as PropsChange | SceneTreeChange
+        return change.action === PROPS_ACTIONS.ADD_PROPERTY
+          ? 'props:add'
+          : `scene:add:${(change as AddRemoveElementChange).data.id}`
+      })
+    ).toEqual([
+      'props:add',
+      'scene:add:batch-1',
+      'scene:add:batch-2',
+      'scene:add:batch-3'
+    ])
+    expect(orderedBatchEvents.map(({ options }) => options)).toEqual([
+      { undoable: true, shared: SharedDataChannelNames.PROPS },
+      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE },
+      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE },
+      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE }
+    ])
+    orderedBatchEvents.slice(1).forEach(({ payload }, index) => {
+      const change = payload as AddRemoveElementChange
+      const elementId = `batch-${index + 1}`
+      expect(change.data).toEqual(sceneTree.getElementById(elementId)?.save())
+      expect(change.parentId).toBe(workspace.get('id'))
+      expect(change.index).toBe(index)
+    })
+    const detachedPropertyEvidence = structuredClone(propertyData)
+    const firstPosition = propsManager.getPropertyById(
+      expectedPropertyIds[0]
+    ) as TestPositionComponent
+    firstPosition.set('x', 999)
+    expect(propertyData).toEqual(detachedPropertyEvidence)
     expect(commit).toHaveBeenCalledOnce()
     expect(commit).toHaveBeenCalledWith({ undoable: true })
     subscription.unsubscribe()
+  })
+
+  it('rejects a failed canonical element batch without a scene or property prefix', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    const propsCommit = vi.spyOn(propsManager, 'commitChanges')
+    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+
+    expect(() =>
+      sceneTree.addNewElements(
+        [
+          { id: 'failed-batch-prefix', type: 'rect', x: 0, y: 0 },
+          {
+            id: 'failed-batch-tail',
+            type: 'unregistered-component',
+            x: 10,
+            y: 10
+          }
+        ],
+        workspace as GroupInstanceTypes,
+        undefined,
+        { undoable: true }
+      )
+    ).toThrow(/no component registered/i)
+
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+    expect(propsCommit).not.toHaveBeenCalled()
+    expect(sceneCommit).not.toHaveBeenCalled()
+  })
+
+  it('rolls back a prepared property batch when its commit fails', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeProps = propsManager.save()
+    vi.spyOn(propsManager, 'commitChanges').mockImplementationOnce(() => {
+      throw new Error('property commit failure')
+    })
+
+    expect(() =>
+      sceneTree.addNewElements(
+        [{ id: 'failed-property-commit', type: 'rect', x: 2, y: 4 }],
+        workspace as GroupInstanceTypes,
+        undefined,
+        { undoable: true }
+      )
+    ).toThrow('property commit failure')
+
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual([])
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('keeps runtime invalid-write rejection in canonical batch evidence', () => {
+    sceneTree.init()
+    registerPropertySchema({
+      type: PropertyTypes.POSITION,
+      fields: [
+        {
+          key: 'x',
+          kind: 'number',
+          defaultValue: 0
+        }
+      ]
+    })
+    const propsChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_TRANSACTION &&
+        'payload' in event &&
+        Object.values(PROPS_ACTIONS).includes(
+          (event.payload as PropsChange).action
+        )
+      ) {
+        propsChanges.push(event.payload as PropsChange)
+      }
+    })
+
+    try {
+      sceneTree.addNewElements(
+        [{ id: 'invalid-runtime-write', type: 'rect', x: Number.NaN, y: 12 }],
+        sceneTree.currentWorkspace as GroupInstanceTypes,
+        undefined,
+        { undoable: true }
+      )
+    } finally {
+      unregisterPropertySchema(PropertyTypes.POSITION)
+    }
+
+    const props = sceneTree
+      .getElementById('invalid-runtime-write')
+      ?.save().props
+    const positionId = props?.position as string
+    const position = propsManager.getPropertyById(
+      positionId
+    ) as TestPositionComponent
+    expect(position.get('x')).toBe(0)
+    expect(position.get('y')).toBe(12)
+    expect(propsChanges).toHaveLength(1)
+    const evidence = propsChanges[0] as AddRemovePropertyChange
+    expect(evidence.action).toBe(PROPS_ACTIONS.ADD_PROPERTY)
+    expect(evidence.data.find(({ id }) => id === positionId)).toEqual(
+      position.save()
+    )
+    subscription.unsubscribe()
+  })
+
+  it('emits detached owner timings for each canonical element batch stage', () => {
+    sceneTree.init()
+    const phaseNames: string[] = []
+    const runtime = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('scene-tree:element-batch:')) {
+        phaseNames.push(name)
+      }
+    }
+
+    try {
+      sceneTree.addNewElements(
+        [
+          { id: 'profiled-batch-1', type: 'rect', x: 0, y: 0 },
+          { id: 'profiled-batch-2', type: 'rect', x: 10, y: 10 }
+        ],
+        sceneTree.currentWorkspace as GroupInstanceTypes,
+        undefined,
+        { undoable: true }
+      )
+    } finally {
+      delete runtime.__asyraBrowserDragPhaseSink
+    }
+
+    expect(phaseNames).toEqual([
+      'scene-tree:element-batch:materialize',
+      'scene-tree:element-batch:parent-membership',
+      'scene-tree:element-batch:record-evidence',
+      'scene-tree:element-batch:commit-props',
+      'scene-tree:element-batch:commit-scene'
+    ])
+  })
+
+  it('does not let a failing timing observer change canonical batch behavior', () => {
+    sceneTree.init()
+    const runtime = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    runtime.__asyraBrowserDragPhaseSink = () => {
+      throw new Error('diagnostic sink failure')
+    }
+
+    try {
+      expect(
+        sceneTree.addNewElements(
+          [{ id: 'observer-safe-batch', type: 'rect', x: 4, y: 8 }],
+          sceneTree.currentWorkspace as GroupInstanceTypes,
+          undefined,
+          { undoable: true }
+        )
+      ).toEqual(['observer-safe-batch'])
+    } finally {
+      delete runtime.__asyraBrowserDragPhaseSink
+    }
+
+    expect(sceneTree.getElementById('observer-safe-batch')?.save()).toEqual(
+      expect.objectContaining({
+        id: 'observer-safe-batch',
+        parentId: sceneTree.workspace
+      })
+    )
   })
 })

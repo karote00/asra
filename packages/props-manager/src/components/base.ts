@@ -16,9 +16,6 @@ import {
   getPropertyComponentAccessor,
   type PropertyComponentAccessor
 } from '../manager/component-accessor'
-import PropsChangeHandler from './props-change-handler'
-
-const propsChangeHandler = new PropsChangeHandler()
 
 const cloneFallbackValue = (value: unknown): unknown => {
   if (Array.isArray(value)) {
@@ -48,8 +45,12 @@ abstract class BaseComponent<
   protected readonly propertyComponentAccessor: PropertyComponentAccessor
 
   constructor() {
-    super(propsChangeHandler.addChange, acknowledgeTransactionReplayApplied)
-    this.propertyComponentAccessor = getPropertyComponentAccessor()
+    const propertyComponentAccessor = getPropertyComponentAccessor()
+    super(
+      (change) => propertyComponentAccessor.addChange(change),
+      acknowledgeTransactionReplayApplied
+    )
+    this.propertyComponentAccessor = propertyComponentAccessor
   }
 
   private getFieldSchema(key: keyof T): PropertyFieldSchema | undefined {

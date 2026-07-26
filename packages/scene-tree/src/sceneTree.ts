@@ -52,6 +52,31 @@ import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
 
+const measureCanonicalSceneBatchPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    try {
+      sink(phaseName, performance.now() - start)
+    } catch {
+      // Profiling is detached observation and cannot change owner behavior.
+    }
+  }
+}
+
 const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
   if (Object.keys(patch.values ?? {}).length > 0) {
     return true
@@ -1831,42 +1856,89 @@ class SceneTree {
 
     const elements: ElementInstanceTypes[] = []
     const operationChangeStart = this.changes.length
+    let rollbackPreparedProperties: (() => void) | undefined
+    let completePreparedProperties: (() => void) | undefined
+    let propsCommitCompleted = false
     try {
-      elementData.forEach((source) => {
-        const constructorData = { ...source }
-        const propOverrides = stripNonRawFields(constructorData)
-        const element = this.createElement(constructorData, false)
-        if (!element) {
-          throw new Error('[SceneTree] Canonical batch element creation failed')
-        }
-        Object.keys(propOverrides).forEach((propKey) => {
-          element.updateComputedData(
-            propKey as keyof ComputedAttrs,
-            propOverrides[propKey]
+      const propertyBatch = this.propsManagerOwner.runInPropertyCreationBatch(
+        () => {
+          measureCanonicalSceneBatchPhase(
+            'scene-tree:element-batch:materialize',
+            () => {
+              elementData.forEach((source) => {
+                const constructorData = { ...source }
+                const propOverrides = stripNonRawFields(constructorData)
+                const element = this.createElement(constructorData, false)
+                if (!element) {
+                  throw new Error(
+                    '[SceneTree] Canonical batch element creation failed'
+                  )
+                }
+                Object.keys(propOverrides).forEach((propKey) => {
+                  element.updateComputedData(
+                    propKey as keyof ComputedAttrs,
+                    propOverrides[propKey]
+                  )
+                })
+                elements.push(element)
+              })
+            }
           )
-        })
-        elements.push(element)
-      })
 
-      workspace.addNewElements(elements, target, insertionIndex)
-      this.changes.splice(operationChangeStart)
-      elements.forEach((element, offset) => {
-        this.addChangeForAddElement(
-          element,
-          target.get('id'),
-          insertionIndex + offset
-        )
-      })
+          measureCanonicalSceneBatchPhase(
+            'scene-tree:element-batch:parent-membership',
+            () => {
+              workspace.addNewElements(elements, target, insertionIndex)
+            }
+          )
+          measureCanonicalSceneBatchPhase(
+            'scene-tree:element-batch:record-evidence',
+            () => {
+              this.changes.splice(operationChangeStart)
+              elements.forEach((element, offset) => {
+                this.addChangeForAddElement(
+                  element,
+                  target.get('id'),
+                  insertionIndex + offset
+                )
+              })
+            }
+          )
+        }
+      )
+      rollbackPreparedProperties = propertyBatch.rollback
+      completePreparedProperties = propertyBatch.complete
 
       acknowledgeTransactionReplayApplied()
-      this.propsManagerOwner.commitChanges(options)
-      this.commitSceneTreeTransaction(options)
+      measureCanonicalSceneBatchPhase(
+        'scene-tree:element-batch:commit-props',
+        () => {
+          this.propsManagerOwner.commitChanges(options)
+        }
+      )
+      propsCommitCompleted = true
+      measureCanonicalSceneBatchPhase(
+        'scene-tree:element-batch:commit-scene',
+        () => {
+          this.commitSceneTreeTransaction(options)
+        }
+      )
+      propertyBatch.complete()
       return Object.freeze(elements.map((element) => element.get('id')))
     } catch (error) {
+      if (propsCommitCompleted) {
+        completePreparedProperties?.()
+      } else {
+        rollbackPreparedProperties?.()
+      }
       workspace.replaceBatchParentChildren(target, originalChildren)
       elements.forEach((element) => {
         this._elements.delete(element.get('id'))
-        element.cleanup({ undoable: false })
+        ;(
+          element.computed as unknown as {
+            dispose?: () => void
+          }
+        ).dispose?.()
       })
       this.changes.splice(operationChangeStart)
       throw error
