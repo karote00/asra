@@ -1,6 +1,7 @@
 import type { CoreRawData } from '@asyra/utils'
+import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LocalStoragePersistence } from '..'
+import { IndexedDbPersistence, LocalStoragePersistence } from '..'
 
 const DOCUMENT_A = {
   version: '1.0.0',
@@ -49,6 +50,59 @@ describe('LocalStoragePersistence', () => {
   it('isolates documents configured with different storage keys', async () => {
     const persistenceA = new LocalStoragePersistence('FILE:file-a')
     const persistenceB = new LocalStoragePersistence('FILE:file-b')
+
+    await persistenceA.save(DOCUMENT_A)
+    await persistenceB.save(DOCUMENT_B)
+
+    await expect(persistenceA.load()).resolves.toEqual(DOCUMENT_A)
+    await expect(persistenceB.load()).resolves.toEqual(DOCUMENT_B)
+
+    await persistenceA.clear()
+
+    await expect(persistenceA.load()).resolves.toBeNull()
+    await expect(persistenceB.load()).resolves.toEqual(DOCUMENT_B)
+  })
+})
+
+describe('IndexedDbPersistence', () => {
+  it('persists a document larger than localStorage quota without using localStorage', async () => {
+    const localStorageSetItem = vi.fn(() => {
+      throw new DOMException('Storage quota exceeded', 'QuotaExceededError')
+    })
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => null),
+      setItem: localStorageSetItem,
+      removeItem: vi.fn()
+    })
+    const document = {
+      ...DOCUMENT_A,
+      systemContext: {
+        highDetailFixture: 'x'.repeat(6 * 1024 * 1024)
+      }
+    } satisfies CoreRawData
+    expect(JSON.stringify(document).length).toBeGreaterThan(5 * 1024 * 1024)
+
+    const persistence = new IndexedDbPersistence('FILE', {
+      databaseName: 'asyra-persistence-large-document-test',
+      factory: indexedDB
+    })
+
+    await persistence.save(document)
+
+    await expect(persistence.load()).resolves.toEqual(document)
+    expect(localStorageSetItem).not.toHaveBeenCalled()
+  })
+
+  it('isolates keys and clears only the selected document', async () => {
+    const databaseName = 'asyra-persistence-isolation-test'
+    const persistenceA = new IndexedDbPersistence('FILE:file-a', {
+      databaseName,
+      factory: indexedDB
+    })
+    const persistenceB = new IndexedDbPersistence('FILE:file-b', {
+      databaseName,
+      factory: indexedDB
+    })
 
     await persistenceA.save(DOCUMENT_A)
     await persistenceB.save(DOCUMENT_B)

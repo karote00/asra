@@ -514,6 +514,7 @@
         'packages/persistence/src',
         'packages/persistence/src/providers/__tests__',
         'packages/persistence/package.json',
+        'yarn.lock',
         'apps/asyra-design/src/document-persistence.ts',
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/controllers/app.ts',
