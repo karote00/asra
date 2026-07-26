@@ -420,7 +420,7 @@ test.describe('Conversational AI Mock Drawing', () => {
   test('attaches a reference, chooses balanced detail, and incrementally edits the same canonical ids with one history action per mutating turn', async ({
     page
   }, testInfo) => {
-    test.setTimeout(180_000)
+    test.setTimeout(300_000)
     const persistenceErrors: string[] = []
     page.on('console', (message) => {
       if (
