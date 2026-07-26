@@ -2,10 +2,10 @@
 
 ## Status
 
-Queued profiling-first successor to the active Conversational AI Mock Drawing
-plan. This plan does not close, replace, or weaken that plan. Implementation
-starts only after the product owner validates the active drawing experience and
-authorizes the successor implementation.
+Active profiling-first successor to the completed Conversational AI Mock
+Drawing plan. The product owner authorized implementation after PR #101 merged
+on 2026-07-26. This plan does not reopen, replace, or weaken the completed
+drawing contract.
 
 The credential-gated live-provider formal-test plan is the second queued
 successor unless the product owner explicitly reorders the queue. It does not

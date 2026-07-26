@@ -62,7 +62,7 @@ const contractText = (owner) =>
     ...owner.implementationBoundary
   ].join(' ')
 
-test('performance Inspector authorities and queued-successor routing resolve', () => {
+test('performance Inspector authorities and active-plan routing resolve', () => {
   assert.equal(
     data.target.title,
     'Asyra Design Conversational AI Drawing Performance Inspector'
@@ -94,11 +94,11 @@ test('performance Inspector authorities and queued-successor routing resolve', (
   )
   assert.match(
     plansIndex,
-    /Current active plan:\s+`plans\/ai-conversational-drawing-plan\.md`/
+    /Current active plan:\s+`plans\/ai-conversational-drawing-performance-plan\.md`/
   )
   assert.match(
     plansIndex,
-    /Ordered proposed next implementation plans:\s*\n\s*1\.\s+`plans\/ai-conversational-drawing-performance-plan\.md`/
+    /Ordered proposed next implementation plans:\s*\n\s*1\.\s+`plans\/ai-conversational-drawing-live-provider-test-plan\.md`/
   )
 })
 

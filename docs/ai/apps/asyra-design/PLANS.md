@@ -4,15 +4,15 @@ Never record completed plans here.
 
 ## Current Status
 
-- No App implementation plan is active.
+- Current active plan:
+  `plans/ai-conversational-drawing-performance-plan.md`
 - Ordered proposed next implementation plans:
-  1. `plans/ai-conversational-drawing-performance-plan.md`
-  2. `plans/ai-conversational-drawing-live-provider-test-plan.md`
+  1. `plans/ai-conversational-drawing-live-provider-test-plan.md`
 - Conversational AI Mock Drawing completed on 2026-07-26. Its canonical record
   is `plans/completed/ai-conversational-drawing-plan.md`.
 - Its retained architecture authority is
   `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
-- The first proposed successor is profiling-first performance remediation for
+- The active successor is profiling-first performance remediation for
   local canonical creation, progressive collaboration, Render projection, and
   E2E measurement. It does not reopen or weaken the completed plan; its
   architecture authority is
