@@ -40,6 +40,10 @@ interface PreparedHistoryTransition {
   complete: () => void
   rollback: () => void
 }
+interface HistorySharedReplay {
+  name: string
+  sharedDelivery: SharedDeliveryMode
+}
 interface DataTransactCallbacks {
   onStatus?: (payload: TransactionStatusPayload) => void
   onUserActionCompleted?: (payload: UserActionCompletedPayload) => void
@@ -231,9 +235,9 @@ class DataTransact {
   private journal: TransactionJournalEntry[] = []
   private undoStack: AllEvent[][] = []
   private redoStack: AllEvent[][] = []
-  private historySharedChannels = new WeakMap<
+  private historySharedReplay = new WeakMap<
     AllEvent[],
-    readonly (string | undefined)[]
+    readonly (HistorySharedReplay | undefined)[]
   >()
   private isTransacting = 0
   private inUndo = false
@@ -548,6 +552,13 @@ class DataTransact {
     }
   }
 
+  private flushReplaySharedPublications(): void {
+    this.discardPendingImmediatePublication()
+    this.flushPendingSharedChannelChanges()
+    this.queueSharedPublication(this.createSharedPublication(this.journal))
+    this.flushSharedPublications()
+  }
+
   private emitCompensationSharedDelivery(
     entry: TransactionJournalEntry,
     eventName: string,
@@ -736,16 +747,16 @@ class DataTransact {
     direction: 'forward' | 'inverse',
     mode: TransactionReplayMode,
     restorationPlans?: AllEvent[][],
-    sharedChannels?: readonly (string | undefined)[]
+    sharedReplay?: readonly (HistorySharedReplay | undefined)[]
   ): unknown[] {
     const failures: unknown[] = []
     const entries = events.map((event, index) => ({
       event,
-      sharedChannel: sharedChannels?.[index]
+      shared: sharedReplay?.[index]
     }))
     const orderedEntries = direction === 'inverse' ? entries.reverse() : entries
 
-    orderedEntries.forEach(({ event, sharedChannel }) => {
+    orderedEntries.forEach(({ event, shared }) => {
       let replayEvents: AllEvent[]
       try {
         replayEvents = this.createReplayEvents(event, direction)
@@ -798,15 +809,15 @@ class DataTransact {
           if (restorationEvents && applied) {
             restorationPlans?.push(restorationEvents)
           }
-          if (
-            applied &&
-            sharedChannel &&
-            (mode === 'undo' || mode === 'redo') &&
-            !this.journal
+          if (applied && shared && (mode === 'undo' || mode === 'redo')) {
+            const recordedSharedEntries = this.journal
               .slice(journalStart)
-              .some((entry) => entry.shared?.name === sharedChannel)
-          ) {
-            this.recordReplaySharedChange(replayEvent, sharedChannel)
+              .filter((entry) => entry.shared?.name === shared.name)
+            if (recordedSharedEntries.length === 0) {
+              this.recordReplaySharedChange(replayEvent, shared)
+            } else {
+              this.alignReplaySharedEntries(recordedSharedEntries, shared)
+            }
           }
         } catch (error) {
           if (restorationEvents && wasTransactionReplayApplied(error)) {
@@ -815,40 +826,90 @@ class DataTransact {
           failures.push(error)
         }
       })
+      if (
+        shared?.sharedDelivery === 'immediate' &&
+        (mode === 'undo' || mode === 'redo')
+      ) {
+        this.flushReplaySharedPublications()
+      }
     })
 
     return failures
   }
 
-  private recordReplaySharedChange(event: AllEvent, name: string): void {
+  private alignReplaySharedEntries(
+    entries: readonly TransactionJournalEntry[],
+    sharedReplay: HistorySharedReplay
+  ): void {
+    entries.forEach((entry) => {
+      const shared = entry.shared
+      if (!shared || shared.name !== sharedReplay.name) return
+
+      entry.options.sharedDelivery = sharedReplay.sharedDelivery
+      shared.change = cloneValue(
+        toSharedChannelPayload(shared.change, {
+          sharedDelivery: sharedReplay.sharedDelivery
+        })
+      )
+      if (sharedReplay.sharedDelivery !== 'immediate' || shared.delivered) {
+        return
+      }
+
+      shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
+        shared.name,
+        shared.change
+      )
+      if (shared.delivered) {
+        this.emitForwardSharedDelivery(entry)
+        this.queueImmediatePublicationEntry(entry)
+      }
+    })
+  }
+
+  private recordReplaySharedChange(
+    event: AllEvent,
+    sharedReplay: HistorySharedReplay
+  ): void {
     const payload = cloneValue(
       (event as AllEvent & { payload: TransactionPayload }).payload
     )
     const options: EffectiveMutationOptions = {
       undoable: false,
       rollbackable: true,
-      shared: name,
-      sharedDelivery: 'transaction-end'
+      shared: sharedReplay.name,
+      sharedDelivery: sharedReplay.sharedDelivery
     }
-    this.journal.push({
+    const journalEntry: TransactionJournalEntry = {
       index: this.journal.length,
       event: cloneEvent(event),
       options,
       source: 'replay',
       shared: {
-        name,
+        name: sharedReplay.name,
         change: cloneValue(
           toSharedChannelPayload(payload, {
             undoable: false,
             rollbackable: true,
-            shared: name,
-            sharedDelivery: 'transaction-end'
+            shared: sharedReplay.name,
+            sharedDelivery: sharedReplay.sharedDelivery
           })
         ),
         delivered: false,
         published: false
       }
-    })
+    }
+    this.journal.push(journalEntry)
+    if (journalEntry.shared && sharedReplay.sharedDelivery === 'immediate') {
+      journalEntry.shared.delivered =
+        this.sharedDataChannelRegistry.pushToSharedChannel(
+          journalEntry.shared.name,
+          journalEntry.shared.change
+        )
+      if (journalEntry.shared.delivered) {
+        this.emitForwardSharedDelivery(journalEntry)
+        this.queueImmediatePublicationEntry(journalEntry)
+      }
+    }
   }
 
   private restoreNestedReplay(): unknown[] {
@@ -1175,11 +1236,16 @@ class DataTransact {
 
     return {
       complete: () => {
-        this.historySharedChannels.set(
+        this.historySharedReplay.set(
           committedChanges,
           Object.freeze(
             committedEntries.map((entry) =>
-              entry.shared?.delivered ? entry.shared.name : undefined
+              entry.shared?.delivered
+                ? Object.freeze({
+                    name: entry.shared.name,
+                    sharedDelivery: entry.options.sharedDelivery
+                  })
+                : undefined
             )
           )
         )
@@ -1340,7 +1406,7 @@ class DataTransact {
         'inverse',
         'undo',
         this.nestedReplayRestorationPlans,
-        this.historySharedChannels.get(lastChanges)
+        this.historySharedReplay.get(lastChanges)
       )
       if (failures.length > 0) {
         throw new TransactionRollbackError(failures)
@@ -1404,7 +1470,7 @@ class DataTransact {
         'forward',
         'redo',
         this.nestedReplayRestorationPlans,
-        this.historySharedChannels.get(lastChanges)
+        this.historySharedReplay.get(lastChanges)
       )
       if (failures.length > 0) {
         throw new TransactionRollbackError(failures)
@@ -1448,7 +1514,7 @@ class DataTransact {
     this.journal = []
     this.undoStack = []
     this.redoStack = []
-    this.historySharedChannels = new WeakMap()
+    this.historySharedReplay = new WeakMap()
     this.isTransacting = 0
     this.inUndo = false
     this.inRedo = false

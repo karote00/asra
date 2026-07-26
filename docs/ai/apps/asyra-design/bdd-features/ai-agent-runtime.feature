@@ -46,9 +46,10 @@ Feature: Optional AI agent runtime
   Scenario: Required confirmation can be accepted or cancelled
     Given every candidate action is registered, schema-valid, and allowed
     And the app policy requires confirmation
-    When the app receives one immutable complete preview
+    When the app receives one immutable redacted confirmation input
     Then accepting opens one plan transaction
     But cancelling returns a no-mutation result
+    And the runtime does not require a low-level or visual user preview
 
   Scenario: Valid multi-action plan creates one undo commit
     Given a complete plan has several registered schema-valid allowed actions
@@ -58,9 +59,16 @@ Feature: Optional AI agent runtime
     And the executors mutate only through app common or public APIs
     And the accepted plan creates one intended undo commit
 
-  Scenario: Executor failure rolls back without a canonical prefix
+  Scenario: Recoverable item failure may commit a partial app result
     Given a confirmed plan is executing inside one transaction
-    And a later app action executor fails
+    And one app executor classifies an item failure as recoverable before a fatal canonical write
+    When the executor resolves with partial evidence
+    Then successful sibling mutations may commit in the same intended undo entry
+    And the runtime reports the detached partial result without item compensation
+
+  Scenario: Fatal executor failure rolls back without a canonical prefix
+    Given a confirmed plan is executing inside one transaction
+    And a later app action executor rejects because canonical consistency cannot be guaranteed
     When the transaction runner settles
     Then every rollbackable write from the plan is reversed
     And no normal undo commit or accepted canonical prefix remains

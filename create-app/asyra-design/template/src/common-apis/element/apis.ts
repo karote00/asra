@@ -159,7 +159,8 @@ const createElementAtWorkspacePos = (
   workspacePos: PositionData,
   parentId: string,
   extraData: Record<string, DataTypes> = {},
-  options?: EVENT_OPTIONS
+  options?: EVENT_OPTIONS,
+  parentWorkspaceOrigin?: PositionData
 ): string | null => {
   const workspaceId = sceneTree.workspace
   if (!workspaceId) {
@@ -174,16 +175,27 @@ const createElementAtWorkspacePos = (
     }
     targetIndex = getElementChildren(parent).length
   }
+  const createDirectlyInParent =
+    targetIndex !== null &&
+    parentWorkspaceOrigin !== undefined &&
+    Number.isFinite(parentWorkspaceOrigin.x) &&
+    Number.isFinite(parentWorkspaceOrigin.y)
+  const initialPosition = createDirectlyInParent
+    ? {
+        x: workspacePos.x - parentWorkspaceOrigin.x,
+        y: workspacePos.y - parentWorkspaceOrigin.y
+      }
+    : workspacePos
 
   return runTransaction(() => {
     const elementId = core.createElementInParent(
       {
         type,
-        x: workspacePos.x,
-        y: workspacePos.y,
+        x: initialPosition.x,
+        y: initialPosition.y,
         ...extraData
       },
-      workspaceId,
+      createDirectlyInParent ? parentId : workspaceId,
       undefined,
       options
     )
@@ -191,7 +203,7 @@ const createElementAtWorkspacePos = (
       throw new Error('[Asyra Design] Canonical element creation failed')
     }
 
-    if (targetIndex !== null) {
+    if (targetIndex !== null && !createDirectlyInParent) {
       moveElementsWithGroupGeometry(
         core,
         {
@@ -479,6 +491,37 @@ export const elementApis = {
     })
   },
 
+  createElements: (
+    createOptions: readonly CreateElementOptions[],
+    options?: EVENT_OPTIONS
+  ): readonly (string | null)[] => {
+    if (createOptions.length === 0) {
+      return []
+    }
+    if (createOptions.every(({ type }) => type === 'vector')) {
+      const parentId = createOptions[0].parentId ?? sceneTree.workspace
+      if (
+        !parentId ||
+        createOptions.some(
+          (elementOptions) =>
+            (elementOptions.parentId ?? sceneTree.workspace) !== parentId
+        )
+      ) {
+        return createOptions.map(() => null)
+      }
+      return (
+        vectorApis.createVectorElementsInParent(
+          createOptions,
+          parentId,
+          options
+        ) ?? createOptions.map(() => null)
+      )
+    }
+    return createOptions.map((elementOptions) =>
+      elementApis.createElement(elementOptions, options)
+    )
+  },
+
   createElement: (
     createOptions: CreateElementOptions,
     options?: EVENT_OPTIONS
@@ -487,18 +530,26 @@ export const elementApis = {
       return vectorApis.createVectorElement(createOptions, options)
     }
 
-    if (!render || !createOptions.clientPosition) {
+    let workspacePos: PositionData | null = null
+    if (
+      createOptions.workspacePosition &&
+      Number.isFinite(createOptions.workspacePosition.x) &&
+      Number.isFinite(createOptions.workspacePosition.y)
+    ) {
+      workspacePos = createOptions.workspacePosition
+    } else if (render && createOptions.clientPosition) {
+      workspacePos = render.getMousePosInWorkspace({
+        clientX: createOptions.clientPosition.x,
+        clientY: createOptions.clientPosition.y
+      })
+    }
+    if (!workspacePos) {
       return null
     }
-
-    const workspacePos = render.getMousePosInWorkspace({
-      clientX: createOptions.clientPosition.x,
-      clientY: createOptions.clientPosition.y
-    })
     const parentId = createOptions.parentId ?? sceneTree.workspace
 
     const initialData: Record<string, DataTypes> = {
-      fills: getDefaultFillsForType(createOptions.type)
+      fills: createOptions.fills ?? getDefaultFillsForType(createOptions.type)
     }
 
     if (createOptions.width !== undefined) {
@@ -507,13 +558,17 @@ export const elementApis = {
     if (createOptions.height !== undefined) {
       initialData.height = createOptions.height
     }
+    if (createOptions.strokes !== undefined) {
+      initialData.strokes = createOptions.strokes
+    }
 
     return createElementAtWorkspacePos(
       createOptions.type,
       workspacePos,
       parentId,
       initialData,
-      options
+      options,
+      createOptions.parentWorkspaceOrigin
     )
   },
 

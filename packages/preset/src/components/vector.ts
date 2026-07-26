@@ -1,4 +1,5 @@
 import {
+  EntityTypes,
   PropertyTypes,
   StrokeJoinTypes,
   createDefaultStroke,
@@ -20,7 +21,7 @@ import core, {
 } from '@asyra/core'
 import type {
   ComponentDefinition,
-  RenderStrategy,
+  EngineNeutralRenderStrategy,
   VectorNetwork,
   VectorPointNode,
   VectorSegment
@@ -322,6 +323,26 @@ const toLocalPointNodeMap = (
       }
     ])
   )
+
+const getGroupAncestorOffset = (
+  graphic: Parameters<EngineNeutralRenderStrategy>[0]
+): PositionData => {
+  let x = 0
+  let y = 0
+  let ancestor = graphic.parent as
+    | (NonNullable<typeof graphic.parent> & { __asyraType?: string })
+    | null
+
+  while (ancestor?.__asyraType === EntityTypes.GROUP) {
+    x += ancestor.x
+    y += ancestor.y
+    ancestor = ancestor.parent as
+      | (NonNullable<typeof graphic.parent> & { __asyraType?: string })
+      | null
+  }
+
+  return { x, y }
+}
 
 interface NormalizedVectorRenderDataInput {
   id: string
@@ -1098,7 +1119,7 @@ const buildEvenOddShape = (
 }
 
 const drawVectorNetworkPath = (
-  graphic: Parameters<RenderStrategy>[0],
+  graphic: Parameters<EngineNeutralRenderStrategy>[0],
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
   segments: Record<string, VectorSegment>
@@ -1146,7 +1167,7 @@ const drawVectorNetworkPath = (
 }
 
 const drawVectorPath = (
-  graphic: Parameters<RenderStrategy>[0],
+  graphic: Parameters<EngineNeutralRenderStrategy>[0],
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
   segments: Record<string, VectorSegment>
@@ -1157,7 +1178,7 @@ const drawVectorPath = (
 }
 
 const drawFillFaces = (
-  graphic: Parameters<RenderStrategy>[0],
+  graphic: Parameters<EngineNeutralRenderStrategy>[0],
   faces: Vec2[][]
 ) => {
   faces.forEach((face) => {
@@ -1176,7 +1197,7 @@ const getFillPayload = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) && fills.length > 0 ? fills : []
 
 const applyBaseVectorStroke = (
-  graphic: Parameters<RenderStrategy>[0],
+  graphic: Parameters<EngineNeutralRenderStrategy>[0],
   strokes: StrokeAttrs[],
   replayPath: () => void
 ): void => {
@@ -1211,7 +1232,7 @@ interface VectorFillHitCache {
 }
 
 const renderVectorGraphic = (
-  graphic: Parameters<RenderStrategy>[0],
+  graphic: Parameters<EngineNeutralRenderStrategy>[0],
   data: unknown
 ): void => {
   const renderData = normalizeVectorRenderData(data)
@@ -1245,7 +1266,11 @@ const renderVectorGraphic = (
     segments,
     networks
   } = renderData
-  const points = toLocalPointNodeMap(workspacePoints, { x, y })
+  const ancestorOffset = getGroupAncestorOffset(graphic)
+  const points = toLocalPointNodeMap(workspacePoints, {
+    x: x + ancestorOffset.x,
+    y: y + ancestorOffset.y
+  })
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
 
   graphic.x = x
@@ -1392,7 +1417,10 @@ const renderVectorGraphic = (
   )
 }
 
-export const VECTOR_RENDER_STRATEGY: RenderStrategy = (graphic, data) => {
+export const VECTOR_RENDER_STRATEGY: EngineNeutralRenderStrategy = (
+  graphic,
+  data
+) => {
   renderVectorGraphic(graphic, data)
 }
 

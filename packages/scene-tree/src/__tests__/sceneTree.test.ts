@@ -1833,4 +1833,78 @@ describe('SceneTree', () => {
       })
     )
   })
+
+  it('adds one ordered element batch without cloning the growing parent child list', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const set = vi.spyOn(workspace, 'set')
+    const replaceChildren = vi.spyOn(
+      workspace,
+      'replaceChildrenFromCanonicalBatch'
+    )
+    const commit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+    const sceneChanges: SceneTreeChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_TRANSACTION &&
+        'payload' in event &&
+        Object.values(SCENE_TREE_ACTIONS).includes(
+          (event.payload as SceneTreeChange).action
+        )
+      ) {
+        sceneChanges.push(event.payload as SceneTreeChange)
+      }
+    })
+    const batchOwner = sceneTree as SceneTree & {
+      addNewElements(
+        data: readonly {
+          id: string
+          type: string
+          x: number
+          y: number
+        }[],
+        parent?: GroupInstanceTypes,
+        index?: number,
+        options?: { undoable?: boolean }
+      ): readonly string[]
+    }
+
+    expect(
+      batchOwner.addNewElements(
+        [
+          { id: 'batch-1', type: 'rect', x: 0, y: 0 },
+          { id: 'batch-2', type: 'rect', x: 10, y: 10 },
+          { id: 'batch-3', type: 'rect', x: 20, y: 20 }
+        ],
+        workspace as GroupInstanceTypes,
+        undefined,
+        { undoable: true }
+      )
+    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
+    expect(workspace.get('children')).toEqual(['batch-1', 'batch-2', 'batch-3'])
+    expect(set.mock.calls.filter(([key]) => key === 'children')).toHaveLength(0)
+    expect(replaceChildren).toHaveBeenCalledOnce()
+    expect(
+      sceneChanges
+        .filter(
+          (change) =>
+            change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
+            'data' in change &&
+            change.data.id.startsWith('batch-')
+        )
+        .map((change) => ('data' in change ? change.data.id : null))
+    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
+    expect(
+      sceneChanges.filter(
+        (change) =>
+          change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
+          'owner' in change &&
+          change.owner === 'raw' &&
+          change.key === 'children'
+      )
+    ).toEqual([])
+    expect(commit).toHaveBeenCalledOnce()
+    expect(commit).toHaveBeenCalledWith({ undoable: true })
+    subscription.unsubscribe()
+  })
 })

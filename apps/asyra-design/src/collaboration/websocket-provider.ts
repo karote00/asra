@@ -219,13 +219,18 @@ export class CollaborationWebSocketProvider implements Provider {
           )
         )
       })
-      socket.addEventListener('close', () => {
+      socket.addEventListener('close', (event) => {
         if (generation !== this.connectionGeneration) return
         this.socket = null
+        const closeReason = event.reason.trim()
+        const closeDetail =
+          event.code === 1005 && closeReason.length === 0
+            ? ''
+            : ` (${event.code}${closeReason ? `: ${closeReason}` : ''})`
         this.rejectPending(
           new ProviderFailure(
             'not-connected',
-            '[collaboration] WebSocket connection closed'
+            `[collaboration] WebSocket connection closed${closeDetail}`
           )
         )
         if (!settled) {

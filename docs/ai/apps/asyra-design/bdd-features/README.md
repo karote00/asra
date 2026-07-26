@@ -20,3 +20,4 @@ References:
 - `group-interactions.feature`
 - `group-context-menu.feature`
 - `ai-agent-runtime.feature`
+- `ai-conversational-drawing.feature`

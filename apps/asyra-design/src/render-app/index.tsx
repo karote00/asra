@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
-import { createDocumentPersistence } from '../document-persistence'
+import {
+  createDocumentPersistence,
+  initializeDocumentPersistence
+} from '../document-persistence'
 import { getCollaborationMode } from './collaboration-mode'
 import type { CoreRawData } from '@asyra/utils'
 
@@ -71,13 +74,13 @@ const RenderApp: React.FC<RenderAppProps> = ({
           collaborationMode?.fileId
         )
 
-        // LocalStorage remains the demo database. Initialize an absent
-        // document so Core can establish its empty workspace; an existing
-        // ordinary or collaboration document must survive refresh unchanged.
-        if ((await documentPersistence.load()) === null) {
-          if (!active) return
-          await documentPersistence.save(EMPTY_DOCUMENT)
-        }
+        // Initialize IndexedDB once or migrate the matching legacy local
+        // snapshot before Core owns ordinary load and subsequent save timing.
+        await initializeDocumentPersistence(
+          documentPersistence,
+          EMPTY_DOCUMENT,
+          collaborationMode?.fileId
+        )
         if (!active) return
         core.setPersistence(documentPersistence)
 

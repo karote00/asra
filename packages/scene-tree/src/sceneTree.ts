@@ -1795,6 +1795,84 @@ class SceneTree {
     return ''
   }
 
+  addNewElements(
+    elementData: readonly CreateElementData[],
+    parent?: GroupInstanceTypes,
+    index = -1,
+    options?: EVENT_OPTIONS
+  ): readonly string[] {
+    const workspace = this.currentWorkspace as Workspace
+    if (!workspace || elementData.length === 0) {
+      return []
+    }
+    const sourceIds = elementData.map(({ id }) => id)
+    if (
+      sourceIds.some(
+        (elementId) =>
+          typeof elementId !== 'string' ||
+          elementId.length === 0 ||
+          this.getElementById(elementId) !== undefined
+      ) ||
+      new Set(sourceIds).size !== sourceIds.length
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires unique inactive ids'
+      )
+    }
+
+    const target = (parent ??
+      workspace.firstFrame ??
+      workspace) as GroupInstanceTypes
+    const originalChildren = [...target.get('children')]
+    const insertionIndex = index > -1 ? index : originalChildren.length
+    if (insertionIndex < 0 || insertionIndex > originalChildren.length) {
+      throw new Error('[SceneTree] Element batch index is outside parent order')
+    }
+
+    const elements: ElementInstanceTypes[] = []
+    const operationChangeStart = this.changes.length
+    try {
+      elementData.forEach((source) => {
+        const constructorData = { ...source }
+        const propOverrides = stripNonRawFields(constructorData)
+        const element = this.createElement(constructorData, false)
+        if (!element) {
+          throw new Error('[SceneTree] Canonical batch element creation failed')
+        }
+        Object.keys(propOverrides).forEach((propKey) => {
+          element.updateComputedData(
+            propKey as keyof ComputedAttrs,
+            propOverrides[propKey]
+          )
+        })
+        elements.push(element)
+      })
+
+      workspace.addNewElements(elements, target, insertionIndex)
+      this.changes.splice(operationChangeStart)
+      elements.forEach((element, offset) => {
+        this.addChangeForAddElement(
+          element,
+          target.get('id'),
+          insertionIndex + offset
+        )
+      })
+
+      acknowledgeTransactionReplayApplied()
+      this.propsManagerOwner.commitChanges(options)
+      this.commitSceneTreeTransaction(options)
+      return Object.freeze(elements.map((element) => element.get('id')))
+    } catch (error) {
+      workspace.replaceBatchParentChildren(target, originalChildren)
+      elements.forEach((element) => {
+        this._elements.delete(element.get('id'))
+        element.cleanup({ undoable: false })
+      })
+      this.changes.splice(operationChangeStart)
+      throw error
+    }
+  }
+
   removeElement(
     data: Partial<ElementRawData>,
     parent?: GroupInstanceTypes,

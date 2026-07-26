@@ -92,6 +92,14 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
   - `Meta+Shift+G` or `Ctrl+Shift+G` -> Ungroup
   - editable targets bypass the shortcut
 
+- App-local Agent panel presentation shortcut
+
+  - `Meta+I` on macOS or `Ctrl+I` on Windows/Linux
+  - handled at the app presentation boundary because it toggles only
+    app-root-local React UI and never starts a Feature or canonical mutation
+  - editable targets bypass it except for the Agent prompt, where the same
+    command closes the open panel
+
 ## Routing Contract
 
 Input mapping callbacks should:

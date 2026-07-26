@@ -28,15 +28,15 @@ The app maps `fileId` to internal document and room identity. Each page creates
 its own actor ID and uses it as the canonical ID-counter namespace before any
 collaborative element or property creation.
 
-Core load/save keeps using localStorage as the open-source reference app's demo
-database. An ordinary URL retains the legacy `FILE` key. A collaboration URL
-uses `FILE:<encoded fileId>`, so matching `fileId` values load the same
+Core load/save uses IndexedDB as the open-source reference app's browser demo
+database. An ordinary URL retains document identity `FILE`. A collaboration
+URL uses `FILE:<encoded fileId>`, so matching `fileId` values load the same
 browser-local snapshot and different files do not overwrite each other. On
-refresh, Core loads that file's snapshot before collaboration connects. On
-first collaboration startup, RenderApp initializes a canonical empty workspace
-only when the selected key has no document; it never overwrites an existing
-snapshot. URLs without `fileId` simply do not create Collaboration or connect a
-Provider.
+refresh, Core loads that file's snapshot before collaboration connects. When
+IndexedDB has no document, RenderApp migrates an eligible matching legacy
+localStorage snapshot and removes the legacy value only after the IndexedDB
+write succeeds; otherwise it initializes a canonical empty workspace. URLs
+without `fileId` simply do not create Collaboration or connect a Provider.
 
 The browser endpoint comes from
 `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL`. The reference server validates the
@@ -135,8 +135,8 @@ not prove a disk write, database commit, recoverable revision, or remote backup.
 Server restart, redeploy, or process failure discards every room.
 
 The server's memory-only contract describes live room transport, not browser
-persistence. The Asyra Design demo still saves canonical snapshots to
-localStorage; that local durability is not a production shared database or
+persistence. The Asyra Design demo saves canonical snapshots to browser-local
+IndexedDB; that local durability is not a production shared database or
 cross-device recovery mechanism.
 
 ## Awareness
@@ -187,7 +187,7 @@ no default database implementation.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
    For pen drag-to-add, verify the peer receives the real point/segment on
    mouse-down and curve-handle changes during drag, before pointer-up.
-5. Refresh a window and verify its localStorage snapshot loads before live
+5. Refresh a window and verify its IndexedDB snapshot loads before live
    collaboration reconnects.
 6. Open a different `fileId`, create different content, and verify switching
    between the two URLs restores each file's own browser-local snapshot.

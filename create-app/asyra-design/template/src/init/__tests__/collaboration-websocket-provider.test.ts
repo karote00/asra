@@ -322,6 +322,25 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('preserves the server close code and reason for a rejected pending publication', async () => {
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+      } else if (message.type === 'send-publication') {
+        socket.close(1008, 'canonical publication rejected')
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+
+    await expect(provider.sendPublication(publication)).rejects.toMatchObject({
+      code: 'not-connected',
+      message:
+        '[collaboration] WebSocket connection closed (1008: canonical publication rejected)'
+    })
+    await provider.destroy()
+  })
+
   it('reconnects with a new socket and exposes no state-vector methods', async () => {
     let connectionCount = 0
     const server = await createLoopbackServer((socket, message) => {

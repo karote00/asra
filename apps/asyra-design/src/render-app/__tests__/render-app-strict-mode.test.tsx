@@ -1,6 +1,11 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { providers } from '@asyra/reactive-events'
+import {
+  IndexedDbPersistence,
+  providers,
+  type IPersistenceProvider
+} from '@asyra/reactive-events'
+import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
@@ -34,12 +39,30 @@ const setReactActEnvironment = (active: boolean) => {
   ).IS_REACT_ACT_ENVIRONMENT = active
 }
 
+const getSelectedPersistence = (): IPersistenceProvider => {
+  const selected = vi.mocked(core.setPersistence).mock.calls[0]?.[0]
+  if (!selected) {
+    throw new Error('RenderApp did not select document persistence')
+  }
+  return selected
+}
+
+const clearTestDocuments = async () => {
+  await Promise.all(
+    ['FILE', 'FILE:file-1', 'FILE:file-aborted'].map((key) =>
+      new IndexedDbPersistence(key, { factory: indexedDB }).clear()
+    )
+  )
+}
+
 describe('RenderApp StrictMode lifecycle', () => {
   beforeEach(async () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
+    vi.stubGlobal('indexedDB', indexedDB)
     window.history.replaceState({}, '', '/')
     localStorage.clear()
+    await clearTestDocuments()
     await providers.memory.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
@@ -63,6 +86,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     setReactActEnvironment(false)
     window.history.replaceState({}, '', '/')
     localStorage.clear()
+    await clearTestDocuments()
     await providers.memory.clear()
     vi.unstubAllEnvs()
     vi.restoreAllMocks()
@@ -83,8 +107,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
+    await vi.waitFor(() =>
+      expect(core.setPersistence).toHaveBeenCalledWith(providers.indexedDB)
+    )
     expect(core.destroyRenderer).toHaveBeenCalledTimes(1)
-    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledWith(
       expect.any(HTMLDivElement),
@@ -101,7 +127,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 
-  it('initializes an absent ordinary localStorage document before Core starts', async () => {
+  it('initializes an absent ordinary IndexedDB document before Core starts', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -113,14 +139,17 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(localStorage.getItem('FILE')).toBe(JSON.stringify(EMPTY_DOCUMENT))
-    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    await vi.waitFor(() =>
+      expect(core.setPersistence).toHaveBeenCalledWith(providers.indexedDB)
+    )
+    await expect(providers.indexedDB.load()).resolves.toEqual(EMPTY_DOCUMENT)
+    expect(localStorage.getItem('FILE')).toBeNull()
     expect(core.start).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())
   })
 
-  it('initializes an absent localStorage document before collaboration starts', async () => {
+  it('initializes an absent IndexedDB document before collaboration starts', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
     const host = document.createElement('div')
@@ -138,14 +167,16 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
+    await vi.waitFor(() =>
+      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+    )
+    const selectedPersistence = getSelectedPersistence()
     expect(providers.memory.save).not.toHaveBeenCalled()
-    expect(localStorage.getItem('FILE:file-1')).toBe(
-      JSON.stringify(EMPTY_DOCUMENT)
-    )
+    await expect(selectedPersistence.load()).resolves.toEqual(EMPTY_DOCUMENT)
+    expect(localStorage.getItem('FILE:file-1')).toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(vi.mocked(core.setPersistence).mock.calls[0]?.[0]).not.toBe(
-      providers.localStorage
-    )
+    expect(selectedPersistence.name).toBe('IndexedDB')
+    expect(selectedPersistence).not.toBe(providers.indexedDB)
     expect(core.setPersistence).not.toHaveBeenCalledWith(providers.memory)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
       fileId: 'file-1',
@@ -157,7 +188,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(collaborationLifecycle.disposeCollaboration).toHaveBeenCalledTimes(1)
   })
 
-  it('preserves an existing localStorage document when collaboration starts', async () => {
+  it('migrates an existing localStorage document before collaboration starts', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
     const existingDocument = {
@@ -181,13 +212,15 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
-      existingDocument
+    await vi.waitFor(() =>
+      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
     )
+    const selectedPersistence = getSelectedPersistence()
+    await expect(selectedPersistence.load()).resolves.toEqual(existingDocument)
+    expect(localStorage.getItem('FILE:file-1')).toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(vi.mocked(core.setPersistence).mock.calls[0]?.[0]).not.toBe(
-      providers.localStorage
-    )
+    expect(selectedPersistence.name).toBe('IndexedDB')
+    expect(selectedPersistence).not.toBe(providers.indexedDB)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())
@@ -212,7 +245,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    expect(core.start).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
 
     await act(async () => root.unmount())
     await act(async () => {

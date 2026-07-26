@@ -54,6 +54,10 @@
     work on invocation
   - provider-enabled passes the one app-composed runtime to the exclusive
     programmatic AI Feature
+  - explicit mock mode supplies the stable App-owned provider prompt and an
+    abortable same-origin VTracer client; the local tool endpoint remains inert
+    until an accepted attachment accompanies an explicit whole-image
+    vectorization intent
 - `initApp()` returns the AI composition and an idempotent async disposer;
   disposal aborts/awaits active AI work and disposes only explicitly owned AI
   resources
@@ -65,13 +69,15 @@
 
 3. RenderApp effect
 
-- app-selected localStorage persistence is passed to
+- app-selected IndexedDB persistence is passed to
   `core.setPersistence(...)` before Core startup, so refresh loads the app's
-  demo database instead of an empty in-memory document
+  capacity-appropriate browser demo database instead of an empty in-memory
+  document
 - ordinary URLs use `FILE`; a collaboration URL uses
   `FILE:<encoded fileId>`, and an absent ordinary or collaboration snapshot is
   initialized with the canonical empty workspace while an existing snapshot
-  is preserved unchanged
+  is preserved unchanged; when IndexedDB is empty, an eligible matching legacy
+  localStorage snapshot is migrated and cleared only after a successful write
 - a non-empty `fileId`, including in a deployed production build, additionally
   supplies collaboration document and room identity while a full UUID actor
   identity is generated per page and applied to the canonical ID-counter

@@ -4,21 +4,57 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '..'
 
 const renderAppProps = vi.hoisted(() => vi.fn())
+const toolbarProps = vi.hoisted(() => vi.fn())
 const descriptorMocks = vi.hoisted(() => ({
   executeGroup: vi.fn(),
   executeUngroup: vi.fn()
+}))
+const aiMocks = vi.hoisted(() => ({
+  activeTurn: null as { intent: string } | null,
+  cancel: vi.fn()
 }))
 
 vi.mock('../../render-app', () => ({
   default: (props: unknown) => {
     renderAppProps(props)
-    return <div data-testid="render-app" />
+    return <div data-testid="render-app" tabIndex={-1} />
   }
 }))
-vi.mock('../../toolbar', () => ({ default: () => null }))
+vi.mock('../../toolbar', () => ({
+  default: (props: {
+    aiOpen?: boolean
+    onAiToggle?: (invoker: HTMLButtonElement) => void
+  }) => {
+    toolbarProps(props)
+    return props.onAiToggle ? (
+      <button
+        aria-label="Mock toolbar AI"
+        onClick={(event) => props.onAiToggle?.(event.currentTarget)}
+        type="button"
+      />
+    ) : null
+  }
+}))
 vi.mock('../../contents', () => ({ default: () => null }))
 vi.mock('../../properties', () => ({ default: () => null }))
 vi.mock('../../animation', () => ({ default: () => null }))
+vi.mock('../ai-conversation-panel', () => ({
+  AiConversationPanel: ({ onClose }: { onClose: () => void }) => (
+    <aside aria-label="Mock AI conversation">
+      <textarea
+        aria-label="Message Mock AI"
+        autoFocus
+        data-ai-agent-prompt="true"
+      />
+      <button onClick={onClose} type="button">
+        Close Mock AI
+      </button>
+    </aside>
+  )
+}))
+vi.mock('../ai-history-message-bar', () => ({
+  AiHistoryMessageBar: () => null
+}))
 vi.mock('../../providers', () => ({
   useElementSelection: () => new Set(['a', 'b']),
   useFlattenedIdsData: () => ['a', 'b'],
@@ -60,8 +96,19 @@ vi.mock('../../config/group-command-descriptors', () => ({
   }
 }))
 
+const createAi = () =>
+  ({
+    confirmation: {},
+    conversation: {
+      cancel: aiMocks.cancel,
+      getSnapshot: () => ({ activeTurn: aiMocks.activeTurn })
+    },
+    history: {}
+  }) as never
+
 describe('App context-menu composition', () => {
   beforeEach(() => {
+    aiMocks.activeTurn = null
     ;(
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT: boolean
@@ -230,5 +277,78 @@ describe('App context-menu composition', () => {
 
     secondRoot.unmount()
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('shares one Agent panel toggle across toolbar, shortcut, and Context Menu', async () => {
+    render(<App ai={createAi()} groupCommandPlatform="macos" />)
+    const canvasHost = screen.getByTestId('render-app')
+    const props = renderAppProps.mock.lastCall?.[0] as {
+      onContextMenuRequest: (invocation: {
+        clientX: number
+        clientY: number
+        invoker: HTMLDivElement
+      }) => void
+    }
+
+    act(() => {
+      props.onContextMenuRequest({
+        clientX: 240,
+        clientY: 180,
+        invoker: canvasHost as HTMLDivElement
+      })
+    })
+    const rows = screen.getAllByRole('menuitem')
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Toggle Agent Panel⌘I',
+      'Group⌘G',
+      'Ungroup⇧⌘G'
+    ])
+
+    fireEvent.click(rows[0] as HTMLElement)
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
+    expect(document.activeElement).toBe(
+      screen.getByLabelText('Message Mock AI')
+    )
+
+    fireEvent.keyDown(screen.getByLabelText('Message Mock AI'), {
+      key: 'i',
+      metaKey: true
+    })
+    expect(screen.queryByLabelText('Mock AI conversation')).toBeNull()
+    await act(async () => Promise.resolve())
+    expect(document.activeElement).toBe(canvasHost)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mock toolbar AI' }))
+    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
+  })
+
+  it('keeps the shortcut app-root-local and bypasses unrelated editable fields', () => {
+    render(<App ai={createAi()} groupCommandPlatform="macos" />)
+    const outsideInput = document.createElement('input')
+    document.body.append(outsideInput)
+
+    fireEvent.keyDown(outsideInput, { key: 'i', metaKey: true })
+    expect(screen.queryByLabelText('Mock AI conversation')).toBeNull()
+
+    fireEvent.keyDown(screen.getByTestId('render-app'), {
+      key: 'i',
+      metaKey: true
+    })
+    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
+  })
+
+  it('cancels an active turn when an external toggle closes the panel', () => {
+    aiMocks.activeTurn = { intent: '畫一個貓臉' }
+    render(<App ai={createAi()} groupCommandPlatform="macos" />)
+    const toolbarButton = screen.getByRole('button', {
+      name: 'Mock toolbar AI'
+    })
+
+    fireEvent.click(toolbarButton)
+    fireEvent.click(toolbarButton)
+
+    expect(aiMocks.cancel).toHaveBeenCalledOnce()
+    expect(aiMocks.cancel).toHaveBeenCalledWith('panel-closed')
   })
 })

@@ -132,6 +132,9 @@ execution or a transaction.
 ```ts
 const result = await runtime.run({
   intent,
+  progressObserver: (update) => {
+    appAiConversation.projectOperationalProgress(update)
+  },
   signal: featureSignal,
   metadata: {
     requestId
@@ -142,6 +145,12 @@ const result = await runtime.run({
 The app Feature owns exclusivity, active-task rejection, cancellation, and
 lifecycle completion. Pass its signal through; do not build another command
 queue or session manager around the runtime.
+
+The optional invocation-local observer receives only frozen operational
+updates. Treat phases as presentation evidence, map them to concise status
+labels, and do not infer permission, transaction, or terminal behavior from
+them. Observer failure cannot alter the invocation, and abort/disposal prevents
+later delivery.
 
 Handle exactly one terminal result:
 
@@ -169,9 +178,14 @@ Render, Collaboration, or borrowed providers.
 - Denial or cancellation opens no transaction.
 - One accepted multi-action plan opens one transaction and produces one
   intended undo entry.
-- Executor failure rolls back without an accepted canonical prefix.
+- A resolved app-owned recoverable partial result may commit successful sibling
+  mutations in that same undo entry.
+- A rejected/throwing executor is fatal and rolls back without an accepted
+  canonical prefix.
 - Fake and generic HTTP providers pass the same action/runtime contract.
 - Audit, preview, failure, context, and metadata redact secret-like values.
+- Progress contains no provider body, action arguments, context, canonical
+  state, secret, or chain-of-thought and stops after abort/disposal.
 
 Executable reference:
 `docs/examples/ai-agent-runtime.mjs`.

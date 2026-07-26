@@ -3,6 +3,7 @@ import {
   createRectangle,
   getContentsPanel,
   pressGroupCommandShortcut,
+  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -286,11 +287,8 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       return data.sceneTree
     })
     await expect
-      .poll(() =>
-        page.evaluate(
-          (id) => localStorage.getItem('FILE')?.includes(id) ?? false,
-          groupId
-        )
+      .poll(async () =>
+        JSON.stringify(await readPersistedDocument(page)).includes(groupId)
       )
       .toBe(true)
     await page.reload()

@@ -37,4 +37,40 @@ describe('Asyra Design AI transaction adapter', () => {
       })
     ).rejects.toBe(failure)
   })
+
+  it('correlates only a newly committed canonical action with the active turn', async () => {
+    let currentActionId: number | null = 20
+    const correlateCommittedAction = vi.fn(() => true)
+    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
+      execute: () => Promise<T>
+    ) => {
+      const result = await execute()
+      currentActionId = 21
+      return result
+    }
+    const runner = createAsyraDesignAiTransactionRunner(boundary, {
+      correlateCommittedAction,
+      getCurrentActionId: () => currentActionId
+    })
+
+    await runner.run('AI-assisted action', async () => 'complete')
+
+    expect(correlateCommittedAction).toHaveBeenCalledOnce()
+    expect(correlateCommittedAction).toHaveBeenCalledWith(21)
+  })
+
+  it('does not correlate a zero-mutation transaction', async () => {
+    const correlateCommittedAction = vi.fn(() => true)
+    const runner = createAsyraDesignAiTransactionRunner(
+      async <T>(execute: () => Promise<T>) => execute(),
+      {
+        correlateCommittedAction,
+        getCurrentActionId: () => 20
+      }
+    )
+
+    await runner.run('AI-assisted action', async () => 'no-change')
+
+    expect(correlateCommittedAction).not.toHaveBeenCalled()
+  })
 })

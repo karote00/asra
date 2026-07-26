@@ -17,6 +17,29 @@ generic provider integration through the replaceable boundary. The exact first
 adapter is the generic HTTP provider defined below. It does not make a model
 vendor mandatory and does not read or expose a browser-held server API key.
 
+### Post-Closeout Clarification
+
+The completed Gate 4 implementation and status remain unchanged. The following
+terms were clarified on 2026-07-25 for the succeeding Asyra Design
+Conversational AI plan:
+
+- one accepted plan still enters one app transaction runner call and maps to
+  one intended undo commit when it produces mutation;
+- a resolved executor result may contain app-owned recoverable partial-item
+  evidence, in which case successful sibling mutations may commit together;
+- executor failure in this completed plan means a rejected/throwing executor
+  or canonical consistency failure, which remains fatal and is owned by the
+  app transaction runner's rollback contract;
+- confirmation still pauses and awaits the app handler, but the immutable
+  `AiPlanPreview` is handler input rather than a mandated low-level or visual
+  user preview; and
+- conversation UI, operational progress presentation, Message Bar history
+  controls, drawing actions, and incremental follow-up targeting belong to the
+  completed successor App plan rather than this completed release gate.
+
+Completed successor:
+`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`.
+
 ## Product Contract
 
 ### Supported Behavior

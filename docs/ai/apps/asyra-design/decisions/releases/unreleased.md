@@ -6961,3 +6961,96 @@ join` constrained dashed product path across:
   - `1e041403c` (`feat(asyra-design): add bounded AI context provider`)
   - `4bcbcb53c` (`feat(ai-runtime): execute bounded app actions`)
   - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)
+
+## 2026-07-25 - Plan explicit conversational Mock AI drawing
+
+- Context:
+  - Completed Gate 4 provides provider-replaceable orchestration but no
+    user-facing Asyra Design AI experience or live API key.
+  - Product review chose one user turn per undo action, app-owned recoverable
+    partial-item results, app-presented confirmation waits, and incremental
+    follow-up edits to existing canonical elements.
+- Decision:
+  - Keep Gate 4 closed and create a new active cross-cutting App plan.
+  - Enable the experience only through exact `ai=mock`, with deterministic
+    abortable delays and visibly labelled mock fixtures.
+  - Show operational runtime status and concise explanations, never raw or
+    fabricated private chain-of-thought.
+  - Add bounded App drawing/update/removal actions, one-turn transaction and
+    Message Bar history behavior, visible App confirmation, and in-memory
+    semantic target hints revalidated against current canonical state.
+  - Treat resolved recoverable item evidence as partial success and reserve
+    executor rejection for fatal consistency failure and rollback.
+- Consequences:
+  - The complete UI/runtime/action/history flow can be exercised without a
+    network endpoint or API key.
+  - Follow-up turns modify existing ids instead of regenerating the original
+    composition.
+  - Production and generated-app startup remain AI-disabled by default.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-07-26 - Move browser document durability from localStorage to IndexedDB
+
+- Context:
+  - The balanced high-detail cat drawing commits successfully but its complete
+    canonical snapshot exceeds localStorage quota, leaving the visible runtime
+    state without a successful persistence acknowledgement.
+- Decision:
+  - Select the framework IndexedDB provider for ordinary and collaboration
+    Asyra Design document identities.
+  - Preserve `FILE` and `FILE:<encoded fileId>` identities and migrate an
+    eligible legacy localStorage snapshot only when IndexedDB is empty.
+  - Remove the legacy value only after its IndexedDB write succeeds; keep Core
+    as the sole save-queue and persistence-status owner.
+- Consequences:
+  - High-detail editable documents are no longer constrained by localStorage's
+    small synchronous quota.
+  - Existing eligible local snapshots survive the provider transition without
+    introducing an AI-specific persistence or canonical-state path.
+  - IndexedDB remains browser-local demo durability, not a production shared
+    database or cross-device recovery contract.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-07-26 - Complete Conversational AI Mock Drawing
+
+- Context:
+  - The explicit Mock experience now covers non-modal conversation, safe
+    operational progress, local attachments, resource-aware detail choice,
+    ordinary editable drawing, canonical-id follow-ups, partial results,
+    App-presented confirmation, cancellation/failure, elapsed time, and
+    current-action Undo/Redo.
+  - App-owned prompt analysis and registered-tool policy now route explicit
+    whole-image PNG/JPEG/WebP requests through the installed same-origin
+    VTracer tool; arbitrary results remain ordinary canonical Vectors.
+  - Browser-local IndexedDB durability, official generated-template parity,
+    ordinary and Maximum-detail E2E, full builds, and synchronized live-app
+    screenshot review have passed.
+- Decision:
+  - Close the Conversational AI Mock Drawing plan without enabling AI by
+    default or adding a live provider, browser API key, external upload,
+    private chain-of-thought, alternate canonical path, or second transaction/
+    history owner.
+  - Keep exact `ai=mock` deterministic and keyless; retain App ownership of
+    prompt/tool policy, VTracer validation, confirmation presentation,
+    recoverable partial classification, canonical target hints, and Message
+    Bar projection.
+  - Leave performance remediation and credential-gated live-provider formal
+    testing as separate proposed successor plans requiring explicit start and,
+    for the latter, a dedicated server-only API key.
+- Consequences:
+  - Asyra Design can now demonstrate the complete Agent product flow and
+    arbitrary local whole-image vectorization without a real model provider.
+  - Every mutating turn remains one intended Undo action, follow-ups revalidate
+    existing canonical IDs, and fatal consistency failures retain ordinary
+    rollback.
+  - Browser IndexedDB and the bundled same-origin VTracer endpoint remain demo
+    infrastructure; production derivatives must supply their own server
+    database and deployment-grade tool/provider boundary.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`
+- Related Commit(s):
+  - `90a1b2e0e` (`feat(asyra-design): vectorize arbitrary image attachments`)
+  - `c43f614f6` (`fix(asyra-design): accept single-item vector traces`)
+  - `a6aa55b9a` (`chore(create-app): sync VTracer image workflow`)

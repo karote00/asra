@@ -117,15 +117,6 @@ export async function setStrokeDiagnosticsMode(
  * Reset the canvas by clicking the Reset button
  */
 export async function resetCanvas(page: Page) {
-  await page.evaluate(() => {
-    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-      const key = localStorage.key(index)
-      if (key === 'FILE' || key?.startsWith('FILE:')) {
-        localStorage.removeItem(key)
-      }
-    }
-  })
-
   let resetButton = page.getByTestId('reset-button')
   const canReset = await resetButton
     .waitFor({ state: 'visible', timeout: 5_000 })
@@ -144,6 +135,104 @@ export async function resetCanvas(page: Page) {
   await resetButton.click()
   await reloadPromise
   await waitForAppReady(page)
+}
+
+export async function readPersistedDocument<T = unknown>(
+  page: Page,
+  storageKey = 'FILE'
+): Promise<T | null> {
+  return page.evaluate(
+    ({ databaseName, objectStoreName, key }) =>
+      new Promise<T | null>((resolve, reject) => {
+        const openRequest = indexedDB.open(databaseName)
+        openRequest.onerror = () =>
+          reject(openRequest.error ?? new Error('IndexedDB open failed'))
+        openRequest.onsuccess = () => {
+          const database = openRequest.result
+          const transaction = database.transaction(objectStoreName, 'readonly')
+          const request = transaction.objectStore(objectStoreName).get(key)
+          request.onerror = () =>
+            reject(request.error ?? new Error('IndexedDB read failed'))
+          request.onsuccess = () => resolve((request.result as T) ?? null)
+          transaction.oncomplete = () => database.close()
+          transaction.onabort = () => database.close()
+        }
+      }),
+    {
+      databaseName: 'asyra-documents',
+      objectStoreName: 'documents',
+      key: storageKey
+    }
+  )
+}
+
+interface DocumentDigest {
+  byteLength: number
+  sha256: string
+}
+
+export async function getCoreDocumentDigest(
+  page: Page
+): Promise<DocumentDigest> {
+  return page.evaluate(async () => {
+    const data = await window.__Core__.save()
+    const bytes = new TextEncoder().encode(JSON.stringify(data))
+    const digest = await crypto.subtle.digest('SHA-256', bytes)
+    return {
+      byteLength: bytes.byteLength,
+      sha256: [...new Uint8Array(digest)]
+        .map((value) => value.toString(16).padStart(2, '0'))
+        .join('')
+    }
+  })
+}
+
+export async function getPersistedDocumentDigest(
+  page: Page,
+  storageKey = 'FILE'
+): Promise<DocumentDigest | null> {
+  return page.evaluate(
+    ({ databaseName, objectStoreName, key }) =>
+      new Promise<DocumentDigest | null>((resolve, reject) => {
+        const openRequest = indexedDB.open(databaseName)
+        openRequest.onerror = () =>
+          reject(openRequest.error ?? new Error('IndexedDB open failed'))
+        openRequest.onsuccess = () => {
+          const database = openRequest.result
+          const transaction = database.transaction(objectStoreName, 'readonly')
+          const request = transaction.objectStore(objectStoreName).get(key)
+          request.onerror = () =>
+            reject(request.error ?? new Error('IndexedDB read failed'))
+          request.onsuccess = () => {
+            if (request.result === undefined) {
+              resolve(null)
+              return
+            }
+            const bytes = new TextEncoder().encode(
+              JSON.stringify(request.result)
+            )
+            void crypto.subtle
+              .digest('SHA-256', bytes)
+              .then((digest) =>
+                resolve({
+                  byteLength: bytes.byteLength,
+                  sha256: [...new Uint8Array(digest)]
+                    .map((value) => value.toString(16).padStart(2, '0'))
+                    .join('')
+                })
+              )
+              .catch(reject)
+          }
+          transaction.oncomplete = () => database.close()
+          transaction.onabort = () => database.close()
+        }
+      }),
+    {
+      databaseName: 'asyra-documents',
+      objectStoreName: 'documents',
+      key: storageKey
+    }
+  )
 }
 
 export function parseStrokeDashAndGapInput(pattern: string): {

@@ -7,14 +7,34 @@ import DataContexts from './contexts/data-change'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 import { initApp } from './init'
+import {
+  resolveAsyraDesignAiDeliveryMode,
+  resolveAsyraDesignAiMode
+} from './ai/mode'
 
-initApp()
+const initialization = initApp({
+  aiDeliveryMode: resolveAsyraDesignAiDeliveryMode(window.location.search),
+  aiMode: resolveAsyraDesignAiMode(window.location.search)
+})
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
   <React.StrictMode>
     <DataContexts />
-    <App />
+    <App
+      ai={
+        initialization.aiMode === 'mock' &&
+        initialization.aiConversation &&
+        initialization.aiConfirmation &&
+        initialization.aiHistory
+          ? {
+              confirmation: initialization.aiConfirmation,
+              conversation: initialization.aiConversation,
+              history: initialization.aiHistory
+            }
+          : undefined
+      }
+    />
   </React.StrictMode>
 )
 

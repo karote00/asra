@@ -9,8 +9,8 @@ transformation hooks used by Core.
 
 - the `IPersistenceProvider` contract: `save`, `load`, and `clear`;
 - `SaveHook` and `LoadHook` types;
-- browser `LocalStoragePersistence` and process-local `MemoryPersistence`
-  reference providers;
+- browser `IndexedDbPersistence` and `LocalStoragePersistence`, plus the
+  process-local `MemoryPersistence` reference provider;
 - the convenience `providers` instances.
 
 ## Must Not Own
@@ -31,9 +31,14 @@ transformation hooks used by Core.
   versioned document. App-owned migrations belong in this hook chain.
 - Provider failure is reported by the Core persistence lifecycle and does not
   redefine whether the preceding runtime transaction committed.
+- `IndexedDbPersistence` stores structured-clone documents under an
+  app-selected key, defaults to `FILE`, and accepts an injected `IDBFactory`
+  for isolated runtimes and tests. It is the capacity-appropriate offline
+  browser reference for high-detail documents.
 - `MemoryPersistence` is ephemeral. `LocalStoragePersistence` accepts an
-  app-selected browser storage key and defaults to `FILE`; neither provider is
-  a production backend policy.
+  app-selected browser storage key and defaults to `FILE`; it remains suitable
+  only for small prototypes. None of the reference providers is a production
+  backend policy.
 
 ## Authorities
 

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   createElement: vi.fn(),
   createElementInParent: vi.fn(),
+  createVectorElement: vi.fn(),
+  createVectorElementsInParent: vi.fn(),
   changeComputedData: vi.fn(),
   getElementById: vi.fn(),
   getMousePosInWorkspace: vi.fn(),
@@ -38,7 +40,8 @@ vi.mock('../../../contexts', () => ({
 
 vi.mock('../vector-apis', () => ({
   vectorApis: {
-    createVectorElement: vi.fn()
+    createVectorElement: mocks.createVectorElement,
+    createVectorElementsInParent: mocks.createVectorElementsInParent
   }
 }))
 
@@ -141,6 +144,109 @@ describe('create-element explicit parent and coordinates', () => {
       undefined
     )
     expect(mocks.createElement).not.toHaveBeenCalled()
+  })
+
+  it('creates from an explicit workspace position without a Render coordinate dependency', () => {
+    const fills = [{ id: 'fill-1' }]
+    const strokes = [{ id: 'stroke-1' }]
+
+    expect(
+      elementApis.createElement(
+        {
+          type: 'oval',
+          workspacePosition: { x: 300, y: 240 },
+          parentId: 'workspace',
+          width: 80,
+          height: 60,
+          fills: fills as never,
+          strokes: strokes as never
+        },
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    ).toBe('new-element')
+
+    expect(mocks.getMousePosInWorkspace).not.toHaveBeenCalled()
+    expect(mocks.createElementInParent).toHaveBeenCalledWith(
+      {
+        type: 'oval',
+        x: 300,
+        y: 240,
+        fills,
+        strokes,
+        width: 80,
+        height: 60
+      },
+      'workspace',
+      undefined,
+      {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      }
+    )
+  })
+
+  it('creates directly in a known Group origin without a post-hoc move', () => {
+    expect(
+      elementApis.createElement(
+        {
+          type: 'oval',
+          workspacePosition: { x: 300, y: 240 },
+          parentId: 'group-2',
+          parentWorkspaceOrigin: { x: 250, y: 200 },
+          width: 80,
+          height: 60
+        },
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    ).toBe('new-element')
+
+    expect(mocks.createElementInParent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'oval',
+        x: 50,
+        y: 40,
+        width: 80,
+        height: 60
+      }),
+      'group-2',
+      undefined,
+      {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      }
+    )
+    expect(mocks.moveElementsWithGroupGeometry).not.toHaveBeenCalled()
+  })
+
+  it('routes an ordered Vector batch through one explicit parent operation', () => {
+    const elements = [
+      { type: 'vector', parentId: 'workspace' },
+      { type: 'vector', parentId: 'workspace' }
+    ] as const
+    mocks.createVectorElementsInParent.mockReturnValue(['vector-1', 'vector-2'])
+
+    expect(
+      elementApis.createElements(elements, {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      })
+    ).toEqual(['vector-1', 'vector-2'])
+    expect(mocks.createVectorElementsInParent).toHaveBeenCalledOnce()
+    expect(mocks.createVectorElementsInParent).toHaveBeenCalledWith(
+      elements,
+      'workspace',
+      {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      }
+    )
+    expect(mocks.createVectorElement).not.toHaveBeenCalled()
   })
 
   it('converts workspace points through the current viewport and Group transform', () => {

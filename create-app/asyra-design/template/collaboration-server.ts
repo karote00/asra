@@ -68,7 +68,10 @@ const httpServer = createHttpServer((request, response) => {
   response.writeHead(404)
   response.end()
 })
-const webSocketServer = new WebSocketServer({ noServer: true })
+const webSocketServer = new WebSocketServer({
+  noServer: true,
+  maxPayload: 0
+})
 
 httpServer.on('upgrade', (request, socket, head) => {
   const requestURL = new URL(request.url ?? '/', `http://${host}:${port}`)

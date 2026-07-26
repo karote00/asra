@@ -20,6 +20,11 @@ These rules apply to every task without requiring additional document reads:
   `docs/ai/workflows/git-commit-push-policy.md`.
 - Do not overwrite unrelated user changes in a dirty worktree.
 - Follow main branch protection before making code or documentation changes.
+- Obtain explicit user approval before adding or installing any third-party
+  package, dependency, binary, or development tool. Normal use of an existing,
+  already-approved dependency does not require renewed approval.
+- Obtain explicit user approval before upgrading Node.js, Yarn, a package
+  manager, or any other environment/runtime tool.
 - Freeze a bounded task contract before editing. Reading may expand to resolve
   risk, but rules and discoveries must not independently expand mutation scope.
   Follow `docs/ai/framework/rules/bounded-task-scope-and-closure.md`.

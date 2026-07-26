@@ -77,6 +77,45 @@ describe.sequential('AI agent Feature lifecycle', () => {
     expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
   })
 
+  it('forwards detached turn metadata and progress while retaining Feature-owned cancellation', async () => {
+    const progressObserver = vi.fn()
+    const run = vi.fn(async (request) => ({
+      metadata: request.metadata,
+      status: 'executed'
+    }))
+    registerAiAgentFeature({
+      providerEnabled: true,
+      runtime: { run }
+    })
+
+    const api = getFeature(FeatureNames.AI_AGENT) as {
+      execute(request: {
+        intent: string
+        metadata: Record<string, unknown>
+        progressObserver: typeof progressObserver
+      }): Promise<Record<string, unknown>>
+    }
+    await api.execute({
+      intent: '  畫一個貓臉  ',
+      metadata: {
+        conversationId: 'conversation-1',
+        turnId: 'conversation-1:turn:1'
+      },
+      progressObserver
+    })
+
+    expect(run).toHaveBeenCalledWith({
+      intent: '畫一個貓臉',
+      metadata: {
+        conversationId: 'conversation-1',
+        turnId: 'conversation-1:turn:1'
+      },
+      progressObserver,
+      signal: expect.any(AbortSignal)
+    })
+    expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
+  })
+
   it('rejects empty intent without starting a Feature task', async () => {
     const run = vi.fn()
     registerAiAgentFeature({

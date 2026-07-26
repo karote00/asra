@@ -331,7 +331,7 @@ describe('Factory action-level shared publication', () => {
     )
   })
 
-  it('keeps several immediate publications in one outer undo commit', async () => {
+  it('replays progressive publications separately while consuming one undo or redo action', async () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_COMPUTED_DATA,
@@ -350,20 +350,147 @@ describe('Factory action-level shared publication', () => {
 
     factory.undo()
 
-    expect(publications).toHaveLength(1)
+    expect(publications).toHaveLength(2)
     expect(publications[0]).toEqual(
       expect.objectContaining({
         origin: 'undo',
         deliveries: [
           expect.objectContaining({
             payload: expect.objectContaining({ id: 'element-a', after: 1 })
-          }),
+          })
+        ]
+      })
+    )
+    expect(publications[1]).toEqual(
+      expect.objectContaining({
+        origin: 'undo',
+        deliveries: [
           expect.objectContaining({
             payload: expect.objectContaining({ id: 'element-a', after: 0 })
           })
         ]
       })
     )
+
+    publications.length = 0
+    factory.redo()
+
+    expect(publications).toHaveLength(2)
+    expect(publications[0]).toEqual(
+      expect.objectContaining({
+        origin: 'redo',
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({ id: 'element-a', after: 1 })
+          })
+        ]
+      })
+    )
+    expect(publications[1]).toEqual(
+      expect.objectContaining({
+        origin: 'redo',
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({ id: 'element-a', after: 2 })
+          })
+        ]
+      })
+    )
+  })
+
+  it('preserves replay order when undo crosses transaction-end and immediate deliveries', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    update(factory, 'immediate-first', 1, {
+      sharedDelivery: 'immediate'
+    })
+    update(factory, 'transaction-end-second', 1)
+    factory.endTransaction()
+    await Promise.resolve()
+    publications.length = 0
+
+    factory.undo()
+
+    expect(
+      publications.flatMap(({ deliveries }) =>
+        deliveries.map(
+          ({ payload }) => (payload as { id?: unknown }).id as string
+        )
+      )
+    ).toEqual(['transaction-end-second', 'immediate-first'])
+
+    publications.length = 0
+    factory.redo()
+
+    expect(
+      publications.flatMap(({ deliveries }) =>
+        deliveries.map(
+          ({ payload }) => (payload as { id?: unknown }).id as string
+        )
+      )
+    ).toEqual(['immediate-first', 'transaction-end-second'])
+  })
+
+  it('compensates already-published progressive replay when a later undo batch fails', async () => {
+    const { factory, publications } = createHarness()
+    let failSecondReplay = true
+    let replayCount = 0
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => {
+        replayCount += 1
+        if (failSecondReplay && replayCount === 2) {
+          throw new Error('later progressive replay failed')
+        }
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    update(factory, 'element-a', 1, { sharedDelivery: 'immediate' })
+    await Promise.resolve()
+    update(factory, 'element-a', 2, { sharedDelivery: 'immediate' })
+    await Promise.resolve()
+    factory.endTransaction()
+    publications.length = 0
+
+    expect(() => factory.undo()).toThrow('Transaction rollback failed')
+    expect(publications).toHaveLength(2)
+    expect(publications[0]).toEqual(
+      expect.objectContaining({
+        origin: 'undo',
+        deliveries: [
+          expect.objectContaining({
+            kind: 'forward',
+            payload: expect.objectContaining({ after: 1 })
+          })
+        ]
+      })
+    )
+    expect(publications[1]).toEqual(
+      expect.objectContaining({
+        origin: 'rollback-compensation',
+        deliveries: [
+          expect.objectContaining({
+            kind: 'compensation',
+            payload: expect.objectContaining({ after: 2 })
+          })
+        ]
+      })
+    )
+
+    failSecondReplay = false
+    replayCount = 0
+    publications.length = 0
+    factory.undo()
+
+    expect(publications).toHaveLength(2)
+    expect(publications.every(({ origin }) => origin === 'undo')).toBe(true)
   })
 
   it('isolates publication subscribers from commit and from each other', () => {

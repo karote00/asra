@@ -13,6 +13,7 @@ export { selectionApis } from './selection'
 export {
   elementApis,
   vectorGeometry,
+  type CreateElementOptions,
   type AppendVectorAnchorPointOptions,
   type VectorPointUpdate
 } from './element'

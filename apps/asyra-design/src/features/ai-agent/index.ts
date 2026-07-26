@@ -3,13 +3,19 @@ import {
   defineFeature,
   invokeFeatureTask
 } from '@asyra/feature-system'
-import type { AiRuntimeResult } from '@asyra/ai-agent-runtime'
+import type {
+  AiJsonValue,
+  AiRuntimeProgressObserver,
+  AiRuntimeResult
+} from '@asyra/ai-agent-runtime'
 import { FeatureNames } from '../../constants'
 
 export const AI_AGENT_FEATURE_PRIORITY = 100
 
 export interface AiAgentFeatureRunRequest {
   readonly intent: string
+  readonly metadata?: AiJsonValue
+  readonly progressObserver?: AiRuntimeProgressObserver
   readonly signal: AbortSignal
 }
 
@@ -26,6 +32,12 @@ export interface RegisterAiAgentFeatureOptions {
 
 export interface AiAgentFeatureExecuteOptions {
   readonly signal?: AbortSignal
+}
+
+export interface AiAgentFeatureExecuteRequest {
+  readonly intent: string
+  readonly metadata?: AiJsonValue
+  readonly progressObserver?: AiRuntimeProgressObserver
 }
 
 export type AiAgentFeatureTerminalResult =
@@ -50,7 +62,7 @@ export type AiAgentFeatureResult =
 
 export interface AiAgentFeatureApi {
   execute(
-    intent: string,
+    request: AiAgentFeatureExecuteRequest | string,
     options?: AiAgentFeatureExecuteOptions
   ): Promise<AiAgentFeatureResult>
   cancel(reason?: unknown): boolean
@@ -59,6 +71,8 @@ export interface AiAgentFeatureApi {
 
 interface AiAgentFeatureTaskInput {
   readonly intent: string
+  readonly metadata?: AiJsonValue
+  readonly progressObserver?: AiRuntimeProgressObserver
 }
 
 const AI_PROVIDER_DISABLED_RESULT = Object.freeze({
@@ -85,15 +99,33 @@ export const registerAiAgentFeature = (
   }
 
   const api: AiAgentFeatureApi = {
-    execute: (intent, executeOptions = {}) => {
-      const normalizedIntent = intent.trim()
+    execute: (request, executeOptions = {}) => {
+      const normalizedRequest =
+        typeof request === 'string'
+          ? {
+              intent: request
+            }
+          : request
+      const normalizedIntent = normalizedRequest.intent.trim()
       if (!normalizedIntent) {
         return Promise.resolve(AI_INVALID_INTENT_RESULT)
       }
 
       return invokeFeatureTask<AiAgentFeatureTaskInput, AiAgentFeatureResult>(
         FeatureNames.AI_AGENT,
-        { intent: normalizedIntent },
+        {
+          intent: normalizedIntent,
+          ...(normalizedRequest.metadata === undefined
+            ? {}
+            : {
+                metadata: normalizedRequest.metadata
+              }),
+          ...(normalizedRequest.progressObserver === undefined
+            ? {}
+            : {
+                progressObserver: normalizedRequest.progressObserver
+              })
+        },
         executeOptions
       )
     },
@@ -109,14 +141,19 @@ export const registerAiAgentFeature = (
     priority: AI_AGENT_FEATURE_PRIORITY,
     exclusive: true,
     api,
-    task: ({ intent }, { signal }) => {
+    task: ({ intent, metadata, progressObserver }, { signal }) => {
       if (signal.aborted) {
         return AI_ABORTED_RESULT
       }
       if (!options.providerEnabled || !options.runtime) {
         return AI_PROVIDER_DISABLED_RESULT
       }
-      return options.runtime.run({ intent, signal })
+      return options.runtime.run({
+        intent,
+        ...(metadata === undefined ? {} : { metadata }),
+        ...(progressObserver === undefined ? {} : { progressObserver }),
+        signal
+      })
     }
   })
 }

@@ -116,6 +116,12 @@ describe('app context-menu session', () => {
     controller?.dismiss('tab')
     await act(async () => Promise.resolve())
     expect(document.activeElement).toBe(nextTarget)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open first one' }))
+    nextTarget.focus()
+    controller?.dismiss('activation-without-focus-restore')
+    await act(async () => Promise.resolve())
+    expect(document.activeElement).toBe(nextTarget)
   })
 
   it('treats dismissal without a session as a no-op', async () => {

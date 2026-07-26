@@ -5,6 +5,7 @@ import {
   getContentsPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
+  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -747,9 +748,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
       return data.sceneTree
     })
     await expect
-      .poll(() =>
-        page.evaluate(
-          (groupId) => localStorage.getItem('FILE')?.includes(groupId) ?? false,
+      .poll(async () =>
+        JSON.stringify(await readPersistedDocument(page)).includes(
           nestedGroupId
         )
       )

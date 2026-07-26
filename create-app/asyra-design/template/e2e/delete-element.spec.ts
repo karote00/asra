@@ -8,6 +8,7 @@ import {
   getSelectedElementClientCenter,
   hasSelectedElement,
   pressGroupCommandShortcut,
+  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -209,20 +210,13 @@ test.describe('Delete Selected Element', () => {
       .toEqual([survivingId])
 
     await expect
-      .poll(() =>
-        page.evaluate(
-          ({ childId, deletedGroupId }) => {
-            const raw = localStorage.getItem('FILE')
-            if (!raw) {
-              return false
-            }
-            const saved = JSON.parse(raw)
-            const elements = saved.sceneTree?.elements ?? {}
-            return !elements[deletedGroupId] && !elements[childId]
-          },
-          { childId: subtree.childId, deletedGroupId: groupId }
-        )
-      )
+      .poll(async () => {
+        const saved = await readPersistedDocument<{
+          sceneTree?: { elements?: Record<string, unknown> }
+        }>(page)
+        const elements = saved?.sceneTree?.elements ?? {}
+        return !elements[groupId] && !elements[subtree.childId]
+      })
       .toBe(true)
 
     await page.reload()

@@ -1,14 +1,23 @@
 import { flushSync } from 'react-dom'
 import { ContextMenu } from '@asyra/design-system'
-import type { GroupCommandDescriptor } from '../config/group-command-descriptors'
 import type {
   AppContextMenuSession,
   AppContextMenuSessionDismissReason
 } from './context-menu-session'
 
+export interface CanvasContextMenuCommandDescriptor {
+  readonly id: string
+  readonly label: string
+  readonly ariaLabel: string
+  readonly shortcutLabel: string
+  readonly enabled: boolean
+  readonly restoreInvokerFocusOnActivation?: boolean
+  readonly execute: () => unknown
+}
+
 interface GroupContextMenuProps {
   session: AppContextMenuSession | null
-  descriptors: readonly GroupCommandDescriptor[]
+  descriptors: readonly CanvasContextMenuCommandDescriptor[]
   onDismiss: (reason: AppContextMenuSessionDismissReason) => void
 }
 
@@ -34,7 +43,13 @@ export const GroupContextMenu = ({
         const descriptor = descriptors.find(({ id }) => id === itemId)
         if (!descriptor?.enabled) return
 
-        flushSync(() => onDismiss('activation'))
+        flushSync(() =>
+          onDismiss(
+            descriptor.restoreInvokerFocusOnActivation === false
+              ? 'activation-without-focus-restore'
+              : 'activation'
+          )
+        )
         descriptor.execute()
       }}
       onDismiss={onDismiss}

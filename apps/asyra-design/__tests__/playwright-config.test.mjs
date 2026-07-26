@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import test from 'node:test'
 import { fileURLToPath, URL } from 'node:url'
@@ -30,7 +31,8 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
 
   assert.doesNotMatch(ordinary, /collaboration\.spec\.ts/)
   assert.match(collaboration, /collaboration\.spec\.ts/)
-  assert.match(collaboration, /Total: [1-9]\d* tests? in 1 file/)
+  assert.match(collaboration, /collaboration-ai-agent-video\.spec\.ts/)
+  assert.match(collaboration, /Total: [1-9]\d* tests? in 2 files/)
 })
 
 test('CI can exclude the isolated render performance gate from the functional suite', () => {
@@ -41,6 +43,25 @@ test('CI can exclude the isolated render performance gate from the functional su
 
   assert.match(ordinary, /render-delta-performance\.spec\.ts/)
   assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
+})
+
+test('the balanced AI correctness gate requires an explicit heavy-test flag', async () => {
+  const ordinary = listTests('playwright.config.ts')
+  const heavy = listTests('playwright.config.ts', {
+    ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS: '1'
+  })
+  const manifest = JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8')
+  )
+  const balancedCase =
+    /attaches a reference, chooses balanced detail, and incrementally edits/
+
+  assert.doesNotMatch(ordinary, balancedCase)
+  assert.match(heavy, balancedCase)
+  assert.match(
+    manifest.scripts['test:e2e:balanced-ai-correctness'],
+    /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS=1/
+  )
 })
 
 test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', async () => {
@@ -77,5 +98,27 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
       retries: 1,
       workers: 2
     }
+  )
+})
+
+test('the AI CRDT recording owns dedicated fresh app and collaboration servers', async () => {
+  const [configSource, manifestSource] = await Promise.all([
+    readFile(
+      new URL('../playwright.collaboration.config.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ])
+  const manifest = JSON.parse(manifestSource)
+  const command = manifest.scripts['test:e2e:ai-crdt-video']
+
+  assert.match(configSource, /ASYRA_DESIGN_E2E_OWN_SERVERS/)
+  assert.match(configSource, /reuseExistingServer:\s*!ownsTestServers/g)
+  assert.match(command, /ASYRA_DESIGN_E2E_OWN_SERVERS=1/)
+  assert.match(command, /ASYRA_DESIGN_APP_URL=http:\/\/127\.0\.0\.1:3011/)
+  assert.match(command, /ASYRA_DESIGN_COLLABORATION_WS_PORT=4111/)
+  assert.match(
+    command,
+    /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/asyra-design-collaboration/
   )
 })

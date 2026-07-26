@@ -5,6 +5,11 @@ import {
   selectionApis,
   systemContextApis
 } from '../common-apis'
+import {
+  ASYRA_DESIGN_AI_APP_PROMPT,
+  ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG,
+  type AsyraDesignAiImageToolDescriptor
+} from './app-prompt'
 
 export const AI_CONTEXT_SELECTED_ELEMENT_LIMIT = 50
 
@@ -43,6 +48,8 @@ export interface AsyraDesignAiElementContext {
 
 export interface AsyraDesignAiContext {
   readonly app: 'asyra-design'
+  readonly appPrompt: string
+  readonly imageTools: readonly AsyraDesignAiImageToolDescriptor[]
   readonly workspaceId: string | null
   readonly primaryTool: string
   readonly systemMode: string
@@ -170,6 +177,8 @@ export const createAsyraDesignAiContextProvider = (
 
       return Object.freeze({
         app: 'asyra-design',
+        appPrompt: ASYRA_DESIGN_AI_APP_PROMPT,
+        imageTools: ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG,
         workspaceId:
           typeof workspaceIdValue === 'string' && workspaceIdValue.length > 0
             ? workspaceIdValue

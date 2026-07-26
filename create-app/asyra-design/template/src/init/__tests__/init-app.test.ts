@@ -93,6 +93,7 @@ describe('initApp preset composition', () => {
       providerEnabled: false,
       runtime: null
     })
+    expect(initialization.aiHistory).toBeNull()
     expect(window.__AsyraE2E__).toEqual({
       elementApis,
       hierarchyApis,
@@ -136,5 +137,101 @@ describe('initApp preset composition', () => {
     })
 
     await initialization.dispose()
+  })
+
+  it('composes and disposes one app-local conversation around the registered AI Feature', async () => {
+    const execute = vi.fn(async () => ({
+      reason: 'provider-disabled',
+      status: 'unavailable'
+    }))
+    const cancel = vi.fn(() => false)
+    const disposeFeature = vi.fn(() => true)
+    vi.spyOn(features, 'initFeatures').mockReturnValue({
+      ai: {
+        api: {
+          cancel,
+          execute
+        },
+        dispose: disposeFeature
+      }
+    } as never)
+
+    const initialization = initApp({
+      ai: {
+        enabled: true,
+        providerEnabled: false
+      }
+    })
+
+    expect(initialization.aiConversation).not.toBeNull()
+    await expect(
+      initialization.aiConversation?.submit('畫一個貓臉')
+    ).resolves.toMatchObject({
+      outcome: 'unavailable'
+    })
+
+    await initialization.dispose()
+
+    expect(disposeFeature).toHaveBeenCalledOnce()
+    expect(initialization.aiConversation?.getSnapshot()).toMatchObject({
+      disposed: true
+    })
+  })
+
+  it('constructs the complete mock composition only for explicit mock mode', async () => {
+    const disposeFeature = vi.fn(() => true)
+    vi.spyOn(features, 'initFeatures').mockImplementation((options) => ({
+      ai: options.ai?.enabled
+        ? {
+            api: {
+              cancel: vi.fn(() => false),
+              execute: vi.fn(async () => ({
+                reason: 'provider-disabled',
+                status: 'unavailable'
+              }))
+            },
+            dispose: disposeFeature
+          }
+        : null
+    }))
+    const addEventListener = vi.spyOn(window, 'addEventListener')
+    const removeEventListener = vi.spyOn(window, 'removeEventListener')
+
+    const initialization = initApp({
+      aiMode: 'mock'
+    })
+
+    expect(initialization).toMatchObject({
+      aiMode: 'mock',
+      aiRuntime: {
+        enabled: true,
+        providerEnabled: true
+      }
+    })
+    expect(initialization.aiConfirmation).not.toBeNull()
+    expect(initialization.aiConversation).not.toBeNull()
+    expect(initialization.aiHistory).not.toBeNull()
+    expect(addEventListener).toHaveBeenCalledWith(
+      'pagehide',
+      expect.any(Function),
+      {
+        once: true
+      }
+    )
+
+    await initialization.dispose()
+
+    expect(removeEventListener).toHaveBeenCalledWith(
+      'pagehide',
+      expect.any(Function)
+    )
+    expect(initialization.aiConfirmation?.getSnapshot()).toMatchObject({
+      disposed: true
+    })
+    expect(initialization.aiHistory?.getSnapshot()).toEqual({
+      control: null,
+      disposed: true
+    })
+    expect(disposeFeature).toHaveBeenCalledOnce()
   })
 })
