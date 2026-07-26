@@ -7,6 +7,11 @@ import {
   AsyraDesignAiActionNames,
   AsyraDesignAiDrawingDetailSelectionIntents
 } from '../constants'
+import {
+  createAsyraDesignVTracerClient,
+  type AsyraDesignVTracer,
+  type AsyraDesignVTracerAttachment
+} from './vtracer'
 
 export const ASYRA_DESIGN_MOCK_AI_DELAY_MS = 650
 export const ASYRA_DESIGN_MOCK_AI_MAX_DELAY_MS = 10_000
@@ -38,7 +43,9 @@ export const AsyraDesignMockAiPhrases = Object.freeze({
   PROVIDER_FAILURE_ZH: '模擬 provider 失敗',
   RECOLOR_PUPILS_EN: 'make the pupils red',
   RECOLOR_WHISKERS_EN: 'make the whiskers blue',
-  RECOLOR_WHISKERS_ZH: '把鬍鬚改成藍色'
+  RECOLOR_WHISKERS_ZH: '把鬍鬚改成藍色',
+  VECTORIZE_IMAGE_EN: 'Vectorize this image',
+  VECTORIZE_IMAGE_ZH: '將這張圖片轉換成可編輯向量圖形'
 } as const)
 
 export type AsyraDesignMockAiDelay = (
@@ -49,6 +56,7 @@ export type AsyraDesignMockAiDelay = (
 export interface CreateAsyraDesignMockAiProviderOptions {
   readonly delay?: AsyraDesignMockAiDelay
   readonly delayMs?: number
+  readonly vectorizer?: AsyraDesignVTracer
 }
 
 export interface AsyraDesignMockAiProvider extends AiProvider {
@@ -99,6 +107,7 @@ type MockFixture =
   | 'recolor-pupils'
   | 'recolor-whiskers'
   | 'request-drawing-detail-choice'
+  | 'vectorize-image'
 
 const defaultDelay: AsyraDesignMockAiDelay = (delayMs, signal) =>
   new Promise<void>((resolve, reject) => {
@@ -637,9 +646,45 @@ const hasAcceptedImageAttachment = (input: AiProviderInput): boolean => {
   )
 }
 
+const readAcceptedImageAttachments = (
+  input: AiProviderInput
+): readonly AsyraDesignVTracerAttachment[] => {
+  if (
+    !isPlainObject(input.metadata) ||
+    !Array.isArray(input.metadata.imageAttachments)
+  ) {
+    return []
+  }
+  return input.metadata.imageAttachments.filter(
+    (attachment): attachment is AsyraDesignVTracerAttachment =>
+      isPlainObject(attachment) &&
+      (attachment.mediaType === 'image/jpeg' ||
+        attachment.mediaType === 'image/png' ||
+        attachment.mediaType === 'image/webp') &&
+      typeof attachment.name === 'string' &&
+      attachment.name.length > 0 &&
+      typeof attachment.size === 'number' &&
+      Number.isSafeInteger(attachment.size) &&
+      attachment.size > 0 &&
+      typeof attachment.dataUrl === 'string' &&
+      attachment.dataUrl.startsWith(
+        `data:${attachment.mediaType as string};base64,`
+      )
+  )
+}
+
 const phraseToFixture = (input: AiProviderInput): MockFixture | null => {
   const normalized = input.intent.trim().toLocaleLowerCase('en-US')
   const phrases = AsyraDesignMockAiPhrases
+  if (
+    [phrases.VECTORIZE_IMAGE_ZH, phrases.VECTORIZE_IMAGE_EN].some(
+      (candidate) => candidate.toLocaleLowerCase('en-US') === normalized
+    )
+  ) {
+    return readAcceptedImageAttachments(input).length === 1
+      ? 'vectorize-image'
+      : null
+  }
   if (
     normalized ===
     phrases.DRAW_ONLY_CAT_ON_SAME_SIZE_WHITE_BACKGROUND_EN.toLocaleLowerCase(
@@ -767,7 +812,12 @@ const invalidInput = (): never => {
   })
 }
 
-const planForFixture = async (fixture: MockFixture, input: AiProviderInput) => {
+const planForFixture = async (
+  fixture: MockFixture,
+  input: AiProviderInput,
+  vectorizer: AsyraDesignVTracer,
+  signal: AbortSignal
+) => {
   const targets = readAiTargets(input)
   if (fixture === 'provider-failure') {
     throw new AiProviderError({
@@ -787,6 +837,34 @@ const planForFixture = async (fixture: MockFixture, input: AiProviderInput) => {
       ],
       explanation: 'Choose a drawing detail level before creating elements',
       planId: 'mock-plan-request-drawing-detail-choice'
+    })
+  }
+
+  if (fixture === 'vectorize-image') {
+    const attachments = readAcceptedImageAttachments(input)
+    if (attachments.length !== 1) {
+      return invalidInput()
+    }
+    const result = await vectorizer.vectorize({
+      attachment: attachments[0],
+      profile: 'photo-faithful',
+      signal
+    })
+    return deepFreeze({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'vectorized-image',
+            items: result.items,
+            parent: 'workspace'
+          },
+          id: 'mock-vectorize-reference-image',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      explanation:
+        'Vectorize the complete attached image into ordinary editable Asyra vector elements',
+      planId: 'mock-plan-vectorize-reference-image'
     })
   }
 
@@ -1009,6 +1087,7 @@ export const createAsyraDesignMockAiProvider = (
   const delayMs = validateDelayMs(
     options.delayMs ?? ASYRA_DESIGN_MOCK_AI_DELAY_MS
   )
+  const vectorizer = options.vectorizer ?? createAsyraDesignVTracerClient()
   const active = new Set<AbortController>()
   let disposed = false
 
@@ -1036,7 +1115,7 @@ export const createAsyraDesignMockAiProvider = (
         if (!fixture) {
           return invalidInput()
         }
-        return planForFixture(fixture, input)
+        return planForFixture(fixture, input, vectorizer, controller.signal)
       } catch (error) {
         if (controller.signal.aborted) {
           throw abortError(disposed)

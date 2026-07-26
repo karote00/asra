@@ -36,6 +36,9 @@ const referenceImagePath = fileURLToPath(
     import.meta.url
   )
 )
+const arbitraryVectorizationImagePath = fileURLToPath(
+  new URL('../public/logo192.png', import.meta.url)
+)
 const visualRecordDirectory = fileURLToPath(
   new URL('../visual-review-records/e2e-reference/', import.meta.url)
 )
@@ -208,6 +211,129 @@ test.describe('Conversational AI Mock Drawing', () => {
     await agentCommand.click()
     await expect(page.getByRole('complementary')).toBeVisible()
     await expect(page.getByLabel('Message Agent')).toBeFocused()
+  })
+
+  test('vectorizes an arbitrary attached image through the same-origin VTracer tool as one persisted history action', async ({
+    page
+  }, testInfo) => {
+    test.setTimeout(120_000)
+    const toolRequests: string[] = []
+    const consoleErrors: string[] = []
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/ai-tools/vtracer') {
+        toolRequests.push(request.url())
+      }
+    })
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text())
+      }
+    })
+
+    await page.goto('/?ai=mock')
+    await waitForAppReady(page)
+    await openMockAi(page)
+    const beforeHistory = await getTransactionSnapshot(page)
+
+    await page
+      .getByLabel('Choose images')
+      .setInputFiles(arbitraryVectorizationImagePath)
+    await expect(page.getByRole('img', { name: 'logo192.png' })).toBeVisible()
+    const turn = await submitTurn(
+      page,
+      'Vectorize this image',
+      'success',
+      1,
+      120_000
+    )
+    await expect(turn.getByText('Drawing updated successfully.')).toBeVisible()
+
+    const summary = await getCanvasSummary(page)
+    expect(summary.groupCount).toBe(1)
+    expect(summary.vectorCount).toBeGreaterThan(20)
+    expect(summary.totalCount).toBe(summary.vectorCount + 1)
+    expect(summary.uniqueIdCount).toBe(summary.totalCount)
+    expect(summary.pointCount).toBeGreaterThan(300)
+    expect(toolRequests).toHaveLength(1)
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 1
+    )
+    expect(consoleErrors).toEqual([])
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__Core__?.selectElements?.([], {
+        undoable: false
+      })
+    })
+    await captureVisualState(
+      page,
+      testInfo,
+      'conversational-ai-arbitrary-vtracer-created'
+    )
+
+    const beforeReloadDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(
+        async () => (await getPersistedDocumentDigest(page))?.sha256 ?? null,
+        { timeout: 30_000 }
+      )
+      .toBe(beforeReloadDigest.sha256)
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getCoreDocumentDigest(page)).toEqual(beforeReloadDigest)
+  })
+
+  test('normalizes an accepted WebP attachment before VTracer vectorization', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    const toolContentTypes: string[] = []
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/ai-tools/vtracer') {
+        toolContentTypes.push(request.headers()['content-type'] ?? '')
+      }
+    })
+    await page.goto('/?ai=mock')
+    await waitForAppReady(page)
+    await openMockAi(page)
+
+    const webpBytes = await page.evaluate(async () => {
+      const response = await fetch('/logo192.png')
+      const bitmap = await createImageBitmap(await response.blob())
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+      bitmap.close()
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) =>
+            result
+              ? resolve(result)
+              : reject(new Error('WebP encoding is unavailable')),
+          'image/webp'
+        )
+      })
+      return Array.from(new Uint8Array(await blob.arrayBuffer()))
+    })
+
+    await page.getByLabel('Choose images').setInputFiles({
+      buffer: Buffer.from(webpBytes),
+      mimeType: 'image/webp',
+      name: 'logo192.webp'
+    })
+    const turn = await submitTurn(
+      page,
+      'Vectorize this image',
+      'success',
+      1,
+      120_000
+    )
+
+    await expect(turn.getByText('Drawing updated successfully.')).toBeVisible()
+    expect(toolContentTypes).toEqual(['image/png'])
+    expect((await getCanvasSummary(page)).vectorCount).toBeGreaterThan(20)
   })
 
   test('attaches a reference, chooses balanced detail, and incrementally edits the same canonical ids with one history action per mutating turn', async ({

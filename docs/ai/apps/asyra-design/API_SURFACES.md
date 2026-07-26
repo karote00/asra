@@ -61,11 +61,23 @@ This file is the app-level API contract map.
 - provider selection is replaceable; deterministic fake and generic HTTP
   providers use the same runtime and app action contracts
 - collected App context includes a stable App-owned provider prompt that
-  advertises only registered actions, safe status summaries, canonical-id
-  follow-up targeting, and the installed VTracer capability
+  requires the provider to analyze the request, choose only App-registered
+  image-preparation tools, pass the original or detached derived raster to the
+  registered vectorizer, validate and post-process its result, estimate
+  resource impact, and construct only registered action candidates. Runtime
+  preflight, App impact presentation, Framework confirmation, and the ordinary
+  executor remain later owners
+- providers may not invent tools. The current Mock catalog exposes only
+  whole-image VTracer; generic crop, segmentation, background removal, or
+  reimage requirements fail before mutation. A future live provider may use
+  those steps only when the App registers them, and all intermediate rasters
+  remain detached from canonical state, persistence, and collaboration
 - an accepted PNG, JPEG, or WebP attachment plus exact
   `Vectorize this image` or `將這張圖片轉換成可編輯向量圖形` intent invokes
-  the same-origin App VTracer tool exactly once. The adapter validates the
+  the same-origin App VTracer tool exactly once. WebP is decoded locally and
+  normalized to detached in-memory PNG bytes before the tool call so VTracer
+  decoder differences cannot change accepted-input behavior. The adapter
+  validates the
   complete-raster SVG into deterministic generic-role ordinary Vector items
   and returns one existing `insert_vector_composition` action; it performs no
   semantic segmentation, background replacement, OCR, bitmap insertion,

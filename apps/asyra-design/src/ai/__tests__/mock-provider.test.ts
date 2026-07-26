@@ -7,6 +7,7 @@ import {
   createAsyraDesignMockAiProvider,
   type AsyraDesignMockAiDelay
 } from '../mock-provider'
+import type { AsyraDesignVTracer } from '../vtracer'
 
 const providerInput = (
   intent: string,
@@ -117,6 +118,121 @@ describe('Asyra Design deterministic mock AI provider', () => {
     ).rejects.toMatchObject({
       code: 'AI_PROVIDER_INVALID_INPUT'
     })
+  })
+
+  it('uses the registered VTracer tool once for an explicit arbitrary whole-image vectorization intent', async () => {
+    const vectorize = vi.fn(async () => ({
+      height: 32,
+      items: [
+        {
+          bounds: { height: 32, width: 64, x: 0, y: 0 },
+          paths: [
+            {
+              closed: true,
+              points: [
+                { x: 0, y: 0 },
+                { x: 64, y: 0 },
+                { x: 64, y: 32 },
+                { x: 0, y: 32 }
+              ]
+            }
+          ],
+          primitive: 'vector' as const,
+          role: 'reference-vector-000001',
+          style: { fillColor: '#FFFFFF' }
+        },
+        {
+          bounds: { height: 16, width: 16, x: 8, y: 8 },
+          paths: [
+            {
+              closed: true,
+              points: [
+                { x: 8, y: 8 },
+                { x: 24, y: 8 },
+                { x: 24, y: 24 },
+                { x: 8, y: 24 }
+              ]
+            }
+          ],
+          primitive: 'vector' as const,
+          role: 'reference-vector-000002',
+          style: { fillColor: '#2563EB' }
+        }
+      ],
+      pointCount: 8,
+      width: 64
+    }))
+    const vectorizer = { vectorize } satisfies AsyraDesignVTracer
+    const provider = createAsyraDesignMockAiProvider({
+      delay: noDelay,
+      vectorizer
+    })
+    const signal = new AbortController().signal
+
+    const plan = await provider.generateActionPlan(
+      providerInput(
+        AsyraDesignMockAiPhrases.VECTORIZE_IMAGE_EN,
+        {},
+        referenceMetadata
+      ),
+      { signal }
+    )
+
+    expect(vectorize).toHaveBeenCalledOnce()
+    expect(vectorize).toHaveBeenCalledWith({
+      attachment: referenceMetadata.imageAttachments[0],
+      profile: 'photo-faithful',
+      signal: expect.any(AbortSignal)
+    })
+    expect(plan).toMatchObject({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'vectorized-image',
+            items: expect.arrayContaining([
+              expect.objectContaining({ role: 'reference-vector-000001' }),
+              expect.objectContaining({ role: 'reference-vector-000002' })
+            ]),
+            parent: 'workspace'
+          },
+          id: 'mock-vectorize-reference-image',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      explanation:
+        'Vectorize the complete attached image into ordinary editable Asyra vector elements',
+      planId: 'mock-plan-vectorize-reference-image'
+    })
+    expect(JSON.stringify(plan)).not.toContain(referenceData)
+  })
+
+  it('does not invoke VTracer when the attachment contract or required image-preparation capability is unavailable', async () => {
+    const vectorizer = {
+      vectorize: vi.fn()
+    } satisfies AsyraDesignVTracer
+    const provider = createAsyraDesignMockAiProvider({
+      delay: noDelay,
+      vectorizer
+    })
+    const options = { signal: new AbortController().signal }
+
+    await expect(
+      provider.generateActionPlan(
+        providerInput(AsyraDesignMockAiPhrases.VECTORIZE_IMAGE_EN),
+        options
+      )
+    ).rejects.toMatchObject({ code: 'AI_PROVIDER_INVALID_INPUT' })
+    await expect(
+      provider.generateActionPlan(
+        providerInput(
+          'Remove the background, reimage the subject, and vectorize it',
+          {},
+          referenceMetadata
+        ),
+        options
+      )
+    ).rejects.toMatchObject({ code: 'AI_PROVIDER_INVALID_INPUT' })
+    expect(vectorizer.vectorize).not.toHaveBeenCalled()
   })
 
   it('routes the exact cat-only instruction to a same-size pure-white fixture only with an accepted attachment', async () => {

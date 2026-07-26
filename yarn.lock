@@ -80,6 +80,7 @@ __metadata:
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
     "@types/ws": "npm:^8.18.1"
+    "@visioncortex/vtracer": "npm:1.0.0-alpha.1"
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
     bezier-js: "npm:^6.1.4"
@@ -6098,6 +6099,13 @@ __metadata:
     ajv:
       optional: true
   checksum: 10c0/995422599b5a44b2a5a916ef58c83eed273352d6e15cd1fbc72b0511047796d862c4b634289c5ac8d3fb53e1851ed95012e2cd795c31b48528e57cf8fe8cc7c8
+  languageName: node
+  linkType: hard
+
+"@visioncortex/vtracer@npm:1.0.0-alpha.1":
+  version: 1.0.0-alpha.1
+  resolution: "@visioncortex/vtracer@npm:1.0.0-alpha.1"
+  checksum: 10c0/f47a005c6498e8b6db156cfc6ac2240345dd05cd4870b0ea1192ff2fc0d78b1120a15e96713c7af37451d6319c631599c58aedd8a85381dee207fabf9b640c3e
   languageName: node
   linkType: hard
 

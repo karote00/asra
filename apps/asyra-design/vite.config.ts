@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import vercel from 'vite-plugin-vercel'
 import tailwindcss from 'tailwindcss'
@@ -6,10 +6,21 @@ import {
   loadAsyraDesignEnvironment,
   resolveAsyraDesignEnvironment
 } from './app-environment.mjs'
+import { createAsyraDesignVTracerMiddleware } from './vtracer-tool-server.mjs'
 
 const appEnvironment = resolveAsyraDesignEnvironment(
   loadAsyraDesignEnvironment()
 )
+
+const asyraDesignVTracer = (): Plugin => ({
+  name: 'asyra-design-vtracer-tool',
+  configureServer(server) {
+    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+  }
+})
 
 export default defineConfig({
   css: {
@@ -17,7 +28,7 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [vercel(), react()],
+  plugins: [asyraDesignVTracer(), vercel(), react()],
   server: {
     host: appEnvironment.viteHost,
     port: appEnvironment.vitePort,

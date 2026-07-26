@@ -199,7 +199,27 @@ test('mock mode and provider boundary stay explicit, deterministic, and inert by
   assert.match(provider, /App-owned prompt/)
   assert.match(
     provider,
+    /analyze.*registered image-preparation tools.*derived raster.*VTracer.*validate and post-process.*action candidate/is
+  )
+  assert.match(
+    provider,
+    /never invents, substitutes, or invokes an unregistered tool/i
+  )
+  assert.match(
+    provider,
+    /mock tool catalog registers only whole-image VTracer.*preprocessing, semantic segmentation, background removal, or reimage.*before mutation/is
+  )
+  assert.match(
+    provider,
+    /derived raster.*detached.*never enters canonical state, conversation persistence, or collaboration/i
+  )
+  assert.match(
+    provider,
     /explicit whole-image vectorization intent.*accepted detached image attachment.*VTracer/i
+  )
+  assert.match(
+    provider,
+    /WebP.*detached in-memory PNG.*VTracer.*outside canonical state, persistence, and collaboration/is
   )
   assert.match(
     provider,
@@ -369,9 +389,7 @@ test('App execution owns bounded creation, incremental updates, partial commit, 
 })
 
 test('high-detail commit persistence is capacity-appropriate and keeps Core ownership', () => {
-  const persistence = contractText(
-    step('persist-committed-document-snapshot')
-  )
+  const persistence = contractText(step('persist-committed-document-snapshot'))
 
   assert.match(persistence, /framework IndexedDB provider/)
   assert.match(persistence, /not constrained by localStorage quota/)

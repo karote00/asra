@@ -207,10 +207,35 @@ tabby cat portrait from editable Asyra vector layers`; it does not fabricate
 - Mock behavior is selected from deterministic, schema-valid fixtures rather
   than a hidden model or general natural-language parser.
 - Asyra Design supplies a stable App-owned provider prompt as part of the
-  collected App context. It describes the registered action boundary, safe
-  operational-status policy, canonical-id follow-up rule, and the App-owned
-  VTracer capability; it is not model chain-of-thought and contains no
-  attachment bytes or secrets.
+  collected App context. The prompt requires this decision pipeline:
+  1. analyze the user intent, accepted attachments, current canonical context,
+     and requested output;
+  2. classify whether the request needs whole-image tracing or one or more
+     registered image-preparation tools such as crop, segmentation,
+     background removal, or reimage;
+  3. invoke only tools present in the App-supplied tool catalog and stop before
+     mutation when a required capability is absent;
+  4. pass the original or tool-produced detached derived raster to the
+     registered VTracer tool;
+  5. validate and post-process the vector result, estimate resource impact,
+     and construct only registered App action candidates; and
+  6. let runtime preflight, App impact presentation, Framework confirmation,
+     and the ordinary App executor complete the plan.
+- The prompt describes the registered action boundary, safe
+  operational-status policy, canonical-id follow-up rule, and App-owned tool
+  capabilities. It never asks for or exposes private chain-of-thought and
+  contains no attachment bytes or secrets.
+- A provider never invents, substitutes, or invokes an unregistered tool. Tool
+  absence, invalid derived output, or insufficient target certainty produces a
+  concise clarification or failure before canonical mutation.
+- The current Mock tool catalog registers only whole-image VTracer. Generic
+  preprocessing, semantic segmentation, background removal, and reimage are
+  unavailable in the Mock route; requests that need them fail before mutation
+  unless an exact declared deterministic fixture owns that product case.
+- A future live provider may use crop, segmentation, background-removal, or
+  reimage capabilities only after the App explicitly registers them. Each
+  intermediate or derived raster remains detached transient tool data and
+  never enters canonical state, conversation persistence, or collaboration.
 - The provider recognizes the bounded Traditional Chinese and English phrases
   declared in its fixture table. At minimum:
   - draw according to the attached reference image, including
@@ -260,12 +285,17 @@ the same width and height as the uploaded photo.` directly through the
   boundary. The image never leaves the local App origin, and the endpoint
   performs no external/model request, persistent upload, or attachment
   logging.
+- Because the installed VTracer decoder does not handle every valid WebP
+  encoding consistently, the App adapter decodes accepted WebP locally and
+  converts it to a detached in-memory PNG before the same-origin tool call.
+  Neither the original nor normalized raster enters canonical state,
+  persistence, or collaboration.
 - The tool traces the complete attached raster. It does not infer subject-only
   segmentation, background replacement, OCR, or semantic object roles. Those
   operations require a separately declared deterministic fixture or a future
   live multimodal provider.
 - The adapter validates the VTracer SVG, discards invalid or degenerate
-  subpaths, preserves finite path topology and fill/stroke presentation, and
+  subpaths, preserves finite path topology and fill presentation, and
   maps the result to ordinary editable Asyra Vector items with deterministic
   generic roles.
 - The mock provider returns those items through one existing
@@ -808,6 +838,7 @@ only after its focused formal tests and direct-consumer review pass.
   drawing;
 - App prompt/provider/tool tests prove an arbitrary accepted non-cat image with
   an explicit whole-image vectorization intent invokes VTracer exactly once,
+  normalizes WebP to detached PNG bytes before the same-origin request,
   maps validated SVG paths to ordinary editable Vector items, exposes no raw
   attachment data, performs no external/model request, and settles abort or
   conversion failure before mutation;
@@ -837,6 +868,8 @@ only after its focused formal tests and direct-consumer review pass.
   through the visible Agent panel, asserts VTracer-derived ordinary editable
   vectors and one Undo action, reloads the persisted canonical result, and
   retains a synchronized live-app screenshot outside version control;
+- one WebP E2E creates a valid WebP in the browser, asserts the App sends
+  normalized PNG bytes to the same-origin tool, and completes vectorization;
 - canonical ids, types, bounds, roles, styles, group membership, and transaction
   evidence asserted before screenshots;
 - the two-actor recording asserts canonical convergence, stable ids/topology,

@@ -57,6 +57,7 @@ Feature: Conversational AI mock drawing
     When the user attaches an arbitrary non-cat PNG, JPEG, or WebP image
     And the user submits "Vectorize this image"
     Then the mock provider should invoke the same-origin App VTracer tool exactly once
+    And an accepted WebP should be normalized to detached in-memory PNG bytes before the tool call
     And the attachment should never leave the local App origin or enter an external model request
     And the complete raster should become ordinary editable Vectors with deterministic generic roles
     And the provider should return one existing insert_vector_composition action
@@ -65,6 +66,17 @@ Feature: Conversational AI mock drawing
     And the tool should not infer subject-only segmentation, background replacement, OCR, a cat fixture, or bitmap insertion
     But when the attachment, VTracer result, or validated SVG is invalid or empty
     Then the turn should fail before mutation without a fixture fallback
+
+  Scenario: The App prompt never invents an unavailable image-preparation tool
+    Given the App-owned prompt requires analysis, registered-tool selection, vector validation, resource estimation, confirmation, and registered action execution
+    And the Mock tool catalog registers only whole-image VTracer
+    When a generic attached-image request requires segmentation, background removal, crop, or reimage
+    Then the provider should report the missing capability before mutation
+    And it should produce no derived raster, VTracer call, action candidate, or Undo action
+    And it should never pretend that an unregistered tool or deterministic fixture performed the preparation
+    But when a future live provider receives an App-registered image-preparation tool
+    Then its detached derived raster may be passed to VTracer
+    And that raster should never enter canonical state, conversation persistence, or collaboration
 
   Scenario: Every accepted terminal turn reports its elapsed time
     Given the conversation controller uses an instance-local monotonic clock

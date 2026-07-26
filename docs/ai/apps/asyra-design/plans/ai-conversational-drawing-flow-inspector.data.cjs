@@ -192,8 +192,13 @@
         'artifact:mock-provider-failure'
       ],
       conditions: [
-        'The stable App-owned prompt describes only registered actions, safe operational status, canonical-id follow-up targeting, and the installed VTracer capability; it contains no attachment bytes, secrets, provider-selected tools, or hidden reasoning.',
+        'The stable App-owned prompt requires the provider to analyze intent, attachments, canonical context, and output; choose only registered image-preparation tools; pass the original or detached derived raster to VTracer; validate and post-process the vector result; estimate resource impact; and then construct only a registered App action candidate for ordinary runtime preflight, App impact presentation, Framework confirmation, and execution.',
+        'The provider never invents, substitutes, or invokes an unregistered tool; missing capability, invalid derived output, or insufficient target certainty settles as a concise clarification or failure before mutation.',
+        'The current mock tool catalog registers only whole-image VTracer; a generic request that requires preprocessing, semantic segmentation, background removal, or reimage settles before mutation unless an exact declared deterministic fixture owns that product case.',
+        'A future live provider may use an App-registered image-preparation tool before VTracer, but every intermediate or derived raster remains detached transient tool data and never enters canonical state, conversation persistence, or collaboration.',
+        'The App-owned prompt describes only registered actions, safe operational status, canonical-id follow-up targeting, and installed App tool capabilities; it contains no attachment bytes, secrets, provider-selected tools, or hidden reasoning.',
         'An explicit whole-image vectorization intent with one accepted detached image attachment invokes the same-origin App tool endpoint and VTracer exactly once; the attachment never leaves the local App origin and no external/model request occurs.',
+        'The App adapter normalizes accepted WebP input to a detached in-memory PNG before the same-origin tool call because VTracer WebP decoder coverage is not deterministic; the original attachment and normalized raster remain outside canonical state, persistence, and collaboration.',
         'The VTracer adapter traces the complete raster, validates finite non-degenerate SVG topology and presentation, and returns deterministic generic-role items as one ordinary editable Vector composition through one existing insert_vector_composition action.',
         'Whole-image vectorization does not infer subject-only segmentation, background replacement, or OCR and never substitutes the deterministic cat fixture.',
         'A bounded draw-this-image phrase with at least one accepted detached image attachment returns only the registered non-mutating request_drawing_detail_choice candidate; it does not select or materialize a drawing fixture.',
@@ -207,6 +212,7 @@
         'The explanation describes intended visible work and never contains fabricated private chain-of-thought.'
       ],
       bypasses: [
+        'A request that requires an image-preparation capability absent from the App tool catalog produces no derived raster, VTracer call, action candidate, or canonical mutation.',
         'A whole-image vectorization intent without exactly one accepted attachment is unsupported and produces no VTracer call or action candidate.',
         'Malformed image data, same-origin tool failure, invalid or empty SVG, abort, and disposal settle before mutation without fixture or bitmap fallback.',
         'A draw-this-image phrase without an accepted detached image attachment is unsupported and produces no action candidate.',
@@ -217,7 +223,8 @@
       ],
       allowedContributors: [
         'artifact:provider-plan-request',
-        'App-owned provider prompt and explicit VTracer tool policy',
+        'App-owned provider prompt and explicit registered image-tool catalog',
+        'detached transient raster output from an App-registered image-preparation tool',
         'same-origin Asyra Design VTracer demo endpoint and validated SVG adapter',
         'app-owned deterministic fixture table',
         'detached provider metadata describing accepted image attachments',
@@ -227,6 +234,8 @@
       forbiddenContributors: [
         'external network fetch, model SDK, API key, browser secret, remote upload, or external backend proxy',
         'provider-selected, remote, or unrestricted tool invocation',
+        'invented image-preparation capability or unregistered reimage, segmentation, crop, or background-removal tool',
+        'canonical, persisted, or collaboration-shared intermediate raster data',
         'semantic segmentation, background replacement, OCR, fixture fallback, or bitmap insertion for whole-image vectorization',
         'attachment upload or image data copied into action arguments, explanation, or progress',
         'canonical state or app common-API mutation',
@@ -237,6 +246,8 @@
       implementationBoundary: [
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/__tests__/vtracer-tool-server.test.mjs',
+        'apps/asyra-design/vtracer-tool-server.mjs',
         'apps/asyra-design/vite.config.ts',
         'apps/asyra-design/package.json',
         'apps/asyra-design/e2e',
