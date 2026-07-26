@@ -61,6 +61,17 @@
   - drag-to-bezier handle creation
   - curve-handle selection and point-target property visibility
 
+- `conversational-ai-mock.spec.ts`
+
+  - keyless exact `ai=mock` activation, attachment, vectorization, confirmation,
+    failure, partial-result, history, and persistence behavior
+  - the 7,112-element balanced correctness case is a change-aware heavy gate,
+    excluded unless CI or the caller sets
+    `ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS=1`
+  - `yarn workspace @asyra/asyra-design
+    test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
+    worker
+
 - `collaboration.spec.ts`
   - uses the dedicated `playwright.collaboration.config.ts` composition
   - opens three real app contexts against the public memory-only WebSocket
@@ -89,11 +100,20 @@
 - CI runs the dense-vector Render timing budget first with one isolated worker,
   then excludes that file while parallelizing the remaining functional suite;
   the formal timing thresholds are not relaxed to absorb runner contention
+- pull-request CI resolves the balanced AI heavy gate from the exact
+  base-to-head changed paths in
+  `scripts/balanced-ai-correctness-scope.mjs`; unrelated changes and scheduled
+  runs exclude it, while workflow dispatch exposes an explicit opt-in
+- a missing pull-request base or head revision fails scope resolution instead
+  of silently skipping the balanced AI heavy gate
 - the bounded 12-frame profile uses the lower sample quantile for p50/p95 and
   retains a separate max assertion, preventing p95 from degenerating into the
   same single-sample oracle while preserving every formal threshold
 - superseded runs for the same pull request or ref are cancelled, and both E2E
   jobs install only the configured Chromium browser
+- the 7,076-element two-actor Mock AI recording remains the explicit
+  `ASYRA_DESIGN_RUN_AI_CRDT_VIDEO=1` resource gate and is not materialized by
+  default ordinary or collaboration CI
 - the collaboration suite may reuse manually started app and WebSocket servers;
   it does not replace the documented two-window manual test
 

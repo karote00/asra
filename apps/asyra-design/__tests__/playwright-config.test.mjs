@@ -45,6 +45,25 @@ test('CI can exclude the isolated render performance gate from the functional su
   assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
 })
 
+test('the balanced AI correctness gate requires an explicit heavy-test flag', async () => {
+  const ordinary = listTests('playwright.config.ts')
+  const heavy = listTests('playwright.config.ts', {
+    ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS: '1'
+  })
+  const manifest = JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8')
+  )
+  const balancedCase =
+    /attaches a reference, chooses balanced detail, and incrementally edits/
+
+  assert.doesNotMatch(ordinary, balancedCase)
+  assert.match(heavy, balancedCase)
+  assert.match(
+    manifest.scripts['test:e2e:balanced-ai-correctness'],
+    /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS=1/
+  )
+})
+
 test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', async () => {
   const { resolveOrdinaryPlaywrightRuntimePolicy } = await import(
     '../playwright-runtime-policy.mjs'

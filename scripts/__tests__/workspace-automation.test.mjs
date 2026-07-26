@@ -150,6 +150,71 @@ test('CI isolates the render performance budget before parallel functional E2E',
   assert.match(runner, /ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e/)
 })
 
+test('CI runs balanced AI correctness only for related changes or explicit dispatch', async () => {
+  const { isBalancedAiCorrectnessPath, resolveBalancedAiCorrectnessScope } =
+    await import('../balanced-ai-correctness-scope.mjs')
+  const e2e = readText('.github/workflows/e2e.yml')
+
+  assert.equal(
+    isBalancedAiCorrectnessPath(
+      'apps/asyra-design/src/ai/composition-actions.ts'
+    ),
+    true
+  )
+  assert.equal(
+    isBalancedAiCorrectnessPath('packages/factory/src/data-transact.ts'),
+    true
+  )
+  assert.equal(
+    isBalancedAiCorrectnessPath('apps/asyra-design/vtracer-tool-server.mjs'),
+    true
+  )
+  assert.equal(
+    isBalancedAiCorrectnessPath('docs/ai/apps/asyra-design/README.md'),
+    false
+  )
+  assert.equal(
+    isBalancedAiCorrectnessPath('apps/asyra-design/e2e/oval.spec.ts'),
+    false
+  )
+  assert.equal(
+    resolveBalancedAiCorrectnessScope({
+      changedPaths: ['packages/render/src/render.ts'],
+      eventName: 'pull_request',
+      manualRequested: false
+    }),
+    true
+  )
+  assert.equal(
+    resolveBalancedAiCorrectnessScope({
+      changedPaths: ['docs/ai/apps/asyra-design/README.md'],
+      eventName: 'pull_request',
+      manualRequested: false
+    }),
+    false
+  )
+  assert.equal(
+    resolveBalancedAiCorrectnessScope({
+      changedPaths: [],
+      eventName: 'workflow_dispatch',
+      manualRequested: true
+    }),
+    true
+  )
+  assert.equal(
+    resolveBalancedAiCorrectnessScope({
+      changedPaths: [],
+      eventName: 'schedule',
+      manualRequested: false
+    }),
+    false
+  )
+  assert.match(e2e, /fetch-depth: 0/)
+  assert.match(e2e, /node scripts\/balanced-ai-correctness-scope\.mjs/)
+  assert.match(e2e, /run_balanced_ai_correctness/)
+  assert.match(e2e, /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS/)
+})
+
 test('collaboration follows the shared TypeScript library build convention', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const collaborationTypeScript = readJSON(

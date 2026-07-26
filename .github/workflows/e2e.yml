@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      run_balanced_ai_correctness:
+        description: Run the 7,112-element balanced AI correctness gate
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: '0 18 * * *'
 
@@ -19,6 +25,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Yarn
         run: corepack enable && yarn set version 4.3.1
@@ -35,7 +43,17 @@ jobs:
       - name: Install Playwright browsers
         run: yarn workspace @asyra/asyra-design playwright install --with-deps chromium
 
+      - name: Resolve balanced AI correctness scope
+        id: balanced_ai_scope
+        env:
+          ASYRA_E2E_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          ASYRA_E2E_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ASYRA_E2E_MANUAL_BALANCED_AI_CORRECTNESS: ${{ inputs.run_balanced_ai_correctness }}
+        run: node scripts/balanced-ai-correctness-scope.mjs >> "$GITHUB_OUTPUT"
+
       - name: Run E2E Tests
+        env:
+          ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS: ${{ steps.balanced_ai_scope.outputs.run_balanced_ai_correctness }}
         run: bash scripts/run-e2e.sh
 
   collaboration-e2e-tests:
