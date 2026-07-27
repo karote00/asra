@@ -260,6 +260,7 @@
         'artifact:render-ui-timing'
       ],
       conditions: [
+        'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
         'Atomic delivery performs one batch projection and one visible flush.',
         'Progressive delivery performs one projection for each formal slice and never collapses to a final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
@@ -275,6 +276,7 @@
       allowedContributors: [
         'artifact:factory-mutation-batch-artifact',
         'artifact:remote-factory-mutation-batch',
+        '@asyra/core injected-instance batch observer facade',
         '@asyra/preset ordinary Vector strategy',
         '@asyra/render scene scheduling',
         'Asyra Design UI context projection'
@@ -288,6 +290,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/core/src/data-channel-observer.ts',
+        'packages/core/src/__tests__/core-start-render.test.ts',
         'packages/preset/src',
         'packages/preset/src/__tests__',
         'packages/render/src',

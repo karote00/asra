@@ -305,6 +305,13 @@ test('projection and Contents preserve visible progressive correctness', () => {
   assert.match(projection, /7,076.*editable elements/i)
   assert.match(projection, /affected entries.*hierarchy order/i)
   assert.match(projection, /no Render-engine bulk command/i)
+  assert.match(projection, /Core.*batch observer.*Preset/i)
+  ;[
+    'packages/core/src/data-channel-observer.ts',
+    'packages/core/src/__tests__/core-start-render.test.ts'
+  ].forEach((boundary) => {
+    assert.ok(projectionStep.implementationBoundary.includes(boundary))
+  })
   ;[
     'apps/asyra-design/src',
     'apps/asyra-design/src/contexts',

@@ -40,7 +40,8 @@ System orchestrator and lifecycle coordinator.
     `RegisterRenderLayer` facade callback and its override options
 - register/unregister event definitions and selection channels
 - register render interaction targets + handlers
-- register render shared-change observers (`name + channel + onChange`)
+- register shared-change observers with exactly one delivery mode
+  (`name + channel + onChange` or `name + channel + onBatch`)
 - register/query/unregister shared data channels through the injected Factory
 - create fresh delivery-only local shared channels without a Y.Doc
 - register UI/system managed properties
@@ -141,6 +142,9 @@ System orchestrator and lifecycle coordinator.
 - Core owns one observer registry per instance and activates it through the
   injected Factory; the default Core explicitly shares its registry with the
   standalone observer helpers, while custom Core registries remain isolated
+- a batch observer receives each injected Factory delivery batch once, in
+  original order, without Core expanding it into single-change callbacks;
+  single-change observers retain the batch-of-one convenience path
 - default shared data-channel registration lifecycle is preset-owned
   (core/factory provide register/unregister APIs only)
 - the strict preset install tier includes owner cleanup façades for events,

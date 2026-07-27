@@ -164,7 +164,11 @@ Render bridge:
 - `registerRenderInteractionHandler(targetId: string | RegExp, registration: RenderInteractionHandlerRegistration): void`
 - `unregisterRenderInteractionHandler(targetId: string, eventType?: RenderInteractionEventType): void`
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
-  - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
+  - registration has exactly one delivery shape:
+    `{ name; channel; onChange(change) }` or
+    `{ name; channel; onBatch(readonlyChanges) }`
+  - `onBatch` receives each injected Factory batch once and in original order;
+    Core does not expand that route into single-change callbacks
 - `unregisterDataChannelObserver(name: string): boolean`
 - `registerSharedDataChannel(name, channel): void`
 - `unregisterSharedDataChannel(name): boolean`

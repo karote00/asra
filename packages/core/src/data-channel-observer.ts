@@ -2,11 +2,23 @@ import factory, { type Factory } from '@asyra/factory'
 
 export type DataChannelObserverCleanup = () => void
 
-export interface DataChannelObserverRegistration<TChange = unknown> {
+interface DataChannelObserverRegistrationBase {
   name: string
   channel: string
-  onChange: (change: TChange) => void
 }
+
+export type DataChannelObserverRegistration<TChange = unknown> =
+  DataChannelObserverRegistrationBase &
+    (
+      | {
+          onBatch?: never
+          onChange: (change: TChange) => void
+        }
+      | {
+          onBatch: (changes: readonly TChange[]) => void
+          onChange?: never
+        }
+    )
 
 export const defineDataChannelObserver = <TChange>(
   registration: DataChannelObserverRegistration<TChange>
@@ -17,14 +29,21 @@ export const defineDataChannelObserver = <TChange>(
   if (!registration.channel.trim()) {
     throw new Error('[core] Data channel observer channel is required')
   }
-  if (typeof registration.onChange !== 'function') {
-    throw new Error('[core] Data channel observer onChange handler is required')
+  const hasChangeHandler = typeof registration.onChange === 'function'
+  const hasBatchHandler = typeof registration.onBatch === 'function'
+  if (hasChangeHandler === hasBatchHandler) {
+    throw new Error(
+      '[core] Data channel observer requires exactly one onChange or onBatch handler'
+    )
   }
 
   return registration
 }
 
-type DataChannelObserverFactory = Pick<Factory, 'observeSharedDataChannel'>
+type DataChannelObserverFactory = Pick<
+  Factory,
+  'observeSharedDataChannel' | 'observeSharedDataChannelBatch'
+>
 
 export class DataChannelObserverRegistry {
   private readonly observerRegistrations = new Map<
@@ -88,10 +107,15 @@ export class DataChannelObserverRegistry {
   private activate(
     registration: DataChannelObserverRegistration<unknown>
   ): void {
-    const cleanup = this.factory.observeSharedDataChannel(
-      registration.channel,
-      registration.onChange
-    )
+    const cleanup = registration.onBatch
+      ? this.factory.observeSharedDataChannelBatch(
+          registration.channel,
+          registration.onBatch
+        )
+      : this.factory.observeSharedDataChannel(
+          registration.channel,
+          registration.onChange
+        )
     this.activeObserverCleanups.set(registration.name, cleanup)
   }
 

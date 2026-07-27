@@ -6,7 +6,6 @@ import {
   renderSelectionStore,
   subscribeToSynchronousEvent,
   uiContext,
-  subscribeToEndTransaction,
   subscribeToFileLoadComplete,
   type DataChannelObserverRegistration,
   type SelectElementsEvent,
@@ -224,10 +223,7 @@ const updateRenderSceneTreeBatch = (changes: readonly SceneTreeChange[]) => {
     let nextIndex = changeIndex + 1
     while (nextIndex < changes.length) {
       const nextAddition = toRenderElementAddition(changes[nextIndex])
-      if (
-        !nextAddition ||
-        nextAddition.parentId !== firstAddition.parentId
-      ) {
+      if (!nextAddition || nextAddition.parentId !== firstAddition.parentId) {
         break
       }
       additions.push(nextAddition)
@@ -405,70 +401,393 @@ const syncElementDataMap = (deps: PresetDependencies): void => {
   uiContext.set('elementDataMap', getElementDataMap(deps))
 }
 
-const syncElementDataMapEntries = (
-  deps: PresetDependencies,
-  elementIds: Iterable<string>
+type ProjectedElementData = Record<string, unknown>
+type ProjectedElementDataMap = Record<string, ProjectedElementData>
+
+const cloneProjectedElementData = (
+  value: unknown
+): ProjectedElementData | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+  const data = { ...(value as ProjectedElementData) }
+  if (Array.isArray(data.children)) {
+    data.children = [...data.children]
+  }
+  return data
+}
+
+const getProjectedParentId = (
+  data: ProjectedElementData | undefined
+): string | undefined =>
+  typeof data?.parentId === 'string' && data.parentId.length > 0
+    ? data.parentId
+    : undefined
+
+const isProjectedHierarchyKey = (key: string): boolean =>
+  key === 'parentId' || key === 'children'
+
+const sceneTreeChangeUpdatesProjectedHierarchy = (
+  change: SceneTreeChange
+): boolean => {
+  switch (change.action) {
+    case SCENE_TREE_ACTIONS.ADD_ELEMENT:
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT:
+    case SCENE_TREE_ACTIONS.MOVE_ELEMENTS:
+    case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
+    case SCENE_TREE_ACTIONS.RESTORE_SUBTREE:
+      return true
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA:
+      return isProjectedHierarchyKey((change as UpdateElementChange).key)
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH:
+      return (change as UpdateElementBatchChange).changes.some(({ key }) =>
+        isProjectedHierarchyKey(key)
+      )
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH:
+      return Object.keys(
+        (change as UpdateElementPatchChange).patch.values ?? {}
+      ).some(isProjectedHierarchyKey)
+    default:
+      return false
+  }
+}
+
+const projectUIContextSceneTreeBatch = (
+  changes: readonly SceneTreeChange[]
 ): void => {
-  const current =
-    uiContext.get<Record<string, Record<string, unknown>>>('elementDataMap') ??
-    {}
-  const removedIds = new Set<string>()
-  const updatedEntries = new Map<string, Record<string, unknown>>()
-
-  for (const elementId of elementIds) {
-    const element = deps.sceneTree.getElementById(elementId)
-    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
-      removedIds.add(elementId)
-      continue
-    }
-
-    updatedEntries.set(
-      elementId,
-      element.save() as unknown as Record<string, unknown>
-    )
+  if (changes.length === 0) {
+    return
   }
 
-  const next = Object.entries(current).reduce(
-    (acc, [elementId, elementData]) => {
-      if (!removedIds.has(elementId)) {
-        acc[elementId] = elementData
-      }
-      return acc
-    },
-    {} as Record<string, Record<string, unknown>>
-  )
-  updatedEntries.forEach((elementData, elementId) => {
-    next[elementId] = elementData
-  })
+  measureBrowserDragPhase('ui-context:project-scene-tree-batch', () => {
+    const updatesHierarchy = changes.some(
+      sceneTreeChangeUpdatesProjectedHierarchy
+    )
+    const current =
+      uiContext.get<ProjectedElementDataMap>('elementDataMap') ?? {}
+    const currentFlattenedIds = updatesHierarchy
+      ? (uiContext.get<string[]>('flattenedElementIds') ?? [])
+      : []
+    let next = current
+    let mapChanged = false
+    const childrenByParent = new Map<string, string[]>()
+    const dirtyParentIds = new Set<string>()
+    const changedElementIds = new Set<string>()
 
-  uiContext.set('elementDataMap', next)
+    const ensureMutableMap = (): ProjectedElementDataMap => {
+      if (next === current) {
+        next = { ...current }
+      }
+      mapChanged = true
+      return next
+    }
+
+    if (updatesHierarchy) {
+      currentFlattenedIds.forEach((elementId) => {
+        const parentId = getProjectedParentId(current[elementId])
+        if (!parentId) return
+        const children = childrenByParent.get(parentId) ?? []
+        children.push(elementId)
+        childrenByParent.set(parentId, children)
+      })
+    }
+
+    const removeMembership = (
+      parentId: string | undefined,
+      elementId: string
+    ): void => {
+      if (!parentId) return
+      const children = childrenByParent.get(parentId)
+      if (!children) return
+      const index = children.indexOf(elementId)
+      if (index >= 0) {
+        children.splice(index, 1)
+        dirtyParentIds.add(parentId)
+      }
+    }
+
+    const insertMembership = (
+      parentId: string | undefined,
+      elementId: string,
+      requestedIndex?: number
+    ): void => {
+      if (!parentId) return
+      const children = childrenByParent.get(parentId) ?? []
+      const existingIndex = children.indexOf(elementId)
+      if (existingIndex >= 0) {
+        children.splice(existingIndex, 1)
+      }
+      const index =
+        Number.isInteger(requestedIndex) && (requestedIndex as number) >= 0
+          ? Math.min(requestedIndex as number, children.length)
+          : children.length
+      children.splice(index, 0, elementId)
+      childrenByParent.set(parentId, children)
+      dirtyParentIds.add(parentId)
+    }
+
+    const setProjectedValue = (
+      elementId: string,
+      key: string,
+      value: unknown
+    ): void => {
+      const currentData = next[elementId]
+      if (!currentData) return
+      if (
+        !isProjectedHierarchyKey(key) &&
+        !shouldUpdateElementDataMapForComputedKey(key)
+      ) {
+        return
+      }
+      if (key === 'parentId') {
+        const beforeParentId = getProjectedParentId(currentData)
+        const afterParentId =
+          typeof value === 'string' && value.length > 0 ? value : undefined
+        removeMembership(beforeParentId, elementId)
+        insertMembership(afterParentId, elementId)
+      } else if (key === 'children' && Array.isArray(value)) {
+        childrenByParent.set(
+          elementId,
+          value.filter(
+            (childId): childId is string =>
+              typeof childId === 'string' && childId.length > 0
+          )
+        )
+        dirtyParentIds.add(elementId)
+      }
+      ensureMutableMap()[elementId] = {
+        ...currentData,
+        [key]: Array.isArray(value) ? [...value] : value
+      }
+      changedElementIds.add(elementId)
+    }
+
+    changes.forEach((change) => {
+      switch (change.action) {
+        case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
+          const { data, parentId, index } = change as AddRemoveElementChange
+          const elementData = cloneProjectedElementData(data)
+          const elementId =
+            typeof elementData?.id === 'string' ? elementData.id : undefined
+          if (!elementData || !elementId) return
+          const projectedParentId =
+            typeof parentId === 'string'
+              ? parentId
+              : getProjectedParentId(elementData)
+          if (projectedParentId) {
+            elementData.parentId = projectedParentId
+          }
+          ensureMutableMap()[elementId] = elementData
+          changedElementIds.add(elementId)
+          if (Array.isArray(elementData.children)) {
+            childrenByParent.set(
+              elementId,
+              elementData.children.filter(
+                (childId): childId is string =>
+                  typeof childId === 'string' && childId.length > 0
+              )
+            )
+            dirtyParentIds.add(elementId)
+          }
+          insertMembership(projectedParentId, elementId, index)
+          break
+        }
+        case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
+          const { data, parentId } = change as AddRemoveElementChange
+          const elementId = data.id
+          removeMembership(
+            typeof parentId === 'string'
+              ? parentId
+              : getProjectedParentId(next[elementId]),
+            elementId
+          )
+          Reflect.deleteProperty(ensureMutableMap(), elementId)
+          changedElementIds.add(elementId)
+          childrenByParent.delete(elementId)
+          break
+        }
+        case SCENE_TREE_ACTIONS.MOVE_ELEMENTS: {
+          const { moves } = change as MoveElementsChange
+          const movedIds = new Set(moves.map(({ elementId }) => elementId))
+          const affectedParentIds = new Set<string>()
+          moves.forEach(({ before, after }) => {
+            affectedParentIds.add(before.parentId)
+            affectedParentIds.add(after.parentId)
+          })
+          affectedParentIds.forEach((parentId) => {
+            const children = childrenByParent.get(parentId)
+            if (!children) return
+            const retainedChildren = children.filter(
+              (childId) => !movedIds.has(childId)
+            )
+            if (retainedChildren.length !== children.length) {
+              childrenByParent.set(parentId, retainedChildren)
+              dirtyParentIds.add(parentId)
+            }
+          })
+          moves
+            .slice()
+            .sort(
+              (left, right) =>
+                left.after.parentId.localeCompare(right.after.parentId) ||
+                left.after.index - right.after.index
+            )
+            .forEach(({ elementId, after }) => {
+              insertMembership(after.parentId, elementId, after.index)
+            })
+          moves.forEach(({ elementId, after }) => {
+            const elementData = next[elementId]
+            if (elementData) {
+              ensureMutableMap()[elementId] = {
+                ...elementData,
+                parentId: after.parentId
+              }
+              changedElementIds.add(elementId)
+            }
+          })
+          break
+        }
+        case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
+        case SCENE_TREE_ACTIONS.RESTORE_SUBTREE: {
+          const subtree = change as SubtreeChange
+          if (change.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE) {
+            subtree.removed.forEach(({ elementId, parentId }) => {
+              removeMembership(parentId, elementId)
+              Reflect.deleteProperty(ensureMutableMap(), elementId)
+              changedElementIds.add(elementId)
+              childrenByParent.delete(elementId)
+            })
+            const root = subtree.removed.find(
+              ({ elementId }) => elementId === subtree.elementId
+            )
+            if (root) {
+              childrenByParent.set(root.parentId, [
+                ...subtree.rootParentChildrenAfter
+              ])
+              dirtyParentIds.add(root.parentId)
+            }
+            break
+          }
+
+          subtree.removed.forEach(({ data, elementId }) => {
+            const elementData = cloneProjectedElementData(data)
+            if (!elementData) return
+            ensureMutableMap()[elementId] = elementData
+            changedElementIds.add(elementId)
+            if (Array.isArray(elementData.children)) {
+              childrenByParent.set(elementId, [...elementData.children])
+              dirtyParentIds.add(elementId)
+            }
+          })
+          subtree.removed.forEach(({ elementId, parentId, index }) => {
+            insertMembership(parentId, elementId, index)
+            const elementData = next[elementId]
+            if (elementData) {
+              ensureMutableMap()[elementId] = {
+                ...elementData,
+                parentId
+              }
+              changedElementIds.add(elementId)
+            }
+          })
+          break
+        }
+        case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
+          const { id, key, after } = change as UpdateElementChange
+          setProjectedValue(id, key, after)
+          break
+        }
+        case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
+          const { id, changes: updates } = change as UpdateElementBatchChange
+          updates.forEach(({ key, after }) => {
+            setProjectedValue(id, key, after)
+          })
+          break
+        }
+        case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
+          const { id, patch } = change as UpdateElementPatchChange
+          Object.entries(patch.values ?? {}).forEach(([key, value]) => {
+            setProjectedValue(id, key, value.after)
+          })
+          break
+        }
+      }
+    })
+
+    dirtyParentIds.forEach((parentId) => {
+      const parent = next[parentId]
+      if (!parent) return
+      ensureMutableMap()[parentId] = {
+        ...parent,
+        children: [...(childrenByParent.get(parentId) ?? [])]
+      }
+      changedElementIds.add(parentId)
+    })
+
+    if (mapChanged) {
+      emitDiagnosticCounter(
+        'ui-context-sync-element-data-map-entry',
+        changedElementIds.size
+      )
+      uiContext.set('elementDataMap', next)
+    }
+
+    if (updatesHierarchy) {
+      const currentFlattenedIdSet = new Set(currentFlattenedIds)
+      const orderedCandidates = [
+        ...currentFlattenedIds,
+        ...Object.keys(next).filter(
+          (elementId) => !currentFlattenedIdSet.has(elementId)
+        )
+      ]
+      const rootParentIds: string[] = []
+      orderedCandidates.forEach((elementId) => {
+        const parentId = getProjectedParentId(next[elementId])
+        if (parentId && !next[parentId] && !rootParentIds.includes(parentId)) {
+          rootParentIds.push(parentId)
+        }
+      })
+      const flattenedElementIds: string[] = []
+      const visited = new Set<string>()
+      const collectProjectedChildren = (elementId: string): void => {
+        if (visited.has(elementId) || !next[elementId]) return
+        visited.add(elementId)
+        flattenedElementIds.push(elementId)
+        ;(childrenByParent.get(elementId) ?? []).forEach(
+          collectProjectedChildren
+        )
+      }
+      rootParentIds.forEach((parentId) => {
+        ;(childrenByParent.get(parentId) ?? []).forEach(
+          collectProjectedChildren
+        )
+      })
+
+      emitDiagnosticCounter('ui-context-sync-flattened-ids')
+      uiContext.set('flattenedElementIds', flattenedElementIds)
+    }
+  })
 }
 
 interface PendingUIContextSync {
-  flattenedElementIds: boolean
-  fullElementDataMap: boolean
   elementSelectionAndDerived: boolean
-  dirtyElementDataMapIds: Set<string>
   dirtyPropertyKeys: Set<string>
+  sceneTreeChanges: SceneTreeChange[]
 }
 
 const createPendingUIContextSync = (): PendingUIContextSync => ({
-  flattenedElementIds: false,
-  fullElementDataMap: false,
   elementSelectionAndDerived: false,
-  dirtyElementDataMapIds: new Set(),
-  dirtyPropertyKeys: new Set()
+  dirtyPropertyKeys: new Set(),
+  sceneTreeChanges: []
 })
 
 interface UIContextSyncLifetime {
   disposed: boolean
-  immediateFlushScheduled: boolean
   pending: PendingUIContextSync
 }
 
 const createUIContextSyncLifetime = (): UIContextSyncLifetime => ({
   disposed: false,
-  immediateFlushScheduled: false,
   pending: createPendingUIContextSync()
 })
 
@@ -477,28 +796,9 @@ const resetPendingUIContextSync = (lifetime: UIContextSyncLifetime): void => {
 }
 
 const hasPendingUIContextSync = (lifetime: UIContextSyncLifetime): boolean =>
-  lifetime.pending.flattenedElementIds ||
-  lifetime.pending.fullElementDataMap ||
   lifetime.pending.elementSelectionAndDerived ||
-  lifetime.pending.dirtyElementDataMapIds.size > 0 ||
-  lifetime.pending.dirtyPropertyKeys.size > 0
-
-const schedulePendingUIContextSync = (
-  lifetime: UIContextSyncLifetime,
-  core: PresetCoreAPIs,
-  deps: PresetDependencies
-): void => {
-  if (lifetime.disposed || lifetime.immediateFlushScheduled) {
-    return
-  }
-  lifetime.immediateFlushScheduled = true
-  queueMicrotask(() => {
-    lifetime.immediateFlushScheduled = false
-    if (!lifetime.disposed) {
-      flushPendingUIContextSync(lifetime, core, deps)
-    }
-  })
-}
+  lifetime.pending.dirtyPropertyKeys.size > 0 ||
+  lifetime.pending.sceneTreeChanges.length > 0
 
 const flushPendingUIContextSync = (
   lifetime: UIContextSyncLifetime,
@@ -516,21 +816,7 @@ const flushPendingUIContextSync = (
   measureBrowserDragPhase('ui-context:flush', () => {
     emitDiagnosticCounter('ui-context-transaction-flush')
 
-    if (pending.flattenedElementIds) {
-      emitDiagnosticCounter('ui-context-sync-flattened-ids')
-      syncFlattenedElementIds(deps)
-    }
-
-    if (pending.fullElementDataMap) {
-      emitDiagnosticCounter('ui-context-sync-element-data-map-full')
-      syncElementDataMap(deps)
-    } else if (pending.dirtyElementDataMapIds.size > 0) {
-      emitDiagnosticCounter(
-        'ui-context-sync-element-data-map-entry',
-        pending.dirtyElementDataMapIds.size
-      )
-      syncElementDataMapEntries(deps, pending.dirtyElementDataMapIds)
-    }
+    projectUIContextSceneTreeBatch(pending.sceneTreeChanges)
 
     if (pending.elementSelectionAndDerived) {
       emitDiagnosticCounter('ui-context-sync-element-selection-derived')
@@ -556,7 +842,7 @@ const updateUIContextElementSelection = (
   change: SelectionChange,
   core: PresetCoreAPIs,
   deps: PresetDependencies
-) => {
+): void => {
   switch (change.action) {
     case SelectionActions.SELECT_ELEMENTS:
     case SelectionActions.DESELECT_ELEMENTS:
@@ -568,7 +854,7 @@ const updateUIContextElementSelection = (
 const updateVectorEditingSelection = (
   change: SelectionChange,
   core: PresetCoreAPIs
-) => {
+): void => {
   switch (change.action) {
     case SelectionActions.SELECT_VECTOR_POINTS:
     case SelectionActions.DESELECT_VECTOR_POINTS:
@@ -587,70 +873,24 @@ const updateVectorEditingSelection = (
   }
 }
 
-const markComputedKeyPending = (
-  lifetime: UIContextSyncLifetime,
-  elementId: string,
-  key: string
-): void => {
-  if (shouldUpdateElementDataMapForComputedKey(key)) {
-    lifetime.pending.dirtyElementDataMapIds.add(elementId)
-  }
-  if (key === 'children') {
-    lifetime.pending.flattenedElementIds = true
-  }
-}
-
 // Scene-tree channel updates affect list/map mirrors, and may trigger aggregate recompute.
 const handleUIContextSceneTreeChange = (
   change: SceneTreeChange,
   core: PresetCoreAPIs,
-  deps: PresetDependencies,
+  _deps: PresetDependencies,
   lifetime: UIContextSyncLifetime
-) => {
+): void => {
+  lifetime.pending.sceneTreeChanges.push(change)
   const updatedPropertyKeys = getMatchingPropertiesForSceneTreeChange(change)
   updatedPropertyKeys.forEach((key) => {
     lifetime.pending.dirtyPropertyKeys.add(key)
   })
 
-  switch (change.action) {
-    case SCENE_TREE_ACTIONS.ADD_ELEMENT:
-      lifetime.pending.flattenedElementIds = true
-      lifetime.pending.fullElementDataMap = true
-      break
-    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
-      const removedId = (change as AddRemoveElementChange).data.id
-      if (typeof removedId === 'string' && removedId.length > 0) {
-        syncSelectionOnElementRemoval(core, removedId)
-        lifetime.pending.elementSelectionAndDerived = true
-      }
-      lifetime.pending.flattenedElementIds = true
-      lifetime.pending.fullElementDataMap = true
-      break
-    }
-    case SCENE_TREE_ACTIONS.MOVE_ELEMENTS:
-    case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
-    case SCENE_TREE_ACTIONS.RESTORE_SUBTREE:
-      lifetime.pending.flattenedElementIds = true
-      lifetime.pending.fullElementDataMap = true
-      break
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
-      const { id, key } = change as UpdateElementChange
-      markComputedKeyPending(lifetime, id, key)
-      break
-    }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
-      const { id, changes } = change as UpdateElementBatchChange
-      changes.forEach(({ key }) => {
-        markComputedKeyPending(lifetime, id, key)
-      })
-      break
-    }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
-      const { id, patch } = change as UpdateElementPatchChange
-      Object.keys(patch.values ?? {}).forEach((key) => {
-        markComputedKeyPending(lifetime, id, key)
-      })
-      break
+  if (change.action === SCENE_TREE_ACTIONS.REMOVE_ELEMENT) {
+    const removedId = (change as AddRemoveElementChange).data.id
+    if (typeof removedId === 'string' && removedId.length > 0) {
+      syncSelectionOnElementRemoval(core, removedId)
+      lifetime.pending.elementSelectionAndDerived = true
     }
   }
 }
@@ -658,7 +898,7 @@ const handleUIContextSceneTreeChange = (
 const applySelectionChangeToRuntime = (
   core: PresetCoreAPIs,
   change: SelectionChange
-) => {
+): void => {
   const selection = core.getSelection(change.selectionType)
   if (!selection) {
     return
@@ -734,39 +974,12 @@ export const registerDefaultDataChannelObservers = (
   const eventSubscriptions: RuntimeSubscription[] = []
   const registeredObserverNames: string[] = []
   const uiContextSyncLifetime = createUIContextSyncLifetime()
-  const pendingRenderSceneTreeChanges: SceneTreeChange[] = []
-  let renderSceneTreeFlushScheduled = false
-  let renderSceneTreeLifetimeDisposed = false
   let disposed = false
-
-  const flushPendingRenderSceneTreeChanges = (): void => {
-    renderSceneTreeFlushScheduled = false
-    if (
-      renderSceneTreeLifetimeDisposed ||
-      pendingRenderSceneTreeChanges.length === 0
-    ) {
-      pendingRenderSceneTreeChanges.length = 0
-      return
-    }
-    updateRenderSceneTreeBatch(pendingRenderSceneTreeChanges.splice(0))
-  }
-
-  const scheduleRenderSceneTreeChange = (change: SceneTreeChange): void => {
-    if (renderSceneTreeLifetimeDisposed) {
-      return
-    }
-    pendingRenderSceneTreeChanges.push(change)
-    if (renderSceneTreeFlushScheduled) {
-      return
-    }
-    renderSceneTreeFlushScheduled = true
-    queueMicrotask(flushPendingRenderSceneTreeChanges)
-  }
 
   const dispose = (): void => {
     if (disposed) return
 
-    renderSceneTreeLifetimeDisposed = true
+    disposed = true
     const failures: unknown[] = []
     for (let index = registeredObserverNames.length - 1; index >= 0; index--) {
       const name = registeredObserverNames[index]
@@ -794,12 +1007,10 @@ export const registerDefaultDataChannelObservers = (
     }
     uiContextSyncLifetime.disposed = true
     resetPendingUIContextSync(uiContextSyncLifetime)
-    pendingRenderSceneTreeChanges.length = 0
 
     if (failures.length > 0) {
       throw failures[0]
     }
-    disposed = true
   }
   const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
   const registerObserver = <TChange>(
@@ -813,18 +1024,30 @@ export const registerDefaultDataChannelObservers = (
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.uiContext.sceneTree',
     channel: SharedDataChannelNames.SCENE_TREE,
-    onChange: (change: SceneTreeChange) => {
-      handleUIContextSceneTreeChange(change, core, deps, uiContextSyncLifetime)
-      if (change.options?.sharedDelivery === 'immediate') {
-        schedulePendingUIContextSync(uiContextSyncLifetime, core, deps)
+    onBatch: (changes: readonly SceneTreeChange[]) => {
+      if (uiContextSyncLifetime.disposed) {
+        return
       }
+      changes.forEach((change) => {
+        handleUIContextSceneTreeChange(
+          change,
+          core,
+          deps,
+          uiContextSyncLifetime
+        )
+      })
+      flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
     }
   })
 
   const renderSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.render.sceneTree',
     channel: SharedDataChannelNames.SCENE_TREE,
-    onChange: scheduleRenderSceneTreeChange
+    onBatch: (changes: readonly SceneTreeChange[]) => {
+      if (!disposed) {
+        updateRenderSceneTreeBatch(changes)
+      }
+    }
   })
 
   const uiContextSelectionDataChannelObserver = defineDataChannelObserver({
@@ -870,15 +1093,6 @@ export const registerDefaultDataChannelObservers = (
           if (vectorEditingEnabled) {
             syncVectorSelections(core)
           }
-        })
-      )
-      cleanupReporter.report()
-    }
-
-    if (uiContextEnabled) {
-      eventSubscriptions.push(
-        subscribeToEndTransaction(() => {
-          flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
         })
       )
       cleanupReporter.report()

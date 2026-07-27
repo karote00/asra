@@ -141,10 +141,13 @@ fails; apps customize successful defaults through ordinary Core APIs.
   on their separate observer route.
 - The preset-owned UI-context Scene Tree observer derives
   `flattenedElementIds` and `elementDataMap` from canonical Scene Tree state.
-  Accepted add, remove, move, subtree removal, and subtree restoration envelopes
-  mark both projections for the transaction-end refresh; validated file load
-  performs the same full refresh. These values are App-facing projections only
-  and never validate, repair, reorder, or become a second canonical hierarchy.
+  Each exact Core/Factory batch projects once: structural changes update
+  affected entries and hierarchy order, display-property changes replace only
+  affected entries without rebuilding flattened hierarchy, and unrelated
+  geometry changes do not republish either projection. Validated file load
+  remains the sole full canonical refresh. These values are App-facing
+  projections only and never validate, repair, reorder, or become a second
+  canonical hierarchy.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.

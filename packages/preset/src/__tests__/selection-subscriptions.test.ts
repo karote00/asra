@@ -11,19 +11,32 @@ import {
   SCENE_TREE_ACTIONS,
   type SelectionChange
 } from '@asyra/utils'
-import {
-  EventTypes,
-  publishEvent,
-  runTransaction
-} from '@asyra/reactive-events'
+import { EventTypes, publishEvent } from '@asyra/reactive-events'
 import { registerSelections } from '../selection/register-default-selections'
 import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import { VECTOR_COMPONENT_DEFINITION } from '../components/vector'
 import {
   SelectionActions,
   SelectionChannels,
   SelectionEventNames
 } from '../selection/channels'
+
+interface TestDataChannelObserver {
+  onBatch?: (changes: readonly unknown[]) => void
+  onChange?: (change: unknown) => void
+}
+
+const deliverObserverChanges = (
+  observer: TestDataChannelObserver | undefined,
+  changes: readonly unknown[]
+): void => {
+  if (observer?.onBatch) {
+    observer.onBatch(changes)
+    return
+  }
+  changes.forEach((change) => observer?.onChange?.(change))
+}
 
 const createDeps = (): PresetDependencies =>
   ({
@@ -48,6 +61,8 @@ const createDeps = (): PresetDependencies =>
       panTo: () => undefined
     }
   }) as unknown as PresetDependencies
+
+const VECTOR_TYPE = VECTOR_COMPONENT_DEFINITION.type
 
 describe('Preset Selection Subscriptions', () => {
   it('rebuilds Render projection immediately after every observer registration', () => {
@@ -272,53 +287,6 @@ describe('Preset Selection Subscriptions', () => {
     expect(observer).toBeDefined()
 
     try {
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'vector-1', type: 'vector' },
-        parentId: 'group-1',
-        index: 1
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        eventName: 'update-computed',
-        id: 'vector-1',
-        owner: 'computed',
-        key: 'visible',
-        before: true,
-        after: false,
-        options: { undoable: false }
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-        eventName: 'update-computed',
-        id: 'vector-1',
-        changes: [
-          { owner: 'raw', key: 'x', before: 0, after: 10 },
-          { owner: 'computed', key: 'y', before: 0, after: 20 }
-        ],
-        options: { undoable: false }
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-        eventName: 'update-computed-patch',
-        id: 'vector-1',
-        patch: {
-          records: {
-            points: {
-              set: {
-                p1: { after: { id: 'p1', x: 0, y: 0 } }
-              }
-            }
-          }
-        },
-        options: { undoable: false }
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        data: { id: 'vector-1', type: 'vector' },
-        parentId: 'group-1',
-        index: 1
-      })
       const moves = [
         {
           elementId: 'vector-1',
@@ -326,11 +294,6 @@ describe('Preset Selection Subscriptions', () => {
           after: { parentId: 'group-1', index: 0 }
         }
       ]
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
-        eventName: EventTypes.MOVE_ELEMENTS,
-        moves
-      })
       const subtreeChange = {
         action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
         undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
@@ -346,14 +309,67 @@ describe('Preset Selection Subscriptions', () => {
           }
         ]
       }
-      observer?.onChange(subtreeChange)
       const restoreSubtreeChange = {
         ...subtreeChange,
         action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
         undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
       }
-      observer?.onChange(restoreSubtreeChange)
-      await Promise.resolve()
+      deliverObserverChanges(observer, [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: { id: 'vector-1', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        },
+        {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+          eventName: 'update-computed',
+          id: 'vector-1',
+          owner: 'computed',
+          key: 'visible',
+          before: true,
+          after: false,
+          options: { undoable: false }
+        },
+        {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: 'update-computed',
+          id: 'vector-1',
+          changes: [
+            { owner: 'raw', key: 'x', before: 0, after: 10 },
+            { owner: 'computed', key: 'y', before: 0, after: 20 }
+          ],
+          options: { undoable: false }
+        },
+        {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+          eventName: 'update-computed-patch',
+          id: 'vector-1',
+          patch: {
+            records: {
+              points: {
+                set: {
+                  p1: { after: { id: 'p1', x: 0, y: 0 } }
+                }
+              }
+            }
+          },
+          options: { undoable: false }
+        },
+        {
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+          data: { id: 'vector-1', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        },
+        {
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+          eventName: EventTypes.MOVE_ELEMENTS,
+          moves
+        },
+        subtreeChange,
+        restoreSubtreeChange
+      ])
 
       expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
       expect(scalar).toHaveBeenCalledWith(
@@ -417,7 +433,7 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('routes contiguous same-parent additions through one Render relationship batch', async () => {
+  it('routes contiguous same-parent additions through one Render relationship batch', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -446,19 +462,20 @@ describe('Preset Selection Subscriptions', () => {
     const observer = observers.get('preset.render.sceneTree')
 
     try {
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'child-a', type: 'vector' },
-        parentId: 'group-1',
-        index: 0
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'child-b', type: 'vector' },
-        parentId: 'group-1',
-        index: 1
-      })
-      await Promise.resolve()
+      deliverObserverChanges(observer, [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: { id: 'child-a', type: 'vector' },
+          parentId: 'group-1',
+          index: 0
+        },
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: { id: 'child-b', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
 
       expect(addBatch).toHaveBeenCalledOnce()
       expect(addBatch).toHaveBeenCalledWith([
@@ -474,7 +491,223 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('drops a pending Render relationship batch when its observer lifetime is disposed', async () => {
+  it('projects each formal Scene Tree batch without exposing later canonical additions', () => {
+    interface Observer {
+      onBatch?: (changes: readonly unknown[]) => void
+      onChange?: (change: unknown) => void
+    }
+    const observers = new Map<string, Observer>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: Observer & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+    const getAllElements = vi.fn(() => {
+      throw new Error('formal batch projection must not scan canonical state')
+    })
+    dependencies.sceneTree.getAllElements = getAllElements
+    const addSingle = vi
+      .spyOn(renderSceneTreeStore, 'addElementById')
+      .mockReturnValue({ status: 'applied', elementId: 'group-1' })
+    const addBatch = vi
+      .spyOn(renderSceneTreeStore, 'addElementsById')
+      .mockImplementation((additions) =>
+        additions.map(({ elementId }) => ({
+          status: 'applied',
+          elementId
+        }))
+      )
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', [])
+    uiContext.set('elementDataMap', {})
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { renderScene: true, uiContext: true }
+    )
+    const renderObserver = observers.get('preset.render.sceneTree')
+    const uiObserver = observers.get('preset.uiContext.sceneTree')
+    const uiSet = vi.spyOn(uiContext, 'set')
+    const firstBatch = [
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: {
+          children: [],
+          id: 'group-1',
+          parentId: 'workspace-1',
+          type: EntityTypes.GROUP
+        },
+        index: 0,
+        options: { sharedDelivery: 'transaction-end' },
+        parentId: 'workspace-1'
+      },
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: {
+          id: 'child-a',
+          parentId: 'group-1',
+          type: VECTOR_TYPE
+        },
+        index: 0,
+        options: { sharedDelivery: 'transaction-end' },
+        parentId: 'group-1'
+      }
+    ]
+    const secondBatch = [
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: {
+          id: 'child-b',
+          parentId: 'group-1',
+          type: VECTOR_TYPE
+        },
+        index: 1,
+        options: { sharedDelivery: 'transaction-end' },
+        parentId: 'group-1'
+      },
+      {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: {
+          id: 'child-c',
+          parentId: 'group-1',
+          type: VECTOR_TYPE
+        },
+        index: 2,
+        options: { sharedDelivery: 'transaction-end' },
+        parentId: 'group-1'
+      }
+    ]
+
+    try {
+      expect(renderObserver?.onBatch).toBeTypeOf('function')
+      expect(uiObserver?.onBatch).toBeTypeOf('function')
+
+      renderObserver?.onBatch?.(firstBatch)
+      uiObserver?.onBatch?.(firstBatch)
+
+      expect(addSingle).toHaveBeenCalledTimes(2)
+      expect(addBatch).not.toHaveBeenCalled()
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap',
+        'flattenedElementIds'
+      ])
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'group-1',
+        'child-a'
+      ])
+      expect(uiContext.get('elementDataMap')).toEqual({
+        'group-1': {
+          children: ['child-a'],
+          id: 'group-1',
+          parentId: 'workspace-1',
+          type: EntityTypes.GROUP
+        },
+        'child-a': {
+          id: 'child-a',
+          parentId: 'group-1',
+          type: VECTOR_TYPE
+        }
+      })
+
+      renderObserver?.onBatch?.(secondBatch)
+      uiObserver?.onBatch?.(secondBatch)
+
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'group-1',
+        'child-a',
+        'child-b',
+        'child-c'
+      ])
+      expect(
+        (uiContext.get<Record<string, { children?: string[] }>>(
+          'elementDataMap'
+        ) ?? {})['group-1']?.children
+      ).toEqual(['child-a', 'child-b', 'child-c'])
+      expect(addSingle).toHaveBeenCalledTimes(2)
+      expect(addSingle).toHaveBeenNthCalledWith(1, 'group-1', 'workspace-1', 0)
+      expect(addSingle).toHaveBeenNthCalledWith(2, 'child-a', 'group-1', 0)
+      expect(addBatch).toHaveBeenCalledOnce()
+      expect(addBatch).toHaveBeenCalledWith([
+        { elementId: 'child-b', parentId: 'group-1', index: 1 },
+        { elementId: 'child-c', parentId: 'group-1', index: 2 }
+      ])
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap',
+        'flattenedElementIds',
+        'elementDataMap',
+        'flattenedElementIds'
+      ])
+      expect(getAllElements).not.toHaveBeenCalled()
+
+      const beforePropertyMap =
+        uiContext.get<Record<string, Record<string, unknown>>>(
+          'elementDataMap'
+        ) ?? {}
+      const beforePropertyHierarchy = uiContext.get<string[]>(
+        'flattenedElementIds'
+      )
+      uiSet.mockClear()
+      uiObserver?.onBatch?.([
+        {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+          eventName: 'update-computed',
+          id: 'child-a',
+          owner: 'raw',
+          key: 'name',
+          before: undefined,
+          after: 'Renamed child',
+          options: { undoable: false }
+        }
+      ])
+
+      const afterPropertyMap =
+        uiContext.get<Record<string, Record<string, unknown>>>(
+          'elementDataMap'
+        ) ?? {}
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap'
+      ])
+      expect(uiContext.get('flattenedElementIds')).toBe(beforePropertyHierarchy)
+      expect(afterPropertyMap['group-1']).toBe(beforePropertyMap['group-1'])
+      expect(afterPropertyMap['child-a']).toEqual({
+        ...beforePropertyMap['child-a'],
+        name: 'Renamed child'
+      })
+
+      uiSet.mockClear()
+      uiObserver?.onBatch?.([
+        {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+          eventName: 'update-computed',
+          id: 'child-a',
+          owner: 'computed',
+          key: 'x',
+          before: 0,
+          after: 10,
+          options: { undoable: false }
+        }
+      ])
+      expect(uiSet).not.toHaveBeenCalled()
+    } finally {
+      dispose()
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+      addSingle.mockRestore()
+      addBatch.mockRestore()
+      reload.mockRestore()
+      uiSet.mockRestore()
+    }
+  })
+
+  it('ignores a stale Render batch callback after its observer lifetime is disposed', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -501,20 +734,21 @@ describe('Preset Selection Subscriptions', () => {
     const observer = observers.get('preset.render.sceneTree')
 
     try {
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'child-a', type: 'vector' },
-        parentId: 'group-1',
-        index: 0
-      })
-      observer?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'child-b', type: 'vector' },
-        parentId: 'group-1',
-        index: 1
-      })
       dispose()
-      await Promise.resolve()
+      deliverObserverChanges(observer, [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: { id: 'child-a', type: 'vector' },
+          parentId: 'group-1',
+          index: 0
+        },
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: { id: 'child-b', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
 
       expect(addBatch).not.toHaveBeenCalled()
       expect(addSingle).not.toHaveBeenCalled()
@@ -528,18 +762,14 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('keeps pending UI context transactions isolated per Core observer lifetime', () => {
+  it('keeps UI batch projection isolated per Core observer lifetime', () => {
     const createCore = () => {
-      const observers = new Map<
-        string,
-        { onChange: (change: unknown) => void }
-      >()
+      const observers = new Map<string, TestDataChannelObserver>()
       const core = {
         getSelection: () => undefined,
-        registerDataChannelObserver: (registration: {
-          name: string
-          onChange: (change: unknown) => void
-        }) => {
+        registerDataChannelObserver: (
+          registration: TestDataChannelObserver & { name: string }
+        ) => {
           observers.set(registration.name, registration)
         },
         unregisterDataChannelObserver: (name: string) => observers.delete(name)
@@ -558,9 +788,11 @@ describe('Preset Selection Subscriptions', () => {
     secondDependencies.sceneTree.getAllElements = secondGetAllElements
     propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
     propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', [])
+    uiContext.set('elementDataMap', {})
 
-    // Register the second lifetime first so a shared pending queue would be
-    // flushed with the wrong dependency set at the transaction boundary.
+    // Register the second lifetime first so a shared projection queue would
+    // expose state through the wrong observer lifetime.
     const disposeSecond = registerDefaultDataChannelObservers(
       second.core,
       secondDependencies,
@@ -575,28 +807,47 @@ describe('Preset Selection Subscriptions', () => {
     )
 
     try {
-      first.observers.get('preset.uiContext.sceneTree')?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'first-element', type: 'rectangle' },
-        parentId: 'first-workspace'
-      })
+      deliverObserverChanges(
+        first.observers.get('preset.uiContext.sceneTree'),
+        [
+          {
+            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+            data: {
+              id: 'first-element',
+              parentId: 'first-workspace',
+              type: 'rectangle'
+            },
+            parentId: 'first-workspace'
+          }
+        ]
+      )
 
-      runTransaction(() => undefined)
-
-      expect(firstGetAllElements).toHaveBeenCalledOnce()
+      expect(firstGetAllElements).not.toHaveBeenCalled()
       expect(secondGetAllElements).not.toHaveBeenCalled()
+      expect(uiContext.get('flattenedElementIds')).toEqual(['first-element'])
 
-      first.observers.get('preset.uiContext.sceneTree')?.onChange({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'first-element-2', type: 'rectangle' },
-        parentId: 'first-workspace'
-      })
       disposeSecond()
+      deliverObserverChanges(
+        first.observers.get('preset.uiContext.sceneTree'),
+        [
+          {
+            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+            data: {
+              id: 'first-element-2',
+              parentId: 'first-workspace',
+              type: 'rectangle'
+            },
+            parentId: 'first-workspace'
+          }
+        ]
+      )
 
-      runTransaction(() => undefined)
-
-      expect(firstGetAllElements).toHaveBeenCalledTimes(2)
+      expect(firstGetAllElements).not.toHaveBeenCalled()
       expect(secondGetAllElements).not.toHaveBeenCalled()
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'first-element',
+        'first-element-2'
+      ])
     } finally {
       disposeFirst()
       disposeSecond()
@@ -605,17 +856,13 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('projects one UI context snapshot per synchronous immediate canonical batch', async () => {
-    const observers = new Map<
-      string,
-      { onChange: (change: unknown) => void }
-    >()
+  it('projects one affected UI context snapshot per formal canonical batch', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
     const core = {
       getSelection: () => undefined,
-      registerDataChannelObserver: (registration: {
-        name: string
-        onChange: (change: unknown) => void
-      }) => {
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => {
         observers.set(registration.name, registration)
       },
       unregisterDataChannelObserver: (name: string) => observers.delete(name)
@@ -664,26 +911,22 @@ describe('Preset Selection Subscriptions', () => {
         save: () => ({ ...saved })
       })
       workspaceChildren.push(elementId)
-      observers.get('preset.uiContext.sceneTree')?.onChange({
+      return {
         action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
         data: saved,
         options: { sharedDelivery: 'immediate' },
         parentId: 'workspace-1'
-      })
+      }
     }
 
     try {
-      addElement('rect-1')
-      addElement('rect-2')
+      deliverObserverChanges(observers.get('preset.uiContext.sceneTree'), [
+        addElement('rect-1'),
+        addElement('rect-2')
+      ])
 
       expect(getAllElements).not.toHaveBeenCalled()
-      await Promise.resolve()
-
-      expect(getAllElements).toHaveBeenCalledOnce()
-      expect(uiContext.get('flattenedElementIds')).toEqual([
-        'rect-1',
-        'rect-2'
-      ])
+      expect(uiContext.get('flattenedElementIds')).toEqual(['rect-1', 'rect-2'])
       expect(uiContext.get('elementDataMap')).toEqual({
         'rect-1': {
           id: 'rect-1',
@@ -697,10 +940,11 @@ describe('Preset Selection Subscriptions', () => {
         }
       })
 
-      addElement('rect-3')
-      await Promise.resolve()
+      deliverObserverChanges(observers.get('preset.uiContext.sceneTree'), [
+        addElement('rect-3')
+      ])
 
-      expect(getAllElements).toHaveBeenCalledTimes(2)
+      expect(getAllElements).not.toHaveBeenCalled()
       expect(uiContext.get('flattenedElementIds')).toEqual([
         'rect-1',
         'rect-2',
@@ -766,6 +1010,84 @@ describe('Preset Selection Subscriptions', () => {
         }
       },
       expectedIds: ['group-1', 'rect-1', 'rect-2']
+    },
+    {
+      name: 'same-parent multi-element move',
+      change: {
+        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        moves: [
+          {
+            elementId: 'rect-b',
+            before: { parentId: 'group-1', index: 1 },
+            after: { parentId: 'group-1', index: 2 }
+          },
+          {
+            elementId: 'rect-c',
+            before: { parentId: 'group-1', index: 2 },
+            after: { parentId: 'group-1', index: 3 }
+          }
+        ]
+      },
+      initialIds: ['group-1', 'rect-a', 'rect-b', 'rect-c', 'rect-d'],
+      initialMap: {
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-a', 'rect-b', 'rect-c', 'rect-d']
+        },
+        'rect-a': {
+          id: 'rect-a',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-b': {
+          id: 'rect-b',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-c': {
+          id: 'rect-c',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-d': {
+          id: 'rect-d',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      workspaceChildren: ['group-1'],
+      elements: {
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace-1',
+          children: ['rect-a', 'rect-d', 'rect-b', 'rect-c']
+        },
+        'rect-a': {
+          id: 'rect-a',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-b': {
+          id: 'rect-b',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-c': {
+          id: 'rect-c',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        },
+        'rect-d': {
+          id: 'rect-d',
+          type: EntityTypes.RECTANGLE,
+          parentId: 'group-1'
+        }
+      },
+      expectedIds: ['group-1', 'rect-a', 'rect-d', 'rect-b', 'rect-c']
     },
     {
       name: 'subtree removal',
@@ -867,16 +1189,12 @@ describe('Preset Selection Subscriptions', () => {
       elements,
       expectedIds
     }) => {
-      const observers = new Map<
-        string,
-        { onChange: (change: unknown) => void }
-      >()
+      const observers = new Map<string, TestDataChannelObserver>()
       const core = {
         getSelection: () => undefined,
-        registerDataChannelObserver: (registration: {
-          name: string
-          onChange: (change: unknown) => void
-        }) => observers.set(registration.name, registration),
+        registerDataChannelObserver: (
+          registration: TestDataChannelObserver & { name: string }
+        ) => observers.set(registration.name, registration),
         unregisterDataChannelObserver: (name: string) => observers.delete(name)
       } as unknown as PresetCoreAPIs
       const elementRecords = Object.entries(elements).map(
@@ -926,8 +1244,7 @@ describe('Preset Selection Subscriptions', () => {
         const observer = observers.get('preset.uiContext.sceneTree')
         expect(observer).toBeDefined()
 
-        observer?.onChange(change)
-        runTransaction(() => undefined)
+        deliverObserverChanges(observer, [change])
 
         expect(uiContext.get('flattenedElementIds')).toEqual(expectedIds)
         expect(uiContext.get('elementDataMap')).toEqual(elements)
@@ -940,7 +1257,7 @@ describe('Preset Selection Subscriptions', () => {
   )
 
   it('applies selection channel changes and removes deleted selection ids via observers', () => {
-    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const observers = new Map<string, TestDataChannelObserver>()
     const selections = new Map<string, BaseSelection>()
     const core = {
       defineSelection: (type: string, selection: BaseSelection) => {
@@ -948,10 +1265,9 @@ describe('Preset Selection Subscriptions', () => {
       },
       unregisterSelection: (type: string) => selections.delete(type),
       getSelection: (type: string) => selections.get(type),
-      registerDataChannelObserver: (registration: {
-        name: string
-        onChange: (change: unknown) => void
-      }) => {
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => {
         observers.set(registration.name, registration)
       },
       unregisterDataChannelObserver: (name: string) => observers.delete(name)
@@ -1012,11 +1328,13 @@ describe('Preset Selection Subscriptions', () => {
     const sceneTreeObserver = observers.get('preset.uiContext.sceneTree')
     expect(sceneTreeObserver).toBeDefined()
 
-    sceneTreeObserver?.onChange({
-      action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-      data: { id: 'oval-1', type: 'oval' },
-      parentId: 'workspace-1'
-    })
+    deliverObserverChanges(sceneTreeObserver, [
+      {
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        data: { id: 'oval-1', type: 'oval' },
+        parentId: 'workspace-1'
+      }
+    ])
 
     expect(
       Array.from(
