@@ -2509,7 +2509,10 @@ class PropsManager {
       batch.stagedById.delete(componentId)
       ;(component as unknown as { dispose?: () => void }).dispose?.()
     })
-    batch.components.splice(0, batch.components.length, ...retainedComponents)
+    batch.components.length = 0
+    retainedComponents.forEach((component) => {
+      batch.components.push(component)
+    })
     if (reachable.size !== batch.components.length) {
       throw new Error(
         '[PropsManager] Ordinary property creation contains an unowned staged property'
