@@ -1,5 +1,10 @@
-import { createCollaboration, type Collaboration } from '@asyra/collaboration'
-import { publishEvent } from '@asyra/reactive-events'
+import {
+  createCollaboration,
+  type Collaboration,
+  type ProcessRemotePublication
+} from '@asyra/collaboration'
+import type { SharedPublication } from '@asyra/factory'
+import { applyEventToSynchronousOwners } from '@asyra/reactive-events'
 import { idCounter } from '@asyra/utils'
 import core, { factory } from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
@@ -11,6 +16,22 @@ let activeInstance: Collaboration | undefined
 let startPromise:
   | Promise<NonNullable<Window['__AsyraCollaboration__']>>
   | undefined
+
+export const createRemotePublicationHandler = (
+  applyRemotePublication: (publication: SharedPublication) => boolean,
+  sendPeerApplied: (
+    publicationId: string,
+    fromActorId: string
+  ) => Promise<unknown>
+): ProcessRemotePublication => {
+  return async (publication, context) => {
+    const applied = applyRemotePublication(publication)
+    if (!applied || !context.fromActorId) return
+    await sendPeerApplied(publication.publicationId, context.fromActorId).catch(
+      () => undefined
+    )
+  }
+}
 
 const createHandle = (
   instance: Collaboration
@@ -42,11 +63,16 @@ const start = async (
       connectionMetadata: { fileId: mode.fileId }
     }
   })
-  const processRemotePublication = createAsyraDesignPublicationProcessor(
+  const applyRemotePublication = createAsyraDesignPublicationProcessor(
     factory.runRemoteTransaction.bind(factory),
-    (event) => factory.applyRemoteEvent(event, publishEvent),
+    (event) => factory.applyRemoteEvent(event, applyEventToSynchronousOwners),
     undefined,
-    core
+    core,
+    core.createElementsInParentFromCanonicalData.bind(core)
+  )
+  const processRemotePublication = createRemotePublicationHandler(
+    applyRemotePublication,
+    provider.sendPeerApplied.bind(provider)
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,

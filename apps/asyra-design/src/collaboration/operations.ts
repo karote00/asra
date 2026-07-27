@@ -1,22 +1,39 @@
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
-import { EventTypes, type AllEvent } from '@asyra/reactive-events'
+import type {
+  SharedDelivery,
+  SharedDeliveryBatch,
+  SharedPublication
+} from '@asyra/factory'
+import {
+  EventTypes,
+  publishEventsToObservers,
+  type AllEvent
+} from '@asyra/reactive-events'
 import {
   type ElementPropertyOwnerRelation,
+  type ElementRawData,
   type EVENT_OPTIONS,
   PROPS_ACTIONS,
+  type PropertyComponentRawData,
   type PropsRestorePlan,
   type PropsRestoreSnapshot,
   SCENE_TREE_ACTIONS,
   type SceneTreeRestorePlan,
   type SceneTreeRestoreSnapshot,
   SharedDataChannelNames,
+  emitDiagnosticCounter,
   isRecord,
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
 
 type ProcessOperation = (event: AllEvent) => boolean | undefined
-type RunRemoteTransaction = <T>(mutate: () => T) => T
+type RunRemoteTransaction = (mutate: () => void) => void
+export type ApplyRemoteCanonicalCreationBatch = (
+  elements: readonly ElementRawData[],
+  properties: readonly PropertyComponentRawData[],
+  parentId: string,
+  index: number
+) => readonly string[]
 export type DecideRemotePublication = (
   publication: SharedPublication
 ) => SharedPublication | false
@@ -43,8 +60,53 @@ interface ClassifiedRemoteRestore {
   propsSnapshot: PropsRestoreSnapshot
 }
 
+interface RemoteCanonicalCreationBatch {
+  readonly elements: readonly ElementRawData[]
+  readonly properties: readonly PropertyComponentRawData[]
+  readonly parentId: string
+  readonly index: number
+}
+
+type RemoteApplyStep =
+  | Readonly<{
+      kind: 'event'
+      event: AllEvent
+    }>
+  | Readonly<{
+      kind: 'canonical-creation'
+      batch: RemoteCanonicalCreationBatch
+    }>
+
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
+
+type BrowserPhaseSink = (phaseName: string, durationMs: number) => void
+
+const runWithDetachedBrowserTiming = <T>(run: () => T): T => {
+  const runtime = globalThis as typeof globalThis & {
+    __asyraBrowserDragPhaseSink?: BrowserPhaseSink
+  }
+  const sourceSink = runtime.__asyraBrowserDragPhaseSink
+  if (!sourceSink) {
+    return run()
+  }
+
+  const detachedSink: BrowserPhaseSink = (phaseName, durationMs) => {
+    try {
+      sourceSink(phaseName, durationMs)
+    } catch {
+      // Timing observers cannot change remote canonical settlement.
+    }
+  }
+  runtime.__asyraBrowserDragPhaseSink = detachedSink
+  try {
+    return run()
+  } finally {
+    if (runtime.__asyraBrowserDragPhaseSink === detachedSink) {
+      runtime.__asyraBrowserDragPhaseSink = sourceSink
+    }
+  }
+}
 
 const isTypedData = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) && isNonBlankString(value.id) && isNonBlankString(value.type)
@@ -333,66 +395,346 @@ const toEvent = (delivery: SharedDelivery): AllEvent => {
   return { type: delivery.eventName, payload: delivery.payload } as AllEvent
 }
 
+const isAddPropertyDelivery = (
+  delivery: SharedDelivery | undefined
+): delivery is SharedDelivery<
+  Readonly<{
+    data: readonly PropertyComponentRawData[]
+  }>
+> =>
+  Boolean(
+    delivery &&
+      delivery.channel === SharedDataChannelNames.PROPS &&
+      delivery.eventName === EventTypes.ADD_PROPERTY &&
+      isAddRemoveProperties(
+        delivery.payload,
+        PROPS_ACTIONS.ADD_PROPERTY,
+        EventTypes.ADD_PROPERTY
+      )
+  )
+
+const isDirectPublicationBatch = (
+  publication: SharedPublication,
+  batch: SharedDeliveryBatch
+): boolean =>
+  batch.artifactId === publication.artifactId &&
+  batch.transactionId === publication.transactionId &&
+  batch.origin === publication.origin &&
+  batch.deliveries.length > 0 &&
+  batch.deliveries.length === batch.records.length &&
+  batch.deliveries.length === batch.changes.length &&
+  batch.deliveries.every((delivery, index) => {
+    const record = batch.records[index]
+    return (
+      delivery.artifactId === batch.artifactId &&
+      delivery.batchId === batch.batchId &&
+      delivery.transactionId === batch.transactionId &&
+      delivery.origin === batch.origin &&
+      delivery.kind === batch.kind &&
+      delivery.channel === batch.channel &&
+      delivery.sharedDelivery === batch.sharedDelivery &&
+      record?.recordId === delivery.recordId &&
+      record.deliveryId === delivery.deliveryId &&
+      delivery.record.recordId === record.recordId &&
+      delivery.record.deliveryId === record.deliveryId
+    )
+  })
+
+const orderedIdsFromBatch = (batch: SharedDeliveryBatch): readonly string[] =>
+  batch.records.flatMap(({ orderedIds }) => orderedIds)
+
+const sameOrderedIds = (
+  actual: readonly string[],
+  expected: readonly string[]
+): boolean =>
+  actual.length === expected.length &&
+  actual.every((id, index) => id === expected[index])
+
+const classifyCanonicalCreationBatch = (
+  publication: SharedPublication,
+  startBatchIndex: number
+): Readonly<{
+  batch: RemoteCanonicalCreationBatch
+  consumedBatchCount: number
+  consumedDeliveryCount: number
+}> | null => {
+  const propertyBatch = publication.batches[startBatchIndex]
+  const sceneBatch = publication.batches[startBatchIndex + 1]
+  if (
+    !propertyBatch ||
+    !sceneBatch ||
+    !isDirectPublicationBatch(publication, propertyBatch) ||
+    !isDirectPublicationBatch(publication, sceneBatch) ||
+    propertyBatch.channel !== SharedDataChannelNames.PROPS ||
+    sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
+    propertyBatch.sliceId !== sceneBatch.sliceId ||
+    propertyBatch.kind !== sceneBatch.kind ||
+    propertyBatch.sharedDelivery !== sceneBatch.sharedDelivery
+  ) {
+    return null
+  }
+  const sliceBoundary = publication.deliveryPlan.slices.find(
+    ({ sliceId }) => sliceId === propertyBatch.sliceId
+  )
+  if (!sliceBoundary) {
+    return null
+  }
+
+  const propertyDeliveries = propertyBatch.deliveries
+  if (!propertyDeliveries.every(isAddPropertyDelivery)) {
+    return null
+  }
+  const properties = propertyDeliveries.flatMap(({ payload }) => payload.data)
+  const propertyIds = new Set(properties.map(({ id }) => id))
+  const elements: ElementRawData[] = []
+  let parentId: string | undefined
+  let insertionIndex: number | undefined
+  let observedPropertyOwnerCount = 0
+
+  for (const delivery of sceneBatch.deliveries) {
+    if (
+      !delivery ||
+      delivery.eventName !== EventTypes.ADD_ELEMENT ||
+      !isAddRemoveElement(
+        delivery.payload,
+        SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        EventTypes.ADD_ELEMENT
+      )
+    ) {
+      return null
+    }
+    const payload = delivery.payload
+    const elementData = payload.data as Record<string, unknown>
+    if (
+      !isNonBlankString(payload.parentId) ||
+      !Number.isInteger(payload.index) ||
+      !isRecord(elementData.props) ||
+      elementData.parentId !== payload.parentId
+    ) {
+      return null
+    }
+
+    parentId ??= payload.parentId
+    insertionIndex ??= Number(payload.index)
+    if (
+      payload.parentId !== parentId ||
+      Number(payload.index) !== insertionIndex + elements.length
+    ) {
+      return null
+    }
+    const propertyOwnerIds = Object.values(elementData.props)
+    if (
+      propertyOwnerIds.some(
+        (propertyId) =>
+          !isNonBlankString(propertyId) || !propertyIds.has(propertyId)
+      )
+    ) {
+      return null
+    }
+    observedPropertyOwnerCount += propertyOwnerIds.length
+    elements.push(elementData as unknown as ElementRawData)
+  }
+
+  const elementIds = elements.map(({ id }) => id)
+  const propertyOrderedIds = orderedIdsFromBatch(propertyBatch)
+  const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
+  if (
+    elements.length === 0 ||
+    parentId === undefined ||
+    insertionIndex === undefined ||
+    observedPropertyOwnerCount === 0 ||
+    !sameOrderedIds(sceneOrderedIds, elementIds) ||
+    !sameOrderedIds(propertyOrderedIds, elementIds) ||
+    !sameOrderedIds(sliceBoundary.orderedIds, elementIds)
+  ) {
+    return null
+  }
+
+  return Object.freeze({
+    batch: Object.freeze({
+      elements: Object.freeze(elements),
+      properties: Object.freeze(properties),
+      parentId,
+      index: insertionIndex
+    }),
+    consumedBatchCount: 2,
+    consumedDeliveryCount:
+      propertyBatch.deliveries.length + sceneBatch.deliveries.length
+  })
+}
+
+const createRemoteApplySteps = (
+  publication: SharedPublication,
+  events: readonly AllEvent[],
+  applyCanonicalCreationBatch?: ApplyRemoteCanonicalCreationBatch
+): readonly RemoteApplyStep[] => {
+  if (!applyCanonicalCreationBatch) {
+    return Object.freeze(
+      events.map((event) => Object.freeze({ kind: 'event' as const, event }))
+    )
+  }
+
+  const steps: RemoteApplyStep[] = []
+  const artifactDeliveries = publication.batches.flatMap(
+    ({ deliveries }) => deliveries
+  )
+  if (
+    artifactDeliveries.length !== publication.deliveries.length ||
+    artifactDeliveries.some(
+      ({ deliveryId }, index) =>
+        deliveryId !== publication.deliveries[index]?.deliveryId
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+    )
+  }
+  let batchIndex = 0
+  let deliveryIndex = 0
+  while (batchIndex < publication.batches.length) {
+    const creation = classifyCanonicalCreationBatch(publication, batchIndex)
+    if (creation) {
+      steps.push(
+        Object.freeze({
+          kind: 'canonical-creation',
+          batch: creation.batch
+        })
+      )
+      batchIndex += creation.consumedBatchCount
+      deliveryIndex += creation.consumedDeliveryCount
+      continue
+    }
+    const batch = publication.batches[batchIndex] as SharedDeliveryBatch
+    batch.deliveries.forEach(() => {
+      steps.push(
+        Object.freeze({
+          kind: 'event',
+          event: events[deliveryIndex] as AllEvent
+        })
+      )
+      deliveryIndex += 1
+    })
+    batchIndex += 1
+  }
+  return Object.freeze(steps)
+}
+
 export const createAsyraDesignPublicationProcessor =
   (
     runRemoteTransaction: RunRemoteTransaction,
     process: ProcessOperation,
     decideRemotePublication: DecideRemotePublication = (publication) =>
       publication,
-    restoreOwners?: RemoteRestoreOwnerFacades
-  ): ((publication: SharedPublication) => void) =>
+    restoreOwners?: RemoteRestoreOwnerFacades,
+    applyCanonicalCreationBatch?: ApplyRemoteCanonicalCreationBatch
+  ): ((publication: SharedPublication) => boolean) =>
   (publication) => {
-    measureBrowserDragPhase('collaboration:remote-input-preflight', () =>
-      publication.deliveries.forEach(toEvent)
-    )
-    const inboundRestore = measureBrowserDragPhase(
-      'collaboration:remote-restore-classify',
-      () => classifyRemoteRestore(publication)
-    )
-    const acceptedPublication = measureBrowserDragPhase(
-      'collaboration:remote-policy',
-      () => decideRemotePublication(publication)
-    )
-    if (acceptedPublication === false) {
-      return
-    }
-    const events = measureBrowserDragPhase(
-      'collaboration:remote-event-materialization',
-      () => acceptedPublication.deliveries.map(toEvent)
-    )
-    const acceptedRestore = measureBrowserDragPhase(
-      'collaboration:remote-accepted-restore-classify',
-      () => classifyRemoteRestore(acceptedPublication)
-    )
-    if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
-      throw new Error(
-        '[asyra-design collaboration] invalid subtree restore publication'
+    return runWithDetachedBrowserTiming(() => {
+      measureBrowserDragPhase('collaboration:remote-input-preflight', () =>
+        publication.deliveries.forEach(toEvent)
       )
-    }
-    if (acceptedRestore) {
-      if (!restoreOwners) {
+      const inboundRestore = measureBrowserDragPhase(
+        'collaboration:remote-restore-classify',
+        () => classifyRemoteRestore(publication)
+      )
+      const acceptedPublication = measureBrowserDragPhase(
+        'collaboration:remote-policy',
+        () => decideRemotePublication(publication)
+      )
+      if (acceptedPublication === false) {
+        return false
+      }
+      const events = measureBrowserDragPhase(
+        'collaboration:remote-event-materialization',
+        () => acceptedPublication.deliveries.map(toEvent)
+      )
+      const acceptedRestore = measureBrowserDragPhase(
+        'collaboration:remote-accepted-restore-classify',
+        () => classifyRemoteRestore(acceptedPublication)
+      )
+      if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
         throw new Error(
-          '[asyra-design collaboration] subtree restore owner facades are required'
+          '[asyra-design collaboration] invalid subtree restore publication'
         )
       }
-      const scenePlan = restoreOwners.preflightRestoreSubtree(
-        acceptedRestore.sceneSnapshot
-      )
-      const propsPlan = restoreOwners.preflightRestoreProperties(
-        acceptedRestore.propsSnapshot,
-        scenePlan.propertyOwnerRelations
+      if (acceptedRestore) {
+        if (!restoreOwners) {
+          throw new Error(
+            '[asyra-design collaboration] subtree restore owner facades are required'
+          )
+        }
+        const scenePlan = restoreOwners.preflightRestoreSubtree(
+          acceptedRestore.sceneSnapshot
+        )
+        const propsPlan = restoreOwners.preflightRestoreProperties(
+          acceptedRestore.propsSnapshot,
+          scenePlan.propertyOwnerRelations
+        )
+        measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
+          runRemoteTransaction(() => {
+            restoreOwners.applyRestoreProperties(propsPlan)
+            restoreOwners.applyRestoreSubtree(scenePlan)
+          })
+        )
+        publishEventsToObservers(events)
+        return true
+      }
+      const applySteps = measureBrowserDragPhase(
+        'collaboration:remote-canonical-batch-plan',
+        () =>
+          createRemoteApplySteps(
+            acceptedPublication,
+            events,
+            applyCanonicalCreationBatch
+          )
       )
       measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
         runRemoteTransaction(() => {
-          restoreOwners.applyRestoreProperties(propsPlan)
-          restoreOwners.applyRestoreSubtree(scenePlan)
+          applySteps.forEach((step) => {
+            if (step.kind === 'event') {
+              if (step.event.type === EventTypes.ADD_ELEMENT) {
+                emitDiagnosticCounter(
+                  'collaboration:remote-add-element-single-count'
+                )
+              }
+              if (process(step.event) === false) {
+                throw new Error(
+                  '[asyra-design collaboration] canonical remote event was not applied'
+                )
+              }
+              return
+            }
+            const { batch } = step
+            emitDiagnosticCounter(
+              'collaboration:remote-add-element-batch-count'
+            )
+            emitDiagnosticCounter(
+              'collaboration:remote-add-element-batch-size',
+              batch.elements.length
+            )
+            const appliedIds = measureBrowserDragPhase(
+              'collaboration:remote-canonical-batch-apply',
+              () =>
+                applyCanonicalCreationBatch?.(
+                  batch.elements,
+                  batch.properties,
+                  batch.parentId,
+                  batch.index
+                ) ?? []
+            )
+            const expectedIds = batch.elements.map(({ id }) => id)
+            if (
+              appliedIds.length !== expectedIds.length ||
+              appliedIds.some((id, index) => id !== expectedIds[index])
+            ) {
+              throw new Error(
+                '[asyra-design collaboration] canonical creation batch did not apply exact ids'
+              )
+            }
+          })
         })
       )
-      return
-    }
-    measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
-      runRemoteTransaction(() => {
-        events.forEach((event) => process(event))
-      })
-    )
+      publishEventsToObservers(events)
+      return true
+    })
   }

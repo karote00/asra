@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EventTypes } from '@asyra/reactive-events'
+import { EventTypes, type AllEvent } from '@asyra/reactive-events'
 import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
@@ -11,6 +11,16 @@ describe('Asyra Design collaboration composition', () => {
       | ((publication: {
           publicationId: string
           deliveries: { channel: string }[]
+          batches: {
+            batchId: string
+            sliceId: string
+            channel: string
+            deliveries: { channel: string }[]
+          }[]
+          deliveryPlan: {
+            mode: 'atomic'
+            slices: { sliceId: string; orderedIds: string[] }[]
+          }
         }) => void)
       | undefined
     const owner = {
@@ -21,25 +31,70 @@ describe('Asyra Design collaboration composition', () => {
     }
     const filtered = createDocumentCollaborationFactory(owner as never)
     const received = vi.fn()
+    const selectionDelivery = { channel: 'selection' }
+    const sceneDelivery = { channel: 'sceneTree' }
+    const propsDelivery = { channel: 'props' }
+    const selectionBatch = {
+      batchId: 'selection-batch',
+      sliceId: 'selection-slice',
+      channel: 'selection',
+      deliveries: [selectionDelivery]
+    }
+    const sceneBatch = {
+      batchId: 'scene-batch',
+      sliceId: 'document-slice',
+      channel: 'sceneTree',
+      deliveries: [sceneDelivery]
+    }
+    const propsBatch = {
+      batchId: 'props-batch',
+      sliceId: 'document-slice',
+      channel: 'props',
+      deliveries: [propsDelivery]
+    }
 
     filtered.subscribeToSharedPublication(received as never)
     publicationSubscriber?.({
       publicationId: 'selection-only',
-      deliveries: [{ channel: 'selection' }]
+      deliveries: [selectionDelivery],
+      batches: [selectionBatch],
+      deliveryPlan: {
+        mode: 'atomic',
+        slices: [
+          { sliceId: 'selection-slice', orderedIds: ['selection-delivery'] }
+        ]
+      }
     })
     publicationSubscriber?.({
       publicationId: 'mixed-action',
-      deliveries: [
-        { channel: 'selection' },
-        { channel: 'sceneTree' },
-        { channel: 'props' }
-      ]
+      deliveries: [selectionDelivery, sceneDelivery, propsDelivery],
+      batches: [selectionBatch, sceneBatch, propsBatch],
+      deliveryPlan: {
+        mode: 'atomic',
+        slices: [
+          { sliceId: 'selection-slice', orderedIds: ['selection-delivery'] },
+          {
+            sliceId: 'document-slice',
+            orderedIds: ['scene-delivery', 'props-delivery']
+          }
+        ]
+      }
     })
 
     expect(received).toHaveBeenCalledTimes(1)
     expect(received).toHaveBeenCalledWith({
       publicationId: 'mixed-action',
-      deliveries: [{ channel: 'sceneTree' }, { channel: 'props' }]
+      deliveries: [sceneDelivery, propsDelivery],
+      batches: [sceneBatch, propsBatch],
+      deliveryPlan: {
+        mode: 'atomic',
+        slices: [
+          {
+            sliceId: 'document-slice',
+            orderedIds: ['scene-delivery', 'props-delivery']
+          }
+        ]
+      }
     })
     expect('runRemoteTransaction' in filtered).toBe(false)
     expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
@@ -123,7 +178,7 @@ describe('Asyra Design collaboration composition', () => {
     }
     const filtered = createDocumentCollaborationFactory(owner as never)
     const runRemoteTransaction = vi.fn(<T>(mutate: () => T): T => mutate())
-    const process = vi.fn(() => true)
+    const process = vi.fn((_event: AllEvent) => true)
     const processPublication = createAsyraDesignPublicationProcessor(
       runRemoteTransaction,
       process
@@ -196,7 +251,10 @@ describe('Asyra Design collaboration composition', () => {
       EventTypes.MOVE_ELEMENTS
     ])
     expect(
-      process.mock.calls.some(([event]) => event.type === 'selection.change')
+      process.mock.calls.some(
+        ([event]) =>
+          (event as unknown as { type: string }).type === 'selection.change'
+      )
     ).toBe(false)
   })
 })

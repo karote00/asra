@@ -424,6 +424,16 @@ test('remote apply has one publication transaction and no client durability', ()
   assert.ok(remoteStep.outputs.includes('artifact:peer-applied-receipts'))
   assert.match(remote, /peer-applied.*after.*canonical apply/i)
   assert.ok(
+    remoteStep.implementationBoundary.includes(
+      'packages/reactive-events/src/event-bus.ts'
+    )
+  )
+  assert.ok(
+    remoteStep.implementationBoundary.includes(
+      'packages/reactive-events/src/__tests__/event-bus.test.ts'
+    )
+  )
+  assert.ok(
     remoteStep.implementationBoundary.every(
       (boundary) =>
         !boundary.startsWith('packages/core/') &&

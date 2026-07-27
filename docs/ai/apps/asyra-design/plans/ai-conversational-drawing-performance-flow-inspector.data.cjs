@@ -490,6 +490,8 @@
       implementationBoundary: [
         'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/process.test.ts',
+        'packages/reactive-events/src/event-bus.ts',
+        'packages/reactive-events/src/__tests__/event-bus.test.ts',
         'apps/asyra-design/src/collaboration/factory-adapter.ts',
         'apps/asyra-design/src/collaboration/lifecycle.ts',
         'apps/asyra-design/src/collaboration/operations.ts',
