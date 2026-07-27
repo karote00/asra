@@ -63,9 +63,9 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   assert.match(source, /new WebSocketServer\(webSocketServerOptions\)/)
   assert.match(
     source,
-    /PEER_QUEUE_HIGH_WATERMARK_BYTES\s*=\s*2\s*\*\s*1024\s*\*\s*1024/
+    /PEER_QUEUE_CAPACITY_BYTES\s*=\s*2\s*\*\s*1024\s*\*\s*1024/
   )
-  assert.match(source, /PEER_QUEUE_LOW_WATERMARK_BYTES\s*=\s*512\s*\*\s*1024/)
+  assert.doesNotMatch(source, /PEER_QUEUE_LOW_WATERMARK_BYTES/)
   assert.match(source, /SOURCE_FRAME_ADMITTED/)
   assert.doesNotMatch(source, /\bsocket\.(?:pause|resume)\s*\(/)
   assert.doesNotMatch(
@@ -293,6 +293,28 @@ const waitForBinaryMessage = (socket, description) =>
       clearTimeout(timeout)
       socket.off('message', onMessage)
       resolve(rawDataToBuffer(data))
+    }
+    socket.on('message', onMessage)
+  })
+
+const waitForBinaryMessages = (socket, count, description) =>
+  new Promise((resolve, reject) => {
+    const messages = []
+    const timeout = setTimeout(() => {
+      socket.off('message', onMessage)
+      reject(
+        new Error(
+          `${description} timeout (${messages.length}/${String(count)} received)`
+        )
+      )
+    }, 5_000)
+    const onMessage = (data, isBinary) => {
+      if (!isBinary) return
+      messages.push(rawDataToBuffer(data))
+      if (messages.length !== count) return
+      clearTimeout(timeout)
+      socket.off('message', onMessage)
+      resolve(messages)
     }
     socket.on('message', onMessage)
   })
@@ -896,12 +918,13 @@ test('public reference server rejects a single-publication frame kind with a mul
   }
 })
 
-test('publication queue waits for both the socket callback and exact frame-consumed credit', async () => {
+test('publication queue sends admitted frames before contiguous dual-gated retirement', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4321'
   const child = startServer({
     port,
     origin,
+    profile: true,
     holdPeerWriteCallbacks: true
   })
   const sockets = []
@@ -920,7 +943,7 @@ test('publication queue waits for both the socket callback and exact frame-consu
       actorId: 'dual-gate-peer'
     })
     sockets.push(sender, peer)
-    const payload = new Uint8Array([0x01, 0x02, 0x03])
+    const payload = new Uint8Array(600 * 1024)
     const frames = ['a', 'b', 'c'].map((suffix) =>
       createOpaquePublicationFrame({
         requestId: `dual-${suffix}`,
@@ -928,31 +951,78 @@ test('publication queue waits for both the socket callback and exact frame-consu
         payload
       })
     )
-    const acknowledgements = ['a', 'b', 'c'].map((suffix) =>
+    frames.push(
+      createOpaquePublicationFrame({
+        requestId: 'dual-d',
+        publicationId: 'dual-publication-d',
+        payload: new Uint8Array(1024 * 1024)
+      })
+    )
+    const acknowledgements = ['a', 'b', 'c', 'd'].map((suffix) =>
       responseFor(sender, `dual-${suffix}`)
     )
-    const firstInbound = waitForBinaryMessage(peer, 'dual-gate first frame')
-    for (const frame of frames) {
+    const admittedWindow = waitForBinaryMessages(
+      peer,
+      3,
+      'dual-gate admitted window'
+    )
+    for (const frame of frames.slice(0, 3)) {
       await sendPublicationFrameAndWaitForAdmission(sender, frame)
     }
-    await Promise.all(acknowledgements)
-    const first = inspectOpaquePublicationFrame(await firstInbound)
+    await Promise.all(acknowledgements.slice(0, 3))
+    const receivedWindow = (await admittedWindow).map(
+      inspectOpaquePublicationFrame
+    )
+    assert.deepEqual(
+      receivedWindow.map(({ publicationId }) => publicationId),
+      ['dual-publication-a', 'dual-publication-b', 'dual-publication-c']
+    )
+
+    const fourthAdmission = sourceFrameAdmissionFor(
+      sender,
+      frames[3],
+      'dual-gate fourth source admission'
+    )
+    const fourthInbound = waitForBinaryMessage(peer, 'dual-gate fourth frame')
+    sender.send(frames[3], { binary: true })
+    await noMessageBefore(fourthAdmission)
+
+    const firstDrain = waitForStdoutLine(
+      child,
+      'AI_COLLABORATION_SERVER_PEER_DRAIN '
+    )
+    sendFrameConsumed(peer, receivedWindow[0])
+    await noMessageBefore(firstDrain)
+    await releasePeerWriteCallback(child)
+    const firstDrainEvidence = JSON.parse(
+      (await firstDrain).slice('AI_COLLABORATION_SERVER_PEER_DRAIN '.length)
+    )
+    assert.equal(firstDrainEvidence.frameId, receivedWindow[0].frameId)
+    await noMessageBefore(fourthAdmission)
 
     await releasePeerWriteCallback(child)
-    const secondInbound = waitForBinaryMessage(peer, 'dual-gate second frame')
-    sendFrameConsumed(peer, first, {
-      frameByteLength: first.frameByteLength + 1
+    await noMessageBefore(fourthAdmission)
+    sendFrameConsumed(peer, receivedWindow[2])
+    await releasePeerWriteCallback(child)
+    await noMessageBefore(fourthAdmission)
+
+    sendFrameConsumed(peer, receivedWindow[1], {
+      frameByteLength: receivedWindow[1].frameByteLength + 1
     })
-    await noMessageBefore(secondInbound)
-    sendFrameConsumed(peer, first)
-    const second = inspectOpaquePublicationFrame(await secondInbound)
+    await noMessageBefore(fourthAdmission)
+    sendFrameConsumed(peer, receivedWindow[1])
 
-    const thirdInbound = waitForBinaryMessage(peer, 'dual-gate third frame')
-    sendFrameConsumed(peer, second)
-    await noMessageBefore(thirdInbound)
-    await releasePeerWriteCallback(child)
-    const third = inspectOpaquePublicationFrame(await thirdInbound)
-    assert.equal(third.publicationId, 'dual-publication-c')
+    assert.deepEqual(
+      await fourthAdmission,
+      expectedSourceFrameAdmission(frames[3])
+    )
+    assert.deepEqual(await acknowledgements[3], {
+      type: 'response',
+      requestId: 'dual-d',
+      ok: true
+    })
+    const fourth = inspectOpaquePublicationFrame(await fourthInbound)
+    assert.equal(fourth.publicationId, 'dual-publication-d')
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)
@@ -994,7 +1064,11 @@ test('a second uncredited source frame fails closed and never reaches a peer', a
         inspectOpaquePublicationFrame(rawDataToBuffer(data)).publicationId
       )
     })
-    const firstInbound = waitForBinaryMessage(peer, 'source-credit first frame')
+    const admittedWindow = waitForBinaryMessages(
+      peer,
+      3,
+      'source-credit admitted window'
+    )
     for (const frame of frames.slice(0, 3)) {
       const response = responseFor(
         sender,
@@ -1003,7 +1077,17 @@ test('a second uncredited source frame fails closed and never reaches a peer', a
       await sendPublicationFrameAndWaitForAdmission(sender, frame)
       await response
     }
-    const first = inspectOpaquePublicationFrame(await firstInbound)
+    const receivedWindow = (await admittedWindow).map(
+      inspectOpaquePublicationFrame
+    )
+    assert.deepEqual(
+      receivedWindow.map(({ publicationId }) => publicationId),
+      [
+        'source-credit-publication-1',
+        'source-credit-publication-2',
+        'source-credit-publication-3'
+      ]
+    )
 
     const blockedAdmission = sourceFrameAdmissionFor(
       sender,
@@ -1027,16 +1111,7 @@ test('a second uncredited source frame fails closed and never reaches a peer', a
         '[collaboration] multiple uncredited source publication frames are not allowed'
     })
 
-    let current = first
-    for (let index = 0; index < 2; index += 1) {
-      const nextInbound = waitForBinaryMessage(
-        peer,
-        `source-credit queued frame ${index + 2}`
-      )
-      sendFrameConsumed(peer, current)
-      current = inspectOpaquePublicationFrame(await nextInbound)
-    }
-    sendFrameConsumed(peer, current)
+    receivedWindow.forEach((frame) => sendFrameConsumed(peer, frame))
     await new Promise((resolve) => setTimeout(resolve, 100))
     assert.ok(!relayedPublicationIds.includes('source-credit-publication-5'))
   } finally {
@@ -1081,8 +1156,16 @@ test('bidirectional saturation keeps JSON frame-consumed credit readable without
         payload
       })
     )
-    const firstForA = waitForBinaryMessage(actorA, 'first frame for actor A')
-    const firstForB = waitForBinaryMessage(actorB, 'first frame for actor B')
+    const admittedForA = waitForBinaryMessages(
+      actorA,
+      3,
+      'admitted frames for actor A'
+    )
+    const admittedForB = waitForBinaryMessages(
+      actorB,
+      3,
+      'admitted frames for actor B'
+    )
 
     for (let index = 0; index < 3; index += 1) {
       const responseA = responseFor(actorA, `bidirectional-a-${index + 1}`)
@@ -1093,6 +1176,16 @@ test('bidirectional saturation keeps JSON frame-consumed credit readable without
       ])
       await Promise.all([responseA, responseB])
     }
+    const receivedForA = (await admittedForA).map(inspectOpaquePublicationFrame)
+    const receivedForB = (await admittedForB).map(inspectOpaquePublicationFrame)
+    assert.deepEqual(
+      receivedForA.map(({ publicationId }) => publicationId),
+      [1, 2, 3].map((index) => `bidirectional-b-publication-${index}`)
+    )
+    assert.deepEqual(
+      receivedForB.map(({ publicationId }) => publicationId),
+      [1, 2, 3].map((index) => `bidirectional-a-publication-${index}`)
+    )
 
     const fourthResponseA = responseFor(actorA, 'bidirectional-a-4')
     const fourthResponseB = responseFor(actorB, 'bidirectional-b-4')
@@ -1113,23 +1206,10 @@ test('bidirectional saturation keeps JSON frame-consumed credit readable without
       noMessageBefore(fourthAdmissionB)
     ])
 
-    let inboundForA = inspectOpaquePublicationFrame(await firstForA)
-    let inboundForB = inspectOpaquePublicationFrame(await firstForB)
-    for (let index = 0; index < 3; index += 1) {
-      const nextForA = waitForBinaryMessage(
-        actorA,
-        index === 2 ? 'fourth frame for actor A' : `queued frame for actor A`
-      )
-      const nextForB = waitForBinaryMessage(
-        actorB,
-        index === 2 ? 'fourth frame for actor B' : `queued frame for actor B`
-      )
-      sendFrameConsumed(actorA, inboundForA)
-      sendFrameConsumed(actorB, inboundForB)
-      const [nextA, nextB] = await Promise.all([nextForA, nextForB])
-      inboundForA = inspectOpaquePublicationFrame(nextA)
-      inboundForB = inspectOpaquePublicationFrame(nextB)
-    }
+    const fourthForA = waitForBinaryMessage(actorA, 'fourth frame for actor A')
+    const fourthForB = waitForBinaryMessage(actorB, 'fourth frame for actor B')
+    sendFrameConsumed(actorA, receivedForA[0])
+    sendFrameConsumed(actorB, receivedForB[0])
 
     assert.deepEqual(
       await fourthAdmissionA,
@@ -1140,8 +1220,12 @@ test('bidirectional saturation keeps JSON frame-consumed credit readable without
       expectedSourceFrameAdmission(actorBFrames[3])
     )
     await Promise.all([fourthResponseA, fourthResponseB])
+    const inboundForA = inspectOpaquePublicationFrame(await fourthForA)
+    const inboundForB = inspectOpaquePublicationFrame(await fourthForB)
     assert.equal(inboundForA.publicationId, 'bidirectional-b-publication-4')
     assert.equal(inboundForB.publicationId, 'bidirectional-a-publication-4')
+    receivedForA.slice(1).forEach((frame) => sendFrameConsumed(actorA, frame))
+    receivedForB.slice(1).forEach((frame) => sendFrameConsumed(actorB, frame))
     sendFrameConsumed(actorA, inboundForA)
     sendFrameConsumed(actorB, inboundForB)
   } finally {
@@ -1150,68 +1234,107 @@ test('bidirectional saturation keeps JSON frame-consumed credit readable without
   }
 })
 
-test('publication queue enforces 2 MiB high and 512 KiB low watermarks before server acceptance resumes', async () => {
+test('publication queue resumes at exact remaining 2 MiB capacity without hysteresis', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4322'
   const child = startServer({ port, origin })
   const sockets = []
   try {
     await waitForServer(child)
+    const senderActorId = 'exact-capacity-sender'
     const sender = await connectPublicClient({
       port,
       origin,
-      fileId: 'watermark-file',
-      actorId: 'watermark-sender'
+      fileId: 'exact-capacity-file',
+      actorId: senderActorId
     })
     const peer = await connectPublicClient({
       port,
       origin,
-      fileId: 'watermark-file',
-      actorId: 'watermark-peer'
+      fileId: 'exact-capacity-file',
+      actorId: 'exact-capacity-peer'
     })
     sockets.push(sender, peer)
-    const payload = new Uint8Array(600 * 1024)
-    payload[0] = 0xa1
-    const frames = [1, 2, 3, 4].map((index) =>
-      createOpaquePublicationFrame({
-        requestId: `watermark-${index}`,
-        publicationId: `watermark-publication-${index}`,
-        payload
+    const oneMiB = 1024 * 1024
+    const createExactRelayedFrame = (suffix, targetByteLength) => {
+      const publicationId = `exact-capacity-publication-${suffix}`
+      const relayedHeaderByteLength =
+        publicationFrameFixedHeaderBytes +
+        encodeFrameString(publicationId).byteLength +
+        encodeFrameString(senderActorId).byteLength
+      assert.ok(targetByteLength > relayedHeaderByteLength)
+      return createOpaquePublicationFrame({
+        requestId: `exact-capacity-${suffix}`,
+        publicationId,
+        payload: new Uint8Array(targetByteLength - relayedHeaderByteLength)
       })
+    }
+    const frames = [
+      createExactRelayedFrame('a', oneMiB),
+      createExactRelayedFrame('b', oneMiB),
+      createExactRelayedFrame('c', oneMiB),
+      createExactRelayedFrame('d', oneMiB + 1)
+    ]
+    const responses = ['a', 'b', 'c', 'd'].map((suffix) =>
+      responseFor(sender, `exact-capacity-${suffix}`)
     )
-    assert.ok(frames[0].byteLength * 3 <= 2 * 1024 * 1024)
-    assert.ok(frames[0].byteLength * 4 > 2 * 1024 * 1024)
-    assert.ok(frames[0].byteLength > 512 * 1024)
-
-    const responses = [1, 2, 3, 4].map((index) =>
-      responseFor(sender, `watermark-${index}`)
+    const exactWindow = waitForBinaryMessages(
+      peer,
+      2,
+      'exact-capacity admitted window'
     )
-    const firstInbound = waitForBinaryMessage(peer, 'watermark first frame')
-    for (const frame of frames.slice(0, 3)) {
+    for (const frame of frames.slice(0, 2)) {
       await sendPublicationFrameAndWaitForAdmission(sender, frame)
     }
-    await Promise.all(responses.slice(0, 3))
+    await Promise.all(responses.slice(0, 2))
+    const receivedWindow = (await exactWindow).map(
+      inspectOpaquePublicationFrame
+    )
+    assert.deepEqual(
+      receivedWindow.map(({ frameByteLength }) => frameByteLength),
+      [oneMiB, oneMiB]
+    )
+    assert.equal(
+      receivedWindow.reduce(
+        (total, { frameByteLength }) => total + frameByteLength,
+        0
+      ),
+      2 * oneMiB
+    )
+
+    const thirdAdmission = sourceFrameAdmissionFor(
+      sender,
+      frames[2],
+      'exact-fit source admission'
+    )
+    const thirdInbound = waitForBinaryMessage(peer, 'exact-fit frame')
+    sender.send(frames[2], { binary: true })
+    await noMessageBefore(thirdAdmission)
+    sendFrameConsumed(peer, receivedWindow[0])
+    assert.deepEqual(
+      await thirdAdmission,
+      expectedSourceFrameAdmission(frames[2])
+    )
+    await responses[2]
+    const third = inspectOpaquePublicationFrame(await thirdInbound)
+    assert.equal(third.frameByteLength, oneMiB)
+
     const fourthAdmission = sourceFrameAdmissionFor(
       sender,
       frames[3],
-      'watermark fourth source admission'
+      'one-byte-over remaining-capacity source admission'
     )
     sender.send(frames[3], { binary: true })
     await noMessageBefore(fourthAdmission)
     await noMessageBefore(responses[3])
-    const first = inspectOpaquePublicationFrame(await firstInbound)
 
-    const secondInbound = waitForBinaryMessage(peer, 'watermark second frame')
-    sendFrameConsumed(peer, first)
-    const second = inspectOpaquePublicationFrame(await secondInbound)
-    await noMessageBefore(responses[3])
+    sendFrameConsumed(peer, receivedWindow[1])
+    await noMessageBefore(fourthAdmission)
 
-    const thirdInbound = waitForBinaryMessage(peer, 'watermark third frame')
-    sendFrameConsumed(peer, second)
-    const third = inspectOpaquePublicationFrame(await thirdInbound)
-    await noMessageBefore(responses[3])
-
-    const fourthInbound = waitForBinaryMessage(peer, 'watermark fourth frame')
+    const fourthInbound = waitForBinaryMessage(
+      peer,
+      'one-byte-over remaining-capacity frame'
+    )
     sendFrameConsumed(peer, third)
     assert.deepEqual(
       await fourthAdmission,
@@ -1219,11 +1342,12 @@ test('publication queue enforces 2 MiB high and 512 KiB low watermarks before se
     )
     assert.deepEqual(await responses[3], {
       type: 'response',
-      requestId: 'watermark-4',
+      requestId: 'exact-capacity-d',
       ok: true
     })
     const fourth = inspectOpaquePublicationFrame(await fourthInbound)
-    assert.equal(fourth.publicationId, 'watermark-publication-4')
+    assert.equal(fourth.frameByteLength, oneMiB + 1)
+    sendFrameConsumed(peer, fourth)
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)

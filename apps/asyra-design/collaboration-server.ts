@@ -37,8 +37,7 @@ const allowedOrigin = appEnvironment.appURL
 const collaborationProfilingEnabled =
   process.env.ASYRA_DESIGN_COLLABORATION_PROFILE === '1'
 
-const PEER_QUEUE_HIGH_WATERMARK_BYTES = 2 * 1024 * 1024
-const PEER_QUEUE_LOW_WATERMARK_BYTES = 512 * 1024
+const PEER_QUEUE_CAPACITY_BYTES = 2 * 1024 * 1024
 const PUBLICATION_FRAME_FIXED_HEADER_BYTES = 44
 const PUBLICATION_FRAME_KIND_OFFSET = 7
 const PUBLICATION_FRAME_HEADER_LENGTH_OFFSET = 8
@@ -65,7 +64,6 @@ interface OutboundPublicationFrame {
   readonly enqueuedAtMs: number
   sendCallbackDone: boolean
   frameConsumed: boolean
-  sent: boolean
 }
 
 interface PeerSession {
@@ -78,7 +76,6 @@ interface PeerSession {
   ready: boolean
   closed: boolean
   queuedBytes: number
-  backpressured: boolean
 }
 
 interface RoomState {
@@ -312,19 +309,11 @@ const notifyCapacityWaiters = (peer: PeerSession, available: boolean): void => {
 
 const canAdmitFrame = (peer: PeerSession, frameByteLength: number): boolean => {
   if (peer.closed) return false
-  if (peer.backpressured) {
-    if (peer.queuedBytes > PEER_QUEUE_LOW_WATERMARK_BYTES) return false
-    peer.backpressured = false
-  }
   if (peer.queuedBytes === 0) return true
-  if (
-    frameByteLength <= PEER_QUEUE_HIGH_WATERMARK_BYTES &&
-    peer.queuedBytes + frameByteLength <= PEER_QUEUE_HIGH_WATERMARK_BYTES
-  ) {
-    return true
-  }
-  peer.backpressured = true
-  return false
+  return (
+    frameByteLength <= PEER_QUEUE_CAPACITY_BYTES &&
+    peer.queuedBytes + frameByteLength <= PEER_QUEUE_CAPACITY_BYTES
+  )
 }
 
 const waitForFrameCapacity = async (
@@ -361,7 +350,6 @@ const removePeer = (peer: PeerSession): void => {
   peer.closed = true
   peer.outboundQueue.length = 0
   peer.queuedBytes = 0
-  peer.backpressured = false
   notifyCapacityWaiters(peer, false)
   const room = peer.room
   const actorId = peer.actorId
@@ -379,39 +367,33 @@ const removePeer = (peer: PeerSession): void => {
   }
 }
 
-const completeOutboundFrame = (peer: PeerSession): void => {
-  const active = peer.outboundQueue[0]
-  if (
-    !active ||
-    !active.sendCallbackDone ||
-    !active.frameConsumed ||
-    peer.closed
-  ) {
-    return
+const retireCompletedOutboundFrames = (peer: PeerSession): void => {
+  if (peer.closed) return
+  let retired = false
+  while (true) {
+    const active = peer.outboundQueue[0]
+    if (!active?.sendCallbackDone || !active.frameConsumed) break
+    peer.outboundQueue.shift()
+    peer.queuedBytes -= active.bytes.byteLength
+    if (peer.queuedBytes < 0) peer.queuedBytes = 0
+    retired = true
+    if (collaborationProfilingEnabled) {
+      console.log(
+        `AI_COLLABORATION_SERVER_PEER_DRAIN ${JSON.stringify({
+          requestId: active.sourceRequestId,
+          actorId: peer.actorId,
+          publicationId: active.header.publicationId,
+          frameId: active.header.frameId,
+          frameBytes: active.bytes.byteLength,
+          queueBytes: peer.queuedBytes,
+          drainMs: rounded(elapsed(active.enqueuedAtMs))
+        })}`
+      )
+    }
   }
-  peer.outboundQueue.shift()
-  peer.queuedBytes -= active.bytes.byteLength
-  if (peer.queuedBytes < 0) peer.queuedBytes = 0
-  if (collaborationProfilingEnabled) {
-    console.log(
-      `AI_COLLABORATION_SERVER_PEER_DRAIN ${JSON.stringify({
-        requestId: active.sourceRequestId,
-        actorId: peer.actorId,
-        publicationId: active.header.publicationId,
-        frameId: active.header.frameId,
-        frameBytes: active.bytes.byteLength,
-        queueBytes: peer.queuedBytes,
-        drainMs: rounded(elapsed(active.enqueuedAtMs))
-      })}`
-    )
-  }
-  if (
-    peer.queuedBytes <= PEER_QUEUE_LOW_WATERMARK_BYTES ||
-    peer.capacityWaiters.size > 0
-  ) {
+  if (retired && peer.capacityWaiters.size > 0) {
     notifyCapacityWaiters(peer, true)
   }
-  pumpOutboundQueue(peer)
 }
 
 const failPeerWrite = (
@@ -440,33 +422,34 @@ const failPeerWrite = (
   }
 }
 
-function pumpOutboundQueue(peer: PeerSession): void {
-  const active = peer.outboundQueue[0]
-  if (!active || active.sent || peer.closed) return
+const sendAdmittedFrame = (
+  peer: PeerSession,
+  frame: OutboundPublicationFrame
+): void => {
+  if (peer.closed) return
   if (peer.socket.readyState !== WebSocket.OPEN) {
     removePeer(peer)
     return
   }
-  active.sent = true
   const sendStartedAtMs = epochNow()
   const bufferedAmountBefore = peer.socket.bufferedAmount
   peer.socket.send(
-    active.bytes,
+    frame.bytes,
     { binary: true, compress: false },
     (error?: Error) => {
       if (error) {
-        failPeerWrite(peer, active, error)
+        failPeerWrite(peer, frame, error)
         return
       }
-      active.sendCallbackDone = true
+      frame.sendCallbackDone = true
       if (collaborationProfilingEnabled) {
         console.log(
           `AI_COLLABORATION_SERVER_PEER_WRITE ${JSON.stringify({
-            requestId: active.sourceRequestId,
+            requestId: frame.sourceRequestId,
             actorId: peer.actorId,
-            publicationId: active.header.publicationId,
-            frameId: active.header.frameId,
-            frameBytes: active.bytes.byteLength,
+            publicationId: frame.header.publicationId,
+            frameId: frame.header.frameId,
+            frameBytes: frame.bytes.byteLength,
             sendStartedAtMs,
             writeCallbackAtMs: epochNow(),
             writeCallbackMs: rounded(epochNow() - sendStartedAtMs),
@@ -477,7 +460,7 @@ function pumpOutboundQueue(peer: PeerSession): void {
           })}`
         )
       }
-      completeOutboundFrame(peer)
+      retireCompletedOutboundFrames(peer)
     }
   )
 }
@@ -489,15 +472,15 @@ const enqueueOutboundFrame = (
 ): void => {
   if (peer.closed) return
   peer.queuedBytes += frame.bytes.byteLength
-  peer.outboundQueue.push({
+  const outbound = {
     ...frame,
     sourceRequestId,
     enqueuedAtMs: performance.now(),
     sendCallbackDone: false,
-    frameConsumed: false,
-    sent: false
-  })
-  pumpOutboundQueue(peer)
+    frameConsumed: false
+  }
+  peer.outboundQueue.push(outbound)
+  sendAdmittedFrame(peer, outbound)
 }
 
 const enqueueRoomAdmission = <T>(
@@ -546,18 +529,16 @@ const consumeFrameCredit = (
   peer: PeerSession,
   message: FrameConsumedRequest
 ): void => {
-  const active = peer.outboundQueue[0]
-  if (
-    !active ||
-    active.frameConsumed ||
-    active.header.frameId !== message.frameId ||
-    active.header.publicationId !== message.publicationId ||
-    active.header.frameByteLength !== message.frameByteLength
-  ) {
-    return
-  }
-  active.frameConsumed = true
-  completeOutboundFrame(peer)
+  const frame = peer.outboundQueue.find(
+    (candidate) =>
+      !candidate.frameConsumed &&
+      candidate.header.frameId === message.frameId &&
+      candidate.header.publicationId === message.publicationId &&
+      candidate.header.frameByteLength === message.frameByteLength
+  )
+  if (!frame) return
+  frame.frameConsumed = true
+  retireCompletedOutboundFrames(peer)
 }
 
 const httpServer = createHttpServer((request, response) => {
@@ -608,8 +589,7 @@ webSocketServer.on('connection', (socket) => {
     capacityWaiters: new Set(),
     ready: false,
     closed: false,
-    queuedBytes: 0,
-    backpressured: false
+    queuedBytes: 0
   }
   const inboundRequests = new Map<string, InboundPublicationRequest>()
   let sourceFrameAdmission: SourceFrameAdmission | null = null
