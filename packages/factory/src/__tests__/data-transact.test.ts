@@ -655,7 +655,7 @@ describe('DataTransact user action completion', () => {
     )
   })
 
-  it('rolls back a recorded batch prefix when a later item is invalid', () => {
+  it('rejects an unaccepted batch without removing earlier outer journal entries', () => {
     const artifacts = vi.fn()
     const statuses: TransactionStatusPayload[] = []
     const replayed: AllEvent[] = []
@@ -669,16 +669,47 @@ describe('DataTransact user action completion', () => {
     })
 
     transact.start()
-    expect(() =>
+    transact.update({
+      ...createUpdateEvent(),
+      payload: {
+        id: 'outer.accepted-before-batch',
+        before: 0,
+        after: 1
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+    let batchFailure: unknown
+    try {
       transact.updateBatch([
-        createUpdateEvent(),
+        {
+          ...createUpdateEvent(),
+          payload: {
+            id: 'batch.valid-prefix',
+            before: 10,
+            after: 20
+          } as unknown as UpdateTransactionEvent['payload']
+        },
         {
           type: TransactionEventTypes.UPDATE_TRANSACTION,
           eventName: 'missing.batch.inverter',
           payload: { id: 'invalid-later-item' }
         }
       ])
-    ).toThrow('requires an inverter')
+    } catch (error) {
+      batchFailure = error
+    }
+
+    expect(batchFailure).toMatchObject({
+      batchAccepted: false,
+      message:
+        'Reversible transaction event missing.batch.inverter requires an inverter'
+    })
+    expect(
+      (
+        transact as unknown as {
+          journal: readonly { event: AllEvent & { payload: { id?: string } } }[]
+        }
+      ).journal.map(({ event }) => event.payload.id)
+    ).toEqual(['outer.accepted-before-batch'])
 
     expect(() => transact.end()).not.toThrow()
     expect(replayed).toEqual([
@@ -689,6 +720,76 @@ describe('DataTransact user action completion', () => {
     ])
     expect(artifacts).not.toHaveBeenCalled()
     expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
+  })
+
+  it('marks a fully accepted immediate batch failure and retains every entry for outer rollback', () => {
+    const deliveryFailure = new Error('second immediate batch append failed')
+    const pushToSharedChannel = vi
+      .fn()
+      .mockReturnValueOnce(true)
+      .mockImplementationOnce(() => {
+        throw deliveryFailure
+      })
+      .mockReturnValueOnce(true)
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(
+      { pushToSharedChannel },
+      {
+        onReplayEvent: (event) => {
+          replayed.push(event)
+          return true
+        }
+      }
+    )
+    const createImmediateEvent = (
+      id: string,
+      before: number,
+      after: number
+    ) => ({
+      ...createUpdateEvent({
+        shared: 'sceneTree',
+        sharedDelivery: 'immediate' as const
+      }),
+      payload: {
+        id,
+        before,
+        after
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    transact.start()
+    let batchFailure: unknown
+    try {
+      transact.updateBatch([
+        createImmediateEvent('batch.first', 0, 1),
+        createImmediateEvent('batch.second', 10, 20)
+      ])
+    } catch (error) {
+      batchFailure = error
+    }
+
+    expect(batchFailure).toMatchObject({
+      batchAccepted: true,
+      message: deliveryFailure.message
+    })
+    expect(
+      (
+        transact as unknown as {
+          journal: readonly { event: AllEvent & { payload: { id?: string } } }[]
+        }
+      ).journal.map(({ event }) => event.payload.id)
+    ).toEqual(['batch.first', 'batch.second'])
+
+    expect(() => transact.end()).not.toThrow()
+    expect(
+      replayed.map(
+        (event) => (event as AllEvent & { payload: { id?: string } }).payload.id
+      )
+    ).toEqual(['batch.second', 'batch.first'])
+    expect(pushToSharedChannel).toHaveBeenCalledTimes(3)
     expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
       []
     )

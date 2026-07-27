@@ -5,6 +5,22 @@ import type {
   SharedDeliveryBatch
 } from './shared-delivery'
 
+export class FactoryMutationBatchAcceptanceError extends Error {
+  readonly batchAccepted: boolean
+  readonly batchCause: unknown
+
+  constructor(batchAccepted: boolean, batchCause: unknown) {
+    super(
+      batchCause instanceof Error
+        ? batchCause.message
+        : 'Factory mutation batch failed'
+    )
+    this.name = 'FactoryMutationBatchAcceptanceError'
+    this.batchAccepted = batchAccepted
+    this.batchCause = batchCause
+  }
+}
+
 export interface FactoryMutationSharedRecordInput {
   readonly orderedIds: readonly string[]
   readonly payload: object

@@ -135,14 +135,15 @@ import type {
   SharedDeliveryBatch,
   SharedPublication
 } from './shared-delivery'
-import type {
-  FactoryMutationBatchArtifact,
-  FactoryMutationBatchArtifactSubscriber,
-  FactoryMutationBatchChange,
-  FactoryMutationBatchDeliveryEvidence,
-  FactoryMutationBatchDeliveryHandle,
-  FactoryMutationEventDeliveryEvidence,
-  FactoryMutationSharedRecordEvidence
+import {
+  FactoryMutationBatchAcceptanceError,
+  type FactoryMutationBatchArtifact,
+  type FactoryMutationBatchArtifactSubscriber,
+  type FactoryMutationBatchChange,
+  type FactoryMutationBatchDeliveryEvidence,
+  type FactoryMutationBatchDeliveryHandle,
+  type FactoryMutationEventDeliveryEvidence,
+  type FactoryMutationSharedRecordEvidence
 } from './mutation-batch'
 import {
   cloneAndDeepFreezeValue,
@@ -590,6 +591,8 @@ class DataTransact {
     }
 
     const deliveryHandle = this.activeDeliveryHandle ?? null
+    const journalStart = this.journal.length
+    let batchAccepted = false
     try {
       if (deliveryEvidence && deliveryEvidence.length !== events.length) {
         throw new Error(
@@ -604,6 +607,15 @@ class DataTransact {
       const recordedEntries = events.map((event, index) =>
         this.recordJournalEntry(event, deliveryEvidence?.[index])
       )
+      batchAccepted = true
+      if (
+        this.nestedReplaySourceEvents &&
+        recordedEntries.some((entry) => entry.source === 'action')
+      ) {
+        throw new Error(
+          'Nested undo or redo cannot accept a new action mutation'
+        )
+      }
       const immediateEntries = recordedEntries.filter(
         (entry) => entry.shared && entry.options.sharedDelivery === 'immediate'
       )
@@ -615,9 +627,12 @@ class DataTransact {
       )
       return recordedEntries.length > 0 ? deliveryHandle : null
     } catch (error) {
+      if (!batchAccepted) {
+        this.journal.splice(journalStart)
+      }
       this.rollbackOnly = true
       this.rollbackFailure ??= toReplayFailure(error)
-      throw error
+      throw new FactoryMutationBatchAcceptanceError(batchAccepted, error)
     }
   }
 
@@ -801,15 +816,6 @@ class DataTransact {
     }
 
     this.journal.push(journalEntry)
-
-    if (this.nestedReplaySourceEvents && journalEntry.source === 'action') {
-      const error = new Error(
-        'Nested undo or redo cannot accept a new action mutation'
-      )
-      this.rollbackOnly = true
-      this.rollbackFailure ??= toReplayFailure(error)
-      throw error
-    }
 
     return journalEntry
   }
