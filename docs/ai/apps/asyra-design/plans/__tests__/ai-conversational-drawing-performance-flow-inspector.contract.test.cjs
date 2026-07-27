@@ -241,7 +241,8 @@ test('routes and artifacts form one exact owner graph', () => {
 test('one composition bulk request owns canonical batch creation', () => {
   const appStep = step('prepare-one-composition-bulk-request')
   const app = contractText(appStep)
-  const canonical = contractText(step('apply-canonical-property-scene-batch'))
+  const canonicalStep = step('apply-canonical-property-scene-batch')
+  const canonical = contractText(canonicalStep)
   const text = plan()
 
   assert.match(app, /Group.*one.*all-children.*Core bulk request/i)
@@ -269,6 +270,16 @@ test('one composition bulk request owns canonical batch creation', () => {
     /instance construction.*relationship wiring.*observer binding.*Scene evidence entries.*may iterate N/i
   )
   assert.match(canonical, /profiling.*material bottleneck/i)
+  assert.ok(
+    canonicalStep.implementationBoundary.includes(
+      'packages/preset/src/props/components'
+    )
+  )
+  assert.ok(
+    canonicalStep.implementationBoundary.includes(
+      'packages/preset/src/__tests__'
+    )
+  )
   assert.match(text, /createElementsInParentBatch/)
   assert.match(text, /CanonicalElementBatchResult/)
 })
@@ -456,7 +467,8 @@ test('remote apply has one publication transaction and no client durability', ()
 })
 
 test('measurement and release budgets stay exact', () => {
-  const proof = contractText(step('evaluate-performance-and-equivalence'))
+  const proofStep = step('evaluate-performance-and-equivalence')
+  const proof = contractText(proofStep)
   const text = plan()
 
   assert.match(text, /Contents present[\s\S]{0,80}7\.026 seconds/i)
@@ -484,6 +496,16 @@ test('measurement and release budgets stay exact', () => {
   assert.match(
     proof,
     /worker decode.*remote apply.*Render.*UI.*harness overhead/i
+  )
+  assert.ok(
+    proofStep.implementationBoundary.includes(
+      'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts'
+    )
+  )
+  assert.ok(
+    proofStep.implementationBoundary.includes(
+      'packages/collaboration/src/__tests__'
+    )
   )
 })
 

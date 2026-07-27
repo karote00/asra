@@ -174,7 +174,9 @@
         'packages/props-manager/src',
         'packages/props-manager/src/__tests__',
         'packages/scene-tree/src',
-        'packages/scene-tree/src/__tests__'
+        'packages/scene-tree/src/__tests__',
+        'packages/preset/src/props/components',
+        'packages/preset/src/__tests__'
       ],
       specRefs: [
         '#bulk-mutation-contract',
@@ -616,7 +618,9 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/e2e',
+        'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
         'apps/asyra-design/src/init/__tests__',
+        'packages/collaboration/src/__tests__',
         'docs/ai/apps/asyra-design/bdd-features',
         'docs/ai/apps/asyra-design/plans/__tests__'
       ],
