@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Factory, TransactionRollbackError } from '@asyra/factory'
+import {
+  Factory,
+  TransactionRollbackError,
+  TransactionValidationError
+} from '@asyra/factory'
 import {
   EventTypes,
   TransactionEventTypes,
@@ -71,25 +75,47 @@ const createHarness = (factory = new Factory()) => {
     clear: vi.fn(async () => undefined)
   })
 
-  return { core, factory, commit, props, provider, sceneTree }
+  return {
+    core,
+    factory,
+    commit,
+    props,
+    provider,
+    sceneTree,
+    systemContext
+  }
 }
 
 describe('Core transaction persistence acknowledgement', () => {
-  it('persists committed action, undo, and redo in order', async () => {
-    const { core, factory, commit, provider } = createHarness()
+  it('persists exact committed action, undo, and redo snapshots in FIFO order', async () => {
+    const { core, factory, commit, provider, sceneTree } = createHarness()
     const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    let workspace = 'action-state'
+    sceneTree.save.mockImplementation(() => ({
+      workspace,
+      workspaceList: [workspace],
+      elements: {}
+    }))
     core.setPersistence(provider(save))
 
     commit('first')
-    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    workspace = 'undo-state'
     factory.undo()
-    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    workspace = 'redo-state'
     factory.redo()
+
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3))
+    expect(
+      save.mock.calls.map(
+        ([data]) => (data.sceneTree as { workspace: string }).workspace
+      )
+    ).toEqual(['action-state', 'undo-state', 'redo-state'])
+    expect(sceneTree.save).toHaveBeenCalledTimes(3)
   })
 
   it('never saves discarded, rolled-back, or rollback-failed outcomes', async () => {
-    const { core, factory, provider } = createHarness()
+    const { core, factory, props, provider, sceneTree, systemContext } =
+      createHarness()
     const save = vi.fn(async () => undefined)
     core.setPersistence(provider(save))
 
@@ -117,11 +143,14 @@ describe('Core transaction persistence acknowledgement', () => {
 
     await Promise.resolve()
     await Promise.resolve()
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
     expect(save).not.toHaveBeenCalled()
   })
 
   it('reports persistence-skipped when no provider is configured', async () => {
-    const { factory, commit } = createHarness()
+    const { factory, commit, props, sceneTree, systemContext } = createHarness()
     const statuses: TransactionStatusPayload[] = []
     const dispose = factory.subscribeToTransactionStatus((status) => {
       statuses.push(status)
@@ -134,13 +163,19 @@ describe('Core transaction persistence acknowledgement', () => {
         statuses.some((status) => status.status === 'persistence-skipped')
       ).toBe(true)
     )
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
     dispose()
   })
 
   it('does not capture or persist a remote committed transaction', async () => {
-    const { core, factory, props, provider, sceneTree } = createHarness()
+    const { core, factory, props, provider, sceneTree, systemContext } =
+      createHarness()
     const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const saveHook = vi.fn((data) => data)
     const statuses: TransactionStatusPayload[] = []
+    core.registerSaveHook(saveHook)
     core.setPersistence(provider(save))
     const dispose = factory.subscribeToTransactionStatus((status) => {
       statuses.push(status)
@@ -161,6 +196,8 @@ describe('Core transaction persistence acknowledgement', () => {
     )
     expect(sceneTree.save).not.toHaveBeenCalled()
     expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
+    expect(saveHook).not.toHaveBeenCalled()
     expect(save).not.toHaveBeenCalled()
     expect(
       statuses.some(
@@ -173,6 +210,32 @@ describe('Core transaction persistence acknowledgement', () => {
     ).toBe(false)
 
     dispose()
+  })
+
+  it('does not capture or persist a validation-rejected transaction', async () => {
+    const { core, factory, commit, props, provider, sceneTree, systemContext } =
+      createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const saveHook = vi.fn((data) => data)
+    core.registerSaveHook(saveHook)
+    core.setPersistence(provider(save))
+    factory.registerTransactionValidator('reject-persistence', () => ({
+      valid: false,
+      code: 'invalid-persistence-state',
+      message: 'Reject persistence capture'
+    }))
+
+    expect(() => commit('validation-rejected')).toThrow(
+      TransactionValidationError
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
+    expect(saveHook).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('serializes saves and continues after a persistence failure', async () => {
