@@ -891,6 +891,48 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('sends peer-applied as a JSON control and waits for its server response', async () => {
+    let receipt: ClientMessage | undefined
+    let acknowledgeReceipt: (() => void) | undefined
+    const server = await createLoopbackServer((socket, message, encoded) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        return
+      }
+      if (message.type !== 'peer-applied') return
+      expect(typeof encoded).toBe('string')
+      receipt = message
+      acknowledgeReceipt = () =>
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
+    })
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    let settled = false
+    const sending = provider
+      .sendPeerApplied('publication-a', 'actor-source')
+      .then(() => {
+        settled = true
+      })
+
+    await vi.waitFor(() => expect(receipt).toBeDefined())
+    expect(receipt).toMatchObject({
+      type: 'peer-applied',
+      publicationId: 'publication-a',
+      fromActorId: 'actor-source'
+    })
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(settled).toBe(false)
+    acknowledgeReceipt?.()
+    await sending
+    await provider.destroy()
+  })
+
   it('captures inbound frame entry before optional string byte profiling', async () => {
     let sendInbound: (() => void) | undefined
     const counterSink = vi.fn()

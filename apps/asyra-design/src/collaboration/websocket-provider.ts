@@ -582,6 +582,17 @@ export class CollaborationWebSocketProvider implements Provider {
     })
   }
 
+  async sendPeerApplied(
+    publicationId: string,
+    fromActorId: string
+  ): Promise<void> {
+    await this.request({
+      type: CollaborationMessageTypes.PEER_APPLIED,
+      publicationId,
+      fromActorId
+    })
+  }
+
   onAwareness(subscriber: Subscriber<ProviderAwarenessMessage>): () => void {
     return this.subscribe(this.awarenessSubscribers, subscriber)
   }

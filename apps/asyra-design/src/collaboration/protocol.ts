@@ -27,6 +27,7 @@ export const CollaborationMessageTypes = {
   SEND_PUBLICATIONS: 'send-publications',
   SEND_AWARENESS: 'send-awareness',
   FRAME_CONSUMED: 'frame-consumed',
+  PEER_APPLIED: 'peer-applied',
   SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
   READY: 'ready',
   RESPONSE: 'response',
@@ -69,11 +70,19 @@ export interface FrameConsumedRequest {
   readonly frameByteLength: number
 }
 
+export interface PeerAppliedRequest {
+  readonly type: typeof CollaborationMessageTypes.PEER_APPLIED
+  readonly requestId: string
+  readonly publicationId: string
+  readonly fromActorId: string
+}
+
 export type CollaborationRequestMessage =
   | SendPublicationRequest
   | SendPublicationsRequest
   | SendAwarenessRequest
   | FrameConsumedRequest
+  | PeerAppliedRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
@@ -1466,6 +1475,7 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.HELLO,
   CollaborationMessageTypes.SEND_AWARENESS,
   CollaborationMessageTypes.FRAME_CONSUMED,
+  CollaborationMessageTypes.PEER_APPLIED,
   CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
@@ -1643,6 +1653,17 @@ export const parseCollaborationClientMessage = (
             frameId: value.frameId,
             publicationId: value.publicationId,
             frameByteLength: value.frameByteLength
+          }
+        : undefined
+    case CollaborationMessageTypes.PEER_APPLIED:
+      return isNonBlankString(value.requestId) &&
+        isNonBlankString(value.publicationId) &&
+        isNonBlankString(value.fromActorId)
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            publicationId: value.publicationId,
+            fromActorId: value.fromActorId
           }
         : undefined
   }

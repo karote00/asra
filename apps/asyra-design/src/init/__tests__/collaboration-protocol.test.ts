@@ -221,6 +221,12 @@ describe('collaboration wire protocol', () => {
         frameByteLength: 1_024
       },
       {
+        type: CollaborationMessageTypes.PEER_APPLIED,
+        requestId: 'request-peer-applied',
+        publicationId: 'publication-a',
+        fromActorId: 'actor-a'
+      },
+      {
         type: CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
         requestId: 'request-source-frame',
         frameId: 'source-frame-a',
@@ -1116,6 +1122,24 @@ describe('collaboration wire protocol', () => {
       })
     ).toBeUndefined()
     expect(parseCollaborationClientMessage(credit)).toBeUndefined()
+  })
+
+  it('parses peer-applied only as an exact client control receipt', () => {
+    const receipt = {
+      type: CollaborationMessageTypes.PEER_APPLIED,
+      requestId: 'request-peer-applied',
+      publicationId: 'publication-a',
+      fromActorId: 'actor-a'
+    } as const
+
+    expect(parseCollaborationClientMessage(receipt)).toEqual(receipt)
+    expect(
+      parseCollaborationClientMessage({ ...receipt, publicationId: ' ' })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationClientMessage({ ...receipt, fromActorId: '' })
+    ).toBeUndefined()
+    expect(parseCollaborationServerMessage(receipt)).toBeUndefined()
   })
 
   it('rejects blank identity fields at the wire boundary', () => {
