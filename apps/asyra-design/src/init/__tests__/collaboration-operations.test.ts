@@ -7,6 +7,7 @@ import {
 import {
   EventTypes,
   TransactionEventTypes,
+  getTransactionReplayMode,
   subscribeToAddElement,
   subscribeToEventBatches,
   type AllEvent
@@ -58,14 +59,20 @@ const delivery = (
 
 const publication = (
   deliveries: readonly SharedDelivery[],
-  publicationId = 'publication-a'
+  publicationId = 'publication-a',
+  origin: SharedPublication['origin'] = 'action'
 ): SharedPublication => {
-  const artifactId = deliveries[0]?.artifactId ?? `artifact-${publicationId}`
+  const normalizedDeliveries = deliveries.map((item) => ({
+    ...item,
+    origin
+  }))
+  const artifactId =
+    normalizedDeliveries[0]?.artifactId ?? `artifact-${publicationId}`
   const groupedBatches: {
     batchId: string
     deliveries: SharedDelivery[]
   }[] = []
-  deliveries.forEach((item) => {
+  normalizedDeliveries.forEach((item) => {
     const active = groupedBatches[groupedBatches.length - 1]
     if (active?.batchId === item.batchId) {
       active.deliveries.push(item)
@@ -77,8 +84,8 @@ const publication = (
     publicationId,
     artifactId,
     transactionId: 1,
-    origin: 'action',
-    deliveries,
+    origin,
+    deliveries: normalizedDeliveries,
     batches: groupedBatches.map(({ batchId, deliveries: batchDeliveries }) => ({
       batchId,
       sliceId: batchId,
@@ -269,6 +276,67 @@ const canonicalContainerCreationDeliveries = (
   ]
 }
 
+const canonicalRemovalDeliveries = (
+  elementIds: readonly string[],
+  parentId = 'workspace-a',
+  startIndex = 0,
+  elementType = 'rect'
+): readonly SharedDelivery[] => {
+  const removalIds = [...elementIds].reverse()
+  const sceneBatchId = `batch-remove-elements-${elementIds.join('-')}`
+  const propsBatchId = `batch-remove-properties-${elementIds.join('-')}`
+  const sceneDeliveries = removalIds.map((elementId) => {
+    const sourceIndex = elementIds.indexOf(elementId)
+    const elementDelivery = delivery(
+      SharedDataChannelNames.SCENE_TREE,
+      EventTypes.REMOVE_ELEMENT,
+      {
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        eventName: EventTypes.REMOVE_ELEMENT,
+        data: {
+          id: elementId,
+          type: elementType,
+          parentId,
+          props: { position: `position-${elementId}` },
+          ...(elementType === 'group' ? { children: [] } : {})
+        },
+        parentId,
+        index: startIndex + sourceIndex
+      },
+      `remove-element-${elementId}`
+    )
+    return {
+      ...elementDelivery,
+      batchId: sceneBatchId,
+      record: {
+        ...elementDelivery.record,
+        orderedIds: [elementId]
+      }
+    }
+  })
+  const propertyDeliveries = removalIds.map((elementId) => {
+    const propertyDelivery = delivery(
+      SharedDataChannelNames.PROPS,
+      EventTypes.REMOVE_PROPERTY,
+      {
+        action: PROPS_ACTIONS.REMOVE_PROPERTY,
+        eventName: EventTypes.REMOVE_PROPERTY,
+        data: [{ id: `position-${elementId}`, type: 'position' }]
+      },
+      `remove-properties-${elementId}`
+    )
+    return {
+      ...propertyDelivery,
+      batchId: propsBatchId,
+      record: {
+        ...propertyDelivery.record,
+        orderedIds: [elementId]
+      }
+    }
+  })
+  return [...sceneDeliveries, ...propertyDeliveries]
+}
+
 const validDeliveries = (): readonly SharedDelivery[] => [
   delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.ADD_ELEMENT, {
     action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
@@ -438,7 +506,16 @@ const createRestoreOwners = () => {
         RemoteRestoreOwnerFacades['applyRestoreProperties']
       >(() => Object.freeze(['position-group-a'])),
       applyRestoreSubtree:
-        vi.fn<RemoteRestoreOwnerFacades['applyRestoreSubtree']>()
+        vi.fn<RemoteRestoreOwnerFacades['applyRestoreSubtree']>(),
+      removeElementsUsingActiveProperties: vi.fn(
+        (
+          removals: readonly {
+            data: { id: string }
+            parentId: string
+            index: number
+          }[]
+        ) => Object.freeze(removals.map(({ data }) => data.id))
+      )
     }
   }
 }
@@ -793,6 +870,245 @@ describe('Asyra Design app-owned collaboration processing', () => {
       'workspace-a',
       5
     )
+  })
+
+  it('applies one Group plus 16-item retained Undo removal through canonical batch owners', () => {
+    const childIds = Array.from(
+      { length: 16 },
+      (_, index) => `retained-child-${index + 1}`
+    )
+    const childRemoval = publication(
+      canonicalRemovalDeliveries(childIds, 'retained-group'),
+      'retained-children-removal',
+      'undo'
+    )
+    const groupRemoval = publication(
+      canonicalRemovalDeliveries(['retained-group'], 'workspace-a', 0, 'group'),
+      'retained-group-removal',
+      'undo'
+    )
+    const retainedUndo = combinePublications(
+      [childRemoval, groupRemoval],
+      'retained-group-and-children-undo'
+    )
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn((_event: AllEvent) => true)
+    const { owners } = createRestoreOwners()
+    const observedBatches: AllEvent[][] = []
+    const subscription = subscribeToEventBatches((events) => {
+      if (
+        events.some(
+          (event) =>
+            event.type === EventTypes.REMOVE_ELEMENT ||
+            event.type === EventTypes.REMOVE_PROPERTY
+        )
+      ) {
+        observedBatches.push([...events])
+      }
+    })
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      undefined,
+      owners
+    )
+
+    try {
+      expect(processPublication(retainedUndo)).toBe(true)
+    } finally {
+      subscription.unsubscribe()
+    }
+
+    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(owners.removeElementsUsingActiveProperties).toHaveBeenCalledTimes(2)
+    expect(
+      owners.removeElementsUsingActiveProperties.mock.calls[0]?.[0].map(
+        ({ data }) => data.id
+      )
+    ).toEqual([...childIds].reverse())
+    expect(
+      owners.removeElementsUsingActiveProperties.mock.calls[1]?.[0].map(
+        ({ data }) => data.id
+      )
+    ).toEqual(['retained-group'])
+    expect(process.mock.calls.map(([event]) => event.type)).toEqual([
+      ...childIds.map(() => EventTypes.REMOVE_PROPERTY),
+      EventTypes.REMOVE_PROPERTY
+    ])
+    expect(observedBatches).toHaveLength(1)
+    expect(observedBatches[0]?.map(({ type }) => type)).toEqual([
+      ...childIds.map(() => EventTypes.REMOVE_ELEMENT),
+      ...childIds.map(() => EventTypes.REMOVE_PROPERTY),
+      EventTypes.REMOVE_ELEMENT,
+      EventTypes.REMOVE_PROPERTY
+    ])
+    expect(
+      observedBatches[0]?.map((event) => {
+        const payload = (
+          event as AllEvent & {
+            payload: { data: { id: string } | readonly { id: string }[] }
+          }
+        ).payload
+        return Array.isArray(payload.data)
+          ? payload.data[0]?.id
+          : payload.data.id
+      })
+    ).toEqual([
+      ...[...childIds].reverse(),
+      ...[...childIds].reverse().map((elementId) => `position-${elementId}`),
+      'retained-group',
+      'position-retained-group'
+    ])
+  })
+
+  it('reuses retained Group plus 16-item tombstones when a Redo publication arrives', () => {
+    const childIds = Array.from(
+      { length: 16 },
+      (_, index) => `retained-redo-child-${index + 1}`
+    )
+    const action = combinePublications(
+      [
+        publication(
+          canonicalContainerCreationDeliveries('retained-redo-group'),
+          'retained-redo-group-action'
+        ),
+        publication(
+          canonicalCreationDeliveries(childIds, 'retained-redo-group'),
+          'retained-redo-children-action'
+        )
+      ],
+      'retained-redo-action'
+    )
+    const undo = combinePublications(
+      [
+        publication(
+          canonicalRemovalDeliveries(childIds, 'retained-redo-group'),
+          'retained-redo-children-undo',
+          'undo'
+        ),
+        publication(
+          canonicalRemovalDeliveries(
+            ['retained-redo-group'],
+            'workspace-a',
+            0,
+            'group'
+          ),
+          'retained-redo-group-undo',
+          'undo'
+        )
+      ],
+      'retained-redo-undo'
+    )
+    const redo = combinePublications(
+      [
+        publication(
+          canonicalContainerCreationDeliveries('retained-redo-group'),
+          'retained-redo-group-redo',
+          'redo'
+        ),
+        publication(
+          canonicalCreationDeliveries(childIds, 'retained-redo-group'),
+          'retained-redo-children-redo',
+          'redo'
+        )
+      ],
+      'retained-redo-redo'
+    )
+    const activeIds = new Set<string>()
+    const tombstoneIds = new Set<string>()
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn((event: AllEvent) => {
+      if (event.type === EventTypes.ADD_ELEMENT && 'payload' in event) {
+        expect(getTransactionReplayMode()).toBe('redo')
+        const elementId = (event.payload as { data: { id: string } }).data.id
+        expect(tombstoneIds.delete(elementId)).toBe(true)
+        activeIds.add(elementId)
+      }
+      return true
+    })
+    const { owners } = createRestoreOwners()
+    owners.removeElementsUsingActiveProperties.mockImplementation(
+      (removals) => {
+        const removedIds = removals.map(({ data }) => data.id)
+        removedIds.forEach((elementId) => {
+          expect(activeIds.delete(elementId)).toBe(true)
+          tombstoneIds.add(elementId)
+        })
+        return Object.freeze(removedIds)
+      }
+    )
+    const applyCanonicalCreationBatch = vi.fn(
+      (elements: readonly { id: string }[]) => {
+        const elementIds = elements.map(({ id }) => id)
+        elementIds.forEach((elementId) => activeIds.add(elementId))
+        return Object.freeze(elementIds)
+      }
+    )
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      undefined,
+      owners,
+      applyCanonicalCreationBatch
+    )
+
+    expect(processPublication(action)).toBe(true)
+    expect(processPublication(undo)).toBe(true)
+    expect(processPublication(redo)).toBe(true)
+
+    expect(runRemoteTransaction).toHaveBeenCalledTimes(3)
+    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
+    expect(activeIds).toEqual(new Set(['retained-redo-group', ...childIds]))
+    expect(tombstoneIds).toEqual(new Set())
+    expect(getTransactionReplayMode()).toBeNull()
+  })
+
+  it('rolls back a retained removal when the canonical owner returns inexact ids', () => {
+    const activeIds = ['inexact-removal-a', 'inexact-removal-b']
+    const state = [...activeIds]
+    const runRemoteTransaction = vi.fn((mutate: () => void) => {
+      const before = [...state]
+      try {
+        mutate()
+      } catch (error) {
+        state.splice(0, state.length, ...before)
+        throw error
+      }
+    })
+    const process = vi.fn((_event: AllEvent) => true)
+    const { owners } = createRestoreOwners()
+    owners.removeElementsUsingActiveProperties.mockImplementation(
+      (removals) => {
+        state.splice(0)
+        return Object.freeze([removals[0].data.id])
+      }
+    )
+    const observed = vi.fn()
+    const subscription = subscribeToEventBatches(observed)
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      undefined,
+      owners
+    )
+
+    try {
+      expect(() =>
+        processPublication(
+          publication(
+            canonicalRemovalDeliveries(activeIds),
+            'inexact-retained-removal',
+            'undo'
+          )
+        )
+      ).toThrow('canonical removal batch did not apply exact ids')
+    } finally {
+      subscription.unsubscribe()
+    }
+
+    expect(state).toEqual(activeIds)
+    expect(process).not.toHaveBeenCalled()
+    expect(observed).not.toHaveBeenCalled()
   })
 
   it('applies an explicit progressive canonical slice through direct record evidence', () => {
