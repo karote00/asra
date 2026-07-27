@@ -617,6 +617,83 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
+  it('marks an immediate delivery failure rollback-only even when the caller catches it', () => {
+    const deliveryFailure = new Error('caught immediate append failed')
+    const artifacts = vi.fn()
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(
+      {
+        pushToSharedChannel: () => {
+          throw deliveryFailure
+        }
+      },
+      {
+        onMutationBatchArtifact: artifacts,
+        onStatus: (status) => statuses.push(status),
+        onReplayEvent: () => true
+      }
+    )
+
+    transact.start()
+    expect(() =>
+      transact.update(
+        createUpdateEvent({
+          shared: 'sceneTree',
+          sharedDelivery: 'immediate'
+        })
+      )
+    ).toThrow(deliveryFailure)
+
+    expect(() => transact.end()).not.toThrow()
+    expect(artifacts).not.toHaveBeenCalled()
+    expect(statuses.at(-1)).toMatchObject({
+      status: 'rolled-back',
+      failure: { kind: 'explicit', cause: deliveryFailure }
+    })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
+  })
+
+  it('rolls back a recorded batch prefix when a later item is invalid', () => {
+    const artifacts = vi.fn()
+    const statuses: TransactionStatusPayload[] = []
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(undefined, {
+      onMutationBatchArtifact: artifacts,
+      onStatus: (status) => statuses.push(status),
+      onReplayEvent: (event) => {
+        replayed.push(event)
+        return true
+      }
+    })
+
+    transact.start()
+    expect(() =>
+      transact.updateBatch([
+        createUpdateEvent(),
+        {
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: 'missing.batch.inverter',
+          payload: { id: 'invalid-later-item' }
+        }
+      ])
+    ).toThrow('requires an inverter')
+
+    expect(() => transact.end()).not.toThrow()
+    expect(replayed).toEqual([
+      expect.objectContaining({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: expect.objectContaining({ before: 1, after: 0 })
+      })
+    ])
+    expect(artifacts).not.toHaveBeenCalled()
+    expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
+  })
+
   it('rolls back a commit and compensates earlier transaction-end delivery when a later append fails', () => {
     const deliveryFailure = new Error('transaction-end append failed')
     const undoStackLengths: number[] = []
@@ -690,6 +767,72 @@ describe('DataTransact user action completion', () => {
     })
 
     subscription.unsubscribe()
+  })
+
+  it('keeps legacy same-channel fallback as exact batch-of-one compensation', () => {
+    const deliveryFailure = new Error('legacy second append failed')
+    const pushToSharedChannel = vi
+      .fn()
+      .mockReturnValueOnce(true)
+      .mockImplementationOnce(() => {
+        throw deliveryFailure
+      })
+      .mockReturnValueOnce(true)
+    const transact = new DataTransact({ pushToSharedChannel })
+
+    transact.start()
+    transact.update(createUpdateEvent({ shared: 'sceneTree' }))
+    transact.update({
+      ...createUpdateEvent({ shared: 'sceneTree' }),
+      payload: {
+        id: 'test.second-change',
+        before: 10,
+        after: 20
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end()).toThrow(deliveryFailure)
+    expect(pushToSharedChannel.mock.calls).toEqual([
+      ['sceneTree', expect.objectContaining({ before: 0, after: 1 })],
+      ['sceneTree', expect.objectContaining({ before: 10, after: 20 })],
+      ['sceneTree', expect.objectContaining({ before: 1, after: 0 })]
+    ])
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(0)
+  })
+
+  it('rejects a claimed batch capability without an atomic batch writer', () => {
+    const deliveryFailure = new Error('claimed batch second append failed')
+    const pushToSharedChannel = vi
+      .fn()
+      .mockReturnValueOnce(true)
+      .mockImplementationOnce(() => {
+        throw deliveryFailure
+      })
+      .mockReturnValueOnce(true)
+    const transact = new DataTransact({
+      pushToSharedChannel,
+      canPushBatchToSharedChannel: () => true
+    })
+
+    transact.start()
+    transact.update(createUpdateEvent({ shared: 'sceneTree' }))
+    transact.update({
+      ...createUpdateEvent({ shared: 'sceneTree' }),
+      payload: {
+        id: 'test.second-change',
+        before: 10,
+        after: 20
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end()).toThrow(deliveryFailure)
+    expect(pushToSharedChannel.mock.calls).toEqual([
+      ['sceneTree', expect.objectContaining({ before: 0, after: 1 })],
+      ['sceneTree', expect.objectContaining({ before: 10, after: 20 })],
+      ['sceneTree', expect.objectContaining({ before: 1, after: 0 })]
+    ])
   })
 
   it('restores runtime and preserves undo history when transaction-end delivery fails during undo', () => {
@@ -2283,14 +2426,23 @@ describe('DataTransact user action completion', () => {
     const journal = (
       transact as unknown as {
         journal: {
-          shared?: { name: string; delivered: boolean }
+          shared?: {
+            name: string
+            records: { delivered: boolean }[]
+          }
         }[]
       }
     ).journal
 
     expect(journal.map((entry) => entry.shared)).toEqual([
-      expect.objectContaining({ name: 'sceneTree', delivered: true }),
-      expect.objectContaining({ name: 'props', delivered: false })
+      expect.objectContaining({
+        name: 'sceneTree',
+        records: [expect.objectContaining({ delivered: true })]
+      }),
+      expect.objectContaining({
+        name: 'props',
+        records: [expect.objectContaining({ delivered: false })]
+      })
     ])
 
     transact.end()

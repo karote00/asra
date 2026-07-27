@@ -39,3 +39,29 @@ export const cloneValue = <T>(
 
   return clone as T
 }
+
+const deeplyFrozenValues = new WeakSet<object>()
+
+export const deepFreezeValue = <T>(
+  value: T,
+  seen = new WeakSet<object>()
+): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  const object = value as object
+  if (deeplyFrozenValues.has(object) || seen.has(object)) {
+    return value
+  }
+  seen.add(object)
+  Reflect.ownKeys(object).forEach((key) => {
+    deepFreezeValue(Reflect.get(object, key), seen)
+  })
+  Object.freeze(value)
+  deeplyFrozenValues.add(object)
+  return value
+}
+
+export const cloneAndDeepFreezeValue = <T>(value: T): T =>
+  deepFreezeValue(cloneValue(value))

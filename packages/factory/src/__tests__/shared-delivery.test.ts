@@ -40,6 +40,206 @@ const createHarness = () => {
 }
 
 describe('Factory local shared delivery contract', () => {
+  it('delegates single append and observe through one immutable batch-of-one path', () => {
+    const channel = new LocalSharedDataChannel()
+    const appendBatch = vi.spyOn(channel, 'appendBatch')
+    const observeBatch = vi.spyOn(channel, 'observeBatch')
+    const laterBatches: (readonly unknown[])[] = []
+    const singleChanges: unknown[] = []
+    channel.observeBatch((batch) => {
+      ;(
+        batch[0] as {
+          nested: { value: number }
+        }
+      ).nested.value = 99
+    })
+    channel.observeBatch((batch) => laterBatches.push(batch))
+    channel.observe((change) => singleChanges.push(change))
+
+    const source = { id: 'batch-of-one', nested: { value: 1 } }
+    channel.append(source)
+    source.nested.value = 2
+
+    expect(appendBatch).toHaveBeenCalledTimes(1)
+    expect(observeBatch).toHaveBeenCalledTimes(3)
+    expect(laterBatches).toHaveLength(1)
+    expect(laterBatches[0]).toHaveLength(1)
+    expect(singleChanges).toHaveLength(1)
+    expect(singleChanges[0]).toBe(laterBatches[0]?.[0])
+    expect(laterBatches[0]?.[0]).toEqual({
+      id: 'batch-of-one',
+      nested: { value: 1 }
+    })
+    expect(Object.isFrozen(laterBatches[0])).toBe(true)
+    expect(Object.isFrozen(laterBatches[0]?.[0])).toBe(true)
+    expect(
+      Object.isFrozen(
+        (laterBatches[0]?.[0] as { nested: { value: number } }).nested
+      )
+    ).toBe(true)
+  })
+
+  it('uses custom appendBatch only when the channel declares an atomic batch boundary', () => {
+    const appended: unknown[] = []
+    const appendBatch = vi.fn(() => {
+      throw new Error('unmarked appendBatch must not be used')
+    })
+    const channel: SharedDataChannel = {
+      append: (change) => appended.push(change),
+      appendBatch,
+      observe: () => () => undefined
+    }
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+
+    factory.startTransaction()
+    update(factory)
+    update(factory)
+
+    expect(() => factory.endTransaction()).not.toThrow()
+    expect(appendBatch).not.toHaveBeenCalled()
+    expect(appended).toHaveLength(2)
+  })
+
+  it('delivers one grouped batch through an explicitly atomic custom channel', () => {
+    const append = vi.fn()
+    const appendBatch = vi.fn()
+    const channel: SharedDataChannel = {
+      batchAppendIsAtomic: true,
+      append,
+      appendBatch,
+      observe: () => () => undefined
+    }
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+
+    factory.startTransaction()
+    update(factory)
+    update(factory)
+    factory.endTransaction()
+
+    expect(append).not.toHaveBeenCalled()
+    expect(appendBatch).toHaveBeenCalledTimes(1)
+    expect(appendBatch.mock.calls[0]?.[0]).toHaveLength(2)
+  })
+
+  it('fans a legacy single observer out to batch observers with one frozen identity', () => {
+    const sourceHandlers = new Set<(change: unknown) => void>()
+    const channel: SharedDataChannel = {
+      append: (change) => {
+        ;[...sourceHandlers].forEach((handler) => handler(change))
+      },
+      observe: (handler) => {
+        sourceHandlers.add(handler)
+        return () => sourceHandlers.delete(handler)
+      }
+    }
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    const firstBatches: (readonly unknown[])[] = []
+    const laterBatches: (readonly unknown[])[] = []
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (batch) => {
+        firstBatches.push(batch)
+        ;(batch[0] as { after: number }).after = 99
+      }
+    )
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (batch) => laterBatches.push(batch)
+    )
+
+    expect(sourceHandlers.size).toBe(1)
+    factory.startTransaction()
+    update(factory)
+    factory.endTransaction()
+
+    expect(firstBatches).toHaveLength(1)
+    expect(laterBatches).toHaveLength(1)
+    expect(firstBatches[0]).toBe(laterBatches[0])
+    expect(laterBatches[0]?.[0]).toEqual(
+      expect.objectContaining({ before: 0, after: 1 })
+    )
+    expect(Object.isFrozen(laterBatches[0])).toBe(true)
+    expect(Object.isFrozen(laterBatches[0]?.[0])).toBe(true)
+  })
+
+  it('fans a custom native batch observer out once with one frozen identity', () => {
+    const sourceHandlers = new Set<(changes: readonly unknown[]) => void>()
+    const channel: SharedDataChannel = {
+      batchAppendIsAtomic: true,
+      append: (change) => {
+        ;[...sourceHandlers].forEach((handler) => handler([change]))
+      },
+      appendBatch: (changes) => {
+        ;[...sourceHandlers].forEach((handler) => handler(changes))
+      },
+      observe: () => () => undefined,
+      observeBatch: (handler) => {
+        sourceHandlers.add(handler)
+        return () => sourceHandlers.delete(handler)
+      }
+    }
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    const firstBatches: (readonly unknown[])[] = []
+    const laterBatches: (readonly unknown[])[] = []
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (batch) => {
+        firstBatches.push(batch)
+        ;(
+          batch[0] as {
+            after: { value: number }
+          }
+        ).after.value = 99
+      }
+    )
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (batch) => laterBatches.push(batch)
+    )
+
+    expect(sourceHandlers.size).toBe(1)
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'custom-native-batch-fanout',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(firstBatches).toHaveLength(1)
+    expect(laterBatches).toHaveLength(1)
+    expect(firstBatches[0]).toBe(laterBatches[0])
+    expect(laterBatches[0]?.[0]).toEqual(
+      expect.objectContaining({
+        before: { value: 0 },
+        after: { value: 1 }
+      })
+    )
+    expect(Object.isFrozen(laterBatches[0])).toBe(true)
+    expect(Object.isFrozen(laterBatches[0]?.[0])).toBe(true)
+  })
+
   it('uses a Factory-owned local channel without constructing a Y.Doc', () => {
     const { factory, projected } = createHarness()
 
@@ -63,8 +263,10 @@ describe('Factory local shared delivery contract', () => {
 
     expect(projected).toHaveLength(1)
     expect(deliveries).toEqual([
-      {
+      expect.objectContaining({
         deliveryId: '1:0:forward',
+        artifactId: '1:artifact',
+        batchId: '1:artifact:batch:1',
         transactionId: 1,
         origin: 'action',
         kind: 'forward',
@@ -75,8 +277,19 @@ describe('Factory local shared delivery contract', () => {
           before: 0,
           after: 1
         }),
+        recordId: '1:0:record:0',
+        record: expect.objectContaining({
+          recordId: '1:0:record:0',
+          occurrence: 0,
+          orderedIds: [],
+          payload: expect.objectContaining({
+            id: 'shared-delivery',
+            before: 0,
+            after: 1
+          })
+        }),
         sharedDelivery: 'transaction-end'
-      }
+      })
     ])
   })
 
@@ -119,6 +332,45 @@ describe('Factory local shared delivery contract', () => {
         sharedDelivery: 'immediate'
       })
     ])
+  })
+
+  it('compensates a remote immediate projection without local evidence side effects', () => {
+    const { factory, projected } = createHarness()
+    const failure = new Error('remote action failed after immediate projection')
+    const delivery = vi.fn()
+    const deliveryBatch = vi.fn()
+    const publication = vi.fn()
+    const artifact = vi.fn()
+    factory.subscribeToSharedDelivery(delivery)
+    factory.subscribeToSharedDeliveryBatch(deliveryBatch)
+    factory.subscribeToSharedPublication(publication)
+    factory.subscribeToMutationBatchArtifact(artifact)
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    expect(() =>
+      factory.runRemoteTransaction(() => {
+        update(factory, { sharedDelivery: 'immediate' })
+        throw failure
+      })
+    ).toThrow(failure)
+
+    expect(projected).toEqual([
+      expect.objectContaining({ before: 0, after: 1 }),
+      expect.objectContaining({ before: 1, after: 0 })
+    ])
+    expect(delivery).not.toHaveBeenCalled()
+    expect(deliveryBatch).not.toHaveBeenCalled()
+    expect(publication).not.toHaveBeenCalled()
+    expect(artifact).not.toHaveBeenCalled()
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toEqual([])
   })
 
   it('publishes compensation on the inverse event route', () => {

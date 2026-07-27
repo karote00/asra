@@ -4,7 +4,6 @@ import {
   EventTypes,
   registerTransactionOwner,
   runTransaction,
-  undo,
   updateTransaction
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
@@ -86,7 +85,7 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('restores undo history and closes its owned boundary when inverse replay fails', () => {
+  it('rejects commit and closes its owned boundary when artifact inverse capture fails', () => {
     const factory = new Factory()
     const disposeOwner = registerFactoryAsOwner(factory)
     factory.registerTransactionInverter('custom.broken-undo', () => {
@@ -94,11 +93,11 @@ describe('Factory transaction owner integration', () => {
     })
 
     try {
-      runTransaction(() => {
-        updateTransaction('custom.broken-undo', { id: 'custom' })
-      })
-
-      expect(() => undo()).toThrow(TransactionRollbackError)
+      expect(() =>
+        runTransaction(() => {
+          updateTransaction('custom.broken-undo', { id: 'custom' })
+        })
+      ).toThrow(TransactionRollbackError)
       expect(
         (
           factory.transact as unknown as {
@@ -113,7 +112,7 @@ describe('Factory transaction owner integration', () => {
             undoStack: unknown[]
           }
         ).undoStack
-      ).toHaveLength(1)
+      ).toHaveLength(0)
       expect(factory.isInUndoRedo()).toBe(false)
     } finally {
       endTransaction({ outcome: 'rollback' })

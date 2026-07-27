@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { cloneValueSpy } = vi.hoisted(() => ({
-  cloneValueSpy: vi.fn()
+const { cloneAndDeepFreezeValueSpy } = vi.hoisted(() => ({
+  cloneAndDeepFreezeValueSpy: vi.fn()
 }))
 
 vi.mock('../value-clone', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../value-clone')>()
-  cloneValueSpy.mockImplementation(actual.cloneValue)
+  cloneAndDeepFreezeValueSpy.mockImplementation(actual.cloneAndDeepFreezeValue)
   return {
     ...actual,
-    cloneValue: cloneValueSpy
+    cloneAndDeepFreezeValue: cloneAndDeepFreezeValueSpy
   }
 })
 
@@ -22,7 +22,7 @@ import {
 
 describe('Factory shared payload capture budget', () => {
   beforeEach(() => {
-    cloneValueSpy.mockClear()
+    cloneAndDeepFreezeValueSpy.mockClear()
   })
 
   it('deep-captures one Factory-owned payload snapshot per canonical mutation', () => {
@@ -31,18 +31,38 @@ describe('Factory shared payload capture budget', () => {
     const transact = new DataTransact(registry)
 
     transact.start()
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      payload: {
-        id: 'canonical-element',
-        before: { value: 0 },
-        after: { value: 1 }
-      },
-      options: { shared: 'sceneTree' }
-    })
+    const sharedGraph = { value: 1 }
+    transact.updateBatch(
+      [
+        {
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'canonical-element',
+            before: { value: 0 },
+            after: sharedGraph
+          },
+          options: { shared: 'sceneTree' }
+        }
+      ],
+      [
+        {
+          orderedIds: ['canonical-element'],
+          sharedRecords: [
+            {
+              orderedIds: ['canonical-element'],
+              payload: {
+                id: 'canonical-element',
+                before: { value: 0 },
+                after: sharedGraph
+              }
+            }
+          ]
+        }
+      ]
+    )
     transact.end()
 
-    expect(cloneValueSpy).toHaveBeenCalledTimes(1)
+    expect(cloneAndDeepFreezeValueSpy).toHaveBeenCalledTimes(1)
   })
 })

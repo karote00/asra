@@ -19,17 +19,23 @@ import {
   LocalSharedDataChannel,
   SharedDataChannelRegistry,
   type SharedDataChannel,
+  type SharedDataChannelBatchChangeHandler,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
 import {
-  cloneSharedDelivery,
-  cloneSharedPublication,
   type SharedDelivery,
+  type SharedDeliveryBatch,
+  type SharedDeliveryBatchSubscriber,
   type SharedDeliverySubscriber,
   type SharedPublication,
   type SharedPublicationSubscriber
 } from './shared-delivery'
+import type {
+  FactoryMutationBatchDeliveryEvidence,
+  FactoryMutationBatchArtifact,
+  FactoryMutationBatchArtifactSubscriber
+} from './mutation-batch'
 import type {
   CanonicalEventApply,
   TransactionInverter,
@@ -60,8 +66,12 @@ class Factory {
   >()
   private readonly sharedDeliverySubscribers =
     new Set<SharedDeliverySubscriber>()
+  private readonly sharedDeliveryBatchSubscribers =
+    new Set<SharedDeliveryBatchSubscriber>()
   private readonly sharedPublicationSubscribers =
     new Set<SharedPublicationSubscriber>()
+  private readonly mutationBatchArtifactSubscribers =
+    new Set<FactoryMutationBatchArtifactSubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -78,8 +88,13 @@ class Factory {
         : undefined,
       onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
       onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery),
+      hasSharedDeliverySubscribers: () =>
+        this.sharedDeliverySubscribers.size > 0,
+      onSharedDeliveryBatch: (batch) => this.emitSharedDeliveryBatch(batch),
       onSharedPublication: (publication) =>
-        this.emitSharedPublication(publication)
+        this.emitSharedPublication(publication),
+      onMutationBatchArtifact: (artifact) =>
+        this.emitMutationBatchArtifact(artifact)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -103,7 +118,17 @@ class Factory {
   private emitSharedDelivery(delivery: SharedDelivery): void {
     ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
       try {
-        subscriber(cloneSharedDelivery(delivery))
+        subscriber(delivery)
+      } catch {
+        // Collaboration observers cannot alter local canonical settlement.
+      }
+    })
+  }
+
+  private emitSharedDeliveryBatch(batch: SharedDeliveryBatch): void {
+    ;[...this.sharedDeliveryBatchSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(batch)
       } catch {
         // Collaboration observers cannot alter local canonical settlement.
       }
@@ -114,15 +139,23 @@ class Factory {
     measureBrowserDragPhase('factory:notify-shared-publication', () => {
       ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
         try {
-          subscriber(
-            measureBrowserDragPhase('factory:shared-publication-clone', () =>
-              cloneSharedPublication(publication)
-            )
-          )
+          subscriber(publication)
         } catch {
           // Collaboration observers cannot alter local canonical settlement.
         }
       })
+    })
+  }
+
+  private emitMutationBatchArtifact(
+    artifact: FactoryMutationBatchArtifact
+  ): void {
+    ;[...this.mutationBatchArtifactSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(artifact)
+      } catch {
+        // Artifact observers cannot alter canonical settlement.
+      }
     })
   }
 
@@ -148,7 +181,14 @@ class Factory {
   }
 
   updateTransaction(event: UpdateTransactionEvent) {
-    this.transact.update(event)
+    return this.transact.update(event)
+  }
+
+  updateTransactionBatch(
+    events: readonly UpdateTransactionEvent[],
+    deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
+  ) {
+    return this.transact.updateBatch(events, deliveryEvidence)
   }
 
   endTransaction(options?: EndTransactionOptions) {
@@ -342,10 +382,26 @@ class Factory {
     return this.sharedDataChannels.observe(name, handler)
   }
 
+  observeSharedDataChannelBatch<TChange = unknown>(
+    name: SharedDataChannelName,
+    handler: SharedDataChannelBatchChangeHandler<TChange>
+  ): () => void {
+    return this.sharedDataChannels.observeBatch(name, handler)
+  }
+
   subscribeToSharedDelivery(subscriber: SharedDeliverySubscriber): () => void {
     this.sharedDeliverySubscribers.add(subscriber)
     return () => {
       this.sharedDeliverySubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToSharedDeliveryBatch(
+    subscriber: SharedDeliveryBatchSubscriber
+  ): () => void {
+    this.sharedDeliveryBatchSubscribers.add(subscriber)
+    return () => {
+      this.sharedDeliveryBatchSubscribers.delete(subscriber)
     }
   }
 
@@ -355,6 +411,15 @@ class Factory {
     this.sharedPublicationSubscribers.add(subscriber)
     return () => {
       this.sharedPublicationSubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToMutationBatchArtifact(
+    subscriber: FactoryMutationBatchArtifactSubscriber
+  ): () => void {
+    this.mutationBatchArtifactSubscribers.add(subscriber)
+    return () => {
+      this.mutationBatchArtifactSubscribers.delete(subscriber)
     }
   }
 }
