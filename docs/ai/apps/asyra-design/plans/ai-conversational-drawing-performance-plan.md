@@ -152,6 +152,18 @@ validated AI descriptor
   `addNewElementsFromCanonicalDataUsingActiveProperties`. An active transaction
   owner must atomically accept canonical batch evidence; this is a capability
   invariant, not a caller-identity policy.
+- Removal follows the same lifecycle rule. Ordinary `removeElement`/
+  `removeElements` owns complete element and property cleanup. Retained
+  history or collaboration evidence whose Props removal is carried separately
+  uses `removeElementUsingActiveProperties`/
+  `removeElementsUsingActiveProperties`, preserving the source Scene-then-Props
+  evidence order without applying either owner twice. The single-item form is
+  the batch-of-one convenience, and none of these APIs is restricted by local
+  or remote origin.
+- Retained removal and restore preflight the complete Scene, Props,
+  relationship, parent-index, ID, and tombstone evidence before apply. A later
+  invalid item leaves no Scene, property, relationship, registry, tombstone,
+  parent-list, history-readiness, or publication prefix.
 - Props Manager performs one whole-batch schema, ID, and relationship preflight,
   then instance materialization, relationship rebind, and `registerMany`.
   A later invalid item leaves no committed prefix.
@@ -184,6 +196,12 @@ History, Render/UI, and Collaboration consume this one artifact. They do not
 call `.save()` to reconstruct it, rebuild snapshots from live owners, or clone
 each observed delivery independently. An observer mutation attempt cannot
 pollute another consumer.
+
+During Undo and Redo, the retained artifact returns to the canonical owner
+without reordering its Scene and Props evidence. Only an explicitly applied
+owner result can ready the corresponding retained publication record. A
+semantic no-op remains a failure; Factory must not infer that another owner's
+side effect consumed it.
 
 ### Transaction Boundary
 
@@ -466,7 +484,8 @@ bounded review have no P0-P2 finding.
 3. `record-and-deliver-transaction-batch`: add Factory artifact, batch journal,
    batch shared channel, Undo/Redo, and rollback compensation.
 4. `apply-canonical-property-scene-batch`: complete Props relationship,
-   registration, and Scene Tree bulk boundaries.
+   registration, Scene Tree bulk creation, and lifecycle-aware retained
+   removal/restore boundaries.
 5. `prepare-one-composition-bulk-request`: create Group plus one all-children
    Core request; slices only project and publish.
 6. `project-visible-canonical-slices`: make Preset, Render, and UI consume the
@@ -496,7 +515,8 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
   transaction-end resending of progressive slices, precise compensation, and
   observer isolation.
 - Props/Scene Tree: later-invalid no-prefix behavior, exact IDs/order/
-  relationships/instances, and batch-of-one parity.
+  relationships/instances, lifecycle-aware create/remove/restore selection,
+  retained Scene-then-Props replay, and batch-of-one parity.
 - App/Core: one all-children bulk request, point-aware publication boundaries,
   cancellation, partial results, and fatal rollback.
 - Projection: one atomic flush, one flush per progressive slice, exact 7,076

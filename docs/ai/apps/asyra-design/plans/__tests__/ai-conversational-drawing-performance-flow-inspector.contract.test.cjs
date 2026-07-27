@@ -276,6 +276,29 @@ test('one composition bulk request owns canonical batch creation', () => {
   )
   assert.match(canonical, /no creation API.*restricted.*origin/i)
   assert.match(canonical, /transaction owner.*atomically.*batch/i)
+  assert.match(
+    canonical,
+    /ordinary removal.*property cleanup.*active properties.*separate.*evidence/i
+  )
+  assert.match(canonical, /removeElement.*removeElements.*batch-of-one/i)
+  assert.match(canonical, /removal.*restore.*preflight.*no.*prefix/i)
+  assert.match(canonical, /no removal API.*restricted.*origin/i)
+  assert.ok(
+    canonicalStep.inputs.includes(
+      'artifact:factory-mutation-batch-artifact'
+    )
+  )
+  assert.ok(
+    data.routes.some(
+      (route) =>
+        route.id === 'route-history-artifact-to-canonical-replay' &&
+        route.from === 'record-and-deliver-transaction-batch' &&
+        route.to === 'apply-canonical-property-scene-batch' &&
+        route.producedArtifacts.includes(
+          'artifact:factory-mutation-batch-artifact'
+        )
+    )
+  )
   assert.ok(
     canonicalStep.implementationBoundary.includes(
       'packages/preset/src/props/components'
@@ -564,6 +587,7 @@ test('BDD registers every new architecture and negative product case', () => {
   ;[
     /Scenario: One composition uses one canonical bulk request/,
     /Scenario: Creation API choice follows data lifecycle rather than origin/,
+    /Scenario: Replay removal API choice follows property lifecycle rather than origin/,
     /Scenario: Factory emits one immutable transaction artifact/,
     /Scenario: Progressive slices remain visible without new canonical writes/,
     /Scenario: Contents can scroll to the final canonical element/,

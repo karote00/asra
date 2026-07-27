@@ -45,6 +45,18 @@ Feature: Conversational AI drawing performance
     And no creation API should be blocked because the caller is local or remote
     But an active transaction owner should atomically accept canonical batch evidence
 
+  Scenario: Replay removal API choice follows property lifecycle rather than origin
+    Given ordinary removal owns complete property cleanup
+    And retained history or collaboration evidence carries Scene and Props removal separately
+    When a client chooses the matching Scene Tree removal API
+    Then ordinary data should use "removeElement" or "removeElements"
+    And retained Scene evidence with active properties should use "removeElementUsingActiveProperties" or "removeElementsUsingActiveProperties"
+    And the single active-property removal API should use the same batch-of-one canonical path
+    And retained removal and restore should preflight exact Scene, Props, relationship, parent index, id, and tombstone evidence
+    And a later invalid item should leave no committed canonical, history-readiness, or publication prefix
+    And no removal API should be blocked because the caller is local or remote
+    But a semantic no-op should not be treated as an applied replay result
+
   Scenario: Factory emits one immutable transaction artifact
     Given the complete canonical child batch succeeds inside one outer App transaction
     When Factory records the canonical deliveries

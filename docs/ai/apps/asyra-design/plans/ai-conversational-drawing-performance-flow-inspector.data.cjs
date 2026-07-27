@@ -90,6 +90,7 @@
         'Factory exposes FactoryMutationBatchArtifact, SharedDeliveryBatch, SharedPublication.batches, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch.',
         'The canonical handoff is deeply detached and frozen once; History, Render/UI, and Collaboration share the same immutable evidence.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
+        'Retained Undo and Redo evidence preserves the source artifact order and returns to the canonical owner; only an explicitly applied owner result can ready the corresponding publication batch.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
         'Rollback of an already-published immediate slice uses compensation from the same artifact.',
         'An observer mutation attempt cannot pollute another consumer or the retained artifact.',
@@ -133,8 +134,11 @@
       title: 'Apply one canonical property and Scene Tree batch',
       ownerPackage: '@asyra/core canonical batch facade',
       purpose:
-        'Preflight and apply every accepted child through one Props, relationship, instance, registration, hierarchy, and evidence boundary with no committed prefix on failure.',
-      inputs: ['artifact:composition-bulk-request'],
+        'Preflight and apply creation, retained removal, and retained restore through one Props, relationship, instance, registration, hierarchy, and evidence boundary with no committed prefix on failure.',
+      inputs: [
+        'artifact:composition-bulk-request',
+        'artifact:factory-mutation-batch-artifact'
+      ],
       outputs: [
         'artifact:canonical-element-batch-result',
         'artifact:canonical-batch-timing'
@@ -148,7 +152,11 @@
         'CanonicalElementBatchResult preserves ordered element IDs and a Factory-owned delivery handle.',
         'Single-item APIs are exactly equivalent batch-of-one conveniences.',
         'Public creation API choice follows data lifecycle rather than origin: ordinary descriptors use addNewElement or addNewElements, detached canonical snapshots use addNewElementsFromCanonicalData, and canonical data whose property owners are already active uses addNewElementsFromCanonicalDataUsingActiveProperties.',
-        'No creation API is restricted by local or remote origin; an active transaction owner must instead atomically accept the canonical batch evidence.'
+        'No creation API is restricted by local or remote origin; an active transaction owner must instead atomically accept the canonical batch evidence.',
+        'Ordinary removal owns complete property cleanup, while canonical removal with active properties uses removeElementUsingActiveProperties or removeElementsUsingActiveProperties when separate retained Props evidence owns property removal.',
+        'The single removeElementUsingActiveProperties API is exactly the batch-of-one convenience for removeElementsUsingActiveProperties.',
+        'Retained removal and restore preflight the complete Scene, Props, relationship, parent-index, ID, and tombstone evidence before apply so a later invalid item leaves no committed prefix.',
+        'No removal API is restricted by local or remote origin; callers choose by property lifecycle and exact evidence ownership.'
       ],
       bypasses: [
         'A no-change descriptor never enters canonical mutation.',
@@ -167,6 +175,8 @@
         'prefix commit after later-item rejection',
         'skipped instance, relationship, registration, or observable evidence',
         'fixture-specific canonical handling',
+        'treating a semantic no-op as an applied replay result',
+        'reordering retained Scene and Props evidence',
         'post-hoc full-composition geometry repair'
       ],
       cacheDimensions: [],
@@ -668,6 +678,15 @@
       producedArtifacts: ['artifact:canonical-element-batch-result']
     },
     {
+      id: 'route-history-artifact-to-canonical-replay',
+      from: 'record-and-deliver-transaction-batch',
+      to: 'apply-canonical-property-scene-batch',
+      kind: 'history-replay',
+      predicate:
+        'Undo or Redo retains exact forward or inverse canonical evidence that requires lifecycle-aware removal or restore.',
+      producedArtifacts: ['artifact:factory-mutation-batch-artifact']
+    },
+    {
       id: 'route-canonical-timing-to-proof',
       from: 'apply-canonical-property-scene-batch',
       to: 'evaluate-performance-and-equivalence',
@@ -900,6 +919,7 @@
       ownerStepId: 'record-and-deliver-transaction-batch',
       channel: 'immutable Factory batch evidence',
       consumerStepIds: [
+        'apply-canonical-property-scene-batch',
         'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
       ],
