@@ -14,7 +14,8 @@ Feature: Conversational AI drawing performance
     Then timing should distinguish product execution, Factory artifact construction, worker encode, server queue and drain, worker decode, remote apply, Render, UI, and harness overhead
     And the Contents present average should be 7.026 seconds
     And the Contents omitted average should be 7.074 seconds
-    And the first collaboration bottleneck should be server to Actor B delivery and drain
+    And the first implementation owner should be the receiver provider and worker handoff
+    And head-only peer relay should amplify that delay rather than identify Node socket write as the owner
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
   Scenario: One composition uses one canonical bulk request
@@ -90,10 +91,18 @@ Feature: Conversational AI drawing performance
     Then control frames should remain JSON
     And publication payloads should transfer as ArrayBuffer values without JSON pre-serialization
     And the server should relay canonical payload bytes without decode or re-encode
-    And the receiver worker should release one decoded publication at a time to App policy and canonical preflight
-    And each peer should use a 2 MiB high watermark and a 512 KiB low watermark
+    And the receiver should admit frames into a bounded 2 MiB worker ingress window
+    And the worker should validate header, order, and duplicate identity before emitting "frame-consumed"
+    And the provider should deeply freeze the worker-to-main publication once without repeated Provider or Collaboration clones
+    And the receiver worker should expose one immutable decoded-publication lease at a time to App policy and canonical preflight
+    And successful remote publication settlement should release the next decoded-publication lease
+    And terminal remote apply failure should clear active and pending leases without releasing a later publication
+    And each peer should enforce an exact 2 MiB unretired byte capacity
     And one oversized indivisible frame should be allowed only for an otherwise empty peer queue
     And "source-frame-admitted" should allow the provider to send only the next publication frame
+    And already-admitted peer frames should continue in FIFO order through the bounded byte window before prior "frame-consumed" credit
+    And frame retirement and capacity release should still require both the exact socket callback and exact "frame-consumed" credit
+    And blocked peer admission should resume when contiguous retirement leaves exact capacity for the next frame
     And blocked publication admission should not pause the JSON control fast path
     And "server-accepted", "frame-consumed", and "peer-applied" should remain distinct receipts
     And the receiver worker should emit "frame-consumed" after accepting the transferable frame

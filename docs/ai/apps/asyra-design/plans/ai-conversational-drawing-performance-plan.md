@@ -77,6 +77,28 @@ the target architecture before further production edits.
 The first blocking boundary is server-to-Actor-B transport drain and bounded
 delivery, not Render or Contents mount.
 
+### Final-closure transport evidence and owner correction
+
+The first production 7,076-element no-media warm-up refined that boundary:
+
+- Actor B first visible was approximately 0.978 seconds and Actor A product
+  creation was approximately 15.743 seconds.
+- At the 30-second deadline Actor B had only 940/7,076 elements and had
+  processed 11 of 35 publications.
+- Actor B worker decode totaled approximately 1.544 seconds and remote apply
+  approximately 2.358 seconds. The reference server `socket.send` callbacks
+  remained below 2 milliseconds.
+- Receiver `frame-consumed` cadence grew to approximately 2-3.3 seconds,
+  source request queue wait grew from approximately 2.989 to 6.478 seconds,
+  and relay request totals grew from approximately 5.684 to 14.503 seconds.
+
+The corrected first implementation owner is therefore the Step 7 receiver
+provider/worker handoff. Its scalar inbound job does not give the next frame to
+the worker until the prior decoded publication has crossed repeated clone
+boundaries and completed synchronous App dispatch. Step 8 then amplifies that
+coupling by sending only the peer queue head. Node/WebSocket write and Render
+remain excluded as first owners.
+
 ### Rejected compression candidate
 
 The tested WebSocket compression candidate regressed Actor B to 3,500/7,076
@@ -249,9 +271,30 @@ acknowledgement may split the intended transaction or history boundary.
 - The existing repository codec moves to a Web Worker without a new package.
   Outbound data makes one object-to-worker structured clone; the worker returns
   a transferable `ArrayBuffer`.
-- An inbound `ArrayBuffer` transfers to the worker without a main-thread payload
-  copy. The worker releases only one publication at a time for main-thread
-  canonical apply.
+- Inbound `ArrayBuffer` values transfer into a bounded 2 MiB frame-ingress
+  window without a main-thread payload copy. One active oversized publication
+  assembly may exceed that window only as required to preserve an indivisible
+  publication, so no payload ceiling or multi-publication unbounded queue is
+  introduced.
+- The worker validates frame header, FIFO order, duplicate identity, and ingress
+  capacity before emitting `frame-consumed`. Credit therefore means bounded
+  worker acceptance and remains independent of previous main-thread canonical
+  apply.
+- The worker-to-main structured clone is the only inbound object isolation
+  boundary. The provider deeply freezes that publication once; Provider and
+  Collaboration consumers share the same immutable evidence without repeated
+  full-publication clones.
+- The worker exposes one immutable decoded-publication lease to App policy and
+  canonical preflight. Its settlement has a discriminated success or terminal
+  failure outcome. Success releases the next decoded publication; terminal
+  apply failure clears the active and pending leases and releases none instead
+  of fabricating progress.
+- `@asyra/collaboration` represents that handoff as an
+  `InboundPublicationLease`: the provider marks the publication evidence
+  immutable and supplies a one-shot local settlement callback. The generic
+  Collaboration queue preserves legacy provider cloning, but reuses proven
+  immutable lease evidence and settles it only after
+  `processRemotePublication` completes.
 - The binary frame has a 1 MiB soft target. One indivisible canonical record
   may exceed it without creating an element, point, payload, or composition
   ceiling.
@@ -264,15 +307,24 @@ acknowledgement may split the intended transaction or history boundary.
   publication, chunk, and control metadata. The canonical payload is relayed
   opaquely with byte parity: no payload decode, re-encode, history ownership,
   or canonical splitting.
-- Each peer queue uses a 2 MiB high watermark and a 512 KiB low watermark. One
-  oversized indivisible frame is allowed only when that peer queue is otherwise
-  empty.
-- Queue progress waits for the `socket.send` callback and receiver
-  `frame-consumed` credit.
+- Each peer queue has an exact 2 MiB unretired-byte capacity. A frame is
+  admitted only when its bytes fit that remaining capacity. One oversized
+  indivisible frame is allowed only when that peer queue is otherwise empty.
+- Peer egress sends already-admitted FIFO frames through the 2 MiB byte window,
+  so multiple unconsumed frames may be on wire only while their total admitted
+  bytes remain within the declared bound.
+- Frame retirement and capacity release wait for both the exact `socket.send`
+  callback and receiver `frame-consumed` credit. Only a contiguous completed
+  queue prefix retires; sending later already-admitted frames does not wait for
+  the prior frame to retire. Blocked admission resumes as soon as contiguous
+  retirement leaves exact capacity for the next frame; there is no second
+  hysteresis threshold.
 - A JSON `source-frame-admitted` credit is returned only after one source frame
   enters every request-start peer queue. The provider retains one outbound
   publication frame in flight and sends the next frame only after the exact
-  credit arrives. This bounds source ingress without pausing the whole socket.
+  credit arrives. This source-ingress stop-and-wait boundary remains distinct
+  from the bounded peer-egress window and bounds source ingress without pausing
+  the whole socket.
 - JSON controls, especially receiver `frame-consumed`, remain on a readable fast
   path while publication admission is blocked. The server must not use a
   socket-wide pause as publication backpressure because that can deadlock
@@ -289,6 +341,9 @@ acknowledgement may split the intended transaction or history boundary.
 
 - Each source publication owns one remote Factory transaction. Different source
   publications are not merged into one transaction.
+- The active decoded-publication lease settles only after that transaction
+  applies successfully. Settlement releases the next lease; failure performs
+  terminal cleanup and releases none.
 - The worker owns wire validation and normalization only. App policy and
   canonical preflight remain in the App/Core owner.
 - Props, relationships, instances, and Scene Tree apply through one canonical
@@ -440,8 +495,8 @@ once, retains ordinary Vector detail, and does not create new canonical writes.
 ### Binary Backpressured Collaboration
 
 Versioned binary publication frames round-trip exactly, the opaque server
-retains byte parity, slow peers remain bounded by watermarks, and wire receipt,
-server acceptance, and peer apply remain distinct.
+retains byte parity, slow peers remain within the exact 2 MiB unretired-byte
+capacity, and wire receipt, server acceptance, and peer apply remain distinct.
 
 ### Remote Batch Apply
 
@@ -493,9 +548,11 @@ bounded review have no P0-P2 finding.
 6. `project-visible-canonical-slices`: make Preset, Render, and UI consume the
    artifact directly.
 7. `encode-publication-frames`: add binary publication schema, codec worker,
-   transferable buffers, and receipts.
+   transferable buffers, bounded receiver frame ingress, one immutable decoded
+   publication lease, and independent wire credit.
 8. `relay-frames-with-backpressure`: remove the failed compression candidate,
-   relay opaque frames, and enforce per-peer byte credit.
+   relay opaque frames, and send already-admitted FIFO frames through the
+   bounded per-peer byte window.
 9. `apply-remote-publication-batches`: replace the per-event remote canonical
    hot path with one publication batch transaction.
 10. `persist-local-commit-snapshots`: prove local action/Undo/Redo FIFO snapshots
@@ -523,9 +580,10 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
   cancellation, partial results, and fatal rollback.
 - Projection: one atomic flush, one flush per progressive slice, exact 7,076
   ordinary Vector projection, and bounded UI updates.
-- Codec/relay: binary round-trip, invalid/truncated rejection, oversized single
-  record, opaque byte parity, watermarks, slow peer, disconnect, and ordered
-  receipts.
+- Codec/relay: binary round-trip, invalid/truncated/duplicate rejection,
+  oversized single record or active publication assembly, one immutable
+  decoded lease, bounded multi-frame ingress and peer-egress windows, opaque
+  byte parity, slow peer, disconnect, and ordered receipts.
 - Remote: one publication transaction and one batch observer call, with no
   Undo, echo, capture, save, or IndexedDB write.
 - Persistence: local action/Undo/Redo FIFO snapshots and remote zero client

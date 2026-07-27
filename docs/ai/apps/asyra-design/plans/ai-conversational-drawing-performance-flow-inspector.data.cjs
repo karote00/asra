@@ -339,7 +339,8 @@
         'artifact:shared-publication-batches',
         'artifact:relayed-publication-frames',
         'artifact:server-accepted-receipts',
-        'artifact:source-frame-admitted-credit'
+        'artifact:source-frame-admitted-credit',
+        'artifact:remote-publication-settlement'
       ],
       outputs: [
         'artifact:encoded-publication-frames',
@@ -352,8 +353,10 @@
         'All shared publication data uses a versioned binary frame and is not pre-serialized as JSON.',
         'The existing codec runs in a Web Worker without a new package.',
         'Outbound encoding performs one object-to-worker structured clone and returns a transferable ArrayBuffer.',
-        'Inbound ArrayBuffer data transfers to the receiver worker, which releases one decoded publication at a time to the App before policy and canonical preflight.',
-        'The receiver worker emits frame-consumed credit after it accepts the transferable frame, independently of later canonical apply.',
+        'Inbound ArrayBuffer data enters a bounded frame ingress with a 2 MiB byte window; one active oversized publication assembly is allowed without creating a payload ceiling.',
+        'After header, order, and duplicate evidence are validated, the receiver worker accepts the frame and emits frame-consumed credit independently of later canonical apply.',
+        'The worker-to-main publication is deeply frozen once without repeated provider or Collaboration clone boundaries.',
+        'The receiver exposes one immutable decoded publication lease to the App before policy and canonical preflight; successful remote publication settlement releases the next decoded publication, while terminal failure clears the active and pending leases and releases no later publication.',
         'The provider keeps one outbound publication frame in flight, waits for exact source-frame-admitted credit, then sends the next frame.',
         'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
         'Invalid, unsupported-version, and truncated frames reject through ProviderFailure.'
@@ -368,6 +371,7 @@
         'artifact:relayed-publication-frames',
         'artifact:server-accepted-receipts',
         'artifact:source-frame-admitted-credit',
+        'artifact:remote-publication-settlement',
         '@asyra/collaboration public publication schema',
         'existing repository codec',
         'platform Web Worker and transferable buffers'
@@ -388,7 +392,13 @@
         'apps/asyra-design/src/collaboration/websocket-provider.ts',
         'apps/asyra-design/src/collaboration/wire-values.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
-        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts'
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
+        'packages/collaboration/src/cloning.ts',
+        'packages/collaboration/src/provider.ts',
+        'packages/collaboration/src/index.ts',
+        'packages/collaboration/src/process.ts',
+        'packages/collaboration/src/__tests__/cloning.test.ts',
+        'packages/collaboration/src/__tests__/process.test.ts'
       ],
       specRefs: [
         '#binary-collaboration-transport',
@@ -418,10 +428,13 @@
       ],
       conditions: [
         'After handshake the server parses only header, version, request, publication, chunk, and control metadata; the canonical payload remains opaque with byte parity, no decode, and no re-encode.',
-        'Each peer queue has a 2 MiB high watermark and a 512 KiB low watermark.',
+        'Each peer queue has an exact 2 MiB unretired byte capacity; a frame is admitted only when its bytes fit the remaining capacity.',
         'One oversized frame is allowed only when the peer queue is otherwise empty.',
-        'Queue progress waits for the socket.send callback and frame-consumed credit.',
+        'Already-admitted peer frames send in FIFO order through the 2 MiB byte window without waiting for the prior frame-consumed credit.',
+        'Frame retirement and capacity release wait for both the exact socket.send callback and exact frame-consumed credit; only a contiguous completed queue prefix retires.',
+        'Blocked admission resumes as soon as contiguous retirement leaves exact capacity for the next frame; there is no second hysteresis threshold.',
         'The server accepts one outbound publication frame per connection, returns exact source-frame-admitted credit, and accepts the next frame only after that credit.',
+        'Source ingress retains one pending frame until exact source-frame-admitted credit permits the next frame; this source admission boundary is distinct from the peer egress byte window.',
         'After one source frame enters every request-start peer queue, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
         'The JSON control fast path remains readable while publication admission is blocked; the server does not use socket-wide pause to bound source frames.',
         'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
@@ -430,7 +443,7 @@
       ],
       bypasses: [
         'A disconnected or closed peer receives no later frame and reports the existing transport failure.',
-        'A peer without high-watermark capacity delays server acceptance rather than growing an unbounded queue.',
+        'A peer without exact 2 MiB unretired-byte capacity delays server acceptance rather than growing an unbounded queue.',
         'Awareness and other JSON controls retain their ordinary control path.'
       ],
       allowedContributors: [
@@ -446,7 +459,7 @@
         'server canonical payload decode or re-encode',
         'server history or canonical splitting',
         'unbounded per-peer queue',
-        'multiple uncredited source publication frames in flight',
+        'multiple source ingress publication frames before exact source-frame-admitted credit',
         'socket-wide pause that blocks JSON credit controls',
         'per-message compression',
         'server-accepted treated as peer-applied'
@@ -475,6 +488,7 @@
       outputs: [
         'artifact:remote-factory-mutation-batch',
         'artifact:peer-applied-receipts',
+        'artifact:remote-publication-settlement',
         'artifact:remote-apply-timing'
       ],
       conditions: [
@@ -484,6 +498,7 @@
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
         'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no IndexedDB write.',
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves the active decoded-publication lease and permits the next lease, while failure tears down the active and pending leases and releases none.',
         'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
       ],
       bypasses: [
@@ -806,8 +821,17 @@
       to: 'apply-remote-publication-batches',
       kind: 'handoff',
       predicate:
-        'The receiver worker released one validated and normalized publication.',
+        'The receiver exposed one validated, normalized, immutable decoded-publication lease.',
       producedArtifacts: ['artifact:decoded-publication-batches']
+    },
+    {
+      id: 'route-remote-settlement-to-codec-lease',
+      from: 'apply-remote-publication-batches',
+      to: 'encode-publication-frames',
+      kind: 'settlement',
+      predicate:
+        'Success resolves the active remote publication and releases the next decoded lease; terminal failure clears the active and pending leases and releases none.',
+      producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {
       id: 'route-remote-artifact-to-projection',
@@ -957,7 +981,8 @@
     {
       id: 'artifact:decoded-publication-batches',
       ownerStepId: 'encode-publication-frames',
-      channel: 'worker-validated and normalized publication batches',
+      channel:
+        'single immutable worker-validated decoded-publication lease',
       consumerStepIds: ['apply-remote-publication-batches'],
       terminal: false
     },
@@ -1027,6 +1052,14 @@
         'relay-frames-with-backpressure',
         'evaluate-performance-and-equivalence'
       ],
+      terminal: false
+    },
+    {
+      id: 'artifact:remote-publication-settlement',
+      ownerStepId: 'apply-remote-publication-batches',
+      channel:
+        'decoded-publication lease settlement outcome: success | terminal failure',
+      consumerStepIds: ['encode-publication-frames'],
       terminal: false
     },
     {
@@ -1213,7 +1246,7 @@
       title: 'Binary relay, backpressure, and remote apply',
       assertions: [
         'Versioned binary publication data round-trips through workers and an opaque relay without byte drift.',
-        'Each peer queue remains within the declared watermarks and separates server-accepted, frame-consumed, and peer-applied receipts.',
+        'Each peer queue remains within the exact 2 MiB unretired-byte capacity and separates server-accepted, frame-consumed, and peer-applied receipts.',
         'One remote transaction and one batch observer delivery apply each source publication without Undo, echo, or client persistence.'
       ],
       stepIds: [

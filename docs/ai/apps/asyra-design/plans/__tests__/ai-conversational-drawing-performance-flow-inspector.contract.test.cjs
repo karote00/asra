@@ -393,12 +393,32 @@ test('publication data is binary and relay backpressure stays byte-bounded', () 
   assert.ok(encodeStep.inputs.includes('artifact:relayed-publication-frames'))
   assert.ok(encodeStep.inputs.includes('artifact:server-accepted-receipts'))
   assert.ok(encodeStep.inputs.includes('artifact:source-frame-admitted-credit'))
+  assert.ok(encodeStep.inputs.includes('artifact:remote-publication-settlement'))
   assert.ok(encodeStep.outputs.includes('artifact:decoded-publication-batches'))
   assert.ok(encodeStep.outputs.includes('artifact:frame-consumed-credit'))
-  assert.match(encode, /receiver worker.*one decoded publication.*App/i)
+  assert.match(encode, /bounded.*frame ingress.*2 MiB/i)
+  assert.match(
+    encode,
+    /header.*order.*duplicate.*validated.*frame-consumed/i
+  )
+  assert.match(encode, /one immutable decoded publication lease.*App/i)
+  assert.match(
+    encode,
+    /successful.*settlement.*releases.*next decoded publication/i
+  )
+  assert.match(
+    encode,
+    /terminal failure.*clears.*active.*pending.*releases no later publication/i
+  )
+  assert.match(encode, /deeply frozen once.*without.*repeated.*clone/i)
   assert.ok(
     encodeStep.implementationBoundary.includes(
       'apps/asyra-design/src/collaboration/publication-codec-worker.ts'
+    )
+  )
+  assert.ok(
+    encodeStep.implementationBoundary.includes(
+      'packages/collaboration/src/process.ts'
     )
   )
 
@@ -407,14 +427,27 @@ test('publication data is binary and relay backpressure stays byte-bounded', () 
     relay,
     /header.*version.*request.*publication.*chunk.*control metadata/i
   )
-  assert.match(relay, /2 MiB.*high watermark/i)
-  assert.match(relay, /512 KiB.*low watermark/i)
+  assert.match(relay, /2 MiB.*unretired byte capacity/i)
+  assert.doesNotMatch(
+    `${plan()} ${JSON.stringify(data)}`,
+    /512 KiB|watermarks|high-watermark|low-watermark/i
+  )
   assert.match(relay, /one oversized frame/i)
-  assert.match(relay, /socket\.send callback/i)
-  assert.match(relay, /frame-consumed/i)
   assert.match(
     relay,
-    /one outbound publication frame.*source-frame-admitted.*next frame/i
+    /already-admitted.*frames.*send.*2 MiB.*byte window/i
+  )
+  assert.match(
+    relay,
+    /retirement.*capacity release.*socket\.send callback.*frame-consumed/i
+  )
+  assert.match(
+    relay,
+    /blocked admission.*contiguous retirement.*exact capacity.*next frame/i
+  )
+  assert.match(
+    relay,
+    /source ingress.*one.*source-frame-admitted.*next frame/i
   )
   assert.match(relay, /control.*fast path.*socket.*pause/i)
   assert.match(relay, /server-accepted.*does not.*peer.*applied/i)
@@ -442,13 +475,48 @@ test('publication data is binary and relay backpressure stays byte-bounded', () 
         artifact.consumerStepIds.includes('encode-publication-frames')
     )
   )
+  assert.ok(
+    data.routes.some(
+      (route) =>
+        route.id === 'route-remote-settlement-to-codec-lease' &&
+        route.from === 'apply-remote-publication-batches' &&
+        route.to === 'encode-publication-frames' &&
+        /success.*releases.*next.*terminal failure.*releases none/i.test(
+          route.predicate
+        ) &&
+        route.producedArtifacts.includes(
+          'artifact:remote-publication-settlement'
+        )
+    )
+  )
+  assert.ok(
+    data.artifacts.some(
+      (artifact) =>
+        artifact.id === 'artifact:remote-publication-settlement' &&
+        artifact.ownerStepId === 'apply-remote-publication-batches' &&
+        /success.*terminal failure/i.test(artifact.channel) &&
+        artifact.consumerStepIds.includes('encode-publication-frames')
+    )
+  )
   assert.match(
     plan(),
-    /source-frame-admitted[\s\S]{0,240}one\s+outbound\s+publication\s+frame/i
+    /peer egress[\s\S]{0,300}2 MiB[\s\S]{0,300}multiple[\s\S]{0,120}unconsumed frames/i
   )
   assert.match(
     feature(),
-    /source-frame-admitted[\s\S]{0,240}next publication frame/i
+    /already-admitted peer frames[\s\S]{0,240}byte window/i
+  )
+  assert.match(
+    feature(),
+    /successful remote publication settlement[\s\S]{0,160}release the next decoded-publication lease/i
+  )
+  assert.match(
+    feature(),
+    /terminal remote apply failure[\s\S]{0,180}clear active and pending leases without releasing a later publication/i
+  )
+  assert.match(
+    feature(),
+    /blocked peer admission[\s\S]{0,180}contiguous retirement leaves exact capacity for the next frame/i
   )
   assert.ok(!relayStep.implementationBoundary.includes('apps/asyra-design/e2e'))
 })
@@ -600,7 +668,7 @@ test('BDD registers every new architecture and negative product case', () => {
   assert.match(text, /16 items/)
   assert.match(
     text,
-    /receiver worker should release one decoded publication at a time/i
+    /receiver worker should expose one immutable decoded-publication lease at a time/i
   )
   assert.match(
     text,
