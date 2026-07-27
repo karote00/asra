@@ -270,6 +270,12 @@ test('one composition bulk request owns canonical batch creation', () => {
     /instance construction.*relationship wiring.*observer binding.*Scene evidence entries.*may iterate N/i
   )
   assert.match(canonical, /profiling.*material bottleneck/i)
+  assert.match(
+    canonical,
+    /ordinary descriptors.*canonical snapshots.*property owners.*already active/i
+  )
+  assert.match(canonical, /no creation API.*restricted.*origin/i)
+  assert.match(canonical, /transaction owner.*atomically.*batch/i)
   assert.ok(
     canonicalStep.implementationBoundary.includes(
       'packages/preset/src/props/components'
@@ -278,6 +284,16 @@ test('one composition bulk request owns canonical batch creation', () => {
   assert.ok(
     canonicalStep.implementationBoundary.includes(
       'packages/preset/src/__tests__'
+    )
+  )
+  assert.ok(
+    canonicalStep.implementationBoundary.includes(
+      'docs/ai/framework/packages/scene-tree.md'
+    )
+  )
+  assert.ok(
+    canonicalStep.implementationBoundary.includes(
+      'docs/ai/framework/API_SURFACES.md'
     )
   )
   assert.match(text, /createElementsInParentBatch/)
@@ -434,6 +450,7 @@ test('remote apply has one publication transaction and no client durability', ()
   assert.deepEqual(remoteStep.inputs, ['artifact:decoded-publication-batches'])
   assert.ok(remoteStep.outputs.includes('artifact:peer-applied-receipts'))
   assert.match(remote, /peer-applied.*after.*canonical apply/i)
+  assert.match(remote, /remote Factory transaction.*batch-capable owner/i)
   assert.ok(
     remoteStep.implementationBoundary.includes(
       'packages/reactive-events/src/event-bus.ts'
@@ -445,10 +462,18 @@ test('remote apply has one publication transaction and no client durability', ()
     )
   )
   assert.ok(
+    remoteStep.implementationBoundary.includes(
+      'packages/factory/src/factory.ts'
+    )
+  )
+  assert.ok(
+    remoteStep.implementationBoundary.includes(
+      'packages/factory/src/__tests__/factory.test.ts'
+    )
+  )
+  assert.ok(
     remoteStep.implementationBoundary.every(
-      (boundary) =>
-        !boundary.startsWith('packages/core/') &&
-        !boundary.startsWith('packages/factory/')
+      (boundary) => !boundary.startsWith('packages/core/')
     )
   )
 
@@ -538,6 +563,7 @@ test('BDD registers every new architecture and negative product case', () => {
 
   ;[
     /Scenario: One composition uses one canonical bulk request/,
+    /Scenario: Creation API choice follows data lifecycle rather than origin/,
     /Scenario: Factory emits one immutable transaction artifact/,
     /Scenario: Progressive slices remain visible without new canonical writes/,
     /Scenario: Contents can scroll to the final canonical element/,

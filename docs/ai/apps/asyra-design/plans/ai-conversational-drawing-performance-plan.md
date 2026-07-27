@@ -145,6 +145,13 @@ validated AI descriptor
   split, or otherwise redo the canonical mutation.
 - Every single-item public API becomes a batch-of-one convenience over the same
   canonical implementation.
+- Public creation APIs are selected by data lifecycle, never blocked by local
+  or remote origin: ordinary descriptors use `addNewElement`/`addNewElements`,
+  detached canonical snapshots use `addNewElementsFromCanonicalData`, and
+  canonical data whose property owners are already active uses
+  `addNewElementsFromCanonicalDataUsingActiveProperties`. An active transaction
+  owner must atomically accept canonical batch evidence; this is a capability
+  invariant, not a caller-identity policy.
 - Props Manager performs one whole-batch schema, ID, and relationship preflight,
   then instance materialization, relationship rebind, and `registerMany`.
   A later invalid item leaves no committed prefix.
@@ -266,6 +273,9 @@ acknowledgement may split the intended transaction or history boundary.
   canonical preflight remain in the App/Core owner.
 - Props, relationships, instances, and Scene Tree apply through one canonical
   batch boundary and produce one remote Factory mutation artifact.
+- The remote Factory transaction exposes the same batch-capable owner handoff
+  used by ordinary transactions while still suppressing remote Undo, echo
+  publication, and client persistence.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
 - Actor B creates no Undo, no echo publication, no persistence capture, no

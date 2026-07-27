@@ -146,7 +146,9 @@
         'Required instance construction, local relationship wiring, local observer binding, and ordered Scene evidence entries may iterate N inside their canonical owner without creating N Core requests, Props registration phases, Scene map or parent replacement phases, Factory batch handoffs, or App transactions.',
         'Step 11 profiling must identify an owner-local iteration as a material bottleneck before deeper micro-batching becomes a release blocker.',
         'CanonicalElementBatchResult preserves ordered element IDs and a Factory-owned delivery handle.',
-        'Single-item APIs are exactly equivalent batch-of-one conveniences.'
+        'Single-item APIs are exactly equivalent batch-of-one conveniences.',
+        'Public creation API choice follows data lifecycle rather than origin: ordinary descriptors use addNewElement or addNewElements, detached canonical snapshots use addNewElementsFromCanonicalData, and canonical data whose property owners are already active uses addNewElementsFromCanonicalDataUsingActiveProperties.',
+        'No creation API is restricted by local or remote origin; an active transaction owner must instead atomically accept the canonical batch evidence.'
       ],
       bypasses: [
         'A no-change descriptor never enters canonical mutation.',
@@ -176,7 +178,9 @@
         'packages/scene-tree/src',
         'packages/scene-tree/src/__tests__',
         'packages/preset/src/props/components',
-        'packages/preset/src/__tests__'
+        'packages/preset/src/__tests__',
+        'docs/ai/framework/packages/scene-tree.md',
+        'docs/ai/framework/API_SURFACES.md'
       ],
       specRefs: [
         '#bulk-mutation-contract',
@@ -466,6 +470,7 @@
         'One source publication owns one remote Factory transaction; different publications are not merged.',
         'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
         'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
+        'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
         'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no IndexedDB write.',
         'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
@@ -492,6 +497,8 @@
       implementationBoundary: [
         'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/process.test.ts',
+        'packages/factory/src/factory.ts',
+        'packages/factory/src/__tests__/factory.test.ts',
         'packages/reactive-events/src/event-bus.ts',
         'packages/reactive-events/src/__tests__/event-bus.test.ts',
         'apps/asyra-design/src/collaboration/factory-adapter.ts',

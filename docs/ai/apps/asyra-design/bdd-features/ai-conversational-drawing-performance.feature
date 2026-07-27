@@ -36,6 +36,15 @@ Feature: Conversational AI drawing performance
     And a valid batch should produce one ordered batch evidence handoff
     And necessary owner-local instance, relationship, observer, and Scene entry iteration should only block release when profiling proves a material bottleneck
 
+  Scenario: Creation API choice follows data lifecycle rather than origin
+    Given ordinary descriptors, detached canonical snapshots, and canonical data with active property owners are valid inputs
+    When a client chooses the matching Scene Tree creation API
+    Then ordinary descriptors should use "addNewElement" or "addNewElements"
+    And detached canonical snapshots should use "addNewElementsFromCanonicalData"
+    And canonical data with active property owners should use "addNewElementsFromCanonicalDataUsingActiveProperties"
+    And no creation API should be blocked because the caller is local or remote
+    But an active transaction owner should atomically accept canonical batch evidence
+
   Scenario: Factory emits one immutable transaction artifact
     Given the complete canonical child batch succeeds inside one outer App transaction
     When Factory records the canonical deliveries
