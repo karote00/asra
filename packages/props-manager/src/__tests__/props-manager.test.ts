@@ -10,8 +10,11 @@ import {
   Unit,
   SharedDataChannelNames,
   PropsChange,
-  type AddRemovePropertyChange
+  type AddRemovePropertyChange,
+  type BasePropertyAttrs,
+  type DataTypes
 } from '@asyra/utils'
+import { BasePropertyComponent } from '../components'
 import { PropsManager } from '../manager/props-manager'
 import { getPropertyComponentAccessor } from '../manager/component-accessor'
 import { createProperty } from '../factories/create-property'
@@ -703,6 +706,197 @@ describe('PropsManager', () => {
         [PropertyTypes.DIMENSION]: 'second-dimension'
       }
     ])
+  })
+
+  it('preflights record-map relationships before preserving their canonical child ids in one registration batch', () => {
+    const parentType = 'ordinary-record-map-parent'
+    const relation = {
+      key: 'children',
+      childType: PropertyTypes.POSITION,
+      mode: 'ids-or-objects' as const,
+      collection: 'array-or-record' as const,
+      toChildData: (
+        item: Record<string, unknown>,
+        childId?: string
+      ): Record<string, unknown> => ({
+        id: childId,
+        x: item.x,
+        y: item.y
+      })
+    }
+
+    interface RecordMapParentAttrs extends BasePropertyAttrs {
+      children: string[]
+    }
+
+    class RecordMapParentComponent extends BasePropertyComponent<RecordMapParentAttrs> {
+      data: RecordMapParentAttrs = {
+        id: '',
+        type: parentType,
+        children: []
+      }
+
+      constructor(data: Partial<PropertyComponentRawData>) {
+        super()
+        this.load(data as PropertyComponentRawData)
+      }
+
+      load(data: PropertyComponentRawData): void {
+        this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+        const value = (data as Record<string, unknown>).children
+        if (Array.isArray(value)) {
+          this.data.children = value.filter(
+            (childId): childId is string => typeof childId === 'string'
+          )
+          return
+        }
+        if (!value || typeof value !== 'object') {
+          this.data.children = []
+          return
+        }
+
+        this.data.children = Object.entries(value).map(
+          ([childId, childData]) => {
+            if (
+              !childData ||
+              typeof childData !== 'object' ||
+              Array.isArray(childData)
+            ) {
+              throw new Error(`Invalid child "${childId}"`)
+            }
+            const child = this.propertyComponentAccessor.createComponent({
+              id: childId,
+              type: PropertyTypes.POSITION,
+              ...childData
+            })
+            if (!child) {
+              throw new Error(`Cannot create child "${childId}"`)
+            }
+            this.propertyComponentAccessor.addToMap(child)
+            return childId
+          }
+        )
+      }
+
+      save(): PropertyComponentRawData {
+        return {
+          ...super.save(),
+          children: [...this.data.children]
+        } as PropertyComponentRawData
+      }
+
+      getValue(): Record<string, DataTypes> {
+        return {
+          children: [...this.data.children]
+        }
+      }
+
+      getUnit(): Record<string, Unit> {
+        return {}
+      }
+    }
+
+    const registerWithCanonicalRelation =
+      registerPropertyComponent as unknown as (
+        type: string,
+        component: typeof RecordMapParentComponent,
+        options: undefined,
+        definition: undefined,
+        canonicalRelation: typeof relation
+      ) => void
+    registerWithCanonicalRelation(
+      parentType,
+      RecordMapParentComponent,
+      undefined,
+      undefined,
+      relation
+    )
+    registerPropertySchema({
+      type: parentType,
+      fields: [
+        {
+          key: 'children',
+          kind: 'array',
+          defaultValue: []
+        }
+      ]
+    })
+
+    const invalidManager = new PropsManager()
+    const invalidRegisterMany = vi.spyOn(invalidManager, 'registerMany')
+    expect(() =>
+      invalidManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            {
+              name: 'children',
+              type: parentType,
+              defaultValue: {}
+            }
+          ],
+          data: {
+            children: {
+              'record-map-child-a': { x: 10, y: 20 },
+              'record-map-child-invalid': { x: 'invalid', y: 40 }
+            }
+          },
+          propertyIds: {
+            children: 'record-map-parent-invalid'
+          }
+        }
+      ])
+    ).toThrow(/invalid runtime property field/i)
+    expect(invalidRegisterMany).not.toHaveBeenCalled()
+    expect(invalidManager.save()).toEqual({})
+    expect(invalidManager.changes).toEqual([])
+
+    const validManager = new PropsManager()
+    const registerMany = vi.spyOn(validManager, 'registerMany')
+    const children = {
+      'record-map-child-a': { x: 10, y: 20 },
+      'record-map-child-b': { x: 30, y: 40 }
+    }
+    const plan = validManager.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          {
+            name: 'children',
+            type: parentType,
+            defaultValue: {}
+          }
+        ],
+        data: { children },
+        propertyIds: {
+          children: 'record-map-parent'
+        }
+      }
+    ])
+    const receipt = validManager.runInPropertyCreationBatch(() => {
+      const parent = validManager.createProperty({
+        id: 'record-map-parent',
+        type: parentType,
+        children
+      } as Partial<PropertyComponentRawData>)
+      return validManager.addProperty([parent])
+    }, plan)
+
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(
+      registerMany.mock.calls[0]?.[0].map((component) => component.get('id'))
+    ).toEqual(['record-map-child-a', 'record-map-child-b', 'record-map-parent'])
+    expect(
+      validManager.getPropertyById('record-map-parent')?.save()
+    ).toMatchObject({
+      id: 'record-map-parent',
+      type: parentType,
+      children: ['record-map-child-a', 'record-map-child-b']
+    })
+    expect(Object.keys(validManager.save())).toEqual([
+      'record-map-child-a',
+      'record-map-child-b',
+      'record-map-parent'
+    ])
+    receipt.complete()
   })
 
   it('rejects an ordinary root id reserved by an explicit relationship child before materialization', () => {

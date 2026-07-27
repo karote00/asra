@@ -36,7 +36,7 @@ import {
   arePropertyChildRelationsEqual,
   getPropertyComponent,
   getPropertyComponentBatchRebindableRelation,
-  getPropertyComponentConfigDefinition,
+  getPropertyComponentCanonicalChildRelation,
   getPropertyComponentRegistrationRevision,
   isPropertyComponentBatchRebindable,
   type PropertyChildRelationDefinition
@@ -628,7 +628,7 @@ class PropsManager {
     const schemaRegistrationRevision =
       getPropertySchemaRegistrationRevision(type)
     const childRelation = snapshotPropertyChildRelation(
-      getPropertyComponentConfigDefinition(type)?.children
+      getPropertyComponentCanonicalChildRelation(type)
     )
     const batchRebindableRelation =
       getPropertyComponentBatchRebindableRelation(constructor)
@@ -727,15 +727,39 @@ class PropsManager {
           if (!childRelation) {
             return
           }
-          if (!Array.isArray(value)) {
+          let descriptorEntries:
+            | {
+                item: unknown
+                label: string
+                keyedChildId: string | undefined
+              }[]
+            | null = null
+          if (Array.isArray(value)) {
+            descriptorEntries = value.map((item, index) => ({
+              item,
+              label: `${ownerLabel}[${index}]`,
+              keyedChildId: undefined
+            }))
+          } else if (
+            childRelation.collection === 'array-or-record' &&
+            isRecord(value)
+          ) {
+            descriptorEntries = Object.entries(value).map(
+              ([childId, item]) => ({
+                item,
+                label: `${ownerLabel}.${childId}`,
+                keyedChildId: childId
+              })
+            )
+          }
+          if (!descriptorEntries) {
             throw new Error(
               `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${ownerLabel}"`
             )
           }
 
-          value.forEach((item, index) => {
-            const childLabel = `${ownerLabel}[${index}]`
-            if (typeof item === 'string') {
+          descriptorEntries.forEach(({ item, label, keyedChildId }) => {
+            if (typeof item === 'string' && keyedChildId === undefined) {
               const activeChild = this._components.get(item)
               const plannedChildType =
                 explicitDescriptorChildTypes.get(item) ??
@@ -754,34 +778,58 @@ class PropsManager {
               return
             }
             if (
+              (keyedChildId !== undefined && keyedChildId.length === 0) ||
               (childRelation.mode ?? 'ids') !== 'ids-or-objects' ||
               !isRecord(item)
             ) {
               throw new Error(
-                `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${childLabel}"`
+                `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${label}"`
               )
             }
 
+            const itemChildId =
+              typeof item.id === 'string' && item.id.length > 0
+                ? item.id
+                : undefined
+            if (
+              keyedChildId !== undefined &&
+              itemChildId !== undefined &&
+              itemChildId !== keyedChildId
+            ) {
+              throw new Error(
+                `[PropsManager] Ordinary property creation relationship child "${keyedChildId}" has conflicting canonical ids`
+              )
+            }
+            let explicitChildId = keyedChildId ?? itemChildId
             let mappedChild: Record<string, unknown> | null
             try {
               mappedChild = childRelation.toChildData
-                ? childRelation.toChildData(clonePropsValue(item))
+                ? childRelation.toChildData(
+                    clonePropsValue(item),
+                    explicitChildId
+                  )
                 : clonePropsValue(item)
             } catch {
               mappedChild = null
             }
             if (!isRecord(mappedChild)) {
               throw new Error(
-                `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${childLabel}"`
+                `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${label}"`
               )
             }
             const normalizedChild: Record<string, unknown> = {
               ...mappedChild,
               type: childRelation.childType
             }
-            let explicitChildId =
-              typeof item.id === 'string' ? item.id : undefined
-            if (typeof normalizedChild.id === 'string') {
+            if (
+              typeof normalizedChild.id === 'string' &&
+              normalizedChild.id.length > 0
+            ) {
+              if (explicitChildId && normalizedChild.id !== explicitChildId) {
+                throw new Error(
+                  `[PropsManager] Ordinary property creation relationship child "${explicitChildId}" changed its canonical id`
+                )
+              }
               explicitChildId = normalizedChild.id
             }
             if (!explicitChildId) {
@@ -836,7 +884,7 @@ class PropsManager {
             assertRuntimePropertyFields(
               normalizedChild,
               childContract.schema,
-              childLabel,
+              label,
               excludedChildKeys
             )
             if (
@@ -849,7 +897,7 @@ class PropsManager {
               preflightRelationshipDescriptor(
                 normalizedChild[childContract.childRelation.key],
                 childContract,
-                childLabel
+                label
               )
             }
           })
@@ -1116,7 +1164,7 @@ class PropsManager {
         const schemaRegistrationRevision =
           getPropertySchemaRegistrationRevision(type)
         const childRelation = snapshotPropertyChildRelation(
-          getPropertyComponentConfigDefinition(type)?.children
+          getPropertyComponentCanonicalChildRelation(type)
         )
         const batchRebindableRelation =
           getPropertyComponentBatchRebindableRelation(constructor)
@@ -1448,9 +1496,9 @@ class PropsManager {
         return
       }
       visitedComponentIds.add(componentId)
-      const childRelation = getPropertyComponentConfigDefinition(
+      const childRelation = getPropertyComponentCanonicalChildRelation(
         component.type
-      )?.children
+      )
       if (!childRelation) {
         return
       }
@@ -1605,7 +1653,7 @@ class PropsManager {
           const snapshot = batch.snapshots[index]
           if (
             snapshot &&
-            getPropertyComponentConfigDefinition(snapshot.type)?.children
+            getPropertyComponentCanonicalChildRelation(snapshot.type)
           ) {
             component.load(clonePropsValue(snapshot))
           }
@@ -1744,8 +1792,9 @@ class PropsManager {
       const component = componentById.get(componentId)
       if (!component) return
       reachableSnapshotIds.add(componentId)
-      const config = getPropertyComponentConfigDefinition(component.type)
-      const childRelation = config?.children
+      const childRelation = getPropertyComponentCanonicalChildRelation(
+        component.type
+      )
       if (!childRelation) return
       const childIds = (component as unknown as Record<string, unknown>)[
         childRelation.key
@@ -2021,8 +2070,7 @@ class PropsManager {
   ): void {
     registrationContracts.forEach((registrationContract) => {
       const currentChildRelation = snapshotPropertyChildRelation(
-        getPropertyComponentConfigDefinition(registrationContract.type)
-          ?.children
+        getPropertyComponentCanonicalChildRelation(registrationContract.type)
       )
       if (
         getPropertyComponentRegistrationRevision(registrationContract.type) !==
@@ -2959,7 +3007,7 @@ class PropsManager {
         if (!childRelationByType.has(property.type)) {
           childRelationByType.set(
             property.type,
-            getPropertyComponentConfigDefinition(property.type)?.children
+            getPropertyComponentCanonicalChildRelation(property.type)
           )
         }
         const childRelation = childRelationByType.get(property.type)

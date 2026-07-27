@@ -321,6 +321,20 @@ export const createChildrenMapPropertyComponentDefinition = (
   return {
     type: config.type,
     constructor: ChildrenMapPropertyComponent,
+    canonicalChildren: {
+      key: config.key,
+      childType: config.childType,
+      mode: 'ids-or-objects',
+      collection: 'array-or-record',
+      toChildData: (item, childId) => {
+        const childData = config.toChildData(item, childId ?? '')
+        if (!childData) {
+          return null
+        }
+        return childId ? { ...childData, id: childId } : childData
+      },
+      toValue: config.toValue
+    },
     registration: createPresetRegistration([
       {
         name: config.key,

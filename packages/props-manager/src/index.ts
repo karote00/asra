@@ -7,6 +7,7 @@ import {
   registerPropertyComponent,
   clonePropertyComponentConfigRegistration,
   getPropertyComponent,
+  getPropertyComponentCanonicalChildRelation,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent
 } from './registries/property-component'
@@ -28,6 +29,7 @@ export {
   registerPropertyComponent,
   clonePropertyComponentConfigRegistration,
   getPropertyComponent,
+  getPropertyComponentCanonicalChildRelation,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent,
   BasePropertyComponent,

@@ -15,6 +15,56 @@ const createVectorPointsComponent = () => {
 }
 
 describe('children-map property component', () => {
+  it('exposes record-map normalization through canonical child metadata', () => {
+    if (
+      !('constructor' in vectorPointsPropertyComponentDefinition) ||
+      !(
+        'canonicalChildren' in vectorPointsPropertyComponentDefinition &&
+        vectorPointsPropertyComponentDefinition.canonicalChildren
+      )
+    ) {
+      throw new Error(
+        'Vector points property requires canonical child metadata'
+      )
+    }
+
+    const relation =
+      vectorPointsPropertyComponentDefinition.canonicalChildren as {
+        key: string
+        childType: string
+        mode: string
+        collection: string
+        toChildData?: (
+          item: Record<string, unknown>,
+          childId?: string
+        ) => Record<string, unknown> | null
+      }
+
+    expect(relation).toMatchObject({
+      key: 'points',
+      childType: PropertyTypes.VECTOR_POINT,
+      mode: 'ids-or-objects',
+      collection: 'array-or-record'
+    })
+    expect(
+      relation.toChildData?.(
+        {
+          kind: 'anchor',
+          x: 10,
+          y: 20,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        },
+        'canonical-point-id'
+      )
+    ).toMatchObject({
+      id: 'canonical-point-id',
+      kind: 'anchor',
+      x: 10,
+      y: 20
+    })
+  })
+
   it('records the parent child-id reference update after resolving children', () => {
     const component = createVectorPointsComponent()
     const changes: SetterChangeRecord[] = []
