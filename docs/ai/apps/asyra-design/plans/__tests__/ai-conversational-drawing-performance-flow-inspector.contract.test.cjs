@@ -281,12 +281,11 @@ test('one composition bulk request owns canonical batch creation', () => {
     /ordinary removal.*property cleanup.*active properties.*separate.*evidence/i
   )
   assert.match(canonical, /removeElement.*removeElements.*batch-of-one/i)
+  assert.match(canonical, /removeSubtreeUsingActiveProperties/i)
   assert.match(canonical, /removal.*restore.*preflight.*no.*prefix/i)
   assert.match(canonical, /no removal API.*restricted.*origin/i)
   assert.ok(
-    canonicalStep.inputs.includes(
-      'artifact:factory-mutation-batch-artifact'
-    )
+    canonicalStep.inputs.includes('artifact:factory-mutation-batch-artifact')
   )
   assert.ok(
     data.routes.some(

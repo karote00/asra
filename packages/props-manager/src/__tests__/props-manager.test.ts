@@ -3223,27 +3223,12 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([change])
   })
 
-  it('prepares one empty additive Props delivery for property-free element batches', () => {
+  it('prepares no Props delivery for property-free element batches', () => {
     expect(
       propsManager.prepareCanonicalElementTransactionEvents({
         rollbackable: false
       })
-    ).toEqual([
-      {
-        eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
-        payload: {
-          eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
-          action: PROPS_ACTIONS.ADD_PROPERTY,
-          undoType: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
-          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
-          data: []
-        },
-        options: {
-          rollbackable: false,
-          shared: SharedDataChannelNames.PROPS
-        }
-      }
-    ])
+    ).toEqual([])
     expect(propsManager.changes).toEqual([])
   })
 

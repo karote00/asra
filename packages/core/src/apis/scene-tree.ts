@@ -28,6 +28,7 @@ import {
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
 import type { CanonicalElementBatchResult } from '../types/scene-tree'
+import type { CanonicalElementRemoval } from '@asyra/scene-tree'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
@@ -49,6 +50,18 @@ export interface SceneTreeRequests {
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
+  removeSubtreeUsingActiveProperties: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  removeElementUsingActiveProperties: (
+    removal: CanonicalElementRemoval,
+    options?: EVENT_OPTIONS
+  ) => boolean
+  removeElementsUsingActiveProperties: (
+    removals: readonly CanonicalElementRemoval[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
   ) => SceneTreeRestorePlan
@@ -308,6 +321,33 @@ export const createSceneTreeAPIs = (
     },
     removeSubtree(elementId: string, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.removeSubtree(elementId, options)
+    },
+    removeSubtreeUsingActiveProperties(
+      elementId: string,
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.removeSubtreeUsingActiveProperties(
+        elementId,
+        options
+      )
+    },
+    removeElementUsingActiveProperties(
+      removal: CanonicalElementRemoval,
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.removeElementUsingActiveProperties(
+        removal,
+        options
+      )
+    },
+    removeElementsUsingActiveProperties(
+      removals: readonly CanonicalElementRemoval[],
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.removeElementsUsingActiveProperties(
+        removals,
+        options
+      )
     },
     preflightRestoreSubtree(snapshot: SceneTreeRestoreSnapshot) {
       return sceneTreeRequests.preflightRestoreSubtree(snapshot)

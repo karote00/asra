@@ -190,6 +190,9 @@ Scene/model bridge:
 - `sceneTreeSaveData(): SceneTreeRawData`
 - `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: EVENT_OPTIONS): string`
 - `createElementInParent(data: CreateElementData, parentId: string, index?: number, options?: EVENT_OPTIONS): string`
+- `createElementsInParentBatch(data: readonly CreateElementData[], parentId: string, index?: number, options?: EVENT_OPTIONS): CanonicalElementBatchResult`
+  - returns ordered canonical element ids, the Factory-owned delivery handle,
+    and the Core canonical-batch timing artifact
 - `createElementsInParent(data: readonly CreateElementData[], parentId: string, index?: number, options?: EVENT_OPTIONS): readonly string[]`
   - prepares every missing id through the same Core owner, invokes the injected
     Scene Tree batch request without a retained event payload, and preserves
@@ -199,6 +202,9 @@ Scene/model bridge:
 - `getElementComputedData(elementId: string): Record<string, unknown> | undefined`
 - `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
 - `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
+- `removeSubtreeUsingActiveProperties(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
+- `removeElementUsingActiveProperties(removal: CanonicalElementRemoval, options?: EVENT_OPTIONS): boolean`
+- `removeElementsUsingActiveProperties(removals: readonly CanonicalElementRemoval[], options?: EVENT_OPTIONS): readonly string[]`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
 - `refreshComputedDataFromProperty(elementId: string, propertyName: string, options?: EVENT_OPTIONS): void`
 - `getAllElementsBounds(): Bounds | null`
@@ -535,6 +541,19 @@ See `packages/collaboration.md` and
 - creation API choice follows data lifecycle rather than local/remote origin;
   any active transaction owner must atomically accept canonical batch evidence
   through `updateTransactionBatch(...)`
+- removal API choice also follows data lifecycle:
+  - `removeElement(...)` owns ordinary element and property cleanup;
+    `removeSubtree(...)` owns complete container hierarchy removal
+  - `removeElementsUsingActiveProperties(...)` consumes an ordered exact Scene
+    batch when separate retained Props evidence owns property removal
+  - `removeElementUsingActiveProperties(...)` is the batch-of-one convenience
+    over the same active-property removal owner
+  - `removeSubtreeUsingActiveProperties(...)` consumes one complete retained
+    hierarchy through the same lifecycle-aware batch boundary
+  - active-property removal preflights exact element and parent/index evidence,
+    requires every referenced property owner to remain active, and is not
+    restricted by local/remote origin; the enclosing retained artifact owns the
+    matching Props/relationship evidence
 
 `@asyra/selection`
 

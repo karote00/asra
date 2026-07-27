@@ -40,7 +40,9 @@ import {
 import {
   acknowledgeTransactionReplayApplied,
   EventTypes,
+  getTransactionReplayMode,
   getTransactionOwner,
+  runInTransactionReplayMode,
   type UpdateTransactionEvent,
   updateTransaction
 } from '@asyra/reactive-events'
@@ -222,6 +224,21 @@ interface ElementBatchPreflight {
   readonly ordinaryPropertyPlan: OrdinaryPropertyCreationPlan | undefined
 }
 
+export interface CanonicalElementRemoval {
+  readonly data: ElementRawData
+  readonly parentId: string
+  readonly index: number
+}
+
+interface ActivePropertyElementRemovalPreflight {
+  readonly entries: readonly Readonly<{
+    element: ElementInstanceTypes
+    removal: CanonicalElementRemoval
+  }>[]
+  readonly parentChildrenBefore: ReadonlyMap<string, readonly string[]>
+  readonly parentChildrenAfter: ReadonlyMap<string, readonly string[]>
+}
+
 const canonicalBatchHandoffAccepted = Symbol(
   'scene-tree:canonical-batch-handoff-accepted'
 )
@@ -266,6 +283,42 @@ const markCanonicalBatchHandoffAccepted = (
 const wasCanonicalBatchHandoffAccepted = (
   state: CanonicalBatchHandoffState
 ): boolean => state[canonicalBatchHandoffAccepted]
+
+const runWithDeferredReplayAcknowledgement = <T>(callback: () => T): T => {
+  const replayMode = getTransactionReplayMode()
+  if (replayMode === null) {
+    return callback()
+  }
+
+  const result = runInTransactionReplayMode(replayMode, () => {
+    try {
+      return { ok: true as const, value: callback() }
+    } catch (error) {
+      return { ok: false as const, error }
+    }
+  })
+  if (!result.ok) {
+    throw result.error
+  }
+  return result.value
+}
+
+const disposeElementComputed = (element: ElementInstanceTypes): void => {
+  ;(
+    element.computed as unknown as {
+      dispose?: () => void
+    }
+  ).dispose?.()
+}
+
+const reactivateElementComputed = (element: ElementInstanceTypes): void => {
+  try {
+    element.getAllComputedData()
+  } catch (error) {
+    disposeElementComputed(element)
+    throw error
+  }
+}
 
 const cloneLoadData = (data: SceneTreeRawData): SceneTreeRawData =>
   cloneSceneTreeValue(data)
@@ -1156,6 +1209,29 @@ class SceneTree {
     elementId: string,
     options?: EVENT_OPTIONS
   ): RemoveSubtreeResult {
+    return this.removeSubtreeWithPropertyLifecycle(
+      elementId,
+      'cleanup',
+      options
+    )
+  }
+
+  removeSubtreeUsingActiveProperties(
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
+    return this.removeSubtreeWithPropertyLifecycle(
+      elementId,
+      'retain-active',
+      options
+    )
+  }
+
+  private removeSubtreeWithPropertyLifecycle(
+    elementId: string,
+    propertyLifecycle: 'cleanup' | 'retain-active',
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
     this.validateCanonicalHierarchy()
     const removed = this.collectSubtreeRemovalEntries(elementId)
     const rootEntry = removed[removed.length - 1]
@@ -1175,16 +1251,48 @@ class SceneTree {
       (_, index) => index !== rootEntry.index
     )
 
+    if (propertyLifecycle === 'retain-active') {
+      this.applyActivePropertyElementRemovalBatch(
+        removed.map(({ data, parentId, index }) => ({
+          data,
+          parentId,
+          index
+        })),
+        options,
+        true,
+        (entries) => {
+          this.addChange({
+            eventName: EventTypes.CHANGE_SUBTREE,
+            elementId,
+            removed: cloneSceneTreeValue(removed),
+            rootParentChildrenAfter: cloneSceneTreeValue(
+              rootParentChildrenAfter
+            ),
+            action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+            undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+          })
+          return [
+            {
+              orderedIds: entries.map(({ removal }) => removal.data.id)
+            }
+          ]
+        }
+      )
+      return {
+        elementId,
+        removed,
+        rootParentChildrenAfter: cloneSceneTreeValue(rootParentChildrenAfter)
+      }
+    }
+
     const workspace = this.currentWorkspace as Workspace
     const operationChangeStart = this.changes.length
     removed.forEach(({ elementId: removedId, parentId }) => {
       const element = this.getElementById(removedId) as ElementInstanceTypes
       const parent = this.getElementById(parentId) as GroupInstanceTypes
-      workspace.removeElement(
-        element,
-        parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent,
-        options
-      )
+      const resolvedParent =
+        parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent
+      workspace.removeElement(element, resolvedParent, options)
     })
     this.changes.splice(operationChangeStart)
     this.addChange({
@@ -1546,8 +1654,9 @@ class SceneTree {
             `[SceneTree] Cannot apply subtree restore: missing prepared hierarchy for "${elementId}"`
           )
         }
-        workspace.addNewElement(element, parent as GroupInstanceTypes, index)
+        reactivateElementComputed(element)
         addedIds.push(elementId)
+        workspace.addNewElement(element, parent as GroupInstanceTypes, index)
       })
       this.validateCanonicalHierarchy()
       snapshot.removed.forEach(({ elementId, data }) => {
@@ -1560,20 +1669,20 @@ class SceneTree {
     } catch (error) {
       this.changes.splice(operationChangeStart)
       addedIds.reverse().forEach((elementId) => {
-        const element = this._elements.get(elementId)
+        const element = prepared.get(elementId)
         if (!element) return
         const parent = this.getElementById(element.get('parentId'))
         if (parent && isGroupEntity(parent.get('type'))) {
           ;(parent as GroupInstanceTypes).removeElement(element)
         }
         this._elements.delete(elementId)
+        disposeElementComputed(element)
         const strategy = plan.entries.find(
           (entry) => entry.elementId === elementId
         )?.strategy
         if (strategy === 'reuse') {
+          ;(element as Element).assignCanonicalParentId('')
           this._deletedMap.set(elementId, element)
-        } else {
-          ;(element.computed as unknown as { dispose?: () => void }).dispose?.()
         }
       })
       prepared.forEach((element, elementId) => {
@@ -1703,11 +1812,29 @@ class SceneTree {
       `Restore root parent "${rootEntry.parentId}"`
     )
     const operationChangeStart = this.changes.length
-    restoreOrder.forEach(({ elementId, parentId, index }) => {
-      const restored = this.getRestoreElementById(elementId, false)
-      const parent = this.getElementById(parentId) as GroupInstanceTypes
-      workspace.addNewElement(restored, parent, index)
-    })
+    const attempted: ElementInstanceTypes[] = []
+    try {
+      restoreOrder.forEach(({ elementId, parentId, index }) => {
+        const restored = this.getRestoreElementById(elementId, false)
+        const parent = this.getElementById(parentId) as GroupInstanceTypes
+        reactivateElementComputed(restored)
+        attempted.push(restored)
+        workspace.addNewElement(restored, parent, index)
+      })
+    } catch (error) {
+      attempted.reverse().forEach((restored) => {
+        const parent = this.getElementById(restored.get('parentId'))
+        if (parent && isGroupEntity(parent.get('type'))) {
+          ;(parent as GroupInstanceTypes).removeElement(restored)
+        }
+        this._elements.delete(restored.get('id'))
+        ;(restored as Element).assignCanonicalParentId('')
+        disposeElementComputed(restored)
+        this._deletedMap.set(restored.get('id'), restored)
+      })
+      this.changes.splice(operationChangeStart)
+      throw error
+    }
     this.changes.splice(operationChangeStart)
     this.addChange({
       eventName: EventTypes.CHANGE_SUBTREE,
@@ -1746,6 +1873,25 @@ class SceneTree {
       )
     }
     this.removeSubtree(change.elementId, options)
+    return true
+  }
+
+  applySubtreeChangeUsingActiveProperties(
+    change: SubtreeChange,
+    options?: EVENT_OPTIONS
+  ): boolean {
+    if (change.action !== SCENE_TREE_ACTIONS.REMOVE_SUBTREE) {
+      return this.applySubtreeChange(change, options)
+    }
+
+    this.validateCanonicalHierarchy()
+    const currentEvidence = this.collectSubtreeRemovalEntries(change.elementId)
+    if (!isEqual(currentEvidence, change.removed)) {
+      throw new Error(
+        `[SceneTree] Cannot replay subtree removal: stale evidence for "${change.elementId}"`
+      )
+    }
+    this.removeSubtreeUsingActiveProperties(change.elementId, options)
     return true
   }
 
@@ -1913,9 +2059,22 @@ class SceneTree {
           propOverrides[propKey]
         )
       })
-      workspace.addNewElement(newElement, parent, index)
-
-      this.addToMap(newElement)
+      try {
+        reactivateElementComputed(newElement)
+        workspace.addNewElement(newElement, parent, index)
+        this.addToMap(newElement)
+      } catch (error) {
+        const activeParent = this.getElementById(newElement.get('parentId'))
+        if (activeParent && isGroupEntity(activeParent.get('type'))) {
+          ;(activeParent as GroupInstanceTypes).removeElement(newElement)
+        }
+        this._elements.delete(newElement.get('id'))
+        ;(newElement as Element).assignCanonicalParentId('')
+        disposeElementComputed(newElement)
+        this._deletedMap.set(newElement.get('id'), newElement)
+        this.changes.splice(operationChangeStart)
+        throw error
+      }
 
       const actualParentId = newElement.get('parentId') as string
       const actualParent = this.getElementById(actualParentId)
@@ -2355,34 +2514,37 @@ class SceneTree {
       )
     }
     try {
-      if (canonicalBatch?.propertyMode === 'reuse-active') {
-        if (hasCanonicalPropertyData) {
-          this.propsManagerOwner.runWithActivePropertyBatch(
-            canonicalBatch.properties,
-            canonicalBatch.rootPropertyIds,
-            materializeElementBatch
-          )
-        } else {
-          materializeElementBatch()
-        }
-      } else {
-        const propertyBatch = this.propsManagerOwner.runInPropertyCreationBatch(
-          materializeElementBatch,
-          ordinaryPropertyPlan
-        )
-        rollbackPreparedProperties = propertyBatch.rollback
-        completePreparedProperties = propertyBatch.complete
-      }
-
-      projectElementBatch()
-      acknowledgeTransactionReplayApplied()
       let propsEvents: readonly PreparedPropsTransactionEvent[] = []
-      measureCanonicalSceneBatchPhase(
-        'scene-tree:element-batch:commit-props',
-        () => {
-          propsEvents = this.propsManagerOwner.prepareTransactionEvents(options)
+      runWithDeferredReplayAcknowledgement(() => {
+        if (canonicalBatch?.propertyMode === 'reuse-active') {
+          if (hasCanonicalPropertyData) {
+            this.propsManagerOwner.runWithActivePropertyBatch(
+              canonicalBatch.properties,
+              canonicalBatch.rootPropertyIds,
+              materializeElementBatch
+            )
+          } else {
+            materializeElementBatch()
+          }
+        } else {
+          const propertyBatch =
+            this.propsManagerOwner.runInPropertyCreationBatch(
+              materializeElementBatch,
+              ordinaryPropertyPlan
+            )
+          rollbackPreparedProperties = propertyBatch.rollback
+          completePreparedProperties = propertyBatch.complete
         }
-      )
+
+        projectElementBatch()
+        measureCanonicalSceneBatchPhase(
+          'scene-tree:element-batch:commit-props',
+          () => {
+            propsEvents =
+              this.propsManagerOwner.prepareTransactionEvents(options)
+          }
+        )
+      })
       measureCanonicalSceneBatchPhase(
         'scene-tree:element-batch:commit-scene',
         () => {
@@ -2488,6 +2650,280 @@ class SceneTree {
     this.commitSceneTreeTransaction(options)
     this.propsManagerOwner.commitChanges(options)
     return true
+  }
+
+  private preflightActivePropertyElementRemovalBatch(
+    removals: readonly CanonicalElementRemoval[],
+    allowNested = false
+  ): ActivePropertyElementRemovalPreflight {
+    this.validateCanonicalHierarchy()
+    if (removals.length === 0) {
+      return Object.freeze({
+        entries: Object.freeze([]),
+        parentChildrenBefore: new Map(),
+        parentChildrenAfter: new Map()
+      })
+    }
+
+    const removalIds = new Set<string>()
+    const entries = removals.map((removal) => {
+      if (
+        !isRecord(removal) ||
+        !isRecord(removal.data) ||
+        typeof removal.data.id !== 'string' ||
+        removal.data.id.length === 0 ||
+        typeof removal.parentId !== 'string' ||
+        removal.parentId.length === 0 ||
+        !Number.isInteger(removal.index) ||
+        removal.index < 0 ||
+        removalIds.has(removal.data.id)
+      ) {
+        throw new Error(
+          '[SceneTree] Active-property removal requires unique exact element evidence'
+        )
+      }
+      removalIds.add(removal.data.id)
+
+      const element = this.getElementById(removal.data.id)
+      const parent = this.getElementById(removal.parentId)
+      if (
+        !element ||
+        !parent ||
+        !isGroupEntity(parent.get('type')) ||
+        element.get('parentId') !== removal.parentId ||
+        !isEqual(element.save(), removal.data)
+      ) {
+        throw new Error(
+          '[SceneTree] Active-property removal requires exact element evidence'
+        )
+      }
+      const children = this.getContainerChildren(
+        parent,
+        `Active-property removal parent "${removal.parentId}"`
+      )
+      if (children[removal.index] !== removal.data.id) {
+        throw new Error(
+          '[SceneTree] Active-property removal requires exact parent-index evidence'
+        )
+      }
+      Object.values(removal.data.props ?? {}).forEach((propertyId) => {
+        if (
+          typeof propertyId !== 'string' ||
+          !this.propsManagerOwner.getPropertyById(propertyId)
+        ) {
+          throw new Error(
+            '[SceneTree] Active-property removal requires active property evidence'
+          )
+        }
+      })
+
+      return Object.freeze({ element, removal })
+    })
+
+    entries.forEach(({ element }) => {
+      if (!allowNested && removalIds.has(element.get('parentId'))) {
+        throw new Error(
+          '[SceneTree] Active-property removal of nested elements requires the subtree lifecycle API'
+        )
+      }
+      if (
+        isGroupEntity(element.get('type')) &&
+        this.getContainerChildren(
+          element,
+          `Active-property removal container "${element.get('id')}"`
+        ).some((childId) => !removalIds.has(childId))
+      ) {
+        throw new Error(
+          '[SceneTree] Active-property removal cannot leave an active child without its container'
+        )
+      }
+    })
+
+    const parentChildrenBefore = new Map<string, readonly string[]>()
+    entries.forEach(({ removal }) => {
+      if (parentChildrenBefore.has(removal.parentId)) return
+      const parent = this.getElementById(removal.parentId) as GroupInstanceTypes
+      parentChildrenBefore.set(
+        removal.parentId,
+        Object.freeze([
+          ...this.getContainerChildren(
+            parent,
+            `Active-property removal parent "${removal.parentId}"`
+          )
+        ])
+      )
+    })
+    const parentChildrenAfter = new Map(
+      [...parentChildrenBefore].map(([parentId, children]) => [
+        parentId,
+        Object.freeze(children.filter((childId) => !removalIds.has(childId)))
+      ])
+    )
+
+    return Object.freeze({
+      entries: Object.freeze(entries),
+      parentChildrenBefore,
+      parentChildrenAfter
+    })
+  }
+
+  private applyActivePropertyElementRemovalBatch(
+    removals: readonly CanonicalElementRemoval[],
+    options: EVENT_OPTIONS | undefined,
+    allowNested: boolean,
+    recordChanges: (
+      entries: ActivePropertyElementRemovalPreflight['entries']
+    ) => readonly CanonicalEventDeliveryEvidence[]
+  ): readonly string[] {
+    if (removals.length === 0) {
+      return Object.freeze([])
+    }
+    const transactionOwner = getTransactionOwner()
+    if (
+      transactionOwner &&
+      typeof (
+        transactionOwner as typeof transactionOwner &
+          Partial<CanonicalBatchTransactionOwner>
+      ).updateTransactionBatch !== 'function'
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires a batch-capable transaction owner'
+      )
+    }
+
+    const preflight = this.preflightActivePropertyElementRemovalBatch(
+      removals,
+      allowNested
+    )
+    const operationChangeStart = this.changes.length
+    const handoffState = createCanonicalBatchHandoffState()
+    let computedDisposalIndex = 0
+    const disposeRemovedComputed = () => {
+      while (computedDisposalIndex < preflight.entries.length) {
+        const element = preflight.entries[computedDisposalIndex].element
+        computedDisposalIndex += 1
+        ;(
+          element.computed as unknown as {
+            dispose?: () => void
+          }
+        ).dispose?.()
+      }
+    }
+    try {
+      const deliveryEvidence = recordChanges(preflight.entries)
+
+      preflight.parentChildrenAfter.forEach((children, parentId) => {
+        const parent = this.getElementById(parentId) as GroupInstanceTypes
+        ;(this.currentWorkspace as Workspace).replaceBatchParentChildren(
+          parent,
+          children
+        )
+      })
+      preflight.entries.forEach(({ element }) => {
+        ;(element as Element).assignCanonicalParentId('')
+        this.addToDeleteMap(element)
+        this._elements.delete(element.get('id'))
+      })
+      this.validateCanonicalHierarchy()
+
+      const events = this.prepareSceneTreeTransactionEvents(options)
+      if (events.length === 0 || events.length !== deliveryEvidence.length) {
+        throw new Error(
+          '[SceneTree] Active-property removal requires exact ordered Scene delivery evidence'
+        )
+      }
+      const batchOwner = transactionOwner as
+        | (typeof transactionOwner & Partial<CanonicalBatchTransactionOwner>)
+        | null
+      if (typeof batchOwner?.updateTransactionBatch === 'function') {
+        try {
+          const deliveryHandle = batchOwner.updateTransactionBatch(
+            events,
+            deliveryEvidence
+          )
+          if (
+            deliveryHandle === null &&
+            getTransactionReplayMode() !== 'rollback'
+          ) {
+            throw new Error(
+              '[SceneTree] Active-property removal requires an active transaction'
+            )
+          }
+          markCanonicalBatchHandoffAccepted(handoffState)
+          acknowledgeTransactionReplayApplied()
+        } catch (error) {
+          if (reportsAcceptedCanonicalBatchHandoff(error)) {
+            markCanonicalBatchHandoffAccepted(handoffState)
+            acknowledgeTransactionReplayApplied()
+          }
+          throw error
+        }
+      } else {
+        events.forEach(({ eventName, payload, options: eventOptions }) => {
+          updateTransaction(eventName, payload, eventOptions)
+        })
+        markCanonicalBatchHandoffAccepted(handoffState)
+        acknowledgeTransactionReplayApplied()
+      }
+      disposeRemovedComputed()
+      this.cleanChanges()
+      return Object.freeze(
+        preflight.entries.map(({ removal }) => removal.data.id)
+      )
+    } catch (error) {
+      if (wasCanonicalBatchHandoffAccepted(handoffState)) {
+        disposeRemovedComputed()
+        this.cleanChanges()
+        throw error
+      }
+
+      preflight.entries.forEach(({ element, removal }) => {
+        this._deletedMap.delete(element.get('id'))
+        this._elements.set(element.get('id'), element)
+        ;(element as Element).assignCanonicalParentId(removal.parentId)
+      })
+      preflight.parentChildrenBefore.forEach((children, parentId) => {
+        const parent = this.getElementById(parentId) as GroupInstanceTypes
+        ;(this.currentWorkspace as Workspace).replaceBatchParentChildren(
+          parent,
+          children
+        )
+      })
+      this.changes.splice(operationChangeStart)
+      throw error
+    }
+  }
+
+  removeElementsUsingActiveProperties(
+    removals: readonly CanonicalElementRemoval[],
+    options?: EVENT_OPTIONS
+  ): readonly string[] {
+    return this.applyActivePropertyElementRemovalBatch(
+      removals,
+      options,
+      false,
+      (entries) => {
+        entries.forEach(({ element, removal }) => {
+          this.addChangeForRemoveElement(
+            element,
+            removal.parentId,
+            removal.index
+          )
+        })
+        return entries.map(({ removal }) => ({
+          orderedIds: [removal.data.id]
+        }))
+      }
+    )
+  }
+
+  removeElementUsingActiveProperties(
+    removal: CanonicalElementRemoval,
+    options?: EVENT_OPTIONS
+  ): boolean {
+    return (
+      this.removeElementsUsingActiveProperties([removal], options).length === 1
+    )
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
@@ -2821,13 +3257,7 @@ class SceneTree {
     const batchOwner = transactionOwner as
       | (typeof transactionOwner & Partial<CanonicalBatchTransactionOwner>)
       | null
-    const preparedPropsEvents =
-      canonical.propsEvents.length === 0 &&
-      typeof batchOwner?.updateTransactionBatch === 'function'
-        ? this.propsManagerOwner.prepareCanonicalElementTransactionEvents(
-            options
-          )
-        : canonical.propsEvents
+    const preparedPropsEvents = canonical.propsEvents
     const propertyOwners = this.createCanonicalPropertyDeliveryOwners(
       canonical.elements
     )
@@ -2871,9 +3301,11 @@ class SceneTree {
       try {
         batchOwner.updateTransactionBatch(events, deliveryEvidence)
         markCanonicalBatchHandoffAccepted(handoffState)
+        acknowledgeTransactionReplayApplied()
       } catch (error) {
         if (reportsAcceptedCanonicalBatchHandoff(error)) {
           markCanonicalBatchHandoffAccepted(handoffState)
+          acknowledgeTransactionReplayApplied()
         }
         throw error
       }
@@ -2885,6 +3317,7 @@ class SceneTree {
       events.forEach(({ eventName, payload, options: eventOptions }) => {
         updateTransaction(eventName, payload, eventOptions)
       })
+      acknowledgeTransactionReplayApplied()
     }
 
     this.propsManagerOwner.cleanChanges()

@@ -1,4 +1,8 @@
-import { SceneTree, componentRegistry } from '@asyra/scene-tree'
+import {
+  SceneTree,
+  componentRegistry,
+  type CanonicalElementRemoval
+} from '@asyra/scene-tree'
 import {
   Render,
   createRenderGradientFillStyle,
@@ -132,6 +136,18 @@ export const createAPIs = (
       sceneTree.moveElements(request, options),
     removeSubtree: (elementId: string, options?: EVENT_OPTIONS) =>
       sceneTree.removeSubtree(elementId, options),
+    removeSubtreeUsingActiveProperties: (
+      elementId: string,
+      options?: EVENT_OPTIONS
+    ) => sceneTree.removeSubtreeUsingActiveProperties(elementId, options),
+    removeElementUsingActiveProperties: (
+      removal: CanonicalElementRemoval,
+      options?: EVENT_OPTIONS
+    ) => sceneTree.removeElementUsingActiveProperties(removal, options),
+    removeElementsUsingActiveProperties: (
+      removals: readonly CanonicalElementRemoval[],
+      options?: EVENT_OPTIONS
+    ) => sceneTree.removeElementsUsingActiveProperties(removals, options),
     preflightRestoreSubtree: (snapshot) =>
       sceneTree.preflightRestoreSubtree(snapshot),
     applyRestoreSubtree: (plan, options) =>

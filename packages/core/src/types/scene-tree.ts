@@ -15,6 +15,7 @@ import {
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
 import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
+import type { CanonicalElementRemoval } from '@asyra/scene-tree'
 
 export interface CanonicalElementBatchTimingArtifact {
   readonly owner: '@asyra/core'
@@ -83,6 +84,18 @@ export interface SceneTreeRawAPIs {
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
+  removeSubtreeUsingActiveProperties: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  removeElementUsingActiveProperties: (
+    removal: CanonicalElementRemoval,
+    options?: EVENT_OPTIONS
+  ) => boolean
+  removeElementsUsingActiveProperties: (
+    removals: readonly CanonicalElementRemoval[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
   ) => SceneTreeRestorePlan

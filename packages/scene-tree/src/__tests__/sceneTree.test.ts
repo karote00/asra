@@ -3565,16 +3565,23 @@ describe('SceneTree', () => {
       redo: vi.fn()
     }
 
-    expect(() =>
-      runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.addNewElements(
-          [{ id: reusedId, type: 'rect', x: 10, y: 20 }],
-          workspace as GroupInstanceTypes,
-          undefined,
-          { undoable: true }
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('redo', () =>
+        runWithTransactionOwner(transactionOwner, () =>
+          sceneTree.addNewElements(
+            [{ id: reusedId, type: 'rect', x: 10, y: 20 }],
+            workspace as GroupInstanceTypes,
+            undefined,
+            { undoable: true }
+          )
         )
       )
-    ).toThrow(handoffFailure)
+    } catch (error) {
+      capturedFailure = error
+    }
+    expect(capturedFailure).toBe(handoffFailure)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
 
     const orderedBatch =
       batchHandoff.mock.calls[0]?.[0].map(({ payload }) => {
@@ -3824,5 +3831,591 @@ describe('SceneTree', () => {
     expect(propsManager.save()).toEqual({})
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: removes one exact Scene batch while separate Props evidence stays active', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElements(
+      [
+        { id: 'active-props-remove-1', type: 'rect', x: 10, y: 20 },
+        { id: 'active-props-remove-2', type: 'rect', x: 30, y: 40 }
+      ],
+      workspace as GroupInstanceTypes
+    )
+    const elements = [
+      sceneTree.getElementById('active-props-remove-1'),
+      sceneTree.getElementById('active-props-remove-2')
+    ]
+    if (elements.some((element) => !element)) {
+      throw new Error('Expected active-property removal fixtures')
+    }
+    const removals = elements.map((element, index) => ({
+      data: (element as ElementInstanceTypes).save(),
+      parentId: workspace.get('id'),
+      index
+    }))
+    const propertySnapshot = propsManager.save()
+    const replaceChildren = vi.spyOn(
+      workspace,
+      'replaceChildrenFromCanonicalBatch'
+    )
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const updateTransaction = vi.fn()
+    const updateTransactionBatch = vi.fn()
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction,
+      updateTransactionBatch,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.removeElementsUsingActiveProperties(removals)
+      )
+    ).toEqual(['active-props-remove-1', 'active-props-remove-2'])
+
+    expect(workspace.get('children')).toEqual([])
+    expect(sceneTree.getElementById('active-props-remove-1')).toBeUndefined()
+    expect(sceneTree.getElementById('active-props-remove-2')).toBeUndefined()
+    expect(propsManager.save()).toEqual(propertySnapshot)
+    expect(replaceChildren).toHaveBeenCalledOnce()
+    expect(updateTransaction).not.toHaveBeenCalled()
+    expect(updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(
+      updateTransactionBatch.mock.calls[0]?.[0].map(
+        ({ payload }: UpdateTransactionEvent) => ({
+          action: (payload as AddRemoveElementChange).action,
+          id: (payload as AddRemoveElementChange).data.id
+        })
+      )
+    ).toEqual([
+      {
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        id: 'active-props-remove-1'
+      },
+      {
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        id: 'active-props-remove-2'
+      }
+    ])
+    expect(updateTransactionBatch.mock.calls[0]?.[1]).toEqual([
+      { orderedIds: ['active-props-remove-1'] },
+      { orderedIds: ['active-props-remove-2'] }
+    ])
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: rejects a later stale active-property removal with no prefix', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElements(
+      [
+        { id: 'active-props-valid-head', type: 'rect', x: 10, y: 20 },
+        { id: 'active-props-stale-tail', type: 'rect', x: 30, y: 40 }
+      ],
+      workspace as GroupInstanceTypes
+    )
+    const head = sceneTree.getElementById('active-props-valid-head')
+    const tail = sceneTree.getElementById('active-props-stale-tail')
+    if (!head || !tail) {
+      throw new Error('Expected stale active-property removal fixtures')
+    }
+    const beforeProps = propsManager.save()
+    const beforeChildren = [...workspace.get('children')]
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+
+    expect(() =>
+      sceneTree.removeElementsUsingActiveProperties([
+        {
+          data: head.save(),
+          parentId: workspace.get('id'),
+          index: 0
+        },
+        {
+          data: { ...tail.save(), name: 'stale canonical name' },
+          parentId: workspace.get('id'),
+          index: 1
+        }
+      ])
+    ).toThrow(/exact element evidence/i)
+
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(sceneTree.getElementById('active-props-valid-head')).toBe(head)
+    expect(sceneTree.getElementById('active-props-stale-tail')).toBe(tail)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: makes active-property single removal exactly batch-of-one', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'active-props-single', type: 'rect', x: 10, y: 20 },
+      workspace as GroupInstanceTypes
+    )
+    const element = sceneTree.getElementById('active-props-single')
+    if (!element) {
+      throw new Error('Expected active-property single removal fixture')
+    }
+    const removal = {
+      data: element.save(),
+      parentId: workspace.get('id'),
+      index: 0
+    }
+    const removeBatch = vi.spyOn(
+      sceneTree,
+      'removeElementsUsingActiveProperties'
+    )
+
+    expect(sceneTree.removeElementUsingActiveProperties(removal)).toBe(true)
+    expect(removeBatch).toHaveBeenCalledOnce()
+    expect(removeBatch).toHaveBeenCalledWith([removal], undefined)
+  })
+
+  it('Step 4 canonical owner: rejects nested element removals before changing hierarchy or retained properties', () => {
+    const containerType = 'active-removal-container'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Active Removal Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Active Removal Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'active-removal-group', type: containerType, x: 0, y: 0 },
+      workspace as GroupInstanceTypes
+    )
+    const group = sceneTree.getElementById(
+      'active-removal-group'
+    ) as GroupInstanceTypes
+    sceneTree.addNewElement(
+      { id: 'active-removal-child', type: 'rect', x: 10, y: 20 },
+      group
+    )
+    const child = sceneTree.getElementById('active-removal-child')
+    if (!child) {
+      throw new Error('Expected nested active-property removal fixture')
+    }
+    const beforeWorkspaceChildren = [...workspace.get('children')]
+    const beforeGroupChildren = [...group.get('children')]
+    const beforeProps = propsManager.save()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+
+    expect(() =>
+      sceneTree.removeElementsUsingActiveProperties([
+        {
+          data: group.save(),
+          parentId: workspace.get('id'),
+          index: 0
+        },
+        {
+          data: child.save(),
+          parentId: group.get('id'),
+          index: 0
+        }
+      ])
+    ).toThrow(/subtree/i)
+
+    expect(workspace.get('children')).toEqual(beforeWorkspaceChildren)
+    expect(group.get('children')).toEqual(beforeGroupChildren)
+    expect(sceneTree.getElementById(group.get('id'))).toBe(group)
+    expect(sceneTree.getElementById(child.get('id'))).toBe(child)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: leaves replay unapplied when batch handoff fails before acceptance', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'active-removal-preaccept', type: 'rect', x: 10, y: 20 },
+      workspace as GroupInstanceTypes
+    )
+    const element = sceneTree.getElementById('active-removal-preaccept')
+    if (!element) {
+      throw new Error('Expected pre-accept removal fixture')
+    }
+    const removal = {
+      data: element.save(),
+      parentId: workspace.get('id'),
+      index: 0
+    }
+    const beforeProps = propsManager.save()
+    const positionId = element.props.getPropId(PropertyTypes.POSITION)
+    const position = positionId
+      ? (propsManager.getPropertyById(positionId) as TestPositionComponent)
+      : undefined
+    if (!position) {
+      throw new Error('Expected pre-accept retained position property')
+    }
+    const originalGetValue = position.getValue.bind(position)
+    position.getValue = vi.fn(() => {
+      throw new Error('rollback must not reconstruct computed subscriptions')
+    })
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const preacceptFailure = Object.assign(
+      new Error('active removal rejected before acceptance'),
+      { batchAccepted: false }
+    )
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(() => {
+        throw preacceptFailure
+      }),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+    let capturedFailure: unknown
+
+    try {
+      runInTransactionReplayMode('undo', () =>
+        runWithTransactionOwner(transactionOwner, () =>
+          sceneTree.removeElementsUsingActiveProperties([removal])
+        )
+      )
+    } catch (error) {
+      capturedFailure = error
+    }
+
+    expect(capturedFailure).toBe(preacceptFailure)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
+    expect(workspace.get('children')).toEqual([element.get('id')])
+    expect(sceneTree.getElementById(element.get('id'))).toBe(element)
+    expect(sceneTree._deletedMap.has(element.get('id'))).toBe(false)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+
+    position.getValue = originalGetValue
+    position.set('x', 64)
+    expect(element.computed.get('x')).toBe(64)
+  })
+
+  it('Step 4 canonical owner: rejects an inactive batch owner without losing canonical evidence', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'active-removal-inactive-owner', type: 'rect', x: 10, y: 20 },
+      workspace as GroupInstanceTypes
+    )
+    const element = sceneTree.getElementById('active-removal-inactive-owner')
+    if (!element) {
+      throw new Error('Expected inactive-owner removal fixture')
+    }
+    const beforeProps = propsManager.save()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(() => null),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.removeElementsUsingActiveProperties([
+          {
+            data: element.save(),
+            parentId: workspace.get('id'),
+            index: 0
+          }
+        ])
+      )
+    ).toThrow(/active transaction/i)
+
+    expect(workspace.get('children')).toEqual([element.get('id')])
+    expect(sceneTree.getElementById(element.get('id'))).toBe(element)
+    expect(sceneTree._deletedMap.has(element.get('id'))).toBe(false)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it.each(['undo', 'redo'] as const)(
+    'Step 4 canonical owner: rejects a null %s replay handoff without losing canonical evidence',
+    (replayMode) => {
+      sceneTree.init()
+      const workspace = sceneTree.currentWorkspace as Workspace
+      sceneTree.addNewElement(
+        {
+          id: `active-removal-null-${replayMode}`,
+          type: 'rect',
+          x: 10,
+          y: 20
+        },
+        workspace as GroupInstanceTypes
+      )
+      const element = sceneTree.getElementById(
+        `active-removal-null-${replayMode}`
+      )
+      if (!element) {
+        throw new Error(`Expected null ${replayMode} removal fixture`)
+      }
+      const beforeProps = propsManager.save()
+      sceneTree.cleanChanges()
+      propsManager.cleanChanges()
+      const transactionOwner = {
+        startTransaction: vi.fn(),
+        updateTransaction: vi.fn(),
+        updateTransactionBatch: vi.fn(() => null),
+        endTransaction: vi.fn(),
+        undo: vi.fn(),
+        redo: vi.fn()
+      }
+
+      expect(() =>
+        runInTransactionReplayMode(replayMode, () =>
+          runWithTransactionOwner(transactionOwner, () =>
+            sceneTree.removeElementsUsingActiveProperties([
+              {
+                data: element.save(),
+                parentId: workspace.get('id'),
+                index: 0
+              }
+            ])
+          )
+        )
+      ).toThrow(/active transaction/i)
+
+      expect(workspace.get('children')).toEqual([element.get('id')])
+      expect(sceneTree.getElementById(element.get('id'))).toBe(element)
+      expect(sceneTree._deletedMap.has(element.get('id'))).toBe(false)
+      expect(propsManager.save()).toEqual(beforeProps)
+      expect(sceneTree.changes).toEqual([])
+      expect(propsManager.changes).toEqual([])
+    }
+  )
+
+  it('Step 4 canonical owner: reactivates computed subscriptions after retained replay restore', () => {
+    sceneTreeSingleton.init()
+    const workspace = sceneTreeSingleton.currentWorkspace as Workspace
+    sceneTreeSingleton.addNewElement(
+      { id: 'retained-computed-restore', type: 'rect', x: 10, y: 20 },
+      workspace as GroupInstanceTypes
+    )
+    const element = sceneTreeSingleton.getElementById(
+      'retained-computed-restore'
+    )
+    if (!element) {
+      throw new Error('Expected retained computed restore fixture')
+    }
+    const data = element.save()
+    const positionId = element.props.getPropId(PropertyTypes.POSITION)
+    if (!positionId) {
+      throw new Error('Expected retained position property')
+    }
+    sceneTreeSingleton.cleanChanges()
+    propsManager.cleanChanges()
+
+    expect(
+      sceneTreeSingleton.removeElementUsingActiveProperties({
+        data,
+        parentId: workspace.get('id'),
+        index: 0
+      })
+    ).toBe(true)
+    runInTransactionReplayMode('undo', () =>
+      publishEvent({
+        type: EventTypes.ADD_ELEMENT,
+        payload: {
+          data,
+          parentId: workspace.get('id'),
+          index: 0
+        }
+      } as AddElementEvent)
+    )
+
+    const position = propsManager.getPropertyById(
+      positionId
+    ) as TestPositionComponent
+    position.set('x', 88)
+
+    expect(
+      sceneTreeSingleton.getElementById(element.get('id'))?.computed.get('x')
+    ).toBe(88)
+  })
+
+  it('Step 4 canonical owner: restores a complete retained subtree when its batch handoff is rejected', () => {
+    const containerType = 'active-subtree-container'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Active Subtree Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Active Subtree Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'active-subtree-root', type: containerType, x: 0, y: 0 },
+      workspace as GroupInstanceTypes
+    )
+    const group = sceneTree.getElementById(
+      'active-subtree-root'
+    ) as GroupInstanceTypes
+    sceneTree.addNewElement(
+      { id: 'active-subtree-child', type: 'rect', x: 10, y: 20 },
+      group
+    )
+    const child = sceneTree.getElementById('active-subtree-child')
+    if (!child) {
+      throw new Error('Expected retained subtree child fixture')
+    }
+    const beforeWorkspaceChildren = [...workspace.get('children')]
+    const beforeGroupChildren = [...group.get('children')]
+    const beforeProps = propsManager.save()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const handoffFailure = Object.assign(
+      new Error('retained subtree handoff rejected'),
+      { batchAccepted: false }
+    )
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(() => {
+        throw new Error('retained subtree used the single-event handoff')
+      }),
+      updateTransactionBatch: vi.fn(() => {
+        throw handoffFailure
+      }),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.removeSubtreeUsingActiveProperties(group.get('id'))
+      )
+    ).toThrow(handoffFailure)
+
+    expect(transactionOwner.updateTransaction).not.toHaveBeenCalled()
+    expect(transactionOwner.updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(workspace.get('children')).toEqual(beforeWorkspaceChildren)
+    expect(group.get('children')).toEqual(beforeGroupChildren)
+    expect(sceneTree.getElementById(group.get('id'))).toBe(group)
+    expect(sceneTree.getElementById(child.get('id'))).toBe(child)
+    expect(sceneTree._deletedMap.has(group.get('id'))).toBe(false)
+    expect(sceneTree._deletedMap.has(child.get('id'))).toBe(false)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: leaves an accepted retained subtree compatible with exact restore preflight', () => {
+    const containerType = 'accepted-active-subtree-container'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Accepted Active Subtree Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Accepted Active Subtree Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'accepted-active-subtree', type: containerType, x: 0, y: 0 },
+      workspace as GroupInstanceTypes
+    )
+    const group = sceneTree.getElementById(
+      'accepted-active-subtree'
+    ) as GroupInstanceTypes
+    sceneTree.addNewElement(
+      { id: 'accepted-active-subtree-child', type: 'rect', x: 10, y: 20 },
+      group
+    )
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+
+    const snapshot = sceneTree.removeSubtreeUsingActiveProperties(
+      group.get('id')
+    )
+    const plan = sceneTree.preflightRestoreSubtree(snapshot)
+
+    expect(plan.entries).toEqual([
+      {
+        elementId: 'accepted-active-subtree-child',
+        strategy: 'reuse'
+      },
+      {
+        elementId: 'accepted-active-subtree',
+        strategy: 'reuse'
+      }
+    ])
+
+    const childTombstone = sceneTree._deletedMap.get(
+      'accepted-active-subtree-child'
+    )
+    const positionId = childTombstone?.props.getPropId(PropertyTypes.POSITION)
+    const position = positionId
+      ? (propsManager.getPropertyById(positionId) as TestPositionComponent)
+      : undefined
+    if (!childTombstone || !position) {
+      throw new Error('Expected retained subtree property fixture')
+    }
+    const setupFailure = new Error('retained computed setup failed')
+    position.getValue = vi.fn(() => {
+      throw setupFailure
+    })
+
+    expect(() => sceneTree.applyRestoreSubtree(plan)).toThrow(setupFailure)
+    expect(workspace.get('children')).toEqual([])
+    expect(sceneTree.getElementById('accepted-active-subtree')).toBeUndefined()
+    expect(
+      sceneTree.getElementById('accepted-active-subtree-child')
+    ).toBeUndefined()
+    expect(
+      sceneTree._deletedMap.get('accepted-active-subtree')?.get('parentId')
+    ).toBe('')
+    expect(
+      sceneTree._deletedMap
+        .get('accepted-active-subtree-child')
+        ?.get('parentId')
+    ).toBe('')
   })
 })

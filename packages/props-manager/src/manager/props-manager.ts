@@ -2940,28 +2940,7 @@ class PropsManager {
   prepareCanonicalElementTransactionEvents(
     options?: EVENT_OPTIONS
   ): readonly PreparedPropsTransactionEvent[] {
-    const preparedEvents = this.prepareTransactionEvents(options)
-    if (preparedEvents.length > 0) {
-      return preparedEvents
-    }
-
-    const payload: AddRemovePropertyChange = {
-      eventName: EventTypes.ADD_PROPERTY,
-      action: PROPS_ACTIONS.ADD_PROPERTY,
-      undoType: EventTypes.REMOVE_PROPERTY,
-      undoAction: EventTypes.REMOVE_PROPERTY,
-      data: []
-    }
-    return [
-      {
-        eventName: payload.eventName,
-        payload,
-        options: {
-          ...(options ?? {}),
-          shared: options?.shared ?? SharedDataChannelNames.PROPS
-        }
-      }
-    ]
+    return this.prepareTransactionEvents(options)
   }
 
   createCanonicalPropertyDeliveryRecords(

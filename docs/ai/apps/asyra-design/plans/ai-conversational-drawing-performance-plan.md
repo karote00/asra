@@ -152,14 +152,16 @@ validated AI descriptor
   `addNewElementsFromCanonicalDataUsingActiveProperties`. An active transaction
   owner must atomically accept canonical batch evidence; this is a capability
   invariant, not a caller-identity policy.
-- Removal follows the same lifecycle rule. Ordinary `removeElement`/
-  `removeElements` owns complete element and property cleanup. Retained
+- Removal follows the same lifecycle rule. Ordinary `removeElement` owns
+  complete element and property cleanup, while `removeSubtree` owns a complete
+  container hierarchy. Retained
   history or collaboration evidence whose Props removal is carried separately
   uses `removeElementUsingActiveProperties`/
-  `removeElementsUsingActiveProperties`, preserving the source Scene-then-Props
-  evidence order without applying either owner twice. The single-item form is
-  the batch-of-one convenience, and none of these APIs is restricted by local
-  or remote origin.
+  `removeElementsUsingActiveProperties`; a complete retained container
+  hierarchy uses `removeSubtreeUsingActiveProperties`. These paths preserve the
+  source Scene-then-Props evidence order without applying either owner twice.
+  The single-element form is the batch-of-one convenience, and none of these
+  APIs is restricted by local or remote origin.
 - Retained removal and restore preflight the complete Scene, Props,
   relationship, parent-index, ID, and tombstone evidence before apply. A later
   invalid item leaves no Scene, property, relationship, registry, tombstone,

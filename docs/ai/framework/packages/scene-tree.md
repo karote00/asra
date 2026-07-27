@@ -101,6 +101,33 @@ rejects an owner that can accept only a prefix because partial Factory journal
 evidence cannot be made equivalent to the successful canonical mutation. This
 capability check applies equally to local, remote, replay, and test owners.
 
+### Removal API Selection
+
+Removal APIs are also selected by the property lifecycle, not by caller
+origin:
+
+- `removeElement(...)` owns ordinary element removal and complete property
+  cleanup. Container deletion that owns a complete hierarchy uses
+  `removeSubtree(...)`.
+- `removeElementsUsingActiveProperties(...)` accepts an ordered batch of exact
+  element, parent, and index evidence when a separate retained Props batch owns
+  property removal. It preflights the complete batch, replaces each affected
+  parent list once, removes the ordered Scene entries through one Factory batch
+  handoff, and deliberately leaves referenced properties active.
+- `removeElementUsingActiveProperties(...)` is exactly the batch-of-one
+  convenience over that same canonical owner.
+- `removeSubtreeUsingActiveProperties(...)` accepts a complete retained
+  hierarchy when its matching Props evidence is carried separately. It
+  preflights every nested Scene entry, replaces each affected parent list once,
+  and hands off one subtree event without cleaning the active properties.
+
+The active-property path is used for retained history and collaboration
+evidence only when the matching Props evidence is present. A semantic no-op is
+not successful apply evidence, Scene and Props records are not reordered, and
+a later invalid element leaves no hierarchy, map, tombstone, transaction, or
+publication prefix. These APIs remain available to local, remote, replay, and
+test callers without origin guards.
+
 ## Extension Points
 
 - register component/entity definitions

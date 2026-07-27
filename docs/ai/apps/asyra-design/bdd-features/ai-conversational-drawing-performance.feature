@@ -49,8 +49,10 @@ Feature: Conversational AI drawing performance
     Given ordinary removal owns complete property cleanup
     And retained history or collaboration evidence carries Scene and Props removal separately
     When a client chooses the matching Scene Tree removal API
-    Then ordinary data should use "removeElement" or "removeElements"
+    Then ordinary element data should use "removeElement"
+    And an ordinary complete container hierarchy should use "removeSubtree"
     And retained Scene evidence with active properties should use "removeElementUsingActiveProperties" or "removeElementsUsingActiveProperties"
+    And a retained complete container hierarchy should use "removeSubtreeUsingActiveProperties"
     And the single active-property removal API should use the same batch-of-one canonical path
     And retained removal and restore should preflight exact Scene, Props, relationship, parent index, id, and tombstone evidence
     And a later invalid item should leave no committed canonical, history-readiness, or publication prefix

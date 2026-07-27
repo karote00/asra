@@ -167,6 +167,10 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       SharedDataChannelNames.SCENE_TREE,
       channel
     )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
     )
@@ -176,11 +180,13 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     add('target', CONTAINER_TYPE, root)
     const moved = add('moved', LEAF_TYPE, root)
     const subtree = add('subtree', CONTAINER_TYPE, root) as GroupInstanceTypes
-    const firstChild = add('first-child', LEAF_TYPE, subtree)
+    const firstChild = add('first-child', CANONICAL_LEAF_TYPE, subtree)
     const nested = add('nested', CONTAINER_TYPE, subtree) as GroupInstanceTypes
     const grandchild = add('grandchild', LEAF_TYPE, nested)
     const originalRootOrder = childrenOf(sceneTree.workspace)
     const originalSubtreeOrder = childrenOf('subtree')
+    const originalProps = propsManager.save()
+    expect(Object.keys(originalProps).length).toBeGreaterThan(0)
 
     runWithTransactionOwner(factory.getTransactionOwner(), () => {
       runTransaction(() => {
@@ -195,8 +201,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
     expect(childrenOf(sceneTree.workspace)).toEqual(['target'])
     expect(childrenOf('target')).toEqual(['moved'])
+    expect(propsManager.save()).toEqual({})
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(2)
+    expect(publications[0]?.deliveries).toHaveLength(3)
 
     factory.undo()
 
@@ -209,6 +216,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(sceneTree.getElementById('first-child')).toBe(firstChild)
     expect(sceneTree.getElementById('nested')).toBe(nested)
     expect(sceneTree.getElementById('grandchild')).toBe(grandchild)
+    expect(propsManager.save()).toEqual(originalProps)
     expect(publications).toHaveLength(2)
     expect(publications[1]?.origin).toBe('undo')
 
@@ -220,8 +228,23 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(sceneTree.getElementById('first-child')).toBeUndefined()
     expect(sceneTree.getElementById('nested')).toBeUndefined()
     expect(sceneTree.getElementById('grandchild')).toBeUndefined()
+    expect(propsManager.save()).toEqual({})
     expect(publications).toHaveLength(3)
     expect(publications[2]?.origin).toBe('redo')
+
+    factory.undo()
+
+    expect(childrenOf(sceneTree.workspace)).toEqual(originalRootOrder)
+    expect(childrenOf('target')).toEqual([])
+    expect(childrenOf('subtree')).toEqual(originalSubtreeOrder)
+    expect(childrenOf('nested')).toEqual(['grandchild'])
+    expect(sceneTree.getElementById('subtree')).toBe(subtree)
+    expect(sceneTree.getElementById('first-child')).toBe(firstChild)
+    expect(sceneTree.getElementById('nested')).toBe(nested)
+    expect(sceneTree.getElementById('grandchild')).toBe(grandchild)
+    expect(propsManager.save()).toEqual(originalProps)
+    expect(publications).toHaveLength(4)
+    expect(publications[3]?.origin).toBe('undo')
 
     factory.transact.reset()
   })
@@ -286,6 +309,8 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
   it('keeps public-facade Group and children on one outer transaction handle and history action', () => {
     const factory = new Factory()
+    const statuses: TransactionStatusPayload[] = []
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
     factory.registerSharedDataChannel(
       SharedDataChannelNames.PROPS,
       new LocalSharedDataChannel()
@@ -301,6 +326,10 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     const core = createCoreFacade(factory)
     const batchCore = core as CanonicalElementBatchCoreContract
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const childIds = Array.from(
+      { length: 16 },
+      (_, index) => `facade-child-${index + 1}`
+    )
     let result: CanonicalElementBatchResult | undefined
 
     runWithTransactionOwner(factory.getTransactionOwner(), () => {
@@ -310,17 +339,17 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
           root.get('id')
         )
         result = batchCore.createElementsInParentBatch(
-          [
-            { id: 'facade-child-1', type: LEAF_TYPE, x: 0, y: 0 },
-            { id: 'facade-child-2', type: LEAF_TYPE, x: 0, y: 0 }
-          ],
+          childIds.map((id, index) => ({
+            id,
+            type: CANONICAL_LEAF_TYPE,
+            value: index + 1,
+            x: 0,
+            y: 0
+          })),
           groupId
         )
 
-        expect(result.orderedElementIds).toEqual([
-          'facade-child-1',
-          'facade-child-2'
-        ])
+        expect(result.orderedElementIds).toEqual(childIds)
         expect(result.deliveryHandle.artifact).toBeNull()
         expect(artifacts).toEqual([])
       })
@@ -344,48 +373,50 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
           })) ?? []
       )
     ).toEqual([
-      { channel: SharedDataChannelNames.PROPS, orderedIds: ['facade-group'] },
       {
         channel: SharedDataChannelNames.SCENE_TREE,
         orderedIds: ['facade-group']
       },
-      {
+      ...childIds.map((id) => ({
         channel: SharedDataChannelNames.PROPS,
-        orderedIds: ['facade-child-1']
-      },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        orderedIds: ['facade-child-2']
-      },
-      {
+        orderedIds: [id]
+      })),
+      ...childIds.map((id) => ({
         channel: SharedDataChannelNames.SCENE_TREE,
-        orderedIds: ['facade-child-1']
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        orderedIds: ['facade-child-2']
-      }
+        orderedIds: [id]
+      }))
     ])
     expect(childrenOf(sceneTree.workspace)).toEqual(['facade-group'])
-    expect(childrenOf('facade-group')).toEqual([
-      'facade-child-1',
-      'facade-child-2'
-    ])
+    expect(childrenOf('facade-group')).toEqual(childIds)
+    const committedProps = propsManager.save()
+    expect(Object.keys(committedProps).length).toBeGreaterThan(0)
+    expect(statuses.at(-1)).toMatchObject({
+      origin: 'action',
+      status: 'committed'
+    })
 
     factory.undo()
 
     expect(childrenOf(sceneTree.workspace)).toEqual([])
     expect(sceneTree.getElementById('facade-group')).toBeUndefined()
-    expect(sceneTree.getElementById('facade-child-1')).toBeUndefined()
-    expect(sceneTree.getElementById('facade-child-2')).toBeUndefined()
+    childIds.forEach((id) =>
+      expect(sceneTree.getElementById(id)).toBeUndefined()
+    )
+    expect(propsManager.save()).toEqual({})
+    expect(statuses.at(-1)).toMatchObject({
+      origin: 'undo',
+      status: 'committed'
+    })
 
     factory.redo()
 
     expect(childrenOf(sceneTree.workspace)).toEqual(['facade-group'])
-    expect(childrenOf('facade-group')).toEqual([
-      'facade-child-1',
-      'facade-child-2'
-    ])
+    expect(childrenOf('facade-group')).toEqual(childIds)
+    expect(propsManager.save()).toEqual(committedProps)
+    expect(statuses.at(-1)).toMatchObject({
+      origin: 'redo',
+      status: 'committed'
+    })
 
     factory.transact.reset()
   })
@@ -470,8 +501,10 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     const originalFactoryUpdateTransactionBatch =
       factory.updateTransactionBatch.bind(factory)
     let factoryHandoffCount = 0
+    const factoryHandoffEventNames: string[][] = []
     factory.updateTransactionBatch = (...args) => {
       factoryHandoffCount += 1
+      factoryHandoffEventNames.push(args[0].map(({ eventName }) => eventName))
       return originalFactoryUpdateTransactionBatch(...args)
     }
     const originalAddNewElements = sceneTree.addNewElements
@@ -526,7 +559,10 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       sceneTree.addNewElements = originalAddNewElements
     }
 
-    expect(factoryHandoffCount).toBe(1)
+    expect(factoryHandoffCount).toBe(2)
+    expect(factoryHandoffEventNames.flat()).not.toContain(
+      'core-double-canonical-handoff-probe'
+    )
     expect(observedFailure).toMatchObject({
       message: expect.stringMatching(/exactly one Factory handoff/i)
     })
@@ -855,16 +891,6 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
         action: PROPS_ACTIONS.ADD_PROPERTY
       },
       {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.ADD_PROPERTY,
-        action: PROPS_ACTIONS.ADD_PROPERTY
-      },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.ADD_PROPERTY,
-        action: PROPS_ACTIONS.ADD_PROPERTY
-      },
-      {
         channel: SharedDataChannelNames.SCENE_TREE,
         eventName: EventTypes.ADD_ELEMENT,
         action: SCENE_TREE_ACTIONS.ADD_ELEMENT
@@ -883,10 +909,10 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       ).data
     ).toEqual(properties)
     expect(
-      publications[0]?.deliveries.slice(1, 3).map(({ payload }) => {
-        return (payload as { data: readonly PropertyComponentRawData[] }).data
-      })
-    ).toEqual([[], []])
+      publications[0]?.deliveries.filter(
+        ({ channel }) => channel === SharedDataChannelNames.PROPS
+      )
+    ).toHaveLength(1)
 
     factory.undo()
     expect(childrenOf(sceneTree.workspace)).toEqual([])

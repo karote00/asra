@@ -154,6 +154,7 @@
         'Public creation API choice follows data lifecycle rather than origin: ordinary descriptors use addNewElement or addNewElements, detached canonical snapshots use addNewElementsFromCanonicalData, and canonical data whose property owners are already active uses addNewElementsFromCanonicalDataUsingActiveProperties.',
         'No creation API is restricted by local or remote origin; an active transaction owner must instead atomically accept the canonical batch evidence.',
         'Ordinary removal owns complete property cleanup, while canonical removal with active properties uses removeElementUsingActiveProperties or removeElementsUsingActiveProperties when separate retained Props evidence owns property removal.',
+        'A complete retained container hierarchy uses removeSubtreeUsingActiveProperties so the hierarchy is preflighted, mutated, and handed off once while its separate retained Props evidence remains active.',
         'The single removeElementUsingActiveProperties API is exactly the batch-of-one convenience for removeElementsUsingActiveProperties.',
         'Retained removal and restore preflight the complete Scene, Props, relationship, parent-index, ID, and tombstone evidence before apply so a later invalid item leaves no committed prefix.',
         'No removal API is restricted by local or remote origin; callers choose by property lifecycle and exact evidence ownership.'

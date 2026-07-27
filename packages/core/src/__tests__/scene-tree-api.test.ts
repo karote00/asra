@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
+import type { CanonicalElementRemoval } from '@asyra/scene-tree'
 import {
   EventTypes,
   subscribeToAddElement,
@@ -43,8 +44,19 @@ type LegacyBatchExtensionContract = Pick<
   | 'createElementsInParentFromCanonicalDataUsingActiveProperties'
 >
 
+type RetainedLifecycleExtensionContract = Pick<
+  CoreExtensionAPIs,
+  | 'removeSubtreeUsingActiveProperties'
+  | 'removeElementUsingActiveProperties'
+  | 'removeElementsUsingActiveProperties'
+>
+
 const acceptBatchExtensionContract = (apis: LegacyBatchExtensionContract) =>
   apis
+
+const acceptRetainedLifecycleExtensionContract = (
+  apis: RetainedLifecycleExtensionContract
+) => apis
 
 const deliveryHandle: FactoryMutationBatchDeliveryHandle = {
   artifactId: 'factory-artifact-1',
@@ -72,6 +84,16 @@ const createRequests = (): SceneTreeRequests &
     removed: [],
     rootParentChildrenAfter: []
   })),
+  removeSubtreeUsingActiveProperties: vi.fn((elementId: string) => ({
+    elementId,
+    removed: [],
+    rootParentChildrenAfter: []
+  })),
+  removeElementUsingActiveProperties: vi.fn(() => true),
+  removeElementsUsingActiveProperties: vi.fn(
+    (removals: readonly CanonicalElementRemoval[]) =>
+      removals.map(({ data }) => data.id)
+  ),
   preflightRestoreSubtree: vi.fn(),
   applyRestoreSubtree: vi.fn(),
   createElements: vi.fn((data: readonly CreateElementData[]) => ({
@@ -99,6 +121,21 @@ const createRequests = (): SceneTreeRequests &
 })
 
 describe('createSceneTreeAPIs hierarchy facade', () => {
+  it('keeps every retained-property removal lifecycle API on the public Core extension contract', () => {
+    const apis = createSceneTreeAPIs(createRequests())
+    const retainedApis = acceptRetainedLifecycleExtensionContract(apis)
+
+    expect(retainedApis.removeSubtreeUsingActiveProperties).toBe(
+      apis.removeSubtreeUsingActiveProperties
+    )
+    expect(retainedApis.removeElementUsingActiveProperties).toBe(
+      apis.removeElementUsingActiveProperties
+    )
+    expect(retainedApis.removeElementsUsingActiveProperties).toBe(
+      apis.removeElementsUsingActiveProperties
+    )
+  })
+
   it('delegates ID-based element creation through the canonical batch-of-one owner', () => {
     const requests = createRequests()
     const apis = createSceneTreeAPIs(requests)
@@ -565,6 +602,55 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     expect(requests.removeSubtree).toHaveBeenCalledWith('group-1', {
       rollbackable: false
     })
+  })
+
+  it('delegates exact active-property removal evidence to the matching Scene Tree owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const removals = [
+      {
+        data: {
+          id: 'element-1',
+          type: 'rect',
+          name: 'Element 1',
+          parentId: 'group-1',
+          visible: true,
+          lock: false,
+          props: {
+            position: 'element-1-position',
+            dimension: 'element-1-dimension'
+          }
+        },
+        parentId: 'group-1',
+        index: 0
+      }
+    ] satisfies readonly CanonicalElementRemoval[]
+
+    expect(
+      apis.removeElementsUsingActiveProperties(removals, {
+        rollbackable: false
+      })
+    ).toEqual(['element-1'])
+    expect(requests.removeElementsUsingActiveProperties).toHaveBeenCalledWith(
+      removals,
+      { rollbackable: false }
+    )
+    expect(
+      apis.removeElementUsingActiveProperties(removals[0], {
+        rollbackable: false
+      })
+    ).toBe(true)
+    expect(requests.removeElementUsingActiveProperties).toHaveBeenCalledWith(
+      removals[0],
+      { rollbackable: false }
+    )
+    apis.removeSubtreeUsingActiveProperties('group-1', {
+      rollbackable: false
+    })
+    expect(requests.removeSubtreeUsingActiveProperties).toHaveBeenCalledWith(
+      'group-1',
+      { rollbackable: false }
+    )
   })
 })
 

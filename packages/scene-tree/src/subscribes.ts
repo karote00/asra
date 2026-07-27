@@ -20,11 +20,13 @@ import {
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
+  SCENE_TREE_ACTIONS,
   setOwnEnumerableValue,
   type DataTypes,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
   type ComputedAttrs,
+  type ElementRawData,
   type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
@@ -129,7 +131,26 @@ export const initSceneTreeSubscribes = () => {
   subscribeToSynchronousEvent<RemoveElementEvent>(
     EventTypes.REMOVE_ELEMENT,
     ({ payload, options }) => {
-      const { data, parent } = payload
+      const { data, parent, parentId, index } = payload as typeof payload & {
+        parentId?: string
+        index?: number
+      }
+      if (
+        getTransactionReplayMode() !== null &&
+        typeof data.id === 'string' &&
+        typeof parentId === 'string' &&
+        Number.isInteger(index) &&
+        Number(index) >= 0
+      ) {
+        return sceneTree.removeElementUsingActiveProperties(
+          {
+            data: data as ElementRawData,
+            parentId,
+            index: Number(index)
+          },
+          options
+        )
+      }
       return sceneTree.removeElement(data, parent, options)
     }
   )
@@ -146,7 +167,11 @@ export const initSceneTreeSubscribes = () => {
 
   subscribeToSynchronousEvent<ChangeSubtreeEvent>(
     EventTypes.CHANGE_SUBTREE,
-    ({ payload, options }) => sceneTree.applySubtreeChange(payload, options)
+    ({ payload, options }) =>
+      getTransactionReplayMode() !== null &&
+      payload.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+        ? sceneTree.applySubtreeChangeUsingActiveProperties(payload, options)
+        : sceneTree.applySubtreeChange(payload, options)
   )
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
