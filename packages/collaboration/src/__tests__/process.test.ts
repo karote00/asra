@@ -11,24 +11,19 @@ import {
   type InboundPublication,
   type Provider
 } from '..'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
-const publication: SharedPublication = {
+const publication: SharedPublication = createSharedPublicationFixture({
   publicationId: 'publication-a',
   transactionId: 1,
-  origin: 'action',
-  deliveries: [
-    {
-      deliveryId: 'delivery-a',
-      transactionId: 1,
-      origin: 'action',
-      kind: 'forward',
-      channel: 'document',
-      eventName: 'set-value',
-      payload: { value: 1 },
-      sharedDelivery: 'immediate'
-    }
-  ]
-}
+  delivery: {
+    deliveryId: 'delivery-a',
+    channel: 'document',
+    eventName: 'set-value',
+    payload: { value: 1 },
+    sharedDelivery: 'immediate'
+  }
+})
 
 const publicationDelivery = (): SharedPublication['deliveries'][number] => {
   const delivery = publication.deliveries[0]
@@ -110,18 +105,17 @@ describe('Collaboration ownership, processing, and disposal', () => {
     const outcomes: unknown[] = []
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
     await instance.start()
-    const secondPublication: SharedPublication = {
-      ...publication,
+    const secondPublication = createSharedPublicationFixture({
       publicationId: 'publication-b',
       transactionId: 2,
-      deliveries: [
-        {
-          ...publicationDelivery(),
-          deliveryId: 'delivery-b',
-          transactionId: 2
-        }
-      ]
-    }
+      delivery: {
+        deliveryId: 'delivery-b',
+        channel: 'document',
+        eventName: 'set-value',
+        payload: { value: 2 },
+        sharedDelivery: 'immediate'
+      }
+    })
 
     subscriber?.(publication)
     subscriber?.(secondPublication)

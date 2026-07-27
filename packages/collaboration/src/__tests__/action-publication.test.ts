@@ -6,6 +6,7 @@ import {
 } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import { createCollaboration, MemoryHub, MemoryProvider } from '..'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const CHANNEL = 'document'
 const SET_VALUE = 'set-value'
@@ -64,23 +65,18 @@ const createFactoryHarness = () => {
   return { factory, instance, provider, sendPublication, update }
 }
 
-const publication = (): SharedPublication => ({
-  publicationId: 'publication-a',
-  transactionId: 1,
-  origin: 'action',
-  deliveries: [
-    {
+const publication = (): SharedPublication =>
+  createSharedPublicationFixture({
+    publicationId: 'publication-a',
+    transactionId: 1,
+    delivery: {
       deliveryId: 'delivery-a',
-      transactionId: 1,
-      origin: 'action',
-      kind: 'forward',
       channel: CHANNEL,
       eventName: SET_VALUE,
       payload: { id: 'element-a', before: 0, after: 1 },
       sharedDelivery: 'immediate'
     }
-  ]
-})
+  })
 
 describe('Collaboration publication handoff', () => {
   it('sends one intact ordered publication for one immediate Factory action', async () => {

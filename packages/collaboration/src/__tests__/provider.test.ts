@@ -2,6 +2,7 @@ import type { SharedPublication } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import { PROVIDER_FAILURE_CODES, isProviderFailureCode } from '../provider'
 import { MemoryHub, MemoryProvider } from '../providers/memory'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const identity = (actorId: string, roomId = 'room-a') => ({
   documentId: 'document-a',
@@ -10,26 +11,18 @@ const identity = (actorId: string, roomId = 'room-a') => ({
   connectionMetadata: { token: `token-for-${actorId}` }
 })
 
-const publication = (
-  publicationId: string,
-  value: number
-): SharedPublication => ({
-  publicationId,
-  transactionId: value,
-  origin: 'action',
-  deliveries: [
-    {
+const publication = (publicationId: string, value: number): SharedPublication =>
+  createSharedPublicationFixture({
+    publicationId,
+    transactionId: value,
+    delivery: {
       deliveryId: `${publicationId}:delivery`,
-      transactionId: value,
-      origin: 'action',
-      kind: 'forward',
       channel: 'scene',
       eventName: 'set-value',
       payload: { value },
       sharedDelivery: 'immediate'
     }
-  ]
-})
+  })
 
 describe('replaceable collaboration Provider contract', () => {
   it('owns one frozen runtime registry for Provider failure codes', () => {

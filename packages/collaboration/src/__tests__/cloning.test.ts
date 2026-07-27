@@ -1,6 +1,6 @@
-import type { SharedPublication } from '@asyra/factory'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clonePublication } from '../cloning'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const profilerGlobal = globalThis as typeof globalThis & {
   __asyraBrowserDragPhaseSink?: (phaseName: string, durationMs: number) => void
@@ -14,23 +14,17 @@ describe('collaboration clone profiling', () => {
   it('reports detached clone timing without changing publication data', () => {
     const sink = vi.fn()
     profilerGlobal.__asyraBrowserDragPhaseSink = sink
-    const publication: SharedPublication = {
+    const publication = createSharedPublicationFixture({
       publicationId: 'publication-a',
       transactionId: 1,
-      origin: 'action',
-      deliveries: [
-        {
-          deliveryId: 'delivery-a',
-          transactionId: 1,
-          origin: 'action',
-          kind: 'forward',
-          channel: 'sceneTree',
-          eventName: 'addElement',
-          payload: { id: 'element-a' },
-          sharedDelivery: 'immediate'
-        }
-      ]
-    }
+      delivery: {
+        deliveryId: 'delivery-a',
+        channel: 'sceneTree',
+        eventName: 'addElement',
+        payload: { id: 'element-a' },
+        sharedDelivery: 'immediate'
+      }
+    })
 
     const cloned = clonePublication(publication)
 

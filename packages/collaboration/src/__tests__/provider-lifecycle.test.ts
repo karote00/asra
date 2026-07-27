@@ -1,13 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createProviderIdentitySnapshot, ProviderFailure } from '../provider'
 import { MemoryHub, MemoryProvider } from '../providers/memory'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
-const publication = {
+const publication = createSharedPublicationFixture({
   publicationId: 'publication-a',
   transactionId: 1,
-  origin: 'action' as const,
-  deliveries: []
-}
+  delivery: {
+    deliveryId: 'publication-a:delivery',
+    channel: 'document',
+    eventName: 'set-value',
+    payload: { value: 1 },
+    sharedDelivery: 'immediate'
+  }
+})
 
 const identity = {
   documentId: 'document-a',
