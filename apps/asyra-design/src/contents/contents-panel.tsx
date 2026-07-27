@@ -48,7 +48,8 @@ import {
 } from '../providers'
 
 const Contents: React.FC = () => {
-  const parentRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const flattenedIds = useFlattenedIdsData()
   const elementDataMap = useElementDataMap()
   const elementSelection = useElementSelection()
@@ -77,7 +78,7 @@ const Contents: React.FC = () => {
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
     getItemKey: (index) => visibleRows[index]?.id ?? index,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollRef.current,
     estimateSize: () => (ROW_HEIGHT + 2) * 4, // padding is 2
     overscan: 5
   })
@@ -156,7 +157,7 @@ const Contents: React.FC = () => {
   const clearLayerMovePresentation = useCallback((pointerId?: number) => {
     activeLayerMove.current = null
     setDropIntent(null)
-    const panel = parentRef.current
+    const panel = panelRef.current
     if (
       panel &&
       pointerId !== undefined &&
@@ -402,8 +403,8 @@ const Contents: React.FC = () => {
 
   return (
     <div
-      ref={parentRef}
-      className={`w-${COLUMN_WIDTH} z-10 overflow-y-auto flex flex-col`}
+      ref={panelRef}
+      className={`w-${COLUMN_WIDTH} z-10 overflow-hidden flex flex-col`}
       style={{
         gridArea: 'left-sidebar',
         background: '#252525',
@@ -432,7 +433,9 @@ const Contents: React.FC = () => {
 
       {/* Layers list */}
       <div
+        ref={scrollRef}
         className="flex-1 overflow-y-auto"
+        data-testid="contents-scroll-container"
         data-layer-drop-workspace="true"
         data-layer-drop-state={
           dropIntent?.kind === 'valid' && dropIntent.zone === 'workspace'
@@ -460,14 +463,14 @@ const Contents: React.FC = () => {
             position: 'relative'
           }}
         >
-          {rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const row = visibleRows[virtualRow.index]
             const elementId = row.id
 
             return (
               <div
                 key={virtualRow.key}
-                data-index={index}
+                data-index={virtualRow.index}
                 ref={rowVirtualizer.measureElement}
                 style={{
                   position: 'absolute',

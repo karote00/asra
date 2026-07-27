@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
+  const baseFlattenedIds = ['a', 'group', 'child', 'locked', 'b']
   const elementDataMap = {
     a: {
       id: 'a',
@@ -54,7 +56,11 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
+    baseElementIds: new Set(baseFlattenedIds),
+    baseFlattenedIds,
     elementDataMap,
+    flattenedIds: [...baseFlattenedIds],
+    useRealVirtualizer: false,
     selection: new Set<string>(),
     elementAtPoint: null as Element | null,
     start: vi.fn(),
@@ -66,26 +72,46 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getTotalSize: () => count * 34,
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        key: index,
-        index,
-        start: index * 34
-      })),
-    measureElement: vi.fn()
-  })
-}))
+vi.mock('@tanstack/react-virtual', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tanstack/react-virtual')>()
+  const useVirtualizer = (
+    options: Parameters<typeof actual.useVirtualizer>[0]
+  ) => {
+    const realVirtualizer = actual.useVirtualizer(options)
+    if (mocks.useRealVirtualizer) {
+      return realVirtualizer
+    }
+    return {
+      getTotalSize: () => options.count * 34,
+      getVirtualItems: () =>
+        Array.from({ length: options.count }, (_, index) => ({
+          key: index,
+          index,
+          start: index * 34
+        })),
+      measureElement: vi.fn()
+    }
+  }
+
+  return {
+    ...actual,
+    useVirtualizer
+  }
+})
 
 vi.mock('../../providers', () => ({
-  useFlattenedIdsData: () => ['a', 'group', 'child', 'locked', 'b'],
+  useFlattenedIdsData: () => mocks.flattenedIds,
   useElementDataMap: () => mocks.elementDataMap,
   useElementSelection: () => mocks.selection,
   useHoveredElementId: () => null,
-  useElementData: (elementId: keyof typeof mocks.elementDataMap) =>
-    mocks.elementDataMap[elementId],
+  useElementData: (elementId: string) =>
+    (
+      mocks.elementDataMap as Record<
+        string,
+        (typeof mocks.elementDataMap)[keyof typeof mocks.elementDataMap]
+      >
+    )[elementId],
   useVectorIconPathMap: () => null
 }))
 
@@ -124,9 +150,21 @@ vi.mock('@asyra/design-system', async (importOriginal) => {
 
 import Contents from '../contents-panel'
 
+const resetLayerFixture = () => {
+  mocks.flattenedIds = [...mocks.baseFlattenedIds]
+  mocks.selection.clear()
+  mocks.useRealVirtualizer = false
+  for (const elementId of Object.keys(mocks.elementDataMap)) {
+    if (!mocks.baseElementIds.has(elementId)) {
+      Reflect.deleteProperty(mocks.elementDataMap, elementId)
+    }
+  }
+}
+
 describe('Layers pointer hierarchy presentation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetLayerFixture()
     class TestPointerEvent extends MouseEvent {
       pointerId: number
 
@@ -149,6 +187,7 @@ describe('Layers pointer hierarchy presentation', () => {
 
   afterEach(() => {
     cleanup()
+    resetLayerFixture()
   })
 
   it('keeps Group and Ungroup command buttons out of the Layers header', () => {
@@ -275,5 +314,178 @@ describe('Layers pointer hierarchy presentation', () => {
     })
     expect(mocks.start).toHaveBeenCalledTimes(1)
     expect(lockedTarget.dataset.layerDragEligible).toBe('false')
+  })
+
+  it('keeps the final canonical row reachable across real virtualizer collapse and expansion', async () => {
+    const originalOffsetHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'offsetHeight'
+    )
+    const originalOffsetWidth = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'offsetWidth'
+    )
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() {
+        if (this.getAttribute('data-testid') === 'contents-panel') {
+          return 400
+        }
+        if (this.getAttribute('data-layer-drop-workspace') === 'true') {
+          return 160
+        }
+        if (this.hasAttribute('data-index')) {
+          return 32
+        }
+        return 0
+      }
+    })
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() {
+        return 240
+      }
+    })
+
+    const largeIds = Array.from({ length: 128 }, (_, index) => `item-${index}`)
+    const groupId = largeIds[0]
+    const childIds = largeIds.slice(1, 9)
+    Object.assign(
+      mocks.elementDataMap,
+      Object.fromEntries(
+        largeIds.map((id, index) => {
+          if (id === groupId) {
+            return [
+              id,
+              {
+                id,
+                name: `Item ${index}`,
+                type: 'group',
+                parentId: 'workspace',
+                children: childIds,
+                lock: false,
+                visible: true
+              }
+            ]
+          }
+          return [
+            id,
+            {
+              id,
+              name: `Item ${index}`,
+              type: 'element',
+              parentId: childIds.includes(id) ? groupId : 'workspace',
+              lock: false,
+              visible: true
+            }
+          ]
+        })
+      )
+    )
+    mocks.flattenedIds = largeIds
+    mocks.selection.clear()
+    mocks.useRealVirtualizer = true
+
+    try {
+      render(<Contents />)
+
+      const panel = screen.getByTestId('contents-panel')
+      const scrollElement = panel.querySelector<HTMLElement>(
+        '[data-layer-drop-workspace="true"]'
+      )
+      expect(scrollElement).not.toBeNull()
+
+      await waitFor(() => {
+        const mountedRows = panel.querySelectorAll(
+          '[data-layer-element="true"]'
+        )
+        expect(mountedRows.length).toBeGreaterThan(0)
+        expect(mountedRows.length).toBeLessThan(40)
+      })
+
+      const getTotalSize = () =>
+        Number.parseFloat(
+          scrollElement?.firstElementChild
+            ?.getAttribute('style')
+            ?.match(/height:\s*([0-9.]+)px/)?.[1] ?? '0'
+        )
+      const scrollTo = (scrollTop: number) => {
+        act(() => {
+          if (!scrollElement) {
+            return
+          }
+          scrollElement.scrollTop = scrollTop
+          scrollElement.dispatchEvent(new Event('scroll', { bubbles: false }))
+        })
+      }
+      const scrollToTail = async (expectedVirtualIndex: number) => {
+        scrollTo(getTotalSize() - 160)
+        const finalRow = await screen.findByTestId('element-item-item-127')
+        expect(
+          finalRow.closest('[data-index]')?.getAttribute('data-index')
+        ).toBe(String(expectedVirtualIndex))
+        expect(
+          panel.querySelectorAll('[data-layer-element="true"]').length
+        ).toBeLessThan(40)
+        return finalRow
+      }
+
+      const expandedTotalSize = getTotalSize()
+      expect(expandedTotalSize).toBeGreaterThan(160)
+      await scrollToTail(127)
+
+      scrollTo(0)
+      const groupToggle = await screen.findByTestId(
+        `layers-group-toggle-${groupId}`
+      )
+      fireEvent.click(groupToggle)
+      await waitFor(() =>
+        expect(groupToggle.getAttribute('aria-expanded')).toBe('false')
+      )
+      expect(screen.queryByTestId('element-item-item-1')).toBeNull()
+      await waitFor(() =>
+        expect(getTotalSize()).toBeLessThan(expandedTotalSize)
+      )
+      const collapsedTotalSize = getTotalSize()
+      await scrollToTail(119)
+
+      scrollTo(0)
+      const collapsedGroupToggle = await screen.findByTestId(
+        `layers-group-toggle-${groupId}`
+      )
+      fireEvent.click(collapsedGroupToggle)
+      await waitFor(() =>
+        expect(collapsedGroupToggle.getAttribute('aria-expanded')).toBe('true')
+      )
+      await waitFor(() =>
+        expect(getTotalSize()).toBeGreaterThan(collapsedTotalSize)
+      )
+      const finalRow = await scrollToTail(127)
+      expect(
+        panel.querySelectorAll('[data-layer-element="true"]').length
+      ).toBeLessThan(40)
+
+      fireEvent.click(finalRow)
+      expect(mocks.selectElements).toHaveBeenCalledWith(['item-127'])
+    } finally {
+      if (originalOffsetHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'offsetHeight',
+          originalOffsetHeight
+        )
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'offsetHeight')
+      }
+      if (originalOffsetWidth) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'offsetWidth',
+          originalOffsetWidth
+        )
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'offsetWidth')
+      }
+    }
   })
 })
