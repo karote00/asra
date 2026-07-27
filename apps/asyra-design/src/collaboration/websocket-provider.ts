@@ -19,13 +19,16 @@ import {
   CollaborationMessageTypes,
   decodeCollaborationControlMessage,
   encodeCollaborationControlMessage,
+  inspectPublicationFrameHeader,
   parseCollaborationServerMessage,
   type CollaborationHelloMessage,
   type FrameConsumedRequest,
+  type PublicationFrameHeader,
   type CollaborationRequestInput,
   type CollaborationRequestMessage,
   type PublicationFrameMessage,
-  type CollaborationServerMessage
+  type CollaborationServerMessage,
+  type SourceFrameAdmittedMessage
 } from './protocol'
 import type {
   PublicationCodecWorkerRequest,
@@ -106,6 +109,33 @@ interface PendingRequest {
   reject(error: unknown): void
 }
 
+type OutboundPublicationRequestMessage = Extract<
+  CollaborationRequestMessage,
+  {
+    type:
+      | typeof CollaborationMessageTypes.SEND_PUBLICATION
+      | typeof CollaborationMessageTypes.SEND_PUBLICATIONS
+  }
+>
+
+interface OutboundPublicationRequest {
+  readonly requestId: string
+  readonly generation: number
+  frames?: (ArrayBuffer | undefined)[]
+  frameCount: number
+  nextFrameIndex: number
+  state:
+    | 'encoding'
+    | 'queued'
+    | 'awaiting-frame-admission'
+    | 'awaiting-final-response'
+}
+
+interface OutboundPublicationFrameInFlight {
+  readonly request: OutboundPublicationRequest
+  readonly header: PublicationFrameHeader
+}
+
 interface PendingCodecEncode {
   readonly kind: 'encode'
   resolve(frames: readonly ArrayBuffer[]): void
@@ -161,7 +191,7 @@ const toFailure = (
 
 export class CollaborationWebSocketProvider implements Provider {
   readonly identity: ProviderIdentity
-  readonly maxConcurrentPublicationSends = 16
+  readonly maxConcurrentPublicationSends = 1
   readonly maxPublicationsPerSend = 4
 
   private readonly endpoint: string
@@ -180,6 +210,15 @@ export class CollaborationWebSocketProvider implements Provider {
   private readonly inboundFrames: ArrayBuffer[] = []
   private activeInboundCodecJobId: string | null = null
   private readonly pendingRequests = new Map<string, PendingRequest>()
+  private readonly outboundPublicationRequests = new Map<
+    string,
+    OutboundPublicationRequest
+  >()
+  private readonly outboundPublicationQueue: OutboundPublicationRequest[] = []
+  private activeOutboundPublicationRequest: OutboundPublicationRequest | null =
+    null
+  private outboundPublicationFrameInFlight: OutboundPublicationFrameInFlight | null =
+    null
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
   private readonly publicationSubscribers = new Set<
     Subscriber<InboundPublication>
@@ -560,24 +599,22 @@ export class CollaborationWebSocketProvider implements Provider {
   private async request(input: CollaborationRequestInput): Promise<unknown> {
     this.requireConnected()
     const requestId = `${this.identity.actorId}:${++this.requestSequence}`
-    const socket = this.socket as WebSocket
     const message: CollaborationRequestMessage = {
       ...input,
       requestId
     }
+    if (
+      message.type === CollaborationMessageTypes.SEND_PUBLICATION ||
+      message.type === CollaborationMessageTypes.SEND_PUBLICATIONS
+    ) {
+      return this.requestPublication(message)
+    }
+    const socket = this.socket as WebSocket
     let encodedMessages: readonly (string | ArrayBuffer)[]
     try {
       encodedMessages = await measureBrowserDragAsyncPhase(
         'collaboration:outbound-encode',
-        async () => {
-          if (
-            message.type === CollaborationMessageTypes.SEND_PUBLICATION ||
-            message.type === CollaborationMessageTypes.SEND_PUBLICATIONS
-          ) {
-            return this.encodePublicationRequest(message)
-          }
-          return [encodeCollaborationControlMessage(message)]
-        }
+        async () => [encodeCollaborationControlMessage(message)]
       )
     } catch (error) {
       if (error instanceof ProviderFailure) throw error
@@ -612,6 +649,223 @@ export class CollaborationWebSocketProvider implements Provider {
         reject(toFailure('transport-failed', String(error)))
       }
     })
+  }
+
+  private requestPublication(
+    message: OutboundPublicationRequestMessage
+  ): Promise<unknown> {
+    const request: OutboundPublicationRequest = {
+      requestId: message.requestId,
+      generation: this.connectionGeneration,
+      frameCount: 0,
+      nextFrameIndex: 0,
+      state: 'encoding'
+    }
+    this.outboundPublicationRequests.set(request.requestId, request)
+    this.outboundPublicationQueue.push(request)
+
+    const settlement = new Promise((resolve, reject) => {
+      this.pendingRequests.set(request.requestId, { resolve, reject })
+    })
+
+    void measureBrowserDragAsyncPhase('collaboration:outbound-encode', () =>
+      this.encodePublicationRequest(message)
+    ).then(
+      (frames) => {
+        if (
+          request.generation !== this.connectionGeneration ||
+          !this.outboundPublicationRequests.has(request.requestId)
+        ) {
+          return
+        }
+        request.frames = [...frames]
+        request.frameCount = frames.length
+        request.state = 'queued'
+        emitDiagnosticCounter(
+          'collaboration:outbound-encoded-byte-length',
+          frames.reduce((total, frame) => total + frame.byteLength, 0)
+        )
+        this.pumpOutboundPublicationFrame()
+      },
+      (error: unknown) => {
+        if (!this.outboundPublicationRequests.has(request.requestId)) return
+        const failure =
+          error instanceof ProviderFailure
+            ? error
+            : new ProviderFailure(
+                'transport-failed',
+                '[collaboration] publication encode failed',
+                error
+              )
+        this.rejectOutboundPublicationRequest(request, failure)
+      }
+    )
+
+    return settlement
+  }
+
+  private pumpOutboundPublicationFrame(): void {
+    if (this.outboundPublicationFrameInFlight) return
+
+    let request = this.activeOutboundPublicationRequest
+    if (!request) {
+      request = this.outboundPublicationQueue[0] ?? null
+      if (!request || request.state === 'encoding') return
+      this.activeOutboundPublicationRequest = request
+    }
+    if (
+      request.state === 'encoding' ||
+      request.state === 'awaiting-frame-admission' ||
+      request.state === 'awaiting-final-response'
+    ) {
+      return
+    }
+
+    const frame = request.frames?.[request.nextFrameIndex]
+    if (!frame) {
+      this.failSourceFrameAdmission(
+        '[collaboration] publication frame lane is incomplete'
+      )
+      return
+    }
+
+    let header: PublicationFrameHeader
+    try {
+      header = inspectPublicationFrameHeader(frame)
+    } catch (error) {
+      this.rejectOutboundPublicationRequest(
+        request,
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] encoded publication frame is invalid',
+          error
+        )
+      )
+      return
+    }
+    if (header.requestId !== request.requestId) {
+      this.rejectOutboundPublicationRequest(
+        request,
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] encoded publication frame request does not match'
+        )
+      )
+      return
+    }
+
+    const socket = this.socket
+    if (
+      request.generation !== this.connectionGeneration ||
+      this.status !== 'connected' ||
+      !socket ||
+      socket.readyState !== WebSocket.OPEN
+    ) {
+      this.rejectOutboundPublicationRequest(
+        request,
+        new ProviderFailure(
+          'not-connected',
+          '[collaboration] provider disconnected before publication send'
+        )
+      )
+      return
+    }
+
+    request.state = 'awaiting-frame-admission'
+    this.outboundPublicationFrameInFlight = { request, header }
+    try {
+      measureBrowserDragPhase('collaboration:outbound-wire-send', () => {
+        socket.send(frame)
+      })
+    } catch (error) {
+      this.outboundPublicationFrameInFlight = null
+      this.rejectOutboundPublicationRequest(
+        request,
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] publication frame send failed',
+          error
+        )
+      )
+    }
+  }
+
+  private handleSourceFrameAdmitted(message: SourceFrameAdmittedMessage): void {
+    const inFlight = this.outboundPublicationFrameInFlight
+    if (
+      !inFlight ||
+      message.requestId !== inFlight.header.requestId ||
+      message.frameId !== inFlight.header.frameId ||
+      message.publicationId !== inFlight.header.publicationId ||
+      message.frameByteLength !== inFlight.header.frameByteLength
+    ) {
+      this.failSourceFrameAdmission(
+        '[collaboration] source frame admission credit does not match'
+      )
+      return
+    }
+
+    const request = inFlight.request
+    this.outboundPublicationFrameInFlight = null
+    if (request.frames) {
+      request.frames[request.nextFrameIndex] = undefined
+    }
+    request.nextFrameIndex += 1
+    if (request.nextFrameIndex === request.frameCount) {
+      request.state = 'awaiting-final-response'
+      return
+    }
+    request.state = 'queued'
+    this.pumpOutboundPublicationFrame()
+  }
+
+  private failSourceFrameAdmission(message: string): void {
+    const failure = new ProviderFailure('acknowledgement-failed', message)
+    this.rejectPending(failure)
+    if (
+      this.status !== 'disposed' &&
+      this.status !== 'disconnected' &&
+      this.status !== 'failed'
+    ) {
+      this.setStatus('failed')
+      this.emit(this.failureSubscribers, failure)
+    }
+    const socket = this.socket
+    if (socket && socket.readyState !== WebSocket.CLOSED) {
+      socket.close(1002, 'source frame admission failed')
+    }
+  }
+
+  private rejectOutboundPublicationRequest(
+    request: OutboundPublicationRequest,
+    failure: ProviderFailure
+  ): void {
+    const pending = this.pendingRequests.get(request.requestId)
+    this.pendingRequests.delete(request.requestId)
+    this.removeOutboundPublicationRequest(request)
+    pending?.reject(failure)
+    this.pumpOutboundPublicationFrame()
+  }
+
+  private removeOutboundPublicationRequest(
+    request: OutboundPublicationRequest
+  ): void {
+    this.outboundPublicationRequests.delete(request.requestId)
+    const queueIndex = this.outboundPublicationQueue.indexOf(request)
+    if (queueIndex >= 0) this.outboundPublicationQueue.splice(queueIndex, 1)
+    if (this.activeOutboundPublicationRequest === request) {
+      this.activeOutboundPublicationRequest = null
+    }
+    if (this.outboundPublicationFrameInFlight?.request === request) {
+      this.outboundPublicationFrameInFlight = null
+    }
+  }
+
+  private clearOutboundPublicationRequests(): void {
+    this.outboundPublicationRequests.clear()
+    this.outboundPublicationQueue.length = 0
+    this.activeOutboundPublicationRequest = null
+    this.outboundPublicationFrameInFlight = null
   }
 
   private startCodecWorker(generation: number): void {
@@ -900,15 +1154,36 @@ export class CollaborationWebSocketProvider implements Provider {
       { type: typeof CollaborationMessageTypes.READY }
     >
   ): void {
+    if (message.type === CollaborationMessageTypes.SOURCE_FRAME_ADMITTED) {
+      this.handleSourceFrameAdmitted(message)
+      return
+    }
     if (message.type === CollaborationMessageTypes.RESPONSE) {
       const pending = this.pendingRequests.get(message.requestId)
       if (!pending) return
+      const publicationRequest = this.outboundPublicationRequests.get(
+        message.requestId
+      )
+      if (
+        message.ok &&
+        publicationRequest &&
+        publicationRequest.state !== 'awaiting-final-response'
+      ) {
+        this.failSourceFrameAdmission(
+          '[collaboration] publication response arrived before source frame admission'
+        )
+        return
+      }
       this.pendingRequests.delete(message.requestId)
+      if (publicationRequest) {
+        this.removeOutboundPublicationRequest(publicationRequest)
+      }
       if (message.ok) {
         pending.resolve(undefined)
       } else {
         pending.reject(toFailure(message.error?.code, message.error?.message))
       }
+      this.pumpOutboundPublicationFrame()
       return
     }
     if (message.type === CollaborationMessageTypes.PUBLICATION) {
@@ -1036,6 +1311,7 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   private rejectPending(error: ProviderFailure): void {
+    this.clearOutboundPublicationRequests()
     this.pendingRequests.forEach(({ reject }) => reject(error))
     this.pendingRequests.clear()
   }

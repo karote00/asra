@@ -27,6 +27,7 @@ export const CollaborationMessageTypes = {
   SEND_PUBLICATIONS: 'send-publications',
   SEND_AWARENESS: 'send-awareness',
   FRAME_CONSUMED: 'frame-consumed',
+  SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
   READY: 'ready',
   RESPONSE: 'response',
   PUBLICATION: 'publication',
@@ -107,6 +108,14 @@ export interface FailedResponseMessage {
   readonly error: CollaborationFailurePayload
 }
 
+export interface SourceFrameAdmittedMessage {
+  readonly type: typeof CollaborationMessageTypes.SOURCE_FRAME_ADMITTED
+  readonly requestId: string
+  readonly frameId: string
+  readonly publicationId: string
+  readonly frameByteLength: number
+}
+
 export interface PublicationMessage {
   readonly type: typeof CollaborationMessageTypes.PUBLICATION
   readonly publication: SharedPublication
@@ -149,6 +158,7 @@ export type CollaborationServerMessage =
   | ReadyMessage
   | SuccessfulResponseMessage
   | FailedResponseMessage
+  | SourceFrameAdmittedMessage
   | PublicationMessage
   | PublicationsMessage
   | AwarenessMessage
@@ -1456,6 +1466,7 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.HELLO,
   CollaborationMessageTypes.SEND_AWARENESS,
   CollaborationMessageTypes.FRAME_CONSUMED,
+  CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
   CollaborationMessageTypes.AWARENESS,
@@ -1666,6 +1677,19 @@ export const parseCollaborationServerMessage = (
         ok: false,
         error: value.error
       }
+    case CollaborationMessageTypes.SOURCE_FRAME_ADMITTED:
+      return isNonBlankString(value.requestId) &&
+        isNonBlankString(value.frameId) &&
+        isNonBlankString(value.publicationId) &&
+        isPositiveInteger(value.frameByteLength)
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            frameId: value.frameId,
+            publicationId: value.publicationId,
+            frameByteLength: value.frameByteLength
+          }
+        : undefined
     case CollaborationMessageTypes.PUBLICATION:
       return isSharedPublication(value.publication) &&
         isOptionalNonBlankString(value.fromActorId)

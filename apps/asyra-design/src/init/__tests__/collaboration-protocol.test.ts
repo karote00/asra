@@ -220,6 +220,13 @@ describe('collaboration wire protocol', () => {
         publicationId: 'publication-a',
         frameByteLength: 1_024
       },
+      {
+        type: CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
+        requestId: 'request-source-frame',
+        frameId: 'source-frame-a',
+        publicationId: 'publication-a',
+        frameByteLength: 2_048
+      },
       { type: CollaborationMessageTypes.READY },
       {
         type: CollaborationMessageTypes.RESPONSE,
@@ -1066,6 +1073,49 @@ describe('collaboration wire protocol', () => {
     }
 
     expect(parseCollaborationServerMessage(response)).toEqual(response)
+  })
+
+  it('parses exact source frame admission credit and rejects malformed credit', () => {
+    const credit: CollaborationServerMessage = {
+      type: CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
+      requestId: 'request-source-frame',
+      frameId: 'source-frame-a',
+      publicationId: 'publication-a',
+      frameByteLength: 2_048
+    }
+
+    expect(parseCollaborationServerMessage(credit)).toEqual(credit)
+    expect(
+      parseCollaborationServerMessage({
+        ...credit,
+        frameByteLength: 0
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...credit,
+        requestId: ' '
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...credit,
+        frameId: ' '
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...credit,
+        publicationId: ''
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...credit,
+        frameByteLength: 1.5
+      })
+    ).toBeUndefined()
+    expect(parseCollaborationClientMessage(credit)).toBeUndefined()
   })
 
   it('rejects blank identity fields at the wire boundary', () => {

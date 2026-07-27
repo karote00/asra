@@ -8,7 +8,8 @@ import {
   decodePublicationMessageFrames,
   encodePublicationMessageFrames,
   inspectPublicationFrameHeader,
-  isPublicationFrame
+  isPublicationFrame,
+  type PublicationFrameHeader
 } from '../../collaboration/protocol'
 import {
   PublicationCodecWorkerRuntime,
@@ -108,13 +109,15 @@ const createPublication = ({
 
 const publication = createPublication()
 
-const createTwoRecordPublication = (): SharedPublication => {
+const createTwoRecordPublication = (
+  sourceLength = 2_048
+): SharedPublication => {
   const artifactId = '4:artifact'
   const batchId = '4:batch:multi'
   const sliceId = '4:slice:multi'
   const payloads = [
-    { id: 'element-multi-a', source: 'a'.repeat(2_048) },
-    { id: 'element-multi-b', source: 'b'.repeat(2_048) }
+    { id: 'element-multi-a', source: 'a'.repeat(sourceLength) },
+    { id: 'element-multi-b', source: 'b'.repeat(sourceLength) }
   ]
   const records = payloads.map((payload, index) => {
     const deliveryId = `4:delivery:${index}`
@@ -303,7 +306,17 @@ const createLoopbackServer = async (
     socket: NodeWebSocket,
     message: ClientMessage,
     encoded: string | Uint8Array
-  ) => void
+  ) => void,
+  {
+    autoAdmitSourceFrames = true,
+    onSourceFrame
+  }: Readonly<{
+    autoAdmitSourceFrames?: boolean
+    onSourceFrame?: (
+      socket: NodeWebSocket,
+      header: PublicationFrameHeader
+    ) => void
+  }> = {}
 ): Promise<LoopbackServer> => {
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0 })
   const sockets = new Set<NodeWebSocket>()
@@ -319,6 +332,18 @@ const createLoopbackServer = async (
           encoded.byteOffset + encoded.byteLength
         ) as ArrayBuffer
         const header = inspectPublicationFrameHeader(frame)
+        onSourceFrame?.(socket, header)
+        if (autoAdmitSourceFrames && header.requestId) {
+          socket.send(
+            JSON.stringify({
+              type: 'source-frame-admitted',
+              requestId: header.requestId,
+              frameId: header.frameId,
+              publicationId: header.publicationId,
+              frameByteLength: header.frameByteLength
+            })
+          )
+        }
         const requestKey = header.requestId ?? header.frameId
         const frames = publicationFramesByRequest.get(requestKey) ?? []
         frames.push(frame)
@@ -606,6 +631,266 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('keeps one outbound publication frame in flight until exact source admission credit', async () => {
+    const headers: PublicationFrameHeader[] = []
+    let sourceSocket: NodeWebSocket | undefined
+    let completedRequestId: string | undefined
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+          return
+        }
+        if (message.type !== 'send-publication' || !message.requestId) return
+        sourceSocket = socket
+        completedRequestId = message.requestId
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (socket, header) => {
+          sourceSocket = socket
+          headers.push(header)
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const sending = provider.sendPublication(
+      createTwoRecordPublication(700_000)
+    )
+    let settled = false
+    void sending.then(
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      }
+    )
+
+    await vi.waitFor(() => expect(headers).toHaveLength(1))
+    const frameCount = headers[0]?.chunkCount ?? 0
+    expect(frameCount).toBeGreaterThan(1)
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(headers).toHaveLength(1)
+
+    for (let index = 0; index < frameCount; index += 1) {
+      await vi.waitFor(() => expect(headers.length).toBe(index + 1))
+      const header = headers[index] as PublicationFrameHeader
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'source-frame-admitted',
+          requestId: header.requestId,
+          frameId: header.frameId,
+          publicationId: header.publicationId,
+          frameByteLength: header.frameByteLength
+        })
+      )
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(settled).toBe(false)
+    await vi.waitFor(() =>
+      expect(completedRequestId).toBe(headers[0]?.requestId)
+    )
+    sourceSocket?.send(
+      JSON.stringify({
+        type: 'response',
+        requestId: completedRequestId,
+        ok: true
+      })
+    )
+    await sending
+    await provider.destroy()
+  })
+
+  it('rejects an inexact source frame admission credit and clears pending transport work', async () => {
+    let sourceSocket: NodeWebSocket | undefined
+    let firstHeader: PublicationFrameHeader | undefined
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (socket, header) => {
+          sourceSocket = socket
+          firstHeader = header
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const sending = provider
+      .sendPublication(createTwoRecordPublication(700_000))
+      .catch((error: unknown) => error)
+    await vi.waitFor(() => expect(firstHeader).toBeDefined())
+    const header = firstHeader as unknown as PublicationFrameHeader
+    sourceSocket?.send(
+      JSON.stringify({
+        type: 'source-frame-admitted',
+        requestId: header.requestId,
+        frameId: header.frameId,
+        publicationId: header.publicationId,
+        frameByteLength: header.frameByteLength + 1
+      })
+    )
+
+    expect(await sending).toMatchObject({
+      code: 'acknowledgement-failed',
+      message: '[collaboration] source frame admission credit does not match'
+    })
+    expect(provider.getStatus()).toBe('failed')
+    await provider.destroy()
+  })
+
+  it('rejects a successful response received before source frame admission', async () => {
+    const headers: PublicationFrameHeader[] = []
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (socket, header) => {
+          headers.push(header)
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: header.requestId,
+              ok: true
+            })
+          )
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+
+    await expect(
+      provider.sendPublication(createTwoRecordPublication(700_000))
+    ).rejects.toMatchObject({
+      code: 'acknowledgement-failed',
+      message:
+        '[collaboration] publication response arrived before source frame admission'
+    })
+    expect(headers).toHaveLength(1)
+    expect(provider.getStatus()).toBe('failed')
+    await provider.destroy()
+  })
+
+  it('clears active and queued publication frames when disconnected', async () => {
+    const headers: PublicationFrameHeader[] = []
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (_socket, header) => {
+          headers.push(header)
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const firstOutcome = provider
+      .sendPublication(createTwoRecordPublication(700_000))
+      .catch((error: unknown) => error)
+    const secondOutcome = provider
+      .sendPublication(createTwoRecordPublication(700_000))
+      .catch((error: unknown) => error)
+
+    await vi.waitFor(() => expect(headers).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(headers).toHaveLength(1)
+    await provider.disconnect()
+
+    expect(await firstOutcome).toMatchObject({ code: 'not-connected' })
+    expect(await secondOutcome).toMatchObject({ code: 'not-connected' })
+    expect(headers).toHaveLength(1)
+    await provider.destroy()
+  })
+
+  it('keeps JSON control requests live while a publication awaits admission', async () => {
+    const headers: PublicationFrameHeader[] = []
+    let sourceSocket: NodeWebSocket | undefined
+    let publicationRequestId: string | undefined
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+          return
+        }
+        if (message.type === 'send-awareness') {
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: message.requestId,
+              ok: true
+            })
+          )
+          return
+        }
+        if (message.type === 'send-publication') {
+          publicationRequestId = message.requestId
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (socket, header) => {
+          sourceSocket = socket
+          headers.push(header)
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const publicationSending = provider.sendPublication(
+      createTwoRecordPublication(700_000)
+    )
+
+    await vi.waitFor(() => expect(headers).toHaveLength(1))
+    await expect(
+      provider.sendAwareness({
+        actorId: 'actor-a',
+        clock: 1,
+        state: { cursor: { x: 10, y: 20 } }
+      })
+    ).resolves.toBeUndefined()
+    expect(headers).toHaveLength(1)
+
+    const frameCount = headers[0]?.chunkCount ?? 0
+    for (let index = 0; index < frameCount; index += 1) {
+      await vi.waitFor(() => expect(headers.length).toBe(index + 1))
+      const header = headers[index] as PublicationFrameHeader
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'source-frame-admitted',
+          requestId: header.requestId,
+          frameId: header.frameId,
+          publicationId: header.publicationId,
+          frameByteLength: header.frameByteLength
+        })
+      )
+    }
+    await vi.waitFor(() => expect(publicationRequestId).toBeDefined())
+    sourceSocket?.send(
+      JSON.stringify({
+        type: 'response',
+        requestId: publicationRequestId,
+        ok: true
+      })
+    )
+    await publicationSending
+    await provider.destroy()
+  })
+
   it('captures inbound frame entry before optional string byte profiling', async () => {
     let sendInbound: (() => void) | undefined
     const counterSink = vi.fn()
@@ -768,7 +1053,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
     await provider.connect()
 
-    expect(provider.maxConcurrentPublicationSends).toBe(16)
+    expect(provider.maxConcurrentPublicationSends).toBe(1)
     expect(provider.maxPublicationsPerSend).toBe(4)
     await provider.sendPublications([publication, secondPublication])
 
