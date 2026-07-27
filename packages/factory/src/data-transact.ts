@@ -599,9 +599,30 @@ class DataTransact {
           'Factory mutation delivery evidence requires one entry for each canonical event'
         )
       }
-      if (this.transactionEndDeliveryBatches !== null) {
+      if (
+        this.transactionEndDeliveryBatches !== null &&
+        events.some(
+          (event) =>
+            event.options?.shared !== undefined &&
+            (event.options.sharedDelivery ?? 'transaction-end') ===
+              'transaction-end'
+        )
+      ) {
         throw new Error(
           'Factory mutation batch cannot change after progressive delivery preparation'
+        )
+      }
+      if (
+        this.activeDeliveryPlan?.mode === 'progressive' &&
+        this.nextDeliverySliceIndex < this.activeDeliveryPlan.slices.length &&
+        events.some(
+          (event) =>
+            event.options?.shared !== undefined &&
+            event.options.sharedDelivery === 'immediate'
+        )
+      ) {
+        throw new Error(
+          'Factory mutation immediate delivery requires every progressive slice to be delivered first'
         )
       }
       const recordedEntries = events.map((event, index) =>
@@ -974,7 +995,11 @@ class DataTransact {
   }
 
   private configureActiveDeliveryPlan(plan: FactoryMutationDeliveryPlan): void {
-    if (this.currentSharedDeliveryBatches.length > 0) {
+    if (
+      this.currentSharedDeliveryBatches.some(
+        (batch) => batch.sharedDelivery !== 'immediate'
+      )
+    ) {
       throw new Error(
         'Factory mutation delivery plan must be configured before shared delivery'
       )
@@ -1022,6 +1047,16 @@ class DataTransact {
     if (detachedPlan.mode === 'atomic' && detachedPlan.slices.length > 1) {
       throw new Error(
         'Atomic Factory mutation delivery plan accepts at most one slice'
+      )
+    }
+    const alreadyDeliveredImmediateOrderedId = this.currentSharedDeliveryBatches
+      .filter((batch) => batch.sharedDelivery === 'immediate')
+      .flatMap((batch) => batch.records)
+      .flatMap((record) => record.orderedIds)
+      .find((orderedId) => orderedIds.has(orderedId))
+    if (alreadyDeliveredImmediateOrderedId) {
+      throw new Error(
+        `Factory mutation delivery plan cannot include an already delivered immediate ordered id: ${alreadyDeliveredImmediateOrderedId}`
       )
     }
     this.activeDeliverySliceByOrderedId.clear()
@@ -1122,6 +1157,7 @@ class DataTransact {
     entry,
     record
   }: JournalSharedRecordRef): string | undefined {
+    if (entry.options.sharedDelivery === 'immediate') return
     if (this.activeDeliveryPlan?.mode === 'atomic') {
       return this.activeDeliveryPlan.slices[0]?.sliceId
     }
@@ -1164,6 +1200,7 @@ class DataTransact {
       if (!sliceId) return
       if (
         this.activeDeliveryPlan &&
+        recordRef.entry.options.sharedDelivery !== 'immediate' &&
         !this.activeDeliverySliceOrder.has(sliceId)
       ) {
         throw new Error(
@@ -1463,10 +1500,14 @@ class DataTransact {
       orderedIdsFromRecords?: boolean
     } = {}
   ): FactoryMutationDeliveryPlan {
+    const activePlanBatches = batches.filter(
+      (batch) => batch.sharedDelivery === 'transaction-end'
+    )
     if (
       this.activeDeliveryPlan &&
       this.activeDeliveryPlan.slices.length > 0 &&
-      options.includeActivePlan !== false
+      options.includeActivePlan !== false &&
+      (batches.length === 0 || activePlanBatches.length > 0)
     ) {
       if (batches.length === 0) return this.activeDeliveryPlan
       return measureBrowserDragPhase(
@@ -1474,7 +1515,7 @@ class DataTransact {
         () => {
           const seenSliceIds = new Set<string>()
           const slices: FactoryMutationDeliveryPlan['slices'][number][] = []
-          batches.forEach((batch) => {
+          activePlanBatches.forEach((batch) => {
             if (seenSliceIds.has(batch.sliceId)) return
             const boundary = this.activeDeliveryBoundaryBySliceId.get(
               batch.sliceId
@@ -1682,8 +1723,17 @@ class DataTransact {
 
   private flushReplaySharedPublications(): void {
     this.discardPendingImmediatePublication()
-    this.flushPendingSharedChannelChanges()
-    this.queueSharedPublication(this.createSharedPublication(this.journal))
+    if (!this.activeDeliveryPlan) {
+      this.flushPendingSharedChannelChanges()
+      this.queueSharedPublication(this.createSharedPublication(this.journal))
+      this.flushSharedPublications()
+      return
+    }
+    const immediateEntries = this.journal.filter(
+      (entry) => entry.shared && entry.options.sharedDelivery === 'immediate'
+    )
+    this.deliverSharedEntries(immediateEntries)
+    this.queueSharedPublication(this.createSharedPublication(immediateEntries))
     this.flushSharedPublications()
   }
 
@@ -2137,6 +2187,9 @@ class DataTransact {
 
       immediateEntries.push(entry)
     })
+    if (immediateEntries.length > 0) {
+      this.deliverRemainingActiveReplaySlicesBeforeImmediate()
+    }
     this.deliverSharedEntries(immediateEntries)
     this.queueImmediatePublicationEntries(
       immediateEntries.filter((entry) =>
@@ -2196,10 +2249,21 @@ class DataTransact {
       this.configureActiveDeliveryPlan(sharedReplay.deliveryPlan)
     }
     if (journalEntry.shared && sharedReplay.sharedDelivery === 'immediate') {
+      this.deliverRemainingActiveReplaySlicesBeforeImmediate()
       this.deliverSharedEntries([journalEntry])
       if (journalEntry.shared.records.some((record) => record.delivered)) {
         this.queueImmediatePublicationEntries([journalEntry])
       }
+    }
+  }
+
+  private deliverRemainingActiveReplaySlicesBeforeImmediate(): void {
+    if (this.activeDeliveryPlan?.mode !== 'progressive') return
+    while (
+      this.nextDeliverySliceIndex < this.activeDeliveryPlan.slices.length
+    ) {
+      const slice = this.activeDeliveryPlan.slices[this.nextDeliverySliceIndex]
+      this.deliverActiveSlice(slice.sliceId)
     }
   }
 
@@ -2992,7 +3056,10 @@ class DataTransact {
             sharedDelivery: change.options.sharedDelivery,
             orderedIds: deepFreezeValue(orderedIds),
             records: deepFreezeValue(records),
-            deliveryPlan
+            deliveryPlan:
+              change.options.sharedDelivery === 'transaction-end'
+                ? deliveryPlan
+                : undefined
           }
         })
       )

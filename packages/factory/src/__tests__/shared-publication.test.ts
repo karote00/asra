@@ -13,6 +13,7 @@ import {
 import {
   Factory,
   LocalSharedDataChannel,
+  TransactionRollbackError,
   type FactoryMutationBatchArtifact,
   type SharedDataChannel,
   type SharedDelivery,
@@ -893,6 +894,335 @@ describe('Factory action-level shared publication', () => {
     ).toHaveLength(1)
   })
 
+  it('preserves one artifact and history action when ordinary immediate delivery follows progressive slices', async () => {
+    const { factory, publications } = createHarness()
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: event.type,
+          payload: (event as AllEvent & { payload: unknown }).payload,
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      [
+        createUpdateEvent('composition-a', 1),
+        createUpdateEvent('composition-b', 2)
+      ],
+      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
+    )
+    handle?.setDeliveryPlan({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'composition-a', orderedIds: ['composition-a'] },
+        { sliceId: 'composition-b', orderedIds: ['composition-b'] }
+      ]
+    })
+    handle?.deliverSlice('composition-a')
+    handle?.deliverSlice('composition-b')
+    expect(() =>
+      update(factory, 'ordinary-immediate', 3, {
+        sharedDelivery: 'immediate'
+      })
+    ).not.toThrow()
+    await Promise.resolve()
+    factory.endTransaction()
+
+    expect(
+      publications.map(({ batches }) =>
+        batches.map(({ sharedDelivery }) => sharedDelivery)
+      )
+    ).toEqual([['transaction-end'], ['transaction-end'], ['immediate']])
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0]?.changes).toHaveLength(3)
+    expect(artifacts[0]?.deliveryPlan).toMatchObject({
+      mode: 'progressive',
+      slices: [
+        { orderedIds: ['composition-a'] },
+        { orderedIds: ['composition-b'] }
+      ]
+    })
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+
+    publications.length = 0
+    let undoFailure: TransactionRollbackError | undefined
+    try {
+      factory.undo()
+    } catch (error) {
+      if (error instanceof TransactionRollbackError) {
+        undoFailure = error
+      } else {
+        throw error
+      }
+    }
+    expect(undoFailure?.failures ?? []).toEqual([])
+    expect(undoFailure).toBeUndefined()
+    expect(
+      (factory.transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(1)
+    expect(
+      publications.flatMap(({ batches }) =>
+        batches.map(({ deliveries, sharedDelivery }) => ({
+          elementIds: deliveries.map(
+            ({ payload }) => (payload as { id: string }).id
+          ),
+          sharedDelivery
+        }))
+      )
+    ).toEqual([
+      {
+        elementIds: ['ordinary-immediate'],
+        sharedDelivery: 'immediate'
+      },
+      {
+        elementIds: ['composition-b'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['composition-a'],
+        sharedDelivery: 'transaction-end'
+      }
+    ])
+
+    publications.length = 0
+    expect(() => factory.redo()).not.toThrow()
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+    expect(
+      publications.flatMap(({ batches }) =>
+        batches.map(({ deliveries, sharedDelivery }) => ({
+          elementIds: deliveries.map(
+            ({ payload }) => (payload as { id: string }).id
+          ),
+          sharedDelivery
+        }))
+      )
+    ).toEqual([
+      {
+        elementIds: ['composition-a'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['composition-b'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['ordinary-immediate'],
+        sharedDelivery: 'immediate'
+      }
+    ])
+  })
+
+  it('compensates mixed progressive slices and later immediate delivery in reverse publication order', async () => {
+    const { factory, publications } = createHarness()
+    const artifacts = vi.fn()
+    factory.subscribeToMutationBatchArtifact(artifacts)
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      [
+        createUpdateEvent('composition-a', 1),
+        createUpdateEvent('composition-b', 2)
+      ],
+      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
+    )
+    handle?.setDeliveryPlan({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'composition-a', orderedIds: ['composition-a'] },
+        { sliceId: 'composition-b', orderedIds: ['composition-b'] }
+      ]
+    })
+    handle?.deliverSlice('composition-a')
+    handle?.deliverSlice('composition-b')
+    update(factory, 'ordinary-immediate', 3, {
+      sharedDelivery: 'immediate'
+    })
+    await Promise.resolve()
+
+    const forwardBatches = publications.flatMap(({ batches }) => batches)
+    expect(
+      forwardBatches.map(({ deliveries, sharedDelivery }) => ({
+        elementIds: deliveries.map(
+          ({ payload }) => (payload as { id: string }).id
+        ),
+        sharedDelivery
+      }))
+    ).toEqual([
+      {
+        elementIds: ['composition-a'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['composition-b'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['ordinary-immediate'],
+        sharedDelivery: 'immediate'
+      }
+    ])
+
+    factory.endTransaction({ outcome: 'rollback' })
+
+    const compensation = publications.at(-1)
+    expect(compensation?.origin).toBe('rollback-compensation')
+    expect(
+      compensation?.batches.map(({ compensatesBatchId }) => compensatesBatchId)
+    ).toEqual(forwardBatches.map(({ batchId }) => batchId).reverse())
+    expect(
+      compensation?.batches.map(({ deliveries }) =>
+        deliveries.map(({ payload }) => (payload as { id: string }).id)
+      )
+    ).toEqual([['ordinary-immediate'], ['composition-b'], ['composition-a']])
+    expect(artifacts).not.toHaveBeenCalled()
+    expect(
+      (factory.transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toEqual([])
+  })
+
+  it('rejects ordinary immediate delivery until every planned slice has been delivered', () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      [
+        createUpdateEvent('composition-a', 1),
+        createUpdateEvent('composition-b', 2)
+      ],
+      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
+    )
+    handle?.setDeliveryPlan({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'composition-a', orderedIds: ['composition-a'] },
+        { sliceId: 'composition-b', orderedIds: ['composition-b'] }
+      ]
+    })
+    handle?.deliverSlice('composition-a')
+
+    expect(() =>
+      update(factory, 'ordinary-immediate', 3, {
+        sharedDelivery: 'immediate'
+      })
+    ).toThrow(
+      'Factory mutation immediate delivery requires every progressive slice to be delivered first'
+    )
+    expect(() => factory.endTransaction()).not.toThrow()
+
+    expect(
+      publications.flatMap(({ batches }) =>
+        batches.map(({ deliveries }) =>
+          deliveries.map(({ payload }) => (payload as { id: string }).id)
+        )
+      )
+    ).toEqual([['composition-a'], ['composition-a']])
+  })
+
+  it('replays formal slices before a later immediate change when the replay handler records no journal entry', () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      [
+        createUpdateEvent('composition-a', 1),
+        createUpdateEvent('composition-b', 2)
+      ],
+      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
+    )
+    handle?.setDeliveryPlan({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'composition-a', orderedIds: ['composition-a'] },
+        { sliceId: 'composition-b', orderedIds: ['composition-b'] }
+      ]
+    })
+    handle?.deliverSlice('composition-a')
+    handle?.deliverSlice('composition-b')
+    update(factory, 'ordinary-immediate', 3, {
+      sharedDelivery: 'immediate'
+    })
+    factory.endTransaction()
+
+    publications.length = 0
+    factory.undo()
+    publications.length = 0
+    factory.redo()
+
+    expect(
+      publications.flatMap(({ batches }) =>
+        batches.map(({ deliveries, sharedDelivery }) => ({
+          elementIds: deliveries.map(
+            ({ payload }) => (payload as { id: string }).id
+          ),
+          sharedDelivery
+        }))
+      )
+    ).toEqual([
+      {
+        elementIds: ['composition-a'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['composition-b'],
+        sharedDelivery: 'transaction-end'
+      },
+      {
+        elementIds: ['ordinary-immediate'],
+        sharedDelivery: 'immediate'
+      }
+    ])
+  })
+
+  it('still rejects a later transaction-end mutation after progressive slice preparation', () => {
+    const { factory } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      [createUpdateEvent('composition-a', 1)],
+      [{ orderedIds: ['composition-a'] }]
+    )
+    handle?.setDeliveryPlan({
+      mode: 'progressive',
+      slices: [{ sliceId: 'composition-a', orderedIds: ['composition-a'] }]
+    })
+    handle?.deliverSlice('composition-a')
+
+    expect(() => update(factory, 'late-transaction-end', 2)).toThrow(
+      'cannot change after progressive delivery preparation'
+    )
+    expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
+  })
+
   it('rejects a late progressive plan after immediate delivery and rolls the action back', () => {
     const { factory, projectedBatches, publications } = createHarness()
     const artifacts = vi.fn()
@@ -916,7 +1246,7 @@ describe('Factory action-level shared publication', () => {
         mode: 'progressive',
         slices: [{ sliceId: 'too-late', orderedIds: ['already-immediate'] }]
       })
-    ).toThrow('must be configured before shared delivery')
+    ).toThrow('cannot include an already delivered immediate ordered id')
     expect(() => factory.endTransaction()).not.toThrow()
 
     expect(projectedBatches).toHaveLength(2)
