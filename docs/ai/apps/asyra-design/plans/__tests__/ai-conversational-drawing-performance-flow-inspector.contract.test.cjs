@@ -5,6 +5,11 @@ const test = require('node:test')
 
 const data = require('../ai-conversational-drawing-performance-flow-inspector.data.cjs')
 const repoRoot = path.resolve(__dirname, '../../../../../..')
+const planPath = path.resolve(repoRoot, data.authority.specPath)
+const featurePath = path.resolve(
+  repoRoot,
+  'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+)
 
 const requiredStepFields = [
   'id',
@@ -26,13 +31,15 @@ const requiredStepFields = [
 ]
 
 const requiredStepIds = [
-  'accept-profiled-ai-drawing-turn',
-  'prepare-ordered-app-composition-batches',
-  'apply-canonical-scene-batch',
-  'record-history-and-shared-publication',
-  'transport-and-apply-remote-batches',
-  'persist-committed-canonical-snapshots',
-  'project-visible-canonical-batches',
+  'project-scrollable-contents-window',
+  'record-and-deliver-transaction-batch',
+  'apply-canonical-property-scene-batch',
+  'prepare-one-composition-bulk-request',
+  'project-visible-canonical-slices',
+  'encode-publication-frames',
+  'relay-frames-with-backpressure',
+  'apply-remote-publication-batches',
+  'persist-local-commit-snapshots',
   'evaluate-performance-and-equivalence'
 ]
 
@@ -63,6 +70,9 @@ const contractText = (owner) =>
     ...owner.implementationBoundary
   ].join(' ')
 
+const plan = () => fs.readFileSync(planPath, 'utf8')
+const feature = () => fs.readFileSync(featurePath, 'utf8')
+
 test('performance Inspector authorities and active-plan routing resolve', () => {
   assert.equal(
     data.target.title,
@@ -76,7 +86,7 @@ test('performance Inspector authorities and active-plan routing resolve', () => 
     data.authority.inspectorPath,
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs'
   )
-  assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.ok(fs.existsSync(planPath))
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))
   assert.ok(
     fs.existsSync(
@@ -97,13 +107,9 @@ test('performance Inspector authorities and active-plan routing resolve', () => 
     plansIndex,
     /Current active plan:\s+`plans\/ai-conversational-drawing-performance-plan\.md`/
   )
-  assert.match(
-    plansIndex,
-    /Ordered proposed next implementation plans:\s*\n\s*1\.\s+`plans\/ai-conversational-drawing-live-provider-test-plan\.md`/
-  )
 })
 
-test('performance Inspector exposes eight exact single-owner steps', () => {
+test('performance Inspector exposes ten exact single-owner product steps', () => {
   assert.deepEqual(
     new Set(data.steps.map((item) => item.id)),
     new Set(requiredStepIds)
@@ -132,12 +138,8 @@ test('performance Inspector exposes eight exact single-owner steps', () => {
 })
 
 test('performance Inspector paths and specification anchors resolve', () => {
-  const markdown = fs.readFileSync(
-    path.resolve(repoRoot, data.authority.specPath),
-    'utf8'
-  )
   const anchors = new Set(
-    markdown
+    plan()
       .split('\n')
       .filter((line) => /^#{1,6}\s+/.test(line))
       .map((line) => anchorForHeading(line.replace(/^#{1,6}\s+/, '')))
@@ -154,8 +156,12 @@ test('performance Inspector paths and specification anchors resolve', () => {
 
   data.steps.forEach((item) => {
     item.implementationBoundary.forEach((boundary) => {
+      const resolvedBoundary = path.resolve(repoRoot, boundary)
+      const plannedFileParentExists =
+        path.extname(boundary) !== '' &&
+        fs.existsSync(path.dirname(resolvedBoundary))
       assert.ok(
-        fs.existsSync(path.resolve(repoRoot, boundary)),
+        fs.existsSync(resolvedBoundary) || plannedFileParentExists,
         `${item.id} missing implementation root ${boundary}`
       )
     })
@@ -171,9 +177,8 @@ test('routes and artifacts form one exact owner graph', () => {
 
   data.artifacts.forEach((artifact) => {
     assert.ok(stepIds.has(artifact.ownerStepId), artifact.id)
-    const owner = step(artifact.ownerStepId)
     assert.ok(
-      owner.outputs.includes(artifact.id),
+      step(artifact.ownerStepId).outputs.includes(artifact.id),
       `${artifact.id} owner output`
     )
     artifact.consumerStepIds.forEach((consumerId) => {
@@ -182,7 +187,38 @@ test('routes and artifacts form one exact owner graph', () => {
         step(consumerId).inputs.includes(artifact.id),
         `${artifact.id} consumer input`
       )
+      assert.ok(
+        data.routes.some(
+          (route) =>
+            route.from === artifact.ownerStepId &&
+            route.to === consumerId &&
+            route.producedArtifacts.includes(artifact.id)
+        ),
+        `${artifact.id} missing ${artifact.ownerStepId} -> ${consumerId} route`
+      )
     })
+  })
+
+  data.steps.forEach((consumer) => {
+    consumer.inputs
+      .filter((input) => input.startsWith('artifact:'))
+      .forEach((artifactId) => {
+        const artifact = artifactById.get(artifactId)
+        assert.ok(artifact, `${consumer.id} unregistered input ${artifactId}`)
+        assert.ok(
+          artifact.consumerStepIds.includes(consumer.id),
+          `${consumer.id} missing from ${artifactId} consumers`
+        )
+        assert.ok(
+          data.routes.some(
+            (route) =>
+              route.from === artifact.ownerStepId &&
+              route.to === consumer.id &&
+              route.producedArtifacts.includes(artifactId)
+          ),
+          `${consumer.id} missing routed input ${artifactId}`
+        )
+      })
   })
 
   data.routes.forEach((route) => {
@@ -202,268 +238,265 @@ test('routes and artifacts form one exact owner graph', () => {
   })
 })
 
-test('measurement separates product owners from harness overhead', () => {
-  const intake = contractText(step('accept-profiled-ai-drawing-turn'))
-  const proof = contractText(step('evaluate-performance-and-equivalence'))
+test('one composition bulk request owns canonical batch creation', () => {
+  const appStep = step('prepare-one-composition-bulk-request')
+  const app = contractText(appStep)
+  const canonical = contractText(step('apply-canonical-property-scene-batch'))
+  const text = plan()
 
-  assert.match(intake, /one unmeasured warm-up precedes three measured runs/i)
-  assert.match(intake, /server build\/start.*never enter product spans/i)
-  assert.match(intake, /observers cannot alter batching.*history.*canonical/i)
-  assert.match(proof, /median and worst owner spans separately/i)
-  assert.match(proof, /first over-budget product owner/i)
-  assert.match(proof, /test harness time attributed to a product owner/i)
+  assert.match(app, /Group.*one.*all-children.*Core bulk request/i)
+  assert.match(app, /createElementsInParentBatch/)
+  assert.match(app, /CanonicalElementBatchResult/)
+  assert.match(app, /single-item.*batch-of-one/i)
+  assert.match(app, /2,048 points.*8,192 points/i)
+  assert.match(app, /slice.*does not.*canonical mutation/i)
+  assert.doesNotMatch(app, /256-item transient maximum/i)
+  assert.ok(
+    appStep.implementationBoundary.every(
+      (boundary) => !boundary.startsWith('packages/core/')
+    )
+  )
+
+  assert.match(
+    canonical,
+    /schema.*ID.*relationship.*preflight.*instance.*registerMany/i
+  )
+  assert.match(canonical, /later.*invalid.*no.*prefix/i)
+  assert.match(canonical, /one parent children replacement/i)
+  assert.match(canonical, /one batch evidence record/i)
+  assert.match(text, /createElementsInParentBatch/)
+  assert.match(text, /CanonicalElementBatchResult/)
 })
 
-test('local, collaboration, and maximum budgets remain exact', () => {
-  const plan = fs.readFileSync(
-    path.resolve(repoRoot, data.authority.specPath),
-    'utf8'
-  )
-  const collaboration = contractText(step('transport-and-apply-remote-batches'))
+test('Factory owns one immutable batch artifact and one history boundary', () => {
+  const factory = contractText(step('record-and-deliver-transaction-batch'))
+  const text = plan()
 
-  assert.match(plan, /Atomic Actor A creation settled in 29 seconds/)
-  assert.match(plan, /Progressive Actor A creation settled in 105 seconds/)
-  assert.match(
-    plan,
-    /full progressive two-actor recording command took 13\.2 minutes/
-  )
-  assert.match(plan, /recording is 774\.96 seconds long/)
-  assert.match(plan, /Balanced atomic creation:[\s\S]*at most 12 seconds/)
-  assert.match(plan, /Balanced progressive creation:[\s\S]*at most 20 seconds/)
-  assert.match(plan, /first visible canonical batch within 2 seconds/)
-  assert.match(plan, /canonical convergence within 30 seconds/)
-  assert.match(plan, /whole dedicated E2E command[\s\S]*at most 180\s+seconds/)
-  assert.match(plan, /Maximum detail:[\s\S]*at most 60 seconds/)
-  assert.match(
-    collaboration,
-    /more than one increasing non-final element count/i
-  )
-  assert.match(collaboration, /no local Undo action/i)
+  assert.match(factory, /FactoryMutationBatchArtifact/)
+  assert.match(factory, /SharedDeliveryBatch/)
+  assert.match(factory, /SharedPublication\.batches/)
+  assert.match(factory, /appendBatch.*observeBatch/i)
+  assert.match(factory, /deeply detached.*frozen once/i)
+  assert.match(factory, /one intended.*Undo/i)
+  assert.match(factory, /Undo.*Redo.*complete action/i)
+  assert.match(factory, /progressive.*no new canonical writes/i)
+  assert.match(factory, /compensation.*same artifact/i)
+  assert.match(factory, /observer mutation.*cannot.*consumer/i)
+
+  assert.match(text, /one outer App transaction/i)
+  assert.match(text, /Group and children.*transaction/i)
+  assert.match(text, /one Undo action/i)
 })
 
-test('performance work cannot weaken canonical or history semantics', () => {
-  const app = contractText(step('prepare-ordered-app-composition-batches'))
-  const sceneTree = contractText(step('apply-canonical-scene-batch'))
-  const factory = contractText(step('record-history-and-shared-publication'))
-  const render = contractText(step('project-visible-canonical-batches'))
-  const proof = contractText(step('evaluate-performance-and-equivalence'))
+test('projection and Contents preserve visible progressive correctness', () => {
+  const projectionStep = step('project-visible-canonical-slices')
+  const projection = contractText(projectionStep)
+  const contents = contractText(step('project-scrollable-contents-window'))
 
-  assert.match(app, /preserves accepted item order, every path and point/i)
-  assert.match(app, /no performance budget becomes an item.*point.*ceiling/i)
+  assert.match(projection, /ordinary Vector/i)
+  assert.match(projection, /atomic.*one.*projection/i)
+  assert.match(projection, /progressive.*each.*slice.*projection/i)
+  assert.match(projection, /one invalidation.*frame flush.*slice/i)
+  assert.match(projection, /7,076.*editable elements/i)
+  assert.match(projection, /affected entries.*hierarchy order/i)
+  assert.match(projection, /no Render-engine bulk command/i)
+  ;[
+    'apps/asyra-design/src',
+    'apps/asyra-design/src/contexts',
+    'apps/asyra-design/src/providers',
+    'apps/asyra-design/src/init'
+  ].forEach((boundary) => {
+    assert.ok(!projectionStep.implementationBoundary.includes(boundary))
+  })
+
+  assert.match(contents, /actual inner scroll element/i)
+  assert.match(contents, /viewport.*overscan/i)
+  assert.match(contents, /last canonical element/i)
+  assert.match(contents, /100\+ row/i)
+  assert.match(contents, /collapse.*selection/i)
+})
+
+test('publication data is binary and relay backpressure stays byte-bounded', () => {
+  const encodeStep = step('encode-publication-frames')
+  const relayStep = step('relay-frames-with-backpressure')
+  const encode = contractText(encodeStep)
+  const relay = contractText(relayStep)
+
+  assert.match(encode, /control frame.*JSON/i)
+  assert.match(encode, /shared publication data.*versioned binary/i)
+  assert.match(encode, /existing codec.*Web Worker/i)
+  assert.match(encode, /transferable ArrayBuffer/i)
+  assert.match(encode, /1 MiB.*soft/i)
+  assert.match(encode, /one indivisible.*record.*exceed/i)
+  assert.match(encode, /invalid.*truncated.*reject/i)
+  assert.ok(encodeStep.inputs.includes('artifact:relayed-publication-frames'))
+  assert.ok(encodeStep.inputs.includes('artifact:server-accepted-receipts'))
+  assert.ok(encodeStep.outputs.includes('artifact:decoded-publication-batches'))
+  assert.ok(encodeStep.outputs.includes('artifact:frame-consumed-credit'))
+  assert.match(encode, /receiver worker.*one decoded publication.*App/i)
+  assert.ok(
+    encodeStep.implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration/publication-codec-worker.ts'
+    )
+  )
+
+  assert.match(relay, /opaque.*payload.*no decode.*re-encode/i)
   assert.match(
-    sceneTree,
-    /exact ids, bounds, transforms, roles, fills, strokes/i
+    relay,
+    /header.*version.*request.*publication.*chunk.*control metadata/i
+  )
+  assert.match(relay, /2 MiB.*high watermark/i)
+  assert.match(relay, /512 KiB.*low watermark/i)
+  assert.match(relay, /one oversized frame/i)
+  assert.match(relay, /socket\.send callback/i)
+  assert.match(relay, /frame-consumed/i)
+  assert.match(relay, /server-accepted.*does not.*peer.*applied/i)
+  assert.match(relay, /perMessageDeflate.*false/i)
+  assert.ok(relayStep.inputs.includes('artifact:frame-consumed-credit'))
+  assert.ok(relayStep.inputs.includes('artifact:peer-applied-receipts'))
+  assert.ok(relayStep.outputs.includes('artifact:server-accepted-receipts'))
+  assert.ok(!relayStep.implementationBoundary.includes('apps/asyra-design/e2e'))
+})
+
+test('remote apply has one publication transaction and no client durability', () => {
+  const remoteStep = step('apply-remote-publication-batches')
+  const remote = contractText(remoteStep)
+  const persistenceStep = step('persist-local-commit-snapshots')
+  const persistence = contractText(persistenceStep)
+  const text = plan()
+
+  assert.match(
+    remote,
+    /one source publication.*one remote Factory transaction/i
+  )
+  assert.match(remote, /different publications.*not merged/i)
+  assert.match(remote, /batch observer.*once/i)
+  assert.match(remote, /no Undo.*no echo/i)
+  assert.match(remote, /no.*capture.*save.*IndexedDB/i)
+  assert.match(remote, /app policy.*canonical preflight.*App\/Core/i)
+  assert.deepEqual(remoteStep.inputs, ['artifact:decoded-publication-batches'])
+  assert.ok(remoteStep.outputs.includes('artifact:peer-applied-receipts'))
+  assert.match(remote, /peer-applied.*after.*canonical apply/i)
+  assert.ok(
+    remoteStep.implementationBoundary.every(
+      (boundary) =>
+        !boundary.startsWith('packages/core/') &&
+        !boundary.startsWith('packages/factory/')
+    )
+  )
+
+  assert.match(persistence, /local action.*undo.*redo.*one.*complete snapshot/i)
+  assert.match(persistence, /FIFO/i)
+  assert.match(persistence, /remote.*zero.*client persistence/i)
+  assert.ok(
+    persistenceStep.implementationBoundary.every(
+      (boundary) => !boundary.startsWith('packages/factory/')
+    )
   )
   assert.match(
-    sceneTree,
-    /same ordered ADD_ELEMENT.*persistence.*Collaboration/i
+    text,
+    /future[\s\S]{0,120}socket server[\s\S]{0,120}backend[\s\S]{0,120}outside this plan/i
   )
-  assert.match(factory, /exactly one intended local history action/i)
-  assert.match(factory, /Undo and Redo.*one local history action/i)
-  assert.match(
-    render,
-    /does not collapse progressive mode into one final-only frame/i
-  )
-  assert.match(render, /AI-only renderer or bitmap replacement/i)
+})
+
+test('measurement and release budgets stay exact', () => {
+  const proof = contractText(step('evaluate-performance-and-equivalence'))
+  const text = plan()
+
+  assert.match(text, /Contents present[\s\S]{0,80}7\.026 seconds/i)
+  assert.match(text, /Contents omitted[\s\S]{0,80}7\.074[\s\S]{0,10}seconds/i)
+  assert.match(text, /Actor A.*18\.194 seconds/i)
+  assert.match(text, /Actor B.*1\.275 seconds/i)
+  assert.match(text, /5,548\/7,076/)
+  assert.match(text, /4\.99 MB/)
+  assert.match(text, /9\.46 seconds/)
+  assert.match(text, /remote apply[\s\S]{0,80}5\.894 seconds/i)
+  assert.match(text, /inbound dispatch[\s\S]{0,80}1\.979 seconds/i)
+  assert.match(text, /Render[\s\S]{0,80}0\.682 seconds/i)
+  assert.match(text, /compression.*3,500\/7,076/i)
+
+  assert.match(text, /Balanced atomic creation:[\s\S]*at most 12 seconds/)
+  assert.match(text, /Balanced progressive creation:[\s\S]*at most 20 seconds/)
+  assert.match(text, /first visible canonical batch within 2 seconds/)
+  assert.match(text, /canonical convergence within 30 seconds/)
+  assert.match(text, /whole dedicated E2E command[\s\S]*at most 180\s+seconds/)
+  assert.match(text, /Maximum detail:[\s\S]*at most 60 seconds/)
   assert.match(
     proof,
-    /canonical equivalence compares ids.*point counts.*topology/i
-  )
-  assert.match(proof, /screenshots as canonical semantics authority/i)
-})
-
-test('profiled batch amplification resolves to exact canonical and transport owners', () => {
-  const canonical = step('apply-canonical-scene-batch')
-  const canonicalText = contractText(canonical)
-  const transport = step('transport-and-apply-remote-batches')
-
-  assert.ok(
-    canonical.implementationBoundary.includes('packages/props-manager/src')
-  )
-  assert.ok(
-    canonical.implementationBoundary.includes(
-      'packages/props-manager/src/__tests__'
-    )
+    /product execution.*artifact.*encode.*server queue\/drain/i
   )
   assert.match(
-    canonicalText,
-    /property component.*instance.*relationship.*registration.*batch/i
-  )
-  assert.match(
-    canonicalText,
-    /final canonical.*ids.*order.*invalid.*history.*replay/i
-  )
-  assert.ok(
-    transport.implementationBoundary.includes(
-      'apps/asyra-design/src/collaboration'
-    )
-  )
-  assert.ok(
-    transport.implementationBoundary.includes(
-      'apps/asyra-design/collaboration-server.ts'
-    )
-  )
-  assert.ok(
-    transport.implementationBoundary.includes(
-      'apps/asyra-design/__tests__/collaboration-server.test.mjs'
-    )
-  )
-  assert.match(
-    contractText(transport),
-    /memory-only reference server.*without.*semantic owner/i
+    proof,
+    /worker decode.*remote apply.*Render.*UI.*harness overhead/i
   )
 })
 
-test('eligible local commits have one exact persistence owner and remote commits bypass it', () => {
-  const persistence = step('persist-committed-canonical-snapshots')
-  const persistenceText = contractText(persistence)
-  const proof = step('evaluate-performance-and-equivalence')
-  const plan = fs.readFileSync(
-    path.resolve(repoRoot, data.authority.specPath),
-    'utf8'
-  )
-  const feature = fs.readFileSync(
-    path.resolve(
-      repoRoot,
-      'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
-    ),
-    'utf8'
-  )
-
-  assert.deepEqual(persistence.inputs, ['artifact:factory-history-commit'])
-  assert.deepEqual(persistence.outputs, [
-    'artifact:committed-persistence-snapshots',
-    'artifact:persistence-timing-sample'
-  ])
-  assert.ok(persistence.implementationBoundary.includes('packages/core/src'))
-  assert.ok(
-    persistence.implementationBoundary.includes('packages/persistence/src')
-  )
-  assert.ok(persistence.implementationBoundary.includes('packages/factory/src'))
-  assert.match(
-    persistenceText,
-    /every eligible local committed action, undo, and redo.*deeply detached.*exact snapshot/i
-  )
-  assert.match(persistenceText, /FIFO.*failure.*later committed snapshot/i)
-  assert.match(persistenceText, /coalesced or dropped committed snapshot/i)
-  assert.match(
-    persistenceText,
-    /remote.*does not.*capture.*provider/i
-  )
-  assert.match(persistenceText, /remote-origin client persistence/i)
-  assert.match(
-    persistenceText,
-    /commit-capture handoff.*before.*reentrant.*observer/i
-  )
-  assert.ok(
-    proof.inputs.includes('artifact:committed-persistence-snapshots')
-  )
-  assert.ok(proof.inputs.includes('artifact:persistence-timing-sample'))
-  assert.match(
-    plan,
-    /local Core persistence snapshot capture.*provider save/i
-  )
-  assert.match(
-    feature,
-    /local Core persistence snapshot capture and provider save/i
-  )
-  assert.match(
-    feature,
-    /commit-capture handoff.*before reentrant observers/i
-  )
-})
-
-test('cache stays profiling-gated and owner-specific', () => {
-  const plan = fs.readFileSync(
-    path.resolve(repoRoot, data.authority.specPath),
-    'utf8'
-  )
-  assert.match(
-    plan,
-    /largest product-owned span determines the next\s+single Inspector owner step/i
-  )
-  assert.match(plan, /cache key dimensions/)
-  assert.match(plan, /invalidation events/)
-  assert.match(plan, /miss path/)
-  assert.match(plan, /exact hit\/miss equivalence test/)
-  assert.ok(data.steps.every((item) => item.cacheDimensions.length === 0))
-})
-
-test('performance BDD and local-artifact ignore contract are registered', () => {
-  const featurePath = path.resolve(
-    repoRoot,
-    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
-  )
-  const feature = fs.readFileSync(featurePath, 'utf8')
-  assert.match(
-    feature,
-    /Scenario: Profiling identifies the first product-owned bottleneck/
-  )
-  assert.match(
-    feature,
-    /Scenario: Balanced atomic creation meets the local budget/
-  )
-  assert.match(
-    feature,
-    /Scenario: Balanced progressive creation and peer convergence meet their budgets/
-  )
-  assert.match(
-    feature,
-    /Scenario: Maximum detail remains editable and meets its budget/
-  )
-  assert.match(
-    feature,
-    /generated screenshots, recordings, profiles, traces, and thumbnail media should remain ignored/i
-  )
-
-  const gitignore = fs.readFileSync(
-    path.resolve(repoRoot, '.gitignore'),
-    'utf8'
-  )
-  assert.match(
-    gitignore,
-    /apps\/asyra-design\/visual-review-records\/\*\*\/\*\.png/
-  )
-  assert.match(
-    gitignore,
-    /apps\/asyra-design\/visual-review-records\/\*\*\/\*\.webm/
-  )
-  assert.match(
-    gitignore,
-    /!apps\/asyra-design\/visual-review-records\/research\/research-02-original-tabby-source\.png/
-  )
-})
-
-test('fast CRDT, high-detail opt-in, and Contents-panel attribution gates stay explicit', () => {
-  const plan = fs.readFileSync(
-    path.resolve(repoRoot, data.authority.specPath),
-    'utf8'
-  )
-  const feature = fs.readFileSync(
-    path.resolve(
-      repoRoot,
-      'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
-    ),
-    'utf8'
-  )
-  const intake = contractText(step('accept-profiled-ai-drawing-turn'))
+test('heavy correctness, performance, and visual gates remain isolated', () => {
   const proof = contractText(step('evaluate-performance-and-equivalence'))
+  const text = plan()
 
-  assert.match(plan, /default fast Mock AI CRDT correctness fixture has 16 items/i)
-  assert.match(plan, /7,112-element balanced correctness.*change-aware/i)
   assert.match(
-    plan,
+    text,
+    /default fast Mock AI CRDT correctness fixture has 16 items/i
+  )
+  assert.match(text, /7,112-element balanced correctness.*change-aware/i)
+  assert.match(
+    text,
     /high-detail performance and CRDT suites remain independent[\s\S]*opt-in/i
   )
   assert.match(
-    plan,
+    text,
     /7,076-element two-window full recording remains manual opt-in/i
   )
+  assert.match(proof, /one warm-up.*three measured runs/i)
+  assert.match(proof, /27,471.*295,794/i)
+  assert.match(proof, /same measured live App state/i)
+  assert.match(proof, /complete.*uncropped.*Styles.*IDs.*hierarchy/i)
+  assert.match(proof, /generated.*never committed/i)
+})
+
+test('BDD registers every new architecture and negative product case', () => {
+  const text = feature()
+
+  ;[
+    /Scenario: One composition uses one canonical bulk request/,
+    /Scenario: Factory emits one immutable transaction artifact/,
+    /Scenario: Progressive slices remain visible without new canonical writes/,
+    /Scenario: Contents can scroll to the final canonical element/,
+    /Scenario: Binary publication relay applies byte backpressure/,
+    /Scenario: Remote publication apply does not create local side effects/,
+    /Scenario: Local persistence captures each committed state exactly once/,
+    /Scenario: Fast Mock AI CRDT correctness stays bounded/,
+    /Scenario: Maximum detail remains editable and meets its budget/
+  ].forEach((pattern) => assert.match(text, pattern))
+
+  assert.match(text, /16 items/)
   assert.match(
-    intake,
-    /Contents panel present and diagnostically omitted[\s\S]*release budget/i
+    text,
+    /receiver worker should release one decoded publication at a time/i
   )
-  assert.match(proof, /16-item Mock AI CRDT correctness/i)
-  assert.match(feature, /Scenario: Fast Mock AI CRDT correctness stays bounded/)
-  assert.match(feature, /Scenario: Contents panel attribution stays diagnostic/)
+  assert.match(
+    text,
+    /remote apply should emit "peer-applied" only after canonical apply/i
+  )
+  assert.match(text, /7112-element balanced correctness gate.*change-aware/i)
+  assert.match(text, /7076-element two-window full recording.*manual opt-in/i)
+  assert.match(
+    text,
+    /generated screenshots, recordings, profiles, traces, and thumbnail media should remain ignored/i
+  )
+})
+
+test('scope, WIP disposition, and stop conditions stay bounded', () => {
+  const text = plan()
+
+  assert.match(text, /preserve.*committed.*WIP.*owner step/i)
+  assert.match(text, /remove.*failed.*compression/i)
+  assert.match(text, /no third-party package/i)
+  assert.match(text, /Live AI provider.*outside/i)
+  assert.match(text, /backend DB.*outside/i)
+  assert.match(text, /no Render-engine bulk command/i)
+  assert.match(text, /same focused gate fails three times/i)
+  assert.match(text, /peer queue.*bounded/i)
+  assert.ok(data.steps.every((item) => item.cacheDimensions.length === 0))
 })

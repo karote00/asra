@@ -7,218 +7,111 @@
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs'
 
   const lanes = [
-    { id: 'profile-intake', title: 'Profile Intake', order: 1 },
-    { id: 'canonical-creation', title: 'Canonical Creation', order: 2 },
-    { id: 'shared-delivery', title: 'Shared Delivery', order: 3 },
-    { id: 'projection-proof', title: 'Projection and Proof', order: 4 }
+    { id: 'app-canonical', title: 'App and Canonical Batch', order: 1 },
+    {
+      id: 'transaction-delivery',
+      title: 'Shared Delivery',
+      order: 2
+    },
+    { id: 'projection-ui', title: 'Projection and Contents', order: 3 },
+    { id: 'wire-transport', title: 'Binary Wire Transport', order: 4 },
+    { id: 'persistence-proof', title: 'Persistence and Proof', order: 5 }
   ]
 
   const steps = [
     {
-      id: 'accept-profiled-ai-drawing-turn',
-      order: 1,
-      laneId: 'profile-intake',
-      title: 'Accept one profiled drawing turn',
-      ownerPackage: 'Asyra Design performance harness',
-      purpose:
-        'Start one production-build reference turn with detached monotonic timing and count observers while separating product spans from server, browser, assertion, screenshot, and recording overhead.',
-      inputs: [
-        'committed tabby reference fixture',
-        'exact ai=mock and aiDelivery URL values',
-        'fresh canonical and collaboration document identity',
-        'production App build',
-        'reference host and warm-run protocol',
-        'deterministic 16-item Mock AI CRDT fixture'
-      ],
-      outputs: ['artifact:profiled-ai-drawing-turn'],
-      conditions: [
-        'One unmeasured warm-up precedes three measured runs on the same reference host, fixture, build, browser configuration, and fresh-document lifecycle.',
-        'The profiled turn records atomic or progressive mode exactly as resolved by the App and retains the accepted item, point, and semantic-role inputs unchanged.',
-        'Product monotonic marks and harness wall time use separate channels; server build/start, browser launch, full-snapshot assertions, screenshots, recording, and teardown never enter product spans.',
-        'Detached observers cannot alter batching, shared delivery, transaction, history, canonical state, Render scheduling, retry, cancellation, or settlement.',
-        'One matched attribution-only run compares the Contents panel present and diagnostically omitted while preserving exact canonical and history results; neither variant is release budget evidence.'
-      ],
-      bypasses: [
-        'A development build, stale document, reused server, missing fixture, or incomplete timing channel produces no release-budget evidence.',
-        'An aborted or failed warm-up is reported and never counted as one of the three measured runs.'
-      ],
-      allowedContributors: [
-        'Asyra Design E2E-owned App and collaboration servers',
-        'browser performance and monotonic clock APIs',
-        'read-only owner timing observers',
-        'committed deterministic provider and drawing fixtures',
-        'exact profiling-only Contents-panel attribution mode'
-      ],
-      forbiddenContributors: [
-        'Date-based cross-process duration reconstruction',
-        'diagnostics that mutate product scheduling or state',
-        'test-only canonical or Render shortcuts',
-        'generated screenshot or recording data as semantic authority',
-        'using the diagnostically omitted Contents panel as release budget evidence'
-      ],
-      cacheDimensions: [],
-      implementationBoundary: [
-        'apps/asyra-design/e2e',
-        'apps/asyra-design/src/app',
-        'apps/asyra-design/src/ai',
-        'apps/asyra-design/src/init',
-        'apps/asyra-design/__tests__',
-        'apps/asyra-design/src/app/__tests__',
-        'docs/ai/apps/asyra-design/bdd-features'
-      ],
-      specRefs: [
-        '#measured-baseline',
-        '#performance-measurement-contract',
-        '#product-cases'
-      ],
-      failureOwnerStepId: 'accept-profiled-ai-drawing-turn'
-    },
-    {
-      id: 'prepare-ordered-app-composition-batches',
-      order: 1,
-      laneId: 'canonical-creation',
-      title: 'Prepare ordered App composition batches',
-      ownerPackage: 'Asyra Design AI actions and common APIs',
-      purpose:
-        'Turn one validated composition descriptor into ordered atomic or progressive common-API batch requests without changing accepted topology, delivery mode, transaction ownership, or history intent.',
-      inputs: [
-        'artifact:profiled-ai-drawing-turn',
-        'validated composition descriptor',
-        'exact App-owned atomic or progressive delivery mode',
-        'Feature-owned AbortSignal'
-      ],
-      outputs: [
-        'artifact:ordered-app-composition-batches',
-        'artifact:app-batch-timing-sample'
-      ],
-      conditions: [
-        'The App preserves accepted item order, every path and point, canonical-id generation ownership, and the existing 256-item transient maximum.',
-        'Atomic mode retains transaction-end shared delivery; progressive mode retains immediate shared delivery and host yield after each point-aware batch.',
-        'One intact over-target element remains one accepted batch, and no performance budget becomes an item, path, point, payload, or composition ceiling.',
-        'The App emits one outer transaction intent and one intended history action for the complete mutating user turn.'
-      ],
-      bypasses: [
-        'Clarification and no-change turns create no composition batches or history action.',
-        'Abort before mutation emits no later batch.',
-        'Invalid finite topology fails through the existing schema owner rather than entering a faster path.'
-      ],
-      allowedContributors: [
-        'artifact:profiled-ai-drawing-turn',
-        'registered Asyra Design AI action schemas',
-        'apps/asyra-design/src/common-apis public boundaries',
-        'App-owned delivery mode and host-yield policy'
-      ],
-      forbiddenContributors: [
-        'reduced VTracer detail or bitmap replacement',
-        'provider-selected canonical ids',
-        'AI-only canonical or Render mutation',
-        'one App transaction or history action per network batch'
-      ],
-      cacheDimensions: [],
-      implementationBoundary: [
-        'apps/asyra-design/src/ai',
-        'apps/asyra-design/src/common-apis',
-        'apps/asyra-design/src/ai/__tests__',
-        'apps/asyra-design/src/common-apis/__tests__',
-        'apps/asyra-design/e2e'
-      ],
-      specRefs: [
-        '#non-negotiable-equivalence',
-        '#profiling-first-owner-decisions',
-        '#product-cases'
-      ],
-      failureOwnerStepId: 'prepare-ordered-app-composition-batches'
-    },
-    {
-      id: 'apply-canonical-scene-batch',
+      id: 'project-scrollable-contents-window',
       order: 2,
-      laneId: 'canonical-creation',
-      title: 'Apply one canonical Scene Tree batch',
-      ownerPackage: '@asyra/scene-tree',
+      laneId: 'projection-ui',
+      title: 'Project a scrollable Contents window',
+      ownerPackage: 'Asyra Design Contents',
       purpose:
-        'Apply each ordered App batch to the ordinary canonical Scene Tree with identical elements, hierarchy, properties, and ADD_ELEMENT evidence.',
-      inputs: ['artifact:ordered-app-composition-batches'],
-      outputs: [
-        'artifact:canonical-scene-batches',
-        'artifact:scene-tree-timing-sample'
+        'Bind the real Contents virtualizer to the actual inner scroll element so every canonical hierarchy row is reachable while mounted DOM rows remain bounded.',
+      inputs: [
+        'artifact:ui-context-batch-projection',
+        'canonical hierarchy order',
+        'viewport and overscan configuration'
       ],
+      outputs: ['artifact:scrollable-contents-window'],
       conditions: [
-        'One canonical Group exists before ordered children and each child retains its original workspace topology under the ordinary group-local projection contract.',
-        'Batch hierarchy application preserves exact ids, bounds, transforms, roles, fills, strokes, visibility, path order, and point order.',
-        'Property component instance creation, child relationship binding, and owner registration may use a canonical batch path instead of repeating single-item delivery work.',
-        'A batched property path preserves final canonical component ids and order, invalid-write rejection, history boundaries, replay evidence, persistence, and Collaboration exactly.',
-        'The canonical owner emits the same ordered ADD_ELEMENT and property evidence consumed by transaction, replay, persistence, Render, and Collaboration.',
-        'Any reduced traversal or allocation path is exactly equivalent to the ordinary valid-write and invalid-rejection semantics.'
+        'The virtualizer observes the actual inner scroll element that receives scrollTop changes.',
+        'The DOM retains only viewport plus overscan rows while scroll range represents every canonical entry.',
+        'A real 100+ row unit and integration case can scroll to and interact with the last canonical element.',
+        'Collapse, expansion, selection, and hierarchy order retain ordinary Contents behavior.'
       ],
       bypasses: [
-        'A non-mutating turn never enters Scene Tree apply.',
-        'A fatal canonical consistency failure rejects the existing transaction route and cannot commit an optimized prefix.'
+        'An empty hierarchy renders the ordinary empty Contents state without a virtual row.',
+        'A collapsed subtree contributes no visible descendants but does not remove their canonical state.'
       ],
       allowedContributors: [
-        'artifact:ordered-app-composition-batches',
-        '@asyra/core public Scene Tree facade',
-        '@asyra/scene-tree canonical component and hierarchy owners',
-        '@asyra/props-manager canonical property component owner'
+        'artifact:ui-context-batch-projection',
+        'Asyra Design Contents hierarchy projection',
+        'the existing virtualizer dependency',
+        'ordinary selection and disclosure state'
       ],
       forbiddenContributors: [
-        'direct package-private store mutation from the App',
-        'discarded canonical change evidence',
-        'batching that skips component construction, relationship binding, owner registration, or observable component changes',
-        'post-hoc full-composition move or geometry rewrite',
-        'fixture-specific Scene Tree behavior'
+        'rendering every canonical row into the DOM',
+        'diagnostically omitting the Contents panel as a product fix',
+        'a fixture-specific scroll offset',
+        'a second scroll owner'
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/scene-tree/src',
-        'packages/core/src',
-        'packages/props-manager/src',
-        'packages/scene-tree/src/__tests__',
-        'packages/core/src/__tests__',
-        'packages/props-manager/src/__tests__'
+        'apps/asyra-design/src/contents',
+        'apps/asyra-design/src/contents/__tests__'
       ],
       specRefs: [
-        '#non-negotiable-equivalence',
-        '#profiling-first-owner-decisions',
-        '#product-cases'
+        '#projection-and-contents-contract',
+        '#scrollable-contents-window',
+        '#step-local-gates'
       ],
-      failureOwnerStepId: 'apply-canonical-scene-batch'
+      failureOwnerStepId: 'project-scrollable-contents-window'
     },
     {
-      id: 'record-history-and-shared-publication',
+      id: 'record-and-deliver-transaction-batch',
       order: 1,
-      laneId: 'shared-delivery',
-      title: 'Record history and shared publication',
+      laneId: 'transaction-delivery',
+      title: 'Record and deliver one transaction batch',
       ownerPackage: '@asyra/factory',
       purpose:
-        'Record canonical deliveries, preserve one turn-level Undo/Redo action, and construct atomic or progressive shared publications without replay or compensation drift.',
-      inputs: ['artifact:canonical-scene-batches'],
+        'Create one immutable Factory-owned mutation artifact that carries canonical changes, inverses, history intent, shared-delivery mode, and publication slices to every downstream consumer.',
+      inputs: [
+        'artifact:canonical-element-batch-result',
+        'one outer App transaction identity',
+        'resolved atomic or progressive delivery mode'
+      ],
       outputs: [
-        'artifact:factory-history-commit',
-        'artifact:shared-publications',
-        'artifact:factory-timing-sample'
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:shared-publication-batches',
+        'artifact:local-commit-snapshot-trigger',
+        'artifact:factory-batch-timing'
       ],
       conditions: [
-        'Factory retains every canonical delivery and the source shared-delivery mode while committing exactly one intended local history action for the user turn.',
-        'Atomic delivery publishes once after commit; progressive delivery publishes ordered canonical batches before turn settlement.',
-        'Undo and Redo retain source batch boundaries and remain one local history action in each direction.',
-        'Immediate publication rollback uses linked Factory compensation and never leaves a remotely visible failed prefix.'
+        'Factory exposes FactoryMutationBatchArtifact, SharedDeliveryBatch, SharedPublication.batches, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch.',
+        'The canonical handoff is deeply detached and frozen once; History, Render/UI, and Collaboration share the same immutable evidence.',
+        'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
+        'Progressive publication boundaries create no new canonical writes and no additional history actions.',
+        'Rollback of an already-published immediate slice uses compensation from the same artifact.',
+        'An observer mutation attempt cannot pollute another consumer or the retained artifact.',
+        'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
       ],
       bypasses: [
-        'A zero-mutation result creates no publication or history record.',
-        'A fatal transaction failure produces no committed history action.',
-        'A transaction-end atomic delivery does not publish before commit.'
+        'A no-change transaction emits no artifact, history action, publication, or persistence trigger.',
+        'A fatal transaction failure emits no committed history action or local persistence trigger.',
+        'A transaction-end atomic publication is unavailable before canonical commit.'
       ],
       allowedContributors: [
-        'artifact:canonical-scene-batches',
-        'Factory transaction owner',
-        'ordinary canonical delivery records',
-        'existing shared-publication and replay contracts'
+        'artifact:canonical-element-batch-result',
+        'Factory transaction and journal owners',
+        'Factory shared-data channel',
+        'ordinary ordered canonical delivery evidence'
       ],
       forbiddenContributors: [
-        'one history commit per progressive publication',
-        'AI-specific replay or compensation',
-        'dropped canonical deliveries',
-        'early success before Factory commit'
+        'one history action per progressive slice',
+        'downstream .save() reconstruction of canonical evidence',
+        'per-observer independent delivery cloning',
+        'AI-specific history or compensation',
+        'dropped or reordered canonical changes'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -226,230 +119,486 @@
         'packages/factory/src/__tests__'
       ],
       specRefs: [
-        '#performance-budgets',
-        '#non-negotiable-equivalence',
-        '#profiling-first-owner-decisions'
+        '#factory-mutation-batch-artifact',
+        '#transaction-boundary',
+        '#one-immutable-transaction-artifact',
+        '#step-local-gates'
       ],
-      failureOwnerStepId: 'record-history-and-shared-publication'
+      failureOwnerStepId: 'record-and-deliver-transaction-batch'
     },
     {
-      id: 'transport-and-apply-remote-batches',
+      id: 'apply-canonical-property-scene-batch',
       order: 2,
-      laneId: 'shared-delivery',
-      title: 'Transport and apply remote batches',
-      ownerPackage: 'Asyra Design Collaboration adapter',
+      laneId: 'app-canonical',
+      title: 'Apply one canonical property and Scene Tree batch',
+      ownerPackage: '@asyra/core canonical batch facade',
       purpose:
-        'Encode, send, receive, decode, and apply ordinary shared publications so a peer observes progressive canonical growth and converges without a server semantic owner.',
-      inputs: ['artifact:shared-publications'],
+        'Preflight and apply every accepted child through one Props, relationship, instance, registration, hierarchy, and evidence boundary with no committed prefix on failure.',
+      inputs: ['artifact:composition-bulk-request'],
       outputs: [
-        'artifact:remote-canonical-batches',
-        'artifact:collaboration-timing-sample'
+        'artifact:canonical-element-batch-result',
+        'artifact:canonical-batch-timing'
       ],
       conditions: [
-        'The local reference transport accepts every finite publication without an artificial message-size ceiling and preserves publication order.',
-        'Actor B receives ordinary canonical deliveries, observes more than one increasing non-final element count before Actor A settles, and creates no local Undo action.',
-        'Remote apply preserves exact canonical ids, topology, hierarchy, properties, and source delivery boundaries.',
-        'Transport timing distinguishes encode, send, receive, decode, and remote canonical apply.'
+        'Props Manager performs one whole-batch schema, ID, and relationship preflight before instance materialization, relationship rebind, and registerMany.',
+        'A later invalid item leaves no committed prefix in Props, relationships, instance registries, Scene Tree maps, parent children, or Factory evidence.',
+        'Scene Tree performs one map registration phase, one parent children replacement, and one batch evidence record.',
+        'Required instance construction may iterate N values but cannot repeat N public API, transaction, relationship-graph, observer-registry, or parent-list boundaries.',
+        'CanonicalElementBatchResult preserves ordered element IDs and a Factory-owned delivery handle.',
+        'Single-item APIs are exactly equivalent batch-of-one conveniences.'
       ],
       bypasses: [
-        'Disconnected mode performs no send or remote apply while retaining the local canonical transaction semantics.',
-        'Closed transport reports the existing send failure and never fabricates remote convergence.',
-        'Cancellation before publication emits no later network work.'
+        'A no-change descriptor never enters canonical mutation.',
+        'Schema, ID, relationship, or ownership rejection fails before apply.',
+        'A fatal apply error rolls back the complete outer transaction.'
       ],
       allowedContributors: [
-        'artifact:shared-publications',
-        '@asyra/collaboration public protocol',
-        'Asyra Design collaboration lifecycle and WebSocket adapter',
-        'Asyra Design memory-only reference server transport composition without a semantic owner',
-        'ordinary remote Factory apply'
+        'artifact:composition-bulk-request',
+        '@asyra/core public facade',
+        '@asyra/props-manager canonical components and registries',
+        '@asyra/scene-tree hierarchy and map owners',
+        '@asyra/factory delivery handle'
       ],
       forbiddenContributors: [
-        'AI-specific transport protocol',
-        'server-side canonical splitting or history decisions',
-        'whole-document regeneration on the peer',
-        'unbounded diagnostic payload copied into publications'
-      ],
-      cacheDimensions: [],
-      implementationBoundary: [
-        'packages/collaboration/src',
-        'apps/asyra-design/src/collaboration',
-        'apps/asyra-design/collaboration-server.ts',
-        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
-        'apps/asyra-design/src/init',
-        'apps/asyra-design/src/features',
-        'apps/asyra-design/src/init/__tests__',
-        'apps/asyra-design/e2e'
-      ],
-      specRefs: [
-        '#performance-budgets',
-        '#non-negotiable-equivalence',
-        '#product-cases'
-      ],
-      failureOwnerStepId: 'transport-and-apply-remote-batches'
-    },
-    {
-      id: 'persist-committed-canonical-snapshots',
-      order: 3,
-      laneId: 'shared-delivery',
-      title: 'Persist eligible local committed snapshots',
-      ownerPackage: '@asyra/core and @asyra/persistence',
-      purpose:
-        'Capture and persist exact local action, undo, and redo snapshots while preserving FIFO durability evidence, separate committed and persisted statuses, and remote Collaboration ownership.',
-      inputs: ['artifact:factory-history-commit'],
-      outputs: [
-        'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing-sample'
-      ],
-      conditions: [
-        'Every eligible local committed action, undo, and redo captures one deeply detached exact snapshot at that committed state and queues it for provider save in FIFO order.',
-        'Factory emits an isolated commit-capture handoff after the canonical commit is accepted and before any reentrant completion, publication, or public status observer; capture failure cannot alter the committed runtime result.',
-        'Snapshot capture preserves Scene Tree, Props, system context, registered save-hook output, version, and transaction-specific evidence without retaining live mutable references.',
-        'Provider acknowledgement reports persisted separately from committed; FIFO processing preserves every snapshot, one failure reports persistence-failed, and a later committed snapshot still reaches the provider.',
-        'Core persistence timing distinguishes canonical snapshot capture, save-hook isolation, provider save, and browser persistence work without changing product scheduling.'
-      ],
-      bypasses: [
-        'A committed transaction with remote origin does not capture a snapshot or call the client persistence provider; its live canonical state remains owned by Collaboration apply and Render projection.',
-        'No configured provider reports persistence-skipped without capturing or queuing a snapshot.',
-        'Rollback, validation rejection, and snapshot-capture failure save no snapshot and retain the existing transaction status.',
-        'Load reads the provider-authoritative snapshot through ordinary Core validation and migration before product state is exposed.'
-      ],
-      allowedContributors: [
-        'artifact:factory-history-commit',
-        '@asyra/factory pre-observer commit-capture handoff',
-        'Core transaction status subscriber and public Scene Tree, Props, and system-context save facades',
-        '@asyra/persistence public provider contract',
-        'registered Core save hooks'
-      ],
-      forbiddenContributors: [
-        'a coalesced or dropped committed snapshot',
-        'live mutable canonical references in queued or provider-owned data',
-        'AI-specific or fixture-specific persistence paths',
-        'remote-origin client persistence',
-        'public committed status or shared publication carrying a Core snapshot',
-        'transaction, history, Undo, Redo, or publication boundary changes',
-        'diagnostic code that changes persistence scheduling'
+        'App access to package-private stores',
+        'prefix commit after later-item rejection',
+        'skipped instance, relationship, registration, or observable evidence',
+        'fixture-specific canonical handling',
+        'post-hoc full-composition geometry repair'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/core/src',
         'packages/core/src/__tests__',
-        'packages/factory/src',
-        'packages/factory/src/__tests__',
+        'packages/props-manager/src',
+        'packages/props-manager/src/__tests__',
+        'packages/scene-tree/src',
+        'packages/scene-tree/src/__tests__'
+      ],
+      specRefs: [
+        '#bulk-mutation-contract',
+        '#one-composition-bulk-mutation',
+        '#non-negotiable-equivalence',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'apply-canonical-property-scene-batch'
+    },
+    {
+      id: 'prepare-one-composition-bulk-request',
+      order: 1,
+      laneId: 'app-canonical',
+      title: 'Prepare one composition bulk request',
+      ownerPackage: 'Asyra Design AI actions and common APIs',
+      purpose:
+        'Convert one validated descriptor into one Group plus one all-children Core bulk request without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
+      inputs: [
+        'validated AI composition descriptor',
+        'resolved atomic or progressive delivery mode',
+        'Feature-owned AbortSignal'
+      ],
+      outputs: [
+        'artifact:composition-bulk-request',
+        'artifact:app-bulk-timing'
+      ],
+      conditions: [
+        'The App creates the Group and submits one all-children Core bulk request through Core.createElementsInParentBatch.',
+        'Core.createElementsInParentBatch returns CanonicalElementBatchResult with ordered IDs and a Factory-owned delivery handle.',
+        'Every single-item create API delegates to the batch-of-one path.',
+        'Point-aware progressive slices begin at 2,048 points and grow to 8,192 points; one indivisible element may exceed the soft target.',
+        'A publication slice affects projection and delivery only and does not repeat or split the canonical mutation.',
+        'One outer App transaction contains Group and children and expresses one intended history action.'
+      ],
+      bypasses: [
+        'Clarification and no-change turns create no Group, request, or history action.',
+        'Abort before mutation emits no canonical or publication work.',
+        'Recoverable item failures retain accepted siblings in one partial batch; a fatal error rolls back the complete turn.'
+      ],
+      allowedContributors: [
+        'registered Asyra Design AI action schemas',
+        'apps/asyra-design common APIs',
+        '@asyra/core public bulk facade',
+        'App-owned delivery mode and host-yield policy'
+      ],
+      forbiddenContributors: [
+        'fixed 256-item Core call loop',
+        'provider-selected canonical IDs',
+        'reduced VTracer detail or bitmap replacement',
+        'one App transaction per slice',
+        'AI-only canonical or Render mutation'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/ai',
+        'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/src/common-apis',
+        'apps/asyra-design/src/common-apis/__tests__'
+      ],
+      specRefs: [
+        '#bulk-mutation-contract',
+        '#transaction-boundary',
+        '#one-composition-bulk-mutation',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'prepare-one-composition-bulk-request'
+    },
+    {
+      id: 'project-visible-canonical-slices',
+      order: 1,
+      laneId: 'projection-ui',
+      title: 'Project visible canonical slices',
+      ownerPackage: '@asyra/preset projection composition',
+      purpose:
+        'Consume local and remote Factory batch artifacts through the ordinary Vector route, update only affected UI entries, and retain every progressive visible slice.',
+      inputs: [
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:remote-factory-mutation-batch'
+      ],
+      outputs: [
+        'artifact:visible-canonical-slices',
+        'artifact:ui-context-batch-projection',
+        'artifact:render-ui-timing'
+      ],
+      conditions: [
+        'Atomic delivery performs one batch projection and one visible flush.',
+        'Progressive delivery performs one projection for each formal slice and never collapses to a final-only peer frame.',
+        'One invalidation and one frame flush occur at most once per slice.',
+        'The ordinary Vector strategy preserves all 7,076 editable elements, topology, transforms, hierarchy, fills, strokes, and visibility.',
+        'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
+        'No Render-engine bulk command is added; batch composition remains above the existing strategy surface.'
+      ],
+      bypasses: [
+        'A canonical no-change produces no projection or UI update.',
+        'Invisible and removed elements follow ordinary Vector strategy behavior.',
+        'Detached timing and evidence never enter visible rendering.'
+      ],
+      allowedContributors: [
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:remote-factory-mutation-batch',
+        '@asyra/preset ordinary Vector strategy',
+        '@asyra/render scene scheduling',
+        'Asyra Design UI context projection'
+      ],
+      forbiddenContributors: [
+        'AI-only renderer or bitmap replacement',
+        'Render-owned canonical state',
+        'final-only progressive peer output',
+        'one full UI map rebuild per ADD_ELEMENT',
+        'diagnostic or evidence geometry'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/preset/src',
+        'packages/preset/src/__tests__',
+        'packages/render/src',
+        'packages/render/src/__tests__',
+        'apps/asyra-design/src/contexts/data-change.tsx',
+        'apps/asyra-design/src/providers/scene-tree.ts',
+        'apps/asyra-design/src/providers/__tests__/scene-tree.test.tsx',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts'
+      ],
+      specRefs: [
+        '#projection-and-contents-contract',
+        '#visible-atomic-and-progressive-projection',
+        '#non-negotiable-equivalence',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'project-visible-canonical-slices'
+    },
+    {
+      id: 'encode-publication-frames',
+      order: 1,
+      laneId: 'wire-transport',
+      title: 'Encode publication frames',
+      ownerPackage: 'Asyra Design Collaboration codec worker',
+      purpose:
+        'Encode outbound shared publication batches and decode inbound opaque frames as versioned binary data in a worker while retaining JSON control frames and existing ProviderFailure semantics.',
+      inputs: [
+        'artifact:shared-publication-batches',
+        'artifact:relayed-publication-frames',
+        'artifact:server-accepted-receipts'
+      ],
+      outputs: [
+        'artifact:encoded-publication-frames',
+        'artifact:decoded-publication-batches',
+        'artifact:frame-consumed-credit',
+        'artifact:codec-timing'
+      ],
+      conditions: [
+        'Hello, ack, failure, awareness, and credit control frames remain JSON.',
+        'All shared publication data uses a versioned binary frame and is not pre-serialized as JSON.',
+        'The existing codec runs in a Web Worker without a new package.',
+        'Outbound encoding performs one object-to-worker structured clone and returns a transferable ArrayBuffer.',
+        'Inbound ArrayBuffer data transfers to the receiver worker, which releases one decoded publication at a time to the App before policy and canonical preflight.',
+        'The receiver worker emits frame-consumed credit after it accepts the transferable frame, independently of later canonical apply.',
+        'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
+        'Invalid, unsupported-version, and truncated frames reject through ProviderFailure.'
+      ],
+      bypasses: [
+        'Disconnected mode performs no encode or send.',
+        'A control-only message never enters publication payload encoding.',
+        'Worker teardown rejects pending work and never fabricates delivery.'
+      ],
+      allowedContributors: [
+        'artifact:shared-publication-batches',
+        'artifact:relayed-publication-frames',
+        'artifact:server-accepted-receipts',
+        '@asyra/collaboration public publication schema',
+        'existing repository codec',
+        'platform Web Worker and transferable buffers'
+      ],
+      forbiddenContributors: [
+        'new codec dependency',
+        'JSON stringify of publication data before binary encoding',
+        'main-thread publication compression',
+        'element, point, payload, or composition ceiling',
+        'worker-owned App policy'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/collaboration/compact-binary.ts',
+        'apps/asyra-design/src/collaboration/compact-json.ts',
+        'apps/asyra-design/src/collaboration/protocol.ts',
+        'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
+        'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/collaboration/wire-values.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts'
+      ],
+      specRefs: [
+        '#binary-collaboration-transport',
+        '#binary-backpressured-collaboration',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'encode-publication-frames'
+    },
+    {
+      id: 'relay-frames-with-backpressure',
+      order: 2,
+      laneId: 'wire-transport',
+      title: 'Relay frames with byte backpressure',
+      ownerPackage: 'Asyra Design reference WebSocket server',
+      purpose:
+        'Relay canonical publication payloads opaquely and enforce bounded per-peer byte queues with distinct acceptance, wire-consumption, and peer-apply receipts.',
+      inputs: [
+        'artifact:encoded-publication-frames',
+        'artifact:frame-consumed-credit',
+        'artifact:peer-applied-receipts'
+      ],
+      outputs: [
+        'artifact:relayed-publication-frames',
+        'artifact:server-accepted-receipts',
+        'artifact:relay-timing'
+      ],
+      conditions: [
+        'After handshake the server parses only header, version, request, publication, chunk, and control metadata; the canonical payload remains opaque with byte parity, no decode, and no re-encode.',
+        'Each peer queue has a 2 MiB high watermark and a 512 KiB low watermark.',
+        'One oversized frame is allowed only when the peer queue is otherwise empty.',
+        'Queue progress waits for the socket.send callback and frame-consumed credit.',
+        'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
+        'peer-applied remains a separate receipt after main-thread canonical apply.',
+        'Client and server explicitly configure perMessageDeflate: false.'
+      ],
+      bypasses: [
+        'A disconnected or closed peer receives no later frame and reports the existing transport failure.',
+        'A peer without high-watermark capacity delays server acceptance rather than growing an unbounded queue.',
+        'Awareness and other JSON controls retain their ordinary control path.'
+      ],
+      allowedContributors: [
+        'artifact:encoded-publication-frames',
+        'artifact:frame-consumed-credit',
+        'artifact:peer-applied-receipts',
+        'WebSocket header, version, request, publication, chunk, and control metadata',
+        'socket.send completion callback',
+        'receiver frame-consumed credit'
+      ],
+      forbiddenContributors: [
+        'server canonical payload decode or re-encode',
+        'server history or canonical splitting',
+        'unbounded per-peer queue',
+        'per-message compression',
+        'server-accepted treated as peer-applied'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs'
+      ],
+      specRefs: [
+        '#opaque-relay-and-backpressure',
+        '#binary-backpressured-collaboration',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'relay-frames-with-backpressure'
+    },
+    {
+      id: 'apply-remote-publication-batches',
+      order: 3,
+      laneId: 'wire-transport',
+      title: 'Apply remote publication batches',
+      ownerPackage: 'Asyra Design Collaboration adapter',
+      purpose:
+        'Apply each decoded source publication through one remote Factory transaction and one canonical batch observer delivery without creating local-only side effects.',
+      inputs: ['artifact:decoded-publication-batches'],
+      outputs: [
+        'artifact:remote-factory-mutation-batch',
+        'artifact:peer-applied-receipts',
+        'artifact:remote-apply-timing'
+      ],
+      conditions: [
+        'One source publication owns one remote Factory transaction; different publications are not merged.',
+        'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
+        'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
+        'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
+        'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no IndexedDB write.',
+        'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
+      ],
+      bypasses: [
+        'Disconnected or closed transport performs no remote transaction.',
+        'Invalid App policy or canonical input fails before mutation.',
+        'An upstream worker teardown yields no decoded publication and preserves ProviderFailure.'
+      ],
+      allowedContributors: [
+        'artifact:decoded-publication-batches',
+        '@asyra/collaboration public process contract',
+        'Asyra Design App policy',
+        '@asyra/core and @asyra/factory public batch boundaries'
+      ],
+      forbiddenContributors: [
+        'one remote transaction per canonical event',
+        'merging different source publications',
+        'remote Undo or echo publication',
+        'remote client persistence',
+        'whole-document peer regeneration'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/collaboration/src/process.ts',
+        'packages/collaboration/src/__tests__/process.test.ts',
+        'apps/asyra-design/src/collaboration/factory-adapter.ts',
+        'apps/asyra-design/src/collaboration/lifecycle.ts',
+        'apps/asyra-design/src/collaboration/operations.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-factory.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts'
+      ],
+      specRefs: [
+        '#remote-apply-contract',
+        '#remote-batch-apply',
+        '#non-negotiable-equivalence',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'apply-remote-publication-batches'
+    },
+    {
+      id: 'persist-local-commit-snapshots',
+      order: 1,
+      laneId: 'persistence-proof',
+      title: 'Persist eligible local commit snapshots',
+      ownerPackage: '@asyra/core persistence coordinator',
+      purpose:
+        'Capture one exact detached snapshot for each eligible local action, Undo, and Redo commit while bypassing every remote-origin commit.',
+      inputs: ['artifact:local-commit-snapshot-trigger'],
+      outputs: [
+        'artifact:committed-persistence-snapshots',
+        'artifact:persistence-timing'
+      ],
+      conditions: [
+        'Local action, undo, and redo commits each capture one deeply detached complete snapshot at that committed state.',
+        'Snapshots and provider acknowledgements retain FIFO order.',
+        'One provider failure does not coalesce, drop, or prevent a later eligible snapshot.',
+        'Capture remains isolated before reentrant public observers without changing the committed runtime result.'
+      ],
+      bypasses: [
+        'Remote origin has zero client persistence capture, save-hook work, provider save, and IndexedDB update.',
+        'No configured provider reports persistence-skipped without snapshot capture.',
+        'Rollback and validation rejection save no snapshot.'
+      ],
+      allowedContributors: [
+        'artifact:local-commit-snapshot-trigger',
+        '@asyra/factory isolated commit handoff',
+        '@asyra/core public save facades and hooks',
+        '@asyra/persistence provider contract'
+      ],
+      forbiddenContributors: [
+        'remote client persistence',
+        'coalesced or dropped local committed snapshots',
+        'live mutable references in provider-owned data',
+        'AI-specific persistence path',
+        'history or publication boundary changes'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/core/src',
+        'packages/core/src/__tests__',
         'packages/persistence/src',
         'packages/persistence/src/providers/__tests__'
       ],
       specRefs: [
-        '#performance-measurement-contract',
-        '#non-negotiable-equivalence',
-        '#profiling-first-owner-decisions',
-        '#product-cases'
+        '#persistence-contract',
+        '#local-snapshot-durability',
+        '#transaction-boundary',
+        '#step-local-gates'
       ],
-      failureOwnerStepId: 'persist-committed-canonical-snapshots'
-    },
-    {
-      id: 'project-visible-canonical-batches',
-      order: 1,
-      laneId: 'projection-proof',
-      title: 'Project visible canonical batches',
-      ownerPackage: '@asyra/render scene layer',
-      purpose:
-        'Project local and remote canonical batches through the ordinary Preset Vector route with bounded invalidation while retaining visible progressive steps and final pixels.',
-      inputs: [
-        'artifact:canonical-scene-batches',
-        'artifact:remote-canonical-batches'
-      ],
-      outputs: [
-        'artifact:visible-local-projection',
-        'artifact:visible-remote-projection',
-        'artifact:render-timing-sample'
-      ],
-      conditions: [
-        'A local canonical batch produces the ordinary local scene projection; a remote canonical batch produces the same ordinary peer projection without waiting for the complete portrait.',
-        'Any invalidation coalescing is bounded to one accepted canonical batch and does not collapse progressive mode into one final-only frame.',
-        'Preset Vector rendering preserves exact ancestor transforms, topology, fills, strokes, hierarchy order, and complete uncropped output.',
-        'Render timing distinguishes invalidation, strategy projection, resource update, and visible frame presentation.'
-      ],
-      bypasses: [
-        'A canonical no-change produces no Render update.',
-        'An invisible or removed element follows the ordinary Render strategy behavior rather than a performance fallback.',
-        'Evidence-only timing and counters never enter visible rendering.'
-      ],
-      allowedContributors: [
-        'artifact:canonical-scene-batches',
-        'artifact:remote-canonical-batches',
-        '@asyra/render scene-layer scheduling',
-        '@asyra/preset ordinary Vector strategy'
-      ],
-      forbiddenContributors: [
-        'AI-only renderer or bitmap replacement',
-        'diagnostic or evidence geometry',
-        'final-only peer projection in progressive mode',
-        'Render-owned canonical state'
-      ],
-      cacheDimensions: [],
-      implementationBoundary: [
-        'packages/render/src',
-        'packages/preset/src',
-        'packages/render/src/__tests__',
-        'packages/preset/src/__tests__'
-      ],
-      specRefs: [
-        '#performance-budgets',
-        '#non-negotiable-equivalence',
-        '#profiling-first-owner-decisions'
-      ],
-      failureOwnerStepId: 'project-visible-canonical-batches'
+      failureOwnerStepId: 'persist-local-commit-snapshots'
     },
     {
       id: 'evaluate-performance-and-equivalence',
       order: 2,
-      laneId: 'projection-proof',
+      laneId: 'persistence-proof',
       title: 'Evaluate performance and equivalence',
       ownerPackage: 'Asyra Design performance E2E',
       purpose:
-        'Evaluate three-run owner spans, product budgets, exact canonical equivalence, history boundaries, and synchronized live visual evidence without committing generated artifacts.',
+        'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
-        'artifact:app-batch-timing-sample',
-        'artifact:scene-tree-timing-sample',
-        'artifact:factory-history-commit',
-        'artifact:factory-timing-sample',
-        'artifact:collaboration-timing-sample',
+        'artifact:app-bulk-timing',
+        'artifact:canonical-batch-timing',
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:factory-batch-timing',
+        'artifact:codec-timing',
+        'artifact:server-accepted-receipts',
+        'artifact:frame-consumed-credit',
+        'artifact:relay-timing',
+        'artifact:remote-factory-mutation-batch',
+        'artifact:peer-applied-receipts',
+        'artifact:remote-apply-timing',
+        'artifact:visible-canonical-slices',
+        'artifact:ui-context-batch-projection',
+        'artifact:render-ui-timing',
+        'artifact:scrollable-contents-window',
         'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing-sample',
-        'artifact:visible-local-projection',
-        'artifact:visible-remote-projection',
-        'artifact:render-timing-sample'
+        'artifact:persistence-timing'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
       conditions: [
-        'The evaluator reports median and worst owner spans separately from harness overhead and names the first over-budget product owner.',
-        'Balanced atomic, balanced progressive, peer-first-visible, peer-convergence, follow-up, full-flow, and maximum-detail budgets use the exact plan thresholds.',
-        'Canonical equivalence compares ids, element and point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, background size, and transaction evidence before visual review.',
-        'The default 16-item Mock AI CRDT correctness case proves ordinary two-actor convergence; the 7,112-element balanced gate remains change-aware and high-detail performance and CRDT gates remain independent opt-ins.',
-        'Actor A gains exactly one Undo action per mutating turn, Actor B gains none, and Undo/Redo retain one action in each direction.',
-        'Synchronized screenshots inspect the same measured live state with complete uncropped output, while generated screenshots, recordings, traces, profiles, and thumbnails remain ignored local artifacts.'
+        'One warm-up precedes three measured runs and median and worst values are reported separately.',
+        'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
+        'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, independent 7,076-element no-media CRDT and performance runs, and the 27,471-element 295,794-point gate pass.',
+        'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, transaction evidence, and persistence ownership.',
+        'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
+        'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
       ],
       bypasses: [
-        'A run with missing owner spans, stale state, development build, or test-induced product scheduling is invalid and cannot satisfy a budget.',
-        'A visually similar result with canonical drift fails equivalence.',
-        'A faster final-only peer result fails progressive visibility.'
+        'A development build, stale document, missing owner span, or test-induced scheduling cannot satisfy a release budget.',
+        'A visually similar result with canonical, history, or persistence drift fails.',
+        'The 7,076-element full two-window recording runs only after explicit user opt-in.'
       ],
       allowedContributors: [
-        'owner timing artifacts declared by this Inspector',
-        'ordinary canonical and history queries',
+        'declared owner timing artifacts',
+        'ordinary canonical, history, collaboration, and persistence queries',
         'bounded final exact snapshots',
-        'synchronized live App screenshots'
+        'app-visual-review-sync live App screenshots'
       ],
       forbiddenContributors: [
         'screenshots as canonical semantics authority',
-        'averages that hide a worst-run regression',
-        'test harness time attributed to a product owner',
-        'committed generated media or profile artifacts'
+        'averages that hide worst-run regression',
+        'harness overhead attributed to a product owner',
+        'final-only peer output',
+        'committed generated media or profiles'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/e2e',
-        'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/init/__tests__',
         'docs/ai/apps/asyra-design/bdd-features',
         'docs/ai/apps/asyra-design/plans/__tests__'
@@ -457,6 +606,7 @@
       specRefs: [
         '#performance-measurement-contract',
         '#performance-budgets',
+        '#final-gates',
         '#definition-of-done'
       ],
       failureOwnerStepId: 'evaluate-performance-and-equivalence'
@@ -465,246 +615,404 @@
 
   const routes = [
     {
-      id: 'route-profiled-turn-to-app',
-      from: 'accept-profiled-ai-drawing-turn',
-      to: 'prepare-ordered-app-composition-batches',
+      id: 'route-composition-request-to-canonical',
+      from: 'prepare-one-composition-bulk-request',
+      to: 'apply-canonical-property-scene-batch',
       kind: 'handoff',
-      predicate: 'The reference turn and detached timing contract are valid.',
-      producedArtifacts: ['artifact:profiled-ai-drawing-turn']
-    },
-    {
-      id: 'route-app-batches-to-scene-tree',
-      from: 'prepare-ordered-app-composition-batches',
-      to: 'apply-canonical-scene-batch',
-      kind: 'handoff',
-      predicate: 'The validated mutating descriptor produced ordered batches.',
-      producedArtifacts: ['artifact:ordered-app-composition-batches']
+      predicate: 'The validated descriptor contains an accepted mutation.',
+      producedArtifacts: ['artifact:composition-bulk-request']
     },
     {
       id: 'route-app-timing-to-proof',
-      from: 'prepare-ordered-app-composition-batches',
+      from: 'prepare-one-composition-bulk-request',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
-      predicate:
-        'App batch preparation completed or failed with a bounded span.',
-      producedArtifacts: ['artifact:app-batch-timing-sample']
+      predicate: 'App bulk preparation emitted a bounded timing sample.',
+      producedArtifacts: ['artifact:app-bulk-timing']
     },
     {
-      id: 'route-canonical-batches-to-factory',
-      from: 'apply-canonical-scene-batch',
-      to: 'record-history-and-shared-publication',
+      id: 'route-canonical-result-to-factory',
+      from: 'apply-canonical-property-scene-batch',
+      to: 'record-and-deliver-transaction-batch',
       kind: 'handoff',
       predicate:
-        'Canonical Scene Tree apply emitted ordinary ordered evidence.',
-      producedArtifacts: ['artifact:canonical-scene-batches']
+        'The complete canonical batch applied without a prefix failure.',
+      producedArtifacts: ['artifact:canonical-element-batch-result']
     },
     {
-      id: 'route-local-canonical-batches-to-render',
-      from: 'apply-canonical-scene-batch',
-      to: 'project-visible-canonical-batches',
-      kind: 'projection',
+      id: 'route-canonical-timing-to-proof',
+      from: 'apply-canonical-property-scene-batch',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
       predicate:
-        'A local canonical batch is ready for ordinary Render projection.',
-      producedArtifacts: ['artifact:canonical-scene-batches']
+        'Canonical preflight and apply emitted a bounded timing sample.',
+      producedArtifacts: ['artifact:canonical-batch-timing']
     },
     {
-      id: 'route-scene-timing-to-proof',
-      from: 'apply-canonical-scene-batch',
-      to: 'evaluate-performance-and-equivalence',
-      kind: 'observation',
-      predicate: 'Scene Tree apply completed or failed with a bounded span.',
-      producedArtifacts: ['artifact:scene-tree-timing-sample']
+      id: 'route-local-artifact-to-projection',
+      from: 'record-and-deliver-transaction-batch',
+      to: 'project-visible-canonical-slices',
+      kind: 'projection',
+      predicate: 'A local Factory mutation artifact is available.',
+      producedArtifacts: ['artifact:factory-mutation-batch-artifact']
     },
     {
-      id: 'route-shared-publications-to-collaboration',
-      from: 'record-history-and-shared-publication',
-      to: 'transport-and-apply-remote-batches',
+      id: 'route-publications-to-codec',
+      from: 'record-and-deliver-transaction-batch',
+      to: 'encode-publication-frames',
       kind: 'publication',
-      predicate: 'Collaboration is connected and a shared publication exists.',
-      producedArtifacts: ['artifact:shared-publications']
-    },
-    {
-      id: 'route-factory-evidence-to-proof',
-      from: 'record-history-and-shared-publication',
-      to: 'evaluate-performance-and-equivalence',
-      kind: 'observation',
-      predicate: 'Factory produced terminal transaction evidence.',
-      producedArtifacts: [
-        'artifact:factory-history-commit',
-        'artifact:factory-timing-sample'
-      ]
+      predicate: 'Collaboration is connected and a publication batch exists.',
+      producedArtifacts: ['artifact:shared-publication-batches']
     },
     {
       id: 'route-local-commit-to-persistence',
-      from: 'record-history-and-shared-publication',
-      to: 'persist-committed-canonical-snapshots',
+      from: 'record-and-deliver-transaction-batch',
+      to: 'persist-local-commit-snapshots',
       kind: 'persistence',
-      predicate:
-        'A local Factory transaction committed and emitted its isolated pre-observer durability capture handoff.',
-      producedArtifacts: ['artifact:factory-history-commit']
+      predicate: 'An eligible local action, Undo, or Redo commit completed.',
+      producedArtifacts: ['artifact:local-commit-snapshot-trigger']
     },
     {
-      id: 'route-remote-batches-to-render',
-      from: 'transport-and-apply-remote-batches',
-      to: 'project-visible-canonical-batches',
-      kind: 'projection',
-      predicate:
-        'A remote canonical batch is ready for ordinary peer projection.',
-      producedArtifacts: ['artifact:remote-canonical-batches']
-    },
-    {
-      id: 'route-collaboration-timing-to-proof',
-      from: 'transport-and-apply-remote-batches',
+      id: 'route-factory-evidence-to-proof',
+      from: 'record-and-deliver-transaction-batch',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
-      predicate:
-        'Collaboration transport and remote apply emitted bounded spans.',
-      producedArtifacts: ['artifact:collaboration-timing-sample']
-    },
-    {
-      id: 'route-persistence-evidence-to-proof',
-      from: 'persist-committed-canonical-snapshots',
-      to: 'evaluate-performance-and-equivalence',
-      kind: 'observation',
-      predicate:
-        'Committed snapshot and provider persistence evidence reached a terminal status.',
+      predicate: 'Factory emitted terminal artifact and timing evidence.',
       producedArtifacts: [
-        'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing-sample'
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:factory-batch-timing'
       ]
     },
     {
-      id: 'route-visible-projections-to-proof',
-      from: 'project-visible-canonical-batches',
+      id: 'route-encoded-frames-to-relay',
+      from: 'encode-publication-frames',
+      to: 'relay-frames-with-backpressure',
+      kind: 'transport',
+      predicate: 'A valid encoded publication frame is ready.',
+      producedArtifacts: ['artifact:encoded-publication-frames']
+    },
+    {
+      id: 'route-frame-consumed-credit-to-relay',
+      from: 'encode-publication-frames',
+      to: 'relay-frames-with-backpressure',
+      kind: 'credit',
+      predicate: 'The receiver worker accepted an inbound transferable frame.',
+      producedArtifacts: ['artifact:frame-consumed-credit']
+    },
+    {
+      id: 'route-codec-timing-to-proof',
+      from: 'encode-publication-frames',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'Worker encode and decode emitted bounded timing.',
+      producedArtifacts: ['artifact:codec-timing']
+    },
+    {
+      id: 'route-frame-consumed-credit-to-proof',
+      from: 'encode-publication-frames',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'Wire-consumption credit timing is available.',
+      producedArtifacts: ['artifact:frame-consumed-credit']
+    },
+    {
+      id: 'route-relayed-frames-to-codec',
+      from: 'relay-frames-with-backpressure',
+      to: 'encode-publication-frames',
+      kind: 'transport',
+      predicate: 'The peer worker received an ordered opaque frame.',
+      producedArtifacts: ['artifact:relayed-publication-frames']
+    },
+    {
+      id: 'route-server-accepted-to-codec-provider',
+      from: 'relay-frames-with-backpressure',
+      to: 'encode-publication-frames',
+      kind: 'receipt',
+      predicate:
+        'Every current peer queue had bounded capacity for the accepted frame.',
+      producedArtifacts: ['artifact:server-accepted-receipts']
+    },
+    {
+      id: 'route-relay-evidence-to-proof',
+      from: 'relay-frames-with-backpressure',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'Relay queue, drain, and receipt evidence is available.',
+      producedArtifacts: [
+        'artifact:server-accepted-receipts',
+        'artifact:relay-timing'
+      ]
+    },
+    {
+      id: 'route-decoded-publication-to-remote',
+      from: 'encode-publication-frames',
+      to: 'apply-remote-publication-batches',
+      kind: 'handoff',
+      predicate:
+        'The receiver worker released one validated and normalized publication.',
+      producedArtifacts: ['artifact:decoded-publication-batches']
+    },
+    {
+      id: 'route-remote-artifact-to-projection',
+      from: 'apply-remote-publication-batches',
+      to: 'project-visible-canonical-slices',
+      kind: 'projection',
+      predicate: 'One remote publication transaction completed.',
+      producedArtifacts: ['artifact:remote-factory-mutation-batch']
+    },
+    {
+      id: 'route-peer-applied-to-relay',
+      from: 'apply-remote-publication-batches',
+      to: 'relay-frames-with-backpressure',
+      kind: 'receipt',
+      predicate: 'Main-thread canonical apply completed for the publication.',
+      producedArtifacts: ['artifact:peer-applied-receipts']
+    },
+    {
+      id: 'route-remote-evidence-to-proof',
+      from: 'apply-remote-publication-batches',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'Remote apply emitted artifact and timing evidence.',
+      producedArtifacts: [
+        'artifact:remote-factory-mutation-batch',
+        'artifact:peer-applied-receipts',
+        'artifact:remote-apply-timing'
+      ]
+    },
+    {
+      id: 'route-ui-projection-to-contents',
+      from: 'project-visible-canonical-slices',
+      to: 'project-scrollable-contents-window',
+      kind: 'projection',
+      predicate: 'Affected UI entries and hierarchy order are available.',
+      producedArtifacts: ['artifact:ui-context-batch-projection']
+    },
+    {
+      id: 'route-projection-evidence-to-proof',
+      from: 'project-visible-canonical-slices',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'Local and remote visible projection evidence is available.',
+      producedArtifacts: [
+        'artifact:visible-canonical-slices',
+        'artifact:ui-context-batch-projection',
+        'artifact:render-ui-timing'
+      ]
+    },
+    {
+      id: 'route-contents-window-to-proof',
+      from: 'project-scrollable-contents-window',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate: 'The final canonical row is reachable with bounded DOM rows.',
+      producedArtifacts: ['artifact:scrollable-contents-window']
+    },
+    {
+      id: 'route-persistence-evidence-to-proof',
+      from: 'persist-local-commit-snapshots',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The required local and remote visible milestones are available.',
+        'Local FIFO and remote bypass evidence reached terminal status.',
       producedArtifacts: [
-        'artifact:visible-local-projection',
-        'artifact:visible-remote-projection',
-        'artifact:render-timing-sample'
+        'artifact:committed-persistence-snapshots',
+        'artifact:persistence-timing'
       ]
     },
     {
       id: 'route-performance-proof',
       from: 'evaluate-performance-and-equivalence',
       kind: 'terminal',
-      predicate:
-        'Every required budget and exact equivalence oracle was evaluated.',
+      predicate: 'All formal, performance, equivalence, and visual gates ran.',
       producedArtifacts: ['artifact:performance-equivalence-proof']
     }
   ]
 
   const artifacts = [
     {
-      id: 'artifact:profiled-ai-drawing-turn',
-      ownerStepId: 'accept-profiled-ai-drawing-turn',
-      channel: 'detached profiled turn request',
-      consumerStepIds: ['prepare-ordered-app-composition-batches'],
+      id: 'artifact:composition-bulk-request',
+      ownerStepId: 'prepare-one-composition-bulk-request',
+      channel: 'Asyra Design common API',
+      consumerStepIds: ['apply-canonical-property-scene-batch'],
       terminal: false
     },
     {
-      id: 'artifact:ordered-app-composition-batches',
-      ownerStepId: 'prepare-ordered-app-composition-batches',
-      channel: 'App common-API requests',
-      consumerStepIds: ['apply-canonical-scene-batch'],
-      terminal: false
-    },
-    {
-      id: 'artifact:app-batch-timing-sample',
-      ownerStepId: 'prepare-ordered-app-composition-batches',
+      id: 'artifact:app-bulk-timing',
+      ownerStepId: 'prepare-one-composition-bulk-request',
       channel: 'detached monotonic timing',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:canonical-scene-batches',
-      ownerStepId: 'apply-canonical-scene-batch',
-      channel: 'ordinary canonical deliveries',
-      consumerStepIds: [
-        'record-history-and-shared-publication',
-        'project-visible-canonical-batches'
-      ],
+      id: 'artifact:canonical-element-batch-result',
+      ownerStepId: 'apply-canonical-property-scene-batch',
+      channel: '@asyra/core canonical batch result',
+      consumerStepIds: ['record-and-deliver-transaction-batch'],
       terminal: false
     },
     {
-      id: 'artifact:scene-tree-timing-sample',
-      ownerStepId: 'apply-canonical-scene-batch',
+      id: 'artifact:canonical-batch-timing',
+      ownerStepId: 'apply-canonical-property-scene-batch',
       channel: 'detached monotonic timing',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:factory-history-commit',
-      ownerStepId: 'record-history-and-shared-publication',
-      channel: 'Factory history evidence',
+      id: 'artifact:factory-mutation-batch-artifact',
+      ownerStepId: 'record-and-deliver-transaction-batch',
+      channel: 'immutable Factory batch evidence',
       consumerStepIds: [
-        'persist-committed-canonical-snapshots',
+        'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
     },
     {
-      id: 'artifact:shared-publications',
-      ownerStepId: 'record-history-and-shared-publication',
-      channel: 'ordinary shared-publication channel',
-      consumerStepIds: ['transport-and-apply-remote-batches'],
+      id: 'artifact:shared-publication-batches',
+      ownerStepId: 'record-and-deliver-transaction-batch',
+      channel: 'Factory shared-data channel',
+      consumerStepIds: ['encode-publication-frames'],
       terminal: false
     },
     {
-      id: 'artifact:factory-timing-sample',
-      ownerStepId: 'record-history-and-shared-publication',
+      id: 'artifact:local-commit-snapshot-trigger',
+      ownerStepId: 'record-and-deliver-transaction-batch',
+      channel: 'isolated pre-observer local commit handoff',
+      consumerStepIds: ['persist-local-commit-snapshots'],
+      terminal: false
+    },
+    {
+      id: 'artifact:factory-batch-timing',
+      ownerStepId: 'record-and-deliver-transaction-batch',
       channel: 'detached monotonic timing',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:remote-canonical-batches',
-      ownerStepId: 'transport-and-apply-remote-batches',
-      channel: 'ordinary remote canonical apply',
-      consumerStepIds: ['project-visible-canonical-batches'],
+      id: 'artifact:encoded-publication-frames',
+      ownerStepId: 'encode-publication-frames',
+      channel: 'transferable versioned binary frames',
+      consumerStepIds: ['relay-frames-with-backpressure'],
       terminal: false
     },
     {
-      id: 'artifact:collaboration-timing-sample',
-      ownerStepId: 'transport-and-apply-remote-batches',
-      channel: 'detached monotonic timing',
+      id: 'artifact:decoded-publication-batches',
+      ownerStepId: 'encode-publication-frames',
+      channel: 'worker-validated and normalized publication batches',
+      consumerStepIds: ['apply-remote-publication-batches'],
+      terminal: false
+    },
+    {
+      id: 'artifact:frame-consumed-credit',
+      ownerStepId: 'encode-publication-frames',
+      channel: 'receiver worker wire-consumption credit',
+      consumerStepIds: [
+        'relay-frames-with-backpressure',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:codec-timing',
+      ownerStepId: 'encode-publication-frames',
+      channel: 'detached worker encode/decode timing',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:relayed-publication-frames',
+      ownerStepId: 'relay-frames-with-backpressure',
+      channel: 'opaque ordered WebSocket frames',
+      consumerStepIds: ['encode-publication-frames'],
+      terminal: false
+    },
+    {
+      id: 'artifact:server-accepted-receipts',
+      ownerStepId: 'relay-frames-with-backpressure',
+      channel: 'bounded per-peer queue acceptance receipts',
+      consumerStepIds: [
+        'encode-publication-frames',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:relay-timing',
+      ownerStepId: 'relay-frames-with-backpressure',
+      channel: 'detached queue and drain timing',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:remote-factory-mutation-batch',
+      ownerStepId: 'apply-remote-publication-batches',
+      channel: 'remote Factory transaction evidence',
+      consumerStepIds: [
+        'project-visible-canonical-slices',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:peer-applied-receipts',
+      ownerStepId: 'apply-remote-publication-batches',
+      channel: 'post-canonical-apply peer receipts',
+      consumerStepIds: [
+        'relay-frames-with-backpressure',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:remote-apply-timing',
+      ownerStepId: 'apply-remote-publication-batches',
+      channel: 'detached remote apply timing',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:visible-canonical-slices',
+      ownerStepId: 'project-visible-canonical-slices',
+      channel: 'ordinary local and remote Vector projection',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:ui-context-batch-projection',
+      ownerStepId: 'project-visible-canonical-slices',
+      channel: 'affected UI entries and hierarchy order',
+      consumerStepIds: [
+        'project-scrollable-contents-window',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:render-ui-timing',
+      ownerStepId: 'project-visible-canonical-slices',
+      channel: 'detached Render and UI timing',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:scrollable-contents-window',
+      ownerStepId: 'project-scrollable-contents-window',
+      channel: 'formal Contents tail-reachability evidence',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
       id: 'artifact:committed-persistence-snapshots',
-      ownerStepId: 'persist-committed-canonical-snapshots',
-      channel: 'exact committed snapshot and durability evidence',
+      ownerStepId: 'persist-local-commit-snapshots',
+      channel: 'exact local FIFO durability evidence',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:persistence-timing-sample',
-      ownerStepId: 'persist-committed-canonical-snapshots',
-      channel: 'detached monotonic persistence timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
-    },
-    {
-      id: 'artifact:visible-local-projection',
-      ownerStepId: 'project-visible-canonical-batches',
-      channel: 'ordinary local Render projection',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
-    },
-    {
-      id: 'artifact:visible-remote-projection',
-      ownerStepId: 'project-visible-canonical-batches',
-      channel: 'ordinary remote Render projection',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
-    },
-    {
-      id: 'artifact:render-timing-sample',
-      ownerStepId: 'project-visible-canonical-batches',
-      channel: 'detached visible-frame timing',
+      id: 'artifact:persistence-timing',
+      ownerStepId: 'persist-local-commit-snapshots',
+      channel: 'detached capture and provider timing',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
@@ -719,157 +1027,154 @@
 
   const invariants = [
     {
-      id: 'measurement-is-observational',
+      id: 'one-action-one-artifact-one-history-boundary',
       statement:
-        'Performance marks and counters are detached observations and cannot alter product scheduling, canonical state, delivery, history, retry, cancellation, or terminal results.',
+        'One mutating user turn owns one outer transaction, one immutable FactoryMutationBatchArtifact, and one intended history action regardless of publication slice or wire-frame count.',
       stepIds: [
-        'accept-profiled-ai-drawing-turn',
-        'prepare-ordered-app-composition-batches',
-        'apply-canonical-scene-batch',
-        'record-history-and-shared-publication',
-        'transport-and-apply-remote-batches',
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches',
-        'evaluate-performance-and-equivalence'
+        'prepare-one-composition-bulk-request',
+        'apply-canonical-property-scene-batch',
+        'record-and-deliver-transaction-batch',
+        'encode-publication-frames',
+        'relay-frames-with-backpressure',
+        'apply-remote-publication-batches'
       ],
       artifactIds: [
-        'artifact:app-batch-timing-sample',
-        'artifact:scene-tree-timing-sample',
-        'artifact:factory-timing-sample',
-        'artifact:collaboration-timing-sample',
-        'artifact:persistence-timing-sample',
-        'artifact:render-timing-sample'
+        'artifact:composition-bulk-request',
+        'artifact:canonical-element-batch-result',
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:shared-publication-batches'
       ],
-      specRefs: ['#performance-measurement-contract']
+      specRefs: ['#transaction-boundary', '#non-negotiable-equivalence']
     },
     {
-      id: 'detail-identity-and-history-are-equivalent',
+      id: 'publication-slices-are-not-canonical-writes',
       statement:
-        'Every optimized route preserves accepted detail, canonical identity, topology, hierarchy, properties, one outer transaction, and one intended history action per mutating turn.',
+        'Atomic and progressive slices project and publish existing immutable evidence; they never repeat canonical mutation, split history, or collapse progressive peer visibility.',
       stepIds: [
-        'prepare-ordered-app-composition-batches',
-        'apply-canonical-scene-batch',
-        'record-history-and-shared-publication',
-        'transport-and-apply-remote-batches',
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches',
-        'evaluate-performance-and-equivalence'
+        'record-and-deliver-transaction-batch',
+        'project-visible-canonical-slices',
+        'encode-publication-frames',
+        'relay-frames-with-backpressure',
+        'apply-remote-publication-batches'
       ],
       artifactIds: [
-        'artifact:ordered-app-composition-batches',
-        'artifact:canonical-scene-batches',
-        'artifact:factory-history-commit',
-        'artifact:remote-canonical-batches',
-        'artifact:committed-persistence-snapshots',
-        'artifact:performance-equivalence-proof'
+        'artifact:factory-mutation-batch-artifact',
+        'artifact:visible-canonical-slices',
+        'artifact:encoded-publication-frames',
+        'artifact:remote-factory-mutation-batch'
       ],
-      specRefs: ['#non-negotiable-equivalence']
+      specRefs: [
+        '#factory-mutation-batch-artifact',
+        '#projection-and-contents-contract'
+      ]
     },
     {
-      id: 'profiling-selects-one-owner',
+      id: 'transport-is-bounded-and-not-a-semantic-owner',
       statement:
-        'Three-run owner spans select only the largest over-budget product owner; no cache or adjacent optimization is authorized without new profiling and Inspector evidence.',
+        'Worker and server transport preserve ordered canonical bytes and bounded peer queues without owning App policy, canonical splitting, history, persistence, or convergence claims.',
       stepIds: [
-        'accept-profiled-ai-drawing-turn',
-        'evaluate-performance-and-equivalence'
+        'encode-publication-frames',
+        'relay-frames-with-backpressure',
+        'apply-remote-publication-batches'
       ],
       artifactIds: [
-        'artifact:profiled-ai-drawing-turn',
-        'artifact:performance-equivalence-proof'
+        'artifact:encoded-publication-frames',
+        'artifact:relayed-publication-frames',
+        'artifact:decoded-publication-batches',
+        'artifact:server-accepted-receipts',
+        'artifact:frame-consumed-credit',
+        'artifact:peer-applied-receipts'
       ],
-      specRefs: ['#profiling-first-owner-decisions']
+      specRefs: [
+        '#binary-collaboration-transport',
+        '#opaque-relay-and-backpressure'
+      ]
     },
     {
-      id: 'progressive-remains-progressive',
+      id: 'remote-origin-has-no-local-only-side-effects',
       statement:
-        'Progressive mode exposes multiple ordered peer-visible canonical batches before Actor A settles and never converts network batches into history actions.',
+        'A remote source publication updates canonical, Render, and UI state but creates no Undo, echo publication, persistence capture, provider save, or IndexedDB write.',
       stepIds: [
-        'prepare-ordered-app-composition-batches',
-        'record-history-and-shared-publication',
-        'transport-and-apply-remote-batches',
-        'project-visible-canonical-batches',
+        'apply-remote-publication-batches',
+        'project-visible-canonical-slices',
+        'persist-local-commit-snapshots',
         'evaluate-performance-and-equivalence'
       ],
       artifactIds: [
-        'artifact:shared-publications',
-        'artifact:remote-canonical-batches',
-        'artifact:visible-remote-projection',
-        'artifact:factory-history-commit'
+        'artifact:remote-factory-mutation-batch',
+        'artifact:visible-canonical-slices',
+        'artifact:committed-persistence-snapshots'
       ],
-      specRefs: ['#performance-budgets', '#non-negotiable-equivalence']
+      specRefs: ['#remote-apply-contract', '#persistence-contract']
     }
   ]
 
   const acceptanceContracts = [
     {
-      id: 'local-creation-budgets',
-      title: 'Balanced and maximum local creation budgets',
+      id: 'bulk-and-history-equivalence',
+      title: 'Bulk canonical and history equivalence',
       assertions: [
-        'Balanced atomic creation is at most 12 seconds median and 20 seconds worst without changing 7,076-element canonical output or one-turn history.',
-        'Balanced progressive creation is at most 20 seconds median and 30 seconds worst without changing progressive delivery.',
-        'Maximum detail retains 27,471 ordinary editable Vectors and 295,794 canonical points and is at most 60 seconds median and 90 seconds worst.'
+        'One Group plus one all-children Core request preserves exact IDs, order, topology, properties, relationships, and component ownership.',
+        'A later invalid item leaves no prefix, and single-item APIs are equivalent batch-of-one conveniences.',
+        'One immutable Factory artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.'
       ],
       stepIds: [
-        'accept-profiled-ai-drawing-turn',
-        'prepare-ordered-app-composition-batches',
-        'apply-canonical-scene-batch',
-        'record-history-and-shared-publication',
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches',
-        'evaluate-performance-and-equivalence'
+        'prepare-one-composition-bulk-request',
+        'apply-canonical-property-scene-batch',
+        'record-and-deliver-transaction-batch'
       ],
-      specRefs: ['#performance-budgets', '#product-cases']
+      specRefs: [
+        '#bulk-mutation-contract',
+        '#factory-mutation-batch-artifact',
+        '#non-negotiable-equivalence'
+      ]
     },
     {
-      id: 'progressive-collaboration-budgets',
-      title: 'Peer-first-visible and convergence budgets',
+      id: 'visible-and-scrollable-projection',
+      title: 'Visible progressive and scrollable UI projection',
       assertions: [
-        'Actor B shows the first visible canonical batch within 2 seconds of the first publication and converges within 30 seconds of Actor A canonical commit.',
-        'Whisker and pupil follow-ups converge within 5 seconds of Actor A settlement and retain exact ids and point counts.',
-        'The full three-turn product flow is at most 90 seconds median and 120 seconds worst, while the whole E2E command is at most 180 seconds.'
+        'Atomic delivery flushes once and progressive delivery flushes every formal slice through the ordinary Vector route.',
+        'All 7,076 editable elements remain complete and uncropped.',
+        'Contents reaches the final canonical element with viewport-plus-overscan DOM rows and correct collapse and selection.'
       ],
       stepIds: [
-        'record-history-and-shared-publication',
-        'transport-and-apply-remote-batches',
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches',
-        'evaluate-performance-and-equivalence'
+        'project-visible-canonical-slices',
+        'project-scrollable-contents-window'
       ],
-      specRefs: ['#performance-budgets', '#product-cases']
+      specRefs: ['#projection-and-contents-contract', '#product-cases']
     },
     {
-      id: 'semantic-equivalence-and-failure',
-      title: 'Canonical, history, cancellation, and failure equivalence',
+      id: 'binary-backpressure-and-remote-apply',
+      title: 'Binary relay, backpressure, and remote apply',
       assertions: [
-        'Exact ids, topology, hierarchy, bounds, transforms, roles, styles, visibility, background size, transaction evidence, partial commit, and fatal rollback remain unchanged.',
-        'Actor A gains one Undo action per mutating turn, Actor B gains none, and Undo/Redo each remain one local action.',
-        'Cancellation, transport failure, and teardown release profiling state and never fabricate success.'
+        'Versioned binary publication data round-trips through workers and an opaque relay without byte drift.',
+        'Each peer queue remains within the declared watermarks and separates server-accepted, frame-consumed, and peer-applied receipts.',
+        'One remote transaction and one batch observer delivery apply each source publication without Undo, echo, or client persistence.'
       ],
       stepIds: [
-        'prepare-ordered-app-composition-batches',
-        'apply-canonical-scene-batch',
-        'record-history-and-shared-publication',
-        'transport-and-apply-remote-batches',
-        'persist-committed-canonical-snapshots',
-        'project-visible-canonical-batches',
-        'evaluate-performance-and-equivalence'
+        'encode-publication-frames',
+        'relay-frames-with-backpressure',
+        'apply-remote-publication-batches'
       ],
-      specRefs: ['#non-negotiable-equivalence', '#product-cases']
+      specRefs: [
+        '#binary-collaboration-transport',
+        '#opaque-relay-and-backpressure',
+        '#remote-apply-contract'
+      ]
     },
     {
-      id: 'bounded-completion-gates',
-      title: 'Profiling, formal, visual, and artifact completion',
+      id: 'formal-performance-and-visual-closure',
+      title: 'Formal, performance, and visual closure',
       assertions: [
-        'Three-run profiling separates every product owner span from harness overhead and names the first over-budget owner.',
-        'The default 16-item Mock AI CRDT correctness gate passes while balanced correctness, high-detail performance, and high-detail CRDT retain their declared change-aware or opt-in isolation.',
-        'Formal package, App, collaboration, E2E, lint, build, Inspector, BDD, and synchronized live visual gates pass.',
-        'Generated screenshots, recordings, traces, profiles, and thumbnail media remain ignored local artifacts and are never committed.'
+        'The default 16-item CRDT gate, one change-aware 7,112-element correctness gate, independent high-detail CRDT and performance gates, and maximum-detail gate pass.',
+        'Existing atomic, progressive, first-visible, convergence, follow-up, full-flow, and maximum-detail budgets pass with separated owner and harness spans.',
+        'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [
-        'accept-profiled-ai-drawing-turn',
+        'persist-local-commit-snapshots',
         'evaluate-performance-and-equivalence'
       ],
-      specRefs: ['#definition-of-done', '#stop-conditions']
+      specRefs: ['#performance-budgets', '#final-gates', '#definition-of-done']
     }
   ]
 
@@ -880,7 +1185,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'Profiling-first local creation, canonical Scene Tree apply, Factory history and publication, Collaboration convergence, committed persistence, ordinary Render projection, and exact performance-equivalence proof.'
+        'One canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, remote side-effect isolation, local FIFO durability, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,
@@ -899,7 +1204,7 @@
       {
         id: 'drawing-inspector',
         kind: 'prerequisite',
-        label: 'Active drawing behavior authority',
+        label: 'Completed drawing behavior authority',
         href: './ai-conversational-drawing-flow-inspector.html'
       }
     ],

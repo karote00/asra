@@ -1,7 +1,7 @@
 Feature: Conversational AI drawing performance
   As an Asyra Design user creating high-detail editable drawings
-  I want local and collaborative drawing to settle within explicit budgets
-  So that high detail remains usable without weakening canonical or history semantics
+  I want canonical drawing, collaboration, and Contents projection to use bounded batch boundaries
+  So that high detail remains interactive without weakening identity, history, or persistence semantics
 
   Background:
     Given the committed 1672 by 941 tabby reference image
@@ -9,13 +9,88 @@ Feature: Conversational AI drawing performance
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And one unmeasured warm-up precedes three measured reference runs
 
-  Scenario: Profiling identifies the first product-owned bottleneck
-    When the balanced cat-only turn creates 7075 editable Vectors and one Group
-    Then timing should distinguish App batching, Scene Tree apply, Factory recording and publication, Collaboration transport and remote apply, local Core persistence snapshot capture and provider save, and Render projection
-    And timing should include Actor A and Actor B first-visible and settled milestones
+  Scenario: Profiling fixes the first architecture owners
+    When the balanced high-detail collaboration profile is evaluated
+    Then timing should distinguish product execution, Factory artifact construction, worker encode, server queue and drain, worker decode, remote apply, Render, UI, and harness overhead
+    And the Contents present average should be 7.026 seconds
+    And the Contents omitted average should be 7.074 seconds
+    And the first collaboration bottleneck should be server to Actor B delivery and drain
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
-    And the commit-capture handoff should run before reentrant observers
-    And the next optimization should belong only to the largest over-budget Inspector owner
+
+  Scenario: One composition uses one canonical bulk request
+    Given one validated AI composition contains one Group and many accepted children
+    When the App executes the mutating turn
+    Then it should call "Core.createElementsInParentBatch" once for all accepted children
+    And the result should retain ordered canonical element ids and one Factory-owned delivery handle
+    And a single-item create API should use the same batch-of-one canonical path
+    And point-aware progressive slices should begin at 2048 points and grow to 8192 points
+    And one indivisible element may exceed the soft slice target
+    And no slice should repeat or split the canonical mutation
+
+  Scenario: Canonical batch preflight rejects a later invalid item atomically
+    Given an accepted child batch contains a later invalid property or relationship
+    When Props Manager and Scene Tree preflight the complete batch
+    Then no property, instance, relationship, registry, hierarchy, parent child, or Factory evidence prefix should remain
+    And a valid batch should perform one map registration phase
+    And a valid batch should perform one parent children replacement
+    And a valid batch should produce one ordered batch evidence record
+
+  Scenario: Factory emits one immutable transaction artifact
+    Given the complete canonical child batch succeeds inside one outer App transaction
+    When Factory records the canonical deliveries
+    Then it should deeply detach and freeze one "FactoryMutationBatchArtifact"
+    And History, Render UI, and Collaboration should consume the same ordered artifact
+    And the turn should create exactly one intended Undo action
+    And Undo and Redo should each restore the complete intended action
+    And an observer mutation attempt should not affect another consumer
+
+  Scenario: Progressive slices remain visible without new canonical writes
+    Given the immutable Factory artifact contains point-aware progressive slice boundaries
+    When Preset and Render consume the formal slices
+    Then every slice should use the ordinary Vector strategy
+    And every slice should cause at most one invalidation and one frame flush
+    And Actor B should observe more than one increasing non-final element count
+    And publication slices should create no new canonical writes or history actions
+    And progressive output should not collapse into one final-only frame
+
+  Scenario: Contents can scroll to the final canonical element
+    Given Contents receives more than 100 ordered visible hierarchy rows
+    When the user scrolls the actual inner scroll element to its tail
+    Then the final canonical element should be rendered and interactive
+    And mounted DOM rows should remain bounded to the viewport and overscan
+    And collapse, expansion, hierarchy order, and selection should remain correct
+
+  Scenario: Binary publication relay applies byte backpressure
+    Given a shared publication batch is ready for Collaboration
+    When the codec worker creates versioned binary publication frames
+    Then control frames should remain JSON
+    And publication payloads should transfer as ArrayBuffer values without JSON pre-serialization
+    And the server should relay canonical payload bytes without decode or re-encode
+    And the receiver worker should release one decoded publication at a time to App policy and canonical preflight
+    And each peer should use a 2 MiB high watermark and a 512 KiB low watermark
+    And one oversized indivisible frame should be allowed only for an otherwise empty peer queue
+    And "server-accepted", "frame-consumed", and "peer-applied" should remain distinct receipts
+    And the receiver worker should emit "frame-consumed" after accepting the transferable frame
+    And remote apply should emit "peer-applied" only after canonical apply completes
+    And client and server WebSockets should use "perMessageDeflate: false"
+
+  Scenario: Remote publication apply does not create local side effects
+    Given Actor B receives one valid source publication
+    When the worker releases the publication for canonical apply
+    Then Actor B should open exactly one remote Factory transaction for that publication
+    And different source publications should not be merged
+    And one batch observer delivery should preserve the ordered canonical events
+    And Actor B should create no Undo action
+    And Actor B should create no echo publication
+    And Actor B should perform no persistence capture, provider save, or IndexedDB write
+
+  Scenario: Local persistence captures each committed state exactly once
+    Given local action, Undo, and Redo commits are eligible for durability
+    When each commit reaches the isolated persistence handoff
+    Then each commit should capture one complete deeply detached snapshot
+    And snapshots should reach the provider in FIFO order
+    And one failed save should not drop or prevent a later eligible snapshot
+    But a remote-origin transaction should capture and save no client snapshot
 
   Scenario: Fast Mock AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
@@ -25,12 +100,7 @@ Feature: Conversational AI drawing performance
     And Actor A should gain one Undo action while Actor B gains no local Undo action
     And the 7112-element balanced correctness gate should remain change-aware or explicitly requested
     And high-detail performance and CRDT suites should remain independent and explicitly opt-in
-
-  Scenario: Contents panel attribution stays diagnostic
-    When matched profiling runs keep the Contents panel present and diagnostically omit it
-    Then canonical output, history, delivery mode, and non-UI inputs should remain identical
-    And the comparison may attribute cost to Contents or UI projection
-    But neither diagnostic variant should satisfy a release performance budget
+    And the 7076-element two-window full recording should remain manual opt-in
 
   Scenario: Balanced atomic creation meets the local budget
     Given the URL resolves exact "aiDelivery=atomic"
@@ -48,8 +118,6 @@ Feature: Conversational AI drawing performance
     And no Actor A measured run should exceed 30 seconds
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
     And Actor B should converge within 30 seconds of Actor A canonical creation commit
-    And Actor B should observe at least two increasing non-final element counts before Actor A settles
-    And Actor B remote commits should not capture or save client persistence snapshots
     And both actors should converge on identical ids, topology, hierarchy, styles, and background bounds
     And Actor A should gain one Undo action while Actor B gains no local Undo action
 
@@ -68,7 +136,7 @@ Feature: Conversational AI drawing performance
     Then the drawing should contain 27471 ordinary editable Vector elements and 295794 canonical points
     And median accepted-turn-to-settled time should be at most 60 seconds
     And no measured run should exceed 90 seconds
-    And no item, path, point, payload, or composition ceiling should reject the drawing
+    And no item, path, point, payload, frame, or composition ceiling should reject the drawing
     And the turn should create one intended Undo action
 
   Scenario: The complete progressive product flow meets its budget
@@ -78,8 +146,8 @@ Feature: Conversational AI drawing performance
     And generated screenshots, recordings, profiles, traces, and thumbnail media should remain ignored local artifacts
 
   Scenario: Performance work preserves cancellation and failure semantics
-    When the user cancels, a recoverable item fails, a fatal canonical error occurs, the transport closes, or the app tears down
-    Then profiling state should be released with the existing owner lifecycle
-    And recoverable siblings should still commit as one partial result
-    And fatal failure should still roll back the complete turn
-    And no performance path should fabricate success, skip an owner, or leave an extra history action
+    When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down
+    Then recoverable siblings should still commit as one partial result
+    And fatal failure should roll back the complete turn
+    And an already-published immediate slice should use the same artifact inverse for compensation
+    And no performance path should fabricate success, skip an owner, persist a remote transaction, or leave an extra history action
