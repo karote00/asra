@@ -1,7 +1,11 @@
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
 import { PropertyOwnerRef, PropsAPIs } from './props'
 import { RenderAPIs } from './render'
-import { SceneTreeAPIs } from './scene-tree'
+import {
+  SceneTreeAPIs,
+  type CanonicalElementBatchResult,
+  type CanonicalElementBatchTimingArtifact
+} from './scene-tree'
 import { ElementSelectionActionAPIs } from './element-selection'
 import { FeatureSystemAPIs } from './feature-system'
 import { UIContextAPIs } from './ui-context'
@@ -26,6 +30,8 @@ export {
   PropsAPIs,
   RenderAPIs,
   SceneTreeAPIs,
+  CanonicalElementBatchResult,
+  CanonicalElementBatchTimingArtifact,
   ElementSelectionActionAPIs,
   FeatureSystemAPIs,
   UIContextAPIs,

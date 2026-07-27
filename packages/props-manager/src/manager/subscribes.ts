@@ -12,7 +12,6 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes
 } from '@asyra/utils'
-import { getPropertyComponentConfigDefinition } from '../registries/property-component'
 import propsManager from './props-manager'
 
 interface UpdatePropertyChangePayload {
@@ -39,109 +38,55 @@ export const initPropXSubscribes = () => {
     EventTypes.ADD_PROPERTY,
     ({ payload, options }) => {
       const replayMode = getTransactionReplayMode()
-      const previousProperties: (PropertyComponentInstanceTypes | undefined)[] =
-        []
-      const observedPropertyIds = new Set<string>()
-      const childRelationKeys = new Map<string, string | null>()
-      let isFreshCreationBatch = replayMode === null && payload.data.length > 1
-      payload.data.forEach((propData) => {
-        const propertyId = propData.id
-        const previousProperty =
-          typeof propertyId === 'string'
-            ? propsManager.getPropertyById(propertyId)
-            : undefined
-        previousProperties.push(previousProperty)
-        if (!isFreshCreationBatch) {
-          return
-        }
-        if (
-          typeof propertyId !== 'string' ||
-          propertyId.length === 0 ||
-          observedPropertyIds.has(propertyId) ||
-          previousProperty !== undefined ||
-          propsManager.getRestoreComponentById(propertyId)
-        ) {
-          isFreshCreationBatch = false
-          return
-        }
-        observedPropertyIds.add(propertyId)
+      if (payload.data.length === 0) {
+        propsManager.commitChanges(options)
+        return false
+      }
 
-        const propertyType = propData.type
-        if (typeof propertyType !== 'string') {
-          return
-        }
-        if (!childRelationKeys.has(propertyType)) {
-          childRelationKeys.set(
-            propertyType,
-            getPropertyComponentConfigDefinition(propertyType)?.children?.key ??
-              null
-          )
-        }
-        const childRelationKey = childRelationKeys.get(propertyType)
-        if (!childRelationKey) {
-          return
-        }
-        const childRelationValue = (
-          propData as unknown as Record<string, unknown>
-        )[childRelationKey]
-        if (
-          childRelationValue !== undefined &&
-          (!Array.isArray(childRelationValue) ||
-            childRelationValue.some((child) => typeof child !== 'string'))
-        ) {
-          isFreshCreationBatch = false
-        }
-      })
-      const freshCreationPlan = isFreshCreationBatch
-        ? propsManager.preflightNormalizedPropertyCreationBatch(
+      if (replayMode === null) {
+        const creationPlan =
+          propsManager.preflightNormalizedPropertyCreationBatch(
             payload.data,
             payload.data.map(({ id }) => id)
           )
-        : undefined
-      const freshCreationBatch = freshCreationPlan
-        ? propsManager.runInPropertyCreationBatch(() =>
-            propsManager.applyPropertyCreationBatch(freshCreationPlan)
-          )
-        : undefined
-      const propComponents: PropertyComponentInstanceTypes[] =
-        freshCreationBatch === undefined
-          ? payload.data.map((propData) => {
-              let newProperty
-              if (replayMode !== null) {
-                newProperty = propsManager.getRestoreComponentById(
-                  propData.id as string
-                )
-                if (newProperty) {
-                  propsManager.addChangeForAddProperty(newProperty)
-                }
-              }
-
-              if (!newProperty) {
-                newProperty = propsManager.createProperty(propData)
-              }
-
-              return newProperty
-            })
-          : []
-      if (!freshCreationBatch) {
-        propsManager.addProperty(propComponents)
-      }
-      const applied =
-        freshCreationBatch !== undefined ||
-        propComponents.some(
-          (property, index) => property !== previousProperties[index]
+        const creationBatch = propsManager.runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(creationPlan)
         )
-      try {
-        if (applied) {
+        try {
           acknowledgeTransactionReplayApplied()
+          propsManager.commitChanges(options)
+          creationBatch.complete()
+          return true
+        } catch (error) {
+          creationBatch.rollback()
+          throw error
         }
-        propsManager.commitChanges(options)
-        freshCreationBatch?.complete()
-        return applied
-      } catch (error) {
-        freshCreationBatch?.rollback()
-        throw error
       }
+
+      const previousProperties: (PropertyComponentInstanceTypes | undefined)[] =
+        payload.data.map(({ id }) =>
+          typeof id === 'string' ? propsManager.getPropertyById(id) : undefined
+        )
+      const propComponents = payload.data.map((propData) => {
+        let newProperty = propsManager.getRestoreComponentById(
+          propData.id as string
+        )
+        if (newProperty) {
+          propsManager.addChangeForAddProperty(newProperty)
+        } else {
+          newProperty = propsManager.createProperty(propData)
+        }
+        return newProperty
+      })
+      propsManager.addProperty(propComponents)
+      const applied = propComponents.some(
+        (property, index) => property !== previousProperties[index]
+      )
+      if (applied) {
+        acknowledgeTransactionReplayApplied()
+      }
+      propsManager.commitChanges(options)
+      return applied
     }
   )
 

@@ -14,6 +14,21 @@ import {
   SceneTreeRestorePlan,
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
+import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
+
+export interface CanonicalElementBatchTimingArtifact {
+  readonly owner: '@asyra/core'
+  readonly clock: 'monotonic'
+  readonly startedAtMs: number
+  readonly completedAtMs: number
+  readonly durationMs: number
+}
+
+export interface CanonicalElementBatchResult {
+  readonly orderedElementIds: readonly string[]
+  readonly deliveryHandle: FactoryMutationBatchDeliveryHandle
+  readonly timing: CanonicalElementBatchTimingArtifact
+}
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
@@ -31,6 +46,12 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => string
+  createElementsInParentBatch: (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => CanonicalElementBatchResult
   createElementsInParent: (
     data: readonly CreateElementData[],
     parentId: string,

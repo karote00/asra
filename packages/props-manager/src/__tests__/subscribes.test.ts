@@ -192,6 +192,221 @@ describe('props-manager subscribes', () => {
     }
   })
 
+  it('routes one fresh ADD_PROPERTY item through the canonical batch-of-one path', () => {
+    const preflight = vi.spyOn(
+      propsManager,
+      'preflightNormalizedPropertyCreationBatch'
+    )
+    const apply = vi.spyOn(propsManager, 'applyPropertyCreationBatch')
+    const createProperty = vi.spyOn(propsManager, 'createProperty')
+    const addProperty = vi.spyOn(propsManager, 'addProperty')
+
+    try {
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [
+            {
+              id: 'single-batch-position',
+              type: PropertyTypes.POSITION,
+              x: 10,
+              y: 20,
+              xUnit: Unit.PX,
+              yUnit: Unit.PX
+            }
+          ],
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+        }
+      })
+
+      expect.soft(preflight).toHaveBeenCalledTimes(1)
+      expect.soft(preflight.mock.calls[0]?.[0]).toEqual([
+        expect.objectContaining({
+          id: 'single-batch-position',
+          type: PropertyTypes.POSITION
+        })
+      ])
+      expect.soft(apply).toHaveBeenCalledTimes(1)
+      expect.soft(createProperty).not.toHaveBeenCalled()
+      expect.soft(addProperty).not.toHaveBeenCalled()
+    } finally {
+      preflight.mockRestore()
+      apply.mockRestore()
+      createProperty.mockRestore()
+      addProperty.mockRestore()
+    }
+  })
+
+  it.each([
+    {
+      label: 'duplicate ids',
+      prepare: () => ({
+        data: [
+          {
+            id: 'rejected-duplicate-property',
+            type: PropertyTypes.POSITION,
+            x: 10,
+            y: 20,
+            xUnit: Unit.PX,
+            yUnit: Unit.PX
+          },
+          {
+            id: 'rejected-duplicate-property',
+            type: PropertyTypes.POSITION,
+            x: 30,
+            y: 40,
+            xUnit: Unit.PX,
+            yUnit: Unit.PX
+          }
+        ] as PropertyComponentRawData[],
+        assertUnchanged: () => {
+          expect
+            .soft(propsManager.getPropertyById('rejected-duplicate-property'))
+            .toBeUndefined()
+        }
+      })
+    },
+    {
+      label: 'an active id',
+      prepare: () => {
+        const active = new PositionComponent({
+          id: 'rejected-active-property',
+          type: PropertyTypes.POSITION,
+          x: 1,
+          y: 2,
+          xUnit: Unit.PX,
+          yUnit: Unit.PX
+        })
+        propsManager.addToMap(active)
+        propsManager.cleanChanges()
+        const before = active.save()
+        return {
+          data: [
+            {
+              ...before,
+              x: 10,
+              y: 20
+            },
+            {
+              id: 'rejected-active-peer',
+              type: PropertyTypes.POSITION,
+              x: 30,
+              y: 40,
+              xUnit: Unit.PX,
+              yUnit: Unit.PX
+            }
+          ] as PropertyComponentRawData[],
+          assertUnchanged: () => {
+            expect
+              .soft(propsManager.getPropertyById('rejected-active-property'))
+              .toBe(active)
+            expect
+              .soft(propsManager.getPropertyById('rejected-active-peer'))
+              .toBeUndefined()
+            expect.soft(active.save()).toEqual(before)
+          }
+        }
+      }
+    },
+    {
+      label: 'a tombstoned id',
+      prepare: () => {
+        const tombstone = new PositionComponent({
+          id: 'rejected-tombstone-property',
+          type: PropertyTypes.POSITION,
+          x: 1,
+          y: 2,
+          xUnit: Unit.PX,
+          yUnit: Unit.PX
+        })
+        propsManager.addToMap(tombstone)
+        propsManager.removeProperty(['rejected-tombstone-property'])
+        propsManager.cleanChanges()
+        return {
+          data: [
+            {
+              id: 'rejected-tombstone-property',
+              type: PropertyTypes.POSITION,
+              x: 10,
+              y: 20,
+              xUnit: Unit.PX,
+              yUnit: Unit.PX
+            },
+            {
+              id: 'rejected-tombstone-peer',
+              type: PropertyTypes.POSITION,
+              x: 30,
+              y: 40,
+              xUnit: Unit.PX,
+              yUnit: Unit.PX
+            }
+          ] as PropertyComponentRawData[],
+          assertUnchanged: () => {
+            expect
+              .soft(
+                propsManager.getRestoreComponentById(
+                  'rejected-tombstone-property'
+                )
+              )
+              .toBe(tombstone)
+            expect
+              .soft(propsManager.getPropertyById('rejected-tombstone-property'))
+              .toBeUndefined()
+            expect
+              .soft(propsManager.getPropertyById('rejected-tombstone-peer'))
+              .toBeUndefined()
+          }
+        }
+      }
+    }
+  ])(
+    'rejects $label through canonical preflight without a legacy prefix',
+    ({ prepare }) => {
+      const { data, assertUnchanged } = prepare()
+      const preflight = vi.spyOn(
+        propsManager,
+        'preflightNormalizedPropertyCreationBatch'
+      )
+      const apply = vi.spyOn(propsManager, 'applyPropertyCreationBatch')
+      const createProperty = vi.spyOn(propsManager, 'createProperty')
+      const addProperty = vi.spyOn(propsManager, 'addProperty')
+      let failure: unknown
+
+      try {
+        try {
+          publishEvent({
+            type: EventTypes.ADD_PROPERTY,
+            payload: {
+              eventName: EventTypes.ADD_PROPERTY,
+              data,
+              action: PROPS_ACTIONS.ADD_PROPERTY,
+              undoType: EventTypes.REMOVE_PROPERTY,
+              undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+            }
+          })
+        } catch (error) {
+          failure = error
+        }
+
+        expect.soft(failure).toBeInstanceOf(Error)
+        expect.soft(preflight).toHaveBeenCalledTimes(1)
+        expect.soft(apply).not.toHaveBeenCalled()
+        expect.soft(createProperty).not.toHaveBeenCalled()
+        expect.soft(addProperty).not.toHaveBeenCalled()
+        expect.soft(propsManager.changes).toEqual([])
+        assertUnchanged()
+      } finally {
+        preflight.mockRestore()
+        apply.mockRestore()
+        createProperty.mockRestore()
+        addProperty.mockRestore()
+      }
+    }
+  )
+
   it('preserves constructor defaults for a fresh partial ADD_PROPERTY batch', () => {
     const source = [
       {
@@ -341,7 +556,7 @@ describe('props-manager subscribes', () => {
     ])
   })
 
-  it('preserves ordinary schema fallback for invalid values in a partial ADD_PROPERTY batch', () => {
+  it('rejects a later schema-invalid runtime item before materialization without a prefix', () => {
     registerPropertySchema({
       type: PropertyTypes.POSITION,
       fields: [
@@ -352,47 +567,105 @@ describe('props-manager subscribes', () => {
         }
       ]
     })
+    const phaseNames: string[] = []
+    const runtime = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
     const source = [
       {
-        id: 'partial-invalid-position',
+        id: 'runtime-valid-prefix',
         type: PropertyTypes.POSITION,
-        x: 'invalid',
+        x: 10,
         y: 20,
         xUnit: Unit.PX,
         yUnit: Unit.PX
       },
       {
-        id: 'partial-valid-position',
+        id: 'runtime-invalid-later',
         type: PropertyTypes.POSITION,
-        x: 30,
+        x: 'invalid',
         y: 40,
         xUnit: Unit.PX,
         yUnit: Unit.PX
       }
     ]
+    committedChanges.length = 0
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('props-manager:creation-')) {
+        phaseNames.push(name)
+      }
+    }
+    let failure: unknown
 
-    expect(() =>
-      publishEvent({
-        type: EventTypes.ADD_PROPERTY,
-        payload: {
-          data: source
+    try {
+      try {
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            data: source
+          }
+        })
+      } catch (error) {
+        failure = error
+      }
+    } finally {
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+      subscription.unsubscribe()
+    }
+
+    expect.soft(failure).toBeInstanceOf(Error)
+    expect.soft(phaseNames).toEqual(['props-manager:creation-preflight'])
+    expect.soft(propsManager.save()).toEqual({})
+    expect.soft(propsManager.changes).toEqual([])
+    expect.soft(committedChanges).toEqual([])
+  })
+
+  it('preserves schema fallback for invalid values loaded from persistence', () => {
+    registerPropertySchema({
+      type: PropertyTypes.POSITION,
+      fields: [
+        {
+          key: 'x',
+          kind: 'number',
+          defaultValue: 0
         }
-      })
-    ).not.toThrow()
+      ]
+    })
+
+    propsManager.load({
+      'loaded-invalid-position': {
+        id: 'loaded-invalid-position',
+        type: PropertyTypes.POSITION,
+        x: 'invalid',
+        y: 20,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    })
 
     expect(
-      propsManager.getPropertyById('partial-invalid-position')?.save()
+      propsManager.getPropertyById('loaded-invalid-position')?.save()
     ).toEqual({
-      id: 'partial-invalid-position',
+      id: 'loaded-invalid-position',
       type: PropertyTypes.POSITION,
       x: 0,
       y: 20,
       xUnit: Unit.PX,
       yUnit: Unit.PX
     })
-    expect(
-      propsManager.getPropertyById('partial-valid-position')?.save()
-    ).toEqual(source[1])
     expect(propsManager.changes).toEqual([])
   })
 
@@ -923,7 +1196,7 @@ describe('props-manager subscribes', () => {
     expect(parentChanges).toEqual([])
   })
 
-  it('preserves ordinary non-replay replacement when an ADD_PROPERTY id is active', () => {
+  it('rejects non-replay ADD_PROPERTY replacement when an id is active', () => {
     const active = new PositionComponent({
       id: 'active-replacement',
       type: PropertyTypes.POSITION,
@@ -950,28 +1223,28 @@ describe('props-manager subscribes', () => {
       yUnit: Unit.PX
     }).save()
 
-    publishEvent({
-      type: EventTypes.ADD_PROPERTY,
-      payload: {
-        eventName: EventTypes.ADD_PROPERTY,
-        data: [replacement, fresh],
-        action: PROPS_ACTIONS.ADD_PROPERTY,
-        undoType: EventTypes.REMOVE_PROPERTY,
-        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
-      }
-    })
+    expect(() =>
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [replacement, fresh],
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+        }
+      })
+    ).toThrow(/already registered/i)
 
-    expect(propsManager.getPropertyById('active-replacement')).not.toBe(active)
-    expect(propsManager.getPropertyById('active-replacement')?.save()).toEqual(
-      replacement
-    )
+    expect(propsManager.getPropertyById('active-replacement')).toBe(active)
+    expect(active.save()).not.toEqual(replacement)
     expect(
-      propsManager.getPropertyById('active-replacement-peer')?.save()
-    ).toEqual(fresh)
+      propsManager.getPropertyById('active-replacement-peer')
+    ).toBeUndefined()
     expect(propsManager.changes).toEqual([])
   })
 
-  it('preserves ordinary non-replay replacement when an ADD_PROPERTY id is a top-level tombstone', () => {
+  it('rejects non-replay ADD_PROPERTY replacement when an id is tombstoned', () => {
     const tombstone = new PositionComponent({
       id: 'top-level-tombstone',
       type: PropertyTypes.POSITION,
@@ -1000,30 +1273,30 @@ describe('props-manager subscribes', () => {
       yUnit: Unit.PX
     }).save()
 
-    publishEvent({
-      type: EventTypes.ADD_PROPERTY,
-      payload: {
-        eventName: EventTypes.ADD_PROPERTY,
-        data: [replacement, fresh],
-        action: PROPS_ACTIONS.ADD_PROPERTY,
-        undoType: EventTypes.REMOVE_PROPERTY,
-        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
-      }
-    })
+    expect(() =>
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [replacement, fresh],
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+        }
+      })
+    ).toThrow(/already registered/i)
 
-    expect(propsManager.getPropertyById('top-level-tombstone')).not.toBe(
+    expect(propsManager.getRestoreComponentById('top-level-tombstone')).toBe(
       tombstone
     )
-    expect(propsManager.getPropertyById('top-level-tombstone')?.save()).toEqual(
-      replacement
-    )
+    expect(propsManager.getPropertyById('top-level-tombstone')).toBeUndefined()
     expect(
-      propsManager.getPropertyById('top-level-tombstone-peer')?.save()
-    ).toEqual(fresh)
+      propsManager.getPropertyById('top-level-tombstone-peer')
+    ).toBeUndefined()
     expect(propsManager.changes).toEqual([])
   })
 
-  it('preserves ordinary nested tombstone replacement outside the fresh batch path', () => {
+  it('rejects nested tombstone replacement without leaving a fresh prefix', () => {
     const tombstone = new PositionComponent({
       id: 'nested-tombstone',
       type: PropertyTypes.POSITION,
@@ -1036,56 +1309,46 @@ describe('props-manager subscribes', () => {
     propsManager.removeProperty(['nested-tombstone'])
     propsManager.cleanChanges()
 
-    publishEvent({
-      type: EventTypes.ADD_PROPERTY,
-      payload: {
-        eventName: EventTypes.ADD_PROPERTY,
-        data: [
-          {
-            id: 'nested-parent',
-            type: NESTED_PARENT_TYPE,
-            children: [
-              {
-                id: 'nested-tombstone',
-                x: 10,
-                y: 20,
-                xUnit: Unit.PX,
-                yUnit: Unit.PX
-              }
-            ]
-          },
-          new PositionComponent({
-            id: 'nested-parent-peer',
-            type: PropertyTypes.POSITION,
-            x: 30,
-            y: 40,
-            xUnit: Unit.PX,
-            yUnit: Unit.PX
-          }).save()
-        ],
-        action: PROPS_ACTIONS.ADD_PROPERTY,
-        undoType: EventTypes.REMOVE_PROPERTY,
-        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
-      }
-    })
+    expect(() =>
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [
+            {
+              id: 'nested-parent',
+              type: NESTED_PARENT_TYPE,
+              children: [
+                {
+                  id: 'nested-tombstone',
+                  x: 10,
+                  y: 20,
+                  xUnit: Unit.PX,
+                  yUnit: Unit.PX
+                }
+              ]
+            },
+            new PositionComponent({
+              id: 'nested-parent-peer',
+              type: PropertyTypes.POSITION,
+              x: 30,
+              y: 40,
+              xUnit: Unit.PX,
+              yUnit: Unit.PX
+            }).save()
+          ],
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+        }
+      })
+    ).toThrow(/malformed child relation|already registered/i)
 
-    const replacement = propsManager.getPropertyById('nested-tombstone')
-    expect(replacement).not.toBe(tombstone)
-    expect(replacement?.save()).toEqual(
-      new PositionComponent({
-        id: 'nested-tombstone',
-        type: PropertyTypes.POSITION,
-        x: 10,
-        y: 20,
-        xUnit: Unit.PX,
-        yUnit: Unit.PX
-      }).save()
+    expect(propsManager.getRestoreComponentById('nested-tombstone')).toBe(
+      tombstone
     )
-    expect(propsManager.getPropertyById('nested-parent')?.save()).toEqual({
-      id: 'nested-parent',
-      type: NESTED_PARENT_TYPE,
-      children: ['nested-tombstone']
-    })
+    expect(propsManager.getPropertyById('nested-parent')).toBeUndefined()
+    expect(propsManager.getPropertyById('nested-parent-peer')).toBeUndefined()
     expect(propsManager.changes).toEqual([])
   })
 

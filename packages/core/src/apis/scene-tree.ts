@@ -1,9 +1,10 @@
 import {
-  addElement,
-  addElementByParentId,
+  type AddElementEvent,
   changeComputedData,
   changeComputedDataBatch,
   changeComputedDataPatch,
+  EventTypes,
+  publishEventToObservers,
   sceneTreeInit,
   sceneTreeLoadData
 } from '@asyra/reactive-events'
@@ -26,6 +27,7 @@ import {
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
+import type { CanonicalElementBatchResult } from '../types/scene-tree'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
@@ -54,6 +56,18 @@ export interface SceneTreeRequests {
     plan: SceneTreeRestorePlan,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
+  createElements: (
+    data: readonly CreateElementData[],
+    parent?: GroupInstanceTypes,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => CanonicalElementBatchResult
+  createElementsInParentBatch: (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => CanonicalElementBatchResult
   createElementsInParent: (
     data: readonly CreateElementData[],
     parentId: string,
@@ -94,6 +108,77 @@ export const createSceneTreeAPIs = (
     }
   }
 
+  const requireSingleElementId = (
+    expectedElementId: string,
+    result: CanonicalElementBatchResult
+  ): string => {
+    if (result.orderedElementIds.length !== 1) {
+      throw new Error(
+        '[Core] Canonical batch-of-one requires exactly one ordered element id'
+      )
+    }
+    const [elementId] = result.orderedElementIds
+    if (elementId !== expectedElementId) {
+      throw new Error(
+        `[Core] Canonical batch-of-one expected canonical element id "${expectedElementId}"`
+      )
+    }
+    return elementId
+  }
+
+  const executeCanonicalElementBatch = (
+    prepared: readonly ReturnType<typeof prepareElementData>[],
+    request: (
+      data: readonly CreateElementData[]
+    ) => CanonicalElementBatchResult,
+    createCompatibilityPayload: (
+      data: CreateElementData
+    ) => AddElementEvent['payload'],
+    options?: EVENT_OPTIONS
+  ): CanonicalElementBatchResult => {
+    const result = request(prepared.map(({ data: elementData }) => elementData))
+    if (prepared.length === 1) {
+      const [single] = prepared
+      requireSingleElementId(single.elementId, result)
+      publishEventToObservers({
+        type: EventTypes.ADD_ELEMENT,
+        payload: createCompatibilityPayload(single.data),
+        options
+      })
+    }
+    return result
+  }
+
+  const createElementsInParentBatch = (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ): CanonicalElementBatchResult => {
+    if (data.length === 0) {
+      throw new Error(
+        '[Core] Canonical element batch requires at least one element'
+      )
+    }
+    const prepared = data.map(prepareElementData)
+    return executeCanonicalElementBatch(
+      prepared,
+      (elementData) =>
+        sceneTreeRequests.createElementsInParentBatch(
+          elementData,
+          parentId,
+          index,
+          options
+        ),
+      (elementData) => ({
+        data: elementData,
+        parentId,
+        index
+      }),
+      options
+    )
+  }
+
   return {
     createElement(
       data: CreateElementData,
@@ -102,10 +187,18 @@ export const createSceneTreeAPIs = (
       options?: EVENT_OPTIONS
     ) {
       const prepared = prepareElementData(data)
-
-      addElement(prepared.data, index, parent, options)
-
-      return prepared.elementId
+      const result = executeCanonicalElementBatch(
+        [prepared],
+        (elementData) =>
+          sceneTreeRequests.createElements(elementData, parent, index, options),
+        (elementData) => ({
+          data: elementData,
+          parent,
+          index
+        }),
+        options
+      )
+      return requireSingleElementId(prepared.elementId, result)
     },
     createElementInParent(
       data: CreateElementData,
@@ -114,11 +207,25 @@ export const createSceneTreeAPIs = (
       options?: EVENT_OPTIONS
     ) {
       const prepared = prepareElementData(data)
-
-      addElementByParentId(prepared.data, parentId, index, options)
-
-      return prepared.elementId
+      const result = executeCanonicalElementBatch(
+        [prepared],
+        (elementData) =>
+          sceneTreeRequests.createElementsInParentBatch(
+            elementData,
+            parentId,
+            index,
+            options
+          ),
+        (elementData) => ({
+          data: elementData,
+          parentId,
+          index
+        }),
+        options
+      )
+      return requireSingleElementId(prepared.elementId, result)
     },
+    createElementsInParentBatch,
     createElementsInParent(
       data: readonly CreateElementData[],
       parentId: string,
@@ -128,13 +235,8 @@ export const createSceneTreeAPIs = (
       if (data.length === 0) {
         return []
       }
-      const prepared = data.map(prepareElementData)
-      return sceneTreeRequests.createElementsInParent(
-        prepared.map(({ data: elementData }) => elementData),
-        parentId,
-        index,
-        options
-      )
+      return createElementsInParentBatch(data, parentId, index, options)
+        .orderedElementIds
     },
     createElementsInParentFromCanonicalData(
       elements: readonly ElementRawData[],

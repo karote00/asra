@@ -1,24 +1,69 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
 import {
   EventTypes,
   subscribeToAddElement,
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch
 } from '@asyra/reactive-events'
-import type { ElementRawData, PropertyComponentRawData } from '@asyra/utils'
-import type { CoreExtensionAPIs } from '../index'
+import type {
+  CreateElementData,
+  ElementRawData,
+  PropertyComponentRawData
+} from '@asyra/utils'
+import type {
+  CanonicalElementBatchResult,
+  CanonicalElementBatchTimingArtifact,
+  CoreExtensionAPIs
+} from '../index'
 import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
-type BatchExtensionContract = Pick<
+interface CanonicalElementBatchRequestContract {
+  createElementsInParentBatch: (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: unknown
+  ) => CanonicalElementBatchResult
+}
+
+interface CanonicalElementBatchFacadeContract {
+  createElementsInParentBatch: CanonicalElementBatchRequestContract['createElementsInParentBatch']
+}
+
+type CanonicalBatchExtensionContract = Pick<
+  CoreExtensionAPIs,
+  'createElementsInParentBatch'
+>
+
+type LegacyBatchExtensionContract = Pick<
   CoreExtensionAPIs,
   | 'createElementsInParent'
   | 'createElementsInParentFromCanonicalData'
   | 'createElementsInParentFromCanonicalDataUsingActiveProperties'
 >
 
-const acceptBatchExtensionContract = (apis: BatchExtensionContract) => apis
+const acceptBatchExtensionContract = (apis: LegacyBatchExtensionContract) =>
+  apis
 
-const createRequests = (): SceneTreeRequests => ({
+const deliveryHandle: FactoryMutationBatchDeliveryHandle = {
+  artifactId: 'factory-artifact-1',
+  transactionId: 1,
+  artifact: null,
+  setDeliveryPlan: vi.fn(),
+  deliverSlice: vi.fn()
+}
+
+const timing: CanonicalElementBatchTimingArtifact = Object.freeze({
+  owner: '@asyra/core',
+  clock: 'monotonic',
+  startedAtMs: 10,
+  completedAtMs: 12,
+  durationMs: 2
+})
+
+const createRequests = (): SceneTreeRequests &
+  CanonicalElementBatchRequestContract => ({
   sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
   getElementComputedData: vi.fn(() => undefined),
   moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
@@ -29,6 +74,16 @@ const createRequests = (): SceneTreeRequests => ({
   })),
   preflightRestoreSubtree: vi.fn(),
   applyRestoreSubtree: vi.fn(),
+  createElements: vi.fn((data: readonly CreateElementData[]) => ({
+    orderedElementIds: data.map(({ id }, index) => id ?? `element-${index}`),
+    deliveryHandle,
+    timing
+  })),
+  createElementsInParentBatch: vi.fn((data: readonly CreateElementData[]) => ({
+    orderedElementIds: data.map(({ id }, index) => id ?? `element-${index}`),
+    deliveryHandle,
+    timing
+  })),
   createElementsInParent: vi.fn((data: readonly { id?: string }[]) =>
     data.map(({ id }, index) => id ?? `element-${index}`)
   ),
@@ -44,8 +99,9 @@ const createRequests = (): SceneTreeRequests => ({
 })
 
 describe('createSceneTreeAPIs hierarchy facade', () => {
-  it('publishes ID-based element creation with the exact parent slot and options', () => {
-    const apis = createSceneTreeAPIs(createRequests())
+  it('delegates ID-based element creation through the canonical batch-of-one owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
     const subscriber = vi.fn()
     const subscription = subscribeToAddElement(subscriber)
 
@@ -63,7 +119,21 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     )
 
     expect(elementId).toBe('group-1')
-    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(requests.createElementsInParentBatch).toHaveBeenCalledOnce()
+    expect(requests.createElementsInParentBatch).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'group-1',
+          type: 'group',
+          x: 10,
+          y: 20
+        })
+      ],
+      'workspace-1',
+      2,
+      { shared: 'sceneTree' }
+    )
+    expect(subscriber).toHaveBeenCalledOnce()
     expect(subscriber).toHaveBeenCalledWith({
       type: EventTypes.ADD_ELEMENT,
       payload: {
@@ -82,10 +152,161 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     subscription.unsubscribe()
   })
 
-  it('delegates one ordered canonical batch-add request and returns every prepared id', () => {
+  it('keeps the public single and batch-of-one APIs on the same canonical and compatibility boundary', () => {
+    const element = {
+      id: 'shared-batch-of-one',
+      type: 'rect',
+      x: 10,
+      y: 20
+    }
+    const options = { shared: 'sceneTree' } as const
+
+    const singleRequests = createRequests()
+    const singleApis = createSceneTreeAPIs(singleRequests)
+    const singleSubscriber = vi.fn()
+    const singleSubscription = subscribeToAddElement(singleSubscriber)
+    singleSubscriber.mockClear()
+
+    const singleElementId = singleApis.createElementInParent(
+      element,
+      'workspace-1',
+      2,
+      options
+    )
+    const singleEvidence = singleSubscriber.mock.calls[0]?.[0]
+    singleSubscription.unsubscribe()
+
+    const batchRequests = createRequests()
+    const batchApis = createSceneTreeAPIs(batchRequests)
+    const batchSubscriber = vi.fn()
+    const batchSubscription = subscribeToAddElement(batchSubscriber)
+    batchSubscriber.mockClear()
+
+    const batchResult = batchApis.createElementsInParentBatch(
+      [element],
+      'workspace-1',
+      2,
+      options
+    )
+
+    expect(singleElementId).toBe('shared-batch-of-one')
+    expect(batchResult.orderedElementIds).toEqual(['shared-batch-of-one'])
+    expect(singleRequests.createElementsInParentBatch).toHaveBeenCalledOnce()
+    expect(batchRequests.createElementsInParentBatch).toHaveBeenCalledOnce()
+    expect(
+      vi.mocked(singleRequests.createElementsInParentBatch).mock.calls[0]
+    ).toEqual(
+      vi.mocked(batchRequests.createElementsInParentBatch).mock.calls[0]
+    )
+    expect(singleSubscriber).toHaveBeenCalledOnce()
+    expect(batchSubscriber).toHaveBeenCalledOnce()
+    expect(batchSubscriber).toHaveBeenCalledWith(singleEvidence)
+
+    batchSubscription.unsubscribe()
+  })
+
+  it('publishes compatibility evidence once for internal batch-of-one creation but not per item for canonical bulk creation', () => {
     const requests = createRequests()
-    const batchApis = createSceneTreeAPIs(requests)
-    const elementIds = batchApis.createElementsInParent(
+    const apis = createSceneTreeAPIs(requests)
+    const subscriber = vi.fn()
+    const subscription = subscribeToAddElement(subscriber)
+    subscriber.mockClear()
+
+    expect(
+      apis.createElement({
+        id: 'internal-batch-of-one',
+        type: 'rect',
+        x: 0,
+        y: 0
+      })
+    ).toBe('internal-batch-of-one')
+    expect(requests.createElements).toHaveBeenCalledOnce()
+    expect(subscriber).toHaveBeenCalledOnce()
+
+    subscriber.mockClear()
+    apis.createElementsInParentBatch(
+      [
+        { id: 'bulk-1', type: 'rect', x: 0, y: 0 },
+        { id: 'bulk-2', type: 'rect', x: 10, y: 10 }
+      ],
+      'workspace-1'
+    )
+    expect(requests.createElementsInParentBatch).toHaveBeenCalledOnce()
+    expect(subscriber).not.toHaveBeenCalled()
+
+    subscription.unsubscribe()
+  })
+
+  it('rejects malformed batch-of-one owner results before publishing compatibility evidence', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const subscriber = vi.fn()
+    const subscription = subscribeToAddElement(subscriber)
+    subscriber.mockClear()
+    vi.mocked(requests.createElements).mockReturnValueOnce({
+      orderedElementIds: [],
+      deliveryHandle,
+      timing
+    })
+
+    expect(() =>
+      apis.createElement({
+        id: 'missing-single-result',
+        type: 'rect',
+        x: 0,
+        y: 0
+      })
+    ).toThrow(/exactly one ordered element id/i)
+    expect(subscriber).not.toHaveBeenCalled()
+
+    vi.mocked(requests.createElementsInParentBatch).mockReturnValueOnce({
+      orderedElementIds: ['different-single-result'],
+      deliveryHandle,
+      timing
+    })
+    expect(() =>
+      apis.createElementInParent(
+        {
+          id: 'expected-single-result',
+          type: 'rect',
+          x: 0,
+          y: 0
+        },
+        'workspace-1'
+      )
+    ).toThrow(/expected canonical element id/i)
+    expect(subscriber).not.toHaveBeenCalled()
+
+    vi.mocked(requests.createElementsInParentBatch).mockReturnValueOnce({
+      orderedElementIds: [],
+      deliveryHandle,
+      timing
+    })
+    expect(() =>
+      apis.createElementsInParentBatch(
+        [
+          {
+            id: 'missing-public-batch-of-one-result',
+            type: 'rect',
+            x: 0,
+            y: 0
+          }
+        ],
+        'workspace-1'
+      )
+    ).toThrow(/exactly one ordered element id/i)
+    expect(subscriber).not.toHaveBeenCalled()
+
+    subscription.unsubscribe()
+  })
+
+  it('returns ordered ids with the original Factory handle and delegates the legacy bulk API to the same owner', () => {
+    const requests = createRequests()
+    const batchApis = createSceneTreeAPIs(requests) as ReturnType<
+      typeof createSceneTreeAPIs
+    > &
+      CanonicalElementBatchFacadeContract
+    const result = batchApis.createElementsInParentBatch(
       [
         { id: 'vector-1', type: 'vector', x: 10, y: 20 },
         { id: 'vector-2', type: 'vector', x: 30, y: 40 }
@@ -95,19 +316,46 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
       { shared: 'sceneTree' }
     )
 
-    expect(elementIds).toEqual(['vector-1', 'vector-2'])
-    expect(requests.createElementsInParent).toHaveBeenCalledOnce()
-    expect(requests.createElementsInParent).toHaveBeenCalledWith(
+    expect(result.orderedElementIds).toEqual(['vector-1', 'vector-2'])
+    expect(result).toBe(
+      vi.mocked(requests.createElementsInParentBatch).mock.results[0]?.value
+    )
+    expect(result.deliveryHandle).toBe(
+      vi.mocked(requests.createElementsInParentBatch).mock.results[0]?.value
+        .deliveryHandle
+    )
+    expect(result.timing).toBe(timing)
+    expect(requests.createElementsInParentBatch).toHaveBeenCalledOnce()
+
+    const { createElementsInParent } = batchApis
+    const elementIds = createElementsInParent(
       [
-        expect.objectContaining({ id: 'vector-1', type: 'vector' }),
-        expect.objectContaining({ id: 'vector-2', type: 'vector' })
+        { id: 'legacy-vector-1', type: 'vector', x: 10, y: 20 },
+        { id: 'legacy-vector-2', type: 'vector', x: 30, y: 40 }
       ],
       'workspace-1',
       3,
       { shared: 'sceneTree' }
     )
+
+    expect(elementIds).toEqual(['legacy-vector-1', 'legacy-vector-2'])
+    expect(requests.createElementsInParentBatch).toHaveBeenCalledTimes(2)
+    expect(requests.createElementsInParentBatch).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({ id: 'legacy-vector-1', type: 'vector' }),
+        expect.objectContaining({ id: 'legacy-vector-2', type: 'vector' })
+      ],
+      'workspace-1',
+      3,
+      { shared: 'sceneTree' }
+    )
+    expect(requests.createElementsInParent).not.toHaveBeenCalled()
     expect(acceptBatchExtensionContract(batchApis).createElementsInParent).toBe(
       batchApis.createElementsInParent
+    )
+    const publicContract: CanonicalBatchExtensionContract = batchApis
+    expect(publicContract.createElementsInParentBatch).toBe(
+      batchApis.createElementsInParentBatch
     )
   })
 
@@ -398,8 +646,9 @@ describe('createSceneTreeAPIs.changeComputedData', () => {
 })
 
 describe('createSceneTreeAPIs.createElement', () => {
-  it('propagates options to addElement events', () => {
-    const apis = createSceneTreeAPIs(createRequests())
+  it('delegates the parent-optional single API through the canonical batch-of-one owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
     const subscriber = vi.fn()
     const subscription = subscribeToAddElement(subscriber)
 
@@ -416,7 +665,21 @@ describe('createSceneTreeAPIs.createElement', () => {
       { undoable: false }
     )
 
-    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(requests.createElements).toHaveBeenCalledOnce()
+    expect(requests.createElements).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'element-1',
+          type: 'rect',
+          x: 10,
+          y: 20
+        })
+      ],
+      undefined,
+      undefined,
+      { undoable: false }
+    )
+    expect(subscriber).toHaveBeenCalledOnce()
     expect(subscriber).toHaveBeenCalledWith({
       type: EventTypes.ADD_ELEMENT,
       payload: {

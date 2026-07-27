@@ -19,6 +19,7 @@ import type {
   SceneTreeChange,
   SubtreeChange,
   SubtreeRemovalEntry,
+  AddRemovePropertyChange,
   UpdateElementBatchChange,
   UpdateElementChange,
   UpdateElementPatchChange,
@@ -30,6 +31,7 @@ import type {
 import {
   DataTypes,
   EntityTypes,
+  PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   isRecord,
@@ -38,9 +40,17 @@ import {
 import {
   acknowledgeTransactionReplayApplied,
   EventTypes,
+  getTransactionOwner,
+  type UpdateTransactionEvent,
   updateTransaction
 } from '@asyra/reactive-events'
-import propsManager, { type PropsManager } from '@asyra/props-manager'
+import propsManager, {
+  type CanonicalPropertyDeliveryOwner,
+  type OrdinaryPropertyCreationPlan,
+  type PreparedPropsTransactionEvent,
+  type PropertyDefinition,
+  type PropsManager
+} from '@asyra/props-manager'
 import { isEqual } from 'lodash'
 import componentRegistry from './component-registry'
 import {
@@ -49,6 +59,7 @@ import {
   isGroupEntity,
   stripNonRawFields
 } from './entity-data'
+import type Element from './components/element'
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
@@ -186,6 +197,48 @@ interface CanonicalElementPropertyBatch {
   readonly propertyMode: 'create' | 'reuse-active'
 }
 
+interface CanonicalSharedRecordInput {
+  readonly orderedIds: readonly string[]
+  readonly payload: object
+}
+
+interface CanonicalEventDeliveryEvidence {
+  readonly orderedIds: readonly string[]
+  readonly sharedRecords?: readonly CanonicalSharedRecordInput[]
+}
+
+interface CanonicalBatchTransactionOwner {
+  updateTransactionBatch(
+    events: readonly UpdateTransactionEvent[],
+    evidence: readonly (CanonicalEventDeliveryEvidence | undefined)[]
+  ): unknown
+}
+
+interface ElementBatchPreflight {
+  readonly target: GroupInstanceTypes
+  readonly sourceIds: readonly string[]
+  readonly insertionIndex: number
+  readonly tombstones: ReadonlyMap<string, ElementInstanceTypes | undefined>
+  readonly ordinaryPropertyPlan: OrdinaryPropertyCreationPlan | undefined
+}
+
+const canonicalBatchHandoffAccepted = Symbol(
+  'scene-tree:canonical-batch-handoff-accepted'
+)
+const canonicalBatchHandoffState = Symbol(
+  'scene-tree:canonical-batch-handoff-state'
+)
+
+interface CanonicalBatchHandoffState {
+  [canonicalBatchHandoffAccepted]: boolean
+}
+
+interface CanonicalCombinedCommit {
+  readonly elements: readonly ElementInstanceTypes[]
+  readonly propsEvents: readonly PreparedPropsTransactionEvent[]
+  readonly [canonicalBatchHandoffState]?: CanonicalBatchHandoffState
+}
+
 const cloneSceneTreeValue = <T>(data: T): T => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(data)
@@ -193,6 +246,26 @@ const cloneSceneTreeValue = <T>(data: T): T => {
 
   return JSON.parse(JSON.stringify(data)) as T
 }
+
+const reportsAcceptedCanonicalBatchHandoff = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'batchAccepted' in error &&
+  (error as { batchAccepted?: unknown }).batchAccepted === true
+
+const createCanonicalBatchHandoffState = (): CanonicalBatchHandoffState => ({
+  [canonicalBatchHandoffAccepted]: false
+})
+
+const markCanonicalBatchHandoffAccepted = (
+  state: CanonicalBatchHandoffState
+): void => {
+  state[canonicalBatchHandoffAccepted] = true
+}
+
+const wasCanonicalBatchHandoffAccepted = (
+  state: CanonicalBatchHandoffState
+): boolean => state[canonicalBatchHandoffAccepted]
 
 const cloneLoadData = (data: SceneTreeRawData): SceneTreeRawData =>
   cloneSceneTreeValue(data)
@@ -1686,6 +1759,43 @@ class SceneTree {
     this._elements.set(elId, element)
   }
 
+  addManyToMap(
+    elements: readonly ElementInstanceTypes[],
+    parentId: string
+  ): void {
+    const parent = this._elements.get(parentId)
+    if (!parent || !isGroupEntity(parent.get('type'))) {
+      throw new Error(
+        '[SceneTree] Canonical element registration requires an active container parent'
+      )
+    }
+
+    const elementIds = elements.map((element) => element.get('id'))
+    if (
+      elementIds.some(
+        (elementId) =>
+          typeof elementId !== 'string' ||
+          elementId.length === 0 ||
+          this._elements.has(elementId) ||
+          this._deletedMap.has(elementId)
+      ) ||
+      new Set(elementIds).size !== elementIds.length
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element registration requires unique inactive ids'
+      )
+    }
+
+    elements.forEach((element) => {
+      ;(element as Element).assignCanonicalParentId(parentId)
+    })
+    elements.forEach((element, index) => {
+      const elementId = elementIds[index]
+      this._deletedMap.delete(elementId)
+      this._elements.set(elementId, element)
+    })
+  }
+
   removeFromMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
@@ -1778,19 +1888,22 @@ class SceneTree {
     inUndoRedo = false,
     options?: EVENT_OPTIONS
   ): string {
+    if (!inUndoRedo) {
+      return (
+        this.addNewElementBatch([elementData], parent, index, options)[0] ?? ''
+      )
+    }
+
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
       return ''
     }
 
-    let newElement: ElementInstanceTypes | null = null
-
     const propOverrides = stripNonRawFields(elementData)
-    if (inUndoRedo) {
-      newElement = this.getRestoreElementById(elementData.id as string, false)
-    } else {
-      newElement = this.createElement(elementData, false)
-    }
+    const newElement = this.getRestoreElementById(
+      elementData.id as string,
+      false
+    )
 
     if (newElement) {
       const operationChangeStart = this.changes.length
@@ -2005,6 +2118,127 @@ class SceneTree {
     })
   }
 
+  private preflightElementBatch(
+    elementData: readonly (CreateElementData | ElementRawData)[],
+    parent: GroupInstanceTypes | undefined,
+    index: number,
+    canonicalBatch?: CanonicalElementPropertyBatch
+  ): ElementBatchPreflight {
+    const target = this.resolveElementBatchTarget(parent)
+    if (
+      !target ||
+      this.getElementById(target.get('id')) !== target ||
+      !isGroupEntity(target.get('type'))
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires an active container parent'
+      )
+    }
+
+    const targetChildren = target.get('children')
+    if (!Array.isArray(targetChildren)) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires an ordered parent child list'
+      )
+    }
+    const insertionIndex = index > -1 ? index : targetChildren.length
+    if (
+      !Number.isInteger(index) ||
+      index < -1 ||
+      insertionIndex < 0 ||
+      insertionIndex > targetChildren.length
+    ) {
+      throw new Error('[SceneTree] Element batch index is outside parent order')
+    }
+
+    const sourceIds: string[] = []
+    const ordinaryPropertyOwners: {
+      definitions: readonly PropertyDefinition[]
+      data: Readonly<Record<string, unknown>>
+      propertyIds?: Readonly<Record<string, string>>
+    }[] = []
+    elementData.forEach((source) => {
+      if (!isRecord(source)) {
+        throw new Error('[SceneTree] Canonical element batch has invalid data')
+      }
+      const sourceId = source.id
+      if (typeof sourceId !== 'string' || sourceId.length === 0) {
+        throw new Error(
+          '[SceneTree] Canonical element batch requires unique inactive ids'
+        )
+      }
+      sourceIds.push(sourceId)
+
+      const sourceType = source.type
+      const registration =
+        typeof sourceType === 'string'
+          ? componentRegistry.get(sourceType)
+          : undefined
+      if (!registration) {
+        if (canonicalBatch) {
+          throw new Error(
+            `[SceneTree] Canonical element batch has unregistered type "${String(sourceType ?? '')}"`
+          )
+        }
+        throw new Error(
+          `No component registered for type: ${String(sourceType ?? '')}`
+        )
+      }
+      if (!canonicalBatch) {
+        const propertyIds = source.props
+        if (propertyIds !== undefined && !isRecord(propertyIds)) {
+          throw new Error(
+            `[SceneTree] Element "${sourceId}" has invalid property owners`
+          )
+        }
+        const constructorPropertyDefinitions = (
+          registration.constructor as typeof registration.constructor & {
+            ordinaryPropertyDefinitions?: readonly PropertyDefinition[]
+          }
+        ).ordinaryPropertyDefinitions
+        const definitions =
+          registration.properties.length > 0
+            ? registration.properties
+            : (constructorPropertyDefinitions ?? [])
+        ordinaryPropertyOwners.push({
+          definitions,
+          data: source,
+          ...(propertyIds
+            ? {
+                propertyIds: propertyIds as Readonly<Record<string, string>>
+              }
+            : {})
+        })
+      }
+    })
+
+    if (
+      new Set(sourceIds).size !== sourceIds.length ||
+      sourceIds.some(
+        (sourceId) =>
+          this._elements.has(sourceId) || this._deletedMap.has(sourceId)
+      )
+    ) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires unique inactive ids'
+      )
+    }
+
+    return Object.freeze({
+      target,
+      sourceIds: Object.freeze(sourceIds),
+      insertionIndex,
+      tombstones: new Map(
+        sourceIds.map((sourceId) => [sourceId, this._deletedMap.get(sourceId)])
+      ),
+      ordinaryPropertyPlan: canonicalBatch
+        ? undefined
+        : this.propsManagerOwner.preflightOrdinaryPropertyCreationBatch(
+            ordinaryPropertyOwners
+          )
+    })
+  }
+
   private addNewElementBatch(
     elementData: readonly (CreateElementData | ElementRawData)[],
     parent?: GroupInstanceTypes,
@@ -2016,27 +2250,32 @@ class SceneTree {
     if (!workspace || elementData.length === 0) {
       return []
     }
-    const sourceIds = elementData.map(({ id }) => id)
+    const transactionOwner = getTransactionOwner()
     if (
-      sourceIds.some(
-        (elementId) =>
-          typeof elementId !== 'string' ||
-          elementId.length === 0 ||
-          this.getElementById(elementId) !== undefined
-      ) ||
-      new Set(sourceIds).size !== sourceIds.length
+      transactionOwner &&
+      typeof (
+        transactionOwner as typeof transactionOwner &
+          Partial<CanonicalBatchTransactionOwner>
+      ).updateTransactionBatch !== 'function'
     ) {
       throw new Error(
-        '[SceneTree] Canonical element batch requires unique inactive ids'
+        '[SceneTree] Canonical element batch requires a batch-capable transaction owner'
       )
     }
-
-    const target = this.resolveElementBatchTarget(parent) as GroupInstanceTypes
+    const preflight = this.preflightElementBatch(
+      elementData,
+      parent,
+      index,
+      canonicalBatch
+    )
+    const {
+      target,
+      sourceIds,
+      insertionIndex,
+      tombstones,
+      ordinaryPropertyPlan
+    } = preflight
     const originalChildren = [...target.get('children')]
-    const insertionIndex = index > -1 ? index : originalChildren.length
-    if (insertionIndex < 0 || insertionIndex > originalChildren.length) {
-      throw new Error('[SceneTree] Element batch index is outside parent order')
-    }
     const hasCanonicalPropertyData =
       canonicalBatch &&
       (canonicalBatch.properties.length > 0 ||
@@ -2050,11 +2289,11 @@ class SceneTree {
         : undefined
     const elements: ElementInstanceTypes[] = []
     const operationChangeStart = this.changes.length
+    const canonicalHandoffState = createCanonicalBatchHandoffState()
     let rollbackPreparedProperties: (() => void) | undefined
     let completePreparedProperties: (() => void) | undefined
-    let propsCommitCompleted = false
     let parentMembershipMayHaveChanged = false
-    const applyElementBatch = () => {
+    const materializeElementBatch = () => {
       if (propertyPlan) {
         this.propsManagerOwner.applyPropertyCreationBatch(propertyPlan)
       }
@@ -2080,7 +2319,9 @@ class SceneTree {
           })
         }
       )
+    }
 
+    const projectElementBatch = () => {
       measureCanonicalSceneBatchPhase(
         'scene-tree:element-batch:parent-membership',
         () => {
@@ -2119,40 +2360,49 @@ class SceneTree {
           this.propsManagerOwner.runWithActivePropertyBatch(
             canonicalBatch.properties,
             canonicalBatch.rootPropertyIds,
-            applyElementBatch
+            materializeElementBatch
           )
         } else {
-          applyElementBatch()
+          materializeElementBatch()
         }
       } else {
-        const propertyBatch =
-          this.propsManagerOwner.runInPropertyCreationBatch(applyElementBatch)
+        const propertyBatch = this.propsManagerOwner.runInPropertyCreationBatch(
+          materializeElementBatch,
+          ordinaryPropertyPlan
+        )
         rollbackPreparedProperties = propertyBatch.rollback
         completePreparedProperties = propertyBatch.complete
       }
 
+      projectElementBatch()
       acknowledgeTransactionReplayApplied()
+      let propsEvents: readonly PreparedPropsTransactionEvent[] = []
       measureCanonicalSceneBatchPhase(
         'scene-tree:element-batch:commit-props',
         () => {
-          this.propsManagerOwner.commitChanges(options)
+          propsEvents = this.propsManagerOwner.prepareTransactionEvents(options)
         }
       )
-      propsCommitCompleted = true
       measureCanonicalSceneBatchPhase(
         'scene-tree:element-batch:commit-scene',
         () => {
-          this.commitSceneTreeTransaction(options)
+          this.commitSceneTreeTransaction(options, {
+            elements,
+            propsEvents,
+            [canonicalBatchHandoffState]: canonicalHandoffState
+          })
         }
       )
       completePreparedProperties?.()
       return Object.freeze(elements.map((element) => element.get('id')))
     } catch (error) {
-      if (propsCommitCompleted) {
+      if (wasCanonicalBatchHandoffAccepted(canonicalHandoffState)) {
         completePreparedProperties?.()
-      } else {
-        rollbackPreparedProperties?.()
+        this.propsManagerOwner.cleanChanges()
+        this.cleanChanges()
+        throw error
       }
+      rollbackPreparedProperties?.()
       if (parentMembershipMayHaveChanged) {
         workspace.replaceBatchParentChildren(target, originalChildren)
       }
@@ -2163,6 +2413,14 @@ class SceneTree {
             dispose?: () => void
           }
         ).dispose?.()
+      })
+      sourceIds.forEach((sourceId) => {
+        const tombstone = tombstones.get(sourceId)
+        if (tombstone) {
+          this._deletedMap.set(sourceId, tombstone)
+        } else {
+          this._deletedMap.delete(sourceId)
+        }
       })
       this.changes.splice(operationChangeStart)
       throw error
@@ -2442,7 +2700,10 @@ class SceneTree {
     })
   }
 
-  commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
+  private prepareSceneTreeTransactionEvents(
+    options?: EVENT_OPTIONS
+  ): readonly UpdateTransactionEvent[] {
+    const preparedEvents: UpdateTransactionEvent[] = []
     let pendingTransientComputedUpdate:
       | {
           batchKey: string
@@ -2462,11 +2723,12 @@ class SceneTree {
         id: pendingTransientComputedUpdate.id,
         changes: pendingTransientComputedUpdate.changes
       }
-      updateTransaction(
-        batchChange.eventName,
-        batchChange,
-        pendingTransientComputedUpdate.options
-      )
+      preparedEvents.push({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: batchChange.eventName,
+        payload: batchChange,
+        options: pendingTransientComputedUpdate.options
+      })
       pendingTransientComputedUpdate = undefined
     }
 
@@ -2510,11 +2772,139 @@ class SceneTree {
       }
 
       flushPendingTransientComputedUpdate()
-      updateTransaction(change.eventName, change, routedOptions)
+      preparedEvents.push({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: routedOptions
+      })
     })
 
     flushPendingTransientComputedUpdate()
+    return preparedEvents
+  }
 
+  private createCanonicalPropertyDeliveryOwners(
+    elements: readonly ElementInstanceTypes[]
+  ): readonly CanonicalPropertyDeliveryOwner[] {
+    return elements.map((element) => {
+      const elementType = element.get('type')
+      if (!componentRegistry.get(elementType)) {
+        throw new Error(
+          `[SceneTree] Canonical delivery has unregistered type "${elementType}"`
+        )
+      }
+      const props = element.props as typeof element.props & {
+        getCanonicalRootPropertyIds?: () => readonly string[]
+      }
+      const rootPropertyIds = props.getCanonicalRootPropertyIds?.()
+      if (!rootPropertyIds) {
+        throw new Error(
+          `[SceneTree] Canonical delivery is missing property owner evidence for "${element.get('id')}"`
+        )
+      }
+      return Object.freeze({
+        orderedId: element.get('id'),
+        rootPropertyIds: Object.freeze([...rootPropertyIds])
+      })
+    })
+  }
+
+  private commitCanonicalElementBatch(
+    options: EVENT_OPTIONS | undefined,
+    canonical: CanonicalCombinedCommit
+  ): void {
+    const handoffState =
+      canonical[canonicalBatchHandoffState] ??
+      createCanonicalBatchHandoffState()
+    const transactionOwner = getTransactionOwner()
+    const batchOwner = transactionOwner as
+      | (typeof transactionOwner & Partial<CanonicalBatchTransactionOwner>)
+      | null
+    const preparedPropsEvents =
+      canonical.propsEvents.length === 0 &&
+      typeof batchOwner?.updateTransactionBatch === 'function'
+        ? this.propsManagerOwner.prepareCanonicalElementTransactionEvents(
+            options
+          )
+        : canonical.propsEvents
+    const propertyOwners = this.createCanonicalPropertyDeliveryOwners(
+      canonical.elements
+    )
+    const propsEvents = preparedPropsEvents.map(
+      ({ eventName, payload, options: eventOptions }) => ({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName,
+        payload,
+        options: eventOptions
+      })
+    ) satisfies readonly UpdateTransactionEvent[]
+    const sceneEvents = this.prepareSceneTreeTransactionEvents(options)
+    if (sceneEvents.length !== canonical.elements.length) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires one ordered Scene evidence event per element'
+      )
+    }
+
+    const events = [...propsEvents, ...sceneEvents]
+    const deliveryEvidence: CanonicalEventDeliveryEvidence[] = [
+      ...propsEvents.map(({ payload }) => ({
+        orderedIds: propertyOwners.map(({ orderedId }) => orderedId),
+        sharedRecords:
+          payload.action === PROPS_ACTIONS.ADD_PROPERTY
+            ? this.propsManagerOwner.createCanonicalPropertyDeliveryRecords(
+                payload as AddRemovePropertyChange,
+                propertyOwners
+              )
+            : (() => {
+                throw new Error(
+                  '[SceneTree] Canonical element batch requires additive Props evidence'
+                )
+              })()
+      })),
+      ...sceneEvents.map((_event, index) => ({
+        orderedIds: [propertyOwners[index].orderedId]
+      }))
+    ]
+
+    if (typeof batchOwner?.updateTransactionBatch === 'function') {
+      try {
+        batchOwner.updateTransactionBatch(events, deliveryEvidence)
+        markCanonicalBatchHandoffAccepted(handoffState)
+      } catch (error) {
+        if (reportsAcceptedCanonicalBatchHandoff(error)) {
+          markCanonicalBatchHandoffAccepted(handoffState)
+        }
+        throw error
+      }
+    } else if (transactionOwner) {
+      throw new Error(
+        '[SceneTree] Canonical element batch requires a batch-capable transaction owner'
+      )
+    } else {
+      events.forEach(({ eventName, payload, options: eventOptions }) => {
+        updateTransaction(eventName, payload, eventOptions)
+      })
+    }
+
+    this.propsManagerOwner.cleanChanges()
+    this.cleanChanges()
+  }
+
+  commitSceneTreeTransaction(
+    options?: EVENT_OPTIONS,
+    canonical?: CanonicalCombinedCommit
+  ) {
+    if (canonical) {
+      this.commitCanonicalElementBatch(options, canonical)
+      return
+    }
+
+    this.prepareSceneTreeTransactionEvents(options).forEach(
+      ({ eventName, payload, options: eventOptions }) => {
+        updateTransaction(eventName, payload, eventOptions)
+      }
+    )
     this.cleanChanges()
   }
 

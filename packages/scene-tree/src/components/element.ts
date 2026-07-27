@@ -14,6 +14,7 @@ import {
   IDTypes,
   NameTypes,
   EntityTypes,
+  PropertyTypes,
   id,
   loadId,
   name,
@@ -22,7 +23,7 @@ import {
 import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
-import type { PropsManager } from '@asyra/props-manager'
+import type { PropertyDefinition, PropsManager } from '@asyra/props-manager'
 import { getSceneTreePropsManager } from '../props-manager-context'
 
 const elementChangeHandler = new ElementChangeHandler('raw')
@@ -41,6 +42,18 @@ class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
   implements IElement<T>
 {
+  static readonly ordinaryPropertyDefinitions: readonly PropertyDefinition[] =
+    Object.freeze([
+      Object.freeze({
+        name: PropertyTypes.POSITION,
+        type: PropertyTypes.POSITION
+      }),
+      Object.freeze({
+        name: PropertyTypes.DIMENSION,
+        type: PropertyTypes.DIMENSION
+      })
+    ])
+
   _idType: string = ''
   _nameType: string = ''
   protected computedPropertyNames: string[] = ['position', 'dimension', 'fills']
@@ -128,6 +141,10 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
 
     return data
+  }
+
+  assignCanonicalParentId(parentId: string): void {
+    this.data.parentId = parentId
   }
 
   setupProps(propsData?: Partial<PropsRawData>) {

@@ -9,12 +9,15 @@ import {
   PropertyTypes,
   Unit,
   SharedDataChannelNames,
-  PropsChange
+  PropsChange,
+  type AddRemovePropertyChange
 } from '@asyra/utils'
 import { PropsManager } from '../manager/props-manager'
 import { getPropertyComponentAccessor } from '../manager/component-accessor'
 import { createProperty } from '../factories/create-property'
-import elementPropertyRegistry from '../registries/property-definition'
+import elementPropertyRegistry, {
+  type PropertyDefinition
+} from '../registries/property-definition'
 import {
   propertySchemaRegistry,
   registerPropertySchema
@@ -580,6 +583,680 @@ describe('PropsManager', () => {
         data: [child, parent]
       })
     ])
+  })
+
+  it('registers one canonical property batch through one registerMany owner boundary', () => {
+    const source = [
+      new PositionComponent({
+        id: 'register-many-first',
+        x: 10,
+        y: 20
+      }).save(),
+      new PositionComponent({
+        id: 'register-many-second',
+        x: 30,
+        y: 40
+      }).save()
+    ]
+    const registerMany = vi.spyOn(
+      propsManager as unknown as {
+        registerMany(
+          components: readonly PropertyComponentInstanceTypes[]
+        ): void
+      },
+      'registerMany'
+    )
+
+    try {
+      const plan = propsManager.preflightPropertyCreationBatch(
+        source,
+        source.map(({ id }) => id)
+      )
+      propsManager
+        .runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(plan)
+        )
+        .complete()
+
+      expect(registerMany).toHaveBeenCalledTimes(1)
+      expect(
+        registerMany.mock.calls[0]?.[0].map((component) => component.get('id'))
+      ).toEqual(['register-many-first', 'register-many-second'])
+    } finally {
+      registerMany.mockRestore()
+    }
+  })
+
+  it('keeps ordinary descriptor properties staged until one final registerMany boundary', () => {
+    const ordinaryBatchOwner = propsManager as PropsManager & {
+      preflightOrdinaryPropertyCreationBatch(
+        owners: readonly {
+          definitions: readonly PropertyDefinition[]
+          data: Readonly<Record<string, unknown>>
+          propertyIds?: Readonly<Record<string, string>>
+        }[]
+      ): object
+      runInPropertyCreationBatch<T>(
+        operation: () => T,
+        plan: object
+      ): { result: T; rollback(): void; complete(): void }
+    }
+    const plan = ordinaryBatchOwner.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          { name: PropertyTypes.POSITION, type: PropertyTypes.POSITION },
+          { name: PropertyTypes.DIMENSION, type: PropertyTypes.DIMENSION }
+        ],
+        data: { x: 10, y: 20, width: 30, height: 40 }
+      },
+      {
+        definitions: [
+          { name: PropertyTypes.POSITION, type: PropertyTypes.POSITION },
+          { name: PropertyTypes.DIMENSION, type: PropertyTypes.DIMENSION }
+        ],
+        data: { x: 50, y: 60, width: 70, height: 80 }
+      }
+    ])
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+    const activeIdsDuringMaterialization: string[][] = []
+
+    const receipt = ordinaryBatchOwner.runInPropertyCreationBatch(() => {
+      const owners = ['first', 'second'].map((owner) => {
+        const position = propsManager.createProperty({
+          id: `${owner}-position`,
+          type: PropertyTypes.POSITION
+        })
+        const dimension = propsManager.createProperty({
+          id: `${owner}-dimension`,
+          type: PropertyTypes.DIMENSION
+        })
+        const propertyIds = propsManager.addProperty([position, dimension])
+        activeIdsDuringMaterialization.push(Object.keys(propsManager.save()))
+        return propertyIds
+      })
+      return owners
+    }, plan)
+
+    expect(activeIdsDuringMaterialization).toEqual([[], []])
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(
+      registerMany.mock.calls[0]?.[0].map((component) => component.get('id'))
+    ).toEqual([
+      'first-position',
+      'first-dimension',
+      'second-position',
+      'second-dimension'
+    ])
+    expect(Object.keys(propsManager.save())).toEqual([
+      'first-position',
+      'first-dimension',
+      'second-position',
+      'second-dimension'
+    ])
+    expect(receipt.result).toEqual([
+      {
+        [PropertyTypes.POSITION]: 'first-position',
+        [PropertyTypes.DIMENSION]: 'first-dimension'
+      },
+      {
+        [PropertyTypes.POSITION]: 'second-position',
+        [PropertyTypes.DIMENSION]: 'second-dimension'
+      }
+    ])
+  })
+
+  it('rejects an ordinary root id reserved by an explicit relationship child before materialization', () => {
+    const childType = 'ordinary-reserved-child'
+    const parentType = 'ordinary-reserved-parent'
+    const ChildComponent = createPropertyComponentFromConfig({
+      type: childType,
+      defaults: { value: 0 },
+      persistKeys: ['value'],
+      valueKeys: ['value']
+    })
+    const parentDefinition = {
+      type: parentType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType,
+        mode: 'ids-or-objects' as const,
+        toChildData: (item: Record<string, unknown>) => item
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertyComponent(childType, ChildComponent)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+    let materializationAttempts = 0
+
+    expect(() => {
+      const plan = propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            { name: 'standalone', type: childType },
+            {
+              name: 'children',
+              type: parentType,
+              defaultValue: []
+            }
+          ],
+          data: {
+            children: [{ id: 'ordinary-reserved-id', value: 1 }]
+          },
+          propertyIds: {
+            standalone: 'ordinary-reserved-id'
+          }
+        }
+      ])
+      propsManager.runInPropertyCreationBatch(() => {
+        materializationAttempts += 1
+      }, plan)
+    }).toThrow(/reserved property id/i)
+
+    expect(materializationAttempts).toBe(0)
+    expect(registerMany).not.toHaveBeenCalled()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('allows an ordinary relationship string to reference a same-batch requested root with the required type', () => {
+    const parentType = 'ordinary-planned-root-parent'
+    const parentDefinition = {
+      type: parentType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+    const plan = propsManager.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          { name: 'standalone', type: PropertyTypes.POSITION },
+          { name: 'children', type: parentType, defaultValue: [] }
+        ],
+        data: {
+          children: ['ordinary-planned-root-child']
+        },
+        propertyIds: {
+          standalone: 'ordinary-planned-root-child',
+          children: 'ordinary-planned-root-parent'
+        }
+      }
+    ])
+
+    const receipt = propsManager.runInPropertyCreationBatch(() => {
+      const child = propsManager.createProperty({
+        id: 'ordinary-planned-root-child',
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20
+      })
+      const parent = propsManager.createProperty({
+        id: 'ordinary-planned-root-parent',
+        type: parentType,
+        children: ['ordinary-planned-root-child']
+      })
+      return propsManager.addProperty([child, parent])
+    }, plan)
+
+    expect(receipt.result).toEqual({
+      [PropertyTypes.POSITION]: 'ordinary-planned-root-child',
+      [parentType]: 'ordinary-planned-root-parent'
+    })
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(
+      propsManager.getPropertyById('ordinary-planned-root-parent')?.save()
+    ).toEqual({
+      id: 'ordinary-planned-root-parent',
+      type: parentType,
+      children: ['ordinary-planned-root-child']
+    })
+    receipt.complete()
+  })
+
+  it('rejects an ordinary relationship string when its same-batch requested root has the wrong type', () => {
+    const parentType = 'ordinary-wrong-planned-root-parent'
+    const parentDefinition = {
+      type: parentType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+    let materializationAttempts = 0
+
+    expect(() => {
+      const plan = propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            { name: 'standalone', type: PropertyTypes.DIMENSION },
+            { name: 'children', type: parentType, defaultValue: [] }
+          ],
+          data: {
+            children: ['ordinary-wrong-planned-root-child']
+          },
+          propertyIds: {
+            standalone: 'ordinary-wrong-planned-root-child',
+            children: 'ordinary-wrong-planned-root-parent'
+          }
+        }
+      ])
+      propsManager.runInPropertyCreationBatch(() => {
+        materializationAttempts += 1
+      }, plan)
+    }).toThrow(/relationship child.*wrong type/i)
+
+    expect(materializationAttempts).toBe(0)
+    expect(registerMany).not.toHaveBeenCalled()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('preserves and validates a new ordinary requested root id through finalize', () => {
+    const owners = [
+      {
+        definitions: [
+          {
+            name: PropertyTypes.POSITION,
+            type: PropertyTypes.POSITION
+          }
+        ],
+        data: { x: 10, y: 20 },
+        propertyIds: {
+          [PropertyTypes.POSITION]: 'ordinary-requested-position'
+        }
+      }
+    ]
+    const mismatchedPlan =
+      propsManager.preflightOrdinaryPropertyCreationBatch(owners)
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() => {
+        const property = propsManager.createProperty({
+          id: 'ordinary-unrequested-position',
+          type: PropertyTypes.POSITION,
+          x: 10,
+          y: 20
+        })
+        propsManager.addProperty([property])
+      }, mismatchedPlan)
+    ).toThrow(/changed owner property/i)
+
+    expect(registerMany).not.toHaveBeenCalled()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+
+    const matchingPlan =
+      propsManager.preflightOrdinaryPropertyCreationBatch(owners)
+    const receipt = propsManager.runInPropertyCreationBatch(() => {
+      const property = propsManager.createProperty({
+        id: 'ordinary-requested-position',
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20
+      })
+      return propsManager.addProperty([property])
+    }, matchingPlan)
+
+    expect(receipt.result).toEqual({
+      [PropertyTypes.POSITION]: 'ordinary-requested-position'
+    })
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(propsManager.save()).toEqual({
+      'ordinary-requested-position': expect.objectContaining({
+        id: 'ordinary-requested-position',
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20
+      })
+    })
+    receipt.complete()
+  })
+
+  it('allows an ordinary owner to replace a missing requested root id when creation omits an explicit id', () => {
+    const plan = propsManager.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          {
+            name: PropertyTypes.POSITION,
+            type: PropertyTypes.POSITION
+          }
+        ],
+        data: { x: 10, y: 20 },
+        propertyIds: {
+          [PropertyTypes.POSITION]: 'ordinary-missing-position'
+        }
+      }
+    ])
+
+    const receipt = propsManager.runInPropertyCreationBatch(() => {
+      const property = propsManager.createProperty({
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20
+      })
+      return propsManager.addProperty([property])
+    }, plan)
+    const replacementId = receipt.result[PropertyTypes.POSITION]
+
+    expect(replacementId).toBeDefined()
+    expect(replacementId).not.toBe('ordinary-missing-position')
+    expect(propsManager.getPropertyById(replacementId)).toBeDefined()
+    expect(propsManager.getPropertyById('ordinary-missing-position')).toBe(
+      undefined
+    )
+    receipt.complete()
+  })
+
+  it('rolls back an ordinary property graph when a relationship contract drifts during materialization', () => {
+    const relationshipType = 'ordinary-relationship-target'
+    const mutatorType = 'ordinary-registration-mutator'
+    const relationshipDefinition = {
+      type: relationshipType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(
+      relationshipDefinition
+    )
+    const MutatorBase = createPropertyComponentFromConfig({
+      type: mutatorType,
+      defaults: {},
+      persistKeys: [],
+      valueKeys: []
+    })
+    class RelationshipRegistrationMutator extends MutatorBase {
+      constructor(data: Partial<PropertyComponentRawData>) {
+        super(data)
+        propertyComponentRegistry.unregister(relationshipType)
+        registerPropertyComponent(relationshipType, RelationshipComponent)
+      }
+    }
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      relationshipDefinition
+    )
+    registerPropertyComponent(mutatorType, RelationshipRegistrationMutator)
+    const ordinaryBatchOwner = propsManager as PropsManager & {
+      preflightOrdinaryPropertyCreationBatch(
+        owners: readonly {
+          definitions: readonly PropertyDefinition[]
+          data: Readonly<Record<string, unknown>>
+        }[]
+      ): object
+      runInPropertyCreationBatch<T>(
+        operation: () => T,
+        plan: object
+      ): { result: T; rollback(): void; complete(): void }
+    }
+    const plan = ordinaryBatchOwner.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          { name: 'mutator', type: mutatorType },
+          {
+            name: 'relationship',
+            type: relationshipType,
+            defaultValue: []
+          }
+        ],
+        data: {}
+      }
+    ])
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+
+    expect(() =>
+      ordinaryBatchOwner.runInPropertyCreationBatch(() => {
+        const mutator = propsManager.createProperty({
+          id: 'ordinary-mutator',
+          type: mutatorType
+        })
+        const relationship = propsManager.createProperty({
+          id: 'ordinary-relationship',
+          type: relationshipType,
+          children: []
+        })
+        propsManager.addProperty([mutator, relationship])
+      }, plan)
+    ).toThrow(/registration changed/i)
+
+    expect(registerMany).not.toHaveBeenCalled()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects an active ordinary owner override before materialization can mutate it', () => {
+    const active = propsManager.createProperty({
+      id: 'ordinary-active-position',
+      type: PropertyTypes.POSITION,
+      x: 1,
+      y: 2
+    })
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+    const ordinaryBatchOwner = propsManager as PropsManager & {
+      preflightOrdinaryPropertyCreationBatch(
+        owners: readonly {
+          definitions: readonly PropertyDefinition[]
+          data: Readonly<Record<string, unknown>>
+          propertyIds: Readonly<Record<string, string>>
+        }[]
+      ): object
+    }
+    const createProperty = vi.spyOn(propsManager, 'createProperty')
+
+    expect(() =>
+      ordinaryBatchOwner.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            {
+              name: PropertyTypes.POSITION,
+              type: PropertyTypes.POSITION,
+              alias: ['x', 'y']
+            }
+          ],
+          data: { x: 99 },
+          propertyIds: {
+            [PropertyTypes.POSITION]: 'ordinary-active-position'
+          }
+        }
+      ])
+    ).toThrow(/active owner override/i)
+
+    expect(createProperty).not.toHaveBeenCalled()
+    expect(active.save()).toMatchObject({ x: 1, y: 2 })
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('preflights ids-or-objects descriptors against recursive child schemas instead of materialized parent ids', () => {
+    const childType = 'ordinary-paint-child'
+    const parentType = 'ordinary-paints-parent'
+    const childDefaults = { color: '#cccccc', opacity: 1 }
+    const ChildComponent = createPropertyComponentFromConfig({
+      type: childType,
+      defaults: childDefaults,
+      persistKeys: ['color', 'opacity'],
+      valueKeys: ['color', 'opacity']
+    })
+    const parentDefinition = {
+      type: parentType,
+      defaults: { paints: [] as string[] },
+      persistKeys: ['paints'],
+      valueKeys: ['paints'],
+      children: {
+        key: 'paints',
+        childType,
+        mode: 'ids-or-objects' as const,
+        toChildData: (item: Record<string, unknown>) => ({
+          ...childDefaults,
+          ...item
+        }),
+        toValue: (
+          child: { get: (key: string) => unknown },
+          childId: string
+        ) => ({
+          id: childId,
+          color: child.get('color'),
+          opacity: child.get('opacity')
+        })
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertySchema({
+      type: childType,
+      fields: [
+        {
+          key: 'color',
+          kind: 'string',
+          validate: (value) => typeof value === 'string' && value.length > 0,
+          defaultValue: childDefaults.color
+        },
+        {
+          key: 'opacity',
+          kind: 'number',
+          validate: (value) =>
+            typeof value === 'number' && value >= 0 && value <= 1,
+          defaultValue: childDefaults.opacity
+        }
+      ]
+    })
+    registerPropertySchema({
+      type: parentType,
+      fields: [
+        {
+          key: 'paints',
+          kind: 'array',
+          validate: (value) =>
+            Array.isArray(value) &&
+            value.every((item) => typeof item === 'string'),
+          defaultValue: []
+        }
+      ]
+    })
+    registerPropertyComponent(childType, ChildComponent)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    const activeChild = propsManager.createProperty({
+      id: 'ordinary-active-paint',
+      type: childType,
+      color: '#111111',
+      opacity: 1
+    })
+    propsManager.addProperty([activeChild])
+    propsManager.cleanChanges()
+    const definitions: readonly PropertyDefinition[] = [
+      {
+        name: 'paints',
+        type: parentType,
+        defaultValue: [{ color: '#222222', opacity: 0.75 }]
+      }
+    ]
+
+    expect(() =>
+      propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions,
+          data: {
+            paints: [
+              'ordinary-active-paint',
+              { color: '#333333', opacity: 0.5 }
+            ]
+          }
+        }
+      ])
+    ).not.toThrow()
+    expect(() =>
+      propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            {
+              name: 'paints',
+              type: parentType,
+              defaultValue: []
+            }
+          ],
+          data: {
+            paints: [{ color: '#444444', opacity: 2 }]
+          }
+        }
+      ])
+    ).toThrow(/invalid runtime property field.*opacity/i)
+    expect(() =>
+      propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            {
+              name: 'paints',
+              type: parentType,
+              defaultValue: []
+            }
+          ],
+          data: { paints: [42] }
+        }
+      ])
+    ).toThrow(/invalid relationship descriptor/i)
+    expect(() =>
+      propsManager.preflightOrdinaryPropertyCreationBatch([
+        {
+          definitions: [
+            {
+              name: 'paints',
+              type: parentType,
+              defaultValue: []
+            }
+          ],
+          data: { paints: ['missing-paint-id'] }
+        }
+      ])
+    ).toThrow(/missing relationship child/i)
+    expect(propsManager.save()).toEqual({
+      'ordinary-active-paint': activeChild.save()
+    })
+    expect(propsManager.changes).toEqual([])
   })
 
   it('emits detached timings once for each canonical property batch phase', () => {
@@ -1196,7 +1873,7 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([])
   })
 
-  it('rejects schema drift that is used during materialization and restored before readiness', () => {
+  it('rejects an invalid runtime field before schema-drift materialization', () => {
     const driftType = 'creation-schema-drift'
     const restoreType = 'creation-schema-restore'
     const currentSchema = propertySchemaRegistry.get(PropertyTypes.POSITION)
@@ -1250,16 +1927,12 @@ describe('PropsManager', () => {
       },
       { id: 'creation-schema-restore', type: restoreType }
     ] as PropertyComponentRawData[]
-    const plan = propsManager.preflightPropertyCreationBatch(
-      source,
-      source.map(({ id }) => id)
-    )
-
     expect(() =>
-      propsManager.runInPropertyCreationBatch(() =>
-        propsManager.applyPropertyCreationBatch(plan)
+      propsManager.preflightPropertyCreationBatch(
+        source,
+        source.map(({ id }) => id)
       )
-    ).toThrow(/changed exact component data/i)
+    ).toThrow(/invalid runtime property field/i)
 
     expect(propsManager.save()).toEqual({})
     expect(propsManager.changes).toEqual([])
@@ -2282,6 +2955,10 @@ describe('PropsManager', () => {
   // Test commitChanges
   it('should commit changes and clean the changes array', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
+    const prepareTransactionEvents = vi.spyOn(
+      propsManager,
+      'prepareTransactionEvents'
+    )
     const change1 = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
     } as unknown as PropsChange
@@ -2293,6 +2970,7 @@ describe('PropsManager', () => {
 
     propsManager.commitChanges()
 
+    expect(prepareTransactionEvents).toHaveBeenCalledTimes(1)
     expect(events).toHaveLength(2)
     expect(events[0]).toEqual(
       expect.objectContaining({
@@ -2312,6 +2990,180 @@ describe('PropsManager', () => {
     )
     expect(propsManager.changes).toEqual([])
     subscription.unsubscribe()
+  })
+
+  it('prepares routed transaction events without consuming pending changes', () => {
+    const change = {
+      eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      undoType: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
+      undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+      data: []
+    } as AddRemovePropertyChange
+    propsManager.addChange(change)
+    const prepare = (
+      propsManager as PropsManager & {
+        prepareTransactionEvents(options?: {
+          rollbackable?: boolean
+        }): readonly {
+          eventName: string
+          payload: PropsChange
+          options: {
+            rollbackable?: boolean
+            shared?: string
+          }
+        }[]
+      }
+    ).prepareTransactionEvents
+
+    expect(prepare.call(propsManager, { rollbackable: false })).toEqual([
+      {
+        eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+        payload: change,
+        options: {
+          rollbackable: false,
+          shared: SharedDataChannelNames.PROPS
+        }
+      }
+    ])
+    expect(propsManager.changes).toEqual([change])
+  })
+
+  it('prepares one empty additive Props delivery for property-free element batches', () => {
+    expect(
+      propsManager.prepareCanonicalElementTransactionEvents({
+        rollbackable: false
+      })
+    ).toEqual([
+      {
+        eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+          data: []
+        },
+        options: {
+          rollbackable: false,
+          shared: SharedDataChannelNames.PROPS
+        }
+      }
+    ])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('creates one Props-owned relationship delivery record per element owner', () => {
+    const sharedChild = new PositionComponent({
+      id: 'delivery-shared-child',
+      x: 10,
+      y: 20
+    }).save()
+    const firstRoot = new CustomComponent({
+      id: 'delivery-first-root',
+      children: ['delivery-shared-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const secondRoot = new CustomComponent({
+      id: 'delivery-second-root',
+      children: ['delivery-shared-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const change: AddRemovePropertyChange = {
+      eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY,
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      undoType: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
+      undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+      data: [sharedChild, secondRoot, firstRoot]
+    }
+    const createRecords = (
+      propsManager as PropsManager & {
+        createCanonicalPropertyDeliveryRecords(
+          change: AddRemovePropertyChange,
+          owners: readonly {
+            orderedId: string
+            rootPropertyIds: readonly string[]
+          }[]
+        ): readonly {
+          orderedIds: readonly string[]
+          payload: AddRemovePropertyChange
+        }[]
+      }
+    ).createCanonicalPropertyDeliveryRecords
+
+    expect(
+      createRecords.call(propsManager, change, [
+        {
+          orderedId: 'delivery-first-element',
+          rootPropertyIds: ['delivery-first-root']
+        },
+        {
+          orderedId: 'delivery-second-element',
+          rootPropertyIds: ['delivery-second-root']
+        },
+        {
+          orderedId: 'delivery-property-free-element',
+          rootPropertyIds: []
+        }
+      ])
+    ).toEqual([
+      {
+        orderedIds: ['delivery-first-element'],
+        payload: {
+          ...change,
+          data: [sharedChild, firstRoot]
+        }
+      },
+      {
+        orderedIds: ['delivery-second-element'],
+        payload: {
+          ...change,
+          data: [secondRoot]
+        }
+      },
+      {
+        orderedIds: ['delivery-property-free-element'],
+        payload: {
+          ...change,
+          data: []
+        }
+      }
+    ])
+  })
+
+  it('preflights element property values against Props-owned schemas', () => {
+    const definitions: readonly PropertyDefinition[] = [
+      {
+        name: PropertyTypes.POSITION,
+        type: PropertyTypes.POSITION,
+        alias: ['x', 'y']
+      }
+    ]
+    const preflight = (
+      propsManager as PropsManager & {
+        preflightElementPropertyValues(
+          definitions: readonly PropertyDefinition[],
+          data: Readonly<Record<string, unknown>>
+        ): void
+      }
+    ).preflightElementPropertyValues
+
+    expect(() =>
+      preflight.call(propsManager, definitions, {
+        id: 'valid-element',
+        type: 'rect',
+        x: 10,
+        y: 20
+      })
+    ).not.toThrow()
+    expect(() =>
+      preflight.call(propsManager, definitions, {
+        id: 'invalid-element',
+        type: 'rect',
+        x: 'invalid',
+        y: 20
+      })
+    ).toThrow(/invalid.*x/i)
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
   })
 
   it('should commit per-change options to updateTransaction', () => {

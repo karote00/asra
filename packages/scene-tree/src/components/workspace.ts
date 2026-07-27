@@ -108,11 +108,8 @@ class Workspace extends Group {
       0,
       ...elements.map((element) => element.get('id'))
     )
+    this.registry.addManyToMap(elements, target.get('id'))
     target.replaceChildrenFromCanonicalBatch(children)
-    elements.forEach((element) => {
-      element.set('parentId', target.get('id'), { undoable: false })
-      this.registry.addToMap(element)
-    })
     return target as GroupInstanceTypes
   }
 

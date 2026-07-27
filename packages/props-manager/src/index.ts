@@ -37,7 +37,12 @@ export {
 export type { PropertyDefinition } from './registries/property-definition'
 export type {
   ActivePropertyPlan,
-  PropertyCreationPlan
+  PropertyCreationPlan,
+  OrdinaryPropertyCreationOwner,
+  OrdinaryPropertyCreationPlan,
+  PreparedPropsTransactionEvent,
+  CanonicalPropertyDeliveryOwner,
+  CanonicalPropertyDeliveryRecord
 } from './manager/props-manager'
 export type { PropertyComponentConstructor } from './components'
 export {

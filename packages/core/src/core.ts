@@ -216,6 +216,7 @@ class Core implements CoreAPIs {
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   createElement!: SceneTreeAPIs['createElement']
   createElementInParent!: SceneTreeAPIs['createElementInParent']
+  createElementsInParentBatch!: SceneTreeAPIs['createElementsInParentBatch']
   createElementsInParent!: SceneTreeAPIs['createElementsInParent']
   createElementsInParentFromCanonicalData!: SceneTreeAPIs['createElementsInParentFromCanonicalData']
   createElementsInParentFromCanonicalDataUsingActiveProperties!: SceneTreeAPIs['createElementsInParentFromCanonicalDataUsingActiveProperties']

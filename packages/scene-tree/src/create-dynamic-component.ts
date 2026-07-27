@@ -20,6 +20,8 @@ export function createDynamicComponent(
   return class DynamicComponent extends BaseClass<
     ElementAttrs & Record<string, unknown>
   > {
+    static readonly ordinaryPropertyDefinitions = properties
+
     constructor(data?: Partial<ElementRawData>) {
       super(data, idPrefix, namePrefix)
     }

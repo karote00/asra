@@ -1,5 +1,6 @@
 import type {
   EvnetOptions,
+  PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
   PropsRawData,
   IProps
@@ -47,6 +48,13 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       return typeof val === 'string' ? val : undefined
     }
 
+    getCanonicalRootPropertyIds(): readonly string[] {
+      return properties.flatMap((property) => {
+        const propertyId = this.getPropId(property.name)
+        return propertyId ? [propertyId] : []
+      })
+    }
+
     private createProperty(prop: PropertyDefinition, id?: string) {
       return this.propsManagerOwner.createProperty({
         ...(id ? { id } : {}),
@@ -58,29 +66,37 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
     }
 
     init() {
-      // Create property components for each property and store by name
-      properties.forEach((prop) => {
-        const component = this.createProperty(prop)
-        this.propsManagerOwner.addToMap(component)
+      const components = properties.map((property) =>
+        this.createProperty(property)
+      )
+      this.propsManagerOwner.addProperty(components)
+      properties.forEach((prop, index) => {
+        const component = components[index]
         this[prop.name] = component.get('id')
       })
     }
 
     load(data: Partial<PropsRawData> = {}): void {
       const dataObj = data as Record<string, string | undefined>
-      properties.forEach((prop) => {
+      const createdComponents: PropertyComponentInstanceTypes[] = []
+      const components = properties.map((prop) => {
         const propId = dataObj[prop.name]
         const propComponent = propId
           ? this.propsManagerOwner.getPropertyById(propId)
           : null
 
         if (propComponent) {
-          this[prop.name] = propId
-        } else {
-          const component = this.createProperty(prop, propId)
-          this.propsManagerOwner.addToMap(component)
-          this[prop.name] = component.get('id')
+          return propComponent
         }
+        const created = this.createProperty(prop, propId)
+        createdComponents.push(created)
+        return created
+      })
+      if (createdComponents.length > 0) {
+        this.propsManagerOwner.addProperty(createdComponents)
+      }
+      properties.forEach((prop, index) => {
+        this[prop.name] = components[index].get('id')
       })
     }
 

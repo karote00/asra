@@ -44,6 +44,7 @@ import {
   EventTypes,
   publishEvent,
   runInTransactionReplayMode,
+  runWithTransactionOwner,
   subscribeToEvents,
   wasTransactionReplayApplied,
   type AddElementEvent,
@@ -772,8 +773,7 @@ describe('SceneTree', () => {
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.ADD_ELEMENT)
   })
 
-  // Test addNewElement (delegated to workspace)
-  it('should call addNewElement on the current workspace', () => {
+  it('delegates normal single creation to the workspace batch boundary', () => {
     sceneTree.init()
     const elementData = {
       id: 'test-rect',
@@ -782,15 +782,15 @@ describe('SceneTree', () => {
       y: 0
     }
     const workspace = sceneTree.currentWorkspace as Workspace
-    vi.spyOn(workspace, 'addNewElement')
+    const addNewElements = vi.spyOn(workspace, 'addNewElements')
 
     sceneTree.addNewElement(elementData, undefined, -1, false)
 
-    expect(workspace.addNewElement).toHaveBeenCalled()
-    expect(workspace.addNewElement).toHaveBeenCalledWith(
-      expect.any(Object),
-      undefined,
-      -1
+    expect(addNewElements).toHaveBeenCalledOnce()
+    expect(addNewElements).toHaveBeenCalledWith(
+      [expect.any(Object)],
+      workspace,
+      0
     )
   })
 
@@ -2098,7 +2098,11 @@ describe('SceneTree', () => {
     firstPosition.set('x', 999)
     expect(propertyData).toEqual(detachedPropertyEvidence)
     expect(commit).toHaveBeenCalledOnce()
-    expect(commit).toHaveBeenCalledWith({ undoable: true })
+    expect(commit.mock.calls[0]?.[0]).toEqual({ undoable: true })
+    expect(
+      commit.mock.calls[0]?.[1]?.elements.map((element) => element.get('id'))
+    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
+    expect(commit.mock.calls[0]?.[1]?.propsEvents).toHaveLength(1)
     subscription.unsubscribe()
   })
 
@@ -2843,16 +2847,18 @@ describe('SceneTree', () => {
     expect(sceneCommit).not.toHaveBeenCalled()
   })
 
-  it('rolls back a prepared property batch when its commit fails', () => {
+  it('rolls back a prepared property batch when transaction preparation fails', () => {
     sceneTree.init()
     sceneTree.cleanChanges()
     propsManager.cleanChanges()
     const workspace = sceneTree.currentWorkspace as Workspace
     const beforeElementIds = [...sceneTree.getAllElements().keys()]
     const beforeProps = propsManager.save()
-    vi.spyOn(propsManager, 'commitChanges').mockImplementationOnce(() => {
-      throw new Error('property commit failure')
-    })
+    vi.spyOn(propsManager, 'prepareTransactionEvents').mockImplementationOnce(
+      () => {
+        throw new Error('property transaction preparation failure')
+      }
+    )
 
     expect(() =>
       sceneTree.addNewElements(
@@ -2861,7 +2867,7 @@ describe('SceneTree', () => {
         undefined,
         { undoable: true }
       )
-    ).toThrow('property commit failure')
+    ).toThrow('property transaction preparation failure')
 
     expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
     expect(workspace.get('children')).toEqual([])
@@ -2870,8 +2876,10 @@ describe('SceneTree', () => {
     expect(propsManager.changes).toEqual([])
   })
 
-  it('keeps runtime invalid-write rejection in canonical batch evidence', () => {
+  it('rejects a later invalid runtime property value during whole-batch preflight', () => {
     sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
     registerPropertySchema({
       type: PropertyTypes.POSITION,
       fields: [
@@ -2882,6 +2890,13 @@ describe('SceneTree', () => {
         }
       ]
     })
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeProps = propsManager.save()
+    const createPropertyBatch = vi.spyOn(
+      propsManager,
+      'runInPropertyCreationBatch'
+    )
     const propsChanges: PropsChange[] = []
     const subscription = subscribeToEvents((event) => {
       if (
@@ -2896,32 +2911,381 @@ describe('SceneTree', () => {
     })
 
     try {
-      sceneTree.addNewElements(
-        [{ id: 'invalid-runtime-write', type: 'rect', x: Number.NaN, y: 12 }],
-        sceneTree.currentWorkspace as GroupInstanceTypes,
-        undefined,
-        { undoable: true }
-      )
+      expect(() =>
+        sceneTree.addNewElements(
+          [
+            { id: 'valid-runtime-prefix', type: 'rect', x: 4, y: 8 },
+            {
+              id: 'invalid-runtime-tail',
+              type: 'rect',
+              x: Number.NaN,
+              y: 12
+            }
+          ],
+          workspace as GroupInstanceTypes,
+          undefined,
+          { undoable: true }
+        )
+      ).toThrow(/invalid runtime property field "position.x"/i)
     } finally {
       unregisterPropertySchema(PropertyTypes.POSITION)
     }
 
-    const props = sceneTree
-      .getElementById('invalid-runtime-write')
-      ?.save().props
-    const positionId = props?.position as string
-    const position = propsManager.getPropertyById(
-      positionId
-    ) as TestPositionComponent
-    expect(position.get('x')).toBe(0)
-    expect(position.get('y')).toBe(12)
-    expect(propsChanges).toHaveLength(1)
-    const evidence = propsChanges[0] as AddRemovePropertyChange
-    expect(evidence.action).toBe(PROPS_ACTIONS.ADD_PROPERTY)
-    expect(evidence.data.find(({ id }) => id === positionId)).toEqual(
-      position.save()
-    )
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual([])
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+    expect(createPropertyBatch).not.toHaveBeenCalled()
+    expect(propsChanges).toEqual([])
     subscription.unsubscribe()
+  })
+
+  it('keeps ordinary descriptor properties inactive through materialization and registers them once', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const activePropertyIdsDuringMaterialization: string[][] = []
+    const addProperty = propsManager.addProperty.bind(propsManager)
+    const addPropertySpy = vi
+      .spyOn(propsManager, 'addProperty')
+      .mockImplementation((components) => {
+        const propertyIds = addProperty(components)
+        activePropertyIdsDuringMaterialization.push(
+          Object.keys(propsManager.save())
+        )
+        return propertyIds
+      })
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          { id: 'ordinary-staged-first', type: 'rect', x: 1, y: 2 },
+          { id: 'ordinary-staged-second', type: 'rect', x: 3, y: 4 }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['ordinary-staged-first', 'ordinary-staged-second'])
+
+    expect(activePropertyIdsDuringMaterialization).toEqual([[], []])
+    expect(addPropertySpy).toHaveBeenCalledTimes(2)
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(registerMany.mock.calls[0]?.[0]).toHaveLength(4)
+    expect(Object.keys(propsManager.save())).toHaveLength(4)
+    expect(workspace.get('children')).toEqual([
+      'ordinary-staged-first',
+      'ordinary-staged-second'
+    ])
+  })
+
+  it('leaves no ordinary descriptor prefix when property registration drifts during materialization', () => {
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+
+    class RegistrationDriftingPosition extends TestPositionComponent {
+      constructor(data: Partial<PositionAttrs>) {
+        super(data)
+        propertyComponentRegistry.unregister(PropertyTypes.DIMENSION)
+        registerPropertyComponent(
+          PropertyTypes.DIMENSION,
+          TestDimensionComponent
+        )
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.POSITION)
+    registerPropertyComponent(
+      PropertyTypes.POSITION,
+      RegistrationDriftingPosition
+    )
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+
+    expect(() =>
+      sceneTree.addNewElements(
+        [
+          { id: 'ordinary-drift-first', type: 'rect', x: 1, y: 2 },
+          { id: 'ordinary-drift-second', type: 'rect', x: 3, y: 4 }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(registerMany).not.toHaveBeenCalled()
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(sceneTree.changes).toEqual([])
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('materializes ids-or-objects defaults and descriptor overrides through one final property registry batch', () => {
+    const childType = 'scene-ordinary-paint'
+    const parentType = 'scene-ordinary-paints'
+    const elementType = 'scene-ordinary-painted-element'
+    const childDefaults = { color: '#cccccc', opacity: 1 }
+    const ChildComponent = createPropertyComponentFromConfig({
+      type: childType,
+      defaults: childDefaults,
+      persistKeys: ['color', 'opacity'],
+      valueKeys: ['color', 'opacity']
+    })
+    const parentDefinition = {
+      type: parentType,
+      defaults: { paints: [] as string[] },
+      persistKeys: ['paints'],
+      valueKeys: ['paints'],
+      children: {
+        key: 'paints',
+        childType,
+        mode: 'ids-or-objects' as const,
+        toChildData: (item: Record<string, unknown>) => ({
+          ...childDefaults,
+          ...item
+        }),
+        toValue: (
+          child: { get: (key: string) => unknown },
+          childId: string
+        ) => ({
+          id: childId,
+          color: child.get('color'),
+          opacity: child.get('opacity')
+        })
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertySchema({
+      type: childType,
+      fields: [
+        {
+          key: 'color',
+          kind: 'string',
+          validate: (value) => typeof value === 'string' && value.length > 0,
+          defaultValue: childDefaults.color
+        },
+        {
+          key: 'opacity',
+          kind: 'number',
+          validate: (value) =>
+            typeof value === 'number' && value >= 0 && value <= 1,
+          defaultValue: childDefaults.opacity
+        }
+      ]
+    })
+    registerPropertySchema({
+      type: parentType,
+      fields: [
+        {
+          key: 'paints',
+          kind: 'array',
+          validate: (value) =>
+            Array.isArray(value) &&
+            value.every((item) => typeof item === 'string'),
+          defaultValue: []
+        }
+      ]
+    })
+    registerPropertyComponent(childType, ChildComponent)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    const properties = [
+      {
+        name: 'paints',
+        type: parentType,
+        defaultValue: [{ color: '#111111', opacity: 1 }]
+      }
+    ]
+    componentRegistry.register({
+      type: elementType,
+      idPrefix: elementType,
+      namePrefix: 'Painted Element',
+      constructor: createDynamicComponent(
+        elementType,
+        elementType,
+        'Painted Element',
+        properties,
+        {}
+      ),
+      properties,
+      defaults: {}
+    })
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const registerMany = vi.spyOn(propsManager, 'registerMany')
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'painted-first',
+            type: elementType,
+            x: 0,
+            y: 0,
+            paints: [{ color: '#222222', opacity: 0.5 }]
+          },
+          {
+            id: 'painted-second',
+            type: elementType,
+            x: 0,
+            y: 0,
+            paints: [{ color: '#333333', opacity: 0.75 }]
+          }
+        ] as CreateElementData[],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['painted-first', 'painted-second'])
+
+    expect(registerMany).toHaveBeenCalledTimes(1)
+    expect(registerMany.mock.calls[0]?.[0]).toHaveLength(4)
+    expect(Object.keys(propsManager.save())).toHaveLength(4)
+    expect(
+      sceneTree.getElementById('painted-first')?.computed.get('paints' as never)
+    ).toEqual([
+      expect.objectContaining({
+        color: '#222222',
+        opacity: 0.5
+      })
+    ])
+    expect(
+      sceneTree
+        .getElementById('painted-second')
+        ?.computed.get('paints' as never)
+    ).toEqual([
+      expect.objectContaining({
+        color: '#333333',
+        opacity: 0.75
+      })
+    ])
+  })
+
+  it('rejects a later invalid ids-or-objects child before ordinary batch materialization', () => {
+    const childType = 'scene-invalid-paint'
+    const parentType = 'scene-invalid-paints'
+    const elementType = 'scene-invalid-painted-element'
+    const ChildComponent = createPropertyComponentFromConfig({
+      type: childType,
+      defaults: { opacity: 1 },
+      persistKeys: ['opacity'],
+      valueKeys: ['opacity']
+    })
+    const parentDefinition = {
+      type: parentType,
+      defaults: { paints: [] as string[] },
+      persistKeys: ['paints'],
+      valueKeys: ['paints'],
+      children: {
+        key: 'paints',
+        childType,
+        mode: 'ids-or-objects' as const,
+        toChildData: (item: Record<string, unknown>) => ({
+          opacity: 1,
+          ...item
+        })
+      }
+    }
+    registerPropertySchema({
+      type: childType,
+      fields: [
+        {
+          key: 'opacity',
+          kind: 'number',
+          validate: (value) =>
+            typeof value === 'number' && value >= 0 && value <= 1,
+          defaultValue: 1
+        }
+      ]
+    })
+    registerPropertySchema({
+      type: parentType,
+      fields: [
+        {
+          key: 'paints',
+          kind: 'array',
+          validate: (value) =>
+            Array.isArray(value) &&
+            value.every((item) => typeof item === 'string'),
+          defaultValue: []
+        }
+      ]
+    })
+    registerPropertyComponent(childType, ChildComponent)
+    registerPropertyComponent(
+      parentType,
+      createPropertyComponentFromConfig(parentDefinition),
+      undefined,
+      parentDefinition
+    )
+    const properties = [
+      {
+        name: 'paints',
+        type: parentType,
+        defaultValue: [] as unknown[]
+      }
+    ]
+    componentRegistry.register({
+      type: elementType,
+      idPrefix: elementType,
+      namePrefix: 'Invalid Painted Element',
+      constructor: createDynamicComponent(
+        elementType,
+        elementType,
+        'Invalid Painted Element',
+        properties,
+        {}
+      ),
+      properties,
+      defaults: {}
+    })
+    sceneTree.init()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeElementIds = [...sceneTree.getAllElements().keys()]
+    const beforeProps = propsManager.save()
+    const createPropertyBatch = vi.spyOn(
+      propsManager,
+      'runInPropertyCreationBatch'
+    )
+
+    expect(() =>
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'valid-painted-prefix',
+            type: elementType,
+            x: 0,
+            y: 0,
+            paints: [{ opacity: 0.5 }]
+          },
+          {
+            id: 'invalid-painted-tail',
+            type: elementType,
+            x: 0,
+            y: 0,
+            paints: [{ opacity: 2 }]
+          }
+        ] as CreateElementData[],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/invalid runtime property field.*opacity/i)
+
+    expect(createPropertyBatch).not.toHaveBeenCalled()
+    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
+    expect(workspace.get('children')).toEqual([])
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
   })
 
   it('emits detached owner timings for each canonical element batch stage', () => {
@@ -2987,5 +3351,478 @@ describe('SceneTree', () => {
         parentId: sceneTree.workspace
       })
     )
+  })
+
+  it('Step 4 canonical owner: rejects a later invalid item before materialization or apply', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const constructorCall = vi.fn()
+    const trackedType = 'preflight-tracked-element'
+
+    class PreflightTrackedElement extends Element {
+      constructor(data?: Partial<ElementRawData>) {
+        super(data)
+        constructorCall()
+        this.data.type = trackedType
+      }
+    }
+
+    componentRegistry.register({
+      type: trackedType,
+      idPrefix: trackedType,
+      namePrefix: 'Preflight Tracked Element',
+      constructor: PreflightTrackedElement,
+      properties: [],
+      defaults: {}
+    })
+
+    const replaceChildren = vi.spyOn(
+      workspace,
+      'replaceChildrenFromCanonicalBatch'
+    )
+    const addToMap = vi.spyOn(sceneTree, 'addToMap')
+    const propsCommit = vi.spyOn(propsManager, 'commitChanges')
+    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+
+    expect(() =>
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'preflight-valid-prefix',
+            type: trackedType,
+            x: 0,
+            y: 0
+          },
+          {
+            id: 'preflight-invalid-tail',
+            type: 'unregistered-component',
+            x: 0,
+            y: 0
+          }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/no component registered/i)
+
+    expect({
+      constructorCalls: constructorCall.mock.calls.length,
+      parentReplacementCalls: replaceChildren.mock.calls.length,
+      mapRegistrationCalls: addToMap.mock.calls.length,
+      propsCommitCalls: propsCommit.mock.calls.length,
+      sceneCommitCalls: sceneCommit.mock.calls.length
+    }).toEqual({
+      constructorCalls: 0,
+      parentReplacementCalls: 0,
+      mapRegistrationCalls: 0,
+      propsCommitCalls: 0,
+      sceneCommitCalls: 0
+    })
+  })
+
+  it('Step 4 canonical owner: registers one ordered element batch through one registry boundary', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const addToMap = sceneTree.addToMap.bind(sceneTree)
+    const addManyToMap = vi.fn((elements: readonly ElementInstanceTypes[]) => {
+      elements.forEach(addToMap)
+    })
+    ;(
+      sceneTree as SceneTree & {
+        addManyToMap: (elements: readonly ElementInstanceTypes[]) => void
+      }
+    ).addManyToMap = addManyToMap
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          { id: 'registry-batch-1', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+          { id: 'registry-batch-2', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+          { id: 'registry-batch-3', type: TEST_EMPTY_TYPE, x: 0, y: 0 }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['registry-batch-1', 'registry-batch-2', 'registry-batch-3'])
+
+    expect({
+      boundaryCalls: addManyToMap.mock.calls.length,
+      orderedIds:
+        addManyToMap.mock.calls[0]?.[0].map((element) => element.get('id')) ??
+        []
+    }).toEqual({
+      boundaryCalls: 1,
+      orderedIds: ['registry-batch-1', 'registry-batch-2', 'registry-batch-3']
+    })
+  })
+
+  it('Step 4 canonical owner: makes the normal single create exactly batch-of-one', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const addToMap = sceneTree.addToMap.bind(sceneTree)
+    const addManyToMap = vi.fn((elements: readonly ElementInstanceTypes[]) => {
+      elements.forEach(addToMap)
+    })
+    ;(
+      sceneTree as SceneTree & {
+        addManyToMap: (elements: readonly ElementInstanceTypes[]) => void
+      }
+    ).addManyToMap = addManyToMap
+    const replaceChildren = vi.spyOn(
+      workspace,
+      'replaceChildrenFromCanonicalBatch'
+    )
+    const readBoundary = () => ({
+      registryBatchCalls: addManyToMap.mock.calls.length,
+      registeredElementCount: addManyToMap.mock.calls[0]?.[0].length ?? 0,
+      parentReplacementCalls: replaceChildren.mock.calls.length
+    })
+
+    expect(
+      sceneTree.addNewElement(
+        { id: 'normal-single', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+        workspace as GroupInstanceTypes
+      )
+    ).toBe('normal-single')
+    const normalSingleBoundary = readBoundary()
+
+    addManyToMap.mockClear()
+    replaceChildren.mockClear()
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'explicit-batch-of-one',
+            type: TEST_EMPTY_TYPE,
+            x: 0,
+            y: 0
+          }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['explicit-batch-of-one'])
+    const explicitBatchBoundary = readBoundary()
+
+    expect(normalSingleBoundary).toEqual(explicitBatchBoundary)
+    expect(normalSingleBoundary).toEqual({
+      registryBatchCalls: 1,
+      registeredElementCount: 1,
+      parentReplacementCalls: 1
+    })
+  })
+
+  it('Step 4 canonical owner: hands off one ordered Props and Scene batch or restores the complete pre-apply state', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const reusedId = 'failed-combined-handoff'
+    const tombstoneId = 'unrelated-combined-handoff-tombstone'
+
+    sceneTree.addNewElement(
+      { id: tombstoneId, type: 'rect', x: 1, y: 2 },
+      workspace as GroupInstanceTypes
+    )
+    const tombstone = sceneTree.getElementById(tombstoneId)
+    expect(tombstone).toBeDefined()
+    if (!tombstone) {
+      throw new Error('Expected canonical tombstone fixture')
+    }
+    expect(
+      sceneTree.removeElement(
+        { id: tombstoneId },
+        workspace as GroupInstanceTypes
+      )
+    ).toBe(true)
+    expect(sceneTree._deletedMap.get(tombstoneId)).toBe(tombstone)
+
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+
+    const handoffFailure = new Error('combined owner handoff failed')
+    const individualHandoff = vi.fn((_event: UpdateTransactionEvent) => {
+      throw handoffFailure
+    })
+    const batchHandoff = vi.fn(
+      (
+        _events: readonly UpdateTransactionEvent[],
+        _evidence: readonly {
+          orderedIds: readonly string[]
+          sharedRecords?: readonly {
+            orderedIds: readonly string[]
+            payload: object
+          }[]
+        }[]
+      ) => {
+        throw handoffFailure
+      }
+    )
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: individualHandoff,
+      updateTransactionBatch: batchHandoff,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.addNewElements(
+          [{ id: reusedId, type: 'rect', x: 10, y: 20 }],
+          workspace as GroupInstanceTypes,
+          undefined,
+          { undoable: true }
+        )
+      )
+    ).toThrow(handoffFailure)
+
+    const orderedBatch =
+      batchHandoff.mock.calls[0]?.[0].map(({ payload }) => {
+        const change = payload as PropsChange | SceneTreeChange
+        if (change.action === PROPS_ACTIONS.ADD_PROPERTY) {
+          return 'props:add'
+        }
+        if (
+          change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
+          'data' in change
+        ) {
+          return `scene:add:${change.data.id}`
+        }
+        return `unexpected:${change.action}`
+      }) ?? []
+    const deliveryEvidence = batchHandoff.mock.calls[0]?.[1] ?? []
+    const propertyRecord = deliveryEvidence[0]?.sharedRecords?.[0]
+
+    expect({
+      individualHandoffCalls: individualHandoff.mock.calls.length,
+      batchHandoffCalls: batchHandoff.mock.calls.length,
+      orderedBatch,
+      propsEvidenceOrderedIds: deliveryEvidence[0]?.orderedIds ?? [],
+      propsRecordOrderedIds: propertyRecord?.orderedIds ?? [],
+      propsRecordPropertyCount:
+        (propertyRecord?.payload as AddRemovePropertyChange | undefined)?.data
+          .length ?? 0,
+      sceneEvidenceOrderedIds: deliveryEvidence[1]?.orderedIds ?? [],
+      activeElementRestored: sceneTree.getElementById(reusedId) === undefined,
+      tombstoneRestored: sceneTree._deletedMap.get(tombstoneId) === tombstone,
+      parentRestored:
+        JSON.stringify(workspace.get('children')) ===
+        JSON.stringify(beforeChildren),
+      propertiesRestored:
+        JSON.stringify(propsManager.save()) === JSON.stringify(beforeProps),
+      propsEvidenceCount: propsManager.changes.length,
+      sceneEvidenceCount: sceneTree.changes.length
+    }).toEqual({
+      individualHandoffCalls: 0,
+      batchHandoffCalls: 1,
+      orderedBatch: ['props:add', `scene:add:${reusedId}`],
+      propsEvidenceOrderedIds: [reusedId],
+      propsRecordOrderedIds: [reusedId],
+      propsRecordPropertyCount: 2,
+      sceneEvidenceOrderedIds: [reusedId],
+      activeElementRestored: true,
+      tombstoneRestored: true,
+      parentRestored: true,
+      propertiesRestored: true,
+      propsEvidenceCount: 0,
+      sceneEvidenceCount: 0
+    })
+  })
+
+  it('Step 4 canonical owner: rejects active and tombstoned ids before batch materialization or registry replacement', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const tombstoneId = 'canonical-tombstone-collision'
+
+    sceneTree.addNewElement(
+      { id: tombstoneId, type: 'rect', x: 1, y: 2 },
+      workspace as GroupInstanceTypes
+    )
+    const tombstone = sceneTree.getElementById(tombstoneId)
+    expect(tombstone).toBeDefined()
+    if (!tombstone) {
+      throw new Error('Expected canonical collision tombstone fixture')
+    }
+    expect(
+      sceneTree.removeElement(
+        { id: tombstoneId },
+        workspace as GroupInstanceTypes
+      )
+    ).toBe(true)
+
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    expect(() =>
+      sceneTree.addNewElements(
+        [
+          { id: tombstoneId, type: 'rect', x: 10, y: 20 },
+          { id: 'canonical-tail-after-tombstone', type: 'rect', x: 30, y: 40 }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toThrow(/unique inactive ids/i)
+
+    expect(sceneTree.getElementById(tombstoneId)).toBeUndefined()
+    expect(sceneTree._deletedMap.get(tombstoneId)).toBe(tombstone)
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(() =>
+      sceneTree.addManyToMap([tombstone], workspace.get('id'))
+    ).toThrow(/unique inactive ids/i)
+  })
+
+  it('Step 4 canonical owner: emits no per-event observer traversal after one batch handoff', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const updateEvents: UpdateTransactionEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        updateEvents.push(event as UpdateTransactionEvent)
+      }
+    })
+    updateEvents.length = 0
+    const batchHandoff = vi.fn()
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(),
+      updateTransactionBatch: batchHandoff,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.addNewElements(
+          [
+            { id: 'observer-batch-1', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+            { id: 'observer-batch-2', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+            { id: 'observer-batch-3', type: TEST_EMPTY_TYPE, x: 0, y: 0 }
+          ],
+          workspace as GroupInstanceTypes
+        )
+      )
+    ).toEqual(['observer-batch-1', 'observer-batch-2', 'observer-batch-3'])
+
+    expect(batchHandoff).toHaveBeenCalledOnce()
+    expect(updateEvents).toEqual([])
+    subscription.unsubscribe()
+  })
+
+  it('Step 4 canonical owner: rolls back a pre-handoff projection failure even when it reports batch acceptance', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const beforeChildren = [...workspace.get('children')]
+    const beforeProps = propsManager.save()
+    const projectBatch = workspace.addNewElements.bind(workspace)
+    const preHandoffFailure = Object.assign(
+      new Error('pre-handoff projection failed'),
+      { batchAccepted: true }
+    )
+    vi.spyOn(workspace, 'addNewElements').mockImplementation(
+      (elements, parent, index) => {
+        projectBatch(elements, parent, index)
+        throw preHandoffFailure
+      }
+    )
+    const batchHandoff = vi.fn()
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(),
+      updateTransactionBatch: batchHandoff,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.addNewElements(
+          [{ id: 'pre-handoff-accepted-shape', type: 'rect', x: 10, y: 20 }],
+          workspace as GroupInstanceTypes
+        )
+      )
+    ).toThrow(preHandoffFailure)
+
+    expect(batchHandoff).not.toHaveBeenCalled()
+    expect(
+      sceneTree.getElementById('pre-handoff-accepted-shape')
+    ).toBeUndefined()
+    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: leaves accepted batch state for one outer Factory rollback and only clears pending evidence', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const acceptedFailure = Object.assign(
+      new Error('accepted canonical batch failed'),
+      { batchAccepted: true }
+    )
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(() => {
+        throw acceptedFailure
+      }),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.addNewElements(
+          [{ id: 'accepted-for-outer-rollback', type: 'rect', x: 10, y: 20 }],
+          workspace as GroupInstanceTypes
+        )
+      )
+    ).toThrow(acceptedFailure)
+
+    expect(
+      sceneTree.getElementById('accepted-for-outer-rollback')
+    ).toBeDefined()
+    expect(workspace.get('children')).toContain('accepted-for-outer-rollback')
+    expect(Object.keys(propsManager.save()).length).toBeGreaterThan(0)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('Step 4 canonical owner: rejects a transaction owner without batch acceptance before any handoff prefix', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const addManyToMap = vi.spyOn(sceneTree, 'addManyToMap')
+    const replaceChildren = vi.spyOn(
+      workspace,
+      'replaceChildrenFromCanonicalBatch'
+    )
+    const updateTransaction = vi.fn()
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransaction,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+
+    expect(() =>
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.addNewElements(
+          [{ id: 'non-batch-owner-element', type: 'rect', x: 10, y: 20 }],
+          workspace as GroupInstanceTypes
+        )
+      )
+    ).toThrow(/batch-capable transaction owner/i)
+
+    expect(updateTransaction).not.toHaveBeenCalled()
+    expect(addManyToMap).not.toHaveBeenCalled()
+    expect(replaceChildren).not.toHaveBeenCalled()
+    expect(sceneTree.getElementById('non-batch-owner-element')).toBeUndefined()
+    expect(workspace.get('children')).toEqual([])
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
   })
 })

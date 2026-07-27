@@ -239,6 +239,10 @@ export {
   LoadHookExecutionError
 } from './types/load-migration'
 export type { LoadHookExecutionErrorCode } from './types/load-migration'
+export type {
+  CanonicalElementBatchResult,
+  CanonicalElementBatchTimingArtifact
+} from './types/scene-tree'
 type CoreBasicApiKeys =
   | 'setRenderer'
   | 'destroyRenderer'
@@ -276,6 +280,7 @@ type CoreExtensionApiKeys =
   | 'sceneTreeSaveData'
   | 'createElement'
   | 'createElementInParent'
+  | 'createElementsInParentBatch'
   | 'createElementsInParent'
   | 'createElementsInParentFromCanonicalData'
   | 'createElementsInParentFromCanonicalDataUsingActiveProperties'

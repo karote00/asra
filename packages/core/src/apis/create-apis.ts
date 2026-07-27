@@ -8,6 +8,14 @@ import {
 import type { PropsManager } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
 import type { Factory } from '@asyra/factory'
+import type {
+  FactoryMutationBatchDeliveryEvidence,
+  FactoryMutationBatchDeliveryHandle
+} from '@asyra/factory'
+import {
+  runWithTransactionOwner,
+  type UpdateTransactionEvent
+} from '@asyra/reactive-events'
 import {
   type EVENT_OPTIONS,
   type MoveHierarchyRequest,
@@ -27,6 +35,10 @@ import { createUIContextAPIs } from './ui-context'
 import { createSystemPropertyAPIs } from './system-properties'
 import { getAllElementsWorldBounds } from './scene-bounds'
 import { CoreAPIs } from '../types'
+import type {
+  CanonicalElementBatchResult,
+  CanonicalElementBatchTimingArtifact
+} from '../types/scene-tree'
 
 export const createAPIs = (
   sceneTree: SceneTree,
@@ -35,6 +47,64 @@ export const createAPIs = (
   props: PropsManager,
   factory: Factory
 ): CoreAPIs => {
+  const readMonotonicTimeMs = (): number => {
+    const sampledAtMs = globalThis.performance.now()
+    return Number.isFinite(sampledAtMs) ? Math.max(0, sampledAtMs) : 0
+  }
+
+  const runCanonicalElementBatch = (
+    mutate: () => readonly string[]
+  ): CanonicalElementBatchResult => {
+    const startedAtMs = readMonotonicTimeMs()
+    const transactionOwner = factory.getTransactionOwner()
+    let deliveryHandle: FactoryMutationBatchDeliveryHandle | null = null
+    let factoryHandoffObserved = false
+    const batchTransactionOwner = {
+      ...transactionOwner,
+      updateTransactionBatch: (
+        events: readonly UpdateTransactionEvent[],
+        deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
+      ) => {
+        if (factoryHandoffObserved) {
+          throw new Error(
+            '[Core] Canonical element batch requires exactly one Factory handoff'
+          )
+        }
+        factoryHandoffObserved = true
+        const handle = factory.updateTransactionBatch(events, deliveryEvidence)
+        if (!handle) {
+          throw new Error(
+            '[Core] Canonical element batch requires an active outer transaction'
+          )
+        }
+        deliveryHandle = handle
+        return handle
+      }
+    }
+    const orderedElementIds = runWithTransactionOwner(
+      batchTransactionOwner,
+      mutate
+    )
+    if (!deliveryHandle) {
+      throw new Error(
+        '[Core] Canonical element batch did not produce a Factory delivery handle'
+      )
+    }
+    const completedAtMs = Math.max(startedAtMs, readMonotonicTimeMs())
+    const timing: CanonicalElementBatchTimingArtifact = Object.freeze({
+      owner: '@asyra/core',
+      clock: 'monotonic',
+      startedAtMs,
+      completedAtMs,
+      durationMs: completedAtMs - startedAtMs
+    })
+    return Object.freeze({
+      orderedElementIds: Object.freeze([...orderedElementIds]),
+      deliveryHandle,
+      timing
+    })
+  }
+
   const requireContainerParent = (parentId: string): GroupInstanceTypes => {
     const parent = sceneTree.getElementById(parentId)
     const parentType = parent?.get('type')
@@ -66,13 +136,28 @@ export const createAPIs = (
       sceneTree.preflightRestoreSubtree(snapshot),
     applyRestoreSubtree: (plan, options) =>
       sceneTree.applyRestoreSubtree(plan, options),
+    createElements: (data, parent, index, options) =>
+      runCanonicalElementBatch(() =>
+        sceneTree.addNewElements(data, parent, index, options)
+      ),
+    createElementsInParentBatch: (data, parentId, index, options) =>
+      runCanonicalElementBatch(() =>
+        sceneTree.addNewElements(
+          data,
+          requireContainerParent(parentId),
+          index,
+          options
+        )
+      ),
     createElementsInParent: (data, parentId, index, options) => {
-      return sceneTree.addNewElements(
-        data,
-        requireContainerParent(parentId),
-        index,
-        options
-      )
+      return runCanonicalElementBatch(() =>
+        sceneTree.addNewElements(
+          data,
+          requireContainerParent(parentId),
+          index,
+          options
+        )
+      ).orderedElementIds
     },
     createElementsInParentFromCanonicalData: (
       elements,
@@ -81,13 +166,15 @@ export const createAPIs = (
       index,
       options
     ) => {
-      return sceneTree.addNewElementsFromCanonicalData(
-        elements,
-        properties,
-        requireContainerParent(parentId),
-        index,
-        options
-      )
+      return runCanonicalElementBatch(() =>
+        sceneTree.addNewElementsFromCanonicalData(
+          elements,
+          properties,
+          requireContainerParent(parentId),
+          index,
+          options
+        )
+      ).orderedElementIds
     },
     createElementsInParentFromCanonicalDataUsingActiveProperties: (
       elements,
@@ -96,13 +183,15 @@ export const createAPIs = (
       index,
       options
     ) => {
-      return sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-        elements,
-        properties,
-        requireContainerParent(parentId),
-        index,
-        options
-      )
+      return runCanonicalElementBatch(() =>
+        sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
+          elements,
+          properties,
+          requireContainerParent(parentId),
+          index,
+          options
+        )
+      ).orderedElementIds
     },
     refreshComputedDataFromProperty: (
       elementId: string,
