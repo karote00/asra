@@ -1,8 +1,10 @@
 import {
   createAiAgentRuntime,
   createGenericHttpAiProvider,
-  type AiProvider
+  type AiProvider,
+  type AiTransactionRunner
 } from '@asyra/ai-agent-runtime'
+import type { CanonicalElementBatchResult } from '@asyra/core'
 import { getFeature } from '@asyra/feature-system'
 import { MouseButton, SystemMode } from '@asyra/utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +17,6 @@ import {
   transactionApis
 } from '../../common-apis'
 import {
-  ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
   AsyraDesignAiActionNames,
   type AsyraDesignAiDeliveryMode
 } from '../actions'
@@ -55,6 +56,33 @@ const plan = () => ({
     }
   ]
 })
+
+const createCanonicalBatchDeliveryHandle = (
+  artifactId = 'runtime-integration-artifact'
+): CanonicalElementBatchResult['deliveryHandle'] =>
+  Object.freeze({
+    artifact: null,
+    artifactId,
+    deliverSlice: vi.fn(),
+    setDeliveryPlan: vi.fn(),
+    transactionId: 1
+  })
+
+const createCanonicalElementBatchResult = (
+  orderedElementIds: readonly string[],
+  deliveryHandle = createCanonicalBatchDeliveryHandle()
+): CanonicalElementBatchResult =>
+  Object.freeze({
+    deliveryHandle,
+    orderedElementIds: Object.freeze([...orderedElementIds]),
+    timing: Object.freeze({
+      clock: 'monotonic',
+      completedAtMs: 12,
+      durationMs: 2,
+      owner: '@asyra/core',
+      startedAtMs: 10
+    })
+  })
 
 const prepareCommonApis = () => {
   vi.spyOn(selectionApis, 'getSelectedIds').mockReturnValue(['shape-1'])
@@ -131,14 +159,15 @@ const executeReferencePlan = async (
 
 const executeMockComposition = async (
   intent: string,
-  createElement: () => string | null
+  createCanonicalId: () => string
 ) => {
   const provider = createAsyraDesignMockAiProvider({
     delay: async () => undefined
   })
   vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
-  vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
-    options.map(() => createElement())
+  vi.spyOn(elementApis, 'createElementsInParentBatch').mockImplementation(
+    (options) =>
+      createCanonicalElementBatchResult(options.map(() => createCanonicalId()))
   )
   vi.spyOn(hierarchyApis, 'groupElements').mockReturnValue({
     bounds: {
@@ -366,14 +395,24 @@ describe('Asyra Design AI runtime integration', () => {
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElements).toHaveBeenCalledTimes(
-      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-    )
+    expect(elementApis.createElementsInParentBatch).toHaveBeenCalledOnce()
     expect(
       vi
-        .mocked(elementApis.createElements)
+        .mocked(elementApis.createElementsInParentBatch)
         .mock.calls.flatMap(([options]) => options)
     ).toHaveLength(7111)
+    expect(
+      vi.mocked(elementApis.createElementsInParentBatch).mock.results[0].value
+        ?.orderedElementIds
+    ).toHaveLength(7111)
+    expect(elementApis.createElementsInParentBatch).toHaveBeenCalledWith(
+      expect.any(Array),
+      'cat-face-group',
+      {
+        sharedDelivery: 'transaction-end',
+        undoable: true
+      }
+    )
     expect(elementApis.createElement).toHaveBeenCalledOnce()
     expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
@@ -383,9 +422,9 @@ describe('Asyra Design AI runtime integration', () => {
     vi.spyOn(elementApis, 'createElement').mockReturnValue(
       'vectorized-image-group'
     )
-    vi.spyOn(elementApis, 'createElements').mockReturnValue([
-      'reference-vector-id'
-    ])
+    vi.spyOn(elementApis, 'createElementsInParentBatch').mockReturnValue(
+      createCanonicalElementBatchResult(['reference-vector-id'])
+    )
     const groupElements = vi.spyOn(hierarchyApis, 'groupElements')
     const provider: AiProvider = {
       generateActionPlan: vi.fn(async () => ({
@@ -460,9 +499,315 @@ describe('Asyra Design AI runtime integration', () => {
       })
       expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
       expect(elementApis.createElement).toHaveBeenCalledOnce()
-      expect(elementApis.createElements).toHaveBeenCalledOnce()
+      expect(elementApis.createElementsInParentBatch).toHaveBeenCalledOnce()
       expect(groupElements).not.toHaveBeenCalled()
     } finally {
+      await runtime.dispose()
+    }
+  })
+
+  it('publishes progressive composition slices before later plan actions inside the same outer transaction', async () => {
+    prepareCommonApis()
+    const transactionEvents: string[] = []
+    const deliveryHandle = createCanonicalBatchDeliveryHandle(
+      'progressive-runtime-artifact'
+    )
+    vi.mocked(deliveryHandle.setDeliveryPlan).mockImplementation(() => {
+      transactionEvents.push('delivery:plan')
+    })
+    vi.mocked(deliveryHandle.deliverSlice).mockImplementation(() => {
+      transactionEvents.push('delivery:slice')
+    })
+    vi.mocked(elementApis.setElementVisible).mockImplementation(() => {
+      transactionEvents.push('action:visibility')
+      return true
+    })
+    vi.spyOn(elementApis, 'createElement').mockReturnValue('progressive-group')
+    vi.spyOn(elementApis, 'createElementsInParentBatch').mockReturnValue(
+      createCanonicalElementBatchResult(
+        ['progressive-vector-id'],
+        deliveryHandle
+      )
+    )
+    const provider: AiProvider = {
+      generateActionPlan: vi.fn(async () => ({
+        actions: [
+          {
+            arguments: {
+              compositionRole: 'vectorized-image',
+              items: [
+                {
+                  bounds: {
+                    height: 32,
+                    width: 64,
+                    x: 0,
+                    y: 0
+                  },
+                  paths: [
+                    {
+                      closed: true,
+                      points: [
+                        { x: 0, y: 0 },
+                        { x: 64, y: 0 },
+                        { x: 64, y: 32 },
+                        { x: 0, y: 32 }
+                      ]
+                    }
+                  ],
+                  primitive: 'vector',
+                  role: 'reference-vector-000001',
+                  style: {
+                    fillColor: '#2563EB'
+                  }
+                }
+              ],
+              parent: 'workspace'
+            },
+            id: 'progressive-vectorize',
+            name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+          },
+          {
+            arguments: {
+              elementId: 'shape-1',
+              visible: false
+            },
+            id: 'follow-up-visibility',
+            name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY
+          }
+        ],
+        planId: 'progressive-follow-up-plan'
+      }))
+    }
+    const transactionRunner: AiTransactionRunner = {
+      run: vi.fn(async (_label, execute) => {
+        transactionEvents.push('custom-transaction:start')
+        const result = await transactionApis.runTransaction(execute)
+        transactionEvents.push('custom-transaction:commit')
+        return result
+      })
+    }
+    const runtime = createAiAgentRuntime(
+      createAsyraDesignAiRuntimeInput({
+        deliveryMode: 'progressive',
+        permissionRules: {
+          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
+          [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
+        },
+        provider,
+        transactionRunner
+      })
+    )
+
+    try {
+      await expect(
+        runtime.run({
+          intent: 'Vectorize the reference, then hide shape one',
+          signal: new AbortController().signal
+        })
+      ).resolves.toMatchObject({
+        actionResults: [
+          {
+            actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+          },
+          {
+            actionName: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY
+          }
+        ],
+        status: 'executed',
+        transaction: {
+          status: 'committed'
+        }
+      })
+
+      expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+      expect(transactionRunner.run).toHaveBeenCalledOnce()
+      expect(elementApis.createElement).toHaveBeenCalledOnce()
+      expect(elementApis.createElement).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'group'
+        }),
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+      expect(elementApis.createElementsInParentBatch).toHaveBeenCalledOnce()
+      expect(elementApis.createElementsInParentBatch).toHaveBeenCalledWith(
+        expect.any(Array),
+        'progressive-group',
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+      expect(elementApis.setElementVisible).toHaveBeenCalledOnce()
+      expect(deliveryHandle.setDeliveryPlan).toHaveBeenCalledOnce()
+      expect(deliveryHandle.deliverSlice).toHaveBeenCalledOnce()
+      expect(
+        vi.mocked(deliveryHandle.deliverSlice).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(elementApis.setElementVisible).mock.invocationCallOrder[0]
+      )
+      expect(transactionEvents).toEqual([
+        'custom-transaction:start',
+        'delivery:plan',
+        'delivery:slice',
+        'action:visibility',
+        'custom-transaction:commit'
+      ])
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
+  it('stops progressive delivery when the Feature-owned signal is cancelled', async () => {
+    prepareCommonApis()
+    const densePoints = Array.from({ length: 2048 }, (_, index) => ({
+      x: index % 32,
+      y: Math.floor(index / 32)
+    }))
+    const featureControl: {
+      cancel?: AiAgentFeatureApi['cancel']
+    } = {}
+    let featureCancelResult = false
+    const deliveredSliceIds: string[] = []
+    const deliveryHandle = createCanonicalBatchDeliveryHandle(
+      'feature-abort-progressive-artifact'
+    )
+    vi.mocked(deliveryHandle.deliverSlice).mockImplementation((sliceId) => {
+      deliveredSliceIds.push(sliceId)
+      featureCancelResult =
+        featureControl.cancel?.('cancel-progressive-delivery') ?? false
+    })
+    vi.spyOn(elementApis, 'createElement').mockReturnValue(
+      'feature-abort-progressive-group'
+    )
+    vi.spyOn(elementApis, 'createElementsInParentBatch').mockReturnValue(
+      createCanonicalElementBatchResult(
+        ['feature-abort-dense-vector', 'feature-abort-tail-vector'],
+        deliveryHandle
+      )
+    )
+    const provider: AiProvider = {
+      generateActionPlan: vi.fn(async () => ({
+        actions: [
+          {
+            arguments: {
+              compositionRole: 'feature-abort-composition',
+              items: [
+                {
+                  bounds: {
+                    height: 64,
+                    width: 32,
+                    x: 0,
+                    y: 0
+                  },
+                  paths: [
+                    {
+                      closed: false,
+                      points: densePoints
+                    }
+                  ],
+                  primitive: 'vector',
+                  role: 'feature-abort-dense-vector',
+                  style: {
+                    fillColor: '#2563EB'
+                  }
+                },
+                {
+                  bounds: {
+                    height: 2,
+                    width: 2,
+                    x: 80,
+                    y: 0
+                  },
+                  paths: [
+                    {
+                      closed: false,
+                      points: [
+                        { x: 80, y: 0 },
+                        { x: 82, y: 2 }
+                      ]
+                    }
+                  ],
+                  primitive: 'vector',
+                  role: 'feature-abort-tail-vector',
+                  style: {
+                    fillColor: '#2563EB'
+                  }
+                }
+              ],
+              parent: 'workspace'
+            },
+            id: 'feature-abort-progressive-composition',
+            name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+          }
+        ],
+        planId: 'feature-abort-progressive-plan'
+      }))
+    }
+    const runtime = createAiAgentRuntime(
+      createAsyraDesignAiRuntimeInput({
+        deliveryMode: 'progressive',
+        permissionRules: {
+          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
+        },
+        provider
+      })
+    )
+    let observedFeatureSignal: AbortSignal | undefined
+    const registration = registerAiAgentFeature({
+      providerEnabled: true,
+      runtime: {
+        run: (request) => {
+          observedFeatureSignal = request.signal
+          return runtime.run(request)
+        }
+      }
+    })
+    const feature = getFeature(FeatureNames.AI_AGENT) as AiAgentFeatureApi
+    featureControl.cancel = feature.cancel
+
+    try {
+      await expect(
+        feature.execute('create a progressive composition')
+      ).resolves.toMatchObject({
+        reason: 'aborted',
+        status: 'cancelled'
+      })
+
+      expect(featureCancelResult).toBe(true)
+      expect(observedFeatureSignal).toBeInstanceOf(AbortSignal)
+      expect(observedFeatureSignal?.aborted).toBe(true)
+      expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+      expect(deliveryHandle.setDeliveryPlan).toHaveBeenCalledWith({
+        mode: 'progressive',
+        slices: [
+          {
+            orderedIds: [
+              'feature-abort-progressive-group',
+              'feature-abort-dense-vector'
+            ],
+            sliceId: 'ai-composition:1:1'
+          },
+          {
+            orderedIds: ['feature-abort-tail-vector'],
+            sliceId: 'ai-composition:1:2'
+          }
+        ]
+      })
+      expect(deliveryHandle.deliverSlice).toHaveBeenCalledOnce()
+      expect(deliveredSliceIds).toEqual(['ai-composition:1:1'])
+      expect(elementApis.createElementsInParentBatch).toHaveBeenCalledWith(
+        expect.any(Array),
+        'feature-abort-progressive-group',
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    } finally {
+      registration.dispose()
       await runtime.dispose()
     }
   })
@@ -497,13 +842,16 @@ describe('Asyra Design AI runtime integration', () => {
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElements).toHaveBeenCalledTimes(
-      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-    )
+    expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(elementApis.createElementsInParentBatch).toHaveBeenCalledOnce()
     expect(
       vi
-        .mocked(elementApis.createElements)
+        .mocked(elementApis.createElementsInParentBatch)
         .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(7111)
+    expect(
+      vi.mocked(elementApis.createElementsInParentBatch).mock.results[0].value
+        ?.orderedElementIds
     ).toHaveLength(7111)
   })
 
@@ -540,8 +888,11 @@ describe('Asyra Design AI runtime integration', () => {
     })
     let nextElement = 0
     vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
-    vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
-      options.map(() => `cat-element-${(nextElement += 1)}`)
+    vi.spyOn(elementApis, 'createElementsInParentBatch').mockImplementation(
+      (options) =>
+        createCanonicalElementBatchResult(
+          options.map(() => `cat-element-${(nextElement += 1)}`)
+        )
     )
     const scaleVectorElementAroundCenter = vi
       .spyOn(elementApis, 'scaleVectorElementAroundCenter')
@@ -594,13 +945,16 @@ describe('Asyra Design AI runtime integration', () => {
         outcome: 'success'
       })
 
-      expect(elementApis.createElements).toHaveBeenCalledTimes(
-        Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-      )
+      expect(elementApis.createElement).toHaveBeenCalledOnce()
+      expect(elementApis.createElementsInParentBatch).toHaveBeenCalledOnce()
       expect(
         vi
-          .mocked(elementApis.createElements)
+          .mocked(elementApis.createElementsInParentBatch)
           .mock.calls.flatMap(([options]) => options)
+      ).toHaveLength(7111)
+      expect(
+        vi.mocked(elementApis.createElementsInParentBatch).mock.results[0].value
+          ?.orderedElementIds
       ).toHaveLength(7111)
       expect(scaleVectorElementAroundCenter).toHaveBeenCalled()
       expect(

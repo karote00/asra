@@ -1306,7 +1306,7 @@ const createVectorElementAtWorkspacePos = (
   )
 }
 
-const prepareVectorElementData = (
+export const prepareVectorElementData = (
   createOptions: CreateElementOptions
 ): CreateElementData | null => {
   if (!isVectorTopology(createOptions)) {

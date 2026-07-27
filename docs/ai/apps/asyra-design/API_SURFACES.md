@@ -50,14 +50,25 @@ This file is the app-level API contract map.
   executor so the outer runtime transaction rolls back
 - permission rules are explicit and default-deny; confirmation defaults to
   cancellation
-- action executors call `src/common-apis/*` with `undoable: true` and
-  `sharedDelivery: 'transaction-end'`; Factory, canonical owners, Render, and
+- action executors call `src/common-apis/*` with `undoable: true`. Atomic
+  mutations and composition Group/children use
+  `sharedDelivery: 'transaction-end'`; non-composition progressive mutations
+  retain ordinary immediate delivery. Factory, canonical owners, Render, and
   optional Collaboration retain their ordinary ownership
-- composition insertion creates one canonical Group before its ordered child
-  batches. Child create options carry the known parent workspace origin so
-  ordinary Vector topology points remain in workspace coordinates while
-  computed `x/y` are written directly in Group-local coordinates; no post-hoc
-  full-composition move or geometry rewrite is part of the AI action
+- composition insertion creates one canonical Group before one all-children
+  `Core.createElementsInParentBatch(...)` request. Child create options carry
+  the known parent workspace origin so ordinary Vector topology points remain
+  in workspace coordinates while computed `x/y` are written directly in
+  Group-local coordinates; no post-hoc full-composition move or geometry
+  rewrite is part of the AI action
+- progressive composition point budgets create publication boundaries only:
+  2,048 points, then 4,096, then at most 8,192 per later slice, while one
+  indivisible element may exceed the soft target. The App retains the original
+  Factory delivery handle, places the Group first in the first slice, and
+  completes the staged slices before that composition action returns and before
+  any later ordinary immediate plan action, while remaining inside the one
+  outer transaction. Slices never repeat canonical mutation or create another
+  history action
 - provider selection is replaceable; deterministic fake and generic HTTP
   providers use the same runtime and app action contracts
 - collected App context includes a stable App-owned provider prompt that
@@ -245,6 +256,15 @@ Import boundary:
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
+- `createElementsInParentBatch(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): CanonicalElementBatchResult | null`
+  - preflights and prepares the complete mixed ordinary/Vector batch before
+    calling Core exactly once
+  - direct non-Vector Group children require finite workspace coordinates and
+    a finite parent workspace origin; Vector topology points remain in
+    workspace coordinates while computed bounds become parent-local
+  - returns Core's original ordered IDs, timing, and Factory-owned delivery
+    handle without reconstructing them; any preparation failure returns `null`
+    before Core mutation
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
   - initializes default `fills` payload by element type
   - an explicit `workspacePosition` bypasses Render/client-coordinate

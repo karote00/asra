@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CanonicalElementBatchResult } from '@asyra/core'
+import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
 
 const mocks = vi.hoisted(() => ({
   createElement: vi.fn(),
   createElementInParent: vi.fn(),
+  createElementsInParentBatch: vi.fn(),
   createVectorElement: vi.fn(),
   createVectorElementsInParent: vi.fn(),
   changeComputedData: vi.fn(),
@@ -25,6 +28,7 @@ vi.mock('../../../contexts', () => ({
   default: {
     createElement: mocks.createElement,
     createElementInParent: mocks.createElementInParent,
+    createElementsInParentBatch: mocks.createElementsInParentBatch,
     changeComputedData: mocks.changeComputedData,
     isContainerType: vi.fn((type: string) => type === 'group')
   },
@@ -38,12 +42,17 @@ vi.mock('../../../contexts', () => ({
   }
 }))
 
-vi.mock('../vector-apis', () => ({
-  vectorApis: {
-    createVectorElement: mocks.createVectorElement,
-    createVectorElementsInParent: mocks.createVectorElementsInParent
+vi.mock('../vector-apis', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../vector-apis')>()
+  return {
+    ...actual,
+    vectorApis: {
+      ...actual.vectorApis,
+      createVectorElement: mocks.createVectorElement,
+      createVectorElementsInParent: mocks.createVectorElementsInParent
+    }
   }
-}))
+})
 
 vi.mock('../change-computed-data', () => ({
   changeComputedData: vi.fn()
@@ -247,6 +256,147 @@ describe('create-element explicit parent and coordinates', () => {
       }
     )
     expect(mocks.createVectorElement).not.toHaveBeenCalled()
+  })
+
+  it('returns one canonical result for a mixed direct-parent batch', () => {
+    const options = {
+      sharedDelivery: 'transaction-end',
+      undoable: true
+    } as const
+    const deliveryHandle: FactoryMutationBatchDeliveryHandle = {
+      artifactId: 'delivery-1',
+      transactionId: 1,
+      artifact: null,
+      setDeliveryPlan: vi.fn(),
+      deliverSlice: vi.fn()
+    }
+    const canonicalResult: CanonicalElementBatchResult = {
+      orderedElementIds: Object.freeze(['oval-1', 'vector-1']),
+      deliveryHandle,
+      timing: {
+        owner: '@asyra/core',
+        clock: 'monotonic',
+        startedAtMs: 10,
+        completedAtMs: 12,
+        durationMs: 2
+      }
+    }
+    mocks.createElementsInParentBatch.mockReturnValue(canonicalResult)
+
+    const points = {
+      pointA: {
+        anchorType: 'sharp' as const,
+        handleMode: 'none' as const,
+        id: 'pointA',
+        kind: 'anchor' as const,
+        x: 280,
+        y: 220
+      },
+      pointB: {
+        anchorType: 'sharp' as const,
+        handleMode: 'none' as const,
+        id: 'pointB',
+        kind: 'anchor' as const,
+        x: 310,
+        y: 260
+      }
+    }
+    const segments = {
+      segmentA: {
+        endId: 'pointB',
+        id: 'segmentA',
+        inControlId: null,
+        outControlId: null,
+        startId: 'pointA'
+      }
+    }
+    const networks = {
+      networkA: {
+        closed: false,
+        id: 'networkA',
+        pointIds: ['pointA', 'pointB'],
+        segmentIds: ['segmentA']
+      }
+    }
+
+    const result = elementApis.createElementsInParentBatch(
+      [
+        {
+          type: 'oval',
+          workspacePosition: { x: 300, y: 240 },
+          parentId: 'group-2',
+          parentWorkspaceOrigin: { x: 250, y: 200 },
+          width: 80,
+          height: 60
+        },
+        {
+          type: 'vector',
+          parentId: 'group-2',
+          parentWorkspaceOrigin: { x: 250, y: 200 },
+          points,
+          segments,
+          networks
+        }
+      ],
+      'group-2',
+      options
+    )
+
+    expect(result).toBe(canonicalResult)
+    expect(result?.deliveryHandle).toBe(deliveryHandle)
+    expect(mocks.createElementsInParentBatch).toHaveBeenCalledOnce()
+    expect(mocks.createElementsInParentBatch).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          type: 'oval',
+          x: 50,
+          y: 40,
+          width: 80,
+          height: 60
+        }),
+        expect.objectContaining({
+          type: 'vector',
+          x: 30,
+          y: 20,
+          width: 30,
+          height: 40,
+          points
+        })
+      ],
+      'group-2',
+      undefined,
+      options
+    )
+    expect(mocks.createElementInParent).not.toHaveBeenCalled()
+    expect(mocks.createVectorElementsInParent).not.toHaveBeenCalled()
+  })
+
+  it('does not call Core when a later direct-parent item fails preflight', () => {
+    expect(
+      elementApis.createElementsInParentBatch(
+        [
+          {
+            type: 'oval',
+            workspacePosition: { x: 300, y: 240 },
+            parentId: 'group-2',
+            parentWorkspaceOrigin: { x: 250, y: 200 }
+          },
+          {
+            type: 'rect',
+            workspacePosition: { x: Number.NaN, y: 260 },
+            parentId: 'group-2',
+            parentWorkspaceOrigin: { x: 250, y: 200 }
+          }
+        ],
+        'group-2',
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    ).toBeNull()
+    expect(mocks.createElementsInParentBatch).not.toHaveBeenCalled()
+    expect(mocks.createElementInParent).not.toHaveBeenCalled()
   })
 
   it('converts workspace points through the current viewport and Group transform', () => {
