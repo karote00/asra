@@ -68,10 +68,10 @@ interface HistorySharedReplay {
   sharedDelivery: SharedDeliveryMode
   orderedIds: readonly string[]
   records: readonly {
+    readinessKey: string
     orderedIds: readonly string[]
     payload: TransactionPayload
   }[]
-  deliveryPlan?: FactoryMutationDeliveryPlan
 }
 interface SuppressedHistorySharedReplay {
   suppress: true
@@ -83,6 +83,23 @@ type HistorySharedReplayOutputs = readonly (
   | HistorySharedReplayDirective
   | undefined
 )[]
+interface HistoryReplaySharedBatchState {
+  readonly batch: SharedDeliveryBatch
+  readonly requiredReadinessKeys: ReadonlySet<string>
+  readonly readyReadinessKeys: Set<string>
+  delivered: boolean
+  published: boolean
+}
+interface HistoryReplaySharedPlan {
+  readonly direction: 'forward' | 'inverse'
+  readonly ownsReplayEvidence: boolean
+  readonly batchStates: readonly HistoryReplaySharedBatchState[]
+  readonly batchStateById: ReadonlyMap<string, HistoryReplaySharedBatchState>
+  readonly batchStatesByReadinessKey: ReadonlyMap<
+    string,
+    readonly HistoryReplaySharedBatchState[]
+  >
+}
 interface DataTransactCallbacks {
   onCommitCapture?: (payload: TransactionStatusPayload) => void
   onStatus?: (payload: TransactionStatusPayload) => void
@@ -352,6 +369,8 @@ class DataTransact {
     readonly JournalSharedRecordRef[]
   >()
   private currentMutationBatchArtifact: FactoryMutationBatchArtifact | undefined
+  private historyReplaySharedPlan: HistoryReplaySharedPlan | undefined
+  private retainingHistoryReplaySharedEvidence = false
   private activeDeliveryPlan: FactoryMutationDeliveryPlan | undefined
   private readonly activeDeliverySliceByOrderedId = new Map<string, string>()
   private readonly activeDeliverySliceOrder = new Map<string, number>()
@@ -461,6 +480,8 @@ class DataTransact {
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
     this.currentMutationBatchArtifact = undefined
+    this.historyReplaySharedPlan = undefined
+    this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliveryPlan = undefined
     this.activeDeliverySliceByOrderedId.clear()
     this.activeDeliverySliceOrder.clear()
@@ -637,9 +658,13 @@ class DataTransact {
           'Nested undo or redo cannot accept a new action mutation'
         )
       }
-      const immediateEntries = recordedEntries.filter(
-        (entry) => entry.shared && entry.options.sharedDelivery === 'immediate'
-      )
+      const immediateEntries =
+        this.applyingReplayEvent && this.retainingHistoryReplaySharedEvidence
+          ? []
+          : recordedEntries.filter(
+              (entry) =>
+                entry.shared && entry.options.sharedDelivery === 'immediate'
+            )
       this.deliverSharedEntries(immediateEntries)
       this.queueImmediatePublicationEntries(
         immediateEntries.filter((entry) =>
@@ -1287,6 +1312,41 @@ class DataTransact {
   }
 
   private deliverPreparedSharedBatch(batch: SharedDeliveryBatch): boolean {
+    const historyReplayState = this.historyReplaySharedPlan?.batchStateById.get(
+      batch.batchId
+    )
+    if (historyReplayState) {
+      if (historyReplayState.delivered) return true
+      if (
+        historyReplayState.readyReadinessKeys.size !==
+        historyReplayState.requiredReadinessKeys.size
+      ) {
+        return false
+      }
+      this.sharedEvidenceNotificationDepth += 1
+      try {
+        const delivered = pushFactoryOwnedBatchToSharedChannel(
+          this.sharedDataChannelRegistry,
+          batch.channel,
+          batch.changes
+        )
+        if (!delivered) return false
+
+        historyReplayState.delivered = true
+        if (this.transactionOrigin() !== 'remote') {
+          this.onSharedDeliveryBatch?.(batch)
+          if (this.shouldEmitLegacySharedDeliveries()) {
+            batch.deliveries.forEach((delivery) =>
+              this.onSharedDelivery?.(delivery)
+            )
+          }
+        }
+        return true
+      } finally {
+        this.sharedEvidenceNotificationDepth -= 1
+      }
+    }
+
     const records = (
       this.preparedSharedBatchRecords.get(batch.batchId) ?? []
     ).filter(({ record }) => !record.delivered)
@@ -1332,6 +1392,50 @@ class DataTransact {
     return measureBrowserDragPhase(
       'factory:index-shared-delivery-records',
       () => {
+        if (this.historyReplaySharedPlan?.batchStates.length) {
+          const batches = this.historyReplaySharedPlan.batchStates
+            .filter(({ batch }) => batch.sharedDelivery === 'transaction-end')
+            .map(({ batch }) => batch)
+          const unreadyBatch = batches.find((batch) => {
+            const state = this.historyReplaySharedPlan?.batchStateById.get(
+              batch.batchId
+            )
+            return (
+              !state ||
+              state.readyReadinessKeys.size !== state.requiredReadinessKeys.size
+            )
+          })
+          if (unreadyBatch) {
+            throw new Error(
+              `Factory history replay batch is not ready: ${unreadyBatch.batchId}`
+            )
+          }
+          const batchesBySlice = new Map<string, SharedDeliveryBatch[]>()
+          batches.forEach((batch) => {
+            const sliceBatches = batchesBySlice.get(batch.sliceId) ?? []
+            sliceBatches.push(batch)
+            batchesBySlice.set(batch.sliceId, sliceBatches)
+          })
+          if (
+            this.activeDeliveryPlan?.mode === 'progressive' &&
+            this.activeDeliveryPlan.slices.some(
+              ({ sliceId }) => !batchesBySlice.has(sliceId)
+            )
+          ) {
+            throw new Error(
+              'Factory mutation delivery plan contains an empty progressive slice'
+            )
+          }
+          batchesBySlice.forEach((sliceBatches, sliceId) =>
+            this.transactionEndBatchesBySlice.set(
+              sliceId,
+              deepFreezeValue(sliceBatches)
+            )
+          )
+          this.transactionEndDeliveryBatches = deepFreezeValue(batches)
+          return this.transactionEndDeliveryBatches
+        }
+
         const transactionEndEntries = this.journal.filter(
           (entry) =>
             entry.shared && entry.options.sharedDelivery === 'transaction-end'
@@ -1492,6 +1596,27 @@ class DataTransact {
     })
   }
 
+  private createHistoryReplaySharedPublication(
+    batches: readonly SharedDeliveryBatch[]
+  ): SharedPublication | undefined {
+    const plan = this.historyReplaySharedPlan
+    if (!plan) return
+    const publishableBatches = batches.filter((batch) => {
+      const state = plan.batchStateById.get(batch.batchId)
+      return state?.delivered === true && !state.published
+    })
+    const publication = this.createSharedPublicationFromBatches(
+      publishableBatches,
+      this.transactionOrigin()
+    )
+    if (!publication) return
+    publishableBatches.forEach((batch) => {
+      const state = plan.batchStateById.get(batch.batchId)
+      if (state) state.published = true
+    })
+    return publication
+  }
+
   private resolveDeliveryPlan(
     batches: readonly SharedDeliveryBatch[] = this.currentSharedDeliveryBatches,
     options: {
@@ -1573,7 +1698,12 @@ class DataTransact {
   private createMutationBatchArtifact(
     options: { preparedDeliveryBatchIds?: ReadonlySet<string> } = {}
   ): FactoryMutationBatchArtifact | undefined {
-    if (this.journal.length === 0) return
+    if (
+      this.journal.length === 0 &&
+      this.currentSharedDeliveryBatches.length === 0
+    ) {
+      return
+    }
     if (this.currentMutationBatchArtifact) {
       return this.currentMutationBatchArtifact
     }
@@ -1719,22 +1849,6 @@ class DataTransact {
     } finally {
       this.emittingSharedPublications = false
     }
-  }
-
-  private flushReplaySharedPublications(): void {
-    this.discardPendingImmediatePublication()
-    if (!this.activeDeliveryPlan) {
-      this.flushPendingSharedChannelChanges()
-      this.queueSharedPublication(this.createSharedPublication(this.journal))
-      this.flushSharedPublications()
-      return
-    }
-    const immediateEntries = this.journal.filter(
-      (entry) => entry.shared && entry.options.sharedDelivery === 'immediate'
-    )
-    this.deliverSharedEntries(immediateEntries)
-    this.queueSharedPublication(this.createSharedPublication(immediateEntries))
-    this.flushSharedPublications()
   }
 
   private emitCompensationSharedDelivery(
@@ -2090,9 +2204,18 @@ class DataTransact {
             }
           }
 
+          const journalStart = this.journal.length
+          const previousRetainingHistoryReplaySharedEvidence =
+            this.retainingHistoryReplaySharedEvidence
+          const isRetainedHistoryReplay =
+            this.historyReplaySharedPlan?.ownsReplayEvidence === true
+          this.retainingHistoryReplaySharedEvidence = isRetainedHistoryReplay
           try {
-            const journalStart = this.journal.length
             const applied = this.applyReplayEvent(replayEvent, mode)
+            const recordedEntries = this.journal.slice(journalStart)
+            if (isRetainedHistoryReplay) {
+              this.suppressHistoryReplayOwnerSharedEntries(recordedEntries)
+            }
             if (restorationEvents && applied) {
               restorationPlans?.push(restorationEvents)
             }
@@ -2100,171 +2223,29 @@ class DataTransact {
               applied &&
               shared &&
               !('suppress' in shared) &&
-              (mode === 'undo' || mode === 'redo')
+              isRetainedHistoryReplay
             ) {
-              const recordedSharedEntries = this.journal
-                .slice(journalStart)
-                .filter((entry) => entry.shared?.name === shared.name)
-              if (recordedSharedEntries.length === 0) {
-                this.recordReplaySharedChange(replayEvent, shared)
-              } else {
-                this.alignReplaySharedEntries(recordedSharedEntries, shared)
-              }
-            } else if (
-              applied &&
-              shared &&
-              'suppress' in shared &&
-              (mode === 'undo' || mode === 'redo')
-            ) {
-              this.journal.slice(journalStart).forEach((entry) => {
-                entry.options.shared = undefined
-                entry.shared = undefined
-              })
+              this.markHistoryReplaySharedReady(shared)
             }
           } catch (error) {
+            if (isRetainedHistoryReplay) {
+              this.suppressHistoryReplayOwnerSharedEntries(
+                this.journal.slice(journalStart)
+              )
+            }
             if (restorationEvents && wasTransactionReplayApplied(error)) {
               restorationPlans?.push(restorationEvents)
             }
             failures.push(error)
+          } finally {
+            this.retainingHistoryReplaySharedEvidence =
+              previousRetainingHistoryReplaySharedEvidence
           }
         })
-        if (
-          sharedOutputs?.some(
-            (shared) =>
-              shared &&
-              !('suppress' in shared) &&
-              shared.sharedDelivery === 'immediate'
-          ) &&
-          (mode === 'undo' || mode === 'redo')
-        ) {
-          this.flushReplaySharedPublications()
-        }
       }
     )
 
     return failures
-  }
-
-  private alignReplaySharedEntries(
-    entries: readonly TransactionJournalEntry[],
-    sharedReplay: HistorySharedReplay
-  ): void {
-    const immediateEntries: TransactionJournalEntry[] = []
-    entries.forEach((entry) => {
-      const shared = entry.shared
-      if (!shared || shared.name !== sharedReplay.name) return
-
-      entry.options.sharedDelivery = sharedReplay.sharedDelivery
-      shared.change = deepFreezeValue(
-        toSharedChannelPayload(shared.change, {
-          sharedDelivery: sharedReplay.sharedDelivery
-        })
-      )
-      shared.orderedIds = sharedReplay.orderedIds
-      shared.recordInversesPrepared = false
-      shared.records = sharedReplay.records.map((record, occurrence) => ({
-        occurrence,
-        orderedIds: record.orderedIds,
-        change: deepFreezeValue(
-          toSharedChannelPayload(record.payload, {
-            undoable: false,
-            rollbackable: true,
-            sharedDelivery: sharedReplay.sharedDelivery
-          })
-        ),
-        delivered: false,
-        published: false
-      }))
-      if (sharedReplay.deliveryPlan && !this.activeDeliveryPlan) {
-        this.configureActiveDeliveryPlan(sharedReplay.deliveryPlan)
-      }
-      if (
-        sharedReplay.sharedDelivery !== 'immediate' ||
-        shared.records.some((record) => record.delivered)
-      ) {
-        return
-      }
-
-      immediateEntries.push(entry)
-    })
-    if (immediateEntries.length > 0) {
-      this.deliverRemainingActiveReplaySlicesBeforeImmediate()
-    }
-    this.deliverSharedEntries(immediateEntries)
-    this.queueImmediatePublicationEntries(
-      immediateEntries.filter((entry) =>
-        entry.shared?.records.some((record) => record.delivered)
-      )
-    )
-  }
-
-  private recordReplaySharedChange(
-    event: AllEvent,
-    sharedReplay: HistorySharedReplay
-  ): void {
-    const payload = cloneAndDeepFreezeValue(
-      (event as AllEvent & { payload: TransactionPayload }).payload
-    )
-    const options: EffectiveMutationOptions = {
-      undoable: false,
-      rollbackable: true,
-      shared: sharedReplay.name,
-      sharedDelivery: sharedReplay.sharedDelivery
-    }
-    const sharedChange = deepFreezeValue(
-      toSharedChannelPayload(payload, {
-        undoable: false,
-        rollbackable: true,
-        shared: sharedReplay.name,
-        sharedDelivery: sharedReplay.sharedDelivery
-      })
-    )
-    const journalEntry: TransactionJournalEntry = {
-      index: this.journal.length,
-      event: deepFreezeValue(cloneEvent(event)),
-      options,
-      source: 'replay',
-      shared: {
-        name: sharedReplay.name,
-        change: sharedChange,
-        orderedIds: sharedReplay.orderedIds,
-        recordInversesPrepared: false,
-        records: sharedReplay.records.map((record, occurrence) => ({
-          occurrence,
-          orderedIds: record.orderedIds,
-          change: deepFreezeValue(
-            toSharedChannelPayload(record.payload, {
-              undoable: false,
-              rollbackable: true,
-              sharedDelivery: sharedReplay.sharedDelivery
-            })
-          ),
-          delivered: false,
-          published: false
-        }))
-      }
-    }
-    this.journal.push(journalEntry)
-    if (sharedReplay.deliveryPlan && !this.activeDeliveryPlan) {
-      this.configureActiveDeliveryPlan(sharedReplay.deliveryPlan)
-    }
-    if (journalEntry.shared && sharedReplay.sharedDelivery === 'immediate') {
-      this.deliverRemainingActiveReplaySlicesBeforeImmediate()
-      this.deliverSharedEntries([journalEntry])
-      if (journalEntry.shared.records.some((record) => record.delivered)) {
-        this.queueImmediatePublicationEntries([journalEntry])
-      }
-    }
-  }
-
-  private deliverRemainingActiveReplaySlicesBeforeImmediate(): void {
-    if (this.activeDeliveryPlan?.mode !== 'progressive') return
-    while (
-      this.nextDeliverySliceIndex < this.activeDeliveryPlan.slices.length
-    ) {
-      const slice = this.activeDeliveryPlan.slices[this.nextDeliverySliceIndex]
-      this.deliverActiveSlice(slice.sliceId)
-    }
   }
 
   private restoreNestedReplay(): unknown[] {
@@ -2322,10 +2303,120 @@ class DataTransact {
     ]
   }
 
+  private compensateDeliveredHistoryReplayBatches(): unknown[] {
+    const plan = this.historyReplaySharedPlan
+    if (!plan) return []
+    const failures: unknown[] = []
+    const publishedCompensationBatches: SharedDeliveryBatch[] = []
+
+    ;[...plan.batchStates]
+      .reverse()
+      .filter(({ delivered }) => delivered)
+      .forEach((state) => {
+        const forwardBatch = state.batch
+        try {
+          const batchId = this.nextDeliveryBatchId()
+          const inverseRecords = [...forwardBatch.deliveries]
+            .reverse()
+            .flatMap((forwardDelivery) =>
+              forwardDelivery.record.inverseEvents.map(
+                (inverseEvent, inverseIndex) => ({
+                  forwardDelivery,
+                  inverseEvent,
+                  inverseIndex,
+                  payload: (
+                    inverseEvent as AllEvent & {
+                      payload: TransactionPayload
+                    }
+                  ).payload
+                })
+              )
+            )
+          const deliveries = deepFreezeValue(
+            inverseRecords.map(
+              ({ forwardDelivery, inverseEvent, inverseIndex, payload }) =>
+                deepFreezeValue({
+                  deliveryId: `${forwardDelivery.deliveryId}:compensation:${inverseIndex}`,
+                  artifactId: this.currentArtifactId,
+                  batchId,
+                  transactionId: this.currentTransactionId,
+                  origin: 'rollback-compensation' as const,
+                  kind: 'compensation' as const,
+                  channel: forwardBatch.channel,
+                  eventName: inverseEvent.type,
+                  payload,
+                  recordId: forwardDelivery.recordId,
+                  record: forwardDelivery.record,
+                  sharedDelivery: forwardBatch.sharedDelivery,
+                  compensatesDeliveryId: forwardDelivery.deliveryId
+                })
+            )
+          )
+          const compensationBatch = deepFreezeValue({
+            batchId,
+            sliceId: `${forwardBatch.sliceId}:compensation`,
+            artifactId: this.currentArtifactId,
+            transactionId: this.currentTransactionId,
+            origin: 'rollback-compensation' as const,
+            kind: 'compensation' as const,
+            channel: forwardBatch.channel,
+            sharedDelivery: forwardBatch.sharedDelivery,
+            deliveries,
+            records: deepFreezeValue(
+              inverseRecords.map(
+                ({ forwardDelivery }) => forwardDelivery.record
+              )
+            ),
+            changes: deepFreezeValue(
+              deliveries.map((delivery) => delivery.payload)
+            ),
+            compensatesBatchId: forwardBatch.batchId
+          } satisfies SharedDeliveryBatch)
+          this.sharedEvidenceNotificationDepth += 1
+          try {
+            const delivered = pushFactoryOwnedBatchToSharedChannel(
+              this.sharedDataChannelRegistry,
+              compensationBatch.channel,
+              compensationBatch.changes
+            )
+            if (!delivered) {
+              throw new Error(
+                `Failed to compensate shared channel ${compensationBatch.channel}`
+              )
+            }
+            this.onSharedDeliveryBatch?.(compensationBatch)
+            if (this.shouldEmitLegacySharedDeliveries()) {
+              compensationBatch.deliveries.forEach((delivery) =>
+                this.onSharedDelivery?.(delivery)
+              )
+            }
+          } finally {
+            this.sharedEvidenceNotificationDepth -= 1
+          }
+          if (state.published) {
+            publishedCompensationBatches.push(compensationBatch)
+          }
+        } catch (error) {
+          failures.push(error)
+        }
+      })
+
+    this.queueSharedPublication(
+      this.createSharedPublicationFromBatches(
+        publishedCompensationBatches,
+        'rollback-compensation'
+      )
+    )
+    this.flushSharedPublications()
+    return failures
+  }
+
   private compensateImmediateSharedChanges(
     artifact?: FactoryMutationBatchArtifact
   ): unknown[] {
-    const failures: unknown[] = []
+    const failures: unknown[] = [
+      ...this.compensateDeliveredHistoryReplayBatches()
+    ]
     const publishedCompensationBatches: SharedDeliveryBatch[] = []
     const artifactRecordsById = measureBrowserDragPhase(
       'factory:index-compensation-records',
@@ -2793,7 +2884,10 @@ class DataTransact {
             this.settleRollback(this.rollbackFailure)
             throw error
           }
-          if (this.journal.length === 0) {
+          if (
+            this.journal.length === 0 &&
+            !this.historyReplaySharedPlan?.batchStates.length
+          ) {
             if (this.nestedReplaySourceEvents) {
               this.prepareHistoryTransition()?.complete()
             } else if (!this.isInUndo() && !this.isInRedo()) {
@@ -2833,10 +2927,12 @@ class DataTransact {
                         allPreparedDeliveriesSucceeded = false
                       }
                     })
-                    const sliceRecords =
-                      this.transactionEndRecordsBySlice.get(sliceId) ?? []
-                    const publication =
-                      this.createSharedPublicationFromRecords(sliceRecords)
+                    const publication = this.historyReplaySharedPlan
+                      ?.batchStates.length
+                      ? this.createHistoryReplaySharedPublication(sliceBatches)
+                      : this.createSharedPublicationFromRecords(
+                          this.transactionEndRecordsBySlice.get(sliceId) ?? []
+                        )
                     this.queueSharedPublication(publication)
                     this.flushSharedPublications()
                   })
@@ -2847,9 +2943,12 @@ class DataTransact {
                     allPreparedDeliveriesSucceeded = false
                   }
                 })
-                const publication = this.createSharedPublication(
-                  transactionEndEntries
-                )
+                const publication = this.historyReplaySharedPlan?.batchStates
+                  .length
+                  ? this.createHistoryReplaySharedPublication(
+                      transactionEndBatches
+                    )
+                  : this.createSharedPublication(transactionEndEntries)
                 if (publication) sharedPublications.push(publication)
               })
               if (!allPreparedDeliveriesSucceeded) {
@@ -2924,6 +3023,8 @@ class DataTransact {
         this.transactionEndBatchesBySlice.clear()
         this.transactionEndRecordsBySlice.clear()
         this.currentMutationBatchArtifact = undefined
+        this.historyReplaySharedPlan = undefined
+        this.retainingHistoryReplaySharedEvidence = false
         if (this.nestedReplaySourceEvents) {
           this.nestedReplaySourceEvents = null
           this.nestedReplaySourceArtifact = null
@@ -2955,6 +3056,299 @@ class DataTransact {
     return artifact.changes.filter(({ options }) => options.undoable)
   }
 
+  private historyReplayReadinessKey(
+    sourceRecordId: string,
+    outputIndex: number
+  ): string {
+    return `${sourceRecordId}:output:${outputIndex}`
+  }
+
+  private configureHistoryReplayProgressivePlan(
+    artifact: FactoryMutationBatchArtifact,
+    direction: 'forward' | 'inverse',
+    deliveredOrderedIds: ReadonlySet<string>
+  ): void {
+    if (
+      this.activeDeliveryPlan ||
+      artifact.deliveryPlan.mode !== 'progressive' ||
+      deliveredOrderedIds.size === 0
+    ) {
+      return
+    }
+    const slices =
+      direction === 'forward'
+        ? artifact.deliveryPlan.slices.flatMap((slice) => {
+            const orderedIds = slice.orderedIds.filter((orderedId) =>
+              deliveredOrderedIds.has(orderedId)
+            )
+            return orderedIds.length > 0
+              ? [{ sliceId: slice.sliceId, orderedIds }]
+              : []
+          })
+        : [...artifact.deliveryPlan.slices].reverse().flatMap((slice) => {
+            const orderedIds = [...slice.orderedIds]
+              .reverse()
+              .filter((orderedId) => deliveredOrderedIds.has(orderedId))
+            return orderedIds.length > 0
+              ? [{ sliceId: `${slice.sliceId}:inverse`, orderedIds }]
+              : []
+          })
+    const plannedOrderedIds = new Set(
+      slices.flatMap(({ orderedIds }) => orderedIds)
+    )
+    if (
+      plannedOrderedIds.size !== deliveredOrderedIds.size ||
+      [...deliveredOrderedIds].some(
+        (orderedId) => !plannedOrderedIds.has(orderedId)
+      )
+    ) {
+      return
+    }
+    this.configureActiveDeliveryPlan(
+      deepFreezeValue({ mode: 'progressive', slices })
+    )
+  }
+
+  private prepareHistoryReplaySharedPlan(
+    artifact: FactoryMutationBatchArtifact,
+    direction: 'forward' | 'inverse'
+  ): void {
+    if (this.historyReplaySharedPlan) {
+      throw new Error('Factory history replay shared plan already exists')
+    }
+    const historyChanges = this.historyChanges(artifact)
+    const deliveredSourceIds = new Set(
+      historyChanges.flatMap((change) => change.shared?.deliveryIds ?? [])
+    )
+    const sourceBatches =
+      direction === 'forward'
+        ? artifact.batches
+        : [...artifact.batches].reverse()
+    const batchStates: HistoryReplaySharedBatchState[] = []
+    const batchStatesByReadinessKey = new Map<
+      string,
+      HistoryReplaySharedBatchState[]
+    >()
+    const deliveredOrderedIds = new Set<string>()
+
+    sourceBatches.forEach((sourceBatch) => {
+      const sourceDeliveries = (
+        direction === 'forward'
+          ? sourceBatch.deliveries
+          : [...sourceBatch.deliveries].reverse()
+      ).filter((delivery) => deliveredSourceIds.has(delivery.deliveryId))
+      if (sourceDeliveries.length === 0) return
+
+      const batchId = this.nextDeliveryBatchId()
+      let replayRecordOccurrence = 0
+      const replayRecords = sourceDeliveries.flatMap((sourceDelivery) => {
+        const sourceRecord = sourceDelivery.record
+        const replayEvents =
+          direction === 'forward'
+            ? [
+                {
+                  event: {
+                    type: sourceDelivery.eventName,
+                    payload: sourceDelivery.payload
+                  } as AllEvent,
+                  outputIndex: 0
+                }
+              ]
+            : sourceRecord.inverseEvents.map((event, outputIndex) => ({
+                event,
+                outputIndex
+              }))
+        return replayEvents.map(({ event, outputIndex }) => {
+          const readinessKey = this.historyReplayReadinessKey(
+            sourceRecord.recordId,
+            outputIndex
+          )
+          const recordIndex = replayRecordOccurrence
+          replayRecordOccurrence += 1
+          const recordId = `${this.currentTransactionId}:history:${sourceRecord.recordId}:${outputIndex}`
+          const deliveryId = `${recordId}:forward`
+          const orderedIds =
+            direction === 'forward'
+              ? sourceRecord.orderedIds
+              : [...sourceRecord.orderedIds].reverse()
+          orderedIds.forEach((orderedId) => deliveredOrderedIds.add(orderedId))
+          const replaySharedOptions = {
+            undoable: false,
+            rollbackable: true,
+            sharedDelivery: sourceBatch.sharedDelivery
+          }
+          const payload = deepFreezeValue(
+            toSharedChannelPayload(
+              (event as AllEvent & { payload: TransactionPayload }).payload,
+              replaySharedOptions
+            )
+          )
+          const inverseEvents = (
+            direction === 'forward'
+              ? sourceRecord.inverseEvents
+              : this.createReplayEvents(
+                  event,
+                  'inverse',
+                  'factory-owned-journal'
+                )
+          ).map((inverseEvent) =>
+            deepFreezeValue({
+              ...inverseEvent,
+              payload: toSharedChannelPayload(
+                (
+                  inverseEvent as AllEvent & {
+                    payload: TransactionPayload
+                  }
+                ).payload,
+                replaySharedOptions
+              )
+            } as AllEvent)
+          )
+          const record = deepFreezeValue({
+            recordId,
+            deliveryId,
+            occurrence: recordIndex,
+            orderedIds,
+            payload,
+            inverseEvents: deepFreezeValue(inverseEvents)
+          } satisfies FactoryMutationSharedRecordEvidence)
+          return { event, readinessKey, record }
+        })
+      })
+      const deliveries = deepFreezeValue(
+        replayRecords.map(({ event, record }) =>
+          deepFreezeValue({
+            deliveryId: record.deliveryId,
+            artifactId: this.currentArtifactId,
+            batchId,
+            transactionId: this.currentTransactionId,
+            origin: this.transactionOrigin(),
+            kind: 'forward' as const,
+            channel: sourceBatch.channel,
+            eventName: event.type,
+            payload: record.payload,
+            recordId: record.recordId,
+            record,
+            sharedDelivery: sourceBatch.sharedDelivery
+          })
+        )
+      )
+      const batch = deepFreezeValue({
+        batchId,
+        sliceId:
+          direction === 'forward'
+            ? sourceBatch.sliceId
+            : `${sourceBatch.sliceId}:inverse`,
+        artifactId: this.currentArtifactId,
+        transactionId: this.currentTransactionId,
+        origin: this.transactionOrigin(),
+        kind: 'forward' as const,
+        channel: sourceBatch.channel,
+        sharedDelivery: sourceBatch.sharedDelivery,
+        deliveries,
+        records: deepFreezeValue(deliveries.map((delivery) => delivery.record)),
+        changes: deepFreezeValue(deliveries.map((delivery) => delivery.payload))
+      } satisfies SharedDeliveryBatch)
+      const requiredReadinessKeys = new Set(
+        replayRecords.map(({ readinessKey }) => readinessKey)
+      )
+      const state: HistoryReplaySharedBatchState = {
+        batch,
+        requiredReadinessKeys,
+        readyReadinessKeys: new Set(),
+        delivered: false,
+        published: false
+      }
+      batchStates.push(state)
+      requiredReadinessKeys.forEach((readinessKey) => {
+        const states = batchStatesByReadinessKey.get(readinessKey) ?? []
+        states.push(state)
+        batchStatesByReadinessKey.set(readinessKey, states)
+      })
+    })
+
+    this.configureHistoryReplayProgressivePlan(
+      artifact,
+      direction,
+      deliveredOrderedIds
+    )
+    const plan: HistoryReplaySharedPlan = {
+      direction,
+      ownsReplayEvidence: historyChanges.some(
+        (change) => change.shared !== undefined
+      ),
+      batchStates: Object.freeze([...batchStates]),
+      batchStateById: new Map(
+        batchStates.map((state) => [state.batch.batchId, state] as const)
+      ),
+      batchStatesByReadinessKey: new Map(
+        [...batchStatesByReadinessKey].map(([readinessKey, states]) => [
+          readinessKey,
+          Object.freeze([...states])
+        ])
+      )
+    }
+    this.historyReplaySharedPlan = plan
+    this.currentSharedDeliveryBatches.push(
+      ...plan.batchStates.map(({ batch }) => batch)
+    )
+  }
+
+  private flushReadyHistoryReplayBatchesBeforeImmediate(): void {
+    const plan = this.historyReplaySharedPlan
+    if (!plan) return
+    const firstReadyImmediateIndex = plan.batchStates.findIndex(
+      (state) =>
+        !state.delivered &&
+        state.batch.sharedDelivery === 'immediate' &&
+        state.readyReadinessKeys.size === state.requiredReadinessKeys.size
+    )
+    if (firstReadyImmediateIndex < 0) return
+    const prefix = plan.batchStates.slice(0, firstReadyImmediateIndex + 1)
+    if (
+      prefix.some(
+        (state) =>
+          !state.delivered &&
+          state.readyReadinessKeys.size !== state.requiredReadinessKeys.size
+      )
+    ) {
+      return
+    }
+    prefix.forEach((state) => {
+      if (!state.delivered && !this.deliverPreparedSharedBatch(state.batch)) {
+        throw new Error(
+          `Factory history replay batch could not be delivered: ${state.batch.batchId}`
+        )
+      }
+      const publication = this.createHistoryReplaySharedPublication([
+        state.batch
+      ])
+      this.queueSharedPublication(publication)
+      this.flushSharedPublications()
+    })
+  }
+
+  private markHistoryReplaySharedReady(
+    sharedReplay: HistorySharedReplay
+  ): void {
+    const plan = this.historyReplaySharedPlan
+    if (!plan) return
+    sharedReplay.records.forEach(({ readinessKey }) => {
+      const states = plan.batchStatesByReadinessKey.get(readinessKey) ?? []
+      states.forEach((state) => state.readyReadinessKeys.add(readinessKey))
+    })
+    this.flushReadyHistoryReplayBatchesBeforeImmediate()
+  }
+
+  private suppressHistoryReplayOwnerSharedEntries(
+    entries: readonly TransactionJournalEntry[]
+  ): void {
+    entries.forEach((entry) => {
+      entry.options.shared = undefined
+      entry.shared = undefined
+    })
+  }
+
   private historySharedReplay(
     artifact: FactoryMutationBatchArtifact,
     direction: 'forward' | 'inverse'
@@ -2967,48 +3361,6 @@ class DataTransact {
         deliveredIds.has(record.deliveryId)
       )
     })
-    const deliveredOrderedIds = new Set<string>()
-    deliveredRecordsByChange.forEach((records) =>
-      records.forEach((record) =>
-        record.orderedIds.forEach((orderedId) =>
-          deliveredOrderedIds.add(orderedId)
-        )
-      )
-    )
-    const hasExplicitOrderedIds = deliveredOrderedIds.size > 0
-    const deliveryPlan =
-      hasExplicitOrderedIds && artifact.deliveryPlan.mode === 'progressive'
-        ? deepFreezeValue({
-            mode: 'progressive' as const,
-            slices:
-              direction === 'forward'
-                ? artifact.deliveryPlan.slices.flatMap((slice) => {
-                    const orderedIds = slice.orderedIds.filter((orderedId) =>
-                      deliveredOrderedIds.has(orderedId)
-                    )
-                    return orderedIds.length > 0
-                      ? [{ sliceId: slice.sliceId, orderedIds }]
-                      : []
-                  })
-                : [...artifact.deliveryPlan.slices]
-                    .reverse()
-                    .flatMap((slice) => {
-                      const orderedIds = [...slice.orderedIds]
-                        .reverse()
-                        .filter((orderedId) =>
-                          deliveredOrderedIds.has(orderedId)
-                        )
-                      return orderedIds.length > 0
-                        ? [
-                            {
-                              sliceId: `${slice.sliceId}:inverse`,
-                              orderedIds
-                            }
-                          ]
-                        : []
-                    })
-          })
-        : undefined
     return historyChanges.map((change, changeIndex) => {
       if (!change.shared) return
       const deliveredRecords = deliveredRecordsByChange[changeIndex] ?? []
@@ -3029,6 +3381,10 @@ class DataTransact {
       return deepFreezeValue(
         Array.from({ length: outputCount }, (_, outputIndex) => {
           const records = sourceRecords.map((record) => ({
+            readinessKey: this.historyReplayReadinessKey(
+              record.recordId,
+              outputIndex
+            ),
             orderedIds:
               direction === 'forward'
                 ? record.orderedIds
@@ -3055,11 +3411,7 @@ class DataTransact {
             name: change.shared?.channel ?? '',
             sharedDelivery: change.options.sharedDelivery,
             orderedIds: deepFreezeValue(orderedIds),
-            records: deepFreezeValue(records),
-            deliveryPlan:
-              change.options.sharedDelivery === 'transaction-end'
-                ? deliveryPlan
-                : undefined
+            records: deepFreezeValue(records)
           }
         })
       )
@@ -3100,6 +3452,7 @@ class DataTransact {
       this.nestedReplaySourceEvents = lastChanges
       this.nestedReplaySourceArtifact = sourceArtifact
       this.nestedReplayRestorationPlans = []
+      this.prepareHistoryReplaySharedPlan(sourceArtifact, 'inverse')
       const failures = this.replay(
         lastChanges,
         'inverse',
@@ -3169,6 +3522,7 @@ class DataTransact {
       this.nestedReplaySourceEvents = lastChanges
       this.nestedReplaySourceArtifact = sourceArtifact
       this.nestedReplayRestorationPlans = []
+      this.prepareHistoryReplaySharedPlan(sourceArtifact, 'forward')
       const failures = this.replay(
         lastChanges,
         'forward',
@@ -3241,6 +3595,8 @@ class DataTransact {
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
     this.currentMutationBatchArtifact = undefined
+    this.historyReplaySharedPlan = undefined
+    this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliveryPlan = undefined
     this.activeDeliverySliceByOrderedId.clear()
     this.activeDeliverySliceOrder.clear()

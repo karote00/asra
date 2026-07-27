@@ -229,6 +229,251 @@ describe('Factory batch regression contracts', () => {
     ).toEqual(['element-a'])
   })
 
+  it('reuses Group and children batch evidence once when canonical replay handlers decompose the write', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        const payload = (
+          event as AllEvent & {
+            payload: { id: string; before: number; after: number }
+          }
+        ).payload
+        if (payload.id === 'local-only') {
+          factory.updateTransaction({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: event.type,
+            payload: {
+              id: 'derived-immediate',
+              before: payload.before,
+              after: payload.after
+            },
+            options: {
+              shared: SharedDataChannelNames.PROPS,
+              sharedDelivery: 'immediate'
+            }
+          })
+          factory.updateTransaction({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: event.type,
+            payload: {
+              id: 'derived-transaction-end',
+              before: payload.before,
+              after: payload.after
+            },
+            options: { shared: SharedDataChannelNames.SCENE_TREE }
+          })
+          return true
+        }
+        const isSceneChange = payload.id.startsWith('scene-')
+
+        if (isSceneChange) {
+          factory.updateTransaction({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: event.type,
+            payload,
+            options: { shared: SharedDataChannelNames.SCENE_TREE }
+          })
+          if (payload.after === 0) {
+            factory.updateTransaction({
+              type: TransactionEventTypes.UPDATE_TRANSACTION,
+              eventName: event.type,
+              payload: {
+                id: `cleanup-${payload.id}`,
+                before: 1,
+                after: 0
+              },
+              options: { shared: SharedDataChannelNames.PROPS }
+            })
+          }
+        } else {
+          ;['field-a', 'field-b'].forEach((field) => {
+            factory.updateTransaction({
+              type: TransactionEventTypes.UPDATE_TRANSACTION,
+              eventName: event.type,
+              payload: {
+                ...payload,
+                id: `${payload.id}:${field}`
+              },
+              options: { shared: SharedDataChannelNames.PROPS }
+            })
+          })
+        }
+        return true
+      }
+    )
+    const publications: SharedPublication[] = []
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      [
+        createUpdateEvent('props-group', SharedDataChannelNames.PROPS),
+        createUpdateEvent('scene-group', SharedDataChannelNames.SCENE_TREE),
+        createUpdateEvent('props-a', SharedDataChannelNames.PROPS),
+        createUpdateEvent('props-b', SharedDataChannelNames.PROPS),
+        createUpdateEvent('scene-a', SharedDataChannelNames.SCENE_TREE),
+        createUpdateEvent('scene-b', SharedDataChannelNames.SCENE_TREE),
+        {
+          ...createUpdateEvent('local-only'),
+          options: undefined
+        }
+      ],
+      [
+        { orderedIds: ['group'] },
+        { orderedIds: ['group'] },
+        { orderedIds: ['props-a'] },
+        { orderedIds: ['props-b'] },
+        { orderedIds: ['scene-a'] },
+        { orderedIds: ['scene-b'] },
+        undefined
+      ]
+    )
+    factory.endTransaction()
+
+    const summarize = (publication: SharedPublication | undefined) => ({
+      origin: publication?.origin,
+      batches: publication?.batches.map((batch) => ({
+        channel: batch.channel,
+        kind: batch.kind,
+        ids: batch.deliveries.map(({ payload }) => payloadId(payload)),
+        recordIds: batch.records.flatMap(({ orderedIds }) => orderedIds)
+      }))
+    })
+    const expectAtomicBatchIntegrity = (
+      publication: SharedPublication | undefined
+    ) => {
+      expect(publication?.deliveryPlan).toEqual({
+        mode: 'atomic',
+        slices: publication?.batches.map((batch) => ({
+          sliceId: batch.sliceId,
+          orderedIds: batch.deliveries.map(({ deliveryId }) => deliveryId)
+        }))
+      })
+      publication?.batches.forEach((batch) => {
+        expect(batch.deliveries).toHaveLength(batch.records.length)
+        expect(batch.changes).toHaveLength(batch.records.length)
+      })
+    }
+
+    expect(summarize(publications[0])).toEqual({
+      origin: 'action',
+      batches: [
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-group'],
+          recordIds: ['group']
+        },
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-group'],
+          recordIds: ['group']
+        },
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-a', 'props-b'],
+          recordIds: ['props-a', 'props-b']
+        },
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-a', 'scene-b'],
+          recordIds: ['scene-a', 'scene-b']
+        }
+      ]
+    })
+    expectAtomicBatchIntegrity(publications[0])
+
+    publications.length = 0
+    factory.undo()
+
+    expect(publications).toHaveLength(1)
+    expect(summarize(publications[0])).toEqual({
+      origin: 'undo',
+      batches: [
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-b', 'scene-a'],
+          recordIds: ['scene-b', 'scene-a']
+        },
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-b', 'props-a'],
+          recordIds: ['props-b', 'props-a']
+        },
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-group'],
+          recordIds: ['group']
+        },
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-group'],
+          recordIds: ['group']
+        }
+      ]
+    })
+    expect(artifacts.at(-1)?.batches).toEqual(publications[0]?.batches)
+    expectAtomicBatchIntegrity(publications[0])
+
+    publications.length = 0
+    factory.redo()
+
+    expect(publications).toHaveLength(1)
+    expect(summarize(publications[0])).toEqual({
+      origin: 'redo',
+      batches: [
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-group'],
+          recordIds: ['group']
+        },
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-group'],
+          recordIds: ['group']
+        },
+        {
+          channel: SharedDataChannelNames.PROPS,
+          kind: 'forward',
+          ids: ['props-a', 'props-b'],
+          recordIds: ['props-a', 'props-b']
+        },
+        {
+          channel: SharedDataChannelNames.SCENE_TREE,
+          kind: 'forward',
+          ids: ['scene-a', 'scene-b'],
+          recordIds: ['scene-a', 'scene-b']
+        }
+      ]
+    })
+    expect(artifacts.at(-1)?.batches).toEqual(publications[0]?.batches)
+    expectAtomicBatchIntegrity(publications[0])
+  })
+
   it.each(['channel', 'publication'] as const)(
     'rejects endTransaction from a shared %s observer without closing the outer action',
     (observerKind) => {
