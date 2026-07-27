@@ -8,7 +8,11 @@ import {
   type RemovePropertyEvent,
   type UpdatePropertyEvent
 } from '@asyra/reactive-events'
-import type { PropertyComponentInstanceDataTypes } from '@asyra/utils'
+import type {
+  PropertyComponentInstanceDataTypes,
+  PropertyComponentInstanceTypes
+} from '@asyra/utils'
+import { getPropertyComponentConfigDefinition } from '../registries/property-component'
 import propsManager from './props-manager'
 
 interface UpdatePropertyChangePayload {
@@ -34,36 +38,105 @@ export const initPropXSubscribes = () => {
   subscribeToSynchronousEvent<AddPropertyEvent>(
     EventTypes.ADD_PROPERTY,
     ({ payload, options }) => {
-      const previousProperties = payload.data.map((propData) =>
-        propsManager.getPropertyById(propData.id as string)
-      )
-      const propComponents = payload.data.map((propData) => {
-        let newProperty
-        if (getTransactionReplayMode() !== null) {
-          newProperty = propsManager.getRestoreComponentById(
-            propData.id as string
+      const replayMode = getTransactionReplayMode()
+      const previousProperties: (PropertyComponentInstanceTypes | undefined)[] =
+        []
+      const observedPropertyIds = new Set<string>()
+      const childRelationKeys = new Map<string, string | null>()
+      let isFreshCreationBatch = replayMode === null && payload.data.length > 1
+      payload.data.forEach((propData) => {
+        const propertyId = propData.id
+        const previousProperty =
+          typeof propertyId === 'string'
+            ? propsManager.getPropertyById(propertyId)
+            : undefined
+        previousProperties.push(previousProperty)
+        if (!isFreshCreationBatch) {
+          return
+        }
+        if (
+          typeof propertyId !== 'string' ||
+          propertyId.length === 0 ||
+          observedPropertyIds.has(propertyId) ||
+          previousProperty !== undefined ||
+          propsManager.getRestoreComponentById(propertyId)
+        ) {
+          isFreshCreationBatch = false
+          return
+        }
+        observedPropertyIds.add(propertyId)
+
+        const propertyType = propData.type
+        if (typeof propertyType !== 'string') {
+          return
+        }
+        if (!childRelationKeys.has(propertyType)) {
+          childRelationKeys.set(
+            propertyType,
+            getPropertyComponentConfigDefinition(propertyType)?.children?.key ??
+              null
           )
-          if (newProperty) {
-            propsManager.addChangeForAddProperty(newProperty)
-          }
         }
-
-        if (!newProperty) {
-          newProperty = propsManager.createProperty(propData)
+        const childRelationKey = childRelationKeys.get(propertyType)
+        if (!childRelationKey) {
+          return
         }
-
-        return newProperty
+        const childRelationValue = (
+          propData as unknown as Record<string, unknown>
+        )[childRelationKey]
+        if (
+          childRelationValue !== undefined &&
+          (!Array.isArray(childRelationValue) ||
+            childRelationValue.some((child) => typeof child !== 'string'))
+        ) {
+          isFreshCreationBatch = false
+        }
       })
+      const freshCreationBatch = isFreshCreationBatch
+        ? propsManager.runInPropertyCreationBatch(() => {
+            const components = payload.data.map((propData) =>
+              propsManager.createProperty(propData)
+            )
+            propsManager.addProperty(components)
+            return components
+          })
+        : undefined
+      const propComponents =
+        freshCreationBatch?.result ??
+        payload.data.map((propData) => {
+          let newProperty
+          if (replayMode !== null) {
+            newProperty = propsManager.getRestoreComponentById(
+              propData.id as string
+            )
+            if (newProperty) {
+              propsManager.addChangeForAddProperty(newProperty)
+            }
+          }
 
-      propsManager.addProperty(propComponents)
+          if (!newProperty) {
+            newProperty = propsManager.createProperty(propData)
+          }
+
+          return newProperty
+        })
+      if (!freshCreationBatch) {
+        propsManager.addProperty(propComponents)
+      }
       const applied = propComponents.some(
         (property, index) => property !== previousProperties[index]
       )
-      if (applied) {
-        acknowledgeTransactionReplayApplied()
+      try {
+        if (applied) {
+          acknowledgeTransactionReplayApplied()
+        }
+        propsManager.commitChanges(options)
+        freshCreationBatch?.complete()
+        return applied
+      } catch (error) {
+        freshCreationBatch?.rollback()
+        throw error
       }
-      propsManager.commitChanges(options)
-      return applied
     }
   )
 
