@@ -1,6 +1,7 @@
 import type { SharedPublication } from '@asyra/factory'
 import {
   CollaborationMessageTypes,
+  PUBLICATION_FRAME_INBOUND_WINDOW_BYTES,
   decodePublicationFramePublication,
   encodePublicationMessageFrames,
   inspectPublicationFrameHeader,
@@ -62,6 +63,11 @@ export interface DecodedPublicationWorkerResponse {
   readonly hasPendingPublication: boolean
 }
 
+export interface DecodedPublicationReleaseAcceptedWorkerResponse {
+  readonly type: 'decoded-publication-release-accepted'
+  readonly jobId: string
+}
+
 export interface PublicationCodecFailureWorkerResponse {
   readonly type: 'publication-codec-failure'
   readonly jobId: string
@@ -74,6 +80,7 @@ export type PublicationCodecWorkerResponse =
   | PublicationFrameConsumedWorkerResponse
   | PublicationFrameAcceptedWorkerResponse
   | DecodedPublicationWorkerResponse
+  | DecodedPublicationReleaseAcceptedWorkerResponse
   | PublicationCodecFailureWorkerResponse
 
 export type PublicationCodecWorkerPost = (
@@ -84,11 +91,27 @@ export type PublicationCodecWorkerPost = (
 interface InboundPublicationAssembly {
   readonly header: PublicationFrameHeader
   readonly frames: (ArrayBuffer | undefined)[]
+  readonly frameIds: string[]
+  readonly acceptedChunkIndexes: Set<number>
   receivedCount: number
+  acceptedByteLength: number
   decoded?: Omit<
     DecodedPublicationWorkerResponse,
     'hasPendingPublication' | 'jobId' | 'type'
   >
+}
+
+interface InboundFrameToAccept {
+  readonly request: DecodePublicationFrameWorkerRequest
+  readonly post: PublicationCodecWorkerPost
+  readonly header: PublicationFrameHeader
+  readonly assemblyKey: string
+}
+
+interface ActiveDecodedPublicationLease {
+  readonly assemblyKey: string
+  readonly acceptedByteLength: number
+  readonly frameIds: readonly string[]
 }
 
 const elapsed = (startedAt: number): number => performance.now() - startedAt
@@ -107,6 +130,14 @@ const inboundAssemblyKey = (header: PublicationFrameHeader): string =>
     header.publicationCount
   ])
 
+const inboundBurstKey = (header: PublicationFrameHeader): string =>
+  JSON.stringify([
+    header.messageType,
+    header.fromActorId ?? '',
+    header.requestId ?? '',
+    header.publicationCount
+  ])
+
 const isInboundPublicationFrame = (header: PublicationFrameHeader): boolean =>
   header.messageType === CollaborationMessageTypes.PUBLICATION ||
   header.messageType === CollaborationMessageTypes.PUBLICATIONS
@@ -121,6 +152,13 @@ export class PublicationCodecWorkerRuntime {
     InboundPublicationAssembly
   >()
   private readonly inboundAssemblyOrder: string[] = []
+  private readonly inboundFrameIds = new Set<string>()
+  private readonly inboundBurstNextPublicationIndex = new Map<string, number>()
+  private activeDecodedPublicationLease:
+    | ActiveDecodedPublicationLease
+    | undefined
+  private inboundReservedBytes = 0
+  private oversizedAssemblyKey: string | undefined
   private destroyed = false
 
   handle(
@@ -150,6 +188,11 @@ export class PublicationCodecWorkerRuntime {
     this.destroyed = true
     this.inboundAssemblies.clear()
     this.inboundAssemblyOrder.length = 0
+    this.inboundFrameIds.clear()
+    this.inboundBurstNextPublicationIndex.clear()
+    this.activeDecodedPublicationLease = undefined
+    this.inboundReservedBytes = 0
+    this.oversizedAssemblyKey = undefined
   }
 
   private encode(
@@ -184,7 +227,6 @@ export class PublicationCodecWorkerRuntime {
     request: DecodePublicationFrameWorkerRequest,
     post: PublicationCodecWorkerPost
   ): void {
-    const startedAt = performance.now()
     let header: PublicationFrameHeader | undefined
     try {
       header = inspectPublicationFrameHeader(request.frame)
@@ -193,75 +235,26 @@ export class PublicationCodecWorkerRuntime {
           '[collaboration] invalid inbound publication frame direction'
         )
       }
-      post({
-        type: 'publication-frame-consumed',
-        jobId: request.jobId,
-        header
-      })
-      const key = inboundAssemblyKey(header)
-      let assembly = this.inboundAssemblies.get(key)
-      if (!assembly) {
-        assembly = {
-          header,
-          frames: new Array<ArrayBuffer | undefined>(header.chunkCount),
-          receivedCount: 0
-        }
-        this.inboundAssemblies.set(key, assembly)
-        this.inboundAssemblyOrder.push(key)
-      } else if (
-        assembly.header.chunkCount !== header.chunkCount ||
-        assembly.header.messageType !== header.messageType ||
-        assembly.header.fromActorId !== header.fromActorId
-      ) {
-        throw new TypeError(
-          '[collaboration] inconsistent inbound publication frames'
-        )
-      }
-      if (assembly.frames[header.chunkIndex]) {
+      if (this.inboundFrameIds.has(header.frameId)) {
         throw new TypeError(
           '[collaboration] duplicate inbound publication frame'
         )
       }
-      assembly.frames[header.chunkIndex] = request.frame
-      assembly.receivedCount += 1
-      if (assembly.receivedCount < header.chunkCount) {
-        post({
-          type: 'publication-frame-accepted',
-          jobId: request.jobId,
-          header,
-          durationMs: elapsed(startedAt)
-        })
-        return
+      const assemblyKey = inboundAssemblyKey(header)
+      this.validateInboundFrameOrder(header, assemblyKey)
+      if (!this.canAcceptInboundFrame(header, assemblyKey)) {
+        throw new TypeError(
+          '[collaboration] inbound publication frame window exceeded'
+        )
       }
-      const frames = assembly.frames.filter((frame): frame is ArrayBuffer =>
-        isArrayBufferValue(frame)
-      )
-      const decoded = decodePublicationFramePublication(frames)
-      assembly.decoded = {
-        header: decoded.header,
-        publication: decoded.publication,
-        ...(decoded.header.fromActorId
-          ? { fromActorId: decoded.header.fromActorId }
-          : {}),
-        durationMs: elapsed(startedAt)
-      }
-      if (!this.releaseReadyPublication(request.jobId, post)) {
-        const { durationMs, ...pendingDecodedPublication } = assembly.decoded
-        assembly.decoded = pendingDecodedPublication
-        post({
-          type: 'publication-frame-accepted',
-          jobId: request.jobId,
-          header,
-          durationMs: durationMs ?? elapsed(startedAt)
-        })
-      }
+      this.inboundFrameIds.add(header.frameId)
+      this.acceptInboundFrame({
+        request,
+        post,
+        header,
+        assemblyKey
+      })
     } catch (error) {
-      if (header) {
-        const key = inboundAssemblyKey(header)
-        this.inboundAssemblies.delete(key)
-        const orderIndex = this.inboundAssemblyOrder.indexOf(key)
-        if (orderIndex >= 0) this.inboundAssemblyOrder.splice(orderIndex, 1)
-      }
       post({
         type: 'publication-codec-failure',
         jobId: request.jobId,
@@ -277,24 +270,193 @@ export class PublicationCodecWorkerRuntime {
     request: ReleaseDecodedPublicationWorkerRequest,
     post: PublicationCodecWorkerPost
   ): void {
-    if (this.releaseReadyPublication(request.jobId, post)) return
-    post({
-      type: 'publication-codec-failure',
-      jobId: request.jobId,
-      message: '[collaboration] no decoded publication is ready'
-    })
+    const activeLease = this.activeDecodedPublicationLease
+    if (!activeLease) {
+      post({
+        type: 'publication-codec-failure',
+        jobId: request.jobId,
+        message: '[collaboration] no decoded publication lease is active'
+      })
+      return
+    }
+    this.activeDecodedPublicationLease = undefined
+    this.inboundReservedBytes = Math.max(
+      0,
+      this.inboundReservedBytes - activeLease.acceptedByteLength
+    )
+    activeLease.frameIds.forEach((frameId) =>
+      this.inboundFrameIds.delete(frameId)
+    )
+    if (this.oversizedAssemblyKey === activeLease.assemblyKey) {
+      this.oversizedAssemblyKey = undefined
+    }
+    if (!this.releaseReadyPublication(request.jobId, post)) {
+      post({
+        type: 'decoded-publication-release-accepted',
+        jobId: request.jobId
+      })
+    }
+  }
+
+  private validateInboundFrameOrder(
+    header: PublicationFrameHeader,
+    assemblyKey: string
+  ): void {
+    const assembly = this.inboundAssemblies.get(assemblyKey)
+    if (assembly) {
+      if (header.chunkIndex !== assembly.receivedCount) {
+        throw new TypeError(
+          '[collaboration] out-of-order inbound publication chunk'
+        )
+      }
+      return
+    }
+    const burstKey = inboundBurstKey(header)
+    const nextPublicationIndex =
+      this.inboundBurstNextPublicationIndex.get(burstKey) ?? 0
+    if (
+      header.chunkIndex !== 0 ||
+      header.publicationIndex !== nextPublicationIndex
+    ) {
+      throw new TypeError(
+        '[collaboration] out-of-order inbound publication frame'
+      )
+    }
+  }
+
+  private canAcceptInboundFrame(
+    header: PublicationFrameHeader,
+    assemblyKey: string
+  ): boolean {
+    const nextReservedBytes = this.inboundReservedBytes + header.frameByteLength
+    if (nextReservedBytes <= PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) return true
+    if (this.oversizedAssemblyKey === assemblyKey) return true
+    if (this.oversizedAssemblyKey) return false
+    const assembly = this.inboundAssemblies.get(assemblyKey)
+    return (
+      (this.inboundReservedBytes === 0 &&
+        header.frameByteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) ||
+      Boolean(assembly && assembly.acceptedByteLength > 0)
+    )
+  }
+
+  private acceptInboundFrame(pending: InboundFrameToAccept): boolean {
+    const startedAt = performance.now()
+    const { request, post, header, assemblyKey } = pending
+    try {
+      let assembly = this.inboundAssemblies.get(assemblyKey)
+      if (!assembly) {
+        assembly = {
+          header,
+          frames: new Array<ArrayBuffer | undefined>(header.chunkCount),
+          frameIds: [],
+          acceptedChunkIndexes: new Set<number>(),
+          receivedCount: 0,
+          acceptedByteLength: 0
+        }
+        this.inboundAssemblies.set(assemblyKey, assembly)
+        this.inboundAssemblyOrder.push(assemblyKey)
+      } else if (
+        assembly.header.chunkCount !== header.chunkCount ||
+        assembly.header.messageType !== header.messageType ||
+        assembly.header.fromActorId !== header.fromActorId
+      ) {
+        throw new TypeError(
+          '[collaboration] inconsistent inbound publication frames'
+        )
+      }
+      if (assembly.acceptedChunkIndexes.has(header.chunkIndex)) {
+        throw new TypeError(
+          '[collaboration] duplicate inbound publication frame'
+        )
+      }
+      assembly.frames[header.chunkIndex] = request.frame
+      assembly.frameIds.push(header.frameId)
+      assembly.acceptedChunkIndexes.add(header.chunkIndex)
+      assembly.receivedCount += 1
+      assembly.acceptedByteLength += header.frameByteLength
+      this.inboundReservedBytes += header.frameByteLength
+      if (
+        this.inboundReservedBytes > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES &&
+        !this.oversizedAssemblyKey
+      ) {
+        this.oversizedAssemblyKey = assemblyKey
+      }
+      post({
+        type: 'publication-frame-consumed',
+        jobId: request.jobId,
+        header
+      })
+      if (assembly.receivedCount < header.chunkCount) {
+        post({
+          type: 'publication-frame-accepted',
+          jobId: request.jobId,
+          header,
+          durationMs: elapsed(startedAt)
+        })
+        return true
+      }
+      const frames = assembly.frames.filter((frame): frame is ArrayBuffer =>
+        isArrayBufferValue(frame)
+      )
+      const decoded = decodePublicationFramePublication(frames)
+      assembly.frames.fill(undefined)
+      assembly.decoded = {
+        header: decoded.header,
+        publication: decoded.publication,
+        ...(decoded.header.fromActorId
+          ? { fromActorId: decoded.header.fromActorId }
+          : {}),
+        durationMs: elapsed(startedAt)
+      }
+      const burstKey = inboundBurstKey(header)
+      const nextPublicationIndex = header.publicationIndex + 1
+      if (nextPublicationIndex < header.publicationCount) {
+        this.inboundBurstNextPublicationIndex.set(
+          burstKey,
+          nextPublicationIndex
+        )
+      } else {
+        this.inboundBurstNextPublicationIndex.delete(burstKey)
+      }
+      if (!this.releaseReadyPublication(request.jobId, post)) {
+        const { durationMs, ...pendingDecodedPublication } = assembly.decoded
+        assembly.decoded = pendingDecodedPublication
+        post({
+          type: 'publication-frame-accepted',
+          jobId: request.jobId,
+          header,
+          durationMs: durationMs ?? elapsed(startedAt)
+        })
+      }
+      return true
+    } catch (error) {
+      post({
+        type: 'publication-codec-failure',
+        jobId: request.jobId,
+        message: failureMessage(error),
+        publicationId: header.publicationId
+      })
+      return false
+    }
   }
 
   private releaseReadyPublication(
     jobId: string,
     post: PublicationCodecWorkerPost
   ): boolean {
+    if (this.activeDecodedPublicationLease) return false
     const key = this.inboundAssemblyOrder[0]
     if (!key) return false
     const assembly = this.inboundAssemblies.get(key)
     if (!assembly?.decoded) return false
     this.inboundAssemblyOrder.shift()
     this.inboundAssemblies.delete(key)
+    this.activeDecodedPublicationLease = {
+      assemblyKey: key,
+      acceptedByteLength: assembly.acceptedByteLength,
+      frameIds: assembly.frameIds
+    }
     const nextKey = this.inboundAssemblyOrder[0]
     const hasPendingPublication = nextKey
       ? this.inboundAssemblies.get(nextKey)?.decoded !== undefined

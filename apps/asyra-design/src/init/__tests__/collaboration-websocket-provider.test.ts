@@ -1,3 +1,4 @@
+import type { InboundPublicationLease } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
 import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,6 +41,7 @@ interface LoopbackServer {
 interface PublicationFixtureOptions {
   readonly channel?: string
   readonly eventName?: string
+  readonly origin?: SharedPublication['origin']
   readonly payload?: object
   readonly suffix?: string
   readonly transactionId?: number
@@ -48,6 +50,7 @@ interface PublicationFixtureOptions {
 const createPublication = ({
   channel = 'sceneTree',
   eventName = 'updateComputedData',
+  origin = 'action',
   payload = { value: 1 },
   suffix = 'a',
   transactionId = 1
@@ -70,7 +73,7 @@ const createPublication = ({
     artifactId,
     batchId,
     transactionId,
-    origin: 'action' as const,
+    origin,
     kind: 'forward' as const,
     channel,
     eventName,
@@ -83,7 +86,7 @@ const createPublication = ({
     publicationId: `publication-${suffix}`,
     artifactId,
     transactionId,
-    origin: 'action',
+    origin,
     deliveries: [delivery],
     batches: [
       {
@@ -91,7 +94,7 @@ const createPublication = ({
         sliceId,
         artifactId,
         transactionId,
-        origin: 'action',
+        origin,
         kind: 'forward',
         channel,
         sharedDelivery: 'immediate',
@@ -516,6 +519,29 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
     expect(provider.getStatus()).toBe('failed')
     await provider.destroy()
+  })
+
+  it('keeps decoded publication settlement ownership exclusive across subscription lifecycle', async () => {
+    const provider = createProvider('ws://127.0.0.1:1')
+    const firstSubscriber = vi.fn()
+    const secondSubscriber = vi.fn()
+    const unsubscribeFirst = provider.onInboundPublicationLease(firstSubscriber)
+
+    expect(() => provider.onInboundPublicationLease(secondSubscriber)).toThrow(
+      '[collaboration] inbound publication lease subscriber already exists'
+    )
+
+    unsubscribeFirst()
+    const unsubscribeSecond =
+      provider.onInboundPublicationLease(secondSubscriber)
+    unsubscribeSecond()
+    await provider.destroy()
+
+    expect(() => provider.onInboundPublicationLease(firstSubscriber)).toThrow(
+      expect.objectContaining({
+        code: 'disposed'
+      })
+    )
   })
 
   it('reports a hello send failure as transport failure instead of invalid identity', async () => {
@@ -1317,6 +1343,266 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
+  it('admits a bounded frame window while exposing one decoded lease until settlement', async () => {
+    const publications = Array.from({ length: 4 }, (_, index) =>
+      createPublication({
+        payload: {
+          id: `window-${index}`,
+          source: String(index).repeat(600 * 1024)
+        },
+        origin: index === 1 ? 'undo' : 'action',
+        suffix: `window-${index}`,
+        transactionId: index + 10
+      })
+    )
+    const inboundFrames = encodePublicationMessageFrames({
+      type: 'publications',
+      publications,
+      fromActorId: 'actor-b'
+    })
+    expect(inboundFrames).toHaveLength(publications.length)
+    const frameByteLengths = inboundFrames.map(
+      (frame) => inspectPublicationFrameHeader(frame).frameByteLength
+    )
+    expect(
+      frameByteLengths.slice(0, 3).reduce((sum, size) => sum + size, 0)
+    ).toBeLessThanOrEqual(2 * 1024 * 1024)
+    expect(
+      frameByteLengths.reduce((sum, size) => sum + size, 0)
+    ).toBeGreaterThan(2 * 1024 * 1024)
+    let sendInbound: (() => void) | undefined
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () =>
+          inboundFrames
+            .slice(0, 3)
+            .forEach((frame) => socket.send(new Uint8Array(frame)))
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+        if (consumedFrameIds.length === 3) {
+          const tailFrame = inboundFrames[3]
+          if (tailFrame) socket.send(new Uint8Array(tailFrame))
+        }
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const leases: InboundPublicationLease[] = []
+    const phaseSink = vi.fn()
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraBrowserDragPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraBrowserDragPhaseSink = phaseSink
+    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    await provider.connect()
+
+    try {
+      sendInbound?.()
+      await vi.waitFor(() => expect(consumedFrameIds).toHaveLength(3))
+      await vi.waitFor(() => expect(leases).toHaveLength(1))
+
+      expect(
+        consumedFrameIds
+          .map(
+            (frameId) =>
+              frameByteLengths[
+                inboundFrames.findIndex(
+                  (frame) =>
+                    inspectPublicationFrameHeader(frame).frameId === frameId
+                )
+              ] as number
+          )
+          .reduce((sum, size) => sum + size, 0)
+      ).toBeLessThanOrEqual(2 * 1024 * 1024)
+      expect(
+        codecWorkers[0]?.posted.filter(
+          ({ message }) => message.type === 'decode-publication-frame'
+        )
+      ).toHaveLength(3)
+      expect(leases[0]?.publication.publicationId).toBe(
+        publications[0]?.publicationId
+      )
+      expect(Object.isFrozen(leases[0]?.publication)).toBe(true)
+      expect(
+        Object.isFrozen(leases[0]?.publication.deliveries[0]?.payload)
+      ).toBe(true)
+
+      leases[0]?.settle({ outcome: 'success' })
+      leases[0]?.settle({
+        outcome: 'terminal-failure',
+        error: new Error('late settlement must be ignored')
+      })
+      await vi.waitFor(() => expect(consumedFrameIds).toHaveLength(4))
+      expect(
+        codecWorkers[0]?.posted.filter(
+          ({ message }) => message.type === 'decode-publication-frame'
+        )
+      ).toHaveLength(inboundFrames.length)
+      for (let index = 1; index < publications.length; index += 1) {
+        await vi.waitFor(() => expect(leases).toHaveLength(index + 1))
+        leases[index]?.settle({ outcome: 'success' })
+      }
+
+      expect(
+        leases.map(({ publication }) => publication.publicationId)
+      ).toEqual(publications.map(({ publicationId }) => publicationId))
+      expect(new Set(consumedFrameIds).size).toBe(inboundFrames.length)
+      expect(provider.getStatus()).toBe('connected')
+      expect(
+        phaseSink.mock.calls.some(
+          ([phaseName]) => phaseName === 'collaboration:inbound-provider-clone'
+        )
+      ).toBe(false)
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('tears down an active decoded lease on terminal settlement without releasing the next publication', async () => {
+    const secondPublication = createPublication({
+      suffix: 'terminal-b',
+      transactionId: 20
+    })
+    let sendInbound: (() => void) | undefined
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type !== 'hello') return
+      socket.send(JSON.stringify({ type: 'ready' }))
+      sendInbound = () =>
+        sendPublicationFrames(socket, {
+          type: 'publications',
+          publications: [publication, secondPublication],
+          fromActorId: 'actor-b'
+        })
+    })
+    const provider = createProvider(server.endpoint)
+    const leases: InboundPublicationLease[] = []
+    const failures = vi.fn()
+    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    provider.onFailure(failures)
+    await provider.connect()
+
+    try {
+      sendInbound?.()
+      await vi.waitFor(() => expect(leases).toHaveLength(1))
+      leases[0]?.settle({
+        outcome: 'terminal-failure',
+        error: new Error('remote apply failed')
+      })
+      await vi.waitFor(() => expect(provider.getStatus()).toBe('failed'))
+
+      expect(leases).toHaveLength(1)
+      expect(failures).toHaveBeenCalledOnce()
+      expect(codecWorkers[0]?.terminateCount).toBe(1)
+      expect(
+        codecWorkers[0]?.posted.some(
+          ({ message }) => message.type === 'release-decoded-publication'
+        )
+      ).toBe(false)
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('accepts one oversized indivisible inbound frame through an empty window', async () => {
+    const oversizedPublication = createPublication({
+      payload: {
+        id: 'oversized-record',
+        source: 'o'.repeat(2 * 1024 * 1024)
+      },
+      suffix: 'oversized',
+      transactionId: 21
+    })
+    const frames = encodePublicationMessageFrames({
+      type: 'publication',
+      publication: oversizedPublication,
+      fromActorId: 'actor-b'
+    })
+    expect(frames).toHaveLength(1)
+    expect(frames[0]?.byteLength).toBeGreaterThan(2 * 1024 * 1024)
+    let sendInbound: (() => void) | undefined
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () => {
+          const frame = frames[0]
+          if (frame) socket.send(new Uint8Array(frame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const leases: InboundPublicationLease[] = []
+    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    await provider.connect()
+
+    try {
+      sendInbound?.()
+      await vi.waitFor(() => expect(leases).toHaveLength(1))
+
+      expect(consumedFrameIds).toHaveLength(1)
+      expect(leases[0]?.publication).toEqual(oversizedPublication)
+      leases[0]?.settle({ outcome: 'success' })
+      await vi.waitFor(() =>
+        expect(
+          codecWorkers[0]?.posted.filter(
+            ({ message }) => message.type === 'release-decoded-publication'
+          )
+        ).toHaveLength(1)
+      )
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('ignores late settlement after active decoded lease teardown', async () => {
+    const secondPublication = createPublication({
+      suffix: 'teardown-b',
+      transactionId: 22
+    })
+    let sendInbound: (() => void) | undefined
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type !== 'hello') return
+      socket.send(JSON.stringify({ type: 'ready' }))
+      sendInbound = () =>
+        sendPublicationFrames(socket, {
+          type: 'publications',
+          publications: [publication, secondPublication],
+          fromActorId: 'actor-b'
+        })
+    })
+    const provider = createProvider(server.endpoint)
+    const leases: InboundPublicationLease[] = []
+    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    await provider.connect()
+
+    sendInbound?.()
+    await vi.waitFor(() => expect(leases).toHaveLength(1))
+    await provider.destroy()
+    leases[0]?.settle({ outcome: 'success' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(leases).toHaveLength(1)
+    expect(codecWorkers[0]?.terminateCount).toBe(1)
+    expect(
+      codecWorkers[0]?.posted.some(
+        ({ message }) => message.type === 'release-decoded-publication'
+      )
+    ).toBe(false)
+    expect(provider.getStatus()).toBe('disposed')
+  })
+
   it('releases ordered inbound publications one at a time while preserving subscribers', async () => {
     const secondPublication = createPublication({
       suffix: 'b',
@@ -1377,8 +1663,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     ])
     expect(timeline).toEqual([
       'worker:0',
-      'batch:publication-a',
       'worker:1',
+      'batch:publication-a',
       'batch:publication-b'
     ])
     await provider.destroy()
@@ -1467,6 +1753,194 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
           ([phaseName]) => phaseName === 'collaboration:codec-worker-decode'
         )
       ).toHaveLength(firstFrames.length + secondFrames.length)
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('rejects a duplicate inbound chunk without issuing duplicate frame credit', async () => {
+    const inboundPublication = createTwoRecordPublication()
+    const frames = encodePublicationMessageFrames(
+      {
+        type: 'publication',
+        publication: inboundPublication,
+        fromActorId: 'actor-b'
+      },
+      { softTargetBytes: 256 }
+    )
+    const duplicateFrame = frames[0]
+    if (!duplicateFrame) throw new Error('Expected a publication frame')
+    const duplicateFrameId =
+      inspectPublicationFrameHeader(duplicateFrame).frameId
+    let sendDuplicate: (() => void) | undefined
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendDuplicate = () => {
+          socket.send(new Uint8Array(duplicateFrame))
+          socket.send(new Uint8Array(duplicateFrame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const inbound = vi.fn()
+    const failures = vi.fn()
+    provider.onPublication(inbound)
+    provider.onFailure(failures)
+    await provider.connect()
+
+    try {
+      sendDuplicate?.()
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+
+      expect(
+        consumedFrameIds.filter((frameId) => frameId === duplicateFrameId)
+      ).toHaveLength(1)
+      expect(inbound).not.toHaveBeenCalled()
+      expect(provider.getStatus()).toBe('failed')
+      expect(codecWorkers[0]?.terminateCount).toBe(1)
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('rejects an out-of-order publication before credit or delivery', async () => {
+    const secondPublication = createPublication({
+      suffix: 'ordered-b',
+      transactionId: 23
+    })
+    const frames = encodePublicationMessageFrames({
+      type: 'publications',
+      publications: [publication, secondPublication],
+      fromActorId: 'actor-b'
+    })
+    expect(frames).toHaveLength(2)
+    const firstFrame = frames.find(
+      (frame) => inspectPublicationFrameHeader(frame).publicationIndex === 0
+    )
+    const secondFrame = frames.find(
+      (frame) => inspectPublicationFrameHeader(frame).publicationIndex === 1
+    )
+    if (!firstFrame || !secondFrame) {
+      throw new Error('Expected ordered publication frames')
+    }
+    let sendOutOfOrder: (() => void) | undefined
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendOutOfOrder = () => {
+          socket.send(new Uint8Array(secondFrame))
+          socket.send(new Uint8Array(firstFrame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const leases: InboundPublicationLease[] = []
+    const failures = vi.fn()
+    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    provider.onFailure(failures)
+    await provider.connect()
+
+    try {
+      sendOutOfOrder?.()
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+
+      expect(consumedFrameIds).toEqual([])
+      expect(leases).toEqual([])
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'transport-failed',
+          message: expect.stringContaining(
+            'out-of-order inbound publication frame'
+          )
+        })
+      )
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('rejects a later publication before the prior publication finishes within one burst', async () => {
+    const firstPublication = createTwoRecordPublication()
+    const secondPublication = createPublication({
+      suffix: 'same-burst-b',
+      transactionId: 24
+    })
+    const frames = encodePublicationMessageFrames(
+      {
+        type: 'publications',
+        publications: [firstPublication, secondPublication],
+        fromActorId: 'actor-b'
+      },
+      { softTargetBytes: 256 }
+    )
+    const firstOpeningFrame = frames.find((frame) => {
+      const header = inspectPublicationFrameHeader(frame)
+      return header.publicationIndex === 0 && header.chunkIndex === 0
+    })
+    const secondOpeningFrame = frames.find((frame) => {
+      const header = inspectPublicationFrameHeader(frame)
+      return header.publicationIndex === 1 && header.chunkIndex === 0
+    })
+    if (!firstOpeningFrame || !secondOpeningFrame) {
+      throw new Error('Expected two ordered publication openings')
+    }
+    expect(
+      inspectPublicationFrameHeader(firstOpeningFrame).chunkCount
+    ).toBeGreaterThan(1)
+    const firstFrameId =
+      inspectPublicationFrameHeader(firstOpeningFrame).frameId
+    const secondFrameId =
+      inspectPublicationFrameHeader(secondOpeningFrame).frameId
+    let sendInterleavedBurst: (() => void) | undefined
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInterleavedBurst = () => {
+          socket.send(new Uint8Array(firstOpeningFrame))
+          socket.send(new Uint8Array(secondOpeningFrame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const inbound = vi.fn()
+    const failures = vi.fn()
+    provider.onPublication(inbound)
+    provider.onFailure(failures)
+    await provider.connect()
+
+    try {
+      sendInterleavedBurst?.()
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+
+      expect(consumedFrameIds).toContain(firstFrameId)
+      expect(consumedFrameIds).not.toContain(secondFrameId)
+      expect(inbound).not.toHaveBeenCalled()
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'transport-failed',
+          message: expect.stringContaining(
+            'out-of-order inbound publication frame'
+          )
+        })
+      )
+      expect(provider.getStatus()).toBe('failed')
     } finally {
       await provider.destroy()
     }
@@ -1654,7 +2128,12 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
   it('maps an unsupported binary publication frame to ProviderFailure without delivery', async () => {
     let sendInvalidFrame: (() => void) | undefined
+    const consumed = vi.fn()
     const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'frame-consumed') {
+        consumed()
+        return
+      }
       if (message.type !== 'hello') return
       socket.send(JSON.stringify({ type: 'ready' }))
       const frame = encodePublicationMessageFrames({
@@ -1688,13 +2167,20 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     expect(failures).toHaveBeenCalledOnce()
     expect(inbound).not.toHaveBeenCalled()
+    expect(consumed).not.toHaveBeenCalled()
     expect(provider.getStatus()).toBe('failed')
+    expect(codecWorkers[0]?.terminateCount).toBe(1)
     await provider.destroy()
   })
 
   it('maps a truncated binary publication frame to one ProviderFailure without delivery', async () => {
     let sendTruncatedFrame: (() => void) | undefined
+    const consumed = vi.fn()
     const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'frame-consumed') {
+        consumed()
+        return
+      }
       if (message.type !== 'hello') return
       socket.send(JSON.stringify({ type: 'ready' }))
       const frame = encodePublicationMessageFrames({
@@ -1723,7 +2209,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       })
     )
     expect(inbound).not.toHaveBeenCalled()
+    expect(consumed).not.toHaveBeenCalled()
     expect(provider.getStatus()).toBe('failed')
+    expect(codecWorkers[0]?.terminateCount).toBe(1)
     await provider.destroy()
   })
 

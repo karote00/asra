@@ -9,8 +9,10 @@ import {
   createCollaboration,
   type CreateCollaborationInput,
   type InboundPublication,
+  type InboundPublicationLease,
   type Provider
 } from '..'
+import { deepFreeze } from '../deep-freeze'
 import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const publication: SharedPublication = createSharedPublicationFixture({
@@ -450,6 +452,110 @@ describe('Collaboration ownership, processing, and disposal', () => {
     const received = processRemotePublication.mock.calls[0]?.[0]
     expect(received).not.toBe(publication)
     expect(received.deliveries).not.toBe(publication.deliveries)
+  })
+
+  it('reuses one immutable inbound lease and settles only after async app success', async () => {
+    let leaseSubscriber: ((lease: InboundPublicationLease) => void) | undefined
+    let releaseApply: (() => void) | undefined
+    const applySettled = new Promise<void>((resolve) => {
+      releaseApply = resolve
+    })
+    const settle = vi.fn()
+    const immutablePublication = deepFreeze(structuredClone(publication))
+    const provider = createProvider({
+      onInboundPublicationLease: vi.fn((next) => {
+        leaseSubscriber = next
+        return () => undefined
+      })
+    })
+    const processRemotePublication = vi.fn(async () => {
+      await applySettled
+    })
+    const instance = createCollaboration(
+      input({ provider, processRemotePublication })
+    )
+    const clonePhases: string[] = []
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraBrowserDragPhaseSink?: (phaseName: string) => void
+      }
+    ).__asyraBrowserDragPhaseSink = (phaseName) => clonePhases.push(phaseName)
+    await instance.start()
+
+    leaseSubscriber?.({
+      publication: immutablePublication,
+      fromActorId: 'actor-b',
+      settle
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(processRemotePublication).toHaveBeenCalledOnce()
+    expect(processRemotePublication).toHaveBeenCalledWith(
+      immutablePublication,
+      { fromActorId: 'actor-b' }
+    )
+    expect(settle).not.toHaveBeenCalled()
+    expect(clonePhases).not.toContain(
+      'collaboration:clone-inbound-publications'
+    )
+    expect(provider.onPublication).not.toHaveBeenCalled()
+
+    releaseApply?.()
+    await instance.whenIdle()
+
+    expect(settle).toHaveBeenCalledOnce()
+    expect(settle).toHaveBeenCalledWith({ outcome: 'success' })
+    delete (
+      globalThis as typeof globalThis & {
+        __asyraBrowserDragPhaseSink?: unknown
+      }
+    ).__asyraBrowserDragPhaseSink
+  })
+
+  it('settles one failed inbound lease terminally without retrying it', async () => {
+    let leaseSubscriber: ((lease: InboundPublicationLease) => void) | undefined
+    const failure = new Error('leased app rejection')
+    const settle = vi.fn()
+    const immutablePublication = deepFreeze(structuredClone(publication))
+    const provider = createProvider({
+      onInboundPublicationLease: vi.fn((next) => {
+        leaseSubscriber = next
+        return () => undefined
+      })
+    })
+    const processRemotePublication = vi.fn(async () => {
+      throw failure
+    })
+    const instance = createCollaboration(
+      input({ provider, processRemotePublication })
+    )
+    const outcomes: unknown[] = []
+    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
+    await instance.start()
+
+    leaseSubscriber?.({
+      publication: immutablePublication,
+      fromActorId: 'actor-b',
+      settle
+    })
+    await instance.whenIdle()
+
+    expect(processRemotePublication).toHaveBeenCalledOnce()
+    expect(settle).toHaveBeenCalledOnce()
+    expect(settle).toHaveBeenCalledWith({
+      outcome: 'terminal-failure',
+      error: failure
+    })
+    expect(outcomes).toEqual([
+      {
+        direction: 'remote',
+        status: 'process-failed',
+        publicationId: 'publication-a',
+        fromActorId: 'actor-b',
+        error: failure
+      }
+    ])
   })
 
   it('awaits an async app callback before reporting success or advancing FIFO', async () => {

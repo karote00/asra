@@ -6,8 +6,11 @@ import {
 } from '@asyra/utils'
 import {
   ProviderFailure,
+  createInboundPublicationLease,
   createProviderIdentitySnapshot,
   isProviderFailureCode,
+  type InboundPublicationLease,
+  type InboundPublicationLeaseSettlement,
   type Provider,
   type ProviderIdentity,
   type ProviderStatus,
@@ -17,6 +20,7 @@ import {
 } from '@asyra/collaboration'
 import {
   CollaborationMessageTypes,
+  PUBLICATION_FRAME_INBOUND_WINDOW_BYTES,
   decodeCollaborationControlMessage,
   encodeCollaborationControlMessage,
   inspectPublicationFrameHeader,
@@ -142,6 +146,23 @@ interface PendingCodecEncode {
   reject(error: ProviderFailure): void
 }
 
+interface PendingInboundCodecJob {
+  readonly frameByteLength: number
+  readonly assemblyKey?: string
+  consumed: boolean
+}
+
+interface ActiveInboundPublicationLease {
+  readonly token: object
+  readonly publicationId: string
+  readonly assemblyKey: string
+}
+
+interface QueuedInboundFrame {
+  readonly frame: ArrayBuffer
+  readonly assemblyKey?: string
+}
+
 type PublicationCodecWorkerEventName = 'error' | 'message' | 'messageerror'
 
 interface PublicationCodecWorkerEvent {
@@ -189,6 +210,17 @@ const toFailure = (
     publicationId
   )
 
+const inboundPublicationAssemblyKey = (
+  header: PublicationFrameHeader
+): string =>
+  JSON.stringify([
+    header.messageType,
+    header.fromActorId ?? '',
+    header.publicationId,
+    header.publicationIndex,
+    header.publicationCount
+  ])
+
 export class CollaborationWebSocketProvider implements Provider {
   readonly identity: ProviderIdentity
   readonly maxConcurrentPublicationSends = 1
@@ -207,8 +239,20 @@ export class CollaborationWebSocketProvider implements Provider {
   private codecWorker: PublicationCodecWorkerLike | null = null
   private codecWorkerGeneration = 0
   private readonly pendingCodecEncodes = new Map<string, PendingCodecEncode>()
-  private readonly inboundFrames: ArrayBuffer[] = []
-  private activeInboundCodecJobId: string | null = null
+  private readonly inboundFrames: QueuedInboundFrame[] = []
+  private readonly pendingInboundCodecJobs = new Map<
+    string,
+    PendingInboundCodecJob
+  >()
+  private inboundFrameIngressBytes = 0
+  private workerInboundReservedBytes = 0
+  private readonly workerInboundAssemblyBytes = new Map<string, number>()
+  private workerInboundOversizedAssemblyKey: string | null = null
+  private pendingInboundReleaseJobId: string | null = null
+  private inboundLeaseSubscriber: Subscriber<InboundPublicationLease> | null =
+    null
+  private activeInboundPublicationLease: ActiveInboundPublicationLease | null =
+    null
   private readonly pendingRequests = new Map<string, PendingRequest>()
   private readonly outboundPublicationRequests = new Map<
     string,
@@ -514,6 +558,7 @@ export class CollaborationWebSocketProvider implements Provider {
     this.statusSubscribers.clear()
     this.publicationSubscribers.clear()
     this.publicationBatchSubscribers.clear()
+    this.inboundLeaseSubscriber = null
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -565,6 +610,23 @@ export class CollaborationWebSocketProvider implements Provider {
     subscriber: Subscriber<readonly InboundPublication[]>
   ): () => void {
     return this.subscribe(this.publicationBatchSubscribers, subscriber)
+  }
+
+  onInboundPublicationLease(
+    subscriber: Subscriber<InboundPublicationLease>
+  ): () => void {
+    this.requireUsable()
+    if (this.inboundLeaseSubscriber) {
+      throw new Error(
+        '[collaboration] inbound publication lease subscriber already exists'
+      )
+    }
+    this.inboundLeaseSubscriber = subscriber
+    return () => {
+      if (this.inboundLeaseSubscriber === subscriber) {
+        this.inboundLeaseSubscriber = null
+      }
+    }
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -920,7 +982,13 @@ export class CollaborationWebSocketProvider implements Provider {
     const worker = this.codecWorker
     this.codecWorker = null
     this.codecWorkerGeneration = 0
-    this.activeInboundCodecJobId = null
+    this.pendingInboundCodecJobs.clear()
+    this.inboundFrameIngressBytes = 0
+    this.workerInboundReservedBytes = 0
+    this.workerInboundAssemblyBytes.clear()
+    this.workerInboundOversizedAssemblyKey = null
+    this.pendingInboundReleaseJobId = null
+    this.activeInboundPublicationLease = null
     this.inboundFrames.length = 0
     this.pendingCodecEncodes.forEach(({ reject }) => reject(failure))
     this.pendingCodecEncodes.clear()
@@ -973,15 +1041,42 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   private enqueueInboundFrame(value: ArrayBuffer | ArrayBufferView): void {
-    this.inboundFrames.push(toTransferableArrayBuffer(value))
-    this.pumpInboundFrame()
+    const frame = toTransferableArrayBuffer(value)
+    let assemblyKey: string | undefined
+    try {
+      assemblyKey = inboundPublicationAssemblyKey(
+        inspectPublicationFrameHeader(frame)
+      )
+    } catch {
+      // The worker remains the frame-validation owner.
+    }
+    const nextIngressBytes = this.inboundFrameIngressBytes + frame.byteLength
+    const isOnlyOversizedFrame =
+      this.inboundFrameIngressBytes === 0 &&
+      frame.byteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES
+    if (
+      nextIngressBytes > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES &&
+      !isOnlyOversizedFrame
+    ) {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] inbound publication frame window exceeded'
+        )
+      )
+      return
+    }
+    this.inboundFrameIngressBytes = nextIngressBytes
+    this.inboundFrames.push({
+      frame,
+      ...(assemblyKey ? { assemblyKey } : {})
+    })
+    this.pumpInboundFrames()
   }
 
-  private pumpInboundFrame(): void {
-    if (this.activeInboundCodecJobId || this.inboundFrames.length === 0) return
+  private pumpInboundFrames(): void {
     const worker = this.codecWorker
-    const frame = this.inboundFrames.shift()
-    if (!worker || !frame) {
+    if (!worker) {
       this.failCodecWorker(
         new ProviderFailure(
           'transport-failed',
@@ -990,31 +1085,99 @@ export class CollaborationWebSocketProvider implements Provider {
       )
       return
     }
-    const jobId = `${this.identity.actorId}:decode:${++this.codecSequence}`
-    this.activeInboundCodecJobId = jobId
-    try {
-      worker.postMessage(
-        {
-          type: 'decode-publication-frame',
-          jobId,
-          frame
-        },
-        [frame]
-      )
-    } catch (error) {
-      this.activeInboundCodecJobId = null
-      this.failCodecWorker(
-        new ProviderFailure(
-          'transport-failed',
-          '[collaboration] publication frame transfer failed',
-          error
+    while (this.inboundFrames.length > 0) {
+      const queued = this.inboundFrames[0]
+      if (!queued || !this.canReserveWorkerInboundFrame(queued)) return
+      this.inboundFrames.shift()
+      const { frame, assemblyKey } = queued
+      const jobId = `${this.identity.actorId}:decode:${++this.codecSequence}`
+      this.reserveWorkerInboundFrame(queued)
+      this.pendingInboundCodecJobs.set(jobId, {
+        frameByteLength: frame.byteLength,
+        ...(assemblyKey ? { assemblyKey } : {}),
+        consumed: false
+      })
+      try {
+        worker.postMessage(
+          {
+            type: 'decode-publication-frame',
+            jobId,
+            frame
+          },
+          [frame]
         )
+      } catch (error) {
+        this.pendingInboundCodecJobs.delete(jobId)
+        this.failCodecWorker(
+          new ProviderFailure(
+            'transport-failed',
+            '[collaboration] publication frame transfer failed',
+            error
+          )
+        )
+        return
+      }
+    }
+  }
+
+  private canReserveWorkerInboundFrame(queued: QueuedInboundFrame): boolean {
+    const nextReservedBytes =
+      this.workerInboundReservedBytes + queued.frame.byteLength
+    if (nextReservedBytes <= PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) {
+      return true
+    }
+    if (
+      queued.assemblyKey &&
+      this.workerInboundOversizedAssemblyKey === queued.assemblyKey
+    ) {
+      return true
+    }
+    if (this.workerInboundOversizedAssemblyKey) return false
+    if (
+      this.workerInboundReservedBytes === 0 &&
+      queued.frame.byteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES
+    ) {
+      return true
+    }
+    return Boolean(
+      queued.assemblyKey &&
+        (this.workerInboundAssemblyBytes.get(queued.assemblyKey) ?? 0) > 0
+    )
+  }
+
+  private reserveWorkerInboundFrame(queued: QueuedInboundFrame): void {
+    this.workerInboundReservedBytes += queued.frame.byteLength
+    if (queued.assemblyKey) {
+      this.workerInboundAssemblyBytes.set(
+        queued.assemblyKey,
+        (this.workerInboundAssemblyBytes.get(queued.assemblyKey) ?? 0) +
+          queued.frame.byteLength
       )
+    }
+    if (
+      this.workerInboundReservedBytes >
+        PUBLICATION_FRAME_INBOUND_WINDOW_BYTES &&
+      !this.workerInboundOversizedAssemblyKey
+    ) {
+      this.workerInboundOversizedAssemblyKey =
+        queued.assemblyKey ?? 'unidentified-oversized-frame'
+    }
+  }
+
+  private releaseWorkerInboundAssembly(assemblyKey: string): void {
+    const byteLength = this.workerInboundAssemblyBytes.get(assemblyKey) ?? 0
+    this.workerInboundAssemblyBytes.delete(assemblyKey)
+    this.workerInboundReservedBytes = Math.max(
+      0,
+      this.workerInboundReservedBytes - byteLength
+    )
+    if (this.workerInboundOversizedAssemblyKey === assemblyKey) {
+      this.workerInboundOversizedAssemblyKey = null
     }
   }
 
   private releaseNextDecodedPublication(): void {
-    if (this.activeInboundCodecJobId) return
+    if (this.pendingInboundReleaseJobId) return
     const worker = this.codecWorker
     if (!worker) {
       this.failCodecWorker(
@@ -1026,14 +1189,14 @@ export class CollaborationWebSocketProvider implements Provider {
       return
     }
     const jobId = `${this.identity.actorId}:decode:${++this.codecSequence}`
-    this.activeInboundCodecJobId = jobId
+    this.pendingInboundReleaseJobId = jobId
     try {
       worker.postMessage({
         type: 'release-decoded-publication',
         jobId
       })
     } catch (error) {
-      this.activeInboundCodecJobId = null
+      this.pendingInboundReleaseJobId = null
       this.failCodecWorker(
         new ProviderFailure(
           'transport-failed',
@@ -1082,17 +1245,41 @@ export class CollaborationWebSocketProvider implements Provider {
         pending.reject(failure)
         return
       }
-      if (response.jobId !== this.activeInboundCodecJobId) return
-      this.activeInboundCodecJobId = null
+      if (
+        !this.pendingInboundCodecJobs.has(response.jobId) &&
+        response.jobId !== this.pendingInboundReleaseJobId
+      ) {
+        return
+      }
+      this.pendingInboundCodecJobs.delete(response.jobId)
+      if (response.jobId === this.pendingInboundReleaseJobId) {
+        this.pendingInboundReleaseJobId = null
+      }
       this.failCodecWorker(failure)
       return
     }
-    if (response.jobId !== this.activeInboundCodecJobId) return
     if (response.type === 'publication-frame-consumed') {
+      const pending = this.pendingInboundCodecJobs.get(response.jobId)
+      if (!pending || pending.consumed) return
+      if (pending.frameByteLength !== response.header.frameByteLength) {
+        this.failCodecWorker(
+          new ProviderFailure(
+            'transport-failed',
+            '[collaboration] inbound publication frame credit mismatch',
+            undefined,
+            response.header.publicationId
+          )
+        )
+        return
+      }
       try {
         this.sendFrameConsumedCredit(response.header)
+        pending.consumed = true
+        this.inboundFrameIngressBytes = Math.max(
+          0,
+          this.inboundFrameIngressBytes - pending.frameByteLength
+        )
       } catch (error) {
-        this.activeInboundCodecJobId = null
         this.failCodecWorker(
           error instanceof ProviderFailure
             ? error
@@ -1105,21 +1292,109 @@ export class CollaborationWebSocketProvider implements Provider {
       }
       return
     }
+    if (response.type === 'decoded-publication-release-accepted') {
+      if (response.jobId !== this.pendingInboundReleaseJobId) return
+      this.pendingInboundReleaseJobId = null
+      return
+    }
+    const pendingFrame = this.pendingInboundCodecJobs.get(response.jobId)
+    const isReleaseResponse = response.jobId === this.pendingInboundReleaseJobId
+    if (!pendingFrame && !isReleaseResponse) return
+    if (pendingFrame && !pendingFrame.consumed) {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] codec completed a frame before consumption credit'
+        )
+      )
+      return
+    }
+    this.pendingInboundCodecJobs.delete(response.jobId)
+    if (isReleaseResponse) this.pendingInboundReleaseJobId = null
     if (response.durationMs !== undefined) {
       recordCodecWorkerTiming('decode', response.durationMs)
     }
     if (response.type === 'decoded-publication') {
-      this.emitInboundPublications([response.publication], response.fromActorId)
+      this.handleDecodedPublication(response)
     }
-    this.activeInboundCodecJobId = null
-    if (
-      response.type === 'decoded-publication' &&
-      response.hasPendingPublication
-    ) {
-      this.releaseNextDecodedPublication()
+  }
+
+  private handleDecodedPublication(
+    response: Extract<
+      PublicationCodecWorkerResponse,
+      { type: 'decoded-publication' }
+    >
+  ): void {
+    if (this.activeInboundPublicationLease) {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] codec released overlapping publication leases',
+          undefined,
+          response.publication.publicationId
+        )
+      )
       return
     }
-    this.pumpInboundFrame()
+    const assemblyKey = inboundPublicationAssemblyKey(response.header)
+    const leaseSubscriber = this.inboundLeaseSubscriber
+    if (!leaseSubscriber) {
+      this.emitInboundPublications([response.publication], response.fromActorId)
+      this.releaseWorkerInboundAssembly(assemblyKey)
+      this.releaseNextDecodedPublication()
+      this.pumpInboundFrames()
+      return
+    }
+    const token = {}
+    const publicationId = response.publication.publicationId
+    const lease = createInboundPublicationLease(
+      {
+        publication: response.publication,
+        ...(response.fromActorId ? { fromActorId: response.fromActorId } : {})
+      },
+      (settlement) =>
+        this.settleInboundPublicationLease(
+          token,
+          publicationId,
+          assemblyKey,
+          settlement
+        )
+    )
+    this.activeInboundPublicationLease = {
+      token,
+      publicationId,
+      assemblyKey
+    }
+    try {
+      leaseSubscriber(lease)
+      this.emitImmutableInboundPublication(lease)
+    } catch (error) {
+      lease.settle({ outcome: 'terminal-failure', error })
+    }
+  }
+
+  private settleInboundPublicationLease(
+    token: object,
+    publicationId: string,
+    assemblyKey: string,
+    settlement: InboundPublicationLeaseSettlement
+  ): void {
+    if (this.activeInboundPublicationLease?.token !== token) return
+    this.activeInboundPublicationLease = null
+    if (settlement.outcome === 'terminal-failure') {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] remote publication apply failed',
+          settlement.error,
+          publicationId
+        )
+      )
+      return
+    }
+    this.releaseWorkerInboundAssembly(assemblyKey)
+    this.releaseNextDecodedPublication()
+    this.pumpInboundFrames()
   }
 
   private sendFrameConsumedCredit(
@@ -1268,6 +1543,30 @@ export class CollaborationWebSocketProvider implements Provider {
         } catch {
           // Transport observers cannot alter provider settlement.
         }
+      }
+    })
+  }
+
+  private emitImmutableInboundPublication(
+    lease: InboundPublicationLease
+  ): void {
+    const inbound = Object.freeze({
+      publication: lease.publication,
+      ...(lease.fromActorId ? { fromActorId: lease.fromActorId } : {})
+    })
+    const batch = Object.freeze([inbound])
+    ;[...this.publicationBatchSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(batch)
+      } catch {
+        // Read-only transport observers cannot alter lease settlement.
+      }
+    })
+    ;[...this.publicationSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(inbound)
+      } catch {
+        // Read-only transport observers cannot alter lease settlement.
       }
     })
   }

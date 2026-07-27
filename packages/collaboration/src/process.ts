@@ -15,6 +15,7 @@ import type {
 } from './composition'
 import type {
   InboundPublication,
+  InboundPublicationLease,
   Provider,
   ProviderAwarenessMessage
 } from './provider'
@@ -302,7 +303,13 @@ export class Collaboration {
       })
     )
     if (!this.provider) return
-    if (this.provider.onPublications) {
+    if (this.provider.onInboundPublicationLease) {
+      this.addDisposer(
+        this.provider.onInboundPublicationLease((lease) => {
+          this.scheduleInboundLease(lease)
+        })
+      )
+    } else if (this.provider.onPublications) {
       this.addDisposer(
         this.provider.onPublications((publications) => {
           this.scheduleInboundBatch(publications)
@@ -520,28 +527,57 @@ export class Collaboration {
     this.inboundQueue = this.inboundQueue.then(async () => {
       if (this.disposed) return
       for (const inbound of detached) {
-        const context = Object.freeze({
-          ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
-        })
-        try {
-          await this.processRemotePublication(inbound.publication, context)
-          this.emitOutcome({
-            direction: 'remote',
-            status: 'processed',
-            publicationId: inbound.publication.publicationId,
-            ...context
-          })
-        } catch (error) {
-          this.emitOutcome({
-            direction: 'remote',
-            status: 'process-failed',
-            publicationId: inbound.publication.publicationId,
-            ...context,
-            error
-          })
-        }
+        await this.processInboundPublication(inbound)
       }
     })
+  }
+
+  private scheduleInboundLease(lease: InboundPublicationLease): void {
+    if (this.disposed) {
+      lease.settle({
+        outcome: 'terminal-failure',
+        error: new Error('[collaboration] collaboration is disposed')
+      })
+      return
+    }
+    this.inboundQueue = this.inboundQueue.then(async () => {
+      if (this.disposed) {
+        lease.settle({
+          outcome: 'terminal-failure',
+          error: new Error('[collaboration] collaboration is disposed')
+        })
+        return
+      }
+      await this.processInboundPublication(lease, lease)
+    })
+  }
+
+  private async processInboundPublication(
+    inbound: InboundPublication,
+    lease?: InboundPublicationLease
+  ): Promise<void> {
+    const context = Object.freeze({
+      ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+    })
+    try {
+      await this.processRemotePublication(inbound.publication, context)
+      this.emitOutcome({
+        direction: 'remote',
+        status: 'processed',
+        publicationId: inbound.publication.publicationId,
+        ...context
+      })
+      lease?.settle({ outcome: 'success' })
+    } catch (error) {
+      this.emitOutcome({
+        direction: 'remote',
+        status: 'process-failed',
+        publicationId: inbound.publication.publicationId,
+        ...context,
+        error
+      })
+      lease?.settle({ outcome: 'terminal-failure', error })
+    }
   }
 
   private emitOutcome(outcome: CollaborationPublicationOutcome): void {

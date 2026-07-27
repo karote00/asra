@@ -1,5 +1,7 @@
 import type { SharedPublication } from '@asyra/factory'
 
+import { deepFreeze } from './deep-freeze'
+
 export type ProviderStatus =
   | 'offline'
   | 'idle'
@@ -33,6 +35,35 @@ export const createProviderIdentitySnapshot = (
 export interface InboundPublication {
   readonly publication: SharedPublication
   readonly fromActorId?: string
+}
+
+export type InboundPublicationLeaseSettlement =
+  | Readonly<{ outcome: 'success' }>
+  | Readonly<{ outcome: 'terminal-failure'; error: unknown }>
+
+export interface InboundPublicationLease extends InboundPublication {
+  /**
+   * The first settlement wins. Later calls are safe no-ops.
+   */
+  readonly settle: (settlement: InboundPublicationLeaseSettlement) => void
+}
+
+export const createInboundPublicationLease = (
+  inbound: InboundPublication,
+  onSettle: (settlement: InboundPublicationLeaseSettlement) => void
+): InboundPublicationLease => {
+  let settled = false
+  const publication = deepFreeze(inbound.publication)
+  const settle = (settlement: InboundPublicationLeaseSettlement): void => {
+    if (settled) return
+    settled = true
+    onSettle(Object.freeze({ ...settlement }))
+  }
+  return Object.freeze({
+    publication,
+    ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {}),
+    settle
+  })
 }
 
 export interface ProviderAwarenessMessage {
@@ -100,6 +131,16 @@ export interface Provider {
   ): () => void
   onPublications?(
     subscriber: (publications: readonly InboundPublication[]) => void
+  ): () => void
+  /**
+   * Optional exclusive processing feed for providers that already own an
+   * isolated inbound snapshot. The provider deep-freezes that snapshot before
+   * delivery, and the processing subscriber must settle every lease exactly
+   * once after App processing succeeds or fails. Snapshot feeds remain
+   * available for ordinary providers and read-only observers.
+   */
+  onInboundPublicationLease?(
+    subscriber: (lease: InboundPublicationLease) => void
   ): () => void
   sendAwareness(message: ProviderAwarenessMessage): Promise<void>
   onAwareness(
