@@ -75,6 +75,7 @@ export const subscribeToMutationBatchArtifact = (
 
 export default factory
 export { Factory }
+export type { FactoryTransactionOwner } from './factory'
 export {
   LocalSharedDataChannel,
   SharedDataChannelRegistry,

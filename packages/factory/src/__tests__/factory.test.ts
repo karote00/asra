@@ -49,6 +49,24 @@ describe('Factory', () => {
     expect(factory.transact.update).toHaveBeenCalledWith(mockEvent)
   })
 
+  it('exposes the canonical batch handoff on the owning transaction owner', () => {
+    const updateBatch = vi.fn()
+    factory.transact.updateBatch = updateBatch
+    const owner = factory.getTransactionOwner()
+    const events: readonly UpdateTransactionEvent[] = [
+      {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'batch-owner', before: 0, after: 1 }
+      }
+    ]
+
+    expect(typeof owner.updateTransactionBatch).toBe('function')
+    owner.updateTransactionBatch(events)
+    expect(updateBatch).toHaveBeenCalledOnce()
+    expect(updateBatch).toHaveBeenCalledWith(events, undefined)
+  })
+
   it('should call DataTransact.end when endTransaction is called', () => {
     factory.endTransaction()
     expect(factory.transact.end).toHaveBeenCalledTimes(1)

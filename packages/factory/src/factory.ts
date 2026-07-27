@@ -34,7 +34,8 @@ import {
 import type {
   FactoryMutationBatchDeliveryEvidence,
   FactoryMutationBatchArtifact,
-  FactoryMutationBatchArtifactSubscriber
+  FactoryMutationBatchArtifactSubscriber,
+  FactoryMutationBatchDeliveryHandle
 } from './mutation-batch'
 import type {
   CanonicalEventApply,
@@ -47,6 +48,13 @@ export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean
 }
 
+export interface FactoryTransactionOwner extends TransactionOwner {
+  updateTransactionBatch(
+    events: readonly UpdateTransactionEvent[],
+    deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
+  ): FactoryMutationBatchDeliveryHandle | null
+}
+
 class RemoteAsyncHandlerError extends Error {
   constructor() {
     super('[collaboration] remote canonical apply handler must be synchronous')
@@ -57,7 +65,7 @@ class RemoteAsyncHandlerError extends Error {
 class Factory {
   private readonly sharedDataChannels = new SharedDataChannelRegistry()
   private readonly bridgeToReactiveEvents: boolean
-  private readonly transactionOwner: TransactionOwner
+  private readonly transactionOwner: FactoryTransactionOwner
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
@@ -99,6 +107,8 @@ class Factory {
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
       updateTransaction: (event) => this.updateTransaction(event),
+      updateTransactionBatch: (events, deliveryEvidence) =>
+        this.updateTransactionBatch(events, deliveryEvidence),
       endTransaction: (endOptions) => this.endTransaction(endOptions),
       undo: () => this.undo(),
       redo: () => this.redo()
@@ -257,7 +267,7 @@ class Factory {
     )
   }
 
-  getTransactionOwner(): TransactionOwner {
+  getTransactionOwner(): FactoryTransactionOwner {
     return this.transactionOwner
   }
 
