@@ -343,6 +343,7 @@ test('publication data is binary and relay backpressure stays byte-bounded', () 
   assert.match(encode, /invalid.*truncated.*reject/i)
   assert.ok(encodeStep.inputs.includes('artifact:relayed-publication-frames'))
   assert.ok(encodeStep.inputs.includes('artifact:server-accepted-receipts'))
+  assert.ok(encodeStep.inputs.includes('artifact:source-frame-admitted-credit'))
   assert.ok(encodeStep.outputs.includes('artifact:decoded-publication-batches'))
   assert.ok(encodeStep.outputs.includes('artifact:frame-consumed-credit'))
   assert.match(encode, /receiver worker.*one decoded publication.*App/i)
@@ -362,11 +363,44 @@ test('publication data is binary and relay backpressure stays byte-bounded', () 
   assert.match(relay, /one oversized frame/i)
   assert.match(relay, /socket\.send callback/i)
   assert.match(relay, /frame-consumed/i)
+  assert.match(
+    relay,
+    /one outbound publication frame.*source-frame-admitted.*next frame/i
+  )
+  assert.match(relay, /control.*fast path.*socket.*pause/i)
   assert.match(relay, /server-accepted.*does not.*peer.*applied/i)
   assert.match(relay, /perMessageDeflate.*false/i)
   assert.ok(relayStep.inputs.includes('artifact:frame-consumed-credit'))
   assert.ok(relayStep.inputs.includes('artifact:peer-applied-receipts'))
+  assert.ok(relayStep.outputs.includes('artifact:source-frame-admitted-credit'))
   assert.ok(relayStep.outputs.includes('artifact:server-accepted-receipts'))
+  assert.ok(
+    data.routes.some(
+      (route) =>
+        route.id === 'route-source-frame-admitted-to-codec-provider' &&
+        route.from === 'relay-frames-with-backpressure' &&
+        route.to === 'encode-publication-frames' &&
+        route.producedArtifacts.includes(
+          'artifact:source-frame-admitted-credit'
+        )
+    )
+  )
+  assert.ok(
+    data.artifacts.some(
+      (artifact) =>
+        artifact.id === 'artifact:source-frame-admitted-credit' &&
+        artifact.ownerStepId === 'relay-frames-with-backpressure' &&
+        artifact.consumerStepIds.includes('encode-publication-frames')
+    )
+  )
+  assert.match(
+    plan(),
+    /source-frame-admitted[\s\S]{0,240}one\s+outbound\s+publication\s+frame/i
+  )
+  assert.match(
+    feature(),
+    /source-frame-admitted[\s\S]{0,240}next publication frame/i
+  )
   assert.ok(!relayStep.implementationBoundary.includes('apps/asyra-design/e2e'))
 })
 

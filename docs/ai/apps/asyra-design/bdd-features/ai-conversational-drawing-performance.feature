@@ -70,6 +70,8 @@ Feature: Conversational AI drawing performance
     And the receiver worker should release one decoded publication at a time to App policy and canonical preflight
     And each peer should use a 2 MiB high watermark and a 512 KiB low watermark
     And one oversized indivisible frame should be allowed only for an otherwise empty peer queue
+    And "source-frame-admitted" should allow the provider to send only the next publication frame
+    And blocked publication admission should not pause the JSON control fast path
     And "server-accepted", "frame-consumed", and "peer-applied" should remain distinct receipts
     And the receiver worker should emit "frame-consumed" after accepting the transferable frame
     And remote apply should emit "peer-applied" only after canonical apply completes

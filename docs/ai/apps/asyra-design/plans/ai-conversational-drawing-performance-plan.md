@@ -242,6 +242,14 @@ acknowledgement may split the intended transaction or history boundary.
   empty.
 - Queue progress waits for the `socket.send` callback and receiver
   `frame-consumed` credit.
+- A JSON `source-frame-admitted` credit is returned only after one source frame
+  enters every request-start peer queue. The provider retains one outbound
+  publication frame in flight and sends the next frame only after the exact
+  credit arrives. This bounds source ingress without pausing the whole socket.
+- JSON controls, especially receiver `frame-consumed`, remain on a readable fast
+  path while publication admission is blocked. The server must not use a
+  socket-wide pause as publication backpressure because that can deadlock
+  bidirectional credit.
 - Sender `server-accepted` means every current peer queue had bounded capacity;
   it does not mean a peer decoded or applied the publication.
 - Receiver wire credit is returned after worker receipt. Main-thread canonical

@@ -321,7 +321,8 @@
       inputs: [
         'artifact:shared-publication-batches',
         'artifact:relayed-publication-frames',
-        'artifact:server-accepted-receipts'
+        'artifact:server-accepted-receipts',
+        'artifact:source-frame-admitted-credit'
       ],
       outputs: [
         'artifact:encoded-publication-frames',
@@ -336,6 +337,7 @@
         'Outbound encoding performs one object-to-worker structured clone and returns a transferable ArrayBuffer.',
         'Inbound ArrayBuffer data transfers to the receiver worker, which releases one decoded publication at a time to the App before policy and canonical preflight.',
         'The receiver worker emits frame-consumed credit after it accepts the transferable frame, independently of later canonical apply.',
+        'The provider keeps one outbound publication frame in flight, waits for exact source-frame-admitted credit, then sends the next frame.',
         'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
         'Invalid, unsupported-version, and truncated frames reject through ProviderFailure.'
       ],
@@ -348,6 +350,7 @@
         'artifact:shared-publication-batches',
         'artifact:relayed-publication-frames',
         'artifact:server-accepted-receipts',
+        'artifact:source-frame-admitted-credit',
         '@asyra/collaboration public publication schema',
         'existing repository codec',
         'platform Web Worker and transferable buffers'
@@ -392,6 +395,7 @@
       ],
       outputs: [
         'artifact:relayed-publication-frames',
+        'artifact:source-frame-admitted-credit',
         'artifact:server-accepted-receipts',
         'artifact:relay-timing'
       ],
@@ -400,6 +404,9 @@
         'Each peer queue has a 2 MiB high watermark and a 512 KiB low watermark.',
         'One oversized frame is allowed only when the peer queue is otherwise empty.',
         'Queue progress waits for the socket.send callback and frame-consumed credit.',
+        'The server accepts one outbound publication frame per connection, returns exact source-frame-admitted credit, and accepts the next frame only after that credit.',
+        'After one source frame enters every request-start peer queue, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
+        'The JSON control fast path remains readable while publication admission is blocked; the server does not use socket-wide pause to bound source frames.',
         'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
         'peer-applied remains a separate receipt after main-thread canonical apply.',
         'Client and server explicitly configure perMessageDeflate: false.'
@@ -415,12 +422,15 @@
         'artifact:peer-applied-receipts',
         'WebSocket header, version, request, publication, chunk, and control metadata',
         'socket.send completion callback',
+        'source-frame-admitted credit',
         'receiver frame-consumed credit'
       ],
       forbiddenContributors: [
         'server canonical payload decode or re-encode',
         'server history or canonical splitting',
         'unbounded per-peer queue',
+        'multiple uncredited source publication frames in flight',
+        'socket-wide pause that blocks JSON credit controls',
         'per-message compression',
         'server-accepted treated as peer-applied'
       ],
@@ -738,6 +748,15 @@
       producedArtifacts: ['artifact:server-accepted-receipts']
     },
     {
+      id: 'route-source-frame-admitted-to-codec-provider',
+      from: 'relay-frames-with-backpressure',
+      to: 'encode-publication-frames',
+      kind: 'credit',
+      predicate:
+        'One source frame entered every request-start peer queue and the provider may send the next frame.',
+      producedArtifacts: ['artifact:source-frame-admitted-credit']
+    },
+    {
       id: 'route-relay-evidence-to-proof',
       from: 'relay-frames-with-backpressure',
       to: 'evaluate-performance-and-equivalence',
@@ -940,6 +959,13 @@
         'encode-publication-frames',
         'evaluate-performance-and-equivalence'
       ],
+      terminal: false
+    },
+    {
+      id: 'artifact:source-frame-admitted-credit',
+      ownerStepId: 'relay-frames-with-backpressure',
+      channel: 'exact per-source-frame admission credit',
+      consumerStepIds: ['encode-publication-frames'],
       terminal: false
     },
     {
