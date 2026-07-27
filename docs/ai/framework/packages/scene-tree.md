@@ -73,6 +73,34 @@ Own the document entity graph and computed entity data.
   clone-free write is not a second event route. It is the canonical owner
   behind Core's `createElementsInParent`; it is not a direct-map fast path.
 
+### Creation API Selection
+
+Creation APIs are selected by the lifecycle of the supplied data, not by
+whether the caller is local or remote:
+
+- `addNewElement(...)` and `addNewElements(...)` accept ordinary
+  `CreateElementData`. The single-item API is a batch-of-one convenience over
+  the same ordinary batch owner.
+- `addNewElementsFromCanonicalData(...)` accepts detached canonical element and
+  property snapshots whose property owners are not active yet. It preserves
+  the supplied canonical ids and materializes the complete property ownership
+  graph before Scene Tree apply.
+- `addNewElementsFromCanonicalDataUsingActiveProperties(...)` accepts canonical
+  elements whose referenced property owners are already active. It validates
+  the supplied canonical property evidence without registering a second set of
+  owners.
+
+All three choices are available to any caller origin. A collaboration receiver
+normally chooses a canonical API because it already received canonical ids and
+property evidence; an interactive or descriptor-driven caller normally chooses
+the ordinary API. This is guidance, not an origin guard.
+
+If a canonical batch runs while a transaction owner is active, that owner must
+support one atomic `updateTransactionBatch(...)` evidence handoff. Scene Tree
+rejects an owner that can accept only a prefix because partial Factory journal
+evidence cannot be made equivalent to the successful canonical mutation. This
+capability check applies equally to local, remote, replay, and test owners.
+
 ## Extension Points
 
 - register component/entity definitions

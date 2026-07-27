@@ -523,6 +523,18 @@ See `packages/collaboration.md` and
   `applyValidatedLoad(result)` consumes that artifact once without revalidation
 - `componentRegistry`
 - `createDynamicComponent`, `createDynamicPropsClass`, `createElement`
+- ordinary descriptor creation:
+  - `addNewElement(...)`
+  - `addNewElements(...)` (`addNewElement` delegates to this same ordinary
+    batch owner as a batch of one)
+- detached canonical snapshot creation:
+  - `addNewElementsFromCanonicalData(...)` when referenced property owners are
+    not active yet
+  - `addNewElementsFromCanonicalDataUsingActiveProperties(...)` when referenced
+    property owners are already active
+- creation API choice follows data lifecycle rather than local/remote origin;
+  any active transaction owner must atomically accept canonical batch evidence
+  through `updateTransactionBatch(...)`
 
 `@asyra/selection`
 
