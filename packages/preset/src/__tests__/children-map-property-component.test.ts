@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import core from '@asyra/core'
-import { PropertyTypes, type SetterChangeRecord } from '@asyra/utils'
+import {
+  createDefaultFill,
+  PropertyTypes,
+  type SetterChangeRecord
+} from '@asyra/utils'
+import { strokesPropertyComponentDefinition } from '../props/components/strokes-component'
 import { vectorPointsPropertyComponentDefinition } from '../props/components/vector-points-component'
 
 const createVectorPointsComponent = () => {
@@ -120,5 +125,33 @@ describe('children-map property component', () => {
     expect(second.parent.getValue().points).toEqual({
       'shared-point': expect.objectContaining({ id: 'shared-point', x: 2 })
     })
+  })
+})
+
+describe('stroke child relationship projection', () => {
+  it('rebinds the nested fill identity to the canonical stroke child id', () => {
+    if (
+      !('children' in strokesPropertyComponentDefinition) ||
+      !strokesPropertyComponentDefinition.children?.toValue
+    ) {
+      throw new Error('Strokes property requires child value projection')
+    }
+    const fill = createDefaultFill({ id: '' })
+    const projected = strokesPropertyComponentDefinition.children.toValue(
+      {
+        get: (key: string) => {
+          if (key === 'fill') return fill
+          return key
+        }
+      },
+      'stroke-canonical'
+    ) as { fill?: { id?: unknown }; id?: unknown }
+
+    expect(projected.id).toBe('stroke-canonical')
+    expect(projected.fill).toEqual({
+      ...fill,
+      id: 'stroke-canonical'
+    })
+    expect(fill.id).toBe('')
   })
 })
