@@ -496,32 +496,68 @@ const writeValue = (
   }
 }
 
-export const encodeCompactBinary = (value: unknown): Uint8Array => {
-  const dictionary = collectDictionary(value)
+export interface CompactBinaryEncodePlan {
+  readonly byteLength: number
+}
+
+class CompactBinaryEncodePlanImplementation implements CompactBinaryEncodePlan {
+  constructor(
+    readonly value: unknown,
+    readonly dictionary: BinaryDictionary,
+    readonly byteLength: number
+  ) {}
+}
+
+const compactBinaryDictionaryByteLength = (
+  dictionary: BinaryDictionary
+): number => {
   let previousDictionaryEntry = ''
-  const dictionaryByteLength = dictionary.entries.reduce(
-    (total, entry, index) => {
-      const entryByteLength = dictionaryEntryByteLength(
-        entry,
-        previousDictionaryEntry,
-        index
-      )
-      previousDictionaryEntry = entry
-      return total + entryByteLength
-    },
-    0
-  )
+  return dictionary.entries.reduce((total, entry, index) => {
+    const entryByteLength = dictionaryEntryByteLength(
+      entry,
+      previousDictionaryEntry,
+      index
+    )
+    previousDictionaryEntry = entry
+    return total + entryByteLength
+  }, 0)
+}
+
+const compactBinaryHeaderByteLength = (
+  dictionary: BinaryDictionary,
+  dictionaryByteLength: number
+): number =>
+  COMPACT_BINARY_MAGIC.byteLength +
+  varUintByteLength(dictionary.entries.length) +
+  dictionaryByteLength
+
+export const createCompactBinaryEncodePlan = (
+  value: unknown
+): CompactBinaryEncodePlan => {
+  const dictionary = collectDictionary(value)
+  const dictionaryByteLength = compactBinaryDictionaryByteLength(dictionary)
   const byteLength =
-    COMPACT_BINARY_MAGIC.byteLength +
-    varUintByteLength(dictionary.entries.length) +
-    dictionaryByteLength +
+    compactBinaryHeaderByteLength(dictionary, dictionaryByteLength) +
     valueByteLength(value, dictionary)
-  const output = new Uint8Array(byteLength)
+  return new CompactBinaryEncodePlanImplementation(
+    value,
+    dictionary,
+    byteLength
+  )
+}
+
+export const encodeCompactBinaryPlan = (
+  plan: CompactBinaryEncodePlan
+): Uint8Array => {
+  if (!(plan instanceof CompactBinaryEncodePlanImplementation)) {
+    throw new TypeError('[collaboration] invalid binary encode plan')
+  }
+  const output = new Uint8Array(plan.byteLength)
   const writer = new BinaryWriter(output)
   writer.writeBytes(COMPACT_BINARY_MAGIC)
-  writer.writeVarUint(dictionary.entries.length)
-  previousDictionaryEntry = ''
-  dictionary.entries.forEach((entry, index) => {
+  writer.writeVarUint(plan.dictionary.entries.length)
+  let previousDictionaryEntry = ''
+  plan.dictionary.entries.forEach((entry, index) => {
     const prefixLength = commonPrefixLength(
       dictionaryPrefixBase(index, previousDictionaryEntry),
       entry
@@ -530,12 +566,15 @@ export const encodeCompactBinary = (value: unknown): Uint8Array => {
     writer.writeString(entry.slice(prefixLength))
     previousDictionaryEntry = entry
   })
-  writeValue(writer, value, dictionary)
+  writeValue(writer, plan.value, plan.dictionary)
   if (writer.written !== output.byteLength) {
     throw new TypeError('[collaboration] binary transport length mismatch')
   }
   return output
 }
+
+export const encodeCompactBinary = (value: unknown): Uint8Array =>
+  encodeCompactBinaryPlan(createCompactBinaryEncodePlan(value))
 
 class BinaryReader {
   private offset = 0

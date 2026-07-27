@@ -17,15 +17,20 @@ import {
 } from '@asyra/collaboration'
 import {
   CollaborationMessageTypes,
-  decodeCollaborationMessage,
-  encodeCollaborationMessage,
+  decodeCollaborationControlMessage,
+  encodeCollaborationControlMessage,
   parseCollaborationServerMessage,
   type CollaborationHelloMessage,
-  type EncodedCollaborationMessage,
+  type FrameConsumedRequest,
   type CollaborationRequestInput,
   type CollaborationRequestMessage,
+  type PublicationFrameMessage,
   type CollaborationServerMessage
 } from './protocol'
+import type {
+  PublicationCodecWorkerRequest,
+  PublicationCodecWorkerResponse
+} from './publication-codec-worker'
 
 type Subscriber<T> = (value: T) => void
 
@@ -36,14 +41,108 @@ const isEncodedBinaryMessage = (
   ArrayBuffer.isView(value) ||
   Object.prototype.toString.call(value) === '[object ArrayBuffer]'
 
+const isArrayBufferValue = (value: unknown): value is ArrayBuffer =>
+  value instanceof ArrayBuffer ||
+  Object.prototype.toString.call(value) === '[object ArrayBuffer]'
+
+const encodedMessageByteLength = (value: unknown): number => {
+  if (typeof value === 'string') {
+    return new TextEncoder().encode(value).byteLength
+  }
+  if (isArrayBufferValue(value) || ArrayBuffer.isView(value)) {
+    return value.byteLength
+  }
+  return 0
+}
+
+const hasDiagnosticCounterSink = (): boolean =>
+  typeof (
+    globalThis as typeof globalThis & {
+      __asyraDiagnosticCounterSink?: unknown
+    }
+  ).__asyraDiagnosticCounterSink === 'function'
+
+const recordInboundFrameDiagnostics = (value: unknown): void => {
+  if (!hasDiagnosticCounterSink()) return
+  emitDiagnosticCounter('collaboration:inbound-frame-entry')
+  emitDiagnosticCounter(
+    'collaboration:inbound-frame-byte-length',
+    encodedMessageByteLength(value)
+  )
+}
+
+const recordCodecWorkerTiming = (
+  phase: 'decode' | 'encode',
+  durationMs: number
+): void => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) return
+  try {
+    sink(`collaboration:codec-worker-${phase}`, durationMs)
+  } catch {
+    // Profiling observers cannot alter codec settlement.
+  }
+}
+
+const toTransferableArrayBuffer = (
+  value: ArrayBuffer | ArrayBufferView
+): ArrayBuffer => {
+  if (isArrayBufferValue(value)) return value
+  return value.buffer.slice(
+    value.byteOffset,
+    value.byteOffset + value.byteLength
+  ) as ArrayBuffer
+}
+
 interface PendingRequest {
   resolve(value: unknown): void
   reject(error: unknown): void
 }
 
+interface PendingCodecEncode {
+  readonly kind: 'encode'
+  resolve(frames: readonly ArrayBuffer[]): void
+  reject(error: ProviderFailure): void
+}
+
+type PublicationCodecWorkerEventName = 'error' | 'message' | 'messageerror'
+
+interface PublicationCodecWorkerEvent {
+  readonly data?: PublicationCodecWorkerResponse
+  readonly error?: unknown
+}
+
+type PublicationCodecWorkerListener = (
+  event: PublicationCodecWorkerEvent
+) => void
+
+export interface PublicationCodecWorkerLike {
+  postMessage(
+    message: PublicationCodecWorkerRequest,
+    transfer?: readonly Transferable[]
+  ): void
+  addEventListener(
+    type: PublicationCodecWorkerEventName,
+    listener: PublicationCodecWorkerListener
+  ): void
+  removeEventListener(
+    type: PublicationCodecWorkerEventName,
+    listener: PublicationCodecWorkerListener
+  ): void
+  terminate(): void
+}
+
 export interface CollaborationWebSocketProviderOptions {
   endpoint: string
   identity: ProviderIdentity
+  codecWorkerFactory?: () => PublicationCodecWorkerLike
 }
 
 const toFailure = (
@@ -66,12 +165,20 @@ export class CollaborationWebSocketProvider implements Provider {
   readonly maxPublicationsPerSend = 4
 
   private readonly endpoint: string
+  private readonly codecWorkerFactory: () => PublicationCodecWorkerLike
   private status: ProviderStatus = 'idle'
   private socket: WebSocket | null = null
   private connectPromise: Promise<void> | null = null
   private cancelConnect?: (failure: ProviderFailure) => void
   private connectionGeneration = 0
   private requestSequence = 0
+  private codecSequence = 0
+  private creditSequence = 0
+  private codecWorker: PublicationCodecWorkerLike | null = null
+  private codecWorkerGeneration = 0
+  private readonly pendingCodecEncodes = new Map<string, PendingCodecEncode>()
+  private readonly inboundFrames: ArrayBuffer[] = []
+  private activeInboundCodecJobId: string | null = null
   private readonly pendingRequests = new Map<string, PendingRequest>()
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
   private readonly publicationSubscribers = new Set<
@@ -91,6 +198,12 @@ export class CollaborationWebSocketProvider implements Provider {
   constructor(options: CollaborationWebSocketProviderOptions) {
     this.endpoint = options.endpoint
     this.identity = createProviderIdentitySnapshot(options.identity)
+    this.codecWorkerFactory =
+      options.codecWorkerFactory ??
+      (() =>
+        new Worker(new URL('./publication-codec-worker.ts', import.meta.url), {
+          type: 'module'
+        }) as unknown as PublicationCodecWorkerLike)
   }
 
   connect(): Promise<void> {
@@ -100,6 +213,18 @@ export class CollaborationWebSocketProvider implements Provider {
 
     const generation = ++this.connectionGeneration
     this.setStatus('connecting')
+    try {
+      this.startCodecWorker(generation)
+    } catch (error) {
+      const failure = new ProviderFailure(
+        'connection-failed',
+        '[collaboration] publication codec worker construction failed',
+        error
+      )
+      this.setStatus('failed')
+      this.emit(this.failureSubscribers, failure)
+      return Promise.reject(failure)
+    }
     let socket: WebSocket
     try {
       socket = new WebSocket(this.endpoint)
@@ -109,6 +234,7 @@ export class CollaborationWebSocketProvider implements Provider {
         '[collaboration] WebSocket construction failed',
         error
       )
+      this.stopCodecWorker(failure)
       this.setStatus('failed')
       this.emit(this.failureSubscribers, failure)
       return Promise.reject(failure)
@@ -149,6 +275,7 @@ export class CollaborationWebSocketProvider implements Provider {
           )
           return
         }
+        this.stopCodecWorker(failure)
         this.setStatus('failed')
         this.emit(this.failureSubscribers, failure)
         reject(failure)
@@ -160,9 +287,9 @@ export class CollaborationWebSocketProvider implements Provider {
           type: CollaborationMessageTypes.HELLO,
           identity: this.identity
         }
-        let encodedHello: EncodedCollaborationMessage
+        let encodedHello: string
         try {
-          encodedHello = encodeCollaborationMessage(hello)
+          encodedHello = encodeCollaborationControlMessage(hello)
         } catch (error) {
           rejectConnection(
             new ProviderFailure(
@@ -189,9 +316,26 @@ export class CollaborationWebSocketProvider implements Provider {
       })
       socket.addEventListener('message', (event) => {
         if (generation !== this.connectionGeneration) return
+        recordInboundFrameDiagnostics(event.data)
         measureBrowserDragPhase(
           'collaboration:inbound-receive-to-dispatch',
           () => {
+            if (
+              typeof event.data !== 'string' &&
+              isEncodedBinaryMessage(event.data)
+            ) {
+              if (!settled) {
+                const failure = new ProviderFailure(
+                  'transport-failed',
+                  '[collaboration] publication frame arrived before ready'
+                )
+                rejectConnection(failure)
+                socket.close(1002, 'publication before ready')
+                return
+              }
+              this.enqueueInboundFrame(event.data)
+              return
+            }
             const message = this.parseMessage(event.data)
             if (!message) {
               const failure = new ProviderFailure(
@@ -252,12 +396,12 @@ export class CollaborationWebSocketProvider implements Provider {
           event.code === 1005 && closeReason.length === 0
             ? ''
             : ` (${event.code}${closeReason ? `: ${closeReason}` : ''})`
-        this.rejectPending(
-          new ProviderFailure(
-            'not-connected',
-            `[collaboration] WebSocket connection closed${closeDetail}`
-          )
+        const closeFailure = new ProviderFailure(
+          'not-connected',
+          `[collaboration] WebSocket connection closed${closeDetail}`
         )
+        this.rejectPending(closeFailure)
+        this.stopCodecWorker(closeFailure)
         if (!settled) {
           rejectConnection(
             new ProviderFailure(
@@ -289,12 +433,12 @@ export class CollaborationWebSocketProvider implements Provider {
     this.cancelConnect = undefined
     this.connectPromise = null
     this.setStatus('disconnected')
-    this.rejectPending(
-      new ProviderFailure(
-        'not-connected',
-        '[collaboration] provider disconnected before request completion'
-      )
+    const disconnectFailure = new ProviderFailure(
+      'not-connected',
+      '[collaboration] provider disconnected before request completion'
     )
+    this.rejectPending(disconnectFailure)
+    this.stopCodecWorker(disconnectFailure)
     if (!socket || socket.readyState === WebSocket.CLOSED) {
       return
     }
@@ -315,18 +459,19 @@ export class CollaborationWebSocketProvider implements Provider {
     const socket = this.socket
     this.connectionGeneration += 1
     this.setStatus('disposed')
-    this.cancelConnect?.(
-      new ProviderFailure('disposed', '[collaboration] provider is disposed')
+    const disposedFailure = new ProviderFailure(
+      'disposed',
+      '[collaboration] provider is disposed'
     )
+    this.cancelConnect?.(disposedFailure)
     this.cancelConnect = undefined
     this.connectPromise = null
     if (socket && socket.readyState !== WebSocket.CLOSED) {
       socket.close(1000, 'provider disposed')
     }
     this.socket = null
-    this.rejectPending(
-      new ProviderFailure('disposed', '[collaboration] provider is disposed')
-    )
+    this.rejectPending(disposedFailure)
+    this.stopCodecWorker(disposedFailure)
     this.statusSubscribers.clear()
     this.publicationSubscribers.clear()
     this.publicationBatchSubscribers.clear()
@@ -420,13 +565,22 @@ export class CollaborationWebSocketProvider implements Provider {
       ...input,
       requestId
     }
-    let encodedMessage: EncodedCollaborationMessage
+    let encodedMessages: readonly (string | ArrayBuffer)[]
     try {
-      encodedMessage = measureBrowserDragPhase(
+      encodedMessages = await measureBrowserDragAsyncPhase(
         'collaboration:outbound-encode',
-        () => encodeCollaborationMessage(message)
+        async () => {
+          if (
+            message.type === CollaborationMessageTypes.SEND_PUBLICATION ||
+            message.type === CollaborationMessageTypes.SEND_PUBLICATIONS
+          ) {
+            return this.encodePublicationRequest(message)
+          }
+          return [encodeCollaborationControlMessage(message)]
+        }
       )
     } catch (error) {
+      if (error instanceof ProviderFailure) throw error
       throw new ProviderFailure(
         'transport-failed',
         '[collaboration] request contains a value that JSON cannot preserve',
@@ -435,21 +589,309 @@ export class CollaborationWebSocketProvider implements Provider {
     }
     emitDiagnosticCounter(
       'collaboration:outbound-encoded-byte-length',
-      typeof encodedMessage === 'string'
-        ? new TextEncoder().encode(encodedMessage).byteLength
-        : encodedMessage.byteLength
+      encodedMessages.reduce(
+        (total, encodedMessage) =>
+          total +
+          (typeof encodedMessage === 'string'
+            ? new TextEncoder().encode(encodedMessage).byteLength
+            : encodedMessage.byteLength),
+        0
+      )
     )
+    this.requireConnected()
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(requestId, { resolve, reject })
       try {
-        measureBrowserDragPhase('collaboration:outbound-wire-send', () =>
-          socket.send(encodedMessage)
-        )
+        measureBrowserDragPhase('collaboration:outbound-wire-send', () => {
+          encodedMessages.forEach((encodedMessage) =>
+            socket.send(encodedMessage)
+          )
+        })
       } catch (error) {
         this.pendingRequests.delete(requestId)
         reject(toFailure('transport-failed', String(error)))
       }
     })
+  }
+
+  private startCodecWorker(generation: number): void {
+    if (this.codecWorker) {
+      throw new Error('[collaboration] publication codec worker is active')
+    }
+    const worker = this.codecWorkerFactory()
+    this.codecWorker = worker
+    this.codecWorkerGeneration = generation
+    const onMessage: PublicationCodecWorkerListener = (event) => {
+      if (
+        this.codecWorker !== worker ||
+        this.codecWorkerGeneration !== generation ||
+        !event.data
+      ) {
+        return
+      }
+      this.handleCodecWorkerResponse(event.data)
+    }
+    const onFailure: PublicationCodecWorkerListener = (event) => {
+      if (
+        this.codecWorker !== worker ||
+        this.codecWorkerGeneration !== generation
+      ) {
+        return
+      }
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] publication codec worker failed',
+          event.error
+        )
+      )
+    }
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onFailure)
+    worker.addEventListener('messageerror', onFailure)
+  }
+
+  private stopCodecWorker(failure: ProviderFailure): void {
+    const worker = this.codecWorker
+    this.codecWorker = null
+    this.codecWorkerGeneration = 0
+    this.activeInboundCodecJobId = null
+    this.inboundFrames.length = 0
+    this.pendingCodecEncodes.forEach(({ reject }) => reject(failure))
+    this.pendingCodecEncodes.clear()
+    worker?.terminate()
+  }
+
+  private encodePublicationRequest(
+    message: Extract<
+      CollaborationRequestMessage,
+      {
+        type:
+          | typeof CollaborationMessageTypes.SEND_PUBLICATION
+          | typeof CollaborationMessageTypes.SEND_PUBLICATIONS
+      }
+    >
+  ): Promise<readonly ArrayBuffer[]> {
+    const worker = this.codecWorker
+    if (!worker) {
+      return Promise.reject(
+        new ProviderFailure(
+          'not-connected',
+          '[collaboration] publication codec worker is unavailable'
+        )
+      )
+    }
+    const jobId = `${this.identity.actorId}:codec:${++this.codecSequence}`
+    return new Promise((resolve, reject) => {
+      this.pendingCodecEncodes.set(jobId, {
+        kind: 'encode',
+        resolve,
+        reject
+      })
+      try {
+        worker.postMessage({
+          type: 'encode-publications',
+          jobId,
+          message: message as PublicationFrameMessage
+        })
+      } catch (error) {
+        this.pendingCodecEncodes.delete(jobId)
+        reject(
+          new ProviderFailure(
+            'transport-failed',
+            '[collaboration] publication codec worker send failed',
+            error
+          )
+        )
+      }
+    })
+  }
+
+  private enqueueInboundFrame(value: ArrayBuffer | ArrayBufferView): void {
+    this.inboundFrames.push(toTransferableArrayBuffer(value))
+    this.pumpInboundFrame()
+  }
+
+  private pumpInboundFrame(): void {
+    if (this.activeInboundCodecJobId || this.inboundFrames.length === 0) return
+    const worker = this.codecWorker
+    const frame = this.inboundFrames.shift()
+    if (!worker || !frame) {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] publication codec worker is unavailable'
+        )
+      )
+      return
+    }
+    const jobId = `${this.identity.actorId}:decode:${++this.codecSequence}`
+    this.activeInboundCodecJobId = jobId
+    try {
+      worker.postMessage(
+        {
+          type: 'decode-publication-frame',
+          jobId,
+          frame
+        },
+        [frame]
+      )
+    } catch (error) {
+      this.activeInboundCodecJobId = null
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] publication frame transfer failed',
+          error
+        )
+      )
+    }
+  }
+
+  private releaseNextDecodedPublication(): void {
+    if (this.activeInboundCodecJobId) return
+    const worker = this.codecWorker
+    if (!worker) {
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] publication codec worker is unavailable'
+        )
+      )
+      return
+    }
+    const jobId = `${this.identity.actorId}:decode:${++this.codecSequence}`
+    this.activeInboundCodecJobId = jobId
+    try {
+      worker.postMessage({
+        type: 'release-decoded-publication',
+        jobId
+      })
+    } catch (error) {
+      this.activeInboundCodecJobId = null
+      this.failCodecWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] decoded publication release failed',
+          error
+        )
+      )
+    }
+  }
+
+  private handleCodecWorkerResponse(
+    response: PublicationCodecWorkerResponse
+  ): void {
+    if (response.type === 'encoded-publication-frames') {
+      const pending = this.pendingCodecEncodes.get(response.jobId)
+      if (!pending) return
+      this.pendingCodecEncodes.delete(response.jobId)
+      if (
+        response.frames.length === 0 ||
+        !response.frames.every((frame) => isArrayBufferValue(frame))
+      ) {
+        pending.reject(
+          new ProviderFailure(
+            'transport-failed',
+            '[collaboration] publication codec worker returned invalid frames'
+          )
+        )
+        return
+      }
+      recordCodecWorkerTiming('encode', response.durationMs)
+      pending.resolve(
+        response.frames.map((frame) => toTransferableArrayBuffer(frame))
+      )
+      return
+    }
+    if (response.type === 'publication-codec-failure') {
+      const pending = this.pendingCodecEncodes.get(response.jobId)
+      const failure = new ProviderFailure(
+        'transport-failed',
+        response.message,
+        undefined,
+        response.publicationId
+      )
+      if (pending) {
+        this.pendingCodecEncodes.delete(response.jobId)
+        pending.reject(failure)
+        return
+      }
+      if (response.jobId !== this.activeInboundCodecJobId) return
+      this.activeInboundCodecJobId = null
+      this.failCodecWorker(failure)
+      return
+    }
+    if (response.jobId !== this.activeInboundCodecJobId) return
+    if (response.type === 'publication-frame-consumed') {
+      try {
+        this.sendFrameConsumedCredit(response.header)
+      } catch (error) {
+        this.activeInboundCodecJobId = null
+        this.failCodecWorker(
+          error instanceof ProviderFailure
+            ? error
+            : new ProviderFailure(
+                'transport-failed',
+                '[collaboration] frame-consumed credit failed',
+                error
+              )
+        )
+      }
+      return
+    }
+    if (response.durationMs !== undefined) {
+      recordCodecWorkerTiming('decode', response.durationMs)
+    }
+    if (response.type === 'decoded-publication') {
+      this.emitInboundPublications([response.publication], response.fromActorId)
+    }
+    this.activeInboundCodecJobId = null
+    if (
+      response.type === 'decoded-publication' &&
+      response.hasPendingPublication
+    ) {
+      this.releaseNextDecodedPublication()
+      return
+    }
+    this.pumpInboundFrame()
+  }
+
+  private sendFrameConsumedCredit(
+    header: Extract<
+      PublicationCodecWorkerResponse,
+      { type: 'publication-frame-consumed' }
+    >['header']
+  ): void {
+    this.requireConnected()
+    const socket = this.socket as WebSocket
+    const credit: FrameConsumedRequest = {
+      type: CollaborationMessageTypes.FRAME_CONSUMED,
+      requestId: `${this.identity.actorId}:credit:${++this.creditSequence}`,
+      frameId: header.frameId,
+      publicationId: header.publicationId,
+      frameByteLength: header.frameByteLength
+    }
+    socket.send(encodeCollaborationControlMessage(credit))
+  }
+
+  private failCodecWorker(failure: ProviderFailure): void {
+    this.stopCodecWorker(failure)
+    this.rejectPending(failure)
+    if (this.status === 'connecting' && this.cancelConnect) {
+      this.cancelConnect(failure)
+    } else if (
+      this.status !== 'disposed' &&
+      this.status !== 'disconnected' &&
+      this.status !== 'failed'
+    ) {
+      this.setStatus('failed')
+      this.emit(this.failureSubscribers, failure)
+    }
+    const socket = this.socket
+    if (socket && socket.readyState !== WebSocket.CLOSED) {
+      socket.close(1002, 'publication codec failure')
+    }
   }
 
   private handleMessage(
@@ -547,17 +989,21 @@ export class CollaborationWebSocketProvider implements Provider {
   private parseMessage(value: unknown): CollaborationServerMessage | undefined {
     let message: CollaborationServerMessage | undefined
     try {
-      if (typeof value !== 'string' && !isEncodedBinaryMessage(value)) {
-        return
-      }
+      if (typeof value !== 'string') return
       const decoded = measureBrowserDragPhase(
         'collaboration:inbound-wire-decode',
-        () => decodeCollaborationMessage(value)
+        () => decodeCollaborationControlMessage(value)
       )
       message = measureBrowserDragPhase(
         'collaboration:inbound-protocol-validate',
         () => parseCollaborationServerMessage(decoded)
       )
+      if (
+        message?.type === CollaborationMessageTypes.PUBLICATION ||
+        message?.type === CollaborationMessageTypes.PUBLICATIONS
+      ) {
+        return
+      }
     } catch {
       // Report the same protocol failure for invalid JSON and invalid payloads.
     }
