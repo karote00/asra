@@ -249,41 +249,51 @@ const isSharedDelivery = (value: unknown): value is SharedDelivery =>
   (value.compensatesDeliveryId === undefined ||
     isNonBlankString(value.compensatesDeliveryId))
 
-const isSharedDeliveryBatch = (value: unknown): value is SharedDeliveryBatch =>
-  isRecord(value) &&
-  isNonBlankString(value.batchId) &&
-  isNonBlankString(value.sliceId) &&
-  isNonBlankString(value.artifactId) &&
-  isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  (value.kind === 'forward' || value.kind === 'compensation') &&
-  isNonBlankString(value.channel) &&
-  (value.sharedDelivery === 'transaction-end' ||
-    value.sharedDelivery === 'immediate') &&
-  Array.isArray(value.deliveries) &&
-  value.deliveries.length > 0 &&
-  Array.isArray(value.records) &&
-  Array.isArray(value.changes) &&
-  value.deliveries.length === value.records.length &&
-  value.deliveries.length === value.changes.length &&
-  value.deliveries.every((delivery, index) => {
-    const record = value.records[index]
-    return (
-      isSharedDelivery(delivery) &&
-      isSharedRecordEvidence(record) &&
-      delivery.batchId === value.batchId &&
-      delivery.artifactId === value.artifactId &&
-      delivery.transactionId === value.transactionId &&
-      delivery.origin === value.origin &&
-      delivery.kind === value.kind &&
-      delivery.channel === value.channel &&
-      delivery.sharedDelivery === value.sharedDelivery &&
-      areJsonTransportValuesEqual(delivery.record, record) &&
-      areJsonTransportValuesEqual(delivery.payload, value.changes[index])
-    )
-  }) &&
-  (value.compensatesBatchId === undefined ||
-    isNonBlankString(value.compensatesBatchId))
+const isSharedDeliveryBatch = (
+  value: unknown
+): value is SharedDeliveryBatch => {
+  if (
+    !isRecord(value) ||
+    !isNonBlankString(value.batchId) ||
+    !isNonBlankString(value.sliceId) ||
+    !isNonBlankString(value.artifactId) ||
+    !isPositiveInteger(value.transactionId) ||
+    !sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) ||
+    (value.kind !== 'forward' && value.kind !== 'compensation') ||
+    !isNonBlankString(value.channel) ||
+    (value.sharedDelivery !== 'transaction-end' &&
+      value.sharedDelivery !== 'immediate') ||
+    !Array.isArray(value.deliveries) ||
+    value.deliveries.length === 0 ||
+    !Array.isArray(value.records) ||
+    !Array.isArray(value.changes) ||
+    value.deliveries.length !== value.records.length ||
+    value.deliveries.length !== value.changes.length
+  ) {
+    return false
+  }
+  const { changes, deliveries, records } = value
+  return (
+    deliveries.every((delivery, index) => {
+      const record = records[index]
+      return (
+        isSharedDelivery(delivery) &&
+        isSharedRecordEvidence(record) &&
+        delivery.batchId === value.batchId &&
+        delivery.artifactId === value.artifactId &&
+        delivery.transactionId === value.transactionId &&
+        delivery.origin === value.origin &&
+        delivery.kind === value.kind &&
+        delivery.channel === value.channel &&
+        delivery.sharedDelivery === value.sharedDelivery &&
+        areJsonTransportValuesEqual(delivery.record, record) &&
+        areJsonTransportValuesEqual(delivery.payload, changes[index])
+      )
+    }) &&
+    (value.compensatesBatchId === undefined ||
+      isNonBlankString(value.compensatesBatchId))
+  )
+}
 
 const isDeliveryPlan = (
   value: unknown
@@ -1483,7 +1493,7 @@ export const encodeCollaborationMessage = (
       value.type === CollaborationMessageTypes.PUBLICATIONS)
   ) {
     const frames = encodePublicationMessageFrames(
-      value as PublicationFrameMessage
+      value as unknown as PublicationFrameMessage
     )
     const frame = frames[0]
     if (!frame || frames.length !== 1) {
