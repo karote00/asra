@@ -450,6 +450,45 @@ const sameOrderedIds = (
   actual.length === expected.length &&
   actual.every((id, index) => id === expected[index])
 
+const hasDirectSliceBoundary = (
+  publication: SharedPublication,
+  batch: SharedDeliveryBatch
+): boolean => {
+  const sliceBoundary = publication.deliveryPlan.slices.find(
+    ({ sliceId }) => sliceId === batch.sliceId
+  )
+  if (!sliceBoundary) return false
+  const sliceBatches = publication.batches.filter(
+    ({ sliceId }) => sliceId === batch.sliceId
+  )
+  if (
+    sliceBatches.length === 0 ||
+    sliceBatches.some(
+      (sliceBatch) => !isDirectPublicationBatch(publication, sliceBatch)
+    )
+  ) {
+    return false
+  }
+  const deliveryIds = sliceBatches.flatMap(({ deliveries }) =>
+    deliveries.map(({ deliveryId }) => deliveryId)
+  )
+  const seenRecordIds = new Set<string>()
+  const recordOrderedIds = sliceBatches.flatMap(({ records }) =>
+    records.flatMap(({ orderedIds }) =>
+      orderedIds.filter((orderedId) => {
+        if (seenRecordIds.has(orderedId)) return false
+        seenRecordIds.add(orderedId)
+        return true
+      })
+    )
+  )
+  return (
+    sameOrderedIds(sliceBoundary.orderedIds, deliveryIds) ||
+    (publication.deliveryPlan.mode === 'progressive' &&
+      sameOrderedIds(sliceBoundary.orderedIds, recordOrderedIds))
+  )
+}
+
 const classifyCanonicalCreationBatch = (
   publication: SharedPublication,
   startBatchIndex: number
@@ -465,18 +504,13 @@ const classifyCanonicalCreationBatch = (
     !sceneBatch ||
     !isDirectPublicationBatch(publication, propertyBatch) ||
     !isDirectPublicationBatch(publication, sceneBatch) ||
+    !hasDirectSliceBoundary(publication, propertyBatch) ||
+    !hasDirectSliceBoundary(publication, sceneBatch) ||
     propertyBatch.channel !== SharedDataChannelNames.PROPS ||
     sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    propertyBatch.sliceId !== sceneBatch.sliceId ||
     propertyBatch.kind !== sceneBatch.kind ||
     propertyBatch.sharedDelivery !== sceneBatch.sharedDelivery
   ) {
-    return null
-  }
-  const sliceBoundary = publication.deliveryPlan.slices.find(
-    ({ sliceId }) => sliceId === propertyBatch.sliceId
-  )
-  if (!sliceBoundary) {
     return null
   }
 
@@ -544,8 +578,7 @@ const classifyCanonicalCreationBatch = (
     insertionIndex === undefined ||
     observedPropertyOwnerCount === 0 ||
     !sameOrderedIds(sceneOrderedIds, elementIds) ||
-    !sameOrderedIds(propertyOrderedIds, elementIds) ||
-    !sameOrderedIds(sliceBoundary.orderedIds, elementIds)
+    !sameOrderedIds(propertyOrderedIds, elementIds)
   ) {
     return null
   }

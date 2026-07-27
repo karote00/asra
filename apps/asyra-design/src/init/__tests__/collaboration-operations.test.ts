@@ -61,7 +61,6 @@ const publication = (
   publicationId = 'publication-a'
 ): SharedPublication => {
   const artifactId = deliveries[0]?.artifactId ?? `artifact-${publicationId}`
-  const sliceId = `slice-${publicationId}`
   const groupedBatches: {
     batchId: string
     deliveries: SharedDelivery[]
@@ -74,13 +73,6 @@ const publication = (
     }
     groupedBatches.push({ batchId: item.batchId, deliveries: [item] })
   })
-  const orderedIds = Array.from(
-    new Set(
-      groupedBatches.flatMap(({ deliveries: batchDeliveries }) =>
-        batchDeliveries.flatMap(({ record }) => record.orderedIds)
-      )
-    )
-  )
   return {
     publicationId,
     artifactId,
@@ -89,7 +81,7 @@ const publication = (
     deliveries,
     batches: groupedBatches.map(({ batchId, deliveries: batchDeliveries }) => ({
       batchId,
-      sliceId,
+      sliceId: batchId,
       artifactId: batchDeliveries[0]?.artifactId ?? artifactId,
       transactionId: batchDeliveries[0]?.transactionId ?? 1,
       origin: batchDeliveries[0]?.origin ?? 'action',
@@ -102,7 +94,12 @@ const publication = (
     })),
     deliveryPlan: {
       mode: 'atomic',
-      slices: [{ sliceId, orderedIds }]
+      slices: groupedBatches.map(
+        ({ batchId, deliveries: batchDeliveries }) => ({
+          sliceId: batchId,
+          orderedIds: batchDeliveries.map(({ deliveryId }) => deliveryId)
+        })
+      )
     }
   }
 }
@@ -126,6 +123,22 @@ const combinePublications = (
     }
   }
 }
+
+const withExplicitCanonicalDeliveryPlan = (
+  source: SharedPublication,
+  sliceId: string,
+  orderedIds: readonly string[]
+): SharedPublication => ({
+  ...source,
+  batches: source.batches.map((batch) => ({
+    ...batch,
+    sliceId
+  })),
+  deliveryPlan: {
+    mode: 'progressive',
+    slices: [{ sliceId, orderedIds }]
+  }
+})
 
 const canonicalCreationDeliveries = (
   elementIds: readonly string[],
@@ -186,6 +199,73 @@ const canonicalCreationDeliveries = (
         }
       })()
     )
+  ]
+}
+
+const canonicalContainerCreationDeliveries = (
+  elementId: string,
+  parentId = 'workspace-a',
+  index = 0
+): readonly SharedDelivery[] => {
+  const propertyIds = [
+    `position-${elementId}`,
+    `dimension-${elementId}`,
+    `transform-${elementId}`,
+    `fill-${elementId}`
+  ]
+  const propertyDelivery = delivery(
+    SharedDataChannelNames.PROPS,
+    EventTypes.ADD_PROPERTY,
+    {
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      eventName: EventTypes.ADD_PROPERTY,
+      data: propertyIds.map((id) => ({
+        id,
+        type: id.slice(0, id.indexOf('-'))
+      }))
+    },
+    `container-properties-${elementId}`
+  )
+  const elementDelivery = delivery(
+    SharedDataChannelNames.SCENE_TREE,
+    EventTypes.ADD_ELEMENT,
+    {
+      action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+      eventName: EventTypes.ADD_ELEMENT,
+      data: {
+        id: elementId,
+        type: 'group',
+        parentId,
+        props: {
+          position: propertyIds[0],
+          dimension: propertyIds[1],
+          transform: propertyIds[2],
+          fill: propertyIds[3]
+        },
+        children: []
+      },
+      parentId,
+      index
+    },
+    `container-${elementId}`
+  )
+  return [
+    {
+      ...propertyDelivery,
+      batchId: `batch-container-properties-${elementId}`,
+      record: {
+        ...propertyDelivery.record,
+        orderedIds: [elementId]
+      }
+    },
+    {
+      ...elementDelivery,
+      batchId: `batch-container-${elementId}`,
+      record: {
+        ...elementDelivery.record,
+        orderedIds: [elementId]
+      }
+    }
   ]
 }
 
@@ -712,6 +792,122 @@ describe('Asyra Design app-owned collaboration processing', () => {
       ],
       'workspace-a',
       5
+    )
+  })
+
+  it('applies an explicit progressive canonical slice through direct record evidence', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn((_event: AllEvent) => true)
+    const applyCanonicalCreationBatch = vi.fn(
+      (elements: readonly { id: string }[]) =>
+        elements.map(({ id }) => id) as readonly string[]
+    )
+    const elementIds = ['progressive-direct-a', 'progressive-direct-b']
+    const source = publication(
+      canonicalCreationDeliveries(elementIds),
+      'progressive-direct'
+    )
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      undefined,
+      undefined,
+      applyCanonicalCreationBatch
+    )
+
+    expect(
+      processPublication(
+        withExplicitCanonicalDeliveryPlan(
+          source,
+          'progressive-direct-slice',
+          elementIds
+        )
+      )
+    ).toBe(true)
+
+    expect(applyCanonicalCreationBatch).toHaveBeenCalledOnce()
+    expect(process).not.toHaveBeenCalled()
+  })
+
+  it('applies one source publication container and child creation through canonical batch owners only', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn((_event: AllEvent) => {
+      throw new Error('canonical creation reached the single-event owner')
+    })
+    const applyCanonicalCreationBatch = vi.fn(
+      (elements: readonly { id: string }[]) =>
+        elements.map(({ id }) => id) as readonly string[]
+    )
+    const container = publication(
+      canonicalContainerCreationDeliveries('group-a'),
+      'group-creation'
+    )
+    const children = publication(
+      canonicalCreationDeliveries(
+        ['group-child-a', 'group-child-b'],
+        'group-a'
+      ),
+      'group-children'
+    )
+    const combined = combinePublications(
+      [container, children],
+      'group-and-children'
+    )
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      undefined,
+      undefined,
+      applyCanonicalCreationBatch
+    )
+
+    expect(processPublication(combined)).toBe(true)
+
+    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(process).not.toHaveBeenCalled()
+    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
+    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
+      1,
+      [
+        expect.objectContaining({
+          id: 'group-a',
+          type: 'group',
+          parentId: 'workspace-a',
+          props: {
+            position: 'position-group-a',
+            dimension: 'dimension-group-a',
+            transform: 'transform-group-a',
+            fill: 'fill-group-a'
+          }
+        })
+      ],
+      [
+        { id: 'position-group-a', type: 'position' },
+        { id: 'dimension-group-a', type: 'dimension' },
+        { id: 'transform-group-a', type: 'transform' },
+        { id: 'fill-group-a', type: 'fill' }
+      ],
+      'workspace-a',
+      0
+    )
+    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          id: 'group-child-a',
+          parentId: 'group-a'
+        }),
+        expect.objectContaining({
+          id: 'group-child-b',
+          parentId: 'group-a'
+        })
+      ],
+      [
+        { id: 'position-group-child-a', type: 'position' },
+        { id: 'position-group-child-b', type: 'position' }
+      ],
+      'group-a',
+      0
     )
   })
 

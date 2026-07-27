@@ -4,6 +4,7 @@ import { LocalSharedDataChannel } from '../shared-data-channel'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
   EventTypes,
+  getTransactionOwner,
   subscribeToEndTransaction,
   subscribeToEvents,
   subscribeToUserActionCompleted,
@@ -94,6 +95,43 @@ describe('Factory', () => {
         origin: 'remote',
         status: 'committed',
         rollbackableChangeCount: 1
+      })
+    ])
+  })
+
+  it('preserves the canonical batch handoff inside a remote transaction without local side effects', () => {
+    const updateBatch = vi.spyOn(factory.transact, 'updateBatch')
+    const publications = vi.fn()
+    const captures = vi.fn()
+    const statuses: TransactionStatusPayload[] = []
+    factory.subscribeToSharedPublication(publications)
+    factory.subscribeToCommitCapture(captures)
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+    const events: readonly UpdateTransactionEvent[] = [
+      {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'remote-batch-owner', before: 0, after: 1 }
+      }
+    ]
+
+    factory.runRemoteTransaction(() => {
+      const owner = getTransactionOwner() as ReturnType<
+        Factory['getTransactionOwner']
+      > | null
+      expect(typeof owner?.updateTransactionBatch).toBe('function')
+      owner?.updateTransactionBatch(events)
+    })
+
+    expect(updateBatch).toHaveBeenCalledOnce()
+    expect(updateBatch).toHaveBeenCalledWith(events, undefined)
+    expect(publications).not.toHaveBeenCalled()
+    expect(captures).not.toHaveBeenCalled()
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'committed',
+        undoableChangeCount: 0
       })
     ])
   })

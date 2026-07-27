@@ -207,9 +207,11 @@ class Factory {
 
   runRemoteTransaction<T>(mutate: () => T): T {
     this.transact.start('remote')
-    const reactiveBoundaryOwner: TransactionOwner = {
+    const reactiveBoundaryOwner: FactoryTransactionOwner = {
       startTransaction: () => undefined,
       updateTransaction: (event) => this.updateTransaction(event),
+      updateTransactionBatch: (events, deliveryEvidence) =>
+        this.updateTransactionBatch(events, deliveryEvidence),
       endTransaction: () => undefined,
       undo: () => this.undo(),
       redo: () => this.redo()
