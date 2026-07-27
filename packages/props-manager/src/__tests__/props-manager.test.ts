@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
+  PropertyComponentRawData,
   PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
   PropertySchema,
@@ -22,6 +23,7 @@ import {
   propertyComponentRegistry,
   registerPropertyComponent
 } from '../registries/property-component'
+import { createPropertyComponentFromConfig } from '../registries/declarative-property-type'
 import {
   PositionComponent,
   DimensionComponent,
@@ -38,6 +40,10 @@ interface UpdateTransactionEvent {
     undoable?: boolean
     shared?: string
   }
+}
+
+interface BrowserDragPhaseRuntime {
+  __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
 }
 
 const captureUpdateTransactionEvents = () => {
@@ -529,16 +535,41 @@ describe('PropsManager', () => {
       id: 'planned-parent',
       children: ['planned-child']
     } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const getPropertyById = vi.spyOn(propsManager, 'getPropertyById')
     const plan = propsManager.preflightPropertyCreationBatch(
       [child, parent],
       ['planned-parent', 'planned-parent']
     )
+    const redundantActiveLookupCount = getPropertyById.mock.calls.length
+    getPropertyById.mockRestore()
+    const createProperty = vi.spyOn(propsManager, 'createProperty')
+    const addProperty = vi.spyOn(propsManager, 'addProperty')
+    const addToMap = vi.spyOn(propsManager, 'addToMap')
 
-    expect(
+    expect(redundantActiveLookupCount).toBe(0)
+    const appliedIds = propsManager.runInPropertyCreationBatch(() =>
+      propsManager.applyPropertyCreationBatch(plan)
+    ).result
+    const singleDispatchCounts = {
+      addProperty: addProperty.mock.calls.length,
+      addToMap: addToMap.mock.calls.length,
+      createProperty: createProperty.mock.calls.length
+    }
+    createProperty.mockRestore()
+    addProperty.mockRestore()
+    addToMap.mockRestore()
+
+    expect(appliedIds).toEqual(['planned-child', 'planned-parent'])
+    expect(singleDispatchCounts).toEqual({
+      addProperty: 0,
+      addToMap: 0,
+      createProperty: 0
+    })
+    expect(() =>
       propsManager.runInPropertyCreationBatch(() =>
         propsManager.applyPropertyCreationBatch(plan)
-      ).result
-    ).toEqual(['planned-child', 'planned-parent'])
+      )
+    ).toThrow(/one-shot property creation plan/i)
     expect(propsManager.save()).toEqual({
       'planned-child': child,
       'planned-parent': parent
@@ -549,11 +580,220 @@ describe('PropsManager', () => {
         data: [child, parent]
       })
     ])
-    expect(() =>
-      propsManager.runInPropertyCreationBatch(() =>
-        propsManager.applyPropertyCreationBatch(plan)
+  })
+
+  it('emits detached timings once for each canonical property batch phase', () => {
+    const child = new PositionComponent({
+      id: 'profiled-property-child',
+      x: 12,
+      y: 24
+    }).save()
+    const parent = new CustomComponent({
+      id: 'profiled-property-parent',
+      children: ['profiled-property-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const phaseNames: string[] = []
+    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('props-manager:')) {
+        phaseNames.push(name)
+      }
+    }
+
+    try {
+      const creationPlan = propsManager.preflightPropertyCreationBatch(
+        [child, parent],
+        ['profiled-property-parent']
       )
-    ).toThrow(/one-shot property creation plan/i)
+      propsManager
+        .runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(creationPlan)
+        )
+        .complete()
+      const activePlan = propsManager.preflightActivePropertyBatch(
+        [parent, child],
+        ['profiled-property-parent']
+      )
+      propsManager.runInActivePropertyBatch(activePlan, () => undefined)
+    } finally {
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+    }
+
+    expect(phaseNames).toEqual([
+      'props-manager:creation-preflight',
+      'props-manager:creation-registry-readiness',
+      'props-manager:creation-materialize',
+      'props-manager:creation-post-materialize-readiness',
+      'props-manager:creation-relationship-rebind',
+      'props-manager:creation-pre-register-readiness',
+      'props-manager:creation-register',
+      'props-manager:creation-exact',
+      'props-manager:creation-operation',
+      'props-manager:creation-finalize',
+      'props-manager:creation-evidence-save',
+      'props-manager:creation-evidence-clone',
+      'props-manager:creation-evidence',
+      'props-manager:active-preflight-clone',
+      'props-manager:active-preflight-exact',
+      'props-manager:active-preflight-relations',
+      'props-manager:active-preflight',
+      'props-manager:active-enter-exact',
+      'props-manager:active-rebind-relations',
+      'props-manager:active-operation',
+      'props-manager:active-exit-exact'
+    ])
+    expect(propsManager.save()).toEqual({
+      'profiled-property-child': child,
+      'profiled-property-parent': parent
+    })
+  })
+
+  it('does not let a failing timing observer change canonical property batches', () => {
+    const child = new PositionComponent({
+      id: 'observer-safe-property-child',
+      x: 4,
+      y: 8
+    }).save()
+    const parent = new CustomComponent({
+      id: 'observer-safe-property-parent',
+      children: ['observer-safe-property-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    runtime.__asyraBrowserDragPhaseSink = () => {
+      throw new Error('diagnostic sink failure')
+    }
+
+    try {
+      const creationPlan = propsManager.preflightPropertyCreationBatch(
+        [child, parent],
+        ['observer-safe-property-parent']
+      )
+      propsManager
+        .runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(creationPlan)
+        )
+        .complete()
+      const activePlan = propsManager.preflightActivePropertyBatch(
+        [parent, child],
+        ['observer-safe-property-parent']
+      )
+      expect(
+        propsManager.runInActivePropertyBatch(activePlan, () => 'observer-safe')
+      ).toBe('observer-safe')
+    } finally {
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+    }
+
+    expect(propsManager.save()).toEqual({
+      'observer-safe-property-child': child,
+      'observer-safe-property-parent': parent
+    })
+    expect(propsManager.changes).toEqual([
+      expect.objectContaining({
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        data: [child, parent]
+      })
+    ])
+  })
+
+  it('emits bounded owner timings when canonical property preflight rejects', () => {
+    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    const phaseNames: string[] = []
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('props-manager:')) {
+        phaseNames.push(name)
+      }
+    }
+    const child = new PositionComponent({
+      id: 'rejected-profile-child',
+      x: 1,
+      y: 2
+    }).save()
+    const parent = new CustomComponent({
+      id: 'rejected-profile-parent',
+      children: ['rejected-profile-child']
+    } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+
+    try {
+      expect(() =>
+        propsManager.preflightPropertyCreationBatch(
+          [parent, child],
+          ['rejected-profile-parent']
+        )
+      ).toThrow(/child-first/i)
+
+      const active = propsManager.createProperty({
+        ...child,
+        id: 'rejected-profile-active'
+      })
+      propsManager.addProperty([active])
+      propsManager.cleanChanges()
+      expect(() =>
+        propsManager.preflightActivePropertyBatch(
+          [{ ...active.save(), x: 999 }],
+          ['rejected-profile-active']
+        )
+      ).toThrow(/changed exact component data/i)
+    } finally {
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+    }
+
+    expect(phaseNames).toEqual([
+      'props-manager:creation-preflight',
+      'props-manager:active-preflight-clone',
+      'props-manager:active-preflight'
+    ])
+  })
+
+  it('does not read the profiling clock when no timing observer is installed', () => {
+    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    delete runtime.__asyraBrowserDragPhaseSink
+    const performanceNow = vi.spyOn(performance, 'now')
+    const child = new PositionComponent({
+      id: 'unprofiled-property-child',
+      x: 2,
+      y: 6
+    }).save()
+
+    try {
+      const creationPlan = propsManager.preflightPropertyCreationBatch(
+        [child],
+        ['unprofiled-property-child']
+      )
+      propsManager
+        .runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(creationPlan)
+        )
+        .complete()
+      const activePlan = propsManager.preflightActivePropertyBatch(
+        [child],
+        ['unprofiled-property-child']
+      )
+      propsManager.runInActivePropertyBatch(activePlan, () => undefined)
+
+      expect(performanceNow).not.toHaveBeenCalled()
+    } finally {
+      performanceNow.mockRestore()
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      }
+    }
   })
 
   it('rejects invalid canonical property graphs and one-shot plan misuse without mutation', () => {
@@ -587,6 +827,675 @@ describe('PropsManager', () => {
     expect(() => propsManager.applyPropertyCreationBatch(plan)).toThrow(
       /active property creation batch/i
     )
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects property constructor registry drift before batch materialization', () => {
+    const definition = {
+      type: PropertyTypes.CUSTOM,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    const DeclarativeParent = createPropertyComponentFromConfig(definition)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      DeclarativeParent,
+      undefined,
+      definition
+    )
+    const child = new PositionComponent({
+      id: 'registry-drift-child',
+      x: 1,
+      y: 2
+    }).save()
+    const parent = {
+      id: 'registry-drift-parent',
+      type: PropertyTypes.CUSTOM,
+      children: ['registry-drift-child']
+    } as PropertyComponentRawData
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [parent, child],
+      ['registry-drift-parent']
+    )
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      CustomComponent,
+      undefined,
+      definition
+    )
+    const replacementConstruction = vi.spyOn(CustomComponent.prototype, 'load')
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(replacementConstruction).not.toHaveBeenCalled()
+    replacementConstruction.mockRestore()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects declarative relationship contract drift before batch materialization', () => {
+    const definition = {
+      type: PropertyTypes.CUSTOM,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    const DeclarativeParent = createPropertyComponentFromConfig(definition)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      DeclarativeParent,
+      undefined,
+      definition
+    )
+    const child = new PositionComponent({
+      id: 'relation-drift-child',
+      x: 1,
+      y: 2
+    }).save()
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [
+        {
+          id: 'relation-drift-parent',
+          type: PropertyTypes.CUSTOM,
+          children: ['relation-drift-child']
+        } as PropertyComponentRawData,
+        child
+      ],
+      ['relation-drift-parent']
+    )
+    const driftedDefinition = {
+      ...definition,
+      defaults: { otherChildren: [] as string[] },
+      persistKeys: ['otherChildren'],
+      valueKeys: ['otherChildren'],
+      children: {
+        ...definition.children,
+        key: 'otherChildren'
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      DeclarativeParent,
+      undefined,
+      driftedDefinition
+    )
+    const replacementConstruction = vi.spyOn(
+      DeclarativeParent.prototype,
+      'load'
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(replacementConstruction).not.toHaveBeenCalled()
+    replacementConstruction.mockRestore()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects child-first declarative relationship drift before batch materialization', () => {
+    const definition = {
+      type: PropertyTypes.CUSTOM,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    const DeclarativeParent = createPropertyComponentFromConfig(definition)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      DeclarativeParent,
+      undefined,
+      definition
+    )
+    const child = new PositionComponent({
+      id: 'child-first-drift-child',
+      x: 1,
+      y: 2
+    }).save()
+    const parent = {
+      id: 'child-first-drift-parent',
+      type: PropertyTypes.CUSTOM,
+      children: ['child-first-drift-child']
+    } as PropertyComponentRawData
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [child, parent],
+      ['child-first-drift-parent']
+    )
+    const driftedDefinition = {
+      ...definition,
+      defaults: { otherChildren: [] as string[] },
+      persistKeys: ['otherChildren'],
+      valueKeys: ['otherChildren'],
+      children: {
+        ...definition.children,
+        key: 'otherChildren'
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.CUSTOM)
+    registerPropertyComponent(
+      PropertyTypes.CUSTOM,
+      DeclarativeParent,
+      undefined,
+      driftedDefinition
+    )
+    const construction = vi.spyOn(DeclarativeParent.prototype, 'load')
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(construction).not.toHaveBeenCalled()
+    construction.mockRestore()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it.each(['mutated', 'replaced', 'removed'] as const)(
+    'rejects %s property schema drift before batch materialization',
+    (drift) => {
+      const source = [
+        new PositionComponent({
+          id: `schema-${drift}-first`,
+          x: 1,
+          y: 2
+        }).save(),
+        new PositionComponent({
+          id: `schema-${drift}-second`,
+          x: 3,
+          y: 4
+        }).save()
+      ]
+      const plan = propsManager.preflightPropertyCreationBatch(
+        source,
+        source.map(({ id }) => id)
+      )
+      const schema = propertySchemaRegistry.get(PropertyTypes.POSITION)
+      if (!schema) {
+        throw new Error('Expected the registered position schema')
+      }
+      if (drift === 'mutated') {
+        schema.fields[0].defaultValue = 99
+      } else {
+        propertySchemaRegistry.unregister(PropertyTypes.POSITION)
+        if (drift === 'replaced') {
+          registerPropertySchema({
+            ...schema,
+            fields: schema.fields.map((field, index) =>
+              index === 0 ? { ...field, defaultValue: 99 } : { ...field }
+            )
+          })
+        }
+      }
+      const construction = vi.spyOn(PositionComponent.prototype, 'load')
+
+      expect(() =>
+        propsManager.runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(plan)
+        )
+      ).toThrow(/registration changed/i)
+
+      expect(construction).not.toHaveBeenCalled()
+      construction.mockRestore()
+      expect(propsManager.save()).toEqual({})
+      expect(propsManager.changes).toEqual([])
+    }
+  )
+
+  it('rejects a schema added after a schema-free creation preflight', () => {
+    const schemaFreeType = 'schema-free-creation'
+    class SchemaFreeComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = schemaFreeType
+      }
+    }
+    registerPropertyComponent(schemaFreeType, SchemaFreeComponent)
+    const source = [
+      { id: 'schema-free-first', type: schemaFreeType },
+      { id: 'schema-free-second', type: schemaFreeType }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+    registerPropertySchema({
+      type: schemaFreeType,
+      fields: [
+        {
+          key: 'value',
+          kind: 'number',
+          defaultValue: 0
+        }
+      ]
+    })
+    const construction = vi.spyOn(SchemaFreeComponent.prototype, 'load')
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(construction).not.toHaveBeenCalled()
+    construction.mockRestore()
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('keeps a schema-free plan valid when unrelated active schemas are cleared', () => {
+    const schemaFreeType = 'schema-free-unrelated-clear'
+    class SchemaFreeComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = schemaFreeType
+      }
+    }
+    registerPropertyComponent(schemaFreeType, SchemaFreeComponent)
+    registerPropertySchema({
+      type: schemaFreeType,
+      fields: []
+    })
+    propertySchemaRegistry.unregister(schemaFreeType)
+    const source = [
+      { id: 'schema-free-clear-first', type: schemaFreeType },
+      { id: 'schema-free-clear-second', type: schemaFreeType }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+
+    propertySchemaRegistry.clear()
+    propsManager
+      .runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+      .complete()
+
+    expect(propsManager.save()).toEqual(
+      Object.fromEntries(source.map((component) => [component.id, component]))
+    )
+  })
+
+  it('uses the captured constructor when an earlier constructor changes a later registration', () => {
+    const mutatorType = 'creation-registry-mutator'
+    const targetType = 'creation-registry-target'
+    let replacementConstructions = 0
+
+    class OriginalTargetComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = targetType
+      }
+    }
+    class ReplacementTargetComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = targetType
+        replacementConstructions += 1
+      }
+    }
+    class RegistryMutatorComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = mutatorType
+        propertyComponentRegistry.unregister(targetType)
+        registerPropertyComponent(targetType, ReplacementTargetComponent)
+      }
+    }
+    registerPropertyComponent(mutatorType, RegistryMutatorComponent)
+    registerPropertyComponent(targetType, OriginalTargetComponent)
+    const source = [
+      { id: 'creation-registry-mutator', type: mutatorType },
+      { id: 'creation-registry-target', type: targetType }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(replacementConstructions).toBe(0)
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects schema drift that is used during materialization and restored before readiness', () => {
+    const driftType = 'creation-schema-drift'
+    const restoreType = 'creation-schema-restore'
+    const currentSchema = propertySchemaRegistry.get(PropertyTypes.POSITION)
+    if (!currentSchema) {
+      throw new Error('Expected the registered position schema')
+    }
+    const registeredSchema: PropertySchema = currentSchema
+    const originalSchema: PropertySchema = registeredSchema
+    const registeredXField = originalSchema.fields.find(
+      ({ key }) => key === 'x'
+    )
+    if (!registeredXField) {
+      throw new Error('Expected the registered position x field')
+    }
+    const liveXField = registeredXField
+    const originalXField = {
+      kind: liveXField.kind,
+      defaultValue: liveXField.defaultValue,
+      validate: liveXField.validate
+    }
+
+    class SchemaDriftComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = driftType
+        liveXField.kind = 'string'
+        liveXField.defaultValue = ''
+        liveXField.validate = (value: unknown) => typeof value === 'string'
+      }
+    }
+    class SchemaRestoreComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = restoreType
+        liveXField.kind = originalXField.kind
+        liveXField.defaultValue = originalXField.defaultValue
+        liveXField.validate = originalXField.validate
+      }
+    }
+    registerPropertyComponent(driftType, SchemaDriftComponent)
+    registerPropertyComponent(restoreType, SchemaRestoreComponent)
+    const source = [
+      { id: 'creation-schema-drift', type: driftType },
+      {
+        id: 'creation-schema-invalid-position',
+        type: PropertyTypes.POSITION,
+        x: 'invalid-under-original-schema',
+        y: 2,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      },
+      { id: 'creation-schema-restore', type: restoreType }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/changed exact component data/i)
+
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects component registration drift restored during materialization', () => {
+    const driftType = 'creation-component-drift'
+    const targetType = 'creation-component-restore-target'
+    const restoreType = 'creation-component-restore'
+    let replacementConstructions = 0
+
+    class OriginalTargetComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = targetType
+      }
+    }
+    class ReplacementTargetComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = targetType
+        replacementConstructions += 1
+      }
+    }
+    class ComponentDriftComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = driftType
+        propertyComponentRegistry.unregister(targetType)
+        registerPropertyComponent(targetType, ReplacementTargetComponent)
+      }
+    }
+    class ComponentRestoreComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = restoreType
+        propertyComponentRegistry.unregister(targetType)
+        registerPropertyComponent(targetType, OriginalTargetComponent)
+      }
+    }
+    registerPropertyComponent(driftType, ComponentDriftComponent)
+    registerPropertyComponent(targetType, OriginalTargetComponent)
+    registerPropertyComponent(restoreType, ComponentRestoreComponent)
+    const source = [
+      { id: 'creation-component-drift', type: driftType },
+      { id: 'creation-component-target', type: targetType },
+      { id: 'creation-component-restore', type: restoreType }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(replacementConstructions).toBe(0)
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('restores existing active properties with the batch-start schema after failure', () => {
+    const mutatorType = 'creation-active-schema-mutator'
+    const currentSchema = propertySchemaRegistry.get(PropertyTypes.POSITION)
+    if (!currentSchema) {
+      throw new Error('Expected the registered position schema')
+    }
+    const registeredSchema: PropertySchema = currentSchema
+    const active = propsManager.createProperty({
+      id: 'creation-active-schema-position',
+      type: PropertyTypes.POSITION,
+      x: 1,
+      y: 2,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+    const before = active.save()
+
+    class ActiveSchemaMutatorComponent extends CustomComponent {
+      constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
+        super(data)
+        this.data.type = mutatorType
+        propertySchemaRegistry.unregister(PropertyTypes.POSITION)
+        registerPropertySchema({
+          ...registeredSchema,
+          fields: registeredSchema.fields.map((field) =>
+            field.key === 'x'
+              ? {
+                  ...field,
+                  kind: 'string',
+                  defaultValue: '',
+                  validate: (value: unknown) => typeof value === 'string'
+                }
+              : { ...field }
+          )
+        })
+        getPropertyComponentAccessor()
+          .getPropertyById('creation-active-schema-position')
+          ?.set('x' as never, 2 as never)
+      }
+    }
+    registerPropertyComponent(mutatorType, ActiveSchemaMutatorComponent)
+    const source = [
+      {
+        id: 'creation-active-schema-mutator',
+        type: mutatorType
+      },
+      {
+        id: 'creation-active-schema-new-position',
+        type: PropertyTypes.POSITION,
+        x: 3,
+        y: 4,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    ] as PropertyComponentRawData[]
+    const plan = propsManager.preflightPropertyCreationBatch(
+      source,
+      source.map(({ id }) => id)
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(active.save()).toEqual(before)
+    expect(propsManager.save()).toEqual({
+      'creation-active-schema-position': before
+    })
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects schema drift caused by a deferred relationship rebind before registration', () => {
+    const relationshipType = 'rebind-schema-drift'
+    let validationCount = 0
+    const schema: PropertySchema = {
+      type: relationshipType,
+      fields: [
+        {
+          key: 'value',
+          kind: 'number',
+          defaultValue: 0,
+          validate: () => {
+            validationCount += 1
+            if (validationCount === 2) {
+              schema.fields[0].defaultValue = 99
+            }
+            return true
+          }
+        }
+      ]
+    }
+    const definition = {
+      type: relationshipType,
+      defaults: { value: 0, children: [] as string[] },
+      persistKeys: ['value', 'children'],
+      valueKeys: ['value', 'children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(definition)
+    registerPropertySchema(schema)
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      definition
+    )
+    const child = new PositionComponent({
+      id: 'rebind-schema-drift-child',
+      x: 1,
+      y: 2
+    }).save()
+    const plan = propsManager.preflightPropertyCreationBatch(
+      [
+        {
+          id: 'rebind-schema-drift-parent',
+          type: relationshipType,
+          value: 1,
+          children: ['rebind-schema-drift-child']
+        } as PropertyComponentRawData,
+        child
+      ],
+      ['rebind-schema-drift-parent']
+    )
+
+    expect(() =>
+      propsManager.runInPropertyCreationBatch(() =>
+        propsManager.applyPropertyCreationBatch(plan)
+      )
+    ).toThrow(/registration changed/i)
+
+    expect(validationCount).toBe(2)
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rejects a configured constructor whose registered relationship contract is missing', () => {
+    const relationshipType = 'missing-configured-relationship'
+    const definition = {
+      type: relationshipType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const ConfiguredComponent = createPropertyComponentFromConfig(definition)
+    registerPropertyComponent(relationshipType, ConfiguredComponent)
+
+    expect(() =>
+      propsManager.preflightPropertyCreationBatch(
+        [
+          {
+            id: 'missing-configured-relationship-parent',
+            type: relationshipType,
+            children: []
+          }
+        ],
+        ['missing-configured-relationship-parent']
+      )
+    ).toThrow(/relationship registration/i)
+
     expect(propsManager.save()).toEqual({})
     expect(propsManager.changes).toEqual([])
   })
@@ -628,6 +1537,90 @@ describe('PropsManager', () => {
     expect(() =>
       propsManager.runInActivePropertyBatch(plan, () => undefined)
     ).toThrow(/owner-issued one-shot active property plan/i)
+  })
+
+  it('fuses one exact active property preflight with its owner operation', () => {
+    const child = propsManager.createProperty(
+      new PositionComponent({
+        id: 'fused-active-child',
+        x: 12,
+        y: 24
+      }).save()
+    )
+    propsManager.addProperty([child])
+    const parent = propsManager.createProperty(
+      new CustomComponent({
+        id: 'fused-active-parent',
+        children: ['fused-active-child']
+      } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
+    )
+    propsManager.addProperty([parent])
+    propsManager.cleanChanges()
+    const source = [parent.save(), child.save()]
+    const before = propsManager.save()
+    const parentSave = vi.spyOn(parent, 'save')
+    const childSave = vi.spyOn(child, 'save')
+    const fusedOwner = propsManager as PropsManager & {
+      runWithActivePropertyBatch(
+        sourceComponents: unknown,
+        sourceRootComponentIds: unknown,
+        operation: () => readonly string[]
+      ): readonly string[]
+    }
+
+    expect(
+      fusedOwner.runWithActivePropertyBatch(
+        source,
+        ['fused-active-parent'],
+        () => {
+          propsManager.addProperty([parent])
+          return ['fused-active-parent']
+        }
+      )
+    ).toEqual(['fused-active-parent'])
+    const exactSaveCounts = {
+      child: childSave.mock.calls.length,
+      parent: parentSave.mock.calls.length
+    }
+    childSave.mockRestore()
+    parentSave.mockRestore()
+
+    expect(exactSaveCounts).toEqual({
+      child: 2,
+      parent: 2
+    })
+    expect(propsManager.getPropertyById('fused-active-child')).toBe(child)
+    expect(propsManager.getPropertyById('fused-active-parent')).toBe(parent)
+    expect(propsManager.save()).toEqual(before)
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('keeps the two-step active property entry guard against a silent gap mutation', () => {
+    const active = propsManager.createProperty(
+      new PositionComponent({
+        id: 'active-two-step-gap',
+        x: 5,
+        y: 10
+      }).save()
+    )
+    propsManager.addProperty([active])
+    propsManager.cleanChanges()
+    const plan = propsManager.preflightActivePropertyBatch(
+      [active.save()],
+      ['active-two-step-gap']
+    )
+    active.load({
+      ...active.save(),
+      x: 99
+    } as never)
+    const operation = vi.fn()
+
+    expect(() =>
+      propsManager.runInActivePropertyBatch(plan, operation)
+    ).toThrow(/changed exact component data/i)
+    expect(operation).not.toHaveBeenCalled()
+    expect(active.get('x' as never)).toBe(99)
+    expect(propsManager.changes).toEqual([])
   })
 
   it('accepts exact active source extras without rebuilding or reordering them', () => {

@@ -92,40 +92,45 @@ export const initPropXSubscribes = () => {
           isFreshCreationBatch = false
         }
       })
-      const freshCreationBatch = isFreshCreationBatch
-        ? propsManager.runInPropertyCreationBatch(() => {
-            const components = payload.data.map((propData) =>
-              propsManager.createProperty(propData)
-            )
-            propsManager.addProperty(components)
-            return components
-          })
+      const freshCreationPlan = isFreshCreationBatch
+        ? propsManager.preflightNormalizedPropertyCreationBatch(
+            payload.data,
+            payload.data.map(({ id }) => id)
+          )
         : undefined
-      const propComponents =
-        freshCreationBatch?.result ??
-        payload.data.map((propData) => {
-          let newProperty
-          if (replayMode !== null) {
-            newProperty = propsManager.getRestoreComponentById(
-              propData.id as string
-            )
-            if (newProperty) {
-              propsManager.addChangeForAddProperty(newProperty)
-            }
-          }
+      const freshCreationBatch = freshCreationPlan
+        ? propsManager.runInPropertyCreationBatch(() =>
+            propsManager.applyPropertyCreationBatch(freshCreationPlan)
+          )
+        : undefined
+      const propComponents: PropertyComponentInstanceTypes[] =
+        freshCreationBatch === undefined
+          ? payload.data.map((propData) => {
+              let newProperty
+              if (replayMode !== null) {
+                newProperty = propsManager.getRestoreComponentById(
+                  propData.id as string
+                )
+                if (newProperty) {
+                  propsManager.addChangeForAddProperty(newProperty)
+                }
+              }
 
-          if (!newProperty) {
-            newProperty = propsManager.createProperty(propData)
-          }
+              if (!newProperty) {
+                newProperty = propsManager.createProperty(propData)
+              }
 
-          return newProperty
-        })
+              return newProperty
+            })
+          : []
       if (!freshCreationBatch) {
         propsManager.addProperty(propComponents)
       }
-      const applied = propComponents.some(
-        (property, index) => property !== previousProperties[index]
-      )
+      const applied =
+        freshCreationBatch !== undefined ||
+        propComponents.some(
+          (property, index) => property !== previousProperties[index]
+        )
       try {
         if (applied) {
           acknowledgeTransactionReplayApplied()

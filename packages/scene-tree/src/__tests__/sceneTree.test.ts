@@ -288,41 +288,30 @@ describe('SceneTree', () => {
     registerPropertyComponent(PropertyTypes.DIMENSION, TestDimensionComponent)
     registerPropertyComponent(TEST_STROKE_PROPERTY_TYPE, TestStrokeComponent)
     registerPropertyComponent(TEST_STROKES_PROPERTY_TYPE, TestStrokesComponent)
+    const reactiveStrokesDefinition = {
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      defaults: { strokes: [] },
+      persistKeys: ['strokes'],
+      valueKeys: ['strokes'],
+      children: {
+        key: 'strokes',
+        childType: TEST_STROKE_PROPERTY_TYPE,
+        mode: 'ids' as const,
+        toValue: (
+          child: { get: (key: string) => unknown },
+          childId: string
+        ) => ({
+          id: childId,
+          fill: child.get('fill'),
+          width: child.get('width')
+        })
+      }
+    }
     registerPropertyComponent(
       TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      createPropertyComponentFromConfig({
-        type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-        defaults: { strokes: [] },
-        persistKeys: ['strokes'],
-        valueKeys: ['strokes'],
-        children: {
-          key: 'strokes',
-          childType: TEST_STROKE_PROPERTY_TYPE,
-          mode: 'ids',
-          toValue: (child, childId) => ({
-            id: childId,
-            fill: child.get('fill'),
-            width: child.get('width')
-          })
-        }
-      }),
+      createPropertyComponentFromConfig(reactiveStrokesDefinition),
       undefined,
-      {
-        type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-        defaults: { strokes: [] },
-        persistKeys: ['strokes'],
-        valueKeys: ['strokes'],
-        children: {
-          key: 'strokes',
-          childType: TEST_STROKE_PROPERTY_TYPE,
-          mode: 'ids',
-          toValue: (child, childId) => ({
-            id: childId,
-            fill: child.get('fill'),
-            width: child.get('width')
-          })
-        }
-      }
+      reactiveStrokesDefinition
     )
 
     // Clear any existing registrations before adding our test component
@@ -2261,6 +2250,85 @@ describe('SceneTree', () => {
     subscription.unsubscribe()
   })
 
+  it('keeps canonical property and element evidence detached from caller data', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const stroke = new TestStrokeComponent({
+      id: 'detached-canonical-stroke',
+      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
+      width: 6
+    }).save()
+    const strokes = {
+      id: 'detached-canonical-strokes',
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
+      strokes: ['detached-canonical-stroke']
+    } as PropertyComponentRawData
+    const element = {
+      id: 'detached-canonical-vector',
+      type: TEST_REACTIVE_VECTOR_TYPE,
+      name: 'Detached Canonical Vector',
+      parentId: workspace.get('id'),
+      visible: true,
+      lock: false,
+      props: {
+        strokes: 'detached-canonical-strokes'
+      } as unknown as ElementRawData['props']
+    } satisfies ElementRawData
+    const expectedProperties = structuredClone([stroke, strokes])
+    const expectedElement = structuredClone(element)
+    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type !== EventTypes.UPDATE_TRANSACTION ||
+        !('payload' in event)
+      ) {
+        return
+      }
+      const change = event.payload as SceneTreeChange | PropsChange
+      if (
+        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
+        change.action === PROPS_ACTIONS.ADD_PROPERTY
+      ) {
+        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
+      }
+    })
+    orderedChanges.length = 0
+
+    expect(
+      sceneTree.addNewElementsFromCanonicalData(
+        [element],
+        [stroke, strokes],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['detached-canonical-vector'])
+    const evidenceBeforeCallerMutation = structuredClone(orderedChanges)
+
+    ;(
+      stroke as unknown as {
+        fill: { color: string }
+      }
+    ).fill.color = '#abcdef'
+    ;(
+      strokes as unknown as {
+        strokes: string[]
+      }
+    ).strokes.push('caller-only-stroke')
+    element.name = 'Caller-only name'
+    ;(element.props as Record<string, string>).strokes = 'caller-only-owner'
+
+    expect(
+      propsManager.getPropertyById('detached-canonical-stroke')?.save()
+    ).toEqual(expectedProperties[0])
+    expect(
+      propsManager.getPropertyById('detached-canonical-strokes')?.save()
+    ).toEqual(expectedProperties[1])
+    expect(
+      sceneTree.getElementById('detached-canonical-vector')?.save()
+    ).toEqual(expectedElement)
+    expect(orderedChanges).toEqual(evidenceBeforeCallerMutation)
+    subscription.unsubscribe()
+  })
+
   it('binds child-first canonical property relationships through the owner batch', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
@@ -2382,8 +2450,11 @@ describe('SceneTree', () => {
       }
     })
     orderedChanges.length = 0
+    const addToMap = vi.spyOn(propsManager, 'addToMap')
+    const strokeSave = vi.spyOn(stroke, 'save')
+    const strokesSave = vi.spyOn(strokes, 'save')
 
-    expect(
+    const createdIds =
       sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
         elements,
         properties,
@@ -2391,8 +2462,24 @@ describe('SceneTree', () => {
         undefined,
         { undoable: false }
       )
-    ).toEqual(['active-canonical-vector-1', 'active-canonical-vector-2'])
+    const repeatedRegistrationCount = addToMap.mock.calls.length
+    const exactSaveCounts = {
+      stroke: strokeSave.mock.calls.length,
+      strokes: strokesSave.mock.calls.length
+    }
+    addToMap.mockRestore()
+    strokeSave.mockRestore()
+    strokesSave.mockRestore()
 
+    expect(createdIds).toEqual([
+      'active-canonical-vector-1',
+      'active-canonical-vector-2'
+    ])
+    expect(repeatedRegistrationCount).toBe(0)
+    expect(exactSaveCounts).toEqual({
+      stroke: 2,
+      strokes: 2
+    })
     expect(propsManager.getPropertyById(strokeData.id)).toBe(stroke)
     expect(propsManager.getPropertyById(strokesData.id)).toBe(strokes)
     expect(
@@ -2452,9 +2539,14 @@ describe('SceneTree', () => {
     propsManager.addProperty([position, dimension])
     propsManager.cleanChanges()
     const beforeElementIds = [...sceneTree.getAllElements().keys()]
-    const beforeChildren = [...workspace.get('children')]
+    const beforeChildren = workspace.get('children')
+    const beforeChildrenSnapshot = [...beforeChildren]
     const beforeProps = propsManager.save()
     const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
+    const replaceBatchParentChildren = vi.spyOn(
+      workspace,
+      'replaceBatchParentChildren'
+    )
     const element = {
       id: 'active-stale-element',
       type: 'rect',
@@ -2480,11 +2572,13 @@ describe('SceneTree', () => {
     ).toThrow(/changed exact component data/i)
 
     expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
-    expect(workspace.get('children')).toEqual(beforeChildren)
+    expect(workspace.get('children')).toBe(beforeChildren)
+    expect(workspace.get('children')).toEqual(beforeChildrenSnapshot)
     expect(propsManager.save()).toEqual(beforeProps)
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
     expect(sceneCommit).not.toHaveBeenCalled()
+    expect(replaceBatchParentChildren).not.toHaveBeenCalled()
   })
 
   it('preserves shared new owners and rejects untracked active owners', () => {

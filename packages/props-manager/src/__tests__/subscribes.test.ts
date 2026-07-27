@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   endTransaction,
   EventTypes,
@@ -9,15 +9,22 @@ import {
 } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
+  type AddRemovePropertyChange,
+  type PropertyComponentRawData,
   PropertyTypes,
   Unit,
   type PropsChange
 } from '@asyra/utils'
 import propsManager from '..'
+import { getPropertyComponentAccessor } from '../manager/component-accessor'
 import {
   propertyComponentRegistry,
   registerPropertyComponent
 } from '../registries/property-component'
+import {
+  propertySchemaRegistry,
+  registerPropertySchema
+} from '../registries/property-schema'
 import { createPropertyComponentFromConfig } from '../registries/declarative-property-type'
 import { PositionComponent } from './helpers/test-property-components'
 
@@ -42,6 +49,7 @@ describe('props-manager subscribes', () => {
   beforeEach(() => {
     propsManager.reset()
     propertyComponentRegistry.clear()
+    propertySchemaRegistry.clear()
     registerPropertyComponent(PropertyTypes.POSITION, PositionComponent)
     registerPropertyComponent(
       NESTED_PARENT_TYPE,
@@ -99,9 +107,26 @@ describe('props-manager subscribes', () => {
     })
     const originalCommitChanges = propsManager.commitChanges
     const pendingChangeCounts: number[] = []
+    const phaseNames: string[] = []
+    const applyPropertyCreationBatch = vi.spyOn(
+      propsManager,
+      'applyPropertyCreationBatch'
+    )
+    const createProperty = vi.spyOn(propsManager, 'createProperty')
+    const addProperty = vi.spyOn(propsManager, 'addProperty')
+    const addToMap = vi.spyOn(propsManager, 'addToMap')
+    const runtime = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
+    }
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
     propsManager.commitChanges = (options) => {
       pendingChangeCounts.push(propsManager.changes.length)
       originalCommitChanges.call(propsManager, options)
+    }
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('props-manager:creation-')) {
+        phaseNames.push(name)
+      }
     }
     committedChanges.length = 0
 
@@ -132,10 +157,243 @@ describe('props-manager subscribes', () => {
         propsManager.getPropertyById('batch-position-second')?.save()
       ).toEqual(source[1])
       expect(propsManager.changes).toEqual([])
+      expect(
+        applyPropertyCreationBatch.mock.calls.map(([plan]) => plan.componentIds)
+      ).toEqual([['batch-position-first', 'batch-position-second']])
+      expect(createProperty).not.toHaveBeenCalled()
+      expect(addProperty).not.toHaveBeenCalled()
+      expect(addToMap).not.toHaveBeenCalled()
+      expect(phaseNames).toEqual([
+        'props-manager:creation-preflight',
+        'props-manager:creation-registry-readiness',
+        'props-manager:creation-materialize',
+        'props-manager:creation-post-materialize-readiness',
+        'props-manager:creation-relationship-rebind',
+        'props-manager:creation-pre-register-readiness',
+        'props-manager:creation-register',
+        'props-manager:creation-operation',
+        'props-manager:creation-finalize',
+        'props-manager:creation-evidence-save',
+        'props-manager:creation-evidence-clone',
+        'props-manager:creation-evidence'
+      ])
     } finally {
       propsManager.commitChanges = originalCommitChanges
+      applyPropertyCreationBatch.mockRestore()
+      createProperty.mockRestore()
+      addProperty.mockRestore()
+      addToMap.mockRestore()
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
       subscription.unsubscribe()
     }
+  })
+
+  it('preserves constructor defaults for a fresh partial ADD_PROPERTY batch', () => {
+    const source = [
+      {
+        id: 'partial-position-first',
+        type: PropertyTypes.POSITION
+      },
+      {
+        id: 'partial-position-second',
+        type: PropertyTypes.POSITION
+      }
+    ]
+    const expected = source.map((property) =>
+      new PositionComponent(property).save()
+    )
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
+    committedChanges.length = 0
+
+    try {
+      expect(() =>
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            data: source
+          }
+        })
+      ).not.toThrow()
+
+      expect(propsManager.save()).toEqual({
+        'partial-position-first': expected[0],
+        'partial-position-second': expected[1]
+      })
+      expect(committedChanges).toEqual([
+        expect.objectContaining({
+          eventName: EventTypes.ADD_PROPERTY,
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          data: expected
+        })
+      ])
+      expect(propsManager.changes).toEqual([])
+    } finally {
+      subscription.unsubscribe()
+    }
+  })
+
+  it('preserves declarative relationship defaults omitted by a partial ADD_PROPERTY batch', () => {
+    const source = [
+      {
+        id: 'partial-default-parent',
+        type: NESTED_PARENT_TYPE
+      },
+      {
+        id: 'partial-default-position',
+        type: PropertyTypes.POSITION
+      }
+    ]
+
+    expect(() =>
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          data: source
+        }
+      })
+    ).not.toThrow()
+
+    expect(
+      propsManager.getPropertyById('partial-default-parent')?.save()
+    ).toEqual({
+      id: 'partial-default-parent',
+      type: NESTED_PARENT_TYPE,
+      children: []
+    })
+    expect(
+      propsManager.getPropertyById('partial-default-position')?.save()
+    ).toEqual(new PositionComponent(source[1]).save())
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('rebinds an omitted nonempty relationship default after a parent-first partial batch', () => {
+    const relationshipType = 'partial-nonempty-default-parent'
+    const relationshipDefinition = {
+      type: relationshipType,
+      defaults: {
+        children: ['partial-nonempty-default-child'] as string[]
+      },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(
+      relationshipDefinition
+    )
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      relationshipDefinition
+    )
+
+    publishEvent({
+      type: EventTypes.ADD_PROPERTY,
+      payload: {
+        data: [
+          {
+            id: 'partial-nonempty-default-parent',
+            type: relationshipType
+          },
+          {
+            id: 'partial-nonempty-default-child',
+            type: PropertyTypes.POSITION
+          }
+        ]
+      }
+    })
+
+    const parent = propsManager.getPropertyById(
+      'partial-nonempty-default-parent'
+    )
+    const child = propsManager.getPropertyById('partial-nonempty-default-child')
+    const parentChanges: unknown[] = []
+    parent?.on((change) => parentChanges.push(change))
+
+    child?.set('x' as never, 55 as never)
+
+    expect(parent?.save()).toEqual({
+      id: 'partial-nonempty-default-parent',
+      type: relationshipType,
+      children: ['partial-nonempty-default-child']
+    })
+    expect(parentChanges).toEqual([
+      expect.objectContaining({
+        id: 'partial-nonempty-default-parent',
+        key: 'children',
+        after: 55
+      })
+    ])
+  })
+
+  it('preserves ordinary schema fallback for invalid values in a partial ADD_PROPERTY batch', () => {
+    registerPropertySchema({
+      type: PropertyTypes.POSITION,
+      fields: [
+        {
+          key: 'x',
+          kind: 'number',
+          defaultValue: 0
+        }
+      ]
+    })
+    const source = [
+      {
+        id: 'partial-invalid-position',
+        type: PropertyTypes.POSITION,
+        x: 'invalid',
+        y: 20,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      },
+      {
+        id: 'partial-valid-position',
+        type: PropertyTypes.POSITION,
+        x: 30,
+        y: 40,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    ]
+
+    expect(() =>
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          data: source
+        }
+      })
+    ).not.toThrow()
+
+    expect(
+      propsManager.getPropertyById('partial-invalid-position')?.save()
+    ).toEqual({
+      id: 'partial-invalid-position',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 20,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    expect(
+      propsManager.getPropertyById('partial-valid-position')?.save()
+    ).toEqual(source[1])
+    expect(propsManager.changes).toEqual([])
   })
 
   it('keeps pure string-id relationships inside one fresh canonical batch', () => {
@@ -188,9 +446,353 @@ describe('props-manager subscribes', () => {
       expect(propsManager.save()).toEqual(
         Object.fromEntries(source.map((property) => [property.id, property]))
       )
+      const parent = propsManager.getPropertyById('batch-parent')
+      const child = propsManager.getPropertyById('batch-child-first')
+      const parentChanges: unknown[] = []
+      parent?.on((change) => parentChanges.push(change))
+
+      child?.set('x' as never, 55 as never)
+
+      expect(parentChanges).toEqual([
+        expect.objectContaining({
+          id: 'batch-parent',
+          key: 'children',
+          after: 55
+        })
+      ])
     } finally {
       propsManager.commitChanges = originalCommitChanges
     }
+  })
+
+  it.each([
+    {
+      label: 'missing child',
+      source: [
+        new PositionComponent({
+          id: 'invalid-missing-child-unrelated',
+          type: PropertyTypes.POSITION,
+          x: 1,
+          y: 2,
+          xUnit: Unit.PX,
+          yUnit: Unit.PX
+        }).save(),
+        {
+          id: 'invalid-missing-child-parent',
+          type: NESTED_PARENT_TYPE,
+          children: ['invalid-missing-child']
+        }
+      ],
+      expected: /missing relation child/i
+    },
+    {
+      label: 'wrong child type',
+      source: [
+        {
+          id: 'invalid-wrong-type-child',
+          type: NESTED_PARENT_TYPE,
+          children: []
+        },
+        {
+          id: 'invalid-wrong-type-parent',
+          type: NESTED_PARENT_TYPE,
+          children: ['invalid-wrong-type-child']
+        }
+      ],
+      expected: /wrong type/i
+    }
+  ])(
+    'rejects $label fresh relationship evidence before registration',
+    ({ source, expected }) => {
+      expect(() =>
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            eventName: EventTypes.ADD_PROPERTY,
+            data: source as PropertyComponentRawData[],
+            action: PROPS_ACTIONS.ADD_PROPERTY,
+            undoType: EventTypes.REMOVE_PROPERTY,
+            undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+          }
+        })
+      ).toThrow(expected)
+
+      expect(propsManager.save()).toEqual({})
+      expect(propsManager.changes).toEqual([])
+    }
+  )
+
+  it('binds parent-first declarative relationship evidence without reordering it', () => {
+    const source = [
+      {
+        id: 'parent-first-parent',
+        type: NESTED_PARENT_TYPE,
+        children: ['parent-first-child']
+      },
+      new PositionComponent({
+        id: 'parent-first-child',
+        type: PropertyTypes.POSITION,
+        x: 1,
+        y: 2,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }).save()
+    ]
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
+    committedChanges.length = 0
+
+    try {
+      publishEvent({
+        type: EventTypes.ADD_PROPERTY,
+        payload: {
+          eventName: EventTypes.ADD_PROPERTY,
+          data: source,
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          undoType: EventTypes.REMOVE_PROPERTY,
+          undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+        }
+      })
+
+      expect(
+        (
+          committedChanges.find(
+            ({ action }) => action === PROPS_ACTIONS.ADD_PROPERTY
+          ) as AddRemovePropertyChange
+        ).data.map(({ id }) => id)
+      ).toEqual(['parent-first-parent', 'parent-first-child'])
+      const parent = propsManager.getPropertyById('parent-first-parent')
+      const child = propsManager.getPropertyById('parent-first-child')
+      const parentChanges: unknown[] = []
+      parent?.on((change) => parentChanges.push(change))
+
+      child?.set('x' as never, 55 as never)
+
+      expect(parentChanges).toEqual([
+        expect.objectContaining({
+          id: 'parent-first-parent',
+          key: 'children',
+          after: 55
+        })
+      ])
+    } finally {
+      subscription.unsubscribe()
+    }
+  })
+
+  it('owns declarative relationship behavior after component factory creation', () => {
+    const relationshipType = 'owned-declarative-relationship'
+    const relationshipDefinition = {
+      type: relationshipType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(
+      relationshipDefinition
+    )
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      relationshipDefinition
+    )
+    relationshipDefinition.children.key = 'mutatedChildren'
+
+    publishEvent({
+      type: EventTypes.ADD_PROPERTY,
+      payload: {
+        eventName: EventTypes.ADD_PROPERTY,
+        data: [
+          {
+            id: 'owned-relationship-parent',
+            type: relationshipType,
+            children: ['owned-relationship-child']
+          },
+          new PositionComponent({
+            id: 'owned-relationship-child',
+            type: PropertyTypes.POSITION,
+            x: 1,
+            y: 2,
+            xUnit: Unit.PX,
+            yUnit: Unit.PX
+          }).save()
+        ],
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        undoType: EventTypes.REMOVE_PROPERTY,
+        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+      }
+    })
+
+    const parent = propsManager.getPropertyById('owned-relationship-parent')
+    const child = propsManager.getPropertyById('owned-relationship-child')
+    const parentChanges: unknown[] = []
+    parent?.on((change) => parentChanges.push(change))
+
+    child?.set('x' as never, 55 as never)
+
+    expect(parentChanges).toEqual([
+      expect.objectContaining({
+        id: 'owned-relationship-parent',
+        key: 'children',
+        after: 55
+      })
+    ])
+  })
+
+  it('hides a parent-first declarative component until relationship rebind completes', () => {
+    const relationshipType = 'pending-declarative-relationship'
+    const relationshipDefinition = {
+      type: relationshipType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(
+      relationshipDefinition
+    )
+    let observedParentDuringChildConstruction = false
+    class ObservingPositionComponent extends PositionComponent {
+      constructor(data: ConstructorParameters<typeof PositionComponent>[0]) {
+        super(data)
+        observedParentDuringChildConstruction = Boolean(
+          getPropertyComponentAccessor().getPropertyById(
+            'pending-relationship-parent'
+          )
+        )
+      }
+    }
+    propertyComponentRegistry.unregister(PropertyTypes.POSITION)
+    registerPropertyComponent(
+      PropertyTypes.POSITION,
+      ObservingPositionComponent
+    )
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      relationshipDefinition
+    )
+
+    publishEvent({
+      type: EventTypes.ADD_PROPERTY,
+      payload: {
+        eventName: EventTypes.ADD_PROPERTY,
+        data: [
+          {
+            id: 'pending-relationship-parent',
+            type: relationshipType,
+            children: ['pending-relationship-child']
+          },
+          new PositionComponent({
+            id: 'pending-relationship-child',
+            type: PropertyTypes.POSITION,
+            x: 1,
+            y: 2,
+            xUnit: Unit.PX,
+            yUnit: Unit.PX
+          }).save()
+        ],
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        undoType: EventTypes.REMOVE_PROPERTY,
+        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+      }
+    })
+
+    expect(observedParentDuringChildConstruction).toBe(false)
+    const parent = propsManager.getPropertyById('pending-relationship-parent')
+    const child = propsManager.getPropertyById('pending-relationship-child')
+    const parentChanges: unknown[] = []
+    parent?.on((change) => parentChanges.push(change))
+
+    child?.set('x' as never, 55 as never)
+
+    expect(parentChanges).toHaveLength(1)
+  })
+
+  it('rebinds multi-level parent-first relationships in dependency order', () => {
+    const relationshipType = 'multi-level-declarative-relationship'
+    const relationshipDefinition = {
+      type: relationshipType,
+      defaults: { children: [] as string[], value: 0 },
+      persistKeys: ['children', 'value'],
+      valueKeys: ['children', 'value'],
+      children: {
+        key: 'children',
+        childType: relationshipType,
+        mode: 'ids' as const
+      }
+    }
+    const RelationshipComponent = createPropertyComponentFromConfig(
+      relationshipDefinition
+    )
+    registerPropertyComponent(
+      relationshipType,
+      RelationshipComponent,
+      undefined,
+      relationshipDefinition
+    )
+
+    publishEvent({
+      type: EventTypes.ADD_PROPERTY,
+      payload: {
+        eventName: EventTypes.ADD_PROPERTY,
+        data: [
+          {
+            id: 'multi-level-middle',
+            type: relationshipType,
+            children: ['multi-level-leaf'],
+            value: 0
+          },
+          {
+            id: 'multi-level-parent',
+            type: relationshipType,
+            children: ['multi-level-middle'],
+            value: 0
+          },
+          {
+            id: 'multi-level-leaf',
+            type: relationshipType,
+            children: [],
+            value: 0
+          }
+        ],
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        undoType: EventTypes.REMOVE_PROPERTY,
+        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+      }
+    })
+
+    const parent = propsManager.getPropertyById('multi-level-parent')
+    const leaf = propsManager.getPropertyById('multi-level-leaf')
+    const parentChanges: unknown[] = []
+    parent?.on((change) => parentChanges.push(change))
+
+    leaf?.set('value' as never, 55 as never)
+
+    expect(parentChanges).toEqual([
+      expect.objectContaining({
+        id: 'multi-level-parent',
+        key: 'children',
+        after: 55
+      })
+    ])
   })
 
   it('rolls back a failed fresh ADD_PROPERTY payload without a prefix', () => {
@@ -218,7 +820,7 @@ describe('props-manager subscribes', () => {
           undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
         }
       })
-    ).toThrow(/not registered/i)
+    ).toThrow(/invalid component|not registered/i)
 
     expect(propsManager.getPropertyById('batch-valid-prefix')).toBeUndefined()
     expect(propsManager.save()).toEqual({})
@@ -269,6 +871,56 @@ describe('props-manager subscribes', () => {
     expect(propsManager.getPropertyById('batch-commit-second')).toBeUndefined()
     expect(propsManager.save()).toEqual({})
     expect(propsManager.changes).toEqual([])
+  })
+
+  it('disposes fresh relationship bindings when commit rollback removes the batch', () => {
+    const source = [
+      {
+        id: 'rollback-relationship-parent',
+        type: NESTED_PARENT_TYPE,
+        children: ['rollback-relationship-child']
+      },
+      new PositionComponent({
+        id: 'rollback-relationship-child',
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }).save()
+    ]
+    const parentChanges: unknown[] = []
+    let child: ReturnType<typeof propsManager.getPropertyById>
+    const originalCommitChanges = propsManager.commitChanges
+    propsManager.commitChanges = () => {
+      child = propsManager.getPropertyById('rollback-relationship-child')
+      propsManager
+        .getPropertyById('rollback-relationship-parent')
+        ?.on((change) => parentChanges.push(change))
+      throw new Error('relationship commit failed')
+    }
+
+    try {
+      expect(() =>
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            eventName: EventTypes.ADD_PROPERTY,
+            data: source,
+            action: PROPS_ACTIONS.ADD_PROPERTY,
+            undoType: EventTypes.REMOVE_PROPERTY,
+            undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+          }
+        })
+      ).toThrow('relationship commit failed')
+    } finally {
+      propsManager.commitChanges = originalCommitChanges
+    }
+
+    expect(propsManager.save()).toEqual({})
+    expect(propsManager.changes).toEqual([])
+    child?.set('x' as never, 55 as never)
+    expect(parentChanges).toEqual([])
   })
 
   it('preserves ordinary non-replay replacement when an ADD_PROPERTY id is active', () => {

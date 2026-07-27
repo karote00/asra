@@ -15,8 +15,10 @@ import type { PropertyComponentConstructor } from '../components'
 import propsManager, { PropsManager } from '../manager/props-manager'
 import type { PropertyComponentAccessor } from '../manager/component-accessor'
 import {
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
+  markPropertyComponentBatchRebindable,
   propertyComponentRegistry,
   registerPropertyComponent,
   restorePropertyComponentAfterFailedDeclarativeCommit,
@@ -480,9 +482,10 @@ const toConfigRegistration = <TFields extends object>(
 export const createPropertyComponentFromConfig = (
   definition: PropertyComponentConfigRegistration
 ): PropertyComponentConstructor => {
-  const defaults = isRecord(definition.defaults) ? definition.defaults : {}
-  const allowDynamicKeys = definition.allowDynamicKeys === true
-  const children = definition.children
+  const config = clonePropertyComponentConfigRegistration(definition)
+  const defaults = isRecord(config.defaults) ? config.defaults : {}
+  const allowDynamicKeys = config.allowDynamicKeys === true
+  const children = config.children
   const fixedKeys = new Set(Object.keys(defaults))
   if (children) fixedKeys.add(children.key)
   const reservedDynamicKeys = new Set(
@@ -490,11 +493,11 @@ export const createPropertyComponentFromConfig = (
       'id',
       'type',
       ...fixedKeys,
-      ...(definition.dynamicReservedKeys ?? [])
+      ...(config.dynamicReservedKeys ?? [])
     ])
   )
   const isAllowedDynamicKey = (key: string) => !reservedDynamicKeys.has(key)
-  const { persistKeys, valueKeys, unitKeys } = getConfigRoles(definition)
+  const { persistKeys, valueKeys, unitKeys } = getConfigRoles(config)
 
   const normalizeChildrenValue = (
     value: unknown,
@@ -584,7 +587,7 @@ export const createPropertyComponentFromConfig = (
       super()
       this.data = {
         id: '',
-        type: definition.type,
+        type: config.type,
         ...clonePropertyDefinitionRecord(defaults)
       } as PropertyComponentInstanceDataTypes
       this.load(data as PropertyComponentRawData)
@@ -744,6 +747,10 @@ export const createPropertyComponentFromConfig = (
     }
   }
 
+  markPropertyComponentBatchRebindable(
+    ConfiguredPropertyComponent as PropertyComponentConstructor,
+    children
+  )
   return ConfiguredPropertyComponent as PropertyComponentConstructor
 }
 

@@ -17,7 +17,8 @@ import type {
   ElementPropertyOwnerRelation,
   PropsChange,
   PropsComponentRawData,
-  EvnetOptions
+  EvnetOptions,
+  PropertySchema
 } from '@asyra/utils'
 import {
   acknowledgeTransactionReplayApplied,
@@ -25,12 +26,27 @@ import {
   updateTransaction
 } from '@asyra/reactive-events'
 import { isEqual } from 'lodash'
-import { createProperty } from '../factories/create-property'
 import {
+  createProperty,
+  createPropertyWithConstructor
+} from '../factories/create-property'
+import type { PropertyComponentConstructor } from '../components'
+import {
+  arePropertyChildRelationsEqual,
   getPropertyComponent,
-  getPropertyComponentConfigDefinition
+  getPropertyComponentBatchRebindableRelation,
+  getPropertyComponentConfigDefinition,
+  getPropertyComponentRegistrationRevision,
+  isPropertyComponentBatchRebindable,
+  type PropertyChildRelationDefinition
 } from '../registries/property-component'
+import { clonePropertyDefinitionValue } from '../registries/property-definition-value'
 import elementPropertyRegistry from '../registries/property-definition'
+import {
+  getPropertySchemaRegistrationRevision,
+  getRegisteredPropertySchema,
+  runWithPropertySchemaResolver
+} from '../registries/property-schema'
 import {
   runWithPropertyComponentAccessor,
   setComponentAccessor,
@@ -52,6 +68,54 @@ const clonePropsValue = <T>(data: T): T => {
   return JSON.parse(JSON.stringify(data)) as T
 }
 
+type PropertyBatchPhaseSink = (name: string, durationMs: number) => void
+
+const getPropertyBatchPhaseSink = (): PropertyBatchPhaseSink | undefined =>
+  (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: PropertyBatchPhaseSink
+    }
+  ).__asyraBrowserDragPhaseSink
+
+const finishUnmeasuredPropertyBatchPhase = () => undefined
+
+const beginPropertyBatchPhase = (phaseName: string): (() => void) => {
+  const sink = getPropertyBatchPhaseSink()
+  if (!sink) {
+    return finishUnmeasuredPropertyBatchPhase
+  }
+
+  const start = performance.now()
+  return () => {
+    try {
+      sink(phaseName, performance.now() - start)
+    } catch {
+      // Profiling is detached observation and cannot change owner behavior.
+    }
+  }
+}
+
+export const measurePropertyBatchPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = getPropertyBatchPhaseSink()
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    try {
+      sink(phaseName, performance.now() - start)
+    } catch {
+      // Profiling is detached observation and cannot change owner behavior.
+    }
+  }
+}
+
 const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData =>
   clonePropsValue(data)
 
@@ -71,7 +135,9 @@ interface PropertyCreationBatchState {
   readonly changeStart: number
   readonly components: PropertyComponentInstanceTypes[]
   readonly componentIds: Set<string>
+  readonly stagedById: Map<string, PropertyComponentInstanceTypes>
   readonly existingUpdates: UpdatePropertyChange[]
+  readonly activeSchemaByType: ReadonlyMap<string, PropertySchema | undefined>
 }
 
 interface ActivePropertyBatchState {
@@ -80,6 +146,48 @@ interface ActivePropertyBatchState {
   readonly components: readonly PropertyComponentInstanceTypes[]
   readonly snapshots: readonly PropertyComponentRawData[]
 }
+
+interface PropertyCreationTypeContract {
+  readonly type: string
+  readonly constructor: PropertyComponentConstructor
+  readonly childRelation: PropertyChildRelationDefinition | undefined
+  readonly schema: PropertySchema | undefined
+  readonly componentRegistrationRevision: number
+  readonly schemaRegistrationRevision: number
+}
+
+type PropertyCreationSourceSemantics = 'exact' | 'normalize-partial'
+
+const deepFreezePropertyContract = <T>(value: T): T => {
+  if (value && typeof value === 'object') {
+    Object.values(value as Record<string, unknown>).forEach(
+      deepFreezePropertyContract
+    )
+    Object.freeze(value)
+  }
+  return value
+}
+
+const snapshotPropertySchema = (
+  schema: PropertySchema | undefined
+): PropertySchema | undefined =>
+  schema
+    ? deepFreezePropertyContract({
+        type: schema.type,
+        fields: schema.fields.map((field) => ({
+          ...field,
+          allowedUnits: field.allowedUnits
+            ? [...field.allowedUnits]
+            : undefined,
+          defaultValue: clonePropertyDefinitionValue(field.defaultValue)
+        }))
+      })
+    : undefined
+
+const snapshotPropertyChildRelation = (
+  relation: PropertyChildRelationDefinition | undefined
+): PropertyChildRelationDefinition | undefined =>
+  relation ? Object.freeze({ ...relation }) : undefined
 
 export interface PropertyCreationBatchReceipt<T> {
   readonly result: T
@@ -117,6 +225,9 @@ class PropsManager {
     PropertyCreationPlan,
     {
       components: readonly PropertyComponentRawData[]
+      registrationContracts: readonly PropertyCreationTypeContract[]
+      parentFirstDeclarativeComponentIds: readonly string[]
+      sourceSemantics: PropertyCreationSourceSemantics
     }
   >()
   private validatedActivePropertyArtifacts = new WeakMap<
@@ -132,7 +243,8 @@ class PropsManager {
 
   constructor() {
     this.componentAccessor = {
-      getPropertyById: (propertyId) => this.getPropertyById(propertyId),
+      getPropertyById: (propertyId) =>
+        this.resolvePropertyForComponent(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
         this.createProperty(data as Partial<PropertyComponentRawData>),
@@ -288,6 +400,15 @@ class PropsManager {
     return this._components.get(propertyId)
   }
 
+  private resolvePropertyForComponent(
+    propertyId: string
+  ): PropertyComponentInstanceTypes | undefined {
+    return (
+      this._components.get(propertyId) ??
+      this.propertyCreationBatch?.stagedById.get(propertyId)
+    )
+  }
+
   getPropertyIdsByType(type: string): string[] {
     const ids = new Set<string>()
     const collect = (
@@ -376,6 +497,33 @@ class PropsManager {
     sourceComponents: unknown,
     sourceRootComponentIds: unknown
   ): PropertyCreationPlan {
+    return measurePropertyBatchPhase('props-manager:creation-preflight', () =>
+      this.preflightPropertyCreationBatchUnmeasured(
+        sourceComponents,
+        sourceRootComponentIds,
+        'exact'
+      )
+    )
+  }
+
+  preflightNormalizedPropertyCreationBatch(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown
+  ): PropertyCreationPlan {
+    return measurePropertyBatchPhase('props-manager:creation-preflight', () =>
+      this.preflightPropertyCreationBatchUnmeasured(
+        sourceComponents,
+        sourceRootComponentIds,
+        'normalize-partial'
+      )
+    )
+  }
+
+  private preflightPropertyCreationBatchUnmeasured(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown,
+    sourceSemantics: PropertyCreationSourceSemantics
+  ): PropertyCreationPlan {
     if (
       !Array.isArray(sourceComponents) ||
       sourceComponents.length === 0 ||
@@ -421,16 +569,64 @@ class PropsManager {
     const sourceIndexById = new Map(
       componentIds.map((componentId, index) => [componentId, index] as const)
     )
+    const registrationContractByType = new Map<
+      string,
+      PropertyCreationTypeContract
+    >()
     components.forEach((component) => {
-      if (
-        !isRecord(component) ||
-        typeof component.type !== 'string' ||
-        component.type.length === 0 ||
-        !getPropertyComponent(component.type)
-      ) {
+      const type =
+        isRecord(component) && typeof component.type === 'string'
+          ? component.type
+          : ''
+      let registrationContract = registrationContractByType.get(type)
+      const constructor =
+        registrationContract?.constructor ?? getPropertyComponent(type)
+      if (!isRecord(component) || !type || !constructor) {
         throw new Error(
           `[PropsManager] Canonical property creation has invalid component "${component.id ?? ''}"`
         )
+      }
+      if (!registrationContract) {
+        const componentRegistrationRevision =
+          getPropertyComponentRegistrationRevision(type)
+        const schemaRegistrationRevision =
+          getPropertySchemaRegistrationRevision(type)
+        const childRelation = snapshotPropertyChildRelation(
+          getPropertyComponentConfigDefinition(type)?.children
+        )
+        const batchRebindableRelation =
+          getPropertyComponentBatchRebindableRelation(constructor)
+        if (
+          batchRebindableRelation &&
+          !arePropertyChildRelationsEqual(
+            batchRebindableRelation,
+            childRelation
+          )
+        ) {
+          throw new Error(
+            `[PropsManager] Canonical property creation has incoherent relationship registration for "${type}"`
+          )
+        }
+        const schema = snapshotPropertySchema(getRegisteredPropertySchema(type))
+        if (
+          getPropertyComponentRegistrationRevision(type) !==
+            componentRegistrationRevision ||
+          getPropertySchemaRegistrationRevision(type) !==
+            schemaRegistrationRevision
+        ) {
+          throw new Error(
+            `[PropsManager] Canonical property creation registration changed for "${type}"`
+          )
+        }
+        registrationContract = {
+          type,
+          constructor,
+          childRelation,
+          schema,
+          componentRegistrationRevision,
+          schemaRegistrationRevision
+        }
+        registrationContractByType.set(type, registrationContract)
       }
       if (
         this._components.has(component.id) ||
@@ -450,22 +646,50 @@ class PropsManager {
     })
 
     const reachableComponentIds = new Set<string>()
-    const visit = (componentId: string): void => {
-      if (reachableComponentIds.has(componentId)) {
-        return
+    const visitingComponentIds = new Set<string>()
+    const parentFirstDeclarativeComponentIds = new Set<string>()
+    const requiresDeferredRebindById = new Map<string, boolean>()
+    const visit = (componentId: string): boolean => {
+      if (visitingComponentIds.has(componentId)) {
+        throw new Error(
+          `[PropsManager] Canonical property creation has a relationship cycle at "${componentId}"`
+        )
+      }
+      if (requiresDeferredRebindById.has(componentId)) {
+        return requiresDeferredRebindById.get(componentId) as boolean
       }
       const component = componentById.get(componentId)
       if (!component) {
-        return
+        return false
       }
+      visitingComponentIds.add(componentId)
       reachableComponentIds.add(componentId)
-      const childRelation = getPropertyComponentConfigDefinition(
+      const registrationContract = registrationContractByType.get(
         component.type
-      )?.children
+      )
+      const childRelation = registrationContract?.childRelation
       if (!childRelation) {
-        return
+        visitingComponentIds.delete(componentId)
+        requiresDeferredRebindById.set(componentId, false)
+        return false
       }
       const childIds = (component as Record<string, unknown>)[childRelation.key]
+      if (childIds === undefined && sourceSemantics === 'normalize-partial') {
+        const componentConstructor = registrationContract?.constructor
+        const requiresDeferredRebind = Boolean(
+          componentConstructor &&
+            isPropertyComponentBatchRebindable(
+              componentConstructor,
+              childRelation
+            )
+        )
+        visitingComponentIds.delete(componentId)
+        requiresDeferredRebindById.set(componentId, requiresDeferredRebind)
+        if (requiresDeferredRebind) {
+          parentFirstDeclarativeComponentIds.add(componentId)
+        }
+        return requiresDeferredRebind
+      }
       if (
         !Array.isArray(childIds) ||
         childIds.some((childId) => typeof childId !== 'string') ||
@@ -475,10 +699,11 @@ class PropsManager {
           `[PropsManager] Canonical property creation has malformed child relation for "${componentId}"`
         )
       }
+      let requiresDeferredRebind = false
       childIds.forEach((childId) => {
         const sourceChild = componentById.get(childId)
-        const activeChild = this.getPropertyById(childId)
-        const childType = sourceChild?.type ?? activeChild?.get('type')
+        const childType =
+          sourceChild?.type ?? this.getPropertyById(childId)?.get('type')
         if (!childType) {
           throw new Error(
             `[PropsManager] Canonical property creation is missing relation child "${childId}"`
@@ -490,17 +715,34 @@ class PropsManager {
           )
         }
         if (sourceChild) {
+          const childRequiresDeferredRebind = visit(childId)
           if (
             (sourceIndexById.get(childId) as number) >=
-            (sourceIndexById.get(componentId) as number)
+              (sourceIndexById.get(componentId) as number) ||
+            childRequiresDeferredRebind
           ) {
-            throw new Error(
-              `[PropsManager] Canonical property creation requires child-first order for "${childId}"`
-            )
+            const componentConstructor = registrationContract?.constructor
+            if (
+              !componentConstructor ||
+              !isPropertyComponentBatchRebindable(
+                componentConstructor,
+                childRelation
+              )
+            ) {
+              throw new Error(
+                `[PropsManager] Canonical property creation requires child-first order for "${childId}"`
+              )
+            }
+            requiresDeferredRebind = true
           }
-          visit(childId)
         }
       })
+      visitingComponentIds.delete(componentId)
+      requiresDeferredRebindById.set(componentId, requiresDeferredRebind)
+      if (requiresDeferredRebind) {
+        parentFirstDeclarativeComponentIds.add(componentId)
+      }
+      return requiresDeferredRebind
     }
     uniqueRootComponentIds.forEach(visit)
     if (reachableComponentIds.size !== components.length) {
@@ -515,7 +757,14 @@ class PropsManager {
       rootComponentIds: Object.freeze([...uniqueRootComponentIds])
     })
     this.validatedPropertyCreationArtifacts.set(plan, {
-      components: Object.freeze(components.map((component) => component))
+      components: Object.freeze(components.map((component) => component)),
+      registrationContracts: Object.freeze([
+        ...registrationContractByType.values()
+      ]),
+      parentFirstDeclarativeComponentIds: Object.freeze([
+        ...parentFirstDeclarativeComponentIds
+      ]),
+      sourceSemantics
     })
     return plan
   }
@@ -534,21 +783,40 @@ class PropsManager {
     }
     this.validatedPropertyCreationArtifacts.delete(plan)
 
-    const components: PropertyComponentInstanceTypes[] = []
-    artifact.components.forEach((sourceComponent) => {
-      const component = this.createProperty(sourceComponent)
-      this.addProperty([component])
-      if (!isEqual(component.save(), sourceComponent)) {
-        throw new Error(
-          '[PropsManager] Canonical property creation changed exact component data'
-        )
-      }
-      components.push(component)
-    })
+    const components = this.createAndRegisterPropertyBatch(
+      artifact.components,
+      artifact.registrationContracts,
+      artifact.parentFirstDeclarativeComponentIds,
+      artifact.sourceSemantics
+    )
+    if (artifact.sourceSemantics === 'exact') {
+      measurePropertyBatchPhase('props-manager:creation-exact', () => {
+        components.forEach((component, index) => {
+          const sourceComponent = artifact.components[index]
+          if (!isEqual(component.save(), sourceComponent)) {
+            throw new Error(
+              '[PropsManager] Canonical property creation changed exact component data'
+            )
+          }
+        })
+      })
+    }
     return Object.freeze(components.map((component) => component.get('id')))
   }
 
   preflightActivePropertyBatch(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown
+  ): ActivePropertyPlan {
+    return measurePropertyBatchPhase('props-manager:active-preflight', () =>
+      this.preflightActivePropertyBatchUnmeasured(
+        sourceComponents,
+        sourceRootComponentIds
+      )
+    )
+  }
+
+  private preflightActivePropertyBatchUnmeasured(
     sourceComponents: unknown,
     sourceRootComponentIds: unknown
   ): ActivePropertyPlan {
@@ -563,10 +831,18 @@ class PropsManager {
       )
     }
 
+    const finishClone = beginPropertyBatchPhase(
+      'props-manager:active-preflight-clone'
+    )
     const components = clonePropsValue(
       sourceComponents as PropertyComponentRawData[]
     )
     const rootComponentIds = clonePropsValue(sourceRootComponentIds as string[])
+    finishClone()
+
+    const finishExact = beginPropertyBatchPhase(
+      'props-manager:active-preflight-exact'
+    )
     if (components.some((component) => !isRecord(component))) {
       throw new Error(
         '[PropsManager] Active property batch has invalid component data'
@@ -628,7 +904,11 @@ class PropsManager {
         )
       }
     })
+    finishExact()
 
+    const finishRelations = beginPropertyBatchPhase(
+      'props-manager:active-preflight-relations'
+    )
     const visitedComponentIds = new Set<string>()
     const visit = (componentId: string): void => {
       if (visitedComponentIds.has(componentId)) {
@@ -678,6 +958,7 @@ class PropsManager {
     }
     uniqueRootComponentIds.forEach(visit)
     componentIds.forEach(visit)
+    finishRelations()
 
     const plan = Object.freeze({
       kind: 'active-property-plan' as const,
@@ -727,12 +1008,37 @@ class PropsManager {
     }
   }
 
-  runInActivePropertyBatch<T>(plan: ActivePropertyPlan, operation: () => T): T {
+  private assertActivePropertyBatchCanStart() {
     if (this.propertyCreationBatch || this.activePropertyBatch) {
       throw new Error(
         '[PropsManager] Active property reuse batch cannot nest inside another property batch'
       )
     }
+  }
+
+  runWithActivePropertyBatch<T>(
+    sourceComponents: unknown,
+    sourceRootComponentIds: unknown,
+    operation: () => T
+  ): T {
+    this.assertActivePropertyBatchCanStart()
+    const plan = this.preflightActivePropertyBatch(
+      sourceComponents,
+      sourceRootComponentIds
+    )
+    return this.consumeActivePropertyBatch(plan, operation, false)
+  }
+
+  runInActivePropertyBatch<T>(plan: ActivePropertyPlan, operation: () => T): T {
+    return this.consumeActivePropertyBatch(plan, operation, true)
+  }
+
+  private consumeActivePropertyBatch<T>(
+    plan: ActivePropertyPlan,
+    operation: () => T,
+    verifyEntryExact: boolean
+  ): T {
+    this.assertActivePropertyBatchCanStart()
     const artifact = this.validatedActivePropertyArtifacts.get(plan)
     if (!artifact) {
       throw new Error(
@@ -740,18 +1046,22 @@ class PropsManager {
       )
     }
     this.validatedActivePropertyArtifacts.delete(plan)
-    artifact.components.forEach((snapshot, index) => {
-      const instance = artifact.instances[index]
-      if (
-        !instance ||
-        this.getPropertyById(snapshot.id) !== instance ||
-        !isEqual(instance.save(), snapshot)
-      ) {
-        throw new Error(
-          `[PropsManager] Active property batch changed exact component data for "${snapshot.id}"`
-        )
-      }
-    })
+    if (verifyEntryExact) {
+      measurePropertyBatchPhase('props-manager:active-enter-exact', () => {
+        artifact.components.forEach((snapshot, index) => {
+          const instance = artifact.instances[index]
+          if (
+            !instance ||
+            this.getPropertyById(snapshot.id) !== instance ||
+            !isEqual(instance.save(), snapshot)
+          ) {
+            throw new Error(
+              `[PropsManager] Active property batch changed exact component data for "${snapshot.id}"`
+            )
+          }
+        })
+      })
+    }
 
     const batch: ActivePropertyBatchState = {
       changeStart: this.changes.length,
@@ -761,27 +1071,33 @@ class PropsManager {
     }
     this.activePropertyBatch = batch
     try {
-      batch.components.forEach((component, index) => {
-        const snapshot = batch.snapshots[index]
-        if (
-          snapshot &&
-          getPropertyComponentConfigDefinition(snapshot.type)?.children
-        ) {
-          component.load(clonePropsValue(snapshot))
-        }
+      measurePropertyBatchPhase('props-manager:active-rebind-relations', () => {
+        batch.components.forEach((component, index) => {
+          const snapshot = batch.snapshots[index]
+          if (
+            snapshot &&
+            getPropertyComponentConfigDefinition(snapshot.type)?.children
+          ) {
+            component.load(clonePropsValue(snapshot))
+          }
+        })
       })
-      const result = runWithPropertyComponentAccessor(
-        this.componentAccessor,
-        operation
+      const result = measurePropertyBatchPhase(
+        'props-manager:active-operation',
+        () =>
+          runWithPropertyComponentAccessor(this.componentAccessor, operation)
       )
-      if (
-        this.changes.length !== batch.changeStart ||
-        batch.components.some(
-          (component, index) =>
-            this.getPropertyById(plan.componentIds[index]) !== component ||
-            !isEqual(component.save(), batch.snapshots[index])
-        )
-      ) {
+      const changed = measurePropertyBatchPhase(
+        'props-manager:active-exit-exact',
+        () =>
+          this.changes.length !== batch.changeStart ||
+          batch.components.some(
+            (component, index) =>
+              this.getPropertyById(plan.componentIds[index]) !== component ||
+              !isEqual(component.save(), batch.snapshots[index])
+          )
+      )
+      if (changed) {
         this.restoreActivePropertyBatch(batch)
         throw new Error(
           '[PropsManager] Active property reuse batch cannot update active property'
@@ -1096,9 +1412,17 @@ class PropsManager {
   private addChangeForAddProperties(
     properties: readonly PropertyComponentInstanceTypes[]
   ) {
+    const snapshots = measurePropertyBatchPhase(
+      'props-manager:creation-evidence-save',
+      () => properties.map((property) => property.save())
+    )
+    const data = measurePropertyBatchPhase(
+      'props-manager:creation-evidence-clone',
+      () => clonePropsValue(snapshots)
+    )
     this.addChange({
       eventName: EventTypes.ADD_PROPERTY,
-      data: clonePropsValue(properties.map((property) => property.save())),
+      data,
       action: PROPS_ACTIONS.ADD_PROPERTY,
       undoType: EventTypes.REMOVE_PROPERTY,
       undoAction: EventTypes.REMOVE_PROPERTY
@@ -1115,40 +1439,342 @@ class PropsManager {
     })
   }
 
+  private instantiateProperty(
+    propData: Partial<PropertyComponentRawData>,
+    constructor?: PropertyComponentConstructor
+  ): PropertyComponentInstanceTypes {
+    if (!propData.type) {
+      throw new Error('Type is required!')
+    }
+
+    const data = {
+      ...propData,
+      type: propData.type as PropertyType
+    }
+    return constructor
+      ? createPropertyWithConstructor(data, constructor)
+      : (createProperty(data) as PropertyComponentInstanceTypes)
+  }
+
+  private stagePropertyCreation(
+    newProperty: PropertyComponentInstanceTypes,
+    componentAccessReady = true
+  ): void {
+    const batch = this.propertyCreationBatch
+    if (!batch) {
+      throw new Error(
+        '[PropsManager] Canonical property creation requires an active property creation batch'
+      )
+    }
+    const propertyId = newProperty.get('id')
+    if (
+      typeof propertyId !== 'string' ||
+      propertyId.length === 0 ||
+      batch.componentIds.has(propertyId) ||
+      this._components.has(propertyId) ||
+      this._deletedMap.has(propertyId)
+    ) {
+      ;(newProperty as unknown as { dispose?: () => void }).dispose?.()
+      throw new Error(
+        `[PropsManager] Canonical property creation batch has duplicate property "${propertyId}"`
+      )
+    }
+    batch.componentIds.add(propertyId)
+    batch.components.push(newProperty)
+    if (componentAccessReady) {
+      batch.stagedById.set(propertyId, newProperty)
+    }
+  }
+
+  private assertPropertyCreationRegistrationReadiness(
+    registrationContracts: readonly PropertyCreationTypeContract[],
+    deferredTypes: ReadonlySet<string>
+  ): void {
+    registrationContracts.forEach((registrationContract) => {
+      const currentChildRelation = snapshotPropertyChildRelation(
+        getPropertyComponentConfigDefinition(registrationContract.type)
+          ?.children
+      )
+      if (
+        getPropertyComponentRegistrationRevision(registrationContract.type) !==
+          registrationContract.componentRegistrationRevision ||
+        getPropertySchemaRegistrationRevision(registrationContract.type) !==
+          registrationContract.schemaRegistrationRevision ||
+        getPropertyComponent(registrationContract.type) !==
+          registrationContract.constructor ||
+        !arePropertyChildRelationsEqual(
+          currentChildRelation,
+          registrationContract.childRelation
+        ) ||
+        !isEqual(
+          snapshotPropertySchema(
+            getRegisteredPropertySchema(registrationContract.type)
+          ),
+          registrationContract.schema
+        ) ||
+        (deferredTypes.has(registrationContract.type) &&
+          (!registrationContract.childRelation ||
+            !isPropertyComponentBatchRebindable(
+              registrationContract.constructor,
+              registrationContract.childRelation
+            )))
+      ) {
+        throw new Error(
+          `[PropsManager] Canonical property creation registration changed for "${registrationContract.type}"`
+        )
+      }
+    })
+  }
+
+  private getNormalizedPropertyRelationshipRebindOrder(
+    components: readonly PropertyComponentInstanceTypes[],
+    registrationContracts: readonly PropertyCreationTypeContract[],
+    deferredComponentIds: ReadonlySet<string>
+  ): readonly string[] {
+    const componentById = new Map(
+      components.map((component) => [component.get('id'), component] as const)
+    )
+    const registrationContractByType = new Map(
+      registrationContracts.map(
+        (registrationContract) =>
+          [registrationContract.type, registrationContract] as const
+      )
+    )
+    const visiting = new Set<string>()
+    const visited = new Set<string>()
+    const ordered: string[] = []
+    const visit = (componentId: string): void => {
+      if (visited.has(componentId)) {
+        return
+      }
+      if (visiting.has(componentId)) {
+        throw new Error(
+          `[PropsManager] Canonical property creation has a relationship cycle at "${componentId}"`
+        )
+      }
+      const component = componentById.get(componentId)
+      if (!component) {
+        throw new Error(
+          `[PropsManager] Canonical property creation batch cannot rebind property "${componentId}"`
+        )
+      }
+      const type = component.get('type')
+      const childRelation =
+        typeof type === 'string'
+          ? registrationContractByType.get(type)?.childRelation
+          : undefined
+      if (!childRelation) {
+        throw new Error(
+          `[PropsManager] Canonical property creation batch cannot rebind property "${componentId}"`
+        )
+      }
+
+      visiting.add(componentId)
+      const saved = component.save() as Record<string, unknown>
+      const savedChildIds = saved[childRelation.key]
+      const childIds = savedChildIds === undefined ? [] : savedChildIds
+      if (
+        !Array.isArray(childIds) ||
+        childIds.some((childId) => typeof childId !== 'string') ||
+        new Set(childIds).size !== childIds.length
+      ) {
+        throw new Error(
+          `[PropsManager] Canonical property creation has malformed child relation for "${componentId}"`
+        )
+      }
+      childIds.forEach((childId) => {
+        const sourceChild = componentById.get(childId)
+        const childType =
+          sourceChild?.get('type') ?? this.getPropertyById(childId)?.get('type')
+        if (!childType) {
+          throw new Error(
+            `[PropsManager] Canonical property creation is missing relation child "${childId}"`
+          )
+        }
+        if (childType !== childRelation.childType) {
+          throw new Error(
+            `[PropsManager] Canonical property creation child "${childId}" has the wrong type`
+          )
+        }
+        if (sourceChild && deferredComponentIds.has(childId)) {
+          visit(childId)
+        }
+      })
+      visiting.delete(componentId)
+      visited.add(componentId)
+      ordered.push(componentId)
+    }
+
+    deferredComponentIds.forEach(visit)
+    return Object.freeze(ordered)
+  }
+
+  private createAndRegisterPropertyBatch(
+    sourceComponents: readonly Partial<PropertyComponentRawData>[],
+    registrationContracts: readonly PropertyCreationTypeContract[],
+    parentFirstDeclarativeComponentIds: readonly string[],
+    sourceSemantics: PropertyCreationSourceSemantics
+  ): readonly PropertyComponentInstanceTypes[] {
+    const batch = this.propertyCreationBatch
+    if (!batch) {
+      throw new Error(
+        '[PropsManager] Canonical property batch requires an active property creation batch'
+      )
+    }
+    if (sourceComponents.length === 0) {
+      throw new Error(
+        '[PropsManager] Canonical property batch requires property components'
+      )
+    }
+
+    const parentFirstIds = new Set(parentFirstDeclarativeComponentIds)
+    const registrationContractByType = new Map(
+      registrationContracts.map(
+        (registrationContract) =>
+          [registrationContract.type, registrationContract] as const
+      )
+    )
+    const resolveBatchPropertySchema = (
+      type: string
+    ): PropertySchema | undefined => {
+      const registrationContract = registrationContractByType.get(type)
+      return registrationContract
+        ? registrationContract.schema
+        : getRegisteredPropertySchema(type)
+    }
+    const deferredTypes = new Set(
+      sourceComponents.flatMap((sourceComponent) =>
+        typeof sourceComponent.id === 'string' &&
+        parentFirstIds.has(sourceComponent.id) &&
+        typeof sourceComponent.type === 'string'
+          ? [sourceComponent.type]
+          : []
+      )
+    )
+    measurePropertyBatchPhase('props-manager:creation-registry-readiness', () =>
+      this.assertPropertyCreationRegistrationReadiness(
+        registrationContracts,
+        deferredTypes
+      )
+    )
+    const components = measurePropertyBatchPhase(
+      'props-manager:creation-materialize',
+      () =>
+        runWithPropertySchemaResolver(resolveBatchPropertySchema, () =>
+          sourceComponents.map((sourceComponent) => {
+            const registrationContract =
+              typeof sourceComponent.type === 'string'
+                ? registrationContractByType.get(sourceComponent.type)
+                : undefined
+            if (!registrationContract) {
+              throw new Error(
+                `[PropsManager] Canonical property creation registration changed for "${sourceComponent.id ?? ''}"`
+              )
+            }
+            const component = this.instantiateProperty(
+              sourceComponent,
+              registrationContract.constructor
+            )
+            this.stagePropertyCreation(
+              component,
+              typeof sourceComponent.id !== 'string' ||
+                !parentFirstIds.has(sourceComponent.id)
+            )
+            return component
+          })
+        )
+    )
+    measurePropertyBatchPhase(
+      'props-manager:creation-post-materialize-readiness',
+      () =>
+        this.assertPropertyCreationRegistrationReadiness(
+          registrationContracts,
+          deferredTypes
+        )
+    )
+    measurePropertyBatchPhase(
+      'props-manager:creation-relationship-rebind',
+      () =>
+        runWithPropertySchemaResolver(resolveBatchPropertySchema, () => {
+          const relationshipRebindIds =
+            sourceSemantics === 'normalize-partial'
+              ? this.getNormalizedPropertyRelationshipRebindOrder(
+                  components,
+                  registrationContracts,
+                  parentFirstIds
+                )
+              : parentFirstDeclarativeComponentIds
+          const sourceIndexById = new Map(
+            sourceComponents.map((sourceComponent, index) => [
+              sourceComponent.id,
+              index
+            ])
+          )
+          relationshipRebindIds.forEach((componentId) => {
+            const index = sourceIndexById.get(componentId)
+            if (index === undefined) {
+              throw new Error(
+                `[PropsManager] Canonical property creation batch cannot rebind property "${componentId}"`
+              )
+            }
+            const sourceComponent = sourceComponents[index]
+            if (!sourceComponent || typeof sourceComponent.id !== 'string') {
+              throw new Error(
+                `[PropsManager] Canonical property creation batch cannot rebind property "${componentId}"`
+              )
+            }
+            const component = components[index]
+            if (!component || component.get('id') !== componentId) {
+              throw new Error(
+                `[PropsManager] Canonical property creation batch cannot rebind property "${componentId}"`
+              )
+            }
+            component.load(sourceComponent as PropertyComponentRawData)
+            batch.stagedById.set(componentId, component)
+          })
+        })
+    )
+    measurePropertyBatchPhase(
+      'props-manager:creation-pre-register-readiness',
+      () =>
+        this.assertPropertyCreationRegistrationReadiness(
+          registrationContracts,
+          deferredTypes
+        )
+    )
+    measurePropertyBatchPhase('props-manager:creation-register', () => {
+      components.forEach((component) => {
+        const propertyId = component.get('id')
+        if (
+          batch.stagedById.get(propertyId) !== component ||
+          this._components.has(propertyId) ||
+          this._deletedMap.has(propertyId)
+        ) {
+          throw new Error(
+            `[PropsManager] Canonical property creation batch cannot register property "${propertyId}"`
+          )
+        }
+      })
+      components.forEach((component) => {
+        this._components.set(component.get('id'), component)
+      })
+    })
+    return Object.freeze([...components])
+  }
+
   createProperty(propData: Partial<PropertyComponentRawData>) {
     if (this.activePropertyBatch) {
       throw new Error(
         '[PropsManager] Active property reuse batch cannot create property'
       )
     }
-    if (!propData.type) {
-      throw new Error('Type is required!')
-    }
 
-    const create = () =>
-      createProperty({
-        ...propData,
-        type: propData.type as PropertyType
-      }) as PropertyComponentInstanceTypes
+    const create = () => this.instantiateProperty(propData)
     const newProperty = this.propertyCreationBatch
       ? create()
       : runWithPropertyComponentAccessor(this.componentAccessor, create)
     if (this.propertyCreationBatch) {
-      const propertyId = newProperty.get('id')
-      if (
-        typeof propertyId !== 'string' ||
-        propertyId.length === 0 ||
-        this.propertyCreationBatch.componentIds.has(propertyId) ||
-        this._components.has(propertyId) ||
-        this._deletedMap.has(propertyId)
-      ) {
-        ;(newProperty as unknown as { dispose?: () => void }).dispose?.()
-        throw new Error(
-          `[PropsManager] Canonical property creation batch has duplicate property "${propertyId}"`
-        )
-      }
-      this.propertyCreationBatch.componentIds.add(propertyId)
-      this.propertyCreationBatch.components.push(newProperty)
+      this.stagePropertyCreation(newProperty)
     } else {
       this.addChangeForAddProperty(newProperty)
     }
@@ -1156,25 +1782,33 @@ class PropsManager {
   }
 
   private rollbackPropertyCreationBatch(batch: PropertyCreationBatchState) {
-    batch.existingUpdates
-      .slice()
-      .reverse()
-      .forEach((change) => {
-        const component = this._components.get(change.id)
-        if (!component) {
-          return
-        }
-        component.load({
-          ...component.save(),
-          [change.key]: clonePropsValue(change.before)
-        })
-        component.emitChange({
-          id: change.id,
-          key: change.key,
-          before: clonePropsValue(change.after),
-          after: clonePropsValue(change.before)
-        })
-      })
+    runWithPropertySchemaResolver(
+      (type) =>
+        batch.activeSchemaByType.has(type)
+          ? batch.activeSchemaByType.get(type)
+          : getRegisteredPropertySchema(type),
+      () => {
+        batch.existingUpdates
+          .slice()
+          .reverse()
+          .forEach((change) => {
+            const component = this._components.get(change.id)
+            if (!component) {
+              return
+            }
+            component.load({
+              ...component.save(),
+              [change.key]: clonePropsValue(change.before)
+            })
+            component.emitChange({
+              id: change.id,
+              key: change.key,
+              before: clonePropsValue(change.after),
+              after: clonePropsValue(change.before)
+            })
+          })
+      }
+    )
     batch.components
       .slice()
       .reverse()
@@ -1199,39 +1833,56 @@ class PropsManager {
       })
     }
 
+    const activeSchemaByType = new Map<string, PropertySchema | undefined>()
+    this._components.forEach((component) => {
+      const type = component.get('type')
+      if (typeof type === 'string' && !activeSchemaByType.has(type)) {
+        activeSchemaByType.set(
+          type,
+          snapshotPropertySchema(getRegisteredPropertySchema(type))
+        )
+      }
+    })
     const batch: PropertyCreationBatchState = {
       changeStart: this.changes.length,
       components: [],
       componentIds: new Set(),
-      existingUpdates: []
+      stagedById: new Map(),
+      existingUpdates: [],
+      activeSchemaByType
     }
     this.propertyCreationBatch = batch
     try {
-      const result = runWithPropertyComponentAccessor(
-        this.componentAccessor,
-        operation
+      const result = measurePropertyBatchPhase(
+        'props-manager:creation-operation',
+        () =>
+          runWithPropertyComponentAccessor(this.componentAccessor, operation)
       )
-      const operationChanges = this.changes.slice(batch.changeStart)
-      if (
-        operationChanges.length !== batch.existingUpdates.length ||
-        operationChanges.some(
-          (change, index) => change !== batch.existingUpdates[index]
-        )
-      ) {
-        throw new Error(
-          '[PropsManager] Canonical property creation batch produced incompatible pending changes'
-        )
-      }
-      batch.components.forEach((component) => {
-        const propertyId = component.get('id')
-        if (this._components.get(propertyId) !== component) {
+      measurePropertyBatchPhase('props-manager:creation-finalize', () => {
+        const operationChanges = this.changes.slice(batch.changeStart)
+        if (
+          operationChanges.length !== batch.existingUpdates.length ||
+          operationChanges.some(
+            (change, index) => change !== batch.existingUpdates[index]
+          )
+        ) {
           throw new Error(
-            `[PropsManager] Canonical property creation batch did not register property "${propertyId}"`
+            '[PropsManager] Canonical property creation batch produced incompatible pending changes'
           )
         }
+        batch.components.forEach((component) => {
+          const propertyId = component.get('id')
+          if (this._components.get(propertyId) !== component) {
+            throw new Error(
+              `[PropsManager] Canonical property creation batch did not register property "${propertyId}"`
+            )
+          }
+        })
       })
       if (batch.components.length > 0) {
-        this.addChangeForAddProperties(batch.components)
+        measurePropertyBatchPhase('props-manager:creation-evidence', () => {
+          this.addChangeForAddProperties(batch.components)
+        })
       }
       let active = true
       return Object.freeze({
@@ -1259,7 +1910,7 @@ class PropsManager {
   }
 
   addProperty(
-    propComponents: PropertyComponentInstanceTypes[]
+    propComponents: readonly PropertyComponentInstanceTypes[]
   ): Record<PropertyType, string> {
     return propComponents.reduce(
       (acc, com) => {

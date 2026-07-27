@@ -1996,7 +1996,10 @@ class SceneTree {
 
     return Object.freeze({
       elements: Object.freeze(cloneSceneTreeValue(elementData)),
-      properties: Object.freeze(cloneSceneTreeValue(propertyData)),
+      // PropsManager is the canonical detached-snapshot owner for property
+      // batches. This synchronous handoff only preserves source order until
+      // that owner preflights the batch.
+      properties: Object.freeze([...propertyData]),
       rootPropertyIds: Object.freeze(rootPropertyIds),
       propertyMode
     })
@@ -2045,19 +2048,12 @@ class SceneTree {
             canonicalBatch.rootPropertyIds
           )
         : undefined
-    const activePropertyPlan =
-      hasCanonicalPropertyData && canonicalBatch.propertyMode === 'reuse-active'
-        ? this.propsManagerOwner.preflightActivePropertyBatch(
-            canonicalBatch.properties,
-            canonicalBatch.rootPropertyIds
-          )
-        : undefined
-
     const elements: ElementInstanceTypes[] = []
     const operationChangeStart = this.changes.length
     let rollbackPreparedProperties: (() => void) | undefined
     let completePreparedProperties: (() => void) | undefined
     let propsCommitCompleted = false
+    let parentMembershipMayHaveChanged = false
     const applyElementBatch = () => {
       if (propertyPlan) {
         this.propsManagerOwner.applyPropertyCreationBatch(propertyPlan)
@@ -2088,6 +2084,7 @@ class SceneTree {
       measureCanonicalSceneBatchPhase(
         'scene-tree:element-batch:parent-membership',
         () => {
+          parentMembershipMayHaveChanged = true
           workspace.addNewElements(elements, target, insertionIndex)
         }
       )
@@ -2118,9 +2115,10 @@ class SceneTree {
     }
     try {
       if (canonicalBatch?.propertyMode === 'reuse-active') {
-        if (activePropertyPlan) {
-          this.propsManagerOwner.runInActivePropertyBatch(
-            activePropertyPlan,
+        if (hasCanonicalPropertyData) {
+          this.propsManagerOwner.runWithActivePropertyBatch(
+            canonicalBatch.properties,
+            canonicalBatch.rootPropertyIds,
             applyElementBatch
           )
         } else {
@@ -2155,7 +2153,9 @@ class SceneTree {
       } else {
         rollbackPreparedProperties?.()
       }
-      workspace.replaceBatchParentChildren(target, originalChildren)
+      if (parentMembershipMayHaveChanged) {
+        workspace.replaceBatchParentChildren(target, originalChildren)
+      }
       elements.forEach((element) => {
         this._elements.delete(element.get('id'))
         ;(

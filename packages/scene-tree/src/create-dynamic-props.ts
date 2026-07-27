@@ -76,7 +76,6 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
 
         if (propComponent) {
           this[prop.name] = propId
-          this.propsManagerOwner.addToMap(propComponent)
         } else {
           const component = this.createProperty(prop, propId)
           this.propsManagerOwner.addToMap(component)

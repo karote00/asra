@@ -27,12 +27,66 @@ export interface PropertyComponentConfigRegistration {
   children?: PropertyChildRelationDefinition
 }
 
+const batchRebindablePropertyComponentRelations = new WeakMap<
+  PropertyComponentConstructor,
+  PropertyChildRelationDefinition
+>()
+
+export const markPropertyComponentBatchRebindable = (
+  component: PropertyComponentConstructor,
+  relation: PropertyChildRelationDefinition | undefined
+): void => {
+  if (relation) {
+    batchRebindablePropertyComponentRelations.set(component, { ...relation })
+  }
+}
+
+export const getPropertyComponentBatchRebindableRelation = (
+  component: PropertyComponentConstructor
+): PropertyChildRelationDefinition | undefined => {
+  const relation = batchRebindablePropertyComponentRelations.get(component)
+  return relation ? { ...relation } : undefined
+}
+
+export const arePropertyChildRelationsEqual = (
+  left: PropertyChildRelationDefinition | undefined,
+  right: PropertyChildRelationDefinition | undefined
+): boolean => {
+  if (!left || !right) {
+    return left === right
+  }
+  return (
+    left.key === right.key &&
+    left.childType === right.childType &&
+    (left.mode ?? 'ids') === (right.mode ?? 'ids') &&
+    left.toChildData === right.toChildData &&
+    left.toValue === right.toValue
+  )
+}
+
+export const isPropertyComponentBatchRebindable = (
+  component: PropertyComponentConstructor,
+  relation: PropertyChildRelationDefinition
+): boolean =>
+  arePropertyChildRelationsEqual(
+    batchRebindablePropertyComponentRelations.get(component),
+    relation
+  )
+
 class PropertyComponentRegistry {
   private registry = new MapRegistry<string, PropertyComponentConstructor>()
   private configDefinitions = new Map<
     string,
     PropertyComponentConfigRegistration
   >()
+  private registrationRevisions = new Map<string, number>()
+
+  private bumpRegistrationRevision(type: string): void {
+    this.registrationRevisions.set(
+      type,
+      (this.registrationRevisions.get(type) ?? 0) + 1
+    )
+  }
 
   register(
     type: string,
@@ -55,6 +109,7 @@ class PropertyComponentRegistry {
         clonePropertyComponentConfigRegistration(configDefinition)
       )
     }
+    this.bumpRegistrationRevision(type)
   }
 
   get(type: string): PropertyComponentConstructor | undefined {
@@ -74,9 +129,17 @@ class PropertyComponentRegistry {
       : undefined
   }
 
+  getRegistrationRevision(type: string): number {
+    return this.registrationRevisions.get(type) ?? 0
+  }
+
   unregister(type: string): boolean {
-    this.configDefinitions.delete(type)
-    return this.registry.delete(type)
+    const removedConfig = this.configDefinitions.delete(type)
+    const removedComponent = this.registry.delete(type)
+    if (removedConfig || removedComponent) {
+      this.bumpRegistrationRevision(type)
+    }
+    return removedComponent
   }
 
   restoreAfterFailedDeclarativeCommit(
@@ -89,11 +152,16 @@ class PropertyComponentRegistry {
       type,
       clonePropertyComponentConfigRegistration(configDefinition)
     )
+    this.bumpRegistrationRevision(type)
   }
 
   clear(): void {
+    const clearedTypes = this.registry.keys()
     this.registry.clear()
     this.configDefinitions.clear()
+    clearedTypes.forEach((type) => {
+      this.bumpRegistrationRevision(type)
+    })
   }
 }
 
@@ -143,6 +211,9 @@ export const getPropertyComponent = (type: string) =>
 
 export const getPropertyComponentConfigDefinition = (type: string) =>
   propertyComponentRegistry.getConfigDefinition(type)
+
+export const getPropertyComponentRegistrationRevision = (type: string) =>
+  propertyComponentRegistryOwner.getRegistrationRevision(type)
 
 export const unregisterPropertyComponent = (type: string): boolean =>
   propertyComponentRegistry.unregister(type)
