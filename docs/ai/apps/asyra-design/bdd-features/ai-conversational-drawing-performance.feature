@@ -33,7 +33,8 @@ Feature: Conversational AI drawing performance
     Then no property, instance, relationship, registry, hierarchy, parent child, or Factory evidence prefix should remain
     And a valid batch should perform one map registration phase
     And a valid batch should perform one parent children replacement
-    And a valid batch should produce one ordered batch evidence record
+    And a valid batch should produce one ordered batch evidence handoff
+    And necessary owner-local instance, relationship, observer, and Scene entry iteration should only block release when profiling proves a material bottleneck
 
   Scenario: Factory emits one immutable transaction artifact
     Given the complete canonical child batch succeeds inside one outer App transaction

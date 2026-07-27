@@ -263,7 +263,12 @@ test('one composition bulk request owns canonical batch creation', () => {
   )
   assert.match(canonical, /later.*invalid.*no.*prefix/i)
   assert.match(canonical, /one parent children replacement/i)
-  assert.match(canonical, /one batch evidence record/i)
+  assert.match(canonical, /one ordered batch evidence handoff/i)
+  assert.match(
+    canonical,
+    /instance construction.*relationship wiring.*observer binding.*Scene evidence entries.*may iterate N/i
+  )
+  assert.match(canonical, /profiling.*material bottleneck/i)
   assert.match(text, /createElementsInParentBatch/)
   assert.match(text, /CanonicalElementBatchResult/)
 })

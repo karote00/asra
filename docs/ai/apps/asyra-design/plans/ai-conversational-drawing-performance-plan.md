@@ -149,10 +149,13 @@ validated AI descriptor
   then instance materialization, relationship rebind, and `registerMany`.
   A later invalid item leaves no committed prefix.
 - Scene Tree performs one map-registration phase, one parent children
-  replacement, and one batch evidence record. Creating N required component
-  instances may still iterate N values, but it must not repeat N API,
-  transaction, relationship-graph, observer-registry, or parent-list
-  boundaries.
+  replacement, and one ordered batch evidence handoff. Required instance
+  construction, local relationship wiring, local observer binding, and ordered
+  Scene evidence entries may iterate N inside their canonical owner. They must
+  not create N Core requests, Props registration phases, Scene map or parent
+  replacement phases, Factory batch handoffs, or App transactions. Step 11
+  profiling must identify one of these owner-local loops as a material
+  bottleneck before deeper micro-batching becomes a release blocker.
 
 ### Factory Mutation Batch Artifact
 

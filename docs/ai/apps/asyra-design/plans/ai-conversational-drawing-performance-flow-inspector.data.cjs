@@ -142,8 +142,9 @@
       conditions: [
         'Props Manager performs one whole-batch schema, ID, and relationship preflight before instance materialization, relationship rebind, and registerMany.',
         'A later invalid item leaves no committed prefix in Props, relationships, instance registries, Scene Tree maps, parent children, or Factory evidence.',
-        'Scene Tree performs one map registration phase, one parent children replacement, and one batch evidence record.',
-        'Required instance construction may iterate N values but cannot repeat N public API, transaction, relationship-graph, observer-registry, or parent-list boundaries.',
+        'Scene Tree performs one map registration phase, one parent children replacement, and one ordered batch evidence handoff that preserves every canonical entry.',
+        'Required instance construction, local relationship wiring, local observer binding, and ordered Scene evidence entries may iterate N inside their canonical owner without creating N Core requests, Props registration phases, Scene map or parent replacement phases, Factory batch handoffs, or App transactions.',
+        'Step 11 profiling must identify an owner-local iteration as a material bottleneck before deeper micro-batching becomes a release blocker.',
         'CanonicalElementBatchResult preserves ordered element IDs and a Factory-owned delivery handle.',
         'Single-item APIs are exactly equivalent batch-of-one conveniences.'
       ],
