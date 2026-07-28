@@ -522,30 +522,36 @@ Each identifier below is one exact Inspector step and appears exactly once.
 The segment may change only that step's implementation boundary and direct
 consumers named by its contract.
 
-1. `derive-local-computed-projection`
-   - Establish property-to-local-computed derivation and the animation-safe
-     local reactive route; do not change Factory or remote apply in this
-     segment.
-2. `record-canonical-transaction-artifact`
+1. `project-render-state`
+   - Define and test the ordinary local computed projection handler without
+     registering it on the existing `UPDATE_COMPUTED_DATA` event. Existing
+     Render delivery remains unchanged and there is no second active consumer.
+2. `derive-local-computed-projection`
+   - Switch property-to-computed derivation and direct animation-safe computed
+     updates to the ordinary local reactive route. In the same semantic switch,
+     register the prepared Preset handler and stop routing computed evidence
+     through the shared Render observer. Preset moves its existing
+     `@asyra/reactive-events` workspace entry from development-only metadata to
+     a runtime dependency because production now imports that event subscriber;
+     this adds no package or installation. Do not change Factory or remote apply
+     in this segment.
+3. `record-canonical-transaction-artifact`
    - Remove computed evidence from Factory; consolidate the required
      SharedDataChannel batch SPI, one transaction/artifact/history semantic,
      Factory-owned staged publication identity, and compensation.
-3. `prepare-and-apply-property-batch`
+4. `prepare-and-apply-property-batch`
    - Give Props Manager one whole-batch preflight and one apply boundary for
      schema, instances, relationships, registration, and property evidence.
-4. `prepare-and-apply-scene-plan`
+5. `prepare-and-apply-scene-plan`
    - Replace parallel `UsingActiveProperties` mutations with typed lifecycle
      preparation and one Scene-only apply owner.
-5. `coordinate-canonical-owner-plans`
+6. `coordinate-canonical-owner-plans`
    - Make `createElementsInParent` the only plural Core implementation,
      coordinate complete Props and Scene plans, and remove Factory
      delivery/timing from Core.
-6. `prepare-one-composition-request`
+7. `prepare-one-composition-request`
    - Migrate the App composition caller to one Group plus one all-children Core
      request without owning canonical slicing.
-7. `project-render-state`
-   - Prove ordinary Render consumes structural artifact/status and local
-     computed projection without a second canonical path.
 8. `publish-shared-publication`
    - Replace optional Provider modes with one required publication path and one
      exclusive async inbound consumer; migrate the memory provider.

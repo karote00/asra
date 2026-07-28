@@ -44,13 +44,13 @@ const requiredStepIds = [
 ]
 
 const requiredImplementationOrder = [
+  'project-render-state',
   'derive-local-computed-projection',
   'record-canonical-transaction-artifact',
   'prepare-and-apply-property-batch',
   'prepare-and-apply-scene-plan',
   'coordinate-canonical-owner-plans',
   'prepare-one-composition-request',
-  'project-render-state',
   'publish-shared-publication',
   'transport-publication-bytes',
   'apply-remote-publication',
@@ -184,6 +184,32 @@ test('Inspector exposes eleven exact single-owner runtime steps', () => {
   ].map((match) => match[1])
   assert.deepEqual(implementationIds, requiredImplementationOrder)
   assert.deepEqual(new Set(implementationIds), new Set(requiredStepIds))
+
+  const computedBoundary = step(
+    'derive-local-computed-projection'
+  ).implementationBoundary
+  ;[
+    'packages/scene-tree/src/sceneTree.ts',
+    'packages/scene-tree/src/components/element.ts',
+    'packages/scene-tree/src/components/element-change-handler.ts',
+    'packages/preset/src/subscriptions/data-channel.ts',
+    'packages/preset/src/__tests__/selection-subscriptions.test.ts',
+    'packages/preset/package.json',
+    'docs/ai/framework/packages/scene-tree.md'
+  ].forEach((filePath) => assert.ok(computedBoundary.includes(filePath)))
+
+  assert.match(
+    plan(),
+    /project-render-state[\s\S]{0,360}without\s+registering[\s\S]{0,240}no second active consumer/i
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /producer switch.*consumer registration.*one semantic handoff.*no dual computed delivery/i
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /Preset declares.*@asyra\/reactive-events.*runtime dependency.*production consumer/i
+  )
 })
 
 test('Inspector paths, anchors, routes, and artifacts resolve', () => {

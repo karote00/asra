@@ -263,6 +263,8 @@
         'Undo, Redo, and canonical load recompute through the same property-to-computed route.',
         'UPDATE_COMPUTED_DATA and UPDATE_COMPUTED_DATA_PATCH remain ordinary local reactive events.',
         'A future animation tick may update computed state locally without touching a property component.',
+        'The local producer switch and ordinary Preset consumer registration form one semantic handoff with no dual computed delivery.',
+        'Preset declares its existing @asyra/reactive-events workspace package as a runtime dependency because the production consumer imports its subscriber directly.',
         'Computed projection creates no history, SharedDataChannel batch, Collaboration publication, or persistence snapshot.'
       ],
       bypasses: [
@@ -274,22 +276,31 @@
         'artifact:canonical-property-batch-evidence',
         'Scene computed/property subscription',
         'ordinary local reactive event delivery',
-        'direct local animation-to-computed input'
+        'direct local animation-to-computed input',
+        '@asyra/preset local computed projection registration'
       ],
       forbiddenContributors: [
         'Factory transaction journal',
         'SharedDataChannel',
         'Collaboration publication',
         'client persistence',
-        'app-level already-satisfied replay patches'
+        'app-level already-satisfied replay patches',
+        'simultaneous shared and ordinary local computed Render delivery'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/scene-tree/src/subscribes.ts',
+        'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/components/computed.ts',
+        'packages/scene-tree/src/components/element.ts',
+        'packages/scene-tree/src/components/element-change-handler.ts',
         'packages/scene-tree/src/__tests__',
         'packages/reactive-events/src/scene-tree',
-        'packages/reactive-events/src/__tests__'
+        'packages/reactive-events/src/__tests__',
+        'packages/preset/src/subscriptions/data-channel.ts',
+        'packages/preset/src/__tests__/selection-subscriptions.test.ts',
+        'packages/preset/package.json',
+        'docs/ai/framework/packages/scene-tree.md'
       ],
       specRefs: [
         '#canonical-and-local-projection-contracts',
