@@ -31,6 +31,11 @@ import {
   type UpdateElementPatchChange,
   type WorkspaceRawData
 } from '@asyra/utils'
+import type {
+  UpdateComputedDataBatchEvent,
+  UpdateComputedDataEvent,
+  UpdateComputedDataPatchEvent
+} from '@asyra/reactive-events'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import { createCleanupReporter } from '../cleanup-reporter'
 import {
@@ -206,6 +211,49 @@ const toRenderElementAddition = (
     parentId,
     index: index as number
   }
+}
+
+export const projectLocalComputedEventToRender = (
+  event:
+    | UpdateComputedDataEvent
+    | UpdateComputedDataBatchEvent
+    | UpdateComputedDataPatchEvent
+) => {
+  const { payload } = event
+
+  if ('patch' in payload) {
+    return updateRenderSceneTree({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: payload.id,
+      patch: payload.patch
+    } as UpdateElementPatchChange)
+  }
+
+  if ('changes' in payload) {
+    if (payload.changes.some(({ owner }) => owner !== 'computed')) {
+      return
+    }
+    return updateRenderSceneTree({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      id: payload.id,
+      changes: payload.changes
+    } as UpdateElementBatchChange)
+  }
+
+  if (payload.owner !== 'computed') {
+    return
+  }
+  return updateRenderSceneTree({
+    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+    eventName: EventTypes.UPDATE_COMPUTED_DATA,
+    id: payload.id,
+    owner: payload.owner,
+    key: payload.key,
+    before: payload.before,
+    after: payload.after
+  } as UpdateElementChange)
 }
 
 const updateRenderSceneTreeBatch = (changes: readonly SceneTreeChange[]) => {

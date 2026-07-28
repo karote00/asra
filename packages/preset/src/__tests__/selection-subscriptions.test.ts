@@ -13,7 +13,10 @@ import {
 } from '@asyra/utils'
 import { EventTypes, publishEvent } from '@asyra/reactive-events'
 import { registerSelections } from '../selection/register-default-selections'
-import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel'
+import {
+  projectLocalComputedEventToRender,
+  registerDefaultDataChannelObservers
+} from '../subscriptions/data-channel'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import { VECTOR_COMPONENT_DEFINITION } from '../components/vector'
 import {
@@ -65,6 +68,130 @@ const createDeps = (): PresetDependencies =>
 const VECTOR_TYPE = VECTOR_COMPONENT_DEFINITION.type
 
 describe('Preset Selection Subscriptions', () => {
+  it('projects local computed scalar, batch, and patch events without accepting raw owners', () => {
+    const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
+    const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
+    const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
+    scalar.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    batch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    patch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+
+    try {
+      projectLocalComputedEventToRender({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'vector-1',
+          owner: 'computed',
+          key: 'x',
+          before: 0,
+          after: 12
+        }
+      })
+      projectLocalComputedEventToRender({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'vector-1',
+          changes: [
+            {
+              owner: 'computed',
+              key: 'y',
+              before: 0,
+              after: 18
+            }
+          ]
+        }
+      })
+      projectLocalComputedEventToRender({
+        type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          id: 'vector-1',
+          patch: {
+            values: {
+              width: {
+                before: 20,
+                after: 24
+              }
+            }
+          }
+        }
+      })
+      projectLocalComputedEventToRender({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'vector-1',
+          owner: 'raw',
+          key: 'visible',
+          before: true,
+          after: false
+        }
+      })
+      projectLocalComputedEventToRender({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'vector-1',
+          changes: [
+            {
+              owner: 'computed',
+              key: 'x',
+              before: 12,
+              after: 14
+            },
+            {
+              owner: 'raw',
+              key: 'visible',
+              before: true,
+              after: false
+            }
+          ]
+        }
+      })
+
+      expect(scalar).toHaveBeenCalledTimes(1)
+      expect(scalar).toHaveBeenCalledWith(
+        'vector-1',
+        'computed',
+        'x',
+        0,
+        12,
+        undefined
+      )
+      expect(batch).toHaveBeenCalledTimes(1)
+      expect(batch).toHaveBeenCalledWith(
+        'vector-1',
+        [
+          {
+            owner: 'computed',
+            key: 'y',
+            before: 0,
+            after: 18
+          }
+        ],
+        undefined
+      )
+      expect(patch).toHaveBeenCalledTimes(1)
+      expect(patch).toHaveBeenCalledWith(
+        'vector-1',
+        {
+          values: {
+            width: {
+              before: 20,
+              after: 24
+            }
+          }
+        },
+        undefined
+      )
+    } finally {
+      scalar.mockRestore()
+      batch.mockRestore()
+      patch.mockRestore()
+    }
+  })
+
   it('rebuilds Render projection immediately after every observer registration', () => {
     const lifecycle: string[] = []
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
