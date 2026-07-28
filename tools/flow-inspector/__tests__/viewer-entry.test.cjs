@@ -180,6 +180,16 @@ const targets = [
     filterLaneTitle: 'Factory State'
   },
   {
+    id: 'canonical-projection-and-collaboration-contract-realignment',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html'
+    ),
+    dataScript:
+      './canonical-projection-and-collaboration-contract-flow-inspector.data.cjs',
+    filterLaneTitle: 'Canonical State Owners'
+  },
+  {
     id: 'render-engine-boundary',
     entryPath: path.join(
       projectRoot,

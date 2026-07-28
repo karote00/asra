@@ -44,6 +44,10 @@ const targetEntries = [
   ),
   path.join(
     projectRoot,
+    'docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
     'docs/ai/framework/plans/render-engine-boundary-flow-inspector.html'
   ),
   path.join(

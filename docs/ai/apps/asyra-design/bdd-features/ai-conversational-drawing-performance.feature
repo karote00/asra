@@ -1,6 +1,6 @@
 Feature: Conversational AI drawing performance
   As an Asyra Design user creating high-detail editable drawings
-  I want canonical drawing, collaboration, and Contents projection to use bounded batch boundaries
+  I want canonical drawing, local projection, collaboration, and persistence to use one bounded framework flow
   So that high detail remains interactive without weakening identity, history, or persistence semantics
 
   Background:
@@ -9,112 +9,112 @@ Feature: Conversational AI drawing performance
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And one unmeasured warm-up precedes three measured reference runs
 
-  Scenario: Profiling fixes the first architecture owners
+  Scenario: Profiling remains observational
     When the balanced high-detail collaboration profile is evaluated
     Then timing should distinguish product execution, Factory artifact construction, worker encode, server queue and drain, worker decode, remote apply, Render, UI, and harness overhead
     And the Contents present average should be 7.026 seconds
     And the Contents omitted average should be 7.074 seconds
-    And the first implementation owner should be the receiver provider and worker handoff
-    And head-only peer relay should amplify that delay rather than identify Node socket write as the owner
+    And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
-  Scenario: One composition uses one canonical bulk request
+  Scenario: Core exposes one plural element creation path
     Given one validated AI composition contains one Group and many accepted children
     When the App executes the mutating turn
-    Then it should call "Core.createElementsInParentBatch" once for all accepted children
-    And the result should retain ordered canonical element ids and one Factory-owned delivery handle
+    Then it should call "Core.createElementsInParent" once for all accepted children
+    And Core should return only ordered canonical element ids
     And a single-item create API should use the same batch-of-one canonical path
-    And point-aware progressive slices should begin at 2048 points and grow to 8192 points
-    And one indivisible element may exceed the soft slice target
+    And Group and children should remain inside one outer Factory transaction
+    And Core should expose no Factory delivery handle, progressive handle, timing result, or transport receipt
     And no slice should repeat or split the canonical mutation
 
-  Scenario: Canonical batch preflight rejects a later invalid item atomically
-    Given an accepted child batch contains a later invalid property or relationship
-    When Props Manager and Scene Tree preflight the complete batch
-    Then no property, instance, relationship, registry, hierarchy, parent child, or Factory evidence prefix should remain
-    And a valid batch should perform one map registration phase
-    And a valid batch should perform one parent children replacement
-    And a valid batch should produce one ordered batch evidence handoff
-    And necessary owner-local instance, relationship, observer, and Scene entry iteration should only block release when profiling proves a material bottleneck
+  Scenario: Props and Scene Tree apply separate owner plans
+    Given an accepted batch contains property inputs and Scene lifecycle inputs
+    When Core requests complete owner preflights
+    Then Props Manager should validate schema, property instances, relationships, registration, and property evidence
+    And Scene Tree should validate Scene ids, maps, parent children, hierarchy order, tombstones, and Scene evidence
+    And Core should receive both complete owner plans before authorizing either apply
+    And Props Manager should not mutate Scene maps or hierarchy
+    And Scene Tree should not materialize property instances, rebind relationships, or register properties
+    And a later invalid item should leave no committed owner prefix
+    And an unexpected apply failure should roll back both owners through the outer Factory transaction
 
-  Scenario: Creation API choice follows data lifecycle rather than origin
-    Given ordinary descriptors, detached canonical snapshots, and canonical data with active property owners are valid inputs
-    When a client chooses the matching Scene Tree creation API
-    Then ordinary descriptors should use "addNewElement" or "addNewElements"
-    And detached canonical snapshots should use "addNewElementsFromCanonicalData"
-    And canonical data with active property owners should use "addNewElementsFromCanonicalDataUsingActiveProperties"
-    And no creation API should be blocked because the caller is local or remote
-    But an active transaction owner should atomically accept canonical batch evidence
+  Scenario: Computed data remains a local Render projection
+    Given Actor A updates one canonical property
+    When Props Manager emits "UPDATE_PROPERTY"
+    Then Factory may record and publish the property source evidence
+    And the local property subscription should derive computed state
+    And "UPDATE_COMPUTED_DATA" should reach Render through an ordinary local reactive event
+    And computed evidence should create no History entry, SharedDataChannel batch, Collaboration publication, or persistence snapshot
+    And Actor B should derive the same computed state locally after applying the property source evidence
+    And a future local animation tick may update computed state without changing a property component or publishing CRDT data
 
-  Scenario: Replay removal API choice follows property lifecycle rather than origin
-    Given ordinary removal owns complete property cleanup
-    And retained history or collaboration evidence carries Scene and Props removal separately
-    When a client chooses the matching Scene Tree removal API
-    Then ordinary element data should use "removeElement"
-    And an ordinary complete container hierarchy should use "removeSubtree"
-    And retained Scene evidence with active properties should use "removeElementUsingActiveProperties" or "removeElementsUsingActiveProperties"
-    And a retained complete container hierarchy should use "removeSubtreeUsingActiveProperties"
-    And the single active-property removal API should use the same batch-of-one canonical path
-    And retained removal and restore should preflight exact Scene, Props, relationship, parent index, id, and tombstone evidence
-    And a later invalid item should leave no committed canonical, history-readiness, or publication prefix
-    And no removal API should be blocked because the caller is local or remote
-    But a semantic no-op should not be treated as an applied replay result
+  Scenario: SharedDataChannel has one required batch contract
+    Given a framework shared channel receives one or many canonical changes
+    When Factory delivers the ordered changes
+    Then the channel should use required "appendBatch" and "observeBatch" methods
+    And framework internals should use the same batch method for a one-item batch
+    And public single-item append and observe conveniences should delegate to batch-of-one
+    And the built-in batch should be deeply detached and frozen once
+    And no atomicity flag, prototype identity branch, WeakSet capability check, or single-item fallback loop should run
 
-  Scenario: Factory emits one immutable transaction artifact
-    Given the complete canonical child batch succeeds inside one outer App transaction
-    When Factory records the canonical deliveries
-    Then it should deeply detach and freeze one "FactoryMutationBatchArtifact"
-    And History, Render UI, and Collaboration should consume the same ordered artifact
-    And the turn should create exactly one intended Undo action
+  Scenario: Custom shared channels own their implementation correctness
+    Given a developer registers a custom SharedDataChannel
+    When the channel exposes the complete required batch method shape
+    Then the framework should use that declared batch contract without probing its implementation
+    And custom atomicity and correctness should remain the developer's responsibility
+    But a channel missing the required method shape should fail registration
+    And the framework should not repair, split, benchmark, or infer custom behavior
+
+  Scenario: Factory keeps one transaction semantic
+    Given one intended action mutates canonical property and Scene owners
+    When Factory records the ordered source evidence
+    Then it should create one immutable transaction artifact and one intended History action
+    And every transaction should use the same record, commit, and rollback semantics
+    And progressive visibility should observe the ordinary staged artifact status stream
+    And progressive visibility should not be a transaction mode or option
+    And Factory should derive each eligible staged slice, committed remainder, or rollback compensation through the same "SharedPublication" route
+    And an eligible staged publication should retain stable transaction, publication, slice, and inverse-compensation identity
+    And acknowledged staged slices should use the same journal evidence for rollback compensation
+    And commit should not republish an acknowledged staged canonical record
     And Undo and Redo should each restore the complete intended action
-    And an observer mutation attempt should not affect another consumer
 
-  Scenario: Progressive slices remain visible without new canonical writes
-    Given the immutable Factory artifact contains point-aware progressive slice boundaries
-    When Preset and Render consume the formal slices
-    Then every slice should use the ordinary Vector strategy
-    And every slice should cause at most one invalidation and one frame flush
-    And Actor B should observe more than one increasing non-final element count
-    And publication slices should create no new canonical writes or history actions
-    And progressive output should not collapse into one final-only frame
+  Scenario: Collaboration Provider has one publication path
+    Given Factory emits one ordered "SharedPublication" transaction batch
+    When Collaboration sends or receives that publication
+    Then Collaboration should use one required "sendPublication" path
+    And Collaboration should use one required "onPublication" async consumer path
+    And Collaboration should consume only Factory-owned "SharedPublication" artifacts instead of inferring publications from staged status
+    And the outbound promise should resolve only after bounded Provider queue acceptance and delivery ownership
+    And the inbound consumer promise should settle only after App canonical apply completes or fails
+    And generic Collaboration should own no publication group size, concurrency constant, lease mode, or runtime capability branch
 
-  Scenario: Contents can scroll to the final canonical element
-    Given Contents receives more than 100 ordered visible hierarchy rows
-    When the user scrolls the actual inner scroll element to its tail
-    Then the final canonical element should be rendered and interactive
-    And mounted DOM rows should remain bounded to the viewport and overscan
-    And collapse, expansion, hierarchy order, and selection should remain correct
-
-  Scenario: Binary publication relay applies byte backpressure
-    Given a shared publication batch is ready for Collaboration
-    When the codec worker creates versioned binary publication frames
+  Scenario: Binary publication transport applies byte backpressure
+    Given Collaboration hands one publication to the Provider
+    When the Provider codec worker creates versioned binary publication frames
     Then control frames should remain JSON
     And publication payloads should transfer as ArrayBuffer values without JSON pre-serialization
     And the server should relay canonical payload bytes without decode or re-encode
     And the receiver should admit frames into a bounded 2 MiB worker ingress window
     And the worker should validate header, order, and duplicate identity before emitting "frame-consumed"
-    And the provider should deeply freeze the worker-to-main publication once without repeated Provider or Collaboration clones
-    And the receiver worker should expose one immutable decoded-publication lease at a time to App policy and canonical preflight
-    And successful remote publication settlement should release the next decoded-publication lease
-    And terminal remote apply failure should clear active and pending leases without releasing a later publication
     And each peer should enforce an exact 2 MiB unretired byte capacity
     And one oversized indivisible frame should be allowed only for an otherwise empty peer queue
-    And "source-frame-admitted" should allow the provider to send only the next publication frame
     And already-admitted peer frames should continue in FIFO order through the bounded byte window before prior "frame-consumed" credit
     And frame retirement and capacity release should still require both the exact socket callback and exact "frame-consumed" credit
     And blocked peer admission should resume when contiguous retirement leaves exact capacity for the next frame
     And blocked publication admission should not pause the JSON control fast path
     And "server-accepted", "frame-consumed", and "peer-applied" should remain distinct receipts
-    And the receiver worker should emit "frame-consumed" after accepting the transferable frame
-    And remote apply should emit "peer-applied" only after canonical apply completes
+    And those receipts should remain diagnostic status rather than alternate "sendPublication" completion modes
     And client and server WebSockets should use "perMessageDeflate: false"
 
-  Scenario: Remote publication apply does not create local side effects
-    Given Actor B receives one valid source publication
-    When the worker releases the publication for canonical apply
+  Scenario: Remote property follow-ups derive computed state locally
+    Given Actor B receives one valid property-only source publication
+    When the required async consumer opens the remote Factory transaction
     Then Actor B should open exactly one remote Factory transaction for that publication
     And different source publications should not be merged
-    And one batch observer delivery should preserve the ordered canonical events
+    And App policy should validate the publication before Core canonical apply
+    And Actor B should apply "UPDATE_PROPERTY" without receiving "UPDATE_COMPUTED_DATA" through CRDT
+    And Actor B should derive computed state locally and update ordinary Render output
+    And the consumer promise should resolve only after canonical apply completes
     And Actor B should create no Undo action
     And Actor B should create no echo publication
     And Actor B should perform no persistence capture, provider save, or IndexedDB write

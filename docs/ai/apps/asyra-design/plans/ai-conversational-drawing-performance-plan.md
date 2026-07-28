@@ -2,22 +2,34 @@
 
 ## Status
 
-Active Level 3 architecture refactor. PR #101 is merged and the existing
+Paused Level 3 app performance refactor. PR #101 is merged and the existing
 `codex/asyra-design-ai-conversational-drawing-performance` branch remains the
-authorized implementation base. This document is the single active plan; the
-architecture replan updates it instead of creating a duplicate plan.
+implementation base, but no additional production work is authorized by this
+status.
+
+The current cross-cutting contract authority is:
+
+- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-realignment-plan.md`
+- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs`
+
+That framework prerequisite replaces the conflicting canonical/computed,
+SharedDataChannel, Provider, Core, Scene Tree, and Factory contracts. This
+document retains the profiling evidence, product budgets, fixtures, and
+performance-equivalence requirements below. Its affected architecture sections
+and existing Inspector are not implementation authority until the prerequisite
+has synchronized this plan, Inspector data, Inspector contract test, and BDD.
 
 The completed Conversational AI Mock Drawing behavior remains authoritative.
 Credential-gated Live AI provider and API-key testing is outside this plan and
 remains owned by the existing live-provider successor plan.
 
-Architecture authority:
+Paused architecture artifacts retained as evidence only:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html`
-- `docs/ai/apps/asyra-design/plans/__tests__/ai-conversational-drawing-performance-flow-inspector.contract.test.cjs`
 
-Executable product cases:
+The product cases have been realigned to the current framework prerequisite and
+are executable contract authority for that plan:
 
 - `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`
 
