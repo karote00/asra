@@ -97,10 +97,18 @@ order is therefore fixed:
 
 1. Props gains one whole-batch canonical property mutation boundary.
 2. Scene Tree exposes read-only element-to-property target resolution.
-3. Core exposes plural canonical element-property APIs and migrates every
-   direct caller.
-4. Only then does Scene Tree remove computed changes from canonical evidence
-   and activate the prepared local Render projection.
+3. The App composition path migrates from the Core batch result and delivery
+   handle to the existing plural `createElementsInParent(...)` result plus the
+   Factory-owned staged-artifact controller.
+4. Core then deletes the legacy creation surface, completes plural canonical
+   element-property coordination, and migrates every canonical direct caller.
+   The transient vector preview remains an explicit local-only dependency for
+   the next semantic handoff rather than being forced through a canonical API.
+5. Scene Tree and Reactive Events then introduce the mission-specific
+   local-computed batch route; in that same handoff the transient vector caller
+   migrates, the old mixed Core/command APIs are deleted, and Preset activates
+   the prepared single local Render projection. No intermediate state has two
+   active computed delivery routes.
 
 This is a contract correction inside the frozen task, not a new performance
 tuning iteration.
@@ -151,6 +159,10 @@ API leaks must be deleted rather than wrapped.
 - production backend DB integration or server checkpoint policy
 - VTracer detail generation
 - AI-only Render paths
+- generalized shared-element DAG or multi-parent hierarchy semantics
+- shared-relation permissions, leases, pinning, garbage collection, or
+  server-owned lifecycle policy
+- a universal cross-package relationship registry
 - unrelated framework cleanup
 - third-party dependencies or Node.js, Yarn, package-manager, or runtime
   upgrades
@@ -234,7 +246,9 @@ Required behavior:
   evidence, history, shared publications, or persistence snapshots.
 - A direct computed update must not produce a canonical publication merely
   because it occurs during an open transaction.
-- Render must continue to use computed changes as its invalidation source.
+- Render must continue to use computed changes as its invalidation source, and
+  the same ordinary local projection must update affected UI-context entries
+  once without duplicating Render delivery.
 - Direct local computed mutation uses explicitly local batch APIs, accepts no
   `EVENT_OPTIONS`, and cannot be switched into a shared/history/persistence
   path by caller options.
@@ -244,6 +258,76 @@ Required behavior:
 
 This contract deliberately reserves a clean future animation path without
 implementing an animation system.
+
+## Shared Element-Property Relation Contract
+
+`ElementPropertyRelation` is many-to-one: `ownerElementId`,
+`ownerPropertyName`, and `componentId` describe an element property slot
+reference to one canonical property component.
+
+Props independently owns property/component identity, registry and type
+validity, lifecycle, and the property-child graph. Scene independently owns
+element identity, the element hierarchy, and each element-slot-to-root
+relation. This owner separation is the stable extension point for future
+shared props, shared components, and shared elements without pre-assigning
+their later product semantics to the current relation contract.
+
+```ts
+interface ElementPropertyRelation {
+  readonly ownerElementId: string
+  readonly ownerElementType: string
+  readonly ownerPropertyName: string
+  readonly componentId: string
+}
+```
+
+Each unique `(ownerElementId, ownerPropertyName)` tuple identifies one element
+slot, while a compatible `componentId` may repeat across any number of relation
+tuples. The word `owner` identifies the element slot that holds the reference;
+it does not grant exclusive lifecycle ownership of the property component.
+
+The current framework supports this exact shared-root meaning without
+pre-assigning future shared-element product semantics:
+
+- canonical element raw `props` remain the source of element-to-root-property
+  relations;
+- Scene Tree owns a derived reverse relation index from `componentId` to
+  ordered `ElementPropertyRelation` values and keeps it equivalent through
+  load, insert, remove, restore, rollback, Undo, and Redo;
+- Props Manager separately owns property-to-child-property graph relations.
+  The Scene reverse relation index and Props child graph are different relation
+  domains and must not be merged or duplicated as competing canonical state;
+- `UPDATE_PROPERTY` is source-only property evidence. It contains no computed
+  projection and an initiating element is not the fanout authority;
+- local computed projection collects the changed property IDs, resolves every
+  affected element through the Scene reverse relation index, and emits one
+  ordered computed batch. One shared property update therefore changes its
+  canonical source once while every current element relation projects locally;
+- Scene element-property target resolution groups the complete request by
+  `propertyId`. Equivalent field or record mutations become one property
+  mutation; conflicting writes to the same canonical field or record are
+  rejected atomically before Props preflight;
+- a Scene removal plan records released and retained relations, deduplicated
+  orphan root property IDs, the complete set of root property IDs retained by
+  planned remaining element relations, and the exact relation-set read needed
+  to reject a stale apply;
+- Props exact orphan property graph removal accepts only those orphan and
+  retained root property ID sets, traverses its own property-child graph from
+  orphan roots, stops at every retained Scene root, and removes a descendant
+  only when no remaining canonical property relation retains it;
+- a direct Scene removal applies only Scene state and retains Props. Core owns
+  the full element lifecycle that coordinates the Scene release plan with the
+  Props orphan graph plan inside one outer Factory transaction;
+- removing one relation never deletes a shared root retained by another
+  relation. Removing the final relation deletes that root graph once;
+- Factory records the exact Props source and Scene relation evidence so Undo,
+  Redo, rollback, CRDT `SharedPublication`, and remote apply preserve canonical
+  IDs and the same many-to-one relations.
+
+This contract does not introduce multi-parent Scene elements, generic owner
+kinds, permissions, leases, pinning, reference-count APIs, server persistence,
+or a universal relationship service. Those semantics require separate product
+contracts if they become necessary.
 
 ## SharedDataChannel Contract
 
@@ -363,6 +447,9 @@ createElementsInParent(
   object, publication receipt, or transport state.
 - The AI composition path creates its Group and sends all accepted children
   through one plural Core request inside the same outer Factory transaction.
+- The App obtains the one active staged-artifact controller directly from the
+  Factory that owns that outer transaction. Core never receives, stores, or
+  returns the controller.
 - The old fixed-size loop that repeatedly invokes Core is removed. Point-aware
   progressive slicing is downstream delivery policy, not repeated canonical
   mutation.
@@ -401,6 +488,10 @@ patchElementProperties(
 - Scene Tree resolves aliases such as `x`/`y` to position and
   `width`/`height` to dimension, verifies element ownership, and returns
   explicit property IDs and owner relations. It does not mutate Props.
+- The complete Scene target plan groups requests by `propertyId`. Equivalent
+  changes from multiple elements that share one component produce one Props
+  mutation; conflicting changes to the same field or record reject atomically
+  before Props preflight.
 - Props Manager receives property IDs and typed operations; it never parses
   Scene snapshots or infers element relationships.
 - A later invalid element, property target, field value, or record patch leaves
@@ -429,8 +520,9 @@ It exposes a whole-batch preflight plan and one whole-batch apply boundary for
 both creation/lifecycle property work and active property value or record
 patch mutations:
 
-- all schemas, IDs, property values, component ownership, instances, and
-  relationships are validated before any property mutation;
+- all schemas, IDs, property values, Props-owned component registry/type/
+  lifecycle validity, instances, and relationships are validated before any
+  property mutation;
 - each active mutation item is an explicit typed field replacement or record
   patch against a resolved property ID and owner relation;
 - apply materializes required property instances, performs relationship
@@ -438,6 +530,8 @@ patch mutations:
   and records ordered property evidence once;
 - a later invalid item leaves no property, instance, relationship, registry, or
   evidence prefix;
+- `UPDATE_PROPERTY` remains property-source evidence and does not treat one
+  initiating element as the fanout authority for a possibly shared component;
 - Props Manager never mutates Scene maps, parent children, hierarchy order, or
   Scene evidence.
 
@@ -480,6 +574,15 @@ lifecycle owner:
 - any failure restores property values, instances, registry membership,
   relationships, owner order, and evidence to the batch-start state.
 
+For element-root property lifecycle, Props has a fixed exact orphan graph
+removal operation. It accepts only deduplicated orphan root IDs and the complete
+deduplicated retained Scene root ID set from a Core-coordinated Scene
+relation-release plan, validates the affected active property graph before
+mutation, stops traversal at every retained Scene root, and removes each root
+or descendant only when no remaining canonical relation in its own property
+graph retains it. Props does not discover Scene owners, scan Scene snapshots,
+or decide whether an element relation survives.
+
 ## Scene Tree Lifecycle and Apply Contract
 
 Scene Tree exposes lifecycle-specific preparation because ordinary creation,
@@ -497,14 +600,49 @@ Target responsibilities:
 - `prepareElementInsertion(...)` validates ordinary Scene descriptors, element
   IDs, parent, index, and order.
 - `prepareCanonicalElementInsertion(...)` validates canonical Scene snapshots,
-  element IDs, parent, index, and order.
+  element IDs, parent, index, order, and exact element-slot relations. Its
+  `CanonicalElementInsertionPlan` exposes those frozen `ownerRelations` so Core
+  can pass them unchanged to the Props `create-exact-property-graph`
+  operation; Core does not reconstruct Scene registry semantics.
 - `prepareElementRemoval(...)` prepares ordinary Scene removal.
 - `prepareCanonicalElementRemoval(...)` prepares retained canonical Scene
   evidence.
+- `prepareSubtreeRemoval(elementId)` accepts one non-workspace root, derives the
+  complete canonical child-first post-order closure, and produces one typed
+  subtree removal plan with one `CHANGE_SUBTREE` evidence record. It is not an
+  option or hidden expansion mode of `prepareElementRemoval(...)`.
 - subtree restore uses a typed canonical restore plan rather than a boolean
   option.
 - `applyElementMutationPlan(...)` is the only Scene map, raw element state,
   parent-list, hierarchy order, and ordered Scene evidence mutation boundary.
+
+Scene also exposes one read-only load relation preflight:
+
+```ts
+preflightLoadPropertyRelations(
+  sceneValidation: SceneTreeLoadValidationResult,
+  propsData: Readonly<PropsComponentRawData>
+): void
+```
+
+It uses the Scene owner-issued validation artifact's private detached
+property-slot contract to validate exact component IDs, property types, and
+registration stability against detached Props validated data before any owner
+applies. It accepts compatible many-to-one shared relations, performs no
+materialization or active Props read, consumes no load artifact, and creates no
+second load plan. Core passes the original validation result and Props
+validated data unchanged; Core never rewrites Scene slot/type rules.
+
+Scene Tree also owns one derived reverse relation index from `componentId` to
+ordered `ElementPropertyRelation` entries. Load, insertion, removal, restore,
+rollback, Undo, and Redo keep that index equivalent to canonical element raw
+`props`. Property target plans group equivalent mutations by `propertyId` and
+atomically reject conflicting shared writes before Props preflight. Removal
+plans include released relations, retained relations, deduplicated orphan root
+property IDs, the complete deduplicated root property ID set retained by all
+planned remaining element relations, and an exact relation-set staleness read;
+a relation-set change between prepare and apply rejects the plan before
+mutation.
 
 The exact plan types must make their required evidence explicit. They must not
 encode caller identity or use an `isRemote`, `isLocal`, `usingActiveProperties`,
@@ -518,6 +656,13 @@ Property target resolution and Scene lifecycle mutation are different outputs
 of the same Scene ownership boundary: the former is read-only relationship
 resolution, while the latter is a typed Scene mutation plan. Neither output
 may apply Props state.
+
+A direct caller of a Scene removal planner receives and applies only the Scene
+mission, so active Props are retained. The Core full element lifecycle passes
+the Scene-issued orphan and complete retained root ID sets unchanged to the
+matching Props exact orphan graph plan; Core does not inspect the property
+graph. It completes both preflights and only then applies the required owner
+plans inside the caller-owned Factory transaction.
 
 Core obtains every complete owner plan required by a request before any
 affected owner applies. A property-only request requires the read-only target
@@ -538,7 +683,7 @@ caller based on origin.
 
 Factory's public mission is limited to:
 
-- transaction execution and status;
+- transaction execution, its one active staged-artifact controller, and status;
 - journal, Undo, Redo, and rollback;
 - immutable committed artifact observation;
 - staged artifact/status observation from the same transaction journal.
@@ -555,6 +700,13 @@ Required behavior:
   `updateTransaction(...)` convenience delegates to a batch-of-one, while the
   public batch publisher passes each owner evidence batch as one whole
   immutable event array to the registered owner exactly once.
+- Canonical ordered-ID and optional shared-record evidence live inside their
+  owning transaction event. `updateTransactionBatch(events)` accepts no
+  parallel evidence array or second evidence parameter.
+- Shared relation source evidence preserves the same canonical IDs and
+  many-to-one relation tuples through Undo, Redo, rollback, and every
+  `SharedPublication`; Factory never reconstructs those relations from an
+  initiating element.
 - A cross-owner action may submit one Props evidence batch and one Scene
   evidence batch inside the same outer transaction. Factory combines those
   owner batches into one transaction artifact and one History action; Core
@@ -576,6 +728,11 @@ Required behavior:
   Render consumer may ignore staged status and use only commit, or consume
   staged status for progressive visibility; neither choice alters transaction
   execution.
+- The App may request the next planned stage only through the active
+  staged-artifact controller owned by the current Factory transaction. The
+  controller validates every requested ordered ID against canonical evidence
+  already present in that journal; it is not a transaction mode, is never
+  returned by Core, and becomes stale when the outer transaction settles.
 - A staged slice becomes publication-eligible only after Factory assigns stable
   transaction, publication, slice, and inverse-compensation identity from the
   existing journal. A committed remainder must not republish an already
@@ -674,9 +831,10 @@ The segment may change only that step's implementation boundary and direct
 consumers named by its contract.
 
 1. `project-render-state`
-   - Define and test the ordinary local computed projection handler without
-     registering it on the existing `UPDATE_COMPUTED_DATA` event. Existing
-     Render delivery remains unchanged and there is no second active consumer.
+   - Define and test the ordinary local computed Render and affected
+     UI-context projection handlers without registering them on the existing
+     `UPDATE_COMPUTED_DATA` event. Existing Render delivery remains unchanged
+     and there is no second active Render consumer.
 2. `record-canonical-transaction-artifact`
    - Establish the required `TransactionOwner.updateTransactionBatch(...)`
      owner-only SPI and make the public scalar convenience delegate to
@@ -687,32 +845,50 @@ consumers named by its contract.
 3. `prepare-and-apply-property-batch`
    - Give Props Manager one whole-batch preflight and one apply boundary for
      active property value/record patches as well as schema, instances,
-     relationships, registration, and ordered property evidence.
+     relationships, registration, exact orphan property-graph removal, and
+     ordered property evidence.
 4. `prepare-and-apply-scene-plan`
    - Add read-only element-to-property target resolution and typed raw
      `UPDATE_ELEMENT_DATA` mutation, then replace parallel
      `UsingActiveProperties` mutations with typed lifecycle preparation and one
-     Scene-only apply owner. Update the exact Factory/Preset consumers of the
-     renamed raw evidence in the same owner handoff.
-5. `coordinate-canonical-owner-plans`
+     Scene-only apply owner. Establish the derived reverse element-property
+     relation index, shared-target aggregation, and relation-aware removal
+     plan. Update the exact Factory/Preset consumers of the renamed raw evidence
+     in the same owner handoff.
+5. `prepare-one-composition-request`
+   - Migrate the App composition caller to one Group plus one all-children Core
+     request. Obtain the one active staged-artifact controller directly from
+     Factory rather than through Core, and use it only for downstream slice
+     requests. The App batch-result and delivery-handle migration completes
+     before Core deletes `createElementsInParentBatch`; this is dependency
+     ordering, not a compatibility contract. Complete the canonical
+     descriptor-to-Props creation handoff before computed becomes local-only so
+     element creation no longer depends on a mixed computed/property write.
+6. `coordinate-canonical-owner-plans`
    - Make `createElementsInParent` the only plural creation implementation;
      add plural `updateElementProperties` and `patchElementProperties`;
      coordinate every Props/Scene plan required by each request without
-     inventing an unused owner mutation; migrate all direct canonical callers;
-     delete `changeComputedData*`; and remove Factory delivery/timing from Core.
-6. `derive-local-computed-projection`
-   - With every canonical caller already migrated, switch
-     property-to-computed derivation and explicit animation-safe local computed
-     updates to the ordinary local reactive route. In the same semantic switch,
-     register the prepared Preset handler and stop routing computed evidence
-     through Factory/shared Render observation. Local computed APIs accept no
-     `EVENT_OPTIONS`. Preset moves its existing
+     inventing an unused owner mutation; migrate all direct canonical callers,
+     including focused E2E fixtures; and remove Factory delivery/timing from
+     Core. The transient vector preview is intentionally left as a local-only
+     dependency of the next single semantic handoff, not treated as a
+     canonical caller.
+7. `derive-local-computed-projection`
+   - With every canonical caller, including element creation, already migrated,
+     switch property-to-computed derivation and explicit animation-safe local
+     computed updates to the ordinary local reactive route. In the same
+     semantic switch, migrate the transient vector preview, delete the mixed
+     Core `changeComputedData*` facade and Reactive Events
+     `CHANGE_COMPUTED_DATA*` commands, register the prepared Preset handler, and
+     stop routing computed evidence through Factory/shared Render observation.
+     Asyra Design continuation and vector-icon derived-state consumers normalize
+     scalar, ordered batch, and patch projection events without duplicate work.
+     Local property projection fans changed property IDs to every current
+     relation through the Scene reverse index before emitting one computed batch. Local
+     computed APIs accept no `EVENT_OPTIONS`. Preset moves its existing
      `@asyra/reactive-events` workspace entry from development-only metadata to
      a runtime dependency because production now imports that event subscriber;
      this adds no package or installation.
-7. `prepare-one-composition-request`
-   - Migrate the App composition caller to one Group plus one all-children Core
-     request without owning canonical slicing.
 8. `publish-shared-publication`
    - Replace optional Provider modes with one required publication path and one
      exclusive async inbound consumer; migrate the memory provider.
@@ -789,8 +965,16 @@ intermediate test pass.
 - Core uses the public prepare/apply owner capabilities; direct property-ID
   callers may use the composing `updateProperties(...)` convenience.
 - Schema, IDs, order, relationships, property instances, registrations, and
-  component ownership remain exact.
+  Props-owned component registry/type/lifecycle validity remain exact.
 - Single-item convenience is equivalent to a property batch-of-one.
+- Two element relation tuples may reference one compatible component ID; exact
+  creation, update evidence, orphan graph removal, inverse evidence, and
+  rollback do not infer exclusive element ownership.
+- Exact orphan graph removal retains a root or descendant while any canonical
+  relation remains and removes the final orphan graph only once.
+- If an orphan root graph contains a descendant that remains another element's
+  root, traversal stops at that retained Scene root and preserves its complete
+  descendant graph until its final element relation is released.
 - Props Manager does not mutate Scene state.
 
 ### Scene Tree and Core
@@ -798,6 +982,15 @@ intermediate test pass.
 - A later invalid element-to-property resolution leaves no Props or Scene
   mutation and returns no partial target plan.
 - Alias resolution and owner relations are exact and read-only.
+- `ElementPropertyRelation` identity is
+  `(ownerElementId, ownerPropertyName)` and compatible `componentId` values may
+  repeat across relations.
+- Equivalent shared-property targets aggregate into one mutation; conflicting
+  targets fail before Props preflight with no owner prefix.
+- The derived reverse relation index remains equivalent after load, insert,
+  removal, restore, rollback, Undo, and Redo.
+- Removal evidence distinguishes released and retained relations, orphan roots,
+  and the complete retained Scene root set, and rejects a stale relation set.
 - A later invalid Scene item leaves no Scene map, parent-list, hierarchy order,
   tombstone, or Scene evidence prefix.
 - IDs, order, parent children, hierarchy, and Scene evidence remain exact.
@@ -813,11 +1006,27 @@ intermediate test pass.
 - Both Props and Scene plans complete preflight before Core asks either owner to
   apply when the request mutates both owners; a property-only request requires
   no Scene mutation plan.
+- Direct Scene removal retains active Props; Core full lifecycle removal
+  coordinates exact orphan graph cleanup.
+- Detached canonical creation takes the frozen `ownerRelations` from the
+  owner-issued `CanonicalElementInsertionPlan` and passes them unchanged into
+  Props `create-exact-property-graph`; Core never reconstructs Scene slots.
+- Remote exact flat removal uses one origin-neutral canonical-data Core API.
+  Collaboration consumes the resulting Scene and optional Props owner batches
+  once; no `UsingActiveProperties` alias or local/remote mode remains.
+- One-root subtree removal uses `prepareSubtreeRemoval(...)` and the same
+  `applyElementMutationPlan(...)`; its relation release, orphan, retained root,
+  rollback, Undo, and Redo evidence covers the complete child-first closure.
+- Core load calls `preflightLoadPropertyRelations(...)` with detached validated
+  Props data before any owner apply, version update, or file-load-complete
+  publication.
 
 ### Factory
 
 - One action produces one immutable artifact and one history action.
 - Undo, Redo, rollback, and progressive compensation are exact.
+- Shared relation source evidence retains canonical component IDs and relation
+  tuples through Undo, Redo, rollback, `SharedPublication`, and remote apply.
 - Computed projection evidence is absent from the artifact.
 - Remote apply creates no Undo, echo, or local persistence.
 - Observer mutation cannot alter another consumer's evidence.
@@ -849,7 +1058,10 @@ Final handoff to the app performance plan requires:
 6. separated A product, artifact, encode, queue/drain, decode, B apply,
    computed projection, Render/UI, and harness timings;
 7. no loss of detail, canonical IDs, hierarchy, history, or one-action Undo;
-8. synchronized live visual review through `app-visual-review-sync` when the
+8. shared-root update fanout, non-final relation removal, final orphan cleanup,
+   Undo, Redo, and remote CRDT apply preserve exact relation tuples and
+   component IDs;
+9. synchronized live visual review through `app-visual-review-sync` when the
    app plan reaches visual closure.
 
 The 7,112 balanced gate, independent 7,076 high-detail CRDT/performance gates,
@@ -868,6 +1080,10 @@ Stop the current owner step and report the first incorrect owner when:
   transport scheduling;
 - a custom implementation can work only through compatibility probing;
 - one atomic Scene/Props plan would leave a committed prefix;
+- a shared component update cannot project to every active relation from one
+  exact Scene-owned derived index;
+- root cleanup cannot distinguish a released relation from the final orphan
+  relation without duplicating Scene canonical state in Props;
 - one focused gate fails three implementation attempts;
 - closure would require a third-party dependency, runtime upgrade, backend DB,
   animation implementation, Contents work, or another excluded scope.
@@ -884,7 +1100,13 @@ No local patch or fallback may be added after a stop condition.
 - Provider has one required publication flow without capability branching.
 - Core exposes one plural creation implementation with no Factory delivery or
   timing details.
-- Scene Tree uses typed lifecycle preparation and one atomic apply owner.
+- Scene Tree uses typed lifecycle preparation, one atomic apply owner, and one
+  exact derived reverse element-property relation index.
+- A compatible property component may serve many relation tuples; source-only
+  property updates fan out locally, non-final removal retains it, and final
+  orphan removal occurs exactly once.
+- Shared relation Undo, Redo, rollback, publication, remote apply, and load
+  preserve canonical component IDs and relation tuples.
 - Factory's public facade and internal ownership match this plan.
 - Obsolete pre-release APIs, compatibility branches, and compatibility-only
   tests are deleted.

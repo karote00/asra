@@ -9,6 +9,10 @@ const featurePath = path.resolve(
   repoRoot,
   'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
 )
+const appApiSurfacePath = path.resolve(
+  repoRoot,
+  'docs/ai/apps/asyra-design/API_SURFACES.md'
+)
 
 const requiredStepFields = [
   'id',
@@ -48,9 +52,9 @@ const requiredImplementationOrder = [
   'record-canonical-transaction-artifact',
   'prepare-and-apply-property-batch',
   'prepare-and-apply-scene-plan',
+  'prepare-one-composition-request',
   'coordinate-canonical-owner-plans',
   'derive-local-computed-projection',
-  'prepare-one-composition-request',
   'publish-shared-publication',
   'transport-publication-bytes',
   'apply-remote-publication',
@@ -87,6 +91,7 @@ const anchorForHeading = (heading) =>
 const read = (filePath) => fs.readFileSync(filePath, 'utf8')
 const plan = () => read(path.resolve(repoRoot, data.authority.specPath))
 const feature = () => read(featurePath)
+const appApiSurface = () => read(appApiSurfacePath)
 
 test('realignment Inspector and current planning authorities resolve', () => {
   assert.equal(
@@ -192,6 +197,17 @@ test('Inspector exposes eleven exact single-owner runtime steps', () => {
     'packages/scene-tree/src/sceneTree.ts',
     'packages/scene-tree/src/components/element.ts',
     'packages/scene-tree/src/components/element-change-handler.ts',
+    'packages/core/src/apis/scene-tree.ts',
+    'packages/core/src/types/scene-tree.ts',
+    'packages/core/src/core.ts',
+    'packages/core/src/index.ts',
+    'packages/core/src/__tests__/scene-tree-api.test.ts',
+    'apps/asyra-design/src/common-apis/element/vector-apis.ts',
+    'apps/asyra-design/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
+    'apps/asyra-design/src/init/derived-state/init-path-editing-continuation.ts',
+    'apps/asyra-design/src/init/capabilities/init-vector-icon-data.ts',
+    'apps/asyra-design/src/init/__tests__',
+    'packages/reactive-events/src/types.ts',
     'packages/preset/src/subscriptions/data-channel.ts',
     'packages/preset/src/__tests__/selection-subscriptions.test.ts',
     'packages/preset/package.json',
@@ -200,11 +216,19 @@ test('Inspector exposes eleven exact single-owner runtime steps', () => {
 
   assert.match(
     plan(),
-    /project-render-state[\s\S]{0,360}without\s+registering[\s\S]{0,240}no second active consumer/i
+    /project-render-state[\s\S]{0,420}without\s+registering[\s\S]{0,280}no second active Render consumer/i
   )
   assert.match(
     contractText(step('derive-local-computed-projection')),
     /producer switch.*consumer registration.*one semantic handoff.*no dual computed delivery/i
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /same semantic handoff.*transient vector.*delete.*changeComputedData/i
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /derived-state consumers.*scalar.*batch.*patch.*exactly once/i
   )
   assert.match(
     contractText(step('derive-local-computed-projection')),
@@ -316,6 +340,7 @@ test('Inspector paths, anchors, routes, and artifacts resolve', () => {
 })
 
 test('Core coordinates plural creation and canonical property requests without API leakage', () => {
+  const coreStep = step('coordinate-canonical-owner-plans')
   const app = contractText(step('prepare-one-composition-request'))
   const activeApp = contractText(step('prepare-one-composition-request'), {
     includeForbidden: false
@@ -328,29 +353,117 @@ test('Core coordinates plural creation and canonical property requests without A
   assert.match(app, /one Group.*one all-children.*createElementsInParent/i)
   assert.match(app, /single.*batch-of-one/i)
   assert.match(app, /one outer Factory transaction/i)
+  assert.match(app, /descriptor property overrides.*Props.*mixed computed/i)
+  assert.match(
+    app,
+    /App.*Factory.*active staged-artifact controller.*Core.*does not receive/i
+  )
+  assert.match(
+    app,
+    /App.*migrat.*before Core.*deletes.*createElementsInParentBatch/i
+  )
   assert.doesNotMatch(activeApp, /fixed 256-item/i)
+  assert.match(
+    appApiSurface(),
+    /composition insertion[\s\S]*Core\.createElementsInParent\([\s\S]*active[\s\S]{0,40}staged-artifact controller[\s\S]*setDeliveryPlan[\s\S]*stageSlice/i
+  )
+  assert.match(
+    appApiSurface(),
+    /createElementsInParent\(options:[\s\S]*readonly string\[\] \| null/i
+  )
+  assert.doesNotMatch(
+    appApiSurface(),
+    /createElementsInParentBatch|CanonicalElementBatchResult/
+  )
 
   assert.match(core, /property.*plan.*Scene.*plan.*before.*apply/i)
   assert.match(core, /ordered.*element IDs/i)
   assert.match(
     core,
-    /updateElementProperties.*replaces complete canonical property field values/i
+    /App.*legacy batch-result callers.*migrat.*before.*delete.*legacy.*creation/i
   )
   assert.match(
     core,
-    /patchElementProperties.*typed record.*set.*remove/i
+    /updateElementProperties.*replaces complete canonical property field values/i
   )
+  assert.match(core, /patchElementProperties.*typed record.*set.*remove/i)
   assert.match(core, /element.*property target plan.*Props/i)
   assert.match(
     core,
     /property-only.*target plan.*property batch plan.*no Scene mutation plan/i
   )
-  assert.match(core, /changeComputedData.*deleted/i)
+  assert.match(
+    core,
+    /canonical callers.*migrate.*before.*local computed semantic handoff/i
+  )
+  assert.doesNotMatch(
+    activeCore,
+    /Core\.changeComputedData or Core\.changeComputedDataPatch compatibility aliases/i
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /delete.*Core\.changeComputedData.*CHANGE_COMPUTED_DATA/i
+  )
   assert.match(core, /Factory rollback.*cross-owner/i)
+  assert.match(
+    core,
+    /CanonicalElementInsertionPlan.*ownerRelations.*unchanged.*create-exact-property-graph/i
+  )
+  assert.match(
+    core,
+    /origin-neutral.*canonical-data removal.*Scene.*Props.*batches/i
+  )
+  assert.match(
+    core,
+    /validate.*preflightLoadPropertyRelations.*before.*apply.*version.*file-load-complete/i
+  )
   assert.doesNotMatch(activeCore, /both owner plans|two owner plans/i)
   assert.doesNotMatch(activeCore, /createElementsInParentBatch/)
   assert.doesNotMatch(activeCore, /CanonicalElementBatchResult/)
   assert.doesNotMatch(activeCore, /delivery handle|timing result/i)
+  assert.ok(
+    coreStep.implementationBoundary.includes(
+      'apps/asyra-design/src/common-apis/element/update-element-properties.ts'
+    )
+  )
+  assert.ok(
+    coreStep.implementationBoundary.includes(
+      'apps/asyra-design/src/common-apis/fills.ts'
+    )
+  )
+  assert.ok(
+    coreStep.implementationBoundary.includes(
+      'apps/asyra-design/src/common-apis/__tests__/fills.test.ts'
+    )
+  )
+  assert.ok(
+    !coreStep.implementationBoundary.includes(
+      'apps/asyra-design/src/common-apis/element/change-computed-data.ts'
+    )
+  )
+  assert.ok(
+    coreStep.implementationBoundary.includes(
+      'packages/preset/src/components/index.ts'
+    )
+  )
+  assert.ok(
+    coreStep.implementationBoundary.includes('packages/preset/src/index.ts')
+  )
+  ;[
+    'apps/asyra-design/src/collaboration/operations.ts',
+    'apps/asyra-design/src/collaboration/lifecycle.ts',
+    'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
+    'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
+    'apps/asyra-design/e2e/properties.spec.ts',
+    'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
+    'apps/asyra-design/e2e/render-delta-performance.spec.ts',
+    'apps/asyra-design/e2e/test-utils.ts',
+    'packages/scene-tree/src/sceneTree.ts',
+    'packages/scene-tree/src/subscribes.ts',
+    'packages/scene-tree/src/index.ts'
+  ].forEach((path) => {
+    assert.ok(coreStep.implementationBoundary.includes(path), path)
+  })
 })
 
 test('Props and Scene Tree retain separate batch missions', () => {
@@ -387,22 +500,154 @@ test('Props and Scene Tree retain separate batch missions', () => {
   )
 
   assert.match(scene, /Scene map.*parent.*hierarchy order.*Scene evidence/i)
-  assert.match(
-    scene,
-    /read-only.*element.*property.*target.*owner relation/i
-  )
+  assert.match(scene, /read-only.*element.*property.*target.*owner relation/i)
   assert.match(scene, /does not mutate.*Props/i)
   assert.match(scene, /lifecycle.*plan/i)
+  assert.match(
+    scene,
+    /prepareSubtreeRemoval.*one root.*child-first.*CHANGE_SUBTREE.*applyElementMutationPlan/i
+  )
+  assert.match(
+    scene,
+    /preflightLoadPropertyRelations.*owner-issued.*load validation.*component IDs.*types.*detached Props.*no mutation/i
+  )
+  assert.match(
+    scene,
+    /CanonicalElementInsertionPlan.*frozen owner relations.*Core.*unchanged.*create-exact-property-graph/i
+  )
   assert.match(scene, /later invalid.*no.*prefix/i)
   assert.doesNotMatch(
     activeScene,
     /property instance|relationship rebind|registerMany|UsingActiveProperties/
   )
+  assert.match(
+    feature(),
+    /Scenario: Typed subtree removal remains one Scene mission[\s\S]*prepareSubtreeRemoval[\s\S]*child-first[\s\S]*CHANGE_SUBTREE[\s\S]*retain Props[\s\S]*Core.*orphan/i
+  )
+  assert.match(
+    feature(),
+    /Scenario: Load relations preflight before any owner applies[\s\S]*detached Props[\s\S]*missing.*wrong.*type.*registration[\s\S]*no owner.*apply[\s\S]*version.*unchanged[\s\S]*file load/i
+  )
+})
+
+test('shared element-property relations remain many-to-one without cross-owner ambiguity', () => {
+  const text = plan()
+  const propsStep = step('prepare-and-apply-property-batch')
+  const sceneStep = step('prepare-and-apply-scene-plan')
+  const computedStep = step('derive-local-computed-projection')
+  const coreStep = step('coordinate-canonical-owner-plans')
+  const factoryStep = step('record-canonical-transaction-artifact')
+  const props = contractText(propsStep)
+  const scene = contractText(sceneStep)
+  const computed = contractText(computedStep)
+  const core = contractText(coreStep)
+  const factory = contractText(factoryStep)
+  const sharedRelationSpec = '#shared-element-property-relation-contract'
+
+  assert.match(
+    text,
+    /ElementPropertyRelation[\s\S]{0,240}many-to-one[\s\S]{0,240}ownerElementId[\s\S]{0,120}ownerPropertyName[\s\S]{0,120}componentId/i
+  )
+  assert.match(
+    text,
+    /unique[\s\S]{0,80}ownerElementId[\s\S]{0,80}ownerPropertyName[\s\S]{0,120}componentId[\s\S]{0,80}may repeat/i
+  )
+  assert.match(
+    text,
+    /Props[\s\S]{0,160}property\/component identity[\s\S]{0,160}property-child graph[\s\S]{0,320}Scene[\s\S]{0,160}element hierarchy[\s\S]{0,160}element-slot[\s\S]{0,80}root[\s\S]{0,20}relation/i
+  )
+  assert.match(
+    text,
+    /stable extension (?:point|seam)[\s\S]{0,240}shared props[\s\S]{0,120}shared components[\s\S]{0,120}shared elements[\s\S]{0,240}(?:does not|without).*pre-assign/i
+  )
+  ;[propsStep, sceneStep, computedStep, coreStep].forEach((owner) => {
+    assert.ok(
+      owner.specRefs.includes(sharedRelationSpec),
+      `${owner.id} missing shared relation contract`
+    )
+  })
+  assert.ok(
+    propsStep.implementationBoundary.includes(
+      'packages/utils/src/types/props-manager.ts'
+    ),
+    'Props owner must include its public source-evidence type'
+  )
+  ;[
+    'packages/utils/src/types/props-manager.ts',
+    'packages/props-manager/src/manager/props-manager.ts',
+    'packages/props-manager/src/__tests__/props-manager.test.ts',
+    'packages/core/src/apis/props.ts',
+    'packages/core/src/types/props.ts',
+    'packages/core/src/__tests__/restore-owner-facades.test.ts',
+    'apps/asyra-design/src/collaboration/operations.ts'
+  ].forEach((directConsumer) => {
+    assert.ok(
+      sceneStep.implementationBoundary.includes(directConsumer),
+      `Scene relation type migration missing direct consumer: ${directConsumer}`
+    )
+  })
+
+  assert.match(
+    props,
+    /UPDATE_PROPERTY.*property-source evidence.*does not.*initiating element.*fanout authority/i
+  )
+  assert.match(
+    computed,
+    /Scene.*reverse relation index.*property IDs.*all affected elements.*one.*batch/i
+  )
+  assert.match(
+    scene,
+    /derived reverse relation index.*componentId.*ElementPropertyRelation.*load.*insert.*remove.*restore/i
+  )
+  assert.match(
+    scene,
+    /target plan.*propertyId.*equivalent.*one mutation.*conflicting.*atomic.*reject.*before Props/i
+  )
+  assert.match(
+    scene,
+    /removal plan.*released.*retained.*orphan.*root.*complete retained root property ids.*stale.*relation set/i
+  )
+  assert.match(
+    props,
+    /exact orphan property graph removal.*orphan root.*retained root.*property-graph.*stop.*remaining canonical relation/i
+  )
+  assert.match(
+    core,
+    /direct Scene removal.*retains Props.*Core.*full lifecycle.*orphan.*retained root.*without.*property graph/i
+  )
+  assert.match(
+    factory,
+    /shared relation.*canonical IDs.*Undo.*Redo.*SharedPublication/i
+  )
+  assert.match(
+    [
+      ...propsStep.forbiddenContributors,
+      ...sceneStep.forbiddenContributors
+    ].join(' '),
+    /generic owner kinds.*reference-count APIs.*shared-element DAG.*permissions.*leases.*pinning.*garbage collection.*server persistence.*server-owned lifecycle policy.*universal relationship service/i
+  )
+  assert.doesNotMatch(text, /component ownership remain exact/i)
+
+  assert.match(
+    feature(),
+    /Scenario: Shared property updates fan out through Scene relations[\s\S]*one property mutation[\s\S]*UPDATE_PROPERTY.*source-only[\s\S]*both owner elements.*computed/i
+  )
+  assert.match(
+    feature(),
+    /Scenario: Shared property roots survive until the final relation is removed[\s\S]*nested child.*another element.*root[\s\S]*direct Scene removal[\s\S]*retain Props[\s\S]*orphan[\s\S]*retained root[\s\S]*Core[\s\S]*Undo[\s\S]*Redo[\s\S]*CRDT/i
+  )
+  assert.match(
+    feature(),
+    /Scenario: Shared relation boundary remains minimal[\s\S]*property\/component identity[\s\S]*shared props[\s\S]*shared components[\s\S]*shared elements[\s\S]*generic owner kinds.*reference-count APIs.*multi-parent.*permissions.*leases.*garbage collection.*server persistence.*server-owned lifecycle policy.*universal relationship service/i
+  )
+  assert.doesNotMatch(feature(), /Props independently owns shared props/i)
 })
 
 test('computed data is a local-only Render projection', () => {
   const computedStep = step('derive-local-computed-projection')
   const computed = contractText(computedStep)
+  const projectionStep = step('project-render-state')
+  const projection = contractText(projectionStep)
   const factory = contractText(step('record-canonical-transaction-artifact'))
   const computedArtifact = data.artifacts.find(
     (artifact) => artifact.id === 'artifact:local-computed-projection'
@@ -412,11 +657,19 @@ test('computed data is a local-only Render projection', () => {
   assert.match(computed, /property.*local.*computed.*Render/i)
   assert.match(computed, /animation.*local/i)
   assert.match(computed, /accepts no EVENT_OPTIONS/i)
-  assert.match(computed, /changeComputedData.*deleted/i)
+  assert.match(
+    computed,
+    /deletes.*changeComputedData|changeComputedData.*deleted/i
+  )
   assert.match(
     computed,
     /no.*history.*SharedDataChannel.*Collaboration.*persistence/i
   )
+  assert.match(
+    projection,
+    /same local computed.*Render.*UI context.*exactly once/i
+  )
+  assert.ok(projectionStep.outputs.includes('artifact:ui-context-projection'))
   assert.deepEqual(computedArtifact.consumerStepIds, ['project-render-state'])
   assert.doesNotMatch(
     step('record-canonical-transaction-artifact').inputs.join(' '),
@@ -441,6 +694,14 @@ test('Factory owns one batch SPI, transaction semantic, and artifact', () => {
   assert.match(
     factory,
     /each Props or Scene owner evidence batch.*exactly once.*whole immutable event array.*one artifact.*one history action/i
+  )
+  assert.match(
+    factory,
+    /canonical ordered-ID evidence.*inside each transaction event.*no parallel evidence parameter/i
+  )
+  assert.match(
+    factory,
+    /Factory transaction execution.*one active staged-artifact controller.*Core.*never receives/i
   )
   assert.match(factory, /single.*batch-of-one/i)
   assert.match(factory, /one.*transaction.*one.*history action/i)
