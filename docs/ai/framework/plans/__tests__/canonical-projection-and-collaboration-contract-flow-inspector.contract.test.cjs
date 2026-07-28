@@ -45,11 +45,11 @@ const requiredStepIds = [
 
 const requiredImplementationOrder = [
   'project-render-state',
+  'record-canonical-transaction-artifact',
   'prepare-and-apply-property-batch',
   'prepare-and-apply-scene-plan',
   'coordinate-canonical-owner-plans',
   'derive-local-computed-projection',
-  'record-canonical-transaction-artifact',
   'prepare-one-composition-request',
   'publish-shared-publication',
   'transport-publication-bytes',
@@ -376,6 +376,10 @@ test('Props and Scene Tree retain separate batch missions', () => {
     /missing record.*materializes.*child property instance.*remove.*unlink.*inverse evidence/i
   )
   assert.match(props, /single.*batch-of-one/i)
+  assert.match(
+    props,
+    /required TransactionOwner.*updateTransactionBatch.*once.*no scalar/i
+  )
   assert.ok(
     step('prepare-and-apply-property-batch').forbiddenContributors.includes(
       'Scene map mutation'
@@ -430,6 +434,14 @@ test('Factory owns one batch SPI, transaction semantic, and artifact', () => {
 
   assert.match(factory, /appendBatch.*observeBatch/i)
   assert.match(factory, /required/i)
+  assert.match(
+    factory,
+    /TransactionOwner.*updateTransactionBatch.*only owner update SPI.*scalar updateTransaction.*batch-of-one/i
+  )
+  assert.match(
+    factory,
+    /each Props or Scene owner evidence batch.*exactly once.*whole immutable event array.*one artifact.*one history action/i
+  )
   assert.match(factory, /single.*batch-of-one/i)
   assert.match(factory, /one.*transaction.*one.*history action/i)
   assert.match(factory, /immutable.*artifact/i)
@@ -463,6 +475,21 @@ test('Factory owns one batch SPI, transaction semantic, and artifact', () => {
   assert.doesNotMatch(
     activeFactory,
     /transaction.*(?:atomic|progressive).*(?:mode|option)/i
+  )
+  ;[
+    'packages/reactive-events/src/transaction-owner.ts',
+    'packages/reactive-events/src/app/publish.ts',
+    'packages/reactive-events/src/__tests__'
+  ].forEach((filePath) =>
+    assert.ok(
+      step(
+        'record-canonical-transaction-artifact'
+      ).implementationBoundary.includes(filePath)
+    )
+  )
+  assert.match(
+    feature(),
+    /each Props or Scene owner evidence emission.*exactly once.*one immutable ordered batch[\s\S]*single-event transaction convenience.*batch-of-one[\s\S]*one immutable transaction artifact.*one intended History action/i
   )
 })
 

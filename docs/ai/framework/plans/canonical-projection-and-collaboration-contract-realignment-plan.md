@@ -457,6 +457,10 @@ single-item convenience, when retained, delegates to
 `updateProperties(...)` with a batch-of-one. The old caller-managed
 `updatePropertyById(...)` plus `commitPropertyChanges(...)` sequence is removed
 after direct consumers migrate; one apply owns its ordered evidence emission.
+Apply freezes the complete ordered event array before passing it once through
+the required `TransactionOwner.updateTransactionBatch(...)` boundary. It never
+loops over scalar `updateTransaction(...)`, preserves no older pending scalar
+evidence, and cannot leave an accepted Factory journal prefix.
 The Inspector's canonical-apply authorization is Core orchestration evidence,
 not a public token, caller-origin check, or mode parameter; Props validates its
 own owner-issued plan, while documentation tells callers when to use direct
@@ -545,6 +549,16 @@ new public workflows.
 
 Required behavior:
 
+- `@asyra/reactive-events` declares
+  `TransactionOwner.updateTransactionBatch(...)` as a required owner method.
+  It is the only owner update SPI. The public single-event
+  `updateTransaction(...)` convenience delegates to a batch-of-one, while the
+  public batch publisher passes each owner evidence batch as one whole
+  immutable event array to the registered owner exactly once.
+- A cross-owner action may submit one Props evidence batch and one Scene
+  evidence batch inside the same outer transaction. Factory combines those
+  owner batches into one transaction artifact and one History action; Core
+  never flattens owner missions into a synthetic cross-owner batch.
 - One intended action opens one outer Factory transaction and creates at most
   one history action.
 - Every Factory transaction has the same canonical record, commit, and rollback
@@ -663,23 +677,30 @@ consumers named by its contract.
    - Define and test the ordinary local computed projection handler without
      registering it on the existing `UPDATE_COMPUTED_DATA` event. Existing
      Render delivery remains unchanged and there is no second active consumer.
-2. `prepare-and-apply-property-batch`
+2. `record-canonical-transaction-artifact`
+   - Establish the required `TransactionOwner.updateTransactionBatch(...)`
+     owner-only SPI and make the public scalar convenience delegate to
+     batch-of-one first, then consolidate the required SharedDataChannel batch
+     SPI, one transaction/artifact/history semantic, Factory-owned staged
+     publication identity, and compensation. Factory records
+     `UPDATE_ELEMENT_DATA` but no computed projection evidence.
+3. `prepare-and-apply-property-batch`
    - Give Props Manager one whole-batch preflight and one apply boundary for
      active property value/record patches as well as schema, instances,
      relationships, registration, and ordered property evidence.
-3. `prepare-and-apply-scene-plan`
+4. `prepare-and-apply-scene-plan`
    - Add read-only element-to-property target resolution and typed raw
      `UPDATE_ELEMENT_DATA` mutation, then replace parallel
      `UsingActiveProperties` mutations with typed lifecycle preparation and one
      Scene-only apply owner. Update the exact Factory/Preset consumers of the
      renamed raw evidence in the same owner handoff.
-4. `coordinate-canonical-owner-plans`
+5. `coordinate-canonical-owner-plans`
    - Make `createElementsInParent` the only plural creation implementation;
      add plural `updateElementProperties` and `patchElementProperties`;
      coordinate every Props/Scene plan required by each request without
      inventing an unused owner mutation; migrate all direct canonical callers;
      delete `changeComputedData*`; and remove Factory delivery/timing from Core.
-5. `derive-local-computed-projection`
+6. `derive-local-computed-projection`
    - With every canonical caller already migrated, switch
      property-to-computed derivation and explicit animation-safe local computed
      updates to the ordinary local reactive route. In the same semantic switch,
@@ -689,11 +710,6 @@ consumers named by its contract.
      `@asyra/reactive-events` workspace entry from development-only metadata to
      a runtime dependency because production now imports that event subscriber;
      this adds no package or installation.
-6. `record-canonical-transaction-artifact`
-   - Consolidate the required SharedDataChannel batch SPI, one
-     transaction/artifact/history semantic, Factory-owned staged publication
-     identity, and compensation. Factory records `UPDATE_ELEMENT_DATA` but no
-     computed projection evidence.
 7. `prepare-one-composition-request`
    - Migrate the App composition caller to one Group plus one all-children Core
      request without owning canonical slicing.

@@ -102,7 +102,9 @@ Feature: Conversational AI drawing performance
   Scenario: Factory keeps one transaction semantic
     Given one intended action mutates canonical property and Scene owners
     When Factory records the ordered source evidence
-    Then it should create one immutable transaction artifact and one intended History action
+    Then each Props or Scene owner evidence emission should be accepted exactly once as one immutable ordered batch
+    And the public single-event transaction convenience should delegate to a batch-of-one
+    And Factory should combine the owner batches into one immutable transaction artifact and one intended History action
     And every transaction should use the same record, commit, and rollback semantics
     And progressive visibility should observe the ordinary staged artifact status stream
     And progressive visibility should not be a transaction mode or option

@@ -192,6 +192,7 @@
         'Props preparePropertyMutationBatch and applyPropertyMutationBatch are public owner capabilities with separate read-only preparation and owner-issued-plan apply missions, so Core uses no package-private API.',
         'Apply materializes property instances, performs relationship rebind and registration where required, applies active values and record patches, and records ordered property evidence once.',
         'The public Props updateProperties property-only convenience composes those same capabilities and owns one ordered batch and one evidence emission without creating a second implementation.',
+        'Props freezes the complete ordered event array and passes it through the required TransactionOwner updateTransactionBatch boundary exactly once with no scalar updateTransaction loop.',
         'A record set for a missing record materializes the typed child property instance only after complete preflight; record remove unlinks the exact relationship, removes an unowned child from the property registry, and records complete inverse evidence for Undo, Redo, and rollback.',
         'An existing shared child survives record remove when another canonical owner remains, while the removed owner relation and order remain restorable from inverse evidence.',
         'A later invalid property item leaves no property, instance, relationship, registry, or evidence prefix.',
@@ -208,7 +209,8 @@
         'artifact:canonical-apply-authorization',
         'Props schemas and property component constructors',
         'Props relationship and registration owners',
-        'Props property-graph child lifecycle owner'
+        'Props property-graph child lifecycle owner',
+        'required TransactionOwner updateTransactionBatch SPI'
       ],
       forbiddenContributors: [
         'Scene map mutation',
@@ -394,6 +396,8 @@
       ],
       conditions: [
         'Factory records canonical property and structural source evidence and must not record computed projection evidence.',
+        'The reactive TransactionOwner contract exposes updateTransactionBatch as its only owner update SPI; the public scalar updateTransaction convenience delegates to batch-of-one.',
+        'Each Props or Scene owner evidence batch is accepted exactly once as one whole immutable event array, while one outer Factory transaction may combine those owner batches into one artifact and one history action.',
         'SharedDataChannel requires appendBatch and observeBatch for every framework implementation.',
         'Public append and observe single-item conveniences delegate to the same batch-of-one path.',
         'The built-in channel deeply detaches and freezes one ordered batch at its owner boundary.',
@@ -424,13 +428,17 @@
         'batchAppendIsAtomic',
         'prototype identity or WeakSet capability checks',
         'single-item fallback loops',
+        'a scalar TransactionOwner update SPI',
         'atomic or progressive transaction mode or option',
         'transport framing, queueing, or peer receipts'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/factory/src',
-        'packages/factory/src/__tests__'
+        'packages/factory/src/__tests__',
+        'packages/reactive-events/src/transaction-owner.ts',
+        'packages/reactive-events/src/app/publish.ts',
+        'packages/reactive-events/src/__tests__'
       ],
       specRefs: [
         '#shareddatachannel-contract',
