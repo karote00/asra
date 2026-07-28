@@ -89,27 +89,38 @@
       title: 'Coordinate canonical owner plans',
       ownerPackage: '@asyra/core',
       purpose:
-        'Coordinate local plural creation or remote canonical apply by obtaining complete Props and Scene plans before authorizing either state owner to apply.',
+        'Coordinate plural creation, plural canonical element-property updates, or remote canonical apply by obtaining every owner plan required by that request before authorizing the affected state owners to apply.',
       inputs: [
         'artifact:local-composition-request',
         'artifact:remote-canonical-request',
+        'typed local canonical element-property batch',
         'artifact:property-batch-plan',
-        'artifact:scene-mutation-plan'
+        'artifact:scene-mutation-plan',
+        'artifact:element-property-target-plan'
       ],
       outputs: [
         'artifact:property-preflight-request',
         'artifact:scene-preflight-request',
+        'artifact:element-property-target-request',
         'artifact:canonical-apply-authorization'
       ],
       conditions: [
         'A local descriptor batch or one remote canonical request starts the matching lifecycle preflights.',
-        'Core receives both the complete property batch plan and complete Scene mutation plan before canonical apply authorization.',
+        'Core.updateElementProperties replaces complete canonical property field values for one or many elements and does not accept record set/remove operations.',
+        'Core.patchElementProperties applies one typed record delta with ordered set and remove operations for one or many elements.',
+        'A local element-property batch obtains one complete read-only element-to-property target plan before Core requests Props preflight.',
+        'A property-only request requires the complete target plan and property batch plan but no Scene mutation plan.',
+        'A cross-owner lifecycle request receives both the complete property batch plan and complete Scene mutation plan before canonical apply authorization.',
         'Core.createElementsInParent returns only ordered canonical element IDs.',
-        'Core invokes the two owner plans in canonical evidence order inside the caller-owned outer Factory transaction.',
-        'Factory rollback provides cross-owner atomicity after an unexpected apply failure.'
+        'Canonical element-property APIs return only ordered affected element IDs.',
+        'Core invokes every owner plan required by the request in canonical evidence order inside the caller-owned outer Factory transaction.',
+        'Factory rollback provides cross-owner atomicity after an unexpected apply failure.',
+        'All direct group, geometry, vector topology, stroke, fill, and property-panel callers migrate before Core.changeComputedData and Core.changeComputedDataPatch are deleted.'
       ],
       bypasses: [
         'An empty local descriptor batch is inert.',
+        'An empty canonical element-property batch is inert.',
+        'A rejected element-to-property target plan emits no Props request.',
         'Any rejected property or Scene preflight emits no canonical apply authorization.',
         'A failed owner apply returns to Factory rollback and does not fabricate a successful Core result.'
       ],
@@ -118,6 +129,7 @@
         'artifact:remote-canonical-request',
         'artifact:property-batch-plan',
         'artifact:scene-mutation-plan',
+        'artifact:element-property-target-plan',
         '@asyra/core public facade'
       ],
       forbiddenContributors: [
@@ -125,16 +137,34 @@
         'Core.createElementsInParentBatch',
         'CanonicalElementBatchResult',
         'Factory delivery handles, progressive handles, or timing results',
-        'package-private App access'
+        'package-private App access',
+        'Core.changeComputedData or Core.changeComputedDataPatch compatibility aliases',
+        'caller-managed per-field Props commit loops'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/core/src',
-        'packages/core/src/__tests__'
+        'packages/core/src/__tests__',
+        'packages/preset/src/components/group.ts',
+        'packages/preset/src/__tests__/group-operations.test.ts',
+        'packages/preset/src/__tests__/vector-path-editing-render-layer.test.ts',
+        'apps/asyra-design/src/common-apis/element/apis.ts',
+        'apps/asyra-design/src/common-apis/element/vector-apis.ts',
+        'apps/asyra-design/src/common-apis/element/change-computed-data.ts',
+        'apps/asyra-design/src/common-apis/element/__tests__',
+        'apps/asyra-design/src/common-apis/strokes.ts',
+        'apps/asyra-design/src/common-apis/__tests__/strokes.test.ts',
+        'apps/asyra-design/src/controllers/scene-tree.ts',
+        'apps/asyra-design/src/properties/position.tsx',
+        'apps/asyra-design/src/properties/dimension.tsx',
+        'apps/asyra-design/src/properties/rotation.tsx',
+        'apps/asyra-design/src/properties/fills/index.tsx',
+        'apps/asyra-design/src/properties/strokes/index.tsx'
       ],
       specRefs: [
         '#target-architecture',
         '#core-creation-contract',
+        '#canonical-element-property-update-contract',
         '#props-manager-batch-contract',
         '#scene-tree-lifecycle-and-apply-contract'
       ],
@@ -147,7 +177,7 @@
       title: 'Prepare and apply one property batch',
       ownerPackage: '@asyra/props-manager',
       purpose:
-        'Preflight and apply schema-safe property instances, relationship rebinds, registrations, and ordered property evidence as one owner batch.',
+        'Preflight and apply active property value replacements, record patches, property instances, relationship rebinds, registrations, and ordered property evidence as one owner batch.',
       inputs: [
         'artifact:property-preflight-request',
         'artifact:canonical-apply-authorization'
@@ -158,27 +188,36 @@
       ],
       conditions: [
         'The complete batch validates schemas, IDs, values, component ownership, instances, and relationships before mutation.',
-        'Apply materializes property instances, performs relationship rebind and registration, and records ordered property evidence once.',
+        'One whole-batch preflight validates every property value replacement and record patch before one whole-batch apply.',
+        'Props preparePropertyMutationBatch and applyPropertyMutationBatch are public owner capabilities with separate read-only preparation and owner-issued-plan apply missions, so Core uses no package-private API.',
+        'Apply materializes property instances, performs relationship rebind and registration where required, applies active values and record patches, and records ordered property evidence once.',
+        'The public Props updateProperties property-only convenience composes those same capabilities and owns one ordered batch and one evidence emission without creating a second implementation.',
+        'A record set for a missing record materializes the typed child property instance only after complete preflight; record remove unlinks the exact relationship, removes an unowned child from the property registry, and records complete inverse evidence for Undo, Redo, and rollback.',
+        'An existing shared child survives record remove when another canonical owner remains, while the removed owner relation and order remain restorable from inverse evidence.',
         'A later invalid property item leaves no property, instance, relationship, registry, or evidence prefix.',
-        'A public single-item convenience delegates to the same batch-of-one owner path.'
+        'A public single-item convenience delegates to updateProperties with the same batch-of-one owner path.'
       ],
       bypasses: [
         'An empty property request produces an empty valid plan and no property evidence.',
         'A rejected preflight returns no apply-ready plan.',
-        'No property apply occurs before canonical authorization.'
+        'Within a Core-coordinated request, no property apply occurs before every plan required by that request succeeds.',
+        'A direct property-ID-only updateProperties call composes its own Props owner plan and apply without a Scene plan; canonical apply authorization is Core orchestration evidence, not an origin token or API parameter.'
       ],
       allowedContributors: [
         'artifact:property-preflight-request',
         'artifact:canonical-apply-authorization',
         'Props schemas and property component constructors',
-        'Props relationship and registration owners'
+        'Props relationship and registration owners',
+        'Props property-graph child lifecycle owner'
       ],
       forbiddenContributors: [
         'Scene map mutation',
         'parent children or hierarchy-order mutation',
         'partial apply before complete preflight',
         'a second single-item canonical implementation',
-        'origin-specific property behavior'
+        'origin-specific property behavior',
+        'caller-managed updatePropertyById plus commitPropertyChanges loops',
+        'silent partial success after an invalid batch item'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -187,6 +226,7 @@
       ],
       specRefs: [
         '#props-manager-batch-contract',
+        '#canonical-element-property-update-contract',
         '#step-local-formal-gates',
         '#pre-release-removal-policy'
       ],
@@ -199,36 +239,45 @@
       title: 'Prepare and apply one Scene plan',
       ownerPackage: '@asyra/scene-tree',
       purpose:
-        'Prepare lifecycle-specific Scene insertion, removal, or restore evidence and apply it through one Scene-only map and hierarchy owner.',
+        'Resolve property targets, prepare lifecycle or raw element-data mutation evidence, and apply Scene mutations through one Scene-only map, raw-state, and hierarchy owner.',
       inputs: [
         'artifact:scene-preflight-request',
+        'artifact:element-property-target-request',
         'artifact:canonical-apply-authorization'
       ],
       outputs: [
         'artifact:scene-mutation-plan',
+        'artifact:element-property-target-plan',
         'artifact:canonical-scene-batch-evidence'
       ],
       conditions: [
+        'Read-only element-to-property target resolution validates the complete element batch, aliases, property IDs, and owner relations; it does not mutate Scene or Props.',
         'Ordinary and canonical lifecycles use explicit typed Scene plans without caller-origin policy.',
+        'UPDATE_ELEMENT_DATA is canonical raw Scene evidence for typed name, visibility, and lock mutation plans.',
         'The complete plan validates Scene IDs, parent, index, order, map, hierarchy, and tombstone evidence before mutation.',
-        'Apply owns Scene maps, parent children, hierarchy order, and ordered Scene evidence only.',
+        'Apply owns Scene maps, raw element state, parent children, hierarchy order, and ordered Scene evidence only.',
         'A later invalid Scene item leaves no map, parent-list, hierarchy-order, tombstone, or Scene evidence prefix.',
         'A public single-item convenience delegates to the same one-item Scene plan.'
       ],
       bypasses: [
+        'A rejected element-to-property request returns no partial target plan and performs no mutation.',
         'An empty Scene request produces an empty valid plan and no Scene evidence.',
         'A rejected lifecycle preflight returns no apply-ready plan.',
         'No Scene apply occurs before canonical authorization.'
       ],
       allowedContributors: [
         'artifact:scene-preflight-request',
+        'artifact:element-property-target-request',
         'artifact:canonical-apply-authorization',
         'Scene element map and parent membership owners',
+        'Scene raw element-data mutation owner',
+        'Scene element property relation resolver',
         'typed lifecycle plan evidence'
       ],
       forbiddenContributors: [
         'property instance materialization',
         'relationship rebind or property registration',
+        'Props mutation during element-to-property resolution',
         'UsingActiveProperties APIs',
         'isLocal or isRemote mutation modes',
         'partial apply before complete preflight'
@@ -236,10 +285,21 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/scene-tree/src',
-        'packages/scene-tree/src/__tests__'
+        'packages/scene-tree/src/__tests__',
+        'packages/utils/src/constants/scene-tree.ts',
+        'packages/utils/src/types/scene-tree.ts',
+        'packages/reactive-events/src/types.ts',
+        'packages/reactive-events/src/scene-tree',
+        'packages/reactive-events/src/__tests__',
+        'packages/factory/src/data-transact.ts',
+        'packages/factory/src/__tests__/data-transact.test.ts',
+        'packages/preset/src/subscriptions/data-channel.ts',
+        'packages/preset/src/__tests__/selection-subscriptions.test.ts'
       ],
       specRefs: [
         '#scene-tree-lifecycle-and-apply-contract',
+        '#canonical-element-property-update-contract',
+        '#canonical-and-local-projection-contracts',
         '#step-local-formal-gates',
         '#pre-release-removal-policy'
       ],
@@ -262,6 +322,8 @@
         'Local and remote UPDATE_PROPERTY evidence derives computed state locally before Render projection.',
         'Undo, Redo, and canonical load recompute through the same property-to-computed route.',
         'UPDATE_COMPUTED_DATA and UPDATE_COMPUTED_DATA_PATCH remain ordinary local reactive events.',
+        'The explicit local computed batch API accepts no EVENT_OPTIONS, mutates no property component, and publishes no canonical evidence.',
+        'The mixed Core.changeComputedData and Core.changeComputedDataPatch APIs and direct App compatibility adapters are deleted before this switch.',
         'A future animation tick may update computed state locally without touching a property component.',
         'The local producer switch and ordinary Preset consumer registration form one semantic handoff with no dual computed delivery.',
         'Preset declares its existing @asyra/reactive-events workspace package as a runtime dependency because the production consumer imports its subscriber directly.',
@@ -285,7 +347,9 @@
         'Collaboration publication',
         'client persistence',
         'app-level already-satisfied replay patches',
-        'simultaneous shared and ordinary local computed Render delivery'
+        'simultaneous shared and ordinary local computed Render delivery',
+        'EVENT_OPTIONS on local computed mutation',
+        'a changeComputedData compatibility alias'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -673,6 +737,15 @@
       producedArtifacts: ['artifact:scene-preflight-request']
     },
     {
+      id: 'route-core-to-element-property-target-resolution',
+      from: 'coordinate-canonical-owner-plans',
+      to: 'prepare-and-apply-scene-plan',
+      kind: 'resolution',
+      predicate:
+        'A typed local canonical element-property batch requires owner targets.',
+      producedArtifacts: ['artifact:element-property-target-request']
+    },
+    {
       id: 'route-property-plan-to-core',
       from: 'prepare-and-apply-property-batch',
       to: 'coordinate-canonical-owner-plans',
@@ -689,11 +762,21 @@
       producedArtifacts: ['artifact:scene-mutation-plan']
     },
     {
+      id: 'route-element-property-target-plan-to-core',
+      from: 'prepare-and-apply-scene-plan',
+      to: 'coordinate-canonical-owner-plans',
+      kind: 'resolution',
+      predicate:
+        'The complete read-only element-to-property target plan is valid.',
+      producedArtifacts: ['artifact:element-property-target-plan']
+    },
+    {
       id: 'route-core-authorization-to-property',
       from: 'coordinate-canonical-owner-plans',
       to: 'prepare-and-apply-property-batch',
       kind: 'apply',
-      predicate: 'Both owner plans succeeded and property apply is next.',
+      predicate:
+        'Every plan required by this request succeeded and property apply is required.',
       producedArtifacts: ['artifact:canonical-apply-authorization']
     },
     {
@@ -701,7 +784,8 @@
       from: 'coordinate-canonical-owner-plans',
       to: 'prepare-and-apply-scene-plan',
       kind: 'apply',
-      predicate: 'Both owner plans succeeded and Scene apply is next.',
+      predicate:
+        'Every plan required by this request succeeded and a Scene mutation plan exists.',
       producedArtifacts: ['artifact:canonical-apply-authorization']
     },
     {
@@ -858,6 +942,13 @@
       terminal: false
     },
     {
+      id: 'artifact:element-property-target-request',
+      ownerStepId: 'coordinate-canonical-owner-plans',
+      channel: '@asyra/core read-only owner resolution request',
+      consumerStepIds: ['prepare-and-apply-scene-plan'],
+      terminal: false
+    },
+    {
       id: 'artifact:property-batch-plan',
       ownerStepId: 'prepare-and-apply-property-batch',
       channel: 'Props Manager owner-issued plan',
@@ -868,6 +959,14 @@
       id: 'artifact:scene-mutation-plan',
       ownerStepId: 'prepare-and-apply-scene-plan',
       channel: 'Scene Tree owner-issued plan',
+      consumerStepIds: ['coordinate-canonical-owner-plans'],
+      terminal: false
+    },
+    {
+      id: 'artifact:element-property-target-plan',
+      ownerStepId: 'prepare-and-apply-scene-plan',
+      channel:
+        '@asyra/scene-tree read-only property id and owner relation plan',
       consumerStepIds: ['coordinate-canonical-owner-plans'],
       terminal: false
     },

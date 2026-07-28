@@ -45,11 +45,11 @@ const requiredStepIds = [
 
 const requiredImplementationOrder = [
   'project-render-state',
-  'derive-local-computed-projection',
-  'record-canonical-transaction-artifact',
   'prepare-and-apply-property-batch',
   'prepare-and-apply-scene-plan',
   'coordinate-canonical-owner-plans',
+  'derive-local-computed-projection',
+  'record-canonical-transaction-artifact',
   'prepare-one-composition-request',
   'publish-shared-publication',
   'transport-publication-bytes',
@@ -210,6 +210,20 @@ test('Inspector exposes eleven exact single-owner runtime steps', () => {
     contractText(step('derive-local-computed-projection')),
     /Preset declares.*@asyra\/reactive-events.*runtime dependency.*production consumer/i
   )
+  assert.match(
+    contractText(step('prepare-and-apply-scene-plan')),
+    /UPDATE_ELEMENT_DATA.*canonical.*raw/i
+  )
+  assert.doesNotMatch(
+    contractText(step('derive-local-computed-projection'), {
+      includeForbidden: false
+    }),
+    /UPDATE_ELEMENT_DATA/
+  )
+  assert.match(
+    contractText(step('derive-local-computed-projection')),
+    /local computed.*accepts no EVENT_OPTIONS/i
+  )
 })
 
 test('Inspector paths, anchors, routes, and artifacts resolve', () => {
@@ -301,7 +315,7 @@ test('Inspector paths, anchors, routes, and artifacts resolve', () => {
   })
 })
 
-test('Core coordinates one plural request without Factory API leakage', () => {
+test('Core coordinates plural creation and canonical property requests without API leakage', () => {
   const app = contractText(step('prepare-one-composition-request'))
   const activeApp = contractText(step('prepare-one-composition-request'), {
     includeForbidden: false
@@ -318,7 +332,22 @@ test('Core coordinates one plural request without Factory API leakage', () => {
 
   assert.match(core, /property.*plan.*Scene.*plan.*before.*apply/i)
   assert.match(core, /ordered.*element IDs/i)
+  assert.match(
+    core,
+    /updateElementProperties.*replaces complete canonical property field values/i
+  )
+  assert.match(
+    core,
+    /patchElementProperties.*typed record.*set.*remove/i
+  )
+  assert.match(core, /element.*property target plan.*Props/i)
+  assert.match(
+    core,
+    /property-only.*target plan.*property batch plan.*no Scene mutation plan/i
+  )
+  assert.match(core, /changeComputedData.*deleted/i)
   assert.match(core, /Factory rollback.*cross-owner/i)
+  assert.doesNotMatch(activeCore, /both owner plans|two owner plans/i)
   assert.doesNotMatch(activeCore, /createElementsInParentBatch/)
   assert.doesNotMatch(activeCore, /CanonicalElementBatchResult/)
   assert.doesNotMatch(activeCore, /delivery handle|timing result/i)
@@ -336,6 +365,16 @@ test('Props and Scene Tree retain separate batch missions', () => {
     /schema.*property instances.*relationship rebind.*registration/i
   )
   assert.match(props, /later invalid.*no.*prefix/i)
+  assert.match(props, /property value.*record patch/i)
+  assert.match(props, /whole-batch preflight.*whole-batch apply/i)
+  assert.match(
+    props,
+    /preparePropertyMutationBatch.*applyPropertyMutationBatch.*public owner capabilities/i
+  )
+  assert.match(
+    props,
+    /missing record.*materializes.*child property instance.*remove.*unlink.*inverse evidence/i
+  )
   assert.match(props, /single.*batch-of-one/i)
   assert.ok(
     step('prepare-and-apply-property-batch').forbiddenContributors.includes(
@@ -344,6 +383,11 @@ test('Props and Scene Tree retain separate batch missions', () => {
   )
 
   assert.match(scene, /Scene map.*parent.*hierarchy order.*Scene evidence/i)
+  assert.match(
+    scene,
+    /read-only.*element.*property.*target.*owner relation/i
+  )
+  assert.match(scene, /does not mutate.*Props/i)
   assert.match(scene, /lifecycle.*plan/i)
   assert.match(scene, /later invalid.*no.*prefix/i)
   assert.doesNotMatch(
@@ -363,6 +407,8 @@ test('computed data is a local-only Render projection', () => {
   assert.match(computed, /UPDATE_COMPUTED_DATA/)
   assert.match(computed, /property.*local.*computed.*Render/i)
   assert.match(computed, /animation.*local/i)
+  assert.match(computed, /accepts no EVENT_OPTIONS/i)
+  assert.match(computed, /changeComputedData.*deleted/i)
   assert.match(
     computed,
     /no.*history.*SharedDataChannel.*Collaboration.*persistence/i
@@ -467,6 +513,9 @@ test('BDD covers the active architecture and retained performance gates', () => 
 
   ;[
     /Scenario: Computed data remains a local Render projection/,
+    /Scenario: Canonical element property replacement uses the update path/,
+    /Scenario: Canonical element property record delta uses the patch path/,
+    /Scenario: Raw element data and computed projection use distinct evidence/,
     /Scenario: SharedDataChannel has one required batch contract/,
     /Scenario: Custom shared channels own their implementation correctness/,
     /Scenario: Core exposes one plural element creation path/,

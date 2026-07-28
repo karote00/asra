@@ -27,11 +27,36 @@ Feature: Conversational AI drawing performance
     And Core should expose no Factory delivery handle, progressive handle, timing result, or transport receipt
     And no slice should repeat or split the canonical mutation
 
+  Scenario: Canonical element property replacement uses the update path
+    Given group geometry, element geometry, stroke, fill, or property-panel changes replace complete canonical property field values
+    When one or many elements receive those complete field replacements
+    Then Core should use plural "updateElementProperties"
+    And that API should not accept record set or remove operations
+    And Scene Tree should resolve the complete element-to-property target plan without mutation
+    And Props Manager should preflight every complete property value before one apply
+    And a property-only request should require no Scene mutation plan
+    And the result should contain only ordered affected element ids
+    And a later invalid target or value should leave no property or evidence prefix
+
+  Scenario: Canonical element property record delta uses the patch path
+    Given a vector topology action contains typed record set or remove operations
+    When one or many elements receive that ordered record delta
+    Then Core should use plural "patchElementProperties"
+    And record set or remove should not use the complete replacement API
+    And Props Manager should preflight every child instance, owner relation, order, and field before one apply
+    And setting a missing record should materialize its typed child only after complete preflight
+    And removing a record should unlink its exact relation and remove only an otherwise unowned child
+    And forward and inverse evidence should restore exact values, registry membership, relations, and order
+    And "changeComputedData" and "changeComputedDataPatch" should not remain as canonical compatibility APIs
+
   Scenario: Props and Scene Tree apply separate owner plans
     Given an accepted batch contains property inputs and Scene lifecycle inputs
     When Core requests complete owner preflights
     Then Props Manager should validate schema, property instances, relationships, registration, and property evidence
+    And Core should call public Props prepare and apply owner capabilities instead of package-private methods
+    And active property value replacements and record patches should use one whole-batch preflight and apply
     And Scene Tree should validate Scene ids, maps, parent children, hierarchy order, tombstones, and Scene evidence
+    And Scene Tree element-to-property target resolution should be read-only
     And Core should receive both complete owner plans before authorizing either apply
     And Props Manager should not mutate Scene maps or hierarchy
     And Scene Tree should not materialize property instances, rebind relationships, or register properties
@@ -47,6 +72,15 @@ Feature: Conversational AI drawing performance
     And computed evidence should create no History entry, SharedDataChannel batch, Collaboration publication, or persistence snapshot
     And Actor B should derive the same computed state locally after applying the property source evidence
     And a future local animation tick may update computed state without changing a property component or publishing CRDT data
+    And the local computed API should accept no "EVENT_OPTIONS"
+
+  Scenario: Raw element data and computed projection use distinct evidence
+    Given one action changes a canonical raw element field and another changes local computed projection
+    When Scene Tree prepares the raw mutation plan and separately projects computed state
+    Then raw name, visibility, and lock should use canonical "UPDATE_ELEMENT_DATA" evidence
+    And local computed values should use ordinary "UPDATE_COMPUTED_DATA" projection events
+    And Factory should record the raw evidence
+    But Factory, History, Collaboration, and persistence should never record the computed projection
 
   Scenario: SharedDataChannel has one required batch contract
     Given a framework shared channel receives one or many canonical changes
