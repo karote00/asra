@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as preset from '@asyra/preset'
 import core from '../../contexts'
 import * as areaSelection from '../capabilities/init-area-selection'
+import * as aiDrawingProgress from '../capabilities/init-ai-drawing-progress'
 import * as gradientFillEditing from '../capabilities/init-gradient-fill-editing'
 import * as vectorIconData from '../capabilities/init-vector-icon-data'
 import * as canvasPipelineDebugger from '../diagnostics/init-canvas-pipeline-debugger'
@@ -56,6 +57,11 @@ describe('initApp preset composition', () => {
     vi.spyOn(areaSelection, 'initAreaSelection').mockImplementation(() => {
       calls.push('area-selection')
     })
+    vi.spyOn(aiDrawingProgress, 'initAiDrawingProgress').mockImplementation(
+      () => {
+        calls.push('ai-drawing-progress')
+      }
+    )
     vi.spyOn(gradientFillEditing, 'initGradientFillEditing').mockImplementation(
       () => {
         calls.push('gradient-fill-editing')
@@ -108,6 +114,7 @@ describe('initApp preset composition', () => {
       'selection-compatibility',
       'path-editing-continuation',
       'area-selection',
+      'ai-drawing-progress',
       'gradient-fill-editing',
       'vector-icon-data',
       'input-system',

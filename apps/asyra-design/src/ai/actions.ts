@@ -10,7 +10,6 @@ import {
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
-  type CanonicalElementBatchResult,
   type VectorNetwork,
   type VectorPointNode,
   type VectorSegment
@@ -20,6 +19,7 @@ import {
   StrokeJoinTypes,
   createDefaultFills,
   createDefaultStrokes,
+  emitDiagnosticCounter,
   id,
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase,
@@ -32,16 +32,14 @@ import {
   hierarchyApis,
   selectionApis,
   strokeApis,
+  systemContextApis,
   type CreateElementOptions
 } from '../common-apis'
+import type { AiDrawingProgressState } from '../common-apis/system-context'
 import {
   AsyraDesignAiActionNames,
   AsyraDesignAiDrawingDetailOptionIds
 } from '../constants'
-import {
-  createAsyraDesignAiProgressiveDeliveryCoordinator,
-  type AsyraDesignAiProgressiveDeliveryStage
-} from './progressive-delivery'
 
 export { AsyraDesignAiActionNames } from '../constants'
 
@@ -52,14 +50,13 @@ export const ASYRA_DESIGN_AI_SCALE_MAX = 2
 export const ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET = 2048
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET = 8192
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET = 32
 
 export type AsyraDesignAiDeliveryMode = 'atomic' | 'progressive'
 
 export interface CreateAsyraDesignAiActionsOptions {
   readonly deliveryMode?: AsyraDesignAiDeliveryMode
-  readonly stageProgressiveDelivery?: (
-    stage: AsyraDesignAiProgressiveDeliveryStage
-  ) => Promise<void> | void
+  readonly waitForPaint?: () => Promise<void>
   readonly yieldToHost?: () => Promise<void>
 }
 
@@ -76,8 +73,54 @@ const createAiMutationOptions = (
     undoable: true
   })
 
-const yieldToHost = (): Promise<void> =>
-  new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+interface CooperativeTaskScheduler {
+  yield?: () => Promise<void>
+}
+
+const yieldToHost = (): Promise<void> => {
+  const scheduler = (
+    globalThis as typeof globalThis & {
+      scheduler?: CooperativeTaskScheduler
+    }
+  ).scheduler
+  if (typeof scheduler?.yield === 'function') {
+    return scheduler.yield()
+  }
+
+  if (typeof globalThis.MessageChannel === 'function') {
+    return new Promise((resolve) => {
+      const channel = new globalThis.MessageChannel()
+      channel.port1.onmessage = () => {
+        channel.port1.close()
+        channel.port2.close()
+        resolve()
+      }
+      channel.port2.postMessage(undefined)
+    })
+  }
+
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    return new Promise((resolve) => {
+      globalThis.requestAnimationFrame(() => resolve())
+    })
+  }
+
+  return Promise.reject(
+    new Error('This environment does not support cooperative host scheduling.')
+  )
+}
+
+const waitForBrowserPaint = (): Promise<void> => {
+  if (typeof globalThis.requestAnimationFrame !== 'function') {
+    return yieldToHost()
+  }
+
+  return new Promise((resolve) => {
+    globalThis.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => resolve())
+    })
+  })
+}
 
 export interface SetElementVisibilityArgs {
   readonly elementId: string
@@ -182,7 +225,7 @@ export interface AsyraDesignAiActionApis {
       readonly workspaceOrigin: AsyraDesignAiCompositionPoint
     },
     options?: EVENT_OPTIONS
-  ): CanonicalElementBatchResult | null
+  ): readonly string[] | null
   createCompositionGroup(
     bounds: AsyraDesignAiCompositionBounds,
     options?: EVENT_OPTIONS
@@ -207,6 +250,7 @@ export interface AsyraDesignAiActionApis {
     geometry: UpdateCompositionGeometry,
     options?: EVENT_OPTIONS
   ): boolean
+  setDrawingProgress(progress: AiDrawingProgressState | null): void
   setElementVisible(
     elementId: string,
     visible: boolean,
@@ -393,16 +437,12 @@ const createCompositionElements = (
     readonly workspaceOrigin: AsyraDesignAiCompositionPoint
   },
   options?: EVENT_OPTIONS
-): CanonicalElementBatchResult | null => {
+): readonly string[] | null => {
   const createOptions = measureBrowserDragPhase(
     'ai-app:prepare-composition-bulk-request',
     () => items.map((item) => createCompositionElementOptions(item, parent))
   )
-  return elementApis.createElementsInParentBatch(
-    createOptions,
-    parent.id,
-    options
-  )
+  return elementApis.createElementsInParent(createOptions, parent.id, options)
 }
 
 const defaultApis: AsyraDesignAiActionApis = {
@@ -439,6 +479,8 @@ const defaultApis: AsyraDesignAiActionApis = {
     elementApis.setElementVisible(elementId, visible, options),
   selectElements: (elementIds, options) =>
     selectionApis.selectElements(elementIds, options),
+  setDrawingProgress: (progress) =>
+    systemContextApis.setAiDrawingProgress(progress),
   updateElementFillColor: (elementId, color, options) =>
     fillApis.updatePrimaryFillColor(elementId, color, options),
   updateElementFillColors: (updates, options) =>
@@ -979,7 +1021,10 @@ const getProgressiveCompositionSliceRanges = (
   while (start < items.length) {
     let pointCount = 0
     let end = start
-    while (end < items.length) {
+    while (
+      end < items.length &&
+      end - start < ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET
+    ) {
       const itemPointCount = getCompositionItemPointCount(items[end])
       if (end > start && pointCount + itemPointCount > pointBudget) {
         break
@@ -997,16 +1042,44 @@ const getProgressiveCompositionSliceRanges = (
   return Object.freeze(ranges)
 }
 
+const createDrawingProgressState = (
+  bounds: AsyraDesignAiCompositionBounds,
+  totalElements: number,
+  completedElements = 0
+): AiDrawingProgressState =>
+  Object.freeze({
+    bounds: Object.freeze({ ...bounds }),
+    completedElements,
+    phase: completedElements === 0 ? 'preparing' : 'drawing',
+    totalElements
+  })
+
+const crossesVisiblePaintMilestone = (
+  previousCompletedElements: number,
+  completedElements: number,
+  totalElements: number
+): boolean => {
+  if (previousCompletedElements === 0 && completedElements > 0) {
+    return true
+  }
+
+  return [0.25, 0.5, 0.75, 1].some((ratio) => {
+    const milestone = Math.ceil(totalElements * ratio)
+    return (
+      previousCompletedElements < milestone && completedElements >= milestone
+    )
+  })
+}
+
 const createCompositionActions = (
   apis: AsyraDesignAiActionApis,
   mutationOptions: EVENT_OPTIONS,
   deliveryMode: AsyraDesignAiDeliveryMode,
-  progressiveYield: (() => Promise<void>) | null,
-  stageProgressiveDelivery: (
-    stage: AsyraDesignAiProgressiveDeliveryStage
-  ) => Promise<void> | void
+  hostYield: () => Promise<void>,
+  paintYield: () => Promise<void>,
+  progressiveYield: (() => Promise<void>) | null
 ): readonly AiActionDefinition[] => {
-  const compositionMutationOptions = createAiMutationOptions('atomic')
+  const compositionMutationOptions = createAiMutationOptions(deliveryMode)
   const insert: AiActionDefinition<InsertVectorCompositionArgs> = Object.freeze(
     {
       description:
@@ -1049,118 +1122,140 @@ const createCompositionActions = (
             'AI composition cannot preserve grouping after item validation.'
           )
         }
-        const progressiveRanges =
+        const ranges: readonly ProgressiveCompositionSliceRange[] =
           deliveryMode === 'progressive'
             ? measureBrowserDragPhase('ai-app:prepare-composition-slices', () =>
                 getProgressiveCompositionSliceRanges(accepted)
               )
-            : Object.freeze([])
-
+            : Object.freeze([
+                Object.freeze({
+                  end: accepted.length,
+                  start: 0
+                })
+              ])
         const appliedElementIds: string[] = []
         const roleToElementIds: Record<string, readonly string[]> = {}
         const pupils: string[] = []
         const whiskers: string[] = []
-        const groupId = measureBrowserDragPhase(
-          'ai-app:create-composition-group',
-          () =>
-            apis.createCompositionGroup(groupBounds, compositionMutationOptions)
-        )
-        if (!groupId) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition grouping failed.'
+        let cooperativeYieldCount = 0
+        let progressActive = false
+        try {
+          apis.setDrawingProgress(
+            createDrawingProgressState(groupBounds, accepted.length)
           )
-        }
-        const parent = Object.freeze({
-          id: groupId,
-          workspaceOrigin: Object.freeze({
-            x: groupBounds.x,
-            y: groupBounds.y
-          })
-        })
-        assertNotAborted(context)
-        const canonicalResult = measureBrowserDragPhase(
-          'ai-app:create-composition-batch',
-          () =>
-            apis.createCompositionElements(
-              accepted,
-              parent,
-              compositionMutationOptions
+          progressActive = true
+          await paintYield()
+          emitDiagnosticCounter('ai-drawing:loading-frame-visible')
+          assertNotAborted(context)
+
+          const groupId = measureBrowserDragPhase(
+            'ai-app:create-composition-group',
+            () =>
+              apis.createCompositionGroup(
+                groupBounds,
+                compositionMutationOptions
+              )
+          )
+          if (!groupId) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition grouping failed.'
             )
-        )
-        if (!canonicalResult) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition canonical batch failed.'
-          )
-        }
-        const createdElementIds = canonicalResult.orderedElementIds
-        if (createdElementIds.length !== accepted.length) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition creation did not preserve the validated item count.'
-          )
-        }
-        measureBrowserDragPhase('ai-app:record-created-elements', () => {
-          for (let index = 0; index < accepted.length; index += 1) {
+          }
+          const parent = Object.freeze({
+            id: groupId,
+            workspaceOrigin: Object.freeze({
+              x: groupBounds.x,
+              y: groupBounds.y
+            })
+          })
+
+          for (const { end, start } of ranges) {
             assertNotAborted(context)
-            const item = accepted[index]
-            const elementId = createdElementIds[index]
-            if (!elementId) {
+            const previousCompletedElements = appliedElementIds.length
+            const batchItems = accepted.slice(start, end)
+            const createdElementIds = measureBrowserDragPhase(
+              'ai-app:create-composition-batch',
+              () =>
+                apis.createCompositionElements(
+                  batchItems,
+                  parent,
+                  compositionMutationOptions
+                )
+            )
+            if (!createdElementIds) {
               throw new AsyraDesignAiCompositionError(
-                `AI composition creation failed for role "${item.role}".`
+                'AI composition canonical batch failed.'
               )
             }
-            appliedElementIds.push(elementId)
-            roleToElementIds[item.role] = Object.freeze([elementId])
-            if (item.role.includes('pupil')) {
-              pupils.push(elementId)
+            if (createdElementIds.length !== batchItems.length) {
+              throw new AsyraDesignAiCompositionError(
+                'AI composition creation did not preserve the validated item count.'
+              )
             }
-            if (item.role.includes('whisker')) {
-              whiskers.push(elementId)
-            }
-          }
-        })
-
-        if (deliveryMode === 'progressive') {
-          if (!progressiveYield) {
-            throw new AsyraDesignAiCompositionError(
-              'AI composition progressive delivery is unavailable.'
-            )
-          }
-          const slices = Object.freeze(
-            progressiveRanges.map(({ end, start }, index) =>
-              Object.freeze({
-                orderedIds: Object.freeze([
-                  ...(index === 0 ? [groupId] : []),
-                  ...createdElementIds.slice(start, end)
-                ])
-              })
-            )
-          )
-          await stageProgressiveDelivery(
-            Object.freeze({
-              assertNotAborted: () => assertNotAborted(context),
-              deliveryHandle: canonicalResult.deliveryHandle,
-              signal: context.signal,
-              slices,
-              yieldToHost: progressiveYield
+            measureBrowserDragPhase('ai-app:record-created-elements', () => {
+              for (let index = 0; index < batchItems.length; index += 1) {
+                const item = batchItems[index]
+                const elementId = createdElementIds[index]
+                if (!elementId) {
+                  throw new AsyraDesignAiCompositionError(
+                    `AI composition creation failed for role "${item.role}".`
+                  )
+                }
+                appliedElementIds.push(elementId)
+                roleToElementIds[item.role] = Object.freeze([elementId])
+                if (item.role.includes('pupil')) {
+                  pupils.push(elementId)
+                }
+                if (item.role.includes('whisker')) {
+                  whiskers.push(elementId)
+                }
+              }
             })
+            apis.setDrawingProgress(
+              createDrawingProgressState(
+                groupBounds,
+                accepted.length,
+                appliedElementIds.length
+              )
+            )
+            await (crossesVisiblePaintMilestone(
+              previousCompletedElements,
+              appliedElementIds.length,
+              accepted.length
+            )
+              ? paintYield()
+              : hostYield())
+            cooperativeYieldCount += 1
+            emitDiagnosticCounter(
+              'ai-drawing:visible-element-count',
+              appliedElementIds.length
+            )
+            assertNotAborted(context)
+          }
+          emitDiagnosticCounter(
+            'ai-drawing:cooperative-yield-count',
+            cooperativeYieldCount
           )
-        }
 
-        assertNotAborted(context)
-        if (pupils.length > 0) {
-          roleToElementIds.pupils = Object.freeze(pupils)
+          if (pupils.length > 0) {
+            roleToElementIds.pupils = Object.freeze(pupils)
+          }
+          if (whiskers.length > 0) {
+            roleToElementIds.whiskers = Object.freeze(whiskers)
+          }
+          return Object.freeze({
+            action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+            appliedElementIds: Object.freeze(appliedElementIds),
+            compositionId: groupId,
+            roleToElementIds: Object.freeze(roleToElementIds),
+            skipped: Object.freeze(skipped),
+            status: statusForMutation(appliedElementIds.length, skipped.length)
+          })
+        } finally {
+          if (progressActive) {
+            apis.setDrawingProgress(null)
+          }
         }
-        if (whiskers.length > 0) {
-          roleToElementIds.whiskers = Object.freeze(whiskers)
-        }
-        return Object.freeze({
-          action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-          appliedElementIds: Object.freeze(appliedElementIds),
-          compositionId: groupId,
-          roleToElementIds: Object.freeze(roleToElementIds),
-          skipped: Object.freeze(skipped),
-          status: statusForMutation(appliedElementIds.length, skipped.length)
-        })
       },
       name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       schema: Object.freeze({
@@ -1567,15 +1662,10 @@ export const createAsyraDesignAiActions = (
 ): readonly AiActionDefinition[] => {
   const deliveryMode = options.deliveryMode ?? 'atomic'
   const mutationOptions = createAiMutationOptions(deliveryMode)
-  const progressiveYield =
-    deliveryMode === 'progressive' ? (options.yieldToHost ?? yieldToHost) : null
-  const stageProgressiveDelivery =
-    options.stageProgressiveDelivery ??
-    (async (stage: AsyraDesignAiProgressiveDeliveryStage): Promise<void> => {
-      const coordinator = createAsyraDesignAiProgressiveDeliveryCoordinator()
-      coordinator.stage(stage)
-      await coordinator.flush()
-    })
+  const hostYield = options.yieldToHost ?? yieldToHost
+  const paintYield =
+    options.waitForPaint ?? options.yieldToHost ?? waitForBrowserPaint
+  const progressiveYield = deliveryMode === 'progressive' ? hostYield : null
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
       name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
@@ -1685,8 +1775,9 @@ export const createAsyraDesignAiActions = (
       apis,
       mutationOptions,
       deliveryMode,
-      progressiveYield,
-      stageProgressiveDelivery
+      hostYield,
+      paintYield,
+      progressiveYield
     ),
     visibility,
     selection

@@ -18,6 +18,7 @@ const actionApis = () => ({
   removeSubtree: vi.fn(),
   scaleVectorElementGeometry: vi.fn(() => true),
   selectElements: vi.fn(),
+  setDrawingProgress: vi.fn(),
   setElementVisible: vi.fn(() => true),
   updateElementFillColor: vi.fn(),
   updateElementFillColors: vi.fn(() => []),

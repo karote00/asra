@@ -1,6 +1,7 @@
 import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
 import { initAreaSelection } from './capabilities/init-area-selection'
+import { initAiDrawingProgress } from './capabilities/init-ai-drawing-progress'
 import { initGradientFillEditing } from './capabilities/init-gradient-fill-editing'
 import { initVectorIconData } from './capabilities/init-vector-icon-data'
 import { initLoadDiagnostics } from './diagnostics/init-load-diagnostics'
@@ -88,6 +89,7 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
 
   // Capability init.
   initAreaSelection()
+  initAiDrawingProgress()
   initGradientFillEditing()
   initVectorIconData()
 

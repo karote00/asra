@@ -4,6 +4,10 @@ import { IndexedDbPersistence } from '@asyra/reactive-events'
 import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
+import {
+  AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
+  AiDocumentInteractionTargets
+} from '../../constants'
 import RenderApp, { type CanvasContextMenuInvocation } from '../index'
 
 const setReactActEnvironment = (active: boolean) => {
@@ -55,6 +59,9 @@ describe('Render canvas context-menu intake', () => {
       '[data-testid="asyra-canvas-host"]'
     )
     expect(canvasHost).toBeInstanceOf(HTMLDivElement)
+    expect(
+      canvasHost?.getAttribute(AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE)
+    ).toBe(AiDocumentInteractionTargets.VIEWPORT_NAVIGATION)
     const canvas = document.createElement('canvas')
     canvasHost?.append(canvas)
     const event = new MouseEvent('contextmenu', {

@@ -52,23 +52,50 @@ This file is the app-level API contract map.
   cancellation
 - action executors call `src/common-apis/*` with `undoable: true`. Atomic
   mutations and composition Group/children use
-  `sharedDelivery: 'transaction-end'`; non-composition progressive mutations
-  retain ordinary immediate delivery. Factory, canonical owners, Render, and
-  optional Collaboration retain their ordinary ownership
-- composition insertion creates one canonical Group before one all-children
-  `Core.createElementsInParentBatch(...)` request. Child create options carry
-  the known parent workspace origin so ordinary Vector topology points remain
-  in workspace coordinates while computed `x/y` are written directly in
-  Group-local coordinates; no post-hoc full-composition move or geometry
-  rewrite is part of the AI action
-- progressive composition point budgets create publication boundaries only:
-  2,048 points, then 4,096, then at most 8,192 per later slice, while one
-  indivisible element may exceed the soft target. The App retains the original
-  Factory delivery handle, places the Group first in the first slice, and
-  completes the staged slices before that composition action returns and before
-  any later ordinary immediate plan action, while remaining inside the one
-  outer transaction. Slices never repeat canonical mutation or create another
-  history action
+  `sharedDelivery: 'transaction-end'`; progressive composition batches and
+  non-composition progressive mutations use ordinary immediate delivery inside
+  the same outer transaction. Factory, canonical owners, Render, and optional
+  Collaboration retain their ordinary ownership
+- after accepted composition descriptors determine exact bounds, the App sets
+  one validated runtime-only `aiDrawingProgress` System Context value and
+  commits an exact-bounds DOM compositor overlay, then crosses a browser paint
+  opportunity before its first canonical mutation. CSS loading activity changes
+  only transform and opacity; it has no JavaScript per-frame loop. The state is
+  not canonical, persistent, shared, Render-owned, or an AI-only renderer and
+  clears on success, failure, cancellation, or teardown
+- composition insertion creates one canonical Group. Atomic mode sends one
+  all-children `Core.createElementsInParent(...)` request; progressive mode
+  sends deterministic ordered plural requests bounded by both point count and
+  element count. Each successful batch completes ordinary projection and actual
+  progress, then the single serialized action loop awaits a later browser task
+  before the next batch. Child
+  create options carry the known parent workspace origin so ordinary Vector
+  topology points remain in workspace coordinates while computed `x/y` are
+  written directly in Group-local coordinates; no post-hoc full-composition
+  move or geometry rewrite is part of the AI action
+- progressive composition point budgets begin at 2,048, grow to 4,096, and
+  reach at most 8,192 per later batch. The independent 32-element budget keeps
+  zero-point primitives cooperative, while one indivisible element may exceed
+  only the point soft target. No range is independently scheduled with a timer,
+  and a pure microtask is not a cooperative host yield. Every batch uses the
+  same plural Core surface;
+  Core, Props Manager, and Scene Tree receive no AI mode, loading, progress,
+  slice-size, or host-yield parameter
+- the Group and every child batch remain inside one outer App transaction and
+  create one intended Undo action. A fatal failure or Feature-owned
+  cancellation rejects the action so ordinary transaction rollback removes the
+  complete composition; already-visible immediate evidence uses Factory's
+  ordinary compensation path
+- the App AI transaction runner acquires one document-interaction lock before
+  opening that outer transaction and releases it only after commit or rollback
+  plus history correlation. While locked, wheel input on the marked viewport
+  continues through the ordinary pan/zoom Features and the marked Agent Cancel
+  control remains available; every other DOM interaction is stopped before it
+  can enter a Feature, UI mutation handler, canonical API, or History. Viewport
+  navigation may cross its ordinary Feature transaction wrapper but produces no
+  canonical or history evidence. The lock is a fixed App policy, not a second
+  event bus, progress-state side effect, framework mode, or downstream API
+  parameter
 - provider selection is replaceable; deterministic fake and generic HTTP
   providers use the same runtime and app action contracts
 - collected App context includes a stable App-owned provider prompt that
@@ -251,15 +278,14 @@ Import boundary:
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
-- `createElementsInParentBatch(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): CanonicalElementBatchResult | null`
+- `createElementsInParent(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): readonly string[] | null`
   - preflights and prepares the complete mixed ordinary/Vector batch before
     calling Core exactly once
   - direct non-Vector Group children require finite workspace coordinates and
     a finite parent workspace origin; Vector topology points remain in
     workspace coordinates while computed bounds become parent-local
-  - returns Core's original ordered IDs, timing, and Factory-owned delivery
-    handle without reconstructing them; any preparation failure returns `null`
-    before Core mutation
+  - returns an isolated frozen copy of Core's ordered canonical IDs; any
+    preparation failure returns `null` before Core mutation
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
   - initializes default `fills` payload by element type
   - an explicit `workspacePosition` bypasses Render/client-coordinate

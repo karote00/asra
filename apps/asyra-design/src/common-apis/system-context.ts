@@ -13,7 +13,7 @@ import {
 } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
-import { PrimaryToolType } from '../constants'
+import { AsyraDesignSystemPropertyKeys, PrimaryToolType } from '../constants'
 import { selectionApis } from './selection'
 
 export type SelectedVectorPointState = CoreSelectedVectorPointState
@@ -46,6 +46,58 @@ export interface AreaSelectionState extends Record<string, unknown> {
   dragCurrent: PositionData
   additive: boolean
 }
+
+export interface AiDrawingProgressBounds extends Record<string, unknown> {
+  readonly height: number
+  readonly width: number
+  readonly x: number
+  readonly y: number
+}
+
+export interface AiDrawingProgressState extends Record<string, unknown> {
+  readonly bounds: AiDrawingProgressBounds
+  readonly completedElements: number
+  readonly phase: 'drawing' | 'preparing'
+  readonly totalElements: number
+}
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+export const isAiDrawingProgressState = (
+  value: unknown
+): value is AiDrawingProgressState => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const state = value as Partial<AiDrawingProgressState>
+  const bounds = state.bounds
+  return (
+    bounds !== undefined &&
+    bounds !== null &&
+    typeof bounds === 'object' &&
+    !Array.isArray(bounds) &&
+    isFiniteNumber(bounds.x) &&
+    isFiniteNumber(bounds.y) &&
+    isFiniteNumber(bounds.width) &&
+    bounds.width > 0 &&
+    isFiniteNumber(bounds.height) &&
+    bounds.height > 0 &&
+    (state.phase === 'preparing' || state.phase === 'drawing') &&
+    Number.isInteger(state.completedElements) &&
+    (state.completedElements ?? -1) >= 0 &&
+    Number.isInteger(state.totalElements) &&
+    (state.totalElements ?? 0) > 0 &&
+    (state.completedElements ?? Number.POSITIVE_INFINITY) <=
+      (state.totalElements ?? Number.NEGATIVE_INFINITY)
+  )
+}
+
+export const isAiDrawingProgressStateOrNull = (
+  value: unknown
+): value is AiDrawingProgressState | null =>
+  value === null || isAiDrawingProgressState(value)
 
 const gradientHandleEquals = (
   current: GradientHandleState | null,
@@ -108,6 +160,25 @@ export const systemContextApis = {
 
   clearAreaSelection: () => {
     systemContextApis.setAreaSelection(null)
+  },
+
+  getAiDrawingProgress: (): AiDrawingProgressState | null => {
+    return (
+      core.getSystemProperty<AiDrawingProgressState | null>(
+        AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS
+      ) ?? null
+    )
+  },
+
+  setAiDrawingProgress: (progress: AiDrawingProgressState | null) => {
+    core.setSystemProperty(
+      AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS,
+      progress
+    )
+  },
+
+  clearAiDrawingProgress: () => {
+    systemContextApis.setAiDrawingProgress(null)
   },
 
   /**

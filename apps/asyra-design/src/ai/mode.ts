@@ -89,10 +89,7 @@ export const createAsyraDesignAiStartup = (
         },
         provider: provider as AiProvider,
         requestConfirmation: confirmation.requestConfirmation,
-        transactionRunner: createAsyraDesignAiTransactionRunner(
-          undefined,
-          history
-        )
+        transactionRunner: createAsyraDesignAiTransactionRunner({ history })
       }),
     enabled: true,
     providerEnabled: true

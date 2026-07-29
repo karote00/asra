@@ -11,6 +11,11 @@ import { AiConversationPanel } from '../ai-conversation-panel'
 import { createAsyraDesignAiConversationController } from '../../ai/conversation'
 import { createAsyraDesignAiConfirmationBroker } from '../../ai/confirmation'
 import { createDeferred } from '../../ai/__tests__/deferred'
+import {
+  AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
+  AiDocumentInteractionTargets
+} from '../../constants'
+import { asyraDesignDocumentInteractionLock } from '../../ai/document-interaction-lock'
 
 const createPanelHarness = () => {
   const pending = createDeferred<Record<string, unknown>>()
@@ -73,7 +78,12 @@ describe('Mock AI conversation panel intent boundary', () => {
     )
     expect((input as HTMLTextAreaElement).value).toBe('')
     expect((send as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: 'Cancel request' })).toBeTruthy()
+    const cancelRequest = screen.getByRole('button', {
+      name: 'Cancel request'
+    })
+    expect(
+      cancelRequest.getAttribute(AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE)
+    ).toBe(AiDocumentInteractionTargets.AGENT_CANCEL)
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Agent panel' }))
     expect(harness.feature.cancel).toHaveBeenCalledWith('panel-closed')
@@ -102,6 +112,61 @@ describe('Mock AI conversation panel intent boundary', () => {
     fireEvent.change(input, { target: { value: 'second' } })
     expect((send as HTMLButtonElement).disabled).toBe(true)
     expect(harness.feature.execute).toHaveBeenCalledOnce()
+  })
+
+  it('keeps mouse, touch, and keyboard cancellation inside the Agent control while the document is locked', () => {
+    const harness = createPanelHarness()
+    render(
+      <AiConversationPanel
+        confirmation={harness.confirmation}
+        conversation={harness.conversation}
+        onClose={vi.fn()}
+      />
+    )
+    fireEvent.change(screen.getByLabelText('Message Agent'), {
+      target: { value: 'draw progressively' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    const cancelRequest = screen.getByRole('button', {
+      name: 'Cancel request'
+    })
+    const escapedDocumentInteraction = vi.fn()
+    const eventTypes = [
+      'click',
+      'keydown',
+      'keyup',
+      'mousedown',
+      'mouseup',
+      'pointerdown',
+      'pointerup',
+      'touchend',
+      'touchstart'
+    ] as const
+    for (const eventType of eventTypes) {
+      window.addEventListener(eventType, escapedDocumentInteraction)
+    }
+    const release = asyraDesignDocumentInteractionLock.acquire()
+
+    try {
+      fireEvent.keyDown(cancelRequest, { code: 'Enter', key: 'Enter' })
+      fireEvent.keyUp(cancelRequest, { code: 'Enter', key: 'Enter' })
+      fireEvent.mouseDown(cancelRequest)
+      fireEvent.mouseUp(cancelRequest)
+      fireEvent.pointerDown(cancelRequest)
+      fireEvent.pointerUp(cancelRequest)
+      fireEvent.touchStart(cancelRequest)
+      fireEvent.touchEnd(cancelRequest)
+      fireEvent.click(cancelRequest)
+    } finally {
+      release()
+      for (const eventType of eventTypes) {
+        window.removeEventListener(eventType, escapedDocumentInteraction)
+      }
+    }
+
+    expect(escapedDocumentInteraction).not.toHaveBeenCalled()
+    expect(harness.feature.cancel).toHaveBeenCalledOnce()
+    expect(harness.feature.cancel).toHaveBeenCalledWith('user-cancelled')
   })
 
   it('adds the same removable image draft through file selection and drag-and-drop, then preserves it in the submitted turn', async () => {

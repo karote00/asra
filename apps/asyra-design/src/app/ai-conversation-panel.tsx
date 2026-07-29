@@ -5,7 +5,8 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type FormEvent
+  type FormEvent,
+  type SyntheticEvent
 } from 'react'
 import type {
   AsyraDesignAiConfirmationBroker,
@@ -25,7 +26,8 @@ import {
 } from '../ai/presentation'
 import {
   AsyraDesignAiDrawingDetailOptionIds,
-  AsyraDesignAiDrawingDetailSelectionIntents
+  AsyraDesignAiDrawingDetailSelectionIntents,
+  AiDocumentInteractionTargetProps
 } from '../constants'
 
 const ACCEPTED_IMAGE_TYPES = new Set<AsyraDesignAiImageMediaType>([
@@ -42,6 +44,10 @@ const DRAWING_DETAIL_SELECTION_INTENTS: Readonly<
   [AsyraDesignAiDrawingDetailOptionIds.MAXIMUM]:
     AsyraDesignAiDrawingDetailSelectionIntents.MAXIMUM_ZH
 })
+
+const stopAgentCancelActivationPropagation = (event: SyntheticEvent): void => {
+  event.stopPropagation()
+}
 
 const readImageAttachment = (
   file: File
@@ -636,9 +642,21 @@ export const AiConversationPanel = ({
           <div className="flex items-center gap-2">
             {active ? (
               <button
+                {...AiDocumentInteractionTargetProps.AGENT_CANCEL}
                 aria-label="Cancel request"
                 className="rounded-md border border-[#6c4d4d] bg-[#382727] px-3 py-1.5 text-[10px] text-[#ffb8b8] hover:bg-[#472e2e]"
-                onClick={() => conversation.cancel('user-cancelled')}
+                onClick={(event) => {
+                  stopAgentCancelActivationPropagation(event)
+                  conversation.cancel('user-cancelled')
+                }}
+                onKeyDown={stopAgentCancelActivationPropagation}
+                onKeyUp={stopAgentCancelActivationPropagation}
+                onMouseDown={stopAgentCancelActivationPropagation}
+                onMouseUp={stopAgentCancelActivationPropagation}
+                onPointerDown={stopAgentCancelActivationPropagation}
+                onPointerUp={stopAgentCancelActivationPropagation}
+                onTouchEnd={stopAgentCancelActivationPropagation}
+                onTouchStart={stopAgentCancelActivationPropagation}
                 type="button"
               >
                 Cancel

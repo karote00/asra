@@ -1,32 +1,9 @@
-import type { CanonicalElementBatchResult } from '@asyra/core'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiProgressiveDeliveryCoordinator } from '../progressive-delivery'
 import {
   createAsyraDesignAiTransactionRunner,
   type AsyraDesignAiTransactionBoundary
 } from '../transaction'
-
-type DeliveryPlan = Parameters<
-  CanonicalElementBatchResult['deliveryHandle']['setDeliveryPlan']
->[0]
-
-const createDeliveryHandle = (
-  calls: string[]
-): CanonicalElementBatchResult['deliveryHandle'] => ({
-  artifact: null,
-  artifactId: 'artifact-7',
-  transactionId: 7,
-  setDeliveryPlan: vi.fn((plan: DeliveryPlan) => {
-    calls.push(
-      `plan:${plan.slices
-        .map(({ orderedIds }) => orderedIds.join(','))
-        .join('|')}`
-    )
-  }),
-  deliverSlice: vi.fn((sliceId) => {
-    calls.push(`deliver:${sliceId}`)
-  })
-})
+import { asyraDesignDocumentInteractionLock } from '../document-interaction-lock'
 
 describe('Asyra Design AI transaction adapter', () => {
   it('measures the complete common transaction without changing its result', async () => {
@@ -36,9 +13,9 @@ describe('Asyra Design AI transaction adapter', () => {
     const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
     runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
-    const runner = createAsyraDesignAiTransactionRunner(
-      async <T>(execute: () => Promise<T>) => execute()
-    )
+    const runner = createAsyraDesignAiTransactionRunner({
+      runTransaction: async <T>(execute: () => Promise<T>) => execute()
+    })
 
     try {
       await expect(
@@ -64,7 +41,9 @@ describe('Asyra Design AI transaction adapter', () => {
       boundaryCalls()
       return execute()
     }
-    const runner = createAsyraDesignAiTransactionRunner(boundary)
+    const runner = createAsyraDesignAiTransactionRunner({
+      runTransaction: boundary
+    })
     const execute = vi.fn(async () => 'complete')
 
     await expect(runner.run('AI-assisted action', execute)).resolves.toBe(
@@ -75,127 +54,132 @@ describe('Asyra Design AI transaction adapter', () => {
     expect(execute).toHaveBeenCalledOnce()
   })
 
-  it('preserves callback rejection for the common rollback owner', async () => {
-    const failure = new Error('executor failure')
-    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
-      execute: () => Promise<T>
-    ) => execute()
-    const runner = createAsyraDesignAiTransactionRunner(boundary)
+  it('uses the fixed App interaction lock when no test dependency is supplied', async () => {
+    const runner = createAsyraDesignAiTransactionRunner({
+      runTransaction: async <T>(execute: () => Promise<T>) => {
+        expect(asyraDesignDocumentInteractionLock.isActive()).toBe(true)
+        return execute()
+      }
+    })
 
+    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
     await expect(
-      runner.run('AI-assisted action', async () => {
-        throw failure
-      })
-    ).rejects.toBe(failure)
+      runner.run('AI-assisted action', async () => 'complete')
+    ).resolves.toBe('complete')
+    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
   })
 
-  it('correlates only a newly committed canonical action with the active turn', async () => {
-    let currentActionId: number | null = 20
-    const correlateCommittedAction = vi.fn(() => true)
+  it('preserves callback rejection for the common rollback owner', async () => {
+    const failure = new Error('executor failure')
+    const timeline: string[] = []
+    let interactionLocked = false
     const boundary: AsyraDesignAiTransactionBoundary = async <T>(
       execute: () => Promise<T>
     ) => {
-      const result = await execute()
-      currentActionId = 21
-      return result
+      timeline.push('transaction:start')
+      expect(interactionLocked).toBe(true)
+      try {
+        return await execute()
+      } catch (error) {
+        expect(interactionLocked).toBe(true)
+        timeline.push('transaction:rollback')
+        throw error
+      }
     }
-    const runner = createAsyraDesignAiTransactionRunner(boundary, {
-      correlateCommittedAction,
-      getCurrentActionId: () => currentActionId
+    const release = vi.fn()
+    const runner = createAsyraDesignAiTransactionRunner({
+      interactionLock: {
+        acquire: vi.fn(() => {
+          interactionLocked = true
+          timeline.push('lock:acquire')
+          return () => {
+            expect(timeline.at(-1)).toBe('transaction:rollback')
+            interactionLocked = false
+            timeline.push('lock:release')
+            release()
+          }
+        })
+      },
+      runTransaction: boundary
     })
 
-    await runner.run('AI-assisted action', async () => 'complete')
+    await expect(
+      runner.run('AI-assisted action', async () => {
+        expect(interactionLocked).toBe(true)
+        timeline.push('transaction:execute')
+        throw failure
+      })
+    ).rejects.toBe(failure)
+    expect(release).toHaveBeenCalledOnce()
+    expect(interactionLocked).toBe(false)
+    expect(timeline).toEqual([
+      'lock:acquire',
+      'transaction:start',
+      'transaction:execute',
+      'transaction:rollback',
+      'lock:release'
+    ])
+  })
+
+  it('holds the interaction lock through commit and history correlation', async () => {
+    const timeline: string[] = []
+    let currentActionId: number | null = 20
+    const correlateCommittedAction = vi.fn(() => {
+      timeline.push('history:correlate')
+      return true
+    })
+    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
+      execute: () => Promise<T>
+    ) => {
+      timeline.push('transaction:start')
+      const result = await execute()
+      currentActionId = 21
+      timeline.push('transaction:commit')
+      return result
+    }
+    const runner = createAsyraDesignAiTransactionRunner({
+      history: {
+        correlateCommittedAction,
+        getCurrentActionId: () => currentActionId
+      },
+      interactionLock: {
+        acquire: () => {
+          timeline.push('lock:acquire')
+          return () => timeline.push('lock:release')
+        }
+      },
+      runTransaction: boundary
+    })
+
+    await runner.run('AI-assisted action', async () => {
+      timeline.push('transaction:execute')
+      return 'complete'
+    })
 
     expect(correlateCommittedAction).toHaveBeenCalledOnce()
     expect(correlateCommittedAction).toHaveBeenCalledWith(21)
+    expect(timeline).toEqual([
+      'lock:acquire',
+      'transaction:start',
+      'transaction:execute',
+      'transaction:commit',
+      'history:correlate',
+      'lock:release'
+    ])
   })
 
   it('does not correlate a zero-mutation transaction', async () => {
     const correlateCommittedAction = vi.fn(() => true)
-    const runner = createAsyraDesignAiTransactionRunner(
-      async <T>(execute: () => Promise<T>) => execute(),
-      {
+    const runner = createAsyraDesignAiTransactionRunner({
+      history: {
         correlateCommittedAction,
         getCurrentActionId: () => 20
-      }
-    )
+      },
+      runTransaction: async <T>(execute: () => Promise<T>) => execute()
+    })
 
     await runner.run('AI-assisted action', async () => 'no-change')
 
     expect(correlateCommittedAction).not.toHaveBeenCalled()
-  })
-
-  it('flushes staged compositions before the caller continues', async () => {
-    const calls: string[] = []
-    const coordinator = createAsyraDesignAiProgressiveDeliveryCoordinator()
-    const handle = createDeliveryHandle(calls)
-    const signal = new AbortController().signal
-
-    calls.push('action:composition')
-    coordinator.stage({
-      assertNotAborted: () => undefined,
-      deliveryHandle: handle,
-      signal,
-      slices: [
-        { orderedIds: ['group-1', 'child-1'] },
-        { orderedIds: ['child-2'] }
-      ],
-      yieldToHost: async () => {
-        calls.push('yield')
-      }
-    })
-    await coordinator.flush()
-    calls.push('action:following')
-
-    expect(calls).toEqual([
-      'action:composition',
-      'plan:group-1,child-1|child-2',
-      'deliver:ai-composition:7:1',
-      'yield',
-      'deliver:ai-composition:7:2',
-      'yield',
-      'action:following'
-    ])
-    expect(handle.setDeliveryPlan).toHaveBeenCalledOnce()
-    expect(handle.deliverSlice).toHaveBeenCalledTimes(2)
-  })
-
-  it('stops after an aborted yield and resets delivery ownership for the next stage', async () => {
-    const calls: string[] = []
-    const coordinator = createAsyraDesignAiProgressiveDeliveryCoordinator()
-    const handle = createDeliveryHandle(calls)
-    const nextHandle = createDeliveryHandle(calls)
-    const abortController = new AbortController()
-    const failure = new Error('aborted progressive action')
-
-    coordinator.stage({
-      assertNotAborted: () => {
-        if (abortController.signal.aborted) {
-          throw failure
-        }
-      },
-      deliveryHandle: handle,
-      signal: abortController.signal,
-      slices: [
-        { orderedIds: ['group-1', 'child-1'] },
-        { orderedIds: ['child-2'] }
-      ],
-      yieldToHost: async () => {
-        abortController.abort()
-      }
-    })
-    await expect(coordinator.flush()).rejects.toBe(failure)
-
-    expect(handle.deliverSlice).toHaveBeenCalledOnce()
-
-    coordinator.stage({
-      assertNotAborted: () => undefined,
-      deliveryHandle: nextHandle,
-      signal: new AbortController().signal,
-      slices: [{ orderedIds: ['next-group', 'next-child'] }],
-      yieldToHost: async () => undefined
-    })
-    await expect(coordinator.flush()).resolves.toBeUndefined()
-    expect(nextHandle.deliverSlice).toHaveBeenCalledOnce()
   })
 })

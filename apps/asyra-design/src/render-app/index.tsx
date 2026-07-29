@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
-import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import {
+  AiDocumentInteractionTargetProps,
+  CANVAS_BACKGROUND_COLOR
+} from '../constants'
 import { getCollaborationMode } from './collaboration-mode'
 import type { CoreRawData } from '@asyra/utils'
+import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
 
 const EMPTY_DOCUMENT = {
   version: '1.0.0',
@@ -122,12 +126,19 @@ const RenderApp: React.FC<RenderAppProps> = ({
 
   return (
     <div
-      ref={renderContainerRef}
-      className="absolute top-0 left-0"
+      {...AiDocumentInteractionTargetProps.VIEWPORT_NAVIGATION}
+      className="absolute inset-0"
       data-testid="asyra-canvas-host"
       tabIndex={-1}
       onContextMenu={handleContextMenu}
-    />
+    >
+      <div
+        ref={renderContainerRef}
+        className="absolute inset-0"
+        data-testid="asyra-canvas-render-container"
+      />
+      <AiDrawingProgressIndicator />
+    </div>
   )
 }
 
