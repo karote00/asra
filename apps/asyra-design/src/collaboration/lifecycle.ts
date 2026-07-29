@@ -18,18 +18,15 @@ let startPromise:
   | undefined
 
 export const createRemotePublicationHandler = (
-  applyRemotePublication: (publication: SharedPublication) => boolean,
-  sendPeerApplied: (
-    publicationId: string,
-    fromActorId: string
-  ) => Promise<unknown>
+  applyRemotePublication: (publication: SharedPublication) => boolean
 ): ProcessRemotePublication => {
-  return async (publication, context) => {
+  return async (publication) => {
     const applied = applyRemotePublication(publication)
-    if (!applied || !context.fromActorId) return
-    await sendPeerApplied(publication.publicationId, context.fromActorId).catch(
-      () => undefined
-    )
+    if (!applied) {
+      throw new Error(
+        `[collaboration] remote publication ${publication.publicationId} was rejected`
+      )
+    }
   }
 }
 
@@ -68,11 +65,11 @@ const start = async (
     (event) => factory.applyRemoteEvent(event, applyEventToSynchronousOwners),
     undefined,
     core,
-    core.createElementsInParentFromCanonicalData.bind(core)
+    core.createElementsInParentFromCanonicalData.bind(core),
+    core.removeElementsFromCanonicalData.bind(core)
   )
   const processRemotePublication = createRemotePublicationHandler(
-    applyRemotePublication,
-    provider.sendPeerApplied.bind(provider)
+    applyRemotePublication
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,

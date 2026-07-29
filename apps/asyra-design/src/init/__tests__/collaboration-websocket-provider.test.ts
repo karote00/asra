@@ -1,4 +1,4 @@
-import type { InboundPublicationLease } from '@asyra/collaboration'
+import type { Provider } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
 import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,6 +45,22 @@ interface PublicationFixtureOptions {
   readonly payload?: object
   readonly suffix?: string
   readonly transactionId?: number
+}
+
+interface Deferred<T> {
+  readonly promise: Promise<T>
+  resolve(value: T | PromiseLike<T>): void
+  reject(error: unknown): void
+}
+
+const createDeferred = <T>(): Deferred<T> => {
+  let resolve!: Deferred<T>['resolve']
+  let reject!: Deferred<T>['reject']
+  const promise = new Promise<T>((settle, fail) => {
+    resolve = settle
+    reject = fail
+  })
+  return { promise, resolve, reject }
 }
 
 const createPublication = ({
@@ -218,7 +234,7 @@ class TestPublicationCodecWorker implements PublicationCodecWorkerLike {
     readonly message: PublicationCodecWorkerRequest
     readonly transfer: readonly Transferable[]
   }[] = []
-  readonly responseTransfers: Transferable[][] = []
+  readonly responseTransfers: (readonly Transferable[])[] = []
   paused = false
   postObserver?: (message: PublicationCodecWorkerRequest) => void
   terminateCount = 0
@@ -329,7 +345,7 @@ const createLoopbackServer = async (
     socket.on('close', () => sockets.delete(socket))
     socket.on('message', (data: RawData, isBinary) => {
       const encoded = isBinary ? asBinaryMessage(data) : data.toString()
-      if (isBinary && isPublicationFrame(encoded)) {
+      if (typeof encoded !== 'string' && isPublicationFrame(encoded)) {
         const frame = encoded.buffer.slice(
           encoded.byteOffset,
           encoded.byteOffset + encoded.byteLength
@@ -424,7 +440,9 @@ const sendPublicationFrames = (
   )
 }
 
-const createProvider = (endpoint: string) =>
+type TestProvider = Provider
+
+const createProvider = (endpoint: string): TestProvider =>
   new CollaborationWebSocketProvider({
     endpoint,
     codecWorkerFactory: () => {
@@ -521,23 +539,26 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
-  it('keeps decoded publication settlement ownership exclusive across subscription lifecycle', async () => {
+  it('keeps the async publication consumer exclusive across its subscription lifecycle', async () => {
     const provider = createProvider('ws://127.0.0.1:1')
-    const firstSubscriber = vi.fn()
-    const secondSubscriber = vi.fn()
-    const unsubscribeFirst = provider.onInboundPublicationLease(firstSubscriber)
+    const firstConsumer = vi.fn(
+      async (_publication: SharedPublication) => undefined
+    )
+    const secondConsumer = vi.fn(
+      async (_publication: SharedPublication) => undefined
+    )
+    const unsubscribeFirst = provider.onPublication(firstConsumer)
 
-    expect(() => provider.onInboundPublicationLease(secondSubscriber)).toThrow(
-      '[collaboration] inbound publication lease subscriber already exists'
+    expect(() => provider.onPublication(secondConsumer)).toThrow(
+      '[collaboration] an inbound publication consumer is already registered'
     )
 
     unsubscribeFirst()
-    const unsubscribeSecond =
-      provider.onInboundPublicationLease(secondSubscriber)
+    const unsubscribeSecond = provider.onPublication(secondConsumer)
     unsubscribeSecond()
     await provider.destroy()
 
-    expect(() => provider.onInboundPublicationLease(firstSubscriber)).toThrow(
+    expect(() => provider.onPublication(firstConsumer)).toThrow(
       expect.objectContaining({
         code: 'disposed'
       })
@@ -567,8 +588,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('sends one publication and settles only after server response', async () => {
+  it('accepts one validated publication into bounded FIFO without awaiting wire receipts', async () => {
     let sent: SharedPublication | undefined
+    const headers: PublicationFrameHeader[] = []
     const phaseSink = vi.fn()
     const counterSink = vi.fn()
     ;(
@@ -587,89 +609,113 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         ) => void
       }
     ).__asyraDiagnosticCounterSink = counterSink
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type === 'hello') {
-        socket.send(JSON.stringify({ type: 'ready' }))
-        return
-      }
-      if (message.type !== 'send-publication' || !message.requestId) return
-      sent = message.publication
-      socket.send(
-        JSON.stringify({
-          type: 'response',
-          requestId: message.requestId,
-          ok: true
-        })
-      )
-    })
-    const provider = createProvider(server.endpoint)
-    await provider.connect()
-    phaseSink.mockClear()
-    counterSink.mockClear()
-
-    await provider.sendPublication(publication)
-
-    expect(sent).toEqual(publication)
-    const worker = codecWorkers[0]
-    expect(worker).toBeDefined()
-    const encodePosts = worker?.posted.filter(
-      ({ message }) => message.type === 'encode-publications'
-    )
-    expect(encodePosts).toHaveLength(1)
-    expect(encodePosts?.[0]?.transfer).toEqual([])
-    expect(
-      worker?.responseTransfers.some(
-        (transfer) =>
-          transfer.length > 0 &&
-          transfer.every((value) => value instanceof ArrayBuffer)
-      )
-    ).toBe(true)
-    expect(phaseSink.mock.calls.map(([phaseName]) => phaseName)).toEqual(
-      expect.arrayContaining([
-        'collaboration:outbound-encode',
-        'collaboration:outbound-wire-send',
-        'collaboration:outbound-send-to-ack',
-        'collaboration:inbound-receive-to-dispatch',
-        'collaboration:inbound-wire-decode'
-      ])
-    )
-    expect(counterSink).toHaveBeenCalledWith(
-      'collaboration:inbound-frame-byte-length',
-      expect.any(Number)
-    )
-    const frameEntryCallOrder = counterSink.mock.invocationCallOrder[0]
-    const decodeCallIndex = phaseSink.mock.calls.findIndex(
-      ([phaseName]) => phaseName === 'collaboration:inbound-wire-decode'
-    )
-    expect(frameEntryCallOrder).toBeDefined()
-    expect(decodeCallIndex).toBeGreaterThanOrEqual(0)
-    expect(frameEntryCallOrder).toBeLessThan(
-      phaseSink.mock.invocationCallOrder[decodeCallIndex] as number
-    )
-    expect(
-      phaseSink.mock.calls.every(
-        ([, durationMs]) =>
-          typeof durationMs === 'number' &&
-          Number.isFinite(durationMs) &&
-          durationMs >= 0
-      )
-    ).toBe(true)
-    await provider.destroy()
-  })
-
-  it('keeps one outbound publication frame in flight until exact source admission credit', async () => {
-    const headers: PublicationFrameHeader[] = []
-    let sourceSocket: NodeWebSocket | undefined
-    let completedRequestId: string | undefined
     const server = await createLoopbackServer(
       (socket, message) => {
         if (message.type === 'hello') {
           socket.send(JSON.stringify({ type: 'ready' }))
           return
         }
-        if (message.type !== 'send-publication' || !message.requestId) return
-        sourceSocket = socket
-        completedRequestId = message.requestId
+        if (message.type === 'send-publication') {
+          sent = message.publication
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (_socket, header) => headers.push(header)
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    phaseSink.mockClear()
+    counterSink.mockClear()
+
+    let settlement: 'pending' | 'accepted' | 'rejected' = 'pending'
+    const sending = provider.sendPublication(publication)
+    void sending.then(
+      () => {
+        settlement = 'accepted'
+      },
+      () => {
+        settlement = 'rejected'
+      }
+    )
+
+    try {
+      await vi.waitFor(() => expect(headers).toHaveLength(1))
+      await vi.waitFor(() => expect(settlement).toBe('accepted'))
+
+      expect(sent).toEqual(publication)
+      const worker = codecWorkers[0]
+      expect(worker).toBeDefined()
+      const encodePosts = worker?.posted.filter(
+        ({ message }) => message.type === 'encode-publications'
+      )
+      expect(encodePosts).toHaveLength(1)
+      expect(encodePosts?.[0]?.transfer).toEqual([])
+      expect(
+        worker?.responseTransfers.some(
+          (transfer) =>
+            transfer.length > 0 &&
+            transfer.every((value) => value instanceof ArrayBuffer)
+        )
+      ).toBe(true)
+      expect(phaseSink.mock.calls.map(([phaseName]) => phaseName)).toEqual(
+        expect.arrayContaining([
+          'collaboration:outbound-encode',
+          'collaboration:outbound-wire-send'
+        ])
+      )
+      expect(counterSink).toHaveBeenCalledWith(
+        'collaboration:outbound-encoded-byte-length',
+        expect.any(Number)
+      )
+      expect(settlement).not.toBe('rejected')
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('rejects when the first publication frame cannot be sent before acceptance', async () => {
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const failures = vi.fn()
+    provider.onFailure(failures)
+    await provider.connect()
+    const sendFailure = new Error('publication socket send failed')
+    const send = vi
+      .spyOn(NodeWebSocket.prototype, 'send')
+      .mockImplementationOnce(() => {
+        throw sendFailure
+      })
+
+    try {
+      await expect(provider.sendPublication(publication)).rejects.toMatchObject(
+        {
+          code: 'transport-failed',
+          message: '[collaboration] publication frame send failed',
+          cause: sendFailure
+        }
+      )
+      expect(failures).toHaveBeenCalledOnce()
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      send.mockRestore()
+      await provider.destroy()
+    }
+  })
+
+  it('waits for bounded outbound capacity before accepting the next FIFO publication', async () => {
+    const headers: PublicationFrameHeader[] = []
+    let sourceSocket: NodeWebSocket | undefined
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+        }
       },
       {
         autoAdmitSourceFrames: false,
@@ -681,55 +727,62 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     )
     const provider = createProvider(server.endpoint)
     await provider.connect()
-    const sending = provider.sendPublication(
-      createTwoRecordPublication(700_000)
-    )
-    let settled = false
-    void sending.then(
+    const secondPublication = createPublication({
+      suffix: 'bounded-b',
+      transactionId: 2
+    })
+    let firstSettlement: 'pending' | 'accepted' | 'rejected' = 'pending'
+    let secondSettlement: 'pending' | 'accepted' | 'rejected' = 'pending'
+    const firstSending = provider.sendPublication(publication)
+    const secondSending = provider.sendPublication(secondPublication)
+    void firstSending.then(
       () => {
-        settled = true
+        firstSettlement = 'accepted'
       },
       () => {
-        settled = true
+        firstSettlement = 'rejected'
+      }
+    )
+    void secondSending.then(
+      () => {
+        secondSettlement = 'accepted'
+      },
+      () => {
+        secondSettlement = 'rejected'
       }
     )
 
-    await vi.waitFor(() => expect(headers).toHaveLength(1))
-    const frameCount = headers[0]?.chunkCount ?? 0
-    expect(frameCount).toBeGreaterThan(1)
-    await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(headers).toHaveLength(1)
+    try {
+      await vi.waitFor(() => expect(headers).toHaveLength(1))
+      await vi.waitFor(() => expect(firstSettlement).toBe('accepted'))
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(secondSettlement).toBe('pending')
+      expect(headers).toHaveLength(1)
 
-    for (let index = 0; index < frameCount; index += 1) {
-      await vi.waitFor(() => expect(headers.length).toBe(index + 1))
-      const header = headers[index] as PublicationFrameHeader
+      const firstHeader = headers[0] as PublicationFrameHeader
       sourceSocket?.send(
         JSON.stringify({
           type: 'source-frame-admitted',
-          requestId: header.requestId,
-          frameId: header.frameId,
-          publicationId: header.publicationId,
-          frameByteLength: header.frameByteLength
+          requestId: firstHeader.requestId,
+          frameId: firstHeader.frameId,
+          publicationId: firstHeader.publicationId,
+          frameByteLength: firstHeader.frameByteLength
         })
       )
+      await vi.waitFor(() => expect(secondSettlement).toBe('accepted'))
+      await vi.waitFor(() => expect(headers).toHaveLength(2))
+      expect(headers.map(({ publicationId }) => publicationId)).toEqual([
+        publication.publicationId,
+        secondPublication.publicationId
+      ])
+      expect(firstSettlement).not.toBe('rejected')
+      expect(secondSettlement).not.toBe('rejected')
+    } finally {
+      await provider.destroy()
     }
-    await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(settled).toBe(false)
-    await vi.waitFor(() =>
-      expect(completedRequestId).toBe(headers[0]?.requestId)
-    )
-    sourceSocket?.send(
-      JSON.stringify({
-        type: 'response',
-        requestId: completedRequestId,
-        ok: true
-      })
-    )
-    await sending
-    await provider.destroy()
   })
 
-  it('rejects an inexact source frame admission credit and clears pending transport work', async () => {
+  it('reports an inexact source admission after publication ownership was accepted', async () => {
     let sourceSocket: NodeWebSocket | undefined
     let firstHeader: PublicationFrameHeader | undefined
     const server = await createLoopbackServer(
@@ -747,31 +800,42 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     )
     const provider = createProvider(server.endpoint)
+    const failures = vi.fn()
+    provider.onFailure(failures)
     await provider.connect()
-    const sending = provider
-      .sendPublication(createTwoRecordPublication(700_000))
-      .catch((error: unknown) => error)
-    await vi.waitFor(() => expect(firstHeader).toBeDefined())
-    const header = firstHeader as unknown as PublicationFrameHeader
-    sourceSocket?.send(
-      JSON.stringify({
-        type: 'source-frame-admitted',
-        requestId: header.requestId,
-        frameId: header.frameId,
-        publicationId: header.publicationId,
-        frameByteLength: header.frameByteLength + 1
-      })
+    const sending = provider.sendPublication(
+      createTwoRecordPublication(700_000)
     )
 
-    expect(await sending).toMatchObject({
-      code: 'acknowledgement-failed',
-      message: '[collaboration] source frame admission credit does not match'
-    })
-    expect(provider.getStatus()).toBe('failed')
-    await provider.destroy()
+    try {
+      await vi.waitFor(() => expect(firstHeader).toBeDefined())
+      await expect(sending).resolves.toBeUndefined()
+      const header = firstHeader as unknown as PublicationFrameHeader
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'source-frame-admitted',
+          requestId: header.requestId,
+          frameId: header.frameId,
+          publicationId: header.publicationId,
+          frameByteLength: header.frameByteLength + 1
+        })
+      )
+
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'acknowledgement-failed',
+          message:
+            '[collaboration] source frame admission credit does not match'
+        })
+      )
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      await provider.destroy()
+    }
   })
 
-  it('rejects a successful response received before source frame admission', async () => {
+  it('reports a premature server response separately from accepted publication ownership', async () => {
     const headers: PublicationFrameHeader[] = []
     const server = await createLoopbackServer(
       (socket, message) => {
@@ -794,21 +858,31 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     )
     const provider = createProvider(server.endpoint)
+    const failures = vi.fn()
+    provider.onFailure(failures)
     await provider.connect()
 
-    await expect(
-      provider.sendPublication(createTwoRecordPublication(700_000))
-    ).rejects.toMatchObject({
-      code: 'acknowledgement-failed',
-      message:
-        '[collaboration] publication response arrived before source frame admission'
-    })
-    expect(headers).toHaveLength(1)
-    expect(provider.getStatus()).toBe('failed')
-    await provider.destroy()
+    try {
+      await expect(
+        provider.sendPublication(createTwoRecordPublication(700_000))
+      ).resolves.toBeUndefined()
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'acknowledgement-failed',
+          message:
+            '[collaboration] publication response arrived before source frame admission'
+        })
+      )
+      expect(headers).toHaveLength(1)
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      await provider.destroy()
+    }
   })
 
-  it('clears active and queued publication frames when disconnected', async () => {
+  it('keeps accepted ownership distinct from a capacity waiter cleared by disconnect', async () => {
     const headers: PublicationFrameHeader[] = []
     const server = await createLoopbackServer(
       (socket, message) => {
@@ -825,22 +899,25 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     )
     const provider = createProvider(server.endpoint)
     await provider.connect()
-    const firstOutcome = provider
-      .sendPublication(createTwoRecordPublication(700_000))
-      .catch((error: unknown) => error)
+    const firstOutcome = provider.sendPublication(
+      createTwoRecordPublication(700_000)
+    )
     const secondOutcome = provider
       .sendPublication(createTwoRecordPublication(700_000))
       .catch((error: unknown) => error)
 
-    await vi.waitFor(() => expect(headers).toHaveLength(1))
-    await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(headers).toHaveLength(1)
-    await provider.disconnect()
+    try {
+      await vi.waitFor(() => expect(headers).toHaveLength(1))
+      await expect(firstOutcome).resolves.toBeUndefined()
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(headers).toHaveLength(1)
+      await provider.disconnect()
 
-    expect(await firstOutcome).toMatchObject({ code: 'not-connected' })
-    expect(await secondOutcome).toMatchObject({ code: 'not-connected' })
-    expect(headers).toHaveLength(1)
-    await provider.destroy()
+      expect(await secondOutcome).toMatchObject({ code: 'not-connected' })
+      expect(headers).toHaveLength(1)
+    } finally {
+      await provider.destroy()
+    }
   })
 
   it('keeps JSON control requests live while a publication awaits admission', async () => {
@@ -914,48 +991,6 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       })
     )
     await publicationSending
-    await provider.destroy()
-  })
-
-  it('sends peer-applied as a JSON control and waits for its server response', async () => {
-    let receipt: ClientMessage | undefined
-    let acknowledgeReceipt: (() => void) | undefined
-    const server = await createLoopbackServer((socket, message, encoded) => {
-      if (message.type === 'hello') {
-        socket.send(JSON.stringify({ type: 'ready' }))
-        return
-      }
-      if (message.type !== 'peer-applied') return
-      expect(typeof encoded).toBe('string')
-      receipt = message
-      acknowledgeReceipt = () =>
-        socket.send(
-          JSON.stringify({
-            type: 'response',
-            requestId: message.requestId,
-            ok: true
-          })
-        )
-    })
-    const provider = createProvider(server.endpoint)
-    await provider.connect()
-    let settled = false
-    const sending = provider
-      .sendPeerApplied('publication-a', 'actor-source')
-      .then(() => {
-        settled = true
-      })
-
-    await vi.waitFor(() => expect(receipt).toBeDefined())
-    expect(receipt).toMatchObject({
-      type: 'peer-applied',
-      publicationId: 'publication-a',
-      fromActorId: 'actor-source'
-    })
-    await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(settled).toBe(false)
-    acknowledgeReceipt?.()
-    await sending
     await provider.destroy()
   })
 
@@ -1080,65 +1115,15 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
-  it('encodes one ordered publication batch and settles it with one response', async () => {
-    let sent: readonly SharedPublication[] | undefined
-    let requestCount = 0
-    const counterSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraDiagnosticCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraDiagnosticCounterSink = counterSink
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type === 'hello') {
-        socket.send(JSON.stringify({ type: 'ready' }))
-        return
-      }
-      if (message.type !== 'send-publications' || !message.requestId) return
-      requestCount += 1
-      sent = message.publications
-      socket.send(
-        JSON.stringify({
-          type: 'response',
-          requestId: message.requestId,
-          ok: true
-        })
-      )
-    })
-    const provider = createProvider(server.endpoint) as ReturnType<
-      typeof createProvider
-    > & {
-      sendPublications(
-        publications: readonly SharedPublication[]
-      ): Promise<void>
-    }
-    const secondPublication = createPublication({
-      suffix: 'b',
-      transactionId: 2
-    })
-    await provider.connect()
+  it('exposes no public batch, lease, or max-capability publication modes', async () => {
+    const provider = createProvider('ws://127.0.0.1:1')
 
-    expect(provider.maxConcurrentPublicationSends).toBe(1)
-    expect(provider.maxPublicationsPerSend).toBe(4)
-    await provider.sendPublications([publication, secondPublication])
+    expect('sendPublications' in provider).toBe(false)
+    expect('onPublications' in provider).toBe(false)
+    expect('onInboundPublicationLease' in provider).toBe(false)
+    expect('maxConcurrentPublicationSends' in provider).toBe(false)
+    expect('maxPublicationsPerSend' in provider).toBe(false)
 
-    expect(requestCount).toBe(1)
-    expect(sent).toEqual([publication, secondPublication])
-    expect(counterSink).toHaveBeenCalledWith(
-      'collaboration:outbound-batch-request-count',
-      1
-    )
-    expect(counterSink).toHaveBeenCalledWith(
-      'collaboration:outbound-batch-publication-count',
-      2
-    )
-    expect(counterSink).toHaveBeenCalledWith(
-      'collaboration:outbound-encoded-byte-length',
-      expect.any(Number)
-    )
     await provider.destroy()
   })
 
@@ -1166,6 +1151,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.connect()
 
     await provider.sendPublication(largePublication)
+    await vi.waitFor(() => expect(received).toEqual(largePublication))
 
     const plain = JSON.stringify({
       type: 'send-publication',
@@ -1192,7 +1178,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         })
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -1205,10 +1191,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       expect(inbound).toHaveBeenCalledOnce()
     })
 
-    expect(inbound).toHaveBeenCalledWith({
-      publication: largePublication,
-      fromActorId: 'actor-b'
-    })
+    expect(inbound).toHaveBeenCalledWith(largePublication)
     const worker = codecWorkers[0]
     const decodePosts = worker?.posted.filter(
       ({ message }) => message.type === 'decode-publication-frame'
@@ -1268,7 +1251,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       )
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     provider.onPublication(inbound)
     await provider.connect()
     const send = vi.spyOn(NodeWebSocket.prototype, 'send')
@@ -1343,7 +1326,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('admits a bounded frame window while exposing one decoded lease until settlement', async () => {
+  it('returns wire credit while one exclusive async consumer remains pending', async () => {
     const publications = Array.from({ length: 4 }, (_, index) =>
       createPublication({
         payload: {
@@ -1372,6 +1355,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     ).toBeGreaterThan(2 * 1024 * 1024)
     let sendInbound: (() => void) | undefined
     const consumedFrameIds: string[] = []
+    const appliedPublicationIds: string[] = []
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -1387,10 +1371,27 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
           const tailFrame = inboundFrames[3]
           if (tailFrame) socket.send(new Uint8Array(tailFrame))
         }
+        return
+      }
+      if (
+        message.type === 'peer-applied' &&
+        message.publicationId &&
+        message.requestId
+      ) {
+        appliedPublicationIds.push(message.publicationId)
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
       }
     })
     const provider = createProvider(server.endpoint)
-    const leases: InboundPublicationLease[] = []
+    const firstSettlement = createDeferred<undefined>()
+    void firstSettlement.promise.catch(() => undefined)
+    const received: SharedPublication[] = []
     const phaseSink = vi.fn()
     ;(
       globalThis as typeof globalThis & {
@@ -1400,59 +1401,43 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         ) => void
       }
     ).__asyraBrowserDragPhaseSink = phaseSink
-    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    provider.onPublication(async (inbound) => {
+      received.push(inbound)
+      if (inbound.publicationId === publications[0]?.publicationId) {
+        await firstSettlement.promise
+      }
+    })
     await provider.connect()
 
     try {
       sendInbound?.()
-      await vi.waitFor(() => expect(consumedFrameIds).toHaveLength(3))
-      await vi.waitFor(() => expect(leases).toHaveLength(1))
-
-      expect(
-        consumedFrameIds
-          .map(
-            (frameId) =>
-              frameByteLengths[
-                inboundFrames.findIndex(
-                  (frame) =>
-                    inspectPublicationFrameHeader(frame).frameId === frameId
-                )
-              ] as number
-          )
-          .reduce((sum, size) => sum + size, 0)
-      ).toBeLessThanOrEqual(2 * 1024 * 1024)
-      expect(
-        codecWorkers[0]?.posted.filter(
-          ({ message }) => message.type === 'decode-publication-frame'
-        )
-      ).toHaveLength(3)
-      expect(leases[0]?.publication.publicationId).toBe(
-        publications[0]?.publicationId
+      await vi.waitFor(() =>
+        expect(consumedFrameIds).toHaveLength(inboundFrames.length)
       )
-      expect(Object.isFrozen(leases[0]?.publication)).toBe(true)
-      expect(
-        Object.isFrozen(leases[0]?.publication.deliveries[0]?.payload)
-      ).toBe(true)
+      await vi.waitFor(() => expect(received).toHaveLength(1))
 
-      leases[0]?.settle({ outcome: 'success' })
-      leases[0]?.settle({
-        outcome: 'terminal-failure',
-        error: new Error('late settlement must be ignored')
-      })
-      await vi.waitFor(() => expect(consumedFrameIds).toHaveLength(4))
       expect(
         codecWorkers[0]?.posted.filter(
           ({ message }) => message.type === 'decode-publication-frame'
         )
       ).toHaveLength(inboundFrames.length)
-      for (let index = 1; index < publications.length; index += 1) {
-        await vi.waitFor(() => expect(leases).toHaveLength(index + 1))
-        leases[index]?.settle({ outcome: 'success' })
-      }
+      expect(received[0]?.publicationId).toBe(publications[0]?.publicationId)
+      expect(Object.isFrozen(received[0])).toBe(true)
+      expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(true)
+      expect(appliedPublicationIds).toEqual([])
 
-      expect(
-        leases.map(({ publication }) => publication.publicationId)
-      ).toEqual(publications.map(({ publicationId }) => publicationId))
+      firstSettlement.resolve(undefined)
+      await vi.waitFor(() => expect(received).toHaveLength(publications.length))
+      await vi.waitFor(() =>
+        expect(appliedPublicationIds).toHaveLength(publications.length)
+      )
+
+      expect(received.map(({ publicationId }) => publicationId)).toEqual(
+        publications.map(({ publicationId }) => publicationId)
+      )
+      expect(appliedPublicationIds).toEqual(
+        publications.map(({ publicationId }) => publicationId)
+      )
       expect(new Set(consumedFrameIds).size).toBe(inboundFrames.length)
       expect(provider.getStatus()).toBe('connected')
       expect(
@@ -1465,46 +1450,63 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('tears down an active decoded lease on terminal settlement without releasing the next publication', async () => {
+  it('keeps terminal app rejection out of ProviderFailure without advancing past the gap', async () => {
     const secondPublication = createPublication({
       suffix: 'terminal-b',
       transactionId: 20
     })
     let sendInbound: (() => void) | undefined
+    const consumedPublicationIds: string[] = []
+    const appliedPublicationIds: string[] = []
     const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      socket.send(JSON.stringify({ type: 'ready' }))
-      sendInbound = () =>
-        sendPublicationFrames(socket, {
-          type: 'publications',
-          publications: [publication, secondPublication],
-          fromActorId: 'actor-b'
-        })
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () =>
+          sendPublicationFrames(socket, {
+            type: 'publications',
+            publications: [publication, secondPublication],
+            fromActorId: 'actor-b'
+          })
+        return
+      }
+      if (message.type === 'frame-consumed' && message.publicationId) {
+        consumedPublicationIds.push(message.publicationId)
+        return
+      }
+      if (message.type === 'peer-applied' && message.publicationId) {
+        appliedPublicationIds.push(message.publicationId)
+      }
     })
     const provider = createProvider(server.endpoint)
-    const leases: InboundPublicationLease[] = []
+    const applyFailure = new Error('remote apply failed')
+    const firstSettlement = createDeferred<undefined>()
+    void firstSettlement.promise.catch(() => undefined)
+    const receivedPublicationIds: string[] = []
     const failures = vi.fn()
-    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    provider.onPublication(async (inbound) => {
+      receivedPublicationIds.push(inbound.publicationId)
+      if (inbound.publicationId === publication.publicationId) {
+        await firstSettlement.promise
+      }
+    })
     provider.onFailure(failures)
     await provider.connect()
 
     try {
       sendInbound?.()
-      await vi.waitFor(() => expect(leases).toHaveLength(1))
-      leases[0]?.settle({
-        outcome: 'terminal-failure',
-        error: new Error('remote apply failed')
-      })
-      await vi.waitFor(() => expect(provider.getStatus()).toBe('failed'))
+      await vi.waitFor(() => expect(consumedPublicationIds).toHaveLength(2))
+      await vi.waitFor(() =>
+        expect(receivedPublicationIds).toEqual([publication.publicationId])
+      )
 
-      expect(leases).toHaveLength(1)
-      expect(failures).toHaveBeenCalledOnce()
+      firstSettlement.reject(applyFailure)
+      await new Promise((resolve) => setTimeout(resolve, 25))
+
+      expect(receivedPublicationIds).toEqual([publication.publicationId])
+      expect(appliedPublicationIds).toEqual([])
+      expect(failures).not.toHaveBeenCalled()
       expect(codecWorkers[0]?.terminateCount).toBe(1)
-      expect(
-        codecWorkers[0]?.posted.some(
-          ({ message }) => message.type === 'release-decoded-publication'
-        )
-      ).toBe(false)
+      expect(provider.getStatus()).toBe('failed')
     } finally {
       await provider.destroy()
     }
@@ -1539,135 +1541,157 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
       if (message.type === 'frame-consumed' && message.frameId) {
         consumedFrameIds.push(message.frameId)
+        return
+      }
+      if (message.type === 'peer-applied' && message.requestId) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
       }
     })
     const provider = createProvider(server.endpoint)
-    const leases: InboundPublicationLease[] = []
-    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    const received: SharedPublication[] = []
+    provider.onPublication(async (inbound) => {
+      received.push(inbound)
+    })
     await provider.connect()
 
     try {
       sendInbound?.()
-      await vi.waitFor(() => expect(leases).toHaveLength(1))
+      await vi.waitFor(() => expect(received).toHaveLength(1))
 
       expect(consumedFrameIds).toHaveLength(1)
-      expect(leases[0]?.publication).toEqual(oversizedPublication)
-      leases[0]?.settle({ outcome: 'success' })
-      await vi.waitFor(() =>
-        expect(
-          codecWorkers[0]?.posted.filter(
-            ({ message }) => message.type === 'release-decoded-publication'
-          )
-        ).toHaveLength(1)
-      )
+      expect(received[0]).toEqual(oversizedPublication)
     } finally {
       await provider.destroy()
     }
   })
 
-  it('ignores late settlement after active decoded lease teardown', async () => {
+  it('ignores late async consumer settlement after transport teardown', async () => {
     const secondPublication = createPublication({
       suffix: 'teardown-b',
       transactionId: 22
     })
     let sendInbound: (() => void) | undefined
+    const appliedPublicationIds: string[] = []
     const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      socket.send(JSON.stringify({ type: 'ready' }))
-      sendInbound = () =>
-        sendPublicationFrames(socket, {
-          type: 'publications',
-          publications: [publication, secondPublication],
-          fromActorId: 'actor-b'
-        })
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () =>
+          sendPublicationFrames(socket, {
+            type: 'publications',
+            publications: [publication, secondPublication],
+            fromActorId: 'actor-b'
+          })
+        return
+      }
+      if (message.type === 'peer-applied' && message.publicationId) {
+        appliedPublicationIds.push(message.publicationId)
+      }
     })
     const provider = createProvider(server.endpoint)
-    const leases: InboundPublicationLease[] = []
-    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    const settlement = createDeferred<undefined>()
+    const receivedPublicationIds: string[] = []
+    provider.onPublication(async (inbound) => {
+      receivedPublicationIds.push(inbound.publicationId)
+      await settlement.promise
+    })
     await provider.connect()
 
     sendInbound?.()
-    await vi.waitFor(() => expect(leases).toHaveLength(1))
+    await vi.waitFor(() =>
+      expect(receivedPublicationIds).toEqual([publication.publicationId])
+    )
     await provider.destroy()
-    leases[0]?.settle({ outcome: 'success' })
+    settlement.resolve(undefined)
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(leases).toHaveLength(1)
+    expect(receivedPublicationIds).toEqual([publication.publicationId])
+    expect(appliedPublicationIds).toEqual([])
     expect(codecWorkers[0]?.terminateCount).toBe(1)
-    expect(
-      codecWorkers[0]?.posted.some(
-        ({ message }) => message.type === 'release-decoded-publication'
-      )
-    ).toBe(false)
     expect(provider.getStatus()).toBe('disposed')
   })
 
-  it('releases ordered inbound publications one at a time while preserving subscribers', async () => {
+  it('delivers ordered publications directly through the one async consumer', async () => {
     const secondPublication = createPublication({
       suffix: 'b',
       transactionId: 2
     })
     let sendInbound: (() => void) | undefined
+    const delayedReceiptResponses: (() => void)[] = []
     const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      socket.send(JSON.stringify({ type: 'ready' }))
-      sendInbound = () =>
-        sendPublicationFrames(socket, {
-          type: 'publications',
-          publications: [publication, secondPublication],
-          fromActorId: 'actor-b'
-        })
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () =>
+          sendPublicationFrames(socket, {
+            type: 'publications',
+            publications: [publication, secondPublication],
+            fromActorId: 'actor-b'
+          })
+        return
+      }
+      if (
+        message.type === 'peer-applied' &&
+        message.publicationId &&
+        message.requestId
+      ) {
+        delayedReceiptResponses.push(() =>
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: message.requestId,
+              ok: true
+            })
+          )
+        )
+      }
     })
-    const provider = createProvider(server.endpoint) as ReturnType<
-      typeof createProvider
-    > & {
-      onPublications(
-        subscriber: (
-          publications: readonly {
-            publication: SharedPublication
-            fromActorId?: string
-          }[]
-        ) => void
-      ): () => void
-    }
-    const batchInbound = vi.fn()
-    const singleInbound = vi.fn()
-    const timeline: string[] = []
-    provider.onPublications(batchInbound)
-    provider.onPublication(singleInbound)
+    const provider = createProvider(server.endpoint)
+    const inbound = vi.fn(async (_received: SharedPublication) => undefined)
+    provider.onPublication(inbound)
 
     await provider.connect()
-    const worker = codecWorkers[0]
-    if (!worker) throw new Error('Expected a codec worker')
-    worker.postObserver = (message) => {
-      if (message.type !== 'decode-publication-frame') return
-      timeline.push(
-        `worker:${inspectPublicationFrameHeader(message.frame).publicationIndex}`
-      )
-    }
-    batchInbound.mockImplementation(
-      (inbound: readonly { publication: SharedPublication }[]) =>
-        timeline.push(`batch:${inbound[0]?.publication.publicationId}`)
-    )
-    sendInbound?.()
-    await vi.waitFor(() => expect(batchInbound).toHaveBeenCalledTimes(2))
+    const send = vi.spyOn(NodeWebSocket.prototype, 'send')
 
-    expect(batchInbound.mock.calls.map(([value]) => value)).toEqual([
-      [{ publication, fromActorId: 'actor-b' }],
-      [{ publication: secondPublication, fromActorId: 'actor-b' }]
-    ])
-    expect(singleInbound.mock.calls.map(([value]) => value)).toEqual([
-      { publication, fromActorId: 'actor-b' },
-      { publication: secondPublication, fromActorId: 'actor-b' }
-    ])
-    expect(timeline).toEqual([
-      'worker:0',
-      'worker:1',
-      'batch:publication-a',
-      'batch:publication-b'
-    ])
-    await provider.destroy()
+    try {
+      sendInbound?.()
+      await vi.waitFor(() => expect(inbound).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(delayedReceiptResponses).toHaveLength(2))
+
+      const peerAppliedSends = send.mock.calls.flatMap(([value], index) => {
+        if (typeof value !== 'string') return []
+        const message = decodeCollaborationMessage(value) as ClientMessage
+        if (message.type !== 'peer-applied') return []
+        return [
+          {
+            message,
+            invocationOrder: send.mock.invocationCallOrder[index] as number
+          }
+        ]
+      })
+      const firstPeerApplied = peerAppliedSends.find(
+        ({ message }) => message.publicationId === publication.publicationId
+      )
+
+      expect(inbound.mock.calls.map(([value]) => value)).toEqual([
+        publication,
+        secondPublication
+      ])
+      expect(firstPeerApplied).toBeDefined()
+      expect(firstPeerApplied?.invocationOrder).toBeLessThan(
+        inbound.mock.invocationCallOrder[1] as number
+      )
+
+      delayedReceiptResponses.forEach((respond) => respond())
+    } finally {
+      send.mockRestore()
+      await provider.destroy()
+    }
   })
 
   it('assembles interleaved multi-chunk publications and releases them in first-seen order', async () => {
@@ -1714,12 +1738,22 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         }
         return
       }
-      if (message.type === 'frame-consumed') {
+      if (message.type === 'frame-consumed' && message.frameId) {
         consumedFrameIds.push(message.frameId)
+        return
+      }
+      if (message.type === 'peer-applied' && message.requestId) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
       }
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -1731,8 +1765,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
       expect(failures).not.toHaveBeenCalled()
       expect(inbound.mock.calls.map(([value]) => value)).toEqual([
-        { publication: firstPublication, fromActorId: 'actor-b' },
-        { publication: secondPublication, fromActorId: 'actor-c' }
+        firstPublication,
+        secondPublication
       ])
       await vi.waitFor(() =>
         expect(consumedFrameIds).toHaveLength(
@@ -1743,11 +1777,6 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         (frame) => inspectPublicationFrameHeader(frame).frameId
       )
       expect(new Set(consumedFrameIds)).toEqual(new Set(expectedFrameIds))
-      expect(
-        codecWorkers[0]?.posted.some(
-          ({ message }) => message.type === 'release-decoded-publication'
-        )
-      ).toBe(true)
       expect(
         phaseSink.mock.calls.filter(
           ([phaseName]) => phaseName === 'collaboration:codec-worker-decode'
@@ -1788,7 +1817,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -1845,9 +1874,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     })
     const provider = createProvider(server.endpoint)
-    const leases: InboundPublicationLease[] = []
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
-    provider.onInboundPublicationLease((lease) => leases.push(lease))
+    provider.onPublication(inbound)
     provider.onFailure(failures)
     await provider.connect()
 
@@ -1856,7 +1885,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
 
       expect(consumedFrameIds).toEqual([])
-      expect(leases).toEqual([])
+      expect(inbound).not.toHaveBeenCalled()
       expect(failures).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'transport-failed',
@@ -1919,7 +1948,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -1946,54 +1975,40 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('isolates batch and single inbound subscribers from observer mutation', async () => {
-    const secondPublication = createPublication({
-      suffix: 'b',
-      transactionId: 2
-    })
+  it('delivers one detached immutable publication without a sender envelope', async () => {
     const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      socket.send(JSON.stringify({ type: 'ready' }))
-      sendPublicationFrames(socket, {
-        type: 'publications',
-        publications: [publication, secondPublication],
-        fromActorId: 'actor-b'
-      })
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendPublicationFrames(socket, {
+          type: 'publication',
+          publication,
+          fromActorId: 'actor-b'
+        })
+        return
+      }
+      if (message.type === 'peer-applied' && message.requestId) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
+      }
     })
     const provider = createProvider(server.endpoint)
-    const laterBatchInbound = vi.fn()
-    const singleInbound = vi.fn()
-    provider.onPublications((inbound) => {
-      const payload = inbound[0]?.publication.deliveries[0]?.payload as {
-        value: number
-      }
-      payload.value = 999
+    const received: SharedPublication[] = []
+    provider.onPublication(async (inbound) => {
+      received.push(inbound)
     })
-    provider.onPublications(laterBatchInbound)
-    provider.onPublication((inbound) => {
-      const payload = inbound.publication.deliveries[0]?.payload as {
-        value: number
-      }
-      payload.value = 555
-    })
-    provider.onPublication(singleInbound)
 
     await provider.connect()
-    await vi.waitFor(() => expect(laterBatchInbound).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(received).toHaveLength(1))
 
-    expect(
-      (
-        laterBatchInbound.mock.calls[0]?.[0][0].publication.deliveries[0]
-          ?.payload as { value: number }
-      ).value
-    ).toBe(1)
-    expect(
-      (
-        singleInbound.mock.calls[0]?.[0].publication.deliveries[0]?.payload as {
-          value: number
-        }
-      ).value
-    ).toBe(1)
+    expect(received[0]).toEqual(publication)
+    expect(received[0]).not.toBe(publication)
+    expect(Object.isFrozen(received[0])).toBe(true)
+    expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(true)
     await provider.destroy()
   })
 
@@ -2050,7 +2065,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       )
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -2073,7 +2088,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('receives one detached live publication with sender context', async () => {
+  it('receives one detached live publication as the direct callback payload', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type !== 'hello') return
       socket.send(JSON.stringify({ type: 'ready' }))
@@ -2084,17 +2099,14 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       })
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     provider.onPublication(inbound)
 
     await provider.connect()
     await vi.waitFor(() => expect(inbound).toHaveBeenCalledOnce())
 
-    expect(inbound).toHaveBeenCalledWith({
-      publication,
-      fromActorId: 'actor-b'
-    })
-    expect(inbound.mock.calls[0]?.[0].publication).not.toBe(publication)
+    expect(inbound).toHaveBeenCalledWith(publication)
+    expect(inbound.mock.calls[0]?.[0]).not.toBe(publication)
     await provider.destroy()
   })
 
@@ -2111,7 +2123,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
     const provider = createProvider(server.endpoint)
     const failures = vi.fn()
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     provider.onFailure(failures)
     provider.onPublication(inbound)
 
@@ -2147,7 +2159,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       sendInvalidFrame = () => socket.send(new Uint8Array(invalid))
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -2193,7 +2205,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       sendTruncatedFrame = () => socket.send(new Uint8Array(truncated))
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -2228,7 +2240,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         })
     })
     const provider = createProvider(server.endpoint)
-    const inbound = vi.fn()
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
     const failures = vi.fn()
     provider.onPublication(inbound)
     provider.onFailure(failures)
@@ -2310,32 +2322,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     worker.flush()
   })
 
-  it('rejects a pending publication when its socket disconnects', async () => {
-    let requestReceived: (() => void) | undefined
-    const request = new Promise<void>((resolve) => {
-      requestReceived = resolve
-    })
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type === 'hello') {
-        socket.send(JSON.stringify({ type: 'ready' }))
-      } else if (message.type === 'send-publication') {
-        requestReceived?.()
-      }
-    })
-    const provider = createProvider(server.endpoint)
-    await provider.connect()
-    const sendingOutcome = provider
-      .sendPublication(publication)
-      .catch((error: unknown) => error)
-    await request
-
-    await provider.disconnect()
-
-    expect(await sendingOutcome).toMatchObject({ code: 'not-connected' })
-    await provider.destroy()
-  })
-
-  it('preserves the server close code and reason for a rejected pending publication', async () => {
+  it('reports one ProviderFailure for an unexpected close after publication acceptance', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -2344,14 +2331,29 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       }
     })
     const provider = createProvider(server.endpoint)
+    const failures = vi.fn()
+    provider.onFailure(failures)
     await provider.connect()
 
-    await expect(provider.sendPublication(publication)).rejects.toMatchObject({
-      code: 'not-connected',
-      message:
-        '[collaboration] WebSocket connection closed (1008: canonical publication rejected)'
-    })
-    await provider.destroy()
+    try {
+      await expect(
+        provider.sendPublication(publication)
+      ).resolves.toBeUndefined()
+      await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+      await new Promise((resolve) => setTimeout(resolve, 25))
+
+      expect(failures).toHaveBeenCalledOnce()
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'not-connected',
+          message:
+            '[collaboration] WebSocket connection closed (1008: canonical publication rejected)'
+        })
+      )
+      expect(provider.getStatus()).toBe('disconnected')
+    } finally {
+      await provider.destroy()
+    }
   })
 
   it('reconnects with a new socket and exposes no state-vector methods', async () => {

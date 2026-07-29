@@ -9,6 +9,7 @@ import {
 } from '../../collaboration/compact-binary'
 import {
   CollaborationMessageTypes,
+  PUBLICATION_FRAME_INBOUND_WINDOW_BYTES,
   PUBLICATION_FRAME_VERSION_OFFSET,
   decodeCollaborationMessage,
   decodePublicationMessageFrames,
@@ -21,6 +22,11 @@ import {
   type CollaborationRequestMessage,
   type CollaborationServerMessage
 } from '../../collaboration/protocol'
+import {
+  PublicationCodecWorkerRuntime,
+  type PublicationCodecWorkerRequest,
+  type PublicationCodecWorkerResponse
+} from '../../collaboration/publication-codec-worker'
 import { decodeProfiledWebSocketFrame } from '../../collaboration/websocket-profile-frame'
 
 interface PublicationFixtureOptions {
@@ -411,6 +417,257 @@ describe('collaboration wire protocol', () => {
       })
     })
     expect(decodePublicationMessageFrames(frames)).toEqual(request)
+  })
+
+  it('destroys an idle codec runtime without an active decoded delivery', () => {
+    const runtime = new PublicationCodecWorkerRuntime()
+    const responses: PublicationCodecWorkerResponse[] = []
+
+    expect(() => runtime.destroy()).not.toThrow()
+
+    runtime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-after-destroy',
+        frame: new ArrayBuffer(0)
+      },
+      (response) => responses.push(response)
+    )
+
+    expect(responses).toEqual([
+      {
+        type: 'publication-codec-failure',
+        jobId: 'decode-after-destroy',
+        message: '[collaboration] publication codec worker is disposed'
+      }
+    ])
+  })
+
+  it('separates wire-byte consumption from successful app delivery settlement', () => {
+    const firstPublication = createPublication({
+      suffix: 'worker-first',
+      transactionId: 11
+    })
+    const secondPublication = createPublication({
+      suffix: 'worker-second',
+      transactionId: 12
+    })
+    const frames = encodePublicationMessageFrames({
+      type: CollaborationMessageTypes.PUBLICATIONS,
+      publications: [firstPublication, secondPublication],
+      fromActorId: 'actor-a'
+    })
+    expect(frames).toHaveLength(2)
+
+    const runtime = new PublicationCodecWorkerRuntime()
+    const responses: PublicationCodecWorkerResponse[] = []
+    const post = (response: PublicationCodecWorkerResponse): void => {
+      responses.push(response)
+    }
+
+    runtime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-first',
+        frame: frames[0] as ArrayBuffer
+      },
+      post
+    )
+    runtime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-second',
+        frame: frames[1] as ArrayBuffer
+      },
+      post
+    )
+
+    expect(responses.map((response) => response.type)).toEqual([
+      'publication-frame-consumed',
+      'decoded-publication',
+      'publication-frame-consumed',
+      'publication-frame-accepted'
+    ])
+    expect(
+      responses.filter((response) => response.type === 'decoded-publication')
+    ).toHaveLength(1)
+
+    const responseCountBeforeSettlement = responses.length
+    const settlementRequest: PublicationCodecWorkerRequest = {
+      type: 'settle-decoded-publication-delivery',
+      jobId: 'settle-first'
+    }
+    runtime.handle(settlementRequest, post)
+
+    expect(responses.slice(responseCountBeforeSettlement)).toEqual([
+      {
+        type: 'decoded-publication-delivery-settled',
+        jobId: 'settle-first'
+      },
+      expect.objectContaining({
+        type: 'decoded-publication',
+        jobId: 'settle-first',
+        publication: secondPublication
+      })
+    ])
+  })
+
+  it('rejects a completed single-frame replay while its decoded delivery remains pending', () => {
+    const replayedPublication = createPublication({
+      suffix: 'worker-replay',
+      transactionId: 13
+    })
+    const frame = encodePublicationMessageFrames({
+      type: CollaborationMessageTypes.PUBLICATION,
+      publication: replayedPublication,
+      fromActorId: 'actor-a'
+    })[0]
+    if (!frame) throw new Error('Expected one publication frame')
+
+    const runtime = new PublicationCodecWorkerRuntime()
+    const responses: PublicationCodecWorkerResponse[] = []
+    const post = (response: PublicationCodecWorkerResponse): void => {
+      responses.push(response)
+    }
+
+    runtime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-original',
+        frame
+      },
+      post
+    )
+    runtime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-replay',
+        frame: frame.slice(0)
+      },
+      post
+    )
+    runtime.handle(
+      {
+        type: 'settle-decoded-publication-delivery',
+        jobId: 'settle-original'
+      },
+      post
+    )
+
+    expect(
+      responses.map(({ type, ...response }) => ({
+        type,
+        ...(type === 'publication-codec-failure'
+          ? { message: (response as { message: string }).message }
+          : {})
+      }))
+    ).toEqual([
+      { type: 'publication-frame-consumed' },
+      { type: 'decoded-publication' },
+      {
+        type: 'publication-codec-failure',
+        message: '[collaboration] duplicate inbound publication frame'
+      },
+      { type: 'decoded-publication-delivery-settled' }
+    ])
+  })
+
+  it('keeps multi-assembly continuation within the exact worker byte window', () => {
+    const oversizedPublication = createMultiRecordPublication([
+      { source: 'a'.repeat(1_150_000) },
+      { source: 'b'.repeat(1_150_000) }
+    ])
+    const oversizedFrames = encodePublicationMessageFrames(
+      {
+        type: CollaborationMessageTypes.PUBLICATION,
+        publication: oversizedPublication,
+        fromActorId: 'actor-a'
+      },
+      { softTargetBytes: 1_200_000 }
+    )
+    const interleavedPublication = createPublication({
+      payload: { source: 'c'.repeat(128_000) },
+      suffix: 'worker-interleaved',
+      transactionId: 14
+    })
+    const interleavedFrame = encodePublicationMessageFrames({
+      type: CollaborationMessageTypes.PUBLICATION,
+      publication: interleavedPublication,
+      fromActorId: 'actor-b'
+    })[0]
+    expect(oversizedFrames).toHaveLength(2)
+    if (!interleavedFrame) throw new Error('Expected an interleaved frame')
+    expect(
+      oversizedFrames.reduce((total, frame) => total + frame.byteLength, 0)
+    ).toBeGreaterThan(PUBLICATION_FRAME_INBOUND_WINDOW_BYTES)
+    expect(
+      (oversizedFrames[0]?.byteLength ?? 0) + interleavedFrame.byteLength
+    ).toBeLessThan(PUBLICATION_FRAME_INBOUND_WINDOW_BYTES)
+    expect(
+      oversizedFrames.reduce(
+        (total, frame) => total + frame.byteLength,
+        interleavedFrame.byteLength
+      )
+    ).toBeGreaterThan(PUBLICATION_FRAME_INBOUND_WINDOW_BYTES)
+
+    const uniqueAssemblyRuntime = new PublicationCodecWorkerRuntime()
+    const uniqueAssemblyResponses: PublicationCodecWorkerResponse[] = []
+    oversizedFrames.forEach((frame, index) =>
+      uniqueAssemblyRuntime.handle(
+        {
+          type: 'decode-publication-frame',
+          jobId: `decode-unique-${index}`,
+          frame: frame.slice(0)
+        },
+        (response) => uniqueAssemblyResponses.push(response)
+      )
+    )
+    expect(
+      uniqueAssemblyResponses.some(
+        (response) => response.type === 'publication-codec-failure'
+      )
+    ).toBe(false)
+
+    const interleavedRuntime = new PublicationCodecWorkerRuntime()
+    const interleavedResponses: PublicationCodecWorkerResponse[] = []
+    const postInterleaved = (
+      response: PublicationCodecWorkerResponse
+    ): void => {
+      interleavedResponses.push(response)
+    }
+    interleavedRuntime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-interleaved-first',
+        frame: (oversizedFrames[0] as ArrayBuffer).slice(0)
+      },
+      postInterleaved
+    )
+    interleavedRuntime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-interleaved-other',
+        frame: interleavedFrame.slice(0)
+      },
+      postInterleaved
+    )
+    const responseCountBeforeOverflow = interleavedResponses.length
+    interleavedRuntime.handle(
+      {
+        type: 'decode-publication-frame',
+        jobId: 'decode-interleaved-overflow',
+        frame: (oversizedFrames[1] as ArrayBuffer).slice(0)
+      },
+      postInterleaved
+    )
+
+    expect(interleavedResponses.slice(responseCountBeforeOverflow)).toEqual([
+      expect.objectContaining({
+        type: 'publication-codec-failure',
+        jobId: 'decode-interleaved-overflow',
+        message: '[collaboration] inbound publication frame window exceeded'
+      })
+    ])
   })
 
   it('preserves every UTF-16 code unit in publication frame identities', () => {

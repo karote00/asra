@@ -133,7 +133,8 @@ const waitForServer = (child) =>
 
 const createServerProbeImport = ({
   holdPeerWriteCallbacks = false,
-  injectPeerWriteCallbackError = false
+  injectPeerWriteCallbackError = false,
+  holdPeerCloseCleanup = false
 } = {}) => {
   const source = `
     import { createRequire } from 'node:module'
@@ -141,7 +142,12 @@ const createServerProbeImport = ({
     const require = createRequire(process.cwd() + '/collaboration-server-probe.cjs')
     const { WebSocket } = require('ws')
     const originalSend = WebSocket.prototype.send
+    const originalEmit = WebSocket.prototype.emit
     const heldCallbacks = []
+    const peerSockets = new Map()
+    const socketActors = new WeakMap()
+    const heldCloseActors = new Set()
+    const heldCloseEvents = new Map()
     let releasePermits = 0
     let stdinBuffer = ''
 
@@ -154,7 +160,7 @@ const createServerProbeImport = ({
       }
     }
 
-    if (${holdPeerWriteCallbacks}) {
+    if (${holdPeerWriteCallbacks || holdPeerCloseCleanup}) {
       process.stdin.setEncoding('utf8')
       process.stdin.on('data', (chunk) => {
         stdinBuffer += chunk
@@ -162,9 +168,65 @@ const createServerProbeImport = ({
         stdinBuffer = commands.pop() ?? ''
         for (const command of commands) {
           if (command === 'release') releasePermits += 1
+          if (command.startsWith('hold-close:')) {
+            const actorId = command.slice('hold-close:'.length)
+            const socket = peerSockets.get(actorId)
+            if (!socket) {
+              console.log('AI_COLLABORATION_SERVER_TEST_PEER_NOT_FOUND ' + actorId)
+              continue
+            }
+            heldCloseActors.add(actorId)
+            socket.close(1000, 'test close cleanup hold')
+            console.log(
+              'AI_COLLABORATION_SERVER_TEST_PEER_NOT_OPEN ' +
+                actorId +
+                ' ' +
+                socket.readyState
+            )
+          }
+          if (command.startsWith('release-close:')) {
+            const actorId = command.slice('release-close:'.length)
+            const held = heldCloseEvents.get(actorId)
+            if (!held) continue
+            heldCloseEvents.delete(actorId)
+            heldCloseActors.delete(actorId)
+            Reflect.apply(originalEmit, held.socket, ['close', ...held.args])
+            console.log(
+              'AI_COLLABORATION_SERVER_TEST_CLOSE_RELEASED ' + actorId
+            )
+          }
         }
         flushHeldCallbacks()
       })
+    }
+
+    if (${holdPeerCloseCleanup}) {
+      WebSocket.prototype.emit = function (eventName, ...args) {
+        if (eventName === 'message') {
+          const [data, isBinary] = args
+          if (!isBinary) {
+            try {
+              const message = JSON.parse(Buffer.from(data).toString('utf8'))
+              const actorId = message?.identity?.actorId
+              if (message?.type === 'hello' && typeof actorId === 'string') {
+                peerSockets.set(actorId, this)
+                socketActors.set(this, actorId)
+              }
+            } catch {}
+          }
+        }
+        const actorId = socketActors.get(this)
+        if (
+          eventName === 'close' &&
+          actorId &&
+          heldCloseActors.has(actorId)
+        ) {
+          heldCloseEvents.set(actorId, { socket: this, args })
+          console.log('AI_COLLABORATION_SERVER_TEST_CLOSE_HELD ' + actorId)
+          return false
+        }
+        return Reflect.apply(originalEmit, this, [eventName, ...args])
+      }
     }
 
     WebSocket.prototype.send = function (data, options, callback) {
@@ -193,7 +255,8 @@ const startServer = ({
   origin,
   profile = false,
   holdPeerWriteCallbacks = false,
-  injectPeerWriteCallbackError = false
+  injectPeerWriteCallbackError = false,
+  holdPeerCloseCleanup = false
 }) => {
   const environment = {
     ...process.env,
@@ -209,13 +272,17 @@ const startServer = ({
   } else {
     delete environment.ASYRA_DESIGN_APP_URL
   }
-  const useProbe = holdPeerWriteCallbacks || injectPeerWriteCallbackError
+  const useProbe =
+    holdPeerWriteCallbacks ||
+    injectPeerWriteCallbackError ||
+    holdPeerCloseCleanup
   const nodeArguments = useProbe
     ? [
         '--import',
         createServerProbeImport({
           holdPeerWriteCallbacks,
-          injectPeerWriteCallbackError
+          injectPeerWriteCallbackError,
+          holdPeerCloseCleanup
         }),
         compiledServerPath
       ]
@@ -253,6 +320,28 @@ const releasePeerWriteCallback = async (child) => {
     'AI_COLLABORATION_SERVER_TEST_CALLBACK_RELEASED'
   )
   child.stdin.write('release\n')
+  await released
+}
+
+const holdPeerCloseCleanup = async (child, actorId) => {
+  const notOpen = waitForStdoutLine(
+    child,
+    `AI_COLLABORATION_SERVER_TEST_PEER_NOT_OPEN ${actorId} `
+  )
+  const closeHeld = waitForStdoutLine(
+    child,
+    `AI_COLLABORATION_SERVER_TEST_CLOSE_HELD ${actorId}`
+  )
+  child.stdin.write(`hold-close:${actorId}\n`)
+  await Promise.all([notOpen, closeHeld])
+}
+
+const releasePeerCloseCleanup = async (child, actorId) => {
+  const released = waitForStdoutLine(
+    child,
+    `AI_COLLABORATION_SERVER_TEST_CLOSE_RELEASED ${actorId}`
+  )
+  child.stdin.write(`release-close:${actorId}\n`)
   await released
 }
 
@@ -1432,6 +1521,84 @@ test('publication queue allows one oversized frame only while the peer queue is 
     const receivedTail = inspectOpaquePublicationFrame(await tailInbound)
     assert.equal(receivedTail.publicationId, 'oversized-tail-publication')
   } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+  }
+})
+
+test('a request-start peer socket outside OPEN cannot produce source admission before close cleanup', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4330'
+  const child = startServer({
+    port,
+    origin,
+    holdPeerCloseCleanup: true
+  })
+  const sockets = []
+  const peerActorId = 'closing-peer'
+  let closeCleanupHeld = false
+  try {
+    await waitForServer(child)
+    const sender = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'closing-peer-file',
+      actorId: 'closing-peer-sender'
+    })
+    const peer = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'closing-peer-file',
+      actorId: peerActorId
+    })
+    sockets.push(sender, peer)
+
+    await holdPeerCloseCleanup(child, peerActorId)
+    closeCleanupHeld = true
+
+    const requestId = 'closing-peer-request'
+    const frame = createOpaquePublicationFrame({
+      requestId,
+      publicationId: 'closing-peer-publication',
+      payload: new Uint8Array([0xc1])
+    })
+    const senderControls = []
+    const captureSenderControl = (data, isBinary) => {
+      if (isBinary) return
+      senderControls.push(JSON.parse(rawDataToBuffer(data).toString('utf8')))
+    }
+    sender.on('message', captureSenderControl)
+    const firstOutcome = waitForMessage(
+      sender,
+      (message) =>
+        message.type === 'connection-error' ||
+        message.type === 'source-frame-admitted' ||
+        (message.type === 'response' && message.requestId === requestId),
+      'closing peer admission outcome'
+    )
+    const senderClosed = new Promise((resolve) => sender.once('close', resolve))
+
+    sender.send(frame, { binary: true })
+
+    const outcome = await firstOutcome
+    assert.equal(outcome.type, 'connection-error')
+    assert.equal(outcome.code, 'transport-failed')
+    await senderClosed
+    sender.off('message', captureSenderControl)
+    assert.equal(
+      senderControls.some(
+        (message) =>
+          message.type === 'source-frame-admitted' ||
+          (message.type === 'response' &&
+            message.requestId === requestId &&
+            message.ok === true)
+      ),
+      false
+    )
+  } finally {
+    if (closeCleanupHeld) {
+      await releasePeerCloseCleanup(child, peerActorId)
+    }
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)
   }

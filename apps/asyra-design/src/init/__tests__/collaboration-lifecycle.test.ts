@@ -2,13 +2,14 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as collaborationModule from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
 import { IDTypes, idCounter } from '@asyra/utils'
+import * as collaborationOperations from '../../collaboration/operations'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
   createRemotePublicationHandler,
   disposeCollaboration,
   startCollaboration
 } from '../../collaboration/lifecycle'
-import { factory } from '../../contexts'
+import core, { factory } from '../../contexts'
 
 const remotePublication = (publicationId: string): SharedPublication => ({
   publicationId,
@@ -57,18 +58,14 @@ afterEach(async () => {
   vi.restoreAllMocks()
 })
 
-it('does not emit peer-applied for a policy-rejected publication outcome', async () => {
-  const sendPeerApplied = vi.fn(async () => undefined)
-  const processRemotePublication = createRemotePublicationHandler(
-    () => false,
-    sendPeerApplied
+it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
+  const processRemotePublication = createRemotePublicationHandler(() => false)
+
+  await expect(
+    processRemotePublication(remotePublication('policy-rejected'))
+  ).rejects.toThrow(
+    '[collaboration] remote publication policy-rejected was rejected'
   )
-
-  await processRemotePublication(remotePublication('policy-rejected'), {
-    fromActorId: 'actor-source'
-  })
-
-  expect(sendPeerApplied).not.toHaveBeenCalled()
 })
 
 it('starts the real app collaboration composition without an Awareness preview route', async () => {
@@ -100,6 +97,32 @@ it('starts the real app collaboration composition without an Awareness preview r
   expect(window.__AsyraCollaboration__).toBeDefined()
 })
 
+it('binds detached creation and origin-neutral exact removal to the Core lifecycle', async () => {
+  const createPublicationProcessor = vi.spyOn(
+    collaborationOperations,
+    'createAsyraDesignPublicationProcessor'
+  )
+  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
+    harness.collaboration as never
+  )
+
+  await startCollaboration({
+    fileId: 'file-lifecycle',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+  })
+
+  expect(createPublicationProcessor).toHaveBeenCalledOnce()
+  expect(createPublicationProcessor).toHaveBeenCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    undefined,
+    core,
+    expect.any(Function),
+    expect.any(Function)
+  )
+})
+
 it('exposes remote publication outcomes through the local collaboration handle', async () => {
   vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
     harness.collaboration as never
@@ -123,22 +146,12 @@ it('exposes remote publication outcomes through the local collaboration handle',
   expect(unsubscribe).toEqual(expect.any(Function))
 })
 
-it('emits peer-applied only after a remote publication transaction succeeds', async () => {
+it('settles the consumer promise only after the remote transaction succeeds', async () => {
   const order: string[] = []
-  let resolveReceipt: (() => void) | undefined
   vi.spyOn(factory, 'runRemoteTransaction').mockImplementation((mutate) => {
     order.push('remote-transaction')
     return mutate()
   })
-  const sendPeerApplied = vi
-    .spyOn(CollaborationWebSocketProvider.prototype, 'sendPeerApplied')
-    .mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveReceipt = resolve
-          order.push('peer-applied')
-        })
-    )
   const createCollaboration = vi
     .spyOn(collaborationModule, 'createCollaboration')
     .mockReturnValue(harness.collaboration as never)
@@ -151,33 +164,15 @@ it('emits peer-applied only after a remote publication transaction succeeds', as
   const composition = createCollaboration.mock.calls[0]?.[0]
   if (!composition) throw new Error('Expected collaboration composition')
 
-  const processing = composition.processRemotePublication(
-    remotePublication('remote-success'),
-    { fromActorId: 'actor-source' }
+  await composition.processRemotePublication(
+    remotePublication('remote-success')
   )
-  await vi.waitFor(() => expect(sendPeerApplied).toHaveBeenCalledOnce())
-  let settled = false
-  void Promise.resolve(processing).then(() => {
-    settled = true
-  })
-  await Promise.resolve()
+  expect(order).toEqual(['remote-transaction'])
 
-  expect(sendPeerApplied).toHaveBeenCalledWith('remote-success', 'actor-source')
-  expect(order).toEqual(['remote-transaction', 'peer-applied'])
-  expect(settled).toBe(false)
-
-  resolveReceipt?.()
-  await processing
-  expect(settled).toBe(true)
-
-  sendPeerApplied.mockClear()
   vi.mocked(factory.runRemoteTransaction).mockImplementationOnce(() => {
     throw new Error('remote apply failed')
   })
   await expect(
-    composition.processRemotePublication(remotePublication('remote-failure'), {
-      fromActorId: 'actor-source'
-    })
+    composition.processRemotePublication(remotePublication('remote-failure'))
   ).rejects.toThrow('remote apply failed')
-  expect(sendPeerApplied).not.toHaveBeenCalled()
 })

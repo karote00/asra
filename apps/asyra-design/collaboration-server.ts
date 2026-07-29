@@ -308,7 +308,7 @@ const notifyCapacityWaiters = (peer: PeerSession, available: boolean): void => {
 }
 
 const canAdmitFrame = (peer: PeerSession, frameByteLength: number): boolean => {
-  if (peer.closed) return false
+  if (peer.closed || peer.socket.readyState !== WebSocket.OPEN) return false
   if (peer.queuedBytes === 0) return true
   return (
     frameByteLength <= PEER_QUEUE_CAPACITY_BYTES &&
@@ -324,6 +324,7 @@ const waitForFrameCapacity = async (
   while (
     !signal.aborted &&
     !peer.closed &&
+    peer.socket.readyState === WebSocket.OPEN &&
     !canAdmitFrame(peer, frameByteLength)
   ) {
     const available = await new Promise<boolean>((resolveWaiter) => {
@@ -342,7 +343,9 @@ const waitForFrameCapacity = async (
     })
     if (!available) return false
   }
-  return !signal.aborted && !peer.closed
+  return (
+    !signal.aborted && !peer.closed && peer.socket.readyState === WebSocket.OPEN
+  )
 }
 
 const removePeer = (peer: PeerSession): void => {
@@ -470,7 +473,12 @@ const enqueueOutboundFrame = (
   frame: Readonly<{ bytes: Uint8Array; header: PublicationFrameHeader }>,
   sourceRequestId: string
 ): void => {
-  if (peer.closed) return
+  if (peer.closed || peer.socket.readyState !== WebSocket.OPEN) {
+    throw new ProviderFailure(
+      'transport-failed',
+      '[collaboration] publication recipient disconnected before enqueue'
+    )
+  }
   peer.queuedBytes += frame.bytes.byteLength
   const outbound = {
     ...frame,
@@ -514,7 +522,12 @@ const admitFrameToRecipients = async (
       )
     }
   }
-  if (signal.aborted || recipients.some(({ closed }) => closed)) {
+  if (
+    signal.aborted ||
+    recipients.some(
+      (peer) => peer.closed || peer.socket.readyState !== WebSocket.OPEN
+    )
+  ) {
     throw new ProviderFailure(
       'transport-failed',
       '[collaboration] publication admission was cancelled'

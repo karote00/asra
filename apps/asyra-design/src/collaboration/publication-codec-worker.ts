@@ -23,15 +23,15 @@ export interface DecodePublicationFrameWorkerRequest {
   readonly frame: ArrayBuffer
 }
 
-export interface ReleaseDecodedPublicationWorkerRequest {
-  readonly type: 'release-decoded-publication'
+export interface SettleDecodedPublicationDeliveryWorkerRequest {
+  readonly type: 'settle-decoded-publication-delivery'
   readonly jobId: string
 }
 
 export type PublicationCodecWorkerRequest =
   | EncodePublicationsWorkerRequest
   | DecodePublicationFrameWorkerRequest
-  | ReleaseDecodedPublicationWorkerRequest
+  | SettleDecodedPublicationDeliveryWorkerRequest
 
 export interface EncodedPublicationFramesWorkerResponse {
   readonly type: 'encoded-publication-frames'
@@ -63,8 +63,8 @@ export interface DecodedPublicationWorkerResponse {
   readonly hasPendingPublication: boolean
 }
 
-export interface DecodedPublicationReleaseAcceptedWorkerResponse {
-  readonly type: 'decoded-publication-release-accepted'
+export interface DecodedPublicationDeliverySettledWorkerResponse {
+  readonly type: 'decoded-publication-delivery-settled'
   readonly jobId: string
 }
 
@@ -80,7 +80,7 @@ export type PublicationCodecWorkerResponse =
   | PublicationFrameConsumedWorkerResponse
   | PublicationFrameAcceptedWorkerResponse
   | DecodedPublicationWorkerResponse
-  | DecodedPublicationReleaseAcceptedWorkerResponse
+  | DecodedPublicationDeliverySettledWorkerResponse
   | PublicationCodecFailureWorkerResponse
 
 export type PublicationCodecWorkerPost = (
@@ -108,9 +108,8 @@ interface InboundFrameToAccept {
   readonly assemblyKey: string
 }
 
-interface ActiveDecodedPublicationLease {
+interface ActiveDecodedPublicationDelivery {
   readonly assemblyKey: string
-  readonly acceptedByteLength: number
   readonly frameIds: readonly string[]
 }
 
@@ -154,8 +153,8 @@ export class PublicationCodecWorkerRuntime {
   private readonly inboundAssemblyOrder: string[] = []
   private readonly inboundFrameIds = new Set<string>()
   private readonly inboundBurstNextPublicationIndex = new Map<string, number>()
-  private activeDecodedPublicationLease:
-    | ActiveDecodedPublicationLease
+  private activeDecodedPublicationDelivery:
+    | ActiveDecodedPublicationDelivery
     | undefined
   private inboundReservedBytes = 0
   private oversizedAssemblyKey: string | undefined
@@ -177,8 +176,8 @@ export class PublicationCodecWorkerRuntime {
       this.encode(request, post)
       return
     }
-    if (request.type === 'release-decoded-publication') {
-      this.release(request, post)
+    if (request.type === 'settle-decoded-publication-delivery') {
+      this.settleDelivery(request, post)
       return
     }
     this.decode(request, post)
@@ -190,7 +189,7 @@ export class PublicationCodecWorkerRuntime {
     this.inboundAssemblyOrder.length = 0
     this.inboundFrameIds.clear()
     this.inboundBurstNextPublicationIndex.clear()
-    this.activeDecodedPublicationLease = undefined
+    this.activeDecodedPublicationDelivery = undefined
     this.inboundReservedBytes = 0
     this.oversizedAssemblyKey = undefined
   }
@@ -266,36 +265,28 @@ export class PublicationCodecWorkerRuntime {
     }
   }
 
-  private release(
-    request: ReleaseDecodedPublicationWorkerRequest,
+  private settleDelivery(
+    request: SettleDecodedPublicationDeliveryWorkerRequest,
     post: PublicationCodecWorkerPost
   ): void {
-    const activeLease = this.activeDecodedPublicationLease
-    if (!activeLease) {
+    if (!this.activeDecodedPublicationDelivery) {
       post({
         type: 'publication-codec-failure',
         jobId: request.jobId,
-        message: '[collaboration] no decoded publication lease is active'
+        message: '[collaboration] no decoded publication delivery is active'
       })
       return
     }
-    this.activeDecodedPublicationLease = undefined
-    this.inboundReservedBytes = Math.max(
-      0,
-      this.inboundReservedBytes - activeLease.acceptedByteLength
-    )
-    activeLease.frameIds.forEach((frameId) =>
+    const settledDelivery = this.activeDecodedPublicationDelivery
+    this.activeDecodedPublicationDelivery = undefined
+    settledDelivery.frameIds.forEach((frameId) =>
       this.inboundFrameIds.delete(frameId)
     )
-    if (this.oversizedAssemblyKey === activeLease.assemblyKey) {
-      this.oversizedAssemblyKey = undefined
-    }
-    if (!this.releaseReadyPublication(request.jobId, post)) {
-      post({
-        type: 'decoded-publication-release-accepted',
-        jobId: request.jobId
-      })
-    }
+    post({
+      type: 'decoded-publication-delivery-settled',
+      jobId: request.jobId
+    })
+    this.releaseReadyPublication(request.jobId, post)
   }
 
   private validateInboundFrameOrder(
@@ -336,7 +327,11 @@ export class PublicationCodecWorkerRuntime {
     return (
       (this.inboundReservedBytes === 0 &&
         header.frameByteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) ||
-      Boolean(assembly && assembly.acceptedByteLength > 0)
+      Boolean(
+        assembly &&
+          assembly.acceptedByteLength > 0 &&
+          this.inboundReservedBytes === assembly.acceptedByteLength
+      )
     )
   }
 
@@ -445,17 +440,23 @@ export class PublicationCodecWorkerRuntime {
     jobId: string,
     post: PublicationCodecWorkerPost
   ): boolean {
-    if (this.activeDecodedPublicationLease) return false
+    if (this.activeDecodedPublicationDelivery) return false
     const key = this.inboundAssemblyOrder[0]
     if (!key) return false
     const assembly = this.inboundAssemblies.get(key)
     if (!assembly?.decoded) return false
     this.inboundAssemblyOrder.shift()
     this.inboundAssemblies.delete(key)
-    this.activeDecodedPublicationLease = {
+    this.activeDecodedPublicationDelivery = {
       assemblyKey: key,
-      acceptedByteLength: assembly.acceptedByteLength,
       frameIds: assembly.frameIds
+    }
+    this.inboundReservedBytes = Math.max(
+      0,
+      this.inboundReservedBytes - assembly.acceptedByteLength
+    )
+    if (this.oversizedAssemblyKey === key) {
+      this.oversizedAssemblyKey = undefined
     }
     const nextKey = this.inboundAssemblyOrder[0]
     const hasPendingPublication = nextKey
