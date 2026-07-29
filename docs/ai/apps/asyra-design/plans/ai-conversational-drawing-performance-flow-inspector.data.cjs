@@ -214,7 +214,7 @@
         'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
         'validated AI composition descriptor',
-        'resolved atomic or progressive delivery mode',
+        'resolved atomic or progressive delivery mode; Mock AI with missing aiDelivery resolves to progressive while explicit atomic remains opt-in',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
         'App-owned DOM compositor overlay',
@@ -227,6 +227,7 @@
         'artifact:app-bulk-timing'
       ],
       conditions: [
+        'Mock AI with missing aiDelivery uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
         'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
@@ -643,7 +644,7 @@
       ],
       outputs: ['artifact:local-interactive-drawing-proof'],
       conditions: [
-        'The gate uses one fresh single Actor, one empty canonical document, exact progressive Mock AI mode, and one 7,112-element balanced composition run.',
+        'The gate uses one fresh single Actor, one empty canonical document, the ordinary Mock AI default progressive mode, and one 7,112-element balanced composition run.',
         'The report names accepted-to-connected DOM loading state, accepted-to-first compositor paint opportunity, accepted-to-first ordinary Vector visible, 25, 50, 75, and 100 percent visible-element milestones, longest canonical work unit, cooperative yield count, product settled time, Render time, UI time, and harness overhead.',
         'Milestones use O(1) runtime counters and one terminal exact canonical summary; the harness never polls a full canonical snapshot.',
         'Before the first canonical mutation, the connected DOM loading overlay has a non-zero exact transformed bounds rectangle; that loading state and the ordinary Vector output come from the same live measured App state and receive synchronized visual inspection.',

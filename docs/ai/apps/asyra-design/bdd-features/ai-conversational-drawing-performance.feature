@@ -71,6 +71,14 @@ Feature: Conversational AI drawing performance
     And atomic mode should submit one all-children plural batch
     And progressive mode should submit multiple ordered plural batches without opening another transaction
 
+  Scenario: Mock AI defaults to cooperative progressive drawing
+    Given the App starts in ordinary "ai=mock" mode
+    And "aiDelivery" is missing
+    When the App resolves the drawing delivery policy
+    Then it should select progressive delivery
+    And the composition should yield between deterministic plural Core batches
+    But explicit "aiDelivery=atomic" should retain the one-batch atomic path
+
   Scenario: Canonical element property replacement uses the update path
     Given group geometry, element geometry, stroke, fill, or property-panel changes replace complete canonical property field values
     When one or many elements receive those complete field replacements

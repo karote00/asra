@@ -121,6 +121,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     text,
+    /mock.*missing.*aiDelivery.*progressive.*explicit.*atomic/i
+  )
+  assert.match(
+    text,
     /clear.*success.*failure.*cancel.*rollback/i
   )
   assert.match(
@@ -253,6 +257,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     /Document Interaction Lock[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*success[\s\S]*failure[\s\S]*cancellation[\s\S]*teardown/i
   )
   assert.match(
+    plan,
+    /ordinary `\?ai=mock`.*defaults to progressive[\s\S]*explicit `aiDelivery=atomic`.*atomic/i
+  )
+  assert.match(
     feature,
     /Scenario: Exact-bounds loading state precedes local drawing[\s\S]*runtime-only[\s\S]*DOM[\s\S]*compositor/i
   )
@@ -267,6 +275,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(
     feature,
     /Scenario: Drawing progress keeps navigation responsive while edits stay locked[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*one Undo/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Mock AI defaults to cooperative progressive drawing[\s\S]*ordinary "ai=mock"[\s\S]*"aiDelivery".*missing[\s\S]*progressive[\s\S]*explicit "aiDelivery=atomic"[\s\S]*atomic/i
   )
 })
 

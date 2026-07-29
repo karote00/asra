@@ -46,6 +46,14 @@ all other document interaction remains locked. Contents, CRDT, transport,
 persistence, and remote-apply owners remain paused until this local requirement
 is implemented and manually accepted.
 
+The first manual navigation check then exposed a startup-policy mismatch:
+ordinary `?ai=mock` still selected the atomic all-children path, so its single
+7,000-plus-element synchronous call prevented the browser from dispatching any
+input until completion. Ordinary `?ai=mock` now defaults to progressive
+delivery; explicit `aiDelivery=atomic` remains the atomic opt-in for isolated
+measurement. This is an App startup policy correction, not an Input System,
+Feature System, transaction, or event-bus exception.
+
 The current execution phase is deliberately limited to one production
 single Actor drawing turn. It answers four product questions before any
 additional cross-window work resumes:
@@ -439,6 +447,10 @@ intended transaction or history boundary.
 
 ### Cooperative Progressive Composition
 
+- Ordinary Mock AI startup with no `aiDelivery` value selects progressive
+  delivery. Exact `aiDelivery=atomic` remains an explicit one-batch opt-in;
+  empty, unknown, or duplicate explicit values do not silently select a
+  different mode.
 - Atomic mode retains one all-children plural Core call.
 - Progressive mode uses deterministic point and element-count boundaries. The
   initial point soft target is 2,048 and later targets grow to at most 8,192;
@@ -502,7 +514,8 @@ intended transaction or history boundary.
 ### Current Local Performance Measurement
 
 The current gate performs exactly one 7,112-element balanced progressive
-production run in one browser page against one fresh empty canonical document.
+production run through the ordinary Mock AI default in one browser page against
+one fresh empty canonical document.
 It has no second Actor, Collaboration server, Contents projection, IndexedDB
 provider, persistence assertion, reload, warm-up, repeated measured creation,
 video, trace, or full-state polling.
