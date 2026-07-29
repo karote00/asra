@@ -75,7 +75,7 @@ This file is the app-level API contract map.
   written directly in Group-local coordinates; no post-hoc full-composition
   move or geometry rewrite is part of the AI action
 - progressive composition point budgets begin at 2,048, grow to 4,096, and
-  reach at most 8,192 per later batch. The independent 32-element budget keeps
+  reach at most 8,192 per later batch. The independent 64-element budget keeps
   zero-point primitives cooperative, while one indivisible element may exceed
   only the point soft target. No range is independently scheduled with a timer,
   and a pure microtask is not a cooperative host yield. Every batch uses the

@@ -108,6 +108,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     text,
+    /element-count budget capped at 64 per work unit/i
+  )
+  assert.match(
+    text,
     /multiple deterministic plural Core batches.*one outer App transaction.*one intended history action/i
   )
   assert.match(
@@ -279,6 +283,14 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(
     feature,
     /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*later browser task[\s\S]*one outer transaction[\s\S]*one Undo/i
+  )
+  assert.match(
+    feature,
+    /at most 64 elements per ordinary work unit/i
+  )
+  assert.match(
+    plan,
+    /64-element work-unit cap[\s\S]*2,048[\s\S]*8,192/i
   )
   assert.match(
     feature,

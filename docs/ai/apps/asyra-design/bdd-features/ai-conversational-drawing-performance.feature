@@ -32,7 +32,7 @@ Feature: Conversational AI drawing performance
     Given one validated AI composition contains one Group and 7111 accepted children
     And the URL resolves exact "aiDelivery=progressive"
     When the local Agent executes the mutating turn
-    Then the App should use deterministic point and element-count batch boundaries with at most 32 elements per ordinary work unit
+    Then the App should use deterministic point and element-count batch boundaries with at most 64 elements per ordinary work unit
     And it should call plural "Core.createElementsInParent" once per non-empty batch
     And every successful batch should complete ordinary projection and advance actual element progress
     And the next batch should begin only from a later browser task in the same serialized loop

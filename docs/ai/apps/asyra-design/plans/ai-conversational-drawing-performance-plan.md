@@ -38,13 +38,13 @@ progressive peer-visible slices, and the ordinary Render route.
 
 ## Current Local Interactive Drawing Closure
 
-Status on 2026-07-29: the corrected production single-Actor gate and
-synchronized live visual review are complete. Manual review accepted the
-progressive drawing experience and added one bounded App requirement: while the
-drawing turn is active, ordinary viewport pan and zoom stay responsive while
-all other document interaction remains locked. Contents, CRDT, transport,
-persistence, and remote-apply owners remain paused until this local requirement
-is implemented and manually accepted.
+Status on 2026-07-30: the corrected production single-Actor gate,
+synchronized live visual review, and manual loading/pan/zoom review are
+accepted. The remaining bounded local tuning raises the fixed progressive
+element cap from 32 to 64 to reduce repeated App/Core/Factory/projection
+boundaries while retaining one later browser task after every completed batch.
+Contents, CRDT, transport, persistence, and remote-apply owners remain paused
+until this local tuning is formally verified.
 
 The first manual navigation check then exposed a startup-policy mismatch: the
 production entry still required `?ai=mock`, and its missing delivery flag
@@ -455,10 +455,16 @@ intended transaction or history boundary.
   one-batch measurement opt-in; empty, unknown, or duplicate delivery values
   retain the progressive default.
 - Atomic mode retains one all-children plural Core call.
-- Progressive mode uses deterministic point and element-count boundaries. The
-  initial point soft target is 2,048 and later targets grow to at most 8,192;
-  a 32-element work-unit cap independently prevents a large zero-point
-  primitive batch.
+- Progressive mode uses deterministic point and element-count boundaries. A
+  fixed 64-element work-unit cap independently prevents a large zero-point
+  primitive batch; the initial point soft target is 2,048 and later targets
+  grow to at most 8,192.
+- On the exact nested cat-vector fixtures, the 64-element cap leaves the
+  point-heavy 16-item prefix unchanged at four batches, reduces the 320-item
+  prefix from 13 to 9 batches, and reduces the 1,280-item prefix from 43 to 24
+  batches. The corresponding 7,075-child slice count is deterministically
+  reduced from 224 to 115; this is a boundary-count projection, not a wall-time
+  claim.
 - The App calls the existing plural Core creation API once per non-empty batch.
   Core, Props Manager, and Scene Tree retain one fixed batch mission and receive
   no loading, progress, AI mode, slice size, or host-yield parameters.
@@ -782,7 +788,7 @@ tests and bounded review have no P0-P2 finding:
    BDD only.
 2. `stage-local-interactive-composition`: add the exact-bounds runtime overlay,
    App-owned document interaction lock, DOM compositor paint opportunity,
-   deterministic point-and-32-element plural Core work units, serialized
+   deterministic point-and-64-element plural Core work units, serialized
    later-task yields, actual progress, cancellation cleanup, rollback, and
    single Undo behavior.
 3. `project-visible-canonical-slices`: only if its focused test proves the
