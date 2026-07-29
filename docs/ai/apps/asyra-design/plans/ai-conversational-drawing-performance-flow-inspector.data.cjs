@@ -270,6 +270,8 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
+        'apps/asyra-design/src/index.tsx',
+        'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/common-apis/system-context.ts',
