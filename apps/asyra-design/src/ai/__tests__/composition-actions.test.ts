@@ -572,22 +572,22 @@ describe('Asyra Design AI composition action execution', () => {
 
     expect(
       apis.createCompositionElements.mock.calls.map(([batch]) => batch.length)
-    ).toEqual([...Array.from({ length: 16 }, () => 32), 1])
+    ).toEqual([...Array.from({ length: 8 }, () => 64), 1])
     expect(
       apis.setDrawingProgress.mock.calls
         .map(([state]) => state)
         .filter((state) => state?.phase === 'drawing')
         .map(({ completedElements }) => completedElements)
     ).toEqual([
-      ...Array.from({ length: 16 }, (_, index) => (index + 1) * 32),
+      ...Array.from({ length: 8 }, (_, index) => (index + 1) * 64),
       513
     ])
     expect(apis.createCompositionGroup).toHaveBeenCalledWith(
       expect.any(Object),
       progressiveMutationOptions
     )
-    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET).toBe(32)
-    expect(yieldToHost).toHaveBeenCalledTimes(18)
+    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET).toBe(64)
+    expect(yieldToHost).toHaveBeenCalledTimes(10)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -632,12 +632,12 @@ describe('Asyra Design AI composition action execution', () => {
       ).toEqual([
         ['ai-drawing:loading-frame-visible', 1],
         ...Array.from(
-          { length: 16 },
+          { length: 8 },
           (_, index) =>
-            ['ai-drawing:visible-element-count', (index + 1) * 32] as const
+            ['ai-drawing:visible-element-count', (index + 1) * 64] as const
         ),
         ['ai-drawing:visible-element-count', 513],
-        ['ai-drawing:cooperative-yield-count', 17]
+        ['ai-drawing:cooperative-yield-count', 9]
       ])
     } finally {
       runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
@@ -646,7 +646,7 @@ describe('Asyra Design AI composition action execution', () => {
 
   it('keeps one cooperative host boundary in flight and never starts the next ordered batch early', async () => {
     const apis = actionApis()
-    const items = Array.from({ length: 40 }, (_, index) =>
+    const items = Array.from({ length: 72 }, (_, index) =>
       ovalItem(`detail-${index}`)
     )
     apis.createCompositionElements.mockImplementation(
@@ -703,7 +703,7 @@ describe('Asyra Design AI composition action execution', () => {
       apis.createCompositionElements.mock.calls[0]?.[0].map(
         ({ role }: { readonly role: string }) => role
       )
-    ).toEqual(items.slice(0, 32).map(({ role }) => role))
+    ).toEqual(items.slice(0, 64).map(({ role }) => role))
     expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     expect(inFlight).toBe(1)
 
@@ -715,7 +715,7 @@ describe('Asyra Design AI composition action execution', () => {
       apis.createCompositionElements.mock.calls[1]?.[0].map(
         ({ role }: { readonly role: string }) => role
       )
-    ).toEqual(items.slice(32).map(({ role }) => role))
+    ).toEqual(items.slice(64).map(({ role }) => role))
 
     boundaries[2].resolve(undefined)
     await expect(execution).resolves.toMatchObject({

@@ -397,6 +397,48 @@ describe('Asyra Design AI runtime integration', () => {
     expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
 
+  it('keeps the 16-item cat prefix on its existing point-aware progressive boundaries', async () => {
+    prepareCommonApis()
+    let nextElement = 0
+
+    await expect(
+      executeMockComposition(
+        AsyraDesignMockAiPhrases.CREATE_FAST_CRDT_FIXTURE_EN,
+        () => `fast-element-${(nextElement += 1)}`,
+        'progressive'
+      )
+    ).resolves.toMatchObject({
+      actionResults: [
+        {
+          actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          result: {
+            compositionId: 'cat-face-group',
+            skipped: [],
+            status: 'complete'
+          }
+        }
+      ],
+      status: 'executed',
+      transaction: {
+        status: 'committed'
+      }
+    })
+
+    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+    expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.map(([options]) => options.length)
+    ).toEqual([2, 2, 10, 2])
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(16)
+    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
+  })
+
   it('commits the 320-item cat prefix as point-aware progressive plural batches in one outer transaction', async () => {
     prepareCommonApis()
     let nextElement = 0
@@ -426,17 +468,16 @@ describe('Asyra Design AI runtime integration', () => {
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
     expect(elementApis.createElement).toHaveBeenCalledOnce()
-    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(13)
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(9)
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
         .mock.calls.map(([options]) => options.length)
-        .slice(0, 4)
-    ).toEqual([2, 2, 10, 23])
+    ).toEqual([2, 2, 10, 23, 42, 55, 64, 64, 58])
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
-        .mock.calls.every(([options]) => options.length <= 32)
+        .mock.calls.every(([options]) => options.length <= 64)
     ).toBe(true)
     expect(
       vi
@@ -483,17 +524,25 @@ describe('Asyra Design AI runtime integration', () => {
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
     expect(elementApis.createElement).toHaveBeenCalledOnce()
-    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(43)
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(24)
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
         .mock.calls.map(([options]) => options.length)
-        .slice(0, 4)
-    ).toEqual([2, 2, 10, 23])
+    ).toEqual([
+      2,
+      2,
+      10,
+      23,
+      42,
+      55,
+      ...Array.from({ length: 17 }, () => 64),
+      58
+    ])
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
-        .mock.calls.every(([options]) => options.length <= 32)
+        .mock.calls.every(([options]) => options.length <= 64)
     ).toBe(true)
     expect(
       vi
@@ -649,7 +698,7 @@ describe('Asyra Design AI runtime integration', () => {
           {
             arguments: {
               compositionRole: 'vectorized-image',
-              items: Array.from({ length: 40 }, (_, index) => ({
+              items: Array.from({ length: 72 }, (_, index) => ({
                 bounds: {
                   height: 32,
                   width: 64,
@@ -747,7 +796,7 @@ describe('Asyra Design AI runtime integration', () => {
         vi
           .mocked(elementApis.createElementsInParent)
           .mock.calls.map(([options]) => options.length)
-      ).toEqual([32, 8])
+      ).toEqual([64, 8])
       expect(elementApis.setElementVisible).toHaveBeenCalledOnce()
       expect(
         vi.mocked(elementApis.createElementsInParent).mock
@@ -758,8 +807,8 @@ describe('Asyra Design AI runtime integration', () => {
       expect(transactionEvents).toEqual([
         'transaction:start',
         'progress:preparing:0',
-        'progress:drawing:32',
-        'progress:drawing:40',
+        'progress:drawing:64',
+        'progress:drawing:72',
         'progress:clear',
         'action:visibility',
         'transaction:commit'
