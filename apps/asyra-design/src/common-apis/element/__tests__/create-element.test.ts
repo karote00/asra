@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CanonicalElementBatchResult } from '@asyra/core'
-import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
 
 const mocks = vi.hoisted(() => ({
   createElement: vi.fn(),
   createElementInParent: vi.fn(),
-  createElementsInParentBatch: vi.fn(),
+  createElementsInParent: vi.fn(),
   createVectorElement: vi.fn(),
   createVectorElementsInParent: vi.fn(),
   changeComputedData: vi.fn(),
@@ -28,7 +26,7 @@ vi.mock('../../../contexts', () => ({
   default: {
     createElement: mocks.createElement,
     createElementInParent: mocks.createElementInParent,
-    createElementsInParentBatch: mocks.createElementsInParentBatch,
+    createElementsInParent: mocks.createElementsInParent,
     changeComputedData: mocks.changeComputedData,
     isContainerType: vi.fn((type: string) => type === 'group')
   },
@@ -258,30 +256,13 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.createVectorElement).not.toHaveBeenCalled()
   })
 
-  it('returns one canonical result for a mixed direct-parent batch', () => {
+  it('returns frozen ordered ids for one mixed direct-parent request', () => {
     const options = {
       sharedDelivery: 'transaction-end',
       undoable: true
     } as const
-    const deliveryHandle: FactoryMutationBatchDeliveryHandle = {
-      artifactId: 'delivery-1',
-      transactionId: 1,
-      artifact: null,
-      setDeliveryPlan: vi.fn(),
-      deliverSlice: vi.fn()
-    }
-    const canonicalResult: CanonicalElementBatchResult = {
-      orderedElementIds: Object.freeze(['oval-1', 'vector-1']),
-      deliveryHandle,
-      timing: {
-        owner: '@asyra/core',
-        clock: 'monotonic',
-        startedAtMs: 10,
-        completedAtMs: 12,
-        durationMs: 2
-      }
-    }
-    mocks.createElementsInParentBatch.mockReturnValue(canonicalResult)
+    const coreResult = ['oval-1', 'vector-1']
+    mocks.createElementsInParent.mockReturnValue(coreResult)
 
     const points = {
       pointA: {
@@ -319,7 +300,7 @@ describe('create-element explicit parent and coordinates', () => {
       }
     }
 
-    const result = elementApis.createElementsInParentBatch(
+    const result = elementApis.createElementsInParent(
       [
         {
           type: 'oval',
@@ -342,10 +323,11 @@ describe('create-element explicit parent and coordinates', () => {
       options
     )
 
-    expect(result).toBe(canonicalResult)
-    expect(result?.deliveryHandle).toBe(deliveryHandle)
-    expect(mocks.createElementsInParentBatch).toHaveBeenCalledOnce()
-    expect(mocks.createElementsInParentBatch).toHaveBeenCalledWith(
+    expect(result).toEqual(coreResult)
+    expect(result).not.toBe(coreResult)
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(mocks.createElementsInParent).toHaveBeenCalledOnce()
+    expect(mocks.createElementsInParent).toHaveBeenCalledWith(
       [
         expect.objectContaining({
           type: 'oval',
@@ -373,7 +355,7 @@ describe('create-element explicit parent and coordinates', () => {
 
   it('does not call Core when a later direct-parent item fails preflight', () => {
     expect(
-      elementApis.createElementsInParentBatch(
+      elementApis.createElementsInParent(
         [
           {
             type: 'oval',
@@ -395,7 +377,7 @@ describe('create-element explicit parent and coordinates', () => {
         }
       )
     ).toBeNull()
-    expect(mocks.createElementsInParentBatch).not.toHaveBeenCalled()
+    expect(mocks.createElementsInParent).not.toHaveBeenCalled()
     expect(mocks.createElementInParent).not.toHaveBeenCalled()
   })
 

@@ -3,7 +3,7 @@
  * Used in: create-element, and future features
  */
 
-import { runTransaction, type CanonicalElementBatchResult } from '@asyra/core'
+import { runTransaction } from '@asyra/core'
 import {
   moveElementsWithGroupGeometry,
   normalizeGroupsForElements
@@ -551,11 +551,11 @@ export const elementApis = {
     })
   },
 
-  createElementsInParentBatch: (
+  createElementsInParent: (
     createOptions: readonly CreateElementOptions[],
     parentId: string,
     options?: EVENT_OPTIONS
-  ): CanonicalElementBatchResult | null => {
+  ): readonly string[] | null => {
     if (createOptions.length === 0 || parentId.length === 0) {
       return null
     }
@@ -569,7 +569,13 @@ export const elementApis = {
       data.push(prepared)
     }
 
-    return core.createElementsInParentBatch(data, parentId, undefined, options)
+    const orderedElementIds = core.createElementsInParent(
+      data,
+      parentId,
+      undefined,
+      options
+    )
+    return Object.freeze([...orderedElementIds])
   },
 
   createElements: (
