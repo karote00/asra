@@ -60,7 +60,7 @@ const createHarness = (factory = new Factory()) => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id, before: 0, after: 1 }
     })
     factory.endTransaction()
@@ -124,7 +124,7 @@ describe('Core transaction persistence acknowledgement', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'rollback', before: 0, after: 1 }
     })
     factory.endTransaction({ outcome: 'rollback' })
@@ -184,7 +184,7 @@ describe('Core transaction persistence acknowledgement', () => {
     factory.runRemoteTransaction(() => {
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'remote', before: 0, after: 1 }
       })
     })
