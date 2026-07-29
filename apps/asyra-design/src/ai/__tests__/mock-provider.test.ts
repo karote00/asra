@@ -59,6 +59,39 @@ const generate = async (
   })
 }
 
+interface CrdtFixtureItem {
+  readonly paths?: readonly {
+    readonly points: readonly unknown[]
+  }[]
+  readonly primitive: 'oval' | 'vector'
+  readonly role: string
+  readonly style: {
+    readonly fillColor?: string
+  }
+}
+
+const getCrdtFixtureItems = (
+  plan: Awaited<ReturnType<typeof generate>>
+): readonly CrdtFixtureItem[] =>
+  (
+    plan.actions[0]?.arguments as
+      | {
+          readonly items?: readonly CrdtFixtureItem[]
+        }
+      | undefined
+  )?.items ?? []
+
+const getCrdtFixturePointCount = (items: readonly CrdtFixtureItem[]): number =>
+  items.reduce(
+    (total, item) =>
+      total +
+      (item.paths?.reduce(
+        (pathTotal, path) => pathTotal + path.points.length,
+        0
+      ) ?? 0),
+    0
+  )
+
 describe('Asyra Design deterministic mock AI provider', () => {
   it('separates provider delay from deterministic plan materialization', async () => {
     const runtimeGlobal = globalThis as typeof globalThis & {
@@ -101,13 +134,14 @@ describe('Asyra Design deterministic mock AI provider', () => {
       ],
       planId: 'mock-plan-create-fast-crdt-fixture'
     })
-    expect(
-      (
-        plan.actions[0].arguments as {
-          items: readonly unknown[]
-        }
-      ).items
-    ).toHaveLength(16)
+    const items = getCrdtFixtureItems(plan)
+    expect(items).toHaveLength(16)
+    expect(items.every(({ primitive }) => primitive === 'vector')).toBe(true)
+    expect(items[0]).toMatchObject({
+      role: 'portrait-background',
+      style: { fillColor: '#FFFFFF' }
+    })
+    expect(getCrdtFixturePointCount(items)).toBe(12_919)
   })
 
   it('returns a deterministic 320-item CRDT composition through the ordinary insert action', async () => {
@@ -128,36 +162,48 @@ describe('Asyra Design deterministic mock AI provider', () => {
       planId: 'mock-plan-create-320-crdt-fixture'
     })
 
-    const items =
-      (
-        plan.actions[0]?.arguments as
-          | {
-              items?: readonly {
-                bounds: {
-                  height: number
-                  width: number
-                  x: number
-                  y: number
-                }
-                role: string
-              }[]
-            }
-          | undefined
-      )?.items ?? []
+    const items = getCrdtFixtureItems(plan)
+    const fastItems = getCrdtFixtureItems(
+      await generate(AsyraDesignMockAiPhrases.CREATE_FAST_CRDT_FIXTURE_EN)
+    )
 
     expect(items).toHaveLength(320)
-    expect(items[0]?.role).toBe('performance-vector-000')
-    expect(items[319]?.role).toBe('performance-vector-319')
+    expect(items.slice(0, fastItems.length)).toEqual(fastItems)
     expect(new Set(items.map(({ role }) => role)).size).toBe(320)
-    expect(
-      items.every(
-        ({ bounds }) =>
-          bounds.x >= 0 &&
-          bounds.y >= 0 &&
-          bounds.x + bounds.width <= 2048 &&
-          bounds.y + bounds.height <= 2048
-      )
-    ).toBe(true)
+    expect(items.every(({ primitive }) => primitive === 'vector')).toBe(true)
+    expect(getCrdtFixturePointCount(items)).toBe(51_768)
+  })
+
+  it('returns a deterministic 1,280-item CRDT composition through the ordinary insert action', async () => {
+    const plan = await generate(
+      AsyraDesignMockAiPhrases.CREATE_1280_ITEM_CRDT_FIXTURE_EN
+    )
+
+    expect(plan).toMatchObject({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture-1280',
+            items: expect.any(Array),
+            parent: 'workspace'
+          },
+          id: 'mock-create-1280-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      planId: 'mock-plan-create-1280-crdt-fixture'
+    })
+
+    const items = getCrdtFixtureItems(plan)
+    const mediumItems = getCrdtFixtureItems(
+      await generate(AsyraDesignMockAiPhrases.CREATE_320_ITEM_CRDT_FIXTURE_EN)
+    )
+
+    expect(items).toHaveLength(1280)
+    expect(items.slice(0, mediumItems.length)).toEqual(mediumItems)
+    expect(new Set(items.map(({ role }) => role)).size).toBe(1280)
+    expect(items.every(({ primitive }) => primitive === 'vector')).toBe(true)
+    expect(getCrdtFixturePointCount(items)).toBe(86_474)
   })
 
   it('routes ordinary and detailed cat-face phrases to the same precise fixture', async () => {

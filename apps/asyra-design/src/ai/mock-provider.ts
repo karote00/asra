@@ -22,6 +22,8 @@ export const AsyraDesignMockAiPhrases = Object.freeze({
   CREATE_CAT_FACE_ZH: '畫一個貓臉',
   CREATE_DETAILED_CAT_FACE_EN: 'draw a detailed cat face',
   CREATE_DETAILED_CAT_FACE_ZH: '畫一個精緻的貓臉',
+  CREATE_1280_ITEM_CRDT_FIXTURE_EN:
+    'create the 1280-item CRDT performance fixture',
   CREATE_320_ITEM_CRDT_FIXTURE_EN:
     'create the 320-item CRDT performance fixture',
   CREATE_FAST_CRDT_FIXTURE_EN: 'create the fast CRDT performance fixture',
@@ -103,6 +105,7 @@ interface MockCompositionItem {
 type MockFixture =
   | 'create-balanced-cat-face'
   | 'create-cat-only-white-background'
+  | 'create-1280-crdt-fixture'
   | 'create-320-crdt-fixture'
   | 'create-fast-crdt-fixture'
   | 'create-maximum-cat-face'
@@ -178,42 +181,6 @@ const multiPathVector = (
   role,
   style
 })
-
-const createCrdtFixtureItems = (itemCount: number): MockCompositionItem[] => {
-  const columnCount = Math.ceil(Math.sqrt(itemCount))
-  const roleWidth = String(itemCount - 1).length
-  return Array.from({ length: itemCount }, (_, index) => {
-    const column = index % columnCount
-    const row = Math.floor(index / columnCount)
-    const x = 80 + column * 56
-    const y = 80 + row * 56
-    return multiPathVector(
-      indexedRole('performance-vector', index, roleWidth),
-      [
-        {
-          closed: true,
-          points: [
-            { x, y },
-            { x: x + 32, y },
-            { x: x + 32, y: y + 32 },
-            { x, y: y + 32 }
-          ]
-        }
-      ],
-      {
-        fillColor: index % 2 === 0 ? '#C9825B' : '#355070',
-        strokeColor: '#1F2937',
-        strokeWidth: 1
-      }
-    )
-  })
-}
-
-const createFastCrdtFixtureItems = (): MockCompositionItem[] =>
-  createCrdtFixtureItems(16)
-
-const create320ItemCrdtFixtureItems = (): MockCompositionItem[] =>
-  createCrdtFixtureItems(320)
 
 const indexedRole = (prefix: string, index: number, width: number) =>
   `${prefix}-${String(index).padStart(width, '0')}`
@@ -521,6 +488,16 @@ const createCatOnlyWhiteBackgroundItems = async (
   return items
 }
 
+const createCrdtFixtureItems = async (
+  itemCount: number
+): Promise<MockCompositionItem[]> =>
+  (
+    await createCatOnlyWhiteBackgroundItems({
+      height: 941,
+      width: 1672
+    })
+  ).slice(0, itemCount)
+
 const decodeBase64DataUrl = (dataUrl: string): Uint8Array | null => {
   const separator = dataUrl.indexOf(',')
   if (separator < 0) {
@@ -763,6 +740,7 @@ const phraseToFixture = (input: AiProviderInput): MockFixture | null => {
     return hasAcceptedImageAttachment(input) ? 'create-maximum-cat-face' : null
   }
   const fixtures: readonly [readonly string[], MockFixture][] = [
+    [[phrases.CREATE_1280_ITEM_CRDT_FIXTURE_EN], 'create-1280-crdt-fixture'],
     [[phrases.CREATE_320_ITEM_CRDT_FIXTURE_EN], 'create-320-crdt-fixture'],
     [[phrases.CREATE_FAST_CRDT_FIXTURE_EN], 'create-fast-crdt-fixture'],
     [
@@ -937,7 +915,7 @@ const planForFixture = async (
         {
           arguments: {
             compositionRole: 'performance-fixture',
-            items: createFastCrdtFixtureItems(),
+            items: await createCrdtFixtureItems(16),
             parent: 'workspace'
           },
           id: 'mock-create-fast-crdt-fixture',
@@ -950,13 +928,32 @@ const planForFixture = async (
     })
   }
 
+  if (fixture === 'create-1280-crdt-fixture') {
+    return deepFreeze({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture-1280',
+            items: await createCrdtFixtureItems(1280),
+            parent: 'workspace'
+          },
+          id: 'mock-create-1280-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      explanation:
+        'Create the deterministic 1,280-item CRDT fixture as ordinary editable vector elements',
+      planId: 'mock-plan-create-1280-crdt-fixture'
+    })
+  }
+
   if (fixture === 'create-320-crdt-fixture') {
     return deepFreeze({
       actions: [
         {
           arguments: {
             compositionRole: 'performance-fixture-320',
-            items: create320ItemCrdtFixtureItems(),
+            items: await createCrdtFixtureItems(320),
             parent: 'workspace'
           },
           id: 'mock-create-320-crdt-fixture',

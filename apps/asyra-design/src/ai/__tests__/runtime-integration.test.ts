@@ -397,7 +397,7 @@ describe('Asyra Design AI runtime integration', () => {
     expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
 
-  it('commits the 320-item mock fixture as ten progressive plural batches in one outer transaction', async () => {
+  it('commits the 320-item cat prefix as point-aware progressive plural batches in one outer transaction', async () => {
     prepareCommonApis()
     let nextElement = 0
 
@@ -426,17 +426,80 @@ describe('Asyra Design AI runtime integration', () => {
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
     expect(elementApis.createElement).toHaveBeenCalledOnce()
-    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(10)
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(13)
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
         .mock.calls.map(([options]) => options.length)
-    ).toEqual(Array.from({ length: 10 }, () => 32))
+        .slice(0, 4)
+    ).toEqual([2, 2, 10, 23])
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.every(([options]) => options.length <= 32)
+    ).toBe(true)
     expect(
       vi
         .mocked(elementApis.createElementsInParent)
         .mock.calls.flatMap(([options]) => options)
     ).toHaveLength(320)
+    expect(elementApis.createElementsInParent).toHaveBeenCalledWith(
+      expect.any(Array),
+      'cat-face-group',
+      {
+        sharedDelivery: 'immediate',
+        undoable: true
+      }
+    )
+    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
+  })
+
+  it('commits the 1,280-item cat prefix as point-aware progressive plural batches in one outer transaction', async () => {
+    prepareCommonApis()
+    let nextElement = 0
+
+    await expect(
+      executeMockComposition(
+        AsyraDesignMockAiPhrases.CREATE_1280_ITEM_CRDT_FIXTURE_EN,
+        () => `large-element-${(nextElement += 1)}`,
+        'progressive'
+      )
+    ).resolves.toMatchObject({
+      actionResults: [
+        {
+          actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          result: {
+            compositionId: 'cat-face-group',
+            skipped: [],
+            status: 'complete'
+          }
+        }
+      ],
+      status: 'executed',
+      transaction: {
+        status: 'committed'
+      }
+    })
+
+    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+    expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(43)
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.map(([options]) => options.length)
+        .slice(0, 4)
+    ).toEqual([2, 2, 10, 23])
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.every(([options]) => options.length <= 32)
+    ).toBe(true)
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(1280)
     expect(elementApis.createElementsInParent).toHaveBeenCalledWith(
       expect.any(Array),
       'cat-face-group',
