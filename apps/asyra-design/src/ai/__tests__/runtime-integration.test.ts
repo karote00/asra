@@ -138,7 +138,8 @@ const executeReferencePlan = async (
 
 const executeMockComposition = async (
   intent: string,
-  createCanonicalId: () => string
+  createCanonicalId: () => string,
+  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
 ) => {
   const provider = createAsyraDesignMockAiProvider({
     delay: async () => undefined
@@ -160,7 +161,7 @@ const executeMockComposition = async (
   })
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
-      deliveryMode: 'atomic',
+      deliveryMode,
       permissionRules: {
         [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
       },
@@ -393,6 +394,57 @@ describe('Asyra Design AI runtime integration', () => {
       }
     )
     expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
+  })
+
+  it('commits the 320-item mock fixture as ten progressive plural batches in one outer transaction', async () => {
+    prepareCommonApis()
+    let nextElement = 0
+
+    await expect(
+      executeMockComposition(
+        AsyraDesignMockAiPhrases.CREATE_320_ITEM_CRDT_FIXTURE_EN,
+        () => `medium-element-${(nextElement += 1)}`,
+        'progressive'
+      )
+    ).resolves.toMatchObject({
+      actionResults: [
+        {
+          actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          result: {
+            compositionId: 'cat-face-group',
+            skipped: [],
+            status: 'complete'
+          }
+        }
+      ],
+      status: 'executed',
+      transaction: {
+        status: 'committed'
+      }
+    })
+
+    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
+    expect(elementApis.createElement).toHaveBeenCalledOnce()
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(10)
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.map(([options]) => options.length)
+    ).toEqual(Array.from({ length: 10 }, () => 32))
+    expect(
+      vi
+        .mocked(elementApis.createElementsInParent)
+        .mock.calls.flatMap(([options]) => options)
+    ).toHaveLength(320)
+    expect(elementApis.createElementsInParent).toHaveBeenCalledWith(
+      expect.any(Array),
+      'cat-face-group',
+      {
+        sharedDelivery: 'immediate',
+        undoable: true
+      }
+    )
     expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
   })
 

@@ -110,6 +110,56 @@ describe('Asyra Design deterministic mock AI provider', () => {
     ).toHaveLength(16)
   })
 
+  it('returns a deterministic 320-item CRDT composition through the ordinary insert action', async () => {
+    const plan = await generate('create the 320-item CRDT performance fixture')
+
+    expect(plan).toMatchObject({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture-320',
+            items: expect.any(Array),
+            parent: 'workspace'
+          },
+          id: 'mock-create-320-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      planId: 'mock-plan-create-320-crdt-fixture'
+    })
+
+    const items =
+      (
+        plan.actions[0]?.arguments as
+          | {
+              items?: readonly {
+                bounds: {
+                  height: number
+                  width: number
+                  x: number
+                  y: number
+                }
+                role: string
+              }[]
+            }
+          | undefined
+      )?.items ?? []
+
+    expect(items).toHaveLength(320)
+    expect(items[0]?.role).toBe('performance-vector-000')
+    expect(items[319]?.role).toBe('performance-vector-319')
+    expect(new Set(items.map(({ role }) => role)).size).toBe(320)
+    expect(
+      items.every(
+        ({ bounds }) =>
+          bounds.x >= 0 &&
+          bounds.y >= 0 &&
+          bounds.x + bounds.width <= 2048 &&
+          bounds.y + bounds.height <= 2048
+      )
+    ).toBe(true)
+  })
+
   it('routes ordinary and detailed cat-face phrases to the same precise fixture', async () => {
     const ordinaryChinese = await generate(
       AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH

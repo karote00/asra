@@ -22,6 +22,8 @@ export const AsyraDesignMockAiPhrases = Object.freeze({
   CREATE_CAT_FACE_ZH: '畫一個貓臉',
   CREATE_DETAILED_CAT_FACE_EN: 'draw a detailed cat face',
   CREATE_DETAILED_CAT_FACE_ZH: '畫一個精緻的貓臉',
+  CREATE_320_ITEM_CRDT_FIXTURE_EN:
+    'create the 320-item CRDT performance fixture',
   CREATE_FAST_CRDT_FIXTURE_EN: 'create the fast CRDT performance fixture',
   DELETE_CAT_FACE_EN: 'delete the current cat face',
   DELETE_CAT_FACE_ZH: '刪除目前的貓臉',
@@ -101,6 +103,7 @@ interface MockCompositionItem {
 type MockFixture =
   | 'create-balanced-cat-face'
   | 'create-cat-only-white-background'
+  | 'create-320-crdt-fixture'
   | 'create-fast-crdt-fixture'
   | 'create-maximum-cat-face'
   | 'delete-cat-face'
@@ -176,14 +179,16 @@ const multiPathVector = (
   style
 })
 
-const createFastCrdtFixtureItems = (): MockCompositionItem[] =>
-  Array.from({ length: 16 }, (_, index) => {
-    const column = index % 4
-    const row = Math.floor(index / 4)
+const createCrdtFixtureItems = (itemCount: number): MockCompositionItem[] => {
+  const columnCount = Math.ceil(Math.sqrt(itemCount))
+  const roleWidth = String(itemCount - 1).length
+  return Array.from({ length: itemCount }, (_, index) => {
+    const column = index % columnCount
+    const row = Math.floor(index / columnCount)
     const x = 80 + column * 56
     const y = 80 + row * 56
     return multiPathVector(
-      indexedRole('performance-vector', index, 2),
+      indexedRole('performance-vector', index, roleWidth),
       [
         {
           closed: true,
@@ -202,6 +207,13 @@ const createFastCrdtFixtureItems = (): MockCompositionItem[] =>
       }
     )
   })
+}
+
+const createFastCrdtFixtureItems = (): MockCompositionItem[] =>
+  createCrdtFixtureItems(16)
+
+const create320ItemCrdtFixtureItems = (): MockCompositionItem[] =>
+  createCrdtFixtureItems(320)
 
 const indexedRole = (prefix: string, index: number, width: number) =>
   `${prefix}-${String(index).padStart(width, '0')}`
@@ -751,6 +763,7 @@ const phraseToFixture = (input: AiProviderInput): MockFixture | null => {
     return hasAcceptedImageAttachment(input) ? 'create-maximum-cat-face' : null
   }
   const fixtures: readonly [readonly string[], MockFixture][] = [
+    [[phrases.CREATE_320_ITEM_CRDT_FIXTURE_EN], 'create-320-crdt-fixture'],
     [[phrases.CREATE_FAST_CRDT_FIXTURE_EN], 'create-fast-crdt-fixture'],
     [
       [
@@ -934,6 +947,25 @@ const planForFixture = async (
       explanation:
         'Create the deterministic fast CRDT fixture as ordinary editable vector elements',
       planId: 'mock-plan-create-fast-crdt-fixture'
+    })
+  }
+
+  if (fixture === 'create-320-crdt-fixture') {
+    return deepFreeze({
+      actions: [
+        {
+          arguments: {
+            compositionRole: 'performance-fixture-320',
+            items: create320ItemCrdtFixtureItems(),
+            parent: 'workspace'
+          },
+          id: 'mock-create-320-crdt-fixture',
+          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+        }
+      ],
+      explanation:
+        'Create the deterministic 320-item CRDT fixture as ordinary editable vector elements',
+      planId: 'mock-plan-create-320-crdt-fixture'
     })
   }
 
