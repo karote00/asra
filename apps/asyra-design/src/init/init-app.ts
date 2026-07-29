@@ -103,7 +103,7 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
         runtimeOptions: options.ai
       }
     : createAsyraDesignAiStartup(
-        options.aiMode ?? 'disabled',
+        options.aiMode ?? 'mock',
         undefined,
         options.aiDeliveryMode
       )

@@ -186,31 +186,10 @@ const getCanvasSummary = async (page: Page): Promise<CanvasSummary> =>
   })
 
 test.describe('Conversational AI Mock Drawing', () => {
-  test('activates only for the exact ai=mock query', async ({
+  test('provides the Mock Agent from the production entry without an ai query', async ({
     page
   }, testInfo) => {
-    const expectNoAiSurface = async () => {
-      await expect(page.getByTestId('mock-ai-toolbar-button')).toHaveCount(0)
-      await page.mouse.click(600, 300, { button: 'right' })
-      await expect(
-        page.getByRole('menuitem', { name: /Toggle Agent Panel/ })
-      ).toHaveCount(0)
-      await page.keyboard.press('Escape')
-    }
-
     await page.goto('/')
-    await waitForAppReady(page)
-    await expectNoAiSurface()
-
-    await page.goto('/?ai=unknown')
-    await waitForAppReady(page)
-    await expectNoAiSurface()
-
-    await page.goto('/?ai=mock&ai=mock')
-    await waitForAppReady(page)
-    await expectNoAiSurface()
-
-    await page.goto('/?ai=mock')
     await waitForAppReady(page)
     await expect(page.getByTestId('mock-ai-toolbar-button')).toBeVisible()
 
@@ -255,7 +234,7 @@ test.describe('Conversational AI Mock Drawing', () => {
       }
     })
 
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
@@ -319,7 +298,7 @@ test.describe('Conversational AI Mock Drawing', () => {
         toolContentTypes.push(request.headers()['content-type'] ?? '')
       }
     })
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
 
@@ -364,7 +343,7 @@ test.describe('Conversational AI Mock Drawing', () => {
   test('commits a one-item VTracer result as one grouped history action', async ({
     page
   }, testInfo) => {
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
@@ -432,7 +411,7 @@ test.describe('Conversational AI Mock Drawing', () => {
         persistenceErrors.push(message.text())
       }
     })
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
 
@@ -586,7 +565,9 @@ test.describe('Conversational AI Mock Drawing', () => {
       'Maximum-detail live materialization is an explicit one-run resource gate.'
     )
     test.setTimeout(900_000)
-    await page.goto('/?ai=mock')
+    await page.goto(
+      '/?aiDelivery=atomic&aiPerformance=profile&aiPerformanceContents=present'
+    )
     await waitForAppReady(page)
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
@@ -629,7 +610,7 @@ test.describe('Conversational AI Mock Drawing', () => {
     page
   }, testInfo) => {
     test.setTimeout(180_000)
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
     const beforeHistory = await getTransactionSnapshot(page)
@@ -686,7 +667,7 @@ test.describe('Conversational AI Mock Drawing', () => {
     page
   }, testInfo) => {
     test.setTimeout(300_000)
-    await page.goto('/?ai=mock')
+    await page.goto('/')
     await waitForAppReady(page)
     await openMockAi(page)
 

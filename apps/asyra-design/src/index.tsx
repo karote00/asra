@@ -7,10 +7,7 @@ import DataContexts from './contexts/data-change'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 import { initApp } from './init'
-import {
-  resolveAsyraDesignAiDeliveryMode,
-  resolveAsyraDesignAiMode
-} from './ai/mode'
+import { resolveAsyraDesignAiDeliveryMode } from './ai/mode'
 import {
   installAiDrawingPerformanceProfile,
   resolveAiDrawingPerformanceProfile
@@ -26,8 +23,7 @@ const performanceProfile = performanceConfiguration
     })
   : null
 const initialization = initApp({
-  aiDeliveryMode: resolveAsyraDesignAiDeliveryMode(window.location.search),
-  aiMode: resolveAsyraDesignAiMode(window.location.search)
+  aiDeliveryMode: resolveAsyraDesignAiDeliveryMode(window.location.search)
 })
 if (performanceProfile) {
   performanceProfile.attachConversation(initialization.aiConversation)

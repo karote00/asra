@@ -127,9 +127,10 @@ const actionByName = (
     readonly yieldToHost?: () => Promise<void>
   }
 ) => {
-  const action = createAsyraDesignAiActions(apis, options).find(
-    (candidate) => candidate.name === name
-  )
+  const action = createAsyraDesignAiActions(
+    apis,
+    options ?? { deliveryMode: 'atomic' }
+  ).find((candidate) => candidate.name === name)
   if (!action) {
     throw new Error(`Missing test action: ${name}`)
   }

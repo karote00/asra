@@ -1,33 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createAsyraDesignAiStartup,
-  resolveAsyraDesignAiDeliveryMode,
-  resolveAsyraDesignAiMode
+  resolveAsyraDesignAiDeliveryMode
 } from '../mode'
 
-describe('Asyra Design AI URL mode', () => {
+describe('Asyra Design AI startup configuration', () => {
   it.each([
-    ['', 'disabled'],
-    ['?ai=', 'disabled'],
-    ['?ai=live', 'disabled'],
-    ['?ai=Mock', 'disabled'],
-    ['?ai=mock&ai=live', 'disabled'],
-    ['?ai=mock&ai=mock', 'disabled'],
-    ['?other=mock', 'disabled'],
-    ['?ai=mock', 'mock'],
-    ['?other=1&ai=mock', 'mock']
-  ] as const)('resolves %s to %s', (search, expected) => {
-    expect(resolveAsyraDesignAiMode(search)).toBe(expected)
-  })
-
-  it.each([
-    ['', 'atomic'],
-    ['?ai=mock', 'atomic'],
-    ['?aiDelivery=', 'atomic'],
-    ['?aiDelivery=unknown', 'atomic'],
-    ['?aiDelivery=progressive&aiDelivery=atomic', 'atomic'],
-    ['?aiDelivery=progressive&aiDelivery=progressive', 'atomic'],
+    ['', 'progressive'],
+    ['?ai=mock', 'progressive'],
+    ['?other=1&ai=mock', 'progressive'],
+    ['?aiDelivery=', 'progressive'],
+    ['?aiDelivery=unknown', 'progressive'],
+    ['?aiDelivery=progressive&aiDelivery=atomic', 'progressive'],
+    ['?aiDelivery=progressive&aiDelivery=progressive', 'progressive'],
     ['?aiDelivery=atomic', 'atomic'],
+    ['?aiDelivery=progressive', 'progressive'],
     ['?other=1&aiDelivery=progressive', 'progressive']
   ] as const)('resolves delivery %s to %s', (search, expected) => {
     expect(resolveAsyraDesignAiDeliveryMode(search)).toBe(expected)
@@ -57,7 +44,7 @@ describe('Asyra Design AI URL mode', () => {
     expect(createHistory).not.toHaveBeenCalled()
   })
 
-  it('composes one no-network mock provider and app confirmation broker only in mock mode', () => {
+  it('composes one no-network mock provider and app confirmation broker for production startup', () => {
     const provider = {
       dispose: vi.fn(),
       generateActionPlan: vi.fn()

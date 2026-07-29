@@ -160,6 +160,7 @@ const executeMockComposition = async (
   })
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
+      deliveryMode: 'atomic',
       permissionRules: {
         [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
       },
@@ -447,6 +448,7 @@ describe('Asyra Design AI runtime integration', () => {
     }
     const runtime = createAiAgentRuntime(
       createAsyraDesignAiRuntimeInput({
+        deliveryMode: 'atomic',
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
         },
@@ -575,7 +577,6 @@ describe('Asyra Design AI runtime integration', () => {
     }
     const runtime = createAiAgentRuntime(
       createAsyraDesignAiRuntimeInput({
-        deliveryMode: 'progressive',
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
           [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
@@ -892,6 +893,7 @@ describe('Asyra Design AI runtime integration', () => {
     })
     const runtime = createAiAgentRuntime(
       createAsyraDesignAiRuntimeInput({
+        deliveryMode: 'atomic',
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
           [AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'

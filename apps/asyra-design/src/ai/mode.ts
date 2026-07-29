@@ -41,24 +41,19 @@ const defaultFactories: AsyraDesignAiStartupFactories = {
   createProvider: createAsyraDesignMockAiProvider
 }
 
-export const resolveAsyraDesignAiMode = (search: string): AsyraDesignAiMode => {
-  const values = new URLSearchParams(search).getAll('ai')
-  return values.length === 1 && values[0] === 'mock' ? 'mock' : 'disabled'
-}
-
 export const resolveAsyraDesignAiDeliveryMode = (
   search: string
 ): AsyraDesignAiDeliveryMode => {
   const values = new URLSearchParams(search).getAll('aiDelivery')
-  return values.length === 1 && values[0] === 'progressive'
-    ? 'progressive'
-    : 'atomic'
+  return values.length === 1 && values[0] === 'atomic'
+    ? 'atomic'
+    : 'progressive'
 }
 
 export const createAsyraDesignAiStartup = (
   mode: AsyraDesignAiMode,
   factories: AsyraDesignAiStartupFactories = defaultFactories,
-  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
+  deliveryMode: AsyraDesignAiDeliveryMode = 'progressive'
 ): AsyraDesignAiStartup => {
   if (mode !== 'mock') {
     return Object.freeze({

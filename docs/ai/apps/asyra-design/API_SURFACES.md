@@ -2,14 +2,15 @@
 
 This file is the app-level API contract map.
 
-## Optional AI Agent Reference
+## AI Agent Reference
 
-- `initApp({ ai })` defaults to AI-disabled and creates no AI runtime,
-  provider, Feature, network request, listener, timer, or secret read
-- `resolveAsyraDesignAiMode(window.location.search)` accepts only one exact
-  `ai=mock` value; missing, empty, unknown, case-mismatched, or duplicate values
-  keep the App AI-disabled
-- explicit mock startup composes one deterministic provider with no
+- production `initApp()` startup directly composes the deterministic Mock AI
+  experience; the `ai` URL query is not an activation or disable switch
+- `resolveAsyraDesignAiDeliveryMode(window.location.search)` selects atomic
+  delivery only for one exact `aiDelivery=atomic` value; ordinary startup,
+  empty, unknown, duplicate, and exact progressive values select progressive
+  delivery
+- production Mock startup composes one deterministic provider with no
   external/model network access,
   app confirmation broker, app-root-local conversation controller, and current
   AI history projection; it reads no API key. Its same-origin VTracer demo tool

@@ -84,24 +84,26 @@ describe('initApp preset composition', () => {
     delete window.__AsyraAiDrawingPerformance__
   })
 
-  it('applies the default preset with an AI-disabled lifecycle', async () => {
+  it('applies the default preset with the production Mock AI lifecycle', async () => {
     const initialization = initApp()
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
     expect(features.initFeatures).toHaveBeenCalledWith({
       ai: {
-        enabled: false,
-        providerEnabled: false,
-        runtime: undefined
+        enabled: true,
+        providerEnabled: true,
+        runtime: expect.objectContaining({
+          run: expect.any(Function)
+        })
       }
     })
     expect(initialization.aiRuntime).toMatchObject({
-      enabled: false,
-      providerEnabled: false,
-      runtime: null
+      enabled: true,
+      providerEnabled: true
     })
-    expect(initialization.aiHistory).toBeNull()
+    expect(initialization.aiConfirmation).not.toBeNull()
+    expect(initialization.aiHistory).not.toBeNull()
     expect(window.__AsyraE2E__).toEqual({
       elementApis,
       hierarchyApis,
@@ -187,7 +189,7 @@ describe('initApp preset composition', () => {
     })
   })
 
-  it('constructs the complete mock composition only for explicit mock mode', async () => {
+  it('constructs the complete production mock composition by default', async () => {
     const disposeFeature = vi.fn(() => true)
     vi.spyOn(features, 'initFeatures').mockImplementation((options) => ({
       ai: options.ai?.enabled
@@ -206,9 +208,7 @@ describe('initApp preset composition', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
 
-    const initialization = initApp({
-      aiMode: 'mock'
-    })
+    const initialization = initApp()
 
     expect(initialization).toMatchObject({
       aiMode: 'mock',

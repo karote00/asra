@@ -27,9 +27,9 @@ const actionApis = () => ({
 })
 
 const actionByName = (name: string, apis: ReturnType<typeof actionApis>) => {
-  const action = createAsyraDesignAiActions(apis).find(
-    (candidate) => candidate.name === name
-  )
+  const action = createAsyraDesignAiActions(apis, {
+    deliveryMode: 'atomic'
+  }).find((candidate) => candidate.name === name)
   if (!action) {
     throw new Error(`Missing test action: ${name}`)
   }
