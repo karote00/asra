@@ -144,21 +144,16 @@ This file is the app-level API contract map.
   public client/server unions, and runtime parsing of untrusted JSON
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- Core load/save uses app-selected IndexedDB persistence. An ordinary URL
-  retains document identity `FILE`; a non-empty `fileId` selects
-  `FILE:<encoded fileId>`, so the same file shares one browser-local demo
-  snapshot and different files remain isolated. An absent ordinary or
-  collaboration document is initialized as an empty workspace, while an
-  existing IndexedDB snapshot is not overwritten. When IndexedDB is empty, an
-  eligible matching legacy localStorage snapshot is copied and its legacy key
-  is removed only after the durable write succeeds. This is browser-local
-  durability for the open-source reference demo, not a production shared
-  database. A production product derived from Asyra Design must replace the
-  App-selected provider with a server-backed database integration that owns
-  authentication, authorization, backup, and migration policy
+- The current RenderApp starts Core and then loads one empty canonical document
+  through `Core.load(...)` for both ordinary local and collaboration demo
+  sessions. It starts without a client persistence provider, so local actions,
+  Undo, Redo, and remote apply perform no IndexedDB read or write and reload
+  durability is intentionally absent. A future production product must connect
+  its server-owned database/checkpoint policy explicitly; the current client
+  does not infer or emulate that policy
 - URLs without `fileId` create no collaboration connection; production builds
   retain the dynamically loaded reference path so a deployed URL with `fileId`
-  can use it without changing the persistence owner
+  can connect only after the same empty canonical document is loaded
 - URL-level `document`, `room`, and `actor` parameters are not collaboration
   identity inputs
 - `window.__AsyraCollaboration__` is an intentionally retained active-runtime

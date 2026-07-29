@@ -1,14 +1,11 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
-import {
-  IndexedDbPersistence,
-  providers,
-  type IPersistenceProvider
-} from '@asyra/reactive-events'
+import { IndexedDbPersistence, providers } from '@asyra/reactive-events'
 import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
+import * as documentPersistence from '../../document-persistence'
 import RenderApp from '../index'
 
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
@@ -39,14 +36,6 @@ const setReactActEnvironment = (active: boolean) => {
   ).IS_REACT_ACT_ENVIRONMENT = active
 }
 
-const getSelectedPersistence = (): IPersistenceProvider => {
-  const selected = vi.mocked(core.setPersistence).mock.calls[0]?.[0]
-  if (!selected) {
-    throw new Error('RenderApp did not select document persistence')
-  }
-  return selected
-}
-
 const clearTestDocuments = async () => {
   await Promise.all(
     ['FILE', 'FILE:file-1', 'FILE:file-aborted'].map((key) =>
@@ -66,8 +55,11 @@ describe('RenderApp StrictMode lifecycle', () => {
     await providers.memory.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
+    vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
+    vi.spyOn(documentPersistence, 'createDocumentPersistence')
+    vi.spyOn(documentPersistence, 'initializeDocumentPersistence')
     vi.spyOn(providers.memory, 'save')
     vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
       collaborationHandle
@@ -108,8 +100,13 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(core.setPersistence).toHaveBeenCalledWith(providers.indexedDB)
+      expect(core.load).toHaveBeenCalledWith(EMPTY_DOCUMENT)
     )
+    expect(documentPersistence.createDocumentPersistence).not.toHaveBeenCalled()
+    expect(
+      documentPersistence.initializeDocumentPersistence
+    ).not.toHaveBeenCalled()
+    expect(core.setPersistence).not.toHaveBeenCalled()
     expect(core.destroyRenderer).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledWith(
@@ -119,6 +116,9 @@ describe('RenderApp StrictMode lifecycle', () => {
         height: window.innerHeight
       })
     )
+    expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(core.load).mock.invocationCallOrder[0] ?? 0
+    )
 
     await act(async () => {
       root.unmount()
@@ -127,7 +127,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 
-  it('initializes an absent ordinary IndexedDB document before Core starts', async () => {
+  it('loads an empty ordinary document after Core starts without client persistence', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -140,16 +140,24 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(core.setPersistence).toHaveBeenCalledWith(providers.indexedDB)
+      expect(core.load).toHaveBeenCalledWith(EMPTY_DOCUMENT)
     )
-    await expect(providers.indexedDB.load()).resolves.toEqual(EMPTY_DOCUMENT)
+    expect(documentPersistence.createDocumentPersistence).not.toHaveBeenCalled()
+    expect(
+      documentPersistence.initializeDocumentPersistence
+    ).not.toHaveBeenCalled()
+    expect(core.setPersistence).not.toHaveBeenCalled()
+    await expect(providers.indexedDB.load()).resolves.toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
     expect(core.start).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(core.load).mock.invocationCallOrder[0] ?? 0
+    )
 
     await act(async () => root.unmount())
   })
 
-  it('initializes an absent IndexedDB document before collaboration starts', async () => {
+  it('loads an empty collaboration document without creating or injecting client persistence', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
     const host = document.createElement('div')
@@ -170,14 +178,28 @@ describe('RenderApp StrictMode lifecycle', () => {
     await vi.waitFor(() =>
       expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
     )
-    const selectedPersistence = getSelectedPersistence()
+    expect(documentPersistence.createDocumentPersistence).not.toHaveBeenCalled()
+    expect(
+      documentPersistence.initializeDocumentPersistence
+    ).not.toHaveBeenCalled()
+    expect(core.setPersistence).not.toHaveBeenCalled()
+    expect(core.load).toHaveBeenCalledOnce()
+    expect(core.load).toHaveBeenCalledWith(EMPTY_DOCUMENT)
+    expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(core.load).mock.invocationCallOrder[0] ?? 0
+    )
+    expect(vi.mocked(core.load).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(collaborationLifecycle.startCollaboration).mock
+        .invocationCallOrder[0] ?? 0
+    )
     expect(providers.memory.save).not.toHaveBeenCalled()
-    await expect(selectedPersistence.load()).resolves.toEqual(EMPTY_DOCUMENT)
+    await expect(
+      new IndexedDbPersistence('FILE:file-1', {
+        factory: indexedDB
+      }).load()
+    ).resolves.toBeNull()
     expect(localStorage.getItem('FILE:file-1')).toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(selectedPersistence.name).toBe('IndexedDB')
-    expect(selectedPersistence).not.toBe(providers.indexedDB)
-    expect(core.setPersistence).not.toHaveBeenCalledWith(providers.memory)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
       fileId: 'file-1',
       actorId: `actor-${ACTOR_UUID}`,
@@ -188,7 +210,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(collaborationLifecycle.disposeCollaboration).toHaveBeenCalledTimes(1)
   })
 
-  it('migrates an existing localStorage document before collaboration starts', async () => {
+  it('leaves collaboration legacy storage untouched during startup', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
     const existingDocument = {
@@ -215,12 +237,21 @@ describe('RenderApp StrictMode lifecycle', () => {
     await vi.waitFor(() =>
       expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
     )
-    const selectedPersistence = getSelectedPersistence()
-    await expect(selectedPersistence.load()).resolves.toEqual(existingDocument)
-    expect(localStorage.getItem('FILE:file-1')).toBeNull()
+    expect(documentPersistence.createDocumentPersistence).not.toHaveBeenCalled()
+    expect(
+      documentPersistence.initializeDocumentPersistence
+    ).not.toHaveBeenCalled()
+    expect(core.setPersistence).not.toHaveBeenCalled()
+    expect(core.load).toHaveBeenCalledWith(EMPTY_DOCUMENT)
+    await expect(
+      new IndexedDbPersistence('FILE:file-1', {
+        factory: indexedDB
+      }).load()
+    ).resolves.toBeNull()
+    expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
+      existingDocument
+    )
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(selectedPersistence.name).toBe('IndexedDB')
-    expect(selectedPersistence).not.toBe(providers.indexedDB)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())
