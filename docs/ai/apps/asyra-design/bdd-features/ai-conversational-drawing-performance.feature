@@ -5,7 +5,7 @@ Feature: Conversational AI drawing performance
 
   Background:
     Given the committed 1672 by 941 tabby reference image
-    And the production Asyra Design build uses exact "ai=mock" mode
+    And the production Asyra Design build directly provides deterministic Mock AI
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And one unmeasured warm-up precedes three measured reference runs
 
@@ -71,9 +71,8 @@ Feature: Conversational AI drawing performance
     And atomic mode should submit one all-children plural batch
     And progressive mode should submit multiple ordered plural batches without opening another transaction
 
-  Scenario: Mock AI defaults to cooperative progressive drawing
-    Given the App starts in ordinary "ai=mock" mode
-    And "aiDelivery" is missing
+  Scenario: Production App exposes Mock AI without URL activation
+    Given the ordinary production entry starts without an "ai" query
     When the App resolves the drawing delivery policy
     Then it should select progressive delivery
     And the composition should yield between deterministic plural Core batches

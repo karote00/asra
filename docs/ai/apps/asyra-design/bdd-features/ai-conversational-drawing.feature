@@ -4,16 +4,17 @@ Feature: Conversational AI mock drawing
   So that planning, confirmation, mutation, partial failure, follow-up editing, and history behavior are visible and testable
 
   Background:
-    Given Asyra Design is opened with the exact "ai=mock" mode
+    Given the ordinary production Asyra Design App directly provides deterministic Mock AI
     And the UI exposes mock-mode status without a provider or speaker name
     And mock planning uses deterministic fixtures and a finite abortable delay
     And Feature System owns one active AI turn
 
-  Scenario: AI-disabled startup keeps the mock experience absent
-    Given the app URL has no exact "ai=mock" mode
+  Scenario: Production startup provides the Mock Agent without URL activation
+    Given the app URL has no "ai" query
     When Asyra Design starts
-    Then no AI toolbar control or conversation panel should be present
-    And no AI runtime, provider, Feature, observer, mock timer, or network request should be created
+    Then the AI toolbar control and conversation panel should be available
+    And one deterministic Mock runtime, provider, Feature, and controller should be created
+    And no API key or external model network request should be used
 
   Scenario: A cat-face request shows operational progress and creates ordinary elements
     When the user adds a PNG tabby reference image to the Agent prompt
@@ -128,13 +129,13 @@ Feature: Conversational AI mock drawing
     And the partial turn should create one intended undo commit
 
   Scenario: The Agent panel has shared design-tool entry points
-    Given the app is running with exact ai=mock mode
+    Given the app is running through the ordinary production entry
     When the user toggles the Agent panel from the toolbar, platform shortcut, or canvas Context Menu
     Then every entry should route to the same app-local non-modal right panel
     And opening should focus the Agent prompt
     And closing should restore focus to a safe connected invoker
     And the panel header, conversation bubbles, and Message Bar should omit "You" and "Mock AI" speaker or provider labels
-    And AI-disabled modes should expose none of those entry points
+    And an explicitly injected disabled derived-App runtime should expose none of those entry points
 
   Scenario: A follow-up enlarges existing eyes without regeneration
     Given the current conversation created a cat face
@@ -163,7 +164,8 @@ Feature: Conversational AI mock drawing
     And the follow-up should create one new intended undo commit
 
   Scenario: Two collaboration actors record the exact attached-reference flow
-    Given two independent browser actors opened the same Asyra Design document in exact "ai=mock&aiDelivery=progressive" mode
+    Given two independent browser actors opened the same Asyra Design document in ordinary production Mock AI mode
+    And progressive collaboration delivery is active
     And one side-by-side 2560-by-720 recorder shows both 1280-by-720 live app views
     And fresh E2E-owned App and collaboration servers run on dedicated ports
     When Actor A opens the Agent panel
@@ -185,11 +187,11 @@ Feature: Conversational AI mock drawing
     And the same live views should be retained in one continuous side-by-side WebM
 
   Scenario: The App selects atomic or progressive collaboration delivery without splitting history
-    Given exact "ai=mock" mode is active with Collaboration connected
-    When "aiDelivery" is missing, duplicated, unknown, or exactly "atomic"
+    Given ordinary production Mock AI is active with Collaboration connected
+    When "aiDelivery" is exactly "atomic"
     Then one mutating Agent turn should use ordinary transaction-end delivery
     And the peer should receive one publication only after the turn commits
-    But when "aiDelivery" is exactly "progressive"
+    But when "aiDelivery" is missing, duplicated, unknown, or exactly "progressive"
     Then the same canonical writes should use ordinary immediate delivery
     And creation should yield after each point-aware child batch
     And each progressive child batch should target at most 2048 canonical topology points and retain the existing 256-item transient maximum

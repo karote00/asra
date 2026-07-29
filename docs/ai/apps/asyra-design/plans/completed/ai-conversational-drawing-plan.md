@@ -6,7 +6,8 @@ Completed on 2026-07-26 after every Inspector owner step and the bounded
 completion route passed formal, E2E, template, build, and synchronized live-app
 visual gates.
 
-- Outcome: exact `ai=mock` now provides the complete non-modal Agent
+- Outcome: the production Asyra Design entry now provides the complete
+  deterministic, network-free, non-modal Agent
   conversation, deterministic drawing/refinement, arbitrary local
   PNG/JPEG/WebP whole-image vectorization, partial/confirmation/cancellation
   outcomes, elapsed time, canonical-id follow-ups, and current-action
@@ -49,19 +50,20 @@ Queued credential-gated formal-test successor after performance:
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs`
 
 The second successor requires a human-owned, dedicated server-only API key and
-an explicitly authorized live-provider run. It does not change exact
-`ai=mock`, make live output ordinary CI authority, reopen this completed plan, or
-authorize production provider deployment.
+an explicitly authorized live-provider run. It does not replace the
+deterministic production Mock provider, make live output ordinary CI authority,
+reopen this completed plan, or authorize production provider deployment.
 
 ## Goal
 
 Provide a usable Asyra Design AI conversation experience before a live model
 endpoint or API key exists.
 
-In explicit mock mode, a user can open an app-owned conversation panel, enter a
-natural-language request, observe deterministic operational progress, receive
-a mock provider plan, and see ordinary Asyra elements created or updated
-through the completed AI Agent Runtime and app common APIs.
+In the production Asyra Design App, a user can open an app-owned conversation
+panel without changing the URL, enter a natural-language request, observe
+deterministic operational progress, receive a mock provider plan, and see
+ordinary Asyra elements created or updated through the completed AI Agent
+Runtime and app common APIs.
 
 The first representative conversation is:
 
@@ -96,20 +98,17 @@ or Redo only while that AI turn remains the applicable top history action.
 
 ## Product Decisions
 
-### Explicit mock activation
+### Production Mock availability
 
-- Asyra Design enables this experience only when the app URL contains the exact
-  query `ai=mock`.
-- Mock mode accepts one App-owned collaboration delivery flag:
-  `aiDelivery=atomic` or `aiDelivery=progressive`. Missing, duplicated, or
-  unknown `aiDelivery` values resolve to the safe backward-compatible
-  `atomic` mode. The delivery flag never enables AI by itself.
-- Missing, empty, or unknown `ai` values preserve the existing AI-disabled
-  startup: no runtime, provider, AI Feature, mock timer, observer, conversation
-  controller, or AI UI is constructed.
-- Mock mode performs no model network request and reads no API key. The exact
-  URL opt-in and a concise `Mock mode · no API key` status identify the mode
-  without presenting a provider or speaker name in the conversation UI.
+- The production Asyra Design entry directly supplies the deterministic Mock AI
+  experience. The `ai` URL query is not an activation or disable switch.
+- Ordinary startup selects progressive delivery. Exact
+  `aiDelivery=atomic` is retained only as an App-owned isolated measurement
+  opt-in; missing, empty, duplicated, unknown, or exact progressive values
+  retain the progressive default.
+- Mock mode performs no model network request and reads no API key. A concise
+  `Mock mode · no API key` status identifies the mode without presenting a
+  provider or speaker name in the conversation UI.
 - The generated app template remains AI-disabled by default. The official
   generation script may synchronize the opt-in mock capability without making
   it an implicit startup side effect.
@@ -447,10 +446,11 @@ the same width and height as the uploaded photo.` directly through the
 - One accepted mutating conversation turn enters one app transaction runner
   call.
 - All successful mutations in that turn use `undoable: true`.
-- `aiDelivery=atomic` maps every AI mutation to ordinary
+- Explicit `aiDelivery=atomic` maps every AI mutation to ordinary
   `sharedDelivery: 'transaction-end'`; Collaboration receives one publication
   only after the outer transaction commits.
-- `aiDelivery=progressive` maps the same canonical writes to ordinary
+- Default or explicit `aiDelivery=progressive` maps the same canonical writes
+  to ordinary
   `sharedDelivery: 'immediate'`. Creation yields to the host after each
   point-aware child batch. Each progressive child batch retains the existing
   256-item transient maximum and targets at most 2,048 canonical topology
@@ -614,12 +614,11 @@ the same width and height as the uploaded photo.` directly through the
 
 Formal product cases cover:
 
-1. AI-disabled startup and unknown `ai` query values create no AI side effect or
-   UI.
-2. Exact `ai=mock` activation exposes one toolbar trigger and one isolated
-   mock conversation controller without external/model network or secret
-   reads. The same-origin VTracer endpoint remains inert until an accepted
-   attachment is submitted with an explicit whole-image vectorization intent.
+1. Ordinary production startup exposes one toolbar trigger and one isolated
+   deterministic Mock conversation controller without an `ai` query,
+   external/model network, or secret reads.
+2. The same-origin VTracer endpoint remains inert until an accepted attachment
+   is submitted with an explicit whole-image vectorization intent.
 3. Opening, closing, and reopening the non-modal panel preserves settled
    in-memory turns for the mounted app root and leaks no listeners or timers.
 4. The Agent prompt accepts local PNG, JPEG, and WebP images through either
@@ -717,16 +716,16 @@ Formal product cases cover:
     command owns dedicated App/collaboration ports and never reuses a stale
     long-running development server.
 25. Exact `aiDelivery=atomic` publishes a mutating AI turn once after commit.
-    Exact `aiDelivery=progressive` lets the peer observe more than one ordered
-    canonical creation batch while Actor A is still working, then converges to
-    the same ids and topology. Both modes retain one Actor A undo entry per
-    mutating turn. Progressive Undo and Redo reuse canonical replay and the
-    source batch boundaries without becoming multiple local history actions;
-    rollback after an already-published batch emits linked Factory
+    Default or exact `aiDelivery=progressive` lets the peer observe more than
+    one ordered canonical creation batch while Actor A is still working, then
+    converges to the same ids and topology. Both modes retain one Actor A undo
+    entry per mutating turn. Progressive Undo and Redo reuse canonical replay
+    and the source batch boundaries without becoming multiple local history
+    actions; rollback after an already-published batch emits linked Factory
     compensation. Progressive creation uses a 2,048-point soft batch target
-    plus the existing 256-item transient maximum; an intact over-target element
-    remains accepted in one batch, so the target is never a composition or
-    topology ceiling.
+    plus the existing 256-item transient maximum; an intact over-target
+    element remains accepted in one batch, so the target is never a composition
+    or topology ceiling.
 26. Generated-template synchronization preserves explicit mock opt-in and
     AI-disabled default startup.
 27. Every terminal conversation outcome shows a concise elapsed duration
@@ -911,10 +910,10 @@ only after its focused formal tests and direct-consumer review pass.
 
 - The active product contract, Inspector, BDD cases, package/App docs, and
   release decision history agree.
-- Exact `ai=mock` mode provides the complete conversation experience without an
-  API key, external/model network request, live provider, hidden
-  chain-of-thought, or AI-default startup side effect; the same-origin VTracer
-  demo endpoint is invoked only for explicit whole-image vectorization.
+- The ordinary production Asyra Design App provides the complete deterministic
+  Mock conversation experience without an `ai` query, API key, external/model
+  network request, live provider, or hidden chain-of-thought; the same-origin
+  VTracer demo endpoint is invoked only for explicit whole-image vectorization.
 - The Agent prompt accepts local reference images through both file selection
   and drag-and-drop, previews and removes draft attachments accessibly, and
   carries submitted attachment data through the App-owned turn context without

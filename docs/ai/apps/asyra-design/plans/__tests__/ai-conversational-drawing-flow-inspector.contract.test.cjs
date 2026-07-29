@@ -93,7 +93,10 @@ test('Conversational AI Inspector authorities and completed-plan routing resolve
     path.resolve(repoRoot, 'docs/ai/apps/asyra-design/PLANS.md'),
     'utf8'
   )
-  assert.match(plansIndex, /No App implementation plan is active/)
+  assert.match(
+    plansIndex,
+    /Active app plan:[\s\S]*ai-conversational-drawing-performance-plan\.md/
+  )
   assert.doesNotMatch(
     plansIndex,
     /Current active plan:\s+`plans\/ai-conversational-drawing-plan\.md`/
@@ -167,15 +170,18 @@ test('implementation roots and specification anchors resolve', () => {
   })
 })
 
-test('mock mode and provider boundary stay explicit, deterministic, and inert by default', () => {
+test('production mock provider is default, deterministic, and app-owned', () => {
   const intake = contractText(step('accept-mock-conversation-intent'))
   const provider = contractText(step('produce-deterministic-mock-candidate'))
 
-  assert.match(intake, /Exact ai=mock/)
+  assert.match(
+    intake,
+    /production Asyra Design entry.*Mock AI.*without.*URL.*activation/i
+  )
   assert.match(intake, /Meta\/Ctrl\+I toggle shortcut/)
   assert.match(intake, /Context Menu Toggle Agent Panel/)
   assert.match(intake, /opening focuses the prompt.*closing restores/i)
-  assert.match(intake, /unknown AI modes construct no AI UI or runtime/)
+  assert.doesNotMatch(intake, /URL mode parser/)
   assert.match(intake, /without trimmed text emits no Feature or provider/)
   assert.match(intake, /file selection.*drag-and-drop/i)
   assert.match(intake, /PNG, JPEG, and WebP/)
@@ -197,7 +203,7 @@ test('mock mode and provider boundary stay explicit, deterministic, and inert by
   assert.match(intake, /read failures.*no Feature or provider/i)
   assert.match(intake, /disables Send and attachment changes/i)
   assert.match(intake, /second turn is rejected rather than queued/)
-  assert.match(intake, /default production or generated-app AI activation/)
+  assert.match(intake, /generated-app AI activation/)
 
   assert.match(provider, /deterministic fixture/)
   assert.match(provider, /finite.*abortable delay/i)
@@ -371,11 +377,11 @@ test('App execution owns bounded creation, incremental updates, partial commit, 
   assert.match(execution, /catching rollback-only fatal failure/)
   assert.match(
     execution,
-    /Missing, duplicated, unknown, or exact atomic aiDelivery.*transaction-end shared delivery.*only after the outer transaction commits/i
+    /Exact atomic aiDelivery.*transaction-end shared delivery.*only after the outer transaction commits/i
   )
   assert.match(
     execution,
-    /Exact progressive aiDelivery.*ordinary immediate shared delivery.*point-aware child batch.*256-item transient maximum.*2,048-canonical-point soft target.*over-target element remains one accepted batch.*total items, paths, and points remain unlimited/i
+    /Default, missing, duplicated, unknown, or exact progressive aiDelivery.*ordinary immediate shared delivery.*point-aware child batch.*256-item transient maximum.*2,048-canonical-point soft target.*over-target element remains one accepted batch.*total items, paths, and points remain unlimited/i
   )
   assert.match(
     execution,
@@ -481,7 +487,10 @@ test('Conversational AI Gherkin contract is registered and covers agreed product
 
   assert.ok(fs.existsSync(featurePath))
   assert.match(index, new RegExp(featureName.replace('.', '\\.')))
-  assert.match(feature, /exact "ai=mock" mode/)
+  assert.match(
+    feature,
+    /ordinary production Asyra Design App.*provides deterministic Mock AI/
+  )
   assert.match(feature, /畫一個貓臉/)
   assert.match(feature, /把眼睛放大一點/)
   assert.match(feature, /把鬍鬚改成藍色/)
@@ -493,7 +502,7 @@ test('Conversational AI Gherkin contract is registered and covers agreed product
     feature,
     /Message Bar Undo and Redo follow the current history top/
   )
-  assert.match(feature, /exact "ai=mock&aiDelivery=progressive" mode/)
+  assert.match(feature, /ordinary production Mock AI mode/)
   assert.match(
     feature,
     /selects atomic or progressive collaboration delivery without splitting history/

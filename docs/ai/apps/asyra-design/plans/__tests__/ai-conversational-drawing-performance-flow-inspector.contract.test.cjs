@@ -121,7 +121,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     text,
-    /mock.*missing.*aiDelivery.*progressive.*explicit.*atomic/i
+    /production.*Mock AI.*without.*ai.*query.*progressive.*explicit.*atomic/i
   )
   assert.match(
     text,
@@ -258,7 +258,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     plan,
-    /ordinary `\?ai=mock`.*defaults to progressive[\s\S]*explicit `aiDelivery=atomic`.*atomic/i
+    /production Asyra Design entry.*Mock AI.*without[\s\S]*`ai` query[\s\S]*defaults to progressive[\s\S]*explicit[\s\S]*`aiDelivery=atomic`.*atomic/i
   )
   assert.match(
     feature,
@@ -278,7 +278,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Mock AI defaults to cooperative progressive drawing[\s\S]*ordinary "ai=mock"[\s\S]*"aiDelivery".*missing[\s\S]*progressive[\s\S]*explicit "aiDelivery=atomic"[\s\S]*atomic/i
+    /Scenario: Production App exposes Mock AI without URL activation[\s\S]*ordinary production entry[\s\S]*without an "ai" query[\s\S]*progressive[\s\S]*explicit "aiDelivery=atomic"[\s\S]*atomic/i
   )
 })
 

@@ -34,9 +34,9 @@
       title: 'Accept one mock-mode conversation intent',
       ownerPackage: 'Asyra Design AI conversation UI',
       purpose:
-        'Expose one app-root-local non-modal Mock AI panel only for exact ai=mock activation and turn one non-empty user submission into one UI intent without starting a second queue.',
+        'Expose one app-root-local non-modal Mock AI panel from the production Asyra Design entry without URL activation and turn one non-empty user submission into one UI intent without starting a second queue.',
       inputs: [
-        'exact app URL AI mode',
+        'production App AI startup configuration',
         'toolbar AI activation',
         'conversation input text',
         'local PNG, JPEG, or WebP files added through selection or drag-and-drop',
@@ -48,7 +48,7 @@
         'artifact:conversation-intent-bypass'
       ],
       conditions: [
-        'Exact ai=mock mode exposes one toolbar AI control, one platform-labelled Meta/Ctrl+I toggle shortcut, one canvas Context Menu Toggle Agent Panel command, and one Agent panel whose mock status is shown without a provider or speaker name; missing, empty, and unknown AI modes construct no AI UI or runtime, including none of those AI entry surfaces.',
+        'The production Asyra Design entry directly supplies deterministic Mock AI without an ai URL query and exposes one toolbar AI control, one platform-labelled Meta/Ctrl+I toggle shortcut, one canvas Context Menu Toggle Agent Panel command, and one Agent panel whose mock status is shown without a provider or speaker name.',
         'Toolbar, shortcut, and Context Menu activation share one app-root-local toggle command; opening focuses the prompt and closing restores the safe connected invoker without trapping canvas interaction.',
         'A draft containing trimmed text with no active AI turn produces one immutable user intent with any detached image attachment descriptors and clears the editable draft only after the controller accepts it.',
         'File selection and panel drag-and-drop share one app-root-local attachment draft; accepted PNG, JPEG, and WebP images show removable accessible thumbnails before submission and submitted thumbnails remain visible in the user turn.',
@@ -62,11 +62,11 @@
         'A draft without trimmed text emits no Feature or provider request, whether or not an image remains in the editable draft.',
         'A choice on a non-latest clarification, a disposed controller, or any active turn emits no new UI intent.',
         'Unsupported files and browser read failures show one concise draft error, preserve the editable draft, and emit no Feature or provider request.',
-        'AI-disabled and unknown-mode startup creates no runtime, provider, Feature, mock timer, observer, controller, or AI panel.',
+        'An explicitly injected disabled runtime used by tests or a derived App creates no provider, Feature, mock timer, observer, controller, or AI panel.',
         'Closing a settled panel performs no canonical mutation; closing an active panel emits cancellation through the conversation controller.'
       ],
       allowedContributors: [
-        'Asyra Design URL mode parser',
+        'Asyra Design production startup configuration',
         'instance-local React state',
         'app toolbar and conversation presentation',
         'registered App drawing-detail option identities and selection intents',
@@ -78,7 +78,7 @@
         'module-global conversation or active-turn singleton',
         'provider, transaction, or action execution in React handlers',
         'remote image upload, canonical attachment storage, persistence, or collaboration state',
-        'default production or generated-app AI activation'
+        'generated-app AI activation'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -97,7 +97,7 @@
         'docs/ai/apps/asyra-design/bdd-features'
       ],
       specRefs: [
-        '#explicit-mock-activation',
+        '#production-mock-availability',
         '#conversation-surface',
         '#product-cases'
       ],
@@ -398,7 +398,7 @@
         'Apply one accepted insert, update, remove, visibility, or selection plan through strict app schemas and common APIs inside one app transaction while preserving app-owned recoverable partial results and fatal canonical rollback.',
       inputs: [
         'artifact:accepted-app-action-plan',
-        'App-owned exact aiDelivery mode resolved as atomic or progressive',
+        'App-owned progressive default or explicit atomic measurement mode',
         'current canonical target queries',
         'app common/public mutation APIs',
         'Factory transaction and history owner'
@@ -423,8 +423,8 @@
         'Successful siblings continue and every committed mutation from the turn remains one intended undo entry.',
         'Executor rejection is reserved for failure that prevents canonical consistency and is propagated so the ordinary app transaction runner rolls back rollbackable writes.',
         'Render, persistence, history, and optional Collaboration receive only the ordinary canonical transaction route.',
-        'Missing, duplicated, unknown, or exact atomic aiDelivery resolves to App-owned atomic delivery; it maps AI canonical writes to ordinary transaction-end shared delivery and publishes once only after the outer transaction commits.',
-        'Exact progressive aiDelivery maps the same AI canonical writes to ordinary immediate shared delivery; insertion yields to the host after each point-aware child batch with the existing 256-item transient maximum and a 2,048-canonical-point soft target, while one intact over-target element remains one accepted batch and total items, paths, and points remain unlimited.',
+        'Exact atomic aiDelivery resolves to App-owned atomic delivery; it maps AI canonical writes to ordinary transaction-end shared delivery and publishes once only after the outer transaction commits.',
+        'Default, missing, duplicated, unknown, or exact progressive aiDelivery maps the same AI canonical writes to ordinary immediate shared delivery; insertion yields to the host after each point-aware child batch with the existing 256-item transient maximum and a 2,048-canonical-point soft target, while one intact over-target element remains one accepted batch and total items, paths, and points remain unlimited.',
         'A progressive multi-target update yields after each applied canonical update so a peer can observe more than one ordered canonical batch before the Agent turn settles.',
         'Atomic and progressive modes preserve the same one outer app transaction and one intended local undo entry; they never reduce accepted detail or turn network batches into separate history actions.',
         'Factory retains the source shared-delivery mode and canonical event boundaries for Undo and Redo replay; progressive replay may publish those batches incrementally while each direction remains one local history action, and already-published immediate work uses linked Factory compensation on rollback.',
@@ -1013,9 +1013,9 @@
       ]
     },
     {
-      id: 'mock-mode-is-explicit-and-replaceable',
+      id: 'mock-provider-is-default-and-replaceable',
       statement:
-        'Only exact ai=mock activates the deterministic no-network provider and UI; provider replacement and AI-disabled default startup remain unchanged.',
+        'The production Asyra Design entry supplies the deterministic no-network Mock provider and UI without URL activation; provider replacement and explicitly injected disabled derived-App startup remain available.',
       stepIds: [
         'accept-mock-conversation-intent',
         'produce-deterministic-mock-candidate',
@@ -1026,7 +1026,10 @@
         'artifact:provider-plan-request',
         'artifact:mock-candidate-plan'
       ],
-      specRefs: ['#explicit-mock-activation', '#deterministic-mock-provider']
+      specRefs: [
+        '#production-mock-availability',
+        '#deterministic-mock-provider'
+      ]
     },
     {
       id: 'high-detail-commit-is-durable',
@@ -1048,9 +1051,9 @@
   const acceptanceContracts = [
     {
       id: 'mock-activation-and-lifecycle-cases',
-      title: 'Explicit activation, input, overlap, cancellation, and isolation',
+      title: 'Default App availability, input, overlap, cancellation, and isolation',
       assertions: [
-        'Missing or unknown AI mode has zero AI/UI side effects; exact ai=mock exposes one AI toolbar and Agent panel route without a provider or speaker name.',
+        'Ordinary production startup exposes one deterministic Mock AI toolbar and Agent panel route without an ai query, provider name, speaker name, external model request, or key read.',
         'The Agent prompt accepts PNG, JPEG, and WebP images through file selection or drag-and-drop, shows removable draft/submitted thumbnails, and keeps attachment data app-root-local without upload or canonical mutation.',
         'A draft without trimmed text and every invalid attachment are inert, one active turn rejects overlap and attachment changes, and Cancel/panel/app teardown release the Feature task and every mock timer/listener.',
         'Two app roots keep provider, conversation, progress, confirmation, target hints, and Message Bar state isolated.'
@@ -1062,7 +1065,7 @@
         'project-conversation-and-current-history'
       ],
       specRefs: [
-        '#explicit-mock-activation',
+        '#production-mock-availability',
         '#conversation-surface',
         '#product-cases'
       ]

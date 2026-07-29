@@ -46,13 +46,15 @@ all other document interaction remains locked. Contents, CRDT, transport,
 persistence, and remote-apply owners remain paused until this local requirement
 is implemented and manually accepted.
 
-The first manual navigation check then exposed a startup-policy mismatch:
-ordinary `?ai=mock` still selected the atomic all-children path, so its single
-7,000-plus-element synchronous call prevented the browser from dispatching any
-input until completion. Ordinary `?ai=mock` now defaults to progressive
-delivery; explicit `aiDelivery=atomic` remains the atomic opt-in for isolated
-measurement. This is an App startup policy correction, not an Input System,
-Feature System, transaction, or event-bus exception.
+The first manual navigation check then exposed a startup-policy mismatch: the
+production entry still required `?ai=mock`, and its missing delivery flag
+selected the atomic all-children path, so one 7,000-plus-element synchronous
+call prevented the browser from dispatching any input until completion. The
+production Asyra Design entry now provides the deterministic Mock AI without an
+`ai` query and defaults to progressive delivery. Explicit
+`aiDelivery=atomic` remains the atomic opt-in for isolated measurement. This is
+an App startup policy correction, not an Input System, Feature System,
+transaction, or event-bus exception.
 
 The current execution phase is deliberately limited to one production
 single Actor drawing turn. It answers four product questions before any
@@ -447,10 +449,11 @@ intended transaction or history boundary.
 
 ### Cooperative Progressive Composition
 
-- Ordinary Mock AI startup with no `aiDelivery` value selects progressive
-  delivery. Exact `aiDelivery=atomic` remains an explicit one-batch opt-in;
-  empty, unknown, or duplicate explicit values do not silently select a
-  different mode.
+- The production Asyra Design entry always supplies the deterministic,
+  network-free Mock AI; no `ai` query activates or disables it. Ordinary startup
+  selects progressive delivery. Exact `aiDelivery=atomic` remains an explicit
+  one-batch measurement opt-in; empty, unknown, or duplicate delivery values
+  retain the progressive default.
 - Atomic mode retains one all-children plural Core call.
 - Progressive mode uses deterministic point and element-count boundaries. The
   initial point soft target is 2,048 and later targets grow to at most 8,192;

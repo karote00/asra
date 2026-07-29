@@ -214,7 +214,7 @@
         'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
         'validated AI composition descriptor',
-        'resolved atomic or progressive delivery mode; Mock AI with missing aiDelivery resolves to progressive while explicit atomic remains opt-in',
+        'production App Mock AI startup with progressive default and explicit atomic measurement opt-in',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
         'App-owned DOM compositor overlay',
@@ -227,7 +227,7 @@
         'artifact:app-bulk-timing'
       ],
       conditions: [
-        'Mock AI with missing aiDelivery uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
+        'The production Asyra Design entry exposes Mock AI without an ai query and uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
         'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
