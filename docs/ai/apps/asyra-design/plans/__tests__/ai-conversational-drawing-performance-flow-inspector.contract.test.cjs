@@ -173,6 +173,9 @@ test('local progressive drawing paints exact bounds before cooperative canonical
       'docs/ai/apps/asyra-design/API_SURFACES.md'
     )
   )
+  assert.ok(
+    owner.implementationBoundary.includes('apps/asyra-design/package.json')
+  )
   assert.match(
     proofText,
     /one fresh single Actor.*one empty canonical document.*one 7,112-element.*one terminal exact canonical summary/i
