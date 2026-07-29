@@ -1,7 +1,7 @@
 Feature: Conversational AI drawing performance
   As an Asyra Design user creating high-detail editable drawings
-  I want canonical drawing, local projection, collaboration, and persistence to use one bounded framework flow
-  So that high detail remains interactive without weakening identity, history, or persistence semantics
+  I want canonical drawing, local projection, and collaboration to use one bounded framework flow
+  So that high detail remains interactive without weakening identity or history semantics
 
   Background:
     Given the committed 1672 by 941 tabby reference image
@@ -17,15 +17,59 @@ Feature: Conversational AI drawing performance
     And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
-  Scenario: Core exposes one plural element creation path
+  Scenario: Exact-bounds loading state precedes local drawing
+    Given one validated local AI composition has exact accepted workspace bounds
+    When the App begins the mutating turn
+    Then it should publish runtime-only drawing progress with those exact bounds
+    And a connected App DOM overlay should commit with the exact transformed bounds before any canonical element is created
+    And the overlay should be pointer-events none and never become canonical, persistent, shared, Render-owned, or an AI-only renderer
+    And its CSS activity should animate only transform and opacity through the compositor
+    And the App should cross a browser paint opportunity after DOM commit and before canonical mutation
+    And the first completed drawing batch should use the ordinary Vector route
+    And success, failure, cancellation, and teardown should clear the drawing progress
+
+  Scenario: Local progressive composition becomes visible in cooperative batches
+    Given one validated AI composition contains one Group and 7111 accepted children
+    And the URL resolves exact "aiDelivery=progressive"
+    When the local Agent executes the mutating turn
+    Then the App should use deterministic point and element-count batch boundaries with at most 32 elements per ordinary work unit
+    And it should call plural "Core.createElementsInParent" once per non-empty batch
+    And every successful batch should complete ordinary projection and advance actual element progress
+    And the next batch should begin only from a later browser task in the same serialized loop
+    And a microtask-only yield or one independently scheduled timeout per range should not satisfy that boundary
+    And the Feature-owned AbortSignal should be checked after every awaited boundary
+    And all batches should remain inside one outer transaction
+    And the complete turn should create one Undo action
+    And fatal failure or cancellation should roll back the complete composition
+    And no loading, progress, or slice-policy parameter should enter Core, Props Manager, or Scene Tree
+
+  Scenario: Drawing progress keeps navigation responsive while edits stay locked
+    Given one progressive local AI drawing turn is active
+    And the App acquired its document interaction lock before the outer transaction
+    When the serialized composition loop yields to a later browser task
+    Then ordinary viewport pan and zoom should remain available
+    And pan and zoom should repaint the same live loading frame and ordinary Vector output
+    And navigation may continue through ordinary Feature execution and its existing transaction wrapper
+    And navigation should produce no canonical mutation or History
+    And navigation should not alter the AI action transaction evidence
+    And every other tool interaction and document mutation should remain blocked
+    And another mutating Agent turn, selection changes, property edits, deletion, Undo, and Redo should create no canonical mutation or history
+    And AI cancellation should remain available
+    And success, failure, cancellation, or teardown should release the App lock
+    And a second reactive-events bus should not act as the scheduling or admission lock
+    And the complete drawing turn should still create one Undo action
+
+  Scenario: Core exposes one fixed plural element creation path
     Given one validated AI composition contains one Group and many accepted children
-    When the App executes the mutating turn
-    Then it should call "Core.createElementsInParent" once for all accepted children
+    When the App submits one atomic or progressive child batch
+    Then it should call plural "Core.createElementsInParent"
     And Core should return only ordered canonical element ids
     And a single-item create API should use the same batch-of-one canonical path
     And Group and children should remain inside one outer Factory transaction
     And Core should expose no Factory delivery handle, progressive handle, timing result, or transport receipt
-    And no slice should repeat or split the canonical mutation
+    And Core should receive no loading, progress, AI mode, slice size, or host-yield parameters
+    And atomic mode should submit one all-children plural batch
+    And progressive mode should submit multiple ordered plural batches without opening another transaction
 
   Scenario: Canonical element property replacement uses the update path
     Given group geometry, element geometry, stroke, fill, or property-panel changes replace complete canonical property field values
@@ -56,12 +100,74 @@ Feature: Conversational AI drawing performance
     And Core should call public Props prepare and apply owner capabilities instead of package-private methods
     And active property value replacements and record patches should use one whole-batch preflight and apply
     And Scene Tree should validate Scene ids, maps, parent children, hierarchy order, tombstones, and Scene evidence
+    And a canonical Scene insertion plan should expose its frozen owner relations for Core to pass unchanged to Props exact graph creation
     And Scene Tree element-to-property target resolution should be read-only
     And Core should receive both complete owner plans before authorizing either apply
     And Props Manager should not mutate Scene maps or hierarchy
     And Scene Tree should not materialize property instances, rebind relationships, or register properties
     And a later invalid item should leave no committed owner prefix
     And an unexpected apply failure should roll back both owners through the outer Factory transaction
+
+  Scenario: Scene plural evidence remains sliceable without splitting records
+    Given one accepted Scene batch contains many canonical elements
+    When Scene Tree applies the complete insertion or removal plan
+    Then Scene Tree should emit one plural Scene event
+    And Scene Tree should expose one ordered shared record per element for "ADD_ELEMENTS" and "REMOVE_ELEMENTS"
+    And a publication slice may group complete records but should not split one semantic record
+    And progressive delivery should not create another Scene mutation or history action
+
+  Scenario: Shared property updates fan out through Scene relations
+    Given two distinct element relation tuples reference one compatible canonical property component id
+    And each relation is identified by its element id and property name rather than by exclusive component ownership
+    When either owner element requests the same canonical property update
+    Then Scene Tree should group equivalent targets by property id into one property mutation
+    And "UPDATE_PROPERTY" should remain source-only evidence without using the initiating element as fanout authority
+    And Scene Tree should resolve both owner elements through its derived reverse relation index
+    And both owner elements should receive computed projection through one ordered local batch
+    And CRDT should publish the property source once without publishing computed projection
+    But conflicting writes to the same shared field or record in one batch should reject atomically before Props preflight
+
+  Scenario: Shared property roots survive until the final relation is removed
+    Given two element relation tuples reference the same canonical root property graph
+    And that graph contains a nested child which is also another element's canonical root
+    When a direct Scene removal releases the first relation
+    Then the Scene plan should record released and retained relations and retain Props
+    And the remaining element relation should keep the same root and descendant component ids active
+    When Core full lifecycle removes the final relation
+    Then Scene Tree should identify the deduplicated orphan root from an exact relation-set read
+    And Scene Tree should provide the complete retained root property ids from all planned remaining element relations
+    And Core should pass orphan and retained root ids unchanged without inspecting the property graph
+    And Props Manager should stop orphan traversal at every retained root
+    And Props Manager should remove only the final orphan property graph exactly once
+    And a changed relation set between prepare and apply should reject as stale before mutation
+    And Undo and Redo should restore and remove the exact relation tuples and canonical component ids
+    And remote exact removal should use one origin-neutral Core canonical-data path and consume its Scene and Props batches once
+    And CRDT remote apply should preserve the same shared evidence without computed payloads or client persistence
+
+  Scenario: Shared relation boundary remains minimal
+    Given Props independently owns property/component identity, lifecycle, and the property-child graph
+    And Scene independently owns element hierarchy and each element-slot-to-root relation
+    Then that separation should remain the stable extension seam for future shared props, shared components, and shared elements
+    But the current contract should not introduce generic owner kinds, reference-count APIs, multi-parent shared elements, shared-element DAG, permissions, leases, pinning, garbage collection, server persistence, server-owned lifecycle policy, or a universal relationship service
+
+  Scenario: Typed subtree removal remains one Scene mission
+    Given one non-empty Group owns nested editable elements and canonical property relations
+    When Scene Tree calls "prepareSubtreeRemoval" with that one root
+    Then the plan should contain the complete child-first canonical element order
+    And the plan should contain one "CHANGE_SUBTREE" evidence record
+    And the plan should delegate mutation to the same "applyElementMutationPlan" owner
+    And a direct Scene apply should retain Props
+    When Core full lifecycle applies that plan
+    Then Core should pass the complete orphan and retained root ids unchanged to Props
+
+  Scenario: Load relations preflight before any owner applies
+    Given Scene Tree has an owner-issued load validation result and detached Props validated data
+    When Scene Tree calls "preflightLoadPropertyRelations"
+    Then a missing component id, wrong property type, or changed registration should reject
+    And no owner should apply any state
+    And the Core version should remain unchanged
+    And no file load complete event should publish
+    But compatible shared component relations should pass without materialization or active Props reads
 
   Scenario: Computed data remains a local Render projection
     Given Actor A updates one canonical property
@@ -103,11 +209,18 @@ Feature: Conversational AI drawing performance
     Given one intended action mutates canonical property and Scene owners
     When Factory records the ordered source evidence
     Then each Props or Scene owner evidence emission should be accepted exactly once as one immutable ordered batch
+    And canonical ordered ids and shared records should remain inside their owning transaction event
+    And "updateTransactionBatch" should accept no parallel evidence parameter
     And the public single-event transaction convenience should delegate to a batch-of-one
     And Factory should combine the owner batches into one immutable transaction artifact and one intended History action
     And every transaction should use the same record, commit, and rollback semantics
-    And progressive visibility should observe the ordinary staged artifact status stream
-    And progressive visibility should not be a transaction mode or option
+    And observer evidence should publish only after the owner commit as one ordered batch
+    But rollback or owner finalization failure should publish no observer prefix
+    And progressive local composition may deliver ordinary immediate owner batches inside that transaction
+    And progressive visibility should remain an App delivery policy rather than a Factory transaction mode
+    And rollback should compensate every already-visible immediate batch from the same journal evidence
+    And optional later publication slicing may observe the ordinary staged artifact status stream
+    And the one active staged-artifact controller should reject ids absent from the current Factory journal
     And Factory should derive each eligible staged slice, committed remainder, or rollback compensation through the same "SharedPublication" route
     And an eligible staged publication should retain stable transaction, publication, slice, and inverse-compensation identity
     And acknowledged staged slices should use the same journal evidence for rollback compensation
@@ -146,6 +259,7 @@ Feature: Conversational AI drawing performance
     Given Actor B receives one valid property-only source publication
     When the required async consumer opens the remote Factory transaction
     Then Actor B should open exactly one remote Factory transaction for that publication
+    And the App should submit one ordered "CanonicalChange" request through "Core.applyCanonicalChanges"
     And different source publications should not be merged
     And App policy should validate the publication before Core canonical apply
     And Actor B should apply "UPDATE_PROPERTY" without receiving "UPDATE_COMPUTED_DATA" through CRDT
@@ -155,13 +269,18 @@ Feature: Conversational AI drawing performance
     And Actor B should create no echo publication
     And Actor B should perform no persistence capture, provider save, or IndexedDB write
 
-  Scenario: Local persistence captures each committed state exactly once
-    Given local action, Undo, and Redo commits are eligible for durability
-    When each commit reaches the isolated persistence handoff
-    Then each commit should capture one complete deeply detached snapshot
-    And snapshots should reach the provider in FIFO order
-    And one failed save should not drop or prevent a later eligible snapshot
-    But a remote-origin transaction should capture and save no client snapshot
+  Scenario: Demo documents load empty without client persistence
+    Given an ordinary local demo or collaboration demo starts
+    When RenderApp starts Core for the demo session
+    Then the ordinary local demo and each collaboration actor should load one canonical empty document after Core starts
+    And collaboration should connect only after its empty document is loaded
+    And the ordinary local demo should receive no client persistence provider
+    And Actor A should receive no client persistence provider
+    And Actor B should receive no client persistence provider
+    And ordinary local actions, Undo, and Redo should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
+    And Actor A local actions, Undo, and Redo should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
+    And Actor B remote apply should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
+    But demo reload durability and server database checkpoints should remain outside this plan
 
   Scenario: Fast Mock AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
@@ -172,6 +291,17 @@ Feature: Conversational AI drawing performance
     And the 7112-element balanced correctness gate should remain change-aware or explicitly requested
     And high-detail performance and CRDT suites should remain independent and explicitly opt-in
     And the 7076-element two-window full recording should remain manual opt-in
+
+  Scenario: One local interactive drawing run reports user-visible milestones
+    Given one production browser starts with one empty canonical document
+    And Contents, Collaboration, a second Actor, and IndexedDB are absent
+    And the URL resolves exact "aiDelivery=progressive"
+    When the local Agent creates the 7112-element balanced composition once
+    Then the report should name connected-DOM loading, first compositor paint opportunity, first-Vector, 25, 50, 75, 100 percent, longest work-unit, cooperative-yield-count, settled, Render, UI, and harness times
+    And milestone observation should use bounded runtime counters instead of full canonical snapshot polling
+    And one terminal exact summary should preserve all 7112 projections, exact detail, and one Undo action
+    And synchronized visual review should inspect the real connected DOM loading state and final ordinary Vector output from that same live App state
+    But this local gate should not run a warm-up, repeat the high-detail creation, start CRDT, read IndexedDB, record video, or close deferred collaboration gates
 
   Scenario: Balanced atomic creation meets the local budget
     Given the URL resolves exact "aiDelivery=atomic"
@@ -216,9 +346,17 @@ Feature: Conversational AI drawing performance
     And the dedicated E2E command including harness overhead should finish within 180 seconds
     And generated screenshots, recordings, profiles, traces, and thumbnail media should remain ignored local artifacts
 
+  Scenario: Production performance evidence remains detached from dev-only globals
+    Given the production performance profile observes canonical and transaction evidence
+    When the formal performance harness queries the measured App state
+    Then it should receive detached canonical, history, Factory status, commit, and publication snapshots
+    And dev-only "window.__Core__" should not satisfy production evidence
+    And navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
+    And the harness should not open, poll, normalize, stringify, or hash IndexedDB
+
   Scenario: Performance work preserves cancellation and failure semantics
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down
     Then recoverable siblings should still commit as one partial result
     And fatal failure should roll back the complete turn
     And an already-published immediate slice should use the same artifact inverse for compensation
-    And no performance path should fabricate success, skip an owner, persist a remote transaction, or leave an extra history action
+    And no performance path should fabricate success, skip an owner, configure collaboration client persistence, or leave an extra history action

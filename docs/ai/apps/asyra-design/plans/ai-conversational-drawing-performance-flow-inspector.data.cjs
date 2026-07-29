@@ -15,7 +15,11 @@
     },
     { id: 'projection-ui', title: 'Projection and Contents', order: 3 },
     { id: 'wire-transport', title: 'Binary Wire Transport', order: 4 },
-    { id: 'persistence-proof', title: 'Persistence and Proof', order: 5 }
+    {
+      id: 'persistence-proof',
+      title: 'Collaboration Policy and Proof',
+      order: 5
+    }
   ]
 
   const steps = [
@@ -83,7 +87,6 @@
       outputs: [
         'artifact:factory-mutation-batch-artifact',
         'artifact:shared-publication-batches',
-        'artifact:local-commit-snapshot-trigger',
         'artifact:factory-batch-timing'
       ],
       conditions: [
@@ -97,8 +100,8 @@
         'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
       ],
       bypasses: [
-        'A no-change transaction emits no artifact, history action, publication, or persistence trigger.',
-        'A fatal transaction failure emits no committed history action or local persistence trigger.',
+        'A no-change transaction emits no artifact, history action, or publication.',
+        'A fatal transaction failure emits no committed history action.',
         'A transaction-end atomic publication is unavailable before canonical commit.'
       ],
       allowedContributors: [
@@ -136,7 +139,7 @@
       purpose:
         'Preflight and apply creation, retained removal, and retained restore through one Props, relationship, instance, registration, hierarchy, and evidence boundary with no committed prefix on failure.',
       inputs: [
-        'artifact:composition-bulk-request',
+        'artifact:composition-batch-sequence',
         'artifact:factory-mutation-batch-artifact'
       ],
       outputs: [
@@ -165,7 +168,7 @@
         'A fatal apply error rolls back the complete outer transaction.'
       ],
       allowedContributors: [
-        'artifact:composition-bulk-request',
+        'artifact:composition-batch-sequence',
         '@asyra/core public facade',
         '@asyra/props-manager canonical components and registries',
         '@asyra/scene-tree hierarchy and map owners',
@@ -202,62 +205,87 @@
       failureOwnerStepId: 'apply-canonical-property-scene-batch'
     },
     {
-      id: 'prepare-one-composition-bulk-request',
+      id: 'stage-local-interactive-composition',
       order: 1,
       laneId: 'app-canonical',
-      title: 'Prepare one composition bulk request',
-      ownerPackage: 'Asyra Design AI actions and common APIs',
+      title: 'Stage one local interactive composition',
+      ownerPackage: 'Asyra Design AI composition interaction',
       purpose:
-        'Convert one validated descriptor into one Group plus one all-children Core bulk request without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
+        'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
         'validated AI composition descriptor',
         'resolved atomic or progressive delivery mode',
-        'Feature-owned AbortSignal'
+        'Feature-owned AbortSignal',
+        'App-owned runtime drawing-progress projection',
+        'App-owned DOM compositor overlay',
+        'App-owned document interaction lock policy'
       ],
       outputs: [
-        'artifact:composition-bulk-request',
+        'artifact:composition-batch-sequence',
+        'artifact:local-drawing-progress-state',
+        'artifact:local-document-interaction-lock-state',
         'artifact:app-bulk-timing'
       ],
       conditions: [
-        'The App creates the Group and submits one all-children Core bulk request through Core.createElementsInParentBatch.',
-        'Core.createElementsInParentBatch returns CanonicalElementBatchResult with ordered IDs and a Factory-owned delivery handle.',
-        'Every single-item create API delegates to the batch-of-one path.',
-        'Point-aware progressive slices begin at 2,048 points and grow to 8,192 points; one indivisible element may exceed the soft target.',
-        'A publication slice affects projection and delivery only and does not repeat or split the canonical mutation.',
-        'One outer App transaction contains Group and children and expresses one intended history action.'
+        'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
+        'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
+        'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
+        'Atomic mode creates the Group and submits one all-children plural Core batch; progressive mode creates the Group and submits multiple deterministic plural Core batches.',
+        'Progressive batch boundaries enforce both a point budget and an element-count budget capped at 32 per work unit; one indivisible element may exceed only the point soft target.',
+        'Each successful canonical batch completes its ordinary Factory, Preset, Render, and UI projection, commits actual element progress, awaits one later browser task through the single serialized action loop, and rechecks the Feature-owned AbortSignal before another mutation.',
+        'The exact-bounds overlay is App-owned transient DOM projection above the ordinary canvas; its CSS activity animates only transform and opacity on the compositor while every completed element continues through the ordinary editable Vector route.',
+        'One outer App transaction contains the Group and every child batch and expresses one intended history action.',
+        'The App clears drawing progress and releases the document interaction lock after success, failure, cancellation, or teardown; failure and cancellation preserve complete canonical rollback and visible compensation.'
       ],
       bypasses: [
-        'Clarification and no-change turns create no Group, request, or history action.',
-        'Abort before mutation emits no canonical or publication work.',
+        'Clarification and no-change turns create no loading state, Group, batch, or history action.',
+        'Abort before mutation clears transient progress and emits no canonical or publication work.',
         'Recoverable item failures retain accepted siblings in one partial batch; a fatal error rolls back the complete turn.'
       ],
       allowedContributors: [
         'registered Asyra Design AI action schemas',
         'apps/asyra-design common APIs',
-        '@asyra/core public bulk facade',
-        'App-owned delivery mode and host-yield policy'
+        '@asyra/core public plural creation facade',
+        'App-owned runtime System Context state',
+        'App-owned DOM overlay component and compositor-safe CSS animation',
+        'App-owned document interaction lock and existing viewport pan and zoom input routes',
+        'App-owned delivery mode and serialized cooperative main-thread scheduling policy'
       ],
       forbiddenContributors: [
-        'fixed 256-item Core call loop',
+        '7,000 single-item Core calls',
         'provider-selected canonical IDs',
         'reduced VTracer detail or bitmap replacement',
         'one App transaction per slice',
-        'AI-only canonical or Render mutation'
+        'AI-only renderer or canonical loading placeholder',
+        'Canvas or Render-owned loading overlay',
+        'fabricated time-based or estimated element progress',
+        'loading, progress, or slice-policy parameters in Core, Props Manager, or Scene Tree',
+        'JavaScript per-frame loading animation',
+        'a second reactive-events bus used as a scheduling or document-admission lock',
+        'microtask-only progressive yield',
+        'one timeout scheduled independently for every planned range'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/ai/__tests__',
-        'apps/asyra-design/src/common-apis',
-        'apps/asyra-design/src/common-apis/__tests__'
+        'apps/asyra-design/src/common-apis/system-context.ts',
+        'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/render-app',
+        'apps/asyra-design/src/render-layers',
+        'apps/asyra-design/src/init/capabilities/init-ai-drawing-progress.ts',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/__tests__',
+        'docs/ai/apps/asyra-design/API_SURFACES.md'
       ],
       specRefs: [
-        '#bulk-mutation-contract',
+        '#current-local-interactive-drawing-closure',
+        '#exact-bounds-loading-frame',
+        '#cooperative-progressive-composition',
         '#transaction-boundary',
-        '#one-composition-bulk-mutation',
-        '#step-local-gates'
+        '#current-local-gates'
       ],
-      failureOwnerStepId: 'prepare-one-composition-bulk-request'
+      failureOwnerStepId: 'stage-local-interactive-composition'
     },
     {
       id: 'project-visible-canonical-slices',
@@ -543,56 +571,115 @@
       failureOwnerStepId: 'apply-remote-publication-batches'
     },
     {
-      id: 'persist-local-commit-snapshots',
+      id: 'load-empty-demo-document',
       order: 1,
       laneId: 'persistence-proof',
-      title: 'Persist eligible local commit snapshots',
-      ownerPackage: '@asyra/core persistence coordinator',
+      title: 'Load an empty demo document without client persistence',
+      ownerPackage: 'Asyra Design RenderApp startup',
       purpose:
-        'Capture one exact detached snapshot for each eligible local action, Undo, and Redo commit while bypassing every remote-origin commit.',
-      inputs: ['artifact:local-commit-snapshot-trigger'],
-      outputs: [
-        'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing'
+        'Load one canonical empty document for ordinary local and collaboration demo sessions without a client persistence provider so local actions and remote apply perform no persistence capture, provider save, IndexedDB read, or IndexedDB write.',
+      inputs: [
+        'ordinary local or collaboration demo session',
+        'Asyra Design RenderApp startup policy'
       ],
+      outputs: ['artifact:empty-memory-demo-document'],
       conditions: [
-        'Local action, undo, and redo commits each capture one deeply detached complete snapshot at that committed state.',
-        'Snapshots and provider acknowledgements retain FIFO order.',
-        'One provider failure does not coalesce, drop, or prevent a later eligible snapshot.',
-        'Capture remains isolated before reentrant public observers without changing the committed runtime result.'
+        'After Core starts, RenderApp loads exactly one canonical empty document through the ordinary Core load API; a collaboration session performs that load before Collaboration connects.',
+        'Ordinary local and collaboration sessions start without creating, initializing, loading, or injecting a client persistence provider.',
+        'Local actions, Undo, and Redo perform zero client persistence capture, provider save, IndexedDB read, and IndexedDB write.',
+        'Actor B remote apply performs zero client persistence capture, provider save, IndexedDB read, and IndexedDB write.',
+        'Local and collaboration sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
       bypasses: [
-        'Remote origin has zero client persistence capture, save-hook work, provider save, and IndexedDB update.',
-        'No configured provider reports persistence-skipped without snapshot capture.',
-        'Rollback and validation rejection save no snapshot.'
+        'Formal server checkpoint policy and backend database durability remain outside this plan.',
+        'Demo reload durability is not a correctness or performance gate while client persistence is disabled.'
       ],
       allowedContributors: [
-        'artifact:local-commit-snapshot-trigger',
-        '@asyra/factory isolated commit handoff',
-        '@asyra/core public save facades and hooks',
-        '@asyra/persistence provider contract'
+        'ordinary local demo startup',
+        'collaboration fileId',
+        'Asyra Design RenderApp startup',
+        'Core startup without a persistence provider',
+        'cheap zero-side-effect runtime counters'
       ],
       forbiddenContributors: [
-        'remote client persistence',
-        'coalesced or dropped local committed snapshots',
-        'live mutable references in provider-owned data',
-        'AI-specific persistence path',
-        'history or publication boundary changes'
+        'demo client persistence provider',
+        'demo IndexedDB migration or persisted-document load',
+        'demo persistence capture or save',
+        'reload durability assertions',
+        'changes to Factory history or transaction semantics'
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/core/src',
-        'packages/core/src/__tests__',
-        'packages/persistence/src',
-        'packages/persistence/src/providers/__tests__'
+        'apps/asyra-design/src/render-app/index.tsx',
+        'apps/asyra-design/src/render-app/__tests__',
+        'apps/asyra-design/e2e',
+        'docs/ai/apps/asyra-design'
       ],
       specRefs: [
-        '#persistence-contract',
-        '#local-snapshot-durability',
+        '#demo-client-persistence-bypass',
         '#transaction-boundary',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'persist-local-commit-snapshots'
+      failureOwnerStepId: 'load-empty-demo-document'
+    },
+    {
+      id: 'evaluate-local-interactive-drawing',
+      order: 1,
+      laneId: 'persistence-proof',
+      title: 'Evaluate one local interactive drawing',
+      ownerPackage: 'Asyra Design single-Actor performance E2E',
+      purpose:
+        'Measure one production single-Actor 7,112-element progressive turn from accepted request through exact-bounds loading, first ordinary Vector, real batch milestones, canonical completion, and settled UI without collaboration or persistence noise.',
+      inputs: [
+        'artifact:local-drawing-progress-state',
+        'artifact:local-document-interaction-lock-state',
+        'artifact:app-bulk-timing',
+        'artifact:visible-canonical-slices',
+        'artifact:render-ui-timing'
+      ],
+      outputs: ['artifact:local-interactive-drawing-proof'],
+      conditions: [
+        'The gate uses one fresh single Actor, one empty canonical document, exact progressive Mock AI mode, and one 7,112-element balanced composition run.',
+        'The report names accepted-to-connected DOM loading state, accepted-to-first compositor paint opportunity, accepted-to-first ordinary Vector visible, 25, 50, 75, and 100 percent visible-element milestones, longest canonical work unit, cooperative yield count, product settled time, Render time, UI time, and harness overhead.',
+        'Milestones use O(1) runtime counters and one terminal exact canonical summary; the harness never polls a full canonical snapshot.',
+        'Before the first canonical mutation, the connected DOM loading overlay has a non-zero exact transformed bounds rectangle; that loading state and the ordinary Vector output come from the same live measured App state and receive synchronized visual inspection.',
+        'During a cooperative yield, ordinary viewport pan and zoom repaint the same live App state while every other document interaction produces no canonical mutation or history; terminal cleanup releases the App lock.',
+        'The final state preserves all 7,112 canonical projections, exact bounds and detail, and one intended Undo action.'
+      ],
+      bypasses: [
+        'Contents projection, collaboration, WebSocket transport, a second Actor, and CRDT convergence are excluded from this local gate.',
+        'No IndexedDB provider, read, capture, save, write, state hash, reload, screenshot trace, video, or repeated measured run is part of this gate.',
+        'This local proof does not close or waive any deferred collaboration, persistence-policy, Contents, or full-plan gate.'
+      ],
+      allowedContributors: [
+        'production Asyra Design App',
+        'artifact:local-drawing-progress-state',
+        'ordinary Vector projection milestones',
+        'detached monotonic production timing',
+        'app-visual-review-sync live App screenshots'
+      ],
+      forbiddenContributors: [
+        'dev-only mutable canonical globals as release evidence',
+        'full canonical snapshot polling',
+        'second browser actor or collaboration server',
+        'IndexedDB timing or state assertions',
+        'warm-up or repeated high-detail creation',
+        'state-only loading visibility evidence',
+        'Canvas or Render-owned loading screenshot',
+        'microtask-only yield presented as browser task evidence'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
+        'apps/asyra-design/src/init/__tests__'
+      ],
+      specRefs: [
+        '#current-local-interactive-drawing-closure',
+        '#current-local-performance-measurement',
+        '#current-local-gates'
+      ],
+      failureOwnerStepId: 'evaluate-local-interactive-drawing'
     },
     {
       id: 'evaluate-performance-and-equivalence',
@@ -618,26 +705,30 @@
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
         'artifact:scrollable-contents-window',
-        'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing'
+        'artifact:empty-memory-demo-document'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
       conditions: [
         'One warm-up precedes three measured runs and median and worst values are reported separately.',
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
+        'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
+        'Navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans.',
+        'Both collaboration actors expose cheap zero-side-effect evidence without reading or hashing IndexedDB state.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, independent 7,076-element no-media CRDT and performance runs, and the 27,471-element 295,794-point gate pass.',
-        'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, transaction evidence, and persistence ownership.',
+        'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
         'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
       ],
       bypasses: [
         'A development build, stale document, missing owner span, or test-induced scheduling cannot satisfy a release budget.',
-        'A visually similar result with canonical, history, or persistence drift fails.',
+        'The dev-only window.__Core__ diagnostic or another mutable runtime owner cannot satisfy production release evidence.',
+        'A visually similar result with canonical or history drift fails.',
         'The 7,076-element full two-window recording runs only after explicit user opt-in.'
       ],
       allowedContributors: [
         'declared owner timing artifacts',
-        'ordinary canonical, history, collaboration, and persistence queries',
+        'production performance profile detached runtime evidence',
+        'ordinary canonical, history, and collaboration queries',
         'bounded final exact snapshots',
         'app-visual-review-sync live App screenshots'
       ],
@@ -651,6 +742,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/e2e',
+        'apps/asyra-design/playwright.collaboration.config.ts',
         'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
         'apps/asyra-design/src/init/__tests__',
         'packages/collaboration/src/__tests__',
@@ -669,20 +761,59 @@
 
   const routes = [
     {
-      id: 'route-composition-request-to-canonical',
-      from: 'prepare-one-composition-bulk-request',
+      id: 'route-composition-batches-to-canonical',
+      from: 'stage-local-interactive-composition',
       to: 'apply-canonical-property-scene-batch',
       kind: 'handoff',
       predicate: 'The validated descriptor contains an accepted mutation.',
-      producedArtifacts: ['artifact:composition-bulk-request']
+      producedArtifacts: ['artifact:composition-batch-sequence']
     },
     {
       id: 'route-app-timing-to-proof',
-      from: 'prepare-one-composition-bulk-request',
+      from: 'stage-local-interactive-composition',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate: 'App bulk preparation emitted a bounded timing sample.',
       producedArtifacts: ['artifact:app-bulk-timing']
+    },
+    {
+      id: 'route-app-timing-to-local-proof',
+      from: 'stage-local-interactive-composition',
+      to: 'evaluate-local-interactive-drawing',
+      kind: 'observation',
+      predicate:
+        'The single-Actor local run emitted bounded App bulk timing samples.',
+      producedArtifacts: ['artifact:app-bulk-timing']
+    },
+    {
+      id: 'route-local-drawing-progress-to-proof',
+      from: 'stage-local-interactive-composition',
+      to: 'evaluate-local-interactive-drawing',
+      kind: 'observation',
+      predicate:
+        'One single-Actor run observed exact-bounds loading, first ordinary Vector, actual batch milestones, and terminal cleanup.',
+      producedArtifacts: ['artifact:local-drawing-progress-state']
+    },
+    {
+      id: 'route-local-interaction-lock-to-proof',
+      from: 'stage-local-interactive-composition',
+      to: 'evaluate-local-interactive-drawing',
+      kind: 'observation',
+      predicate:
+        'One cooperative yield retained ordinary pan and zoom while other document interactions stayed outside canonical mutation and history.',
+      producedArtifacts: ['artifact:local-document-interaction-lock-state']
+    },
+    {
+      id: 'route-local-visible-slices-to-proof',
+      from: 'project-visible-canonical-slices',
+      to: 'evaluate-local-interactive-drawing',
+      kind: 'observation',
+      predicate:
+        'One production single-Actor progressive turn emitted ordinary visible Vector milestones.',
+      producedArtifacts: [
+        'artifact:visible-canonical-slices',
+        'artifact:render-ui-timing'
+      ]
     },
     {
       id: 'route-canonical-result-to-factory',
@@ -726,14 +857,6 @@
       kind: 'publication',
       predicate: 'Collaboration is connected and a publication batch exists.',
       producedArtifacts: ['artifact:shared-publication-batches']
-    },
-    {
-      id: 'route-local-commit-to-persistence',
-      from: 'record-and-deliver-transaction-batch',
-      to: 'persist-local-commit-snapshots',
-      kind: 'persistence',
-      predicate: 'An eligible local action, Undo, or Redo commit completed.',
-      producedArtifacts: ['artifact:local-commit-snapshot-trigger']
     },
     {
       id: 'route-factory-evidence-to-proof',
@@ -890,16 +1013,21 @@
       producedArtifacts: ['artifact:scrollable-contents-window']
     },
     {
-      id: 'route-persistence-evidence-to-proof',
-      from: 'persist-local-commit-snapshots',
+      id: 'route-empty-demo-document-to-full-proof',
+      from: 'load-empty-demo-document',
       to: 'evaluate-performance-and-equivalence',
-      kind: 'observation',
+      kind: 'policy-proof',
       predicate:
-        'Local FIFO and remote bypass evidence reached terminal status.',
-      producedArtifacts: [
-        'artifact:committed-persistence-snapshots',
-        'artifact:persistence-timing'
-      ]
+        'Ordinary local and collaboration demo sessions started without a client persistence provider and retained zero client persistence side effects.',
+      producedArtifacts: ['artifact:empty-memory-demo-document']
+    },
+    {
+      id: 'route-local-interactive-drawing-proof',
+      from: 'evaluate-local-interactive-drawing',
+      kind: 'terminal',
+      predicate:
+        'The current local-only formal measurement and synchronized visual review ran once.',
+      producedArtifacts: ['artifact:local-interactive-drawing-proof']
     },
     {
       id: 'route-performance-proof',
@@ -912,17 +1040,36 @@
 
   const artifacts = [
     {
-      id: 'artifact:composition-bulk-request',
-      ownerStepId: 'prepare-one-composition-bulk-request',
+      id: 'artifact:composition-batch-sequence',
+      ownerStepId: 'stage-local-interactive-composition',
       channel: 'Asyra Design common API',
       consumerStepIds: ['apply-canonical-property-scene-batch'],
       terminal: false
     },
     {
+      id: 'artifact:local-drawing-progress-state',
+      ownerStepId: 'stage-local-interactive-composition',
+      channel:
+        'runtime-only App System Context to committed DOM compositor overlay',
+      consumerStepIds: ['evaluate-local-interactive-drawing'],
+      terminal: false
+    },
+    {
+      id: 'artifact:local-document-interaction-lock-state',
+      ownerStepId: 'stage-local-interactive-composition',
+      channel:
+        'runtime-only App interaction policy and ordinary viewport input route',
+      consumerStepIds: ['evaluate-local-interactive-drawing'],
+      terminal: false
+    },
+    {
       id: 'artifact:app-bulk-timing',
-      ownerStepId: 'prepare-one-composition-bulk-request',
+      ownerStepId: 'stage-local-interactive-composition',
       channel: 'detached monotonic timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-local-interactive-drawing',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -958,13 +1105,6 @@
       terminal: false
     },
     {
-      id: 'artifact:local-commit-snapshot-trigger',
-      ownerStepId: 'record-and-deliver-transaction-batch',
-      channel: 'isolated pre-observer local commit handoff',
-      consumerStepIds: ['persist-local-commit-snapshots'],
-      terminal: false
-    },
-    {
       id: 'artifact:factory-batch-timing',
       ownerStepId: 'record-and-deliver-transaction-batch',
       channel: 'detached monotonic timing',
@@ -981,8 +1121,7 @@
     {
       id: 'artifact:decoded-publication-batches',
       ownerStepId: 'encode-publication-frames',
-      channel:
-        'single immutable worker-validated decoded-publication lease',
+      channel: 'single immutable worker-validated decoded-publication lease',
       consumerStepIds: ['apply-remote-publication-batches'],
       terminal: false
     },
@@ -1073,7 +1212,10 @@
       id: 'artifact:visible-canonical-slices',
       ownerStepId: 'project-visible-canonical-slices',
       channel: 'ordinary local and remote Vector projection',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-local-interactive-drawing',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1090,7 +1232,10 @@
       id: 'artifact:render-ui-timing',
       ownerStepId: 'project-visible-canonical-slices',
       channel: 'detached Render and UI timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-local-interactive-drawing',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1101,18 +1246,18 @@
       terminal: false
     },
     {
-      id: 'artifact:committed-persistence-snapshots',
-      ownerStepId: 'persist-local-commit-snapshots',
-      channel: 'exact local FIFO durability evidence',
+      id: 'artifact:empty-memory-demo-document',
+      ownerStepId: 'load-empty-demo-document',
+      channel: 'RenderApp empty memory-only demo startup policy',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:persistence-timing',
-      ownerStepId: 'persist-local-commit-snapshots',
-      channel: 'detached capture and provider timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
+      id: 'artifact:local-interactive-drawing-proof',
+      ownerStepId: 'evaluate-local-interactive-drawing',
+      channel: 'terminal current-phase formal evidence',
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:performance-equivalence-proof',
@@ -1129,7 +1274,7 @@
       statement:
         'One mutating user turn owns one outer transaction, one immutable FactoryMutationBatchArtifact, and one intended history action regardless of publication slice or wire-frame count.',
       stepIds: [
-        'prepare-one-composition-bulk-request',
+        'stage-local-interactive-composition',
         'apply-canonical-property-scene-batch',
         'record-and-deliver-transaction-batch',
         'encode-publication-frames',
@@ -1137,7 +1282,7 @@
         'apply-remote-publication-batches'
       ],
       artifactIds: [
-        'artifact:composition-bulk-request',
+        'artifact:composition-batch-sequence',
         'artifact:canonical-element-batch-result',
         'artifact:factory-mutation-batch-artifact',
         'artifact:shared-publication-batches'
@@ -1189,21 +1334,25 @@
       ]
     },
     {
-      id: 'remote-origin-has-no-local-only-side-effects',
+      id: 'demo-has-no-client-persistence-side-effects',
       statement:
-        'A remote source publication updates canonical, Render, and UI state but creates no Undo, echo publication, persistence capture, provider save, or IndexedDB write.',
+        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client persistence capture, provider save, IndexedDB read, or IndexedDB write; remote apply additionally creates no Undo or echo publication.',
       stepIds: [
+        'load-empty-demo-document',
+        'evaluate-local-interactive-drawing',
         'apply-remote-publication-batches',
         'project-visible-canonical-slices',
-        'persist-local-commit-snapshots',
         'evaluate-performance-and-equivalence'
       ],
       artifactIds: [
+        'artifact:empty-memory-demo-document',
         'artifact:remote-factory-mutation-batch',
-        'artifact:visible-canonical-slices',
-        'artifact:committed-persistence-snapshots'
+        'artifact:visible-canonical-slices'
       ],
-      specRefs: ['#remote-apply-contract', '#persistence-contract']
+      specRefs: [
+        '#remote-apply-contract',
+        '#demo-client-persistence-bypass'
+      ]
     }
   ]
 
@@ -1212,12 +1361,12 @@
       id: 'bulk-and-history-equivalence',
       title: 'Bulk canonical and history equivalence',
       assertions: [
-        'One Group plus one all-children Core request preserves exact IDs, order, topology, properties, relationships, and component ownership.',
+        'One Group plus one atomic all-children batch or ordered progressive plural batches preserves exact IDs, order, topology, properties, relationships, and component ownership.',
         'A later invalid item leaves no prefix, and single-item APIs are equivalent batch-of-one conveniences.',
         'One immutable Factory artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.'
       ],
       stepIds: [
-        'prepare-one-composition-bulk-request',
+        'stage-local-interactive-composition',
         'apply-canonical-property-scene-batch',
         'record-and-deliver-transaction-batch'
       ],
@@ -1261,6 +1410,26 @@
       ]
     },
     {
+      id: 'local-interactive-drawing',
+      title: 'Local progressive drawing is visibly active and complete',
+      assertions: [
+        'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
+        'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
+        'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
+        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, and harness timing without collaboration, Contents, or IndexedDB work.'
+      ],
+      stepIds: [
+        'stage-local-interactive-composition',
+        'project-visible-canonical-slices',
+        'evaluate-local-interactive-drawing'
+      ],
+      specRefs: [
+        '#exact-bounds-loading-frame',
+        '#cooperative-progressive-composition',
+        '#current-local-performance-measurement'
+      ]
+    },
+    {
       id: 'formal-performance-and-visual-closure',
       title: 'Formal, performance, and visual closure',
       assertions: [
@@ -1269,7 +1438,7 @@
         'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [
-        'persist-local-commit-snapshots',
+        'load-empty-demo-document',
         'evaluate-performance-and-equivalence'
       ],
       specRefs: ['#performance-budgets', '#final-gates', '#definition-of-done']
@@ -1283,7 +1452,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, remote side-effect isolation, local FIFO durability, and exact performance-equivalence proof.'
+        'One canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo client persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

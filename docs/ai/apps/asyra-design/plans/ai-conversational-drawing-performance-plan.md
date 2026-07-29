@@ -2,34 +2,26 @@
 
 ## Status
 
-Paused Level 3 app performance refactor. PR #101 is merged and the existing
+Active Level 3 app performance closure. PR #101 is merged and the existing
 `codex/asyra-design-ai-conversational-drawing-performance` branch remains the
-implementation base, but no additional production work is authorized by this
-status.
+implementation base. Production implementation and formal validation continue
+one Inspector owner step at a time.
 
-The current cross-cutting contract authority is:
-
-- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-realignment-plan.md`
-- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs`
-
-That framework prerequisite replaces the conflicting canonical/computed,
-SharedDataChannel, Provider, Core, Scene Tree, and Factory contracts. This
-document retains the profiling evidence, product budgets, fixtures, and
-performance-equivalence requirements below. Its affected architecture sections
-and existing Inspector are not implementation authority until the prerequisite
-has synchronized this plan, Inspector data, Inspector contract test, and BDD.
+This plan, its Inspector data, contract test, and BDD are the active app-level
+implementation authority. Framework package contracts remain authoritative
+inside their existing owner boundaries; this checkpoint does not declare any
+unstaged framework plan or framework Inspector complete.
 
 The completed Conversational AI Mock Drawing behavior remains authoritative.
 Credential-gated Live AI provider and API-key testing is outside this plan and
 remains owned by the existing live-provider successor plan.
 
-Paused architecture artifacts retained as evidence only:
+Active architecture artifacts:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html`
 
-The product cases have been realigned to the current framework prerequisite and
-are executable contract authority for that plan:
+The product cases have been realigned and are executable contract authority:
 
 - `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`
 
@@ -43,6 +35,48 @@ boundaries.
 The result must retain full ordinary editable Vector detail, exact canonical
 IDs and ordering, one intended Undo action per mutating turn, complete history,
 progressive peer-visible slices, and the ordinary Render route.
+
+## Current Local Interactive Drawing Closure
+
+Status on 2026-07-29: the corrected production single-Actor gate and
+synchronized live visual review are complete. Manual review accepted the
+progressive drawing experience and added one bounded App requirement: while the
+drawing turn is active, ordinary viewport pan and zoom stay responsive while
+all other document interaction remains locked. Contents, CRDT, transport,
+persistence, and remote-apply owners remain paused until this local requirement
+is implemented and manually accepted.
+
+The current execution phase is deliberately limited to one production
+single Actor drawing turn. It answers four product questions before any
+additional cross-window work resumes:
+
+1. how long one complete 7,112-element balanced composition takes;
+2. when the user first sees an exact-bounds loading frame and the first ordinary
+   editable Vector;
+3. whether real 25%, 50%, 75%, and 100% visible-element milestones advance
+   cooperatively while the whole turn remains one Undo action;
+4. whether no ordinary progressive batch continues to monopolize the main
+   thread while the App is visibly loading.
+
+Contents is excluded from this phase, and the panel may remain hidden in its
+formal gate. CRDT, WebSocket transport, a second Actor, collaboration
+convergence, and IndexedDB are also excluded. The gate uses one fresh empty
+canonical document and does not save or reload it. These exclusions isolate
+the local App/Core/Factory/Preset/Render/UI path; they do not waive the deferred
+full-plan gates.
+
+This phase stops after `evaluate-local-interactive-drawing` reports the local
+timings and synchronized live visual evidence. No deferred Contents,
+collaboration, persistence-policy, codec, relay, or remote-apply step advances
+without a later product decision.
+
+All current Asyra Design demo documents are intentionally memory-only on the
+client. After Core starts, RenderApp loads one canonical empty document through
+the ordinary Core load API; collaboration connects only after that load. The
+ordinary local demo, Actor A, and Actor B must not create, initialize, load,
+inject, capture, or save through a client persistence provider, and performance
+routes must not read or hash IndexedDB. Production server checkpoints and
+backend database durability remain future server-owned work.
 
 ## Architecture Replan Evidence
 
@@ -148,14 +182,18 @@ used; any missing capability stops the step for explicit approval.
 
 ```text
 validated AI descriptor
+→ derive exact accepted bounds
+→ runtime-only App DOM loading frame
+→ compositor paint opportunity
 → create Group
-→ one all-children Core bulk request
-→ Props/relationship/Scene Tree staged preflight and canonical apply
+→ atomic: one all-children plural Core batch
+   or progressive: ordered point-and-element-count plural Core batches
+→ Props/relationship/Scene Tree preflight and canonical apply per plural batch
 → FactoryMutationBatchArtifact
    ├─ one Undo/Redo journal action
    ├─ atomic or progressive publication slices
    ├─ Preset/Render/UI projection
-   └─ local-only persistence snapshot trigger
+   └─ no collaboration client persistence
 → worker binary encode
 → opaque WebSocket relay with byte backpressure
 → worker binary decode
@@ -166,17 +204,22 @@ validated AI descriptor
 
 ### Bulk Mutation Contract
 
-- Add `Core.createElementsInParentBatch(...)`, returning
-  `CanonicalElementBatchResult` with ordered element IDs and a Factory-owned
-  delivery handle.
-- AI composition creates one Group, then submits one all-children Core bulk
-  request for all accepted children. The existing App hot-path loop that calls
-  Core once per fixed 256 items is removed.
-- Point-aware progressive publication slices start with a 2,048 points soft
-  target and grow to an 8,192 points soft target. One indivisible element may
-  exceed a soft target.
-- A slice changes only projection and publication timing; it does not repeat,
-  split, or otherwise redo the canonical mutation.
+- `Core.createElementsInParent(...)` is the single plural creation surface and
+  returns ordered canonical element IDs. A single-element convenience delegates
+  to this batch-of-one path; Core exposes no AI loading, progress, slice,
+  delivery-controller, or timing parameter.
+- Atomic AI composition creates one Group, then submits one all-children plural
+  Core batch.
+- Progressive AI composition creates the same Group, then submits deterministic
+  ordered plural Core batches. Each batch enforces both a point budget and an
+  element-count budget so thousands of zero-point primitives cannot collapse
+  into one blocking call. One indivisible element may exceed only the point
+  soft target.
+- Progressive batch calls remain inside one outer App transaction. They are
+  separate canonical batch boundaries for cooperative local visibility, not
+  separate App actions, transactions, or history actions.
+- Publication slicing may further frame already-recorded evidence for transport;
+  it does not repeat a completed canonical mutation.
 - Every single-item public API becomes a batch-of-one convenience over the same
   canonical implementation.
 - Public creation APIs are selected by data lifecycle, never blocked by local
@@ -244,18 +287,20 @@ side effect consumed it.
 The write timeline is fixed:
 
 1. One Agent turn opens one outer App transaction.
-2. Group and children are both mutated inside that transaction.
-3. Progressive publication slices create no new canonical writes or history
-   actions.
+2. Group and every atomic or progressive child batch are mutated inside that
+   transaction.
+3. Progressive canonical batches may become locally visible between browser
+   paint boundaries, but create no additional App transaction or history
+   action. Later publication slicing creates no new canonical writes.
 4. A successful mutating turn creates one Undo action; Undo and Redo each
    restore the complete intended action.
 5. If an already-published immediate slice rolls back, compensation uses the
    inverse from the same `FactoryMutationBatchArtifact`.
-6. Local action, Undo, and Redo commits each trigger one complete persistence
-   snapshot. Remote transactions trigger no client snapshot or write.
+6. Collaboration local action, Undo, Redo, and remote apply trigger no client
+   persistence capture, save, IndexedDB read, or IndexedDB write.
 
-No network frame, progressive slice, observer callback, or persistence
-acknowledgement may split the intended transaction or history boundary.
+No network frame, progressive slice, or observer callback may split the
+intended transaction or history boundary.
 
 ### Projection and Contents Contract
 
@@ -361,28 +406,174 @@ acknowledgement may split the intended transaction or history boundary.
 - Props, relationships, instances, and Scene Tree apply through one canonical
   batch boundary and produce one remote Factory mutation artifact.
 - The remote Factory transaction exposes the same batch-capable owner handoff
-  used by ordinary transactions while still suppressing remote Undo, echo
-  publication, and client persistence.
+  used by ordinary transactions while still suppressing remote Undo and echo
+  publication.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
-- Actor B creates no Undo, no echo publication, no persistence capture, no
-  provider save, and no IndexedDB write.
+- Actor B creates no Undo or echo publication. Like Actor A, it has no client
+  persistence provider and performs no IndexedDB work.
 - Disconnection, closed transport, invalid frames, and worker teardown preserve
   existing `ProviderFailure` behavior and never fabricate convergence.
 
-### Persistence Contract
+### Exact-Bounds Loading Frame
 
-- Eligible local action, Undo, and Redo commits each capture one deeply detached
-  complete snapshot at the committed state.
-- Snapshot provider work remains FIFO; failure of one save does not coalesce,
-  drop, or prevent a later eligible snapshot.
-- Remote origin is an explicit persistence bypass with zero client persistence
-  capture, save-hook execution, provider save, or IndexedDB update.
+- After all accepted descriptors are validated, the App derives their exact
+  union bounds and publishes a runtime-only drawing-progress state through
+  System Context.
+- An App-owned DOM overlay commits a neutral translucent frame over those exact
+  workspace bounds after applying the current viewport transform. It is
+  pointer-events none, is not a canonical element, does not enter History,
+  persistence, Render, or Collaboration, and is never a substitute renderer.
+- Loading activity is CSS-only and compositor-safe: animation changes only
+  `transform` and `opacity`, with no JavaScript per-frame timer or render loop.
+- The App crosses a real browser paint opportunity after the DOM overlay is
+  committed and before canonical mutation begins, so the user can see that
+  execution is active instead of waiting on an unpainted main thread.
+- Before the first ordinary Vector is visible, the frame uses a neutral fill,
+  a fine accent outline, and a compositor-animated loading indicator. After the
+  first successful batch, the fill clears and the outline plus actual
+  element-count progress remain without obscuring the drawing.
+- Success, failure, cancellation, and teardown clear the runtime-only state.
+  Failure and cancellation retain the ordinary outer-transaction rollback and
+  any required visible compensation.
+
+### Cooperative Progressive Composition
+
+- Atomic mode retains one all-children plural Core call.
+- Progressive mode uses deterministic point and element-count boundaries. The
+  initial point soft target is 2,048 and later targets grow to at most 8,192;
+  a 32-element work-unit cap independently prevents a large zero-point
+  primitive batch.
+- The App calls the existing plural Core creation API once per non-empty batch.
+  Core, Props Manager, and Scene Tree retain one fixed batch mission and receive
+  no loading, progress, AI mode, slice size, or host-yield parameters.
+- Each successful batch reaches the ordinary Factory/Preset/Render/UI route,
+  advances progress by the number of actually accepted visible elements, then
+  awaits a later browser task before the next batch. The batches execute in one
+  serialized loop; they are never independently scheduled and never overlap.
+  A pure microtask and one timeout scheduled per planned range are not valid
+  yields. Explicit browser paint opportunities remain before the first
+  mutation and at named visible milestones. After every awaited boundary the
+  action checks its Feature-owned `AbortSignal`.
+- Group and every batch remain in one outer transaction and create one intended
+  Undo. Fatal failure or cancellation rolls back the complete composition;
+  already-visible immediate evidence uses the same Factory compensation path.
+- Full detail, canonical IDs, ordering, topology, relationships, and history
+  remain exact. The progressive route does not use a bitmap, AI-only renderer,
+  fake canonical background, estimated time progress, or final-only reveal.
+
+### Document Interaction Lock
+
+- The App acquires one runtime-only document interaction lock before opening
+  the outer AI action transaction. The lock is App policy, not canonical data,
+  shared data, a new framework event-bus mode, or a parameter passed into Core,
+  Props Manager, Scene Tree, Factory, Preset, or Render.
+- While the lock is active, the ordinary viewport pan and zoom routes remain
+  available and continue repainting the same live loading frame and ordinary
+  Vector output. Navigation continues through ordinary Feature execution and
+  may cross its existing transaction wrapper, but produces no canonical
+  mutation or History and does not alter the AI action transaction evidence or
+  the accepted composition bounds.
+- Every other tool interaction and document mutation is unavailable during the
+  active drawing turn. In particular, selection changes, element creation or
+  editing, property changes, deletion, Undo, Redo, and another mutating Agent
+  turn cannot enter the document or become part of the AI action.
+- AI cancellation remains available. The App releases the lock in the same
+  terminal cleanup boundary after success, failure, cancellation, or teardown.
+  A second `reactive-events` bus is not used as a scheduling or admission-lock
+  substitute; the existing viewport input path and an explicit App-owned
+  interaction policy keep the responsibilities separate.
+
+### Demo Client Persistence Bypass
+
+- Ordinary local and collaboration demo sessions start Core and load exactly
+  one canonical empty document through `Core.load(...)` without creating,
+  initializing, loading, or injecting a client persistence provider.
+- Local action, Undo, and Redo and Actor B remote apply all produce zero client
+  persistence capture, provider save, IndexedDB read, and IndexedDB write.
+- Collaboration connects only after the empty canonical document is loaded.
+- Demo reload durability is not a correctness or performance gate.
 - A future production socket server coordinating backend DB checkpoints is
   outside this plan. The current reference server remains an in-memory
   transport owner, not a durability owner.
 
 ## Performance Measurement Contract
+
+### Current Local Performance Measurement
+
+The current gate performs exactly one 7,112-element balanced progressive
+production run in one browser page against one fresh empty canonical document.
+It has no second Actor, Collaboration server, Contents projection, IndexedDB
+provider, persistence assertion, reload, warm-up, repeated measured creation,
+video, trace, or full-state polling.
+
+The report must name:
+
+- accepted request to connected exact-bounds DOM loading state;
+- accepted request to first compositor paint opportunity;
+- accepted request to first ordinary Vector visible;
+- accepted request to 25%, 50%, 75%, and 100% visible-element milestones;
+- longest ordinary canonical work-unit duration and cooperative yield count;
+- accepted request to product settled;
+- App preparation, canonical batch, Factory, Render, UI, and E2E harness time;
+- the final exact canonical element count, bounds/detail equivalence, and Undo
+  delta.
+
+Milestones use O(1) runtime counters. The harness may read one bounded exact
+canonical summary only after settlement; it must not repeatedly clone, hash, or
+walk the 7,112-element state. This single run answers the current product
+question without claiming statistical median. The existing multi-run budgets
+remain deferred full-plan gates.
+
+The pre-DOM-compositor cooperative-scheduling baseline completed on 2026-07-29
+with Contents omitted and no client persistence:
+
+- exact-bounds loading frame visible: 1.337 seconds;
+- first ordinary Vector batch visible: 1.391 seconds;
+- 25%, 50%, 75%, and 100% visible: 7.130, 9.678, 12.178, and 14.624 seconds;
+- product settled: 14.654 seconds; harness wall: 15.664 seconds;
+- App preparation: 0.152 seconds; canonical batch calls: 7.307 seconds;
+  Factory phases: 2.664 seconds; Render phases: 0.325 seconds; UI phases:
+  1.148 seconds. These owner phase totals can be nested and must not be added as
+  independent wall time;
+- terminal evidence: 7,112 rendered canonical elements, 7,112 unique IDs,
+  7,111 ordinary Vectors, 115,663 points, and one Undo action.
+
+The synchronized final App screenshot was inspected from that same measured
+state. The complete background bounds and editable portrait were visible
+without viewport clipping. The subsequent manual test found that one
+256-element canonical batch still blocked the loading state and the rest of
+the App for a perceptible interval. That evidence reopens
+`stage-local-interactive-composition`: replace the Render-owned loading
+projection with a DOM compositor overlay and reduce each serialized canonical
+work unit before repeating this one local measurement.
+
+The corrected single production run then completed on 2026-07-29 with a
+32-element soft cap, one serialized cooperative loop, a connected DOM
+compositor overlay, Contents omitted, and no collaboration or client
+persistence:
+
+- connected exact-bounds DOM loading state: 1.076 seconds; first compositor
+  paint opportunity: 1.081 seconds; first ordinary Vector: 1.377 seconds;
+- 25%, 50%, 75%, and 100% visible: 7.610, 10.983, 14.495, and 17.751 seconds;
+- product settled: 17.789 seconds; harness wall: 18.046 seconds; bounded harness
+  overhead: 0.257 seconds;
+- 226 serialized cooperative yields completed in exact FIFO order; the longest
+  measured canonical work unit was 0.333 seconds;
+- App preparation: 0.185 seconds; canonical batch calls: 7.991 seconds;
+  Factory phases: 3.909 seconds; Render phases: 0.425 seconds; UI phases:
+  1.883 seconds. These owner totals are nested and must not be added as
+  independent wall time;
+- terminal evidence: 7,112 rendered canonical elements, 7,112 unique IDs,
+  7,111 ordinary Vectors, 115,663 points, and one Undo action.
+
+The synchronized loading screenshot was inspected at 3,607 of 7,111 ordinary
+Vectors and showed the detailed portrait progressively forming inside the
+exact loading bounds. The final screenshot showed the complete uncut
+background and portrait, with the loading overlay removed. This formal
+evidence closes the automated local gate only; manual interaction approval is
+still required. No CRDT, transport, Contents, or remote owner step may resume
+until the user explicitly confirms the corrected single-machine experience.
 
 ### Reference Environment
 
@@ -393,8 +584,22 @@ dedicated App and WebSocket ports, and independent actor browser contexts.
 One unmeasured warm-up precedes three measured runs. Median and worst values are
 reported separately.
 
+Production evidence uses the dedicated AI drawing performance profile. It
+returns detached canonical, history, Factory transaction-status, commit, and
+publication snapshots without exposing a mutable runtime owner. The dev-only `window.__Core__`
+cannot satisfy a release gate; it is only a local diagnostic.
+
+Navigation, App readiness, collaboration readiness, Mock AI readiness,
+reference attachment, runtime evidence readiness, and history baseline are
+named E2E harness spans. They remain separate from product execution, owner,
+transport, Render, and UI timing. Collaboration client-persistence bypass is
+proven with cheap startup/runtime counters; no IndexedDB state is opened,
+polled, normalized, stringified, or hashed.
+
 ### Gate Partitioning
 
+- The current local interactive gate is one single-Actor 7,112-element
+  progressive run with no Contents, CRDT, transport, IndexedDB, or repeat.
 - The default fast Mock AI CRDT correctness fixture has 16 items and exercises
   ordinary App, Factory, Collaboration, remote apply, Render, and history
   routes.
@@ -422,7 +627,6 @@ Measured output separates:
 - remote canonical apply;
 - Render;
 - UI and Contents projection;
-- client persistence capture and provider save;
 - Actor A/Actor B first-visible and settled milestones;
 - server startup, browser launch, assertions, screenshots, recording, and
   teardown as E2E harness overhead.
@@ -474,18 +678,28 @@ Every optimized route preserves:
   cancellation, and teardown semantics;
 - exact atomic or progressive delivery selection and peer-visible progressive
   slices;
-- local persistence parity and remote persistence bypass;
+- zero client persistence work for both collaboration actors;
 - no reduced detail, bitmap replacement, regenerated full portrait, AI-only
   renderer, final-only peer shortcut, fabricated progress, missing history, or
   fixture-specific production path.
 
 ## Product Cases
 
-### One Composition Bulk Mutation
+### One Interactive Composition Action
 
-The App creates one Group and submits all accepted children through one Core
-bulk request. A later invalid child commits no prefix; single-item calls produce
-the same canonical evidence through batch-of-one.
+The App creates one Group. Atomic mode submits all accepted children through one
+plural Core request; progressive mode submits deterministic ordered plural Core
+batches between browser paint boundaries. Both modes remain one App action, one
+outer transaction, one Factory artifact, and one intended Undo. A later fatal
+child failure rolls back the complete action; single-item calls retain the same
+batch-of-one canonical implementation.
+
+### Local Drawing Progress
+
+The exact validated composition bounds appear as runtime-only overlay state
+before the first canonical mutation. Real ordinary Vector batches replace that
+placeholder progressively, and actual accepted element counts drive the visible
+progress until terminal cleanup.
 
 ### One Immutable Transaction Artifact
 
@@ -516,10 +730,12 @@ Each source publication applies through one remote Factory transaction and one
 batch observer delivery. Actor B converges without Undo, echo, capture, save, or
 IndexedDB update.
 
-### Local Snapshot Durability
+### Demo Documents Do Not Persist on Clients
 
-Local action, Undo, and Redo commits each capture one complete FIFO snapshot.
-Remote commits capture none.
+The ordinary local demo, Actor A, and Actor B each load one canonical empty
+document, then start without a client persistence provider. Local actions,
+Undo, Redo, remote apply, and the performance harness perform no IndexedDB read
+or write.
 
 ### Fast Mock AI CRDT Correctness
 
@@ -543,38 +759,70 @@ fabricated convergence.
 
 ## Owner Step Execution Order
 
-Execution advances only after the current step's focused formal tests and
-bounded review have no P0-P2 finding.
+The current local closure advances only after the current step's focused formal
+tests and bounded review have no P0-P2 finding:
 
 1. `contract-readiness-replan`: update this plan, Inspector, contract test, and
    BDD only.
-2. `project-scrollable-contents-window`: add a failing real-scroll regression,
-   then fix the virtualizer scroll owner.
-3. `record-and-deliver-transaction-batch`: add Factory artifact, batch journal,
-   batch shared channel, Undo/Redo, and rollback compensation.
-4. `apply-canonical-property-scene-batch`: complete Props relationship,
-   registration, Scene Tree bulk creation, and lifecycle-aware retained
-   removal/restore boundaries.
-5. `prepare-one-composition-bulk-request`: create Group plus one all-children
-   Core request; slices only project and publish.
-6. `project-visible-canonical-slices`: make Preset, Render, and UI consume the
-   artifact directly.
-7. `encode-publication-frames`: add binary publication schema, codec worker,
+2. `stage-local-interactive-composition`: add the exact-bounds runtime overlay,
+   App-owned document interaction lock, DOM compositor paint opportunity,
+   deterministic point-and-32-element plural Core work units, serialized
+   later-task yields, actual progress, cancellation cleanup, rollback, and
+   single Undo behavior.
+3. `project-visible-canonical-slices`: only if its focused test proves the
+   existing Preset/Render projection turns one successful App batch into more
+   than one visible flush; otherwise it remains unchanged.
+4. `evaluate-local-interactive-drawing`: after explicit advance notice, run one
+   production single-Actor 7,112-element gate and synchronized visual review,
+   report the named times, then stop for product direction.
+
+The following existing steps are deferred and do not advance during the current
+local closure:
+
+1. `project-scrollable-contents-window`.
+2. `record-and-deliver-transaction-batch`.
+3. `apply-canonical-property-scene-batch`.
+4. `encode-publication-frames`: add binary publication schema, codec worker,
    transferable buffers, bounded receiver frame ingress, one immutable decoded
    publication lease, and independent wire credit.
-8. `relay-frames-with-backpressure`: remove the failed compression candidate,
+5. `relay-frames-with-backpressure`: remove the failed compression candidate,
    relay opaque frames, and send already-admitted FIFO frames through the
    bounded per-peer byte window.
-9. `apply-remote-publication-batches`: replace the per-event remote canonical
+6. `apply-remote-publication-batches`: replace the per-event remote canonical
    hot path with one publication batch transaction.
-10. `persist-local-commit-snapshots`: prove local action/Undo/Redo FIFO snapshots
-    and remote zero client persistence; production changes occur only for a
-    proven mismatch.
-11. `evaluate-performance-and-equivalence`: run the complete formal and live
+7. `load-empty-demo-document`: start ordinary local and collaboration demo
+    sessions with one empty canonical document and no client persistence
+    provider, then prove zero capture, save, IndexedDB read, and IndexedDB write.
+8. `evaluate-performance-and-equivalence`: run the complete formal and live
     closure once.
 
 Existing committed results and current WIP are preserved and absorbed only
 inside their matching owner step. No cross-owner WIP commit is allowed.
+
+## Current Local Gates
+
+- Contract: the active plan, Inspector, contract test, and BDD agree on the
+  single-Actor phase, exact-bounds loading state, cooperative plural Core
+  batches, one outer transaction, one Undo, and deferred owners.
+- App interaction: focused formal tests prove loading state is published, a
+  connected DOM overlay receives exact transformed bounds, and a browser paint
+  opportunity completes before the first canonical write. During later-task
+  yields, pan and zoom repaint the same live App state while all other document
+  interactions produce no canonical mutation or history; success, failure,
+  cancellation, and teardown release the lock.
+- Slicing: focused tests prove both point and element-count limits, exact order,
+  atomic one-call behavior, progressive multiple plural calls, AbortSignal
+  checks, one in-flight serialized yield, no next batch before that yield,
+  actual progress only after a successful batch, and terminal cleanup.
+- Transaction: the existing formal outer-transaction gate proves successful
+  progressive composition adds one history action and fatal/cancelled
+  composition leaves no committed prefix after rollback/compensation.
+- Projection: a focused test determines whether one successful plural Core
+  batch already produces one ordinary visible Vector flush. Preset/Render
+  changes are authorized only if that test fails at this owner.
+- Local performance: one production single-Actor 7,112-element run reports the
+  named milestones, longest work unit, and yield count once and receives
+  synchronized live visual inspection.
 
 ## Step-Local Gates
 
@@ -588,8 +836,9 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
 - Props/Scene Tree: later-invalid no-prefix behavior, exact IDs/order/
   relationships/instances, lifecycle-aware create/remove/restore selection,
   retained Scene-then-Props replay, and batch-of-one parity.
-- App/Core: one all-children bulk request, point-aware publication boundaries,
-  cancellation, partial results, and fatal rollback.
+- App/Core: one atomic all-children plural request or deterministic progressive
+  plural requests, point-and-element-count boundaries, cancellation, partial
+  results, and fatal rollback.
 - Projection: one atomic flush, one flush per progressive slice, exact 7,076
   ordinary Vector projection, and bounded UI updates.
 - Codec/relay: binary round-trip, invalid/truncated/duplicate rejection,
@@ -598,8 +847,8 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
   byte parity, slow peer, disconnect, and ordered receipts.
 - Remote: one publication transaction and one batch observer call, with no
   Undo, echo, capture, save, or IndexedDB write.
-- Persistence: local action/Undo/Redo FIFO snapshots and remote zero client
-  persistence.
+- Demo startup: ordinary local and collaboration sessions load one empty
+  canonical document and never configure client persistence.
 
 Each owner step runs focused unit and integration gates only. The 7,076 heavy
 suite is not repeated after every step.
@@ -636,9 +885,10 @@ never committed.
   Collaboration without downstream semantic reconstruction.
 - Peer queues remain byte-bounded and exact publication order converges.
 - Contents reaches the final canonical element with bounded DOM rows.
-- Actor B has no Undo, echo, or client persistence side effects.
+- Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
+  client persistence side effects.
 - Existing performance budgets pass without lowering detail or weakening
-  canonical, history, persistence, or progressive semantics.
+  canonical, history, or progressive semantics.
 - The synchronized visual review passes from the same measured live App state.
 - The plan remains active until the product owner explicitly accepts closure.
 
@@ -667,7 +917,7 @@ Stop the current owner step and replan from the first incorrect owner when:
 - an artifact cannot reproduce exact canonical or history evidence;
 - a downstream owner must rederive upstream semantics from raw mutable data;
 - a peer queue cannot remain bounded;
-- an optimization changes IDs, ordering, detail, Undo/Redo, persistence,
+- an optimization changes IDs, ordering, detail, Undo/Redo,
   progressive visibility, partial result, rollback, or failure behavior;
 - a required file falls outside the active step allowlist;
 - existing platform capability would require an unapproved dependency or tool
