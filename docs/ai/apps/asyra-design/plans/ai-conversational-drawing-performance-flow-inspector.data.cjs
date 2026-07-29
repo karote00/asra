@@ -249,6 +249,7 @@
         'App-owned runtime System Context state',
         'App-owned DOM overlay component and compositor-safe CSS animation',
         'App-owned document interaction lock and existing viewport pan and zoom input routes',
+        'Agent conversation Cancel control as the only non-navigation DOM interaction exemption',
         'App-owned delivery mode and serialized cooperative main-thread scheduling policy'
       ],
       forbiddenContributors: [
@@ -271,6 +272,8 @@
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/common-apis/system-context.ts',
         'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/app/ai-conversation-panel.tsx',
+        'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
         'apps/asyra-design/src/render-app',
         'apps/asyra-design/src/render-layers',
         'apps/asyra-design/src/init/capabilities/init-ai-drawing-progress.ts',
