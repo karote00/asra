@@ -6,7 +6,11 @@ import {
   type Page
 } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { waitForAppReady } from './test-utils'
+import {
+  captureBrowserErrors,
+  getCapturedBrowserErrors,
+  waitForAppReady
+} from './test-utils'
 
 const expectedFixture = Object.freeze({
   groupCount: 1,
@@ -38,6 +42,8 @@ const endpointGuardEnabled = [
   'ASYRA_DESIGN_ENDPOINT_GUARD_URL',
   'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN'
 ].every((name) => Boolean(process.env[name]?.trim()))
+const endpointConnectivityOnly =
+  process.env.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY === '1'
 const endpointOwner = endpointGuardEnabled
   ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_OWNER')
   : 'guarded-endpoint-disabled'
@@ -216,16 +222,38 @@ const collaborationURL = (fileId: string) =>
   '&aiPerformance=profile' +
   '&aiPerformanceContents=omitted'
 
-const waitForCollaboration = async (page: Page): Promise<void> => {
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
-        ),
-      { timeout: 30_000 }
+const ordinaryLocalAppURL = () => '/?aiPerformanceContents=omitted'
+const profiledLocalAppURL = () =>
+  `${ordinaryLocalAppURL()}&aiPerformance=profile`
+
+const waitForCollaboration = async (
+  page: Page,
+  actor: 'Actor A' | 'Actor B'
+): Promise<void> => {
+  try {
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+          ),
+        { timeout: 30_000 }
+      )
+      .toBe('connected')
+  } catch (error) {
+    const status = await page
+      .evaluate(() => window.__AsyraCollaboration__?.getStatus() ?? 'missing')
+      .catch(() => 'unavailable')
+    const browserErrors = getCapturedBrowserErrors(page)
+      .slice(-4)
+      .map((message) => message.slice(0, 300))
+    throw new Error(
+      `${actor} collaboration did not connect; status=${status}; browserErrors=${JSON.stringify(
+        browserErrors
+      )}`,
+      { cause: error }
     )
-    .toBe('connected')
+  }
 }
 
 const installBoundedDiagnostics = async (page: Page): Promise<void> => {
@@ -318,6 +346,55 @@ const readActorSample = async (
 
 const delay = (durationMs: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMs))
+
+const waitForConnectivityCpuSample = async (
+  phase: string,
+  action?: () => Promise<unknown>
+): Promise<void> => {
+  await postHeartbeat('progress', createConnectivityHeartbeat(phase))
+  await action?.()
+  await delay(750)
+}
+
+const createConnectivityHeartbeat = (phase: string): EndpointHeartbeat => ({
+  actorA: {
+    canonicalElements: 0,
+    complete: false,
+    completeAtMs: null,
+    elements: 0,
+    firstVisibleAtMs: null,
+    renderProjectionElements: 0,
+    total: 0,
+    undoDepth: 0
+  },
+  actorB: {
+    canonicalElements: 0,
+    complete: false,
+    completeAtMs: null,
+    elements: 0,
+    firstVisibleAtMs: null,
+    renderProjectionElements: 0,
+    total: 0,
+    undoDepth: 0
+  },
+  elapsedMs: null,
+  owner: endpointOwner,
+  ownerTiming: {
+    actorADurationMs: 0,
+    actorAPhase: 'harness-connectivity',
+    actorBDurationMs: 0,
+    actorBPhase: 'harness-connectivity'
+  },
+  phase,
+  publications: {
+    actorAFactory: 0,
+    actorALocalSent: 0,
+    actorBFactory: 0,
+    actorBLocalSent: 0,
+    actorBRemoteProcessed: 0,
+    failed: 0
+  }
+})
 
 const createHeartbeatController = (actorA: Page, actorB: Page) => {
   let active = false
@@ -679,6 +756,19 @@ const closeContexts = async (
   await Promise.allSettled(contexts.map((context) => context.close()))
 }
 
+const createActor = async (
+  browser: Browser,
+  baseURL: string
+): Promise<{ context: BrowserContext; page: Page }> => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { height: 900, width: 1440 }
+  })
+  const page = await context.newPage()
+  captureBrowserErrors(page)
+  return { context, page }
+}
+
 const createActors = async (
   browser: Browser,
   baseURL: string
@@ -687,24 +777,116 @@ const createActors = async (
   actorB: Page
   contexts: readonly [BrowserContext, BrowserContext]
 }> => {
-  const actorAContext = await browser.newContext({
-    baseURL,
-    viewport: { height: 900, width: 1440 }
-  })
-  const actorBContext = await browser.newContext({
-    baseURL,
-    viewport: { height: 900, width: 1440 }
-  })
+  const actorA = await createActor(browser, baseURL)
+  const actorB = await createActor(browser, baseURL)
   return {
-    actorA: await actorAContext.newPage(),
-    actorB: await actorBContext.newPage(),
-    contexts: [actorAContext, actorBContext]
+    actorA: actorA.page,
+    actorB: actorB.page,
+    contexts: [actorA.context, actorB.context]
   }
 }
+
+test('empty-document two-Actor endpoint connectivity', async ({
+  browser
+}, testInfo) => {
+  test.skip(
+    !endpointConnectivityOnly,
+    'The focused connectivity case runs only when explicitly selected'
+  )
+  const baseURL = String(testInfo.project.use.baseURL ?? '')
+  if (!baseURL) {
+    throw new Error('Endpoint performance App URL is unavailable')
+  }
+  const fileId = `connectivity-${endpointOwner}-${Date.now()}`
+  const contexts: BrowserContext[] = []
+  try {
+    await waitForGuardReady(createConnectivityHeartbeat('browser-launched'))
+    await delay(750)
+    const ordinaryLocalActor = await createActor(browser, baseURL)
+    contexts.push(ordinaryLocalActor.context)
+    await waitForConnectivityCpuSample('local-a-ordinary-blank-idle')
+    await waitForConnectivityCpuSample('local-a-ordinary-navigation', () =>
+      ordinaryLocalActor.page.goto(ordinaryLocalAppURL())
+    )
+    await waitForConnectivityCpuSample('local-a-ordinary-app-ready', () =>
+      waitForAppReady(ordinaryLocalActor.page)
+    )
+    await waitForConnectivityCpuSample('local-a-ordinary-idle')
+    expect(
+      await ordinaryLocalActor.page.evaluate(
+        () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+      )
+    ).toBe('missing')
+    expect(getCapturedBrowserErrors(ordinaryLocalActor.page)).toEqual([])
+    await ordinaryLocalActor.context.close()
+
+    const profiledLocalActor = await createActor(browser, baseURL)
+    contexts.push(profiledLocalActor.context)
+    await waitForConnectivityCpuSample('local-a-profiled-blank-idle')
+    await waitForConnectivityCpuSample('local-a-profiled-navigation', () =>
+      profiledLocalActor.page.goto(profiledLocalAppURL())
+    )
+    await waitForConnectivityCpuSample('local-a-profiled-app-ready', () =>
+      waitForAppReady(profiledLocalActor.page)
+    )
+    await waitForConnectivityCpuSample('local-a-profiled-idle')
+    expect(
+      await profiledLocalActor.page.evaluate(
+        () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+      )
+    ).toBe('missing')
+    expect(getCapturedBrowserErrors(profiledLocalActor.page)).toEqual([])
+    await profiledLocalActor.context.close()
+
+    const actorA = await createActor(browser, baseURL)
+    contexts.push(actorA.context)
+    await waitForConnectivityCpuSample('actor-a-blank-idle')
+    await waitForConnectivityCpuSample('actor-a-navigation', () =>
+      actorA.page.goto(collaborationURL(fileId))
+    )
+    await waitForConnectivityCpuSample('actor-a-app-ready', () =>
+      waitForAppReady(actorA.page)
+    )
+    await waitForConnectivityCpuSample('actor-a-collaboration-ready', () =>
+      waitForCollaboration(actorA.page, 'Actor A')
+    )
+    const actorB = await createActor(browser, baseURL)
+    contexts.push(actorB.context)
+    await waitForConnectivityCpuSample('actor-b-blank-idle')
+    await waitForConnectivityCpuSample('actor-b-navigation', () =>
+      actorB.page.goto(collaborationURL(fileId))
+    )
+    await waitForConnectivityCpuSample('actor-b-app-ready', () =>
+      waitForAppReady(actorB.page)
+    )
+    await waitForConnectivityCpuSample('actor-b-collaboration-ready', () =>
+      waitForCollaboration(actorB.page, 'Actor B')
+    )
+    await waitForConnectivityCpuSample('connected')
+    expect(
+      await Promise.all([
+        actorA.page.evaluate(
+          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        ),
+        actorB.page.evaluate(
+          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        )
+      ])
+    ).toEqual(['connected', 'connected'])
+    expect(getCapturedBrowserErrors(actorA.page)).toEqual([])
+    expect(getCapturedBrowserErrors(actorB.page)).toEqual([])
+  } finally {
+    await closeContexts(contexts)
+  }
+})
 
 test('creation-only high-detail endpoint proof', async ({
   browser
 }, testInfo) => {
+  test.skip(
+    endpointConnectivityOnly,
+    'The focused connectivity case must never create the high-detail fixture'
+  )
   const baseURL = String(testInfo.project.use.baseURL ?? '')
   if (!baseURL) {
     throw new Error('Endpoint performance App URL is unavailable')
@@ -725,8 +907,8 @@ test('creation-only high-detail endpoint proof', async ({
     await Promise.all([waitForAppReady(actorA), waitForAppReady(actorB)])
     heartbeat.setPhase('collaboration-ready')
     await Promise.all([
-      waitForCollaboration(actorA),
-      waitForCollaboration(actorB)
+      waitForCollaboration(actorA, 'Actor A'),
+      waitForCollaboration(actorB, 'Actor B')
     ])
     await Promise.all([
       installBoundedDiagnostics(actorA),

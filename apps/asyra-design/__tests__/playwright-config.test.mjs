@@ -26,6 +26,8 @@ const listTests = (config, environment = {}) => {
 }
 
 const endpointPerformanceEnvironment = {
+  ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED:
+    'ws://127.0.0.1:4121/asyra-design-collaboration',
   ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: 'config-contract-token',
   ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
   ASYRA_DESIGN_ENDPOINT_OWNER: 'admit-receiver-publication-frames'
@@ -189,8 +191,9 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     /endpoint performance resource guard/i
   )
   assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
+  assert.match(guarded, /empty-document two-Actor endpoint connectivity/)
   assert.match(guarded, /creation-only high-detail endpoint proof/)
-  assert.match(guarded, /Total: 1 test in 1 file/)
+  assert.match(guarded, /Total: 2 tests in 1 file/)
 
   assert.match(
     configSource,
@@ -205,12 +208,21 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /screenshot:\s*['"]off['"]/)
   assert.match(configSource, /video:\s*['"]off['"]/)
   assert.match(configSource, /reuseExistingServer:\s*false/g)
+  assert.match(
+    configSource,
+    /trackedServerCommand\(\s*['"]websocket-server['"]/
+  )
   assert.match(configSource, /yarn collaboration:server:start/)
+  assert.match(configSource, /ASYRA_DESIGN_APP_URL:\s*appURL/)
   assert.doesNotMatch(
     configSource,
     /yarn collaboration:server(?!:start)|yarn react:build/
   )
+  assert.match(configSource, /trackedServerCommand\(\s*['"]app-server['"]/)
   assert.match(configSource, /yarn preview/)
+  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED/)
+  assert.match(configSource, /launchOptions/)
+  assert.match(configSource, /client-browser/)
 
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_URL/)
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN/)
@@ -257,6 +269,16 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.doesNotMatch(guardSource, /child\.once\(['"]exit['"]/)
   assert.match(guardSource, /child-close-timeout/)
   assert.match(specSource, /waitForGuardReady\(initialHeartbeat\)/)
+  assert.match(specSource, /browserErrors/)
+  assert.match(
+    specSource,
+    /waitForGuardReady\(\s*createConnectivityHeartbeat\(['"]browser-launched['"]\)/
+  )
+  assert.match(
+    specSource,
+    /browser-launched[\s\S]*local-a-ordinary-blank-idle[\s\S]*local-a-ordinary-navigation[\s\S]*local-a-ordinary-app-ready[\s\S]*local-a-ordinary-idle[\s\S]*local-a-profiled-blank-idle[\s\S]*local-a-profiled-navigation[\s\S]*local-a-profiled-app-ready[\s\S]*local-a-profiled-idle[\s\S]*actor-a-blank-idle[\s\S]*actor-a-navigation[\s\S]*actor-a-app-ready[\s\S]*actor-a-collaboration-ready[\s\S]*actor-b-blank-idle[\s\S]*actor-b-navigation[\s\S]*actor-b-app-ready[\s\S]*actor-b-collaboration-ready[\s\S]*connected/
+  )
+  assert.match(specSource, /const waitForConnectivityCpuSample/)
   assert.doesNotMatch(specSource, /\bindexedDB\b|\bscreenshot\(|\bvideo\(/)
   assert.doesNotMatch(specSource, /\bundo\(|testInfo\.attach\(/)
 

@@ -1,4 +1,5 @@
-import { defineConfig, devices } from '@playwright/test'
+import { chromium, defineConfig, devices } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
 
 const requireGuardValue = (name: string): string => {
   const value = process.env[name]?.trim()
@@ -42,6 +43,30 @@ const appURL = `http://127.0.0.1:${appPort}`
 const collaborationHealthURL = `http://127.0.0.1:${collaborationPort}/health`
 const collaborationWebSocketURL =
   `ws://127.0.0.1:${collaborationPort}` + '/asyra-design-collaboration'
+const attestedArtifactEndpoint = requireGuardValue(
+  'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
+)
+if (attestedArtifactEndpoint !== collaborationWebSocketURL) {
+  throw new Error(
+    'Endpoint performance production artifact does not match the proof server'
+  )
+}
+
+const guardLauncherPath = fileURLToPath(
+  new URL('./e2e/performance-resource-guard.mjs', import.meta.url)
+)
+const trackedServerCommand = (
+  role: 'app-server' | 'websocket-server',
+  command: string
+): string =>
+  `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(
+    guardLauncherPath
+  )} --tracked-role ${role} -- ${command}`
+const browserLauncherEnvironment = Object.fromEntries(
+  Object.entries(process.env).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  )
+)
 
 export default defineConfig({
   testDir: './e2e',
@@ -64,24 +89,39 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          env: {
+            ...browserLauncherEnvironment,
+            ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
+            ASYRA_DESIGN_TRACKED_ROLE: 'client-browser'
+          },
+          executablePath: guardLauncherPath
+        }
+      }
     }
   ],
   webServer: [
     {
-      command:
-        `ASYRA_DESIGN_COLLABORATION_WS_HOST=127.0.0.1 ` +
-        `ASYRA_DESIGN_COLLABORATION_WS_PORT=${collaborationPort} ` +
-        'yarn collaboration:server:start',
+      command: trackedServerCommand(
+        'websocket-server',
+        'yarn collaboration:server:start'
+      ),
+      env: {
+        ASYRA_DESIGN_APP_URL: appURL,
+        ASYRA_DESIGN_COLLABORATION_WS_HOST: '127.0.0.1',
+        ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort)
+      },
       url: collaborationHealthURL,
       reuseExistingServer: false,
       timeout: 120_000
     },
     {
-      command:
-        `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=${collaborationWebSocketURL} ` +
-        `yarn preview --host 127.0.0.1 ` +
-        `--port ${appPort} --strictPort`,
+      command: trackedServerCommand(
+        'app-server',
+        `yarn preview --host 127.0.0.1 ` + `--port ${appPort} --strictPort`
+      ),
       url: appURL,
       reuseExistingServer: false,
       timeout: 120_000

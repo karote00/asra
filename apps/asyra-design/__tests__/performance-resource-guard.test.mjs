@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 import test from 'node:test'
 
 import {
+  attestEndpointBuildArtifact,
   attemptGuardedTermination,
   DEFAULT_RESOURCE_GUARD_CONFIG,
   buildBoundedResourceReport,
@@ -16,9 +17,14 @@ import {
   recordProfileOutput,
   recordResourceHeartbeat,
   recordResourceSampleFailure,
+  recordTrackedProcessGroupRegistration,
+  runEndpointPerformancePipeline,
   runResourceGuardCli,
-  sampleTrackedProcessGroupCpu,
-  terminateTrackedProcessGroup
+  runTrackedProcessLauncher,
+  sampleTrackedProcessGroupsCpu,
+  terminateTrackedProcessGroups,
+  terminateTrackedProcessGroup,
+  verifyTrackedProcessDescendant
 } from '../e2e/performance-resource-guard.mjs'
 
 const TARGET_PGID = 4242
@@ -391,6 +397,7 @@ test('takes the first tracked CPU sample before waiting for the sampling interva
   const runtimeProcess = new EventEmitter()
   let samples = 0
   const cadenceEvents = []
+  const cleanedProcessGroups = []
   const intervalHandle = { unref: () => undefined }
 
   const result = await runResourceGuardCli(
@@ -417,14 +424,152 @@ test('takes the first tracked CPU sample before waiting for the sampling interva
         return intervalHandle
       },
       spawnImpl: () => child,
+      terminate: async ({ pgid }) => {
+        cleanedProcessGroups.push(pgid)
+        return { forceKilled: false, pgid, termSent: false }
+      },
       stdout: { write: () => true }
     }
   )
 
   assert.equal(samples, 1)
   assert.deepEqual(cadenceEvents, ['interval:250', 'sample'])
+  assert.deepEqual(cleanedProcessGroups, [TARGET_PGID])
+  assert.equal(result.report.termination.confirmed, true)
   assert.equal(result.exitCode, 0)
   assert.equal(runtimeProcess.listenerCount('SIGTERM'), 0)
+})
+
+test('fails closed and force-kills exact groups when child-close cleanup is unconfirmed', async () => {
+  const child = new EventEmitter()
+  child.pid = TARGET_PGID
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+  child.unref = () => undefined
+  const emergencyKills = []
+  const intervalHandle = { unref: () => undefined }
+
+  const result = await runResourceGuardCli(
+    ['--owner', OWNER, '--', 'mock-command'],
+    {
+      baseEnv: {},
+      clearIntervalImpl: () => undefined,
+      emergencyKill: (pid, signal) => {
+        emergencyKills.push([pid, signal])
+      },
+      fallbackTerminate: async () => {
+        throw new Error('fallback cleanup failed')
+      },
+      requiresReady: false,
+      runtimeProcess: new EventEmitter(),
+      sampleCpu: async (pgid) => {
+        void Promise.resolve().then(() => child.emit('close', 0, null))
+        return {
+          cpuPercent: 1,
+          nowMs: 1,
+          pgid
+        }
+      },
+      setIntervalImpl: () => intervalHandle,
+      spawnImpl: () => child,
+      stdout: { write: () => true },
+      terminate: async () => {
+        throw new Error('primary cleanup failed')
+      }
+    }
+  )
+
+  assert.equal(result.exitCode, 86)
+  assert.equal(result.report.stopReason, 'tracked-process-cleanup-failed')
+  assert.deepEqual(emergencyKills, [[-TARGET_PGID, 'SIGKILL']])
+  assert.equal(result.report.termination.confirmed, false)
+})
+
+test('treats cleanup work after a normal child close as a leaked process', async () => {
+  const child = new EventEmitter()
+  child.pid = TARGET_PGID
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+  child.unref = () => undefined
+  const intervalHandle = { unref: () => undefined }
+
+  const result = await runResourceGuardCli(
+    ['--owner', OWNER, '--', 'mock-command'],
+    {
+      baseEnv: {},
+      clearIntervalImpl: () => undefined,
+      requiresReady: false,
+      runtimeProcess: new EventEmitter(),
+      sampleCpu: async (pgid) => {
+        void Promise.resolve().then(() => child.emit('close', 0, null))
+        return {
+          cpuPercent: 1,
+          nowMs: 1,
+          pgid
+        }
+      },
+      setIntervalImpl: () => intervalHandle,
+      spawnImpl: () => child,
+      stdout: { write: () => true },
+      terminate: async ({ pgid }) => ({
+        forceKilled: false,
+        pgid,
+        termSent: true
+      })
+    }
+  )
+
+  assert.equal(result.exitCode, 86)
+  assert.equal(
+    result.report.stopReason,
+    'tracked-process-leaked-after-child-close'
+  )
+})
+
+test('force-kills exact groups when a guarded child does not close', async () => {
+  const child = new EventEmitter()
+  child.pid = TARGET_PGID
+  child.stdout = Object.assign(new EventEmitter(), {
+    destroy: () => undefined
+  })
+  child.stderr = Object.assign(new EventEmitter(), {
+    destroy: () => undefined
+  })
+  child.unref = () => undefined
+  const emergencyKills = []
+  const intervalHandle = { unref: () => undefined }
+
+  const result = await runResourceGuardCli(
+    ['--owner', OWNER, '--', 'mock-command'],
+    {
+      baseEnv: {},
+      clearIntervalImpl: () => undefined,
+      config: { terminationGraceMs: 0 },
+      emergencyKill: (pid, signal) => {
+        emergencyKills.push([pid, signal])
+      },
+      requiresReady: false,
+      runtimeProcess: new EventEmitter(),
+      sampleCpu: async (pgid) => ({
+        cpuPercent: 151,
+        nowMs: 1,
+        pgid
+      }),
+      setIntervalImpl: () => intervalHandle,
+      spawnImpl: () => child,
+      stdout: { write: () => true },
+      terminate: async ({ pgid }) => ({
+        forceKilled: true,
+        pgid,
+        termSent: true
+      })
+    }
+  )
+
+  assert.equal(result.exitCode, 86)
+  assert.equal(result.report.childExit.error, 'child-close-timeout')
+  assert.deepEqual(emergencyKills, [[-TARGET_PGID, 'SIGKILL']])
+  assert.equal(result.report.termination.childCloseEmergency.confirmed, true)
 })
 
 test('forbids diagnostic CPU mode for an authenticated endpoint proof', async () => {
@@ -519,6 +664,7 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
     pgid: TARGET_PGID,
     cpuPercent: 149,
     contributors: [],
+    phase: 'slice-1',
     roleCpuPercent: {
       appServer: 0,
       clientBrowser: 0,
@@ -541,33 +687,84 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   assert.equal(JSON.stringify(report).includes(TOKEN), false)
 })
 
-test('bounds every process-group CPU sample with a hard timeout', async () => {
+test('keeps one bounded maximum CPU sample for each diagnostic phase', () => {
+  let state = createResourceGuardState({ nowMs: 0 })
+  state = record(arm(state), 'ready', 0).state
+
+  for (let index = 1; index <= 30; index += 1) {
+    state = record(
+      state,
+      'progress',
+      index * 1_000,
+      heartbeat({ phase: `phase-${index}` })
+    ).state
+    state = evaluateResourceSample(
+      state,
+      {
+        pgid: TARGET_PGID,
+        cpuPercent: index,
+        nowMs: index * 1_000
+      },
+      { targetPgid: TARGET_PGID }
+    ).state
+  }
+
+  state = evaluateResourceSample(
+    state,
+    {
+      pgid: TARGET_PGID,
+      cpuPercent: 1,
+      nowMs: 31_000
+    },
+    { targetPgid: TARGET_PGID }
+  ).state
+
+  const report = buildBoundedResourceReport(state, {
+    owner: OWNER,
+    targetPgid: TARGET_PGID
+  })
+
+  assert.equal(report.phaseCpuMaximums.length, 24)
+  assert.equal(report.phaseCpuMaximums[0].phase, 'phase-7')
+  assert.equal(report.phaseCpuMaximums.at(-1).phase, 'phase-30')
+  assert.equal(report.phaseCpuMaximums.at(-1).cpuPercent, 30)
+})
+
+test('samples every registered process group from one bounded OS snapshot', async () => {
   let receivedArguments
   let receivedOptions
-  const result = await sampleTrackedProcessGroupCpu(TARGET_PGID, {
+  let snapshotCount = 0
+  const processGroups = [
+    { pgid: TARGET_PGID, role: 'test-harness' },
+    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5002, role: 'app-server' },
+    { pgid: 5003, role: 'websocket-server' }
+  ]
+  const result = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
     execFileImpl: (_file, arguments_, options, callback) => {
+      snapshotCount += 1
       receivedArguments = arguments_
       receivedOptions = options
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 20.0 node /repo/.yarn/releases/yarn-4.9.2.cjs prettier --check --guard-token=TOP-SECRET`,
-          `${TARGET_PGID + 1} ${TARGET_PGID} ${TARGET_PGID} 40.0 node dist/collaboration-server/collaboration-server.js`,
-          `${TARGET_PGID + 2} ${TARGET_PGID} ${TARGET_PGID} 30.0 node node_modules/vite/bin/vite.js preview`,
-          `${TARGET_PGID + 3} ${TARGET_PGID} ${TARGET_PGID} 30.0 /Applications/chrome-headless-shell --type=renderer`,
-          `${TARGET_PGID + 4} ${TARGET_PGID} ${TARGET_PGID} 5.0 node node_modules/esbuild/bin/esbuild`,
-          `${TARGET_PGID + 5} ${TARGET_PGID} ${TARGET_PGID} 0.5 node custom-task.js`,
-          `${TARGET_PGID + 6} ${TARGET_PGID} ${TARGET_PGID + 1} 999.0 node untracked.js`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 node /repo/.yarn/releases/yarn-4.9.2.cjs playwright --guard-token=TOP-SECRET`,
+          `5001 ${TARGET_PGID} 5001 91.0 /Applications/chrome-headless-shell --type=renderer`,
+          `5002 ${TARGET_PGID} 5002 4.0 node node_modules/vite/bin/vite.js preview`,
+          `5003 ${TARGET_PGID} 5003 18.0 node dist/collaboration-server/collaboration-server.js`,
+          `6000 ${TARGET_PGID} 6000 999.0 node untracked.js`
         ].join('\n')
       )
     },
     nowMs: 1_000,
-    platform: 'darwin'
+    platform: 'darwin',
+    processGroups
   })
 
+  assert.equal(snapshotCount, 1)
   assert.deepEqual(receivedArguments, [
     '-g',
-    String(TARGET_PGID),
+    `${TARGET_PGID},5001,5002,5003`,
     '-o',
     'pid=,ppid=,pgid=,%cpu=,command='
   ])
@@ -577,46 +774,74 @@ test('bounds every process-group CPU sample with a hard timeout', async () => {
   assert.deepEqual(result, {
     contributors: [
       {
-        cpuPercent: 40,
-        executable: 'node',
-        parentPid: TARGET_PGID,
-        pid: TARGET_PGID + 1,
-        role: 'websocket-server'
-      },
-      {
-        cpuPercent: 30,
-        executable: 'node',
-        parentPid: TARGET_PGID,
-        pid: TARGET_PGID + 2,
-        role: 'app-server'
-      },
-      {
-        cpuPercent: 30,
+        cpuPercent: 91,
         executable: 'chrome-headless-shell',
         parentPid: TARGET_PGID,
-        pid: TARGET_PGID + 3,
+        pgid: 5001,
+        pid: 5001,
         role: 'client-browser'
       },
       {
-        cpuPercent: 20,
+        cpuPercent: 18,
+        executable: 'node',
+        parentPid: TARGET_PGID,
+        pgid: 5003,
+        pid: 5003,
+        role: 'websocket-server'
+      },
+      {
+        cpuPercent: 12,
         executable: 'yarn',
         parentPid: 1,
+        pgid: TARGET_PGID,
         pid: TARGET_PGID,
         role: 'test-harness'
+      },
+      {
+        cpuPercent: 4,
+        executable: 'node',
+        parentPid: TARGET_PGID,
+        pgid: 5002,
+        pid: 5002,
+        role: 'app-server'
       }
     ],
-    cpuPercent: 125.5,
+    cpuPercent: 125,
+    missingProcessRoles: [],
     nowMs: 1_000,
     pgid: TARGET_PGID,
     roleCpuPercent: {
-      appServer: 30,
-      clientBrowser: 30,
-      testHarness: 25,
-      unknown: 0.5,
-      websocketServer: 40
-    }
+      appServer: 4,
+      clientBrowser: 91,
+      testHarness: 12,
+      unknown: 0,
+      websocketServer: 18
+    },
+    trackedProcessRoles: [
+      'test-harness',
+      'client-browser',
+      'app-server',
+      'websocket-server'
+    ]
   })
   assert.equal(JSON.stringify(result).includes('TOP-SECRET'), false)
+})
+
+test('fails closed when the bounded OS snapshot command fails', async () => {
+  await assert.rejects(
+    sampleTrackedProcessGroupsCpu(TARGET_PGID, {
+      execFileImpl: (_file, _arguments, _options, callback) => {
+        callback(
+          Object.assign(new Error('process snapshot failed'), { code: 1 }),
+          ''
+        )
+      },
+      nowMs: 1_000,
+      platform: 'darwin',
+      processGroups: [{ pgid: TARGET_PGID, role: 'test-harness' }]
+    }),
+    /process snapshot failed/
+  )
 })
 
 test('keeps bounded process contributors without weakening the aggregate CPU stop', () => {
@@ -854,7 +1079,10 @@ test('builds a detached, shell-free runner command with the fixed guard environm
 test('plans collaboration build, app build, and Playwright as guarded sequential phases', () => {
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
-    baseEnv: { PATH: '/test/bin' }
+    baseEnv: {
+      ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY: '1',
+      PATH: '/test/bin'
+    }
   })
 
   assert.deepEqual(
@@ -866,7 +1094,16 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
     [
       { guardMode: 'diagnostic', maximumCpuPercent: 200 },
       { guardMode: 'diagnostic', maximumCpuPercent: 200 },
-      { guardMode: 'proof', maximumCpuPercent: 150 }
+      {
+        guardMode: 'proof',
+        maximumCpuPercent: 150,
+        requiredProcessRoles: [
+          'test-harness',
+          'client-browser',
+          'app-server',
+          'websocket-server'
+        ]
+      }
     ]
   )
   assert.deepEqual(phases[0].argv, [
@@ -898,8 +1135,390 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
     phases[1].baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL,
     'ws://127.0.0.1:4121/asyra-design-collaboration'
   )
+  assert.equal(phases[1].baseEnv.GOMAXPROCS, '1')
+  assert.equal(phases[1].baseEnv.NODE_OPTIONS, '--v8-pool-size=1')
+  assert.equal(phases[1].baseEnv.UV_THREADPOOL_SIZE, '1')
+  assert.equal(phases[0].baseEnv.GOMAXPROCS, undefined)
+  assert.equal(phases[2].baseEnv.GOMAXPROCS, undefined)
+  assert.equal(phases[2].baseEnv.NODE_OPTIONS, undefined)
+  assert.equal(phases[2].baseEnv.UV_THREADPOOL_SIZE, undefined)
   assert.equal(phases[2].baseEnv.ASYRA_DESIGN_APP_URL, 'http://127.0.0.1:3021')
   assert.equal(phases[2].baseEnv.ASYRA_DESIGN_COLLABORATION_WS_PORT, '4121')
+  assert.equal(phases[2].baseEnv.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY, '0')
+})
+
+test('attests that the emitted production artifact owns exactly the endpoint used by the proof', async () => {
+  const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
+  const assets = new Map([
+    [
+      'index-current.js',
+      `const endpoint="${expectedEndpoint}"; export { endpoint }`
+    ],
+    ['worker-current.js', 'self.addEventListener("message", () => undefined)']
+  ])
+  let activeReads = 0
+  let maximumActiveReads = 0
+  const options = {
+    assetsDirectory: '/project/dist/assets',
+    expectedEndpoint,
+    readdirImpl: async () => [...assets.keys(), 'index.css'],
+    readFileImpl: async (file) => {
+      activeReads += 1
+      maximumActiveReads = Math.max(maximumActiveReads, activeReads)
+      await new Promise((resolveRead) => queueMicrotask(resolveRead))
+      const source = assets.get(file.split('/').at(-1))
+      activeReads -= 1
+      return source
+    }
+  }
+
+  assert.deepEqual(await attestEndpointBuildArtifact(options), {
+    assetsInspected: 2,
+    endpoint: expectedEndpoint
+  })
+  assert.equal(maximumActiveReads, 1)
+
+  assets.set(
+    'index-current.js',
+    'const endpoint="ws://127.0.0.1:4101/asyra-design-collaboration"'
+  )
+  await assert.rejects(
+    attestEndpointBuildArtifact(options),
+    /production artifact endpoint mismatch.*4101.*4121/i
+  )
+})
+
+test('requires one authenticated descendant process group for every proof role before ready', () => {
+  const requiredProcessRoles = [
+    'test-harness',
+    'client-browser',
+    'app-server',
+    'websocket-server'
+  ]
+  let state = createResourceGuardState({
+    nowMs: 0,
+    config: { requiredProcessRoles }
+  })
+  const register = (
+    role,
+    pgid,
+    { descendantVerified = true, owner = OWNER, token = TOKEN } = {}
+  ) => {
+    const result = recordTrackedProcessGroupRegistration(
+      state,
+      { owner, pgid, pid: pgid, role, token },
+      {
+        descendantVerified,
+        expectedOwner: OWNER,
+        expectedToken: TOKEN,
+        rootPgid: TARGET_PGID
+      }
+    )
+    state = result.state
+    return result
+  }
+
+  assert.equal(register('test-harness', TARGET_PGID).accepted, true)
+  assert.equal(register('client-browser', 5001).accepted, true)
+  assert.equal(
+    register('app-server', 5002, { token: 'wrong-token' }).reason,
+    'invalid-token'
+  )
+  assert.equal(
+    register('app-server', 5002, { owner: 'foreign-owner' }).reason,
+    'invalid-owner'
+  )
+  assert.equal(
+    register('app-server', 5002, { descendantVerified: false }).reason,
+    'unverified-descendant'
+  )
+
+  const armed = arm(state)
+  const beforeAllRoles = record(armed, 'ready', 1)
+  assert.equal(beforeAllRoles.accepted, false)
+  assert.equal(beforeAllRoles.reason, 'process-groups-not-ready')
+
+  state = armed
+  assert.equal(register('app-server', 5002).accepted, true)
+  assert.equal(register('websocket-server', 5003).accepted, true)
+  const idempotentBrowser = register('client-browser', 5001)
+  assert.equal(idempotentBrowser.accepted, true)
+  assert.equal(idempotentBrowser.state.processGroups.length, 4)
+  assert.equal(register('client-browser', 5999).reason, 'role-conflict')
+  assert.equal(
+    recordTrackedProcessGroupRegistration(
+      state,
+      {
+        owner: OWNER,
+        pgid: 6001,
+        pid: 6000,
+        role: 'client-browser',
+        token: TOKEN
+      },
+      {
+        descendantVerified: true,
+        expectedOwner: OWNER,
+        expectedToken: TOKEN,
+        rootPgid: TARGET_PGID
+      }
+    ).reason,
+    'invalid-process-group'
+  )
+
+  const beforeRoleSample = record(state, 'ready', 2)
+  assert.equal(beforeRoleSample.accepted, false)
+  assert.equal(beforeRoleSample.reason, 'process-groups-not-sampled')
+  state = evaluateResourceSample(
+    state,
+    {
+      cpuPercent: 0,
+      nowMs: 3,
+      pgid: TARGET_PGID,
+      trackedProcessRoles: requiredProcessRoles
+    },
+    { targetPgid: TARGET_PGID }
+  ).state
+  const ready = record(state, 'ready', 4)
+  assert.equal(ready.accepted, true)
+
+  const stopping = evaluateResourceSample(
+    state,
+    {
+      cpuPercent: 151,
+      nowMs: 5,
+      pgid: TARGET_PGID,
+      trackedProcessRoles: requiredProcessRoles
+    },
+    { targetPgid: TARGET_PGID }
+  ).state
+  assert.equal(
+    recordTrackedProcessGroupRegistration(
+      stopping,
+      {
+        owner: OWNER,
+        pgid: 7001,
+        pid: 7001,
+        role: 'app-server',
+        token: TOKEN
+      },
+      {
+        descendantVerified: true,
+        expectedOwner: OWNER,
+        expectedToken: TOKEN,
+        rootPgid: TARGET_PGID
+      }
+    ).reason,
+    'guard-stopping'
+  )
+})
+
+test('stops when a registered process role disappears before proof completion', async () => {
+  const processGroups = [
+    { pgid: TARGET_PGID, role: 'test-harness' },
+    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5002, role: 'app-server' },
+    { pgid: 5003, role: 'websocket-server' }
+  ]
+  const sampled = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
+    execFileImpl: (_file, _arguments, _options, callback) => {
+      callback(
+        null,
+        [
+          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 yarn playwright`,
+          `5001 ${TARGET_PGID} 5001 40.0 chrome-headless-shell`,
+          `5002 ${TARGET_PGID} 5002 4.0 node vite preview`
+        ].join('\n')
+      )
+    },
+    nowMs: 1_000,
+    platform: 'darwin',
+    processGroups
+  })
+
+  assert.deepEqual(sampled.missingProcessRoles, ['websocket-server'])
+  assert.deepEqual(sampled.trackedProcessRoles, [
+    'test-harness',
+    'client-browser',
+    'app-server'
+  ])
+  const evaluated = evaluateResourceSample(
+    createResourceGuardState({
+      config: {
+        requiredProcessRoles: processGroups.map(({ role }) => role)
+      },
+      nowMs: 0
+    }),
+    sampled,
+    { targetPgid: TARGET_PGID }
+  )
+  assert.equal(evaluated.decision.stop, true)
+  assert.equal(evaluated.decision.reason, 'tracked-process-group-missing')
+
+  const diagnostic = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    sampled,
+    { targetPgid: TARGET_PGID }
+  )
+  assert.equal(diagnostic.decision.stop, false)
+})
+
+test('verifies one fixed process group through its bounded parent chain', async () => {
+  const identities = new Map([
+    [5001, { parentPid: 4900, pgid: 5001, pid: 5001 }],
+    [4900, { parentPid: TARGET_PGID, pgid: TARGET_PGID, pid: 4900 }],
+    [TARGET_PGID, { parentPid: 1, pgid: TARGET_PGID, pid: TARGET_PGID }]
+  ])
+  const readIdentity = async (pid) => identities.get(pid) ?? null
+
+  assert.equal(
+    await verifyTrackedProcessDescendant(
+      { pgid: 5001, pid: 5001, rootPgid: TARGET_PGID },
+      { readIdentity }
+    ),
+    true
+  )
+  assert.equal(
+    await verifyTrackedProcessDescendant(
+      { pgid: 5002, pid: 5001, rootPgid: TARGET_PGID },
+      { readIdentity }
+    ),
+    false
+  )
+  identities.set(4900, { parentPid: 1, pgid: TARGET_PGID, pid: 4900 })
+  assert.equal(
+    await verifyTrackedProcessDescendant(
+      { pgid: 5001, pid: 5001, rootPgid: TARGET_PGID },
+      { readIdentity }
+    ),
+    false
+  )
+})
+
+test('registers a tracked launcher before spawn and removes guard secrets from its child', async () => {
+  const requests = []
+  let spawnCall
+  const child = new EventEmitter()
+  const execution = runTrackedProcessLauncher(
+    ['--tracked-role', 'app-server', '--', 'yarn', 'preview', '--port', '3021'],
+    {
+      baseEnv: {
+        ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED:
+          'ws://127.0.0.1:4121/asyra-design-collaboration',
+        ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: TOKEN,
+        ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
+        ASYRA_DESIGN_ENDPOINT_OWNER: OWNER,
+        KEEP_ME: 'yes'
+      },
+      fetchImpl: async (url, options) => {
+        requests.push({
+          body: JSON.parse(options.body),
+          url
+        })
+        return {
+          ok: true,
+          json: async () => ({ accepted: true }),
+          status: 200
+        }
+      },
+      runtimeProcess: { pid: 5002 },
+      spawnImpl: (command, args, options) => {
+        spawnCall = { args, command, options }
+        queueMicrotask(() => child.emit('close', 0, null))
+        return child
+      }
+    }
+  )
+
+  assert.deepEqual(await execution, { exitCode: 0, signal: null })
+  assert.deepEqual(requests, [
+    {
+      body: {
+        owner: OWNER,
+        pgid: 5002,
+        pid: 5002,
+        role: 'app-server',
+        token: TOKEN
+      },
+      url: 'http://127.0.0.1:4319/register-process-group'
+    }
+  ])
+  assert.equal(spawnCall.command, 'yarn')
+  assert.deepEqual(spawnCall.args, ['preview', '--port', '3021'])
+  assert.equal(spawnCall.options.detached, false)
+  assert.equal(spawnCall.options.shell, false)
+  assert.equal(spawnCall.options.env.KEEP_ME, 'yes')
+  assert.equal(
+    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN,
+    undefined
+  )
+  assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_GUARD_URL, undefined)
+  assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_OWNER, undefined)
+})
+
+test('starts product-group termination before root within one bounded window', async () => {
+  const processGroups = [
+    { pgid: TARGET_PGID, role: 'test-harness' },
+    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5002, role: 'app-server' },
+    { pgid: 5003, role: 'websocket-server' }
+  ]
+  const started = []
+  const result = await terminateTrackedProcessGroups({
+    graceMs: 3_000,
+    processGroups,
+    terminate: async ({ pgid }) => {
+      started.push(pgid)
+      return { forceKilled: false, pgid, termSent: true }
+    }
+  })
+
+  assert.deepEqual(
+    started.slice(0, 3).sort((a, b) => a - b),
+    [5001, 5002, 5003]
+  )
+  assert.equal(started.at(-1), TARGET_PGID)
+  assert.equal(result.confirmed, true)
+  assert.equal(result.groups.length, 4)
+})
+
+test('attests the app build before starting Playwright and passes the bounded artifact claim', async () => {
+  const events = []
+  const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
+  const result = await runEndpointPerformancePipeline(['--owner', OWNER], {
+    assertPortAvailable: async (port) => {
+      events.push(`port:${port}`)
+    },
+    attestBuild: async ({ expectedEndpoint: actualEndpoint }) => {
+      assert.equal(actualEndpoint, expectedEndpoint)
+      events.push('attest-build')
+      return { assetsInspected: 2, endpoint: actualEndpoint }
+    },
+    baseEnv: { PATH: '/test/bin' },
+    runPhase: async (argv, options) => {
+      const phaseOwner = argv[1]
+      events.push(`phase:${phaseOwner}`)
+      if (phaseOwner === OWNER) {
+        assert.equal(
+          options.baseEnv.ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED,
+          expectedEndpoint
+        )
+      }
+      return {
+        exitCode: 0,
+        report: { owner: phaseOwner }
+      }
+    }
+  })
+
+  assert.equal(result.exitCode, 0)
+  assert.deepEqual(events, [
+    'port:3021',
+    'port:4121',
+    `phase:${OWNER}:collaboration-build`,
+    `phase:${OWNER}:app-build`,
+    'attest-build',
+    `phase:${OWNER}`
+  ])
 })
 
 test('turns process sampling failure into an immediate stop decision', () => {

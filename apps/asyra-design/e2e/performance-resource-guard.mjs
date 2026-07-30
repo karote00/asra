@@ -1,6 +1,9 @@
+#!/usr/bin/env node
+
 import { Buffer } from 'node:buffer'
 import { execFile, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { readdir, readFile } from 'node:fs/promises'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
 import { resolve } from 'node:path'
@@ -28,6 +31,7 @@ export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
 const DIAGNOSTIC_MAXIMUM_CPU_PERCENT = 200
 const HEARTBEAT_KINDS = new Set(['ready', 'progress', 'complete', 'failed'])
 const MAX_CPU_CONTRIBUTORS = 4
+const MAX_CPU_PHASES = 24
 const PROCESS_CPU_ROLES = new Set([
   'app-server',
   'client-browser',
@@ -35,6 +39,39 @@ const PROCESS_CPU_ROLES = new Set([
   'unknown',
   'websocket-server'
 ])
+const TRACKED_PROCESS_ROLES = Object.freeze([
+  'test-harness',
+  'client-browser',
+  'app-server',
+  'websocket-server'
+])
+const TRACKED_PROCESS_ROLE_SET = new Set(TRACKED_PROCESS_ROLES)
+const PRODUCT_PROCESS_ROLES = Object.freeze([
+  'client-browser',
+  'app-server',
+  'websocket-server'
+])
+const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
+const ENDPOINT_ARTIFACT_ENV = 'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
+const GUARD_ENVIRONMENT_KEYS = Object.freeze([
+  'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN',
+  'ASYRA_DESIGN_ENDPOINT_GUARD_URL',
+  'ASYRA_DESIGN_ENDPOINT_OWNER',
+  ENDPOINT_ARTIFACT_ENV,
+  'ASYRA_DESIGN_TRACKED_EXECUTABLE',
+  'ASYRA_DESIGN_TRACKED_ROLE'
+])
+
+const normalizeRequiredProcessRoles = (value) => {
+  if (!Array.isArray(value)) return []
+  return [
+    ...new Set(
+      value.filter(
+        (role) => typeof role === 'string' && TRACKED_PROCESS_ROLE_SET.has(role)
+      )
+    )
+  ]
+}
 
 const mergeConfig = (config = {}) => {
   const guardMode = config.guardMode === 'diagnostic' ? 'diagnostic' : 'proof'
@@ -47,6 +84,9 @@ const mergeConfig = (config = {}) => {
     ...DEFAULT_RESOURCE_GUARD_CONFIG,
     ...config,
     guardMode,
+    requiredProcessRoles: normalizeRequiredProcessRoles(
+      config.requiredProcessRoles
+    ),
     maximumCpuPercent: Math.min(
       maximumCpuPercentCeiling,
       Math.max(
@@ -203,6 +243,9 @@ const sanitizeCpuContributors = (value) => {
         {
           pid: contributor.pid,
           parentPid: contributor.parentPid,
+          ...(Number.isSafeInteger(contributor.pgid) && contributor.pgid > 0
+            ? { pgid: contributor.pgid }
+            : {}),
           cpuPercent: contributor.cpuPercent,
           executable: contributor.executable,
           ...(PROCESS_CPU_ROLES.has(contributor.role)
@@ -216,6 +259,35 @@ const sanitizeCpuContributors = (value) => {
         right.cpuPercent - left.cpuPercent || left.pid - right.pid
     )
     .slice(0, MAX_CPU_CONTRIBUTORS)
+}
+
+const sanitizeTrackedProcessGroups = (value) => {
+  if (!Array.isArray(value)) return []
+  const roles = new Set()
+  const pgids = new Set()
+  const groups = []
+  for (const group of value) {
+    if (
+      !group ||
+      typeof group !== 'object' ||
+      Array.isArray(group) ||
+      !TRACKED_PROCESS_ROLE_SET.has(group.role) ||
+      !Number.isSafeInteger(group.pgid) ||
+      group.pgid <= 0 ||
+      roles.has(group.role) ||
+      pgids.has(group.pgid)
+    ) {
+      continue
+    }
+    roles.add(group.role)
+    pgids.add(group.pgid)
+    groups.push({ pgid: group.pgid, role: group.role })
+  }
+  return groups.sort(
+    (left, right) =>
+      TRACKED_PROCESS_ROLES.indexOf(left.role) -
+      TRACKED_PROCESS_ROLES.indexOf(right.role)
+  )
 }
 
 const sanitizeScalarRecord = (value, maximumKeys = 32) => {
@@ -362,6 +434,163 @@ const sanitizeHeartbeat = (heartbeat) => {
   }
 }
 
+const collaborationEndpointPattern =
+  /wss?:\/\/[^"'`\s]+\/asyra-design-collaboration/gu
+
+const normalizeCollaborationEndpoint = (value) => {
+  if (!isNonEmptyBoundedString(value)) {
+    throw new TypeError(
+      'Endpoint artifact attestation requires one bounded WebSocket endpoint'
+    )
+  }
+  let endpoint
+  try {
+    endpoint = new URL(value)
+  } catch {
+    throw new TypeError(
+      'Endpoint artifact attestation requires a valid WebSocket endpoint'
+    )
+  }
+  if (
+    !['ws:', 'wss:'].includes(endpoint.protocol) ||
+    endpoint.username ||
+    endpoint.password ||
+    endpoint.pathname !== '/asyra-design-collaboration' ||
+    endpoint.search ||
+    endpoint.hash
+  ) {
+    throw new TypeError(
+      'Endpoint artifact attestation requires the collaboration WebSocket route'
+    )
+  }
+  return endpoint.href
+}
+
+export const attestEndpointBuildArtifact = async ({
+  expectedEndpoint,
+  assetsDirectory = fileURLToPath(
+    new URL('../../../dist/assets/', import.meta.url)
+  ),
+  readdirImpl = readdir,
+  readFileImpl = readFile
+}) => {
+  const normalizedExpectedEndpoint =
+    normalizeCollaborationEndpoint(expectedEndpoint)
+  const assetNames = (await readdirImpl(assetsDirectory))
+    .filter((name) => typeof name === 'string' && name.endsWith('.js'))
+    .sort()
+  if (assetNames.length === 0) {
+    throw new Error(
+      'Endpoint performance production artifact has no JavaScript assets'
+    )
+  }
+
+  const sources = []
+  for (const name of assetNames) {
+    sources.push(await readFileImpl(resolve(assetsDirectory, name), 'utf8'))
+  }
+  const artifactEndpoints = [
+    ...new Set(
+      sources.flatMap((source) =>
+        typeof source === 'string'
+          ? [...source.matchAll(collaborationEndpointPattern)].map(
+              ([endpoint]) => endpoint
+            )
+          : []
+      )
+    )
+  ].sort()
+  if (
+    artifactEndpoints.length !== 1 ||
+    artifactEndpoints[0] !== normalizedExpectedEndpoint
+  ) {
+    throw new Error(
+      `Endpoint performance production artifact endpoint mismatch: found ${
+        artifactEndpoints.join(', ') || 'none'
+      }; expected ${normalizedExpectedEndpoint}`
+    )
+  }
+  return {
+    assetsInspected: assetNames.length,
+    endpoint: normalizedExpectedEndpoint
+  }
+}
+
+export const recordTrackedProcessGroupRegistration = (
+  state,
+  registration,
+  { expectedToken, expectedOwner, rootPgid, descendantVerified = false }
+) => {
+  const reject = (reason) => ({ accepted: false, reason, state })
+  if (
+    !registration ||
+    typeof registration !== 'object' ||
+    Array.isArray(registration)
+  ) {
+    return reject('invalid-registration')
+  }
+  if (
+    typeof expectedToken !== 'string' ||
+    expectedToken.length === 0 ||
+    registration.token !== expectedToken
+  ) {
+    return reject('invalid-token')
+  }
+  if (
+    !isNonEmptyBoundedString(registration.owner) ||
+    registration.owner !== expectedOwner
+  ) {
+    return reject('invalid-owner')
+  }
+  if (state.stopDecision) {
+    return reject('guard-stopping')
+  }
+  if (
+    !TRACKED_PROCESS_ROLE_SET.has(registration.role) ||
+    !Number.isSafeInteger(registration.pid) ||
+    registration.pid <= 0 ||
+    registration.pid !== registration.pgid
+  ) {
+    return reject('invalid-process-group')
+  }
+  const isRootRegistration =
+    registration.role === 'test-harness' &&
+    registration.pid === rootPgid &&
+    registration.pgid === rootPgid
+  if (!isRootRegistration && !descendantVerified) {
+    return reject('unverified-descendant')
+  }
+  if (registration.role === 'test-harness' && !isRootRegistration) {
+    return reject('invalid-process-group')
+  }
+
+  const processGroups = sanitizeTrackedProcessGroups(state.processGroups)
+  const sameRole = processGroups.find(({ role }) => role === registration.role)
+  if (sameRole) {
+    return sameRole.pgid === registration.pgid
+      ? { accepted: true, reason: null, state }
+      : reject('role-conflict')
+  }
+  if (processGroups.some(({ pgid }) => pgid === registration.pgid)) {
+    return reject('process-group-conflict')
+  }
+  if (processGroups.length >= TRACKED_PROCESS_ROLES.length) {
+    return reject('process-group-limit')
+  }
+
+  return {
+    accepted: true,
+    reason: null,
+    state: {
+      ...state,
+      processGroups: sanitizeTrackedProcessGroups([
+        ...processGroups,
+        { pgid: registration.pgid, role: registration.role }
+      ])
+    }
+  }
+}
+
 const isElementCount = (value) => Number.isSafeInteger(value) && value >= 0
 
 const validateActor = (actor) =>
@@ -426,9 +655,12 @@ export const createResourceGuardState = ({
     lastProgressAtMs: nowMs,
     lastHeartbeat: null,
     endpointReport: null,
+    processGroups: [],
+    sampledProcessRoles: [],
     heartbeatSamples: [],
     cpuSamples: [],
     maximumCpuSample: null,
+    phaseCpuMaximums: [],
     sampleFailure: null,
     profileRemainder: '',
     profileMetrics: {
@@ -474,8 +706,34 @@ export const recordResourceHeartbeat = (
   if (validationFailure) {
     return { accepted: false, reason: validationFailure, state }
   }
+  const config = state.config ?? mergeConfig()
   if (body.kind === 'ready' && state.acceptedProcessSamples < 1) {
     return { accepted: false, reason: 'guard-not-armed', state }
+  }
+  if (
+    body.kind === 'ready' &&
+    config.requiredProcessRoles.some(
+      (role) =>
+        !state.processGroups.some((processGroup) => processGroup.role === role)
+    )
+  ) {
+    return {
+      accepted: false,
+      reason: 'process-groups-not-ready',
+      state
+    }
+  }
+  if (
+    body.kind === 'ready' &&
+    config.requiredProcessRoles.some(
+      (role) => !state.sampledProcessRoles.includes(role)
+    )
+  ) {
+    return {
+      accepted: false,
+      reason: 'process-groups-not-sampled',
+      state
+    }
   }
   if (!state.ready && body.kind !== 'ready' && body.kind !== 'failed') {
     return { accepted: false, reason: 'guard-not-ready', state }
@@ -501,7 +759,6 @@ export const recordResourceHeartbeat = (
     !previous ||
     heartbeat.actorA.elements > previous.actorA.elements ||
     heartbeat.actorB.elements > previous.actorB.elements
-  const config = state.config ?? mergeConfig()
   const heartbeatSample = {
     kind: body.kind,
     receivedAtMs: nowMs,
@@ -576,12 +833,21 @@ export const evaluateResourceSample = (
       decision: state.stopDecision ?? noStopDecision
     }
   }
+  const missingProcessRoles = normalizeRequiredProcessRoles(
+    sample.missingProcessRoles
+  )
+  const missingRequiredProcessRoles =
+    normalizedConfig.requiredProcessRoles.filter((role) =>
+      missingProcessRoles.includes(role)
+    )
 
   const cpuSample = {
     pgid: targetPgid,
     cpuPercent: sample.cpuPercent,
     contributors: sanitizeCpuContributors(sample.contributors),
+    phase: state.lastHeartbeat?.phase ?? 'pre-heartbeat',
     roleCpuPercent: sanitizeRoleCpuPercent(sample.roleCpuPercent),
+    ...(missingProcessRoles.length > 0 ? { missingProcessRoles } : {}),
     sampledAtMs: sample.nowMs
   }
   const cpuSamples = keepLast(
@@ -593,8 +859,29 @@ export const evaluateResourceSample = (
     sample.cpuPercent > state.maximumCpuSample.cpuPercent
       ? cpuSample
       : state.maximumCpuSample
+  const existingPhaseIndex = state.phaseCpuMaximums.findIndex(
+    (phaseSample) => phaseSample.phase === cpuSample.phase
+  )
+  let phaseCpuMaximums = state.phaseCpuMaximums
+  if (existingPhaseIndex < 0) {
+    phaseCpuMaximums = keepLast(
+      [...state.phaseCpuMaximums, cpuSample],
+      MAX_CPU_PHASES
+    )
+  } else if (
+    cpuSample.cpuPercent > state.phaseCpuMaximums[existingPhaseIndex].cpuPercent
+  ) {
+    phaseCpuMaximums = [...state.phaseCpuMaximums]
+    phaseCpuMaximums[existingPhaseIndex] = cpuSample
+  }
+  const sampledProcessRoles = normalizeRequiredProcessRoles(
+    sample.trackedProcessRoles
+  )
 
   let decision = state.stopDecision
+  if (!decision && !state.finished && missingRequiredProcessRoles.length > 0) {
+    decision = stopDecision('tracked-process-group-missing', sample.nowMs)
+  }
   if (!decision && sample.cpuPercent > normalizedConfig.maximumCpuPercent) {
     decision = stopDecision('cpu-limit-exceeded', sample.nowMs)
   }
@@ -627,8 +914,10 @@ export const evaluateResourceSample = (
     ...state,
     config: normalizedConfig,
     acceptedProcessSamples: state.acceptedProcessSamples + 1,
+    sampledProcessRoles,
     cpuSamples,
     maximumCpuSample,
+    phaseCpuMaximums,
     stopDecision: decision
   }
   return {
@@ -858,7 +1147,9 @@ export const buildBoundedResourceReport = (
     heartbeats: keepLast(state.heartbeatSamples, historyLimit),
     cpuSamples: keepLast(state.cpuSamples, historyLimit),
     maximumCpuSample: state.maximumCpuSample,
+    phaseCpuMaximums: keepLast(state.phaseCpuMaximums, MAX_CPU_PHASES),
     sampleFailure: state.sampleFailure,
+    processGroups: sanitizeTrackedProcessGroups(state.processGroups),
     profileMetrics: state.profileMetrics,
     endpointReport: state.endpointReport,
     termination,
@@ -898,6 +1189,7 @@ const defaultProbe = async (pgid) => {
 
 export const installTrackedProcessLifecycleGuard = ({
   pgid,
+  getProcessGroups = () => [{ pgid, role: 'test-harness' }],
   startTermination,
   runtimeProcess = process,
   emergencyKill = (pid, signal) => process.kill(pid, signal)
@@ -925,11 +1217,14 @@ export const installTrackedProcessLifecycleGuard = ({
   }
   const handleExit = () => {
     if (disposed) return
-    try {
-      emergencyKill(-pgid, 'SIGKILL')
-    } catch (error) {
-      if (!isMissingProcessError(error)) {
-        // Exit hooks cannot recover or broaden their process target.
+    const groups = sanitizeTrackedProcessGroups(getProcessGroups())
+    for (const group of groups) {
+      try {
+        emergencyKill(-group.pgid, 'SIGKILL')
+      } catch (error) {
+        if (!isMissingProcessError(error)) {
+          // Exit hooks cannot recover or broaden their process target.
+        }
       }
     }
   }
@@ -1038,6 +1333,73 @@ export const attemptGuardedTermination = async ({
   }
 }
 
+export const terminateTrackedProcessGroups = async ({
+  processGroups,
+  graceMs,
+  terminate = terminateTrackedProcessGroup,
+  fallbackTerminate = terminateTrackedProcessGroup
+}) => {
+  const groups = sanitizeTrackedProcessGroups(processGroups)
+  const rootGroup = groups.find(({ role }) => role === 'test-harness')
+  if (!rootGroup) {
+    throw new Error(
+      'Tracked process termination requires the root harness group'
+    )
+  }
+  const productGroups = PRODUCT_PROCESS_ROLES.flatMap((role) => {
+    const group = groups.find((candidate) => candidate.role === role)
+    return group ? [group] : []
+  })
+  const terminateGroup = async (group) => ({
+    role: group.role,
+    ...(await attemptGuardedTermination({
+      pgid: group.pgid,
+      graceMs,
+      terminate,
+      fallbackTerminate
+    }))
+  })
+  const productResultsPromise = Promise.all(productGroups.map(terminateGroup))
+  const rootResultPromise = terminateGroup(rootGroup)
+  const [productResults, rootResult] = await Promise.all([
+    productResultsPromise,
+    rootResultPromise
+  ])
+  const results = [...productResults, rootResult]
+  return {
+    confirmed: results.every((result) => result.confirmed),
+    groups: results
+  }
+}
+
+const forceKillExactTrackedProcessGroups = ({
+  processGroups,
+  emergencyKill
+}) => {
+  const failures = []
+  const groups = sanitizeTrackedProcessGroups(processGroups).map((group) => {
+    try {
+      emergencyKill(-group.pgid, 'SIGKILL')
+      return { ...group, forceKilled: true }
+    } catch (error) {
+      if (isMissingProcessError(error)) {
+        return { ...group, forceKilled: false }
+      }
+      failures.push({
+        message: boundedErrorMessage(error),
+        pgid: group.pgid,
+        role: group.role
+      })
+      return { ...group, forceKilled: false }
+    }
+  })
+  return {
+    confirmed: failures.length === 0,
+    failures,
+    groups
+  }
+}
+
 export const parseRunnerArguments = (argv) => {
   let owner = null
   let separatorIndex = -1
@@ -1072,6 +1434,121 @@ export const parseRunnerArguments = (argv) => {
     command: argv[separatorIndex + 1],
     args: argv.slice(separatorIndex + 2)
   }
+}
+
+const parseTrackedProcessLauncherArguments = (argv, baseEnv = process.env) => {
+  const environmentRole = baseEnv.ASYRA_DESIGN_TRACKED_ROLE?.trim()
+  const environmentExecutable = baseEnv.ASYRA_DESIGN_TRACKED_EXECUTABLE?.trim()
+  if (environmentRole || environmentExecutable) {
+    if (
+      !PRODUCT_PROCESS_ROLES.includes(environmentRole) ||
+      !isNonEmptyBoundedString(environmentExecutable)
+    ) {
+      throw new Error(
+        'Tracked browser launcher requires a fixed role and executable'
+      )
+    }
+    return {
+      role: environmentRole,
+      command: environmentExecutable,
+      args: [...argv]
+    }
+  }
+
+  if (
+    argv.length < 5 ||
+    argv[0] !== '--tracked-role' ||
+    !PRODUCT_PROCESS_ROLES.includes(argv[1]) ||
+    argv[2] !== '--'
+  ) {
+    throw new Error(
+      'Tracked process launcher usage: --tracked-role <role> -- <command>'
+    )
+  }
+  return {
+    role: argv[1],
+    command: argv[3],
+    args: argv.slice(4)
+  }
+}
+
+const postTrackedProcessRegistration = async (
+  registration,
+  { guardUrl, timeoutMs = 3_000, fetchImpl = fetch }
+) => {
+  const response = await fetchImpl(
+    `${guardUrl.replace(/\/+$/u, '')}${TRACKED_PROCESS_REGISTRATION_PATH}`,
+    {
+      body: JSON.stringify(registration),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+      signal: AbortSignal.timeout(timeoutMs)
+    }
+  )
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok || result.accepted !== true) {
+    throw new Error(
+      `Tracked ${registration.role} process group registration failed: ${
+        result.reason ?? response.status
+      }`
+    )
+  }
+}
+
+export const runTrackedProcessLauncher = async (
+  argv,
+  {
+    baseEnv = process.env,
+    fetchImpl = fetch,
+    spawnImpl = spawn,
+    runtimeProcess = process
+  } = {}
+) => {
+  const parsed = parseTrackedProcessLauncherArguments(argv, baseEnv)
+  const guardUrl = baseEnv.ASYRA_DESIGN_ENDPOINT_GUARD_URL?.trim()
+  const guardToken = baseEnv.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN?.trim()
+  const owner = baseEnv.ASYRA_DESIGN_ENDPOINT_OWNER?.trim()
+  if (
+    !isNonEmptyBoundedString(guardUrl) ||
+    !isNonEmptyBoundedString(guardToken) ||
+    !isNonEmptyBoundedString(owner)
+  ) {
+    throw new Error('Tracked process launcher requires the active guard')
+  }
+
+  await postTrackedProcessRegistration(
+    {
+      owner,
+      pgid: runtimeProcess.pid,
+      pid: runtimeProcess.pid,
+      role: parsed.role,
+      token: guardToken
+    },
+    { fetchImpl, guardUrl }
+  )
+
+  const childEnvironment = { ...baseEnv }
+  GUARD_ENVIRONMENT_KEYS.forEach((key) => {
+    delete childEnvironment[key]
+  })
+  const child = spawnImpl(parsed.command, parsed.args, {
+    detached: false,
+    env: childEnvironment,
+    shell: false,
+    stdio:
+      parsed.role === 'client-browser'
+        ? ['ignore', 'inherit', 'inherit', 3, 4]
+        : 'inherit'
+  })
+  return await new Promise((resolveChild, rejectChild) => {
+    child.once('error', rejectChild)
+    child.once('close', (code, signal) => {
+      resolveChild({
+        exitCode: Number.isInteger(code) ? code : 1,
+        signal: typeof signal === 'string' ? signal : null
+      })
+    })
+  })
 }
 
 export const buildRunnerSpawnOptions = ({
@@ -1122,11 +1599,20 @@ export const buildEndpointPerformancePhases = ({
     ...baseEnv,
     ASYRA_DESIGN_ENDPOINT_APP_PORT: String(appPort),
     ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT: String(collaborationPort),
+    ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY: '0',
     ASYRA_DESIGN_APP_URL: `http://127.0.0.1:${appPort}`,
     ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort),
     ASYRA_DESIGN_E2E_OWN_SERVERS: '1',
     ASYRA_DESIGN_COLLABORATION_PROFILE: '1',
     VITE_ASYRA_DESIGN_COLLABORATION_WS_URL: collaborationUrl
+  }
+  const appBuildEnv = {
+    ...sharedEnv,
+    GOMAXPROCS: '1',
+    NODE_OPTIONS: [sharedEnv.NODE_OPTIONS, '--v8-pool-size=1']
+      .filter(Boolean)
+      .join(' '),
+    UV_THREADPOOL_SIZE: '1'
   }
 
   return [
@@ -1150,7 +1636,7 @@ export const buildEndpointPerformancePhases = ({
     {
       name: 'app-build',
       argv: ['--owner', `${owner}:app-build`, '--', 'yarn', 'react:build'],
-      baseEnv: sharedEnv,
+      baseEnv: appBuildEnv,
       guardConfig: {
         guardMode: 'diagnostic',
         maximumCpuPercent: DIAGNOSTIC_MAXIMUM_CPU_PERCENT
@@ -1174,7 +1660,8 @@ export const buildEndpointPerformancePhases = ({
       baseEnv: sharedEnv,
       guardConfig: {
         guardMode: 'proof',
-        maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+        maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
+        requiredProcessRoles: [...TRACKED_PROCESS_ROLES]
       },
       requiresReady: true,
       ports: [appPort, collaborationPort]
@@ -1193,20 +1680,31 @@ const execFilePromise = (implementation, file, args, options) =>
     })
   })
 
-export const sampleTrackedProcessGroupCpu = async (
-  pgid,
+export const sampleTrackedProcessGroupsCpu = async (
+  rootPgid,
   {
+    processGroups,
     execFileImpl = execFile,
     nowMs = Date.now(),
     platform = process.platform
   } = {}
 ) => {
-  if (!Number.isSafeInteger(pgid) || pgid <= 0) {
-    throw new TypeError('A positive tracked process-group ID is required')
+  if (!Number.isSafeInteger(rootPgid) || rootPgid <= 0) {
+    throw new TypeError('A positive root process-group ID is required')
   }
+  const groups = sanitizeTrackedProcessGroups(processGroups)
+  if (
+    !groups.some(
+      ({ pgid, role }) => pgid === rootPgid && role === 'test-harness'
+    )
+  ) {
+    throw new Error('Tracked process groups are missing the root harness group')
+  }
+  const groupByPgid = new Map(groups.map((group) => [group.pgid, group]))
+  const processGroupList = groups.map(({ pgid }) => pgid).join(',')
   const processArguments =
     platform === 'darwin'
-      ? ['-g', String(pgid), '-o', 'pid=,ppid=,pgid=,%cpu=,command=']
+      ? ['-g', processGroupList, '-o', 'pid=,ppid=,pgid=,%cpu=,command=']
       : ['-Ao', 'pid=,ppid=,pgid=,%cpu=,command=']
   const stdout = await execFilePromise(execFileImpl, 'ps', processArguments, {
     encoding: 'utf8',
@@ -1214,39 +1712,105 @@ export const sampleTrackedProcessGroupCpu = async (
     timeout: DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
     maxBuffer: 256 * 1024
   })
-  let cpuPercent = 0
-  const contributors = []
   const roleCpuPercent = createEmptyRoleCpuPercent()
+  const contributors = []
+  const sampledPgids = new Set()
+  let cpuPercent = 0
   for (const line of stdout.split(/\r?\n/u)) {
     const match = line
       .trim()
       .match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)(?:\s+(.*))?$/u)
-    if (!match || Number(match[3]) !== pgid) {
-      continue
-    }
+    if (!match) continue
+    const pgid = Number(match[3])
+    const group = groupByPgid.get(pgid)
+    if (!group) continue
+    sampledPgids.add(pgid)
     const processCpuPercent = Number(match[4])
     cpuPercent += processCpuPercent
+    roleCpuPercent[roleCpuKey(group.role)] += processCpuPercent
     const command = match[5]?.trim() ?? ''
     if (command.length > 0) {
       const classification = classifyProcessCommand(command)
-      roleCpuPercent[roleCpuKey(classification.role)] += processCpuPercent
       contributors.push({
-        pid: Number(match[1]),
-        parentPid: Number(match[2]),
         cpuPercent: processCpuPercent,
-        ...classification
+        executable: classification.executable,
+        parentPid: Number(match[2]),
+        pgid,
+        pid: Number(match[1]),
+        role: group.role
       })
-    } else {
-      roleCpuPercent.unknown += processCpuPercent
     }
   }
+  const trackedProcessRoles = TRACKED_PROCESS_ROLES.filter((role) =>
+    groups.some((group) => group.role === role && sampledPgids.has(group.pgid))
+  )
+  const missingProcessRoles = TRACKED_PROCESS_ROLES.filter((role) =>
+    groups.some((group) => group.role === role && !sampledPgids.has(group.pgid))
+  )
   return {
-    pgid,
+    pgid: rootPgid,
     cpuPercent,
     contributors: sanitizeCpuContributors(contributors),
+    missingProcessRoles,
     nowMs,
-    roleCpuPercent
+    roleCpuPercent,
+    trackedProcessRoles
   }
+}
+
+const readTrackedProcessIdentity = async (
+  pid,
+  { execFileImpl = execFile } = {}
+) => {
+  const stdout = await execFilePromise(
+    execFileImpl,
+    'ps',
+    ['-p', String(pid), '-o', 'pid=,ppid=,pgid='],
+    {
+      encoding: 'utf8',
+      killSignal: 'SIGKILL',
+      timeout: DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
+      maxBuffer: 4 * 1024
+    }
+  )
+  const match = stdout.trim().match(/^(\d+)\s+(\d+)\s+(\d+)$/u)
+  if (!match) return null
+  return {
+    pid: Number(match[1]),
+    parentPid: Number(match[2]),
+    pgid: Number(match[3])
+  }
+}
+
+export const verifyTrackedProcessDescendant = async (
+  { pid, pgid, rootPgid },
+  { readIdentity = readTrackedProcessIdentity } = {}
+) => {
+  if (
+    !Number.isSafeInteger(pid) ||
+    pid <= 0 ||
+    pid !== pgid ||
+    !Number.isSafeInteger(rootPgid) ||
+    rootPgid <= 0
+  ) {
+    return false
+  }
+  let currentPid = pid
+  for (let depth = 0; depth < 32; depth += 1) {
+    const identity = await readIdentity(currentPid)
+    if (!identity || identity.pid !== currentPid) return false
+    if (depth === 0 && identity.pgid !== pgid) return false
+    if (identity.pid === rootPgid) return true
+    if (
+      !Number.isSafeInteger(identity.parentPid) ||
+      identity.parentPid <= 1 ||
+      identity.parentPid === identity.pid
+    ) {
+      return false
+    }
+    currentPid = identity.parentPid
+  }
+  return false
 }
 
 const readBoundedJsonBody = (request, limitBytes) =>
@@ -1312,9 +1876,10 @@ export const runResourceGuardCli = async (
   argv,
   {
     spawnImpl = spawn,
-    sampleCpu = sampleTrackedProcessGroupCpu,
+    sampleCpu = sampleTrackedProcessGroupsCpu,
     terminate = terminateTrackedProcessGroup,
     fallbackTerminate = terminateTrackedProcessGroup,
+    verifyDescendant = verifyTrackedProcessDescendant,
     now = Date.now,
     stdout = process.stdout,
     baseEnv = process.env,
@@ -1328,6 +1893,8 @@ export const runResourceGuardCli = async (
 ) => {
   const parsed = parseRunnerArguments(argv)
   const normalizedConfig = mergeConfig(config)
+  const exactEmergencyKill =
+    emergencyKill ?? ((pid, signal) => process.kill(pid, signal))
   if (requiresReady && normalizedConfig.guardMode === 'diagnostic') {
     throw new Error(
       'Diagnostic CPU mode cannot run an authenticated endpoint proof'
@@ -1338,9 +1905,13 @@ export const runResourceGuardCli = async (
     nowMs: now(),
     config: normalizedConfig
   })
+  let targetPgid = null
 
   const server = createHttpServer(async (request, response) => {
-    if (request.method !== 'POST' || request.url !== '/heartbeat') {
+    if (
+      request.method !== 'POST' ||
+      !['/heartbeat', TRACKED_PROCESS_REGISTRATION_PATH].includes(request.url)
+    ) {
       sendJson(response, 404, { accepted: false })
       return
     }
@@ -1349,6 +1920,41 @@ export const runResourceGuardCli = async (
         request,
         normalizedConfig.requestBodyLimitBytes
       )
+      if (request.url === TRACKED_PROCESS_REGISTRATION_PATH) {
+        let result = recordTrackedProcessGroupRegistration(state, body, {
+          descendantVerified: false,
+          expectedOwner: parsed.owner,
+          expectedToken: token,
+          rootPgid: targetPgid
+        })
+        if (
+          result.reason === 'unverified-descendant' &&
+          Number.isSafeInteger(targetPgid)
+        ) {
+          const descendantVerified = await verifyDescendant({
+            pid: body.pid,
+            pgid: body.pgid,
+            rootPgid: targetPgid
+          })
+          result = recordTrackedProcessGroupRegistration(state, body, {
+            descendantVerified,
+            expectedOwner: parsed.owner,
+            expectedToken: token,
+            rootPgid: targetPgid
+          })
+        }
+        state = result.state
+        const statusCode = result.accepted
+          ? 200
+          : result.reason === 'invalid-token'
+            ? 401
+            : 400
+        sendJson(response, statusCode, {
+          accepted: result.accepted,
+          ...(result.reason ? { reason: result.reason } : {})
+        })
+        return
+      }
       const result = recordResourceHeartbeat(state, body, {
         expectedToken: token,
         expectedOwner: parsed.owner,
@@ -1398,7 +2004,28 @@ export const runResourceGuardCli = async (
     throw new Error('Resource-guard runner could not determine Playwright PGID')
   }
 
-  const targetPgid = child.pid
+  targetPgid = child.pid
+  const rootRegistration = recordTrackedProcessGroupRegistration(
+    state,
+    {
+      owner: parsed.owner,
+      pgid: targetPgid,
+      pid: targetPgid,
+      role: 'test-harness',
+      token
+    },
+    {
+      descendantVerified: true,
+      expectedOwner: parsed.owner,
+      expectedToken: token,
+      rootPgid: targetPgid
+    }
+  )
+  if (!rootRegistration.accepted) {
+    await close(server)
+    throw new Error('Resource guard could not register its root process group')
+  }
+  state = rootRegistration.state
   let outputTail = []
   child.stdout?.on('data', (chunk) => {
     state = recordProfileOutput(state, chunk)
@@ -1441,10 +2068,54 @@ export const runResourceGuardCli = async (
   let terminationPromise = null
   let evaluationRunning = false
   let terminationStarted = false
-  const startTermination = (reason = 'guard-requested') => {
+  const markCleanupFailure = () => {
+    if (state.stopDecision) return
+    state = {
+      ...state,
+      stopDecision: stopDecision('tracked-process-cleanup-failed', now())
+    }
+  }
+  const startCleanup = () => {
     if (terminationPromise) {
       return terminationPromise
     }
+    terminationPromise = terminateTrackedProcessGroups({
+      processGroups: state.processGroups,
+      graceMs: normalizedConfig.terminationGraceMs,
+      terminate,
+      fallbackTerminate
+    })
+      .then((result) => {
+        if (result.confirmed) {
+          termination = result
+          return result
+        }
+        markCleanupFailure()
+        termination = {
+          ...result,
+          emergency: forceKillExactTrackedProcessGroups({
+            processGroups: state.processGroups,
+            emergencyKill: exactEmergencyKill
+          })
+        }
+        return termination
+      })
+      .catch((error) => {
+        markCleanupFailure()
+        termination = {
+          confirmed: false,
+          emergency: forceKillExactTrackedProcessGroups({
+            processGroups: state.processGroups,
+            emergencyKill: exactEmergencyKill
+          }),
+          failures: [{ message: boundedErrorMessage(error) }],
+          groups: []
+        }
+        return termination
+      })
+    return terminationPromise
+  }
+  const startTermination = (reason = 'guard-requested') => {
     if (!state.stopDecision) {
       state = {
         ...state,
@@ -1455,23 +2126,15 @@ export const runResourceGuardCli = async (
       }
     }
     terminationStarted = true
-    terminationPromise = attemptGuardedTermination({
-      pgid: targetPgid,
-      graceMs: normalizedConfig.terminationGraceMs,
-      terminate,
-      fallbackTerminate
-    }).then((result) => {
-      termination = result
-      return result
-    })
     resolveTerminationStarted()
-    return terminationPromise
+    return startCleanup()
   }
   const removeLifecycleGuard = installTrackedProcessLifecycleGuard({
     pgid: targetPgid,
+    getProcessGroups: () => state.processGroups,
     startTermination,
     runtimeProcess,
-    ...(emergencyKill ? { emergencyKill } : {})
+    emergencyKill: exactEmergencyKill
   })
   const sampleTrackedGroup = async () => {
     if (childClosed || evaluationRunning || terminationStarted) {
@@ -1479,7 +2142,9 @@ export const runResourceGuardCli = async (
     }
     evaluationRunning = true
     try {
-      const sample = await sampleCpu(targetPgid)
+      const sample = await sampleCpu(targetPgid, {
+        processGroups: state.processGroups
+      })
       if (childClosed) {
         return
       }
@@ -1532,8 +2197,20 @@ export const runResourceGuardCli = async (
     let childExit
     if (firstSettlement.kind === 'child') {
       childExit = firstSettlement.childExit
-      if (terminationPromise) {
-        await terminationPromise
+      const cleanup = await startCleanup()
+      if (
+        !state.stopDecision &&
+        cleanup.groups.some(
+          ({ forceKilled, termSent }) => forceKilled || termSent
+        )
+      ) {
+        state = {
+          ...state,
+          stopDecision: stopDecision(
+            'tracked-process-leaked-after-child-close',
+            now()
+          )
+        }
       }
     } else {
       await terminationPromise
@@ -1545,7 +2222,7 @@ export const runResourceGuardCli = async (
               signal: null,
               error: 'child-close-timeout'
             }),
-          Math.min(5_000, normalizedConfig.terminationGraceMs + 1_000)
+          Math.min(1_000, normalizedConfig.terminationGraceMs)
         )
         childClose.then((result) => {
           clearTimeout(timeout)
@@ -1553,6 +2230,13 @@ export const runResourceGuardCli = async (
         })
       })
       if (childExit.error === 'child-close-timeout') {
+        termination = {
+          ...termination,
+          childCloseEmergency: forceKillExactTrackedProcessGroups({
+            processGroups: state.processGroups,
+            emergencyKill: exactEmergencyKill
+          })
+        }
         outputTail = appendOutputTail(
           outputTail,
           'tracked process group did not close after bounded termination',
@@ -1638,19 +2322,31 @@ export const runEndpointPerformancePipeline = async (
   dependencies = {}
 ) => {
   const owner = parsePipelineArguments(argv)
+  const assertAvailable =
+    dependencies.assertPortAvailable ?? assertPortAvailable
+  const attestBuild = dependencies.attestBuild ?? attestEndpointBuildArtifact
+  const runPhase = dependencies.runPhase ?? runResourceGuardCli
   const phases = buildEndpointPerformancePhases({
     owner,
     baseEnv: dependencies.baseEnv ?? process.env
   })
   for (const port of phases[0].ports) {
-    await assertPortAvailable(port)
+    await assertAvailable(port)
   }
 
   const results = []
+  let artifactAttestation = null
   for (const phase of phases) {
-    const result = await runResourceGuardCli(phase.argv, {
+    const phaseEnvironment =
+      phase.name === 'playwright' && artifactAttestation
+        ? {
+            ...phase.baseEnv,
+            [ENDPOINT_ARTIFACT_ENV]: artifactAttestation.endpoint
+          }
+        : phase.baseEnv
+    const result = await runPhase(phase.argv, {
       ...dependencies,
-      baseEnv: phase.baseEnv,
+      baseEnv: phaseEnvironment,
       config: phase.guardConfig,
       requiresReady: phase.requiresReady
     })
@@ -1665,6 +2361,11 @@ export const runEndpointPerformancePipeline = async (
         phases: results
       }
     }
+    if (phase.name === 'app-build') {
+      artifactAttestation = await attestBuild({
+        expectedEndpoint: phase.baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL
+      })
+    }
   }
   return {
     exitCode: 0,
@@ -1678,9 +2379,14 @@ const isMain =
 
 if (isMain) {
   const argv = process.argv.slice(2)
-  const execution = argv.includes('--')
-    ? runResourceGuardCli(argv)
-    : runEndpointPerformancePipeline(argv)
+  const trackedLauncher =
+    argv[0] === '--tracked-role' ||
+    Boolean(process.env.ASYRA_DESIGN_TRACKED_ROLE)
+  const execution = trackedLauncher
+    ? runTrackedProcessLauncher(argv)
+    : argv.includes('--')
+      ? runResourceGuardCli(argv)
+      : runEndpointPerformancePipeline(argv)
   execution
     .then((result) => {
       process.exitCode = result.exitCode
