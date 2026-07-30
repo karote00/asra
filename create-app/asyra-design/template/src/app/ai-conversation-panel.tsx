@@ -339,7 +339,7 @@ export const AiConversationPanel = ({
       aria-label="Agent conversation"
       aria-modal="false"
       className="fixed bottom-0 right-0 top-10 z-50 flex w-[384px] max-w-[calc(100vw-24px)] flex-col overflow-hidden border-l border-[#45464b] bg-[#202124] text-[#f5f5f5] shadow-[-18px_0_48px_rgba(0,0,0,0.32)]"
-      data-testid="mock-ai-panel"
+      data-testid="ai-agent-panel"
       role="complementary"
     >
       <header className="flex items-center justify-between border-b border-[#38393e] px-4 py-3">
@@ -385,6 +385,7 @@ export const AiConversationPanel = ({
             <article
               className="flex flex-col gap-2"
               data-outcome={turn.outcome}
+              data-testid="ai-agent-message"
               data-turn-id={turn.turnId}
               key={turn.turnId}
             >
@@ -604,7 +605,7 @@ export const AiConversationPanel = ({
             {attachmentError}
           </p>
         ) : null}
-        <label className="sr-only" htmlFor="mock-ai-message">
+        <label className="sr-only" htmlFor="ai-agent-input">
           Message Agent
         </label>
         <textarea
@@ -612,7 +613,7 @@ export const AiConversationPanel = ({
           className="min-h-[72px] w-full resize-none rounded-lg border border-[#46474e] bg-[#18191c] px-3 py-2 text-[11px] leading-5 text-white outline-none placeholder:text-[#777982] focus:border-[#806cff]"
           data-ai-agent-prompt="true"
           disabled={active}
-          id="mock-ai-message"
+          id="ai-agent-input"
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Describe a drawing or refinement…"
           ref={promptRef}
@@ -629,9 +630,7 @@ export const AiConversationPanel = ({
             >
               + Image
             </button>
-            <span className="text-[9px] text-[#81838b]">
-              Mock mode · no API key
-            </span>
+            <span className="text-[9px] text-[#81838b]">Agent ready</span>
           </div>
           <div className="flex items-center gap-2">
             {active ? (

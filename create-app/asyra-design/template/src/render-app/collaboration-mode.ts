@@ -12,13 +12,19 @@ const queryValue = (
   return value ? value : undefined
 }
 
-export const getPublicFileId = (): string | undefined =>
-  queryValue(new URLSearchParams(window.location.search), 'fileId')
+export const getRequiredFileId = (): string => {
+  const fileId = queryValue(
+    new URLSearchParams(window.location.search),
+    'fileId'
+  )
+  if (!fileId) {
+    throw new Error('[collaboration] missing required fileId')
+  }
+  return fileId
+}
 
-export const getCollaborationMode = (): CollaborationMode | undefined => {
-  const fileId = getPublicFileId()
-  if (!fileId) return
-
+export const getCollaborationMode = (): CollaborationMode => {
+  const fileId = getRequiredFileId()
   const endpoint =
     import.meta.env.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL?.trim()
   if (!endpoint) {
