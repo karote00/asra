@@ -332,15 +332,15 @@ describe('Mock AI conversation panel intent boundary', () => {
           {
             actions: [
               {
-                arguments: {
-                  compositionId: 'secret-group-id'
+                summary: {
+                  affectedCount: 1
                 },
                 id: 'remove-1',
                 name: 'remove_ai_composition',
                 permission: 'confirm'
               }
             ],
-            planId: 'remove-plan'
+            batchId: 'remove-batch'
           },
           {
             signal: new AbortController().signal
@@ -352,6 +352,9 @@ describe('Mock AI conversation panel intent boundary', () => {
       expect(screen.getByText('Destructive')).toBeTruthy()
       expect(screen.getByText('Undoable')).toBeTruthy()
       expect(screen.queryByText(/secret-group-id/)).toBeNull()
+      expect(JSON.stringify(harness.confirmation.getSnapshot())).not.toMatch(
+        /arguments|compositionId/
+      )
       fireEvent.click(screen.getByRole('button', { name: decision }))
 
       await expect(settlement).resolves.toBe(expected)

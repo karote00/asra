@@ -1,13 +1,12 @@
-import type { AiPlanPreview } from '@asyra/ai-agent-runtime'
+import type { AiActionBatchPreview } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
 
-const removalPreview: AiPlanPreview = Object.freeze({
+const removalPreview: AiActionBatchPreview = Object.freeze({
   actions: Object.freeze([
     Object.freeze({
-      arguments: Object.freeze({
-        compositionId: 'group-cat',
-        hiddenSecret: 'must-not-appear'
+      summary: Object.freeze({
+        affectedCount: 1
       }),
       id: 'remove-1',
       name: 'remove_ai_composition',
@@ -15,7 +14,7 @@ const removalPreview: AiPlanPreview = Object.freeze({
     })
   ]),
   explanation: 'Remove the current cat face.',
-  planId: 'remove-plan'
+  batchId: 'remove-batch'
 })
 
 describe('Asyra Design AI confirmation broker', () => {
@@ -41,8 +40,8 @@ describe('Asyra Design AI confirmation broker', () => {
     })
 
     expect(broker.getSnapshot().pending).toEqual({
+      batchId: 'remove-batch',
       confirmationId: 'conversation-1:turn:1:confirmation',
-      planId: 'remove-plan',
       summary: {
         actionKind: 'delete',
         affectedCount: 1,
@@ -54,7 +53,7 @@ describe('Asyra Design AI confirmation broker', () => {
       turnId: 'conversation-1:turn:1'
     })
     expect(JSON.stringify(snapshots)).not.toMatch(
-      /compositionId|group-cat|hiddenSecret|must-not-appear/
+      /arguments|compositionId|items|paths|points/
     )
 
     expect(broker.resolve(true)).toBe(true)

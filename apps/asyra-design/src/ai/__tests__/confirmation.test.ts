@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AiPlanPreview } from '@asyra/ai-agent-runtime'
+import type { AiActionBatchPreview } from '@asyra/ai-agent-runtime'
 import { createAsyraDesignAiConfirmationHandler } from '../confirmation'
 
-const preview: AiPlanPreview = Object.freeze({
-  planId: 'plan-1',
+const preview: AiActionBatchPreview = Object.freeze({
+  batchId: 'batch-1',
   actions: Object.freeze([])
 })
 
