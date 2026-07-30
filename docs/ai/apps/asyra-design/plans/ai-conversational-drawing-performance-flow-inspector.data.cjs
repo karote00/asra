@@ -89,6 +89,7 @@
       implementationBoundary: [
         'apps/asyra-design/package.json',
         'apps/asyra-design/src/index.tsx',
+        'apps/asyra-design/src/init/index.ts',
         'apps/asyra-design/src/init/init-app.ts',
         'apps/asyra-design/src/init/__tests__/init-app.test.ts',
         'apps/asyra-design/src/ai/startup.ts',
@@ -103,6 +104,7 @@
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/startup.ts',
         'apps/asyra-design/src/toolbar/index.tsx',
+        'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
         'apps/asyra-design/src/app/ai-conversation-panel.tsx',
         'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
         'apps/asyra-design/test-data/ai-drawing',
