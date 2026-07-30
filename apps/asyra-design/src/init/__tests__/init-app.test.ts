@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import * as preset from '@asyra/preset'
 import core from '../../contexts'
 import * as areaSelection from '../capabilities/init-area-selection'
@@ -16,6 +17,7 @@ import { hierarchyApis } from '../../common-apis/hierarchy'
 import { strokeApis } from '../../common-apis/strokes'
 import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
+import * as aiStartup from '../../ai/startup'
 
 const calls: string[] = []
 
@@ -75,6 +77,9 @@ describe('initApp preset composition', () => {
     })
     vi.spyOn(features, 'initFeatures').mockImplementation(() => {
       calls.push('features')
+      return {
+        ai: null
+      }
     })
   })
 
@@ -84,8 +89,8 @@ describe('initApp preset composition', () => {
     delete window.__AsyraAiDrawingPerformance__
   })
 
-  it('applies the default preset with the production Mock AI lifecycle', async () => {
-    const initialization = initApp()
+  it('applies the default preset with the production AI lifecycle', async () => {
+    const initialization = initApp({ serverResponse: null })
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
@@ -126,70 +131,29 @@ describe('initApp preset composition', () => {
     await initialization.dispose()
   })
 
-  it('routes provider-disabled AI to Feature initialization without a runtime', async () => {
-    const initialization = initApp({
-      ai: {
-        enabled: true,
-        providerEnabled: false
-      }
-    })
+  it('passes the exact resident server response into AI startup', async () => {
+    const batch = {
+      actions: [],
+      batchId: 'resident'
+    } as const satisfies AiActionBatch
+    const response = {
+      batch,
+      fileId: 'file-resident',
+      schemaVersion: 1
+    } as const
+    const createAiStartup = vi.spyOn(aiStartup, 'createAsyraDesignAiStartup')
 
-    expect(features.initFeatures).toHaveBeenCalledWith({
-      ai: {
-        enabled: true,
-        providerEnabled: false,
-        runtime: undefined
-      }
-    })
-    expect(initialization.aiRuntime).toMatchObject({
-      enabled: true,
-      providerEnabled: false,
-      runtime: null
+    const initialization = initApp({ serverResponse: response })
+
+    expect(createAiStartup).toHaveBeenCalledWith({
+      deliveryMode: 'progressive',
+      response
     })
 
     await initialization.dispose()
   })
 
-  it('composes and disposes one app-local conversation around the registered AI Feature', async () => {
-    const execute = vi.fn(async () => ({
-      reason: 'provider-disabled',
-      status: 'unavailable'
-    }))
-    const cancel = vi.fn(() => false)
-    const disposeFeature = vi.fn(() => true)
-    vi.spyOn(features, 'initFeatures').mockReturnValue({
-      ai: {
-        api: {
-          cancel,
-          execute
-        },
-        dispose: disposeFeature
-      }
-    } as never)
-
-    const initialization = initApp({
-      ai: {
-        enabled: true,
-        providerEnabled: false
-      }
-    })
-
-    expect(initialization.aiConversation).not.toBeNull()
-    await expect(
-      initialization.aiConversation?.submit('畫一個貓臉')
-    ).resolves.toMatchObject({
-      outcome: 'unavailable'
-    })
-
-    await initialization.dispose()
-
-    expect(disposeFeature).toHaveBeenCalledOnce()
-    expect(initialization.aiConversation?.getSnapshot()).toMatchObject({
-      disposed: true
-    })
-  })
-
-  it('constructs the complete production mock composition by default', async () => {
+  it('constructs the complete production Agent composition by default', async () => {
     const disposeFeature = vi.fn(() => true)
     vi.spyOn(features, 'initFeatures').mockImplementation((options) => ({
       ai: options.ai?.enabled
@@ -208,10 +172,9 @@ describe('initApp preset composition', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
 
-    const initialization = initApp()
+    const initialization = initApp({ serverResponse: null })
 
     expect(initialization).toMatchObject({
-      aiMode: 'mock',
       aiRuntime: {
         enabled: true,
         providerEnabled: true
@@ -257,7 +220,7 @@ describe('initApp preset composition', () => {
       .mockReturnValue(detachRuntimeEvidence)
     window.__AsyraAiDrawingPerformance__ = {} as never
 
-    const initialization = initApp()
+    const initialization = initApp({ serverResponse: null })
 
     expect(attachRuntimeEvidence).toHaveBeenCalledOnce()
     expect(attachRuntimeEvidence).toHaveBeenCalledWith(
@@ -272,6 +235,7 @@ describe('initApp preset composition', () => {
       }
     )
     const runtimeSource = attachRuntimeEvidence.mock.calls[0][1]
+    expect(runtimeSource.readCanonicalElementCount()).toBe(0)
     expect(runtimeSource.readHistoryDepth()).toBe(3)
     expect(runtimeSource.readRenderProjectionElementCount()).toBe(7)
     expect(readUndoHistoryDepth).toHaveBeenCalledOnce()

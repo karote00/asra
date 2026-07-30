@@ -15,8 +15,7 @@ import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
 import {
   composeAiAgentRuntime,
-  type AiRuntimeComposition,
-  type ComposeAiAgentRuntimeOptions
+  type AiRuntimeComposition
 } from '../ai/composition'
 import type { AiAgentFeatureRuntime } from '../features/ai-agent'
 import {
@@ -24,22 +23,24 @@ import {
   type AsyraDesignAiConversationController
 } from '../ai/conversation'
 import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
-import { createAsyraDesignAiStartup, type AsyraDesignAiMode } from '../ai/mode'
+import {
+  createAsyraDesignAiStartup,
+  type AsyraDesignAiStartup
+} from '../ai/startup'
 import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
+import type { AsyraDesignServerResponseRecord } from '../ai/server-response-inbox'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 import { attachAiDrawingPerformanceRuntimeEvidence } from './performance/ai-drawing-performance-profile'
 
 export interface InitAppOptions {
-  ai?: ComposeAiAgentRuntimeOptions
   aiDeliveryMode?: AsyraDesignAiDeliveryMode
-  aiMode?: AsyraDesignAiMode
+  serverResponse: AsyraDesignServerResponseRecord | null
 }
 
 export interface AppInitialization {
   readonly aiConfirmation: AsyraDesignAiConfirmationBroker | null
   readonly aiConversation: AsyraDesignAiConversationController | null
   readonly aiHistory: AsyraDesignAiHistoryProjection | null
-  readonly aiMode: AsyraDesignAiMode
   readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
 }
@@ -61,9 +62,9 @@ const asAiAgentFeatureRuntime = (
  * ```typescript
  * import { initApp as baseInitApp } from './init'
  *
- * export const initApp = () => {
+ * export const initApp = (serverResponse) => {
  *   // Initialize base framework
- *   const initialization = baseInitApp()
+ *   const initialization = baseInitApp({ serverResponse })
  *
  *   // Add custom initialization
  *   customInputHandlers()
@@ -73,7 +74,7 @@ const asAiAgentFeatureRuntime = (
  * }
  * ```
  */
-export const initApp = (options: InitAppOptions = {}): AppInitialization => {
+export const initApp = (options: InitAppOptions): AppInitialization => {
   applyPreset(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
@@ -95,18 +96,10 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
 
   // Foundation init.
   initInputSystem()
-  const aiStartup = options.ai
-    ? {
-        confirmation: null,
-        history: null,
-        mode: 'disabled' as const,
-        runtimeOptions: options.ai
-      }
-    : createAsyraDesignAiStartup(
-        options.aiMode ?? 'mock',
-        undefined,
-        options.aiDeliveryMode
-      )
+  const aiStartup: AsyraDesignAiStartup = createAsyraDesignAiStartup({
+    deliveryMode: options.aiDeliveryMode ?? 'progressive',
+    response: options.serverResponse
+  })
   const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
   const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
   // Initialize feature-system for application-level features
@@ -147,7 +140,11 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
   const detachPerformanceRuntimeEvidence = performanceProfile
     ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
         readCanonicalElementCount: () =>
-          core.deps.sceneTree.getAllElements().size,
+          Math.max(
+            0,
+            core.deps.sceneTree.getAllElements().size -
+              core.deps.sceneTree.workspaceList.length
+          ),
         readCanonicalElements: () =>
           Array.from(core.deps.sceneTree.getAllElements().entries()).map(
             ([id, element]) => ({
@@ -188,15 +185,12 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
   const handlePageHide = () => {
     void dispose()
   }
-  if (aiStartup.mode === 'mock') {
-    window.addEventListener('pagehide', handlePageHide, { once: true })
-  }
+  window.addEventListener('pagehide', handlePageHide, { once: true })
 
   return Object.freeze({
     aiConfirmation: aiStartup.confirmation,
     aiConversation,
     aiHistory: aiStartup.history,
-    aiMode: aiStartup.mode,
     aiRuntime,
     dispose
   })

@@ -12,7 +12,7 @@ export interface AsyraDesignAiImageToolDescriptor {
   )[]
 }
 
-export const ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG: readonly AsyraDesignAiImageToolDescriptor[] =
+export const ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG: readonly AsyraDesignAiImageToolDescriptor[] =
   Object.freeze([
     Object.freeze({
       capabilities: Object.freeze(['whole-image-raster-vectorization']),
@@ -37,7 +37,7 @@ For an image-related request:
    vectorization is required. Intermediate rasters are transient tool data and
    must not enter canonical state, persistence, or collaboration.
 5. Validate and post-process the vector result, preserve finite editable topology,
-   estimate resource impact, and construct only a registered App action plan.
+   estimate resource impact, and construct only a registered App action batch.
 6. Let runtime preflight and permission checks finish. When confirmation is
    required, provide a concise visible impact summary and wait for the App
    Allow/Deny decision before executing registered actions.

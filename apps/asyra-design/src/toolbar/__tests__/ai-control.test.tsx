@@ -15,29 +15,30 @@ vi.mock('../zoom', () => ({
 
 import ToolBar from '..'
 
-describe('Mock AI toolbar activation', () => {
+describe('AI Agent toolbar activation', () => {
   afterEach(() => {
     cleanup()
   })
 
-  it('renders no AI control when mock mode is absent', () => {
+  it('renders no AI control when an Agent controller is absent', () => {
     render(<ToolBar />)
 
-    expect(screen.queryByTestId('mock-ai-toolbar-button')).toBeNull()
+    expect(screen.queryByTestId('ai-agent-toolbar-button')).toBeNull()
   })
 
-  it('exposes one labelled toggle only for a composed mock controller', () => {
+  it('exposes one labelled toggle for a composed Agent controller', () => {
     const onAiToggle = vi.fn()
     const { rerender } = render(
       <ToolBar aiOpen={false} onAiToggle={onAiToggle} />
     )
 
-    const button = screen.getByRole('button', { name: 'Open Mock AI' })
+    const button = screen.getByRole('button', { name: 'Open Agent' })
+    expect(screen.getByTestId('ai-agent-toolbar-button')).toBe(button)
     expect(button.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(button)
     expect(onAiToggle).toHaveBeenCalledWith(button)
 
     rerender(<ToolBar aiOpen onAiToggle={onAiToggle} />)
-    expect(screen.getByRole('button', { name: 'Close Mock AI' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close Agent' })).toBeTruthy()
   })
 })

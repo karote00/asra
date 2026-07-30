@@ -38,7 +38,7 @@ const createPanelHarness = () => {
   }
 }
 
-describe('Mock AI conversation panel intent boundary', () => {
+describe('AI Agent conversation panel intent boundary', () => {
   afterEach(() => {
     cleanup()
   })
@@ -55,6 +55,9 @@ describe('Mock AI conversation panel intent boundary', () => {
     )
 
     expect(screen.queryByText('Mock AI')).toBeNull()
+    expect(screen.getByTestId('ai-agent-panel')).toBeTruthy()
+    expect(screen.queryByTestId('ai-agent-message')).toBeNull()
+    expect(screen.getByText('Agent ready')).toBeTruthy()
     expect(screen.getByRole('complementary').getAttribute('aria-modal')).toBe(
       'false'
     )
@@ -419,6 +422,9 @@ describe('Mock AI conversation panel intent boundary', () => {
     expect(
       await screen.findByText('Drawing updated successfully.')
     ).toBeTruthy()
+    const settledMessage = screen.getByTestId('ai-agent-message')
+    expect(settledMessage.tagName).toBe('ARTICLE')
+    expect(settledMessage.getAttribute('data-outcome')).toBe('success')
     expect(screen.getByText('畫一個貓臉')).toBeTruthy()
     expect(screen.getByText('Understanding the request')).toBeTruthy()
     expect(screen.getByText('Applying changes')).toBeTruthy()

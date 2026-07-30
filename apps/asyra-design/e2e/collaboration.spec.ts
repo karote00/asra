@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { seedAsyraDesignServerResponse } from './server-response-inbox'
 import {
   createRectangle,
   createVectorPath,
@@ -17,8 +18,16 @@ import {
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
 
-const mockAiCollaborationUrl = (fileId: string) =>
-  `${collaborationUrl(fileId)}&ai=mock&aiDelivery=atomic`
+const profiledAtomicCollaborationUrl = (fileId: string) =>
+  `${collaborationUrl(fileId)}&aiDelivery=atomic&aiPerformance=profile`
+
+const requireAppUrl = (testInfo: TestInfo): string => {
+  const appUrl = String(testInfo.project.use.baseURL ?? '')
+  if (!appUrl) {
+    throw new Error('Asyra Design App URL is unavailable')
+  }
+  return appUrl
+}
 
 const layerRow = (page: Page, elementId: string) =>
   page.getByTestId(`element-item-${elementId}`)
@@ -79,6 +88,19 @@ const waitForCollaboration = async (page: Page) => {
 
 const getCanonicalSnapshot = (page: Page) =>
   page.evaluate(() => {
+    const profiledElements =
+      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
+    if (profiledElements) {
+      return profiledElements
+        .filter(({ type }) => type !== 'workspace')
+        .map(({ computed, id, rendered, type }) => ({
+          computed,
+          id,
+          rendered,
+          type
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+    }
     const elements = window.__Core__?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) return []
     return Array.from(elements.entries())
@@ -92,11 +114,53 @@ const getCanonicalSnapshot = (page: Page) =>
       .sort((left, right) => left.id.localeCompare(right.id))
   })
 
+const getCanonicalStrokeIdentityViolations = (
+  snapshot: Awaited<ReturnType<typeof getCanonicalSnapshot>>
+) =>
+  snapshot.flatMap(({ computed, id: elementId }) => {
+    const strokes = (computed as { strokes?: unknown }).strokes
+    if (!Array.isArray(strokes)) return []
+    return strokes.flatMap((stroke, index) => {
+      if (!stroke || typeof stroke !== 'object' || Array.isArray(stroke)) {
+        return [{ elementId, fillId: null, index, strokeId: null }]
+      }
+      const strokeId = (stroke as { id?: unknown }).id
+      const fill = (stroke as { fill?: unknown }).fill
+      const fillId =
+        fill && typeof fill === 'object' && !Array.isArray(fill)
+          ? (fill as { id?: unknown }).id
+          : undefined
+      return typeof strokeId === 'string' &&
+        strokeId.length > 0 &&
+        fillId === strokeId
+        ? []
+        : [{ elementId, fillId: fillId ?? null, index, strokeId }]
+    })
+  })
+
 const getCanonicalHierarchyGeometry = (page: Page) =>
   page.evaluate(() => {
+    const profiledElements =
+      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
     const sceneTree = window.__Core__?.deps?.sceneTree
-    const elements = sceneTree?.getAllElements?.()
-    if (!(elements instanceof Map)) return []
+    const elements = profiledElements
+      ? profiledElements.map(({ computed, id, raw, type }) => ({
+          computed,
+          id,
+          raw: raw as Record<string, unknown>,
+          type
+        }))
+      : Array.from(sceneTree?.getAllElements?.().entries?.() ?? []).map(
+          ([id, element]) => ({
+            computed: element.getAllComputedData?.() ?? {},
+            id,
+            raw: element.save?.() ?? {},
+            type: String(element.get?.('type') ?? '')
+          })
+        )
+    const elementsById = new Map(
+      elements.map((element) => [element.id, element])
+    )
 
     const getFiniteNumber = (
       value: unknown,
@@ -123,33 +187,31 @@ const getCanonicalHierarchyGeometry = (page: Page) =>
           throw new Error(`Hierarchy cycle reaches "${currentId}"`)
         }
         visited.add(currentId)
-        const element = sceneTree?.getElementById?.(currentId)
+        const element = elementsById.get(currentId)
         if (!element) {
           throw new Error(`Missing hierarchy element "${currentId}"`)
         }
-        if (element.get?.('type') === 'workspace') {
+        if (element.type === 'workspace') {
           break
         }
-        const computed = element.getAllComputedData?.() ?? {}
+        const computed = element.computed as Record<string, unknown>
         x += getFiniteNumber(computed.x, currentId, 'x')
         y += getFiniteNumber(computed.y, currentId, 'y')
-        currentId = String(element.get?.('parentId') ?? '')
+        currentId = String(element.raw.parentId ?? '')
       }
 
       return { x, y }
     }
 
-    return Array.from(elements.entries())
-      .filter(([, element]) => element.get?.('type') !== 'workspace')
-      .map(([id, element]) => {
-        const computed = element.getAllComputedData?.() ?? {}
-        const type = String(element.get?.('type') ?? '')
-        const children =
-          type === 'group' ? element.get?.('children') : undefined
+    return elements
+      .filter(({ type }) => type !== 'workspace')
+      .map(({ computed: computedValue, id, raw, type }) => {
+        const computed = computedValue as Record<string, unknown>
+        const children = type === 'group' ? raw.children : undefined
         return {
           id,
           type,
-          parentId: String(element.get?.('parentId') ?? ''),
+          parentId: String(raw.parentId ?? ''),
           children: Array.isArray(children) ? [...children] : undefined,
           local: {
             x: getFiniteNumber(computed.x, id, 'x'),
@@ -164,13 +226,20 @@ const getCanonicalHierarchyGeometry = (page: Page) =>
   })
 
 const getCollaborationDiagnostics = (page: Page) =>
-  page.evaluate(() => ({
-    status: window.__AsyraCollaboration__?.getStatus() ?? 'missing',
-    identity: window.__AsyraCollaboration__?.identity,
-    canonicalElementCount: Array.from(
-      window.__Core__?.deps?.sceneTree?.getAllElements?.().values?.() ?? []
-    ).filter((element) => element.get?.('type') !== 'workspace').length
-  }))
+  page.evaluate(() => {
+    const profiledElements =
+      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
+    return {
+      status: window.__AsyraCollaboration__?.getStatus() ?? 'missing',
+      identity: window.__AsyraCollaboration__?.identity,
+      canonicalElementCount: profiledElements
+        ? profiledElements.filter(({ type }) => type !== 'workspace').length
+        : Array.from(
+            window.__Core__?.deps?.sceneTree?.getAllElements?.().values?.() ??
+              []
+          ).filter((element) => element.get?.('type') !== 'workspace').length
+    }
+  })
 
 const getCanonicalRenderVisibility = (page: Page, elementId: string) =>
   page.evaluate(
@@ -180,35 +249,19 @@ const getCanonicalRenderVisibility = (page: Page, elementId: string) =>
   )
 
 const getOwnerSave = (page: Page) =>
-  page.evaluate(() => ({
-    sceneTree: window.__Core__.deps.sceneTree.save(),
-    props: window.__Core__.deps.props.save()
-  }))
-
-const getClientPersistenceFingerprint = (page: Page, fileId: string) =>
   page.evaluate(
-    ({ key }) =>
-      new Promise<string>((resolve, reject) => {
-        const openRequest = indexedDB.open('asyra-documents')
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction('documents', 'readonly')
-          const request = transaction.objectStore('documents').get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () =>
-            resolve(JSON.stringify(request.result ?? null))
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
-        }
-      }),
-    { key: `FILE:${fileId}` }
+    () =>
+      window.__AsyraAiDrawingPerformance__?.readCanonicalOwnerSnapshot() ?? {
+        sceneTree: window.__Core__.deps.sceneTree.save(),
+        props: window.__Core__.deps.props.save()
+      }
   )
 
 const getCanonicalDocumentSave = (page: Page) =>
   page.evaluate(() => {
+    const profiledSnapshot =
+      window.__AsyraAiDrawingPerformance__?.readCanonicalOwnerSnapshot()
+    if (profiledSnapshot) return profiledSnapshot
     const sceneTree = window.__Core__.deps.sceneTree
     const sceneSave = sceneTree.save()
     const allProps = window.__Core__.deps.props.save() as Record<
@@ -258,14 +311,139 @@ const getCanonicalDocumentSave = (page: Page) =>
   })
 
 const getUndoDepth = (page: Page) =>
-  page.evaluate(
-    () =>
+  page.evaluate(() => {
+    const performanceProfile = window.__AsyraAiDrawingPerformance__
+    if (performanceProfile) return performanceProfile.readHistoryDepth()
+    return (
       (
         window.__Core__.deps.factory.transact as unknown as {
           undoStack?: unknown[]
         }
       ).undoStack?.length ?? 0
-  )
+    )
+  })
+
+const captureTransactionStatuses = (page: Page) =>
+  page.evaluate(() => {
+    const performanceProfile = window.__AsyraAiDrawingPerformance__
+    if (performanceProfile) {
+      performanceProfile.reset()
+      return
+    }
+    const runtime = globalThis as typeof globalThis & {
+      __factoryTransactionStatuses?: unknown[]
+    }
+    runtime.__factoryTransactionStatuses = []
+    window.__Core__.deps.factory.subscribeToTransactionStatus((status) => {
+      runtime.__factoryTransactionStatuses?.push({
+        transactionId: status.transactionId,
+        origin: status.origin,
+        status: status.status,
+        changeCount: status.changeCount,
+        failure: status.failure,
+        ...(status.error instanceof Error
+          ? {
+              error: {
+                name: status.error.name,
+                message: status.error.message,
+                stack: status.error.stack
+              }
+            }
+          : {})
+      })
+    })
+  })
+
+const getTransactionStatuses = (page: Page) =>
+  page.evaluate(() => {
+    const performanceProfile = window.__AsyraAiDrawingPerformance__
+    if (performanceProfile) {
+      return performanceProfile.getRuntimeEvidence().factoryStatuses
+    }
+    return (
+      (
+        globalThis as typeof globalThis & {
+          __factoryTransactionStatuses?: unknown[]
+        }
+      ).__factoryTransactionStatuses ?? []
+    )
+  })
+
+const captureFactoryPublicationShapes = (page: Page) =>
+  page.evaluate(() => {
+    if (window.__AsyraAiDrawingPerformance__) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const runtime = globalThis as any
+    runtime.__factoryPublicationShapes = []
+    runtime.__factoryPublications = []
+    window.__Core__.deps.factory.subscribeToSharedPublication((publication) => {
+      runtime.__factoryPublications.push(publication)
+      runtime.__factoryPublicationShapes.push({
+        publicationId: publication.publicationId,
+        origin: publication.origin,
+        batches: publication.batches.map((batch) => ({
+          channel: batch.channel,
+          kind: batch.kind,
+          sharedDelivery: batch.sharedDelivery,
+          events: batch.deliveries.map((delivery) => {
+            const payload =
+              typeof delivery.payload === 'object' &&
+              delivery.payload !== null &&
+              !Array.isArray(delivery.payload)
+                ? (delivery.payload as Record<string, unknown>)
+                : {}
+            return {
+              eventName: delivery.eventName,
+              action: payload.action,
+              entryCount: Array.isArray(payload.entries)
+                ? payload.entries.length
+                : undefined,
+              dataCount: Array.isArray(payload.data)
+                ? payload.data.length
+                : undefined
+            }
+          }),
+          orderedIds: batch.records.flatMap((record) => record.orderedIds)
+        }))
+      })
+    })
+  })
+
+const getFactoryPublicationShapes = (page: Page) =>
+  page.evaluate(() => {
+    const performanceProfile = window.__AsyraAiDrawingPerformance__
+    if (performanceProfile) {
+      return performanceProfile.getRuntimeEvidence().factoryPublications
+    }
+    return (
+      (
+        globalThis as typeof globalThis & {
+          __factoryPublicationShapes?: unknown[]
+        }
+      ).__factoryPublicationShapes ?? []
+    )
+  })
+
+const classifyFactoryPublicationsInApp = (page: Page) =>
+  page.evaluate(async () => {
+    const operationsModule = await import('/src/collaboration/operations.ts')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const runtime = globalThis as any
+    const canonicalRequests: string[][] = []
+    const processor = operationsModule.createAsyraDesignPublicationProcessor({
+      runRemoteTransaction: (mutate: () => void) => mutate(),
+      decideRemotePublication: (publication) => publication,
+      applyCanonicalChanges: (
+        changes: readonly { readonly kind: string }[]
+      ) => {
+        canonicalRequests.push(changes.map(({ kind }) => kind))
+      }
+    })
+    for (const publication of runtime.__factoryPublications ?? []) {
+      processor(publication)
+    }
+    return canonicalRequests
+  })
 
 const capturePublicationOutcomes = (page: Page) =>
   page.evaluate(() => {
@@ -310,6 +488,69 @@ const getPublicationOutcomes = (page: Page) =>
         }
       ).__remoteRestoreOutcomes ?? []
   )
+
+const getPublicationOutcomeIds = (
+  page: Page,
+  direction: string,
+  status: string
+) =>
+  page.evaluate(
+    ({ expectedDirection, expectedStatus }) =>
+      (
+        (
+          globalThis as typeof globalThis & {
+            __remoteRestoreOutcomes?: {
+              direction: string
+              publicationId: string
+              status: string
+            }[]
+          }
+        ).__remoteRestoreOutcomes ?? []
+      )
+        .filter(
+          (outcome) =>
+            outcome.direction === expectedDirection &&
+            outcome.status === expectedStatus
+        )
+        .map(({ publicationId }) => publicationId),
+    { expectedDirection: direction, expectedStatus: status }
+  )
+
+const getRemoteElementBatchEvidence = (page: Page) =>
+  page.evaluate(() => {
+    const counters =
+      window.__AsyraAiDrawingPerformance__?.snapshot().counters ?? []
+    const sum = (name: string) =>
+      counters
+        .filter((counter) => counter.name === name)
+        .reduce((total, counter) => total + counter.value, 0)
+    return {
+      batchCount: sum('collaboration:remote-add-element-batch-count'),
+      batchedElementCount: sum('collaboration:remote-add-element-batch-size'),
+      singleElementCount: sum('collaboration:remote-add-element-single-count')
+    }
+  })
+
+const resetAiDrawingPerformanceEvidence = (page: Page) =>
+  page.evaluate(() => {
+    const profile = window.__AsyraAiDrawingPerformance__
+    if (!profile) {
+      throw new Error('AI drawing performance profile is unavailable')
+    }
+    profile.reset()
+  })
+
+const getClientPersistenceEvidence = (page: Page) =>
+  page.evaluate(() => {
+    const phases = window.__AsyraAiDrawingPerformance__?.snapshot().phases ?? []
+    const count = (name: string) =>
+      phases.filter((phase) => phase.name === name).length
+    return {
+      captureCount: count('core:persistence-capture'),
+      indexedDbPutCount: count('persistence:indexeddb-put'),
+      saveCount: count('core:persistence-save')
+    }
+  })
 
 const getVectorTopologySummary = (page: Page) =>
   page.evaluate(() => {
@@ -358,7 +599,57 @@ const expectSelectedElementInteriorToConverge = async (
     .toBe(expected)
 }
 
-test('fast Mock AI CRDT fixture converges through the ordinary two-actor publication path', async ({
+test('16-item server response keeps one plural publication through action, Undo, and Redo', async ({
+  page
+}, testInfo) => {
+  const fileId = `single-actor-fast-${Date.now()}-${testInfo.workerIndex}`
+  await seedAsyraDesignServerResponse(page.context(), {
+    appUrl: requireAppUrl(testInfo),
+    fileId,
+    itemCount: 16
+  })
+  await page.goto(`${collaborationUrl(fileId)}&aiDelivery=atomic`)
+  await waitForAppReady(page)
+  await captureFactoryPublicationShapes(page)
+
+  await page.getByTestId('ai-agent-toolbar-button').click()
+  await expect(page.getByTestId('ai-agent-panel')).toBeVisible()
+  await page
+    .getByLabel('Message Agent')
+    .fill('create the fast CRDT performance fixture')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByTestId('ai-agent-message').last()).toHaveAttribute(
+    'data-outcome',
+    'success',
+    { timeout: 30_000 }
+  )
+  await expect.poll(() => getElementCount(page)).toBe(17)
+
+  await undo(page)
+  await expect.poll(() => getElementCount(page)).toBe(0)
+  await redo(page)
+  await expect.poll(() => getElementCount(page)).toBe(17)
+
+  const shapes = (await getFactoryPublicationShapes(page)) as {
+    origin?: string
+  }[]
+  await testInfo.attach('fast-ai-factory-publication-shapes.json', {
+    body: Buffer.from(JSON.stringify(shapes, null, 2)),
+    contentType: 'application/json'
+  })
+  expect(shapes.map(({ origin }) => origin)).toEqual(['action', 'undo', 'redo'])
+  expect(JSON.stringify(shapes)).not.toMatch(
+    /updateComputedData|updateComputedDataPatch/
+  )
+
+  expect(await classifyFactoryPublicationsInApp(page)).toEqual([
+    ['element-creation', 'element-creation'],
+    ['element-removal', 'element-removal'],
+    ['element-creation', 'element-creation']
+  ])
+})
+
+test('16-item AI response converges through the ordinary two-actor publication path', async ({
   browser
 }, testInfo) => {
   const fileId = `e2e-fast-ai-crdt-${Date.now()}-${testInfo.workerIndex}`
@@ -368,9 +659,14 @@ test('fast Mock AI CRDT fixture converges through the ordinary two-actor publica
   const actorB = await actorBContext.newPage()
 
   try {
+    await seedAsyraDesignServerResponse(actorAContext, {
+      appUrl: requireAppUrl(testInfo),
+      fileId,
+      itemCount: 16
+    })
     await Promise.all([
-      actorA.goto(mockAiCollaborationUrl(fileId)),
-      actorB.goto(collaborationUrl(fileId))
+      actorA.goto(profiledAtomicCollaborationUrl(fileId)),
+      actorB.goto(profiledAtomicCollaborationUrl(fileId))
     ])
     await Promise.all([
       waitForAppReady(actorA),
@@ -380,35 +676,41 @@ test('fast Mock AI CRDT fixture converges through the ordinary two-actor publica
     ])
     await Promise.all([
       capturePublicationOutcomes(actorA),
-      capturePublicationOutcomes(actorB)
+      capturePublicationOutcomes(actorB),
+      captureTransactionStatuses(actorA),
+      captureTransactionStatuses(actorB),
+      captureFactoryPublicationShapes(actorA)
     ])
 
     const [actorAUndoDepthBefore, actorBUndoDepthBefore] = await Promise.all([
       getUndoDepth(actorA),
       getUndoDepth(actorB)
     ])
-    const [actorAPersistenceBefore, actorBPersistenceBefore] =
-      await Promise.all([
-        getClientPersistenceFingerprint(actorA, fileId),
-        getClientPersistenceFingerprint(actorB, fileId)
-      ])
+    await resetAiDrawingPerformanceEvidence(actorB)
 
-    await actorA.getByRole('button', { name: 'Open Mock AI' }).click()
-    await expect(actorA.getByTestId('mock-ai-panel')).toBeVisible()
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
     await actorA
       .getByLabel('Message Agent')
       .fill('create the fast CRDT performance fixture')
     await actorA.getByRole('button', { name: 'Send' }).click()
 
-    const settledTurn = actorA
-      .getByTestId('mock-ai-panel')
-      .locator('article[data-turn-id]')
-      .last()
+    const settledTurn = actorA.getByTestId('ai-agent-message').last()
     await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
       timeout: 30_000
     })
     await expect.poll(() => getElementCount(actorA)).toBe(17)
-    await expect.poll(() => getElementCount(actorB)).toBe(17)
+    try {
+      await expect.poll(() => getElementCount(actorB)).toBe(17)
+    } catch (error) {
+      throw new Error(
+        `16-item AI peer convergence failed: ${JSON.stringify({
+          batchEvidence: await getRemoteElementBatchEvidence(actorB),
+          outcomes: await getPublicationOutcomes(actorB)
+        })}`,
+        { cause: error }
+      )
+    }
 
     const [
       actorASnapshot,
@@ -431,6 +733,8 @@ test('fast Mock AI CRDT fixture converges through the ordinary two-actor publica
     ])
 
     expect(actorASnapshot).toEqual(actorBSnapshot)
+    expect(getCanonicalStrokeIdentityViolations(actorASnapshot)).toEqual([])
+    expect(getCanonicalStrokeIdentityViolations(actorBSnapshot)).toEqual([])
     expect(actorAHierarchy).toEqual(actorBHierarchy)
     expect(actorACanonicalSave).toEqual(actorBCanonicalSave)
     expect(actorASnapshot.filter(({ type }) => type === 'group')).toHaveLength(
@@ -442,15 +746,29 @@ test('fast Mock AI CRDT fixture converges through the ordinary two-actor publica
     expect(actorASnapshot.every(({ rendered }) => rendered)).toBe(true)
     expect(actorAUndoDepthAfter).toBe(actorAUndoDepthBefore + 1)
     expect(actorBUndoDepthAfter).toBe(actorBUndoDepthBefore)
-    await expect
-      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
-      .not.toBe(actorAPersistenceBefore)
-    const actorACreatedPersistence = await getClientPersistenceFingerprint(
-      actorA,
-      fileId
-    )
-    expect(await getClientPersistenceFingerprint(actorB, fileId)).toBe(
-      actorBPersistenceBefore
+    expect(await getRemoteElementBatchEvidence(actorB)).toEqual({
+      batchCount: expect.any(Number),
+      batchedElementCount: 17,
+      singleElementCount: 0
+    })
+    expect(
+      (await getRemoteElementBatchEvidence(actorB)).batchCount
+    ).toBeGreaterThan(0)
+    expect(
+      await getPublicationOutcomeIds(actorB, 'remote', 'processed')
+    ).toEqual(await getPublicationOutcomeIds(actorA, 'local', 'sent'))
+    expect(await getPublicationOutcomeIds(actorB, 'local', 'sent')).toEqual([])
+    expect(
+      await getPublicationOutcomeIds(actorA, 'remote', 'processed')
+    ).toEqual([])
+    await Promise.all(
+      [actorA, actorB].map(async (page) =>
+        expect(await getClientPersistenceEvidence(page)).toEqual({
+          captureCount: 0,
+          indexedDbPutCount: 0,
+          saveCount: 0
+        })
+      )
     )
     expect(await getPublicationOutcomes(actorA)).not.toEqual(
       expect.arrayContaining([
@@ -464,29 +782,468 @@ test('fast Mock AI CRDT fixture converges through the ordinary two-actor publica
     )
 
     await undo(actorA)
-    await expect.poll(() => getElementCount(actorA)).toBe(0)
-    await expect.poll(() => getElementCount(actorB)).toBe(0)
-    await expect
-      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
-      .not.toBe(actorACreatedPersistence)
+    try {
+      await expect.poll(() => getElementCount(actorA)).toBe(0)
+    } catch (error) {
+      throw new Error(
+        `16-item AI local Undo failed: ${JSON.stringify({
+          actorATransactions: await getTransactionStatuses(actorA),
+          actorACanonical: await getCollaborationDiagnostics(actorA),
+          actorAElementCount: await getElementCount(actorA),
+          actorAOutcomes: await getPublicationOutcomes(actorA)
+        })}`,
+        { cause: error }
+      )
+    }
+    try {
+      await expect.poll(() => getElementCount(actorB)).toBe(0)
+    } catch (error) {
+      throw new Error(
+        `16-item AI peer Undo convergence failed: ${JSON.stringify({
+          actorAOutcomes: await getPublicationOutcomes(actorA),
+          actorAPublications: await getFactoryPublicationShapes(actorA),
+          actorBOutcomes: await getPublicationOutcomes(actorB),
+          actorBElementCount: await getElementCount(actorB)
+        })}`,
+        { cause: error }
+      )
+    }
+    await Promise.all(
+      [actorA, actorB].map(async (page) =>
+        expect(await getClientPersistenceEvidence(page)).toEqual({
+          captureCount: 0,
+          indexedDbPutCount: 0,
+          saveCount: 0
+        })
+      )
+    )
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
 
     await redo(actorA)
     await expect
       .poll(() => getCanonicalSnapshot(actorA))
       .toEqual(actorASnapshot)
-    await expect
-      .poll(() => getCanonicalSnapshot(actorB))
-      .toEqual(actorASnapshot)
-    await expect
-      .poll(() => getClientPersistenceFingerprint(actorA, fileId))
-      .toBe(actorACreatedPersistence)
+    try {
+      await expect
+        .poll(() => getCanonicalSnapshot(actorB))
+        .toEqual(actorASnapshot)
+    } catch (error) {
+      throw new Error(
+        `16-item AI peer Redo convergence failed: ${JSON.stringify({
+          actorAOutcomes: await getPublicationOutcomes(actorA),
+          actorAPublications: await getFactoryPublicationShapes(actorA),
+          actorBOutcomes: await getPublicationOutcomes(actorB),
+          actorBElementCount: await getElementCount(actorB)
+        })}`,
+        { cause: error }
+      )
+    }
     expect(await getCanonicalHierarchyGeometry(actorB)).toEqual(actorAHierarchy)
     expect(await getCanonicalDocumentSave(actorB)).toEqual(actorACanonicalSave)
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
-    expect(await getClientPersistenceFingerprint(actorB, fileId)).toBe(
-      actorBPersistenceBefore
+    expect(await getPublicationOutcomeIds(actorB, 'local', 'sent')).toEqual([])
+    expect(
+      await getPublicationOutcomeIds(actorA, 'remote', 'processed')
+    ).toEqual([])
+    await Promise.all(
+      [actorA, actorB].map(async (page) =>
+        expect(await getClientPersistenceEvidence(page)).toEqual({
+          captureCount: 0,
+          indexedDbPutCount: 0,
+          saveCount: 0
+        })
+      )
     )
+  } finally {
+    await Promise.all([actorAContext.close(), actorBContext.close()])
+  }
+})
+
+test('320-item AI response converges through the ordinary progressive two-actor path', async ({
+  browser
+}, testInfo) => {
+  testInfo.setTimeout(100_000)
+  const fileId = `e2e-320-item-ai-crdt-${Date.now()}-${testInfo.workerIndex}`
+  const actorAContext = await browser.newContext()
+  const actorBContext = await browser.newContext()
+  const actorA = await actorAContext.newPage()
+  const actorB = await actorBContext.newPage()
+
+  try {
+    await seedAsyraDesignServerResponse(actorAContext, {
+      appUrl: requireAppUrl(testInfo),
+      fileId,
+      itemCount: 320
+    })
+    await Promise.all([
+      actorA.goto(collaborationUrl(fileId)),
+      actorB.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([
+      waitForAppReady(actorA),
+      waitForAppReady(actorB),
+      waitForCollaboration(actorA),
+      waitForCollaboration(actorB)
+    ])
+
+    const [actorAUndoDepthBefore, actorBUndoDepthBefore] = await Promise.all([
+      getUndoDepth(actorA),
+      getUndoDepth(actorB)
+    ])
+    const startedAt = Date.now()
+    const getCanonicalCount = async (page: Page) =>
+      (await getCollaborationDiagnostics(page)).canonicalElementCount
+    const waitForFirstCanonical = async (page: Page) => {
+      await expect
+        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+        .toBeGreaterThan(0)
+      return Date.now() - startedAt
+    }
+    const waitForCompleteProjection = async (page: Page) => {
+      await expect
+        .poll(
+          async () => {
+            const snapshot = await getCanonicalSnapshot(page)
+            return {
+              canonicalCount: snapshot.length,
+              renderedCount: snapshot.filter(({ rendered }) => rendered).length
+            }
+          },
+          { timeout: 30_000 }
+        )
+        .toEqual({
+          canonicalCount: 321,
+          renderedCount: 321
+        })
+      return Date.now() - startedAt
+    }
+    const actorAFirstVisible = waitForFirstCanonical(actorA)
+    const actorBFirstVisible = waitForFirstCanonical(actorB)
+    const actorAComplete = waitForCompleteProjection(actorA)
+    const actorBComplete = waitForCompleteProjection(actorB)
+
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
+    await actorA
+      .getByLabel('Message Agent')
+      .fill('create the 320-item CRDT performance fixture')
+    await actorA.getByRole('button', { name: 'Send' }).click()
+
+    const settledTurn = actorA.getByTestId('ai-agent-message').last()
+    await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
+      timeout: 30_000
+    })
+    const [
+      actorAFirstVisibleMs,
+      actorBFirstVisibleMs,
+      actorACompleteMs,
+      actorBCompleteMs
+    ] = await Promise.all([
+      actorAFirstVisible,
+      actorBFirstVisible,
+      actorAComplete,
+      actorBComplete
+    ])
+
+    const [
+      actorASnapshot,
+      actorBSnapshot,
+      actorAHierarchy,
+      actorBHierarchy,
+      actorAUndoDepthAfter,
+      actorBUndoDepthAfter
+    ] = await Promise.all([
+      getCanonicalSnapshot(actorA),
+      getCanonicalSnapshot(actorB),
+      getCanonicalHierarchyGeometry(actorA),
+      getCanonicalHierarchyGeometry(actorB),
+      getUndoDepth(actorA),
+      getUndoDepth(actorB)
+    ])
+
+    expect(
+      JSON.stringify(actorASnapshot) === JSON.stringify(actorBSnapshot)
+    ).toBe(true)
+    expect(
+      JSON.stringify(actorAHierarchy) === JSON.stringify(actorBHierarchy)
+    ).toBe(true)
+    expect(actorASnapshot.filter(({ type }) => type === 'group')).toHaveLength(
+      1
+    )
+    expect(actorASnapshot.filter(({ type }) => type === 'vector')).toHaveLength(
+      320
+    )
+    expect(actorASnapshot.every(({ rendered }) => rendered)).toBe(true)
+    expect(actorAUndoDepthAfter).toBe(actorAUndoDepthBefore + 1)
+    expect(actorBUndoDepthAfter).toBe(actorBUndoDepthBefore)
+
+    await testInfo.attach('320-item-ai-crdt-creation-timings.json', {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            actorACompleteMs,
+            actorAFirstVisibleMs,
+            actorBCompleteMs,
+            actorBFirstVisibleMs
+          },
+          null,
+          2
+        )
+      ),
+      contentType: 'application/json'
+    })
+
+    const undoStartedAt = Date.now()
+    await undo(actorA)
+    await expect
+      .poll(() => getCanonicalCount(actorA), { timeout: 30_000 })
+      .toBe(0)
+    const actorAUndoCompleteMs = Date.now() - undoStartedAt
+    await expect
+      .poll(() => getCanonicalCount(actorB), { timeout: 30_000 })
+      .toBe(0)
+    const actorBUndoCompleteMs = Date.now() - undoStartedAt
+    expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
+
+    const redoStartedAt = Date.now()
+    await redo(actorA)
+    await expect
+      .poll(() => getCanonicalCount(actorA), { timeout: 30_000 })
+      .toBe(321)
+    const actorARedoCompleteMs = Date.now() - redoStartedAt
+    await expect
+      .poll(() => getCanonicalCount(actorB), { timeout: 30_000 })
+      .toBe(321)
+    const actorBRedoCompleteMs = Date.now() - redoStartedAt
+    const [actorARedoneSnapshot, actorBRedoneSnapshot, actorBRedoneHierarchy] =
+      await Promise.all([
+        getCanonicalSnapshot(actorA),
+        getCanonicalSnapshot(actorB),
+        getCanonicalHierarchyGeometry(actorB)
+      ])
+    expect(
+      JSON.stringify(actorARedoneSnapshot) === JSON.stringify(actorASnapshot)
+    ).toBe(true)
+    expect(
+      JSON.stringify(actorBRedoneSnapshot) === JSON.stringify(actorASnapshot)
+    ).toBe(true)
+    expect(
+      JSON.stringify(actorBRedoneHierarchy) === JSON.stringify(actorAHierarchy)
+    ).toBe(true)
+    expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
+
+    await testInfo.attach('320-item-ai-crdt-timings.json', {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            actorACompleteMs,
+            actorAFirstVisibleMs,
+            actorARedoCompleteMs,
+            actorAUndoCompleteMs,
+            actorBCompleteMs,
+            actorBFirstVisibleMs,
+            actorBRedoCompleteMs,
+            actorBUndoCompleteMs
+          },
+          null,
+          2
+        )
+      ),
+      contentType: 'application/json'
+    })
+  } finally {
+    await Promise.all([actorAContext.close(), actorBContext.close()])
+  }
+})
+
+test('1,280-item cat prefix measures ordinary progressive two-actor creation', async ({
+  browser
+}, testInfo) => {
+  testInfo.setTimeout(60_000)
+  const fileId = `e2e-1280-item-cat-prefix-${Date.now()}-${testInfo.workerIndex}`
+  const profiledUrl = `${collaborationUrl(
+    fileId
+  )}&aiDelivery=progressive&aiPerformance=profile`
+  const actorAContext = await browser.newContext()
+  const actorBContext = await browser.newContext()
+  const actorA = await actorAContext.newPage()
+  const actorB = await actorBContext.newPage()
+
+  try {
+    await seedAsyraDesignServerResponse(actorAContext, {
+      appUrl: requireAppUrl(testInfo),
+      fileId,
+      itemCount: 1280
+    })
+    await Promise.all([actorA.goto(profiledUrl), actorB.goto(profiledUrl)])
+    await Promise.all([
+      waitForAppReady(actorA),
+      waitForAppReady(actorB),
+      waitForCollaboration(actorA),
+      waitForCollaboration(actorB)
+    ])
+    await Promise.all([
+      resetAiDrawingPerformanceEvidence(actorA),
+      resetAiDrawingPerformanceEvidence(actorB)
+    ])
+
+    const getCanonicalCount = (page: Page) =>
+      page.evaluate(() => {
+        const profile = window.__AsyraAiDrawingPerformance__
+        if (!profile) {
+          throw new Error('AI drawing performance profile is unavailable')
+        }
+        return profile.readCanonicalElementCount()
+      })
+    const getAppliedRenderProjectionCount = (page: Page) =>
+      page.evaluate(() => {
+        const profile = window.__AsyraAiDrawingPerformance__
+        if (!profile) {
+          throw new Error('AI drawing performance profile is unavailable')
+        }
+        return profile.readCounterTotal('render-projection-outcome-applied')
+      })
+    const [
+      actorAUndoDepthBefore,
+      actorBUndoDepthBefore,
+      actorACanonicalBaseline,
+      actorBCanonicalBaseline
+    ] = await Promise.all([
+      getUndoDepth(actorA),
+      getUndoDepth(actorB),
+      getCanonicalCount(actorA),
+      getCanonicalCount(actorB)
+    ])
+
+    let startedAt = 0
+    const waitForFirstVector = async (
+      page: Page,
+      canonicalBaseline: number
+    ) => {
+      await expect
+        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+        .toBeGreaterThan(canonicalBaseline + 1)
+      return Date.now() - startedAt
+    }
+    const waitForCompleteProjection = async (
+      page: Page,
+      canonicalBaseline: number
+    ) => {
+      await expect
+        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+        .toBe(canonicalBaseline + 1281)
+      const canonicalCompleteMs = Date.now() - startedAt
+      await expect
+        .poll(() => getAppliedRenderProjectionCount(page), {
+          timeout: 30_000
+        })
+        .toBeGreaterThanOrEqual(1281)
+      return {
+        canonicalCompleteMs,
+        renderedCompleteMs: Date.now() - startedAt
+      }
+    }
+    const actorAFirstVector = waitForFirstVector(
+      actorA,
+      actorACanonicalBaseline
+    )
+    const actorBFirstVector = waitForFirstVector(
+      actorB,
+      actorBCanonicalBaseline
+    )
+    const actorAComplete = waitForCompleteProjection(
+      actorA,
+      actorACanonicalBaseline
+    )
+    const actorBComplete = waitForCompleteProjection(
+      actorB,
+      actorBCanonicalBaseline
+    )
+
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
+    await actorA
+      .getByLabel('Message Agent')
+      .fill('create the 1280-item CRDT performance fixture')
+    startedAt = Date.now()
+    await actorA.getByRole('button', { name: 'Send' }).click()
+
+    const settledTurn = actorA.getByTestId('ai-agent-message').last()
+    await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
+      timeout: 30_000
+    })
+    const actorATurnSettledMs = Date.now() - startedAt
+    const [
+      actorAFirstVectorMs,
+      actorBFirstVectorMs,
+      actorACompletion,
+      actorBCompletion
+    ] = await Promise.all([
+      actorAFirstVector,
+      actorBFirstVector,
+      actorAComplete,
+      actorBComplete
+    ])
+
+    const [
+      actorASnapshot,
+      actorBSnapshot,
+      actorAHierarchy,
+      actorBHierarchy,
+      actorAUndoDepthAfter,
+      actorBUndoDepthAfter
+    ] = await Promise.all([
+      getCanonicalSnapshot(actorA),
+      getCanonicalSnapshot(actorB),
+      getCanonicalHierarchyGeometry(actorA),
+      getCanonicalHierarchyGeometry(actorB),
+      getUndoDepth(actorA),
+      getUndoDepth(actorB)
+    ])
+    const getPointCount = (
+      snapshot: Awaited<ReturnType<typeof getCanonicalSnapshot>>
+    ) =>
+      snapshot.reduce((total, { computed, type }) => {
+        if (type !== 'vector') return total
+        const points = (computed as { points?: Record<string, unknown> }).points
+        return total + (points ? Object.keys(points).length : 0)
+      }, 0)
+
+    expect(
+      JSON.stringify(actorASnapshot) === JSON.stringify(actorBSnapshot)
+    ).toBe(true)
+    expect(
+      JSON.stringify(actorAHierarchy) === JSON.stringify(actorBHierarchy)
+    ).toBe(true)
+    expect(actorASnapshot.filter(({ type }) => type === 'group')).toHaveLength(
+      1
+    )
+    expect(actorASnapshot.filter(({ type }) => type === 'vector')).toHaveLength(
+      1280
+    )
+    expect(actorASnapshot.every(({ rendered }) => rendered)).toBe(true)
+    expect(getPointCount(actorASnapshot)).toBe(86_474)
+    expect(getPointCount(actorBSnapshot)).toBe(86_474)
+    expect(actorAUndoDepthAfter).toBe(actorAUndoDepthBefore + 1)
+    expect(actorBUndoDepthAfter).toBe(actorBUndoDepthBefore)
+
+    const timings = {
+      actorACanonicalCompleteMs: actorACompletion.canonicalCompleteMs,
+      actorAFirstVectorMs,
+      actorARenderedCompleteMs: actorACompletion.renderedCompleteMs,
+      actorATurnSettledMs,
+      actorBCanonicalCompleteMs: actorBCompletion.canonicalCompleteMs,
+      actorBFirstVectorMs,
+      actorBRenderedCompleteMs: actorBCompletion.renderedCompleteMs
+    }
+    testInfo.annotations.push({
+      description: JSON.stringify(timings),
+      type: '1,280-item CRDT timings'
+    })
+    await testInfo.attach('1280-item-cat-prefix-crdt-timings.json', {
+      body: Buffer.from(JSON.stringify(timings, null, 2)),
+      contentType: 'application/json'
+    })
   } finally {
     await Promise.all([actorAContext.close(), actorBContext.close()])
   }

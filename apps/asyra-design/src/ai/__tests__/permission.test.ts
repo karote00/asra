@@ -13,6 +13,9 @@ const action = (name: string): AiPreparedAction =>
     id: `${name}-1`,
     name,
     arguments: Object.freeze({}),
+    summary: Object.freeze({
+      affectedCount: 0
+    }),
     execute: async () => null
   })
 

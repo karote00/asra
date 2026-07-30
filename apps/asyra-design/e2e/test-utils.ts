@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Locator, Page } from '@playwright/test'
 import type { Rect } from '@asyra/utils'
 
@@ -10,6 +11,31 @@ export const SIDEBAR_WIDTH = 240 // COLUMN_WIDTH * 4 = 60 * 4
 export const HEADER_HEIGHT = 48 // h-12 = 12 * 4 = 48px
 
 const browserErrorsByPage = new WeakMap<Page, string[]>()
+
+export interface TestDocumentIdentity {
+  readonly fileId: string
+  readonly url: string
+}
+
+export const createTestDocumentIdentity = (
+  search = ''
+): TestDocumentIdentity => {
+  const values = new URLSearchParams(
+    search.startsWith('?') ? search.slice(1) : search
+  )
+  if (values.has('fileId')) {
+    throw new Error('createTestDocumentIdentity owns the isolated fileId')
+  }
+  const fileId = `e2e-${randomUUID()}`
+  values.set('fileId', fileId)
+  return Object.freeze({
+    fileId,
+    url: `/?${values.toString()}`
+  })
+}
+
+export const createTestDocumentURL = (search = ''): string =>
+  createTestDocumentIdentity(search).url
 
 export const captureBrowserErrors = (page: Page): void => {
   const browserErrors: string[] = []
@@ -124,7 +150,7 @@ export async function resetCanvas(page: Page) {
     .catch(() => false)
 
   if (!canReset) {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     resetButton = page.getByTestId('reset-button')
   }
@@ -419,13 +445,23 @@ export async function dragSelectedElementBy(
   await page.mouse.up()
 }
 
+export const getUndoHistoryDepth = async (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const performanceProfile = window.__AsyraAiDrawingPerformance__
+    if (performanceProfile) {
+      return performanceProfile.readHistoryDepth()
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+  })
+
 export const getTransactionSnapshot = async (page: Page) =>
   page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const transact = core?.deps?.factory?.transact
     const undoStack = transact?.undoStack ?? []
-
     return {
       undoCount: undoStack.length,
       isTransacting: transact?.isTransacting ?? 0
@@ -446,22 +482,32 @@ export const setSelectedGradient = async (
 
     const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
     const computed = element?.getAllComputedData?.() ?? {}
-    const fillId = computed?.fills?.[0]?.id
-    if (!fillId || !nextGradient) {
+    const fill = computed?.fills?.[0]
+    if (!fill?.id || !nextGradient) {
       return
     }
-
-    core.updatePropertyById(
-      fillId,
-      'gradient',
-      nextGradient,
-      {
-        ownerElementId: selectedId,
-        ownerPropertyName: 'fills'
-      },
+    if (typeof core?.patchElementProperties !== 'function') {
+      throw new Error('Typed element-property patch API is unavailable')
+    }
+    core.patchElementProperties(
+      [
+        {
+          elementId: selectedId,
+          records: [
+            {
+              key: 'fills',
+              set: {
+                [fill.id]: {
+                  ...fill,
+                  gradient: nextGradient
+                }
+              }
+            }
+          ]
+        }
+      ],
       { undoable: false }
     )
-    core.commitPropertyChanges({ undoable: false })
   }, gradient)
 }
 

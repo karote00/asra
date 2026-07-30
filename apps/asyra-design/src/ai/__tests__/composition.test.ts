@@ -4,7 +4,7 @@ import { composeAiAgentRuntime } from '../composition'
 
 const createRuntimeInput = (): CreateAiAgentRuntimeInput => ({
   provider: {
-    generateActionPlan: vi.fn()
+    requestActionBatch: vi.fn()
   },
   actionDefinitions: [],
   contextProvider: {
