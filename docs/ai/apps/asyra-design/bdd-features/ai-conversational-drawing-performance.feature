@@ -421,6 +421,8 @@ Feature: Conversational AI drawing performance
     Given RenderApp startup and resetData use the same App-owned fresh empty-document factory
     When resetData is invoked
     Then it should call Core.load exactly once with a fresh empty canonical document
+    And Core.load should be the sole FILE_LOAD_COMPLETE publisher
+    And Render readiness should not synthesize another file-load-complete event
     And it should perform no document IndexedDB access
     And it should perform no localStorage access
     And it should perform no URL parsing

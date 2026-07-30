@@ -1284,6 +1284,9 @@ intended transaction or history boundary.
 - Reset Data is a local demo-document reset, not a Factory action or CRDT clear
   command. It does not publish a canonical action and makes no claim that
   another Actor is cleared.
+- `Core.load(...)` is the sole `FILE_LOAD_COMPLETE` publisher for startup and
+  reset. App contexts may observe that completed load for zoom-fit, but never
+  synthesize file readiness from Render readiness.
 - Local action, Undo, and Redo and Actor B remote apply all produce zero client
   document persistence capture, provider save, document IndexedDB read, and
   document IndexedDB write. This does not prohibit the harness-owned pre-ready
