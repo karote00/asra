@@ -150,11 +150,23 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /sustained.*CPU.*heartbeat.*terminate.*Playwright.*headless browser.*App server.*collaboration server/i
+    /production performance profile.*O\(1\).*Render projection.*Factory publication.*history.*uncapped/i
   )
   assert.match(
     text,
-    /single.*900 percent.*immediately/i
+    /ordinary Playwright.*excludes.*guard environment variables.*CPU sample.*hard timeout.*SIGINT.*SIGTERM.*SIGHUP.*tracked process group/i
+  )
+  assert.match(
+    text,
+    /complete heartbeat.*both Actors.*exactly complete.*late over-projection/i
+  )
+  assert.match(
+    text,
+    /CPU.*heartbeat.*terminate.*Playwright.*headless browser.*App server.*collaboration server/i
+  )
+  assert.match(
+    text,
+    /250[- ]milliseconds?.*single.*above 150 percent.*immediately.*architecture attempt.*invalid/i
   )
   assert.match(
     text,
@@ -170,7 +182,23 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*terminate[\s\S]*five/i
+    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*above 150 percent[\s\S]*invalid architecture attempt[\s\S]*five/i
+  )
+  assert.match(
+    feature,
+    /uncapped Render projection element counts[\s\S]*production performance profile[\s\S]*O\(1\).*Factory publication/i
+  )
+  assert.match(
+    plan,
+    /Render\.getProjectedElementCount\(\)[\s\S]*O\(1\)[\s\S]*read-only[\s\S]*RenderLayer map/i
+  )
+  assert.match(
+    feature,
+    /exact ordinary viewport RenderLayer size.*computed mirror.*capped fixture count/i
+  )
+  assert.match(
+    plan,
+    /Factory\.getUndoHistoryDepth\(\)[\s\S]*read-only[\s\S]*private storage/i
   )
   const successRoute = data.routes.find(
     ({ id }) => id === 'route-endpoint-performance-proof'
@@ -220,6 +248,25 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     owner.implementationBoundary.includes(
       'apps/asyra-design/__tests__/performance-resource-guard.test.mjs'
     )
+  )
+  ;[
+    'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
+    'apps/asyra-design/src/init/__tests__/ai-drawing-performance-profile.test.ts',
+    'apps/asyra-design/src/init/init-app.ts',
+    'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+    'apps/asyra-design/playwright.config.ts',
+    'packages/render/src/render.ts',
+    'packages/render/src/layers/viewport/viewport-layer.ts',
+    'packages/render/src/__tests__/render.test.ts',
+    'packages/render/src/__tests__/viewport-layer.test.ts',
+    'packages/factory/src/data-transact.ts',
+    'packages/factory/src/factory.ts',
+    'packages/factory/src/__tests__/history-depth.test.ts',
+    'docs/ai/framework/API_SURFACES.md',
+    'docs/ai/framework/packages/factory.md',
+    'docs/ai/framework/packages/render.md'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
   assert.ok(
     !owner.implementationBoundary.some(

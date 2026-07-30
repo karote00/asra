@@ -408,6 +408,9 @@ See `packages/collaboration.md` and
   configuring both providers is rejected
 - `setEngineProvider(provider)` stores a reversible instance-local provider
   without invoking it
+- `Render.getProjectedElementCount()` returns the exact number of ordinary
+  viewport RenderLayer entries as an O(1) read-only scalar; it exposes neither
+  the layer map nor engine objects
 - `MissingRenderEngineProviderError` and
   `InvalidRenderEngineProviderResultError` distinguish provider absence from an
   invalid provider result
@@ -486,6 +489,8 @@ See `packages/collaboration.md` and
   - `updateTransaction(event)`
   - `endTransaction(options?)`
   - `undo()`, `redo()`
+  - `getUndoHistoryDepth()` (read-only exact depth of this Factory instance's
+    local undo history; it does not expose mutable history entries)
   - `runRemoteTransaction(callback)` (rollbackable, non-undoable remote origin)
   - `applyRemoteEvent(event, apply)` (one detached event forwarded unchanged to
     the registered state-owner apply callback)

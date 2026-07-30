@@ -158,6 +158,13 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
               type: String(element.get('type'))
             })
           ),
+        readCanonicalOwnerSnapshot: () => ({
+          props: core.deps.props.save(),
+          sceneTree: core.deps.sceneTree.save()
+        }),
+        readHistoryDepth: () => core.deps.factory.getUndoHistoryDepth(),
+        readRenderProjectionElementCount: () =>
+          core.deps.render.getProjectedElementCount(),
         subscribeToTransactionStatus: (subscriber) =>
           core.deps.factory.subscribeToTransactionStatus(subscriber)
       })

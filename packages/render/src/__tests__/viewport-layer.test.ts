@@ -4,6 +4,20 @@ import { ViewportLayer } from '../layers/viewport'
 import type { RenderElementData } from '../types'
 
 describe('ViewportLayer', () => {
+  it('reports the exact number of projected RenderLayer elements without exposing the map', () => {
+    const projectedElements = new Map([
+      ['group-1', {}],
+      ['vector-1', {}]
+    ])
+    const getAllElementsSpy = vi
+      .spyOn(RenderLayer.prototype, 'getAllElements')
+      .mockReturnValue(projectedElements as never)
+    const viewport = new ViewportLayer()
+
+    expect(viewport.getProjectedElementCount()).toBe(2)
+    expect(getAllElementsSpy).toHaveBeenCalledOnce()
+  })
+
   it('forwards the committed sibling index when adding an element', () => {
     const data = {
       id: 'indexed-element',

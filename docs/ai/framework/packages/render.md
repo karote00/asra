@@ -34,6 +34,10 @@ results/interactions back to framework-facing APIs.
   Utils would violate the engine package boundary.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
+- `Render.getProjectedElementCount()` is the one read-only O(1) query for the
+  exact ordinary viewport RenderLayer entry count. It returns only a scalar,
+  excludes custom layers, and never exposes the mutable layer map or an engine
+  object.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.
 
 ## Extension Points

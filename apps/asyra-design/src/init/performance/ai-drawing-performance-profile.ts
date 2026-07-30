@@ -1,3 +1,4 @@
+import type { TransactionStatusPayload } from '@asyra/utils'
 import type {
   AsyraDesignAiConversationController,
   AsyraDesignAiConversationSnapshot
@@ -31,6 +32,11 @@ export interface AiDrawingPerformanceCanonicalElement {
   readonly type: string
 }
 
+export interface AiDrawingPerformanceCanonicalOwnerSnapshot {
+  readonly props: unknown
+  readonly sceneTree: unknown
+}
+
 export interface AiDrawingPerformanceFactoryPublicationEvidence {
   readonly capturedAtMs: number
   readonly deliveryCount: number
@@ -39,25 +45,52 @@ export interface AiDrawingPerformanceFactoryPublicationEvidence {
 
 export interface AiDrawingPerformanceFactoryCommitEvidence {
   readonly capturedAtMs: number
-  readonly origin: string
+  readonly origin: TransactionStatusPayload['origin']
   readonly transactionId: number
+  readonly undoableChangeCount: number
+}
+
+export interface AiDrawingPerformanceDiagnosticErrorEvidence {
+  readonly message: string
+  readonly name: string
+}
+
+export type AiDrawingPerformanceDiagnosticValue =
+  | AiDrawingPerformanceDiagnosticErrorEvidence
+  | string
+
+export interface AiDrawingPerformanceFactoryTransactionStatusEvidence {
+  readonly capturedAtMs: number
+  readonly changeCount: number
+  readonly error?: AiDrawingPerformanceDiagnosticValue
+  readonly failure?: {
+    readonly cause?: AiDrawingPerformanceDiagnosticValue
+    readonly kind: NonNullable<TransactionStatusPayload['failure']>['kind']
+    readonly message?: string
+  }
+  readonly nonRollbackableChangeCount: number
+  readonly origin: TransactionStatusPayload['origin']
+  readonly providerName?: string
+  readonly rollbackableChangeCount: number
+  readonly status: TransactionStatusPayload['status']
+  readonly transactionId: number
+  readonly undoableChangeCount: number
 }
 
 export interface AiDrawingPerformanceRuntimeEvidence {
   readonly factoryCommits: readonly AiDrawingPerformanceFactoryCommitEvidence[]
   readonly factoryPublications: readonly AiDrawingPerformanceFactoryPublicationEvidence[]
+  readonly factoryStatuses: readonly AiDrawingPerformanceFactoryTransactionStatusEvidence[]
 }
 
 export interface AiDrawingPerformanceRuntimeEvidenceSource {
   readCanonicalElementCount(): number
   readCanonicalElements(): readonly AiDrawingPerformanceCanonicalElement[]
+  readCanonicalOwnerSnapshot(): AiDrawingPerformanceCanonicalOwnerSnapshot
+  readHistoryDepth(): number
+  readRenderProjectionElementCount(): number
   subscribeToTransactionStatus(
-    subscriber: (status: {
-      readonly origin: string
-      readonly status: string
-      readonly timestamp: number
-      readonly transactionId: number
-    }) => void
+    subscriber: (status: TransactionStatusPayload) => void
   ): () => void
 }
 
@@ -75,8 +108,15 @@ export interface AiDrawingPerformanceProfile {
   ): () => void
   dispose(): void
   getRuntimeEvidence(): AiDrawingPerformanceRuntimeEvidence
+  readConversationSnapshot(): AsyraDesignAiConversationSnapshot | null
+  readCounterTotal(name: string): number
   readCanonicalElementCount(): number
   readCanonicalElements(): readonly AiDrawingPerformanceCanonicalElement[]
+  readCanonicalOwnerSnapshot(): AiDrawingPerformanceCanonicalOwnerSnapshot
+  readFactoryPublicationCount(): number
+  readHistoryDepth(): number
+  readLatestPhaseSample(): AiDrawingPerformancePhaseSample | null
+  readRenderProjectionElementCount(): number
   reset(): void
   snapshot(): AiDrawingPerformanceSnapshot
 }
@@ -108,6 +148,72 @@ const runtimeEvidenceOwners = new WeakMap<
   AiDrawingPerformanceProfile,
   AiDrawingPerformanceRuntimeEvidenceOwner
 >()
+
+const serializeDiagnosticValue = (
+  value: unknown
+): AiDrawingPerformanceDiagnosticValue | undefined => {
+  if (value === undefined) return
+  if (value instanceof Error) {
+    return Object.freeze({
+      message: value.message,
+      name: value.name
+    })
+  }
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) {
+    return String(value)
+  }
+  const candidate = value as { message?: unknown; name?: unknown }
+  if (
+    typeof candidate.message === 'string' ||
+    typeof candidate.name === 'string'
+  ) {
+    return Object.freeze({
+      message:
+        typeof candidate.message === 'string'
+          ? candidate.message
+          : String(value),
+      name: typeof candidate.name === 'string' ? candidate.name : 'Error'
+    })
+  }
+  return String(value)
+}
+
+const captureFactoryTransactionStatus = (
+  status: TransactionStatusPayload
+): AiDrawingPerformanceFactoryTransactionStatusEvidence => {
+  const cause = serializeDiagnosticValue(status.failure?.cause)
+  const error = serializeDiagnosticValue(status.error)
+  return Object.freeze({
+    capturedAtMs: status.timestamp,
+    changeCount: status.changeCount,
+    ...(error === undefined ? {} : { error }),
+    ...(status.failure
+      ? {
+          failure: Object.freeze({
+            ...(cause === undefined ? {} : { cause }),
+            kind: status.failure.kind,
+            ...(status.failure.message === undefined
+              ? {}
+              : { message: status.failure.message })
+          })
+        }
+      : {}),
+    nonRollbackableChangeCount: status.nonRollbackableChangeCount,
+    origin: status.origin,
+    ...(status.providerName === undefined
+      ? {}
+      : { providerName: status.providerName }),
+    rollbackableChangeCount: status.rollbackableChangeCount,
+    status: status.status,
+    transactionId: status.transactionId,
+    undoableChangeCount: status.undoableChangeCount
+  })
+}
 
 export const attachAiDrawingPerformanceRuntimeEvidence = (
   profile: AiDrawingPerformanceProfile,
@@ -142,10 +248,7 @@ export const resolveAiDrawingPerformanceProfile = (
   search: string
 ): AiDrawingPerformanceConfiguration | null => {
   const values = new URLSearchParams(search)
-  if (
-    exactlyOne(values, 'ai', ['mock']) !== 'mock' ||
-    exactlyOne(values, 'aiPerformance', ['profile']) !== 'profile'
-  ) {
+  if (exactlyOne(values, 'aiPerformance', ['profile']) !== 'profile') {
     return null
   }
 
@@ -213,8 +316,11 @@ export const installAiDrawingPerformanceProfile = ({
   const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
   const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
   const counters: AiDrawingPerformanceCounterSample[] = []
+  const counterTotals = new Map<string, number>()
   const factoryCommits: AiDrawingPerformanceFactoryCommitEvidence[] = []
   const factoryPublications: AiDrawingPerformanceFactoryPublicationEvidence[] =
+    []
+  const factoryStatuses: AiDrawingPerformanceFactoryTransactionStatusEvidence[] =
     []
   const phases: AiDrawingPerformancePhaseSample[] = []
   let baselineMs = now()
@@ -240,6 +346,7 @@ export const installAiDrawingPerformanceProfile = ({
   const recordCounter = (name: string, value: number) => {
     if (disposed || !Number.isFinite(value)) return
     counters.push(Object.freeze({ atMs: elapsed(), name, value }))
+    counterTotals.set(name, (counterTotals.get(name) ?? 0) + value)
   }
   const phaseSink: PhaseSink = (name, durationMs) => {
     recordPhase(name, durationMs)
@@ -266,13 +373,15 @@ export const installAiDrawingPerformanceProfile = ({
     try {
       detachTransactionStatus = source.subscribeToTransactionStatus(
         (status) => {
-          if (status.status !== 'committed') return
           if (disposed || !Number.isFinite(status.timestamp)) return
+          factoryStatuses.push(captureFactoryTransactionStatus(status))
+          if (status.status !== 'committed') return
           factoryCommits.push(
             Object.freeze({
               capturedAtMs: status.timestamp,
               origin: status.origin,
-              transactionId: status.transactionId
+              transactionId: status.transactionId,
+              undoableChangeCount: status.undoableChangeCount
             })
           )
         }
@@ -366,14 +475,31 @@ export const installAiDrawingPerformanceProfile = ({
       runtimeEvidenceOwners.delete(profile)
     },
     getRuntimeEvidence: () =>
-      Object.freeze({
-        factoryCommits: Object.freeze(
-          factoryCommits.map((evidence) => Object.freeze({ ...evidence }))
-        ),
-        factoryPublications: Object.freeze(
-          factoryPublications.map((evidence) => Object.freeze({ ...evidence }))
-        )
-      }),
+      (() => {
+        const detached = structuredClone({
+          factoryCommits,
+          factoryPublications,
+          factoryStatuses
+        })
+        return Object.freeze({
+          factoryCommits: Object.freeze(
+            detached.factoryCommits.map((evidence) => Object.freeze(evidence))
+          ),
+          factoryPublications: Object.freeze(
+            detached.factoryPublications.map((evidence) =>
+              Object.freeze(evidence)
+            )
+          ),
+          factoryStatuses: Object.freeze(
+            detached.factoryStatuses.map((evidence) => Object.freeze(evidence))
+          )
+        })
+      })(),
+    readConversationSnapshot: () =>
+      previousConversationSnapshot
+        ? structuredClone(previousConversationSnapshot)
+        : null,
+    readCounterTotal: (name: string) => counterTotals.get(name) ?? 0,
     readCanonicalElementCount: () => {
       if (!runtimeEvidenceSource || disposed) {
         throw new Error(
@@ -396,11 +522,64 @@ export const installAiDrawingPerformanceProfile = ({
       }
       return structuredClone(runtimeEvidenceSource.readCanonicalElements())
     },
+    readCanonicalOwnerSnapshot: () => {
+      if (!runtimeEvidenceSource || disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      return structuredClone(runtimeEvidenceSource.readCanonicalOwnerSnapshot())
+    },
+    readFactoryPublicationCount: () => {
+      if (disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      return factoryPublications.length
+    },
+    readHistoryDepth: () => {
+      if (!runtimeEvidenceSource || disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      const depth = runtimeEvidenceSource.readHistoryDepth()
+      if (!Number.isSafeInteger(depth) || depth < 0) {
+        throw new Error('AI drawing performance history depth is invalid')
+      }
+      return depth
+    },
+    readLatestPhaseSample: () => {
+      if (disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      const latest = phases.at(-1)
+      return latest ? Object.freeze({ ...latest }) : null
+    },
+    readRenderProjectionElementCount: () => {
+      if (!runtimeEvidenceSource || disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      const count = runtimeEvidenceSource.readRenderProjectionElementCount()
+      if (!Number.isSafeInteger(count) || count < 0) {
+        throw new Error(
+          'AI drawing performance Render projection element count is invalid'
+        )
+      }
+      return count
+    },
     reset: () => {
       if (disposed) return
       counters.length = 0
+      counterTotals.clear()
       factoryCommits.length = 0
       factoryPublications.length = 0
+      factoryStatuses.length = 0
       phases.length = 0
       baselineMs = now()
     },

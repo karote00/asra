@@ -22,10 +22,17 @@ Feature: Conversational AI drawing performance
     And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
     When the guarded endpoint benchmark starts
     Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
-    And each bounded heartbeat should report the current phase, Actor A canonical element count, Actor B canonical element count, publication progress, and test-owned process-tree CPU
-    And one test-owned CPU sample at or above 900 percent should stop the benchmark immediately
+    And each bounded heartbeat should report the current phase, Actor A and Actor B canonical and uncapped Render projection element counts, publication progress, and test-owned process-tree CPU
+    And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
+    And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
+    And exact Undo depth should use the Factory read-only history query rather than private transaction storage
+    And ordinary Playwright discovery should exclude this guarded endpoint even when guard environment variables are present
+    And the 250-millisecond CPU cadence should be armed before the immediate first sample
+    And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the tracked process group
+    And a complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
+    And one test-owned CPU sample above 150 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
-    And sustained emergency CPU, stale heartbeat under load, or stalled Actor A and Actor B progress under load should fail the endpoint
+    And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence

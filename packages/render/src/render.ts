@@ -366,6 +366,10 @@ class Render {
     this.requestRender()
   }
 
+  getProjectedElementCount(): number {
+    return this.viewport.getProjectedElementCount()
+  }
+
   addContainer(containerData: RenderContainerData) {
     this.publishElementEvidence('add', containerData.label, () => containerData)
     const container = this.viewport.addContainer(containerData)

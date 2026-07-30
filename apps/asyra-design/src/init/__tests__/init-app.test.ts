@@ -246,6 +246,12 @@ describe('initApp preset composition', () => {
 
   it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {
     const detachRuntimeEvidence = vi.fn()
+    const readProjectedElementCount = vi
+      .spyOn(core.deps.render, 'getProjectedElementCount')
+      .mockReturnValue(7)
+    const readUndoHistoryDepth = vi
+      .spyOn(core.deps.factory, 'getUndoHistoryDepth')
+      .mockReturnValue(3)
     const attachRuntimeEvidence = vi
       .spyOn(aiDrawingPerformance, 'attachAiDrawingPerformanceRuntimeEvidence')
       .mockReturnValue(detachRuntimeEvidence)
@@ -259,9 +265,17 @@ describe('initApp preset composition', () => {
       {
         readCanonicalElementCount: expect.any(Function),
         readCanonicalElements: expect.any(Function),
+        readCanonicalOwnerSnapshot: expect.any(Function),
+        readHistoryDepth: expect.any(Function),
+        readRenderProjectionElementCount: expect.any(Function),
         subscribeToTransactionStatus: expect.any(Function)
       }
     )
+    const runtimeSource = attachRuntimeEvidence.mock.calls[0][1]
+    expect(runtimeSource.readHistoryDepth()).toBe(3)
+    expect(runtimeSource.readRenderProjectionElementCount()).toBe(7)
+    expect(readUndoHistoryDepth).toHaveBeenCalledOnce()
+    expect(readProjectedElementCount).toHaveBeenCalledOnce()
 
     await initialization.dispose()
 

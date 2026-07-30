@@ -9,10 +9,13 @@ const appEnvironment = resolveAsyraDesignEnvironment(
   loadAsyraDesignEnvironment()
 )
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
-const ordinaryTestIgnore =
-  process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
-    ? ['collaboration.spec.ts', 'render-delta-performance.spec.ts']
-    : 'collaboration.spec.ts'
+const ordinaryTestIgnore = [
+  'collaboration.spec.ts',
+  'crdt-endpoint-performance.spec.ts',
+  ...(process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
+    ? ['render-delta-performance.spec.ts']
+    : [])
+]
 const ordinaryGrepInvert =
   process.env.ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS === '1'
     ? undefined

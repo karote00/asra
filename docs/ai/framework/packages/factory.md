@@ -212,6 +212,9 @@ infrastructure.
 - Direct `undo()` and `redo()` on a consumer-owned Factory temporarily route
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
+- `getUndoHistoryDepth()` is the sole read-only scalar query for the exact local
+  undo depth owned by that Factory instance. It does not expose, clone, or allow
+  mutation of history entries and does not include remote transactions.
 
 ## Hierarchy Transaction Contract
 

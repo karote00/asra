@@ -23,6 +23,13 @@ describe('Render', () => {
     expect(render.viewport).toBeInstanceOf(ViewportLayerModule.ViewportLayer)
   })
 
+  it('should expose only the exact viewport projection count', () => {
+    vi.spyOn(render.viewport, 'getProjectedElementCount').mockReturnValue(7077)
+
+    expect(render.getProjectedElementCount()).toBe(7077)
+    expect(render.viewport.getProjectedElementCount).toHaveBeenCalledOnce()
+  })
+
   // Test init method
   it('should initialize the injected engine and set up root layers', async () => {
     const width = 800

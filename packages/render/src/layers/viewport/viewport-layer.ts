@@ -32,6 +32,10 @@ export class ViewportLayer {
     return this.renderLayer.getElementById(elementId)
   }
 
+  getProjectedElementCount(): number {
+    return this.renderLayer.getAllElements().size
+  }
+
   getAllElementsBounds(): Bounds | null {
     if (this.renderLayer.getAllElements().size === 0) {
       return null

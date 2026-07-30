@@ -231,9 +231,16 @@ single committed benchmark with exactly this mission:
   7,076-element progressive cat creation, and no later property follow-up,
   Undo, Redo, reload, persistence assertion, recording, screenshot, trace, or
   CPU profile;
-- O(1) heartbeat evidence for the current phase, Actor A canonical element
-  count, Actor B canonical element count, publication progress, and named owner
-  timings;
+- O(1) heartbeat evidence from the production performance profile for the
+  current phase, Actor A/B canonical and Render projection element counts,
+  Factory publication progress, history depth, collaboration outcomes, and
+  named owner timings; Render projection counts are never capped at the
+  expected fixture size, so stale or duplicate projections remain visible;
+- `Render.getProjectedElementCount()` is the single O(1), read-only query for
+  the actual ordinary viewport RenderLayer map. It returns only a number and
+  does not expose the map, an engine object, or canonical state;
+- `Factory.getUndoHistoryDepth()` is the single read-only query for exact local
+  Undo depth. The profile never casts or reads `DataTransact` private storage;
 - Actor A complete time, Actor B first-visible time, Actor B complete/converged
   time, exact canonical equivalence, one Actor A Undo action, zero Actor B Undo,
   zero echo, and zero client persistence work;
@@ -251,30 +258,38 @@ against a production endpoint.
 No 7,000-plus benchmark may start without the project-owned guard. Before the
 AI request, the test sends an authenticated `ready` heartbeat and waits until
 the guard confirms process-group ownership and active CPU sampling. A missing
-or rejected handshake prevents the request from starting. The guard then
-samples only the test-owned process group once per second and receives one
-bounded heartbeat from the benchmark without walking or hashing the canonical
-graph.
+or rejected handshake prevents the request from starting. The guard samples
+only the test-owned process group and receives one bounded heartbeat from the
+benchmark without walking or hashing the canonical graph. The first
+process-group CPU sample runs immediately after spawn; later samples run at most
+250 milliseconds apart.
 
-Default emergency limits are:
+The fixed limits cannot be relaxed through runner configuration:
 
-- one test-owned process-tree sample at or above 900 percent CPU, which stops
-  the benchmark immediately;
-- aggregate test-owned process-tree CPU above 600 percent for five consecutive
-  samples;
-- no heartbeat for 10 seconds while the process tree remains above 300 percent;
+- any single test-owned process-tree sample above 150 percent CPU, which stops
+  the benchmark immediately and marks that architecture attempt invalid;
+- no heartbeat for 10 seconds while the process tree remains above the ordinary
+  80 percent baseline;
   or
 - no Actor A/B canonical progress for 20 seconds while the process tree remains
-  above 300 percent.
+  above the ordinary 80 percent baseline.
 
-Crossing a limit is an endpoint failure, not a slow pass. The guard first sends
-termination to the tracked Playwright, headless browser, App server, and
-collaboration server process group, waits at most three seconds, then force
-terminates only surviving tracked test processes. It must report the last
-completed phase, Actor A and Actor B element counts, publication progress,
-test-owned CPU samples, and last owner timing. If process ownership or the
-heartbeat cannot be established, the benchmark refuses to start rather than
-running unguarded.
+Crossing a limit is a failed refactor architecture attempt, not a slow pass or a
+benchmark warning. The guard first sends termination to the tracked Playwright,
+headless browser, App server, and collaboration server process group, waits at
+most three seconds, then force terminates only surviving tracked test processes.
+It must report the last completed phase, Actor A and Actor B element counts,
+publication progress, test-owned CPU samples, and last owner timing. If process
+ownership or the heartbeat cannot be established, the benchmark refuses to
+start rather than running unguarded.
+
+Every `ps` sample has a 200-millisecond hard timeout, shorter than the fixed
+250-millisecond cadence. SIGINT, SIGTERM, SIGHUP,
+exceptional guard exit, and benchmark failure all terminate the same exact
+tracked process group. The ordinary Playwright suite always excludes the heavy
+endpoint spec, even if guard environment variables leak into the process. A
+terminal complete heartbeat re-samples and revalidates both exact Actor
+projections; it cannot reuse a report produced before a late extra projection.
 
 ### Endpoint Iteration and Effectiveness
 

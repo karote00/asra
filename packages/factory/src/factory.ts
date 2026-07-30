@@ -273,6 +273,10 @@ class Factory {
     return this.transactionOwner
   }
 
+  getUndoHistoryDepth(): number {
+    return this.transact.getUndoHistoryDepth()
+  }
+
   isInUndoRedo() {
     return this.transact.isInUndo() || this.transact.isInRedo()
   }

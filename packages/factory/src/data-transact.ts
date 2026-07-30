@@ -3561,6 +3561,10 @@ class DataTransact {
     return this.inUndo
   }
 
+  getUndoHistoryDepth(): number {
+    return this.undoStack.length
+  }
+
   isInRedo() {
     return this.inRedo
   }
