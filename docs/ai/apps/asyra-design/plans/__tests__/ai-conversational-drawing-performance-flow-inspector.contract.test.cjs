@@ -100,7 +100,7 @@ test('formal performance evidence uses production detached queries and named har
   assert.match(text, /dev-only window\.__Core__.*cannot satisfy/i)
   assert.match(
     text,
-    /navigation.*App readiness.*collaboration readiness.*Mock AI.*reference attachment.*runtime evidence.*history baselines.*harness spans/i
+    /navigation.*App readiness.*collaboration readiness.*Conversational AI readiness.*reference attachment.*runtime evidence.*history baselines.*harness spans/i
   )
   assert.doesNotMatch(text, /persistence baseline/i)
   ;[
@@ -129,8 +129,74 @@ test('performance plan and BDD retain the production evidence boundary', () => {
   )
 })
 
-test('file-scoped Mock backend response is server-prepared before request timing', () => {
-  const owner = step('preload-file-scoped-mock-backend-response')
+test('production conversational AI uses one ActionBatch contract without compatibility modes', () => {
+  const providerOwner = step('preload-file-scoped-server-response')
+  const runtimeOwner = step('resolve-server-prepared-action-batch')
+  const providerText = contractText(providerOwner)
+  const runtimeText = contractText(runtimeOwner)
+  const activeText = (owner) =>
+    [
+      owner.purpose,
+      ...owner.inputs,
+      ...owner.outputs,
+      ...owner.conditions,
+      ...owner.bypasses,
+      ...owner.allowedContributors,
+      ...owner.implementationBoundary
+    ].join(' ')
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(providerText, /response inbox adapter.*required fileId/i)
+  assert.match(providerText, /requestActionBatch\(\).*AiActionBatch.*batchId/i)
+  assert.match(runtimeText, /resolveAiActionBatch\(\).*AiActionBatch.*batchId/i)
+  assert.match(
+    runtimeText,
+    /ResolvedAiActionBatch.*PermissionReadyAiActionBatch.*AiActionBatchPreview/i
+  )
+  assert.doesNotMatch(
+    `${activeText(providerOwner)}\n${activeText(runtimeOwner)}`,
+    /\bMock\b|\bfake\b|local-compat/i
+  )
+  assert.doesNotMatch(
+    `${activeText(providerOwner)}\n${activeText(runtimeOwner)}`,
+    /\brequestPlan\b|\bresolvePlan\b|\bplanId\b|plan API alias|compatibility alias/i
+  )
+  ;[
+    'apps/asyra-design/src/ai/server-action-batch-provider.ts',
+    'apps/asyra-design/src/ai/server-response-inbox.ts',
+    'apps/asyra-design/src/startup.ts',
+    'apps/asyra-design/e2e/server-response-inbox.ts',
+    'apps/asyra-design/e2e/conversational-ai.spec.ts'
+  ].forEach((boundary) =>
+    assert.ok(providerOwner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    providerText,
+    /deterministic preparation.*seed.*fixture.*test or manual harness.*never.*production bundle/i
+  )
+  assert.match(
+    providerText,
+    /no artificial delay.*phrase.*fixture fallback.*failure simulation/i
+  )
+  assert.match(
+    plan,
+    /Server-prepared AiActionBatch Contract[\s\S]*requestActionBatch\(input, \{ signal \}\)[\s\S]*AiActionBatch.*batchId[\s\S]*resolveAiActionBatch\(batch, \{ signal \}\)[\s\S]*ResolvedAiActionBatch[\s\S]*PermissionReadyAiActionBatch[\s\S]*AiActionBatchPreview/i
+  )
+  assert.match(
+    plan,
+    /former action-plan API[\s\S]*planId[\s\S]*plan aliases[\s\S]*compatibility overloads.*deleted/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Runtime resolves one server-prepared AiActionBatch[\s\S]*requestActionBatch\(\).*AiActionBatch.*batchId[\s\S]*resolveAiActionBatch\(\)/i
+  )
+})
+
+test('file-scoped server response is prepared before request timing', () => {
+  const owner = step('preload-file-scoped-server-response')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -139,7 +205,7 @@ test('file-scoped Mock backend response is server-prepared before request timing
 
   assert.match(
     text,
-    /required fileId.*versioned Mock backend response.*IndexedDB/i
+    /required fileId.*versioned server response.*response inbox.*IndexedDB/i
   )
   assert.match(text, /before.*App.*Agent.*readiness.*before.*stable.*baseline/i)
   assert.match(text, /16.*320.*1,280.*7,075.*exact/i)
@@ -153,7 +219,7 @@ test('file-scoped Mock backend response is server-prepared before request timing
   )
   assert.match(
     text,
-    /backend.*validate.*normalize.*compact.*before.*IndexedDB.*provider.*resident.*server-prepared/i
+    /test or manual harness.*prepares.*versioned server response.*before.*App navigation/i
   )
   assert.match(
     text,
@@ -161,69 +227,56 @@ test('file-scoped Mock backend response is server-prepared before request timing
   )
   assert.ok(
     owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/mock-provider.ts'
+      'apps/asyra-design/src/ai/server-action-batch-provider.ts'
     )
   )
   assert.ok(
     owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/mock-backend-response-store.ts'
+      'apps/asyra-design/src/ai/server-response-inbox.ts'
     )
   )
   assert.ok(
-    owner.implementationBoundary.includes('apps/asyra-design/src/index.tsx')
+    owner.implementationBoundary.includes('apps/asyra-design/src/startup.ts')
   )
   assert.ok(
-    owner.implementationBoundary.includes('apps/asyra-design/src/init/index.ts')
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/e2e/server-response-inbox.ts'
+    )
   )
-  assert.equal(
-    data.steps.some(
-      ({ id }) => id === 'materialize-bounded-mock-provider-prefix'
-    ),
-    false
+  const actionBatch = data.artifacts.find(
+    ({ id }) => id === 'artifact:server-prepared-action-batch'
   )
-  const candidate = data.artifacts.find(
-    ({ id }) => id === 'artifact:server-prepared-ai-plan'
-  )
-  assert.equal(
-    candidate?.ownerStepId,
-    'preload-file-scoped-mock-backend-response'
-  )
-  assert.deepEqual(candidate?.consumerStepIds, [
-    'resolve-server-prepared-ai-plan'
+  assert.equal(actionBatch?.ownerStepId, 'preload-file-scoped-server-response')
+  assert.deepEqual(actionBatch?.consumerStepIds, [
+    'resolve-server-prepared-action-batch'
   ])
   ;[
-    'artifact:mock-backend-bootstrap-timing',
-    'artifact:mock-provider-response-timing'
+    'artifact:response-inbox-bootstrap-timing',
+    'artifact:provider-response-handoff-timing'
   ].forEach((artifactId) => {
     const artifact = data.artifacts.find(({ id }) => id === artifactId)
-    assert.equal(
-      artifact?.ownerStepId,
-      'preload-file-scoped-mock-backend-response'
-    )
+    assert.equal(artifact?.ownerStepId, 'preload-file-scoped-server-response')
     assert.deepEqual(artifact?.consumerStepIds, [
       'evaluate-endpoint-performance',
       'evaluate-performance-and-equivalence'
     ])
   })
-  const candidateRoute = data.routes.find(
-    ({ id }) => id === 'route-server-prepared-ai-plan-to-runtime'
+  const actionBatchRoute = data.routes.find(
+    ({ id }) => id === 'route-server-prepared-action-batch-to-runtime'
   )
-  assert.equal(
-    candidateRoute?.from,
-    'preload-file-scoped-mock-backend-response'
-  )
-  assert.equal(candidateRoute?.to, 'resolve-server-prepared-ai-plan')
-  assert.deepEqual(candidateRoute?.producedArtifacts, [
-    'artifact:server-prepared-ai-plan'
+  assert.equal(actionBatchRoute?.from, 'preload-file-scoped-server-response')
+  assert.equal(actionBatchRoute?.to, 'resolve-server-prepared-action-batch')
+  assert.deepEqual(actionBatchRoute?.producedArtifacts, [
+    'artifact:server-prepared-action-batch'
   ])
   ;[
-    'route-mock-backend-bootstrap-timing-to-endpoint-proof',
-    'route-mock-backend-bootstrap-timing-to-final-proof',
-    'route-mock-provider-response-timing-to-endpoint-proof',
-    'route-mock-provider-response-timing-to-final-proof'
+    'route-response-inbox-bootstrap-timing-to-endpoint-proof',
+    'route-response-inbox-bootstrap-timing-to-final-proof',
+    'route-provider-response-handoff-timing-to-endpoint-proof',
+    'route-provider-response-handoff-timing-to-final-proof'
   ].forEach((routeId) => {
     const route = data.routes.find(({ id }) => id === routeId)
-    assert.equal(route?.from, 'preload-file-scoped-mock-backend-response')
+    assert.equal(route?.from, 'preload-file-scoped-server-response')
   })
   assert.equal(
     data.artifacts.some(
@@ -233,16 +286,16 @@ test('file-scoped Mock backend response is server-prepared before request timing
   )
   assert.match(
     plan,
-    /File-scoped Mock Backend Bootstrap Contract[\s\S]*server-prepared[\s\S]*compact[\s\S]*IndexedDB[\s\S]*App and Agent readiness[\s\S]*request-time[\s\S]*resident/i
+    /File-scoped Server Response Inbox Contract[\s\S]*test\/manual harness.*validate and normalize[\s\S]*bounded summary.*compact composition geometry[\s\S]*IndexedDB response inbox adapter[\s\S]*App and Agent readiness[\s\S]*At request time.*requestActionBatch\(\)[\s\S]*no artificial delay/i
   )
   assert.match(
     feature,
-    /Scenario: Required fileId preloads one server-prepared Mock backend response before App readiness[\s\S]*compact[\s\S]*IndexedDB[\s\S]*canonical document.*empty[\s\S]*request-time/i
+    /Scenario: Required fileId preloads one server response inbox record before App readiness[\s\S]*compacts one exact model response.*outside the production bundle[\s\S]*IndexedDB response inbox adapter[\s\S]*canonical document.*empty[\s\S]*request-time response inbox access/i
   )
 })
 
-test('Runtime resolves one server-prepared plan without client model validation', () => {
-  const owner = step('resolve-server-prepared-ai-plan')
+test('Runtime resolves one server-prepared ActionBatch without client model validation', () => {
+  const owner = step('resolve-server-prepared-action-batch')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -251,11 +304,11 @@ test('Runtime resolves one server-prepared plan without client model validation'
 
   assert.match(
     text,
-    /runtime\.run.*only public.*server-prepared.*entry.*no public or internal.*prepare.*normalize.*validate/i
+    /requestActionBatch\(\).*only public provider.*resolveAiActionBatch\(\).*only Runtime resolution.*no public or internal plan API/i
   )
   assert.match(
     text,
-    /control envelope.*plan id.*duplicate ids.*unknown actions.*does not traverse.*item.*path.*point.*geometry/i
+    /AiActionBatch carries.*batchId.*empty-batch rule.*duplicate action ids.*unknown actions.*does not traverse.*item.*path.*point.*geometry/i
   )
   assert.match(
     text,
@@ -263,7 +316,7 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     text,
-    /action definition.*inputSchema.*provider planning.*no client.*schema.*parse.*prepare/i
+    /action definition.*inputSchema.*server action-batch construction.*no client.*schema.*parse.*prepare/i
   )
   assert.match(
     text,
@@ -275,7 +328,7 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     text,
-    /bounded.*summary.*confirmation and terminal preview.*never complete item, path, point.*geometry/i
+    /bounded redaction-ready summary.*AiActionBatchPreview.*only that summary.*never complete item, path, point.*geometry/i
   )
   assert.match(
     text,
@@ -287,7 +340,7 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     text,
-    /Mock backend.*validate.*normalize.*item.*path.*point.*compact.*before App readiness.*front.?end.*materializ.*progressive slice/i
+    /server validates.*normalize.*item.*path.*point.*compact.*before App readiness.*front.?end.*materializ.*progressive slice/i
   )
   ;[
     'packages/ai-agent-runtime/src',
@@ -305,7 +358,15 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     plan,
-    /Server-prepared AI Plan Contract[\s\S]*runtime\.run\(\)[\s\S]*control envelope[\s\S]*inputSchema[\s\S]*no client-side action[\s\S]*schema[\s\S]*compact[\s\S]*progressive slice/i
+    /Server-prepared AiActionBatch Contract[\s\S]*requestActionBatch\(input, \{ signal \}\)[\s\S]*AiActionBatch.*batchId[\s\S]*resolveAiActionBatch\(batch, \{ signal \}\)[\s\S]*ResolvedAiActionBatch[\s\S]*PermissionReadyAiActionBatch[\s\S]*AiActionBatchPreview/i
+  )
+  assert.match(
+    plan,
+    /small control envelope[\s\S]*batchId[\s\S]*empty batch[\s\S]*duplicate ids[\s\S]*unknown actions[\s\S]*never traverses item, path, point, style, bounds[\s\S]*geometry/i
+  )
+  assert.match(
+    plan,
+    /backend-facing `inputSchema`[\s\S]*no client-side action[\s\S]*schema.*parse.*prepare[\s\S]*compact coordinate artifact[\s\S]*materializes only the next[\s\S]*progressive slice/i
   )
   assert.match(
     plan,
@@ -313,11 +374,11 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     feature,
-    /Scenario: Runtime resolves one server-prepared AI plan without client model validation[\s\S]*runtime\.run\(\)[\s\S]*control envelope[\s\S]*inputSchema[\s\S]*same action arguments identity[\s\S]*bounded summary without items, paths, points, or complete geometry[\s\S]*local, noncanonical, and nonshared/i
+    /Scenario: Runtime resolves one server-prepared AiActionBatch without client model validation[\s\S]*requestActionBatch\(\)[\s\S]*resolveAiActionBatch\(\)[\s\S]*control envelope[\s\S]*inputSchema[\s\S]*same action arguments identity[\s\S]*bounded summaries.*without items, paths, points, or complete geometry[\s\S]*local, noncanonical, and nonshared/i
   )
   assert.match(
     feature,
-    /Mock backend.*validate and normalize[\s\S]*before App readiness/i
+    /test or manual harness.*validates, normalizes[\s\S]*outside the production bundle[\s\S]*before App navigation[\s\S]*resident before App readiness/i
   )
   assert.match(feature, /server-prepared action.*compact coordinate artifact/i)
   assert.match(
@@ -331,7 +392,7 @@ test('Runtime resolves one server-prepared plan without client model validation'
   )
   assert.match(
     plan,
-    /650-millisecond provider delay[\s\S]*Runtime then synchronously calls.*action schema/i
+    /superseded fixed 650-millisecond artificial delay[\s\S]*Runtime then synchronously calls the registered action schema/i
   )
 })
 
@@ -427,7 +488,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /Mock backend.*IndexedDB.*seed.*read.*structured clone.*handoff.*external backend.*transport.*recorded separately.*excluded.*frontend product execution/i
+    /Response inbox seed, read, structured clone, and handoff.*external backend and transport-adapter timing.*recorded separately.*excluded from frontend product execution/i
   )
   assert.match(
     text,
@@ -517,7 +578,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*unobserved sub-interval helper[\s\S]*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one Mock backend boundary, Runtime, loading, local canonical, or receiver owner/i
+    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*unobserved sub-interval helper[\s\S]*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner/i
   )
   assert.match(
     feature,
@@ -529,7 +590,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /Mock backend IndexedDB seed, read, structured clone, and handoff[\s\S]*external backend and transport timing[\s\S]*recorded separately[\s\S]*excluded from frontend product execution/i
+    /response inbox adapter seed, read, structured clone, and handoff[\s\S]*external backend and transport timing[\s\S]*recorded separately[\s\S]*excluded from frontend product execution/i
   )
   assert.match(
     feature,
@@ -617,8 +678,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     attributionRoutes.map(({ to }) => to).sort(),
     [
       'admit-receiver-publication-frames',
-      'preload-file-scoped-mock-backend-response',
-      'resolve-server-prepared-ai-plan',
+      'preload-file-scoped-server-response',
+      'resolve-server-prepared-action-batch',
       'stage-local-interactive-composition',
       'yield-ai-loading-paint'
     ].sort()
@@ -650,8 +711,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.equal(ownerAttribution?.ownerStepId, 'evaluate-endpoint-performance')
   assert.deepEqual([...(ownerAttribution?.consumerStepIds ?? [])].sort(), [
     'admit-receiver-publication-frames',
-    'preload-file-scoped-mock-backend-response',
-    'resolve-server-prepared-ai-plan',
+    'preload-file-scoped-server-response',
+    'resolve-server-prepared-action-batch',
     'stage-local-interactive-composition',
     'yield-ai-loading-paint'
   ])
@@ -772,7 +833,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(text, /atomic.*one all-children.*progressive.*multiple.*plural/i)
   assert.match(
     text,
-    /production.*Mock AI.*without.*ai.*query.*progressive.*explicit.*atomic/i
+    /production.*formal Conversational AI provider.*without an ai query.*progressive/i
   )
   assert.match(text, /clear.*success.*failure.*cancel.*rollback/i)
   assert.match(
@@ -827,7 +888,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.ok(
     owner.implementationBoundary.includes(
-      'apps/asyra-design/e2e/conversational-ai-mock.spec.ts'
+      'apps/asyra-design/e2e/conversational-ai.spec.ts'
     )
   )
   assert.match(
@@ -841,7 +902,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /Contents.*second Actor.*peer relay.*remote apply.*CRDT.*excluded.*client-to-server Collaboration transport.*server CPU.*separately.*No request-time Mock backend IndexedDB.*document IndexedDB.*repeated measured run/i
+    /Contents.*second Actor.*peer relay.*remote apply.*CRDT.*excluded.*client-to-server Collaboration transport.*server CPU.*separately.*No request-time response inbox access.*document IndexedDB.*repeated measured run/i
   )
   assert.ok(
     data.routes.some(
@@ -903,7 +964,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     plan,
-    /production Asyra Design entry.*Mock AI.*without[\s\S]*`ai` query[\s\S]*defaults to progressive[\s\S]*explicit[\s\S]*`aiDelivery=atomic`.*atomic/i
+    /production Asyra Design entry always uses the single formal[\s\S]*server-backed provider[\s\S]*no `ai` query.*activates, disables, or swaps[\s\S]*Ordinary startup selects progressive delivery/i
   )
   assert.match(
     feature,
@@ -925,7 +986,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Production App exposes Mock AI without URL activation[\s\S]*ordinary production entry[\s\S]*without an "ai" query[\s\S]*progressive[\s\S]*explicit "aiDelivery=atomic"[\s\S]*atomic/i
+    /Scenario: Production App exposes one formal server-backed AI route without URL activation[\s\S]*ordinary production entry[\s\S]*progressive delivery/i
   )
 })
 

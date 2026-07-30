@@ -15,9 +15,10 @@ implementation authority. Framework package contracts remain authoritative
 inside their existing owner boundaries; this checkpoint does not declare any
 unstaged framework plan or framework Inspector complete.
 
-The completed Conversational AI Mock Drawing behavior remains authoritative.
-Credential-gated Live AI provider and API-key testing is outside this plan and
-remains owned by the existing live-provider successor plan.
+The active product contract uses one formal server-backed AI route and one
+server-prepared `AiActionBatch` payload. Production contains no Mock, fake,
+simulated, or local-compat provider branch. Credential-gated live-provider and
+API-key formal testing remains outside this performance plan.
 
 Active architecture artifacts:
 
@@ -50,12 +51,12 @@ single-Actor acceptance. The next measurements use one required `fileId` URL
 whose selected document session always starts Collaboration. Contents remains
 excluded by product direction.
 
-The first manual navigation check then exposed a startup-policy mismatch: the
-production entry still required `?ai=mock`, and its missing delivery flag
+The first manual navigation check then exposed a startup-policy mismatch in the
+superseded implementation, which used `?ai=mock`; its missing delivery flag
 selected the atomic all-children path, so one 7,000-plus-element synchronous
 call prevented the browser from dispatching any input until completion. The
-production Asyra Design entry now provides the deterministic Mock AI without an
-`ai` query and defaults to progressive delivery. Explicit
+active production entry uses the single formal server-backed provider without
+an `ai` query and defaults to progressive delivery. Explicit
 `aiDelivery=atomic` remains the atomic opt-in for isolated measurement. This is
 an App startup policy correction, not an Input System, Feature System,
 transaction, or event-bus exception.
@@ -310,12 +311,12 @@ deliberately smaller than an endpoint acceptance proof:
 1. Run one guarded production two-Actor 16-item activity diagnostic. Both
    Actors use the same required `fileId`, one production preview, and one
    WebSocket server with no HMR or pre-existing listener. The harness seeds the
-   exact Mock backend response only into Actor A's isolated browser storage,
-   and Actor A completes its file-scoped preload before readiness. Operation begins at
+   exact server response only into the harness-owned response inbox adapter,
+   and its file-scoped preload completes before readiness. Operation begins at
    Actor A request submission and ends only when Actor B canonical and ordinary
    Render projection counts are exactly 17. Both Actors then remain idle for
    exactly 10 seconds with no further product action. Build commands and all
-   pre-ready Mock backend, App, Collaboration, and Agent bootstrap are excluded
+   pre-ready response-inbox, App, Collaboration, and Agent bootstrap are excluded
    from product operation timing.
 2. Capture each Actor page-target through CDP Performance with
    `timeDomain: threadTicks`. Cumulative `TaskDuration`, `ScriptDuration`,
@@ -338,24 +339,25 @@ deliberately smaller than an endpoint acceptance proof:
    material; it is not treated as a negligible placeholder.
 5. If corrected interval CPU crosses 200 percent, terminate first and perform
    the required bounded replan. That replan may authorize the same 16-item case
-   once with reduced motion. A material reduction with equivalent plan and
+   once with reduced motion. A material reduction with an equivalent
+   `AiActionBatch` and
    canonical evidence assigns the first owner to loading/compositor work; no
    material reduction returns attribution to the remaining measured browser
    owners rather than guessing provider ownership.
 6. If the 16-item case stays below 200 percent, run one guarded production
    single-Actor 1,280-item cat-prefix case. It preserves the same source and
-   ordinary Vector route while increasing runtime normalization, schema,
-   preview, and canonical work.
+   ordinary Vector route while increasing Runtime batch resolution, preview,
+   and canonical work.
 7. Only if the single-Actor 1,280-item result cannot distinguish Actor A and
    client-to-server work from peer relay or Actor B remote apply may one
    two-Actor 1,280-item case run.
 
-These attribution cases report Mock backend IndexedDB seed, read, structured
+These attribution cases report response inbox adapter seed, read, structured
 clone, and handoff as separate external-backend/transport-adapter timing. That
 timing remains recorded but is excluded from frontend product execution and
 cannot affect Runtime, Render, or CRDT effectiveness. The cases then report an
-ordered browser-monotonic product timeline for provider delay/resident handoff,
-Runtime planning and validation, confirmation-preview projection, loading
+ordered browser-monotonic product timeline for provider request/batch handoff,
+Runtime batch resolution, `AiActionBatchPreview` projection, loading
 evidence, Group, and plural children-batch work. One
 request-wide cumulative process CPU-time boundary reports the harness, browser,
 App, and optional server CPU-time deltas without pretending to retrospectively
@@ -381,7 +383,8 @@ category in a later heartbeat.
 The cases retain the 200-percent stop and terminate the exact test-owned process
 groups. They never count as a 7,076 architecture attempt and cannot establish
 product equivalence. The resulting attribution artifact routes to exactly one
-owner contract—Mock backend bootstrap/request-boundary contamination, Runtime candidate preparation,
+owner contract—server response bootstrap/request-boundary contamination,
+Runtime batch resolution,
 App loading paint, local canonical composition, or receiver/collaboration
 admission. Only that selected owner receives one complete architecture replan,
 focused formal tests, and one implementation. Only then may the guarded 7,076
@@ -392,9 +395,9 @@ proof run again.
 The prior transport-disabled 16-item progressive diagnostic completed 17/17
 canonical and ordinary Render elements in 2.074 seconds with one Undo action. Its
 request-wide process boundary reported 1.670 CPU-seconds over 2.127 wall
-seconds, or 78.5-percent average core use. Provider materialization took
-143.7 milliseconds and the 651.3-millisecond provider delay was waiting rather
-than CPU work.
+seconds, or 78.5-percent average core use. In the superseded implementation,
+provider materialization took 143.7 milliseconds and its artificial
+651.3-millisecond delay was waiting rather than CPU work.
 
 The prior transport-disabled 1,280-item progressive diagnostic then crossed the
 fixed safety limit and was terminated exactly as required. The trigger sample reported
@@ -459,7 +462,7 @@ in that exact interval. The guard correctly terminated every owned process
 group, so this remains a valid safety stop.
 
 It is invalid for product-owner selection. `local-request` began before the
-harness called `submitMockTurn(...)`, while that helper still performed prompt
+harness called the superseded `submitMockTurn(...)` helper, which still performed prompt
 fill, locator resolution, actionability, click dispatch, loading visibility,
 article-count, text, and attribute polling. Playwright causes several of those
 operations inside the Browser process, so a zero Node-harness contribution
@@ -497,7 +500,12 @@ to `project-visible-canonical-slices`; it must not be hidden by changing slice
 size, detail, IDs, history, or the CPU limit. No 7,076-element or collaboration
 run resumes until the local 1,280-item path stays below the host guard.
 
-### 2026-07-30 file-scoped Mock backend root cause and selected owner
+### 2026-07-30 superseded Mock/plan implementation root cause
+
+This subsection is retained only as historical diagnostic evidence. The
+superseded implementation called its local test source “Mock backend” and its
+payload a “plan”; neither name nor route is part of the active production
+contract below.
 
 The next corrected two-Actor 16-item activity run excluded build time and
 isolated a sub-second operation spike, but source inspection then proved that
@@ -514,8 +522,8 @@ Mock backend bootstrap/request boundary, and the former
 `materialize-bounded-mock-provider-prefix` step is replaced rather than kept as
 a compatibility path.
 
-The accepted test architecture uses a dedicated Mock backend response
-IndexedDB, separate from document persistence:
+The replacement test architecture uses a harness-owned IndexedDB response
+inbox adapter, separate from document persistence:
 
 1. Before App navigation, the test or manual harness writes one exact,
    versioned provider response under the required `fileId`.
@@ -523,24 +531,24 @@ IndexedDB, separate from document persistence:
    readiness and the stable performance baseline.
 3. The canonical document still loads empty; the response is local,
    noncanonical, nonshared, and never enters `Core.load(...)`.
-4. After Actor A submits the ordinary conversation request, the Mock provider
-   performs only its deterministic backend delay, verifies the resident request
-   contract, and returns the already resident server-prepared plan.
-5. Runtime control-envelope resolution, App/Core batch execution, Render,
+4. After Actor A submits the ordinary conversation request, the formal provider
+   calls `requestActionBatch()` and returns the resident server-prepared
+   `AiActionBatch`; no artificial delay or phrase-selected fallback exists.
+5. Runtime `resolveAiActionBatch()`, App/Core batch execution, Render,
    publication, and Actor B remote apply remain inside frontend product timing.
 
 The App performs no request-time IndexedDB read, dynamic import, fetch, SVG or
 JSON parse, path tokenization, geometry transform, fixture materialization,
-full-source slicing, or provider deep-freeze. Missing prepared data for a
-performance fixture is an explicit configuration failure, never a lazy
-fallback. Ordinary non-performance Mock behavior remains unchanged.
+full-source slicing, or provider deep-freeze. Deterministic preparation, seed
+data, and fixtures belong only to the test/manual harness and are excluded from
+the production bundle.
 
 This fixture database does not restore client document persistence. Local
 actions, Undo, Redo, and remote apply still perform zero persistence capture,
 provider save, or document IndexedDB read/write. Only the source Actor's
-pre-ready Mock backend response read is permitted, and it is reported as
+pre-ready response inbox adapter read is permitted, and it is reported as
 separate external-backend/transport-adapter timing rather than frontend product
-execution. Mock backend response seed, read, structured clone, and handoff do
+execution. Response inbox seed, read, structured clone, and handoff do
 not count against App, Runtime, Render, or CRDT budgets.
 
 ### 2026-07-30 corrected request boundary and selected Runtime owner
@@ -548,11 +556,11 @@ not count against App, Runtime, Render, or CRDT budgets.
 The first corrected single-Actor 16-item run used the resident response, one
 production preview, the always-on WebSocket service, no Actor B, no build
 inside runtime timing, and no Playwright locator or assertion polling inside
-`local-request`. The fixed 650-millisecond provider delay remained waiting
-time. Mock backend IndexedDB preload completed before App readiness and stayed
+`local-request`. The superseded fixed 650-millisecond artificial delay was
+waiting time, not product work. The response inbox preload completed before App readiness and stayed
 separate external-backend/transport timing.
 
-After that delay, one valid 252.599-millisecond interval crossed the fixed
+After that historical delay, one valid 252.599-millisecond interval crossed the fixed
 limit at 221.695 percent aggregate CPU. One renderer PID contributed 201.901
 percent, the second renderer PID contributed zero, GPU contributed 7.918
 percent, and App preview, WebSocket server, and harness each contributed 3.959
@@ -576,14 +584,17 @@ This evidence originally selected client-side action-schema preparation as the
 first chronological owner. The product responsibility decision made on
 2026-07-30 changes the remedy: model validation, normalization, summarization,
 and compact encoding belong to the backend, while the design tool consumes the
-server-prepared result. The selected Inspector owner is therefore
-`resolve-server-prepared-ai-plan`, not a client Worker validation step.
+server-prepared result. The historical Inspector owner was
+`resolve-server-prepared-ai-plan`; the active contract replaces it with
+`resolve-server-prepared-ai-action-batch`, not a client Worker validation step.
 
-The existing Mock backend IndexedDB adapter represents that backend in this
-demo. Its seed path prepares the exact compact artifact before App navigation;
-the request returns that resident artifact after the deterministic backend
-delay. Runtime resolves only the small plan/action control envelope and passes
-the original arguments identity to permission and execution. The App then
+The active test/manual harness uses the response inbox adapter to represent the
+server boundary without adding another production provider. Its seed path
+prepares the exact compact artifact before App navigation; the formal provider
+returns the resident `AiActionBatch` through `requestActionBatch()`. Runtime
+resolves only the small batch/action control envelope through
+`resolveAiActionBatch()` and passes the original arguments identity to
+permission and execution. The App then
 materializes only each progressive slice before ordinary canonical creation.
 No additional browser proof is permitted until this complete boundary and its
 focused formal gates are finished.
@@ -812,7 +823,8 @@ new lanes cannot be represented by the current generic viewer.
 
 Excluded scope:
 
-- Live AI provider and API-key formal testing;
+- Live network endpoint and API-key formal testing for the server-backed
+  provider;
 - production backend DB integration or socket-server checkpoint policy;
 - VTracer detail generation;
 - an AI-only renderer or Render-engine bulk command;
@@ -825,11 +837,15 @@ used; any missing capability stops the step for explicit approval.
 ## Target Architecture
 
 ```text
-test/manual setup writes one exact versioned Mock backend response by fileId
-→ App bootstrap reads that response before App/Agent readiness
+test/manual harness optionally seeds one exact versioned server response in the response inbox adapter by fileId
+→ response inbox bootstrap completes outside the production bundle and before App/Agent readiness
 → user conversation request
-→ deterministic backend delay + resident server-prepared plan handoff
-→ Runtime resolves the small plan/action control envelope
+→ provider.requestActionBatch()
+→ server-prepared AiActionBatch with batchId
+→ Runtime.resolveAiActionBatch()
+→ ResolvedAiActionBatch
+→ permission resolution produces PermissionReadyAiActionBatch
+→ confirmation and terminal presentation consume AiActionBatchPreview
 → consume server-prepared exact bounds, summary, metadata, and compact geometry
 → runtime-only App DOM loading frame
 → compositor paint opportunity
@@ -850,78 +866,80 @@ test/manual setup writes one exact versioned Mock backend response by fileId
 → peer Preset/Render/UI projection
 ```
 
-### File-scoped Mock Backend Bootstrap Contract
+### File-scoped Server Response Inbox Contract
 
-- The required `fileId` is resolved before AI composition. The test or manual
-  harness acts as the Mock backend: it produces one server-prepared response by
-  validating and normalizing one exact model response, deriving its bounded
-  summary, and building compact composition geometry, then writes that
-  versioned record to the dedicated Mock backend IndexedDB before product App
-  navigation.
-- App bootstrap performs at most one bounded lookup for that exact `fileId`.
-  The selected record contains the expected request contract and one
-  server-prepared plan. Bootstrap completion precedes App and Agent readiness,
-  Collaboration performance readiness, and the stable CPU baseline.
+- Production contains one formal server-backed provider. The provider calls
+  `requestActionBatch()` and knows nothing about fixtures, IndexedDB, test
+  phrases, or local compatibility.
+- The test/manual harness alone may validate and normalize one exact model
+  response, derive its bounded summary and compact composition geometry, and
+  seed the versioned `AiActionBatch` into an IndexedDB response inbox adapter
+  under the required `fileId`. That deterministic preparation, seed code, and
+  fixture data are excluded from the production bundle.
+- The response inbox adapter performs at most one bounded lookup for that exact
+  `fileId` before App and Agent readiness, Collaboration performance readiness,
+  and the stable CPU baseline. It is harness transport evidence, not an App
+  provider or a second product execution route.
 - The 16-, 320-, 1,280-, and 7,075-child records are exact response variants.
   Looking up one key does not read, construct, or slice a larger response.
-- The provider does not use the prompt to select fixture size. It may verify
-  that the incoming request matches the resident record, but the record was
-  selected only by `fileId`.
-- Request-time provider work is limited to the deterministic backend wait and
-  resident server-prepared plan handoff. It performs no IndexedDB access,
-  dynamic import, fetch, JSON/SVG parsing, path tokenization, coordinate
-  transform, fixture materialization, full-source slicing, model validation,
-  normalization, compact encoding, or deep freeze.
-- A performance-fixture request without the exact resident response fails as
-  invalid Mock backend setup. It never falls back to request-time fixture
-  generation.
+- At request time the provider calls only `requestActionBatch()`. Production
+  performs no artificial delay, phrase-selected fixture fallback, failure
+  simulation, response-inbox access, dynamic fixture import, JSON/SVG parsing,
+  path tokenization, coordinate transform, fixture materialization,
+  full-source slicing, model validation, normalization, compact encoding, or
+  provider deep-freeze.
+- A harness run without the exact inbox record fails harness setup before
+  product timing. It never creates a production fallback.
 - The response remains local, noncanonical, and nonshared.
   `Core.load(...)` still receives only the empty document, Actor A and Actor B
   remain at zero canonical elements before the conversation request, and Actor
   B receives the drawing only through ordinary canonical CRDT publications.
 - The compact artifact preserves every item, path, point, role, order, bound,
   transform, and style without retaining a parallel full point-object graph in
-  the frontend plan.
-- The Mock backend response database is not document persistence. Product App
-  code never writes it; local actions, Undo, Redo, and remote apply continue to
-  perform zero persistence capture, provider save, or document IndexedDB
-  read/write.
+  the frontend batch.
+- The response inbox adapter is not document persistence. Production App code
+  neither contains nor writes its deterministic seed/fixture implementation;
+  local actions, Undo, Redo, and remote apply continue to perform zero
+  persistence capture, provider save, or document IndexedDB read/write.
 
-### Server-prepared AI Plan Contract
+### Server-prepared AiActionBatch Contract
 
 The backend owns model preparation; `@asyra/ai-agent-runtime` owns only
 control-envelope resolution and action orchestration:
 
-- `runtime.run()` is the only public server-prepared plan entry. Runtime
-  exposes no public or internal client-side `prepare`, `normalize`, or
-  `validate` phase and no caller-selectable validation mode.
-- A live backend provider and the file-scoped IndexedDB test adapter return the
-  same server-prepared plan contract. IndexedDB changes only where the demo
-  response was obtained; it cannot select a different permission,
-  confirmation, execution, or canonical mutation path.
-- Runtime checks only the small control envelope—plan id, explanation, action
-  ids and names, bounded summaries, empty plan, duplicate ids, and unknown
-  actions. It never traverses item, path, point, style, bounds, coordinate, or
-  geometry arguments.
+- The provider exposes one request method:
+  `requestActionBatch(input, { signal })`. It returns one server-prepared
+  `AiActionBatch` identified by `batchId`.
+- Runtime passes that value through one fixed
+  `resolveAiActionBatch(batch, { signal })` boundary and returns one
+  `ResolvedAiActionBatch`. Permission resolution consumes that resolved value
+  and produces one `PermissionReadyAiActionBatch`; confirmation and terminal
+  presentation consume one bounded `AiActionBatchPreview`.
+- Runtime checks only the small control envelope—`batchId`, explanation,
+  action ids and names, bounded summaries, empty batch, duplicate ids, and
+  unknown actions. It never traverses item, path, point, style, bounds,
+  coordinate, or geometry arguments.
+- The former action-plan API, `planId`, plan aliases, conversion helpers, and
+  compatibility overloads are deleted. Production exposes no Mock, fake,
+  simulated, local-only, or local-compat provider path or naming.
 - Each registered action definition exposes one backend-facing `inputSchema`
-  for provider planning and one executor. There is no client-side action
+  for server preparation and one executor. There is no client-side action
   schema, `parse`, `prepare`, validation compatibility, or payload-size mode.
 - Each server-prepared action contains its execution arguments and one bounded
   redaction-ready summary. Runtime does not recursively clone or freeze the
   arguments; permission and execution consume the exact same arguments
-  identity. Confirmation and terminal preview consume only the bounded summary.
+  identity. `AiActionBatchPreview` consumes only bounded summaries.
 - The action-definition contract receives no large-payload, validation,
   delivery, progressive, loading, or collaboration mode. An app that wants a
-  stronger trust policy implements it in its backend or provider adapter before
-  `runtime.run()` rather than adding another Runtime execution path.
+  stronger trust policy implements it on the server before
+  `requestActionBatch()` returns rather than adding another Runtime path.
 - The shipped create-app Asyra Design template, framework golden path, and
   executable documentation example use this same single action-definition
-  contract inside the ordinary `runtime.run()` flow. They are not Mock-specific
-  or compatibility implementations.
-- The Mock backend validates and normalizes accepted/skipped roles, bounds,
-  styles, paths, and points and builds the compact coordinate artifact before
-  App readiness. A future production backend returns the same versioned model
-  contract.
+  contract inside the ordinary Runtime flow. They contain no test-source or
+  compatibility implementation.
+- The server validates and normalizes accepted/skipped roles, bounds, styles,
+  paths, and points and builds the compact coordinate artifact before
+  returning the `AiActionBatch`.
 - The frontend keeps compact coordinates private and materializes only the next
   progressive slice after the server-prepared loading bounds are visible. It
   performs no item, path, point, style, bounds, role, or model semantic
@@ -930,7 +948,7 @@ control-envelope resolution and action orchestration:
   plural Core route. The server-prepared artifact never writes canonical,
   Render, history, shared-data, or CRDT state directly.
 
-The resolved plan is local, noncanonical, and nonshared. It neither creates nor
+The `ResolvedAiActionBatch` is local, noncanonical, and nonshared. It neither creates nor
 combines shared props, shared components, shared elements, Factory
 publications, or CRDT data. Those remain owned by their existing canonical and
 shared-data boundaries.
@@ -1188,9 +1206,10 @@ intended transaction or history boundary.
 
 ### Cooperative Progressive Composition
 
-- The production Asyra Design entry always supplies the deterministic,
-  network-free Mock AI; no `ai` query activates or disables it. Ordinary startup
-  selects progressive delivery. Exact `aiDelivery=atomic` remains an explicit
+- The production Asyra Design entry always uses the single formal
+  server-backed provider; no `ai` query activates, disables, or swaps it.
+  Ordinary startup selects progressive delivery. Exact
+  `aiDelivery=atomic` remains an explicit
   one-batch measurement opt-in; empty, unknown, or duplicate delivery values
   retain the progressive default.
 - Atomic mode retains one all-children plural Core call.
@@ -1260,8 +1279,8 @@ intended transaction or history boundary.
   a client persistence provider.
 - Local action, Undo, and Redo and Actor B remote apply all produce zero client
   document persistence capture, provider save, document IndexedDB read, and
-  document IndexedDB write. This does not prohibit the separate source Actor's
-  one pre-ready Mock backend response lookup.
+  document IndexedDB write. This does not prohibit the harness-owned pre-ready
+  response inbox lookup outside the production bundle.
 - Collaboration connects only after the empty canonical document is loaded.
 - Demo reload durability is not a correctness or performance gate.
 - A future production socket server coordinating backend DB checkpoints is
@@ -1273,7 +1292,7 @@ intended transaction or history boundary.
 ### Current Local Performance Measurement
 
 The current gate performs exactly one 7,112-element balanced progressive
-production run through the ordinary Mock AI default in one browser page against
+production run through the formal server-backed AI route in one browser page against
 one fresh App-owned empty canonical document session selected by the required
 `fileId` URL. Collaboration is ready through the WebSocket server before the
 request, but no Actor B is created.
@@ -1298,7 +1317,7 @@ Milestones use O(1) runtime counters. The harness may read one bounded exact
 canonical summary only after settlement; it must not repeatedly clone, hash, or
 walk the 7,112-element state. This single run answers the current product
 question without claiming statistical median. The existing multi-run budgets
-remain deferred full-plan gates.
+remain deferred full-suite gates.
 
 The pre-DOM-compositor cooperative-scheduling baseline completed on 2026-07-29
 with Contents omitted and no client persistence:
@@ -1352,8 +1371,9 @@ baseline rather than current single-Actor production acceptance.
 
 ### Reference Environment
 
-Formal budgets use the committed tabby reference fixture, deterministic Mock AI
-provider, production App build, fresh canonical and collaboration state,
+Formal budgets use the committed tabby reference response prepared by the
+test/manual harness, the formal production provider, production App build,
+fresh canonical and collaboration state,
 dedicated App and WebSocket ports, and independent actor browser contexts.
 
 One unmeasured warm-up precedes three measured runs. Median and worst values are
@@ -1364,8 +1384,8 @@ returns detached canonical, history, Factory transaction-status, commit, and
 publication snapshots without exposing a mutable runtime owner. The dev-only `window.__Core__`
 cannot satisfy a release gate; it is only a local diagnostic.
 
-Mock backend response seeding and the fileId-selected response lookup,
-navigation, App readiness, collaboration readiness, Mock AI readiness,
+Response inbox adapter seeding and the fileId-selected response lookup,
+navigation, App readiness, collaboration readiness, server AI readiness,
 reference attachment, runtime evidence readiness, and history baseline are
 named E2E harness spans. They remain separate from product execution, owner,
 transport, Render, and UI timing. Collaboration client-document-persistence
@@ -1376,7 +1396,7 @@ IndexedDB state is opened, polled, normalized, stringified, or hashed.
 
 - The current single-Actor interactive gate is one 7,112-element progressive
   run with Collaboration ready through the WebSocket server, no Actor B, and no
-  Contents, peer relay, remote apply, request-time Mock backend lookup, document
+  Contents, peer relay, remote apply, request-time response inbox lookup, document
   IndexedDB work, or repeat. Browser/App and WebSocket-server CPU remain
   separate roles.
 - The endpoint benchmark is one guarded two-Actor 7,076-element progressive
@@ -1385,7 +1405,7 @@ IndexedDB state is opened, polled, normalized, stringified, or hashed.
 - The exact same endpoint benchmark establishes the accepted output baseline
   after every effective owner and is rerun immediately after the next owner
   refactor.
-- The default fast Mock AI CRDT correctness fixture has 16 items and exercises
+- The default fast server-response AI CRDT correctness case has 16 items and exercises
   ordinary App, Factory, Collaboration, remote apply, Render, and history
   routes.
 - The 7,112-element balanced correctness gate is change-aware or explicitly
@@ -1402,10 +1422,10 @@ IndexedDB state is opened, polled, normalized, stringified, or hashed.
 
 Measured output separates:
 
-- test/manual Mock backend response preparation and fileId-selected IndexedDB
+- test/manual server-response preparation and fileId-selected response inbox
   seed, read, structured clone, and handoff as separately recorded external
   backend/transport timing excluded from frontend product execution;
-- request-time deterministic backend delay and resident provider handoff;
+- request-time provider request and resident `AiActionBatch` handoff;
 - accepted turn and product execution;
 - App bulk-request preparation;
 - canonical Props/Scene Tree batch preflight and apply;
@@ -1524,15 +1544,15 @@ document IndexedDB update.
 The ordinary local demo, Actor A, and Actor B each load one canonical empty
 document, then start without a client persistence provider. Local actions,
 Undo, Redo, remote apply, and the performance harness perform no document
-IndexedDB read or write. The test harness may seed the separate Mock backend
-response store before navigation, and only the source Actor may read its exact
-record before App readiness.
+IndexedDB read or write. The test/manual harness may seed the separate response
+inbox adapter before navigation; that harness adapter remains outside the
+production bundle and completes its exact record lookup before App readiness.
 
-### Fast Mock AI CRDT Correctness
+### Fast Server-response AI CRDT Correctness
 
-The default two-actor case uses the deterministic 16-item response selected by
-required `fileId` and resident in Actor A before readiness. Actor A gains one
-Undo action and Actor B gains none while both converge on exact canonical state.
+The default two-actor case uses the exact 16-item server response selected by
+required `fileId` and resident before readiness. Actor A gains one Undo action
+and Actor B gains none while both converge on exact canonical state.
 
 ### Balanced and Maximum Detail
 
@@ -1567,14 +1587,15 @@ immediately following endpoint proof have no P0-P2 finding:
    stop creates no accepted high-detail baseline for Render.
 4. After the corrected always-on Collaboration startup and single-Actor
    attribution rerun, follow exactly one attribution branch:
-   - `preload-file-scoped-mock-backend-response` when fixture acquisition or
-     materialization contaminates request timing; seed one exact versioned
-     response in the dedicated Mock backend IndexedDB before App navigation,
-     preload it by required `fileId` before readiness, and keep request-time
-     provider work to delay plus resident candidate handoff.
-   - `resolve-server-prepared-ai-plan` only when Runtime/preview resolution is
-     proven; accept one backend-prepared action artifact and bounded summary
-     without client model validation or parallel geometry graphs.
+   - `preload-file-scoped-server-response` when harness response
+     acquisition contaminates request timing; seed one exact versioned response
+     in the harness-owned response inbox adapter before App navigation and
+     preload it by required `fileId` before readiness.
+   - `resolve-server-prepared-action-batch` only when Runtime/preview
+     resolution is proven; accept one server-prepared `AiActionBatch`, resolve
+     it through `resolveAiActionBatch()`, and retain bounded
+     `AiActionBatchPreview` without client model validation or parallel
+     geometry graphs.
    - `yield-ai-loading-paint` only when the reduced-motion control proves the
      loading compositor boundary; retain visible progress and allowed pan/zoom
      without an unbounded animation loop.
@@ -1653,17 +1674,18 @@ separately, and never replaces the guarded two-Actor collaboration proof.
 
 - Contract: exact owners, graph routes, artifacts, allowlists, failure owners,
   plan anchors, and BDD scenarios.
-- Mock backend bootstrap: required `fileId` selects exactly one versioned 16-,
-  320-, 1,280-, or 7,075-child response from the dedicated response IndexedDB;
+- Server response inbox: required `fileId` selects exactly one versioned 16-,
+  320-, 1,280-, or 7,075-child response from the harness-owned response inbox;
   preload completes before App/Agent readiness and the stable baseline; the
-  request performs zero fixture IndexedDB/import/fetch/parse/materialization;
-  the provider performs delay plus resident candidate handoff; the canonical
-  document remains empty before the request; and exact detail is unchanged.
-- AI plan preparation: complete shell preflight before schema work, one schema
-  preparation per action, prepared-value identity through permission and
-  execution, bounded preview with no geometry, later-invalid no-prefix
-  behavior, and exact 16/320/1,280 item, role, order, bounds, and point-count
-  equivalence.
+  product request performs zero response-inbox/fixture
+  import/parse/materialization; the provider calls `requestActionBatch()` once;
+  the canonical document remains empty before the request; and exact detail is
+  unchanged.
+- AI action batch resolution: exact `batchId`, complete envelope resolution,
+  `ResolvedAiActionBatch` identity through `PermissionReadyAiActionBatch` and
+  execution, bounded `AiActionBatchPreview` with no geometry, later-invalid
+  no-prefix behavior, and exact 16/320/1,280 item, role, order, bounds, and
+  point-count equivalence.
 - Contents: real 100+ row virtualizer unit/integration case, tail scrolling,
   bounded DOM rows, collapse, and selection.
 - Factory: one immutable artifact, one history action, full Undo/Redo, no
@@ -1696,7 +1718,7 @@ After all architecture owners are complete, run one heavy closure:
 
 1. Inspector contract, all affected package unit/integration tests, Asyra
    Design full local tests, lint, and production build.
-2. Default 16-item Mock AI CRDT correctness.
+2. Default 16-item server-response AI CRDT correctness.
 3. One 7,112-element balanced correctness run because canonical and transport
    paths changed.
 4. Independent 7,076-element production no-media CRDT and performance runs.
@@ -1722,10 +1744,11 @@ never committed.
   otherwise ineffective attempt is committed.
 - The final formal unit, integration, E2E, CRDT, performance, lint, build, and
   Inspector gates pass.
-- Every performance fixture response is selected by required `fileId`, resident
-  before App/Agent readiness, and handed off without request-time fixture I/O or
-  materialization; bootstrap response reads remain separately reported harness
-  overhead.
+- Every performance server response is selected by required `fileId`, resident
+  before App/Agent readiness, and handed off as one `AiActionBatch` without
+  request-time fixture I/O or materialization; response inbox reads remain
+  separately reported harness overhead and the deterministic harness code is
+  absent from the production bundle.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
 - One immutable Factory artifact is shared across History, projection, and
   Collaboration without downstream semantic reconstruction.
@@ -1741,7 +1764,8 @@ never committed.
 
 - PR #101 and the current feature branch/local commits remain the recovery
   basis; do not recreate the branch or reset accepted work.
-- Live AI provider testing is outside this plan.
+- Live network endpoint and API-key testing for the server-backed provider is
+  outside this plan.
 - Production backend DB integration and checkpoint policy are outside this
   plan.
 - The reference WebSocket server remains memory-only.

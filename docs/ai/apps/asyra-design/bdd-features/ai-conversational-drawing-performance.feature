@@ -5,7 +5,7 @@ Feature: Conversational AI drawing performance
 
   Background:
     Given the committed 1672 by 941 tabby reference image
-    And the production Asyra Design build directly provides deterministic Mock AI
+    And the production Asyra Design build uses the formal server-backed AI provider
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And the formal final reference gate uses one unmeasured warm-up before three measured runs
 
@@ -17,22 +17,24 @@ Feature: Conversational AI drawing performance
     And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
-  Scenario: Runtime resolves one server-prepared AI plan without client model validation
-    Given a live backend provider or the file-scoped IndexedDB Mock backend adapter returns one server-prepared plan with one large insert-composition action
-    When the server-prepared plan enters through "runtime.run()"
-    Then both response sources should use the same control-envelope resolution without a public or internal client prepare, normalize, or validate phase
+  Scenario: Runtime resolves one server-prepared AiActionBatch without client model validation
+    Given the provider "requestActionBatch()" returns one server-prepared "AiActionBatch" with a batchId and one large insert-composition action
+    When Runtime passes that batch to "resolveAiActionBatch()"
+    Then "resolveAiActionBatch()" should return one "ResolvedAiActionBatch" without a public or internal client prepare, normalize, or validate phase
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
-    And the Mock backend should validate and normalize every item, path, point, role, style, and bound before App readiness
+    And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
     And the server-prepared action should contain one compact coordinate artifact and one bounded redaction-ready summary rather than a parallel point-object graph
-    And permission and execution should receive the same action arguments identity
-    And confirmation and terminal preview should contain the bounded summary without items, paths, points, or complete geometry
+    And permission resolution should return one "PermissionReadyAiActionBatch"
+    And permission and execution should receive the same action arguments identity from the resolved batch
+    And confirmation and terminal presentation should consume one "AiActionBatchPreview" containing bounded summaries without items, paths, points, or complete geometry
     And Runtime should not recursively detach or freeze the server-prepared arguments
+    And production should expose no action-plan API, planId alias, compatibility conversion, Mock, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or compact encoding
     And the executor should preserve exact items, roles, order, bounds, and point counts while materializing only the next progressive slice after the server-prepared loading bounds are visible
     But canonical topology and IDs should remain owned by the ordinary App common API and plural Core route
-    And the resolved plan should remain local, noncanonical, and nonshared
+    And the resolved batch should remain local, noncanonical, and nonshared
 
   Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
@@ -44,10 +46,10 @@ Feature: Conversational AI drawing performance
     And both Actor contexts should be created before the ready heartbeat
     And Actor A should reach collaboration-ready before Actor B navigation
     And Actor B should reach collaboration-ready before the ready heartbeat
-    And the harness should seed the exact Mock backend response before Actor A navigation
-    And Actor A should complete the fileId-selected response read before App and Agent readiness
-    And those Mock backend, App, and Collaboration bootstrap phases should remain outside product execution timing
-    And Mock backend IndexedDB seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
+    And the test or manual harness should seed the exact server response inbox before Actor A navigation
+    And the fileId-selected response inbox read should complete before App and Agent readiness
+    And those response-inbox, App, and Collaboration bootstrap phases should remain outside product execution timing
+    And response inbox adapter seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
     And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
     And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
     And two stable cumulative CPU-time samples with exact PID-set equality should establish the 250-millisecond interval CPU signal
@@ -70,7 +72,7 @@ Feature: Conversational AI drawing performance
     And each bounded heartbeat should report its capture time, the latest completed phase, any currently active started phase, Actor A and Actor B canonical and uncapped Render projection element counts, and publication progress
     And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
     And each attribution invocation should use one request-wide cumulative process CPU-time boundary to report wall time, per-role CPU time, and average core use
-    And ordered browser-monotonic owner spans should distinguish provider delay and resident handoff, Runtime, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
+    And ordered browser-monotonic owner spans should distinguish provider request and batch handoff, Runtime resolution, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
     And every boundary sample should pass the same 200-percent safety evaluation and require exact PID-set equality while any observed process identity change across the boundary or 250-millisecond samples should make attribution invalid
     And an unobserved sub-interval helper should prevent request-wide OS CPU from becoming the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
@@ -89,12 +91,12 @@ Feature: Conversational AI drawing performance
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
-    And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider delay and handoff from material canonical and Render work
+    And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider request and batch handoff from material canonical and Render work
     And only after that corrected interval case crosses 200 percent and stops should a bounded replan authorize one equivalent reduced-motion control
     And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider, runtime preparation, schema preparation, bounded preview, loading, Group, and first plural batch work
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
-    And the completed attribution should route to exactly one Mock backend boundary, Runtime, loading, local canonical, or receiver owner
+    And the completed attribution should route to exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
     And one endpoint should receive at most five materially revised architecture attempts
@@ -104,7 +106,7 @@ Feature: Conversational AI drawing performance
     Given production build commands completed as separate setup outside the runtime guard
     And the production App runtime starts through one preview and one WebSocket server
     And Actor A and Actor B opened the same required fileId
-    And the exact 16-item Mock backend response was resident in Actor A before App and Agent readiness
+    And the exact 16-item server response was resident in the response inbox before App and Agent readiness
     And both Actors reached Collaboration readiness before the guard accepted the request baseline
     When Actor A requests the two-Actor 16-item high-detail fixture
     Then prompt fill, locator resolution, and actionability should have completed outside the product boundary
@@ -115,7 +117,7 @@ Feature: Conversational AI drawing performance
     And each Actor page-target should use CDP Performance threadTicks deltas for TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration
     And those deltas should report page main-thread task occupancy rather than complete Actor CPU
     And worker, GPU, browser, App server, WebSocket server, and harness work should remain in separate OS guard evidence
-    And operation timing should contain no Mock backend IndexedDB read or fixture materialization
+    And operation timing should contain no response inbox adapter read or fixture materialization
     And the 200-percent interval hard stop should remain active during operation and idle
     And the case should use collaboration-attribution and should not create an accepted endpoint baseline
 
@@ -173,7 +175,7 @@ Feature: Conversational AI drawing performance
     And atomic mode should submit one all-children plural batch
     And progressive mode should submit multiple ordered plural batches without opening another transaction
 
-  Scenario: Production App exposes Mock AI without URL activation
+  Scenario: Production App exposes one formal server-backed AI route without URL activation
     Given the ordinary production entry starts without an "ai" query
     When the App resolves the drawing delivery policy
     Then it should select progressive delivery
@@ -415,9 +417,9 @@ Feature: Conversational AI drawing performance
     But fileId should select the document and never toggle Collaboration
     And a missing or empty fileId should not open a document session
 
-  Scenario: Required fileId preloads one server-prepared Mock backend response before App readiness
-    Given the test or manual harness acts as the Mock backend and validates, normalizes, summarizes, and compacts one exact model response
-    And it wrote that versioned server-prepared response to the dedicated IndexedDB before App navigation
+  Scenario: Required fileId preloads one server response inbox record before App readiness
+    Given the test or manual harness validates, normalizes, summarizes, and compacts one exact model response outside the production bundle
+    And it wrote that versioned server-prepared "AiActionBatch" to the IndexedDB response inbox adapter before App navigation
     And the required fileId selects that response independently from the empty canonical document
     When App bootstrap begins
     Then it should read only the exact 16, 320, 1280, or 7075-child response selected by fileId
@@ -425,17 +427,18 @@ Feature: Conversational AI drawing performance
     And selecting a smaller response should not read, construct, or slice a larger response
     And the canonical document should remain empty, noncanonical, and nonshared before Actor A sends a conversation request
     When Actor A sends the response's expected request through the ordinary Agent route
-    Then the Mock provider should perform only the deterministic backend delay, resident request-contract verification, and server-prepared plan handoff
-    And request-time fixture IndexedDB access, import, fetch, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, compact encoding, materialization, slicing, and provider deep-freeze should remain zero
-    And fixture size should come from fileId rather than the prompt or a Runtime, Core, Render, or Collaboration flag
+    Then the provider should call only "requestActionBatch()" and return the server-prepared batch selected by fileId
+    And request-time response inbox access, fixture import, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, compact encoding, materialization, slicing, and provider deep-freeze should remain zero
+    And production should contain no artificial delay, phrase-selected fixture fallback, failure simulation, or Mock, fake, simulated, and local-compat provider naming
+    And deterministic preparation, seed data, and fixture selection should remain test or manual harness concerns excluded from the production bundle
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
-    But the Mock backend response IndexedDB should remain separate from document persistence
+    But the IndexedDB response inbox adapter should remain separate from document persistence
     And local actions, Undo, Redo, and remote apply should perform no document persistence capture, provider save, or document IndexedDB read or write
 
-  Scenario: Fast Mock AI CRDT correctness stays bounded
+  Scenario: Fast server-response AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
-    And their required fileId selected the exact 16-item Mock backend response before App readiness
-    When Actor A accepts the fixture through the ordinary Agent route
+    And their required fileId selected the exact 16-item server response before App readiness
+    When Actor A accepts the server-prepared batch through the ordinary Agent route
     Then both actors should converge on identical canonical ids, topology, hierarchy, and styles
     And Actor A should gain one Undo action while Actor B gains no local Undo action
     And the 7112-element balanced correctness gate should remain change-aware or explicitly requested
@@ -445,14 +448,14 @@ Feature: Conversational AI drawing performance
   Scenario: One local interactive drawing run reports user-visible milestones
     Given one production browser starts with one required fileId and one empty canonical document
     And Collaboration is ready for that App-owned document session
-    And Contents, a second Actor, peer relay, remote apply, request-time Mock backend IndexedDB, and document IndexedDB are absent
+    And Contents, a second Actor, peer relay, remote apply, request-time response inbox access, and document IndexedDB are absent
     And the URL resolves exact "aiDelivery=progressive"
     When the local Agent creates the 7112-element balanced composition once
     Then the report should name connected-DOM loading, first compositor paint opportunity, first-Vector, 25, 50, 75, 100 percent, longest work-unit, cooperative-yield-count, settled, Render, UI, and harness times
     And milestone observation should use bounded runtime counters instead of full canonical snapshot polling
     And one terminal exact summary should preserve all 7112 projections, exact detail, and one Undo action
     And synchronized visual review should inspect the real connected DOM loading state and final ordinary Vector output from that same live App state
-    But this single-Actor gate should not run a warm-up, repeat the high-detail creation, create Actor B, read Mock backend IndexedDB after readiness, read document IndexedDB, record video, or close deferred two-Actor collaboration gates
+    But this single-Actor gate should not run a warm-up, repeat the high-detail creation, create Actor B, read the response inbox after readiness, read document IndexedDB, record video, or close deferred two-Actor collaboration gates
 
   Scenario: Balanced atomic creation meets the local budget
     Given the URL resolves exact "aiDelivery=atomic"
@@ -502,8 +505,8 @@ Feature: Conversational AI drawing performance
     When the formal performance harness queries the measured App state
     Then it should receive detached canonical, history, Factory status, commit, and publication snapshots
     And dev-only "window.__Core__" should not satisfy production evidence
-    And navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
-    And after the pre-ready Mock backend response seed and lookup the harness should not open, poll, normalize, stringify, or hash document IndexedDB
+    And navigation, App readiness, collaboration readiness, server AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
+    And after the pre-ready response inbox seed and lookup the harness should not open, poll, normalize, stringify, or hash document IndexedDB
 
   Scenario: Performance work preserves cancellation and failure semantics
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down

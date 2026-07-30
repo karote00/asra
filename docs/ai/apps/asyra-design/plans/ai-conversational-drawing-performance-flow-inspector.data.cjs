@@ -24,55 +24,61 @@
 
   const steps = [
     {
-      id: 'preload-file-scoped-mock-backend-response',
+      id: 'preload-file-scoped-server-response',
       order: 1,
       laneId: 'app-canonical',
-      title: 'Preload one server-prepared Mock backend response',
-      ownerPackage: 'Asyra Design Mock backend bootstrap',
+      title: 'Preload one file-scoped server response',
+      ownerPackage: 'Asyra Design server response inbox',
       purpose:
-        'Have the Mock backend validate, normalize, summarize, and compact one exact model response before storing it in the dedicated IndexedDB response store, then read that versioned server-prepared plan by required fileId before App and Agent readiness and hand it through the ordinary provider-to-Runtime route without request-time model preparation.',
+        'Read one versioned server-prepared AiActionBatch from the response inbox adapter by required fileId before App and Agent readiness, then hand it through the single formal provider requestActionBatch() contract without request-time model preparation.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'required fileId',
-        'versioned server-prepared Mock backend plan record produced by the test or manual harness before App navigation'
+        'versioned server response record prepared by the test or manual harness before App navigation'
       ],
       outputs: [
-        'artifact:server-prepared-ai-plan',
-        'artifact:mock-backend-bootstrap-timing',
-        'artifact:mock-provider-response-timing'
+        'artifact:server-prepared-action-batch',
+        'artifact:response-inbox-bootstrap-timing',
+        'artifact:provider-response-handoff-timing'
       ],
       conditions: [
-        'This step is selected because guarded evidence identified request-time fixture import, full-source parsing, and materialization before the requested prefix as test-harness contamination at the Mock backend boundary.',
-        'The test or manual harness acts as the Mock backend: it validates and normalizes the exact model response, derives bounded summaries, builds compact composition coordinate artifacts, and writes one versioned response record before product App navigation; production App code never writes, regenerates, repairs, or deep-validates that store.',
+        'This step is selected because guarded evidence identified request-time fixture import, full-source parsing, and materialization before the requested prefix as test-harness contamination at the server response boundary.',
+        'Deterministic preparation, seed data, and fixtures belong only to the test or manual harness and are never imported into the production bundle. The harness prepares one exact versioned server response before product App navigation.',
         'The required fileId selects exactly one prepared 16-, 320-, 1,280-, or 7,075-child response, and selecting a smaller response never reads or constructs a larger response.',
-        'The selected IndexedDB read completes before App and Agent readiness and before the stable performance baseline.',
-        'The Mock backend response store is separate from canonical document persistence; the canonical document still loads empty and local or remote document actions perform zero persistence-provider or document-IndexedDB read and write.',
-        'Request-time provider acquisition performs zero IndexedDB access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
-        'The provider performs only the deterministic backend delay, verifies the resident response request contract, and returns the resident server-prepared plan to ordinary Runtime action resolution.',
+        'The response inbox adapter read completes before App and Agent readiness and before the stable performance baseline. IndexedDB is only an implementation detail of that response inbox adapter and is never presented as an App product mode.',
+        'The response inbox is separate from canonical document persistence; the canonical document still loads empty and local or remote document actions perform zero persistence-provider or document-IndexedDB read and write.',
+        'requestActionBatch() is the only public provider request. It returns one server-prepared AiActionBatch with one batchId and never selects another provider, payload, or execution path.',
+        'Request-time provider acquisition performs zero response inbox access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
+        'Production provider execution has no artificial delay, phrase fixture fallback, failure simulation, deterministic seed branch, or fixture-selection branch.',
         'Actor B never executes the preloaded response and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
-        'The server-prepared plan remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
+        'The server-prepared AiActionBatch remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
         'The compact artifact preserves every item, path, point, role, order, bound, transform, and style while avoiding a resident duplicate point-object graph.'
       ],
       bypasses: [
-        'An ordinary non-performance Mock conversation may use an in-memory Mock backend response instead of the file-scoped IndexedDB record, but it still returns the same server-prepared plan contract.',
-        'A performance fixture request without its exact prepared response fails explicitly and never falls back to lazy source loading or materialization.',
-        'An Actor context with no prepared response performs only the bounded empty lookup during bootstrap.'
+        'Live server transport and the response inbox adapter deliver the same server response into the same requestActionBatch() provider contract without selecting different App behavior.',
+        'A test request without its exact harness-prepared response fails explicitly and never falls back to lazy source loading, phrase selection, or materialization.',
+        'An Actor context with no prepared response performs only the bounded empty response inbox lookup during bootstrap.'
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
-        'server-prepared versioned Mock backend response records',
-        'dedicated Mock backend IndexedDB response store',
+        'server-prepared versioned response records',
+        'response inbox adapter',
         'required fileId App bootstrap identity',
-        'ordinary Mock provider contract'
+        'single formal server action-batch provider contract',
+        'test or manual harness preparation outside the production bundle'
       ],
       forbiddenContributors: [
         'canonical document persistence provider or document IndexedDB store',
-        'product App writes to the Mock backend response store',
-        'request-time fixture IndexedDB access, import, fetch, parse, tokenization, transform, materialization, or deep-freeze',
+        'product App writes to the response inbox',
+        'request-time response inbox access, fixture import, fetch, parse, tokenization, transform, materialization, or deep-freeze',
         'reading or decoding a complete larger response before slicing a smaller response',
         'selecting fixture size from the prompt instead of required fileId',
         'fixture-specific geometry simplification',
+        'production paths or APIs named Mock, fake, simulate, or local-compat',
+        'artificial provider delay, phrase fixture fallback, or failure simulation',
+        'deterministic preparation, seed data, or fixture modules in the production bundle',
+        'planId, plan API aliases, or compatibility aliases',
         'front-end item, path, point, style, bounds, role, or model semantic validation',
         'front-end model normalization or compact encoding',
         'provider-selected canonical ids',
@@ -80,69 +86,66 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'apps/asyra-design/src/index.tsx',
-        'apps/asyra-design/src/init/init-app.ts',
-        'apps/asyra-design/src/init/index.ts',
-        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
-        'apps/asyra-design/src/ai/mode.ts',
-        'apps/asyra-design/src/ai/mock-provider.ts',
-        'apps/asyra-design/src/ai/mock-backend-response-store.ts',
+        'apps/asyra-design/src/ai/server-action-batch-provider.ts',
+        'apps/asyra-design/src/ai/server-response-inbox.ts',
+        'apps/asyra-design/src/startup.ts',
         'apps/asyra-design/src/ai/__tests__',
-        'apps/asyra-design/src/ai/fixtures',
-        'apps/asyra-design/e2e/mock-backend-response-store.ts',
+        'apps/asyra-design/e2e/server-response-inbox.ts',
         'apps/asyra-design/e2e/test-utils.ts',
+        'apps/asyra-design/e2e/conversational-ai.spec.ts',
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts'
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#file-scoped-mock-backend-bootstrap-contract',
-        '#server-prepared-ai-plan-contract',
+        '#file-scoped-server-response-contract',
+        '#server-prepared-ai-action-batch-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'preload-file-scoped-mock-backend-response'
+      failureOwnerStepId: 'preload-file-scoped-server-response'
     },
     {
-      id: 'resolve-server-prepared-ai-plan',
+      id: 'resolve-server-prepared-action-batch',
       order: 2,
       laneId: 'app-canonical',
-      title: 'Resolve one server-prepared AI plan',
+      title: 'Resolve one server-prepared AiActionBatch',
       ownerPackage: '@asyra/ai-agent-runtime action resolution',
       purpose:
-        'Resolve the small control envelope of one server-prepared plan to registered actions, then hand permission and execution the original prepared argument identity and hand confirmation the server-provided bounded summary without client-side model validation, normalization, cloning, or freezing.',
+        'Resolve one server-prepared AiActionBatch through resolveAiActionBatch(), then hand permission one PermissionReadyAiActionBatch, execution the same prepared action argument identities, and confirmation one AiActionBatchPreview without client-side model validation, normalization, cloning, or freezing.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'artifact:server-prepared-ai-plan',
-        'server-prepared provider plan',
+        'artifact:server-prepared-action-batch',
+        'server-prepared AiActionBatch',
         'registered action definitions and backend-facing input schemas',
         'runtime redaction policy'
       ],
       outputs: [
-        'artifact:resolved-ai-plan',
-        'artifact:bounded-ai-plan-preview',
-        'artifact:ai-plan-ingestion-timing'
+        'artifact:resolved-ai-action-batch',
+        'artifact:bounded-ai-action-batch-preview',
+        'artifact:ai-action-batch-ingestion-timing'
       ],
       conditions: [
         'This step is selected because corrected attribution found front-end action-schema geometry preparation before Group creation, while the product contract now assigns model preparation to the backend.',
-        'runtime.run() is the only public server-prepared plan entry; there is no public or internal client-side prepare, normalize, validate, or compatibility mode.',
-        'A live backend provider and the file-scoped IndexedDB Mock backend adapter hand the same server-prepared plan contract to Runtime; neither source selects another execution or canonical mutation path.',
-        'Runtime preflights only the small control envelope: plan id, explanation, action ids, action names, bounded summaries, empty-plan rule, duplicate ids, and unknown actions. It does not traverse item, path, point, style, bounds, or geometry arguments.',
-        'Each action definition exposes one backend-facing inputSchema for provider planning and one executor; it has no client action schema, parse, prepare, validation mode, or payload-size flag.',
+        'requestActionBatch() is the only public provider request and resolveAiActionBatch() is the only Runtime resolution entry. There is no public or internal plan API, alias, compatibility wrapper, alternate payload mode, or client preparation mode.',
+        'Live server transport and the response inbox adapter hand the same AiActionBatch contract to Runtime; neither source selects another execution or canonical mutation path.',
+        'AiActionBatch carries one batchId, explanation, ordered actions, and bounded summaries. Runtime preflights only that small control envelope, including the empty-batch rule, duplicate action ids, and unknown actions; it does not traverse item, path, point, style, bounds, or geometry arguments.',
+        'Each action definition exposes one backend-facing inputSchema for server action-batch construction and one executor; it has no client action schema, parse, prepare, validation mode, or payload-size flag.',
         'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
-        'Each server-prepared action carries one bounded redaction-ready summary. Confirmation and terminal preview retain and redact only that summary, never complete item, path, point, coordinate, or geometry arguments.',
-        'The Mock backend validates and normalizes every item, path, point, role, style, and bound and builds the compact coordinate artifact before App readiness; the front end performs none of that model work.',
+        'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
+        'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
+        'The server validates and normalizes every item, path, point, role, style, and bound and builds the compact coordinate artifact before App readiness; the front end performs none of that model work.',
         'The front-end composition executor shows the server-prepared loading bounds first and cooperatively materializes only the next progressive slice from the compact artifact.',
         'Canonical topology and ids remain owned by the ordinary App common API and plural Core route; the server-prepared artifact never creates canonical, shared-data, Render, history, or CRDT state directly.',
-        'The resolved plan remains local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
+        'ResolvedAiActionBatch and PermissionReadyAiActionBatch remain local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
       ],
       bypasses: [
         'An invalid control envelope fails before permission, transaction, or executor work.',
         'A no-confirmation permission result still creates only the bounded terminal preview and never a full-argument preview.'
       ],
       allowedContributors: [
-        '@asyra/ai-agent-runtime plan-envelope and action-registry owners',
+        '@asyra/ai-agent-runtime AiActionBatch and action-registry owners',
         'server-prepared action arguments and bounded summaries',
         'registered Asyra Design action definitions and inputSchema descriptions',
         'runtime redaction of bounded summaries',
@@ -155,8 +158,9 @@
         'front-end item, path, point, style, bounds, role, or geometry semantic validation',
         'front-end compact artifact encoding',
         'complete geometry in confirmation or terminal preview',
-        'Mock-only Runtime preparation APIs, flags, or execution branches',
-        'compatibility modes for client-side model validation',
+        'production paths or APIs named Mock, fake, simulate, or local-compat',
+        'planId, plan API aliases, compatibility wrappers, or alternate payload modes',
+        'artificial provider delay, phrase fixture fallback, or failure simulation',
         'large-payload, validation, delivery, progressive, loading, or collaboration flags on action definitions',
         'AI-owned shared props, shared components, shared elements, Factory publications, or CRDT state',
         'fixture-specific item, point, payload, or composition ceilings'
@@ -180,12 +184,12 @@
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#server-prepared-ai-plan-contract',
+        '#server-prepared-ai-action-batch-contract',
         '#bulk-mutation-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'resolve-server-prepared-ai-plan'
+      failureOwnerStepId: 'resolve-server-prepared-action-batch'
     },
     {
       id: 'yield-ai-loading-paint',
@@ -197,7 +201,7 @@
         'Show the confirmed drawing bounds and progress state without an unbounded loading animation while keeping pan and zoom responsive before canonical slices begin.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'artifact:resolved-ai-plan',
+        'artifact:resolved-ai-action-batch',
         'confirmed drawing bounds and item count'
       ],
       outputs: [
@@ -216,7 +220,7 @@
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
-        'artifact:resolved-ai-plan',
+        'artifact:resolved-ai-action-batch',
         'Asyra Design drawing progress state',
         'dedicated pan and zoom interaction bus'
       ],
@@ -432,10 +436,10 @@
       purpose:
         'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
-        'artifact:resolved-ai-plan',
-        'artifact:bounded-ai-plan-preview',
+        'artifact:resolved-ai-action-batch',
+        'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
-        'production App Mock AI startup with progressive default and explicit atomic measurement opt-in',
+        'production Conversational AI startup with progressive default and explicit atomic measurement opt-in',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
         'App-owned DOM compositor overlay',
@@ -448,7 +452,7 @@
         'artifact:app-bulk-timing'
       ],
       conditions: [
-        'The production Asyra Design entry exposes Mock AI without an ai query and uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
+        'The production Asyra Design entry exposes the formal Conversational AI provider without an ai query and uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
         'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
@@ -492,7 +496,7 @@
       implementationBoundary: [
         'apps/asyra-design/package.json',
         'apps/asyra-design/src/index.tsx',
-        'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
+        'apps/asyra-design/e2e/conversational-ai.spec.ts',
         'apps/asyra-design/src/ai',
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/common-apis/system-context.ts',
@@ -890,7 +894,7 @@
         'Root dev:all and ordinary Playwright startup both make the reference WebSocket server ready before the App document connection begins.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
         'Every demo document session starts without creating, initializing, loading, or injecting a client persistence provider.',
-        'The same fileId may independently select a pre-ready Mock backend response, but that response never enters Core.load and creates no canonical prefix.',
+        'The same fileId may independently select a pre-ready server response through the response inbox adapter, but that response never enters Core.load and creates no canonical prefix.',
         'Local actions, Undo, and Redo perform zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
         'Actor B remote apply performs zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
@@ -955,7 +959,7 @@
       ],
       outputs: ['artifact:local-interactive-drawing-proof'],
       conditions: [
-        'The gate uses one fresh single Actor connected through Collaboration to the empty document session selected by the required fileId URL, the ordinary Mock AI default progressive mode, and one 7,112-element balanced composition run without creating Actor B.',
+        'The gate uses one fresh single Actor connected through Collaboration to the empty document session selected by the required fileId URL, the formal Conversational AI provider in default progressive mode, and one 7,112-element balanced composition run without creating Actor B.',
         'The report names accepted-to-connected DOM loading state, accepted-to-first compositor paint opportunity, accepted-to-first ordinary Vector visible, 25, 50, 75, and 100 percent visible-element milestones, longest canonical work unit, cooperative yield count, product settled time, Render time, UI time, and harness overhead.',
         'Milestones use O(1) runtime counters and one terminal exact canonical summary; the harness never polls a full canonical snapshot.',
         'Before the first canonical mutation, the connected DOM loading overlay has a non-zero exact transformed bounds rectangle; that loading state and the ordinary Vector output come from the same live measured App state and receive synchronized visual inspection.',
@@ -964,7 +968,7 @@
       ],
       bypasses: [
         'Contents projection, a second Actor, peer relay, remote apply, and CRDT convergence are excluded from this single-Actor gate; its client-to-server Collaboration transport remains active and server CPU is reported separately.',
-        'No request-time Mock backend IndexedDB access, document IndexedDB provider/read/capture/save/write/state hash, reload, screenshot trace, video, or repeated measured run is part of this gate; the one source response lookup completed before App readiness.',
+        'No request-time response inbox access, document IndexedDB provider/read/capture/save/write/state hash, reload, screenshot trace, video, or repeated measured run is part of this gate; the one source response lookup completed before App readiness.',
         'This local proof does not close or waive any deferred collaboration, persistence-policy, Contents, or full-plan gate.'
       ],
       allowedContributors: [
@@ -981,7 +985,7 @@
         'full canonical snapshot polling',
         'second browser actor, peer relay, or remote apply',
         'disabling Collaboration or omitting the required WebSocket server',
-        'request-time Mock backend or document IndexedDB timing or state assertions',
+        'request-time response inbox or document IndexedDB timing or state assertions',
         'warm-up or repeated high-detail creation',
         'state-only loading visibility evidence',
         'Canvas or Render-owned loading screenshot',
@@ -1009,9 +1013,9 @@
       purpose:
         'Run exactly one production two-Actor 7,076-element creation proof immediately after each completed endpoint refactor, compare only its owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
       inputs: [
-        'artifact:mock-backend-bootstrap-timing',
-        'artifact:mock-provider-response-timing',
-        'artifact:ai-plan-ingestion-timing',
+        'artifact:response-inbox-bootstrap-timing',
+        'artifact:provider-response-handoff-timing',
+        'artifact:ai-action-batch-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
@@ -1045,8 +1049,8 @@
         'Each single-Actor invocation measures exactly one 16-item, reduced-motion 16-item, or 1,280-item case so a preceding Chrome startup or navigation decay cannot contaminate a later case.',
         'Each attribution invocation uses one request-wide cumulative OS process CPU-time boundary with exact wall time and per-role deltas; ordered browser-monotonic Runtime, provider, App, and loading spans provide inner owner attribution, while decayed ps percent and phaseCpuMaximums never do.',
         'Every phase-boundary sample passes through the same fixed 200-percent safety evaluation as the periodic sampler and requires exact PID set equality; any observed process identity change across the boundary or 250-millisecond samples makes attribution invalid, while an unobserved sub-interval helper means request-wide OS CPU can never be the sole owner-attribution signal.',
-        'Mock backend IndexedDB seed, read, structured clone, and handoff are external backend and transport adapter timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
-        'After Mock backend, App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs prompt fill, locator resolution, and actionability outside the product boundary, then establishes a fresh stable pair for the process identity. App-owned request acceptance or dispatch starts local-request and retains its interval maximum and cumulative average; no Playwright locator, visibility, count, text, or attribute polling may execute in the measured window. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
+        'Response inbox seed, read, structured clone, and handoff are external backend and transport-adapter timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
+        'After the response inbox, App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs prompt fill, locator resolution, and actionability outside the product boundary, then establishes a fresh stable pair for the process identity. App-owned request acceptance or dispatch starts local-request and retains its interval maximum and cumulative average; no Playwright locator, visibility, count, text, or attribute polling may execute in the measured window. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
         'A bounded heartbeat reports the latest completed phase, any currently active started phase, its capture time, Actor A and Actor B canonical element counts, publication progress, and latest completed owner timing without walking the full canonical graph; the guard records a separate safety-signal sample time and heartbeat age rather than presenting the values as co-temporal.',
         'The production performance profile provides O(1) canonical, Render projection, Factory publication, and history scalar queries; Render projection counts remain uncapped so over-projection is reported as a correctness failure.',
         'The ordinary Playwright suite always excludes the guarded endpoint spec even if guard environment variables leak into that process.',
@@ -1063,7 +1067,7 @@
         'If the corrected 16-item interval CPU crosses 200 percent, the guard stops first; only the resulting bounded replan may authorize exactly one equivalent reduced-motion 16-item control to separate loading-compositor work from other browser work.',
         'If the 16-item attribution case remains below 200 percent, one guarded single-Actor 1,280-item cat-prefix case separates the resident provider delay and handoff, Runtime control-envelope resolution, bounded preview, loading paint, Group, and first plural children-batch timing.',
         'A two-Actor 1,280-item attribution case is allowed only when the fresh single-Actor result cannot separate Actor A and client-to-server work from peer relay or Actor B remote apply.',
-        'The completed attribution artifact selects exactly one next owner route: Mock backend bootstrap or request-boundary contamination, Runtime candidate preparation, App loading paint, local canonical composition, or receiver frame admission.',
+        'The completed attribution artifact selects exactly one next owner route: response inbox or provider request-boundary contamination, Runtime action-batch resolution, App loading paint, local canonical composition, or receiver frame admission.',
         'Attribution cases retain the fixed 200-percent guard and exact process termination, but never create an accepted endpoint baseline, never count as a 7,076 architecture attempt, and cannot establish product equivalence.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
         'Success preserves exact canonical IDs, order, detail, topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
@@ -1151,9 +1155,9 @@
       purpose:
         'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
-        'artifact:mock-backend-bootstrap-timing',
-        'artifact:mock-provider-response-timing',
-        'artifact:ai-plan-ingestion-timing',
+        'artifact:response-inbox-bootstrap-timing',
+        'artifact:provider-response-handoff-timing',
+        'artifact:ai-action-batch-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
@@ -1178,8 +1182,8 @@
         'One warm-up precedes three measured runs and median and worst values are reported separately.',
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
-        'Mock backend response seeding, the fileId-selected IndexedDB preload, navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
-        'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated Mock backend response read only before App readiness.',
+        'Response inbox seeding, the fileId-selected response preload, navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
+        'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated response inbox read only before App readiness.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, independent 7,076-element no-media CRDT and performance runs, and the 27,471-element 295,794-point gate pass.',
         'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
@@ -1227,24 +1231,24 @@
 
   const routes = [
     {
-      id: 'route-server-prepared-ai-plan-to-runtime',
-      from: 'preload-file-scoped-mock-backend-response',
-      to: 'resolve-server-prepared-ai-plan',
+      id: 'route-server-prepared-action-batch-to-runtime',
+      from: 'preload-file-scoped-server-response',
+      to: 'resolve-server-prepared-action-batch',
       kind: 'handoff',
       predicate:
-        'After its deterministic backend delay, Actor A handed the fileId-selected resident server-prepared plan to Runtime with zero request-time fixture IndexedDB access, import, fetch, parse, tokenization, transform, validation, normalization, or materialization.',
-      producedArtifacts: ['artifact:server-prepared-ai-plan']
+        'Actor A handed the fileId-selected resident server-prepared AiActionBatch to resolveAiActionBatch() with zero request-time response inbox access, fixture import, fetch, parse, tokenization, transform, validation, normalization, or materialization.',
+      producedArtifacts: ['artifact:server-prepared-action-batch']
     },
     {
-      id: 'route-resolved-ai-plan-to-composition',
-      from: 'resolve-server-prepared-ai-plan',
+      id: 'route-resolved-ai-action-batch-to-composition',
+      from: 'resolve-server-prepared-action-batch',
       to: 'yield-ai-loading-paint',
       kind: 'handoff',
       predicate:
-        'The server-prepared control envelope resolved to registered actions without client model validation.',
+        'The server-prepared AiActionBatch resolved to registered actions without client model validation while preserving batchId.',
       producedArtifacts: [
-        'artifact:resolved-ai-plan',
-        'artifact:bounded-ai-plan-preview'
+        'artifact:resolved-ai-action-batch',
+        'artifact:bounded-ai-action-batch-preview'
       ]
     },
     {
@@ -1257,40 +1261,40 @@
       producedArtifacts: ['artifact:visible-loading-boundary']
     },
     {
-      id: 'route-mock-backend-bootstrap-timing-to-endpoint-proof',
-      from: 'preload-file-scoped-mock-backend-response',
+      id: 'route-response-inbox-bootstrap-timing-to-endpoint-proof',
+      from: 'preload-file-scoped-server-response',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The exact fileId-selected Mock backend response read completed before App and Agent readiness and remained outside product operation timing.',
-      producedArtifacts: ['artifact:mock-backend-bootstrap-timing']
+        'The exact fileId-selected response inbox read completed before App and Agent readiness and remained outside product operation timing.',
+      producedArtifacts: ['artifact:response-inbox-bootstrap-timing']
     },
     {
-      id: 'route-mock-backend-bootstrap-timing-to-final-proof',
-      from: 'preload-file-scoped-mock-backend-response',
+      id: 'route-response-inbox-bootstrap-timing-to-final-proof',
+      from: 'preload-file-scoped-server-response',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted architecture reported the fileId-selected Mock backend response preload as a detached pre-ready harness span.',
-      producedArtifacts: ['artifact:mock-backend-bootstrap-timing']
+        'The accepted architecture reported the fileId-selected response inbox preload as a detached pre-ready harness span.',
+      producedArtifacts: ['artifact:response-inbox-bootstrap-timing']
     },
     {
-      id: 'route-mock-provider-response-timing-to-endpoint-proof',
-      from: 'preload-file-scoped-mock-backend-response',
+      id: 'route-provider-response-handoff-timing-to-endpoint-proof',
+      from: 'preload-file-scoped-server-response',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The request-time provider span contained only the deterministic backend delay, resident response contract check, and candidate handoff.',
-      producedArtifacts: ['artifact:mock-provider-response-timing']
+        'The request-time requestActionBatch() span contained only resident response contract verification and AiActionBatch handoff.',
+      producedArtifacts: ['artifact:provider-response-handoff-timing']
     },
     {
-      id: 'route-mock-provider-response-timing-to-final-proof',
-      from: 'preload-file-scoped-mock-backend-response',
+      id: 'route-provider-response-handoff-timing-to-final-proof',
+      from: 'preload-file-scoped-server-response',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
         'The accepted request-time provider span retained zero fixture acquisition or materialization.',
-      producedArtifacts: ['artifact:mock-provider-response-timing']
+      producedArtifacts: ['artifact:provider-response-handoff-timing']
     },
     {
       id: 'route-loading-paint-timing-to-endpoint-proof',
@@ -1310,22 +1314,22 @@
       producedArtifacts: ['artifact:loading-paint-timing']
     },
     {
-      id: 'route-ai-plan-ingestion-timing-to-endpoint-proof',
-      from: 'resolve-server-prepared-ai-plan',
+      id: 'route-ai-action-batch-ingestion-timing-to-endpoint-proof',
+      from: 'resolve-server-prepared-action-batch',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'Server-prepared plan handoff and Runtime control-envelope resolution emitted bounded timing.',
-      producedArtifacts: ['artifact:ai-plan-ingestion-timing']
+        'Server-prepared AiActionBatch handoff and Runtime control-envelope resolution emitted bounded timing.',
+      producedArtifacts: ['artifact:ai-action-batch-ingestion-timing']
     },
     {
-      id: 'route-ai-plan-ingestion-timing-to-final-proof',
-      from: 'resolve-server-prepared-ai-plan',
+      id: 'route-ai-action-batch-ingestion-timing-to-final-proof',
+      from: 'resolve-server-prepared-action-batch',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted server-prepared plan architecture emitted bounded final timing.',
-      producedArtifacts: ['artifact:ai-plan-ingestion-timing']
+        'The accepted server-prepared AiActionBatch architecture emitted bounded final timing.',
+      producedArtifacts: ['artifact:ai-action-batch-ingestion-timing']
     },
     {
       id: 'route-composition-batches-to-canonical',
@@ -1703,18 +1707,18 @@
       producedArtifacts: ['artifact:resource-guard-stop-proof']
     },
     {
-      id: 'route-attribution-to-mock-backend-boundary',
+      id: 'route-attribution-to-server-response-boundary',
       from: 'evaluate-endpoint-performance',
-      to: 'preload-file-scoped-mock-backend-response',
+      to: 'preload-file-scoped-server-response',
       kind: 'bounded-attribution',
       predicate:
-        'Fresh single-Actor CPU-time evidence identifies a missing pre-ready response preload or any request-time Mock backend fixture IndexedDB access, import, fetch, parse, tokenization, transform, or materialization as the first incorrect boundary.',
+        'Fresh single-Actor CPU-time evidence identifies a missing pre-ready response preload or any request-time response inbox access, fixture import, fetch, parse, tokenization, transform, or materialization as the first incorrect boundary.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
       id: 'route-attribution-to-runtime-resolution',
       from: 'evaluate-endpoint-performance',
-      to: 'resolve-server-prepared-ai-plan',
+      to: 'resolve-server-prepared-action-batch',
       kind: 'bounded-attribution',
       predicate:
         'Fresh single-Actor request-wide CPU-time evidence plus ordered browser-monotonic spans identifies Runtime control-envelope resolution or bounded preview projection as the first material owner.',
@@ -1726,7 +1730,7 @@
       to: 'yield-ai-loading-paint',
       kind: 'bounded-attribution',
       predicate:
-        'An equivalent fresh reduced-motion control materially lowers loading-boundary CPU-time while preserving the same plan and canonical result.',
+        'An equivalent fresh reduced-motion control materially lowers loading-boundary CPU-time while preserving the same AiActionBatch and canonical result.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
@@ -1758,17 +1762,17 @@
 
   const artifacts = [
     {
-      id: 'artifact:server-prepared-ai-plan',
-      ownerStepId: 'preload-file-scoped-mock-backend-response',
+      id: 'artifact:server-prepared-action-batch',
+      ownerStepId: 'preload-file-scoped-server-response',
       channel:
-        'fileId-selected startup-resident server-prepared Mock provider plan',
-      consumerStepIds: ['resolve-server-prepared-ai-plan'],
+        'fileId-selected startup-resident server-prepared AiActionBatch returned by requestActionBatch()',
+      consumerStepIds: ['resolve-server-prepared-action-batch'],
       terminal: false
     },
     {
-      id: 'artifact:mock-backend-bootstrap-timing',
-      ownerStepId: 'preload-file-scoped-mock-backend-response',
-      channel: 'detached pre-ready Mock backend response IndexedDB read timing',
+      id: 'artifact:response-inbox-bootstrap-timing',
+      ownerStepId: 'preload-file-scoped-server-response',
+      channel: 'detached pre-ready response inbox adapter read timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -1776,10 +1780,10 @@
       terminal: false
     },
     {
-      id: 'artifact:mock-provider-response-timing',
-      ownerStepId: 'preload-file-scoped-mock-backend-response',
+      id: 'artifact:provider-response-handoff-timing',
+      ownerStepId: 'preload-file-scoped-server-response',
       channel:
-        'detached request-time deterministic backend delay and resident candidate handoff timing',
+        'detached request-time requestActionBatch() contract verification and resident AiActionBatch handoff timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -1787,10 +1791,10 @@
       terminal: false
     },
     {
-      id: 'artifact:resolved-ai-plan',
-      ownerStepId: 'resolve-server-prepared-ai-plan',
+      id: 'artifact:resolved-ai-action-batch',
+      ownerStepId: 'resolve-server-prepared-action-batch',
       channel:
-        '@asyra/ai-agent-runtime server-prepared argument-preserving action-resolution handoff',
+        '@asyra/ai-agent-runtime ResolvedAiActionBatch and PermissionReadyAiActionBatch handoff preserving batchId and action argument identity',
       consumerStepIds: [
         'yield-ai-loading-paint',
         'stage-local-interactive-composition'
@@ -1815,10 +1819,10 @@
       terminal: false
     },
     {
-      id: 'artifact:bounded-ai-plan-preview',
-      ownerStepId: 'resolve-server-prepared-ai-plan',
+      id: 'artifact:bounded-ai-action-batch-preview',
+      ownerStepId: 'resolve-server-prepared-action-batch',
       channel:
-        '@asyra/ai-agent-runtime bounded redaction-ready confirmation and terminal summary',
+        '@asyra/ai-agent-runtime bounded redaction-ready AiActionBatchPreview',
       consumerStepIds: [
         'yield-ai-loading-paint',
         'stage-local-interactive-composition'
@@ -1826,8 +1830,8 @@
       terminal: false
     },
     {
-      id: 'artifact:ai-plan-ingestion-timing',
-      ownerStepId: 'resolve-server-prepared-ai-plan',
+      id: 'artifact:ai-action-batch-ingestion-timing',
+      ownerStepId: 'resolve-server-prepared-action-batch',
       channel: 'detached monotonic pre-canonical owner timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
@@ -2111,10 +2115,10 @@
       id: 'artifact:precanonical-owner-attribution',
       ownerStepId: 'evaluate-endpoint-performance',
       channel:
-        'fresh-process request-wide CPU-time and ordered browser-monotonic attribution that selects exactly one Mock backend boundary, runtime, loading, canonical, or collaboration owner without endpoint acceptance',
+        'fresh-process request-wide CPU-time and ordered browser-monotonic attribution that selects exactly one response inbox/provider, Runtime action-batch, loading, canonical, or collaboration owner without endpoint acceptance',
       consumerStepIds: [
-        'preload-file-scoped-mock-backend-response',
-        'resolve-server-prepared-ai-plan',
+        'preload-file-scoped-server-response',
+        'resolve-server-prepared-action-batch',
         'yield-ai-loading-paint',
         'stage-local-interactive-composition',
         'admit-receiver-publication-frames'
@@ -2140,20 +2144,20 @@
 
   const invariants = [
     {
-      id: 'mock-backend-response-is-not-document-state',
+      id: 'server-response-is-not-document-state',
       statement:
-        'The same required fileId may select both the App document session and one test-prepared Mock backend response, but the startup-resident response remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state before Actor A sends the ordinary conversation request.',
+        'The same required fileId may select both the App document session and one test-prepared server response, but the startup-resident response remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state before Actor A sends the ordinary conversation request.',
       stepIds: [
-        'preload-file-scoped-mock-backend-response',
+        'preload-file-scoped-server-response',
         'load-empty-demo-document',
-        'resolve-server-prepared-ai-plan'
+        'resolve-server-prepared-action-batch'
       ],
       artifactIds: [
-        'artifact:server-prepared-ai-plan',
+        'artifact:server-prepared-action-batch',
         'artifact:empty-memory-demo-document'
       ],
       specRefs: [
-        '#file-scoped-mock-backend-bootstrap-contract',
+        '#file-scoped-server-response-contract',
         '#demo-client-persistence-bypass'
       ]
     },
@@ -2228,7 +2232,7 @@
     {
       id: 'demo-has-no-client-persistence-side-effects',
       statement:
-        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client document persistence capture, provider save, document IndexedDB read, or document IndexedDB write; the separate pre-ready Mock backend response read is not document persistence, and remote apply additionally creates no Undo or echo publication.',
+        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client document persistence capture, provider save, document IndexedDB read, or document IndexedDB write; the separate pre-ready response inbox read is not document persistence, and remote apply additionally creates no Undo or echo publication.',
       stepIds: [
         'load-empty-demo-document',
         'evaluate-local-interactive-drawing',
@@ -2247,21 +2251,22 @@
 
   const acceptanceContracts = [
     {
-      id: 'file-scoped-mock-backend-response',
-      title: 'File-scoped Mock backend response is ready before product work',
+      id: 'file-scoped-server-response',
+      title: 'File-scoped server response is ready before product work',
       assertions: [
-        'The test or manual harness seeds one exact versioned response in the dedicated Mock backend IndexedDB before App navigation, and required fileId selects only that response.',
+        'The test or manual harness prepares and seeds one exact versioned response in the response inbox adapter before App navigation, required fileId selects only that response, and deterministic preparation, seed data, and fixtures never enter the production bundle.',
         'App and Agent readiness wait for the bounded read, while the canonical document remains empty and nonshared until Actor A sends the ordinary conversation request.',
-        'The provider request performs only deterministic backend delay, resident request-contract verification, and server-prepared plan handoff; it performs no fixture I/O, model validation, normalization, parse, materialization, deep-freeze, or lazy fallback.',
+        'requestActionBatch() returns exactly one server-prepared AiActionBatch with one batchId. Production has one provider path, no artificial delay, phrase fixture fallback, failure simulation, fixture I/O, model validation, normalization, parse, materialization, deep-freeze, or lazy fallback.',
+        'resolveAiActionBatch() produces one ResolvedAiActionBatch, permission receives one PermissionReadyAiActionBatch, and confirmation receives one AiActionBatchPreview without a plan API alias or compatibility wrapper.',
         'The 16-, 320-, 1,280-, and 7,075-child responses preserve exact full detail, while Actor B obtains the resulting drawing only through canonical CRDT publications.'
       ],
       stepIds: [
-        'preload-file-scoped-mock-backend-response',
+        'preload-file-scoped-server-response',
         'load-empty-demo-document',
-        'resolve-server-prepared-ai-plan'
+        'resolve-server-prepared-action-batch'
       ],
       specRefs: [
-        '#file-scoped-mock-backend-bootstrap-contract',
+        '#file-scoped-server-response-contract',
         '#non-negotiable-equivalence'
       ]
     },
@@ -2321,7 +2326,7 @@
         'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
         'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
         'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
-        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, harness, and separately attributed WebSocket-server timing with Collaboration ready, no Actor B, no Contents, no request-time Mock backend read, and no document IndexedDB work.'
+        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, harness, and separately attributed WebSocket-server timing with Collaboration ready, no Actor B, no Contents, no request-time response inbox read, and no document IndexedDB work.'
       ],
       stepIds: [
         'stage-local-interactive-composition',
@@ -2383,7 +2388,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One file-scoped preloaded Mock backend response, one canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
+        'One file-scoped preloaded server response, one resolved AiActionBatch, one canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,
