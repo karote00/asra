@@ -510,6 +510,7 @@
       ],
       conditions: [
         'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
+        'Contents is fixed as excluded and does not mount in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
         'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
@@ -547,6 +548,7 @@
         'JavaScript per-frame loading animation',
         'a second reactive-events bus used as a scheduling or document-admission lock',
         'product delivery-mode switches or delivery URL parameters',
+        'performanceContentsMode or another profile-selected product projection',
         'microtask-only progressive yield',
         'one timeout scheduled independently for every planned range'
       ],
@@ -559,6 +561,8 @@
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/common-apis/system-context.ts',
         'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/app/index.tsx',
+        'apps/asyra-design/src/app/__tests__',
         'apps/asyra-design/src/app/ai-conversation-panel.tsx',
         'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
         'apps/asyra-design/src/render-app',

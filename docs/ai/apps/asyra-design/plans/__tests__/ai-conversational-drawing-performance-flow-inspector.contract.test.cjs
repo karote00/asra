@@ -926,6 +926,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     text,
     /production.*formal.*provider.*without an ai or delivery query.*progressive/i
   )
+  assert.match(
+    text,
+    /Contents.*fixed.*excluded.*not mount.*detached performance profile.*never configures.*App/i
+  )
   assert.doesNotMatch(text, /aiDelivery|atomic measurement opt-in|Atomic mode/i)
   assert.doesNotMatch(
     text,
@@ -981,6 +985,12 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.ok(
     owner.implementationBoundary.includes('apps/asyra-design/src/index.tsx')
+  )
+  ;[
+    'apps/asyra-design/src/app/index.tsx',
+    'apps/asyra-design/src/app/__tests__'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
   assert.ok(
     owner.implementationBoundary.includes(
@@ -1086,7 +1096,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Production App exposes one formal server-backed Agent route[\s\S]*ordinary production entry starts with one required fileId[\s\S]*single cooperative progressive plural-batch route/i
+    /Scenario: Production App exposes one formal server-backed Agent route[\s\S]*ordinary production entry starts with one required fileId[\s\S]*single cooperative progressive plural-batch route[\s\S]*should not mount Contents[\s\S]*detached performance profile should not configure the App/i
   )
   assert.doesNotMatch(
     feature,

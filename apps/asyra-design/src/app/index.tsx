@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ToolBar from '../toolbar'
-import Contents from '../contents'
 import Properties from '../properties'
 import Animation from '../animation'
 import { toTailwindPixelSize } from '../tailwind-size'
@@ -28,7 +27,6 @@ import { AiHistoryMessageBar } from './ai-history-message-bar'
 import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
 import type { AsyraDesignAiConversationController } from '../ai/conversation'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
-import type { AiDrawingPerformanceContentsMode } from '../init/performance/ai-drawing-performance-profile'
 
 interface AppProps {
   ai: {
@@ -37,13 +35,11 @@ interface AppProps {
     readonly history: AsyraDesignAiHistoryProjection
   }
   groupCommandPlatform?: GroupCommandPlatform
-  performanceContentsMode?: AiDrawingPerformanceContentsMode
 }
 
 const App: React.FC<AppProps> = ({
   ai,
-  groupCommandPlatform = detectGroupCommandPlatform(),
-  performanceContentsMode = 'present'
+  groupCommandPlatform = detectGroupCommandPlatform()
 }) => {
   const appRootRef = useRef<HTMLDivElement>(null)
   const aiFocusReturnRef = useRef<HTMLElement | null>(null)
@@ -231,7 +227,6 @@ const App: React.FC<AppProps> = ({
         conversation={ai.conversation}
         history={ai.history}
       />
-      {performanceContentsMode === 'present' ? <Contents /> : null}
       <Properties />
       <Animation />
       <div

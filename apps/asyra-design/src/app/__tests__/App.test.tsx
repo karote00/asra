@@ -22,7 +22,9 @@ vi.mock('../../toolbar', () => ({
     )
   }
 }))
-vi.mock('../../contents', () => ({ default: () => null }))
+vi.mock('../../contents', () => ({
+  default: () => <aside data-testid="contents-panel" />
+}))
 vi.mock('../../properties', () => ({ default: () => null }))
 vi.mock('../../animation', () => ({ default: () => null }))
 vi.mock('../group-context-menu', () => ({ GroupContextMenu: () => null }))
@@ -55,6 +57,7 @@ test('renders the always-on Agent shell and opens its panel', () => {
   const { container } = render(<App ai={ai} />)
 
   expect(container.querySelector('[data-asyra-ai-root="true"]')).not.toBeNull()
+  expect(screen.queryByTestId('contents-panel')).toBeNull()
   expect(screen.getByTestId('agent-history')).not.toBeNull()
   expect(toolbarProps).toHaveBeenLastCalledWith(
     expect.objectContaining({
