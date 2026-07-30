@@ -17,6 +17,7 @@ import { hierarchyApis } from '../../common-apis/hierarchy'
 import { strokeApis } from '../../common-apis/strokes'
 import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
+import * as aiComposition from '../../ai/composition'
 import * as aiStartup from '../../ai/startup'
 
 const calls: string[] = []
@@ -78,8 +79,17 @@ describe('initApp preset composition', () => {
     vi.spyOn(features, 'initFeatures').mockImplementation(() => {
       calls.push('features')
       return {
-        ai: null
-      }
+        ai: {
+          api: {
+            cancel: vi.fn(() => false),
+            execute: vi.fn(async () => ({
+              reason: 'provider-unavailable',
+              status: 'unavailable'
+            }))
+          },
+          dispose: vi.fn(() => true)
+        }
+      } as never
     })
   })
 
@@ -205,6 +215,41 @@ describe('initApp preset composition', () => {
       disposed: true
     })
     expect(disposeFeature).toHaveBeenCalledOnce()
+  })
+
+  it('fails startup and disposes Agent resources when feature registration is unavailable', async () => {
+    const disposeConfirmation = vi.fn(async () => undefined)
+    const disposeHistory = vi.fn()
+    const disposeRuntime = vi.fn(async () => undefined)
+    vi.spyOn(aiStartup, 'createAsyraDesignAiStartup').mockReturnValue({
+      confirmation: {
+        dispose: disposeConfirmation
+      },
+      history: {
+        dispose: disposeHistory
+      },
+      runtimeOptions: {
+        enabled: true,
+        providerEnabled: true
+      }
+    } as never)
+    vi.spyOn(aiComposition, 'composeAiAgentRuntime').mockReturnValue({
+      dispose: disposeRuntime,
+      enabled: true,
+      providerEnabled: true,
+      runtime: {}
+    } as never)
+    vi.spyOn(features, 'initFeatures').mockReturnValue({
+      ai: null
+    })
+
+    expect(() => initApp({ serverResponse: null })).toThrow(
+      'Asyra Design requires the Agent feature during startup.'
+    )
+
+    expect(disposeHistory).toHaveBeenCalledOnce()
+    expect(disposeConfirmation).toHaveBeenCalledOnce()
+    expect(disposeRuntime).toHaveBeenCalledOnce()
   })
 
   it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {

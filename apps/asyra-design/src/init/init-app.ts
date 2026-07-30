@@ -38,9 +38,9 @@ export interface InitAppOptions {
 }
 
 export interface AppInitialization {
-  readonly aiConfirmation: AsyraDesignAiConfirmationBroker | null
-  readonly aiConversation: AsyraDesignAiConversationController | null
-  readonly aiHistory: AsyraDesignAiHistoryProjection | null
+  readonly aiConfirmation: AsyraDesignAiConfirmationBroker
+  readonly aiConversation: AsyraDesignAiConversationController
+  readonly aiHistory: AsyraDesignAiHistoryProjection
   readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
 }
@@ -111,22 +111,21 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
       runtime: aiFeatureRuntime
     }
   })
-  const aiConversation = initializedFeatures?.ai
-    ? createAsyraDesignAiConversationController({
-        ...(aiStartup.confirmation
-          ? {
-              confirmation: aiStartup.confirmation
-            }
-          : {}),
-        ...(aiStartup.history
-          ? {
-              history: aiStartup.history
-            }
-          : {}),
-        feature: initializedFeatures.ai.api,
-        getElementType: (elementId) => elementApis.getElementType(elementId)
-      })
-    : null
+  const aiFeature = initializedFeatures?.ai
+  if (!aiFeature) {
+    aiStartup.history.dispose()
+    void Promise.allSettled([
+      aiStartup.confirmation.dispose(),
+      aiRuntime.dispose()
+    ])
+    throw new Error('Asyra Design requires the Agent feature during startup.')
+  }
+  const aiConversation = createAsyraDesignAiConversationController({
+    confirmation: aiStartup.confirmation,
+    history: aiStartup.history,
+    feature: aiFeature.api,
+    getElementType: (elementId) => elementApis.getElementType(elementId)
+  })
 
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {
@@ -173,10 +172,10 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
       disposal = (async () => {
         window.removeEventListener('pagehide', handlePageHide)
         detachPerformanceRuntimeEvidence?.()
-        await aiConversation?.dispose()
-        await aiStartup.confirmation?.dispose()
-        aiStartup.history?.dispose()
-        initializedFeatures?.ai?.dispose()
+        await aiConversation.dispose()
+        await aiStartup.confirmation.dispose()
+        aiStartup.history.dispose()
+        aiFeature.dispose()
         await aiRuntime.dispose()
       })()
     }

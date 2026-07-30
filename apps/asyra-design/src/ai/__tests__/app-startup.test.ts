@@ -14,9 +14,9 @@ describe('Asyra Design outer startup', () => {
     const response = createDeferred<AsyraDesignServerResponseRecord | null>()
     const calls: string[] = []
     const initialization = {
-      aiConfirmation: null,
-      aiConversation: null,
-      aiHistory: null,
+      aiConfirmation: {},
+      aiConversation: {},
+      aiHistory: {},
       aiRuntime: {
         dispose: vi.fn(),
         enabled: true,
@@ -69,5 +69,55 @@ describe('Asyra Design outer startup', () => {
       }
     })
     expect(render).toHaveBeenCalledWith(initialization)
+  })
+
+  it('does not initialize or render when required file identity fails', async () => {
+    const initializeApp = vi.fn()
+    const readServerResponse = vi.fn()
+    const render = vi.fn()
+
+    await expect(
+      startAsyraDesignApp(
+        {
+          deliveryMode: 'progressive',
+          render
+        },
+        {
+          getRequiredFileId: vi.fn(() => {
+            throw new Error('fileId is required')
+          }),
+          initializeApp,
+          readServerResponse
+        }
+      )
+    ).rejects.toThrow('fileId is required')
+
+    expect(readServerResponse).not.toHaveBeenCalled()
+    expect(initializeApp).not.toHaveBeenCalled()
+    expect(render).not.toHaveBeenCalled()
+  })
+
+  it('does not initialize or render when the response inbox read fails', async () => {
+    const initializeApp = vi.fn()
+    const render = vi.fn()
+
+    await expect(
+      startAsyraDesignApp(
+        {
+          deliveryMode: 'progressive',
+          render
+        },
+        {
+          getRequiredFileId: vi.fn(() => 'file-unavailable'),
+          initializeApp,
+          readServerResponse: vi.fn(async () => {
+            throw new Error('response unavailable')
+          })
+        }
+      )
+    ).rejects.toThrow('response unavailable')
+
+    expect(initializeApp).not.toHaveBeenCalled()
+    expect(render).not.toHaveBeenCalled()
   })
 })

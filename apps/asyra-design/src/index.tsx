@@ -44,17 +44,11 @@ const startApp = async (): Promise<void> => {
           <DataContexts />
           <App
             performanceContentsMode={performanceConfiguration?.contentsMode}
-            ai={
-              initialization.aiConversation &&
-              initialization.aiConfirmation &&
-              initialization.aiHistory
-                ? {
-                    confirmation: initialization.aiConfirmation,
-                    conversation: initialization.aiConversation,
-                    history: initialization.aiHistory
-                  }
-                : undefined
-            }
+            ai={{
+              confirmation: initialization.aiConfirmation,
+              conversation: initialization.aiConversation,
+              history: initialization.aiHistory
+            }}
           />
         </React.StrictMode>
       )
