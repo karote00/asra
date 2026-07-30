@@ -2,10 +2,10 @@ import type { SharedPublication } from '@asyra/factory'
 import { Buffer } from 'node:buffer'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  createCompactBinaryEncodePlan,
+  encodePreparedCompactBinary,
   decodeCompactBinary,
   encodeCompactBinary,
-  encodeCompactBinaryPlan
+  prepareCompactBinaryEncoding
 } from '../../collaboration/compact-binary'
 import {
   CollaborationMessageTypes,
@@ -977,7 +977,7 @@ describe('collaboration wire protocol', () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined()
   })
 
-  it('builds one exact reusable binary plan without a second measurement pass', () => {
+  it('builds one exact reusable prepared encoding without a second measurement pass', () => {
     const metadata = {
       artifactId: 'artifact-shared-prefix',
       mode: 'progressive'
@@ -992,10 +992,10 @@ describe('collaboration wire protocol', () => {
     }))
 
     const value = [metadata, items]
-    const plan = createCompactBinaryEncodePlan(value)
-    const encoded = encodeCompactBinaryPlan(plan)
+    const preparedEncoding = prepareCompactBinaryEncoding(value)
+    const encoded = encodePreparedCompactBinary(preparedEncoding)
 
-    expect(plan.byteLength).toBe(encoded.byteLength)
+    expect(preparedEncoding.byteLength).toBe(encoded.byteLength)
     expect(decodeCompactBinary(encoded)).toEqual(value)
   })
 

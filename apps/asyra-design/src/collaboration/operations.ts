@@ -1122,7 +1122,7 @@ export const createAsyraDesignPublicationProcessor =
         return true
       }
       const canonicalChanges = measureBrowserDragPhase(
-        'collaboration:remote-canonical-batch-plan',
+        'collaboration:remote-canonical-batch-derive',
         () => createRemoteApplySteps(acceptedPublication)
       )
       canonicalChanges.forEach((change) => {

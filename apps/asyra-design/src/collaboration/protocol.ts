@@ -12,11 +12,11 @@ import type {
 } from '@asyra/collaboration'
 import { isRecord } from '@asyra/utils'
 import {
-  createCompactBinaryEncodePlan,
   decodeCompactBinary,
   encodeCompactBinary,
-  encodeCompactBinaryPlan,
-  encodeCompactBinaryIfSmaller
+  encodePreparedCompactBinary,
+  encodeCompactBinaryIfSmaller,
+  prepareCompactBinaryEncoding
 } from './compact-binary'
 import { decodeCompactJson, encodeCompactJsonIfSmaller } from './compact-json'
 import { isNonBlankString } from './wire-values'
@@ -951,13 +951,13 @@ const encodePublicationPayloadChunks = (
   if (units.length === 0) {
     throw new TypeError('[collaboration] publication has no wire records')
   }
-  const metadataPlan = createCompactBinaryEncodePlan(
+  const metadataEncoding = prepareCompactBinaryEncoding(
     publicationWireMetadata(publication)
   )
-  const metadata = encodeCompactBinaryPlan(metadataPlan)
+  const metadata = encodePreparedCompactBinary(metadataEncoding)
   const encodedUnits = units.map((unit) => {
-    const plan = createCompactBinaryEncodePlan(unit)
-    return encodeCompactBinaryPlan(plan)
+    const unitEncoding = prepareCompactBinaryEncoding(unit)
+    return encodePreparedCompactBinary(unitEncoding)
   })
   const payloadByteLength = encodedUnits.reduce(
     (total, unit) =>
@@ -1016,9 +1016,7 @@ const encodePublicationPayloadChunks = (
 
   for (const range of itemRanges) {
     if (range.start !== currentEnd) {
-      throw new TypeError(
-        '[collaboration] invalid publication record encode plan'
-      )
+      throw new TypeError('[collaboration] invalid publication record range')
     }
     const currentByteLength = currentEnd - currentStart
     const recordByteLength = range.end - range.start
@@ -1048,7 +1046,7 @@ const encodePublicationPayloadChunks = (
         (index > 0 && ranges[index - 1]?.end !== range.start)
     )
   ) {
-    throw new TypeError('[collaboration] invalid publication frame plan')
+    throw new TypeError('[collaboration] invalid publication frame ranges')
   }
   return ranges.map(({ start, end }) => encoded.subarray(start, end))
 }
