@@ -56,7 +56,7 @@ afterEach(() => {
 describe('generic HTTP AI provider', () => {
   it('posts detached provider input through injected fetch', async () => {
     const output = {
-      planId: 'plan-1',
+      batchId: 'batch-1',
       actions: []
     }
     const fetch: AiFetch = vi.fn(async () => response(output))
@@ -64,7 +64,7 @@ describe('generic HTTP AI provider', () => {
       'X-App-Mode': 'test'
     }
     const provider = createGenericHttpAiProvider({
-      endpoint: 'https://agent.example.test/v1/plan',
+      endpoint: 'https://agent.example.test/v1/action-batch',
       fetch,
       headers
     })
@@ -72,14 +72,14 @@ describe('generic HTTP AI provider', () => {
     const controller = new AbortController()
 
     await expect(
-      provider.generateActionPlan(providerInput(), {
+      provider.requestActionBatch(providerInput(), {
         signal: controller.signal
       })
     ).resolves.toBe(output)
 
     expect(fetch).toHaveBeenCalledOnce()
     const [url, init] = vi.mocked(fetch).mock.calls[0]
-    expect(url).toBe('https://agent.example.test/v1/plan')
+    expect(url).toBe('https://agent.example.test/v1/action-batch')
     expect(init).toMatchObject({
       method: 'POST',
       headers: {
@@ -94,17 +94,17 @@ describe('generic HTTP AI provider', () => {
 
   it('uses platform fetch when no transport is injected', async () => {
     const output = {
-      planId: 'platform-plan',
+      batchId: 'platform-batch',
       actions: []
     }
     const fetch: AiFetch = vi.fn(async () => response(output))
     vi.stubGlobal('fetch', fetch)
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan'
+      endpoint: '/api/ai/action-batch'
     })
 
     await expect(
-      provider.generateActionPlan(providerInput(), {
+      provider.requestActionBatch(providerInput(), {
         signal: new AbortController().signal
       })
     ).resolves.toBe(output)
@@ -115,7 +115,7 @@ describe('generic HTTP AI provider', () => {
   it('accepts an absolute endpoint when it matches the browser origin', async () => {
     const fetch: AiFetch = vi.fn(async () =>
       response({
-        planId: 'same-origin-plan',
+        batchId: 'same-origin-batch',
         actions: []
       })
     )
@@ -123,11 +123,11 @@ describe('generic HTTP AI provider', () => {
       origin: 'http://localhost:4173'
     })
     const provider = createGenericHttpAiProvider({
-      endpoint: 'http://localhost:4173/api/ai/plan',
+      endpoint: 'http://localhost:4173/api/ai/action-batch',
       fetch
     })
 
-    await provider.generateActionPlan(providerInput(), {
+    await provider.requestActionBatch(providerInput(), {
       signal: new AbortController().signal
     })
 
@@ -139,7 +139,7 @@ describe('generic HTTP AI provider', () => {
 
     expect(() =>
       createGenericHttpAiProvider({
-        endpoint: 'http://agent.example.test/v1/plan',
+        endpoint: 'http://agent.example.test/v1/action-batch',
         fetch
       })
     ).toThrowError(
@@ -149,7 +149,7 @@ describe('generic HTTP AI provider', () => {
     )
     expect(() =>
       createGenericHttpAiProvider({
-        endpoint: 'https://user:secret@agent.example.test/v1/plan',
+        endpoint: 'https://user:secret@agent.example.test/v1/action-batch',
         fetch
       })
     ).toThrowError(
@@ -163,20 +163,20 @@ describe('generic HTTP AI provider', () => {
   it('does not start transport for pre-abort or invalid input', async () => {
     const fetch: AiFetch = vi.fn()
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch
     })
     const controller = new AbortController()
     controller.abort('do not leak this reason')
 
     await expectProviderError(
-      provider.generateActionPlan(providerInput(), {
+      provider.requestActionBatch(providerInput(), {
         signal: controller.signal
       }),
       'AI_PROVIDER_ABORTED'
     )
     await expectProviderError(
-      provider.generateActionPlan(
+      provider.requestActionBatch(
         {
           ...providerInput(),
           context: {
@@ -198,14 +198,14 @@ describe('generic HTTP AI provider', () => {
       throw new Error(`upstream rejected ${secret}`)
     })
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch,
       headers: {
         authorization: secret
       }
     })
 
-    const failure = provider.generateActionPlan(providerInput(), {
+    const failure = provider.requestActionBatch(providerInput(), {
       signal: new AbortController().signal
     })
 
@@ -233,12 +233,12 @@ describe('generic HTTP AI provider', () => {
       json: errorBody
     }))
     const statusProvider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch: statusFetch
     })
 
     await expect(
-      statusProvider.generateActionPlan(providerInput(), {
+      statusProvider.requestActionBatch(providerInput(), {
         signal: new AbortController().signal
       })
     ).rejects.toEqual(
@@ -258,12 +258,12 @@ describe('generic HTTP AI provider', () => {
       })
     }))
     const parseProvider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch: parseFetch
     })
 
     await expectProviderError(
-      parseProvider.generateActionPlan(providerInput(), {
+      parseProvider.requestActionBatch(providerInput(), {
         signal: new AbortController().signal
       }),
       'AI_PROVIDER_MALFORMED_RESPONSE'
@@ -285,14 +285,14 @@ describe('generic HTTP AI provider', () => {
         })
     )
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch,
       timeoutMs: 25
     })
     const signal = new AbortController().signal
     const addListener = vi.spyOn(signal, 'addEventListener')
     const removeListener = vi.spyOn(signal, 'removeEventListener')
-    const pending = provider.generateActionPlan(providerInput(), {
+    const pending = provider.requestActionBatch(providerInput(), {
       signal
     })
     const rejection = expectProviderError(pending, 'AI_PROVIDER_TIMEOUT')
@@ -313,11 +313,11 @@ describe('generic HTTP AI provider', () => {
       json: async () => new Promise<unknown>(() => undefined)
     }))
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch,
       timeoutMs: 25
     })
-    const pending = provider.generateActionPlan(providerInput(), {
+    const pending = provider.requestActionBatch(providerInput(), {
       signal: new AbortController().signal
     })
     const rejection = expectProviderError(pending, 'AI_PROVIDER_TIMEOUT')
@@ -344,12 +344,12 @@ describe('generic HTTP AI provider', () => {
       }
     )
     const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai/plan',
+      endpoint: '/api/ai/action-batch',
       fetch
     })
     const signal = new AbortController().signal
     const removeListener = vi.spyOn(signal, 'removeEventListener')
-    const pending = provider.generateActionPlan(providerInput(), {
+    const pending = provider.requestActionBatch(providerInput(), {
       signal
     })
     const rejection = expectProviderError(pending, 'AI_PROVIDER_DISPOSED')
@@ -363,7 +363,7 @@ describe('generic HTTP AI provider', () => {
 
     expect(requestSignal?.aborted).toBe(true)
     await expectProviderError(
-      provider.generateActionPlan(providerInput(), {
+      provider.requestActionBatch(providerInput(), {
         signal: new AbortController().signal
       }),
       'AI_PROVIDER_DISPOSED'

@@ -1,22 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   AiTransactionError,
-  runAiPlanTransaction,
-  type AiConfirmedPlan,
+  runAiActionBatchTransaction,
   type AiTransactionRunner
 } from '..'
-
-const confirmedPlan = (): AiConfirmedPlan =>
-  Object.freeze({
-    planId: 'provider-plan-id',
-    confirmationRequired: false,
-    confirmation: 'bypassed',
-    preview: Object.freeze({
-      planId: 'provider-plan-id',
-      actions: Object.freeze([])
-    }),
-    actions: Object.freeze([])
-  })
 
 interface RunnerEvidence {
   commits: number
@@ -48,7 +35,7 @@ const transactionRunner = (): RunnerEvidence => {
   return evidence
 }
 
-describe('AI plan transaction boundary', () => {
+describe('AI action-batch transaction boundary', () => {
   it('runs one complete callback inside one app-owned transaction', async () => {
     const evidence = transactionRunner()
     const execute = vi.fn(async () => {
@@ -60,8 +47,7 @@ describe('AI plan transaction boundary', () => {
     })
 
     await expect(
-      runAiPlanTransaction(
-        confirmedPlan(),
+      runAiActionBatchTransaction(
         evidence.runner,
         new AbortController().signal,
         execute
@@ -84,12 +70,7 @@ describe('AI plan transaction boundary', () => {
     const execute = vi.fn()
 
     await expect(
-      runAiPlanTransaction(
-        confirmedPlan(),
-        evidence.runner,
-        controller.signal,
-        execute
-      )
+      runAiActionBatchTransaction(evidence.runner, controller.signal, execute)
     ).rejects.toEqual(
       expect.objectContaining({
         code: 'AI_TRANSACTION_ABORTED'
@@ -108,12 +89,7 @@ describe('AI plan transaction boundary', () => {
     })
 
     await expect(
-      runAiPlanTransaction(
-        confirmedPlan(),
-        evidence.runner,
-        controller.signal,
-        execute
-      )
+      runAiActionBatchTransaction(evidence.runner, controller.signal, execute)
     ).rejects.toBeInstanceOf(AiTransactionError)
 
     expect(evidence.runCalls).toHaveBeenCalledOnce()
@@ -130,8 +106,7 @@ describe('AI plan transaction boundary', () => {
     })
 
     await expect(
-      runAiPlanTransaction(
-        confirmedPlan(),
+      runAiActionBatchTransaction(
         evidence.runner,
         new AbortController().signal,
         execute

@@ -3,22 +3,22 @@ import {
   AI_REDACTED_VALUE,
   AiExecutionError,
   executeAiActions,
-  type AiConfirmedPlan,
+  type ConfirmedAiActionBatch,
   type AiExecutionContext
 } from '..'
 
-const confirmedPlan = (
+const confirmedActionBatch = (
   executors: readonly ((
     args: unknown,
     context: AiExecutionContext
   ) => Promise<unknown>)[]
-): AiConfirmedPlan =>
+): ConfirmedAiActionBatch =>
   Object.freeze({
-    planId: 'plan-1',
+    batchId: 'batch-1',
     confirmationRequired: false,
     confirmation: 'bypassed',
     preview: Object.freeze({
-      planId: 'plan-1',
+      batchId: 'batch-1',
       actions: Object.freeze([])
     }),
     actions: Object.freeze(
@@ -30,7 +30,10 @@ const confirmedPlan = (
             index
           }),
           execute,
-          permission: 'allow' as const
+          permission: 'allow' as const,
+          summary: Object.freeze({
+            actionIndex: index
+          })
         })
       )
     )
@@ -55,7 +58,10 @@ describe('AI registered action execution', () => {
     }
     const second = vi.fn(async () => secondResult)
     const signal = new AbortController().signal
-    const pending = executeAiActions(confirmedPlan([first, second]), signal)
+    const pending = executeAiActions(
+      confirmedActionBatch([first, second]),
+      signal
+    )
 
     await vi.waitFor(() => expect(first).toHaveBeenCalledOnce())
     expect(second).not.toHaveBeenCalled()
@@ -98,7 +104,7 @@ describe('AI registered action execution', () => {
     const execute = vi.fn(async () => null)
 
     await expect(
-      executeAiActions(confirmedPlan([execute]), controller.signal)
+      executeAiActions(confirmedActionBatch([execute]), controller.signal)
     ).rejects.toEqual(
       expect.objectContaining({
         code: 'AI_EXECUTION_ABORTED',
@@ -119,7 +125,7 @@ describe('AI registered action execution', () => {
     const second = vi.fn(async () => null)
 
     await expect(
-      executeAiActions(confirmedPlan([first, second]), controller.signal)
+      executeAiActions(confirmedActionBatch([first, second]), controller.signal)
     ).rejects.toBeInstanceOf(AiExecutionError)
 
     expect(first).toHaveBeenCalledOnce()
@@ -135,7 +141,7 @@ describe('AI registered action execution', () => {
 
     await expect(
       executeAiActions(
-        confirmedPlan([first, second]),
+        confirmedActionBatch([first, second]),
         new AbortController().signal
       )
     ).rejects.toBe(failure)
@@ -154,7 +160,7 @@ describe('AI registered action execution', () => {
     result.length = 1
 
     const batch = await executeAiActions(
-      confirmedPlan([async () => result]),
+      confirmedActionBatch([async () => result]),
       new AbortController().signal
     )
 

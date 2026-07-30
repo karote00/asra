@@ -8,21 +8,21 @@ import {
   type AiRuntimeAudit
 } from './audit'
 import {
-  AiPlanValidationError,
+  AiActionBatchResolutionError,
+  resolveAiActionBatchWithRegistry,
+  type AiActionBatchResolutionErrorCode,
+  type ResolvedAiAction,
+  type ResolvedAiActionBatch
+} from './action-batch'
+import {
   AiRetryPolicyError,
   MAX_AI_PROVIDER_ATTEMPTS,
-  normalizeAiProviderOutput,
   shouldRetryAiProviderFailure,
-  toAiPlanningFailure,
-  validateAiPlan,
-  type AiPlan,
-  type AiPlanningFailure,
-  type AiPlanValidationErrorCode,
-  type AiPreparedAction,
-  type AiPreparedPlan,
+  toAiProviderRequestFailure,
+  type AiProviderRequestFailure,
   type AiRetryPolicy
-} from './plan'
-import type { AiProvider } from './provider'
+} from './provider-retry'
+import type { AiActionBatch, AiProvider } from './provider'
 import {
   AI_REDACTED_VALUE,
   redactAiValue,
@@ -44,7 +44,7 @@ export type AiPermissionDecision = 'allow' | 'confirm' | 'deny'
 export interface AiPermissionAction {
   readonly id: string
   readonly name: string
-  readonly arguments: AiPreparedAction['arguments']
+  readonly arguments: ResolvedAiAction['arguments']
 }
 
 export interface AiPermissionPolicy<TContext = unknown> {
@@ -56,7 +56,7 @@ export interface AiPermissionPolicy<TContext = unknown> {
 
 export interface AiConfirmationHandler {
   confirm(
-    preview: AiPlanPreview,
+    preview: AiActionBatchPreview,
     options: { signal: AbortSignal }
   ): Promise<boolean>
 }
@@ -65,14 +65,14 @@ export interface AiTransactionRunner {
   run<T>(label: string, execute: () => Promise<T>): Promise<T>
 }
 
-export const AI_PLAN_TRANSACTION_LABEL = 'AI-assisted action'
+export const AI_ACTION_BATCH_TRANSACTION_LABEL = 'AI-assisted action'
 
 export class AiTransactionError extends Error {
   readonly code = 'AI_TRANSACTION_ABORTED' as const
   readonly stage = 'transaction' as const
 
   constructor() {
-    super('AI plan transaction was aborted.')
+    super('AI action batch transaction was aborted.')
     this.name = 'AiTransactionError'
   }
 }
@@ -122,9 +122,9 @@ export type AiRuntimeProgressPhase =
   | 'context'
   | 'execution'
   | 'permission'
-  | 'planning'
+  | 'provider'
+  | 'resolution'
   | 'settled'
-  | 'validation'
 
 export type AiRuntimeProgressOutcome = 'cancelled' | 'executed' | 'failed'
 
@@ -133,7 +133,7 @@ export interface AiRuntimeProgressUpdate {
   readonly attempt: number
   readonly outcome?: AiRuntimeProgressOutcome
   readonly phase: AiRuntimeProgressPhase
-  readonly planId?: string
+  readonly batchId?: string
   readonly summary: string
 }
 
@@ -154,24 +154,25 @@ export type AiRuntimeStage =
   | 'context'
   | 'execution'
   | 'permission'
-  | 'planning'
+  | 'provider'
   | 'registry'
+  | 'resolution'
   | 'runtime'
   | 'transaction'
-  | 'validation'
 
 export type AiRuntimeFailureCode =
   | AiActionRegistryErrorCode
+  | AiActionBatchResolutionErrorCode
   | AiConfirmationErrorCode
   | AiPermissionErrorCode
-  | AiPlanValidationErrorCode
-  | AiPlanningFailure['code']
+  | AiProviderRequestFailure['code']
   | 'AI_ACTION_REGISTRY_FAILED'
   | 'AI_AUDIT_FAILED'
   | 'AI_AUDIT_INVALID_INPUT'
   | 'AI_CONTEXT_FAILED'
   | 'AI_EXECUTION_ABORTED'
   | 'AI_EXECUTION_FAILED'
+  | 'AI_RESOLUTION_FAILED'
   | 'AI_RETRY_POLICY_FAILED'
   | 'AI_RETRY_POLICY_INVALID'
   | 'AI_RUNTIME_DISPOSED'
@@ -179,12 +180,11 @@ export type AiRuntimeFailureCode =
   | 'AI_RUNTIME_INVALID_INTENT'
   | 'AI_TRANSACTION_ABORTED'
   | 'AI_TRANSACTION_FAILED'
-  | 'AI_VALIDATION_FAILED'
 
 export interface AiRuntimeExecutedResult {
   readonly status: 'executed'
-  readonly planId: string
-  readonly preview: AiPlanPreview
+  readonly batchId: string
+  readonly preview: AiActionBatchPreview
   readonly actionResults: readonly AiActionExecutionResult[]
   readonly transaction: {
     readonly status: 'committed'
@@ -195,14 +195,16 @@ export interface AiRuntimeExecutedResult {
 export interface AiRuntimeCancelledResult {
   readonly status: 'cancelled'
   readonly reason: 'aborted' | 'confirmation-cancelled'
-  readonly preview?: AiPlanPreview
+  readonly preview?: AiActionBatchPreview
   readonly audit: AiRuntimeAudit
 }
 
 export interface AiRuntimeFailedResult {
   readonly status: 'failed'
+  readonly batchId?: string
   readonly code: AiRuntimeFailureCode
   readonly message: string
+  readonly preview?: AiActionBatchPreview
   readonly stage: AiRuntimeStage
   readonly retryCount: number
   readonly audit: AiRuntimeAudit
@@ -214,37 +216,41 @@ export type AiRuntimeResult =
   | AiRuntimeFailedResult
 
 export interface AiAgentRuntime {
+  resolveAiActionBatch(
+    batch: AiActionBatch,
+    options: { readonly signal: AbortSignal }
+  ): ResolvedAiActionBatch
   run(request: AiRunRequest): Promise<AiRuntimeResult>
   dispose(): Promise<void>
 }
 
-export interface AiPermissionReadyAction extends AiPreparedAction {
+export interface AiPermissionReadyAction extends ResolvedAiAction {
   readonly permission: Exclude<AiPermissionDecision, 'deny'>
 }
 
-export interface AiPermissionReadyPlan {
-  readonly planId: string
+export interface PermissionReadyAiActionBatch {
+  readonly batchId: string
   readonly explanation?: string
   readonly actions: readonly AiPermissionReadyAction[]
   readonly confirmationRequired: boolean
 }
 
-export interface AiPlanPreviewAction {
+export interface AiActionBatchPreviewAction {
   readonly id: string
   readonly name: string
-  readonly arguments: AiJsonValue
   readonly permission: Exclude<AiPermissionDecision, 'deny'>
+  readonly summary: AiJsonValue
 }
 
-export interface AiPlanPreview {
-  readonly planId: string
+export interface AiActionBatchPreview {
+  readonly batchId: string
   readonly explanation?: string
-  readonly actions: readonly AiPlanPreviewAction[]
+  readonly actions: readonly AiActionBatchPreviewAction[]
 }
 
-export interface AiConfirmedPlan extends AiPermissionReadyPlan {
+export interface ConfirmedAiActionBatch extends PermissionReadyAiActionBatch {
   readonly confirmation: 'accepted' | 'bypassed'
-  readonly preview: AiPlanPreview
+  readonly preview: AiActionBatchPreview
 }
 
 export type AiPermissionErrorCode =
@@ -294,14 +300,14 @@ const permissionPolicyFailed = (): never => {
 const isPermissionDecision = (value: unknown): value is AiPermissionDecision =>
   value === 'allow' || value === 'confirm' || value === 'deny'
 
-export const evaluateAiPlanPermissions = async <TContext>(
-  plan: AiPreparedPlan,
+export const evaluateAiActionBatchPermissions = async <TContext>(
+  batch: ResolvedAiActionBatch,
   context: TContext,
   policy: AiPermissionPolicy<TContext>
-): Promise<AiPermissionReadyPlan> => {
+): Promise<PermissionReadyAiActionBatch> => {
   const decisions: AiPermissionDecision[] = []
 
-  for (const action of plan.actions) {
+  for (const action of batch.actions) {
     let decision: unknown
     try {
       decision = await policy.evaluate({
@@ -322,33 +328,33 @@ export const evaluateAiPlanPermissions = async <TContext>(
     decisions.push(decision)
   }
 
-  const deniedActionIds = plan.actions.flatMap((action, index) =>
+  const deniedActionIds = batch.actions.flatMap((action, index) =>
     decisions[index] === 'deny' ? [action.id] : []
   )
   if (deniedActionIds.length > 0) {
     throw new AiPermissionError(
       'AI_PERMISSION_DENIED',
-      'App permission policy denied the complete plan.',
+      'App permission policy denied the complete action batch.',
       deniedActionIds
     )
   }
 
-  const actions = plan.actions.map((action, index) =>
+  const actions = batch.actions.map((action, index) =>
     Object.freeze({
       ...action,
       permission: decisions[index] as Exclude<AiPermissionDecision, 'deny'>
     })
   )
-  const ready: AiPermissionReadyPlan = {
+  const ready: PermissionReadyAiActionBatch = {
     actions: Object.freeze(actions),
-    confirmationRequired: decisions.includes('confirm'),
-    planId: plan.planId
+    batchId: batch.batchId,
+    confirmationRequired: decisions.includes('confirm')
   }
-  if (plan.explanation !== undefined) {
+  if (batch.explanation !== undefined) {
     Object.defineProperty(ready, 'explanation', {
       configurable: true,
       enumerable: true,
-      value: plan.explanation,
+      value: batch.explanation,
       writable: true
     })
   }
@@ -363,24 +369,24 @@ const confirmationError = (
   throw new AiConfirmationError(code, message)
 }
 
-const createAiPlanPreview = (
-  plan: AiPermissionReadyPlan,
+const createAiActionBatchPreview = (
+  batch: PermissionReadyAiActionBatch,
   redactionOptions: AiRedactionOptions
-): AiPlanPreview => {
-  const actions = plan.actions.map((action) =>
+): AiActionBatchPreview => {
+  const actions = batch.actions.map((action) =>
     Object.freeze({
-      arguments: redactAiValue(action.arguments, redactionOptions),
       id: action.id,
       name: action.name,
-      permission: action.permission
+      permission: action.permission,
+      summary: redactAiValue(action.summary, redactionOptions)
     })
   )
-  const preview: AiPlanPreview = {
+  const preview: AiActionBatchPreview = {
     actions: Object.freeze(actions),
-    planId: plan.planId
+    batchId: batch.batchId
   }
-  if (plan.explanation !== undefined) {
-    const explanation = redactAiValue(plan.explanation, redactionOptions)
+  if (batch.explanation !== undefined) {
+    const explanation = redactAiValue(batch.explanation, redactionOptions)
     Object.defineProperty(preview, 'explanation', {
       configurable: true,
       enumerable: true,
@@ -392,35 +398,35 @@ const createAiPlanPreview = (
   return Object.freeze(preview)
 }
 
-const createConfirmedPlan = (
-  plan: AiPermissionReadyPlan,
-  preview: AiPlanPreview,
-  confirmation: AiConfirmedPlan['confirmation']
-): AiConfirmedPlan =>
+const createConfirmedActionBatch = (
+  batch: PermissionReadyAiActionBatch,
+  preview: AiActionBatchPreview,
+  confirmation: ConfirmedAiActionBatch['confirmation']
+): ConfirmedAiActionBatch =>
   Object.freeze({
-    ...plan,
+    ...batch,
     confirmation,
     preview
   })
 
 const CONFIRMATION_ABORTED = Symbol('CONFIRMATION_ABORTED')
 
-export const confirmAiPlan = async (
-  plan: AiPermissionReadyPlan,
+export const confirmAiActionBatch = async (
+  batch: PermissionReadyAiActionBatch,
   handler: AiConfirmationHandler,
   signal: AbortSignal,
   redactionOptions: AiRedactionOptions = {}
-): Promise<AiConfirmedPlan> => {
+): Promise<ConfirmedAiActionBatch> => {
   if (signal.aborted) {
     return confirmationError(
       'AI_CONFIRMATION_ABORTED',
-      'AI plan confirmation was aborted.'
+      'AI action batch confirmation was aborted.'
     )
   }
 
-  const preview = createAiPlanPreview(plan, redactionOptions)
-  if (!plan.confirmationRequired) {
-    return createConfirmedPlan(plan, preview, 'bypassed')
+  const preview = createAiActionBatchPreview(batch, redactionOptions)
+  if (!batch.confirmationRequired) {
+    return createConfirmedActionBatch(batch, preview, 'bypassed')
   }
 
   let abortListener: (() => void) | undefined
@@ -444,7 +450,7 @@ export const confirmAiPlan = async (
     if (signal.aborted) {
       return confirmationError(
         'AI_CONFIRMATION_ABORTED',
-        'AI plan confirmation was aborted.'
+        'AI action batch confirmation was aborted.'
       )
     }
 
@@ -458,11 +464,11 @@ export const confirmAiPlan = async (
     if (!decision) {
       return confirmationError(
         'AI_CONFIRMATION_CANCELLED',
-        'AI plan confirmation was cancelled.'
+        'AI action batch confirmation was cancelled.'
       )
     }
 
-    return createConfirmedPlan(plan, preview, 'accepted')
+    return createConfirmedActionBatch(batch, preview, 'accepted')
   } catch (error) {
     if (error instanceof AiConfirmationError) {
       throw error
@@ -471,7 +477,7 @@ export const confirmAiPlan = async (
     if (signal.aborted || error === CONFIRMATION_ABORTED) {
       return confirmationError(
         'AI_CONFIRMATION_ABORTED',
-        'AI plan confirmation was aborted.'
+        'AI action batch confirmation was aborted.'
       )
     }
 
@@ -492,15 +498,14 @@ const assertTransactionNotAborted = (signal: AbortSignal): void => {
   }
 }
 
-export const runAiPlanTransaction = async <T>(
-  _plan: AiConfirmedPlan,
+export const runAiActionBatchTransaction = async <T>(
   runner: AiTransactionRunner,
   signal: AbortSignal,
   execute: () => Promise<T>
 ): Promise<T> => {
   assertTransactionNotAborted(signal)
 
-  return runner.run(AI_PLAN_TRANSACTION_LABEL, async () => {
+  return runner.run(AI_ACTION_BATCH_TRANSACTION_LABEL, async () => {
     assertTransactionNotAborted(signal)
     const result = await execute()
     assertTransactionNotAborted(signal)
@@ -515,7 +520,7 @@ const assertExecutionNotAborted = (signal: AbortSignal): void => {
 }
 
 export const executeAiActions = async (
-  plan: AiConfirmedPlan,
+  batch: ConfirmedAiActionBatch,
   signal: AbortSignal,
   redactionOptions: AiRedactionOptions = {}
 ): Promise<AiActionExecutionBatch> => {
@@ -524,7 +529,7 @@ export const executeAiActions = async (
     signal
   })
 
-  for (const action of plan.actions) {
+  for (const action of batch.actions) {
     assertExecutionNotAborted(signal)
     const result = await action.execute(action.arguments, context)
     assertExecutionNotAborted(signal)
@@ -545,8 +550,8 @@ export const executeAiActions = async (
 const INVOCATION_ABORTED = Symbol('INVOCATION_ABORTED')
 
 interface AiInvocationEvidence {
-  readonly plan?: Pick<AiPlan, 'explanation' | 'planId'>
-  readonly preview?: AiPlanPreview
+  readonly batch?: Pick<ResolvedAiActionBatch, 'batchId' | 'explanation'>
+  readonly preview?: AiActionBatchPreview
   readonly retryCount: number
 }
 
@@ -572,20 +577,22 @@ const emitAiRuntimeProgress = (
   }
 
   try {
-    let planId = update.planId
-    if (planId !== undefined) {
-      const redacted = redactAiValue({ planId }, redactionOptions)
-      const redactedPlanId =
+    let batchId = update.batchId
+    if (batchId !== undefined) {
+      const redacted = redactAiValue({ batchId }, redactionOptions)
+      const redactedBatchId =
         typeof redacted === 'object' && redacted !== null
-          ? Reflect.get(redacted, 'planId')
+          ? Reflect.get(redacted, 'batchId')
           : undefined
-      planId =
-        typeof redactedPlanId === 'string' ? redactedPlanId : AI_REDACTED_VALUE
+      batchId =
+        typeof redactedBatchId === 'string'
+          ? redactedBatchId
+          : AI_REDACTED_VALUE
     }
     observer(
       Object.freeze({
         ...update,
-        ...(planId === undefined ? {} : { planId })
+        ...(batchId === undefined ? {} : { batchId })
       })
     )
   } catch {
@@ -622,7 +629,7 @@ const stableFailure = (
   error: unknown,
   fallback: AiStableFailure
 ): AiStableFailure => {
-  if (error instanceof AiPlanValidationError) {
+  if (error instanceof AiActionBatchResolutionError) {
     return {
       code: error.code,
       message: error.message,
@@ -661,7 +668,7 @@ const stableFailure = (
     return {
       code: error.code,
       message: error.message,
-      stage: 'planning'
+      stage: 'provider'
     }
   }
   if (error instanceof AiActionRegistryError) {
@@ -709,10 +716,10 @@ const STAGE_FAILURES: Readonly<Record<AiRuntimeStage, AiStableFailure>> =
       message: 'App permission policy failed.',
       stage: 'permission'
     }),
-    planning: Object.freeze({
+    provider: Object.freeze({
       code: 'AI_RETRY_POLICY_FAILED',
       message: 'AI provider retry policy failed.',
-      stage: 'planning'
+      stage: 'provider'
     }),
     registry: Object.freeze({
       code: 'AI_ACTION_REGISTRY_FAILED',
@@ -726,13 +733,13 @@ const STAGE_FAILURES: Readonly<Record<AiRuntimeStage, AiStableFailure>> =
     }),
     transaction: Object.freeze({
       code: 'AI_TRANSACTION_FAILED',
-      message: 'AI plan transaction failed.',
+      message: 'AI action batch transaction failed.',
       stage: 'transaction'
     }),
-    validation: Object.freeze({
-      code: 'AI_VALIDATION_FAILED',
-      message: 'AI plan validation failed.',
-      stage: 'validation'
+    resolution: Object.freeze({
+      code: 'AI_RESOLUTION_FAILED',
+      message: 'AI action batch resolution failed.',
+      stage: 'resolution'
     })
   })
 
@@ -744,23 +751,33 @@ const createFailedResult = (
   Object.freeze({
     audit: createAiRuntimeAudit(
       {
-        ...(evidence.plan?.explanation === undefined
+        ...(evidence.batch?.explanation === undefined
           ? {}
           : {
-              explanation: evidence.plan.explanation
+              explanation: evidence.batch.explanation
             }),
-        ...(evidence.plan?.planId === undefined
+        ...(evidence.batch?.batchId === undefined
           ? {}
           : {
-              planId: evidence.plan.planId
+              batchId: evidence.batch.batchId
             }),
         outcome: 'failed',
         retryCount: evidence.retryCount
       },
       redactionOptions
     ),
+    ...(evidence.batch?.batchId === undefined
+      ? {}
+      : {
+          batchId: evidence.batch.batchId
+        }),
     code: failure.code,
     message: failure.message,
+    ...(evidence.preview === undefined
+      ? {}
+      : {
+          preview: evidence.preview
+        }),
     retryCount: evidence.retryCount,
     stage: failure.stage,
     status: 'failed'
@@ -773,21 +790,21 @@ const createCancelledResult = (
 ): AiRuntimeCancelledResult => {
   const result: {
     audit: AiRuntimeAudit
-    preview?: AiPlanPreview
+    preview?: AiActionBatchPreview
     reason: AiRuntimeCancelledResult['reason']
     status: 'cancelled'
   } = {
     audit: createAiRuntimeAudit(
       {
-        ...(evidence.plan?.explanation === undefined
+        ...(evidence.batch?.explanation === undefined
           ? {}
           : {
-              explanation: evidence.plan.explanation
+              explanation: evidence.batch.explanation
             }),
-        ...(evidence.plan?.planId === undefined
+        ...(evidence.batch?.batchId === undefined
           ? {}
           : {
-              planId: evidence.plan.planId
+              batchId: evidence.batch.batchId
             }),
         outcome: 'cancelled',
         retryCount: evidence.retryCount
@@ -875,6 +892,13 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
     for (const action of input.actionDefinitions) {
       this.registry.register(action)
     }
+  }
+
+  resolveAiActionBatch(
+    batch: AiActionBatch,
+    options: { readonly signal: AbortSignal }
+  ): ResolvedAiActionBatch {
+    return resolveAiActionBatchWithRegistry(batch, this.registry, options)
   }
 
   run(request: AiRunRequest): Promise<AiRuntimeResult> {
@@ -1016,18 +1040,18 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       currentStage = 'registry'
       const actions = this.registry.list()
 
-      currentStage = 'planning'
+      currentStage = 'provider'
       let attempt = 1
-      let plan: AiPlan
+      let resolved: ResolvedAiActionBatch
       while (true) {
         emitProgress({
           attempt,
-          phase: 'planning',
-          summary: 'Preparing an action plan'
+          phase: 'provider',
+          summary: 'Requesting an action batch'
         })
         try {
-          const providerOutput = await runAbortable(signal, () =>
-            this.provider.generateActionPlan(
+          const actionBatch = await runAbortable(signal, () =>
+            this.provider.requestActionBatch(
               Object.freeze({
                 actions,
                 attempt,
@@ -1044,22 +1068,34 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
               }
             )
           )
-          plan = normalizeAiProviderOutput(providerOutput)
+          currentStage = 'resolution'
+          emitProgress({
+            attempt,
+            phase: 'resolution',
+            summary: 'Resolving app actions'
+          })
+          resolved = this.resolveAiActionBatch(actionBatch, {
+            signal
+          })
           break
         } catch (error) {
           if (signal.aborted || error === INVOCATION_ABORTED) {
             throw INVOCATION_ABORTED
           }
+          if (error instanceof AiActionBatchResolutionError) {
+            throw error
+          }
 
-          const planningFailure = toAiPlanningFailure(error, attempt)
+          currentStage = 'provider'
+          const providerFailure = toAiProviderRequestFailure(error, attempt)
           if (
-            !shouldRetryAiProviderFailure(planningFailure, this.retryPolicy)
+            !shouldRetryAiProviderFailure(providerFailure, this.retryPolicy)
           ) {
             const failed = createFailedResult(
               {
-                code: planningFailure.code,
-                message: planningFailure.message,
-                stage: planningFailure.stage
+                code: providerFailure.code,
+                message: providerFailure.message,
+                stage: providerFailure.stage
               },
               {
                 retryCount: attempt - 1
@@ -1083,28 +1119,19 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       }
 
       evidence = {
-        plan,
+        batch: resolved,
         retryCount: attempt - 1
       }
-      currentStage = 'validation'
-      emitProgress({
-        actionCount: plan.actions.length,
-        attempt,
-        phase: 'validation',
-        planId: plan.planId,
-        summary: 'Validating app actions'
-      })
-      const prepared = validateAiPlan(plan, this.registry)
       currentStage = 'permission'
       emitProgress({
-        actionCount: prepared.actions.length,
+        actionCount: resolved.actions.length,
         attempt,
+        batchId: resolved.batchId,
         phase: 'permission',
-        planId: prepared.planId,
         summary: 'Checking action permissions'
       })
-      const permissionReady = await evaluateAiPlanPermissions(
-        prepared,
+      const permissionReady = await evaluateAiActionBatchPermissions(
+        resolved,
         context,
         this.permissionPolicy
       )
@@ -1114,14 +1141,14 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
         emitProgress({
           actionCount: permissionReady.actions.length,
           attempt,
+          batchId: permissionReady.batchId,
           phase: 'confirmation',
-          planId: permissionReady.planId,
           summary: 'Waiting for confirmation'
         })
       }
-      let confirmed: AiConfirmedPlan
+      let confirmed: ConfirmedAiActionBatch
       try {
-        confirmed = await confirmAiPlan(
+        confirmed = await confirmAiActionBatch(
           permissionReady,
           this.confirmationHandler,
           signal,
@@ -1136,7 +1163,7 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
             'confirmation-cancelled',
             {
               ...evidence,
-              preview: createAiPlanPreview(
+              preview: createAiActionBatchPreview(
                 permissionReady,
                 this.redactionOptions
               )
@@ -1146,9 +1173,9 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
           emitProgress({
             actionCount: permissionReady.actions.length,
             attempt,
+            batchId: permissionReady.batchId,
             outcome: 'cancelled',
             phase: 'settled',
-            planId: permissionReady.planId,
             summary: 'Cancelled'
           })
           return cancelled
@@ -1164,12 +1191,11 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       emitProgress({
         actionCount: confirmed.actions.length,
         attempt,
+        batchId: confirmed.batchId,
         phase: 'execution',
-        planId: confirmed.planId,
         summary: 'Applying changes'
       })
-      const batch = await runAiPlanTransaction(
-        confirmed,
+      const execution = await runAiActionBatchTransaction(
         this.transactionRunner,
         signal,
         async () => {
@@ -1186,23 +1212,23 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       currentStage = 'audit'
       const audit = createAiRuntimeAudit(
         {
-          actionResults: batch.actionResults,
+          actionResults: execution.actionResults,
           ...(confirmed.explanation === undefined
             ? {}
             : {
                 explanation: confirmed.explanation
               }),
           outcome: 'executed',
-          planId: confirmed.planId,
+          batchId: confirmed.batchId,
           retryCount: evidence.retryCount
         },
         this.redactionOptions
       )
 
       const executed: AiRuntimeExecutedResult = Object.freeze({
-        actionResults: batch.actionResults,
+        actionResults: execution.actionResults,
         audit,
-        planId: confirmed.planId,
+        batchId: confirmed.batchId,
         preview: confirmed.preview,
         status: 'executed',
         transaction: Object.freeze({
@@ -1212,9 +1238,9 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
       emitProgress({
         actionCount: confirmed.actions.length,
         attempt,
+        batchId: confirmed.batchId,
         outcome: 'executed',
         phase: 'settled',
-        planId: confirmed.planId,
         summary: 'Completed'
       })
       return executed
@@ -1232,10 +1258,10 @@ class DefaultAiAgentRuntime implements AiAgentRuntime {
         attempt: evidence.retryCount + 1,
         outcome: 'failed',
         phase: 'settled',
-        ...(evidence.plan?.planId === undefined
+        ...(evidence.batch?.batchId === undefined
           ? {}
           : {
-              planId: evidence.plan.planId
+              batchId: evidence.batch.batchId
             }),
         summary: 'Failed'
       })

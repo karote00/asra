@@ -19,7 +19,7 @@ describe('AI agent runtime documentation example', () => {
 
     await expect(example.run()).resolves.toMatchObject({
       status: 'executed',
-      planId: 'example-plan',
+      batchId: 'example-batch',
       transaction: {
         status: 'committed'
       }

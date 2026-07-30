@@ -1,5 +1,6 @@
 import {
   AiProviderError,
+  type AiActionBatch,
   type AiProvider,
   type AiProviderInput
 } from '../provider'
@@ -269,10 +270,10 @@ class DefaultGenericHttpAiProvider implements GenericHttpAiProvider {
     this.timeoutMs = validateTimeout(options.timeoutMs)
   }
 
-  async generateActionPlan(
+  async requestActionBatch(
     input: AiProviderInput,
     options: { signal: AbortSignal }
-  ): Promise<unknown> {
+  ): Promise<AiActionBatch> {
     if (this.disposed) {
       return providerError({
         code: 'AI_PROVIDER_DISPOSED',
@@ -365,7 +366,7 @@ class DefaultGenericHttpAiProvider implements GenericHttpAiProvider {
       }
 
       this.assertAttemptActive(attempt, options.signal)
-      return output
+      return output as AiActionBatch
     } catch (error) {
       if (error instanceof AiProviderError) {
         throw error

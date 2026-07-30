@@ -1,5 +1,18 @@
 import type { AiActionDescription, AiJsonValue } from './types'
 
+export interface AiActionBatchAction {
+  readonly id: string
+  readonly name: string
+  readonly arguments: unknown
+  readonly summary: AiJsonValue
+}
+
+export interface AiActionBatch {
+  readonly batchId: string
+  readonly explanation?: string
+  readonly actions: readonly AiActionBatchAction[]
+}
+
 export interface AiProviderInput<TContext = unknown> {
   readonly intent: string
   readonly context: TContext
@@ -9,10 +22,10 @@ export interface AiProviderInput<TContext = unknown> {
 }
 
 export interface AiProvider {
-  generateActionPlan(
+  requestActionBatch(
     input: AiProviderInput,
     options: { signal: AbortSignal }
-  ): Promise<unknown>
+  ): Promise<AiActionBatch>
   dispose?(): void | Promise<void>
 }
 

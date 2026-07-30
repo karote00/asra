@@ -3,6 +3,7 @@ import {
   AI_REDACTED_VALUE,
   AiProviderError,
   createAiAgentRuntime,
+  type AiActionBatch,
   type AiActionDefinition,
   type AiTransactionRunner,
   type CreateAiAgentRuntimeInput
@@ -16,44 +17,14 @@ const visibilityAction = (
 ): AiActionDefinition<{ elementId: string; visible: boolean }> => ({
   name: 'set_element_visibility',
   description: 'Set element visibility.',
-  schema: {
-    providerSchema: {
-      type: 'object'
-    },
-    parse: (value) => {
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        'elementId' in value &&
-        typeof value.elementId === 'string' &&
-        'visible' in value &&
-        typeof value.visible === 'boolean'
-      ) {
-        return {
-          success: true,
-          value: {
-            elementId: value.elementId,
-            visible: value.visible
-          }
-        }
-      }
-      return {
-        success: false,
-        issues: [
-          {
-            code: 'invalid_arguments',
-            message: 'Invalid visibility arguments.',
-            path: []
-          }
-        ]
-      }
-    }
+  inputSchema: {
+    type: 'object'
   },
   execute
 })
 
-const candidatePlan = () => ({
-  planId: 'plan-1',
+const candidateActionBatch = () => ({
+  batchId: 'batch-1',
   explanation: 'Bearer provider-explanation-secret',
   actions: [
     {
@@ -62,6 +33,10 @@ const candidatePlan = () => ({
       arguments: {
         elementId: 'shape-1',
         visible: false
+      },
+      summary: {
+        affectedCount: 1,
+        actionKind: 'visibility'
       }
     }
   ]
@@ -101,7 +76,7 @@ const runtimeInput = (
   overrides: Partial<CreateAiAgentRuntimeInput> = {}
 ): CreateAiAgentRuntimeInput => ({
   provider: {
-    generateActionPlan: vi.fn(async () => candidatePlan())
+    requestActionBatch: vi.fn(async () => candidateActionBatch())
   },
   actionDefinitions: [visibilityAction()],
   contextProvider: {
@@ -121,7 +96,7 @@ const runtimeInput = (
 })
 
 describe('AI runtime invocation lifecycle', () => {
-  it('orchestrates one complete accepted plan and returns detached terminal output', async () => {
+  it('orchestrates one complete accepted action batch and returns detached terminal output', async () => {
     const transaction = transactionEvidence()
     const execute = vi.fn(async () => ({
       apiKey: 'executor-secret',
@@ -147,7 +122,7 @@ describe('AI runtime invocation lifecycle', () => {
       intent: 'hide the selected shape',
       signal: expect.any(AbortSignal)
     })
-    expect(input.provider.generateActionPlan).toHaveBeenCalledWith(
+    expect(input.provider.requestActionBatch).toHaveBeenCalledWith(
       {
         intent: 'hide the selected shape',
         context: {
@@ -175,19 +150,19 @@ describe('AI runtime invocation lifecycle', () => {
     )
     expect(result).toEqual({
       status: 'executed',
-      planId: 'plan-1',
+      batchId: 'batch-1',
       preview: {
-        planId: 'plan-1',
+        batchId: 'batch-1',
         explanation: AI_REDACTED_VALUE,
         actions: [
           {
             id: 'action-1',
             name: 'set_element_visibility',
-            arguments: {
-              elementId: 'shape-1',
-              visible: false
-            },
-            permission: 'allow'
+            permission: 'allow',
+            summary: {
+              affectedCount: 1,
+              actionKind: 'visibility'
+            }
           }
         ]
       },
@@ -205,7 +180,7 @@ describe('AI runtime invocation lifecycle', () => {
         status: 'committed'
       },
       audit: {
-        planId: 'plan-1',
+        batchId: 'batch-1',
         outcome: 'executed',
         retryCount: 0,
         explanation: AI_REDACTED_VALUE,
@@ -230,8 +205,8 @@ describe('AI runtime invocation lifecycle', () => {
     await runtime.dispose()
   })
 
-  it('retries only provider planning and never repeats accepted execution', async () => {
-    const generateActionPlan = vi
+  it('retries only the provider request and never repeats accepted execution', async () => {
+    const requestActionBatch = vi
       .fn()
       .mockRejectedValueOnce(
         new AiProviderError({
@@ -240,7 +215,7 @@ describe('AI runtime invocation lifecycle', () => {
           retryable: true
         })
       )
-      .mockResolvedValueOnce(candidatePlan())
+      .mockResolvedValueOnce(candidateActionBatch())
     const transaction = transactionEvidence()
     const execute = vi.fn(async () => ({
       changed: true
@@ -248,7 +223,7 @@ describe('AI runtime invocation lifecycle', () => {
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan
+          requestActionBatch
         },
         actionDefinitions: [visibilityAction(execute)],
         transactionRunner: transaction.runner,
@@ -266,7 +241,7 @@ describe('AI runtime invocation lifecycle', () => {
     })
 
     expect(
-      generateActionPlan.mock.calls.map(([input]) => input.attempt)
+      requestActionBatch.mock.calls.map(([input]) => input.attempt)
     ).toEqual([1, 2])
     expect(result).toMatchObject({
       status: 'executed',
@@ -280,11 +255,11 @@ describe('AI runtime invocation lifecycle', () => {
     await runtime.dispose()
   })
 
-  it('owns retry callback failures at the planning stage without leaking app errors', async () => {
+  it('owns retry callback failures at the provider stage without leaking app errors', async () => {
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(async () => {
+          requestActionBatch: vi.fn(async () => {
             throw new AiProviderError({
               code: 'AI_PROVIDER_TRANSPORT_FAILED',
               message: 'AI provider transport failed.',
@@ -312,7 +287,7 @@ describe('AI runtime invocation lifecycle', () => {
       status: 'failed',
       code: 'AI_RETRY_POLICY_FAILED',
       message: 'AI provider retry policy failed.',
-      stage: 'planning',
+      stage: 'provider',
       retryCount: 0
     })
     expect(JSON.stringify(result)).not.toContain('raw-retry-policy-secret')
@@ -344,7 +319,7 @@ describe('AI runtime invocation lifecycle', () => {
       reason: 'confirmation-cancelled',
       audit: {
         outcome: 'cancelled',
-        planId: 'plan-1'
+        batchId: 'batch-1'
       }
     })
     expect(transaction.run).not.toHaveBeenCalled()
@@ -352,40 +327,131 @@ describe('AI runtime invocation lifecycle', () => {
     await runtime.dispose()
   })
 
-  it('returns stable validation and execution failures with no raw error values', async () => {
-    const validationTransaction = transactionEvidence()
-    const validationRuntime = createAiAgentRuntime(
+  it.each([
+    {
+      code: 'AI_EXECUTION_FAILED',
+      createInput: (preview: { current?: unknown }) => {
+        const transaction = transactionEvidence()
+        return runtimeInput({
+          actionDefinitions: [
+            visibilityAction(
+              vi.fn(async () => {
+                throw new Error('executor failed')
+              })
+            )
+          ],
+          confirmationHandler: {
+            confirm: vi.fn(async (value) => {
+              preview.current = value
+              return true
+            })
+          },
+          permissionPolicy: {
+            evaluate: vi.fn(async () => 'confirm' as const)
+          },
+          transactionRunner: transaction.runner
+        })
+      },
+      stage: 'execution'
+    },
+    {
+      code: 'AI_TRANSACTION_FAILED',
+      createInput: (preview: { current?: unknown }) =>
+        runtimeInput({
+          confirmationHandler: {
+            confirm: vi.fn(async (value) => {
+              preview.current = value
+              return true
+            })
+          },
+          permissionPolicy: {
+            evaluate: vi.fn(async () => 'confirm' as const)
+          },
+          transactionRunner: {
+            run: vi.fn(async () => {
+              throw new Error('transaction failed')
+            })
+          }
+        }),
+      stage: 'transaction'
+    }
+  ] as const)(
+    'retains the accepted batch and preview after a $stage failure',
+    async ({ code, createInput, stage }) => {
+      const preview: { current?: unknown } = {}
+      const runtime = createAiAgentRuntime(createInput(preview))
+
+      const result = await runtime.run({
+        intent: 'hide the selected shape',
+        signal: new AbortController().signal
+      })
+
+      expect(result).toMatchObject({
+        batchId: 'batch-1',
+        code,
+        preview: {
+          actions: [
+            {
+              id: 'action-1',
+              name: 'set_element_visibility',
+              permission: 'confirm',
+              summary: {
+                affectedCount: 1,
+                actionKind: 'visibility'
+              }
+            }
+          ],
+          batchId: 'batch-1'
+        },
+        stage,
+        status: 'failed'
+      })
+      expect(Reflect.get(result, 'preview')).toBe(preview.current)
+      expect(JSON.stringify(Reflect.get(result, 'preview'))).not.toContain(
+        'arguments'
+      )
+
+      await runtime.dispose()
+    }
+  )
+
+  it('returns stable resolution and execution failures with no raw error values', async () => {
+    const resolutionTransaction = transactionEvidence()
+    const resolutionRuntime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(async () => ({
-            ...candidatePlan(),
+          requestActionBatch: vi.fn(async () => ({
+            ...candidateActionBatch(),
             actions: [
               {
                 id: 'unknown-1',
                 name: 'unknown_action',
                 arguments: {
                   arbitraryCode: 'run()'
+                },
+                summary: {
+                  actionKind: 'unknown'
                 }
               }
             ]
           }))
         },
-        transactionRunner: validationTransaction.runner
+        transactionRunner: resolutionTransaction.runner
       })
     )
 
     await expect(
-      validationRuntime.run({
+      resolutionRuntime.run({
         intent: 'run an unknown action',
         signal: new AbortController().signal
       })
     ).resolves.toMatchObject({
       status: 'failed',
-      code: 'AI_PLAN_UNKNOWN_ACTION',
-      stage: 'validation',
+      code: 'AI_ACTION_BATCH_UNKNOWN_ACTION',
+      stage: 'resolution',
       retryCount: 0
     })
-    expect(validationTransaction.run).not.toHaveBeenCalled()
+    expect(resolutionTransaction.run).not.toHaveBeenCalled()
 
     const transaction = transactionEvidence()
     const runtime = createAiAgentRuntime(
@@ -416,19 +482,19 @@ describe('AI runtime invocation lifecycle', () => {
     expect(transaction.commits).toBe(0)
     expect(transaction.rollbacks).toBe(1)
 
-    await validationRuntime.dispose()
+    await resolutionRuntime.dispose()
     await runtime.dispose()
   })
 
-  it('returns promptly on abort even when planning ignores the signal', async () => {
+  it('returns promptly on abort even when the provider request ignores the signal', async () => {
     const controller = new AbortController()
     const addListener = vi.spyOn(controller.signal, 'addEventListener')
     const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(
-            async () => new Promise<unknown>(() => undefined)
+          requestActionBatch: vi.fn(
+            async () => new Promise<AiActionBatch>(() => undefined)
           )
         }
       })
@@ -464,9 +530,9 @@ describe('AI runtime invocation lifecycle', () => {
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(
+          requestActionBatch: vi.fn(
             async (_input, { signal }) =>
-              new Promise<unknown>((_resolve, reject) => {
+              new Promise<AiActionBatch>((_resolve, reject) => {
                 providerStarted()
                 signal.addEventListener(
                   'abort',
