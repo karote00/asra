@@ -1,18 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
-import {
-  createDocumentPersistence,
-  initializeDocumentPersistence
-} from '../document-persistence'
+import { createEmptyDocument } from '../config/empty-document'
 import { getCollaborationMode } from './collaboration-mode'
-import type { CoreRawData } from '@asyra/utils'
-
-const EMPTY_DOCUMENT = {
-  version: '1.0.0',
-  sceneTree: { workspace: '', workspaceList: [], elements: {} },
-  props: {}
-} as const satisfies CoreRawData
 
 export interface CanvasContextMenuInvocation {
   clientX: number
@@ -70,21 +60,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
         const collaborationMode = getCollaborationMode()
-        const documentPersistence = createDocumentPersistence(
-          collaborationMode?.fileId
-        )
 
-        // Initialize IndexedDB once or migrate the matching legacy local
-        // snapshot before Core owns ordinary load and subsequent save timing.
-        await initializeDocumentPersistence(
-          documentPersistence,
-          EMPTY_DOCUMENT,
-          collaborationMode?.fileId
-        )
-        if (!active) return
-        core.setPersistence(documentPersistence)
-
-        // Phase 3: Single startup call
         await core.start(container, {
           width: window.innerWidth,
           height: window.innerHeight,
@@ -96,18 +72,21 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        if (collaborationMode) {
-          const collaborationLifecycle = await import(
-            '../collaboration/lifecycle'
-          )
-          collaborationDisposer = collaborationLifecycle.disposeCollaboration
-          if (!active) {
-            await disposeCollaboration()
-            return
-          }
-          await collaborationLifecycle.startCollaboration(collaborationMode)
-          if (!active) await disposeCollaboration()
+        core.load(createEmptyDocument())
+        if (!active) {
+          return
         }
+
+        const collaborationLifecycle = await import(
+          '../collaboration/lifecycle'
+        )
+        collaborationDisposer = collaborationLifecycle.disposeCollaboration
+        if (!active) {
+          await disposeCollaboration()
+          return
+        }
+        await collaborationLifecycle.startCollaboration(collaborationMode)
+        if (!active) await disposeCollaboration()
       })
     lifecycleRef.current = lifecycle
     void lifecycle.catch((error: unknown) => {
