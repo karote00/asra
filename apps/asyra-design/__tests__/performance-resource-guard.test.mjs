@@ -861,6 +861,14 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
     phases.map((phase) => phase.name),
     ['collaboration-build', 'app-build', 'playwright']
   )
+  assert.deepEqual(
+    phases.map((phase) => phase.guardConfig),
+    [
+      { guardMode: 'diagnostic', maximumCpuPercent: 200 },
+      { guardMode: 'diagnostic', maximumCpuPercent: 200 },
+      { guardMode: 'proof', maximumCpuPercent: 150 }
+    ]
+  )
   assert.deepEqual(phases[0].argv, [
     '--owner',
     `${OWNER}:collaboration-build`,

@@ -1140,6 +1140,10 @@ export const buildEndpointPerformancePhases = ({
         'build:collaboration-server'
       ],
       baseEnv: sharedEnv,
+      guardConfig: {
+        guardMode: 'diagnostic',
+        maximumCpuPercent: DIAGNOSTIC_MAXIMUM_CPU_PERCENT
+      },
       requiresReady: false,
       ports: [appPort, collaborationPort]
     },
@@ -1147,6 +1151,10 @@ export const buildEndpointPerformancePhases = ({
       name: 'app-build',
       argv: ['--owner', `${owner}:app-build`, '--', 'yarn', 'react:build'],
       baseEnv: sharedEnv,
+      guardConfig: {
+        guardMode: 'diagnostic',
+        maximumCpuPercent: DIAGNOSTIC_MAXIMUM_CPU_PERCENT
+      },
       requiresReady: false,
       ports: [appPort, collaborationPort]
     },
@@ -1164,6 +1172,10 @@ export const buildEndpointPerformancePhases = ({
         '--workers=1'
       ],
       baseEnv: sharedEnv,
+      guardConfig: {
+        guardMode: 'proof',
+        maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+      },
       requiresReady: true,
       ports: [appPort, collaborationPort]
     }
@@ -1639,6 +1651,7 @@ export const runEndpointPerformancePipeline = async (
     const result = await runResourceGuardCli(phase.argv, {
       ...dependencies,
       baseEnv: phase.baseEnv,
+      config: phase.guardConfig,
       requiresReady: phase.requiresReady
     })
     results.push({
