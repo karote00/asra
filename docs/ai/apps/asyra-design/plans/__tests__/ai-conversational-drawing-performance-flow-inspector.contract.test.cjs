@@ -370,7 +370,6 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'packages/ai-agent-runtime/src',
     'packages/ai-agent-runtime/src/__tests__',
     'apps/asyra-design/src/ai/actions.ts',
-    'apps/asyra-design/src/ai/prepared-composition.ts',
     'apps/asyra-design/src/ai/confirmation.ts',
     'apps/asyra-design/src/ai/__tests__',
     'create-app/asyra-design/template/package.json',
@@ -380,6 +379,11 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'create-app/asyra-design/template/src/init/init-app.ts',
     'create-app/asyra-design/template/src/init/__tests__/init-app.test.ts',
     'create-app/asyra-design/template/src/ai',
+    'create-app/asyra-design/template/src/ai/__tests__/server-prepared-action-consumer.test.ts',
+    'create-app/asyra-design/template/src/common-apis/element/apis.ts',
+    'create-app/asyra-design/template/src/common-apis/element/vector-apis.ts',
+    'create-app/asyra-design/template/src/common-apis/element/__tests__/create-element.test.ts',
+    'create-app/asyra-design/template/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
     'create-app/asyra-design/template/src/app/ai-conversation-panel.tsx',
     'create-app/asyra-design/template/src/app/__tests__/ai-conversation-panel.test.tsx',
     'create-app/asyra-design/template/src/toolbar/index.tsx',
@@ -393,6 +397,11 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'docs/examples/ai-agent-runtime.mjs'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.ok(
+    !owner.implementationBoundary.includes(
+      'apps/asyra-design/src/ai/prepared-composition.ts'
+    )
   )
   assert.match(
     plan,

@@ -33,6 +33,7 @@ Feature: Conversational AI drawing performance
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or compact encoding
     And the executor should preserve exact items, roles, order, bounds, and point counts while materializing only the next progressive slice after the server-prepared loading bounds are visible
+    And the shipped create-app template should consume the same compact artifact and submit each mixed oval/vector slice through one createElementsInParent call without full-item compatibility input
     But canonical topology and IDs should remain owned by the ordinary App common API and plural Core route
     And the resolved batch should remain local, noncanonical, and nonshared
 

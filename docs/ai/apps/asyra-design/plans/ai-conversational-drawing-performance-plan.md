@@ -944,6 +944,10 @@ control-envelope resolution and action orchestration:
   progressive slice after the server-prepared loading bounds are visible. It
   performs no item, path, point, style, bounds, role, or model semantic
   validation and no compact encoding.
+- The shipped create-app template consumes that same compact artifact and the
+  same point-aware current-slice contract. Each mixed oval/vector slice enters
+  one `createElementsInParent(...)` call; the template accepts no full-item
+  compatibility input, `itemPointCounts`, or per-element fallback.
 - Canonical topology and IDs remain owned by the ordinary App common API and
   plural Core route. The server-prepared artifact never writes canonical,
   Render, history, shared-data, or CRDT state directly.
