@@ -586,7 +586,7 @@ first chronological owner. The product responsibility decision made on
 and compact encoding belong to the backend, while the design tool consumes the
 server-prepared result. The historical Inspector owner was
 `resolve-server-prepared-ai-plan`; the active contract replaces it with
-`resolve-server-prepared-ai-action-batch`, not a client Worker validation step.
+`resolve-server-prepared-action-batch`, not a client Worker validation step.
 
 The active test/manual harness uses the response inbox adapter to represent the
 server boundary without adding another production provider. Its seed path

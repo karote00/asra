@@ -141,8 +141,7 @@ test('production conversational AI uses one ActionBatch contract without compati
       ...owner.outputs,
       ...owner.conditions,
       ...owner.bypasses,
-      ...owner.allowedContributors,
-      ...owner.implementationBoundary
+      ...owner.allowedContributors
     ].join(' ')
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -165,13 +164,36 @@ test('production conversational AI uses one ActionBatch contract without compati
     /\brequestPlan\b|\bresolvePlan\b|\bplanId\b|plan API alias|compatibility alias/i
   )
   ;[
+    'apps/asyra-design/package.json',
+    'apps/asyra-design/src/index.tsx',
+    'apps/asyra-design/src/init/init-app.ts',
+    'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+    'apps/asyra-design/src/ai/startup.ts',
     'apps/asyra-design/src/ai/server-action-batch-provider.ts',
     'apps/asyra-design/src/ai/server-response-inbox.ts',
+    'apps/asyra-design/src/ai/mode.ts',
+    'apps/asyra-design/src/ai/mock-provider.ts',
+    'apps/asyra-design/src/ai/mock-backend-response-store.ts',
+    'apps/asyra-design/src/ai/fixtures',
+    'apps/asyra-design/src/ai/app-prompt.ts',
+    'apps/asyra-design/src/ai/context.ts',
+    'apps/asyra-design/src/ai/__tests__',
     'apps/asyra-design/src/startup.ts',
+    'apps/asyra-design/src/toolbar/index.tsx',
+    'apps/asyra-design/src/app/ai-conversation-panel.tsx',
+    'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
+    'apps/asyra-design/test-data/ai-drawing',
     'apps/asyra-design/e2e/server-response-inbox.ts',
-    'apps/asyra-design/e2e/conversational-ai.spec.ts'
+    'apps/asyra-design/e2e/test-utils.ts',
+    'apps/asyra-design/e2e/conversational-ai.spec.ts',
+    'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
+    'apps/asyra-design/e2e/mock-backend-response-store.ts'
   ].forEach((boundary) =>
     assert.ok(providerOwner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    providerText,
+    /legacy mode.*paths named in this implementation boundary.*deletion or relocation sources only.*no production import.*generated bundle artifact/i
   )
   assert.match(
     providerText,
