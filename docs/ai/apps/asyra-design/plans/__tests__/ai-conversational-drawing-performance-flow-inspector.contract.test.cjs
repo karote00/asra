@@ -48,6 +48,42 @@ test('performance Inspector authorities resolve and stay immutable', () => {
   )
 })
 
+test('endpoint routes and artifacts resolve through exact owners', () => {
+  const stepIds = new Set(data.steps.map(({ id }) => id))
+  const artifacts = new Map(data.artifacts.map((artifact) => [artifact.id, artifact]))
+
+  assert.equal(stepIds.size, data.steps.length)
+  assert.equal(artifacts.size, data.artifacts.length)
+
+  data.routes.forEach((route) => {
+    assert.ok(stepIds.has(route.from), `${route.id} source`)
+    if (route.to) assert.ok(stepIds.has(route.to), `${route.id} target`)
+    route.producedArtifacts.forEach((artifactId) => {
+      const artifact = artifacts.get(artifactId)
+      assert.ok(artifact, `${route.id} artifact ${artifactId}`)
+      assert.equal(artifact.ownerStepId, route.from, `${route.id} owner`)
+      if (route.to) {
+        assert.ok(
+          artifact.consumerStepIds.includes(route.to),
+          `${route.id} consumer`
+        )
+      }
+    })
+  })
+
+  data.artifacts.forEach((artifact) => {
+    assert.ok(stepIds.has(artifact.ownerStepId), `${artifact.id} owner`)
+    assert.equal(
+      artifact.terminal,
+      artifact.consumerStepIds.length === 0,
+      `${artifact.id} terminal`
+    )
+    artifact.consumerStepIds.forEach((consumerId) =>
+      assert.ok(stepIds.has(consumerId), `${artifact.id} consumer ${consumerId}`)
+    )
+  })
+})
+
 test('formal performance evidence uses production detached queries and named harness spans', () => {
   const owner = step('evaluate-performance-and-equivalence')
   const text = contractText(owner)
@@ -86,6 +122,156 @@ test('performance plan and BDD retain the production evidence boundary', () => {
     feature,
     /Scenario: Production performance evidence remains detached from dev-only globals[\s\S]*production performance profile[\s\S]*window\.__Core__[\s\S]*harness spans/i
   )
+})
+
+test('each ranked endpoint closes through one guarded high-detail proof', () => {
+  const owner = step('evaluate-endpoint-performance')
+  const text = contractText(owner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    plan,
+    /receiver provider and worker handoff[\s\S]*canonical Props, Scene Tree, and Core[\s\S]*Factory transaction and pub\/sub[\s\S]*remote apply[\s\S]*relay[\s\S]*codec[\s\S]*Render and UI/i
+  )
+  assert.match(
+    plan,
+    /complete endpoint refactor[\s\S]*one guarded 7,000-plus[\s\S]*at most five architecture attempts/i
+  )
+  assert.match(
+    text,
+    /exactly one production two-Actor 7,076-element.*immediately after.*endpoint/i
+  )
+  assert.match(
+    text,
+    /phase.*Actor A.*Actor B.*canonical element count.*test-owned process-tree CPU/i
+  )
+  assert.match(
+    text,
+    /sustained.*CPU.*heartbeat.*terminate.*Playwright.*headless browser.*App server.*collaboration server/i
+  )
+  assert.match(
+    text,
+    /single.*900 percent.*immediately/i
+  )
+  assert.match(
+    text,
+    /guard.*ready heartbeat.*before.*7,076-element request/i
+  )
+  assert.match(
+    text,
+    /last completed phase.*Actor A.*Actor B.*element counts.*owner timing/i
+  )
+  assert.match(
+    text,
+    /at most five.*same focused failure.*three/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*terminate[\s\S]*five/i
+  )
+  const successRoute = data.routes.find(
+    ({ id }) => id === 'route-endpoint-performance-proof'
+  )
+  const baselineRoute = data.routes.find(
+    ({ id }) => id === 'route-accepted-endpoint-baseline'
+  )
+  const stopRoute = data.routes.find(
+    ({ id }) => id === 'route-resource-guard-stop-proof'
+  )
+  assert.deepEqual(successRoute?.producedArtifacts, [
+    'artifact:endpoint-performance-proof'
+  ])
+  assert.deepEqual(baselineRoute?.producedArtifacts, [
+    'artifact:accepted-endpoint-baseline'
+  ])
+  assert.equal(baselineRoute?.to, 'evaluate-endpoint-performance')
+  assert.deepEqual(stopRoute?.producedArtifacts, [
+    'artifact:resource-guard-stop-proof'
+  ])
+  assert.doesNotMatch(successRoute?.predicate ?? '', /resource.stop/i)
+  assert.doesNotMatch(stopRoute?.predicate ?? '', /effective|success/i)
+
+  const acceptedBaseline = data.artifacts.find(
+    ({ id }) => id === 'artifact:accepted-endpoint-baseline'
+  )
+  assert.equal(acceptedBaseline?.ownerStepId, 'evaluate-endpoint-performance')
+  assert.deepEqual(acceptedBaseline?.consumerStepIds, [
+    'evaluate-endpoint-performance'
+  ])
+  assert.equal(acceptedBaseline?.terminal, false)
+  assert.match(
+    text,
+    /first receiver endpoint.*retained.*940\/7,076.*11\/35.*no additional.*seed/i
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/e2e/performance-resource-guard.mjs'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/playwright.endpoint-performance.config.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/__tests__/performance-resource-guard.test.mjs'
+    )
+  )
+  assert.ok(
+    !owner.implementationBoundary.some(
+      (file) =>
+        file.includes('collaboration-ai-agent-video') ||
+        file.endsWith('/e2e/test-utils.ts')
+    )
+  )
+})
+
+test('receiver handoff has one worker isolation boundary and no legacy clone mode', () => {
+  const owner = step('admit-receiver-publication-frames')
+  const codecOwner = step('encode-publication-frames')
+  const text = contractText(owner)
+  const codecText = contractText(codecOwner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    text,
+    /worker-to-main structured clone.*only inbound object isolation boundary/i
+  )
+  assert.match(
+    text,
+    /exactly one.*async.*consumer.*settlement/i
+  )
+  assert.match(
+    text,
+    /Dedicated Worker owns.*WebSocket.*data plane.*frame-consumed.*directly/i
+  )
+  assert.match(
+    plan,
+    /Dedicated Worker owns the browser WebSocket[\s\S]*main[- ]thread[\s\S]*never receives inbound publication bytes[\s\S]*never sends `?frame-consumed`?/i
+  )
+  assert.match(
+    codecText,
+    /Worker encodes.*writes.*directly.*Worker-owned WebSocket/i
+  )
+  assert.doesNotMatch(codecText, /returns a transferable ArrayBuffer/i)
+  assert.doesNotMatch(
+    text,
+    /Provider keeps.*outbound publication frame.*sends the next frame/i
+  )
+  assert.match(
+    feature,
+    /Dedicated Worker should own the browser WebSocket data plane[\s\S]*main thread should never receive publication bytes or send "frame-consumed"/i
+  )
+  assert.doesNotMatch(plan, /provider deeply freezes/i)
+  assert.doesNotMatch(plan, /preserves legacy provider cloning/i)
+  assert.doesNotMatch(plan, /InboundPublicationLease/)
 })
 
 test('local progressive drawing paints exact bounds before cooperative canonical batches', () => {

@@ -2,10 +2,13 @@
 
 ## Status
 
-Active Level 3 app performance closure. PR #101 is merged and the existing
+Active Level 3 endpoint-ordered app performance closure. PR #101 is merged and
+the existing
 `codex/asyra-design-ai-conversational-drawing-performance` branch remains the
 implementation base. Production implementation and formal validation continue
-one Inspector owner step at a time.
+one Inspector owner step at a time, and every completed performance endpoint is
+followed immediately by one guarded high-detail proof before another endpoint
+may advance.
 
 This plan, its Inspector data, contract test, and BDD are the active app-level
 implementation authority. Framework package contracts remain authoritative
@@ -40,11 +43,12 @@ progressive peer-visible slices, and the ordinary Render route.
 
 Status on 2026-07-30: the corrected production single-Actor gate,
 synchronized live visual review, and manual loading/pan/zoom review are
-accepted. The remaining bounded local tuning raises the fixed progressive
-element cap from 32 to 64 to reduce repeated App/Core/Factory/projection
-boundaries while retaining one later browser task after every completed batch.
-Contents, CRDT, transport, persistence, and remote-apply owners remain paused
-until this local tuning is formally verified.
+accepted. The fixed progressive element cap has been raised from 32 to 64 with
+formal 16-, 320-, and 1,280-item boundary coverage. Its next 7,112-element
+measurement is folded into the endpoint closure rather than reopening local UX
+patching. Contents remains excluded by product direction. CRDT, transport,
+Factory, canonical-source, remote-apply, and projection owners now advance in
+the evidence-ranked order defined below.
 
 The first manual navigation check then exposed a startup-policy mismatch: the
 production entry still required `?ai=mock`, and its missing delivery flag
@@ -56,9 +60,9 @@ production Asyra Design entry now provides the deterministic Mock AI without an
 an App startup policy correction, not an Input System, Feature System,
 transaction, or event-bus exception.
 
-The current execution phase is deliberately limited to one production
-single Actor drawing turn. It answers four product questions before any
-additional cross-window work resumes:
+The completed local execution phase was deliberately limited to one production
+single Actor drawing turn. It answered four product questions before the
+subsequent cross-window work was authorized:
 
 1. how long one complete 7,112-element balanced composition takes;
 2. when the user first sees an exact-bounds loading frame and the first ordinary
@@ -68,17 +72,17 @@ additional cross-window work resumes:
 4. whether no ordinary progressive batch continues to monopolize the main
    thread while the App is visibly loading.
 
-Contents is excluded from this phase, and the panel may remain hidden in its
-formal gate. CRDT, WebSocket transport, a second Actor, collaboration
-convergence, and IndexedDB are also excluded. The gate uses one fresh empty
-canonical document and does not save or reload it. These exclusions isolate
-the local App/Core/Factory/Preset/Render/UI path; they do not waive the deferred
-full-plan gates.
+During that completed phase, Contents remained hidden and CRDT, WebSocket
+transport, a second Actor, collaboration convergence, and IndexedDB were
+excluded. The gate used one fresh empty canonical document without saving or
+reloading it. Those exclusions isolated the local
+App/Core/Factory/Preset/Render/UI path; they do not apply to the now-authorized
+endpoint-ordered CRDT work or waive its full-plan gates.
 
-This phase stops after `evaluate-local-interactive-drawing` reports the local
-timings and synchronized live visual evidence. No deferred Contents,
-collaboration, persistence-policy, codec, relay, or remote-apply step advances
-without a later product decision.
+The prior local-only stop is superseded by the product owner's 2026-07-30
+authorization for endpoint-ordered CRDT refactoring. Each endpoint still closes
+independently and cannot borrow a later endpoint's expected improvement.
+Contents and production persistence remain excluded.
 
 All current Asyra Design demo documents are intentionally memory-only on the
 client. After Core starts, RenderApp loads one canonical empty document through
@@ -152,8 +156,9 @@ The corrected first implementation owner is therefore the Step 7 receiver
 provider/worker handoff. Its scalar inbound job does not give the next frame to
 the worker until the prior decoded publication has crossed repeated clone
 boundaries and completed synchronous App dispatch. Step 8 then amplifies that
-coupling by sending only the peer queue head. Node/WebSocket write and Render
-remain excluded as first owners.
+coupling by sending only the peer queue head. Browser WebSocket ownership is
+therefore part of the receiver fix; Node server socket write and Render remain
+excluded as first owners.
 
 ### Rejected compression candidate
 
@@ -161,6 +166,148 @@ The tested WebSocket compression candidate regressed Actor B to 3,500/7,076
 elements and 21/35 publications at the same deadline. Compression is rejected
 as a result, and the final relay contract explicitly uses
 `perMessageDeflate: false`.
+
+## Endpoint-Ordered Refactor Closure
+
+This 2026-07-30 replan replaces the former pattern of deferring all high-detail
+performance proof until every owner was changed. One shared creation-only
+benchmark is first made trustworthy and resource-bounded. Every endpoint then
+performs one complete endpoint refactor, its focused correctness gates, and one
+guarded 7,000-plus production proof before the next endpoint starts.
+
+The severity order uses the most recent retained owner evidence, while keeping
+the first incorrect upstream multiplier ahead of downstream cleanup:
+
+1. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
+   elements and 11/35 publications at 30 seconds while `frame-consumed`
+   intervals grew to approximately 2–3.3 seconds. Existing bounded ingress work
+   is retained as partial evidence, but this endpoint is not complete until the
+   Worker owns the WebSocket data plane, main-thread recursive freeze and
+   duplicate header ownership are removed, and receiver handoff timing exists.
+   Only then does it receive the first post-change proof.
+2. **Canonical Props, Scene Tree, and Core source mutation** — local canonical
+   batch work was approximately 7.991 seconds, and the current first upstream
+   multiplier still represents one plural Scene creation as N scalar Scene
+   evidence records. The endpoint becomes one complete Props owner batch and
+   one plural Scene owner event per Core request, with whole-request preflight
+   and no prefix.
+3. **Factory transaction and pub/sub artifact** — Factory phases were
+   approximately 3.909 seconds. One immutable local history artifact remains
+   complete, while its shared view carries one ordered batch representation
+   instead of parallel synonymous batches, deliveries, records, and changes.
+   Required shared-channel internals use batch input and output; public scalar
+   conveniences are batch-of-one only.
+4. **Remote apply and main-thread organization** — retained remote apply ranged
+   from approximately 2.358 to 5.894 seconds and earlier inbound dispatch was
+   approximately 1.979 seconds. The App consumes each worker-valid batch once
+   through one linear policy/organization pass, one Core canonical request, and
+   one remote Factory transaction without rebuilding a snapshot.
+5. **Relay and byte backpressure** — the newer server socket callbacks remained
+   below 2 milliseconds, but source queue wait and relay request duration grew
+   with receiver credit. The relay is changed only after the receiver and
+   source multipliers are removed, then must keep opaque byte parity, bounded
+   peer capacity, and independent acceptance, consumption, and apply receipts.
+6. **Codec encode and decode ownership** — retained worker decode was
+   approximately 1.544 seconds; no retained 7,000-plus encode number exists.
+   Worker validation and transferable binary ownership become the only payload
+   codec boundary, and the Provider must not recursively clone or freeze the
+   complete publication on the main thread.
+7. **Render and UI projection** — retained Render was approximately
+   0.425 seconds locally and 0.682 seconds remotely, so it remains last.
+   Render or UI changes are authorized only when the immediately preceding
+   guarded proof shows that owner is still material. No speculative Render
+   engine bulk command is added.
+
+### Common Creation-Only Benchmark
+
+Before the first endpoint proof, the current high-detail suite is split into a
+single committed benchmark with exactly this mission:
+
+- one dedicated Playwright config discovers only this creation case, uses one
+  worker with no retry, trace, screenshot, or video, and starts production
+  preview plus the memory-only collaboration server inside one tracked process
+  group;
+- two production browser actors, one fresh empty memory-only document, one
+  7,076-element progressive cat creation, and no later property follow-up,
+  Undo, Redo, reload, persistence assertion, recording, screenshot, trace, or
+  CPU profile;
+- O(1) heartbeat evidence for the current phase, Actor A canonical element
+  count, Actor B canonical element count, publication progress, and named owner
+  timings;
+- Actor A complete time, Actor B first-visible time, Actor B complete/converged
+  time, exact canonical equivalence, one Actor A Undo action, zero Actor B Undo,
+  zero echo, and zero client persistence work;
+- server queue/drain output normalized into the same bounded endpoint report
+  instead of being left only in unstructured server stdout.
+
+Local-only owners may additionally use the existing one-page 7,112-element
+creation gate, but every collaboration owner is judged by the same two-Actor
+7,076-element creation-only benchmark. A benchmark failure caused by its own
+obsolete assertion or harness overhead is a benchmark defect, not evidence
+against a production endpoint.
+
+### Host Resource Guard
+
+No 7,000-plus benchmark may start without the project-owned guard. Before the
+AI request, the test sends an authenticated `ready` heartbeat and waits until
+the guard confirms process-group ownership and active CPU sampling. A missing
+or rejected handshake prevents the request from starting. The guard then
+samples only the test-owned process group once per second and receives one
+bounded heartbeat from the benchmark without walking or hashing the canonical
+graph.
+
+Default emergency limits are:
+
+- one test-owned process-tree sample at or above 900 percent CPU, which stops
+  the benchmark immediately;
+- aggregate test-owned process-tree CPU above 600 percent for five consecutive
+  samples;
+- no heartbeat for 10 seconds while the process tree remains above 300 percent;
+  or
+- no Actor A/B canonical progress for 20 seconds while the process tree remains
+  above 300 percent.
+
+Crossing a limit is an endpoint failure, not a slow pass. The guard first sends
+termination to the tracked Playwright, headless browser, App server, and
+collaboration server process group, waits at most three seconds, then force
+terminates only surviving tracked test processes. It must report the last
+completed phase, Actor A and Actor B element counts, publication progress,
+test-owned CPU samples, and last owner timing. If process ownership or the
+heartbeat cannot be established, the benchmark refuses to start rather than
+running unguarded.
+
+### Endpoint Iteration and Effectiveness
+
+Each endpoint uses this fixed loop:
+
+1. replace the endpoint with one complete owner architecture rather than a
+   parameter tweak, cache guess, fixture branch, or downstream patch;
+2. pass focused formal tests and bounded review;
+3. run one guarded 7,000-plus creation proof immediately;
+4. accept the endpoint only when exact product equivalence holds and either its
+   failing budget becomes green or its owned structural/span/queue metric
+   improves by at least 15 percent without making an adjacent critical owner
+   more than 15 percent worse;
+5. if the result is ineffective, replace that endpoint's plan from the first
+   incorrect owner and repeat without advancing.
+
+The first receiver endpoint uses the retained pre-refactor result—Actor B at
+940/7,076 elements and 11/35 publications after 30 seconds—as its fixed initial
+comparison. It does not run an extra 7,076-element seed benchmark. Its first
+effective guarded proof creates `artifact:accepted-endpoint-baseline`; every
+later endpoint compares against the immediately preceding accepted artifact.
+
+Removing a proven N-to-one structural multiplier is effective when the exact
+count oracle passes and overall product time does not regress by more than 15
+percent, even when another downstream endpoint still prevents convergence. An
+owner already below five percent of product time may be classified as
+non-material and left unchanged after one proof; this avoids over-design.
+
+An endpoint has at most five architecture attempts. The project hard stop still
+applies earlier when the same focused failure occurs three times, the host
+resource guard fires, or exact canonical/history equivalence is lost. Only an
+effective endpoint may receive a local commit and establish the next endpoint's
+baseline. No ineffective attempt is committed.
 
 ## Bounded Contract
 
@@ -204,9 +351,9 @@ validated AI descriptor
    ├─ atomic or progressive publication slices
    ├─ Preset/Render/UI projection
    └─ no collaboration client persistence
-→ worker binary encode
-→ opaque WebSocket relay with byte backpressure
-→ worker binary decode
+→ Dedicated Worker binary encode and WebSocket send
+→ opaque server relay with byte backpressure
+→ peer Dedicated Worker WebSocket receive and binary decode
 → App policy and canonical preflight
 → one remote Factory transaction per source publication
 → peer Preset/Render/UI projection
@@ -335,33 +482,37 @@ intended transaction or history boundary.
   JSON.
 - All shared publication data uses a versioned binary frame. It is not first
   JSON-stringified and then compared with a binary representation.
-- The existing repository codec moves to a Web Worker without a new package.
-  Outbound data makes one object-to-worker structured clone; the worker returns
-  a transferable `ArrayBuffer`.
-- Inbound `ArrayBuffer` values transfer into a bounded 2 MiB frame-ingress
-  window without a main-thread payload copy. One active oversized publication
-  assembly may exceed that window only as required to preserve an indivisible
-  publication, so no payload ceiling or multi-publication unbounded queue is
-  introduced.
+- A Dedicated Worker owns the browser WebSocket data plane after the
+  main-thread Provider supplies connection configuration. The main thread
+  never receives inbound publication bytes and never sends `frame-consumed`;
+  it exchanges only bounded commands, normalized control evidence, one decoded
+  publication handoff, and apply settlement with the Worker.
+- Outbound shared data makes one object-to-worker structured clone. The Worker
+  encodes and writes the binary frames directly to its WebSocket instead of
+  returning an `ArrayBuffer` for a main-thread send. JSON control commands from
+  the App use the same Worker-owned socket.
+- Inbound `ArrayBuffer` values remain inside the Worker and enter a bounded
+  2 MiB frame-ingress window. One active oversized publication assembly may
+  exceed that window only as required to preserve an indivisible publication,
+  so no payload ceiling or multi-publication unbounded queue is introduced.
 - The worker validates frame header, FIFO order, duplicate identity, and ingress
-  capacity before emitting `frame-consumed`. Credit therefore means bounded
-  worker acceptance and remains independent of previous main-thread canonical
-  apply.
+  capacity before sending `frame-consumed` directly on the Worker-owned socket.
+  Credit therefore means bounded Worker acceptance and remains independent of
+  previous main-thread canonical apply, including a CPU-bound apply that delays
+  the main event loop.
 - The worker-to-main structured clone is the only inbound object isolation
-  boundary. The provider deeply freezes that publication once; Provider and
-  Collaboration consumers share the same immutable evidence without repeated
-  full-publication clones.
-- The worker exposes one immutable decoded-publication lease to App policy and
-  canonical preflight. Its settlement has a discriminated success or terminal
-  failure outcome. Success releases the next decoded publication; terminal
-  apply failure clears the active and pending leases and releases none instead
-  of fabricating progress.
-- `@asyra/collaboration` represents that handoff as an
-  `InboundPublicationLease`: the provider marks the publication evidence
-  immutable and supplies a one-shot local settlement callback. The generic
-  Collaboration queue preserves legacy provider cloning, but reuses proven
-  immutable lease evidence and settles it only after
-  `processRemotePublication` completes.
+  boundary. After worker validation, the Provider performs no second clone or
+  recursive freeze. It gives the read-only publication evidence to exactly one
+  required asynchronous Collaboration consumer, so no overlapping consumer can
+  mutate or retain a second canonical copy.
+- The Provider privately retains only the queue and settlement token needed to
+  expose one decoded publication at a time. The consumer Promise resolves after
+  App policy, canonical preflight, and remote apply succeed; that settlement
+  releases the next decoded publication. Terminal failure clears active and
+  pending publications and releases none instead of fabricating progress.
+- `@asyra/collaboration` has one provider-to-process contract for this async
+  handoff. It does not retain a legacy clone mode, public lease wrapper, or
+  alternate scalar publication route.
 - The binary frame has a 1 MiB soft target. One indivisible canonical record
   may exceed it without creating an element, point, payload, or composition
   ceiling.
@@ -408,8 +559,8 @@ intended transaction or history boundary.
 
 - Each source publication owns one remote Factory transaction. Different source
   publications are not merged into one transaction.
-- The active decoded-publication lease settles only after that transaction
-  applies successfully. Settlement releases the next lease; failure performs
+- The active decoded publication settles only after that transaction applies
+  successfully. Settlement releases the next publication; failure performs
   terminal cleanup and releases none.
 - The worker owns wire validation and normalization only. App policy and
   canonical preflight remain in the App/Core owner.
@@ -622,6 +773,12 @@ polled, normalized, stringified, or hashed.
 
 - The current local interactive gate is one single-Actor 7,112-element
   progressive run with no Contents, CRDT, transport, IndexedDB, or repeat.
+- The endpoint benchmark is one guarded two-Actor 7,076-element progressive
+  creation-only run with no follow-up edit, Undo/Redo execution, persistence,
+  media, trace, CPU profile, warm-up, or repeat.
+- The exact same endpoint benchmark establishes the accepted output baseline
+  after every effective owner and is rerun immediately after the next owner
+  refactor.
 - The default fast Mock AI CRDT correctness fixture has 16 items and exercises
   ordinary App, Factory, Collaboration, remote apply, Render, and history
   routes.
@@ -781,70 +938,80 @@ fabricated convergence.
 
 ## Owner Step Execution Order
 
-The current local closure advances only after the current step's focused formal
-tests and bounded review have no P0-P2 finding:
+No endpoint advances until its focused formal tests, bounded review, and
+immediately following endpoint proof have no P0-P2 finding:
 
 1. `contract-readiness-replan`: update this plan, Inspector, contract test, and
    BDD only.
-2. `stage-local-interactive-composition`: add the exact-bounds runtime overlay,
-   App-owned document interaction lock, DOM compositor paint opportunity,
-   deterministic point-and-64-element plural Core work units, serialized
-   later-task yields, actual progress, cancellation cleanup, rollback, and
-   single Undo behavior.
-3. `project-visible-canonical-slices`: only if its focused test proves the
-   existing Preset/Render projection turns one successful App batch into more
-   than one visible flush; otherwise it remains unchanged.
-4. `evaluate-local-interactive-drawing`: after explicit advance notice, run one
-   production single-Actor 7,112-element gate and synchronized visual review,
-   report the named times, then stop for product direction.
-
-The following existing steps are deferred and do not advance during the current
-local closure:
-
-1. `project-scrollable-contents-window`.
-2. `record-and-deliver-transaction-batch`.
-3. `apply-canonical-property-scene-batch`.
-4. `encode-publication-frames`: add binary publication schema, codec worker,
-   transferable buffers, bounded receiver frame ingress, one immutable decoded
-   publication lease, and independent wire credit.
-5. `relay-frames-with-backpressure`: remove the failed compression candidate,
-   relay opaque frames, and send already-admitted FIFO frames through the
-   bounded per-peer byte window.
-6. `apply-remote-publication-batches`: replace the per-event remote canonical
-   hot path with one publication batch transaction.
-7. `load-empty-demo-document`: start ordinary local and collaboration demo
-    sessions with one empty canonical document and no client persistence
-    provider, then prove zero capture, save, IndexedDB read, and IndexedDB write.
-8. `evaluate-performance-and-equivalence`: run the complete formal and live
-    closure once.
+2. `evaluate-endpoint-performance`: first implement and formally test the
+   creation-only benchmark, heartbeat, process-tree resource guard, termination,
+   and bounded report. This infrastructure step runs no 7,000-plus workload
+   until its own unit/integration gates pass.
+3. `admit-receiver-publication-frames`: retain valid committed ingress work,
+   move the browser WebSocket data plane and wire credit into the Dedicated
+   Worker, remove main-thread clone/freeze and duplicate header ownership, add
+   receiver timing, then run the guarded 7,076 endpoint proof. If ineffective,
+   replan only this owner before a second attempt.
+4. `apply-canonical-property-scene-batch`: replace N scalar source evidence
+   with one complete Props batch and one plural Scene event per Core request,
+   then run the guarded endpoint proof.
+5. `record-and-deliver-transaction-batch`: reduce Factory and required shared
+   pub/sub to one immutable history artifact plus one ordered shared batch view,
+   then run the guarded endpoint proof.
+6. `apply-remote-publication-batches`: consume worker-valid evidence once and
+   apply one linear Core request in one remote transaction, then run the guarded
+   endpoint proof.
+7. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
+   admission, peer byte capacity, and independent receipts, then run the guarded
+   endpoint proof.
+8. `encode-publication-frames`: remove redundant main-thread payload ownership
+   and retain one worker binary encode/decode boundary, then run the guarded
+   endpoint proof.
+9. `project-visible-canonical-slices`: run its focused count oracle and the
+   guarded endpoint proof; change Render/UI only if the owner remains material.
+10. `evaluate-performance-and-equivalence`: after every endpoint is effective
+    or formally non-material, run the final formal correctness, performance,
+    and synchronized visual closure.
 
 Existing committed results and current WIP are preserved and absorbed only
 inside their matching owner step. No cross-owner WIP commit is allowed.
 
 ## Current Local Gates
 
-- Contract: the active plan, Inspector, contract test, and BDD agree on the
-  single-Actor phase, exact-bounds loading state, cooperative plural Core
-  batches, one outer transaction, one Undo, and deferred owners.
-- App interaction: focused formal tests prove loading state is published, a
-  connected DOM overlay receives exact transformed bounds, and a browser paint
-  opportunity completes before the first canonical write. During later-task
-  yields, pan and zoom repaint the same live App state while all other document
-  interactions produce no canonical mutation or history; success, failure,
-  cancellation, and teardown release the lock.
-- Slicing: focused tests prove both point and element-count limits, exact order,
-  atomic one-call behavior, progressive multiple plural calls, AbortSignal
-  checks, one in-flight serialized yield, no next batch before that yield,
-  actual progress only after a successful batch, and terminal cleanup.
-- Transaction: the existing formal outer-transaction gate proves successful
-  progressive composition adds one history action and fatal/cancelled
-  composition leaves no committed prefix after rollback/compensation.
-- Projection: a focused test determines whether one successful plural Core
-  batch already produces one ordinary visible Vector flush. Preset/Render
-  changes are authorized only if that test fails at this owner.
-- Local performance: one production single-Actor 7,112-element run reports the
-  named milestones, longest work unit, and yield count once and receives
-  synchronized live visual inspection.
+The accepted single-Actor path retains the exact loading bounds, cooperative
+progressive composition, one outer transaction, one Undo action, and responsive
+pan/zoom behavior already proven by the current local formal tests. Endpoint
+work must not regress those gates. The 7,112-element local benchmark remains a
+change-aware supplement for local-only owners and never replaces the guarded
+two-Actor collaboration proof.
+
+## Endpoint Proof Gates
+
+- Guard: a pure decision test proves the CPU, stale-heartbeat, stalled-progress,
+  tracked-process termination, and last-heartbeat report behavior without
+  starting a browser.
+- Benchmark: one creation-only integration case proves the heartbeat uses O(1)
+  counts, reports both actors, excludes persistence/media/follow-ups, and
+  closes all owned processes.
+- Source canonical: exact N-to-one Props/Scene evidence counts, later-invalid
+  no-prefix behavior, exact IDs/order/relations, and one Undo.
+- Factory/pub-sub: one local history artifact, one ordered shared view, one
+  batch observer registry snapshot, no synonymous flattened payload graph, and
+  exact rollback/Undo/Redo.
+- Receiver: frame acceptance and `frame-consumed` remain independent of App
+  apply; bounded bytes and one active decoded publication survive slow consumer,
+  terminal failure, disconnect, and teardown.
+- Remote: one policy pass, one Core request, one remote transaction, no
+  quadratic batch/slice scan, Undo, echo, capture, save, or IndexedDB work.
+- Relay: byte parity, exact queue capacity, FIFO retirement, control fast path,
+  and distinct server-admitted/frame-consumed/peer-applied receipts.
+- Codec: exact binary round-trip and worker-only payload validation/ownership
+  with invalid, truncated, duplicate, and oversized evidence.
+- Projection: batch subscriber and local computed projection counts precede
+  ordinary Render/UI counts; full detail remains editable.
+- Effectiveness: every owner proof reports the changed owner metric, A complete,
+  B first-visible, B complete/converged, adjacent critical owners, and resource
+  guard status against the immediately preceding accepted baseline.
 
 ## Step-Local Gates
 
@@ -864,16 +1031,17 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
 - Projection: one atomic flush, one flush per progressive slice, exact 7,076
   ordinary Vector projection, and bounded UI updates.
 - Codec/relay: binary round-trip, invalid/truncated/duplicate rejection,
-  oversized single record or active publication assembly, one immutable
-  decoded lease, bounded multi-frame ingress and peer-egress windows, opaque
+  oversized single record or active publication assembly, one read-only active
+  decoded publication, bounded multi-frame ingress and peer-egress windows, opaque
   byte parity, slow peer, disconnect, and ordered receipts.
 - Remote: one publication transaction and one batch observer call, with no
   Undo, echo, capture, save, or IndexedDB write.
 - Demo startup: ordinary local and collaboration sessions load one empty
   canonical document and never configure client persistence.
 
-Each owner step runs focused unit and integration gates only. The 7,076 heavy
-suite is not repeated after every step.
+Each owner step runs focused unit and integration gates first, then exactly one
+guarded 7,076 creation-only proof. The full multi-turn high-detail suite is not
+repeated after every step.
 
 ## Final Gates
 
@@ -882,12 +1050,12 @@ After all architecture owners are complete, run one heavy closure:
 1. Inspector contract, all affected package unit/integration tests, Asyra
    Design full local tests, lint, and production build.
 2. Default 16-item Mock AI CRDT correctness.
-3. One 7,112-element balanced correctness run because canonical, Contents, and
-   transport paths changed.
+3. One 7,112-element balanced correctness run because canonical and transport
+   paths changed.
 4. Independent 7,076-element production no-media CRDT and performance runs.
 5. One warm-up plus three measured runs reporting product execution, artifact,
    encode, server queue/drain, worker decode, remote apply, Render, UI, and
-   harness overhead.
+   harness overhead. Every high-detail run retains the same host resource guard.
 6. Maximum-detail 27,471-element and 295,794-point gate.
 7. `app-visual-review-sync` from the same measured live App state, with direct
    inspection of complete, uncropped Actor A and Actor B output, Styles, IDs,
@@ -900,13 +1068,17 @@ never committed.
 ## Definition of Done
 
 - Every Step-local gate passes before its owner step advances.
+- Every endpoint has one accepted guarded 7,076-element creation proof, or one
+  proof that the owner is below five percent of product time and therefore
+  remains intentionally unchanged.
+- No endpoint exceeds five architecture attempts, and no resource-aborted or
+  otherwise ineffective attempt is committed.
 - The final formal unit, integration, E2E, CRDT, performance, lint, build, and
   Inspector gates pass.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
 - One immutable Factory artifact is shared across History, projection, and
   Collaboration without downstream semantic reconstruction.
 - Peer queues remain byte-bounded and exact publication order converges.
-- Contents reaches the final canonical element with bounded DOM rows.
 - Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
   client persistence side effects.
 - Existing performance budgets pass without lowering detail or weakening
@@ -939,12 +1111,17 @@ Stop the current owner step and replan from the first incorrect owner when:
 - an artifact cannot reproduce exact canonical or history evidence;
 - a downstream owner must rederive upstream semantics from raw mutable data;
 - a peer queue cannot remain bounded;
+- the resource guard crosses its CPU, heartbeat, or stalled-progress limit; in
+  that case all tracked test processes are stopped before any further command
+  and the last phase plus Actor A/B counts are reported;
 - an optimization changes IDs, ordering, detail, Undo/Redo,
   progressive visibility, partial result, rollback, or failure behavior;
 - a required file falls outside the active step allowlist;
 - existing platform capability would require an unapproved dependency or tool
   upgrade;
-- the same focused gate fails three times.
+- the same focused gate fails three times;
+- one endpoint reaches five materially different architecture attempts without
+  an effective guarded proof.
 
 If the final heavy gate fails, report only the first over-budget or incorrect
 owner with evidence. Do not resume a local patch-and-tune loop.

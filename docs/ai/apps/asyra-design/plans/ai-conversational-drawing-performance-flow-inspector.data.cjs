@@ -372,27 +372,20 @@
         'Encode outbound shared publication batches and decode inbound opaque frames as versioned binary data in a worker while retaining JSON control frames and existing ProviderFailure semantics.',
       inputs: [
         'artifact:shared-publication-batches',
-        'artifact:relayed-publication-frames',
-        'artifact:server-accepted-receipts',
-        'artifact:source-frame-admitted-credit',
-        'artifact:remote-publication-settlement'
+        'artifact:relayed-publication-frames'
       ],
       outputs: [
         'artifact:encoded-publication-frames',
-        'artifact:decoded-publication-batches',
-        'artifact:frame-consumed-credit',
+        'artifact:decoded-publication-candidates',
         'artifact:codec-timing'
       ],
       conditions: [
         'Hello, ack, failure, awareness, and credit control frames remain JSON.',
         'All shared publication data uses a versioned binary frame and is not pre-serialized as JSON.',
-        'The existing codec runs in a Web Worker without a new package.',
-        'Outbound encoding performs one object-to-worker structured clone and returns a transferable ArrayBuffer.',
-        'Inbound ArrayBuffer data enters a bounded frame ingress with a 2 MiB byte window; one active oversized publication assembly is allowed without creating a payload ceiling.',
-        'After header, order, and duplicate evidence are validated, the receiver worker accepts the frame and emits frame-consumed credit independently of later canonical apply.',
-        'The worker-to-main publication is deeply frozen once without repeated provider or Collaboration clone boundaries.',
-        'The receiver exposes one immutable decoded publication lease to the App before policy and canonical preflight; successful remote publication settlement releases the next decoded publication, while terminal failure clears the active and pending leases and releases no later publication.',
-        'The provider keeps one outbound publication frame in flight, waits for exact source-frame-admitted credit, then sends the next frame.',
+        'The existing codec runs in the Dedicated Worker without a new package.',
+        'Outbound encoding performs one object-to-worker structured clone; the Worker encodes the publication and writes each frame directly to the Worker-owned WebSocket.',
+        'Inbound decoding validates version, header, chunk order, duplicate identity, and payload schema exactly once in the worker.',
+        'The Worker posts one decoded publication candidate through the sole worker-to-main structured-clone boundary without main-thread JSON pre-serialization, recursive clone, or recursive freeze.',
         'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
         'Invalid, unsupported-version, and truncated frames reject through ProviderFailure.'
       ],
@@ -404,9 +397,6 @@
       allowedContributors: [
         'artifact:shared-publication-batches',
         'artifact:relayed-publication-frames',
-        'artifact:server-accepted-receipts',
-        'artifact:source-frame-admitted-credit',
-        'artifact:remote-publication-settlement',
         '@asyra/collaboration public publication schema',
         'existing repository codec',
         'platform Web Worker and transferable buffers'
@@ -414,6 +404,7 @@
       forbiddenContributors: [
         'new codec dependency',
         'JSON stringify of publication data before binary encoding',
+        'main-thread publication byte send',
         'main-thread publication compression',
         'element, point, payload, or composition ceiling',
         'worker-owned App policy'
@@ -422,18 +413,12 @@
       implementationBoundary: [
         'apps/asyra-design/src/collaboration/compact-binary.ts',
         'apps/asyra-design/src/collaboration/compact-json.ts',
+        'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts',
         'apps/asyra-design/src/collaboration/protocol.ts',
         'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
-        'apps/asyra-design/src/collaboration/websocket-provider.ts',
         'apps/asyra-design/src/collaboration/wire-values.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
-        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
-        'packages/collaboration/src/cloning.ts',
-        'packages/collaboration/src/provider.ts',
-        'packages/collaboration/src/index.ts',
-        'packages/collaboration/src/process.ts',
-        'packages/collaboration/src/__tests__/cloning.test.ts',
-        'packages/collaboration/src/__tests__/process.test.ts'
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts'
       ],
       specRefs: [
         '#binary-collaboration-transport',
@@ -443,8 +428,80 @@
       failureOwnerStepId: 'encode-publication-frames'
     },
     {
-      id: 'relay-frames-with-backpressure',
+      id: 'admit-receiver-publication-frames',
       order: 2,
+      laneId: 'wire-transport',
+      title: 'Admit receiver publication frames',
+      ownerPackage: 'Asyra Design Dedicated Worker WebSocket receiver scheduler',
+      purpose:
+        'Admit validated inbound publication bytes independently from main-thread canonical apply, expose one decoded publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
+      inputs: [
+        'artifact:relayed-publication-frames',
+        'artifact:decoded-publication-candidates',
+        'artifact:server-accepted-receipts',
+        'artifact:source-frame-admitted-credit',
+        'artifact:remote-publication-settlement'
+      ],
+      outputs: [
+        'artifact:decoded-publication-batches',
+        'artifact:frame-consumed-credit',
+        'artifact:receiver-handoff-timing'
+      ],
+      conditions: [
+        'A Dedicated Worker owns the browser WebSocket data plane, receives publication bytes, performs wire admission, and sends frame-consumed directly on its socket without waiting for the main thread.',
+        'The main-thread Provider never receives inbound publication bytes and never sends frame-consumed; it exchanges only bounded commands, normalized control evidence, one decoded publication handoff, and apply settlement with the Worker.',
+        'Inbound ArrayBuffer data enters a bounded 2 MiB frame-ingress window; one active oversized publication assembly is allowed only without a second queued publication.',
+        'After worker header, order, duplicate, and capacity validation, frame-consumed credit is emitted independently of later App policy or canonical apply.',
+        'The worker-to-main structured clone is the only inbound object isolation boundary; validated publication evidence enters a single-consumer ownership contract without a Provider clone or recursive main-thread freeze.',
+        'The receiver retains bounded decoded candidates while exposing exactly one read-only publication to exactly one required async Collaboration consumer until its Promise settlement.',
+        'The Dedicated Worker keeps one outbound publication frame in flight and sends the next frame directly on its WebSocket only after exact source-frame-admitted credit.',
+        'Successful remote publication settlement releases the next decoded publication; terminal apply failure clears active and pending publications and releases no fabricated progress.',
+        'Slow App apply cannot prevent already-bounded later frames from entering the worker or returning wire credit.',
+        'Disconnect, worker teardown, and invalid settlement reject pending work through ProviderFailure and close all receiver-owned capacity.'
+      ],
+      bypasses: [
+        'Disconnected mode admits no frame.',
+        'JSON control messages bypass publication ingress and remain readable while data admission is blocked.',
+        'A terminal apply failure releases no later decoded publication.'
+      ],
+      allowedContributors: [
+        'Dedicated Worker WebSocket ownership',
+        'artifact:relayed-publication-frames',
+        'artifact:decoded-publication-candidates',
+        'artifact:server-accepted-receipts',
+        'artifact:source-frame-admitted-credit',
+        'artifact:remote-publication-settlement',
+        'platform transferable ArrayBuffer ownership',
+        '@asyra/collaboration required async publication consumer'
+      ],
+      forbiddenContributors: [
+        'main-thread WebSocket publication receive or wire-credit send',
+        'wire credit delayed until App canonical apply',
+        'unbounded main-thread frame or publication queue',
+        'overlapping decoded publication consumers',
+        'main-thread recursive publication clone or freeze',
+        'Provider-owned App policy or canonical mutation'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts',
+        'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
+        'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
+        'packages/collaboration/src/provider.ts',
+        'packages/collaboration/src/process.ts',
+        'packages/collaboration/src/__tests__/process.test.ts'
+      ],
+      specRefs: [
+        '#binary-collaboration-transport',
+        '#endpoint-ordered-refactor-closure',
+        '#endpoint-proof-gates'
+      ],
+      failureOwnerStepId: 'admit-receiver-publication-frames'
+    },
+    {
+      id: 'relay-frames-with-backpressure',
+      order: 3,
       laneId: 'wire-transport',
       title: 'Relay frames with byte backpressure',
       ownerPackage: 'Asyra Design reference WebSocket server',
@@ -513,7 +570,7 @@
     },
     {
       id: 'apply-remote-publication-batches',
-      order: 3,
+      order: 4,
       laneId: 'wire-transport',
       title: 'Apply remote publication batches',
       ownerPackage: 'Asyra Design Collaboration adapter',
@@ -533,7 +590,7 @@
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
         'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no IndexedDB write.',
-        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves the active decoded-publication lease and permits the next lease, while failure tears down the active and pending leases and releases none.',
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves the active decoded publication and permits the next publication, while failure tears down the active and pending publications and releases none.',
         'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
       ],
       bypasses: [
@@ -689,8 +746,86 @@
       failureOwnerStepId: 'evaluate-local-interactive-drawing'
     },
     {
-      id: 'evaluate-performance-and-equivalence',
+      id: 'evaluate-endpoint-performance',
       order: 2,
+      laneId: 'persistence-proof',
+      title: 'Evaluate one refactored endpoint safely',
+      ownerPackage: 'Asyra Design guarded endpoint performance E2E',
+      purpose:
+        'Run exactly one production two-Actor 7,076-element creation proof immediately after each completed endpoint refactor, compare only its owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
+      inputs: [
+        'artifact:app-bulk-timing',
+        'artifact:canonical-batch-timing',
+        'artifact:factory-batch-timing',
+        'artifact:receiver-handoff-timing',
+        'artifact:relay-timing',
+        'artifact:codec-timing',
+        'artifact:remote-apply-timing',
+        'artifact:render-ui-timing',
+        'artifact:accepted-endpoint-baseline'
+      ],
+      outputs: [
+        'artifact:accepted-endpoint-baseline',
+        'artifact:endpoint-performance-proof',
+        'artifact:resource-guard-stop-proof'
+      ],
+      conditions: [
+        'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
+        'A local-only endpoint may additionally use one single-Actor 7,112-element creation, but it cannot replace the two-Actor proof for a collaboration endpoint.',
+        'The guard authenticates one ready heartbeat and confirms process ownership and CPU sampling before the 7,076-element request may start.',
+        'A bounded heartbeat reports the current phase, Actor A and Actor B canonical element counts, publication progress, test-owned process-tree CPU, and latest owner timing without walking the full canonical graph.',
+        'A single test-owned process-tree sample at or above 900 percent CPU stops the benchmark immediately; aggregate CPU above 600 percent for five consecutive samples is the sustained limit.',
+        'Sustained emergency CPU, a stale heartbeat under load, or stalled Actor A and Actor B progress under load fails the active endpoint immediately.',
+        'On resource failure the guard terminates tracked Playwright, headless browser, App server, and collaboration server processes before returning the last completed phase, Actor A and Actor B element counts, CPU samples, publication progress, and owner timing.',
+        'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
+        'Success preserves exact canonical IDs, order, detail, topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
+        'Effectiveness requires the owned failing budget to become green or the owned structural, span, or queue metric to improve by at least 15 percent without an adjacent critical owner regressing more than 15 percent.',
+        'The first receiver endpoint uses the retained 940/7,076 elements and 11/35 publications at 30 seconds as its pre-refactor comparison and performs no additional 7,076-element seed run; every later endpoint consumes artifact:accepted-endpoint-baseline.',
+        'One endpoint receives at most five materially revised architecture attempts; the same focused failure three times stops earlier.'
+      ],
+      bypasses: [
+        'The creation-only endpoint proof never runs the complete two-window recording or full three-turn flow.',
+        'The first receiver endpoint does not require artifact:accepted-endpoint-baseline because the retained pre-refactor evidence is its fixed seed.',
+        'An owner proven below five percent of product time remains unchanged rather than receiving a speculative optimization.',
+        'Contents and production persistence are outside this endpoint proof.'
+      ],
+      allowedContributors: [
+        'production Asyra Design App and collaboration server',
+        'authenticated guard-ready handshake',
+        'detached O(1) runtime counters',
+        'tracked test-owned process ids',
+        'declared owner timing artifacts',
+        'one terminal bounded canonical equivalence summary'
+      ],
+      forbiddenContributors: [
+        'untracked process termination',
+        'full canonical snapshot polling in the heartbeat',
+        'video, screenshots, trace, or CPU profiling',
+        'harness overhead attributed to a product owner',
+        'continuing after a resource guard failure',
+        'committing an ineffective endpoint attempt'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts',
+        'apps/asyra-design/e2e/performance-resource-guard.mjs',
+        'apps/asyra-design/playwright.endpoint-performance.config.ts',
+        'apps/asyra-design/__tests__/performance-resource-guard.test.mjs',
+        'apps/asyra-design/__tests__/playwright-config.test.mjs',
+        'apps/asyra-design/package.json'
+      ],
+      specRefs: [
+        '#endpoint-ordered-refactor-closure',
+        '#common-creation-only-benchmark',
+        '#host-resource-guard',
+        '#endpoint-iteration-and-effectiveness',
+        '#endpoint-proof-gates'
+      ],
+      failureOwnerStepId: 'evaluate-endpoint-performance'
+    },
+    {
+      id: 'evaluate-performance-and-equivalence',
+      order: 3,
       laneId: 'persistence-proof',
       title: 'Evaluate performance and equivalence',
       ownerPackage: 'Asyra Design performance E2E',
@@ -704,6 +839,7 @@
         'artifact:codec-timing',
         'artifact:server-accepted-receipts',
         'artifact:frame-consumed-credit',
+        'artifact:receiver-handoff-timing',
         'artifact:relay-timing',
         'artifact:remote-factory-mutation-batch',
         'artifact:peer-applied-receipts',
@@ -711,8 +847,8 @@
         'artifact:visible-canonical-slices',
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
-        'artifact:scrollable-contents-window',
-        'artifact:empty-memory-demo-document'
+        'artifact:empty-memory-demo-document',
+        'the accepted endpoint performance proofs'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
       conditions: [
@@ -886,7 +1022,7 @@
     },
     {
       id: 'route-frame-consumed-credit-to-relay',
-      from: 'encode-publication-frames',
+      from: 'admit-receiver-publication-frames',
       to: 'relay-frames-with-backpressure',
       kind: 'credit',
       predicate: 'The receiver worker accepted an inbound transferable frame.',
@@ -902,11 +1038,20 @@
     },
     {
       id: 'route-frame-consumed-credit-to-proof',
-      from: 'encode-publication-frames',
+      from: 'admit-receiver-publication-frames',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate: 'Wire-consumption credit timing is available.',
       producedArtifacts: ['artifact:frame-consumed-credit']
+    },
+    {
+      id: 'route-receiver-handoff-to-full-proof',
+      from: 'admit-receiver-publication-frames',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'Receiver frame admission, active decoded publication, and App settlement timing is available.',
+      producedArtifacts: ['artifact:receiver-handoff-timing']
     },
     {
       id: 'route-relayed-frames-to-codec',
@@ -919,7 +1064,7 @@
     {
       id: 'route-server-accepted-to-codec-provider',
       from: 'relay-frames-with-backpressure',
-      to: 'encode-publication-frames',
+      to: 'admit-receiver-publication-frames',
       kind: 'receipt',
       predicate:
         'Every current peer queue had bounded capacity for the accepted frame.',
@@ -928,7 +1073,7 @@
     {
       id: 'route-source-frame-admitted-to-codec-provider',
       from: 'relay-frames-with-backpressure',
-      to: 'encode-publication-frames',
+      to: 'admit-receiver-publication-frames',
       kind: 'credit',
       predicate:
         'One source frame entered every request-start peer queue and the provider may send the next frame.',
@@ -946,21 +1091,30 @@
       ]
     },
     {
-      id: 'route-decoded-publication-to-remote',
+      id: 'route-decoded-candidate-to-receiver',
       from: 'encode-publication-frames',
+      to: 'admit-receiver-publication-frames',
+      kind: 'handoff',
+      predicate:
+        'The worker decoded and validated one transferable publication candidate.',
+      producedArtifacts: ['artifact:decoded-publication-candidates']
+    },
+    {
+      id: 'route-decoded-publication-to-remote',
+      from: 'admit-receiver-publication-frames',
       to: 'apply-remote-publication-batches',
       kind: 'handoff',
       predicate:
-        'The receiver exposed one validated, normalized, immutable decoded-publication lease.',
+        'The receiver exposed one validated, normalized, read-only decoded publication to the single async consumer.',
       producedArtifacts: ['artifact:decoded-publication-batches']
     },
     {
-      id: 'route-remote-settlement-to-codec-lease',
+      id: 'route-remote-settlement-to-receiver',
       from: 'apply-remote-publication-batches',
-      to: 'encode-publication-frames',
+      to: 'admit-receiver-publication-frames',
       kind: 'settlement',
       predicate:
-        'Success resolves the active remote publication and releases the next decoded lease; terminal failure clears the active and pending leases and releases none.',
+        'Success resolves the active remote publication and releases the next decoded publication; terminal failure clears the active and pending publications and releases none.',
       producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {
@@ -1012,12 +1166,75 @@
       ]
     },
     {
-      id: 'route-contents-window-to-proof',
-      from: 'project-scrollable-contents-window',
-      to: 'evaluate-performance-and-equivalence',
+      id: 'route-app-timing-to-endpoint-proof',
+      from: 'stage-local-interactive-composition',
+      to: 'evaluate-endpoint-performance',
       kind: 'observation',
-      predicate: 'The final canonical row is reachable with bounded DOM rows.',
-      producedArtifacts: ['artifact:scrollable-contents-window']
+      predicate: 'The active endpoint proof includes local App bulk timing.',
+      producedArtifacts: ['artifact:app-bulk-timing']
+    },
+    {
+      id: 'route-canonical-timing-to-endpoint-proof',
+      from: 'apply-canonical-property-scene-batch',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes canonical preflight and apply timing.',
+      producedArtifacts: ['artifact:canonical-batch-timing']
+    },
+    {
+      id: 'route-factory-timing-to-endpoint-proof',
+      from: 'record-and-deliver-transaction-batch',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes Factory artifact and pub/sub timing.',
+      producedArtifacts: ['artifact:factory-batch-timing']
+    },
+    {
+      id: 'route-receiver-timing-to-endpoint-proof',
+      from: 'admit-receiver-publication-frames',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes frame admission and active decoded-publication timing.',
+      producedArtifacts: ['artifact:receiver-handoff-timing']
+    },
+    {
+      id: 'route-relay-timing-to-endpoint-proof',
+      from: 'relay-frames-with-backpressure',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes peer queue, socket drain, and receipt timing.',
+      producedArtifacts: ['artifact:relay-timing']
+    },
+    {
+      id: 'route-codec-timing-to-endpoint-proof',
+      from: 'encode-publication-frames',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes worker encode and decode timing.',
+      producedArtifacts: ['artifact:codec-timing']
+    },
+    {
+      id: 'route-remote-timing-to-endpoint-proof',
+      from: 'apply-remote-publication-batches',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes remote organization and canonical apply timing.',
+      producedArtifacts: ['artifact:remote-apply-timing']
+    },
+    {
+      id: 'route-projection-timing-to-endpoint-proof',
+      from: 'project-visible-canonical-slices',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof includes ordinary Render and UI timing.',
+      producedArtifacts: ['artifact:render-ui-timing']
     },
     {
       id: 'route-empty-demo-document-to-full-proof',
@@ -1035,6 +1252,31 @@
       predicate:
         'The current local-only formal measurement and synchronized visual review ran once.',
       producedArtifacts: ['artifact:local-interactive-drawing-proof']
+    },
+    {
+      id: 'route-accepted-endpoint-baseline',
+      from: 'evaluate-endpoint-performance',
+      to: 'evaluate-endpoint-performance',
+      kind: 'accepted-iteration-baseline',
+      predicate:
+        'An effective exact endpoint proof replaces the immediately preceding accepted baseline for the next endpoint.',
+      producedArtifacts: ['artifact:accepted-endpoint-baseline']
+    },
+    {
+      id: 'route-endpoint-performance-proof',
+      from: 'evaluate-endpoint-performance',
+      kind: 'terminal',
+      predicate:
+        'One effective endpoint produced exact guarded high-detail equivalence and owner-effectiveness evidence.',
+      producedArtifacts: ['artifact:endpoint-performance-proof']
+    },
+    {
+      id: 'route-resource-guard-stop-proof',
+      from: 'evaluate-endpoint-performance',
+      kind: 'terminal-failure',
+      predicate:
+        'The host resource guard crossed a CPU, heartbeat, or stalled-progress limit and stopped every tracked test process before reporting the last bounded evidence.',
+      producedArtifacts: ['artifact:resource-guard-stop-proof']
     },
     {
       id: 'route-performance-proof',
@@ -1075,6 +1317,7 @@
       channel: 'detached monotonic timing',
       consumerStepIds: [
         'evaluate-local-interactive-drawing',
+        'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
@@ -1090,7 +1333,10 @@
       id: 'artifact:canonical-batch-timing',
       ownerStepId: 'apply-canonical-property-scene-batch',
       channel: 'detached monotonic timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1115,7 +1361,10 @@
       id: 'artifact:factory-batch-timing',
       ownerStepId: 'record-and-deliver-transaction-batch',
       channel: 'detached monotonic timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1126,18 +1375,36 @@
       terminal: false
     },
     {
-      id: 'artifact:decoded-publication-batches',
+      id: 'artifact:decoded-publication-candidates',
       ownerStepId: 'encode-publication-frames',
-      channel: 'single immutable worker-validated decoded-publication lease',
+      channel: 'worker-validated transferable publication candidate',
+      consumerStepIds: ['admit-receiver-publication-frames'],
+      terminal: false
+    },
+    {
+      id: 'artifact:decoded-publication-batches',
+      ownerStepId: 'admit-receiver-publication-frames',
+      channel: 'single read-only decoded-publication consumer handoff',
       consumerStepIds: ['apply-remote-publication-batches'],
       terminal: false
     },
     {
       id: 'artifact:frame-consumed-credit',
-      ownerStepId: 'encode-publication-frames',
+      ownerStepId: 'admit-receiver-publication-frames',
       channel: 'receiver worker wire-consumption credit',
       consumerStepIds: [
         'relay-frames-with-backpressure',
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:receiver-handoff-timing',
+      ownerStepId: 'admit-receiver-publication-frames',
+      channel: 'detached receiver admission and active-publication timing',
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
@@ -1146,7 +1413,10 @@
       id: 'artifact:codec-timing',
       ownerStepId: 'encode-publication-frames',
       channel: 'detached worker encode/decode timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1161,7 +1431,7 @@
       ownerStepId: 'relay-frames-with-backpressure',
       channel: 'bounded per-peer queue acceptance receipts',
       consumerStepIds: [
-        'encode-publication-frames',
+        'admit-receiver-publication-frames',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
@@ -1170,14 +1440,17 @@
       id: 'artifact:source-frame-admitted-credit',
       ownerStepId: 'relay-frames-with-backpressure',
       channel: 'exact per-source-frame admission credit',
-      consumerStepIds: ['encode-publication-frames'],
+      consumerStepIds: ['admit-receiver-publication-frames'],
       terminal: false
     },
     {
       id: 'artifact:relay-timing',
       ownerStepId: 'relay-frames-with-backpressure',
       channel: 'detached queue and drain timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1204,15 +1477,18 @@
       id: 'artifact:remote-publication-settlement',
       ownerStepId: 'apply-remote-publication-batches',
       channel:
-        'decoded-publication lease settlement outcome: success | terminal failure',
-      consumerStepIds: ['encode-publication-frames'],
+        'decoded-publication settlement outcome: success | terminal failure',
+      consumerStepIds: ['admit-receiver-publication-frames'],
       terminal: false
     },
     {
       id: 'artifact:remote-apply-timing',
       ownerStepId: 'apply-remote-publication-batches',
       channel: 'detached remote apply timing',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
       terminal: false
     },
     {
@@ -1221,6 +1497,7 @@
       channel: 'ordinary local and remote Vector projection',
       consumerStepIds: [
         'evaluate-local-interactive-drawing',
+        'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
@@ -1241,6 +1518,7 @@
       channel: 'detached Render and UI timing',
       consumerStepIds: [
         'evaluate-local-interactive-drawing',
+        'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
       terminal: false
@@ -1249,8 +1527,8 @@
       id: 'artifact:scrollable-contents-window',
       ownerStepId: 'project-scrollable-contents-window',
       channel: 'formal Contents tail-reachability evidence',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:empty-memory-demo-document',
@@ -1263,6 +1541,30 @@
       id: 'artifact:local-interactive-drawing-proof',
       ownerStepId: 'evaluate-local-interactive-drawing',
       channel: 'terminal current-phase formal evidence',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:accepted-endpoint-baseline',
+      ownerStepId: 'evaluate-endpoint-performance',
+      channel:
+        'exact accepted endpoint report used only by the immediately following endpoint comparison',
+      consumerStepIds: ['evaluate-endpoint-performance'],
+      terminal: false
+    },
+    {
+      id: 'artifact:endpoint-performance-proof',
+      ownerStepId: 'evaluate-endpoint-performance',
+      channel:
+        'terminal exact endpoint equivalence and effectiveness comparison',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:resource-guard-stop-proof',
+      ownerStepId: 'evaluate-endpoint-performance',
+      channel:
+        'terminal tracked-process stop with last phase, Actor A/B counts, CPU, publication, and owner timing evidence',
       consumerStepIds: [],
       terminal: true
     },
@@ -1285,6 +1587,7 @@
         'apply-canonical-property-scene-batch',
         'record-and-deliver-transaction-batch',
         'encode-publication-frames',
+        'admit-receiver-publication-frames',
         'relay-frames-with-backpressure',
         'apply-remote-publication-batches'
       ],
@@ -1304,6 +1607,7 @@
         'record-and-deliver-transaction-batch',
         'project-visible-canonical-slices',
         'encode-publication-frames',
+        'admit-receiver-publication-frames',
         'relay-frames-with-backpressure',
         'apply-remote-publication-batches'
       ],
@@ -1324,12 +1628,14 @@
         'Worker and server transport preserve ordered canonical bytes and bounded peer queues without owning App policy, canonical splitting, history, persistence, or convergence claims.',
       stepIds: [
         'encode-publication-frames',
+        'admit-receiver-publication-frames',
         'relay-frames-with-backpressure',
         'apply-remote-publication-batches'
       ],
       artifactIds: [
         'artifact:encoded-publication-frames',
         'artifact:relayed-publication-frames',
+        'artifact:decoded-publication-candidates',
         'artifact:decoded-publication-batches',
         'artifact:server-accepted-receipts',
         'artifact:frame-consumed-credit',
@@ -1384,18 +1690,14 @@
       ]
     },
     {
-      id: 'visible-and-scrollable-projection',
-      title: 'Visible progressive and scrollable UI projection',
+      id: 'visible-progressive-projection',
+      title: 'Visible progressive projection',
       assertions: [
         'Atomic delivery flushes once and progressive delivery flushes every formal slice through the ordinary Vector route.',
-        'All 7,076 editable elements remain complete and uncropped.',
-        'Contents reaches the final canonical element with viewport-plus-overscan DOM rows and correct collapse and selection.'
+        'All 7,076 editable elements remain complete and uncropped.'
       ],
-      stepIds: [
-        'project-visible-canonical-slices',
-        'project-scrollable-contents-window'
-      ],
-      specRefs: ['#projection-and-contents-contract', '#product-cases']
+      stepIds: ['project-visible-canonical-slices'],
+      specRefs: ['#visible-atomic-and-progressive-projection', '#product-cases']
     },
     {
       id: 'binary-backpressure-and-remote-apply',
@@ -1407,6 +1709,7 @@
       ],
       stepIds: [
         'encode-publication-frames',
+        'admit-receiver-publication-frames',
         'relay-frames-with-backpressure',
         'apply-remote-publication-batches'
       ],
@@ -1434,6 +1737,32 @@
         '#exact-bounds-loading-frame',
         '#cooperative-progressive-composition',
         '#current-local-performance-measurement'
+      ]
+    },
+    {
+      id: 'endpoint-ordered-performance-closure',
+      title: 'Each material endpoint proves effectiveness safely',
+      assertions: [
+        'Receiver admission, canonical source mutation, Factory pub/sub, remote apply, relay, codec, and material Render/UI owners advance in evidence-ranked order.',
+        'Every completed owner receives one creation-only 7,076-element proof before another owner starts, with exact A/B completion and owner timing evidence.',
+        'The process-tree guard terminates tracked test work on sustained CPU, stale heartbeat, or stalled progress and reports the last phase plus Actor A/B element counts.',
+        'An ineffective endpoint returns to its first incorrect owner for at most five materially revised attempts; the same focused failure three times stops earlier.'
+      ],
+      stepIds: [
+        'admit-receiver-publication-frames',
+        'apply-canonical-property-scene-batch',
+        'record-and-deliver-transaction-batch',
+        'apply-remote-publication-batches',
+        'relay-frames-with-backpressure',
+        'encode-publication-frames',
+        'project-visible-canonical-slices',
+        'evaluate-endpoint-performance'
+      ],
+      specRefs: [
+        '#endpoint-ordered-refactor-closure',
+        '#host-resource-guard',
+        '#endpoint-iteration-and-effectiveness',
+        '#endpoint-proof-gates'
       ]
     },
     {

@@ -7,7 +7,7 @@ Feature: Conversational AI drawing performance
     Given the committed 1672 by 941 tabby reference image
     And the production Asyra Design build directly provides deterministic Mock AI
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
-    And one unmeasured warm-up precedes three measured reference runs
+    And the formal final reference gate uses one unmeasured warm-up before three measured runs
 
   Scenario: Profiling remains observational
     When the balanced high-detail collaboration profile is evaluated
@@ -16,6 +16,22 @@ Feature: Conversational AI drawing performance
     And the Contents omitted average should be 7.074 seconds
     And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
+
+  Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
+    Given one endpoint completed its focused formal tests and bounded review
+    And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
+    When the guarded endpoint benchmark starts
+    Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
+    And each bounded heartbeat should report the current phase, Actor A canonical element count, Actor B canonical element count, publication progress, and test-owned process-tree CPU
+    And one test-owned CPU sample at or above 900 percent should stop the benchmark immediately
+    And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
+    And sustained emergency CPU, stale heartbeat under load, or stalled Actor A and Actor B progress under load should fail the endpoint
+    And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
+    And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
+    And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
+    And an ineffective endpoint should return only to its first incorrect owner
+    And one endpoint should receive at most five materially revised architecture attempts
+    But the same focused failure three times should stop earlier
 
   Scenario: Exact-bounds loading state precedes local drawing
     Given one validated local AI composition has exact accepted workspace bounds
@@ -246,9 +262,12 @@ Feature: Conversational AI drawing performance
 
   Scenario: Binary publication transport applies byte backpressure
     Given Collaboration hands one publication to the Provider
-    When the Provider codec worker creates versioned binary publication frames
+    When the Dedicated Worker creates versioned binary publication frames
     Then control frames should remain JSON
-    And publication payloads should transfer as ArrayBuffer values without JSON pre-serialization
+    And the Dedicated Worker should own the browser WebSocket data plane
+    And the main thread should never receive publication bytes or send "frame-consumed"
+    And publication payloads should remain ArrayBuffer values inside that Worker-owned data plane without JSON pre-serialization
+    And outbound binary frames should be written directly by the Worker instead of returning to a main-thread socket
     And the server should relay canonical payload bytes without decode or re-encode
     And the receiver should admit frames into a bounded 2 MiB worker ingress window
     And the worker should validate header, order, and duplicate identity before emitting "frame-consumed"
