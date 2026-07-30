@@ -4,7 +4,8 @@ import {
   AsyraDesignAiActionError,
   AsyraDesignAiActionNames,
   createAsyraDesignAiActions,
-  hasAsyraDesignAiCompositionMinimumItemCount
+  type AsyraDesignAiCompositionItem,
+  type InsertVectorCompositionArgs
 } from '../actions'
 
 const mutationOptions = {
@@ -60,32 +61,6 @@ const vectorItemWithPointCount = (pointCount: number, role: string) => ({
   }))
 })
 
-const multiPathVectorItem = (pathCount: number, role = 'fur-texture') => ({
-  bounds: {
-    height: 420,
-    width: 520,
-    x: 120,
-    y: 100
-  },
-  paths: Array.from({ length: pathCount }, (_, index) => {
-    const x = 160 + (index % 120)
-    const y = 140 + Math.floor(index / 120) * 4
-    return {
-      closed: false,
-      points: [
-        { x, y },
-        { x: x + 8, y: y + 3 }
-      ]
-    }
-  }),
-  primitive: 'vector',
-  role,
-  style: {
-    strokeColor: '#5B3A29',
-    strokeWidth: 1
-  }
-})
-
 const actionApis = () => ({
   changeElementGeometry: vi.fn(),
   createCompositionElement: vi.fn(),
@@ -125,11 +100,88 @@ const executionContext = () => ({
   signal: new AbortController().signal
 })
 
-describe('Asyra Design AI composition action schemas', () => {
-  it('registers the three bounded composition actions with the existing catalog', () => {
-    expect(
-      createAsyraDesignAiActions(actionApis()).map(({ name }) => name)
-    ).toEqual([
+const createServerPreparedInsertArguments = (value: {
+  readonly compositionRole: string
+  readonly items: readonly AsyraDesignAiCompositionItem[]
+  readonly parent: 'workspace'
+}): InsertVectorCompositionArgs => {
+  const items: AsyraDesignAiCompositionItem[] = []
+  const itemPointCounts: number[] = []
+  const skipped: {
+    readonly reason: 'duplicate-role'
+    readonly role: string
+  }[] = []
+  const roles = new Set<string>()
+  for (const item of value.items) {
+    if (roles.has(item.role)) {
+      skipped.push({
+        reason: 'duplicate-role',
+        role: item.role
+      })
+      continue
+    }
+    roles.add(item.role)
+    items.push(item)
+    itemPointCounts.push(
+      item.paths?.reduce((count, path) => count + path.points.length, 0) ??
+        item.points?.length ??
+        0
+    )
+  }
+  if (items.length === 0) {
+    throw new Error('The server-prepared test batch requires one item.')
+  }
+  const groupBounds = items.reduce((bounds, item) => {
+    const x = Math.min(bounds.x, item.bounds.x)
+    const y = Math.min(bounds.y, item.bounds.y)
+    return {
+      height:
+        Math.max(bounds.y + bounds.height, item.bounds.y + item.bounds.height) -
+        y,
+      width:
+        Math.max(bounds.x + bounds.width, item.bounds.x + item.bounds.width) -
+        x,
+      x,
+      y
+    }
+  }, items[0].bounds)
+  return {
+    compositionRole: value.compositionRole,
+    groupBounds,
+    itemPointCounts,
+    items,
+    parent: value.parent,
+    skipped
+  }
+}
+
+const serverPreparedArguments = (
+  action: ReturnType<typeof actionByName>,
+  value: unknown
+) => {
+  if (action.name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION) {
+    return createServerPreparedInsertArguments(
+      value as {
+        readonly compositionRole: string
+        readonly items: readonly AsyraDesignAiCompositionItem[]
+        readonly parent: 'workspace'
+      }
+    )
+  }
+  return value
+}
+
+const executeServerPrepared = (
+  action: ReturnType<typeof actionByName>,
+  value: unknown,
+  context = executionContext()
+) => action.execute(serverPreparedArguments(action, value), context)
+
+describe('Asyra Design AI composition action definitions', () => {
+  it('registers one backend-facing input schema and one executor per action', () => {
+    const actions = createAsyraDesignAiActions(actionApis())
+
+    expect(actions.map(({ name }) => name)).toEqual([
       AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
@@ -137,172 +189,34 @@ describe('Asyra Design AI composition action schemas', () => {
       AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
       AsyraDesignAiActionNames.SELECT_ELEMENTS
     ])
+    actions.forEach((action) => {
+      expect(action.inputSchema).toEqual(expect.any(Object))
+      expect(action.execute).toEqual(expect.any(Function))
+      expect(action).not.toHaveProperty('schema')
+      expect(action).not.toHaveProperty('prepare')
+    })
   })
 
-  it('strictly accepts one validated oval/vector batch descriptor without an item ceiling', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      actionApis()
-    )
-    const descriptor = {
+  it('executes one explicit server-prepared composition payload without client preparation', () => {
+    const prepared = createServerPreparedInsertArguments({
       compositionRole: 'cat-face',
-      items: [ovalItem(), vectorItem()],
+      items: [ovalItem('face'), vectorItem('right-whisker-2')],
       parent: 'workspace'
-    }
-
-    expect(action.schema.parse(descriptor)).toEqual({
-      success: true,
-      value: descriptor
     })
-    expect(hasAsyraDesignAiCompositionMinimumItemCount(0)).toBe(false)
-    expect(hasAsyraDesignAiCompositionMinimumItemCount(1)).toBe(true)
-    expect(hasAsyraDesignAiCompositionMinimumItemCount(1_000_000)).toBe(true)
-    expect(hasAsyraDesignAiCompositionMinimumItemCount(1_000_001)).toBe(true)
-    expect(
-      action.schema.parse({
-        ...descriptor,
-        arbitraryCode: 'run()'
-      })
-    ).toMatchObject({ success: false })
-    expect(
-      action.schema.parse({
-        ...descriptor,
-        parent: 'provider-selected-parent-id'
-      })
-    ).toMatchObject({ success: false })
-    expect(
-      action.schema.parse({
-        ...descriptor,
-        items: [
-          {
-            ...ovalItem(),
-            bounds: {
-              ...ovalItem().bounds,
-              x: 2040,
-              width: 100
-            }
-          }
-        ]
-      })
-    ).toMatchObject({ success: false })
-  })
 
-  it('accepts finite multi-path vectors without artificial path or point ceilings', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      actionApis()
-    )
-    const descriptor = {
+    expect(prepared).toEqual({
       compositionRole: 'cat-face',
-      items: [
-        multiPathVectorItem(1025, 'fur-texture'),
-        {
-          ...vectorItem('high-resolution-contour'),
-          points: Array.from({ length: 4097 }, (_, index) => ({
-            x: 472 + (index % 159),
-            y: 372 + (index % 23)
-          }))
-        }
-      ],
-      parent: 'workspace'
-    }
-
-    expect(action.schema.parse(descriptor)).toMatchObject({ success: true })
-  })
-
-  it('strictly accepts only bounded geometry, fill-color, or stroke-color updates', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      actionApis()
-    )
-    const descriptor = {
-      updates: [
-        {
-          elementId: 'eye-left',
-          geometry: {
-            scaleX: 1.2,
-            scaleY: 1.2
-          }
-        },
-        {
-          elementId: 'whisker-1',
-          style: {
-            strokeColor: '#2563EB'
-          }
-        },
-        {
-          elementId: 'pupil-left',
-          style: {
-            fillColor: '#DC2626'
-          }
-        }
-      ]
-    }
-
-    expect(action.schema.parse(descriptor)).toEqual({
-      success: true,
-      value: descriptor
+      groupBounds: {
+        height: 94,
+        width: 180,
+        x: 472,
+        y: 300
+      },
+      itemPointCounts: [0, 2],
+      items: [ovalItem('face'), vectorItem('right-whisker-2')],
+      parent: 'workspace',
+      skipped: []
     })
-    expect(
-      action.schema.parse({
-        updates: [
-          {
-            elementId: 'eye-left',
-            geometry: {
-              scaleX: 10,
-              scaleY: 1.2
-            }
-          }
-        ]
-      })
-    ).toMatchObject({ success: false })
-    expect(
-      action.schema.parse({
-        updates: [
-          {
-            elementId: 'pupil-left',
-            style: {
-              fillColor: '#DC2626',
-              strokeColor: '#2563EB'
-            }
-          }
-        ]
-      })
-    ).toMatchObject({ success: false })
-    expect(
-      action.schema.parse({
-        updates: [
-          {
-            elementId: 'shape-1',
-            arbitraryPropertyPath: 'props.secret'
-          }
-        ]
-      })
-    ).toMatchObject({ success: false })
-  })
-
-  it('strictly accepts only one non-empty composition id for removal', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
-      actionApis()
-    )
-
-    expect(
-      action.schema.parse({
-        compositionId: 'group-cat'
-      })
-    ).toEqual({
-      success: true,
-      value: {
-        compositionId: 'group-cat'
-      }
-    })
-    expect(
-      action.schema.parse({
-        compositionId: 'group-cat',
-        recursiveScript: true
-      })
-    ).toMatchObject({ success: false })
   })
 })
 
@@ -321,11 +235,8 @@ describe('Asyra Design AI composition action execution', () => {
       parent: 'workspace'
     }
 
-    expect(action.schema.parse(argumentsValue)).toMatchObject({
-      success: true
-    })
     await expect(
-      action.execute(argumentsValue, executionContext())
+      executeServerPrepared(action, argumentsValue, executionContext())
     ).resolves.toMatchObject({
       appliedElementIds: ['reference-vector-id'],
       compositionId: 'cat-group-id',
@@ -355,7 +266,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           compositionRole: 'cat-face',
           items,
@@ -389,8 +301,9 @@ describe('Asyra Design AI composition action execution', () => {
     const items = Array.from({ length: 513 }, (_, index) =>
       vectorItem(`fur-${index}`)
     )
-    apis.createCompositionElements.mockImplementation((batch) =>
-      batch.map(({ role }) => `${role}-id`)
+    apis.createCompositionElements.mockImplementation(
+      (batch: readonly AsyraDesignAiCompositionItem[]) =>
+        batch.map(({ role }) => `${role}-id`)
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -398,7 +311,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           compositionRole: 'cat-face',
           items,
@@ -425,8 +339,9 @@ describe('Asyra Design AI composition action execution', () => {
       vectorItem(`fur-${index}`)
     )
     const yieldToHost = vi.fn(async () => undefined)
-    apis.createCompositionElements.mockImplementation((batch) =>
-      batch.map(({ role }) => `${role}-id`)
+    apis.createCompositionElements.mockImplementation(
+      (batch: readonly AsyraDesignAiCompositionItem[]) =>
+        batch.map(({ role }) => `${role}-id`)
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -437,7 +352,8 @@ describe('Asyra Design AI composition action execution', () => {
       }
     )
 
-    await action.execute(
+    await executeServerPrepared(
+      action,
       {
         compositionRole: 'cat-face',
         items,
@@ -465,8 +381,9 @@ describe('Asyra Design AI composition action execution', () => {
       vectorItemWithPointCount(2591, 'detail-over-target')
     ]
     const progressiveApis = actionApis()
-    progressiveApis.createCompositionElements.mockImplementation((batch) =>
-      batch.map(({ role }) => `${role}-id`)
+    progressiveApis.createCompositionElements.mockImplementation(
+      (batch: readonly AsyraDesignAiCompositionItem[]) =>
+        batch.map(({ role }) => `${role}-id`)
     )
     const progressive = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -477,7 +394,8 @@ describe('Asyra Design AI composition action execution', () => {
       }
     )
 
-    await progressive.execute(
+    await executeServerPrepared(
+      progressive,
       {
         compositionRole: 'cat-face',
         items,
@@ -499,15 +417,17 @@ describe('Asyra Design AI composition action execution', () => {
     expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET).toBe(2048)
 
     const atomicApis = actionApis()
-    atomicApis.createCompositionElements.mockImplementation((batch) =>
-      batch.map(({ role }) => `${role}-id`)
+    atomicApis.createCompositionElements.mockImplementation(
+      (batch: readonly AsyraDesignAiCompositionItem[]) =>
+        batch.map(({ role }) => `${role}-id`)
     )
     const atomic = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       atomicApis
     )
 
-    await atomic.execute(
+    await executeServerPrepared(
+      atomic,
       {
         compositionRole: 'cat-face',
         items,
@@ -530,15 +450,17 @@ describe('Asyra Design AI composition action execution', () => {
       vectorItem(`fur-${index}`)
     )
     apis.createCompositionGroup.mockReturnValue('cat-group-id')
-    apis.createCompositionElements.mockImplementation((batch) =>
-      batch.map(({ role }) => `${role}-id`)
+    apis.createCompositionElements.mockImplementation(
+      (batch: readonly AsyraDesignAiCompositionItem[]) =>
+        batch.map(({ role }) => `${role}-id`)
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
     )
 
-    await action.execute(
+    await executeServerPrepared(
+      action,
       {
         compositionRole: 'cat-face',
         items,
@@ -586,7 +508,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           compositionRole: 'cat-face',
           items: [ovalItem(), vectorItem()],
@@ -632,7 +555,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           compositionRole: 'cat-face',
           items: [ovalItem('left-pupil'), ovalItem('right-pupil')],
@@ -657,20 +581,35 @@ describe('Asyra Design AI composition action execution', () => {
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
     )
+    const descriptor = {
+      compositionRole: 'cat-face',
+      items: [
+        ovalItem('face'),
+        vectorItem('right-whisker-2'),
+        vectorItem('right-whisker-2')
+      ],
+      parent: 'workspace' as const
+    }
+    const prepared = createServerPreparedInsertArguments(descriptor)
 
-    await expect(
-      action.execute(
+    expect(prepared).toMatchObject({
+      groupBounds: {
+        height: 94,
+        width: 180,
+        x: 472,
+        y: 300
+      },
+      itemPointCounts: [0, 2],
+      items: [ovalItem('face'), vectorItem('right-whisker-2')],
+      skipped: [
         {
-          compositionRole: 'cat-face',
-          items: [
-            ovalItem('face'),
-            vectorItem('right-whisker-2'),
-            vectorItem('right-whisker-2')
-          ],
-          parent: 'workspace'
-        },
-        executionContext()
-      )
+          reason: 'duplicate-role',
+          role: 'right-whisker-2'
+        }
+      ]
+    })
+    await expect(
+      action.execute(prepared, executionContext())
     ).resolves.toMatchObject({
       appliedElementIds: ['face-id', 'whisker-id'],
       skipped: [
@@ -719,7 +658,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -790,7 +730,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -842,7 +783,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -867,7 +809,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -912,7 +855,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -967,7 +911,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           updates: [
             {
@@ -1014,7 +959,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      missing.execute(
+      executeServerPrepared(
+        missing,
         {
           compositionId: 'gone-group'
         },
@@ -1045,7 +991,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      existing.execute(
+      executeServerPrepared(
+        existing,
         {
           compositionId: 'cat-group'
         },
@@ -1074,7 +1021,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     await expect(
-      action.execute(
+      executeServerPrepared(
+        action,
         {
           compositionRole: 'cat-face',
           items: [ovalItem('face'), vectorItem()],

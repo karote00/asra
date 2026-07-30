@@ -1,4 +1,8 @@
 import type { AiProvider } from '@asyra/ai-agent-runtime'
+import {
+  createAsyraDesignAiHistoryProjection,
+  type AsyraDesignAiHistoryProjection
+} from '../common-apis/history'
 import { AsyraDesignAiActionNames } from '../constants'
 import type { AsyraDesignAiDeliveryMode } from './actions'
 import {
@@ -9,76 +13,44 @@ import {
   createAsyraDesignAiConfirmationBroker,
   type AsyraDesignAiConfirmationBroker
 } from './confirmation'
-import {
-  createAsyraDesignMockAiProvider,
-  type AsyraDesignMockAiProvider
-} from './mock-provider'
-import {
-  createAsyraDesignAiHistoryProjection,
-  type AsyraDesignAiHistoryProjection
-} from '../common-apis/history'
+import { createAsyraDesignServerActionBatchProvider } from './server-action-batch-provider'
+import type { AsyraDesignServerResponseRecord } from './server-response-inbox'
 import { createAsyraDesignAiTransactionRunner } from './transaction'
 
-export type AsyraDesignAiMode = 'disabled' | 'mock'
-export type { AsyraDesignAiDeliveryMode } from './actions'
-
 export interface AsyraDesignAiStartup {
-  readonly confirmation: AsyraDesignAiConfirmationBroker | null
-  readonly history: AsyraDesignAiHistoryProjection | null
-  readonly mode: AsyraDesignAiMode
+  readonly confirmation: AsyraDesignAiConfirmationBroker
+  readonly history: AsyraDesignAiHistoryProjection
   readonly runtimeOptions: ComposeAiAgentRuntimeOptions
 }
 
 interface AsyraDesignAiStartupFactories {
   readonly createConfirmation: () => AsyraDesignAiConfirmationBroker
   readonly createHistory: () => AsyraDesignAiHistoryProjection
-  readonly createProvider: () => AsyraDesignMockAiProvider
+  readonly createProvider: (
+    response: AsyraDesignServerResponseRecord | null
+  ) => AiProvider
 }
 
 const defaultFactories: AsyraDesignAiStartupFactories = {
   createConfirmation: createAsyraDesignAiConfirmationBroker,
   createHistory: createAsyraDesignAiHistoryProjection,
-  createProvider: createAsyraDesignMockAiProvider
-}
-
-export const resolveAsyraDesignAiMode = (search: string): AsyraDesignAiMode => {
-  const values = new URLSearchParams(search).getAll('ai')
-  return values.length === 1 && values[0] === 'mock' ? 'mock' : 'disabled'
-}
-
-export const resolveAsyraDesignAiDeliveryMode = (
-  search: string
-): AsyraDesignAiDeliveryMode => {
-  const values = new URLSearchParams(search).getAll('aiDelivery')
-  return values.length === 1 && values[0] === 'progressive'
-    ? 'progressive'
-    : 'atomic'
+  createProvider: createAsyraDesignServerActionBatchProvider
 }
 
 export const createAsyraDesignAiStartup = (
-  mode: AsyraDesignAiMode,
-  factories: AsyraDesignAiStartupFactories = defaultFactories,
-  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
+  input: {
+    readonly deliveryMode: AsyraDesignAiDeliveryMode
+    readonly response: AsyraDesignServerResponseRecord | null
+  },
+  factories: AsyraDesignAiStartupFactories = defaultFactories
 ): AsyraDesignAiStartup => {
-  if (mode !== 'mock') {
-    return Object.freeze({
-      confirmation: null,
-      history: null,
-      mode: 'disabled',
-      runtimeOptions: Object.freeze({
-        enabled: false
-      })
-    })
-  }
-
   const confirmation = factories.createConfirmation()
   const history = factories.createHistory()
-  const provider = factories.createProvider()
+  const provider = factories.createProvider(input.response)
   const runtimeOptions: ComposeAiAgentRuntimeOptions = Object.freeze({
     createRuntimeInput: () =>
       createAsyraDesignAiRuntimeInput({
-        deliveryMode,
-        ownedResources: [provider],
+        deliveryMode: input.deliveryMode,
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
           [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm',
@@ -87,7 +59,7 @@ export const createAsyraDesignAiStartup = (
           [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow',
           [AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'
         },
-        provider: provider as AiProvider,
+        provider,
         requestConfirmation: confirmation.requestConfirmation,
         transactionRunner: createAsyraDesignAiTransactionRunner(
           undefined,
@@ -101,7 +73,6 @@ export const createAsyraDesignAiStartup = (
   return Object.freeze({
     confirmation,
     history,
-    mode,
     runtimeOptions
   })
 }

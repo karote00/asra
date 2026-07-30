@@ -7,7 +7,7 @@ import {
 } from '../context'
 import {
   ASYRA_DESIGN_AI_APP_PROMPT,
-  ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG
+  ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG
 } from '../app-prompt'
 
 const createQueries = (
@@ -46,7 +46,7 @@ describe('Asyra Design AI context disclosure', () => {
     expect(result).toEqual({
       app: 'asyra-design',
       appPrompt: ASYRA_DESIGN_AI_APP_PROMPT,
-      imageTools: ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG,
+      imageTools: ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG,
       workspaceId: 'workspace-1',
       primaryTool: 'rectangle',
       systemMode: 'editing',

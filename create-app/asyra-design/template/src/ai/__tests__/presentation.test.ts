@@ -84,7 +84,6 @@ describe('Asyra Design AI presentation summaries', () => {
     expect(JSON.stringify(summaries)).not.toMatch(
       /secret-action|secret-canonical|secret-provider|secret-reason/
     )
-    expect(JSON.stringify(summaries)).not.toMatch(/Mock AI/)
   })
 
   it('projects only the exact registered drawing-detail clarification as App-owned choices', () => {
