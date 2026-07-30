@@ -129,49 +129,8 @@ test('performance plan and BDD retain the production evidence boundary', () => {
   )
 })
 
-test('Mock provider prefix materialization never reads later source records', () => {
-  const owner = step('materialize-bounded-mock-provider-prefix')
-  const text = contractText(owner)
-  const plan = read(data.authority.specPath)
-
-  assert.match(
-    text,
-    /selected only when.*CPU-time attribution.*Mock provider materialization/i
-  )
-  assert.match(
-    text,
-    /record-indexed or statically partitioned.*does not read, decode, tokenize, transform, or materialize.*later records/i
-  )
-  assert.match(
-    text,
-    /sentinel or bounded reader.*16-.*320-.*1,280-item.*never touch record N\+1/i
-  )
-  assert.match(
-    text,
-    /full-detail output.*every item, point, role, order, bounds, transform, and style/i
-  )
-  assert.match(
-    text,
-    /reading or decoding the complete source before slicing a prefix/i
-  )
-  assert.ok(
-    owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/mock-provider.ts'
-    )
-  )
-  assert.ok(
-    owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/__tests__/mock-provider.test.ts'
-    )
-  )
-  assert.match(
-    plan,
-    /record-indexed or statically\s+partitioned[\s\S]*does not read, decode, tokenize, or\s+materialize.*later records[\s\S]*sentinel\/reader/i
-  )
-})
-
-test('AI plan preparation owns one immutable value and bounded preview', () => {
-  const owner = step('prepare-validated-ai-plan-artifact')
+test('file-scoped Mock backend response is server-prepared before request timing', () => {
+  const owner = step('preload-file-scoped-mock-backend-response')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -180,27 +139,143 @@ test('AI plan preparation owns one immutable value and bounded preview', () => {
 
   assert.match(
     text,
-    /prepareAiProviderPlan.*only public.*separate normalize-then-validate compatibility APIs are removed/i
+    /required fileId.*versioned Mock backend response.*IndexedDB/i
+  )
+  assert.match(text, /before.*App.*Agent.*readiness.*before.*stable.*baseline/i)
+  assert.match(text, /16.*320.*1,280.*7,075.*exact/i)
+  assert.match(
+    text,
+    /request-time.*IndexedDB.*import.*fetch.*JSON.*SVG.*parse.*tokenize.*transform.*materializ/i
   )
   assert.match(
     text,
-    /complete plan id.*duplicate ids.*unknown actions.*before any action schema/i
+    /separate.*canonical document persistence.*zero.*read.*write/i
   )
   assert.match(
     text,
-    /raw action arguments.*unknown.*not recursively cloned.*schema owner/i
+    /backend.*validate.*normalize.*compact.*before.*IndexedDB.*provider.*resident.*server-prepared/i
   )
   assert.match(
     text,
-    /deeply immutable detached execution value.*bounded redaction-ready summary/i
+    /full-detail output.*every item, point, role, order, bounds, transform, and style/i
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/src/ai/mock-provider.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/src/ai/mock-backend-response-store.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes('apps/asyra-design/src/index.tsx')
+  )
+  assert.ok(
+    owner.implementationBoundary.includes('apps/asyra-design/src/init/index.ts')
+  )
+  assert.equal(
+    data.steps.some(
+      ({ id }) => id === 'materialize-bounded-mock-provider-prefix'
+    ),
+    false
+  )
+  const candidate = data.artifacts.find(
+    ({ id }) => id === 'artifact:server-prepared-ai-plan'
+  )
+  assert.equal(
+    candidate?.ownerStepId,
+    'preload-file-scoped-mock-backend-response'
+  )
+  assert.deepEqual(candidate?.consumerStepIds, [
+    'resolve-server-prepared-ai-plan'
+  ])
+  ;[
+    'artifact:mock-backend-bootstrap-timing',
+    'artifact:mock-provider-response-timing'
+  ].forEach((artifactId) => {
+    const artifact = data.artifacts.find(({ id }) => id === artifactId)
+    assert.equal(
+      artifact?.ownerStepId,
+      'preload-file-scoped-mock-backend-response'
+    )
+    assert.deepEqual(artifact?.consumerStepIds, [
+      'evaluate-endpoint-performance',
+      'evaluate-performance-and-equivalence'
+    ])
+  })
+  const candidateRoute = data.routes.find(
+    ({ id }) => id === 'route-server-prepared-ai-plan-to-runtime'
+  )
+  assert.equal(
+    candidateRoute?.from,
+    'preload-file-scoped-mock-backend-response'
+  )
+  assert.equal(candidateRoute?.to, 'resolve-server-prepared-ai-plan')
+  assert.deepEqual(candidateRoute?.producedArtifacts, [
+    'artifact:server-prepared-ai-plan'
+  ])
+  ;[
+    'route-mock-backend-bootstrap-timing-to-endpoint-proof',
+    'route-mock-backend-bootstrap-timing-to-final-proof',
+    'route-mock-provider-response-timing-to-endpoint-proof',
+    'route-mock-provider-response-timing-to-final-proof'
+  ].forEach((routeId) => {
+    const route = data.routes.find(({ id }) => id === routeId)
+    assert.equal(route?.from, 'preload-file-scoped-mock-backend-response')
+  })
+  assert.equal(
+    data.artifacts.some(
+      ({ id }) => id === 'artifact:provider-materialization-timing'
+    ),
+    false
+  )
+  assert.match(
+    plan,
+    /File-scoped Mock Backend Bootstrap Contract[\s\S]*server-prepared[\s\S]*compact[\s\S]*IndexedDB[\s\S]*App and Agent readiness[\s\S]*request-time[\s\S]*resident/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Required fileId preloads one server-prepared Mock backend response before App readiness[\s\S]*compact[\s\S]*IndexedDB[\s\S]*canonical document.*empty[\s\S]*request-time/i
+  )
+})
+
+test('Runtime resolves one server-prepared plan without client model validation', () => {
+  const owner = step('resolve-server-prepared-ai-plan')
+  const text = contractText(owner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    text,
+    /runtime\.run.*only public.*server-prepared.*entry.*no public or internal.*prepare.*normalize.*validate/i
   )
   assert.match(
     text,
-    /permission and execution.*exact same prepared value identity.*no post-schema recursive detach/i
+    /control envelope.*plan id.*duplicate ids.*unknown actions.*does not traverse.*item.*path.*point.*geometry/i
   )
   assert.match(
     text,
-    /confirmation and terminal preview.*bounded summary.*never complete item, path, point, or geometry/i
+    /server-prepared action arguments.*not recursively cloned.*permission and execution.*same.*arguments identity/i
+  )
+  assert.match(
+    text,
+    /action definition.*inputSchema.*provider planning.*no client.*schema.*parse.*prepare/i
+  )
+  assert.match(
+    text,
+    /server-prepared.*bounded redaction-ready summary.*compact.*coordinate/i
+  )
+  assert.match(
+    text,
+    /permission and execution.*exact same.*arguments identity/i
+  )
+  assert.match(
+    text,
+    /bounded.*summary.*confirmation and terminal preview.*never complete item, path, point.*geometry/i
   )
   assert.match(
     text,
@@ -208,25 +283,55 @@ test('AI plan preparation owns one immutable value and bounded preview', () => {
   )
   assert.match(
     text,
-    /large-payload, sync, async, delivery, progressive, loading, or collaboration flags/i
+    /large-payload, validation, delivery, progressive, loading, or collaboration flags/i
+  )
+  assert.match(
+    text,
+    /Mock backend.*validate.*normalize.*item.*path.*point.*compact.*before App readiness.*front.?end.*materializ.*progressive slice/i
   )
   ;[
     'packages/ai-agent-runtime/src',
     'packages/ai-agent-runtime/src/__tests__',
     'apps/asyra-design/src/ai/actions.ts',
+    'apps/asyra-design/src/ai/prepared-composition.ts',
     'apps/asyra-design/src/ai/confirmation.ts',
     'apps/asyra-design/src/ai/__tests__',
-    'docs/ai/framework/packages/ai-agent-runtime.md'
+    'create-app/asyra-design/template/src/ai',
+    'docs/ai/framework/packages/ai-agent-runtime.md',
+    'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
+    'docs/examples/ai-agent-runtime.mjs'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
   assert.match(
     plan,
-    /Validated AI Plan Artifact Contract[\s\S]*prepareAiProviderPlan[\s\S]*complete plan shell[\s\S]*one deeply\s+immutable[\s\S]*execution value[\s\S]*bounded[\s\S]*summary[\s\S]*no sync\/async, large-payload,[\s\S]*delivery, progressive, loading, or collaboration mode/i
+    /Server-prepared AI Plan Contract[\s\S]*runtime\.run\(\)[\s\S]*control envelope[\s\S]*inputSchema[\s\S]*no client-side action[\s\S]*schema[\s\S]*compact[\s\S]*progressive slice/i
+  )
+  assert.match(
+    plan,
+    /action-definition contract receives no large-payload, validation,[\s\S]*delivery, progressive, loading, or collaboration mode/i
   )
   assert.match(
     feature,
-    /Scenario: Runtime prepares one immutable AI plan without parallel geometry graphs[\s\S]*complete plan shell[\s\S]*schema exactly once[\s\S]*same prepared value identity[\s\S]*bounded summary without items, paths, points, or complete geometry[\s\S]*local, noncanonical, and nonshared/i
+    /Scenario: Runtime resolves one server-prepared AI plan without client model validation[\s\S]*runtime\.run\(\)[\s\S]*control envelope[\s\S]*inputSchema[\s\S]*same action arguments identity[\s\S]*bounded summary without items, paths, points, or complete geometry[\s\S]*local, noncanonical, and nonshared/i
+  )
+  assert.match(
+    feature,
+    /Mock backend.*validate and normalize[\s\S]*before App readiness/i
+  )
+  assert.match(feature, /server-prepared action.*compact coordinate artifact/i)
+  assert.match(
+    feature,
+    /front end should perform no item, path, or point validation or compact encoding/i
+  )
+  assert.match(feature, /materializing only the next progressive slice/i)
+  assert.match(
+    plan,
+    /221\.695 percent[\s\S]*renderer PID.*201\.901[\s\S]*0\/17/i
+  )
+  assert.match(
+    plan,
+    /650-millisecond provider delay[\s\S]*Runtime then synchronously calls.*action schema/i
   )
 })
 
@@ -293,19 +398,64 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /macOS decayed ps CPU signal.*200 percent.*host-safety stop only/i
+    /two stable cumulative CPU-time samples.*250-millisecond interval CPU.*200 percent.*hard stop.*decayed ps.*diagnostic/i
   )
   assert.match(
     text,
-    /local-only attribution invocation.*fresh browser process group.*no WebSocket server.*without fileId.*Collaboration remains unavailable/i
+    /production build commands.*separate setup.*outside.*runtime guard.*product timing.*artifact attestation.*before.*Playwright/i
   )
   assert.match(
     text,
-    /cumulative OS process CPU-time deltas.*exact wall-time boundary.*separately per role.*never used as owner attribution/i
+    /periodic.*phase-boundary.*one serialized.*OS sample.*no overlapping.*out-of-order/i
+  )
+  assert.match(text, /375-millisecond.*sample gap.*fail.*closed/i)
+  assert.match(
+    text,
+    /single-Actor attribution invocation.*fresh browser process group.*required fileId URL.*Collaboration session.*WebSocket server.*no Actor B/i
   )
   assert.match(
     text,
-    /captures the process CPU-time snapshot before atomically opening or closing a phase boundary.*concurrent later heartbeat cannot relabel/i
+    /one request-wide cumulative OS process CPU-time boundary.*exact wall time.*per-role.*ordered browser-monotonic.*inner owner attribution/i
+  )
+  assert.match(
+    text,
+    /phase-boundary sample.*same.*200-percent safety evaluation.*exact PID set equality.*observed process identity change.*attribution invalid/i
+  )
+  assert.match(
+    text,
+    /bootstrap.*before.*ready.*safety-only.*fresh stable pair.*local-request.*cumulative average/i
+  )
+  assert.match(
+    text,
+    /Mock backend.*IndexedDB.*seed.*read.*structured clone.*handoff.*external backend.*transport.*recorded separately.*excluded.*frontend product execution/i
+  )
+  assert.match(
+    text,
+    /prompt fill.*locator resolution.*actionability.*outside.*product boundary/i
+  )
+  assert.match(
+    text,
+    /App-owned request acceptance or dispatch.*starts local-request/i
+  )
+  assert.match(
+    text,
+    /no Playwright locator.*polling.*measured window.*App-owned O\(1\).*completion.*ends product timing.*UI.*after/i
+  )
+  assert.match(
+    text,
+    /each renderer PID.*250-millisecond.*CPU delta.*page-target CDP.*TaskDuration.*ScriptDuration.*LayoutDuration.*RecalcStyleDuration.*visible worker target.*residual renderer/i
+  )
+  assert.match(
+    text,
+    /required proof kind.*entire guarded invocation.*no later heartbeat can switch.*endpoint.*local-attribution/i
+  )
+  assert.match(
+    text,
+    /two-Actor 16-item.*operation.*Actor B.*complete.*10-second idle.*collaboration-attribution.*CDP.*threadTicks.*TaskDuration.*not.*complete Actor CPU/i
+  )
+  assert.match(
+    text,
+    /observed process identity change.*250-millisecond.*invalid.*unobserved sub-interval helper.*never.*sole owner-attribution/i
   )
   assert.match(
     text,
@@ -317,11 +467,11 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*decayed.*200 percent.*separate.*role/i
+    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*one production preview.*one WebSocket server.*HMR.*absent.*200 percent.*separate.*role/i
   )
   assert.match(
     text,
-    /complete heartbeat.*both Actors.*exactly complete.*late over-projection/i
+    /endpoint complete heartbeat.*both Actors.*exactly complete.*local-attribution.*Actor A only.*no Actor B report.*never invents/i
   )
   assert.match(
     text,
@@ -329,12 +479,12 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /250[- ]milliseconds?.*single.*above 200 percent.*immediately.*architecture attempt.*invalid/i
+    /250[- ]milliseconds?.*interval CPU.*single.*above 200 percent.*immediately.*architecture attempt.*invalid/i
   )
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
     text,
-    /guard-ready heartbeat.*before.*first Actor context.*Actor A.*collaboration ready.*before.*Actor B.*context.*harness.*outside.*product timing/i
+    /both Actor contexts.*Actor A.*navigation.*collaboration ready.*before.*Actor B.*navigation.*collaboration ready.*before.*guard-ready heartbeat.*harness.*outside.*product timing/i
   )
   assert.match(
     text,
@@ -355,15 +505,43 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*decayed CPU safety signal.*200 percent[\s\S]*separate role CPU/i
+    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*250-millisecond interval CPU[\s\S]*200 percent[\s\S]*separate role CPU/i
   )
   assert.match(
     feature,
-    /ready heartbeat.*before the first Actor context[\s\S]*Actor A.*collaboration-ready[\s\S]*before Actor B.*context[\s\S]*outside.*product execution timing/i
+    /periodic and phase-boundary sampling[\s\S]*one serialized OS sample queue[\s\S]*375 milliseconds[\s\S]*fail closed/i
   )
   assert.match(
     feature,
-    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*cumulative process CPU-time boundary[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*no WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one provider, Runtime, loading, local canonical, or receiver owner/i
+    /both Actor contexts[\s\S]*Actor A.*collaboration-ready[\s\S]*before Actor B.*navigation[\s\S]*Actor B.*collaboration-ready[\s\S]*before the ready heartbeat[\s\S]*outside.*product execution timing/i
+  )
+  assert.match(
+    feature,
+    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*unobserved sub-interval helper[\s\S]*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one Mock backend boundary, Runtime, loading, local canonical, or receiver owner/i
+  )
+  assert.match(
+    feature,
+    /two-Actor 16-item[\s\S]*request[\s\S]*Actor B[\s\S]*canonical[\s\S]*Render[\s\S]*complete[\s\S]*idle for exactly 10 seconds[\s\S]*threadTicks[\s\S]*TaskDuration[\s\S]*main-thread task occupancy[\s\S]*complete Actor CPU[\s\S]*collaboration-attribution[\s\S]*accepted endpoint baseline/i
+  )
+  assert.match(
+    feature,
+    /production build commands.*separate setup[\s\S]*outside.*runtime guard[\s\S]*App runtime starts[\s\S]*App-owned request acceptance or dispatch.*operation timing/i
+  )
+  assert.match(
+    feature,
+    /Mock backend IndexedDB seed, read, structured clone, and handoff[\s\S]*external backend and transport timing[\s\S]*recorded separately[\s\S]*excluded from frontend product execution/i
+  )
+  assert.match(
+    feature,
+    /prompt fill, locator resolution, and actionability[\s\S]*outside.*product boundary/i
+  )
+  assert.match(
+    feature,
+    /App-owned request acceptance or dispatch[\s\S]*local-request[\s\S]*no Playwright locator, visibility, count, text, or attribute polling[\s\S]*O\(1\).*completion signal[\s\S]*UI assertions.*after/i
+  )
+  assert.match(
+    feature,
+    /each renderer PID[\s\S]*250-millisecond CPU delta[\s\S]*page-target CDP[\s\S]*visible worker targets[\s\S]*residual renderer/i
   )
   assert.match(
     plan,
@@ -379,11 +557,27 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     plan,
-    /guard-ready heartbeat[\s\S]*Actor A[\s\S]*before Actor B is created/i
+    /both Actor contexts[\s\S]*Actor A[\s\S]*before Actor B navigation[\s\S]*guard-ready\s+heartbeat/i
   )
   assert.match(
     plan,
     /creation timing[\s\S]*excludes all staged harness bootstrap/i
+  )
+  assert.match(
+    plan,
+    /always-on 16-item[\s\S]*12,919 points[\s\S]*17\/17[\s\S]*2\.076 seconds[\s\S]*98\.829 percent[\s\S]*207\.7 percent[\s\S]*5\/17[\s\S]*decayed.*not.*250-millisecond/i
+  )
+  assert.match(
+    plan,
+    /234\.791 percent[\s\S]*renderer-or-worker[\s\S]*218\.873 percent[\s\S]*valid safety stop[\s\S]*invalid for product-owner selection[\s\S]*Playwright[\s\S]*Browser process/i
+  )
+  assert.match(
+    plan,
+    /bootstrap[\s\S]*safety-only[\s\S]*fresh stable pair[\s\S]*local-request[\s\S]*exact PID-set equality/i
+  )
+  assert.match(
+    plan,
+    /production build commands[\s\S]*separate\s+setup[\s\S]*outside.*runtime guard[\s\S]*(?:artifact attestation|attests.*artifact).*before.*Playwright[\s\S]*product\s+operation timing.*Actor A request submission/i
   )
   assert.match(
     plan,
@@ -423,8 +617,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     attributionRoutes.map(({ to }) => to).sort(),
     [
       'admit-receiver-publication-frames',
-      'materialize-bounded-mock-provider-prefix',
-      'prepare-validated-ai-plan-artifact',
+      'preload-file-scoped-mock-backend-response',
+      'resolve-server-prepared-ai-plan',
       'stage-local-interactive-composition',
       'yield-ai-loading-paint'
     ].sort()
@@ -437,9 +631,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.doesNotMatch(successRoute?.predicate ?? '', /resource.stop/i)
   assert.doesNotMatch(stopRoute?.predicate ?? '', /effective|success/i)
   assert.ok(
-    attributionRoutes.every(
-      ({ predicate }) =>
-        /CPU-time|reduced-motion|two-Actor control/i.test(predicate)
+    attributionRoutes.every(({ predicate }) =>
+      /CPU-time|reduced-motion|two-Actor control/i.test(predicate)
     )
   )
 
@@ -457,8 +650,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.equal(ownerAttribution?.ownerStepId, 'evaluate-endpoint-performance')
   assert.deepEqual([...(ownerAttribution?.consumerStepIds ?? [])].sort(), [
     'admit-receiver-publication-frames',
-    'materialize-bounded-mock-provider-prefix',
-    'prepare-validated-ai-plan-artifact',
+    'preload-file-scoped-mock-backend-response',
+    'resolve-server-prepared-ai-plan',
     'stage-local-interactive-composition',
     'yield-ai-loading-paint'
   ])
@@ -639,7 +832,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /one fresh single Actor.*one empty canonical document.*one 7,112-element.*one terminal exact canonical summary/i
+    /one fresh single Actor.*Collaboration.*required fileId URL.*one 7,112-element.*one terminal exact canonical summary/i
   )
   assert.match(proofText, /connected DOM.*non-zero/i)
   assert.match(
@@ -648,7 +841,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /Contents.*collaboration.*second Actor.*CRDT.*excluded.*No IndexedDB.*repeated measured run/i
+    /Contents.*second Actor.*peer relay.*remote apply.*CRDT.*excluded.*client-to-server Collaboration transport.*server CPU.*separately.*No request-time Mock backend IndexedDB.*document IndexedDB.*repeated measured run/i
   )
   assert.ok(
     data.routes.some(
@@ -747,9 +940,33 @@ test('demo documents load empty without client persistence', () => {
 
   assert.match(
     text,
-    /ordinary local.*collaboration.*without.*persistence provider.*capture.*save.*IndexedDB/i
+    /App-owned demo document session.*always start Collaboration.*without.*persistence provider.*capture.*save.*IndexedDB/i
   )
   assert.match(text, /load.*canonical empty document/i)
+  assert.match(
+    text,
+    /required fileId URL.*document session identity.*always.*Collaboration.*fileId.*selects.*document.*never.*toggle/i
+  )
+  assert.match(
+    text,
+    /one connected Actor.*single-Actor.*second Actor.*same document session.*two-Actor.*CRDT/i
+  )
+  ;[
+    'apps/asyra-design/src/render-app/collaboration-mode.ts',
+    'apps/asyra-design/src/collaboration/lifecycle.ts',
+    'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
+    'apps/asyra-design/playwright.config.ts',
+    'apps/asyra-design/__tests__/playwright-config.test.mjs',
+    'scripts/dev-all-plan.js',
+    'scripts/dev-all.js',
+    'scripts/__tests__/workspace-automation.test.mjs'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    text,
+    /root dev:all.*ordinary Playwright.*reference WebSocket server.*before.*App document connection/i
+  )
   assert.doesNotMatch(text, /ordinary non-collaboration.*FILE.*unchanged/i)
   assert.ok(
     !localProofOwner.inputs.includes('artifact:empty-memory-demo-document')
@@ -772,10 +989,18 @@ test('demo documents load empty without client persistence', () => {
   )
   assert.match(
     plan,
-    /Demo Client Persistence Bypass[\s\S]*ordinary local[\s\S]*collaboration[\s\S]*zero client persistence/i
+    /Demo Client Persistence Bypass[\s\S]*required `fileId` URL[\s\S]*document session[\s\S]*always starts Collaboration[\s\S]*One connected Actor[\s\S]*single-Actor[\s\S]*second Actor[\s\S]*two-Actor CRDT[\s\S]*zero client persistence/i
   )
   assert.match(
     feature,
-    /Scenario: Demo documents load empty without client persistence[\s\S]*ordinary local[\s\S]*collaboration[\s\S]*IndexedDB/i
+    /Scenario: Demo documents load empty without client persistence[\s\S]*required fileId URL[\s\S]*Collaboration[\s\S]*single-Actor[\s\S]*Actor B[\s\S]*IndexedDB/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Required fileId selects the document without toggling Collaboration[\s\S]*required fileId URL[\s\S]*one Actor[\s\S]*single-Actor[\s\S]*second Actor[\s\S]*same fileId[\s\S]*CRDT/i
+  )
+  assert.match(
+    feature,
+    /root dev:all.*ordinary Playwright.*reference WebSocket server.*App/i
   )
 })

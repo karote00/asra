@@ -24,108 +24,140 @@
 
   const steps = [
     {
-      id: 'materialize-bounded-mock-provider-prefix',
+      id: 'preload-file-scoped-mock-backend-response',
       order: 1,
       laneId: 'app-canonical',
-      title: 'Materialize only the requested Mock provider prefix',
-      ownerPackage: 'Asyra Design deterministic Mock provider',
+      title: 'Preload one server-prepared Mock backend response',
+      ownerPackage: 'Asyra Design Mock backend bootstrap',
       purpose:
-        'Load, decode, tokenize, transform, and materialize only the requested deterministic vector records while preserving exact full-detail output and the ordinary provider-to-Runtime route.',
+        'Have the Mock backend validate, normalize, summarize, and compact one exact model response before storing it in the dedicated IndexedDB response store, then read that versioned server-prepared plan by required fileId before App and Agent readiness and hand it through the ordinary provider-to-Runtime route without request-time model preparation.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'deterministic cat vector source',
-        'requested fixture item count'
+        'required fileId',
+        'versioned server-prepared Mock backend plan record produced by the test or manual harness before App navigation'
       ],
       outputs: [
-        'artifact:mock-provider-plan-candidate',
-        'artifact:provider-materialization-timing'
+        'artifact:server-prepared-ai-plan',
+        'artifact:mock-backend-bootstrap-timing',
+        'artifact:mock-provider-response-timing'
       ],
       conditions: [
-        'This step is selected only when guarded CPU-time attribution identifies Mock provider materialization as the first material owner.',
-        'The source is record-indexed or statically partitioned so a prefix request does not read, decode, tokenize, transform, or materialize bytes belonging only to later records.',
-        'A formal sentinel or bounded reader proves that 16-, 320-, and 1,280-item requests never touch record N+1.',
+        'This step is selected because guarded evidence identified request-time fixture import, full-source parsing, and materialization before the requested prefix as test-harness contamination at the Mock backend boundary.',
+        'The test or manual harness acts as the Mock backend: it validates and normalizes the exact model response, derives bounded summaries, builds compact composition coordinate artifacts, and writes one versioned response record before product App navigation; production App code never writes, regenerates, repairs, or deep-validates that store.',
+        'The required fileId selects exactly one prepared 16-, 320-, 1,280-, or 7,075-child response, and selecting a smaller response never reads or constructs a larger response.',
+        'The selected IndexedDB read completes before App and Agent readiness and before the stable performance baseline.',
+        'The Mock backend response store is separate from canonical document persistence; the canonical document still loads empty and local or remote document actions perform zero persistence-provider or document-IndexedDB read and write.',
+        'Request-time provider acquisition performs zero IndexedDB access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
+        'The provider performs only the deterministic backend delay, verifies the resident response request contract, and returns the resident server-prepared plan to ordinary Runtime action resolution.',
+        'Actor B never executes the preloaded response and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
-        'The provider returns an untrusted candidate and does not deep-freeze it to imitate Runtime ownership.'
+        'The server-prepared plan remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
+        'The compact artifact preserves every item, path, point, role, order, bound, transform, and style while avoiding a resident duplicate point-object graph.'
       ],
       bypasses: [
-        'A full-detail request consumes every source record through the same loader.',
-        'When CPU-time attribution selects another owner, this step receives no production edit.'
+        'An ordinary non-performance Mock conversation may use an in-memory Mock backend response instead of the file-scoped IndexedDB record, but it still returns the same server-prepared plan contract.',
+        'A performance fixture request without its exact prepared response fails explicitly and never falls back to lazy source loading or materialization.',
+        'An Actor context with no prepared response performs only the bounded empty lookup during bootstrap.'
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
-        'Asyra Design deterministic fixture data',
-        'bounded record index or static source partitions',
+        'server-prepared versioned Mock backend response records',
+        'dedicated Mock backend IndexedDB response store',
+        'required fileId App bootstrap identity',
         'ordinary Mock provider contract'
       ],
       forbiddenContributors: [
-        'reading or decoding the complete source before slicing a prefix',
-        'JavaScript raw-string module parse as the prefix source boundary',
+        'canonical document persistence provider or document IndexedDB store',
+        'product App writes to the Mock backend response store',
+        'request-time fixture IndexedDB access, import, fetch, parse, tokenization, transform, materialization, or deep-freeze',
+        'reading or decoding a complete larger response before slicing a smaller response',
+        'selecting fixture size from the prompt instead of required fileId',
         'fixture-specific geometry simplification',
+        'front-end item, path, point, style, bounds, role, or model semantic validation',
+        'front-end model normalization or compact encoding',
         'provider-selected canonical ids',
         'Runtime, Core, Render, or Collaboration behavior flags'
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/src/index.tsx',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/index.ts',
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+        'apps/asyra-design/src/ai/mode.ts',
         'apps/asyra-design/src/ai/mock-provider.ts',
-        'apps/asyra-design/src/ai/__tests__/mock-provider.test.ts',
-        'apps/asyra-design/src/ai/fixtures'
+        'apps/asyra-design/src/ai/mock-backend-response-store.ts',
+        'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/src/ai/fixtures',
+        'apps/asyra-design/e2e/mock-backend-response-store.ts',
+        'apps/asyra-design/e2e/test-utils.ts',
+        'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
+        'apps/asyra-design/e2e/collaboration.spec.ts',
+        'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts'
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#validated-ai-plan-artifact-contract',
+        '#file-scoped-mock-backend-bootstrap-contract',
+        '#server-prepared-ai-plan-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'materialize-bounded-mock-provider-prefix'
+      failureOwnerStepId: 'preload-file-scoped-mock-backend-response'
     },
     {
-      id: 'prepare-validated-ai-plan-artifact',
+      id: 'resolve-server-prepared-ai-plan',
       order: 2,
       laneId: 'app-canonical',
-      title: 'Prepare one validated AI plan artifact',
-      ownerPackage: '@asyra/ai-agent-runtime candidate preparation',
+      title: 'Resolve one server-prepared AI plan',
+      ownerPackage: '@asyra/ai-agent-runtime action resolution',
       purpose:
-        'Preflight one complete provider plan shell, delegate each raw action argument exactly once to its registered schema owner, and hand permission, confirmation, and execution one immutable prepared value plus one bounded preview summary without retaining parallel full geometry graphs.',
+        'Resolve the small control envelope of one server-prepared plan to registered actions, then hand permission and execution the original prepared argument identity and hand confirmation the server-provided bounded summary without client-side model validation, normalization, cloning, or freezing.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'artifact:mock-provider-plan-candidate',
-        'untrusted provider candidate output',
-        'registered action definitions and schemas',
+        'artifact:server-prepared-ai-plan',
+        'server-prepared provider plan',
+        'registered action definitions and backend-facing input schemas',
         'runtime redaction policy'
       ],
       outputs: [
-        'artifact:validated-ai-plan',
+        'artifact:resolved-ai-plan',
         'artifact:bounded-ai-plan-preview',
         'artifact:ai-plan-ingestion-timing'
       ],
       conditions: [
-        'This step is selected for production edits only when guarded CPU-time attribution identifies Runtime, action-schema preparation, or preview projection as the first material owner.',
-        'prepareAiProviderPlan(providerOutput, registry) is the only public candidate-plan preparation path; separate normalize-then-validate compatibility APIs are removed.',
-        'Runtime preflights the complete plan id, explanation, action ids, action names, empty-plan rule, duplicate ids, and unknown actions before any action schema runs.',
-        'Raw action arguments remain unknown and are not recursively cloned by Runtime before their registered schema owner prepares them.',
-        'One successful action schema result owns one deeply immutable detached execution value and one bounded redaction-ready summary.',
-        'Permission and execution receive the exact same prepared value identity; Runtime performs no post-schema recursive detach or freeze.',
-        'Confirmation and terminal preview retain and redact only the bounded summary, never complete item, path, point, or geometry arguments.',
-        'Asyra Design insert preparation validates and creates immutable items, accepted and skipped role evidence, exact group bounds, and per-item point counts in one pass while canonical topology and ids remain App common API and Core responsibilities.',
-        'The prepared plan remains local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
+        'This step is selected because corrected attribution found front-end action-schema geometry preparation before Group creation, while the product contract now assigns model preparation to the backend.',
+        'runtime.run() is the only public server-prepared plan entry; there is no public or internal client-side prepare, normalize, validate, or compatibility mode.',
+        'A live backend provider and the file-scoped IndexedDB Mock backend adapter hand the same server-prepared plan contract to Runtime; neither source selects another execution or canonical mutation path.',
+        'Runtime preflights only the small control envelope: plan id, explanation, action ids, action names, bounded summaries, empty-plan rule, duplicate ids, and unknown actions. It does not traverse item, path, point, style, bounds, or geometry arguments.',
+        'Each action definition exposes one backend-facing inputSchema for provider planning and one executor; it has no client action schema, parse, prepare, validation mode, or payload-size flag.',
+        'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
+        'Each server-prepared action carries one bounded redaction-ready summary. Confirmation and terminal preview retain and redact only that summary, never complete item, path, point, coordinate, or geometry arguments.',
+        'The Mock backend validates and normalizes every item, path, point, role, style, and bound and builds the compact coordinate artifact before App readiness; the front end performs none of that model work.',
+        'The front-end composition executor shows the server-prepared loading bounds first and cooperatively materializes only the next progressive slice from the compact artifact.',
+        'Canonical topology and ids remain owned by the ordinary App common API and plural Core route; the server-prepared artifact never creates canonical, shared-data, Render, history, or CRDT state directly.',
+        'The resolved plan remains local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
       ],
       bypasses: [
-        'An invalid plan shell fails before any action schema or executor runs.',
-        'A failed later action schema produces no prepared plan prefix.',
+        'An invalid control envelope fails before permission, transaction, or executor work.',
         'A no-confirmation permission result still creates only the bounded terminal preview and never a full-argument preview.'
       ],
       allowedContributors: [
-        '@asyra/ai-agent-runtime plan and action registry owners',
-        'registered Asyra Design action schemas',
+        '@asyra/ai-agent-runtime plan-envelope and action-registry owners',
+        'server-prepared action arguments and bounded summaries',
+        'registered Asyra Design action definitions and inputSchema descriptions',
         'runtime redaction of bounded summaries',
         'artifact:precanonical-owner-attribution'
       ],
       forbiddenContributors: [
         'provider-selected canonical ids',
-        'Runtime recursive cloning before and after action-schema preparation',
+        'Runtime recursive argument cloning or freezing',
+        'client-side action schema validation, normalization, parse, or prepare',
+        'front-end item, path, point, style, bounds, role, or geometry semantic validation',
+        'front-end compact artifact encoding',
         'complete geometry in confirmation or terminal preview',
-        'compatibility modes for separate normalization and validation',
-        'large-payload, sync, async, delivery, progressive, loading, or collaboration flags on action definitions',
+        'Mock-only Runtime preparation APIs, flags, or execution branches',
+        'compatibility modes for client-side model validation',
+        'large-payload, validation, delivery, progressive, loading, or collaboration flags on action definitions',
         'AI-owned shared props, shared components, shared elements, Factory publications, or CRDT state',
         'fixture-specific item, point, payload, or composition ceilings'
       ],
@@ -134,20 +166,26 @@
         'packages/ai-agent-runtime/src',
         'packages/ai-agent-runtime/src/__tests__',
         'apps/asyra-design/src/ai/actions.ts',
+        'apps/asyra-design/src/ai/prepared-composition.ts',
         'apps/asyra-design/src/ai/confirmation.ts',
         'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
+        'create-app/asyra-design/template/src/ai',
+        'create-app/asyra-design/template/src/app/__tests__/ai-conversation-panel.test.tsx',
         'docs/ai/framework/API_SURFACES.md',
         'docs/ai/framework/packages/ai-agent-runtime.md',
+        'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
+        'docs/examples/ai-agent-runtime.mjs',
         'docs/ai/apps/asyra-design/API_SURFACES.md'
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#validated-ai-plan-artifact-contract',
+        '#server-prepared-ai-plan-contract',
         '#bulk-mutation-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'prepare-validated-ai-plan-artifact'
+      failureOwnerStepId: 'resolve-server-prepared-ai-plan'
     },
     {
       id: 'yield-ai-loading-paint',
@@ -159,7 +197,7 @@
         'Show the confirmed drawing bounds and progress state without an unbounded loading animation while keeping pan and zoom responsive before canonical slices begin.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'artifact:validated-ai-plan',
+        'artifact:resolved-ai-plan',
         'confirmed drawing bounds and item count'
       ],
       outputs: [
@@ -178,7 +216,7 @@
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
-        'artifact:validated-ai-plan',
+        'artifact:resolved-ai-plan',
         'Asyra Design drawing progress state',
         'dedicated pan and zoom interaction bus'
       ],
@@ -394,7 +432,7 @@
       purpose:
         'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
-        'artifact:validated-ai-plan',
+        'artifact:resolved-ai-plan',
         'artifact:bounded-ai-plan-preview',
         'artifact:visible-loading-boundary',
         'production App Mock AI startup with progressive default and explicit atomic measurement opt-in',
@@ -790,7 +828,7 @@
         'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
-        'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no IndexedDB write.',
+        'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no document IndexedDB write.',
         'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves the active decoded publication and permits the next publication, while failure tears down the active and pending publications and releases none.',
         'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
       ],
@@ -842,26 +880,28 @@
       title: 'Load an empty demo document without client persistence',
       ownerPackage: 'Asyra Design RenderApp startup',
       purpose:
-        'Load one canonical empty document for ordinary local and collaboration demo sessions without a client persistence provider so local actions and remote apply perform no persistence capture, provider save, IndexedDB read, or IndexedDB write.',
-      inputs: [
-        'ordinary local or collaboration demo session',
-        'Asyra Design RenderApp startup policy'
-      ],
+        'Require fileId to select the App-owned demo document session, load its canonical empty document, always start Collaboration after that load, and omit a client persistence provider so local actions and remote apply perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write.',
+      inputs: ['required fileId URL', 'Asyra Design RenderApp startup policy'],
       outputs: ['artifact:empty-memory-demo-document'],
       conditions: [
-        'After Core starts, RenderApp loads exactly one canonical empty document through the ordinary Core load API; a collaboration session performs that load before Collaboration connects.',
-        'Ordinary local and collaboration sessions start without creating, initializing, loading, or injecting a client persistence provider.',
-        'Local actions, Undo, and Redo perform zero client persistence capture, provider save, IndexedDB read, and IndexedDB write.',
-        'Actor B remote apply performs zero client persistence capture, provider save, IndexedDB read, and IndexedDB write.',
-        'Local and collaboration sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
+        'A missing or empty fileId does not open a document session.',
+        'After Core starts, RenderApp loads exactly one canonical empty document selected by fileId through the ordinary Core load API before Collaboration connects.',
+        'The required fileId URL supplies the document session identity and always starts Collaboration after load; fileId selects which document opens and is never a Collaboration toggle.',
+        'Root dev:all and ordinary Playwright startup both make the reference WebSocket server ready before the App document connection begins.',
+        'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
+        'Every demo document session starts without creating, initializing, loading, or injecting a client persistence provider.',
+        'The same fileId may independently select a pre-ready Mock backend response, but that response never enters Core.load and creates no canonical prefix.',
+        'Local actions, Undo, and Redo perform zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
+        'Actor B remote apply performs zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
+        'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
       bypasses: [
         'Formal server checkpoint policy and backend database durability remain outside this plan.',
         'Demo reload durability is not a correctness or performance gate while client persistence is disabled.'
       ],
       allowedContributors: [
-        'ordinary local demo startup',
-        'collaboration fileId',
+        'required fileId App startup',
+        'fileId-selected App document session identity',
         'Asyra Design RenderApp startup',
         'Core startup without a persistence provider',
         'cheap zero-side-effect runtime counters'
@@ -870,14 +910,25 @@
         'demo client persistence provider',
         'demo IndexedDB migration or persisted-document load',
         'demo persistence capture or save',
+        'a URL route that opens a document without fileId',
+        'treating fileId as a Collaboration activation or deactivation toggle',
+        'a separate non-Collaboration document startup path',
         'reload durability assertions',
         'changes to Factory history or transaction semantics'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/src/render-app/index.tsx',
+        'apps/asyra-design/src/render-app/collaboration-mode.ts',
+        'apps/asyra-design/src/collaboration/lifecycle.ts',
         'apps/asyra-design/src/render-app/__tests__',
+        'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
+        'apps/asyra-design/playwright.config.ts',
+        'apps/asyra-design/__tests__/playwright-config.test.mjs',
         'apps/asyra-design/e2e',
+        'scripts/dev-all-plan.js',
+        'scripts/dev-all.js',
+        'scripts/__tests__/workspace-automation.test.mjs',
         'docs/ai/apps/asyra-design'
       ],
       specRefs: [
@@ -894,7 +945,7 @@
       title: 'Evaluate one local interactive drawing',
       ownerPackage: 'Asyra Design single-Actor performance E2E',
       purpose:
-        'Measure one production single-Actor 7,112-element progressive turn from accepted request through exact-bounds loading, first ordinary Vector, real batch milestones, canonical completion, and settled UI without collaboration or persistence noise.',
+        'Measure one production single-Actor 7,112-element progressive turn from accepted request through exact-bounds loading, first ordinary Vector, real batch milestones, canonical completion, and settled UI with Collaboration ready but without peer relay, remote apply, or persistence noise.',
       inputs: [
         'artifact:local-drawing-progress-state',
         'artifact:local-document-interaction-lock-state',
@@ -904,7 +955,7 @@
       ],
       outputs: ['artifact:local-interactive-drawing-proof'],
       conditions: [
-        'The gate uses one fresh single Actor, one empty canonical document, the ordinary Mock AI default progressive mode, and one 7,112-element balanced composition run.',
+        'The gate uses one fresh single Actor connected through Collaboration to the empty document session selected by the required fileId URL, the ordinary Mock AI default progressive mode, and one 7,112-element balanced composition run without creating Actor B.',
         'The report names accepted-to-connected DOM loading state, accepted-to-first compositor paint opportunity, accepted-to-first ordinary Vector visible, 25, 50, 75, and 100 percent visible-element milestones, longest canonical work unit, cooperative yield count, product settled time, Render time, UI time, and harness overhead.',
         'Milestones use O(1) runtime counters and one terminal exact canonical summary; the harness never polls a full canonical snapshot.',
         'Before the first canonical mutation, the connected DOM loading overlay has a non-zero exact transformed bounds rectangle; that loading state and the ordinary Vector output come from the same live measured App state and receive synchronized visual inspection.',
@@ -912,22 +963,25 @@
         'The final state preserves all 7,112 canonical projections, exact bounds and detail, and one intended Undo action.'
       ],
       bypasses: [
-        'Contents projection, collaboration, WebSocket transport, a second Actor, and CRDT convergence are excluded from this local gate.',
-        'No IndexedDB provider, read, capture, save, write, state hash, reload, screenshot trace, video, or repeated measured run is part of this gate.',
+        'Contents projection, a second Actor, peer relay, remote apply, and CRDT convergence are excluded from this single-Actor gate; its client-to-server Collaboration transport remains active and server CPU is reported separately.',
+        'No request-time Mock backend IndexedDB access, document IndexedDB provider/read/capture/save/write/state hash, reload, screenshot trace, video, or repeated measured run is part of this gate; the one source response lookup completed before App readiness.',
         'This local proof does not close or waive any deferred collaboration, persistence-policy, Contents, or full-plan gate.'
       ],
       allowedContributors: [
         'production Asyra Design App',
         'artifact:local-drawing-progress-state',
         'ordinary Vector projection milestones',
+        'active single-Actor Collaboration transport',
+        'separately attributed WebSocket-server CPU',
         'detached monotonic production timing',
         'app-visual-review-sync live App screenshots'
       ],
       forbiddenContributors: [
         'dev-only mutable canonical globals as release evidence',
         'full canonical snapshot polling',
-        'second browser actor or collaboration server',
-        'IndexedDB timing or state assertions',
+        'second browser actor, peer relay, or remote apply',
+        'disabling Collaboration or omitting the required WebSocket server',
+        'request-time Mock backend or document IndexedDB timing or state assertions',
         'warm-up or repeated high-detail creation',
         'state-only loading visibility evidence',
         'Canvas or Render-owned loading screenshot',
@@ -955,7 +1009,8 @@
       purpose:
         'Run exactly one production two-Actor 7,076-element creation proof immediately after each completed endpoint refactor, compare only its owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
       inputs: [
-        'artifact:provider-materialization-timing',
+        'artifact:mock-backend-bootstrap-timing',
+        'artifact:mock-provider-response-timing',
         'artifact:ai-plan-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
@@ -976,27 +1031,39 @@
       ],
       conditions: [
         'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
-        'A local-only endpoint may additionally use one single-Actor 7,112-element creation, but it cannot replace the two-Actor proof for a collaboration endpoint.',
+        'A single-Actor endpoint may additionally use one 7,112-element creation with Collaboration connected but no Actor B; it cannot replace the two-Actor proof for a collaboration endpoint.',
         'The guard authenticates one ready heartbeat and confirms process ownership and CPU sampling before the 7,076-element request may start.',
-        'A guard-ready heartbeat is accepted before the first Actor context is created; Actor A reaches collaboration ready before Actor B context creation, and every staged harness bootstrap phase stays outside product timing.',
-        'A fixed tracked process registry contains only test-harness, client-browser, app-server, and websocket-server; the macOS decayed ps CPU signal above 200 percent is a conservative host-safety stop only, while the bounded report keeps separate role CPU for product, local server, and harness attribution.',
-        'A local-only attribution invocation starts a fresh browser process group and App preview, starts no WebSocket server, requires only test-harness, client-browser, and app-server roles, navigates without fileId, and proves Collaboration remains unavailable.',
-        'Each local-only invocation measures exactly one 16-item, reduced-motion 16-item, or 1,280-item case so a preceding Chrome startup or navigation decay cannot contaminate a later case.',
-        'Owner and phase effectiveness use cumulative OS process CPU-time deltas divided by the exact wall-time boundary, reported separately per role; decayed ps percent and phaseCpuMaximums are never used as owner attribution.',
-        'The guard captures the process CPU-time snapshot before atomically opening or closing a phase boundary; a concurrent later heartbeat cannot relabel an earlier CPU snapshot.',
+        'Both Actor contexts are created first; Actor A completes navigation and reaches collaboration ready before Actor B navigation, Actor B then reaches collaboration ready before the guard-ready heartbeat, and every staged harness bootstrap phase stays outside product timing.',
+        'Production build commands are a separate setup outside the runtime guard and product timing; artifact attestation must succeed before Playwright starts, runtime safety begins with the production App processes, and operation timing begins only at Actor A request submission.',
+        'A fixed tracked process registry contains only test-harness, client-browser, app-server, and websocket-server; exactly one production preview and one WebSocket server are test-owned, HMR is absent, and no pre-existing listener participates.',
+        'Two stable cumulative CPU-time samples with an identical process identity set establish each 250-millisecond interval CPU measurement; one interval above 200 percent is an immediate hard stop, while the macOS decayed ps signal remains a diagnostic after baseline and the bounded report retains separate role CPU without turning either signal into product-owner evidence.',
+        'Periodic and phase-boundary sampling share one serialized OS sample and state-consumption queue, so no overlapping ps command or out-of-order state update can corrupt the interval.',
+        'A fixed 375-millisecond sample gap ceiling makes any longer observed interval fail closed instead of averaging away an unobserved CPU spike.',
+        'Before the stable cumulative baseline exists, a decayed ps sample above 200 percent fails closed as bootstrap overload; it is reported as bootstrap rather than attributed to a product request.',
+        'The browser role reports root-browser, GPU, utility, other browser subprocesses, and each renderer PID separately while retaining every subprocess in the fixed 200-percent aggregate. Each renderer PID retains its own 250-millisecond CPU delta; page-target CDP reports TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration, CDP-visible worker targets are listed as visible worker target evidence, and any renderer CPU not explained by those signals remains explicitly residual renderer evidence rather than being guessed as page or worker ownership.',
+        'A single-Actor attribution invocation starts a fresh browser process group and App preview, navigates one required fileId URL, establishes its Collaboration session through the required WebSocket server, creates no Actor B, and requires the fixed test-harness, client-browser, app-server, and websocket-server roles.',
+        'Each single-Actor invocation measures exactly one 16-item, reduced-motion 16-item, or 1,280-item case so a preceding Chrome startup or navigation decay cannot contaminate a later case.',
+        'Each attribution invocation uses one request-wide cumulative OS process CPU-time boundary with exact wall time and per-role deltas; ordered browser-monotonic Runtime, provider, App, and loading spans provide inner owner attribution, while decayed ps percent and phaseCpuMaximums never do.',
+        'Every phase-boundary sample passes through the same fixed 200-percent safety evaluation as the periodic sampler and requires exact PID set equality; any observed process identity change across the boundary or 250-millisecond samples makes attribution invalid, while an unobserved sub-interval helper means request-wide OS CPU can never be the sole owner-attribution signal.',
+        'Mock backend IndexedDB seed, read, structured clone, and handoff are external backend and transport adapter timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
+        'After Mock backend, App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs prompt fill, locator resolution, and actionability outside the product boundary, then establishes a fresh stable pair for the process identity. App-owned request acceptance or dispatch starts local-request and retains its interval maximum and cumulative average; no Playwright locator, visibility, count, text, or attribute polling may execute in the measured window. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
         'A bounded heartbeat reports the latest completed phase, any currently active started phase, its capture time, Actor A and Actor B canonical element counts, publication progress, and latest completed owner timing without walking the full canonical graph; the guard records a separate safety-signal sample time and heartbeat age rather than presenting the values as co-temporal.',
         'The production performance profile provides O(1) canonical, Render projection, Factory publication, and history scalar queries; Render projection counts remain uncapped so over-projection is reported as a correctness failure.',
         'The ordinary Playwright suite always excludes the guarded endpoint spec even if guard environment variables leak into that process.',
         'The 250-millisecond cadence is armed before the immediate first CPU sample, every sample has a 200-millisecond hard timeout, and guard SIGINT, SIGTERM, SIGHUP, exceptional exit, sampling failure, or benchmark failure terminates only the fixed registered process groups.',
-        'A complete heartbeat is accepted only when both Actors remain exactly complete with canonical and uncapped Render projection element counts equal to total and one bounded endpoint report is valid; late over-projection cannot reuse an earlier success report.',
-        'A single test-owned process-tree sample above 200 percent CPU stops the benchmark immediately and marks the active architecture attempt invalid; configuration cannot relax that limit.',
+        'An endpoint complete heartbeat is accepted only when both Actors remain exactly complete with canonical and uncapped Render projection element counts equal to total and one bounded endpoint report is valid; a local-attribution complete heartbeat validates Actor A only, carries no Actor B report, and never invents a completed peer; a collaboration-attribution complete heartbeat validates both small-case Actors but never creates an accepted endpoint baseline.',
+        'The pipeline fixes one required proof kind for the entire guarded invocation; no later heartbeat can switch among endpoint, local-attribution, or collaboration-attribution.',
+        'A single 250-millisecond interval CPU sample above 200 percent stops the benchmark immediately and marks the active architecture attempt invalid; configuration cannot relax that limit.',
         'CPU above the fixed limit, a stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline fails the active endpoint immediately.',
         'On resource failure the guard terminates tracked Playwright, headless browser, App server, and collaboration server processes before returning the last completed phase, Actor A and Actor B element counts, CPU samples, publication progress, and owner timing.',
         'A resource stop whose last captured heartbeat precedes the first completed canonical Group pauses the 7,076-element proof but does not claim which owner was active; corrected phase-boundary CPU-time evidence permits one guarded single-Actor 16-item cat-prefix attribution case.',
-        'If the 16-item attribution case crosses 200 percent, exactly one equivalent reduced-motion 16-item control separates loading-compositor work from provider cold materialization.',
-        'If the 16-item attribution case remains below 200 percent, one guarded single-Actor 1,280-item cat-prefix case separates provider materialization, runtime plan preparation, action-schema preparation, bounded preview, loading paint, Group, and first plural children-batch timing.',
-        'A two-Actor 1,280-item attribution case is allowed only when the fresh local-only single-Actor result cannot separate pre-canonical work from collaboration overhead.',
-        'The completed attribution artifact selects exactly one next owner route: Mock provider materialization, Runtime candidate preparation, App loading paint, local canonical composition, or receiver frame admission.',
+        'The 16-item cat-prefix contains 12,919 vector points, so its Group plus four early high-detail children are material canonical and Render work rather than a negligible placeholder.',
+        'One two-Actor 16-item operation-versus-idle diagnostic excludes production build commands and all pre-ready App, Collaboration, and Agent bootstrap, measures operation from Actor A request submission until Actor B canonical and Render are complete, then performs no product action during an exact 10-second idle window. It uses the collaboration-attribution proof kind, never creates an accepted endpoint baseline, and keeps the 200-percent OS guard active throughout runtime.',
+        'Each Actor page-target CDP Performance domain uses threadTicks and cumulative TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration deltas to report main-thread task occupancy for operation and idle separately; this is not complete Actor CPU because worker, GPU, network, server, and harness work remain only in the separate OS guard evidence.',
+        'If the corrected 16-item interval CPU crosses 200 percent, the guard stops first; only the resulting bounded replan may authorize exactly one equivalent reduced-motion 16-item control to separate loading-compositor work from other browser work.',
+        'If the 16-item attribution case remains below 200 percent, one guarded single-Actor 1,280-item cat-prefix case separates the resident provider delay and handoff, Runtime control-envelope resolution, bounded preview, loading paint, Group, and first plural children-batch timing.',
+        'A two-Actor 1,280-item attribution case is allowed only when the fresh single-Actor result cannot separate Actor A and client-to-server work from peer relay or Actor B remote apply.',
+        'The completed attribution artifact selects exactly one next owner route: Mock backend bootstrap or request-boundary contamination, Runtime candidate preparation, App loading paint, local canonical composition, or receiver frame admission.',
         'Attribution cases retain the fixed 200-percent guard and exact process termination, but never create an accepted endpoint baseline, never count as a 7,076 architecture attempt, and cannot establish product equivalence.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
         'Success preserves exact canonical IDs, order, detail, topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
@@ -1008,6 +1075,7 @@
         'The creation-only endpoint proof never runs the complete two-window recording or full three-turn flow.',
         'The first receiver endpoint does not require artifact:accepted-endpoint-baseline because the retained pre-refactor evidence is its fixed seed.',
         'The bounded 16-item and 1,280-item attribution cases locate the first chronological owner after a pre-canonical resource stop; they do not replace the exact 7,076-element endpoint proof.',
+        'The two-Actor 16-item operation-versus-idle diagnostic compares active and settled work only; it does not replace or create artifact:accepted-endpoint-baseline.',
         'An owner proven below five percent of product time remains unchanged rather than receiving a speculative optimization.',
         'Contents and production persistence are outside this endpoint proof.'
       ],
@@ -1016,6 +1084,7 @@
         'authenticated guard-ready handshake',
         'detached O(1) runtime counters',
         'detached Actor-target task and script timing',
+        'Chromium page-target CDP Performance threadTicks metrics',
         'tracked test-owned process ids',
         'declared owner timing artifacts',
         'one terminal bounded canonical equivalence summary'
@@ -1024,11 +1093,18 @@
         'untracked process termination',
         'full canonical snapshot polling in the heartbeat',
         'video, screenshots, trace, or CPU profiling',
+        'CDP Profiler or Tracing capture',
         'harness overhead attributed to a product owner',
+        'Playwright locator, visibility, count, text, or attribute polling inside a measured product interval',
         'treating a stale heartbeat as co-temporal with a later CPU sample',
         'using macOS decayed ps percent or phaseCpuMaximums as phase-owner attribution',
-        'reusing one browser process across local-only attribution cases',
-        'starting the WebSocket server for a local-only attribution case',
+        'using macOS decayed ps percent as post-baseline interval CPU',
+        'starting a second App preview, a second WebSocket server, or any HMR process',
+        'running production build commands inside the runtime performance guard or product timing',
+        'excluding any Chromium renderer PID, GPU, utility, or other subprocess from the browser CPU total',
+        'claiming page main-thread or Web Worker ownership for residual renderer CPU without direct evidence',
+        'reusing one browser process across single-Actor attribution cases',
+        'disabling Collaboration or omitting the WebSocket server for a single-Actor attribution case',
         'using a small attribution case as an endpoint acceptance proof',
         'continuing after a resource guard failure',
         'committing an ineffective endpoint attempt'
@@ -1075,7 +1151,8 @@
       purpose:
         'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
-        'artifact:provider-materialization-timing',
+        'artifact:mock-backend-bootstrap-timing',
+        'artifact:mock-provider-response-timing',
         'artifact:ai-plan-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
@@ -1101,8 +1178,8 @@
         'One warm-up precedes three measured runs and median and worst values are reported separately.',
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
-        'Navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans.',
-        'Both collaboration actors expose cheap zero-side-effect evidence without reading or hashing IndexedDB state.',
+        'Mock backend response seeding, the fileId-selected IndexedDB preload, navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
+        'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated Mock backend response read only before App readiness.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, independent 7,076-element no-media CRDT and performance runs, and the 27,471-element 295,794-point gate pass.',
         'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
@@ -1150,23 +1227,23 @@
 
   const routes = [
     {
-      id: 'route-mock-provider-candidate-to-runtime',
-      from: 'materialize-bounded-mock-provider-prefix',
-      to: 'prepare-validated-ai-plan-artifact',
-      kind: 'candidate',
+      id: 'route-server-prepared-ai-plan-to-runtime',
+      from: 'preload-file-scoped-mock-backend-response',
+      to: 'resolve-server-prepared-ai-plan',
+      kind: 'handoff',
       predicate:
-        'The deterministic Mock provider produced one untrusted candidate without reading source records outside the requested range.',
-      producedArtifacts: ['artifact:mock-provider-plan-candidate']
+        'After its deterministic backend delay, Actor A handed the fileId-selected resident server-prepared plan to Runtime with zero request-time fixture IndexedDB access, import, fetch, parse, tokenization, transform, validation, normalization, or materialization.',
+      producedArtifacts: ['artifact:server-prepared-ai-plan']
     },
     {
-      id: 'route-validated-ai-plan-to-composition',
-      from: 'prepare-validated-ai-plan-artifact',
+      id: 'route-resolved-ai-plan-to-composition',
+      from: 'resolve-server-prepared-ai-plan',
       to: 'yield-ai-loading-paint',
       kind: 'handoff',
       predicate:
-        'The complete provider plan shell and every registered action schema prepared successfully.',
+        'The server-prepared control envelope resolved to registered actions without client model validation.',
       producedArtifacts: [
-        'artifact:validated-ai-plan',
+        'artifact:resolved-ai-plan',
         'artifact:bounded-ai-plan-preview'
       ]
     },
@@ -1180,22 +1257,40 @@
       producedArtifacts: ['artifact:visible-loading-boundary']
     },
     {
-      id: 'route-provider-materialization-timing-to-endpoint-proof',
-      from: 'materialize-bounded-mock-provider-prefix',
+      id: 'route-mock-backend-bootstrap-timing-to-endpoint-proof',
+      from: 'preload-file-scoped-mock-backend-response',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The deterministic provider emitted bounded source-read and materialization timing.',
-      producedArtifacts: ['artifact:provider-materialization-timing']
+        'The exact fileId-selected Mock backend response read completed before App and Agent readiness and remained outside product operation timing.',
+      producedArtifacts: ['artifact:mock-backend-bootstrap-timing']
     },
     {
-      id: 'route-provider-materialization-timing-to-final-proof',
-      from: 'materialize-bounded-mock-provider-prefix',
+      id: 'route-mock-backend-bootstrap-timing-to-final-proof',
+      from: 'preload-file-scoped-mock-backend-response',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted provider architecture emitted bounded final source-read and materialization timing.',
-      producedArtifacts: ['artifact:provider-materialization-timing']
+        'The accepted architecture reported the fileId-selected Mock backend response preload as a detached pre-ready harness span.',
+      producedArtifacts: ['artifact:mock-backend-bootstrap-timing']
+    },
+    {
+      id: 'route-mock-provider-response-timing-to-endpoint-proof',
+      from: 'preload-file-scoped-mock-backend-response',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The request-time provider span contained only the deterministic backend delay, resident response contract check, and candidate handoff.',
+      producedArtifacts: ['artifact:mock-provider-response-timing']
+    },
+    {
+      id: 'route-mock-provider-response-timing-to-final-proof',
+      from: 'preload-file-scoped-mock-backend-response',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'The accepted request-time provider span retained zero fixture acquisition or materialization.',
+      producedArtifacts: ['artifact:mock-provider-response-timing']
     },
     {
       id: 'route-loading-paint-timing-to-endpoint-proof',
@@ -1216,20 +1311,20 @@
     },
     {
       id: 'route-ai-plan-ingestion-timing-to-endpoint-proof',
-      from: 'prepare-validated-ai-plan-artifact',
+      from: 'resolve-server-prepared-ai-plan',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'Provider materialization and candidate-to-prepared plan owners emitted bounded timing.',
+        'Server-prepared plan handoff and Runtime control-envelope resolution emitted bounded timing.',
       producedArtifacts: ['artifact:ai-plan-ingestion-timing']
     },
     {
       id: 'route-ai-plan-ingestion-timing-to-final-proof',
-      from: 'prepare-validated-ai-plan-artifact',
+      from: 'resolve-server-prepared-ai-plan',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted validated-plan architecture emitted bounded final timing.',
+        'The accepted server-prepared plan architecture emitted bounded final timing.',
       producedArtifacts: ['artifact:ai-plan-ingestion-timing']
     },
     {
@@ -1571,7 +1666,7 @@
       to: 'evaluate-performance-and-equivalence',
       kind: 'policy-proof',
       predicate:
-        'Ordinary local and collaboration demo sessions started without a client persistence provider and retained zero client persistence side effects.',
+        'Single-Actor and two-Actor demo sessions always started Collaboration from the App-owned document session without a client persistence provider and retained zero client persistence side effects.',
       producedArtifacts: ['artifact:empty-memory-demo-document']
     },
     {
@@ -1579,7 +1674,7 @@
       from: 'evaluate-local-interactive-drawing',
       kind: 'terminal',
       predicate:
-        'The current local-only formal measurement and synchronized visual review ran once.',
+        'The current single-Actor formal measurement and synchronized visual review ran once with Collaboration ready and no Actor B.',
       producedArtifacts: ['artifact:local-interactive-drawing-proof']
     },
     {
@@ -1608,21 +1703,21 @@
       producedArtifacts: ['artifact:resource-guard-stop-proof']
     },
     {
-      id: 'route-attribution-to-mock-provider',
+      id: 'route-attribution-to-mock-backend-boundary',
       from: 'evaluate-endpoint-performance',
-      to: 'materialize-bounded-mock-provider-prefix',
+      to: 'preload-file-scoped-mock-backend-response',
       kind: 'bounded-attribution',
       predicate:
-        'Fresh single-Actor phase-boundary CPU-time evidence identifies deterministic Mock provider source reading or materialization as the first material owner.',
+        'Fresh single-Actor CPU-time evidence identifies a missing pre-ready response preload or any request-time Mock backend fixture IndexedDB access, import, fetch, parse, tokenization, transform, or materialization as the first incorrect boundary.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
-      id: 'route-attribution-to-runtime-preparation',
+      id: 'route-attribution-to-runtime-resolution',
       from: 'evaluate-endpoint-performance',
-      to: 'prepare-validated-ai-plan-artifact',
+      to: 'resolve-server-prepared-ai-plan',
       kind: 'bounded-attribution',
       predicate:
-        'Fresh single-Actor phase-boundary CPU-time evidence identifies Runtime normalization, action-schema preparation, or preview projection as the first material owner.',
+        'Fresh single-Actor request-wide CPU-time evidence plus ordered browser-monotonic spans identifies Runtime control-envelope resolution or bounded preview projection as the first material owner.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
@@ -1640,7 +1735,7 @@
       to: 'stage-local-interactive-composition',
       kind: 'bounded-attribution',
       predicate:
-        'Fresh single-Actor phase-boundary CPU-time evidence identifies Group, topology, plural Core request, or cooperative local projection as the first material owner.',
+        'Fresh single-Actor request-wide CPU-time evidence plus ordered browser-monotonic spans identifies Group, topology, plural Core request, or cooperative local projection as the first material owner.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
@@ -1663,16 +1758,17 @@
 
   const artifacts = [
     {
-      id: 'artifact:mock-provider-plan-candidate',
-      ownerStepId: 'materialize-bounded-mock-provider-prefix',
-      channel: 'ordinary untrusted Mock provider output',
-      consumerStepIds: ['prepare-validated-ai-plan-artifact'],
+      id: 'artifact:server-prepared-ai-plan',
+      ownerStepId: 'preload-file-scoped-mock-backend-response',
+      channel:
+        'fileId-selected startup-resident server-prepared Mock provider plan',
+      consumerStepIds: ['resolve-server-prepared-ai-plan'],
       terminal: false
     },
     {
-      id: 'artifact:provider-materialization-timing',
-      ownerStepId: 'materialize-bounded-mock-provider-prefix',
-      channel: 'detached source-read and provider materialization timing',
+      id: 'artifact:mock-backend-bootstrap-timing',
+      ownerStepId: 'preload-file-scoped-mock-backend-response',
+      channel: 'detached pre-ready Mock backend response IndexedDB read timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -1680,10 +1776,21 @@
       terminal: false
     },
     {
-      id: 'artifact:validated-ai-plan',
-      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      id: 'artifact:mock-provider-response-timing',
+      ownerStepId: 'preload-file-scoped-mock-backend-response',
       channel:
-        '@asyra/ai-agent-runtime immutable candidate-to-execution handoff',
+        'detached request-time deterministic backend delay and resident candidate handoff timing',
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:resolved-ai-plan',
+      ownerStepId: 'resolve-server-prepared-ai-plan',
+      channel:
+        '@asyra/ai-agent-runtime server-prepared argument-preserving action-resolution handoff',
       consumerStepIds: [
         'yield-ai-loading-paint',
         'stage-local-interactive-composition'
@@ -1709,7 +1816,7 @@
     },
     {
       id: 'artifact:bounded-ai-plan-preview',
-      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      ownerStepId: 'resolve-server-prepared-ai-plan',
       channel:
         '@asyra/ai-agent-runtime bounded redaction-ready confirmation and terminal summary',
       consumerStepIds: [
@@ -1720,7 +1827,7 @@
     },
     {
       id: 'artifact:ai-plan-ingestion-timing',
-      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      ownerStepId: 'resolve-server-prepared-ai-plan',
       channel: 'detached monotonic pre-canonical owner timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
@@ -2004,10 +2111,10 @@
       id: 'artifact:precanonical-owner-attribution',
       ownerStepId: 'evaluate-endpoint-performance',
       channel:
-        'fresh-process phase-boundary CPU-time attribution that selects exactly one provider, runtime, loading, canonical, or collaboration owner without endpoint acceptance',
+        'fresh-process request-wide CPU-time and ordered browser-monotonic attribution that selects exactly one Mock backend boundary, runtime, loading, canonical, or collaboration owner without endpoint acceptance',
       consumerStepIds: [
-        'materialize-bounded-mock-provider-prefix',
-        'prepare-validated-ai-plan-artifact',
+        'preload-file-scoped-mock-backend-response',
+        'resolve-server-prepared-ai-plan',
         'yield-ai-loading-paint',
         'stage-local-interactive-composition',
         'admit-receiver-publication-frames'
@@ -2032,6 +2139,24 @@
   ]
 
   const invariants = [
+    {
+      id: 'mock-backend-response-is-not-document-state',
+      statement:
+        'The same required fileId may select both the App document session and one test-prepared Mock backend response, but the startup-resident response remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state before Actor A sends the ordinary conversation request.',
+      stepIds: [
+        'preload-file-scoped-mock-backend-response',
+        'load-empty-demo-document',
+        'resolve-server-prepared-ai-plan'
+      ],
+      artifactIds: [
+        'artifact:server-prepared-ai-plan',
+        'artifact:empty-memory-demo-document'
+      ],
+      specRefs: [
+        '#file-scoped-mock-backend-bootstrap-contract',
+        '#demo-client-persistence-bypass'
+      ]
+    },
     {
       id: 'one-action-one-artifact-one-history-boundary',
       statement:
@@ -2103,7 +2228,7 @@
     {
       id: 'demo-has-no-client-persistence-side-effects',
       statement:
-        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client persistence capture, provider save, IndexedDB read, or IndexedDB write; remote apply additionally creates no Undo or echo publication.',
+        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client document persistence capture, provider save, document IndexedDB read, or document IndexedDB write; the separate pre-ready Mock backend response read is not document persistence, and remote apply additionally creates no Undo or echo publication.',
       stepIds: [
         'load-empty-demo-document',
         'evaluate-local-interactive-drawing',
@@ -2121,6 +2246,25 @@
   ]
 
   const acceptanceContracts = [
+    {
+      id: 'file-scoped-mock-backend-response',
+      title: 'File-scoped Mock backend response is ready before product work',
+      assertions: [
+        'The test or manual harness seeds one exact versioned response in the dedicated Mock backend IndexedDB before App navigation, and required fileId selects only that response.',
+        'App and Agent readiness wait for the bounded read, while the canonical document remains empty and nonshared until Actor A sends the ordinary conversation request.',
+        'The provider request performs only deterministic backend delay, resident request-contract verification, and server-prepared plan handoff; it performs no fixture I/O, model validation, normalization, parse, materialization, deep-freeze, or lazy fallback.',
+        'The 16-, 320-, 1,280-, and 7,075-child responses preserve exact full detail, while Actor B obtains the resulting drawing only through canonical CRDT publications.'
+      ],
+      stepIds: [
+        'preload-file-scoped-mock-backend-response',
+        'load-empty-demo-document',
+        'resolve-server-prepared-ai-plan'
+      ],
+      specRefs: [
+        '#file-scoped-mock-backend-bootstrap-contract',
+        '#non-negotiable-equivalence'
+      ]
+    },
     {
       id: 'bulk-and-history-equivalence',
       title: 'Bulk canonical and history equivalence',
@@ -2177,7 +2321,7 @@
         'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
         'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
         'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
-        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, and harness timing without collaboration, Contents, or IndexedDB work.'
+        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, harness, and separately attributed WebSocket-server timing with Collaboration ready, no Actor B, no Contents, no request-time Mock backend read, and no document IndexedDB work.'
       ],
       stepIds: [
         'stage-local-interactive-composition',
@@ -2239,7 +2383,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo client persistence, and exact performance-equivalence proof.'
+        'One file-scoped preloaded Mock backend response, one canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

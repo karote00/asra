@@ -17,58 +17,107 @@ Feature: Conversational AI drawing performance
     And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
-  Scenario: Runtime prepares one immutable AI plan without parallel geometry graphs
-    Given one untrusted provider candidate contains one large insert-composition action
-    When the Runtime prepares the candidate against the registered action schemas
-    Then the complete plan shell should reject empty, duplicate, or unknown actions before any action schema runs
-    And each raw action argument should enter its registered schema exactly once without a prior Runtime geometry clone
-    And one successful schema result should own one deeply immutable execution value and one bounded redaction-ready summary
-    And permission and execution should receive the same prepared value identity
+  Scenario: Runtime resolves one server-prepared AI plan without client model validation
+    Given a live backend provider or the file-scoped IndexedDB Mock backend adapter returns one server-prepared plan with one large insert-composition action
+    When the server-prepared plan enters through "runtime.run()"
+    Then both response sources should use the same control-envelope resolution without a public or internal client prepare, normalize, or validate phase
+    And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
+    And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
+    And the Mock backend should validate and normalize every item, path, point, role, style, and bound before App readiness
+    And the server-prepared action should contain one compact coordinate artifact and one bounded redaction-ready summary rather than a parallel point-object graph
+    And permission and execution should receive the same action arguments identity
     And confirmation and terminal preview should contain the bounded summary without items, paths, points, or complete geometry
-    And Runtime should not detach or freeze the prepared value again
-    And the action definition should receive no large-payload, delivery, progressive, loading, or collaboration mode
-    And Asyra Design insert preparation should preserve exact items, roles, order, bounds, and point counts
+    And Runtime should not recursively detach or freeze the server-prepared arguments
+    And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
+    And the front end should perform no item, path, or point validation or compact encoding
+    And the executor should preserve exact items, roles, order, bounds, and point counts while materializing only the next progressive slice after the server-prepared loading bounds are visible
     But canonical topology and IDs should remain owned by the ordinary App common API and plural Core route
-    And the prepared plan should remain local, noncanonical, and nonshared
+    And the resolved plan should remain local, noncanonical, and nonshared
 
   Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
     And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
+    And production build commands completed as separate setup outside the runtime guard and product timing
+    And artifact attestation succeeded before Playwright started
     When the guarded endpoint benchmark starts
     Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
-    And the ready heartbeat should be accepted before the first Actor context is created
-    And Actor A should reach collaboration-ready before Actor B context is created
-    And those staged bootstrap phases should remain outside product execution timing
+    And both Actor contexts should be created before the ready heartbeat
+    And Actor A should reach collaboration-ready before Actor B navigation
+    And Actor B should reach collaboration-ready before the ready heartbeat
+    And the harness should seed the exact Mock backend response before Actor A navigation
+    And Actor A should complete the fileId-selected response read before App and Agent readiness
+    And those Mock backend, App, and Collaboration bootstrap phases should remain outside product execution timing
+    And Mock backend IndexedDB seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
     And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
-    And the macOS decayed CPU safety signal above 200 percent should stop all exact tracked roles while the report retains separate role CPU
-    And the decayed CPU safety signal and phaseCpuMaximums should never be used as owner attribution
+    And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
+    And two stable cumulative CPU-time samples with exact PID-set equality should establish the 250-millisecond interval CPU signal
+    And periodic and phase-boundary sampling should share one serialized OS sample queue with ordered state consumption
+    And an observed sampling gap above 375 milliseconds should fail closed instead of averaging away an unobserved spike
+    And one interval CPU sample above 200 percent should stop all exact tracked roles while the report retains separate role CPU
+    And the macOS decayed CPU signal should remain bootstrap fail-closed evidence before baseline and diagnostic-only evidence after baseline
+    And the decayed CPU signal and phaseCpuMaximums should never be used as owner attribution
+    And root-browser, GPU, utility, other browser CPU, and each renderer PID should remain separately visible and fully included in the browser total
+    And each renderer PID should retain its own 250-millisecond CPU delta
+    And page-target CDP should report TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration while visible worker targets are reported separately
+    And unexplained renderer CPU should remain residual renderer evidence instead of being guessed as page or Worker ownership
+    And bootstrap before guard ready should remain safety-only while legal process registration or identity churn resets the candidate baseline
+    And one fresh stable pair after App, Collaboration, and Agent readiness should freeze the request identity
+    And prompt fill, locator resolution, and actionability should complete outside the product boundary
+    And App-owned request acceptance or dispatch should start local-request
+    And no Playwright locator, visibility, count, text, or attribute polling should execute in the measured window
+    And one App-owned O(1) scalar completion signal should end product timing before UI assertions run after the boundary
+    And local-request should report interval maximum and cumulative average CPU after that stable baseline
     And each bounded heartbeat should report its capture time, the latest completed phase, any currently active started phase, Actor A and Actor B canonical and uncapped Render projection element counts, and publication progress
     And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
-    And each owner phase should use an atomic cumulative process CPU-time boundary to report wall time, per-role CPU time, and average core use
+    And each attribution invocation should use one request-wide cumulative process CPU-time boundary to report wall time, per-role CPU time, and average core use
+    And ordered browser-monotonic owner spans should distinguish provider delay and resident handoff, Runtime, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
+    And every boundary sample should pass the same 200-percent safety evaluation and require exact PID-set equality while any observed process identity change across the boundary or 250-millisecond samples should make attribution invalid
+    And an unobserved sub-interval helper should prevent request-wide OS CPU from becoming the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
     And exact Undo depth should use the Factory read-only history query rather than private transaction storage
     And ordinary Playwright discovery should exclude this guarded endpoint even when guard environment variables are present
     And the 250-millisecond CPU cadence should be armed before the immediate first sample
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
-    And a complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
-    And one test-owned CPU sample above 200 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
+    And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
+    And a local-attribution complete heartbeat should use a distinct proof kind, validate Actor A only, carry no Actor B report, and never create an accepted endpoint baseline
+    And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
+    And one test-owned interval CPU sample above 200 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
-    And each local attribution case should use a fresh browser invocation with no WebSocket server, no fileId, and Collaboration unavailable
-    And one guarded single-Actor 16-item cat-prefix case should first separate complete provider cold materialization from material canonical work
-    And only if that case crosses 200 percent should one equivalent reduced-motion control separate loading-compositor work from provider cold materialization
+    And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
+    And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider delay and handoff from material canonical and Render work
+    And only after that corrected interval case crosses 200 percent and stops should a bounded replan authorize one equivalent reduced-motion control
     And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider, runtime preparation, schema preparation, bounded preview, loading, Group, and first plural batch work
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
-    And the completed attribution should route to exactly one provider, Runtime, loading, local canonical, or receiver owner
+    And the completed attribution should route to exactly one Mock backend boundary, Runtime, loading, local canonical, or receiver owner
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
     And one endpoint should receive at most five materially revised architecture attempts
     But the same focused failure three times should stop earlier
+
+  Scenario: Two-Actor 16-item activity separates operation from settled idle
+    Given production build commands completed as separate setup outside the runtime guard
+    And the production App runtime starts through one preview and one WebSocket server
+    And Actor A and Actor B opened the same required fileId
+    And the exact 16-item Mock backend response was resident in Actor A before App and Agent readiness
+    And both Actors reached Collaboration readiness before the guard accepted the request baseline
+    When Actor A requests the two-Actor 16-item high-detail fixture
+    Then prompt fill, locator resolution, and actionability should have completed outside the product boundary
+    And App-owned request acceptance or dispatch should begin operation timing
+    And operation should run until Actor B canonical and Render counts are exactly 17
+    And Actor A should retain one Undo action while Actor B retains zero Undo, zero echo, and zero client persistence
+    And after Actor B completes both Actors should idle for exactly 10 seconds without another product action
+    And each Actor page-target should use CDP Performance threadTicks deltas for TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration
+    And those deltas should report page main-thread task occupancy rather than complete Actor CPU
+    And worker, GPU, browser, App server, WebSocket server, and harness work should remain in separate OS guard evidence
+    And operation timing should contain no Mock backend IndexedDB read or fixture materialization
+    And the 200-percent interval hard stop should remain active during operation and idle
+    And the case should use collaboration-attribution and should not create an accepted endpoint baseline
 
   Scenario: Exact-bounds loading state precedes local drawing
     Given one validated local AI composition has exact accepted workspace bounds
@@ -338,24 +387,54 @@ Feature: Conversational AI drawing performance
     And the consumer promise should resolve only after canonical apply completes
     And Actor B should create no Undo action
     And Actor B should create no echo publication
-    And Actor B should perform no persistence capture, provider save, or IndexedDB write
+    And Actor B should perform no persistence capture, provider save, or document IndexedDB write
 
   Scenario: Demo documents load empty without client persistence
-    Given an ordinary local demo or collaboration demo starts
+    Given an App-owned demo document session starts from one required fileId URL
     When RenderApp starts Core for the demo session
-    Then the ordinary local demo and each collaboration actor should load one canonical empty document after Core starts
-    And collaboration should connect only after its empty document is loaded
-    And the ordinary local demo should receive no client persistence provider
+    Then each actor should load one canonical empty document after Core starts
+    And Collaboration should connect only after its empty document is loaded
+    And the single-Actor session should receive no client persistence provider
     And Actor A should receive no client persistence provider
     And Actor B should receive no client persistence provider
-    And ordinary local actions, Undo, and Redo should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
-    And Actor A local actions, Undo, and Redo should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
-    And Actor B remote apply should perform no persistence capture, provider save, IndexedDB read, or IndexedDB write
+    And single-Actor local actions, Undo, and Redo should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
+    And Actor A local actions, Undo, and Redo should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
+    And Actor B remote apply should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
     But demo reload durability and server database checkpoints should remain outside this plan
+
+  Scenario: Required fileId selects the document without toggling Collaboration
+    Given RenderApp receives one required fileId URL
+    And that fileId selects the App-owned document session
+    When the first Actor connects after the document load
+    Then Collaboration should always be active for the opened document
+    And root dev:all and ordinary Playwright should make the reference WebSocket server ready before the App connects
+    And one Actor in that document session should be classified as single-Actor processing
+    When a second Actor opens the same fileId
+    Then both Actors should use the same collaboration room
+    And the session should be classified as two-Actor CRDT processing
+    But fileId should select the document and never toggle Collaboration
+    And a missing or empty fileId should not open a document session
+
+  Scenario: Required fileId preloads one server-prepared Mock backend response before App readiness
+    Given the test or manual harness acts as the Mock backend and validates, normalizes, summarizes, and compacts one exact model response
+    And it wrote that versioned server-prepared response to the dedicated IndexedDB before App navigation
+    And the required fileId selects that response independently from the empty canonical document
+    When App bootstrap begins
+    Then it should read only the exact 16, 320, 1280, or 7075-child response selected by fileId
+    And the selected response should be resident before App readiness, Agent readiness, and the stable performance baseline
+    And selecting a smaller response should not read, construct, or slice a larger response
+    And the canonical document should remain empty, noncanonical, and nonshared before Actor A sends a conversation request
+    When Actor A sends the response's expected request through the ordinary Agent route
+    Then the Mock provider should perform only the deterministic backend delay, resident request-contract verification, and server-prepared plan handoff
+    And request-time fixture IndexedDB access, import, fetch, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, compact encoding, materialization, slicing, and provider deep-freeze should remain zero
+    And fixture size should come from fileId rather than the prompt or a Runtime, Core, Render, or Collaboration flag
+    And Actor B should receive the drawing only through Actor A canonical CRDT publications
+    But the Mock backend response IndexedDB should remain separate from document persistence
+    And local actions, Undo, Redo, and remote apply should perform no document persistence capture, provider save, or document IndexedDB read or write
 
   Scenario: Fast Mock AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
-    And the default deterministic Mock AI CRDT fixture contains 16 items
+    And their required fileId selected the exact 16-item Mock backend response before App readiness
     When Actor A accepts the fixture through the ordinary Agent route
     Then both actors should converge on identical canonical ids, topology, hierarchy, and styles
     And Actor A should gain one Undo action while Actor B gains no local Undo action
@@ -364,15 +443,16 @@ Feature: Conversational AI drawing performance
     And the 7076-element two-window full recording should remain manual opt-in
 
   Scenario: One local interactive drawing run reports user-visible milestones
-    Given one production browser starts with one empty canonical document
-    And Contents, Collaboration, a second Actor, and IndexedDB are absent
+    Given one production browser starts with one required fileId and one empty canonical document
+    And Collaboration is ready for that App-owned document session
+    And Contents, a second Actor, peer relay, remote apply, request-time Mock backend IndexedDB, and document IndexedDB are absent
     And the URL resolves exact "aiDelivery=progressive"
     When the local Agent creates the 7112-element balanced composition once
     Then the report should name connected-DOM loading, first compositor paint opportunity, first-Vector, 25, 50, 75, 100 percent, longest work-unit, cooperative-yield-count, settled, Render, UI, and harness times
     And milestone observation should use bounded runtime counters instead of full canonical snapshot polling
     And one terminal exact summary should preserve all 7112 projections, exact detail, and one Undo action
     And synchronized visual review should inspect the real connected DOM loading state and final ordinary Vector output from that same live App state
-    But this local gate should not run a warm-up, repeat the high-detail creation, start CRDT, read IndexedDB, record video, or close deferred collaboration gates
+    But this single-Actor gate should not run a warm-up, repeat the high-detail creation, create Actor B, read Mock backend IndexedDB after readiness, read document IndexedDB, record video, or close deferred two-Actor collaboration gates
 
   Scenario: Balanced atomic creation meets the local budget
     Given the URL resolves exact "aiDelivery=atomic"
@@ -423,7 +503,7 @@ Feature: Conversational AI drawing performance
     Then it should receive detached canonical, history, Factory status, commit, and publication snapshots
     And dev-only "window.__Core__" should not satisfy production evidence
     And navigation, App readiness, collaboration readiness, Mock AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
-    And the harness should not open, poll, normalize, stringify, or hash IndexedDB
+    And after the pre-ready Mock backend response seed and lookup the harness should not open, poll, normalize, stringify, or hash document IndexedDB
 
   Scenario: Performance work preserves cancellation and failure semantics
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down
