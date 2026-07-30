@@ -132,6 +132,8 @@ const classifyProcessCommand = (command) => {
     lowerCommand.includes('vitest') ||
     lowerCommand.includes('tinypool') ||
     lowerCommand.includes('esbuild') ||
+    lowerCommand.includes('prettier') ||
+    lowerCommand.includes('/.yarn/releases/') ||
     lowerCommand.includes('performance-resource-guard') ||
     /(^|\s)yarn(\s|$)/u.test(lowerCommand)
   ) {

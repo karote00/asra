@@ -551,7 +551,7 @@ test('bounds every process-group CPU sample with a hard timeout', async () => {
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 20.0 node playwright test --guard-token=TOP-SECRET`,
+          `${TARGET_PGID} 1 ${TARGET_PGID} 20.0 node /repo/.yarn/releases/yarn-4.9.2.cjs prettier --check --guard-token=TOP-SECRET`,
           `${TARGET_PGID + 1} ${TARGET_PGID} ${TARGET_PGID} 40.0 node dist/collaboration-server/collaboration-server.js`,
           `${TARGET_PGID + 2} ${TARGET_PGID} ${TARGET_PGID} 30.0 node node_modules/vite/bin/vite.js preview`,
           `${TARGET_PGID + 3} ${TARGET_PGID} ${TARGET_PGID} 30.0 /Applications/chrome-headless-shell --type=renderer`,
@@ -599,7 +599,7 @@ test('bounds every process-group CPU sample with a hard timeout', async () => {
       },
       {
         cpuPercent: 20,
-        executable: 'node',
+        executable: 'yarn',
         parentPid: 1,
         pid: TARGET_PGID,
         role: 'test-harness'
