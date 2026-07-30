@@ -10,7 +10,6 @@ export type AsyraDesignAiConversationOutcome =
   | 'no-change'
   | 'partial'
   | 'success'
-  | 'unavailable'
 
 export interface AsyraDesignAiTargetHints {
   readonly compositionId: string | null
@@ -260,9 +259,6 @@ const outcomeForResult = (
   }
   if (!isPlainObject(result)) {
     return 'failed'
-  }
-  if (result.status === 'unavailable') {
-    return 'unavailable'
   }
   if (result.status === 'cancelled') {
     return 'cancelled'

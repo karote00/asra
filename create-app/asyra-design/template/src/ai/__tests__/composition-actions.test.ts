@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET,
+  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
   ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET,
   AsyraDesignAiActionError,
   AsyraDesignAiActionNames,
   createAsyraDesignAiActions,
   type AsyraDesignAiCompositionItem,
-  type InsertVectorCompositionArgs
+  type ServerPreparedCompositionItem,
+  type ServerPreparedCompositionPath,
+  type ServerPreparedInsertVectorCompositionArgs
 } from '../actions'
 
 const mutationOptions = {
-  sharedDelivery: 'transaction-end',
-  undoable: true
-} as const
-const progressiveMutationOptions = {
   sharedDelivery: 'immediate',
   undoable: true
 } as const
@@ -83,7 +83,6 @@ const actionByName = (
   name: string,
   apis: ReturnType<typeof actionApis>,
   options?: {
-    readonly deliveryMode?: 'atomic' | 'progressive'
     readonly yieldToHost?: () => Promise<void>
   }
 ) => {
@@ -104,9 +103,10 @@ const createServerPreparedInsertArguments = (value: {
   readonly compositionRole: string
   readonly items: readonly AsyraDesignAiCompositionItem[]
   readonly parent: 'workspace'
-}): InsertVectorCompositionArgs => {
-  const items: AsyraDesignAiCompositionItem[] = []
-  const itemPointCounts: number[] = []
+}): ServerPreparedInsertVectorCompositionArgs => {
+  const coordinates: number[] = []
+  const items: ServerPreparedCompositionItem[] = []
+  const paths: ServerPreparedCompositionPath[] = []
   const skipped: {
     readonly reason: 'duplicate-role'
     readonly role: string
@@ -121,12 +121,47 @@ const createServerPreparedInsertArguments = (value: {
       continue
     }
     roles.add(item.role)
-    items.push(item)
-    itemPointCounts.push(
-      item.paths?.reduce((count, path) => count + path.points.length, 0) ??
-        item.points?.length ??
-        0
-    )
+
+    const pathStart = paths.length
+    const sourcePaths =
+      item.primitive === 'vector'
+        ? (item.paths ?? [
+            {
+              closed: item.closed === true,
+              points: item.points ?? []
+            }
+          ])
+        : []
+    let pointCount = 0
+    for (const path of sourcePaths) {
+      const coordinateOffset = coordinates.length
+      for (const point of path.points) {
+        coordinates.push(point.x, point.y)
+      }
+      pointCount += path.points.length
+      paths.push({
+        closed: path.closed,
+        coordinateOffset,
+        pointCount: path.points.length
+      })
+    }
+    items.push({
+      bounds: item.bounds,
+      pathCount: sourcePaths.length,
+      pathStart,
+      pointCount,
+      primitive: item.primitive,
+      role: item.role,
+      style: item.style,
+      ...(item.primitive === 'vector'
+        ? {
+            vectorEncoding:
+              item.paths === undefined
+                ? ('points' as const)
+                : ('paths' as const)
+          }
+        : {})
+    })
   }
   if (items.length === 0) {
     throw new Error('The server-prepared test batch requires one item.')
@@ -146,11 +181,17 @@ const createServerPreparedInsertArguments = (value: {
     }
   }, items[0].bounds)
   return {
+    artifactVersion: 1,
     compositionRole: value.compositionRole,
+    coordinates: new Float64Array(coordinates).buffer,
     groupBounds,
-    itemPointCounts,
     items,
     parent: value.parent,
+    paths,
+    pointCount: items.reduce(
+      (totalPointCount, item) => totalPointCount + item.pointCount,
+      0
+    ),
     skipped
   }
 }
@@ -204,7 +245,8 @@ describe('Asyra Design AI composition action definitions', () => {
       parent: 'workspace'
     })
 
-    expect(prepared).toEqual({
+    expect(prepared).toMatchObject({
+      artifactVersion: 1,
       compositionRole: 'cat-face',
       groupBounds: {
         height: 94,
@@ -212,11 +254,38 @@ describe('Asyra Design AI composition action definitions', () => {
         x: 472,
         y: 300
       },
-      itemPointCounts: [0, 2],
-      items: [ovalItem('face'), vectorItem('right-whisker-2')],
+      items: [
+        {
+          pathCount: 0,
+          pathStart: 0,
+          pointCount: 0,
+          primitive: 'oval',
+          role: 'face'
+        },
+        {
+          pathCount: 1,
+          pathStart: 0,
+          pointCount: 2,
+          primitive: 'vector',
+          role: 'right-whisker-2',
+          vectorEncoding: 'points'
+        }
+      ],
       parent: 'workspace',
+      paths: [
+        {
+          closed: false,
+          coordinateOffset: 0,
+          pointCount: 2
+        }
+      ],
+      pointCount: 2,
       skipped: []
     })
+    expect(prepared.coordinates).toBeInstanceOf(ArrayBuffer)
+    expect([...new Float64Array(prepared.coordinates)]).toEqual([
+      630, 394, 472, 372
+    ])
   })
 })
 
@@ -296,44 +365,7 @@ describe('Asyra Design AI composition action execution', () => {
     expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
-  it('streams a large accepted composition through ordered batches into one Group', async () => {
-    const apis = actionApis()
-    const items = Array.from({ length: 513 }, (_, index) =>
-      vectorItem(`fur-${index}`)
-    )
-    apis.createCompositionElements.mockImplementation(
-      (batch: readonly AsyraDesignAiCompositionItem[]) =>
-        batch.map(({ role }) => `${role}-id`)
-    )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
-
-    await expect(
-      executeServerPrepared(
-        action,
-        {
-          compositionRole: 'cat-face',
-          items,
-          parent: 'workspace'
-        },
-        executionContext()
-      )
-    ).resolves.toMatchObject({
-      appliedElementIds: items.map(({ role }) => `${role}-id`),
-      compositionId: 'cat-group-id',
-      status: 'complete'
-    })
-    expect(apis.createCompositionElements.mock.calls.length).toBeGreaterThan(1)
-    expect(
-      apis.createCompositionElements.mock.calls.flatMap(([batch]) => batch)
-    ).toEqual(items)
-    expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
-    expect(apis.groupElements).not.toHaveBeenCalled()
-  })
-
-  it('publishes progressive creation through the existing ordered batches without splitting undo', async () => {
+  it('publishes ordered creation slices without splitting the outer action or Undo', async () => {
     const apis = actionApis()
     const items = Array.from({ length: 513 }, (_, index) =>
       vectorItem(`fur-${index}`)
@@ -347,7 +379,6 @@ describe('Asyra Design AI composition action execution', () => {
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis,
       {
-        deliveryMode: 'progressive',
         yieldToHost
       }
     )
@@ -364,13 +395,16 @@ describe('Asyra Design AI composition action execution', () => {
 
     expect(apis.createCompositionGroup).toHaveBeenCalledWith(
       expect.any(Object),
-      progressiveMutationOptions
+      mutationOptions
     )
-    expect(apis.createCompositionElements).toHaveBeenCalledTimes(3)
+    expect(
+      apis.createCompositionElements.mock.calls.map(([batch]) => batch.length)
+    ).toEqual([...Array.from({ length: 8 }, () => 64), 1])
     apis.createCompositionElements.mock.calls.forEach((call) => {
-      expect(call[2]).toEqual(progressiveMutationOptions)
+      expect(call[2]).toEqual(mutationOptions)
     })
-    expect(yieldToHost).toHaveBeenCalledTimes(3)
+    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET).toBe(64)
+    expect(yieldToHost).toHaveBeenCalledTimes(9)
   })
 
   it('uses a point-aware progressive soft budget without rejecting an intact over-target element', async () => {
@@ -389,7 +423,6 @@ describe('Asyra Design AI composition action execution', () => {
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       progressiveApis,
       {
-        deliveryMode: 'progressive',
         yieldToHost: async () => undefined
       }
     )
@@ -405,48 +438,22 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     expect(
-      progressiveApis.createCompositionElements.mock.calls.map(
-        ([batch]) => batch
+      progressiveApis.createCompositionElements.mock.calls.map(([batch]) =>
+        batch.map(({ role }) => role)
       )
-    ).toEqual([[items[0]], [items[1], items[2]], [items[3]]])
+    ).toEqual([['detail-1'], ['detail-2', 'detail-3', 'detail-over-target']])
     expect(
-      progressiveApis.createCompositionElements.mock.calls.flatMap(
-        ([batch]) => batch
+      progressiveApis.createCompositionElements.mock.calls.flatMap(([batch]) =>
+        batch.map(({ role }) => role)
       )
-    ).toEqual(items)
+    ).toEqual(items.map(({ role }) => role))
     expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET).toBe(2048)
-
-    const atomicApis = actionApis()
-    atomicApis.createCompositionElements.mockImplementation(
-      (batch: readonly AsyraDesignAiCompositionItem[]) =>
-        batch.map(({ role }) => `${role}-id`)
-    )
-    const atomic = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      atomicApis
-    )
-
-    await executeServerPrepared(
-      atomic,
-      {
-        compositionRole: 'cat-face',
-        items,
-        parent: 'workspace'
-      },
-      executionContext()
-    )
-
-    expect(atomicApis.createCompositionElements).toHaveBeenCalledOnce()
-    expect(atomicApis.createCompositionElements).toHaveBeenCalledWith(
-      items,
-      expect.any(Object),
-      mutationOptions
-    )
+    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET).toBe(8192)
   })
 
-  it('creates the canonical group before streaming ordered batches without post-hoc regrouping', async () => {
+  it('creates the canonical group before one ordered child batch without post-hoc regrouping', async () => {
     const apis = actionApis()
-    const items = Array.from({ length: 513 }, (_, index) =>
+    const items = Array.from({ length: 2 }, (_, index) =>
       vectorItem(`fur-${index}`)
     )
     apis.createCompositionGroup.mockReturnValue('cat-group-id')
@@ -481,7 +488,7 @@ describe('Asyra Design AI composition action execution', () => {
     expect(
       apis.createCompositionGroup.mock.invocationCallOrder[0]
     ).toBeLessThan(apis.createCompositionElements.mock.invocationCallOrder[0])
-    expect(apis.createCompositionElements.mock.calls.length).toBeGreaterThan(1)
+    expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(apis.createCompositionElements).toHaveBeenCalledWith(
       expect.any(Array),
       {
@@ -599,8 +606,20 @@ describe('Asyra Design AI composition action execution', () => {
         x: 472,
         y: 300
       },
-      itemPointCounts: [0, 2],
-      items: [ovalItem('face'), vectorItem('right-whisker-2')],
+      items: [
+        {
+          pathCount: 0,
+          pointCount: 0,
+          role: 'face'
+        },
+        {
+          pathCount: 1,
+          pointCount: 2,
+          role: 'right-whisker-2',
+          vectorEncoding: 'points'
+        }
+      ],
+      pointCount: 2,
       skipped: [
         {
           reason: 'duplicate-role',
@@ -724,7 +743,6 @@ describe('Asyra Design AI composition action execution', () => {
       AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
-        deliveryMode: 'progressive',
         yieldToHost
       }
     )
@@ -754,13 +772,13 @@ describe('Asyra Design AI composition action execution', () => {
       1,
       'whisker-left',
       '#2563EB',
-      progressiveMutationOptions
+      mutationOptions
     )
     expect(apis.updateElementStrokeColor).toHaveBeenNthCalledWith(
       2,
       'whisker-right',
       '#2563EB',
-      progressiveMutationOptions
+      mutationOptions
     )
     expect(yieldToHost).toHaveBeenCalledTimes(2)
   })
@@ -777,7 +795,6 @@ describe('Asyra Design AI composition action execution', () => {
       AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
-        deliveryMode: 'progressive',
         yieldToHost
       }
     )

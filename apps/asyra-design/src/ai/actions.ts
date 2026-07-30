@@ -49,20 +49,14 @@ export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET = 2048
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET = 8192
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET = 64
 
-export type AsyraDesignAiDeliveryMode = 'atomic' | 'progressive'
-
 export interface CreateAsyraDesignAiActionsOptions {
-  readonly deliveryMode?: AsyraDesignAiDeliveryMode
   readonly waitForPaint?: () => Promise<void>
   readonly yieldToHost?: () => Promise<void>
 }
 
-const createAiMutationOptions = (
-  deliveryMode: AsyraDesignAiDeliveryMode
-): EVENT_OPTIONS =>
+const createAiMutationOptions = (): EVENT_OPTIONS =>
   Object.freeze({
-    sharedDelivery:
-      deliveryMode === 'progressive' ? 'immediate' : 'transaction-end',
+    sharedDelivery: 'immediate',
     undoable: true
   })
 
@@ -656,12 +650,9 @@ const crossesVisiblePaintMilestone = (
 const createCompositionActions = (
   apis: AsyraDesignAiActionApis,
   mutationOptions: EVENT_OPTIONS,
-  deliveryMode: AsyraDesignAiDeliveryMode,
   hostYield: () => Promise<void>,
-  paintYield: () => Promise<void>,
-  progressiveYield: (() => Promise<void>) | null
+  paintYield: () => Promise<void>
 ): readonly AiActionDefinition[] => {
-  const compositionMutationOptions = createAiMutationOptions(deliveryMode)
   const insert: AiActionDefinition<ServerPreparedInsertVectorCompositionArgs> =
     Object.freeze({
       description:
@@ -690,11 +681,7 @@ const createCompositionActions = (
 
           const groupId = measureBrowserDragPhase(
             'ai-app:create-composition-group',
-            () =>
-              apis.createCompositionGroup(
-                groupBounds,
-                compositionMutationOptions
-              )
+            () => apis.createCompositionGroup(groupBounds, mutationOptions)
           )
           if (!groupId) {
             throw new AsyraDesignAiCompositionError(
@@ -714,17 +701,11 @@ const createCompositionActions = (
 
           while (sliceStart < itemCount) {
             assertNotAborted(context)
-            const { end, start } =
-              deliveryMode === 'progressive'
-                ? getNextProgressiveCompositionSliceRange(
-                    items,
-                    sliceStart,
-                    pointBudget
-                  )
-                : {
-                    end: itemCount,
-                    start: sliceStart
-                  }
+            const { end, start } = getNextProgressiveCompositionSliceRange(
+              items,
+              sliceStart,
+              pointBudget
+            )
             const previousCompletedElements = appliedElementIds.length
             const batchItems = materializeServerPreparedCompositionSlice(
               args,
@@ -738,7 +719,7 @@ const createCompositionActions = (
                 apis.createCompositionElements(
                   batchItems,
                   parent,
-                  compositionMutationOptions
+                  mutationOptions
                 )
             )
             if (!createdElementIds) {
@@ -994,12 +975,10 @@ const createCompositionActions = (
               )
             })
             appliedElementIds.push(operation.elementId)
-            if (progressiveYield) {
-              await measureBrowserDragAsyncPhase(
-                'ai-app:progressive-host-yield',
-                progressiveYield
-              )
-            }
+            await measureBrowserDragAsyncPhase(
+              'ai-app:progressive-host-yield',
+              hostYield
+            )
             continue
           }
           const vectorScale = operation.vectorScale
@@ -1027,12 +1006,10 @@ const createCompositionActions = (
             )
             if (applied) {
               appliedElementIds.push(operation.elementId)
-              if (progressiveYield) {
-                await measureBrowserDragAsyncPhase(
-                  'ai-app:progressive-host-yield',
-                  progressiveYield
-                )
-              }
+              await measureBrowserDragAsyncPhase(
+                'ai-app:progressive-host-yield',
+                hostYield
+              )
             } else {
               skipped.push(
                 Object.freeze({
@@ -1136,10 +1113,10 @@ const createCompositionActions = (
               })
             )
           })
-          if (appliedBatchCount > 0 && progressiveYield) {
+          if (appliedBatchCount > 0) {
             await measureBrowserDragAsyncPhase(
               'ai-app:progressive-host-yield',
-              progressiveYield
+              hostYield
             )
           }
         }
@@ -1233,12 +1210,10 @@ export const createAsyraDesignAiActions = (
   apis: AsyraDesignAiActionApis = defaultApis,
   options: CreateAsyraDesignAiActionsOptions = {}
 ): readonly AiActionDefinition[] => {
-  const deliveryMode = options.deliveryMode ?? 'progressive'
-  const mutationOptions = createAiMutationOptions(deliveryMode)
+  const mutationOptions = createAiMutationOptions()
   const hostYield = options.yieldToHost ?? yieldToHost
   const paintYield =
     options.waitForPaint ?? options.yieldToHost ?? waitForBrowserPaint
-  const progressiveYield = deliveryMode === 'progressive' ? hostYield : null
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
       name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
@@ -1335,14 +1310,7 @@ export const createAsyraDesignAiActions = (
 
   return Object.freeze([
     drawingDetailChoice,
-    ...createCompositionActions(
-      apis,
-      mutationOptions,
-      deliveryMode,
-      hostYield,
-      paintYield,
-      progressiveYield
-    ),
+    ...createCompositionActions(apis, mutationOptions, hostYield, paintYield),
     visibility,
     selection
   ])

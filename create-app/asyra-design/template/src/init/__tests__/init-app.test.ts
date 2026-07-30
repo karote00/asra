@@ -24,8 +24,9 @@ const createInitializedAiFeature = () => ({
     api: {
       cancel: vi.fn(() => false),
       execute: vi.fn(async () => ({
-        reason: 'provider-disabled',
-        status: 'unavailable'
+        code: 'AI_PROVIDER_TRANSPORT_FAILED',
+        stage: 'provider',
+        status: 'failed'
       }))
     },
     dispose: vi.fn(() => true)
@@ -98,18 +99,11 @@ describe('initApp preset composition', () => {
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
     expect(features.initFeatures).toHaveBeenCalledWith({
-      ai: {
-        enabled: true,
-        providerEnabled: true,
-        runtime: expect.objectContaining({
-          run: expect.any(Function)
-        })
-      }
+      aiRuntime: expect.objectContaining({
+        run: expect.any(Function)
+      })
     })
-    expect(initialization.aiRuntime).toMatchObject({
-      enabled: true,
-      providerEnabled: true
-    })
+    expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
     expect(initialization.aiHistory).not.toBeNull()
     expect(window.__AsyraE2E__).toEqual({
@@ -147,17 +141,14 @@ describe('initApp preset composition', () => {
 
     const initialization = initApp({ serverResponse: response })
 
-    expect(createAiStartup).toHaveBeenCalledWith({
-      deliveryMode: 'progressive',
-      response
-    })
+    expect(createAiStartup).toHaveBeenCalledWith({ response })
 
     await initialization.dispose()
   })
 
-  it('fails startup instead of rendering an App without its required Agent feature', () => {
-    vi.spyOn(features, 'initFeatures').mockReturnValue({
-      ai: null
+  it('propagates required Agent Feature initialization failure', () => {
+    vi.spyOn(features, 'initFeatures').mockImplementation(() => {
+      throw new Error('[Asyra Design] Agent feature failed to initialize')
     })
 
     expect(() => initApp({ serverResponse: null })).toThrow(
@@ -167,31 +158,25 @@ describe('initApp preset composition', () => {
 
   it('constructs the complete production Agent composition by default', async () => {
     const disposeFeature = vi.fn(() => true)
-    vi.spyOn(features, 'initFeatures').mockImplementation((options) => ({
-      ai: options.ai?.enabled
-        ? {
-            api: {
-              cancel: vi.fn(() => false),
-              execute: vi.fn(async () => ({
-                reason: 'provider-disabled',
-                status: 'unavailable'
-              }))
-            },
-            dispose: disposeFeature
-          }
-        : null
+    vi.spyOn(features, 'initFeatures').mockImplementation(() => ({
+      ai: {
+        api: {
+          cancel: vi.fn(() => false),
+          execute: vi.fn(async () => ({
+            code: 'AI_PROVIDER_TRANSPORT_FAILED',
+            stage: 'provider',
+            status: 'failed'
+          }))
+        },
+        dispose: disposeFeature
+      }
     }))
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
 
     const initialization = initApp({ serverResponse: null })
 
-    expect(initialization).toMatchObject({
-      aiRuntime: {
-        enabled: true,
-        providerEnabled: true
-      }
-    })
+    expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
     expect(initialization.aiConversation).not.toBeNull()
     expect(initialization.aiHistory).not.toBeNull()
@@ -226,7 +211,6 @@ describe('Asyra Design outer startup', () => {
       aiConfirmation: {},
       aiConversation: {},
       aiHistory: {},
-      aiRuntime: {},
       dispose: vi.fn()
     }) as ReturnType<typeof initApp>
 
@@ -264,7 +248,6 @@ describe('Asyra Design outer startup', () => {
     })
     const start = startAsyraDesignApp(
       {
-        deliveryMode: 'progressive',
         render
       },
       {
@@ -294,7 +277,6 @@ describe('Asyra Design outer startup', () => {
     expect(readServerResponse).toHaveBeenCalledOnce()
     expect(readServerResponse).toHaveBeenCalledWith('file-fast-16')
     expect(initializeApp).toHaveBeenCalledWith({
-      aiDeliveryMode: 'progressive',
       serverResponse: response
     })
     expect(render).toHaveBeenCalledWith(initialization)
@@ -308,7 +290,6 @@ describe('Asyra Design outer startup', () => {
     await expect(
       startAsyraDesignApp(
         {
-          deliveryMode: 'progressive',
           render
         },
         {
@@ -336,7 +317,6 @@ describe('Asyra Design outer startup', () => {
     await expect(
       startAsyraDesignApp(
         {
-          deliveryMode: 'progressive',
           render
         },
         {

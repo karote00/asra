@@ -9,11 +9,8 @@ import {
   systemContextApis,
   transactionApis
 } from '../../common-apis'
-import {
-  AsyraDesignAiActionNames,
-  type AsyraDesignAiDeliveryMode
-} from '../actions'
-import { createAsyraDesignAiRuntimeInput } from '../composition'
+import { AsyraDesignAiActionNames } from '../actions'
+import { createAsyraDesignAiRuntimeInput } from '../runtime-input'
 import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
 import { createAsyraDesignServerActionBatchProvider } from '../server-action-batch-provider'
 import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
@@ -151,16 +148,12 @@ const prepareCommonApis = () => {
   )
 }
 
-const executeBatch = async (
-  batch: AiActionBatch,
-  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
-) => {
+const executeBatch = async (batch: AiActionBatch) => {
   const provider = createAsyraDesignServerActionBatchProvider(
     serverResponse(batch)
   )
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
-      deliveryMode,
       permissionRules: {
         [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
         [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
@@ -236,35 +229,6 @@ describe('Asyra Design server action-batch runtime integration', () => {
       'shape-1',
       false,
       {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-    expect(selectionApis.selectElements).toHaveBeenCalledWith(
-      ['shape-1', 'shape-2'],
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-  })
-
-  it('uses ordinary immediate delivery for one progressive runtime batch', async () => {
-    await expect(
-      executeBatch(referenceBatch(), 'progressive')
-    ).resolves.toMatchObject({
-      batchId: 'reference-batch',
-      status: 'executed',
-      transaction: {
-        status: 'committed'
-      }
-    })
-
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.setElementVisible).toHaveBeenCalledWith(
-      'shape-1',
-      false,
-      {
         sharedDelivery: 'immediate',
         undoable: true
       }
@@ -310,16 +274,11 @@ describe('Asyra Design server action-batch runtime integration', () => {
     ).toHaveLength(16)
   })
 
-  it('keeps AI enabled without a resident response and fails only on request', async () => {
+  it('keeps the runtime available without a resident response and fails only on request', async () => {
     const startup = createAsyraDesignAiStartup({
-      deliveryMode: 'progressive',
       response: null
     })
-    const createRuntimeInput = startup.runtimeOptions.createRuntimeInput
-    if (!createRuntimeInput) {
-      throw new Error('Agent startup must provide one runtime input.')
-    }
-    const runtime = createAiAgentRuntime(createRuntimeInput())
+    const runtime = startup.runtime
 
     try {
       await expect(

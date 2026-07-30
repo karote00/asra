@@ -31,8 +31,7 @@ describe('Asyra Design AI startup', () => {
 
     const startup = createAsyraDesignAiStartup(
       {
-        response,
-        deliveryMode: 'progressive'
+        response
       },
       {
         createConfirmation: vi.fn(() => confirmation as never),
@@ -43,21 +42,22 @@ describe('Asyra Design AI startup', () => {
 
     expect(createProvider).toHaveBeenCalledWith(response)
     expect(startup).not.toHaveProperty('mode')
-    expect(startup.runtimeOptions).toMatchObject({
-      createRuntimeInput: expect.any(Function),
-      enabled: true,
-      providerEnabled: true
+    expect(startup.runtime).toMatchObject({
+      dispose: expect.any(Function),
+      run: expect.any(Function)
     })
-    expect(startup.runtimeOptions.createRuntimeInput?.()).toMatchObject({
-      provider
-    })
+    expect(startup).not.toHaveProperty('runtimeOptions')
+    expect(startup).not.toHaveProperty('providerEnabled')
+
+    void startup.runtime.dispose()
+    void startup.confirmation.dispose()
+    startup.history.dispose()
   })
 
-  it('keeps AI enabled when the exact inbox record is absent', () => {
+  it('constructs the same runtime when the exact inbox record is absent', () => {
     const startup = createAsyraDesignAiStartup(
       {
-        response: null,
-        deliveryMode: 'progressive'
+        response: null
       },
       {
         createConfirmation: vi.fn(() => ({}) as never),
@@ -68,9 +68,45 @@ describe('Asyra Design AI startup', () => {
       }
     )
 
-    expect(startup.runtimeOptions).toMatchObject({
-      enabled: true,
-      providerEnabled: true
+    expect(startup.runtime).toMatchObject({
+      dispose: expect.any(Function),
+      run: expect.any(Function)
     })
+
+    void startup.runtime.dispose()
+  })
+
+  it('disposes startup-owned resources when provider construction fails', () => {
+    const disposeConfirmation = vi.fn(async () => undefined)
+    const disposeHistory = vi.fn()
+
+    expect(() =>
+      createAsyraDesignAiStartup(
+        {
+          response
+        },
+        {
+          createConfirmation: vi.fn(
+            () =>
+              ({
+                dispose: disposeConfirmation,
+                requestConfirmation: vi.fn()
+              }) as never
+          ),
+          createHistory: vi.fn(
+            () =>
+              ({
+                dispose: disposeHistory
+              }) as never
+          ),
+          createProvider: vi.fn(() => {
+            throw new Error('provider construction failed')
+          })
+        }
+      )
+    ).toThrow('provider construction failed')
+
+    expect(disposeHistory).toHaveBeenCalledOnce()
+    expect(disposeConfirmation).toHaveBeenCalledOnce()
   })
 })

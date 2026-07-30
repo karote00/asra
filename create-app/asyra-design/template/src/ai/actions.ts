@@ -37,27 +37,55 @@ export { AsyraDesignAiActionNames } from '../constants'
 
 export const ASYRA_DESIGN_AI_SELECTION_LIMIT = 100
 export const ASYRA_DESIGN_AI_WORKSPACE_LIMIT = 2048
-export const ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET = 2048
-
-export type AsyraDesignAiDeliveryMode = 'atomic' | 'progressive'
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET = 8192
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET = 64
 
 export interface CreateAsyraDesignAiActionsOptions {
-  readonly deliveryMode?: AsyraDesignAiDeliveryMode
   readonly yieldToHost?: () => Promise<void>
 }
 
-const createAiMutationOptions = (
-  deliveryMode: AsyraDesignAiDeliveryMode
-): EVENT_OPTIONS =>
-  Object.freeze({
-    sharedDelivery:
-      deliveryMode === 'progressive' ? 'immediate' : 'transaction-end',
-    undoable: true
-  })
+const AI_MUTATION_OPTIONS: EVENT_OPTIONS = Object.freeze({
+  sharedDelivery: 'immediate',
+  undoable: true
+})
 
-const yieldToHost = (): Promise<void> =>
-  new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+interface CooperativeTaskScheduler {
+  yield?: () => Promise<void>
+}
+
+const yieldToHost = (): Promise<void> => {
+  const scheduler = (
+    globalThis as typeof globalThis & {
+      scheduler?: CooperativeTaskScheduler
+    }
+  ).scheduler
+  if (typeof scheduler?.yield === 'function') {
+    return scheduler.yield()
+  }
+
+  if (typeof globalThis.MessageChannel === 'function') {
+    return new Promise((resolve) => {
+      const channel = new globalThis.MessageChannel()
+      channel.port1.onmessage = () => {
+        channel.port1.close()
+        channel.port2.close()
+        resolve()
+      }
+      channel.port2.postMessage(undefined)
+    })
+  }
+
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    return new Promise((resolve) => {
+      globalThis.requestAnimationFrame(() => resolve())
+    })
+  }
+
+  return Promise.reject(
+    new Error('This environment does not support cooperative host scheduling.')
+  )
+}
 
 export interface SetElementVisibilityArgs {
   readonly elementId: string
@@ -103,12 +131,32 @@ export interface AsyraDesignAiCompositionItem {
   readonly style: AsyraDesignAiCompositionStyle
 }
 
-export interface InsertVectorCompositionArgs {
+export interface ServerPreparedCompositionItem {
+  readonly bounds: AsyraDesignAiCompositionBounds
+  readonly pathCount: number
+  readonly pathStart: number
+  readonly pointCount: number
+  readonly primitive: 'oval' | 'vector'
+  readonly role: string
+  readonly style: AsyraDesignAiCompositionStyle
+  readonly vectorEncoding?: 'paths' | 'points'
+}
+
+export interface ServerPreparedCompositionPath {
+  readonly closed: boolean
+  readonly coordinateOffset: number
+  readonly pointCount: number
+}
+
+export interface ServerPreparedInsertVectorCompositionArgs {
+  readonly artifactVersion: 1
   readonly compositionRole: string
+  readonly coordinates: ArrayBuffer
   readonly groupBounds: AsyraDesignAiCompositionBounds
-  readonly itemPointCounts: readonly number[]
-  readonly items: readonly AsyraDesignAiCompositionItem[]
+  readonly items: readonly ServerPreparedCompositionItem[]
   readonly parent: 'workspace'
+  readonly paths: readonly ServerPreparedCompositionPath[]
+  readonly pointCount: number
   readonly skipped: readonly {
     readonly reason: 'duplicate-role'
     readonly role: string
@@ -163,7 +211,7 @@ export interface AsyraDesignAiActionApis {
       readonly workspaceOrigin: AsyraDesignAiCompositionPoint
     },
     options?: EVENT_OPTIONS
-  ): readonly (string | null)[]
+  ): readonly string[] | null
   createCompositionGroup(
     bounds: AsyraDesignAiCompositionBounds,
     options?: EVENT_OPTIONS
@@ -366,9 +414,10 @@ const createCompositionElements = (
     readonly workspaceOrigin: AsyraDesignAiCompositionPoint
   },
   options?: EVENT_OPTIONS
-): readonly (string | null)[] =>
-  elementApis.createElements(
+): readonly string[] | null =>
+  elementApis.createElementsInParent(
     items.map((item) => createCompositionElementOptions(item, parent)),
+    parent.id,
     options
   )
 
@@ -428,46 +477,115 @@ const statusForMutation = (
   return skippedCount > 0 ? 'partial' : 'complete'
 }
 
-const getProgressiveCompositionBatchEnd = (
-  itemPointCounts: readonly number[],
-  start: number
-): number => {
-  let batchPointCount = 0
+interface ProgressiveCompositionSliceRange {
+  readonly end: number
+  readonly start: number
+}
+
+const materializeServerPreparedPath = (
+  path: ServerPreparedCompositionPath,
+  coordinates: Float64Array
+): AsyraDesignAiCompositionPath => {
+  const points: AsyraDesignAiCompositionPoint[] = []
+  for (let index = 0; index < path.pointCount; index += 1) {
+    const coordinateIndex = path.coordinateOffset + index * 2
+    points.push({
+      x: coordinates[coordinateIndex],
+      y: coordinates[coordinateIndex + 1]
+    })
+  }
+  return {
+    closed: path.closed,
+    points
+  }
+}
+
+const materializeServerPreparedCompositionSlice = (
+  artifact: ServerPreparedInsertVectorCompositionArgs,
+  coordinates: Float64Array,
+  start: number,
+  end: number
+): readonly AsyraDesignAiCompositionItem[] => {
+  const items: AsyraDesignAiCompositionItem[] = []
+  for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
+    const item = artifact.items[itemIndex]
+    if (item.primitive === 'oval') {
+      items.push({
+        bounds: item.bounds,
+        primitive: item.primitive,
+        role: item.role,
+        style: item.style
+      })
+      continue
+    }
+
+    const paths: AsyraDesignAiCompositionPath[] = []
+    const pathEnd = item.pathStart + item.pathCount
+    for (let pathIndex = item.pathStart; pathIndex < pathEnd; pathIndex += 1) {
+      paths.push(
+        materializeServerPreparedPath(artifact.paths[pathIndex], coordinates)
+      )
+    }
+    if (item.vectorEncoding === 'points') {
+      const path = paths[0]
+      items.push({
+        bounds: item.bounds,
+        closed: path.closed,
+        points: path.points,
+        primitive: item.primitive,
+        role: item.role,
+        style: item.style
+      })
+      continue
+    }
+    items.push({
+      bounds: item.bounds,
+      paths,
+      primitive: item.primitive,
+      role: item.role,
+      style: item.style
+    })
+  }
+  return items
+}
+
+const getNextProgressiveCompositionSliceRange = (
+  items: readonly ServerPreparedCompositionItem[],
+  start: number,
+  pointBudget: number
+): ProgressiveCompositionSliceRange => {
+  let pointCount = 0
   let end = start
   while (
-    end < itemPointCounts.length &&
-    end - start < ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE
+    end < items.length &&
+    end - start < ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET
   ) {
-    const itemPointCount = itemPointCounts[end]
-    if (
-      end > start &&
-      batchPointCount + itemPointCount >
-        ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
-    ) {
+    const itemPointCount = items[end].pointCount
+    if (end > start && pointCount + itemPointCount > pointBudget) {
       break
     }
-    batchPointCount += itemPointCount
+    pointCount += itemPointCount
     end += 1
   }
-  return end
+  return { end, start }
 }
 
 const createCompositionActions = (
   apis: AsyraDesignAiActionApis,
   mutationOptions: EVENT_OPTIONS,
-  deliveryMode: AsyraDesignAiDeliveryMode,
-  progressiveYield: (() => Promise<void>) | null
+  cooperativeYield: () => Promise<void>
 ): readonly AiActionDefinition[] => {
-  const insert: AiActionDefinition<InsertVectorCompositionArgs> = Object.freeze(
-    {
+  const insert: AiActionDefinition<ServerPreparedInsertVectorCompositionArgs> =
+    Object.freeze({
       description:
-        'Insert server-prepared editable oval or vector elements as one grouped composition.',
+        'Insert one server-prepared compact editable composition through the ordinary grouped element route.',
       execute: async (
-        args: InsertVectorCompositionArgs,
+        args: ServerPreparedInsertVectorCompositionArgs,
         context: AiExecutionContext
       ) => {
-        const { groupBounds, itemPointCounts, items: accepted, skipped } = args
-
+        assertNotAborted(context)
+        const { groupBounds, items, skipped } = args
+        const itemCount = items.length
         const appliedElementIds: string[] = []
         const roleToElementIds: Record<string, readonly string[]> = {}
         const pupils: string[] = []
@@ -488,25 +606,41 @@ const createCompositionActions = (
             y: groupBounds.y
           })
         })
-        let offset = 0
-        while (offset < accepted.length) {
+        const coordinates = new Float64Array(args.coordinates)
+        let sliceStart = 0
+        let pointBudget = ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
+
+        while (sliceStart < itemCount) {
           assertNotAborted(context)
-          const batchEnd =
-            deliveryMode === 'progressive'
-              ? getProgressiveCompositionBatchEnd(itemPointCounts, offset)
-              : Math.min(
-                  offset + ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
-                  accepted.length
-                )
-          const batch = accepted.slice(offset, batchEnd)
+          const { end, start } = getNextProgressiveCompositionSliceRange(
+            items,
+            sliceStart,
+            pointBudget
+          )
+          const batchItems = materializeServerPreparedCompositionSlice(
+            args,
+            coordinates,
+            start,
+            end
+          )
           const createdElementIds = apis.createCompositionElements(
-            batch,
+            batchItems,
             parent,
             mutationOptions
           )
-          for (let index = 0; index < batch.length; index += 1) {
+          if (!createdElementIds) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition canonical batch failed.'
+            )
+          }
+          if (createdElementIds.length !== batchItems.length) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition creation did not preserve the server-prepared item count.'
+            )
+          }
+          for (let index = 0; index < batchItems.length; index += 1) {
             assertNotAborted(context)
-            const item = batch[index]
+            const item = batchItems[index]
             const elementId = createdElementIds[index]
             if (!elementId) {
               throw new AsyraDesignAiCompositionError(
@@ -522,14 +656,12 @@ const createCompositionActions = (
               whiskers.push(elementId)
             }
           }
-          offset = batchEnd
-          await progressiveYield?.()
-        }
-
-        if (appliedElementIds.length !== accepted.length) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition creation did not preserve the server-prepared item count.'
+          sliceStart = end
+          pointBudget = Math.min(
+            ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
+            pointBudget * 2
           )
+          await cooperativeYield()
         }
 
         assertNotAborted(context)
@@ -544,7 +676,7 @@ const createCompositionActions = (
           appliedElementIds: Object.freeze(appliedElementIds),
           compositionId: groupId,
           roleToElementIds: Object.freeze(roleToElementIds),
-          skipped: Object.freeze(skipped),
+          skipped,
           status: statusForMutation(appliedElementIds.length, skipped.length)
         })
       },
@@ -552,12 +684,13 @@ const createCompositionActions = (
       inputSchema: Object.freeze({
         additionalProperties: false,
         properties: Object.freeze({
+          artifactVersion: Object.freeze({ const: 1, type: 'number' }),
           compositionRole: Object.freeze({ type: 'string' }),
-          groupBounds: Object.freeze({ type: 'object' }),
-          itemPointCounts: Object.freeze({
-            minItems: 1,
-            type: 'array'
+          coordinates: Object.freeze({
+            asyraEncoding: 'float64-array-buffer',
+            type: 'object'
           }),
+          groupBounds: Object.freeze({ type: 'object' }),
           items: Object.freeze({
             minItems: 1,
             type: 'array'
@@ -566,20 +699,24 @@ const createCompositionActions = (
             const: 'workspace',
             type: 'string'
           }),
+          paths: Object.freeze({ type: 'array' }),
+          pointCount: Object.freeze({ minimum: 0, type: 'number' }),
           skipped: Object.freeze({ type: 'array' })
         }),
         required: Object.freeze([
+          'artifactVersion',
           'compositionRole',
+          'coordinates',
           'groupBounds',
-          'itemPointCounts',
           'items',
           'parent',
+          'paths',
+          'pointCount',
           'skipped'
         ]),
         type: 'object'
       })
-    }
-  )
+    })
 
   const update: AiActionDefinition<UpdateCompositionElementsArgs> =
     Object.freeze({
@@ -708,7 +845,7 @@ const createCompositionActions = (
               mutationOptions
             )
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
             continue
           }
           if (operation.vectorScale) {
@@ -720,7 +857,7 @@ const createCompositionActions = (
               )
             ) {
               appliedElementIds.push(operation.elementId)
-              await progressiveYield?.()
+              await cooperativeYield()
             } else {
               skipped.push(
                 Object.freeze({
@@ -740,7 +877,7 @@ const createCompositionActions = (
             )
           ) {
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
           } else if (
             operation.strokeColor !== undefined &&
             apis.updateElementStrokeColor(
@@ -750,7 +887,7 @@ const createCompositionActions = (
             )
           ) {
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
           } else {
             skipped.push(
               Object.freeze({
@@ -850,10 +987,8 @@ export const createAsyraDesignAiActions = (
   apis: AsyraDesignAiActionApis = defaultApis,
   options: CreateAsyraDesignAiActionsOptions = {}
 ): readonly AiActionDefinition[] => {
-  const deliveryMode = options.deliveryMode ?? 'atomic'
-  const mutationOptions = createAiMutationOptions(deliveryMode)
-  const progressiveYield =
-    deliveryMode === 'progressive' ? (options.yieldToHost ?? yieldToHost) : null
+  const mutationOptions = AI_MUTATION_OPTIONS
+  const cooperativeYield = options.yieldToHost ?? yieldToHost
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
       name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
@@ -950,12 +1085,7 @@ export const createAsyraDesignAiActions = (
 
   return Object.freeze([
     drawingDetailChoice,
-    ...createCompositionActions(
-      apis,
-      mutationOptions,
-      deliveryMode,
-      progressiveYield
-    ),
+    ...createCompositionActions(apis, mutationOptions, cooperativeYield),
     visibility,
     selection
   ])

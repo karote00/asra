@@ -23,7 +23,6 @@ const performanceProfile = performanceConfiguration
   : null
 const startApp = async (): Promise<void> => {
   await startAsyraDesignApp({
-    deliveryMode: performanceConfiguration?.deliveryMode ?? 'progressive',
     render: (initialization) => {
       if (performanceProfile) {
         performanceProfile.attachConversation(initialization.aiConversation)

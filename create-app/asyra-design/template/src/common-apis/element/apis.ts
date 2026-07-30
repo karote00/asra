@@ -12,6 +12,7 @@ import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
   createDefaultFills,
+  type CreateElementData,
   type DataTypes,
   type EntityType,
   type EVENT_OPTIONS,
@@ -23,7 +24,7 @@ import {
   DEFAULT_FRAME_FILL_COLOR
 } from '../../constants'
 import type { CreateElementOptions, ElementBounds } from './types'
-import { vectorApis } from './vector-apis'
+import { prepareVectorElementData, vectorApis } from './vector-apis'
 import { changeComputedData as applyComputedDataChange } from './change-computed-data'
 import { viewportApis } from '../viewport'
 
@@ -217,6 +218,65 @@ const createElementAtWorkspacePos = (
 
     return elementId
   })
+}
+
+const isFinitePosition = (
+  position: PositionData | undefined
+): position is PositionData =>
+  position !== undefined &&
+  Number.isFinite(position.x) &&
+  Number.isFinite(position.y)
+
+const prepareDirectParentElementData = (
+  createOptions: CreateElementOptions,
+  parentId: string
+): CreateElementData | null => {
+  const workspaceId = sceneTree.workspace
+  const requestedParentId = createOptions.parentId ?? parentId
+  if (!workspaceId || requestedParentId !== parentId) {
+    return null
+  }
+
+  const parentWorkspaceOrigin = createOptions.parentWorkspaceOrigin
+  if (
+    parentWorkspaceOrigin !== undefined &&
+    !isFinitePosition(parentWorkspaceOrigin)
+  ) {
+    return null
+  }
+  if (parentId !== workspaceId && !parentWorkspaceOrigin) {
+    return null
+  }
+
+  if (createOptions.type === 'vector') {
+    return prepareVectorElementData(createOptions)
+  }
+  if (!isFinitePosition(createOptions.workspacePosition)) {
+    return null
+  }
+
+  const parentOrigin =
+    parentId === workspaceId
+      ? { x: 0, y: 0 }
+      : (parentWorkspaceOrigin as PositionData)
+  const data: CreateElementData = {
+    type: createOptions.type,
+    x: createOptions.workspacePosition.x - parentOrigin.x,
+    y: createOptions.workspacePosition.y - parentOrigin.y,
+    fills: createOptions.fills ?? getDefaultFillsForType(createOptions.type)
+  }
+
+  if (createOptions.width !== undefined) {
+    data.width = createOptions.width
+  }
+  if (createOptions.height !== undefined) {
+    data.height = createOptions.height
+  }
+  if (createOptions.strokes !== undefined) {
+    data.strokes = createOptions.strokes
+  }
+
+  return data
 }
 
 export const elementApis = {
@@ -491,35 +551,34 @@ export const elementApis = {
     })
   },
 
-  createElements: (
+  createElementsInParent: (
     createOptions: readonly CreateElementOptions[],
+    parentId: string,
     options?: EVENT_OPTIONS
-  ): readonly (string | null)[] => {
+  ): readonly string[] | null => {
     if (createOptions.length === 0) {
-      return []
+      return Object.freeze([])
     }
-    if (createOptions.every(({ type }) => type === 'vector')) {
-      const parentId = createOptions[0].parentId ?? sceneTree.workspace
-      if (
-        !parentId ||
-        createOptions.some(
-          (elementOptions) =>
-            (elementOptions.parentId ?? sceneTree.workspace) !== parentId
-        )
-      ) {
-        return createOptions.map(() => null)
+    if (parentId.length === 0) {
+      return null
+    }
+
+    const data: CreateElementData[] = []
+    for (const elementOptions of createOptions) {
+      const prepared = prepareDirectParentElementData(elementOptions, parentId)
+      if (!prepared) {
+        return null
       }
-      return (
-        vectorApis.createVectorElementsInParent(
-          createOptions,
-          parentId,
-          options
-        ) ?? createOptions.map(() => null)
-      )
+      data.push(prepared)
     }
-    return createOptions.map((elementOptions) =>
-      elementApis.createElement(elementOptions, options)
+
+    const orderedElementIds = core.createElementsInParent(
+      data,
+      parentId,
+      undefined,
+      options
     )
+    return Object.freeze([...orderedElementIds])
   },
 
   createElement: (

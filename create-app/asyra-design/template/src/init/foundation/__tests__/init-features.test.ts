@@ -19,63 +19,42 @@ vi.mock('../../../features/ai-agent', () => ({
 
 import { initFeatures } from '../init-features'
 
-describe('conditional AI Feature initialization', () => {
+describe('required Agent Feature initialization', () => {
   beforeEach(() => {
     mocks.initFeatureSystem.mockReset()
     mocks.registerAiAgentFeature.mockReset()
   })
 
-  it('initializes ordinary features without registering AI by default', () => {
-    initFeatures()
-
-    expect(mocks.initFeatureSystem).toHaveBeenCalledOnce()
-    expect(mocks.registerAiAgentFeature).not.toHaveBeenCalled()
-  })
-
-  it('does not register the AI Feature when AI is explicitly disabled', () => {
-    initFeatures({
-      ai: {
-        enabled: false,
-        providerEnabled: false
-      }
-    })
-
-    expect(mocks.initFeatureSystem).toHaveBeenCalledOnce()
-    expect(mocks.registerAiAgentFeature).not.toHaveBeenCalled()
-  })
-
-  it('registers provider-disabled AI without constructing a runtime', () => {
-    initFeatures({
-      ai: {
-        enabled: true,
-        providerEnabled: false
-      }
-    })
-
-    expect(mocks.registerAiAgentFeature).toHaveBeenCalledOnce()
-    expect(mocks.registerAiAgentFeature).toHaveBeenCalledWith({
-      providerEnabled: false,
-      runtime: undefined
-    })
-  })
-
-  it('passes the app-composed runtime only after provider enablement', () => {
+  it('registers the single required runtime and returns its Feature handle', () => {
     const runtime = {
       run: vi.fn()
     }
+    const registration = {
+      api: {},
+      dispose: vi.fn()
+    }
+    mocks.registerAiAgentFeature.mockReturnValue(registration)
 
-    initFeatures({
-      ai: {
-        enabled: true,
-        providerEnabled: true,
-        runtime
-      }
-    })
+    const initialized = initFeatures({ aiRuntime: runtime })
 
+    expect(mocks.initFeatureSystem).toHaveBeenCalledOnce()
     expect(mocks.registerAiAgentFeature).toHaveBeenCalledOnce()
-    expect(mocks.registerAiAgentFeature).toHaveBeenCalledWith({
-      providerEnabled: true,
-      runtime
+    expect(mocks.registerAiAgentFeature).toHaveBeenCalledWith(runtime)
+    expect(initialized.ai).toBe(registration)
+  })
+
+  it('propagates Agent registration failure instead of returning a nullable fallback', () => {
+    const failure = new Error('agent-registration-failed')
+    mocks.registerAiAgentFeature.mockImplementation(() => {
+      throw failure
     })
+
+    expect(() =>
+      initFeatures({
+        aiRuntime: {
+          run: vi.fn()
+        }
+      })
+    ).toThrow(failure)
   })
 })

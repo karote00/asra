@@ -1,5 +1,4 @@
 import { measureBrowserDragAsyncPhase } from '@asyra/utils'
-import type { AsyraDesignAiDeliveryMode } from './ai/actions'
 import {
   readAsyraDesignServerResponse,
   type AsyraDesignServerResponseRecord
@@ -23,7 +22,6 @@ const defaultFactories: AsyraDesignAppStartupFactories = {
 
 export const startAsyraDesignApp = async (
   input: {
-    readonly deliveryMode: AsyraDesignAiDeliveryMode
     readonly render: (initialization: AppInitialization) => void
   },
   factories: AsyraDesignAppStartupFactories = defaultFactories
@@ -34,7 +32,6 @@ export const startAsyraDesignApp = async (
     () => factories.readServerResponse(fileId)
   )
   const initialization = factories.initializeApp({
-    aiDeliveryMode: input.deliveryMode,
     serverResponse: response
   })
   input.render(initialization)

@@ -12,11 +12,8 @@ import {
   systemContextApis,
   transactionApis
 } from '../../common-apis'
-import {
-  AsyraDesignAiActionNames,
-  type AsyraDesignAiDeliveryMode
-} from '../actions'
-import { createAsyraDesignAiRuntimeInput } from '../composition'
+import { AsyraDesignAiActionNames } from '../actions'
+import { createAsyraDesignAiRuntimeInput } from '../runtime-input'
 
 const referenceBatch = (): AiActionBatch => ({
   actions: [
@@ -94,13 +91,9 @@ const prepareCommonApis = () => {
   )
 }
 
-const executeBatch = async (
-  provider: AiProvider,
-  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
-) => {
+const executeBatch = async (provider: AiProvider) => {
   const runtime = createAiAgentRuntime(
     createAsyraDesignAiRuntimeInput({
-      deliveryMode,
       permissionRules: {
         [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
         [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
@@ -174,38 +167,6 @@ describe('Asyra Design server action-batch runtime integration', () => {
       /arguments|elementIds|shape-1|shape-2/
     )
     expect(provider.requestActionBatch).toHaveBeenCalledOnce()
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.setElementVisible).toHaveBeenCalledWith(
-      'shape-1',
-      false,
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-    expect(selectionApis.selectElements).toHaveBeenCalledWith(
-      ['shape-1', 'shape-2'],
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-  })
-
-  it('keeps progressive shared delivery inside the same action-batch transaction', async () => {
-    prepareCommonApis()
-    const provider: AiProvider = {
-      requestActionBatch: vi.fn(async () => referenceBatch())
-    }
-
-    await expect(executeBatch(provider, 'progressive')).resolves.toMatchObject({
-      batchId: 'reference-batch',
-      status: 'executed',
-      transaction: {
-        status: 'committed'
-      }
-    })
-
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
     expect(elementApis.setElementVisible).toHaveBeenCalledWith(
       'shape-1',

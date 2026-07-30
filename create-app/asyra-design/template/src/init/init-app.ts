@@ -13,10 +13,6 @@ import { elementApis } from '../common-apis/element'
 import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
 import {
-  composeAiAgentRuntime,
-  type AiRuntimeComposition
-} from '../ai/composition'
-import {
   createAsyraDesignAiConversationController,
   type AsyraDesignAiConversationController
 } from '../ai/conversation'
@@ -25,12 +21,10 @@ import {
   createAsyraDesignAiStartup,
   type AsyraDesignAiStartup
 } from '../ai/startup'
-import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
 import type { AsyraDesignServerResponseRecord } from '../ai/server-response-inbox'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 
 export interface InitAppOptions {
-  aiDeliveryMode?: AsyraDesignAiDeliveryMode
   serverResponse: AsyraDesignServerResponseRecord | null
 }
 
@@ -38,7 +32,6 @@ export interface AppInitialization {
   readonly aiConfirmation: AsyraDesignAiConfirmationBroker
   readonly aiConversation: AsyraDesignAiConversationController
   readonly aiHistory: AsyraDesignAiHistoryProjection
-  readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
 }
 
@@ -87,29 +80,20 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
   // Foundation init.
   initInputSystem()
   const aiStartup: AsyraDesignAiStartup = createAsyraDesignAiStartup({
-    deliveryMode: options.aiDeliveryMode ?? 'progressive',
     response: options.serverResponse
   })
-  const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
-  if (!aiRuntime.enabled || !aiRuntime.providerEnabled || !aiRuntime.runtime) {
-    void aiStartup.confirmation.dispose()
-    aiStartup.history.dispose()
-    void aiRuntime.dispose()
-    throw new Error('[Asyra Design] Agent runtime failed to initialize')
-  }
+  const aiRuntime = aiStartup.runtime
   // Initialize feature-system for application-level features
-  const initializedFeatures = initFeatures({
-    ai: {
-      enabled: true,
-      providerEnabled: true,
-      runtime: aiRuntime.runtime
-    }
-  })
-  if (!initializedFeatures.ai) {
+  let initializedFeatures: ReturnType<typeof initFeatures>
+  try {
+    initializedFeatures = initFeatures({
+      aiRuntime
+    })
+  } catch (error) {
     void aiStartup.confirmation.dispose()
     aiStartup.history.dispose()
     void aiRuntime.dispose()
-    throw new Error('[Asyra Design] Agent feature failed to initialize')
+    throw error
   }
   const aiConversation = createAsyraDesignAiConversationController({
     confirmation: aiStartup.confirmation,
@@ -149,7 +133,6 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
     aiConfirmation: aiStartup.confirmation,
     aiConversation,
     aiHistory: aiStartup.history,
-    aiRuntime,
     dispose
   })
 }

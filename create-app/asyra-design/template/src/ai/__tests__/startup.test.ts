@@ -14,7 +14,7 @@ const response: AsyraDesignServerResponseRecord = {
 }
 
 describe('Asyra Design AI startup', () => {
-  it('always composes the single server action-batch provider route', () => {
+  it('always creates one concrete runtime for the server action-batch provider', async () => {
     const provider = {
       requestActionBatch: vi.fn()
     }
@@ -30,10 +30,7 @@ describe('Asyra Design AI startup', () => {
     const createProvider = vi.fn(() => provider)
 
     const startup = createAsyraDesignAiStartup(
-      {
-        response,
-        deliveryMode: 'progressive'
-      },
+      { response },
       {
         createConfirmation: vi.fn(() => confirmation as never),
         createHistory: vi.fn(() => history as never),
@@ -43,22 +40,18 @@ describe('Asyra Design AI startup', () => {
 
     expect(createProvider).toHaveBeenCalledWith(response)
     expect(startup).not.toHaveProperty('mode')
-    expect(startup.runtimeOptions).toMatchObject({
-      createRuntimeInput: expect.any(Function),
-      enabled: true,
-      providerEnabled: true
+    expect(startup).not.toHaveProperty('runtimeOptions')
+    expect(startup.runtime).toMatchObject({
+      dispose: expect.any(Function),
+      run: expect.any(Function)
     })
-    expect(startup.runtimeOptions.createRuntimeInput?.()).toMatchObject({
-      provider
-    })
+    expect(startup.runtime).not.toHaveProperty('providerEnabled')
+    await startup.runtime.dispose()
   })
 
-  it('keeps AI enabled when the exact inbox record is absent', () => {
+  it('keeps the concrete runtime available when the exact inbox record is absent', async () => {
     const startup = createAsyraDesignAiStartup(
-      {
-        response: null,
-        deliveryMode: 'progressive'
-      },
+      { response: null },
       {
         createConfirmation: vi.fn(() => ({}) as never),
         createHistory: vi.fn(() => ({}) as never),
@@ -68,9 +61,42 @@ describe('Asyra Design AI startup', () => {
       }
     )
 
-    expect(startup.runtimeOptions).toMatchObject({
-      enabled: true,
-      providerEnabled: true
+    expect(startup.runtime).toMatchObject({
+      dispose: expect.any(Function),
+      run: expect.any(Function)
     })
+    await startup.runtime.dispose()
+  })
+
+  it('disposes startup-owned resources when provider construction fails', () => {
+    const disposeConfirmation = vi.fn(async () => undefined)
+    const disposeHistory = vi.fn()
+
+    expect(() =>
+      createAsyraDesignAiStartup(
+        { response },
+        {
+          createConfirmation: vi.fn(
+            () =>
+              ({
+                dispose: disposeConfirmation,
+                requestConfirmation: vi.fn()
+              }) as never
+          ),
+          createHistory: vi.fn(
+            () =>
+              ({
+                dispose: disposeHistory
+              }) as never
+          ),
+          createProvider: vi.fn(() => {
+            throw new Error('provider construction failed')
+          })
+        }
+      )
+    ).toThrow('provider construction failed')
+
+    expect(disposeHistory).toHaveBeenCalledOnce()
+    expect(disposeConfirmation).toHaveBeenCalledOnce()
   })
 })

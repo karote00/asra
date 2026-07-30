@@ -22,14 +22,14 @@ vi.mock('../../render-app', () => ({
 }))
 vi.mock('../../toolbar', () => ({
   default: (props: {
-    aiOpen?: boolean
-    onAiToggle?: (invoker: HTMLButtonElement) => void
+    aiOpen: boolean
+    onAiToggle: (invoker: HTMLButtonElement) => void
   }) => {
     toolbarProps(props)
     return props.onAiToggle ? (
       <button
         aria-label="Mock toolbar AI"
-        onClick={(event) => props.onAiToggle?.(event.currentTarget)}
+        onClick={(event) => props.onAiToggle(event.currentTarget)}
         type="button"
       />
     ) : null
@@ -127,7 +127,7 @@ describe('App context-menu composition', () => {
   })
 
   it('routes accepted Render canvas invocations into the app-local session', () => {
-    render(<App />)
+    render(<App ai={createAi()} />)
 
     expect(renderAppProps).toHaveBeenCalled()
     const props = renderAppProps.mock.lastCall?.[0] as {
@@ -163,7 +163,7 @@ describe('App context-menu composition', () => {
   })
 
   it('presents fixed rows and closes before one enabled descriptor execution', async () => {
-    render(<App />)
+    render(<App ai={createAi()} />)
     const canvasHost = document.createElement('div')
     canvasHost.tabIndex = -1
     document.body.append(canvasHost)
@@ -185,12 +185,13 @@ describe('App context-menu composition', () => {
 
     const rows = screen.getAllByRole('menuitem')
     expect(rows.map((row) => row.textContent)).toEqual([
+      'Toggle Agent Panel⌘I',
       'Group⌘G',
       'Ungroup⇧⌘G'
     ])
-    expect(rows[1]?.getAttribute('aria-disabled')).toBe('true')
+    expect(rows[2]?.getAttribute('aria-disabled')).toBe('true')
 
-    fireEvent.click(rows[1] as HTMLElement)
+    fireEvent.click(rows[2] as HTMLElement)
     expect(descriptorMocks.executeUngroup).not.toHaveBeenCalled()
     expect(screen.getByRole('menu')).toBeTruthy()
 
@@ -198,7 +199,7 @@ describe('App context-menu composition', () => {
       expect(screen.queryByRole('menu')).toBeNull()
       return null
     })
-    fireEvent.click(rows[0] as HTMLElement)
+    fireEvent.click(rows[1] as HTMLElement)
 
     expect(descriptorMocks.executeGroup).toHaveBeenCalledTimes(1)
     await act(async () => Promise.resolve())
@@ -206,7 +207,9 @@ describe('App context-menu composition', () => {
   })
 
   it('isolates open state, position, focus, platform labels, and teardown across app roots', async () => {
-    const firstRoot = render(<App groupCommandPlatform="macos" />)
+    const firstRoot = render(
+      <App ai={createAi()} groupCommandPlatform="macos" />
+    )
     const firstRequest = (
       renderAppProps.mock.lastCall?.[0] as {
         onContextMenuRequest: (invocation: {
@@ -216,7 +219,9 @@ describe('App context-menu composition', () => {
         }) => void
       }
     ).onContextMenuRequest
-    const secondRoot = render(<App groupCommandPlatform="windows-linux" />)
+    const secondRoot = render(
+      <App ai={createAi()} groupCommandPlatform="windows-linux" />
+    )
     const secondRequest = (
       renderAppProps.mock.lastCall?.[0] as {
         onContextMenuRequest: (invocation: {
@@ -253,13 +258,22 @@ describe('App context-menu composition', () => {
     ])
     expect(
       screen.getAllByRole('menuitem').map((row) => row.textContent)
-    ).toEqual(['Group⌘G', 'Ungroup⇧⌘G', 'GroupCtrl+G', 'UngroupCtrl+Shift+G'])
+    ).toEqual([
+      'Toggle Agent Panel⌘I',
+      'Group⌘G',
+      'Ungroup⇧⌘G',
+      'Toggle Agent PanelCtrl+I',
+      'GroupCtrl+G',
+      'UngroupCtrl+Shift+G'
+    ])
 
     fireEvent.keyDown(menus[0] as HTMLElement, { key: 'Escape' })
     await act(async () => Promise.resolve())
     menus = screen.getAllByRole('menu')
     expect(menus).toHaveLength(1)
-    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe(
+      'Toggle Agent PanelCtrl+I'
+    )
     expect(document.activeElement).toBe(firstCanvas)
 
     act(() => {
@@ -273,7 +287,9 @@ describe('App context-menu composition', () => {
 
     firstRoot.unmount()
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe(
+      'Toggle Agent PanelCtrl+I'
+    )
 
     secondRoot.unmount()
     expect(screen.queryByRole('menu')).toBeNull()

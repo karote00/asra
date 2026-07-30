@@ -31,7 +31,7 @@ import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 import type { AiDrawingPerformanceContentsMode } from '../init/performance/ai-drawing-performance-profile'
 
 interface AppProps {
-  ai?: {
+  ai: {
     readonly confirmation: AsyraDesignAiConfirmationBroker
     readonly conversation: AsyraDesignAiConversationController
     readonly history: AsyraDesignAiHistoryProjection
@@ -105,7 +105,7 @@ const App: React.FC<AppProps> = ({
       cancelActive: boolean
       focusTarget?: HTMLElement | null
     }) => {
-      if (cancelActive && ai?.conversation.getSnapshot().activeTurn) {
+      if (cancelActive && ai.conversation.getSnapshot().activeTurn) {
         ai.conversation.cancel('panel-closed')
       }
       setAiOpen(false)
@@ -128,13 +128,11 @@ const App: React.FC<AppProps> = ({
   )
   const aiPanelCommandDescriptor = useMemo(
     () =>
-      ai
-        ? createAiPanelCommandDescriptor({
-            platform: groupCommandPlatform,
-            execute: () =>
-              toggleAiPanel(contextMenu.session?.invoker ?? getCanvasHost())
-          })
-        : null,
+      createAiPanelCommandDescriptor({
+        platform: groupCommandPlatform,
+        execute: () =>
+          toggleAiPanel(contextMenu.session?.invoker ?? getCanvasHost())
+      }),
     [
       ai,
       contextMenu.session?.invoker,
@@ -144,15 +142,10 @@ const App: React.FC<AppProps> = ({
     ]
   )
   const contextMenuDescriptors = useMemo(
-    () =>
-      aiPanelCommandDescriptor
-        ? [aiPanelCommandDescriptor, ...groupCommandDescriptors]
-        : groupCommandDescriptors,
+    () => [aiPanelCommandDescriptor, ...groupCommandDescriptors],
     [aiPanelCommandDescriptor, groupCommandDescriptors]
   )
   useEffect(() => {
-    if (!ai) return
-
     const handleAgentPanelShortcut = (event: KeyboardEvent) => {
       if (!matchesAiPanelToggleShortcut(event, groupCommandPlatform)) return
 
@@ -196,7 +189,7 @@ const App: React.FC<AppProps> = ({
     <div
       ref={appRootRef}
       className="absolute grid h-screen w-full z-20"
-      data-asyra-ai-root={ai ? 'true' : undefined}
+      data-asyra-ai-root="true"
       style={{
         gridTemplateAreas: `
         "header header header"
@@ -220,10 +213,10 @@ const App: React.FC<AppProps> = ({
       />
       <ToolBar
         aiOpen={aiOpen}
-        aiShortcutLabel={aiPanelCommandDescriptor?.shortcutLabel}
-        onAiToggle={ai ? toggleAiPanel : undefined}
+        aiShortcutLabel={aiPanelCommandDescriptor.shortcutLabel}
+        onAiToggle={toggleAiPanel}
       />
-      {ai && aiOpen ? (
+      {aiOpen ? (
         <AiConversationPanel
           confirmation={ai.confirmation}
           conversation={ai.conversation}
@@ -234,12 +227,10 @@ const App: React.FC<AppProps> = ({
           }
         />
       ) : null}
-      {ai ? (
-        <AiHistoryMessageBar
-          conversation={ai.conversation}
-          history={ai.history}
-        />
-      ) : null}
+      <AiHistoryMessageBar
+        conversation={ai.conversation}
+        history={ai.history}
+      />
       {performanceContentsMode === 'present' ? <Contents /> : null}
       <Properties />
       <Animation />

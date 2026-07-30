@@ -20,16 +20,10 @@ describe('AI Agent toolbar activation', () => {
     cleanup()
   })
 
-  it('renders no AI control when an Agent controller is absent', () => {
-    render(<ToolBar />)
-
-    expect(screen.queryByTestId('ai-agent-toolbar-button')).toBeNull()
-  })
-
-  it('exposes one labelled toggle for a composed Agent controller', () => {
+  it('always exposes one labelled toggle for the required Agent controller', () => {
     const onAiToggle = vi.fn()
     const { rerender } = render(
-      <ToolBar aiOpen={false} onAiToggle={onAiToggle} />
+      <ToolBar aiOpen={false} aiShortcutLabel="⌘I" onAiToggle={onAiToggle} />
     )
 
     const button = screen.getByRole('button', { name: 'Open Agent' })
@@ -38,7 +32,7 @@ describe('AI Agent toolbar activation', () => {
     fireEvent.click(button)
     expect(onAiToggle).toHaveBeenCalledWith(button)
 
-    rerender(<ToolBar aiOpen onAiToggle={onAiToggle} />)
+    rerender(<ToolBar aiOpen aiShortcutLabel="⌘I" onAiToggle={onAiToggle} />)
     expect(screen.getByRole('button', { name: 'Close Agent' })).toBeTruthy()
   })
 })

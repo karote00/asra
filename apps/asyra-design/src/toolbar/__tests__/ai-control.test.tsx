@@ -20,13 +20,7 @@ describe('AI Agent toolbar activation', () => {
     cleanup()
   })
 
-  it('renders no AI control when an Agent controller is absent', () => {
-    render(<ToolBar />)
-
-    expect(screen.queryByTestId('ai-agent-toolbar-button')).toBeNull()
-  })
-
-  it('exposes one labelled toggle for a composed Agent controller', () => {
+  it('always exposes the labelled toggle for the App-owned Agent', () => {
     const onAiToggle = vi.fn()
     const { rerender } = render(
       <ToolBar aiOpen={false} onAiToggle={onAiToggle} />

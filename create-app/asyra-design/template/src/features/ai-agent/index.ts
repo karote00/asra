@@ -20,14 +20,7 @@ export interface AiAgentFeatureRunRequest {
 }
 
 export interface AiAgentFeatureRuntime {
-  run(
-    request: AiAgentFeatureRunRequest
-  ): Promise<AiRuntimeResult | Record<string, unknown>>
-}
-
-export interface RegisterAiAgentFeatureOptions {
-  readonly providerEnabled: boolean
-  readonly runtime?: AiAgentFeatureRuntime
+  run(request: AiAgentFeatureRunRequest): Promise<AiRuntimeResult>
 }
 
 export interface AiAgentFeatureExecuteOptions {
@@ -42,10 +35,6 @@ export interface AiAgentFeatureExecuteRequest {
 
 export type AiAgentFeatureTerminalResult =
   | {
-      readonly status: 'unavailable'
-      readonly reason: 'provider-disabled'
-    }
-  | {
       readonly status: 'cancelled'
       readonly reason: 'aborted'
     }
@@ -58,7 +47,6 @@ export type AiAgentFeatureTerminalResult =
 export type AiAgentFeatureResult =
   | AiAgentFeatureTerminalResult
   | AiRuntimeResult
-  | Record<string, unknown>
 
 export interface AiAgentFeatureApi {
   execute(
@@ -75,11 +63,6 @@ interface AiAgentFeatureTaskInput {
   readonly progressObserver?: AiRuntimeProgressObserver
 }
 
-const AI_PROVIDER_DISABLED_RESULT = Object.freeze({
-  status: 'unavailable',
-  reason: 'provider-disabled'
-} as const)
-
 const AI_ABORTED_RESULT = Object.freeze({
   status: 'cancelled',
   reason: 'aborted'
@@ -91,13 +74,7 @@ const AI_INVALID_INTENT_RESULT = Object.freeze({
   stage: 'feature'
 } as const)
 
-export const registerAiAgentFeature = (
-  options: RegisterAiAgentFeatureOptions
-) => {
-  if (options.providerEnabled && !options.runtime) {
-    throw new Error('runtime is required when the AI provider is enabled')
-  }
-
+export const registerAiAgentFeature = (runtime: AiAgentFeatureRuntime) => {
   const api: AiAgentFeatureApi = {
     execute: (request, executeOptions = {}) => {
       const normalizedRequest =
@@ -145,10 +122,7 @@ export const registerAiAgentFeature = (
       if (signal.aborted) {
         return AI_ABORTED_RESULT
       }
-      if (!options.providerEnabled || !options.runtime) {
-        return AI_PROVIDER_DISABLED_RESULT
-      }
-      return options.runtime.run({
+      return runtime.run({
         intent,
         ...(metadata === undefined ? {} : { metadata }),
         ...(progressObserver === undefined ? {} : { progressObserver }),

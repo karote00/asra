@@ -25,20 +25,29 @@ vi.mock('../../config/group-command-descriptors', () => ({
   detectGroupCommandPlatform: () => 'macos'
 }))
 
+const ai = {
+  confirmation: {},
+  conversation: {
+    cancel: vi.fn(),
+    getSnapshot: () => ({ activeTurn: null })
+  },
+  history: {}
+} as never
+
 describe('profiling-only Contents attribution mode', () => {
   afterEach(cleanup)
 
   it('keeps Contents mounted for the ordinary App and present profile', () => {
-    const ordinary = render(<App />)
+    const ordinary = render(<App ai={ai} />)
     expect(screen.getByTestId('contents-panel')).not.toBeNull()
     ordinary.unmount()
 
-    render(<App performanceContentsMode="present" />)
+    render(<App ai={ai} performanceContentsMode="present" />)
     expect(screen.getByTestId('contents-panel')).not.toBeNull()
   })
 
   it('omits Contents only when the profiling entry point requests it', () => {
-    render(<App performanceContentsMode="omitted" />)
+    render(<App ai={ai} performanceContentsMode="omitted" />)
 
     expect(screen.queryByTestId('contents-panel')).toBeNull()
     expect(screen.getByTestId('render-app')).not.toBeNull()

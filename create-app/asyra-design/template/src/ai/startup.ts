@@ -1,14 +1,14 @@
-import type { AiProvider } from '@asyra/ai-agent-runtime'
+import {
+  createAiAgentRuntime,
+  type AiAgentRuntime,
+  type AiProvider
+} from '@asyra/ai-agent-runtime'
 import {
   createAsyraDesignAiHistoryProjection,
   type AsyraDesignAiHistoryProjection
 } from '../common-apis/history'
 import { AsyraDesignAiActionNames } from '../constants'
-import type { AsyraDesignAiDeliveryMode } from './actions'
-import {
-  createAsyraDesignAiRuntimeInput,
-  type ComposeAiAgentRuntimeOptions
-} from './composition'
+import { createAsyraDesignAiRuntimeInput } from './runtime-input'
 import {
   createAsyraDesignAiConfirmationBroker,
   type AsyraDesignAiConfirmationBroker
@@ -20,7 +20,7 @@ import { createAsyraDesignAiTransactionRunner } from './transaction'
 export interface AsyraDesignAiStartup {
   readonly confirmation: AsyraDesignAiConfirmationBroker
   readonly history: AsyraDesignAiHistoryProjection
-  readonly runtimeOptions: ComposeAiAgentRuntimeOptions
+  readonly runtime: AiAgentRuntime
 }
 
 interface AsyraDesignAiStartupFactories {
@@ -39,18 +39,17 @@ const defaultFactories: AsyraDesignAiStartupFactories = {
 
 export const createAsyraDesignAiStartup = (
   input: {
-    readonly deliveryMode: AsyraDesignAiDeliveryMode
     readonly response: AsyraDesignServerResponseRecord | null
   },
   factories: AsyraDesignAiStartupFactories = defaultFactories
 ): AsyraDesignAiStartup => {
   const confirmation = factories.createConfirmation()
   const history = factories.createHistory()
-  const provider = factories.createProvider(input.response)
-  const runtimeOptions: ComposeAiAgentRuntimeOptions = Object.freeze({
-    createRuntimeInput: () =>
+  let runtime: AiAgentRuntime | undefined
+  try {
+    const provider = factories.createProvider(input.response)
+    runtime = createAiAgentRuntime(
       createAsyraDesignAiRuntimeInput({
-        deliveryMode: input.deliveryMode,
         permissionRules: {
           [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
           [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm',
@@ -65,14 +64,20 @@ export const createAsyraDesignAiStartup = (
           undefined,
           history
         )
-      }),
-    enabled: true,
-    providerEnabled: true
-  })
+      })
+    )
 
-  return Object.freeze({
-    confirmation,
-    history,
-    runtimeOptions
-  })
+    return Object.freeze({
+      confirmation,
+      history,
+      runtime
+    })
+  } catch (error) {
+    history.dispose()
+    void Promise.allSettled([
+      confirmation.dispose(),
+      ...(runtime ? [runtime.dispose()] : [])
+    ])
+    throw error
+  }
 }

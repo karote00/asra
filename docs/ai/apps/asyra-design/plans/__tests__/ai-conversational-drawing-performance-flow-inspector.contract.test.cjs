@@ -380,6 +380,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   ;[
     'packages/ai-agent-runtime/src',
     'packages/ai-agent-runtime/src/__tests__',
+    'apps/asyra-design/package.json',
     'apps/asyra-design/src/index.tsx',
     'apps/asyra-design/src/startup.ts',
     'apps/asyra-design/src/features/ai-agent/index.ts',

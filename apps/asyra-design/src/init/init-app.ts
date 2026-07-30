@@ -14,11 +14,6 @@ import { elementApis } from '../common-apis/element'
 import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
 import {
-  composeAiAgentRuntime,
-  type AiRuntimeComposition
-} from '../ai/composition'
-import type { AiAgentFeatureRuntime } from '../features/ai-agent'
-import {
   createAsyraDesignAiConversationController,
   type AsyraDesignAiConversationController
 } from '../ai/conversation'
@@ -27,13 +22,11 @@ import {
   createAsyraDesignAiStartup,
   type AsyraDesignAiStartup
 } from '../ai/startup'
-import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
 import type { AsyraDesignServerResponseRecord } from '../ai/server-response-inbox'
 import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
 import { attachAiDrawingPerformanceRuntimeEvidence } from './performance/ai-drawing-performance-profile'
 
 export interface InitAppOptions {
-  aiDeliveryMode?: AsyraDesignAiDeliveryMode
   serverResponse: AsyraDesignServerResponseRecord | null
 }
 
@@ -41,14 +34,7 @@ export interface AppInitialization {
   readonly aiConfirmation: AsyraDesignAiConfirmationBroker
   readonly aiConversation: AsyraDesignAiConversationController
   readonly aiHistory: AsyraDesignAiHistoryProjection
-  readonly aiRuntime: AiRuntimeComposition
   dispose(): Promise<void>
-}
-
-const asAiAgentFeatureRuntime = (
-  runtime: AiRuntimeComposition['runtime']
-): AiAgentFeatureRuntime | undefined => {
-  return runtime ?? undefined
 }
 
 /**
@@ -97,29 +83,22 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
   // Foundation init.
   initInputSystem()
   const aiStartup: AsyraDesignAiStartup = createAsyraDesignAiStartup({
-    deliveryMode: options.aiDeliveryMode ?? 'progressive',
     response: options.serverResponse
   })
-  const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
-  const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
-  // Initialize feature-system for application-level features
-  const initializedFeatures = initFeatures({
-    ai: {
-      enabled: aiRuntime.enabled,
-      providerEnabled:
-        aiRuntime.providerEnabled && aiFeatureRuntime !== undefined,
-      runtime: aiFeatureRuntime
-    }
-  })
-  const aiFeature = initializedFeatures?.ai
-  if (!aiFeature) {
+  let initializedFeatures: ReturnType<typeof initFeatures>
+  try {
+    initializedFeatures = initFeatures({
+      aiRuntime: aiStartup.runtime
+    })
+  } catch (error) {
     aiStartup.history.dispose()
     void Promise.allSettled([
       aiStartup.confirmation.dispose(),
-      aiRuntime.dispose()
+      aiStartup.runtime.dispose()
     ])
-    throw new Error('Asyra Design requires the Agent feature during startup.')
+    throw error
   }
+  const aiFeature = initializedFeatures.ai
   const aiConversation = createAsyraDesignAiConversationController({
     confirmation: aiStartup.confirmation,
     history: aiStartup.history,
@@ -176,7 +155,7 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
         await aiStartup.confirmation.dispose()
         aiStartup.history.dispose()
         aiFeature.dispose()
-        await aiRuntime.dispose()
+        await aiStartup.runtime.dispose()
       })()
     }
     return disposal
@@ -190,7 +169,6 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
     aiConfirmation: aiStartup.confirmation,
     aiConversation,
     aiHistory: aiStartup.history,
-    aiRuntime,
     dispose
   })
 }

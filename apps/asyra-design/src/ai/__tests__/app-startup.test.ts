@@ -17,12 +17,6 @@ describe('Asyra Design outer startup', () => {
       aiConfirmation: {},
       aiConversation: {},
       aiHistory: {},
-      aiRuntime: {
-        dispose: vi.fn(),
-        enabled: true,
-        providerEnabled: true,
-        runtime: {}
-      },
       dispose: vi.fn()
     }
     const render = vi.fn(() => {
@@ -34,7 +28,6 @@ describe('Asyra Design outer startup', () => {
     })
     const start = startAsyraDesignApp(
       {
-        deliveryMode: 'progressive',
         render
       },
       {
@@ -61,7 +54,6 @@ describe('Asyra Design outer startup', () => {
 
     expect(calls).toEqual(['read', 'init', 'render'])
     expect(initializeApp).toHaveBeenCalledWith({
-      aiDeliveryMode: 'progressive',
       serverResponse: {
         batch,
         fileId: 'file-fast-16',
@@ -79,7 +71,6 @@ describe('Asyra Design outer startup', () => {
     await expect(
       startAsyraDesignApp(
         {
-          deliveryMode: 'progressive',
           render
         },
         {
@@ -104,7 +95,6 @@ describe('Asyra Design outer startup', () => {
     await expect(
       startAsyraDesignApp(
         {
-          deliveryMode: 'progressive',
           render
         },
         {

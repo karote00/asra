@@ -121,7 +121,6 @@ describe('server-prepared Asyra Design action consumers', () => {
       return next.promise
     })
     const insert = createAsyraDesignAiActions(apis, {
-      deliveryMode: 'progressive',
       waitForPaint
     }).find(
       ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION

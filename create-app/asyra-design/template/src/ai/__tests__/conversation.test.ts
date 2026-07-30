@@ -524,7 +524,6 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it.each([
-    [{ reason: 'provider-disabled', status: 'unavailable' }, 'unavailable'],
     [{ reason: 'aborted', status: 'cancelled' }, 'cancelled'],
     [
       {

@@ -27,9 +27,9 @@ const actionApis = (): AsyraDesignAiActionApis => ({
 })
 
 const actionByName = (name: string, apis: AsyraDesignAiActionApis) => {
-  const action = createAsyraDesignAiActions(apis, {
-    deliveryMode: 'atomic'
-  }).find((candidate) => candidate.name === name)
+  const action = createAsyraDesignAiActions(apis).find(
+    (candidate) => candidate.name === name
+  )
   if (!action) {
     throw new Error(`Missing test action: ${name}`)
   }
@@ -117,11 +117,11 @@ describe('Asyra Design AI actions', () => {
       selectedCount: 2
     })
     expect(apis.setElementVisible).toHaveBeenCalledWith('shape-1', false, {
-      sharedDelivery: 'transaction-end',
+      sharedDelivery: 'immediate',
       undoable: true
     })
     expect(apis.selectElements).toHaveBeenCalledWith(['shape-1', 'shape-2'], {
-      sharedDelivery: 'transaction-end',
+      sharedDelivery: 'immediate',
       undoable: true
     })
   })

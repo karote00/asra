@@ -9,13 +9,7 @@ import {
 } from '../../constants'
 
 const turn = (
-  outcome:
-    | 'cancelled'
-    | 'failed'
-    | 'no-change'
-    | 'partial'
-    | 'success'
-    | 'unavailable'
+  outcome: 'cancelled' | 'failed' | 'no-change' | 'partial' | 'success'
 ) => ({
   attachments: [],
   conversationId: 'conversation-a',
@@ -48,7 +42,6 @@ describe('Asyra Design AI presentation summaries', () => {
       'partial',
       'no-change',
       'cancelled',
-      'unavailable',
       'failed'
     ].map((outcome) =>
       summarizeAsyraDesignAiTurn(turn(outcome as Parameters<typeof turn>[0]))
@@ -59,11 +52,10 @@ describe('Asyra Design AI presentation summaries', () => {
       'Partially updated the drawing: 1 applied, 1 skipped.',
       'No canvas changes were needed.',
       'The request was cancelled.',
-      'The agent is unavailable.',
       'The request failed without applying changes.'
     ])
     expect(summaries.map((summary) => summary.durationLabel)).toEqual(
-      Array.from({ length: 6 }, () => 'Elapsed 1.3s')
+      Array.from({ length: 5 }, () => 'Elapsed 1.3s')
     )
     expect(
       summarizeAsyraDesignAiTurn({
@@ -79,7 +71,7 @@ describe('Asyra Design AI presentation summaries', () => {
     ).toBe('Elapsed 1m 5s')
     expect(new Set(summaries.map((summary) => summary.message))).toHaveProperty(
       'size',
-      6
+      5
     )
     expect(JSON.stringify(summaries)).not.toMatch(
       /secret-action|secret-canonical|secret-provider|secret-reason/

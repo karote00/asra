@@ -10,7 +10,6 @@ import { startAsyraDesignApp } from './startup'
 
 const startApp = async (): Promise<void> => {
   await startAsyraDesignApp({
-    deliveryMode: 'progressive',
     render: (initialization) => {
       const root = ReactDOM.createRoot(
         document.getElementById('root') as HTMLElement
