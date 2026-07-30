@@ -485,6 +485,10 @@ Import boundary:
 - `setupInputSystem(canvas: HTMLElement): void`
 - `renderIsReady(): void`
 - `resetData(): void`
+  - loads one fresh App-owned empty canonical document through `Core.load(...)`
+    with no IndexedDB, localStorage, URL parsing, or page reload
+  - this is a local demo-document reset, not a Factory action or CRDT clear
+    publication
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`
 
 `controllers/element-selection.ts`

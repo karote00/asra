@@ -417,6 +417,16 @@ Feature: Conversational AI drawing performance
     But fileId should select the document and never toggle Collaboration
     And a missing or empty fileId should not open a document session
 
+  Scenario: Reset loads a fresh empty demo document without client persistence
+    Given RenderApp startup and resetData use the same App-owned fresh empty-document factory
+    When resetData is invoked
+    Then it should call Core.load exactly once with a fresh empty canonical document
+    And it should perform no document IndexedDB access
+    And it should perform no localStorage access
+    And it should perform no URL parsing
+    And it should perform no page reload
+    But it should remain a local reset and create no Factory action or CRDT clear publication
+
   Scenario: Required fileId preloads one server response inbox record before App readiness
     Given the test or manual harness validates, normalizes, summarizes, and compacts one exact model response outside the production bundle
     And it wrote that versioned server-prepared "AiActionBatch" to the IndexedDB response inbox adapter before App navigation

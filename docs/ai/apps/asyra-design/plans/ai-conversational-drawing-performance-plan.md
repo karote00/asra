@@ -1277,6 +1277,13 @@ intended transaction or history boundary.
   both cases use the same framework and App APIs.
 - Every demo Actor starts without creating, initializing, loading, or injecting
   a client persistence provider.
+- RenderApp startup and `resetData()` obtain independent fresh values from one
+  zero-argument App-owned empty-document factory. `resetData()` calls
+  `Core.load(...)` exactly once and performs no IndexedDB, localStorage, URL
+  parsing, or page reload.
+- Reset Data is a local demo-document reset, not a Factory action or CRDT clear
+  command. It does not publish a canonical action and makes no claim that
+  another Actor is cleared.
 - Local action, Undo, and Redo and Actor B remote apply all produce zero client
   document persistence capture, provider save, document IndexedDB read, and
   document IndexedDB write. This does not prohibit the harness-owned pre-ready

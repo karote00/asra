@@ -1050,12 +1050,32 @@ test('demo documents load empty without client persistence', () => {
     text,
     /one connected Actor.*single-Actor.*second Actor.*same document session.*two-Actor.*CRDT/i
   )
+  assert.match(
+    text,
+    /resetData.*fresh.*empty document.*Core\.load.*zero.*IndexedDB.*localStorage.*URL.*reload/i
+  )
   ;[
+    'apps/asyra-design/package.json',
+    'apps/asyra-design/src/config/empty-document.ts',
+    'apps/asyra-design/src/controllers/app.ts',
+    'apps/asyra-design/src/controllers/__tests__/app.test.ts',
+    'apps/asyra-design/src/document-persistence.ts',
+    'apps/asyra-design/src/render-app/index.tsx',
     'apps/asyra-design/src/render-app/collaboration-mode.ts',
     'apps/asyra-design/src/collaboration/lifecycle.ts',
     'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
+    'apps/asyra-design/src/render-app/__tests__/document-persistence.test.ts',
+    'apps/asyra-design/src/render-app/__tests__/render-app-strict-mode.test.tsx',
     'apps/asyra-design/playwright.config.ts',
     'apps/asyra-design/__tests__/playwright-config.test.mjs',
+    'create-app/asyra-design/template/package.json',
+    'create-app/asyra-design/template/src/config/empty-document.ts',
+    'create-app/asyra-design/template/src/controllers/app.ts',
+    'create-app/asyra-design/template/src/controllers/__tests__/app.test.ts',
+    'create-app/asyra-design/template/src/document-persistence.ts',
+    'create-app/asyra-design/template/src/render-app/index.tsx',
+    'create-app/asyra-design/template/src/render-app/__tests__/document-persistence.test.ts',
+    'create-app/asyra-design/template/src/render-app/__tests__/render-app-strict-mode.test.tsx',
     'scripts/dev-all-plan.js',
     'scripts/dev-all.js',
     'scripts/__tests__/workspace-automation.test.mjs'
@@ -1093,6 +1113,10 @@ test('demo documents load empty without client persistence', () => {
   assert.match(
     feature,
     /Scenario: Demo documents load empty without client persistence[\s\S]*required fileId URL[\s\S]*Collaboration[\s\S]*single-Actor[\s\S]*Actor B[\s\S]*IndexedDB/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Reset loads a fresh empty demo document without client persistence[\s\S]*resetData[\s\S]*Core\.load[\s\S]*IndexedDB[\s\S]*localStorage[\s\S]*URL[\s\S]*reload[\s\S]*local reset/i
   )
   assert.match(
     feature,
