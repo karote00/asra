@@ -13,14 +13,12 @@ import {
   type PublicationFrameHeader
 } from '../../collaboration/protocol'
 import {
-  PublicationCodecWorkerRuntime,
-  type PublicationCodecWorkerRequest,
-  type PublicationCodecWorkerResponse
-} from '../../collaboration/publication-codec-worker'
-import {
-  CollaborationWebSocketProvider,
-  type PublicationCodecWorkerLike
-} from '../../collaboration/websocket-provider'
+  CollaborationTransportWorkerRuntime,
+  type CollaborationTransportWorkerLike,
+  type CollaborationTransportWorkerRequest,
+  type CollaborationTransportWorkerResponse
+} from '../../collaboration/collaboration-transport-worker'
+import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 
 type ClientMessage = Readonly<{
   type: string
@@ -119,7 +117,7 @@ const createPublication = ({
         changes: [payload]
       }
     ],
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'progressive',
       slices: [{ sliceId, orderedIds: [deliveryId] }]
     }
@@ -184,7 +182,7 @@ const createTwoRecordPublication = (
         changes: payloads
       }
     ],
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'progressive',
       slices: [
         {
@@ -221,25 +219,38 @@ const createLargePublication = (): SharedPublication => {
 
 const servers = new Set<LoopbackServer>()
 const originalWebSocket = globalThis.WebSocket
-const codecWorkers: TestPublicationCodecWorker[] = []
+const transportWorkers: TestCollaborationTransportWorker[] = []
+const mainThreadWebSocketConstructor = vi.fn()
 
 type TestWorkerEventName = 'error' | 'message' | 'messageerror'
 type TestWorkerListener = (event: {
-  readonly data?: PublicationCodecWorkerResponse
+  readonly data?: CollaborationTransportWorkerResponse
   readonly error?: unknown
 }) => void
 
-class TestPublicationCodecWorker implements PublicationCodecWorkerLike {
+class TestCollaborationTransportWorker
+  implements CollaborationTransportWorkerLike
+{
   readonly posted: {
-    readonly message: PublicationCodecWorkerRequest
-    readonly transfer: readonly Transferable[]
+    readonly message: CollaborationTransportWorkerRequest
   }[] = []
-  readonly responseTransfers: (readonly Transferable[])[] = []
+  readonly mainBoundMessages: CollaborationTransportWorkerResponse[] = []
+  socketConstructionCount = 0
   paused = false
-  postObserver?: (message: PublicationCodecWorkerRequest) => void
+  postObserver?: (message: CollaborationTransportWorkerRequest) => void
   terminateCount = 0
 
-  private readonly runtime = new PublicationCodecWorkerRuntime()
+  private readonly runtime = new CollaborationTransportWorkerRuntime({
+    createWebSocket: (endpoint) => {
+      this.socketConstructionCount += 1
+      return new NodeWebSocket(endpoint) as unknown as WebSocket
+    },
+    postMessage: (response) => {
+      const mainResponse = structuredClone(response)
+      this.mainBoundMessages.push(mainResponse)
+      this.emit('message', { data: mainResponse })
+    }
+  })
   private readonly listeners = new Map<
     TestWorkerEventName,
     Set<TestWorkerListener>
@@ -247,25 +258,14 @@ class TestPublicationCodecWorker implements PublicationCodecWorkerLike {
   private readonly queuedTasks: (() => void)[] = []
   private terminated = false
 
-  postMessage(
-    message: PublicationCodecWorkerRequest,
-    transfer: readonly Transferable[] = []
-  ): void {
+  postMessage(message: CollaborationTransportWorkerRequest): void {
     if (this.terminated) throw new Error('worker is terminated')
-    this.posted.push({ message, transfer })
+    this.posted.push({ message })
     this.postObserver?.(message)
-    const workerMessage = structuredClone(message, {
-      transfer: [...transfer]
-    })
+    const workerMessage = structuredClone(message)
     const run = () => {
       if (this.terminated) return
-      this.runtime.handle(workerMessage, (response, responseTransfer = []) => {
-        this.responseTransfers.push(responseTransfer)
-        const mainResponse = structuredClone(response, {
-          transfer: [...responseTransfer]
-        })
-        this.emit('message', { data: mainResponse })
-      })
+      this.runtime.handle(workerMessage)
     }
     if (this.paused) {
       this.queuedTasks.push(run)
@@ -445,9 +445,9 @@ type TestProvider = Provider
 const createProvider = (endpoint: string): TestProvider =>
   new CollaborationWebSocketProvider({
     endpoint,
-    codecWorkerFactory: () => {
-      const worker = new TestPublicationCodecWorker()
-      codecWorkers.push(worker)
+    transportWorkerFactory: () => {
+      const worker = new TestCollaborationTransportWorker()
+      transportWorkers.push(worker)
       return worker
     },
     identity: {
@@ -462,17 +462,22 @@ const createProvider = (endpoint: string): TestProvider =>
   })
 
 beforeEach(() => {
+  mainThreadWebSocketConstructor.mockClear()
+  function MainThreadWebSocketSentinel() {
+    mainThreadWebSocketConstructor()
+    throw new Error('main-thread WebSocket construction is forbidden')
+  }
   Object.defineProperty(globalThis, 'WebSocket', {
     configurable: true,
     writable: true,
-    value: NodeWebSocket
+    value: MainThreadWebSocketSentinel
   })
 })
 
 afterEach(async () => {
   await Promise.all([...servers].map((server) => server.close()))
   servers.clear()
-  codecWorkers.length = 0
+  transportWorkers.length = 0
   delete (
     globalThis as typeof globalThis & {
       __asyraBrowserDragPhaseSink?: unknown
@@ -491,6 +496,99 @@ afterEach(async () => {
 })
 
 describe('CollaborationWebSocketProvider real connection contract', () => {
+  it('keeps bounded wire admission inside the transport worker while App apply is pending', async () => {
+    const frameConsumedIds: string[] = []
+    let sendInbound: (() => void) | undefined
+    const secondPublication = createPublication({
+      suffix: 'worker-b',
+      transactionId: 2
+    })
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendInbound = () =>
+          sendPublicationFrames(socket, {
+            type: 'publications',
+            publications: [publication, secondPublication],
+            fromActorId: 'actor-b'
+          })
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        frameConsumedIds.push(message.frameId)
+      }
+    })
+    const mainBoundMessages: CollaborationTransportWorkerResponse[] = []
+    const runtime = new CollaborationTransportWorkerRuntime({
+      createWebSocket: (endpoint) =>
+        new NodeWebSocket(endpoint) as unknown as WebSocket,
+      postMessage: (message) => {
+        mainBoundMessages.push(structuredClone(message))
+      }
+    })
+
+    runtime.handle({
+      type: 'connect',
+      generation: 1,
+      endpoint: server.endpoint,
+      identity: {
+        documentId: 'internal-document',
+        roomId: 'internal-room',
+        actorId: 'actor-a'
+      }
+    })
+
+    await vi.waitFor(() =>
+      expect(mainBoundMessages.some(({ type }) => type === 'connected')).toBe(
+        true
+      )
+    )
+    sendInbound?.()
+    await vi.waitFor(() => expect(frameConsumedIds).toHaveLength(2))
+    await vi.waitFor(() =>
+      expect(
+        mainBoundMessages.filter(({ type }) => type === 'publication-delivery')
+      ).toHaveLength(1)
+    )
+
+    expect(
+      mainBoundMessages.some((message) => {
+        const data = message as unknown
+        return data instanceof ArrayBuffer || ArrayBuffer.isView(data)
+      })
+    ).toBe(false)
+    const firstDelivery = mainBoundMessages.find(
+      (message) => message.type === 'publication-delivery'
+    )
+    expect(firstDelivery).toMatchObject({
+      type: 'publication-delivery',
+      publication: { publicationId: publication.publicationId }
+    })
+
+    if (!firstDelivery || firstDelivery.type !== 'publication-delivery') {
+      throw new Error('Expected the first worker-owned publication delivery')
+    }
+    runtime.handle({
+      type: 'settle-publication',
+      generation: 1,
+      deliveryId: firstDelivery.deliveryId,
+      outcome: 'applied'
+    })
+    await vi.waitFor(() =>
+      expect(
+        mainBoundMessages
+          .filter(({ type }) => type === 'publication-delivery')
+          .map((message) =>
+            message.type === 'publication-delivery'
+              ? message.publication.publicationId
+              : undefined
+          )
+      ).toEqual([publication.publicationId, secondPublication.publicationId])
+    )
+
+    runtime.destroy()
+  })
+
   it('forwards opaque app metadata and reports connected', async () => {
     let hello: ClientMessage | undefined
     const server = await createLoopbackServer((socket, message) => {
@@ -578,9 +676,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     try {
       await expect(provider.connect()).rejects.toMatchObject({
         code: 'transport-failed',
-        message: '[collaboration] WebSocket identity hello send failed',
-        cause: sendFailure
+        message: '[collaboration] WebSocket identity hello send failed'
       })
+      expect(
+        transportWorkers[0]?.mainBoundMessages.find(
+          ({ type }) => type === 'failure'
+        )
+      ).not.toHaveProperty('cause')
       expect(provider.getStatus()).toBe('failed')
     } finally {
       send.mockRestore()
@@ -645,20 +747,23 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       await vi.waitFor(() => expect(settlement).toBe('accepted'))
 
       expect(sent).toEqual(publication)
-      const worker = codecWorkers[0]
+      const worker = transportWorkers[0]
       expect(worker).toBeDefined()
-      const encodePosts = worker?.posted.filter(
-        ({ message }) => message.type === 'encode-publications'
+      const publicationPosts = worker?.posted.filter(
+        ({ message }) =>
+          message.type === 'send-request' &&
+          message.message.type === 'send-publication'
       )
-      expect(encodePosts).toHaveLength(1)
-      expect(encodePosts?.[0]?.transfer).toEqual([])
+      expect(publicationPosts).toHaveLength(1)
+      expect(worker?.socketConstructionCount).toBe(1)
+      expect(mainThreadWebSocketConstructor).not.toHaveBeenCalled()
       expect(
-        worker?.responseTransfers.some(
-          (transfer) =>
-            transfer.length > 0 &&
-            transfer.every((value) => value instanceof ArrayBuffer)
+        worker?.mainBoundMessages.some(
+          (message) =>
+            (message as unknown) instanceof ArrayBuffer ||
+            ArrayBuffer.isView(message as unknown as ArrayBufferView)
         )
-      ).toBe(true)
+      ).toBe(false)
       expect(phaseSink.mock.calls.map(([phaseName]) => phaseName)).toEqual(
         expect.arrayContaining([
           'collaboration:outbound-encode',
@@ -696,10 +801,14 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       await expect(provider.sendPublication(publication)).rejects.toMatchObject(
         {
           code: 'transport-failed',
-          message: '[collaboration] publication frame send failed',
-          cause: sendFailure
+          message: '[collaboration] publication frame send failed'
         }
       )
+      expect(
+        transportWorkers[0]?.mainBoundMessages.find(
+          ({ type }) => type === 'failure'
+        )
+      ).not.toHaveProperty('cause')
       expect(failures).toHaveBeenCalledOnce()
       expect(provider.getStatus()).toBe('failed')
     } finally {
@@ -994,7 +1103,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
-  it('captures inbound frame entry before optional string byte profiling', async () => {
+  it('forwards worker-owned inbound byte counters as bounded scalars', async () => {
     let sendInbound: (() => void) | undefined
     const counterSink = vi.fn()
     ;(
@@ -1023,7 +1132,6 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     provider.onAwareness(awareness)
     await provider.connect()
     counterSink.mockClear()
-    const encode = vi.spyOn(TextEncoder.prototype, 'encode')
 
     try {
       expect(sendInbound).toBeDefined()
@@ -1039,17 +1147,20 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       )
       expect(frameEntryCallIndex).toBeGreaterThanOrEqual(0)
       expect(byteLengthCallIndex).toBeGreaterThan(frameEntryCallIndex)
-      expect(encode).toHaveBeenCalledOnce()
       expect(
-        counterSink.mock.invocationCallOrder[frameEntryCallIndex]
-      ).toBeLessThan(encode.mock.invocationCallOrder[0] as number)
+        transportWorkers[0]?.mainBoundMessages.some(
+          (message) =>
+            message.type === 'diagnostic-counter' &&
+            message.name === 'collaboration:inbound-frame-byte-length' &&
+            message.value > 0
+        )
+      ).toBe(true)
     } finally {
-      encode.mockRestore()
       await provider.destroy()
     }
   })
 
-  it('does not scan inbound string bytes when diagnostics are disabled', async () => {
+  it('does not expose inbound control payloads to main when diagnostics are disabled', async () => {
     let sendInbound: (() => void) | undefined
     const server = await createLoopbackServer((socket, message) => {
       if (message.type !== 'hello') return
@@ -1068,21 +1179,26 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const awareness = vi.fn()
     provider.onAwareness(awareness)
     await provider.connect()
-    const encode = vi.spyOn(TextEncoder.prototype, 'encode')
 
     try {
       expect(sendInbound).toBeDefined()
       sendInbound?.()
       await vi.waitFor(() => expect(awareness).toHaveBeenCalledOnce())
 
-      expect(encode).not.toHaveBeenCalled()
+      expect(
+        transportWorkers[0]?.mainBoundMessages.some(
+          (message) =>
+            typeof (message as unknown) === 'string' ||
+            (message as unknown) instanceof ArrayBuffer ||
+            ArrayBuffer.isView(message as unknown as ArrayBufferView)
+        )
+      ).toBe(false)
     } finally {
-      encode.mockRestore()
       await provider.destroy()
     }
   })
 
-  it('keeps awareness controls on JSON and bypasses the codec worker', async () => {
+  it('keeps awareness controls on the transport worker JSON path', async () => {
     let receivedAwareness: unknown
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
@@ -1101,8 +1217,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
     const provider = createProvider(server.endpoint)
     await provider.connect()
-    const worker = codecWorkers[0]
-    if (!worker) throw new Error('Expected a codec worker')
+    const worker = transportWorkers[0]
+    if (!worker) throw new Error('Expected a transport worker')
 
     await provider.sendAwareness({
       actorId: 'actor-a',
@@ -1111,7 +1227,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
 
     expect(receivedAwareness).toMatchObject({ type: 'send-awareness' })
-    expect(worker.posted).toEqual([])
+    expect(
+      worker.posted.filter(
+        ({ message }) =>
+          message.type === 'send-request' &&
+          message.message.type === 'send-awareness'
+      )
+    ).toHaveLength(1)
     await provider.destroy()
   })
 
@@ -1192,15 +1314,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
 
     expect(inbound).toHaveBeenCalledWith(largePublication)
-    const worker = codecWorkers[0]
-    const decodePosts = worker?.posted.filter(
-      ({ message }) => message.type === 'decode-publication-frame'
-    )
-    expect(decodePosts).toHaveLength(1)
-    expect(decodePosts?.[0]?.transfer).toHaveLength(1)
-    expect(Object.prototype.toString.call(decodePosts?.[0]?.transfer[0])).toBe(
-      '[object ArrayBuffer]'
-    )
+    const worker = transportWorkers[0]
+    expect(
+      worker?.mainBoundMessages.filter(
+        ({ type }) => type === 'publication-delivery'
+      )
+    ).toHaveLength(1)
+    expect(mainThreadWebSocketConstructor).not.toHaveBeenCalled()
     const creditSendIndex = send.mock.calls.findIndex(
       ([value]) =>
         typeof value === 'string' && value.includes('"frame-consumed"')
@@ -1320,6 +1440,15 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
             durationMs >= 0
         )
       ).toBe(true)
+      expect(
+        phaseSink.mock.calls.some(
+          ([phaseName, durationMs]) =>
+            phaseName === 'collaboration:receiver-handoff' &&
+            typeof durationMs === 'number' &&
+            Number.isFinite(durationMs) &&
+            durationMs >= 0
+        )
+      ).toBe(true)
     } finally {
       send.mockRestore()
       await provider.destroy()
@@ -1417,13 +1546,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       await vi.waitFor(() => expect(received).toHaveLength(1))
 
       expect(
-        codecWorkers[0]?.posted.filter(
-          ({ message }) => message.type === 'decode-publication-frame'
+        transportWorkers[0]?.mainBoundMessages.filter(
+          ({ type }) => type === 'publication-delivery'
         )
-      ).toHaveLength(inboundFrames.length)
+      ).toHaveLength(1)
       expect(received[0]?.publicationId).toBe(publications[0]?.publicationId)
-      expect(Object.isFrozen(received[0])).toBe(true)
-      expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(true)
+      expect(Object.isFrozen(received[0])).toBe(false)
+      expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(false)
       expect(appliedPublicationIds).toEqual([])
 
       firstSettlement.resolve(undefined)
@@ -1505,7 +1634,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       expect(receivedPublicationIds).toEqual([publication.publicationId])
       expect(appliedPublicationIds).toEqual([])
       expect(failures).not.toHaveBeenCalled()
-      expect(codecWorkers[0]?.terminateCount).toBe(1)
+      expect(transportWorkers[0]?.terminateCount).toBe(1)
       expect(provider.getStatus()).toBe('failed')
     } finally {
       await provider.destroy()
@@ -1613,7 +1742,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     expect(receivedPublicationIds).toEqual([publication.publicationId])
     expect(appliedPublicationIds).toEqual([])
-    expect(codecWorkers[0]?.terminateCount).toBe(1)
+    expect(transportWorkers[0]?.terminateCount).toBe(1)
     expect(provider.getStatus()).toBe('disposed')
   })
 
@@ -1832,7 +1961,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       ).toHaveLength(1)
       expect(inbound).not.toHaveBeenCalled()
       expect(provider.getStatus()).toBe('failed')
-      expect(codecWorkers[0]?.terminateCount).toBe(1)
+      expect(transportWorkers[0]?.terminateCount).toBe(1)
     } finally {
       await provider.destroy()
     }
@@ -1975,7 +2104,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('delivers one detached immutable publication without a sender envelope', async () => {
+  it('delivers one detached worker handoff without a Provider freeze', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -2007,8 +2136,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     expect(received[0]).toEqual(publication)
     expect(received[0]).not.toBe(publication)
-    expect(Object.isFrozen(received[0])).toBe(true)
-    expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(true)
+    expect(Object.isFrozen(received[0])).toBe(false)
+    expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(false)
     await provider.destroy()
   })
 
@@ -2181,7 +2310,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     expect(inbound).not.toHaveBeenCalled()
     expect(consumed).not.toHaveBeenCalled()
     expect(provider.getStatus()).toBe('failed')
-    expect(codecWorkers[0]?.terminateCount).toBe(1)
+    expect(transportWorkers[0]?.terminateCount).toBe(1)
     await provider.destroy()
   })
 
@@ -2223,7 +2352,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     expect(inbound).not.toHaveBeenCalled()
     expect(consumed).not.toHaveBeenCalled()
     expect(provider.getStatus()).toBe('failed')
-    expect(codecWorkers[0]?.terminateCount).toBe(1)
+    expect(transportWorkers[0]?.terminateCount).toBe(1)
     await provider.destroy()
   })
 
@@ -2245,25 +2374,15 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     provider.onPublication(inbound)
     provider.onFailure(failures)
     await provider.connect()
-    const worker = codecWorkers[0]
-    if (!worker) throw new Error('Expected a codec worker')
-    worker.paused = true
+    const worker = transportWorkers[0]
+    if (!worker) throw new Error('Expected a transport worker')
     const send = vi.spyOn(NodeWebSocket.prototype, 'send')
 
     try {
-      sendInbound?.()
-      await vi.waitFor(() =>
-        expect(
-          worker.posted.some(
-            ({ message }) => message.type === 'decode-publication-frame'
-          )
-        ).toBe(true)
-      )
-
-      worker.emitError(new Error('inbound codec failed'))
+      worker.emitError(new Error('inbound transport worker failed'))
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+      sendInbound?.()
       await provider.destroy()
-      worker.flush()
       await Promise.resolve()
       await Promise.resolve()
 
@@ -2275,7 +2394,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       expect(failures).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'transport-failed',
-          message: '[collaboration] publication codec worker failed'
+          message: '[collaboration] collaboration transport worker failed'
         })
       )
       expect(inbound).not.toHaveBeenCalled()
@@ -2298,11 +2417,11 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await expect(provider.sendPublication(publication)).rejects.toMatchObject({
       code: 'not-connected'
     })
-    expect(codecWorkers).toEqual([])
+    expect(transportWorkers).toEqual([])
 
     await provider.connect()
-    const worker = codecWorkers[0]
-    if (!worker) throw new Error('Expected a codec worker')
+    const worker = transportWorkers[0]
+    if (!worker) throw new Error('Expected a transport worker')
     worker.paused = true
     const sendingOutcome = provider
       .sendPublication(publication)
@@ -2310,7 +2429,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await vi.waitFor(() =>
       expect(
         worker.posted.some(
-          ({ message }) => message.type === 'encode-publications'
+          ({ message }) =>
+            message.type === 'send-request' &&
+            message.message.type === 'send-publication'
         )
       ).toBe(true)
     )

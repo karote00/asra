@@ -11,7 +11,7 @@ export interface FactoryMutationSliceBoundary {
   readonly orderedIds: readonly string[]
 }
 
-export interface FactoryMutationDeliveryPlan {
+export interface FactoryMutationDeliverySequence {
   readonly mode: FactoryMutationDeliveryMode
   readonly slices: readonly FactoryMutationSliceBoundary[]
 }
@@ -29,10 +29,9 @@ export interface SharedDelivery<TPayload = unknown> {
   readonly recordId: string
   readonly record: FactoryMutationSharedRecordEvidence
   readonly sharedDelivery: SharedDeliveryMode
+  readonly compensationDeliveryIds?: readonly string[]
   readonly compensatesDeliveryId?: string
 }
-
-export type SharedDeliverySubscriber = (delivery: SharedDelivery) => void
 
 export interface SharedDeliveryBatch<TPayload = unknown> {
   readonly batchId: string
@@ -46,6 +45,7 @@ export interface SharedDeliveryBatch<TPayload = unknown> {
   readonly deliveries: readonly SharedDelivery<TPayload>[]
   readonly records: readonly FactoryMutationSharedRecordEvidence[]
   readonly changes: readonly TPayload[]
+  readonly compensationBatchId?: string
   readonly compensatesBatchId?: string
 }
 
@@ -58,7 +58,9 @@ export interface SharedPublication {
   readonly origin: SharedDeliveryOrigin
   readonly deliveries: readonly SharedDelivery[]
   readonly batches: readonly SharedDeliveryBatch[]
-  readonly deliveryPlan: FactoryMutationDeliveryPlan
+  readonly deliverySequence: FactoryMutationDeliverySequence
+  readonly compensationPublicationId?: string
+  readonly compensatesPublicationId?: string
 }
 
 export type SharedPublicationSubscriber = (

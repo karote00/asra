@@ -3,24 +3,27 @@ import type {
   SharedDeliveryBatch,
   SharedPublication
 } from '@asyra/factory'
+import type {
+  CanonicalChange,
+  CanonicalChangeAPIs,
+  PropertyComponentValuesUpdate
+} from '@asyra/core'
 import {
   EventTypes,
-  publishEventsToObservers,
   runInTransactionReplayMode,
-  type TransactionReplayMode,
-  type AllEvent
+  type TransactionReplayMode
 } from '@asyra/reactive-events'
 import {
-  type ElementPropertyOwnerRelation,
+  type AddRemoveElementEntry,
   type ElementRawData,
-  type EVENT_OPTIONS,
+  type HierarchyMove,
   PROPS_ACTIONS,
   type PropertyComponentRawData,
-  type PropsRestorePlan,
   type PropsRestoreSnapshot,
   SCENE_TREE_ACTIONS,
-  type SceneTreeRestorePlan,
   type SceneTreeRestoreSnapshot,
+  type SubtreeChange,
+  type UpdateElementDataChange,
   SharedDataChannelNames,
   emitDiagnosticCounter,
   isRecord,
@@ -28,69 +31,25 @@ import {
 } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
 
-type ProcessOperation = (event: AllEvent) => boolean | undefined
 type RunRemoteTransaction = (mutate: () => void) => void
-export type ApplyRemoteCanonicalCreationBatch = (
-  elements: readonly ElementRawData[],
-  properties: readonly PropertyComponentRawData[],
-  parentId: string,
-  index: number
-) => readonly string[]
-export interface RemoteCanonicalElementRemoval {
-  readonly data: ElementRawData
-  readonly parentId: string
-  readonly index: number
-}
-export type ApplyRemoteCanonicalRemovalBatch = (
-  removals: readonly RemoteCanonicalElementRemoval[]
-) => readonly string[]
+type RemoteCanonicalElementRemoval = Extract<
+  CanonicalChange,
+  { kind: 'element-removal' }
+>['removals'][number]
 export type DecideRemotePublication = (
   publication: SharedPublication
 ) => SharedPublication | false
-export interface RemoteRestoreOwnerFacades {
-  preflightRestoreSubtree: (
-    snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
-  preflightRestoreProperties: (
-    snapshot: PropsRestoreSnapshot,
-    ownerRelations: readonly ElementPropertyOwnerRelation[]
-  ) => PropsRestorePlan
-  applyRestoreProperties: (
-    plan: PropsRestorePlan,
-    options?: EVENT_OPTIONS
-  ) => readonly string[]
-  applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
-    options?: EVENT_OPTIONS
-  ) => unknown
-  removeElementsUsingActiveProperties?: ApplyRemoteCanonicalRemovalBatch
+
+export interface AsyraDesignPublicationProcessorOptions {
+  readonly runRemoteTransaction: RunRemoteTransaction
+  readonly decideRemotePublication: DecideRemotePublication
+  readonly applyCanonicalChanges: CanonicalChangeAPIs['applyCanonicalChanges']
 }
 
 interface ClassifiedRemoteRestore {
   sceneSnapshot: SceneTreeRestoreSnapshot
   propsSnapshot: PropsRestoreSnapshot
 }
-
-interface RemoteCanonicalCreationBatch {
-  readonly elements: readonly ElementRawData[]
-  readonly properties: readonly PropertyComponentRawData[]
-  readonly parentId: string
-  readonly index: number
-}
-
-type RemoteApplyStep =
-  | Readonly<{
-      kind: 'event'
-      event: AllEvent
-    }>
-  | Readonly<{
-      kind: 'canonical-creation'
-      batch: RemoteCanonicalCreationBatch
-    }>
-  | Readonly<{
-      kind: 'canonical-removal'
-      removals: readonly RemoteCanonicalElementRemoval[]
-    }>
 
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
@@ -148,43 +107,104 @@ const isAddRemoveElement = (
   (value.index === undefined ||
     (Number.isInteger(value.index) && Number(value.index) >= 0))
 
-const isScalarComputedChange = (
+const isAddRemoveElementEntry = (
   value: unknown
-): value is Record<string, unknown> =>
+): value is AddRemoveElementEntry =>
   isRecord(value) &&
-  value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
-  value.eventName === EventTypes.UPDATE_COMPUTED_DATA &&
-  isNonBlankString(value.id) &&
-  (value.owner === 'raw' || value.owner === 'computed') &&
-  isNonBlankString(value.key) &&
-  owns(value, 'before') &&
-  owns(value, 'after')
+  isTypedData(value.data) &&
+  isNonBlankString(value.parentId) &&
+  Number.isInteger(value.index) &&
+  Number(value.index) >= 0 &&
+  value.data.parentId === value.parentId
 
-const isBatchComputedChange = (
-  value: unknown
-): value is Record<string, unknown> =>
+const isAddRemoveElements = (
+  value: unknown,
+  action: SCENE_TREE_ACTIONS.ADD_ELEMENTS | SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+  eventName: typeof EventTypes.ADD_ELEMENTS | typeof EventTypes.REMOVE_ELEMENTS,
+  undoAction:
+    | SCENE_TREE_ACTIONS.ADD_ELEMENTS
+    | SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+  undoType: typeof EventTypes.ADD_ELEMENTS | typeof EventTypes.REMOVE_ELEMENTS
+): value is Readonly<{ entries: readonly AddRemoveElementEntry[] }> =>
   isRecord(value) &&
-  value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH &&
-  value.eventName === EventTypes.UPDATE_COMPUTED_DATA &&
+  value.action === action &&
+  value.eventName === eventName &&
+  value.undoAction === undoAction &&
+  value.undoType === undoType &&
+  Array.isArray(value.entries) &&
+  value.entries.length > 0 &&
+  value.entries.every(isAddRemoveElementEntry)
+
+type CanonicalElementEvidenceDirection = 'add' | 'remove'
+
+const canonicalElementEntriesFromDelivery = (
+  delivery: SharedDelivery,
+  direction: CanonicalElementEvidenceDirection
+): readonly AddRemoveElementEntry[] | null => {
+  const scalarEvent =
+    direction === 'add' ? EventTypes.ADD_ELEMENT : EventTypes.REMOVE_ELEMENT
+  const scalarAction =
+    direction === 'add'
+      ? SCENE_TREE_ACTIONS.ADD_ELEMENT
+      : SCENE_TREE_ACTIONS.REMOVE_ELEMENT
+  if (
+    delivery.eventName === scalarEvent &&
+    isAddRemoveElement(delivery.payload, scalarAction, scalarEvent)
+  ) {
+    const { data, parentId, index } = delivery.payload
+    if (!isNonBlankString(parentId) || !Number.isInteger(index)) return null
+    return [{ data: data as ElementRawData, parentId, index: Number(index) }]
+  }
+
+  const batchEvent =
+    direction === 'add' ? EventTypes.ADD_ELEMENTS : EventTypes.REMOVE_ELEMENTS
+  const batchAction =
+    direction === 'add'
+      ? SCENE_TREE_ACTIONS.ADD_ELEMENTS
+      : SCENE_TREE_ACTIONS.REMOVE_ELEMENTS
+  const inverseEvent =
+    direction === 'add' ? EventTypes.REMOVE_ELEMENTS : EventTypes.ADD_ELEMENTS
+  const inverseAction =
+    direction === 'add'
+      ? SCENE_TREE_ACTIONS.REMOVE_ELEMENTS
+      : SCENE_TREE_ACTIONS.ADD_ELEMENTS
+  if (
+    delivery.eventName === batchEvent &&
+    isAddRemoveElements(
+      delivery.payload,
+      batchAction,
+      batchEvent,
+      inverseAction,
+      inverseEvent
+    )
+  ) {
+    return delivery.payload.entries
+  }
+  return null
+}
+
+const isElementDataChange = (
+  value: unknown
+): value is UpdateElementDataChange =>
+  isRecord(value) &&
+  value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA &&
+  value.eventName === EventTypes.UPDATE_ELEMENT_DATA &&
   isNonBlankString(value.id) &&
   Array.isArray(value.changes) &&
   value.changes.length > 0 &&
   value.changes.every(
     (change) =>
       isRecord(change) &&
-      (change.owner === 'raw' || change.owner === 'computed') &&
-      isNonBlankString(change.key) &&
+      (change.key === 'name' ||
+        change.key === 'visible' ||
+        change.key === 'lock') &&
       owns(change, 'before') &&
-      owns(change, 'after')
+      owns(change, 'after') &&
+      (change.key === 'name'
+        ? typeof change.before === 'string' && typeof change.after === 'string'
+        : typeof change.before === 'boolean' &&
+          typeof change.after === 'boolean')
   )
-
-const isComputedPatch = (value: unknown): value is Record<string, unknown> =>
-  isRecord(value) &&
-  value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH &&
-  value.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
-  isNonBlankString(value.id) &&
-  isRecord(value.patch) &&
-  (isRecord(value.patch.values) || isRecord(value.patch.records))
 
 const isHierarchyLocation = (
   value: unknown
@@ -194,7 +214,11 @@ const isHierarchyLocation = (
   Number.isInteger(value.index) &&
   Number(value.index) >= 0
 
-const isMoveElements = (value: unknown): value is Record<string, unknown> => {
+const isMoveElements = (
+  value: unknown
+): value is Record<string, unknown> & {
+  readonly moves: readonly HierarchyMove[]
+} => {
   if (
     !isRecord(value) ||
     value.action !== SCENE_TREE_ACTIONS.MOVE_ELEMENTS ||
@@ -251,7 +275,7 @@ const isSubtreeEntry = (value: unknown): value is Record<string, unknown> =>
   value.data.id === value.elementId &&
   value.data.parentId === value.parentId
 
-const isSubtreeChange = (value: unknown): value is Record<string, unknown> => {
+const isSubtreeChange = (value: unknown): value is SubtreeChange => {
   if (
     !isRecord(value) ||
     value.eventName !== EventTypes.CHANGE_SUBTREE ||
@@ -323,13 +347,24 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
           SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
           EventTypes.REMOVE_ELEMENT
         )
-      case EventTypes.UPDATE_COMPUTED_DATA:
-        return (
-          isScalarComputedChange(delivery.payload) ||
-          isBatchComputedChange(delivery.payload)
+      case EventTypes.ADD_ELEMENTS:
+        return isAddRemoveElements(
+          delivery.payload,
+          SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          EventTypes.ADD_ELEMENTS,
+          SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          EventTypes.REMOVE_ELEMENTS
         )
-      case EventTypes.UPDATE_COMPUTED_DATA_PATCH:
-        return isComputedPatch(delivery.payload)
+      case EventTypes.REMOVE_ELEMENTS:
+        return isAddRemoveElements(
+          delivery.payload,
+          SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          EventTypes.REMOVE_ELEMENTS,
+          SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          EventTypes.ADD_ELEMENTS
+        )
+      case EventTypes.UPDATE_ELEMENT_DATA:
+        return isElementDataChange(delivery.payload)
       case EventTypes.MOVE_ELEMENTS:
         return isMoveElements(delivery.payload)
       case EventTypes.CHANGE_SUBTREE:
@@ -410,13 +445,21 @@ const classifyRemoteRestore = (
   }
 }
 
-const toEvent = (delivery: SharedDelivery): AllEvent => {
+const assertSupportedDelivery = (delivery: SharedDelivery): void => {
+  if (
+    delivery.channel === SharedDataChannelNames.SCENE_TREE &&
+    (delivery.eventName === EventTypes.UPDATE_COMPUTED_DATA ||
+      delivery.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH)
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] remote publication contains local-only computed projection evidence'
+    )
+  }
   if (!isSupportedPayload(delivery)) {
     throw new Error(
       `[asyra-design collaboration] unsupported collaboration delivery ${delivery.channel}/${delivery.eventName}`
     )
   }
-  return { type: delivery.eventName, payload: delivery.payload } as AllEvent
 }
 
 const isAddPropertyDelivery = (
@@ -492,11 +535,38 @@ const sameOrderedIds = (
   actual.length === expected.length &&
   actual.every((id, index) => id === expected[index])
 
+const orderCanonicalElementEntries = (
+  entries: readonly AddRemoveElementEntry[],
+  orderedIds: readonly string[]
+): readonly AddRemoveElementEntry[] | null => {
+  if (entries.length !== orderedIds.length) return null
+  const entriesById = new Map<string, AddRemoveElementEntry>()
+  for (const entry of entries) {
+    if (entriesById.has(entry.data.id)) return null
+    entriesById.set(entry.data.id, entry)
+  }
+  const seenOrderedIds = new Set<string>()
+  const orderedEntries: AddRemoveElementEntry[] = []
+  for (const orderedId of orderedIds) {
+    if (seenOrderedIds.has(orderedId)) return null
+    const entry = entriesById.get(orderedId)
+    if (!entry) return null
+    seenOrderedIds.add(orderedId)
+    orderedEntries.push(entry)
+  }
+  return sameOrderedIds(
+    entries.map(({ data }) => data.id),
+    orderedIds
+  )
+    ? entries
+    : orderedEntries
+}
+
 const hasDirectSliceBoundary = (
   publication: SharedPublication,
   batch: SharedDeliveryBatch
 ): boolean => {
-  const sliceBoundary = publication.deliveryPlan.slices.find(
+  const sliceBoundary = publication.deliverySequence.slices.find(
     ({ sliceId }) => sliceId === batch.sliceId
   )
   if (!sliceBoundary) return false
@@ -526,18 +596,221 @@ const hasDirectSliceBoundary = (
   )
   return (
     sameOrderedIds(sliceBoundary.orderedIds, deliveryIds) ||
-    (publication.deliveryPlan.mode === 'progressive' &&
+    (publication.deliverySequence.mode === 'progressive' &&
       sameOrderedIds(sliceBoundary.orderedIds, recordOrderedIds))
   )
+}
+
+const assertDirectPublicationBatchEvidence = (
+  publication: SharedPublication
+): void => {
+  const artifactDeliveries = publication.batches.flatMap(
+    ({ deliveries }) => deliveries
+  )
+  if (
+    publication.batches.length === 0 ||
+    artifactDeliveries.length !== publication.deliveries.length ||
+    artifactDeliveries.some(
+      ({ deliveryId }, index) =>
+        deliveryId !== publication.deliveries[index]?.deliveryId
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+    )
+  }
+  if (
+    publication.batches.some(
+      (batch) =>
+        !isDirectPublicationBatch(publication, batch) ||
+        !hasDirectSliceBoundary(publication, batch)
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+    )
+  }
+}
+
+const assertRemotePublication = (publication: SharedPublication): void => {
+  assertDirectPublicationBatchEvidence(publication)
+  publication.deliveries.forEach(assertSupportedDelivery)
+}
+
+const classifyPropertyComponentBatch = (
+  publication: SharedPublication,
+  batch: SharedDeliveryBatch
+): readonly PropertyComponentValuesUpdate[] | null => {
+  if (
+    !batch.deliveries.some(
+      ({ eventName }) => eventName === EventTypes.UPDATE_PROPERTY
+    )
+  ) {
+    return null
+  }
+  if (
+    batch.channel !== SharedDataChannelNames.PROPS ||
+    !isDirectPublicationBatch(publication, batch) ||
+    !hasDirectSliceBoundary(publication, batch) ||
+    !batch.deliveries.every(
+      (delivery) =>
+        delivery.eventName === EventTypes.UPDATE_PROPERTY &&
+        isUpdateProperty(delivery.payload)
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] invalid property-component batch evidence'
+    )
+  }
+  const updatesByPropertyId = new Map<
+    string,
+    { propertyId: string; values: Record<string, unknown> }
+  >()
+  batch.deliveries.forEach(({ payload }) => {
+    const change = payload as Record<string, unknown>
+    const propertyId = change.id as string
+    const update = updatesByPropertyId.get(propertyId) ?? {
+      propertyId,
+      values: {}
+    }
+    update.values[change.key as string] = change.after
+    updatesByPropertyId.set(propertyId, update)
+  })
+  return Object.freeze(
+    [...updatesByPropertyId.values()].map(({ propertyId, values }) =>
+      Object.freeze({
+        propertyId,
+        values: Object.freeze({ ...values })
+      })
+    )
+  )
+}
+
+const classifyElementDataBatch = (
+  publication: SharedPublication,
+  batch: SharedDeliveryBatch
+): readonly UpdateElementDataChange[] | null => {
+  if (
+    !batch.deliveries.some(
+      ({ eventName }) => eventName === EventTypes.UPDATE_ELEMENT_DATA
+    )
+  ) {
+    return null
+  }
+  if (
+    batch.channel !== SharedDataChannelNames.SCENE_TREE ||
+    !isDirectPublicationBatch(publication, batch) ||
+    !hasDirectSliceBoundary(publication, batch) ||
+    !batch.deliveries.every(
+      ({ eventName, payload }) =>
+        eventName === EventTypes.UPDATE_ELEMENT_DATA &&
+        isElementDataChange(payload)
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] invalid element-data batch evidence'
+    )
+  }
+  return Object.freeze(
+    batch.deliveries.map(({ payload }) => payload as UpdateElementDataChange)
+  )
+}
+
+const classifyHierarchyMoveBatch = (
+  publication: SharedPublication,
+  batch: SharedDeliveryBatch
+): readonly HierarchyMove[] | null => {
+  if (
+    !batch.deliveries.some(
+      ({ eventName }) => eventName === EventTypes.MOVE_ELEMENTS
+    )
+  ) {
+    return null
+  }
+  if (
+    batch.channel !== SharedDataChannelNames.SCENE_TREE ||
+    !isDirectPublicationBatch(publication, batch) ||
+    !hasDirectSliceBoundary(publication, batch) ||
+    !batch.deliveries.every(
+      ({ eventName, payload }) =>
+        eventName === EventTypes.MOVE_ELEMENTS && isMoveElements(payload)
+    )
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] invalid hierarchy-move batch evidence'
+    )
+  }
+  return Object.freeze(
+    batch.deliveries.flatMap(
+      ({ payload }) =>
+        (payload as { readonly moves: readonly HierarchyMove[] }).moves
+    )
+  )
+}
+
+const classifySubtreeRemovalBatch = (
+  publication: SharedPublication,
+  startBatchIndex: number
+): Readonly<{
+  change: SubtreeChange
+  consumedBatchCount: number
+}> | null => {
+  const sceneBatch = publication.batches[startBatchIndex]
+  const sceneDelivery = sceneBatch?.deliveries[0]
+  if (
+    !sceneBatch ||
+    sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
+    sceneDelivery?.eventName !== EventTypes.CHANGE_SUBTREE ||
+    !isSubtreeChange(sceneDelivery.payload) ||
+    sceneDelivery.payload.action !== SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+  ) {
+    return null
+  }
+  if (
+    sceneBatch.deliveries.length !== 1 ||
+    !isDirectPublicationBatch(publication, sceneBatch) ||
+    !hasDirectSliceBoundary(publication, sceneBatch)
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] invalid subtree removal Scene evidence'
+    )
+  }
+  let consumedBatchCount = 1
+  while (true) {
+    const propertyBatch =
+      publication.batches[startBatchIndex + consumedBatchCount]
+    if (
+      !propertyBatch ||
+      propertyBatch.channel !== SharedDataChannelNames.PROPS ||
+      !propertyBatch.deliveries.some(
+        ({ eventName }) => eventName === EventTypes.REMOVE_PROPERTY
+      )
+    ) {
+      break
+    }
+    if (
+      !isDirectPublicationBatch(publication, propertyBatch) ||
+      !hasDirectSliceBoundary(publication, propertyBatch) ||
+      !propertyBatch.deliveries.every(isRemovePropertyDelivery)
+    ) {
+      throw new Error(
+        '[asyra-design collaboration] invalid subtree removal property evidence'
+      )
+    }
+    consumedBatchCount += 1
+  }
+  return Object.freeze({
+    change: sceneDelivery.payload,
+    consumedBatchCount
+  })
 }
 
 const classifyCanonicalCreationBatch = (
   publication: SharedPublication,
   startBatchIndex: number
 ): Readonly<{
-  batch: RemoteCanonicalCreationBatch
+  change: Extract<CanonicalChange, { kind: 'element-creation' }>
   consumedBatchCount: number
-  consumedDeliveryCount: number
 }> | null => {
   const propertyBatch = publication.batches[startBatchIndex]
   const sceneBatch = publication.batches[startBatchIndex + 1]
@@ -566,35 +839,28 @@ const classifyCanonicalCreationBatch = (
   let parentId: string | undefined
   let insertionIndex: number | undefined
   let observedPropertyOwnerCount = 0
+  const sourceEntries: AddRemoveElementEntry[] = []
 
   for (const delivery of sceneBatch.deliveries) {
-    if (
-      !delivery ||
-      delivery.eventName !== EventTypes.ADD_ELEMENT ||
-      !isAddRemoveElement(
-        delivery.payload,
-        SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        EventTypes.ADD_ELEMENT
-      )
-    ) {
-      return null
-    }
-    const payload = delivery.payload
-    const elementData = payload.data as Record<string, unknown>
-    if (
-      !isNonBlankString(payload.parentId) ||
-      !Number.isInteger(payload.index) ||
-      !isRecord(elementData.props) ||
-      elementData.parentId !== payload.parentId
-    ) {
-      return null
-    }
+    const entries = canonicalElementEntriesFromDelivery(delivery, 'add')
+    if (!entries) return null
+    sourceEntries.push(...entries)
+  }
+  const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
+  const orderedEntries = orderCanonicalElementEntries(
+    sourceEntries,
+    sceneOrderedIds
+  )
+  if (!orderedEntries) return null
+  for (const entry of orderedEntries) {
+    const elementData = entry.data as unknown as Record<string, unknown>
+    if (!isRecord(elementData.props)) return null
 
-    parentId ??= payload.parentId
-    insertionIndex ??= Number(payload.index)
+    parentId ??= entry.parentId
+    insertionIndex ??= entry.index
     if (
-      payload.parentId !== parentId ||
-      Number(payload.index) !== insertionIndex + elements.length
+      entry.parentId !== parentId ||
+      entry.index !== insertionIndex + elements.length
     ) {
       return null
     }
@@ -608,12 +874,11 @@ const classifyCanonicalCreationBatch = (
       return null
     }
     observedPropertyOwnerCount += propertyOwnerIds.length
-    elements.push(elementData as unknown as ElementRawData)
+    elements.push(entry.data)
   }
 
   const elementIds = elements.map(({ id }) => id)
   const propertyOrderedIds = orderedIdsFromBatch(propertyBatch)
-  const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
   if (
     elements.length === 0 ||
     parentId === undefined ||
@@ -626,15 +891,14 @@ const classifyCanonicalCreationBatch = (
   }
 
   return Object.freeze({
-    batch: Object.freeze({
+    change: Object.freeze({
+      kind: 'element-creation',
       elements: Object.freeze(elements),
       properties: Object.freeze(properties),
       parentId,
       index: insertionIndex
     }),
-    consumedBatchCount: 2,
-    consumedDeliveryCount:
-      propertyBatch.deliveries.length + sceneBatch.deliveries.length
+    consumedBatchCount: 2
   })
 }
 
@@ -644,69 +908,37 @@ const classifyCanonicalRemovalBatch = (
 ): Readonly<{
   removals: readonly RemoteCanonicalElementRemoval[]
   consumedBatchCount: number
-  consumedDeliveryCount: number
 }> | null => {
   const sceneBatch = publication.batches[startBatchIndex]
-  const propertyBatch = publication.batches[startBatchIndex + 1]
   if (
     !sceneBatch ||
-    !propertyBatch ||
     !isDirectPublicationBatch(publication, sceneBatch) ||
-    !isDirectPublicationBatch(publication, propertyBatch) ||
     !hasDirectSliceBoundary(publication, sceneBatch) ||
-    !hasDirectSliceBoundary(publication, propertyBatch) ||
-    sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    propertyBatch.channel !== SharedDataChannelNames.PROPS ||
-    sceneBatch.kind !== propertyBatch.kind ||
-    sceneBatch.sharedDelivery !== propertyBatch.sharedDelivery ||
-    !propertyBatch.deliveries.every(isRemovePropertyDelivery)
+    sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE
   ) {
     return null
   }
 
-  const propertyIds = new Set(
-    propertyBatch.deliveries.flatMap(({ payload }) =>
-      payload.data.map(({ id }) => id)
-    )
-  )
-  let observedPropertyOwnerCount = 0
   const removals: RemoteCanonicalElementRemoval[] = []
+  const sourceEntries: AddRemoveElementEntry[] = []
   for (const delivery of sceneBatch.deliveries) {
-    if (
-      delivery.eventName !== EventTypes.REMOVE_ELEMENT ||
-      !isAddRemoveElement(
-        delivery.payload,
-        SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        EventTypes.REMOVE_ELEMENT
-      )
-    ) {
-      return null
-    }
-    const payload = delivery.payload
-    const elementData = payload.data as Record<string, unknown>
-    if (
-      !isNonBlankString(payload.parentId) ||
-      !Number.isInteger(payload.index) ||
-      elementData.parentId !== payload.parentId ||
-      !isRecord(elementData.props)
-    ) {
-      return null
-    }
-    const ownerIds = Object.values(elementData.props)
-    if (
-      ownerIds.some(
-        (propertyId) =>
-          !isNonBlankString(propertyId) || !propertyIds.has(propertyId)
-      )
-    ) {
-      return null
-    }
-    observedPropertyOwnerCount += ownerIds.length
+    const entries = canonicalElementEntriesFromDelivery(delivery, 'remove')
+    if (!entries) return null
+    sourceEntries.push(...entries)
+  }
+  const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
+  const orderedEntries = orderCanonicalElementEntries(
+    sourceEntries,
+    sceneOrderedIds
+  )
+  if (!orderedEntries) return null
+  for (const entry of orderedEntries) {
+    if (!isRecord(entry.data.props)) return null
     removals.push(
       Object.freeze({
-        data: elementData as unknown as ElementRawData,
-        parentId: payload.parentId,
-        index: Number(payload.index)
+        data: entry.data,
+        parentId: entry.parentId,
+        index: entry.index
       })
     )
   }
@@ -715,106 +947,127 @@ const classifyCanonicalRemovalBatch = (
   if (
     removals.length === 0 ||
     new Set(elementIds).size !== elementIds.length ||
-    observedPropertyOwnerCount === 0 ||
-    !sameOrderedIds(orderedIdsFromBatch(sceneBatch), elementIds) ||
-    !sameOrderedIds(orderedIdsFromBatch(propertyBatch), elementIds)
+    !sameOrderedIds(sceneOrderedIds, elementIds)
   ) {
     return null
   }
 
+  const propertyBatchCandidate = publication.batches[startBatchIndex + 1]
+  const hasPropertyRemovalCandidate =
+    propertyBatchCandidate?.channel === SharedDataChannelNames.PROPS &&
+    propertyBatchCandidate.deliveries.some(
+      ({ eventName }) => eventName === EventTypes.REMOVE_PROPERTY
+    )
+  const propertyBatch = hasPropertyRemovalCandidate
+    ? propertyBatchCandidate
+    : undefined
+  if (
+    propertyBatch &&
+    (!propertyBatch.deliveries.every(isRemovePropertyDelivery) ||
+      !isDirectPublicationBatch(publication, propertyBatch) ||
+      !hasDirectSliceBoundary(publication, propertyBatch) ||
+      sceneBatch.kind !== propertyBatch.kind ||
+      sceneBatch.sharedDelivery !== propertyBatch.sharedDelivery ||
+      !sameOrderedIds(orderedIdsFromBatch(propertyBatch), elementIds))
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] invalid canonical removal property batch evidence'
+    )
+  }
+
   return Object.freeze({
     removals: Object.freeze(removals),
-    consumedBatchCount: 1,
-    consumedDeliveryCount: sceneBatch.deliveries.length
+    consumedBatchCount: propertyBatch ? 2 : 1
   })
 }
 
 const createRemoteApplySteps = (
-  publication: SharedPublication,
-  events: readonly AllEvent[],
-  applyCanonicalCreationBatch?: ApplyRemoteCanonicalCreationBatch,
-  applyCanonicalRemovalBatch?: ApplyRemoteCanonicalRemovalBatch
-): readonly RemoteApplyStep[] => {
-  if (!applyCanonicalCreationBatch && !applyCanonicalRemovalBatch) {
-    return Object.freeze(
-      events.map((event) => Object.freeze({ kind: 'event' as const, event }))
-    )
-  }
-
-  const steps: RemoteApplyStep[] = []
-  const artifactDeliveries = publication.batches.flatMap(
-    ({ deliveries }) => deliveries
-  )
-  if (
-    artifactDeliveries.length !== publication.deliveries.length ||
-    artifactDeliveries.some(
-      ({ deliveryId }, index) =>
-        deliveryId !== publication.deliveries[index]?.deliveryId
-    )
-  ) {
-    throw new Error(
-      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
-    )
-  }
+  publication: SharedPublication
+): readonly CanonicalChange[] => {
+  const changes: CanonicalChange[] = []
   let batchIndex = 0
-  let deliveryIndex = 0
   while (batchIndex < publication.batches.length) {
-    const creation = applyCanonicalCreationBatch
-      ? classifyCanonicalCreationBatch(publication, batchIndex)
-      : null
+    const creation = classifyCanonicalCreationBatch(publication, batchIndex)
     if (creation) {
-      steps.push(
-        Object.freeze({
-          kind: 'canonical-creation',
-          batch: creation.batch
-        })
-      )
+      changes.push(creation.change)
       batchIndex += creation.consumedBatchCount
-      deliveryIndex += creation.consumedDeliveryCount
       continue
     }
-    const removal = applyCanonicalRemovalBatch
-      ? classifyCanonicalRemovalBatch(publication, batchIndex)
-      : null
+    const removal = classifyCanonicalRemovalBatch(publication, batchIndex)
     if (removal) {
-      steps.push(
+      changes.push(
         Object.freeze({
-          kind: 'canonical-removal',
+          kind: 'element-removal',
           removals: removal.removals
         })
       )
       batchIndex += removal.consumedBatchCount
-      deliveryIndex += removal.consumedDeliveryCount
       continue
     }
     const batch = publication.batches[batchIndex] as SharedDeliveryBatch
-    batch.deliveries.forEach(() => {
-      steps.push(
+    const propertyUpdates = classifyPropertyComponentBatch(publication, batch)
+    if (propertyUpdates) {
+      changes.push(
         Object.freeze({
-          kind: 'event',
-          event: events[deliveryIndex] as AllEvent
+          kind: 'property-components',
+          updates: propertyUpdates
         })
       )
-      deliveryIndex += 1
-    })
-    batchIndex += 1
+      batchIndex += 1
+      continue
+    }
+    const elementDataChanges = classifyElementDataBatch(publication, batch)
+    if (elementDataChanges) {
+      changes.push(
+        Object.freeze({
+          kind: 'element-data',
+          changes: elementDataChanges
+        })
+      )
+      batchIndex += 1
+      continue
+    }
+    const hierarchyMoves = classifyHierarchyMoveBatch(publication, batch)
+    if (hierarchyMoves) {
+      changes.push(
+        Object.freeze({
+          kind: 'hierarchy-moves',
+          moves: hierarchyMoves
+        })
+      )
+      batchIndex += 1
+      continue
+    }
+    const subtreeRemoval = classifySubtreeRemovalBatch(publication, batchIndex)
+    if (subtreeRemoval) {
+      changes.push(
+        Object.freeze({
+          kind: 'subtree-removal',
+          change: subtreeRemoval.change
+        })
+      )
+      batchIndex += subtreeRemoval.consumedBatchCount
+      continue
+    }
+    throw new Error(
+      `[asyra-design collaboration] unsupported canonical Factory batch evidence at batch ${batchIndex} ${batch.channel}/${batch.deliveries.map(({ eventName }) => eventName).join(',')}`
+    )
   }
-  return Object.freeze(steps)
+  return Object.freeze(changes)
 }
 
 export const createAsyraDesignPublicationProcessor =
-  (
-    runRemoteTransaction: RunRemoteTransaction,
-    process: ProcessOperation,
-    decideRemotePublication: DecideRemotePublication = (publication) =>
-      publication,
-    restoreOwners?: RemoteRestoreOwnerFacades,
-    applyCanonicalCreationBatch?: ApplyRemoteCanonicalCreationBatch
-  ): ((publication: SharedPublication) => boolean) =>
+  ({
+    runRemoteTransaction,
+    decideRemotePublication,
+    applyCanonicalChanges
+  }: AsyraDesignPublicationProcessorOptions): ((
+    publication: SharedPublication
+  ) => boolean) =>
   (publication) => {
     return runWithDetachedBrowserTiming(() => {
       measureBrowserDragPhase('collaboration:remote-input-preflight', () =>
-        publication.deliveries.forEach(toEvent)
+        assertRemotePublication(publication)
       )
       const inboundRestore = measureBrowserDragPhase(
         'collaboration:remote-restore-classify',
@@ -837,122 +1090,54 @@ export const createAsyraDesignPublicationProcessor =
         }
         runRemoteTransaction(mutate)
       }
-      const events = measureBrowserDragPhase(
-        'collaboration:remote-event-materialization',
-        () => acceptedPublication.deliveries.map(toEvent)
-      )
-      const acceptedRestore = measureBrowserDragPhase(
-        'collaboration:remote-accepted-restore-classify',
-        () => classifyRemoteRestore(acceptedPublication)
-      )
+      if (acceptedPublication !== publication) {
+        measureBrowserDragPhase(
+          'collaboration:remote-accepted-input-preflight',
+          () => assertRemotePublication(acceptedPublication)
+        )
+      }
+      const acceptedRestore =
+        acceptedPublication === publication
+          ? inboundRestore
+          : measureBrowserDragPhase(
+              'collaboration:remote-accepted-restore-classify',
+              () => classifyRemoteRestore(acceptedPublication)
+            )
       if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
         throw new Error(
           '[asyra-design collaboration] invalid subtree restore publication'
         )
       }
       if (acceptedRestore) {
-        if (!restoreOwners) {
-          throw new Error(
-            '[asyra-design collaboration] subtree restore owner facades are required'
-          )
-        }
-        const scenePlan = restoreOwners.preflightRestoreSubtree(
-          acceptedRestore.sceneSnapshot
-        )
-        const propsPlan = restoreOwners.preflightRestoreProperties(
-          acceptedRestore.propsSnapshot,
-          scenePlan.propertyOwnerRelations
-        )
-        measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
-          runCanonicalTransaction(() => {
-            restoreOwners.applyRestoreProperties(propsPlan)
-            restoreOwners.applyRestoreSubtree(scenePlan)
+        const canonicalChanges = Object.freeze([
+          Object.freeze({
+            kind: 'subtree-restore' as const,
+            sceneSnapshot: acceptedRestore.sceneSnapshot,
+            propsSnapshot: acceptedRestore.propsSnapshot
           })
+        ])
+        measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
+          runCanonicalTransaction(() => applyCanonicalChanges(canonicalChanges))
         )
-        publishEventsToObservers(events)
         return true
       }
-      const applySteps = measureBrowserDragPhase(
+      const canonicalChanges = measureBrowserDragPhase(
         'collaboration:remote-canonical-batch-plan',
-        () =>
-          createRemoteApplySteps(
-            acceptedPublication,
-            events,
-            replayMode === null ? applyCanonicalCreationBatch : undefined,
-            restoreOwners?.removeElementsUsingActiveProperties
-              ? (removals) =>
-                  restoreOwners.removeElementsUsingActiveProperties?.(
-                    removals
-                  ) ?? []
-              : undefined
-          )
+        () => createRemoteApplySteps(acceptedPublication)
       )
+      canonicalChanges.forEach((change) => {
+        if (change.kind !== 'element-creation') {
+          return
+        }
+        emitDiagnosticCounter('collaboration:remote-add-element-batch-count')
+        emitDiagnosticCounter(
+          'collaboration:remote-add-element-batch-size',
+          change.elements.length
+        )
+      })
       measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
-        runCanonicalTransaction(() => {
-          applySteps.forEach((step) => {
-            if (step.kind === 'event') {
-              if (step.event.type === EventTypes.ADD_ELEMENT) {
-                emitDiagnosticCounter(
-                  'collaboration:remote-add-element-single-count'
-                )
-              }
-              if (process(step.event) === false) {
-                throw new Error(
-                  '[asyra-design collaboration] canonical remote event was not applied'
-                )
-              }
-              return
-            }
-            if (step.kind === 'canonical-removal') {
-              const appliedIds = measureBrowserDragPhase(
-                'collaboration:remote-canonical-removal-batch-apply',
-                () =>
-                  restoreOwners?.removeElementsUsingActiveProperties?.(
-                    step.removals
-                  ) ?? []
-              )
-              const expectedIds = step.removals.map(({ data }) => data.id)
-              if (
-                appliedIds.length !== expectedIds.length ||
-                appliedIds.some((id, index) => id !== expectedIds[index])
-              ) {
-                throw new Error(
-                  '[asyra-design collaboration] canonical removal batch did not apply exact ids'
-                )
-              }
-              return
-            }
-            const { batch } = step
-            emitDiagnosticCounter(
-              'collaboration:remote-add-element-batch-count'
-            )
-            emitDiagnosticCounter(
-              'collaboration:remote-add-element-batch-size',
-              batch.elements.length
-            )
-            const appliedIds = measureBrowserDragPhase(
-              'collaboration:remote-canonical-batch-apply',
-              () =>
-                applyCanonicalCreationBatch?.(
-                  batch.elements,
-                  batch.properties,
-                  batch.parentId,
-                  batch.index
-                ) ?? []
-            )
-            const expectedIds = batch.elements.map(({ id }) => id)
-            if (
-              appliedIds.length !== expectedIds.length ||
-              appliedIds.some((id, index) => id !== expectedIds[index])
-            ) {
-              throw new Error(
-                '[asyra-design collaboration] canonical creation batch did not apply exact ids'
-              )
-            }
-          })
-        })
+        runCanonicalTransaction(() => applyCanonicalChanges(canonicalChanges))
       )
-      publishEventsToObservers(events)
       return true
     })
   }

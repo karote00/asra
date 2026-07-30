@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as collaborationModule from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
-import { IDTypes, idCounter } from '@asyra/utils'
+import { EventTypes } from '@asyra/reactive-events'
+import {
+  IDTypes,
+  PROPS_ACTIONS,
+  SharedDataChannelNames,
+  idCounter
+} from '@asyra/utils'
 import * as collaborationOperations from '../../collaboration/operations'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
@@ -11,15 +17,68 @@ import {
 } from '../../collaboration/lifecycle'
 import core, { factory } from '../../contexts'
 
-const remotePublication = (publicationId: string): SharedPublication => ({
-  publicationId,
-  artifactId: `artifact-${publicationId}`,
-  transactionId: 1,
-  origin: 'action',
-  deliveries: [],
-  batches: [],
-  deliveryPlan: { mode: 'atomic', slices: [] }
-})
+const remotePublication = (publicationId: string): SharedPublication => {
+  const artifactId = `artifact-${publicationId}`
+  const batchId = `batch-${publicationId}`
+  const deliveryId = `delivery-${publicationId}`
+  const recordId = `record-${publicationId}`
+  const payload = {
+    action: PROPS_ACTIONS.UPDATE_PROPERTY,
+    eventName: EventTypes.UPDATE_PROPERTY,
+    id: `position-${publicationId}`,
+    key: 'x',
+    before: 0,
+    after: 10
+  }
+  const record = {
+    recordId,
+    deliveryId,
+    occurrence: 1,
+    orderedIds: [],
+    payload,
+    inverseEvents: []
+  }
+  const delivery = {
+    deliveryId,
+    artifactId,
+    batchId,
+    transactionId: 1,
+    origin: 'action' as const,
+    kind: 'forward' as const,
+    channel: SharedDataChannelNames.PROPS,
+    eventName: EventTypes.UPDATE_PROPERTY,
+    payload,
+    recordId,
+    record,
+    sharedDelivery: 'immediate' as const
+  }
+  return {
+    publicationId,
+    artifactId,
+    transactionId: 1,
+    origin: 'action',
+    deliveries: [delivery],
+    batches: [
+      {
+        batchId,
+        sliceId: batchId,
+        artifactId,
+        transactionId: 1,
+        origin: 'action',
+        kind: 'forward',
+        channel: SharedDataChannelNames.PROPS,
+        sharedDelivery: 'immediate',
+        deliveries: [delivery],
+        records: [record],
+        changes: [payload]
+      }
+    ],
+    deliverySequence: {
+      mode: 'atomic',
+      slices: [{ sliceId: batchId, orderedIds: [deliveryId] }]
+    }
+  }
+}
 
 const harness = {
   collaboration: {
@@ -97,7 +156,7 @@ it('starts the real app collaboration composition without an Awareness preview r
   expect(window.__AsyraCollaboration__).toBeDefined()
 })
 
-it('binds detached creation and origin-neutral exact removal to the Core lifecycle', async () => {
+it('binds one remote canonical request to the Core-owned coordinator', async () => {
   const createPublicationProcessor = vi.spyOn(
     collaborationOperations,
     'createAsyraDesignPublicationProcessor'
@@ -113,14 +172,14 @@ it('binds detached creation and origin-neutral exact removal to the Core lifecyc
   })
 
   expect(createPublicationProcessor).toHaveBeenCalledOnce()
-  expect(createPublicationProcessor).toHaveBeenCalledWith(
-    expect.any(Function),
-    expect.any(Function),
-    undefined,
-    core,
-    expect.any(Function),
-    expect.any(Function)
-  )
+  const options = createPublicationProcessor.mock.calls[0]?.[0]
+  expect(options).toEqual({
+    runRemoteTransaction: expect.any(Function),
+    decideRemotePublication: expect.any(Function),
+    applyCanonicalChanges: expect.any(Function)
+  })
+  expect(options).not.toHaveProperty('applyRemoteEvent')
+  expect(options).not.toHaveProperty('owners')
 })
 
 it('exposes remote publication outcomes through the local collaboration handle', async () => {
@@ -148,6 +207,9 @@ it('exposes remote publication outcomes through the local collaboration handle',
 
 it('settles the consumer promise only after the remote transaction succeeds', async () => {
   const order: string[] = []
+  vi.spyOn(core, 'applyCanonicalChanges').mockImplementation(() => {
+    order.push('core-apply')
+  })
   vi.spyOn(factory, 'runRemoteTransaction').mockImplementation((mutate) => {
     order.push('remote-transaction')
     return mutate()
@@ -167,7 +229,7 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await composition.processRemotePublication(
     remotePublication('remote-success')
   )
-  expect(order).toEqual(['remote-transaction'])
+  expect(order).toEqual(['remote-transaction', 'core-apply'])
 
   vi.mocked(factory.runRemoteTransaction).mockImplementationOnce(() => {
     throw new Error('remote apply failed')

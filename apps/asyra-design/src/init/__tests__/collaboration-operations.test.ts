@@ -1,28 +1,20 @@
-import {
-  Factory,
-  LocalSharedDataChannel,
-  type SharedDelivery,
-  type SharedPublication
-} from '@asyra/factory'
+import type { CanonicalChange } from '@asyra/core'
+import type { SharedDelivery, SharedPublication } from '@asyra/factory'
 import {
   EventTypes,
-  TransactionEventTypes,
   getTransactionReplayMode,
-  subscribeToAddElement,
-  subscribeToEventBatches,
+  subscribeToEvents,
   type AllEvent
 } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
-  SharedDataChannelNames,
-  type PropsRestorePlan,
-  type SceneTreeRestorePlan
+  SharedDataChannelNames
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createAsyraDesignPublicationProcessor,
-  type RemoteRestoreOwnerFacades
+  type DecideRemotePublication
 } from '../../collaboration/operations'
 
 const delivery = (
@@ -72,6 +64,7 @@ const publication = (
     batchId: string
     deliveries: SharedDelivery[]
   }[] = []
+
   normalizedDeliveries.forEach((item) => {
     const active = groupedBatches[groupedBatches.length - 1]
     if (active?.batchId === item.batchId) {
@@ -80,6 +73,7 @@ const publication = (
     }
     groupedBatches.push({ batchId: item.batchId, deliveries: [item] })
   })
+
   return {
     publicationId,
     artifactId,
@@ -99,7 +93,7 @@ const publication = (
       records: batchDeliveries.map(({ record }) => record),
       changes: batchDeliveries.map(({ payload }) => payload)
     })),
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'atomic',
       slices: groupedBatches.map(
         ({ batchId, deliveries: batchDeliveries }) => ({
@@ -111,27 +105,7 @@ const publication = (
   }
 }
 
-const combinePublications = (
-  parts: readonly SharedPublication[],
-  publicationId: string
-): SharedPublication => {
-  const first = parts[0]
-  if (!first) {
-    throw new Error('Combined publication requires at least one part')
-  }
-  return {
-    ...first,
-    publicationId,
-    deliveries: parts.flatMap(({ deliveries }) => deliveries),
-    batches: parts.flatMap(({ batches }) => batches),
-    deliveryPlan: {
-      mode: 'progressive',
-      slices: parts.flatMap(({ deliveryPlan }) => deliveryPlan.slices)
-    }
-  }
-}
-
-const withExplicitCanonicalDeliveryPlan = (
+const withExplicitCanonicalDeliverySequence = (
   source: SharedPublication,
   sliceId: string,
   orderedIds: readonly string[]
@@ -141,7 +115,7 @@ const withExplicitCanonicalDeliveryPlan = (
     ...batch,
     sliceId
   })),
-  deliveryPlan: {
+  deliverySequence: {
     mode: 'progressive',
     slices: [{ sliceId, orderedIds }]
   }
@@ -168,6 +142,29 @@ const canonicalCreationDeliveries = (
     },
     `properties-${elementIds.join('-')}`
   )
+
+  const elementDelivery = delivery(
+    SharedDataChannelNames.SCENE_TREE,
+    EventTypes.ADD_ELEMENTS,
+    {
+      action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+      eventName: EventTypes.ADD_ELEMENTS,
+      undoType: EventTypes.REMOVE_ELEMENTS,
+      undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+      entries: elementIds.map((elementId, offset) => ({
+        data: {
+          id: elementId,
+          type: 'rect',
+          parentId,
+          props: { position: `position-${elementId}` }
+        },
+        parentId,
+        index: startIndex + offset
+      }))
+    },
+    `elements-${elementIds.join('-')}`
+  )
+
   return [
     {
       ...propertyDelivery,
@@ -177,35 +174,14 @@ const canonicalCreationDeliveries = (
         orderedIds: [...elementIds]
       }
     },
-    ...elementIds.map((elementId, offset) =>
-      (() => {
-        const elementDelivery = delivery(
-          SharedDataChannelNames.SCENE_TREE,
-          EventTypes.ADD_ELEMENT,
-          {
-            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-            eventName: EventTypes.ADD_ELEMENT,
-            data: {
-              id: elementId,
-              type: 'rect',
-              parentId,
-              props: { position: `position-${elementId}` }
-            },
-            parentId,
-            index: startIndex + offset
-          },
-          `element-${elementId}`
-        )
-        return {
-          ...elementDelivery,
-          batchId: elementsBatchId,
-          record: {
-            ...elementDelivery.record,
-            orderedIds: [elementId]
-          }
-        }
-      })()
-    )
+    {
+      ...elementDelivery,
+      batchId: elementsBatchId,
+      record: {
+        ...elementDelivery.record,
+        orderedIds: [...elementIds]
+      }
+    }
   ]
 }
 
@@ -256,6 +232,7 @@ const canonicalContainerCreationDeliveries = (
     },
     `container-${elementId}`
   )
+
   return [
     {
       ...propertyDelivery,
@@ -278,42 +255,47 @@ const canonicalContainerCreationDeliveries = (
 
 const canonicalRemovalDeliveries = (
   elementIds: readonly string[],
-  parentId = 'workspace-a',
-  startIndex = 0,
-  elementType = 'rect'
+  includePropertyEvidence: boolean
 ): readonly SharedDelivery[] => {
   const removalIds = [...elementIds].reverse()
   const sceneBatchId = `batch-remove-elements-${elementIds.join('-')}`
   const propsBatchId = `batch-remove-properties-${elementIds.join('-')}`
-  const sceneDeliveries = removalIds.map((elementId) => {
-    const sourceIndex = elementIds.indexOf(elementId)
-    const elementDelivery = delivery(
-      SharedDataChannelNames.SCENE_TREE,
-      EventTypes.REMOVE_ELEMENT,
-      {
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        eventName: EventTypes.REMOVE_ELEMENT,
+  const sceneDelivery = delivery(
+    SharedDataChannelNames.SCENE_TREE,
+    EventTypes.REMOVE_ELEMENTS,
+    {
+      action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+      eventName: EventTypes.REMOVE_ELEMENTS,
+      undoType: EventTypes.ADD_ELEMENTS,
+      undoAction: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+      entries: elementIds.map((elementId, index) => ({
         data: {
           id: elementId,
-          type: elementType,
-          parentId,
+          type: elementId.startsWith('group') ? 'group' : 'rect',
+          parentId: 'workspace-a',
           props: { position: `position-${elementId}` },
-          ...(elementType === 'group' ? { children: [] } : {})
+          ...(elementId.startsWith('group') ? { children: [] } : {})
         },
-        parentId,
-        index: startIndex + sourceIndex
-      },
-      `remove-element-${elementId}`
-    )
-    return {
-      ...elementDelivery,
+        parentId: 'workspace-a',
+        index
+      }))
+    },
+    `remove-elements-${elementIds.join('-')}`
+  )
+  const sceneDeliveries = [
+    {
+      ...sceneDelivery,
       batchId: sceneBatchId,
       record: {
-        ...elementDelivery.record,
-        orderedIds: [elementId]
+        ...sceneDelivery.record,
+        orderedIds: removalIds
       }
     }
-  })
+  ]
+  if (!includePropertyEvidence) {
+    return sceneDeliveries
+  }
+
   const propertyDeliveries = removalIds.map((elementId) => {
     const propertyDelivery = delivery(
       SharedDataChannelNames.PROPS,
@@ -337,1426 +319,197 @@ const canonicalRemovalDeliveries = (
   return [...sceneDeliveries, ...propertyDeliveries]
 }
 
-const validDeliveries = (): readonly SharedDelivery[] => [
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.ADD_ELEMENT, {
-    action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-    eventName: EventTypes.ADD_ELEMENT,
-    data: { id: 'rect-a', type: 'rect' }
-  }),
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.REMOVE_ELEMENT, {
-    action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-    eventName: EventTypes.REMOVE_ELEMENT,
-    data: { id: 'rect-a', type: 'rect' }
-  }),
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.UPDATE_COMPUTED_DATA, {
-    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-    eventName: EventTypes.UPDATE_COMPUTED_DATA,
-    id: 'rect-a',
-    changes: [
-      { owner: 'computed', key: 'x', before: 0, after: 10 },
-      { owner: 'computed', key: 'y', before: 0, after: 20 }
-    ]
-  }),
+const propertyUpdateDeliveries = (
+  propertyId: string,
+  values: Readonly<Record<string, unknown>>
+): readonly SharedDelivery[] => {
+  const batchId = `batch-update-${propertyId}`
+  return Object.entries(values).map(([key, after]) => {
+    const item = delivery(
+      SharedDataChannelNames.PROPS,
+      EventTypes.UPDATE_PROPERTY,
+      {
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        id: propertyId,
+        key,
+        before: 0,
+        after
+      },
+      `update-${propertyId}-${key}`
+    )
+    return { ...item, batchId }
+  })
+}
+
+const subtreeRemovalDelivery = (): SharedDelivery =>
   delivery(
     SharedDataChannelNames.SCENE_TREE,
-    EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    EventTypes.CHANGE_SUBTREE,
     {
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      id: 'vector-a',
-      patch: { values: { x: { before: 0, after: 10 } } }
-    }
-  ),
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.MOVE_ELEMENTS, {
-    action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
-    eventName: EventTypes.MOVE_ELEMENTS,
-    moves: [
-      {
-        elementId: 'rect-a',
-        before: { parentId: 'workspace-a', index: 0 },
-        after: { parentId: 'group-a', index: 0 }
-      }
-    ]
-  }),
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.CHANGE_SUBTREE, {
-    action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
-    undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
-    eventName: EventTypes.CHANGE_SUBTREE,
-    elementId: 'group-a',
-    rootParentChildrenAfter: [],
-    removed: [
-      {
-        elementId: 'rect-a',
-        parentId: 'group-a',
-        index: 0,
-        data: { id: 'rect-a', type: 'rect', parentId: 'group-a' }
-      },
-      {
-        elementId: 'group-a',
-        parentId: 'workspace-a',
-        index: 0,
-        data: {
-          id: 'group-a',
-          type: 'group',
+      action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+      undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+      eventName: EventTypes.CHANGE_SUBTREE,
+      elementId: 'group-a',
+      rootParentChildrenAfter: [],
+      removed: [
+        {
+          elementId: 'rect-a',
+          parentId: 'group-a',
+          index: 0,
+          data: {
+            id: 'rect-a',
+            type: 'rect',
+            parentId: 'group-a'
+          }
+        },
+        {
+          elementId: 'group-a',
           parentId: 'workspace-a',
-          children: ['rect-a']
+          index: 0,
+          data: {
+            id: 'group-a',
+            type: 'group',
+            parentId: 'workspace-a',
+            children: ['rect-a']
+          }
         }
-      }
-    ]
-  }),
-  delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
-    action: PROPS_ACTIONS.ADD_PROPERTY,
-    eventName: EventTypes.ADD_PROPERTY,
-    data: [{ id: 'prop-a', type: 'position' }]
-  }),
-  delivery(SharedDataChannelNames.PROPS, EventTypes.REMOVE_PROPERTY, {
-    action: PROPS_ACTIONS.REMOVE_PROPERTY,
-    eventName: EventTypes.REMOVE_PROPERTY,
-    data: [{ id: 'prop-a', type: 'position' }]
-  }),
-  delivery(SharedDataChannelNames.PROPS, EventTypes.UPDATE_PROPERTY, {
-    action: PROPS_ACTIONS.UPDATE_PROPERTY,
-    eventName: EventTypes.UPDATE_PROPERTY,
-    id: 'prop-a',
-    key: 'x',
-    before: 0,
-    after: 10
-  })
-]
+      ]
+    },
+    'remove-subtree-group-a'
+  )
 
 const restoreDeliveries = (): readonly SharedDelivery[] => [
-  delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
-    action: PROPS_ACTIONS.ADD_PROPERTY,
-    undoType: EventTypes.REMOVE_PROPERTY,
-    undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
-    eventName: EventTypes.ADD_PROPERTY,
-    data: [
-      {
-        id: 'position-group-a',
-        type: 'position',
-        x: 12,
-        y: 24
-      }
-    ]
-  }),
-  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.CHANGE_SUBTREE, {
-    action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
-    undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
-    eventName: EventTypes.CHANGE_SUBTREE,
-    elementId: 'group-a',
-    rootParentChildrenAfter: [],
-    removed: [
-      {
-        elementId: 'group-a',
-        parentId: 'workspace-a',
-        index: 0,
-        data: {
-          id: 'group-a',
-          type: 'group',
-          parentId: 'workspace-a',
-          children: [],
-          props: { position: 'position-group-a' }
+  delivery(
+    SharedDataChannelNames.PROPS,
+    EventTypes.ADD_PROPERTY,
+    {
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      eventName: EventTypes.ADD_PROPERTY,
+      data: [
+        {
+          id: 'position-group-a',
+          type: 'position',
+          x: 12,
+          y: 24
         }
-      }
-    ]
-  })
+      ]
+    },
+    'restore-property-group-a'
+  ),
+  delivery(
+    SharedDataChannelNames.SCENE_TREE,
+    EventTypes.CHANGE_SUBTREE,
+    {
+      action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+      undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+      eventName: EventTypes.CHANGE_SUBTREE,
+      elementId: 'group-a',
+      rootParentChildrenAfter: [],
+      removed: [
+        {
+          elementId: 'group-a',
+          parentId: 'workspace-a',
+          index: 0,
+          data: {
+            id: 'group-a',
+            type: 'group',
+            parentId: 'workspace-a',
+            children: [],
+            props: { position: 'position-group-a' }
+          }
+        }
+      ]
+    },
+    'restore-subtree-group-a'
+  )
 ]
 
-const createRestoreOwners = () => {
-  const scenePlan = Object.freeze({
-    kind: 'scene-tree-restore-plan',
-    elementId: 'group-a',
-    entries: Object.freeze([
-      Object.freeze({
-        elementId: 'group-a',
-        strategy: 'materialize' as const
-      })
-    ]),
-    propertyOwnerRelations: Object.freeze([
-      Object.freeze({
-        ownerElementId: 'group-a',
-        ownerElementType: 'group',
-        ownerPropertyName: 'position',
-        componentId: 'position-group-a'
-      })
-    ])
-  }) satisfies SceneTreeRestorePlan
-  const propsPlan = Object.freeze({
-    kind: 'props-restore-plan',
-    entries: Object.freeze([
-      Object.freeze({
-        componentId: 'position-group-a',
-        strategy: 'materialize' as const
-      })
-    ]),
-    ownerRelations: scenePlan.propertyOwnerRelations
-  }) satisfies PropsRestorePlan
+interface HarnessOptions {
+  readonly runRemoteTransaction?: (mutate: () => void) => void
+  readonly decideRemotePublication?: DecideRemotePublication
+  readonly applyCanonicalChanges?: (changes: readonly CanonicalChange[]) => void
+}
+
+const createHarness = (options: HarnessOptions = {}) => {
+  const runRemoteTransaction = vi.fn<(mutate: () => void) => void>(
+    options.runRemoteTransaction ?? ((mutate) => mutate())
+  )
+  const decideRemotePublication = vi.fn<DecideRemotePublication>(
+    options.decideRemotePublication ?? ((item) => item)
+  )
+  const applyCanonicalChanges = vi.fn<
+    (changes: readonly CanonicalChange[]) => void
+  >(options.applyCanonicalChanges ?? (() => undefined))
+  const processPublication = createAsyraDesignPublicationProcessor({
+    runRemoteTransaction,
+    decideRemotePublication,
+    applyCanonicalChanges
+  })
 
   return {
-    scenePlan,
-    propsPlan,
-    owners: {
-      preflightRestoreSubtree: vi.fn<
-        RemoteRestoreOwnerFacades['preflightRestoreSubtree']
-      >(() => scenePlan),
-      preflightRestoreProperties: vi.fn<
-        RemoteRestoreOwnerFacades['preflightRestoreProperties']
-      >(() => propsPlan),
-      applyRestoreProperties: vi.fn<
-        RemoteRestoreOwnerFacades['applyRestoreProperties']
-      >(() => Object.freeze(['position-group-a'])),
-      applyRestoreSubtree:
-        vi.fn<RemoteRestoreOwnerFacades['applyRestoreSubtree']>(),
-      removeElementsUsingActiveProperties: vi.fn(
-        (
-          removals: readonly {
-            data: { id: string }
-            parentId: string
-            index: number
-          }[]
-        ) => Object.freeze(removals.map(({ data }) => data.id))
-      )
-    }
+    applyCanonicalChanges,
+    decideRemotePublication,
+    processPublication,
+    runRemoteTransaction
   }
 }
 
 describe('Asyra Design app-owned collaboration processing', () => {
-  it('preflights one complete restore before applying Props then Scene in one remote transaction', () => {
-    const callOrder: string[] = []
-    const runRemoteTransaction = vi.fn((mutate: () => void) => {
-      callOrder.push('transaction')
-      mutate()
-    })
-    const process = vi.fn()
-    const { scenePlan, propsPlan, owners } = createRestoreOwners()
-    owners.preflightRestoreSubtree.mockImplementation((snapshot) => {
-      callOrder.push('preflight-scene')
-      expect(snapshot).toEqual(
-        expect.objectContaining({
-          elementId: 'group-a',
-          rootParentChildrenAfter: []
-        })
-      )
-      return scenePlan
-    })
-    owners.preflightRestoreProperties.mockImplementation(
-      (snapshot, ownerRelations) => {
-        callOrder.push('preflight-props')
-        expect(snapshot).toEqual({
-          components: [
-            {
-              id: 'position-group-a',
-              type: 'position',
-              x: 12,
-              y: 24
-            }
-          ]
-        })
-        expect(ownerRelations).toBe(scenePlan.propertyOwnerRelations)
-        return propsPlan
-      }
-    )
-    owners.applyRestoreProperties.mockImplementation(() => {
-      callOrder.push('apply-props')
-      return Object.freeze(['position-group-a'])
-    })
-    owners.applyRestoreSubtree.mockImplementation(() => {
-      callOrder.push('apply-scene')
-      return {
-        elementId: 'group-a',
-        removed: [],
-        rootParentChildrenAfter: []
-      }
-    })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      (item) => item,
-      owners
-    )
-    const observedBatches: AllEvent[][] = []
-    const subscription = subscribeToEventBatches((events) => {
-      if (events.some((event) => event.type === EventTypes.CHANGE_SUBTREE)) {
-        observedBatches.push([...events])
-      }
-    })
-
-    try {
-      expect(
-        processPublication(publication(restoreDeliveries(), 'restore-group-a'))
-      ).toBe(true)
-    } finally {
-      subscription.unsubscribe()
-    }
-
-    expect(callOrder).toEqual([
-      'preflight-scene',
-      'preflight-props',
-      'transaction',
-      'apply-props',
-      'apply-scene'
-    ])
-    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(propsPlan)
-    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(scenePlan)
-    expect(process).not.toHaveBeenCalled()
-    expect(observedBatches).toHaveLength(1)
-    expect(observedBatches[0]?.map(({ type }) => type)).toEqual([
-      EventTypes.ADD_PROPERTY,
-      EventTypes.CHANGE_SUBTREE
-    ])
-  })
-
-  it('rejects mixed or out-of-order restore deliveries before owner preflight', () => {
-    const cases = [
-      [
-        ...(restoreDeliveries() as SharedDelivery[]),
-        validDeliveries()[0] as SharedDelivery
-      ],
-      [...restoreDeliveries()].reverse()
-    ]
-
-    cases.forEach((deliveries, index) => {
-      const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-      const process = vi.fn()
-      const { owners } = createRestoreOwners()
-      const processPublication = createAsyraDesignPublicationProcessor(
-        runRemoteTransaction,
-        process,
-        (item) => item,
-        owners
-      )
-
-      expect(() =>
-        processPublication(publication(deliveries, `invalid-restore-${index}`))
-      ).toThrow('invalid subtree restore publication')
-      expect(owners.preflightRestoreSubtree).not.toHaveBeenCalled()
-      expect(owners.preflightRestoreProperties).not.toHaveBeenCalled()
-      expect(runRemoteTransaction).not.toHaveBeenCalled()
-      expect(process).not.toHaveBeenCalled()
-    })
-  })
-
-  it('rejects restore evidence without detached root-parent order before policy or mutation', () => {
-    const [propsDelivery, sceneDelivery] = restoreDeliveries()
-    const malformedScene = {
-      ...sceneDelivery,
-      payload: {
-        ...(sceneDelivery?.payload as Record<string, unknown>)
-      }
-    } as SharedDelivery
-    delete (malformedScene.payload as Record<string, unknown>)
-      .rootParentChildrenAfter
-    const decide = vi.fn((item: SharedPublication) => item)
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const { owners } = createRestoreOwners()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      vi.fn(),
-      decide,
-      owners
-    )
-
-    expect(() =>
-      processPublication(
-        publication(
-          [propsDelivery as SharedDelivery, malformedScene],
-          'malformed-root-order'
-        )
-      )
-    ).toThrow('unsupported collaboration delivery')
-    expect(decide).not.toHaveBeenCalled()
-    expect(owners.preflightRestoreSubtree).not.toHaveBeenCalled()
-    expect(runRemoteTransaction).not.toHaveBeenCalled()
-  })
-
-  it('rejects restore policy or owner preflight failure before the remote transaction', () => {
-    const rejectedOwners = createRestoreOwners().owners
-    const rejectedTransaction = vi.fn((mutate: () => void) => mutate())
-    const rejectPublication = createAsyraDesignPublicationProcessor(
-      rejectedTransaction,
-      vi.fn(),
-      () => false,
-      rejectedOwners
-    )
-
-    rejectPublication(
-      publication(restoreDeliveries(), 'unauthorized-restore-group-a')
-    )
-
-    expect(rejectedOwners.preflightRestoreSubtree).not.toHaveBeenCalled()
-    expect(rejectedOwners.preflightRestoreProperties).not.toHaveBeenCalled()
-    expect(rejectedTransaction).not.toHaveBeenCalled()
-
-    const staleOwners = createRestoreOwners().owners
-    staleOwners.preflightRestoreProperties.mockImplementation(() => {
-      throw new Error('stale property owner evidence')
-    })
-    const staleTransaction = vi.fn((mutate: () => void) => mutate())
-    const rejectStale = createAsyraDesignPublicationProcessor(
-      staleTransaction,
-      vi.fn(),
-      (item) => item,
-      staleOwners
-    )
-
-    expect(() =>
-      rejectStale(publication(restoreDeliveries(), 'stale-restore-group-a'))
-    ).toThrow('stale property owner evidence')
-    expect(staleOwners.preflightRestoreSubtree).toHaveBeenCalledOnce()
-    expect(staleOwners.preflightRestoreProperties).toHaveBeenCalledOnce()
-    expect(staleOwners.applyRestoreProperties).not.toHaveBeenCalled()
-    expect(staleOwners.applyRestoreSubtree).not.toHaveBeenCalled()
-    expect(staleTransaction).not.toHaveBeenCalled()
-  })
-
-  it('validates all supported Scene Tree and Props routes before one remote transaction', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process
-    )
-    const deliveries = validDeliveries()
-
-    processPublication(publication(deliveries))
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(process).toHaveBeenCalledTimes(deliveries.length)
-    expect(process.mock.calls.map(([event]) => event.type)).toEqual(
-      deliveries.map((item) => item.eventName)
-    )
-  })
-
-  it('keeps the real Factory remote boundary free of Undo and echo publication', () => {
-    const remoteFactory = new Factory()
-    const channel = new LocalSharedDataChannel()
-    remoteFactory.registerSharedDataChannel(
+  it('rejects remote computed projection before policy or mutation', () => {
+    const harness = createHarness()
+    const computed = delivery(
       SharedDataChannelNames.SCENE_TREE,
-      channel
-    )
-    const projections: unknown[][] = []
-    channel.observeBatch((changes) => projections.push([...changes]))
-    const outboundPublications: SharedPublication[] = []
-    remoteFactory.subscribeToSharedPublication((item) =>
-      outboundPublications.push(item)
-    )
-    const statuses: { origin: string; status: string }[] = []
-    remoteFactory.subscribeToTransactionStatus(({ origin, status }) => {
-      statuses.push({ origin, status })
-    })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      remoteFactory.runRemoteTransaction.bind(remoteFactory),
-      (event) =>
-        remoteFactory.applyRemoteEvent(event, (canonicalEvent) => {
-          remoteFactory.updateTransaction({
-            type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: canonicalEvent.type,
-            payload:
-              'payload' in canonicalEvent ? canonicalEvent.payload : undefined,
-            options: {
-              shared: SharedDataChannelNames.SCENE_TREE,
-              undoable: true,
-              rollbackable: true
-            }
-          })
-          return true
-        })
-    )
-
-    expect(
-      processPublication(
-        publication(
-          [validDeliveries()[2] as SharedDelivery],
-          'real-factory-remote'
-        )
-      )
-    ).toBe(true)
-
-    expect(projections).toHaveLength(1)
-    expect(outboundPublications).toEqual([])
-    expect(
-      (
-        remoteFactory.transact as unknown as {
-          undoStack: unknown[]
-          redoStack: unknown[]
-        }
-      ).undoStack
-    ).toEqual([])
-    expect(
-      (
-        remoteFactory.transact as unknown as {
-          undoStack: unknown[]
-          redoStack: unknown[]
-        }
-      ).redoStack
-    ).toEqual([])
-    expect(statuses).toContainEqual({
-      origin: 'remote',
-      status: 'committed'
-    })
-  })
-
-  it('applies each Factory creation batch through one canonical owner call', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const applyOrder: string[] = []
-    const process = vi.fn((event: AllEvent) => {
-      applyOrder.push(event.type)
-      return true
-    })
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) => {
-        applyOrder.push(`batch:${elements.length}`)
-        return elements.map(({ id }) => id)
-      }
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-
-    processPublication(
-      publication(
-        canonicalCreationDeliveries(
-          ['rect-a', 'rect-b', 'rect-c'],
-          'workspace-a',
-          2
-        ),
-        'creation-a'
-      )
-    )
-    processPublication(
-      publication(
-        canonicalCreationDeliveries(['rect-d', 'rect-e'], 'workspace-a', 5),
-        'creation-b'
-      )
-    )
-
-    expect(runRemoteTransaction).toHaveBeenCalledTimes(2)
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
-    expect(process).not.toHaveBeenCalled()
-    expect(applyOrder).toEqual(['batch:3', 'batch:2'])
-    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
-      1,
-      [
-        expect.objectContaining({
-          id: 'rect-a',
-          parentId: 'workspace-a',
-          props: { position: 'position-rect-a' }
-        }),
-        expect.objectContaining({ id: 'rect-b' }),
-        expect.objectContaining({ id: 'rect-c' })
-      ],
-      [
-        { id: 'position-rect-a', type: 'position' },
-        { id: 'position-rect-b', type: 'position' },
-        { id: 'position-rect-c', type: 'position' }
-      ],
-      'workspace-a',
-      2
-    )
-    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
-      2,
-      [
-        expect.objectContaining({ id: 'rect-d' }),
-        expect.objectContaining({ id: 'rect-e' })
-      ],
-      [
-        { id: 'position-rect-d', type: 'position' },
-        { id: 'position-rect-e', type: 'position' }
-      ],
-      'workspace-a',
-      5
-    )
-  })
-
-  it('applies one Group plus 16-item retained Undo removal through canonical batch owners', () => {
-    const childIds = Array.from(
-      { length: 16 },
-      (_, index) => `retained-child-${index + 1}`
-    )
-    const childRemoval = publication(
-      canonicalRemovalDeliveries(childIds, 'retained-group'),
-      'retained-children-removal',
-      'undo'
-    )
-    const groupRemoval = publication(
-      canonicalRemovalDeliveries(['retained-group'], 'workspace-a', 0, 'group'),
-      'retained-group-removal',
-      'undo'
-    )
-    const retainedUndo = combinePublications(
-      [childRemoval, groupRemoval],
-      'retained-group-and-children-undo'
-    )
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const { owners } = createRestoreOwners()
-    const observedBatches: AllEvent[][] = []
-    const subscription = subscribeToEventBatches((events) => {
-      if (
-        events.some(
-          (event) =>
-            event.type === EventTypes.REMOVE_ELEMENT ||
-            event.type === EventTypes.REMOVE_PROPERTY
-        )
-      ) {
-        observedBatches.push([...events])
-      }
-    })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      owners
-    )
-
-    try {
-      expect(processPublication(retainedUndo)).toBe(true)
-    } finally {
-      subscription.unsubscribe()
-    }
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(owners.removeElementsUsingActiveProperties).toHaveBeenCalledTimes(2)
-    expect(
-      owners.removeElementsUsingActiveProperties.mock.calls[0]?.[0].map(
-        ({ data }) => data.id
-      )
-    ).toEqual([...childIds].reverse())
-    expect(
-      owners.removeElementsUsingActiveProperties.mock.calls[1]?.[0].map(
-        ({ data }) => data.id
-      )
-    ).toEqual(['retained-group'])
-    expect(process.mock.calls.map(([event]) => event.type)).toEqual([
-      ...childIds.map(() => EventTypes.REMOVE_PROPERTY),
-      EventTypes.REMOVE_PROPERTY
-    ])
-    expect(observedBatches).toHaveLength(1)
-    expect(observedBatches[0]?.map(({ type }) => type)).toEqual([
-      ...childIds.map(() => EventTypes.REMOVE_ELEMENT),
-      ...childIds.map(() => EventTypes.REMOVE_PROPERTY),
-      EventTypes.REMOVE_ELEMENT,
-      EventTypes.REMOVE_PROPERTY
-    ])
-    expect(
-      observedBatches[0]?.map((event) => {
-        const payload = (
-          event as AllEvent & {
-            payload: { data: { id: string } | readonly { id: string }[] }
-          }
-        ).payload
-        return Array.isArray(payload.data)
-          ? payload.data[0]?.id
-          : payload.data.id
-      })
-    ).toEqual([
-      ...[...childIds].reverse(),
-      ...[...childIds].reverse().map((elementId) => `position-${elementId}`),
-      'retained-group',
-      'position-retained-group'
-    ])
-  })
-
-  it('reuses retained Group plus 16-item tombstones when a Redo publication arrives', () => {
-    const childIds = Array.from(
-      { length: 16 },
-      (_, index) => `retained-redo-child-${index + 1}`
-    )
-    const action = combinePublications(
-      [
-        publication(
-          canonicalContainerCreationDeliveries('retained-redo-group'),
-          'retained-redo-group-action'
-        ),
-        publication(
-          canonicalCreationDeliveries(childIds, 'retained-redo-group'),
-          'retained-redo-children-action'
-        )
-      ],
-      'retained-redo-action'
-    )
-    const undo = combinePublications(
-      [
-        publication(
-          canonicalRemovalDeliveries(childIds, 'retained-redo-group'),
-          'retained-redo-children-undo',
-          'undo'
-        ),
-        publication(
-          canonicalRemovalDeliveries(
-            ['retained-redo-group'],
-            'workspace-a',
-            0,
-            'group'
-          ),
-          'retained-redo-group-undo',
-          'undo'
-        )
-      ],
-      'retained-redo-undo'
-    )
-    const redo = combinePublications(
-      [
-        publication(
-          canonicalContainerCreationDeliveries('retained-redo-group'),
-          'retained-redo-group-redo',
-          'redo'
-        ),
-        publication(
-          canonicalCreationDeliveries(childIds, 'retained-redo-group'),
-          'retained-redo-children-redo',
-          'redo'
-        )
-      ],
-      'retained-redo-redo'
-    )
-    const activeIds = new Set<string>()
-    const tombstoneIds = new Set<string>()
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((event: AllEvent) => {
-      if (event.type === EventTypes.ADD_ELEMENT && 'payload' in event) {
-        expect(getTransactionReplayMode()).toBe('redo')
-        const elementId = (event.payload as { data: { id: string } }).data.id
-        expect(tombstoneIds.delete(elementId)).toBe(true)
-        activeIds.add(elementId)
-      }
-      return true
-    })
-    const { owners } = createRestoreOwners()
-    owners.removeElementsUsingActiveProperties.mockImplementation(
-      (removals) => {
-        const removedIds = removals.map(({ data }) => data.id)
-        removedIds.forEach((elementId) => {
-          expect(activeIds.delete(elementId)).toBe(true)
-          tombstoneIds.add(elementId)
-        })
-        return Object.freeze(removedIds)
-      }
-    )
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) => {
-        const elementIds = elements.map(({ id }) => id)
-        elementIds.forEach((elementId) => activeIds.add(elementId))
-        return Object.freeze(elementIds)
-      }
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      owners,
-      applyCanonicalCreationBatch
-    )
-
-    expect(processPublication(action)).toBe(true)
-    expect(processPublication(undo)).toBe(true)
-    expect(processPublication(redo)).toBe(true)
-
-    expect(runRemoteTransaction).toHaveBeenCalledTimes(3)
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
-    expect(activeIds).toEqual(new Set(['retained-redo-group', ...childIds]))
-    expect(tombstoneIds).toEqual(new Set())
-    expect(getTransactionReplayMode()).toBeNull()
-  })
-
-  it('rolls back a retained removal when the canonical owner returns inexact ids', () => {
-    const activeIds = ['inexact-removal-a', 'inexact-removal-b']
-    const state = [...activeIds]
-    const runRemoteTransaction = vi.fn((mutate: () => void) => {
-      const before = [...state]
-      try {
-        mutate()
-      } catch (error) {
-        state.splice(0, state.length, ...before)
-        throw error
-      }
-    })
-    const process = vi.fn((_event: AllEvent) => true)
-    const { owners } = createRestoreOwners()
-    owners.removeElementsUsingActiveProperties.mockImplementation(
-      (removals) => {
-        state.splice(0)
-        return Object.freeze([removals[0].data.id])
-      }
-    )
-    const observed = vi.fn()
-    const subscription = subscribeToEventBatches(observed)
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      owners
-    )
-
-    try {
-      expect(() =>
-        processPublication(
-          publication(
-            canonicalRemovalDeliveries(activeIds),
-            'inexact-retained-removal',
-            'undo'
-          )
-        )
-      ).toThrow('canonical removal batch did not apply exact ids')
-    } finally {
-      subscription.unsubscribe()
-    }
-
-    expect(state).toEqual(activeIds)
-    expect(process).not.toHaveBeenCalled()
-    expect(observed).not.toHaveBeenCalled()
-  })
-
-  it('applies an explicit progressive canonical slice through direct record evidence', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) =>
-        elements.map(({ id }) => id) as readonly string[]
-    )
-    const elementIds = ['progressive-direct-a', 'progressive-direct-b']
-    const source = publication(
-      canonicalCreationDeliveries(elementIds),
-      'progressive-direct'
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-
-    expect(
-      processPublication(
-        withExplicitCanonicalDeliveryPlan(
-          source,
-          'progressive-direct-slice',
-          elementIds
-        )
-      )
-    ).toBe(true)
-
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledOnce()
-    expect(process).not.toHaveBeenCalled()
-  })
-
-  it('applies one source publication container and child creation through canonical batch owners only', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => {
-      throw new Error('canonical creation reached the single-event owner')
-    })
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) =>
-        elements.map(({ id }) => id) as readonly string[]
-    )
-    const container = publication(
-      canonicalContainerCreationDeliveries('group-a'),
-      'group-creation'
-    )
-    const children = publication(
-      canonicalCreationDeliveries(
-        ['group-child-a', 'group-child-b'],
-        'group-a'
-      ),
-      'group-children'
-    )
-    const combined = combinePublications(
-      [container, children],
-      'group-and-children'
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-
-    expect(processPublication(combined)).toBe(true)
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(process).not.toHaveBeenCalled()
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
-    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
-      1,
-      [
-        expect.objectContaining({
-          id: 'group-a',
-          type: 'group',
-          parentId: 'workspace-a',
-          props: {
-            position: 'position-group-a',
-            dimension: 'dimension-group-a',
-            transform: 'transform-group-a',
-            fill: 'fill-group-a'
-          }
-        })
-      ],
-      [
-        { id: 'position-group-a', type: 'position' },
-        { id: 'dimension-group-a', type: 'dimension' },
-        { id: 'transform-group-a', type: 'transform' },
-        { id: 'fill-group-a', type: 'fill' }
-      ],
-      'workspace-a',
-      0
-    )
-    expect(applyCanonicalCreationBatch).toHaveBeenNthCalledWith(
-      2,
-      [
-        expect.objectContaining({
-          id: 'group-child-a',
-          parentId: 'group-a'
-        }),
-        expect.objectContaining({
-          id: 'group-child-b',
-          parentId: 'group-a'
-        })
-      ],
-      [
-        { id: 'position-group-child-a', type: 'position' },
-        { id: 'position-group-child-b', type: 'position' }
-      ],
-      'group-a',
-      0
-    )
-  })
-
-  it('does not infer a canonical creation batch across distinct Factory batch artifacts', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const applyCanonicalCreationBatch = vi.fn()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-    const splitDeliveries = canonicalCreationDeliveries([
-      'split-artifact-a',
-      'split-artifact-b'
-    ]).map((item, index) => ({
-      ...item,
-      batchId: `split-factory-batch-${index}`
-    }))
-
-    processPublication(publication(splitDeliveries, 'split-artifact'))
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(applyCanonicalCreationBatch).not.toHaveBeenCalled()
-    expect(process).toHaveBeenCalledTimes(splitDeliveries.length)
-  })
-
-  it('preserves each source ADD_ELEMENT observer delivery without repeating canonical mutation', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const canonicalMutations: string[] = []
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) => {
-        canonicalMutations.push(...elements.map(({ id }) => id))
-        return elements.map(({ id }) => id)
-      }
-    )
-    const observedElementIds: string[] = []
-    const observedElementBatches: string[][] = []
-    const subscription = subscribeToAddElement(({ payload }) => {
-      const elementId = payload.data.id
-      if (
-        typeof elementId === 'string' &&
-        elementId.startsWith('observer-batch-')
-      ) {
-        observedElementIds.push(elementId)
-      }
-    })
-    const batchSubscription = subscribeToEventBatches((events) => {
-      const elementIds = events.flatMap((event) => {
-        if (event.type !== EventTypes.ADD_ELEMENT || !('payload' in event)) {
-          return []
-        }
-        const payload = event.payload as { data?: { id?: unknown } }
-        const elementId = payload.data?.id
-        if (
-          typeof elementId !== 'string' ||
-          !elementId.startsWith('observer-batch-')
-        ) {
-          return []
-        }
-        return [elementId]
-      })
-      if (elementIds.length > 0) {
-        observedElementBatches.push(elementIds)
-      }
-    })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-    const deliveries = canonicalCreationDeliveries([
-      'observer-batch-a',
-      'observer-batch-b',
-      'observer-batch-c'
-    ])
-
-    try {
-      processPublication(publication(deliveries, 'observer-batch'))
-    } finally {
-      subscription.unsubscribe()
-      batchSubscription.unsubscribe()
-    }
-
-    expect(canonicalMutations).toEqual([
-      'observer-batch-a',
-      'observer-batch-b',
-      'observer-batch-c'
-    ])
-    expect(observedElementIds).toEqual([
-      'observer-batch-a',
-      'observer-batch-b',
-      'observer-batch-c'
-    ])
-    expect(observedElementBatches).toEqual([
-      ['observer-batch-a', 'observer-batch-b', 'observer-batch-c']
-    ])
-    expect(process).not.toHaveBeenCalled()
-  })
-
-  it('publishes one ordered observer batch after every canonical pair in one source publication commits', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) =>
-        elements.map(({ id }) => id) as readonly string[]
-    )
-    const first = publication(
-      canonicalCreationDeliveries(['multi-pair-a', 'multi-pair-b']),
-      'multi-pair-first'
-    )
-    const second = publication(
-      canonicalCreationDeliveries(
-        ['multi-pair-c', 'multi-pair-d'],
-        'workspace-a',
-        2
-      ),
-      'multi-pair-second'
-    )
-    const combined = combinePublications(
-      [first, second],
-      'multi-pair-publication'
-    )
-    const observedElementBatches: string[][] = []
-    const subscription = subscribeToEventBatches((events) => {
-      const ids = events.flatMap((event) => {
-        if (event.type !== EventTypes.ADD_ELEMENT || !('payload' in event)) {
-          return []
-        }
-        const payload = event.payload as { data?: { id?: unknown } }
-        return typeof payload.data?.id === 'string' &&
-          payload.data.id.startsWith('multi-pair-')
-          ? [payload.data.id]
-          : []
-      })
-      if (ids.length > 0) observedElementBatches.push(ids)
-    })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-
-    try {
-      expect(processPublication(combined)).toBe(true)
-    } finally {
-      subscription.unsubscribe()
-    }
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledTimes(2)
-    expect(process).not.toHaveBeenCalled()
-    expect(observedElementBatches).toEqual([
-      ['multi-pair-a', 'multi-pair-b', 'multi-pair-c', 'multi-pair-d']
-    ])
-  })
-
-  it('does not leak observer evidence when a later step rolls back the source publication', () => {
-    const first = publication(
-      canonicalCreationDeliveries(['no-prefix-a', 'no-prefix-b']),
-      'no-prefix-canonical'
-    )
-    const trailing = publication(
-      [validDeliveries()[2] as SharedDelivery],
-      'no-prefix-trailing'
-    )
-    const combined = combinePublications(
-      [first, trailing],
-      'no-prefix-publication'
-    )
-    const observed = vi.fn()
-    const subscription = subscribeToEventBatches(observed)
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) =>
-        elements.map(({ id }) => id) as readonly string[]
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      (mutate) => mutate(),
-      () => {
-        throw new Error('later remote apply failed')
-      },
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-
-    try {
-      expect(() => processPublication(combined)).toThrow(
-        'later remote apply failed'
-      )
-    } finally {
-      subscription.unsubscribe()
-    }
-
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledOnce()
-    expect(observed).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    'collaboration:remote-canonical-batch-apply',
-    'collaboration:remote-transaction-apply'
-  ])(
-    'does not let a failing $phaseName timing observer alter remote apply',
-    (phaseName) => {
-      const runtime = globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-      const previousSink = runtime.__asyraBrowserDragPhaseSink
-      let committed = false
-      const runRemoteTransaction = vi.fn((mutate: () => void) => {
-        mutate()
-        committed = true
-      })
-      const process = vi.fn((_event: AllEvent) => true)
-      const applyCanonicalCreationBatch = vi.fn(
-        (elements: readonly { id: string }[]) =>
-          elements.map(({ id }) => id) as readonly string[]
-      )
-      const processPublication = createAsyraDesignPublicationProcessor(
-        runRemoteTransaction,
-        process,
-        undefined,
-        undefined,
-        applyCanonicalCreationBatch
-      )
-      const timingSink = (observedPhaseName: string) => {
-        if (observedPhaseName === phaseName) {
-          throw new Error(`timing sink failed for ${phaseName}`)
-        }
-      }
-      runtime.__asyraBrowserDragPhaseSink = timingSink
-
-      try {
-        expect(() =>
-          processPublication(
-            publication(
-              canonicalCreationDeliveries([
-                `timed-observer-${phaseName}-a`,
-                `timed-observer-${phaseName}-b`
-              ]),
-              `timed-observer-batch-${phaseName}`
-            )
-          )
-        ).not.toThrow()
-        expect(runtime.__asyraBrowserDragPhaseSink).toBe(timingSink)
-      } finally {
-        if (previousSink) {
-          runtime.__asyraBrowserDragPhaseSink = previousSink
-        } else {
-          delete runtime.__asyraBrowserDragPhaseSink
-        }
-      }
-
-      expect(committed).toBe(true)
-      expect(applyCanonicalCreationBatch).toHaveBeenCalledOnce()
-    }
-  )
-
-  it('keeps incomplete and split property evidence on the ordered event route', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const applyCanonicalCreationBatch = vi.fn()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-    const incomplete = canonicalCreationDeliveries([
-      'incomplete-owner-a',
-      'incomplete-owner-b'
-    ])
-    const incompleteProperty = incomplete[0] as SharedDelivery
-    const incompleteDeliveries = [
+      EventTypes.UPDATE_COMPUTED_DATA,
       {
-        ...incompleteProperty,
-        payload: {
-          action: PROPS_ACTIONS.ADD_PROPERTY,
-          eventName: EventTypes.ADD_PROPERTY,
-          data: [{ id: 'unrelated-position', type: 'position' }]
-        }
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: 'rect-a',
+        changes: [{ owner: 'computed', key: 'x', before: 0, after: 10 }]
       },
-      ...incomplete.slice(1)
-    ]
-    const split = canonicalCreationDeliveries([
-      'split-owner-a',
-      'split-owner-b'
-    ])
-    const splitProperty = split[0] as SharedDelivery
-    const splitPropertyPayload = splitProperty.payload as {
-      data: readonly { id: string; type: string }[]
-    }
-    const splitDeliveries = [
-      {
-        ...splitProperty,
-        deliveryId: 'split-properties-a',
-        payload: {
-          action: PROPS_ACTIONS.ADD_PROPERTY,
-          eventName: EventTypes.ADD_PROPERTY,
-          data: [splitPropertyPayload.data[0]]
-        }
-      },
-      {
-        ...splitProperty,
-        deliveryId: 'split-properties-b',
-        payload: {
-          action: PROPS_ACTIONS.ADD_PROPERTY,
-          eventName: EventTypes.ADD_PROPERTY,
-          data: [splitPropertyPayload.data[1]]
-        }
-      },
-      ...split.slice(1)
-    ]
-
-    processPublication(
-      publication(incompleteDeliveries, 'incomplete-owner-evidence')
-    )
-    processPublication(publication(splitDeliveries, 'split-owner-evidence'))
-
-    expect(applyCanonicalCreationBatch).not.toHaveBeenCalled()
-    expect(process.mock.calls.map(([event]) => event.type)).toEqual([
-      ...incompleteDeliveries.map(({ eventName }) => eventName),
-      ...splitDeliveries.map(({ eventName }) => eventName)
-    ])
-  })
-
-  it.each([
-    {
-      name: 'parent',
-      mutate: (deliveries: SharedDelivery[]) => {
-        const second = deliveries[2] as SharedDelivery
-        const payload = second.payload as Record<string, unknown>
-        deliveries[2] = {
-          ...second,
-          payload: {
-            ...payload,
-            parentId: 'workspace-b',
-            data: {
-              ...(payload.data as Record<string, unknown>),
-              parentId: 'workspace-b'
-            }
-          }
-        }
-      }
-    },
-    {
-      name: 'index',
-      mutate: (deliveries: SharedDelivery[]) => {
-        const second = deliveries[2] as SharedDelivery
-        deliveries[2] = {
-          ...second,
-          payload: {
-            ...(second.payload as Record<string, unknown>),
-            index: 4
-          }
-        }
-      }
-    },
-    {
-      name: 'metadata',
-      mutate: (deliveries: SharedDelivery[]) => {
-        deliveries[2] = {
-          ...(deliveries[2] as SharedDelivery),
-          transactionId: 2
-        }
-      }
-    }
-  ])(
-    'falls back in source order when canonical batch $name is discontinuous',
-    ({ name, mutate }) => {
-      const runRemoteTransaction = vi.fn((operation: () => void) => operation())
-      const process = vi.fn((_event: AllEvent) => true)
-      const applyCanonicalCreationBatch = vi.fn()
-      const processPublication = createAsyraDesignPublicationProcessor(
-        runRemoteTransaction,
-        process,
-        undefined,
-        undefined,
-        applyCanonicalCreationBatch
-      )
-      const deliveries = [
-        ...canonicalCreationDeliveries([
-          `discontinuous-${name}-a`,
-          `discontinuous-${name}-b`
-        ])
-      ]
-      mutate(deliveries)
-
-      processPublication(publication(deliveries, `discontinuous-${name}`))
-
-      expect(applyCanonicalCreationBatch).not.toHaveBeenCalled()
-      expect(process.mock.calls.map(([event]) => event.type)).toEqual(
-        deliveries.map(({ eventName }) => eventName)
-      )
-    }
-  )
-
-  it.each([
-    {
-      name: 'callback failure',
-      apply: (elements: readonly { id: string }[], state: string[]) => {
-        state.push(...elements.map(({ id }) => id))
-        throw new Error('canonical batch callback failed')
-      },
-      error: 'canonical batch callback failed'
-    },
-    {
-      name: 'wrong ids',
-      apply: (elements: readonly { id: string }[], state: string[]) => {
-        state.push(...elements.map(({ id }) => id))
-        return elements.slice(0, 1).map(({ id }) => id)
-      },
-      error: 'canonical creation batch did not apply exact ids'
-    }
-  ])('rolls back every remote prefix after $name', ({ apply, error }) => {
-    const state: string[] = []
-    const runRemoteTransaction = vi.fn((mutate: () => void) => {
-      const before = [...state]
-      try {
-        return mutate()
-      } catch (failure) {
-        state.splice(0, state.length, ...before)
-        throw failure
-      }
-    })
-    const process = vi.fn((event: AllEvent) => {
-      state.push(`event:${event.type}`)
-      return true
-    })
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) => apply(elements, state) ?? []
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
+      'computed-rect-a'
     )
 
     expect(() =>
-      processPublication(
+      harness.processPublication(
+        publication([computed], 'remote-computed-projection')
+      )
+    ).toThrow(/local-only computed projection/i)
+    expect(harness.decideRemotePublication).not.toHaveBeenCalled()
+    expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
+    expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
+  })
+
+  it('coalesces one property batch into one remote transaction and one Core request', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
         publication(
-          canonicalCreationDeliveries(['rollback-a', 'rollback-b']),
-          `rollback-${error}`
+          propertyUpdateDeliveries('position-a', { x: 10, y: 20 }),
+          'remote-property-batch'
         )
       )
-    ).toThrow(error)
-    expect(state).toEqual([])
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        updates: [
+          {
+            propertyId: 'position-a',
+            values: { x: 10, y: 20 }
+          }
+        ]
+      }
+    ])
   })
 
-  it('uses the same direct canonical batch boundary for a singleton envelope', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn((_event: AllEvent) => true)
-    const applyCanonicalCreationBatch = vi.fn(
-      (elements: readonly { id: string }[]) =>
-        elements.map(({ id }) => id) as readonly string[]
-    )
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      undefined,
-      undefined,
-      applyCanonicalCreationBatch
-    )
-    const deliveries = canonicalCreationDeliveries(['group-a'])
-
-    processPublication(publication(deliveries, 'singleton-creation'))
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(applyCanonicalCreationBatch).toHaveBeenCalledOnce()
-    expect(process).not.toHaveBeenCalled()
-  })
-
-  it('rejects the whole publication before remote transaction when one delivery is invalid', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process
-    )
-    const deliveries = [
-      validDeliveries()[0] as SharedDelivery,
-      delivery('unknown-channel', 'unknown-event', { value: 1 })
-    ]
-
-    expect(() => processPublication(publication(deliveries))).toThrow(
-      'unsupported collaboration delivery'
-    )
-    expect(runRemoteTransaction).not.toHaveBeenCalled()
-    expect(process).not.toHaveBeenCalled()
-  })
-
-  it('preserves repeated app intent and delivery order', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process
-    )
-    const repeated = validDeliveries()[2] as SharedDelivery
-
-    processPublication(
-      publication([
-        { ...repeated, deliveryId: 'delivery-a' },
-        { ...repeated, deliveryId: 'delivery-b' }
-      ])
-    )
-
-    expect(process).toHaveBeenCalledTimes(2)
-    expect(process.mock.calls[0]?.[0]).toEqual(process.mock.calls[1]?.[0])
-  })
-
-  it('rejects malformed hierarchy evidence before the remote transaction', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn()
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process
-    )
-    const malformed = delivery(
+  it('preserves mixed canonical batch order in one Core request', () => {
+    const harness = createHarness()
+    const hierarchy = delivery(
       SharedDataChannelNames.SCENE_TREE,
       EventTypes.MOVE_ELEMENTS,
       {
@@ -1767,74 +520,430 @@ describe('Asyra Design app-owned collaboration processing', () => {
             elementId: 'rect-a',
             before: { parentId: 'workspace-a', index: 0 },
             after: { parentId: 'group-a', index: 0 }
-          },
+          }
+        ]
+      },
+      'move-rect-a'
+    )
+    const remote = publication(
+      [
+        ...canonicalContainerCreationDeliveries('group-a'),
+        ...canonicalCreationDeliveries(['rect-a', 'rect-b'], 'group-a'),
+        ...propertyUpdateDeliveries('position-rect-a', { x: 30 }),
+        hierarchy
+      ],
+      'mixed-canonical-request'
+    )
+
+    expect(harness.processPublication(remote)).toBe(true)
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+
+    const changes = harness.applyCanonicalChanges.mock.calls[0]?.[0]
+    expect(changes?.map(({ kind }) => kind)).toEqual([
+      'element-creation',
+      'element-creation',
+      'property-components',
+      'hierarchy-moves'
+    ])
+    expect(changes?.[0]).toMatchObject({
+      kind: 'element-creation',
+      parentId: 'workspace-a',
+      index: 0,
+      elements: [{ id: 'group-a' }]
+    })
+    expect(changes?.[1]).toMatchObject({
+      kind: 'element-creation',
+      parentId: 'group-a',
+      index: 0,
+      elements: [{ id: 'rect-a' }, { id: 'rect-b' }]
+    })
+  })
+
+  it('does not republish inbound raw events after Core accepts the request', () => {
+    const markerPropertyId = 'raw-republish-marker'
+    const observedRawEvents: AllEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_PROPERTY &&
+        'payload' in event &&
+        (event.payload as { id?: unknown }).id === markerPropertyId
+      ) {
+        observedRawEvents.push(event)
+      }
+    })
+    const harness = createHarness()
+
+    try {
+      expect(
+        harness.processPublication(
+          publication(
+            propertyUpdateDeliveries(markerPropertyId, { x: 10 }),
+            'no-raw-republish'
+          )
+        )
+      ).toBe(true)
+    } finally {
+      subscription.unsubscribe()
+    }
+
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(observedRawEvents).toEqual([])
+  })
+
+  it('classifies one restore envelope as one Core canonical change', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
+        publication(restoreDeliveries(), 'restore-group-a', 'undo')
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'subtree-restore',
+        sceneSnapshot: {
+          elementId: 'group-a',
+          rootParentChildrenAfter: [],
+          removed: [
+            expect.objectContaining({
+              elementId: 'group-a',
+              parentId: 'workspace-a'
+            })
+          ]
+        },
+        propsSnapshot: {
+          components: [
+            expect.objectContaining({
+              id: 'position-group-a',
+              type: 'position'
+            })
+          ]
+        }
+      }
+    ])
+  })
+
+  it('keeps shared property graphs out of a Scene-only subtree removal request', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
+        publication([subtreeRemovalDelivery()], 'shared-subtree-removal')
+      )
+    ).toBe(true)
+
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'subtree-removal',
+        change: expect.objectContaining({ elementId: 'group-a' })
+      })
+    ])
+  })
+
+  it('classifies the retained Group plus 16-item removal fixture once', () => {
+    const harness = createHarness()
+    const elementIds = [
+      'group-retained',
+      ...Array.from({ length: 16 }, (_, index) => `rect-${index + 1}`)
+    ]
+    const expectedRemovalOrder = [...elementIds].reverse()
+
+    expect(
+      harness.processPublication(
+        publication(
+          canonicalRemovalDeliveries(elementIds, false),
+          'retained-16-item-removal',
+          'undo'
+        )
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    const [change] = harness.applyCanonicalChanges.mock.calls[0]?.[0] ?? []
+    expect(change?.kind).toBe('element-removal')
+    if (change?.kind !== 'element-removal') {
+      throw new Error('Expected one canonical element-removal change')
+    }
+    expect(change.removals.map(({ data }) => data.id)).toEqual(
+      expectedRemovalOrder
+    )
+  })
+
+  it('uses the same one-request boundary for a progressive canonical slice', () => {
+    const harness = createHarness()
+    const elementIds = ['rect-a', 'rect-b', 'rect-c']
+    const progressive = withExplicitCanonicalDeliverySequence(
+      publication(
+        canonicalCreationDeliveries(elementIds),
+        'progressive-creation'
+      ),
+      'slice-progressive-1',
+      elementIds
+    )
+
+    expect(harness.processPublication(progressive)).toBe(true)
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'element-creation',
+        elements: elementIds.map((id) => expect.objectContaining({ id }))
+      })
+    ])
+  })
+
+  it('does not merge different source publications', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
+        publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'publication-one'
+        )
+      )
+    ).toBe(true)
+    expect(
+      harness.processPublication(
+        publication(
+          propertyUpdateDeliveries('position-b', { x: 20 }),
+          'publication-two'
+        )
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledTimes(2)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledTimes(2)
+  })
+
+  it('lets App policy reject a publication without mutation', () => {
+    const harness = createHarness({
+      decideRemotePublication: () => false
+    })
+
+    expect(
+      harness.processPublication(
+        publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'policy-rejected'
+        )
+      )
+    ).toBe(false)
+    expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
+    expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
+  })
+
+  it('revalidates and applies the App-transformed publication', () => {
+    const transformed = publication(
+      propertyUpdateDeliveries('position-authorized', { x: 40 }),
+      'transformed-publication'
+    )
+    const harness = createHarness({
+      decideRemotePublication: () => transformed
+    })
+
+    expect(
+      harness.processPublication(
+        publication(
+          propertyUpdateDeliveries('position-inbound', { x: 10 }),
+          'inbound-publication'
+        )
+      )
+    ).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        updates: [
           {
-            elementId: 'rect-a',
-            before: { parentId: 'workspace-a', index: 1 },
-            after: { parentId: 'group-a', index: 1 }
+            propertyId: 'position-authorized',
+            values: { x: 40 }
           }
         ]
       }
-    )
-
-    expect(() => processPublication(publication([malformed]))).toThrow(
-      'unsupported collaboration delivery'
-    )
-    expect(runRemoteTransaction).not.toHaveBeenCalled()
-    expect(process).not.toHaveBeenCalled()
+    ])
   })
 
-  it('lets app policy reject unauthorized, duplicate, or conflicting publications without mutation', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn()
-    const acceptedPublicationIds = new Set<string>()
-    const decide = vi.fn((item: SharedPublication) => {
-      if (
-        item.publicationId.startsWith('unauthorized') ||
-        item.publicationId.startsWith('conflicting') ||
-        acceptedPublicationIds.has(item.publicationId)
-      ) {
-        return false
+  it.each([
+    ['undo', 'undo'],
+    ['redo', 'redo'],
+    ['rollback-compensation', 'rollback']
+  ] as const)(
+    'applies %s through the matching transaction replay mode',
+    (origin, expectedReplayMode) => {
+      const observedModes: (string | null)[] = []
+      const harness = createHarness({
+        applyCanonicalChanges: () => {
+          observedModes.push(getTransactionReplayMode())
+        }
+      })
+
+      expect(
+        harness.processPublication(
+          publication(
+            propertyUpdateDeliveries('position-a', { x: 10 }),
+            `replay-${origin}`,
+            origin
+          )
+        )
+      ).toBe(true)
+      expect(observedModes).toEqual([expectedReplayMode])
+      expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('propagates a Core apply failure through the remote transaction', () => {
+    const harness = createHarness({
+      applyCanonicalChanges: () => {
+        throw new Error('canonical apply failed')
       }
-      acceptedPublicationIds.add(item.publicationId)
-      return item
     })
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      decide
-    )
-    const hierarchy = validDeliveries().slice(4, 6)
 
-    const outcomes = [
-      processPublication(publication(hierarchy, 'accepted-hierarchy')),
-      processPublication(publication(hierarchy, 'accepted-hierarchy')),
-      processPublication(publication(hierarchy, 'unauthorized-hierarchy')),
-      processPublication(publication(hierarchy, 'conflicting-hierarchy'))
+    expect(() =>
+      harness.processPublication(
+        publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'core-failure'
+        )
+      )
+    ).toThrow('canonical apply failed')
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+  })
+
+  it('isolates diagnostic timing observer failures from canonical settlement', () => {
+    const runtime = globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+    const sourceSink = runtime.__asyraBrowserDragPhaseSink
+    runtime.__asyraBrowserDragPhaseSink = () => {
+      throw new Error('diagnostic sink failed')
+    }
+    const harness = createHarness()
+
+    try {
+      expect(
+        harness.processPublication(
+          publication(
+            propertyUpdateDeliveries('position-a', { x: 10 }),
+            'timing-observer-failure'
+          )
+        )
+      ).toBe(true)
+    } finally {
+      if (sourceSink) {
+        runtime.__asyraBrowserDragPhaseSink = sourceSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+    }
+
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    [
+      'missing direct Factory batches',
+      false,
+      () => ({
+        ...publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'missing-batches'
+        ),
+        batches: []
+      })
+    ],
+    [
+      'inconsistent batch artifact',
+      false,
+      () => {
+        const source = publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'inconsistent-artifact'
+        )
+        return {
+          ...source,
+          batches: source.batches.map((batch, index) =>
+            index === 0 ? { ...batch, artifactId: 'different-artifact' } : batch
+          )
+        }
+      }
+    ],
+    [
+      'split canonical creation kinds',
+      true,
+      () => {
+        const source = publication(
+          canonicalCreationDeliveries(['rect-a']),
+          'split-creation'
+        )
+        return {
+          ...source,
+          batches: source.batches.map((batch, index) =>
+            index === 1
+              ? {
+                  ...batch,
+                  sharedDelivery: 'transaction-end' as const,
+                  deliveries: batch.deliveries.map((item) => ({
+                    ...item,
+                    sharedDelivery: 'transaction-end' as const
+                  }))
+                }
+              : batch
+          )
+        }
+      }
+    ],
+    [
+      'malformed hierarchy evidence',
+      false,
+      () =>
+        publication(
+          [
+            delivery(
+              SharedDataChannelNames.SCENE_TREE,
+              EventTypes.MOVE_ELEMENTS,
+              {
+                action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+                eventName: EventTypes.MOVE_ELEMENTS,
+                moves: [
+                  {
+                    elementId: 'rect-a',
+                    before: { parentId: 'workspace-a', index: 0 },
+                    after: { parentId: 'group-a', index: 0 }
+                  },
+                  {
+                    elementId: 'rect-b',
+                    before: { parentId: 'workspace-a', index: 0 },
+                    after: { parentId: 'group-a', index: 1 }
+                  }
+                ]
+              },
+              'malformed-move'
+            )
+          ],
+          'malformed-hierarchy'
+        )
     ]
+  ])(
+    'rejects %s before transaction or Core apply',
+    (_name, policyRuns, make) => {
+      const harness = createHarness()
 
-    expect(decide).toHaveBeenCalledTimes(4)
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(process).toHaveBeenCalledTimes(2)
-    expect(outcomes).toEqual([true, false, false, false])
-  })
-
-  it('revalidates an app-transformed conflict decision before canonical apply', () => {
-    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
-    const process = vi.fn()
-    const replacement = validDeliveries()[4] as SharedDelivery
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process,
-      () => publication([replacement], 'app-transformed')
-    )
-
-    processPublication(
-      publication([validDeliveries()[5] as SharedDelivery], 'conflicting')
-    )
-
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(process).toHaveBeenCalledOnce()
-    expect(process.mock.calls[0]?.[0].type).toBe(EventTypes.MOVE_ELEMENTS)
-  })
+      expect(() => harness.processPublication(make())).toThrow()
+      if (policyRuns) {
+        expect(harness.decideRemotePublication).toHaveBeenCalledOnce()
+      } else {
+        expect(harness.decideRemotePublication).not.toHaveBeenCalled()
+      }
+      expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
+      expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
+    }
+  )
 })

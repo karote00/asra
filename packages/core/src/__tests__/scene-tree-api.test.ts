@@ -62,7 +62,7 @@ const deliveryHandle: FactoryMutationBatchDeliveryHandle = {
   artifactId: 'factory-artifact-1',
   transactionId: 1,
   artifact: null,
-  setDeliveryPlan: vi.fn(),
+  setDeliverySequence: vi.fn(),
   deliverSlice: vi.fn()
 }
 

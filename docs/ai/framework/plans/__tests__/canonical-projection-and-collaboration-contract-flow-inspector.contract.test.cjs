@@ -365,7 +365,7 @@ test('Core coordinates plural creation and canonical property requests without A
   assert.doesNotMatch(activeApp, /fixed 256-item/i)
   assert.match(
     appApiSurface(),
-    /composition insertion[\s\S]*Core\.createElementsInParent\([\s\S]*active[\s\S]{0,40}staged-artifact controller[\s\S]*setDeliveryPlan[\s\S]*stageSlice/i
+    /composition insertion[\s\S]*Core\.createElementsInParent\([\s\S]*active[\s\S]{0,40}staged-artifact controller[\s\S]*setDeliverySequence[\s\S]*stageSlice/i
   )
   assert.match(
     appApiSurface(),

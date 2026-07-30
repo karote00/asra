@@ -176,6 +176,17 @@ infrastructure.
 - `subscribeToSharedPublication(...)` observes one batch per synchronous
   immediate delivery action or committed transaction-end batch; a batch may
   contain changes for multiple elements or state owners
+- `FactoryMutationDeliverySequence` is the immutable, already-decided
+  publication order for one mutation artifact. It carries `atomic` or
+  `progressive` mode plus ordered slice boundaries; it is execution evidence,
+  not a planning API
+- `getActiveStagedArtifactController()` exposes only
+  `setDeliverySequence(...)` and `stageSlice(...)` for a consumer that
+  explicitly owns optional staged publication. The sequence does not create a
+  second transaction, change canonical order, or pass delivery policy into
+  Core
+- consumers that do not own staged publication use the ordinary committed
+  `SharedPublication` path and do not acquire the staged-artifact controller
 
 5. Status contract
 

@@ -1,5 +1,5 @@
 import type {
-  FactoryMutationDeliveryPlan,
+  FactoryMutationDeliverySequence,
   FactoryMutationSharedRecordEvidence,
   SharedDelivery,
   SharedDeliveryBatch,
@@ -314,9 +314,9 @@ const isSharedDeliveryBatch = (
   )
 }
 
-const isDeliveryPlan = (
+const isDeliverySequence = (
   value: unknown
-): value is FactoryMutationDeliveryPlan => {
+): value is FactoryMutationDeliverySequence => {
   if (
     !isRecord(value) ||
     (value.mode !== 'atomic' && value.mode !== 'progressive') ||
@@ -352,12 +352,12 @@ export const isSharedPublication = (
     value.deliveries.length === 0 ||
     !Array.isArray(value.batches) ||
     value.batches.length === 0 ||
-    !isDeliveryPlan(value.deliveryPlan)
+    !isDeliverySequence(value.deliverySequence)
   ) {
     return false
   }
   const sliceIds = new Set(
-    value.deliveryPlan.slices.map(({ sliceId }) => sliceId)
+    value.deliverySequence.slices.map(({ sliceId }) => sliceId)
   )
   const batchIds = new Set<string>()
   const deliveryIds = new Set<string>()
@@ -564,7 +564,7 @@ interface PublicationWireMetadata {
   readonly artifactId: string
   readonly transactionId: number
   readonly origin: SharedPublication['origin']
-  readonly deliveryPlan: FactoryMutationDeliveryPlan
+  readonly deliverySequence: FactoryMutationDeliverySequence
 }
 
 interface PublicationWireChunk extends PublicationWireMetadata {
@@ -929,7 +929,7 @@ const publicationWireMetadata = (
   artifactId: publication.artifactId,
   transactionId: publication.transactionId,
   origin: publication.origin,
-  deliveryPlan: publication.deliveryPlan
+  deliverySequence: publication.deliverySequence
 })
 
 const publicationFrameHeaderByteLength = (
@@ -1129,7 +1129,7 @@ const isPublicationWireMetadata = (
   isNonBlankString(value.artifactId) &&
   isPositiveInteger(value.transactionId) &&
   sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  isDeliveryPlan(value.deliveryPlan)
+  isDeliverySequence(value.deliverySequence)
 
 const isPublicationWireUnit = (
   value: unknown,
@@ -1177,7 +1177,10 @@ const rebuildPublication = (
         chunk.artifactId !== first.artifactId ||
         chunk.transactionId !== first.transactionId ||
         chunk.origin !== first.origin ||
-        !areJsonTransportValuesEqual(chunk.deliveryPlan, first.deliveryPlan)
+        !areJsonTransportValuesEqual(
+          chunk.deliverySequence,
+          first.deliverySequence
+        )
     )
   ) {
     throw new TypeError('[collaboration] inconsistent publication frame chunks')
@@ -1221,7 +1224,7 @@ const rebuildPublication = (
     origin: first.origin,
     deliveries: rebuiltBatches.flatMap(({ deliveries }) => deliveries),
     batches: rebuiltBatches,
-    deliveryPlan: first.deliveryPlan
+    deliverySequence: first.deliverySequence
   }
   if (!isSharedPublication(publication)) {
     throw new TypeError('[collaboration] invalid decoded shared publication')

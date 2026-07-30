@@ -1,28 +1,31 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   EventTypes,
   TransactionEventTypes,
-  type AllEvent
+  type AllEvent,
+  type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
   type FactoryMutationBatchArtifact,
-  type FactoryMutationDeliveryPlan,
-  type SharedDelivery,
+  type FactoryMutationDeliverySequence,
+  type SharedDeliveryBatch,
   type SharedPublication
 } from '..'
 
 const createUpdateEvent = (
   id: string,
   channel: string = SharedDataChannelNames.SCENE_TREE,
-  eventName: string = EventTypes.UPDATE_COMPUTED_DATA
+  eventName: string = EventTypes.UPDATE_PROPERTY,
+  canonicalEvidence?: UpdateTransactionEvent['canonicalEvidence']
 ): Parameters<Factory['updateTransaction']>[0] => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,
   eventName,
   payload: { id, before: 0, after: 1 },
-  options: { shared: channel }
+  options: { shared: channel },
+  canonicalEvidence
 })
 
 const createRecord = (id: string, after = 1) => ({
@@ -69,23 +72,27 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('props-batch', SharedDataChannelNames.PROPS),
-        createUpdateEvent('scene-batch', SharedDataChannelNames.SCENE_TREE)
-      ],
-      [
-        {
-          orderedIds: ['element-a', 'element-b'],
-          sharedRecords: [createRecord('element-a'), createRecord('element-b')]
-        },
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'props-batch',
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [createRecord('element-a'), createRecord('element-b')]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      ),
+      createUpdateEvent(
+        'scene-batch',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          orderedIds: ['element-a', 'element-b'],
+          sharedRecords: [createRecord('element-a'), createRecord('element-b')]
+        }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -152,7 +159,7 @@ describe('Factory batch regression contracts', () => {
       }
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
@@ -169,16 +176,18 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-batch')],
-      [
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-batch',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [createRecord('element-a'), createRecord('element-b')]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -240,7 +249,7 @@ describe('Factory batch regression contracts', () => {
       new LocalSharedDataChannel()
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         const payload = (
           event as AllEvent & {
@@ -320,29 +329,48 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    factory.updateTransactionBatch(
-      [
-        createUpdateEvent('props-group', SharedDataChannelNames.PROPS),
-        createUpdateEvent('scene-group', SharedDataChannelNames.SCENE_TREE),
-        createUpdateEvent('props-a', SharedDataChannelNames.PROPS),
-        createUpdateEvent('props-b', SharedDataChannelNames.PROPS),
-        createUpdateEvent('scene-a', SharedDataChannelNames.SCENE_TREE),
-        createUpdateEvent('scene-b', SharedDataChannelNames.SCENE_TREE),
-        {
-          ...createUpdateEvent('local-only'),
-          options: undefined
-        }
-      ],
-      [
-        { orderedIds: ['group'] },
-        { orderedIds: ['group'] },
-        { orderedIds: ['props-a'] },
-        { orderedIds: ['props-b'] },
-        { orderedIds: ['scene-a'] },
-        { orderedIds: ['scene-b'] },
-        undefined
-      ]
-    )
+    factory.updateTransactionBatch([
+      createUpdateEvent(
+        'props-group',
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['group'] }
+      ),
+      createUpdateEvent(
+        'scene-group',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['group'] }
+      ),
+      createUpdateEvent(
+        'props-a',
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['props-a'] }
+      ),
+      createUpdateEvent(
+        'props-b',
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['props-b'] }
+      ),
+      createUpdateEvent(
+        'scene-a',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['scene-a'] }
+      ),
+      createUpdateEvent(
+        'scene-b',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
+        { orderedIds: ['scene-b'] }
+      ),
+      {
+        ...createUpdateEvent('local-only'),
+        options: undefined
+      }
+    ])
     factory.endTransaction()
 
     const summarize = (publication: SharedPublication | undefined) => ({
@@ -357,7 +385,7 @@ describe('Factory batch regression contracts', () => {
     const expectAtomicBatchIntegrity = (
       publication: SharedPublication | undefined
     ) => {
-      expect(publication?.deliveryPlan).toEqual({
+      expect(publication?.deliverySequence).toEqual({
         mode: 'atomic',
         slices: publication?.batches.map((batch) => ({
           sliceId: batch.sliceId,
@@ -505,11 +533,15 @@ describe('Factory batch regression contracts', () => {
       )
 
       factory.startTransaction()
-      const handle = factory.updateTransactionBatch(
-        [createUpdateEvent(`observer-${observerKind}`)],
-        [{ orderedIds: [`observer-${observerKind}`] }]
-      )
-      handle?.setDeliveryPlan({
+      const handle = factory.updateTransactionBatch([
+        createUpdateEvent(
+          `observer-${observerKind}`,
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
+          { orderedIds: [`observer-${observerKind}`] }
+        )
+      ])
+      handle?.setDeliverySequence({
         mode: 'progressive',
         slices: [
           {
@@ -538,13 +570,13 @@ describe('Factory batch regression contracts', () => {
     const inverseEvents = () =>
       ['inverse-x', 'inverse-y'].map(
         (id): AllEvent => ({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
+          type: EventTypes.UPDATE_PROPERTY,
           payload: { id, before: 1, after: 0 }
         })
       )
     factory.registerTransactionInverter('custom.multi-output', inverseEvents)
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
@@ -571,21 +603,17 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    factory.updateTransactionBatch(
-      [
-        createUpdateEvent(
-          'canonical-multi-output',
-          SharedDataChannelNames.SCENE_TREE,
-          'custom.multi-output'
-        )
-      ],
-      [
+    factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-multi-output',
+        SharedDataChannelNames.SCENE_TREE,
+        'custom.multi-output',
         {
           orderedIds: ['element-a'],
           sharedRecords: [createRecord('element-a')]
         }
-      ]
-    )
+      )
+    ])
     factory.endTransaction()
     projected.length = 0
 
@@ -613,33 +641,29 @@ describe('Factory batch regression contracts', () => {
             : ['inverse-x']
         return outputIds.map(
           (outputId): AllEvent => ({
-            type: EventTypes.UPDATE_COMPUTED_DATA,
+            type: EventTypes.UPDATE_PROPERTY,
             payload: { id: outputId, before: 1, after: 0 }
           })
         )
       }
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    factory.updateTransactionBatch(
-      [
-        createUpdateEvent(
-          'canonical-mismatch',
-          SharedDataChannelNames.SCENE_TREE,
-          'custom.mismatched-outputs'
-        )
-      ],
-      [
+    factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-mismatch',
+        SharedDataChannelNames.SCENE_TREE,
+        'custom.mismatched-outputs',
         {
           orderedIds: ['element-a'],
           sharedRecords: [createRecord('element-a')]
         }
-      ]
-    )
+      )
+    ])
 
     expect(() => factory.endTransaction()).toThrow(
       /shared record inverse output count must match canonical inverse output count/
@@ -649,7 +673,7 @@ describe('Factory batch regression contracts', () => {
     ).toEqual([])
   })
 
-  it('selects 16 progressive publication boundaries without rescanning the plan', () => {
+  it('selects 16 progressive publication boundaries without rescanning the sequence', () => {
     const runtimeGlobal = globalThis as typeof globalThis & {
       __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
     }
@@ -667,16 +691,18 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-plan')],
-      [
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-sequence',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
         {
           orderedIds,
           sharedRecords: orderedIds.map((id) => createRecord(id))
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: orderedIds.map((id, index) => ({
         sliceId: `slice-${index}`,
@@ -684,15 +710,15 @@ describe('Factory batch regression contracts', () => {
       }))
     })
     const transact = factory.transact as unknown as {
-      activeDeliveryPlan: FactoryMutationDeliveryPlan
+      activeDeliverySequence: FactoryMutationDeliverySequence
     }
-    const activePlan = transact.activeDeliveryPlan
-    let fullPlanFilterCalls = 0
-    transact.activeDeliveryPlan = {
-      ...activePlan,
-      slices: new Proxy(activePlan.slices, {
+    const activeSequence = transact.activeDeliverySequence
+    let fullSequenceFilterCalls = 0
+    transact.activeDeliverySequence = {
+      ...activeSequence,
+      slices: new Proxy(activeSequence.slices, {
         get(target, property, receiver) {
-          if (property === 'filter') fullPlanFilterCalls += 1
+          if (property === 'filter') fullSequenceFilterCalls += 1
           return Reflect.get(target, property, receiver)
         }
       })
@@ -705,25 +731,28 @@ describe('Factory batch regression contracts', () => {
       runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
     }
 
-    expect(fullPlanFilterCalls).toBe(0)
+    expect(fullSequenceFilterCalls).toBe(0)
     expect(
       phaseNames.filter(
-        (phaseName) => phaseName === 'factory:select-delivery-plan-boundaries'
+        (phaseName) =>
+          phaseName === 'factory:select-delivery-sequence-boundaries'
       )
     ).toHaveLength(17)
   })
 
-  it('skips 7112 legacy delivery fanouts when there are no legacy subscribers', () => {
+  it('delivers 7112 canonical records through one ordered batch callback', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const emitSharedDelivery = vi.spyOn(
-      factory as unknown as {
-        emitSharedDelivery(delivery: SharedDelivery): void
-      },
-      'emitSharedDelivery'
+    const deliveryBatches: SharedDeliveryBatch[] = []
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedDeliveryBatch((batch) =>
+      deliveryBatches.push(batch)
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
     )
     const orderedIds = Array.from(
       { length: 7_112 },
@@ -731,41 +760,26 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-large')],
-      [
+    factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-large',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
         {
           orderedIds,
           sharedRecords: orderedIds.map((id) => createRecord(id))
         }
-      ]
-    )
+      )
+    ])
     factory.endTransaction()
 
-    expect(emitSharedDelivery.mock.calls.length).toBe(0)
-
-    const deliveredIds: string[] = []
-    const unsubscribe = factory.subscribeToSharedDelivery((delivery) => {
-      deliveredIds.push(payloadId(delivery.payload) ?? 'unknown')
-    })
-    factory.startTransaction()
-    factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-subscribed')],
-      [
-        {
-          orderedIds: ['subscribed-a', 'subscribed-b'],
-          sharedRecords: [
-            createRecord('subscribed-a'),
-            createRecord('subscribed-b')
-          ]
-        }
-      ]
-    )
-    factory.endTransaction()
-    unsubscribe()
-
-    expect(deliveredIds).toEqual(['subscribed-a', 'subscribed-b'])
-    expect(emitSharedDelivery).toHaveBeenCalledTimes(2)
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches[0]?.deliveries).toHaveLength(7_112)
+    expect(
+      deliveryBatches[0]?.deliveries.map(({ payload }) => payloadId(payload))
+    ).toEqual(orderedIds)
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.batches).toEqual(deliveryBatches)
   })
 
   it.each([
@@ -782,15 +796,17 @@ describe('Factory batch regression contracts', () => {
     factory.startTransaction()
 
     expect(() =>
-      factory.updateTransactionBatch(
-        [createUpdateEvent('canonical-invalid-record')],
-        [
+      factory.updateTransactionBatch([
+        createUpdateEvent(
+          'canonical-invalid-record',
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
           {
             orderedIds: ['element-a'],
             sharedRecords: [{ orderedIds: ['element-a'], payload }]
           }
-        ]
-      )
+        )
+      ])
     ).toThrow(/requires a plain record payload/)
     factory.endTransaction({ outcome: 'rollback' })
   })
@@ -809,15 +825,17 @@ describe('Factory batch regression contracts', () => {
 
     factory.startTransaction()
     expect(() =>
-      factory.updateTransactionBatch(
-        [createUpdateEvent('canonical-null-prototype')],
-        [
+      factory.updateTransactionBatch([
+        createUpdateEvent(
+          'canonical-null-prototype',
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
           {
             orderedIds: ['element-a'],
             sharedRecords: [{ orderedIds: ['element-a'], payload }]
           }
-        ]
-      )
+        )
+      ])
     ).not.toThrow()
     expect(() => factory.endTransaction()).not.toThrow()
   })

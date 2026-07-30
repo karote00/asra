@@ -3,7 +3,8 @@ import {
   EventTypes,
   TransactionEventTypes,
   subscribeToUserActionCompleted,
-  type AllEvent
+  type AllEvent,
+  type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
@@ -37,15 +38,17 @@ const createUpdateEvent = (
   after: number,
   options: {
     sharedDelivery?: 'transaction-end' | 'immediate'
-  } = {}
+  } = {},
+  canonicalEvidence?: UpdateTransactionEvent['canonicalEvidence']
 ): Parameters<Factory['updateTransaction']>[0] => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,
-  eventName: EventTypes.UPDATE_COMPUTED_DATA,
+  eventName: EventTypes.UPDATE_PROPERTY,
   payload: { id, before: after - 1, after },
   options: {
     shared: SharedDataChannelNames.SCENE_TREE,
     ...options
-  }
+  },
+  canonicalEvidence
 })
 
 const createHarness = () => {
@@ -64,9 +67,7 @@ const createHarness = () => {
   )
   const publications: SharedPublication[] = []
   const deliveryBatches: SharedDeliveryBatch[] = []
-  const deliveries: SharedDelivery[] = []
   factory.subscribeToSharedDeliveryBatch((batch) => deliveryBatches.push(batch))
-  factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
   factory.subscribeToSharedPublication((publication) =>
     publications.push(publication)
   )
@@ -75,8 +76,7 @@ const createHarness = () => {
     projected,
     projectedBatches,
     publications,
-    deliveryBatches,
-    deliveries
+    deliveryBatches
   }
 }
 
@@ -101,7 +101,7 @@ describe('Factory action-level shared publication', () => {
 
     expect(phaseNames).toEqual(
       expect.arrayContaining([
-        'factory:journal-payload-clone',
+        'factory:owner-batch-clone',
         'factory:shared-payload-normalize',
         'factory:flush-shared-channels',
         'factory:shared-channel-append',
@@ -167,7 +167,7 @@ describe('Factory action-level shared publication', () => {
   })
 
   it('batches synchronous immediate deliveries before the outer undo transaction ends', async () => {
-    const { factory, projected, publications, deliveryBatches, deliveries } =
+    const { factory, projected, publications, deliveryBatches } =
       createHarness()
 
     factory.startTransaction()
@@ -218,14 +218,16 @@ describe('Factory action-level shared publication', () => {
     const settlementCounts = {
       projected: projected.length,
       deliveryBatches: deliveryBatches.length,
-      deliveries: deliveries.length,
+      deliveryRecords: deliveryBatches.flatMap(({ deliveries }) => deliveries)
+        .length,
       publications: publications.length
     }
     factory.endTransaction()
     expect({
       projected: projected.length,
       deliveryBatches: deliveryBatches.length,
-      deliveries: deliveries.length,
+      deliveryRecords: deliveryBatches.flatMap(({ deliveries }) => deliveries)
+        .length,
       publications: publications.length
     }).toEqual(settlementCounts)
   })
@@ -238,19 +240,12 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('element-a', 1),
-        createUpdateEvent('element-b', 2),
-        createUpdateEvent('element-c', 3)
-      ],
-      [
-        { orderedIds: ['element-a'] },
-        { orderedIds: ['element-b'] },
-        { orderedIds: ['element-c'] }
-      ]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent('element-a', 1, {}, { orderedIds: ['element-a'] }),
+      createUpdateEvent('element-b', 2, {}, { orderedIds: ['element-b'] }),
+      createUpdateEvent('element-c', 3, {}, { orderedIds: ['element-c'] })
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         {
@@ -299,9 +294,11 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-batch', 1)],
-      [
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-batch',
+        1,
+        {},
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [
@@ -319,9 +316,9 @@ describe('Factory action-level shared publication', () => {
             }
           ]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -387,7 +384,7 @@ describe('Factory action-level shared publication', () => {
   it('reuses explicit record inverses for one complete Undo and Redo action', () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
@@ -400,9 +397,11 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-history', 1)],
-      [
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-history',
+        1,
+        {},
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [
@@ -416,9 +415,9 @@ describe('Factory action-level shared publication', () => {
             }
           ]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -460,83 +459,69 @@ describe('Factory action-level shared publication', () => {
 
   it.each([
     {
-      name: 'evidence count differs from the canonical event count',
-      evidence: [],
-      expected: /one entry for each canonical event/
-    },
-    {
       name: 'canonical ordered ids are empty',
-      evidence: [{ orderedIds: [] }],
+      canonicalEvidence: { orderedIds: [] },
       expected: /at least one canonical ordered id/
     },
     {
       name: 'canonical ordered ids contain a duplicate',
-      evidence: [{ orderedIds: ['element-a', 'element-a'] }],
+      canonicalEvidence: { orderedIds: ['element-a', 'element-a'] },
       expected: /duplicate canonical ordered id/
     },
     {
       name: 'explicit shared records are empty',
-      evidence: [{ orderedIds: ['element-a'], sharedRecords: [] }],
+      canonicalEvidence: { orderedIds: ['element-a'], sharedRecords: [] },
       expected: /at least one shared record/
     },
     {
       name: 'one shared record has no ordered ids',
-      evidence: [
-        {
-          orderedIds: ['element-a'],
-          sharedRecords: [{ orderedIds: [], payload: { id: 'element-a' } }]
-        }
-      ],
+      canonicalEvidence: {
+        orderedIds: ['element-a'],
+        sharedRecords: [{ orderedIds: [], payload: { id: 'element-a' } }]
+      },
       expected: /at least one ordered id/
     },
     {
       name: 'a shared record contains an unknown ordered id',
-      evidence: [
-        {
-          orderedIds: ['element-a'],
-          sharedRecords: [
-            { orderedIds: ['element-b'], payload: { id: 'element-b' } }
-          ]
-        }
-      ],
+      canonicalEvidence: {
+        orderedIds: ['element-a'],
+        sharedRecords: [
+          { orderedIds: ['element-b'], payload: { id: 'element-b' } }
+        ]
+      },
       expected: /unknown canonical ordered id/
     },
     {
       name: 'shared records omit one canonical ordered id',
-      evidence: [
-        {
-          orderedIds: ['element-a', 'element-b'],
-          sharedRecords: [
-            { orderedIds: ['element-a'], payload: { id: 'element-a' } }
-          ]
-        }
-      ],
+      canonicalEvidence: {
+        orderedIds: ['element-a', 'element-b'],
+        sharedRecords: [
+          { orderedIds: ['element-a'], payload: { id: 'element-a' } }
+        ]
+      },
       expected: /cover every canonical ordered id/
     },
     {
       name: 'shared record first occurrences reorder canonical ids',
-      evidence: [
-        {
-          orderedIds: ['element-a', 'element-b'],
-          sharedRecords: [
-            { orderedIds: ['element-b'], payload: { id: 'element-b' } },
-            { orderedIds: ['element-a'], payload: { id: 'element-a' } }
-          ]
-        }
-      ],
+      canonicalEvidence: {
+        orderedIds: ['element-a', 'element-b'],
+        sharedRecords: [
+          { orderedIds: ['element-b'], payload: { id: 'element-b' } },
+          { orderedIds: ['element-a'], payload: { id: 'element-a' } }
+        ]
+      },
       expected: /preserve canonical ordered id order/
     }
   ])(
-    'rejects invalid explicit delivery evidence when $name',
-    ({ evidence, expected }) => {
+    'rejects invalid canonical event evidence when $name',
+    ({ canonicalEvidence, expected }) => {
       const { factory } = createHarness()
       factory.startTransaction()
 
       expect(() =>
-        factory.updateTransactionBatch(
-          [createUpdateEvent('canonical-invalid', 1)],
-          evidence
-        )
+        factory.updateTransactionBatch([
+          createUpdateEvent('canonical-invalid', 1, {}, canonicalEvidence)
+        ])
       ).toThrow(expected)
       factory.endTransaction({ outcome: 'rollback' })
     }
@@ -545,9 +530,11 @@ describe('Factory action-level shared publication', () => {
   it('rejects a shared record that spans two formal slices', () => {
     const { factory } = createHarness()
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-spanning-record', 1)],
-      [
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-spanning-record',
+        1,
+        {},
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [
@@ -557,9 +544,9 @@ describe('Factory action-level shared publication', () => {
             }
           ]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -586,7 +573,7 @@ describe('Factory action-level shared publication', () => {
         { sliceId: 'slice-b', orderedIds: ['element-b'] },
         { sliceId: 'slice-c', orderedIds: ['element-c'] }
       ],
-      expected: /cover every shared canonical id exactly once/
+      expected: /cover every canonical id exactly once/
     },
     {
       name: 'reorders canonical ids',
@@ -614,13 +601,15 @@ describe('Factory action-level shared publication', () => {
       expected: /empty progressive slice/
     }
   ])(
-    'rejects a progressive delivery plan that $name',
+    'rejects a progressive delivery sequence that $name',
     ({ slices, expected }) => {
       const { factory } = createHarness()
       factory.startTransaction()
-      const handle = factory.updateTransactionBatch(
-        [createUpdateEvent('canonical-invalid-plan', 1)],
-        [
+      const handle = factory.updateTransactionBatch([
+        createUpdateEvent(
+          'canonical-invalid-sequence',
+          1,
+          {},
           {
             orderedIds: ['element-a', 'element-b'],
             sharedRecords: [
@@ -634,11 +623,11 @@ describe('Factory action-level shared publication', () => {
               }
             ]
           }
-        ]
-      )
+        )
+      ])
 
       expect(() => {
-        handle?.setDeliveryPlan({ mode: 'progressive', slices })
+        handle?.setDeliverySequence({ mode: 'progressive', slices })
         const firstSliceId = slices[0]?.sliceId
         if (firstSliceId) handle?.deliverSlice(firstSliceId)
       }).toThrow(expected)
@@ -652,7 +641,7 @@ describe('Factory action-level shared publication', () => {
       deliver: (
         handle: NonNullable<ReturnType<Factory['updateTransactionBatch']>>
       ) => handle.deliverSlice('slice-b'),
-      expected: /plan order: slice-a/
+      expected: /sequence order: slice-a/
     },
     {
       name: 'more than once',
@@ -662,16 +651,16 @@ describe('Factory action-level shared publication', () => {
         handle.deliverSlice('slice-a')
         handle.deliverSlice('slice-a')
       },
-      expected: /plan order: slice-b/
+      expected: /sequence order: slice-b/
     }
   ])('rejects delivery of one formal slice $name', ({ deliver, expected }) => {
     const { factory } = createHarness()
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('element-a', 1), createUpdateEvent('element-b', 2)],
-      [{ orderedIds: ['element-a'] }, { orderedIds: ['element-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent('element-a', 1, {}, { orderedIds: ['element-a'] }),
+      createUpdateEvent('element-b', 2, {}, { orderedIds: ['element-b'] })
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -701,9 +690,11 @@ describe('Factory action-level shared publication', () => {
 
     try {
       factory.startTransaction()
-      const handle = factory.updateTransactionBatch(
-        [createUpdateEvent('canonical-index', 1)],
-        [
+      const handle = factory.updateTransactionBatch([
+        createUpdateEvent(
+          'canonical-index',
+          1,
+          {},
           {
             orderedIds,
             sharedRecords: orderedIds.map((id, index) => ({
@@ -711,24 +702,24 @@ describe('Factory action-level shared publication', () => {
               payload: { id, before: 0, after: index + 1 }
             }))
           }
-        ]
-      )
-      const shared = (
+        )
+      ])
+      const entry = (
         factory.transact as unknown as {
           journal: {
-            shared?: { orderedIds: readonly string[] }
+            orderedIds: readonly string[]
           }[]
         }
-      ).journal[0]?.shared
-      if (shared) {
-        shared.orderedIds = new Proxy(shared.orderedIds, {
+      ).journal[0]
+      if (entry) {
+        entry.orderedIds = new Proxy(entry.orderedIds, {
           get(target, property, receiver) {
             if (property === 'forEach') canonicalOrderScans += 1
             return Reflect.get(target, property, receiver)
           }
         })
       }
-      handle?.setDeliveryPlan({
+      handle?.setDeliverySequence({
         mode: 'progressive',
         slices: orderedIds.map((id, index) => ({
           sliceId: `slice-${index}`,
@@ -782,7 +773,7 @@ describe('Factory action-level shared publication', () => {
           ])
         })
         attempt(() => {
-          handle?.setDeliveryPlan({ mode: 'atomic', slices: [] })
+          handle?.setDeliverySequence({ mode: 'atomic', slices: [] })
         })
         attempt(() => {
           handle?.deliverSlice('slice-b')
@@ -794,9 +785,11 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    handle = factory.updateTransactionBatch(
-      [createUpdateEvent('canonical-reentrancy', 1)],
-      [
+    handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-reentrancy',
+        1,
+        {},
         {
           orderedIds: ['element-a', 'element-b'],
           sharedRecords: [
@@ -810,9 +803,9 @@ describe('Factory action-level shared publication', () => {
             }
           ]
         }
-      ]
-    )
-    handle?.setDeliveryPlan({
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -840,16 +833,16 @@ describe('Factory action-level shared publication', () => {
     const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('element-a', 1), createUpdateEvent('element-b', 2)],
-      [{ orderedIds: ['element-a'] }, { orderedIds: ['element-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent('element-a', 1, {}, { orderedIds: ['element-a'] }),
+      createUpdateEvent('element-b', 2, {}, { orderedIds: ['element-b'] })
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -868,18 +861,33 @@ describe('Factory action-level shared publication', () => {
     expect(publications.map(({ origin }) => origin)).toEqual([
       'action',
       'action',
+      'rollback-compensation',
       'rollback-compensation'
     ])
-    const compensation = publications[2]
-    expect(compensation?.deliveryPlan.mode).toBe('progressive')
+    const compensations = publications.slice(2)
     expect(
-      compensation?.deliveryPlan.slices.map(({ sliceId }) => sliceId)
-    ).toEqual(compensation?.batches.map(({ sliceId }) => sliceId))
+      compensations.every(
+        (publication) => publication.deliverySequence.mode === 'progressive'
+      )
+    ).toBe(true)
     expect(
-      compensation?.deliveryPlan.slices.map(({ orderedIds }) => orderedIds)
+      compensations.flatMap(({ deliverySequence }) =>
+        deliverySequence.slices.map(({ sliceId }) => sliceId)
+      )
+    ).toEqual(
+      compensations.flatMap(({ batches }) =>
+        batches.map(({ sliceId }) => sliceId)
+      )
+    )
+    expect(
+      compensations.flatMap(({ deliverySequence }) =>
+        deliverySequence.slices.map(({ orderedIds }) => orderedIds)
+      )
     ).toEqual([['element-b'], ['element-a']])
     expect(
-      compensation?.batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      compensations.flatMap(({ batches }) =>
+        batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      )
     ).toEqual(
       publications
         .slice(0, 2)
@@ -901,7 +909,7 @@ describe('Factory action-level shared publication', () => {
       artifacts.push(artifact)
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
@@ -914,14 +922,21 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('composition-a', 1),
-        createUpdateEvent('composition-b', 2)
-      ],
-      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'composition-a',
+        1,
+        {},
+        { orderedIds: ['composition-a'] }
+      ),
+      createUpdateEvent(
+        'composition-b',
+        2,
+        {},
+        { orderedIds: ['composition-b'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'composition-a', orderedIds: ['composition-a'] },
@@ -945,7 +960,7 @@ describe('Factory action-level shared publication', () => {
     ).toEqual([['transaction-end'], ['transaction-end'], ['immediate']])
     expect(artifacts).toHaveLength(1)
     expect(artifacts[0]?.changes).toHaveLength(3)
-    expect(artifacts[0]?.deliveryPlan).toMatchObject({
+    expect(artifacts[0]?.deliverySequence).toMatchObject({
       mode: 'progressive',
       slices: [
         { orderedIds: ['composition-a'] },
@@ -1031,19 +1046,26 @@ describe('Factory action-level shared publication', () => {
     const artifacts = vi.fn()
     factory.subscribeToMutationBatchArtifact(artifacts)
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('composition-a', 1),
-        createUpdateEvent('composition-b', 2)
-      ],
-      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'composition-a',
+        1,
+        {},
+        { orderedIds: ['composition-a'] }
+      ),
+      createUpdateEvent(
+        'composition-b',
+        2,
+        {},
+        { orderedIds: ['composition-b'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'composition-a', orderedIds: ['composition-a'] },
@@ -1080,16 +1102,26 @@ describe('Factory action-level shared publication', () => {
       }
     ])
 
+    const forwardPublicationCount = publications.length
     factory.endTransaction({ outcome: 'rollback' })
 
-    const compensation = publications.at(-1)
-    expect(compensation?.origin).toBe('rollback-compensation')
+    const compensations = publications.slice(forwardPublicationCount)
+    expect(compensations).toHaveLength(3)
     expect(
-      compensation?.batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      compensations.every(
+        (publication) => publication.origin === 'rollback-compensation'
+      )
+    ).toBe(true)
+    expect(
+      compensations.flatMap(({ batches }) =>
+        batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      )
     ).toEqual(forwardBatches.map(({ batchId }) => batchId).reverse())
     expect(
-      compensation?.batches.map(({ deliveries }) =>
-        deliveries.map(({ payload }) => (payload as { id: string }).id)
+      compensations.flatMap(({ batches }) =>
+        batches.map(({ deliveries }) =>
+          deliveries.map(({ payload }) => (payload as { id: string }).id)
+        )
       )
     ).toEqual([['ordinary-immediate'], ['composition-b'], ['composition-a']])
     expect(artifacts).not.toHaveBeenCalled()
@@ -1098,22 +1130,29 @@ describe('Factory action-level shared publication', () => {
     ).toEqual([])
   })
 
-  it('rejects ordinary immediate delivery until every planned slice has been delivered', () => {
+  it('rejects ordinary immediate delivery until every sequenced slice has been delivered', () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('composition-a', 1),
-        createUpdateEvent('composition-b', 2)
-      ],
-      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'composition-a',
+        1,
+        {},
+        { orderedIds: ['composition-a'] }
+      ),
+      createUpdateEvent(
+        'composition-b',
+        2,
+        {},
+        { orderedIds: ['composition-b'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'composition-a', orderedIds: ['composition-a'] },
@@ -1143,19 +1182,26 @@ describe('Factory action-level shared publication', () => {
   it('replays formal slices before a later immediate change when the replay handler records no journal entry', () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('composition-a', 1),
-        createUpdateEvent('composition-b', 2)
-      ],
-      [{ orderedIds: ['composition-a'] }, { orderedIds: ['composition-b'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'composition-a',
+        1,
+        {},
+        { orderedIds: ['composition-a'] }
+      ),
+      createUpdateEvent(
+        'composition-b',
+        2,
+        {},
+        { orderedIds: ['composition-b'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'composition-a', orderedIds: ['composition-a'] },
@@ -1202,16 +1248,20 @@ describe('Factory action-level shared publication', () => {
   it('still rejects a later transaction-end mutation after progressive slice preparation', () => {
     const { factory } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [createUpdateEvent('composition-a', 1)],
-      [{ orderedIds: ['composition-a'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'composition-a',
+        1,
+        {},
+        { orderedIds: ['composition-a'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [{ sliceId: 'composition-a', orderedIds: ['composition-a'] }]
     })
@@ -1223,26 +1273,26 @@ describe('Factory action-level shared publication', () => {
     expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
   })
 
-  it('rejects a late progressive plan after immediate delivery and rolls the action back', () => {
+  it('rejects a late progressive sequence after immediate delivery and rolls the action back', () => {
     const { factory, projectedBatches, publications } = createHarness()
     const artifacts = vi.fn()
     factory.subscribeToMutationBatchArtifact(artifacts)
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('already-immediate', 1, {
-          sharedDelivery: 'immediate'
-        })
-      ],
-      [{ orderedIds: ['already-immediate'] }]
-    )
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'already-immediate',
+        1,
+        { sharedDelivery: 'immediate' },
+        { orderedIds: ['already-immediate'] }
+      )
+    ])
     expect(() =>
-      handle?.setDeliveryPlan({
+      handle?.setDeliverySequence({
         mode: 'progressive',
         slices: [{ sliceId: 'too-late', orderedIds: ['already-immediate'] }]
       })
@@ -1259,16 +1309,11 @@ describe('Factory action-level shared publication', () => {
     const sourceHandlers = new Set<(changes: readonly unknown[]) => void>()
     let appendCount = 0
     const channel: SharedDataChannel = {
-      batchAppendIsAtomic: true,
-      append: (change) => {
-        channel.appendBatch?.([change])
-      },
       appendBatch: (changes) => {
         appendCount += 1
         if (appendCount === 2) throw deliveryFailure
         ;[...sourceHandlers].forEach((handler) => handler(changes))
       },
-      observe: () => () => undefined,
       observeBatch: (handler) => {
         sourceHandlers.add(handler)
         return () => sourceHandlers.delete(handler)
@@ -1280,7 +1325,7 @@ describe('Factory action-level shared publication', () => {
       channel
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
     const projectedBatches: (readonly unknown[])[] = []
@@ -1294,14 +1339,21 @@ describe('Factory action-level shared publication', () => {
     )
 
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        createUpdateEvent('slice-success', 1),
-        createUpdateEvent('slice-failure', 2)
-      ],
-      [{ orderedIds: ['slice-success'] }, { orderedIds: ['slice-failure'] }]
-    )
-    handle?.setDeliveryPlan({
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'slice-success',
+        1,
+        {},
+        { orderedIds: ['slice-success'] }
+      ),
+      createUpdateEvent(
+        'slice-failure',
+        2,
+        {},
+        { orderedIds: ['slice-failure'] }
+      )
+    ])
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-success', orderedIds: ['slice-success'] },
@@ -1357,6 +1409,203 @@ describe('Factory action-level shared publication', () => {
     expect(publications).toEqual([])
   })
 
+  it('does not publish compensation for an immediate batch that never crossed the Factory publication boundary', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const projectedBatches: (readonly unknown[])[] = []
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (batch) => projectedBatches.push(batch)
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      createUpdateEvent('locally-delivered-only', 1, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+
+    expect(projectedBatches).toHaveLength(1)
+    const laterPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      laterPublications.push(publication)
+    )
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(projectedBatches).toHaveLength(2)
+    expect(laterPublications).toEqual([])
+  })
+
+  it('publishes an unacknowledged immediate batch as the committed remainder', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      createUpdateEvent('unacknowledged-until-commit', 1, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+
+    const committedPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      committedPublications.push(publication)
+    )
+    factory.endTransaction()
+
+    expect(committedPublications).toHaveLength(1)
+    expect(committedPublications[0]).toEqual(
+      expect.objectContaining({
+        publicationId: '1:publication:1',
+        origin: 'action',
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              id: 'unacknowledged-until-commit'
+            })
+          })
+        ]
+      })
+    )
+  })
+
+  it('does not acknowledge an immediate publication when every subscriber rejects it', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const unsubscribeRejecting = factory.subscribeToSharedPublication(() => {
+      throw new Error('publication handoff failed')
+    })
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      createUpdateEvent('rejected-publication', 1, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+    unsubscribeRejecting()
+
+    const rollbackPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      rollbackPublications.push(publication)
+    )
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(rollbackPublications).toEqual([])
+  })
+
+  it('compensates only acknowledged immediate batches with their predeclared identities and never resends them at commit', async () => {
+    type ForwardDeliveryWithCompensationIdentity = SharedDelivery & {
+      readonly compensationDeliveryIds?: readonly string[]
+    }
+    type ForwardBatchWithCompensationIdentity = SharedDeliveryBatch & {
+      readonly compensationBatchId?: string
+      readonly deliveries: readonly ForwardDeliveryWithCompensationIdentity[]
+    }
+    type ForwardPublicationWithCompensationIdentity = SharedPublication & {
+      readonly compensationPublicationId?: string
+      readonly batches: readonly ForwardBatchWithCompensationIdentity[]
+    }
+
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const deliveredForwardBatches: SharedDeliveryBatch[] = []
+    factory.subscribeToSharedDeliveryBatch((batch) => {
+      if (batch.kind === 'forward') deliveredForwardBatches.push(batch)
+    })
+    const acknowledgedPublications: SharedPublication[] = []
+    const unsubscribeForward = factory.subscribeToSharedPublication(
+      (publication) => acknowledgedPublications.push(publication)
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      createUpdateEvent('acknowledged', 1, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+
+    expect(acknowledgedPublications).toHaveLength(1)
+    const forwardPublication =
+      acknowledgedPublications[0] as ForwardPublicationWithCompensationIdentity
+    const forwardBatch = forwardPublication.batches[0]
+    const forwardDelivery = forwardBatch?.deliveries[0]
+    expect
+      .soft(forwardPublication.compensationPublicationId)
+      .toEqual(expect.any(String))
+    expect.soft(forwardBatch?.compensationBatchId).toEqual(expect.any(String))
+    expect
+      .soft(forwardDelivery?.compensationDeliveryIds)
+      .toEqual([expect.any(String)])
+
+    unsubscribeForward()
+    factory.updateTransactionBatch([
+      createUpdateEvent('local-only-after-unsubscribe', 2, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+    expect(deliveredForwardBatches).toHaveLength(2)
+    const unacknowledgedBatchId = deliveredForwardBatches[1]?.batchId
+
+    const rollbackPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      rollbackPublications.push(publication)
+    )
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect.soft(rollbackPublications).toHaveLength(1)
+    const compensationPublication = rollbackPublications[0]
+    const compensationBatch = compensationPublication?.batches[0]
+    const compensationDelivery = compensationBatch?.deliveries[0]
+    expect
+      .soft(compensationPublication?.publicationId)
+      .toBe(forwardPublication.compensationPublicationId)
+    expect.soft(compensationPublication?.batches).toHaveLength(1)
+    expect
+      .soft(compensationBatch?.batchId)
+      .toBe(forwardBatch?.compensationBatchId)
+    expect
+      .soft(compensationBatch?.compensatesBatchId)
+      .toBe(forwardBatch?.batchId)
+    expect
+      .soft(compensationBatch?.compensatesBatchId)
+      .not.toBe(unacknowledgedBatchId)
+    expect
+      .soft(compensationDelivery?.deliveryId)
+      .toBe(forwardDelivery?.compensationDeliveryIds?.[0])
+    expect
+      .soft(compensationDelivery?.compensatesDeliveryId)
+      .toBe(forwardDelivery?.deliveryId)
+
+    const commitHarness = createHarness()
+    commitHarness.factory.startTransaction()
+    commitHarness.factory.updateTransactionBatch([
+      createUpdateEvent('commit-once', 1, {
+        sharedDelivery: 'immediate'
+      })
+    ])
+    await Promise.resolve()
+    expect(commitHarness.publications).toHaveLength(1)
+    commitHarness.factory.endTransaction()
+    expect(commitHarness.publications).toHaveLength(1)
+  })
+
   it('publishes one linked compensation batch when an immediate action rolls back after flush', async () => {
     const { factory, publications } = createHarness()
 
@@ -1366,6 +1615,7 @@ describe('Factory action-level shared publication', () => {
     await Promise.resolve()
 
     expect(publications).toHaveLength(1)
+    const compensationPublicationId = publications[0]?.compensationPublicationId
     const forwardArtifactId = publications[0]?.artifactId
     const forwardBatchIds =
       publications[0]?.batches.map((batch) => batch.batchId) ?? []
@@ -1373,7 +1623,7 @@ describe('Factory action-level shared publication', () => {
 
     expect(publications).toHaveLength(2)
     expect(publications[1]).toMatchObject({
-      publicationId: '1:publication:2',
+      publicationId: compensationPublicationId,
       artifactId: forwardArtifactId,
       transactionId: 1,
       origin: 'rollback-compensation',
@@ -1399,7 +1649,7 @@ describe('Factory action-level shared publication', () => {
     ).toEqual([...forwardBatchIds].reverse())
   })
 
-  it('compensates one atomic forward batch as one reversed batch with its own plan', async () => {
+  it('compensates one atomic forward batch as one reversed batch with its own sequence', async () => {
     const { factory, projectedBatches, publications } = createHarness()
 
     factory.startTransaction()
@@ -1430,7 +1680,7 @@ describe('Factory action-level shared publication', () => {
     const compensationBatch = publications[1]?.batches[0]
     expect(compensationBatch?.compensatesBatchId).toBe(forwardBatch?.batchId)
     expect(compensationBatch?.sliceId).not.toBe(forwardBatch?.sliceId)
-    expect(publications[1]?.deliveryPlan).toEqual({
+    expect(publications[1]?.deliverySequence).toEqual({
       mode: 'progressive',
       slices: [
         {
@@ -1488,9 +1738,9 @@ describe('Factory action-level shared publication', () => {
 
     factory.endTransaction({ outcome: 'rollback' })
 
-    expect(publications).toHaveLength(3)
+    expect(publications).toHaveLength(4)
     expect(publications[2]).toMatchObject({
-      publicationId: '1:publication:3',
+      publicationId: publications[1]?.compensationPublicationId,
       transactionId: 1,
       origin: 'rollback-compensation',
       deliveries: [
@@ -1502,7 +1752,14 @@ describe('Factory action-level shared publication', () => {
             before: 2,
             after: 1
           })
-        }),
+        })
+      ]
+    })
+    expect(publications[3]).toMatchObject({
+      publicationId: publications[0]?.compensationPublicationId,
+      transactionId: 1,
+      origin: 'rollback-compensation',
+      deliveries: [
         expect.objectContaining({
           deliveryId: '1:0:compensation:0',
           compensatesDeliveryId: '1:0:forward',
@@ -1521,7 +1778,11 @@ describe('Factory action-level shared publication', () => {
       })
     ).toEqual(['element-a:1', 'element-b:2', 'element-b:1', 'element-a:0'])
     expect(
-      publications[2]?.batches.map((batch) => batch.compensatesBatchId)
+      publications
+        .slice(2)
+        .flatMap(({ batches }) =>
+          batches.map((batch) => batch.compensatesBatchId)
+        )
     ).toEqual(
       publications
         .slice(0, 2)
@@ -1538,7 +1799,7 @@ describe('Factory action-level shared publication', () => {
 
     factory.undo()
     factory.redo()
-    expect(publications).toHaveLength(3)
+    expect(publications).toHaveLength(4)
   })
 
   it('creates no publication or history record for a zero-mutation action', async () => {
@@ -1565,7 +1826,7 @@ describe('Factory action-level shared publication', () => {
   it('publishes one atomic batch for each multi-change action, undo, and redo transition', () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
@@ -1751,7 +2012,7 @@ describe('Factory action-level shared publication', () => {
   it('replays progressive publications separately while consuming one undo or redo action', async () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
@@ -1818,7 +2079,7 @@ describe('Factory action-level shared publication', () => {
   it('preserves replay order when undo crosses transaction-end and immediate deliveries', async () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
@@ -1857,16 +2118,13 @@ describe('Factory action-level shared publication', () => {
     const { factory, publications } = createHarness()
     let failSecondReplay = true
     let replayCount = 0
-    factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
-      () => {
-        replayCount += 1
-        if (failSecondReplay && replayCount === 2) {
-          throw new Error('later progressive replay failed')
-        }
-        return true
+    factory.registerTransactionReplayHandler(EventTypes.UPDATE_PROPERTY, () => {
+      replayCount += 1
+      if (failSecondReplay && replayCount === 2) {
+        throw new Error('later progressive replay failed')
       }
-    )
+      return true
+    })
 
     factory.startTransaction()
     update(factory, 'element-a', 1, { sharedDelivery: 'immediate' })
@@ -1936,7 +2194,7 @@ describe('Factory action-level shared publication', () => {
       new LocalSharedDataChannel()
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
     const laterPublications: SharedPublication[] = []
@@ -1953,7 +2211,7 @@ describe('Factory action-level shared publication', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'nested-publication-mutation',
         before: { value: 0 },

@@ -186,7 +186,7 @@ const runProfiledTurn = async (
     'ai-app:create-composition-batch',
     'factory:finalize-mutation-batch-artifact',
     'factory:flush-shared-channels',
-    'factory:select-delivery-plan-boundaries',
+    'factory:select-delivery-sequence-boundaries',
     'factory:create-shared-publication',
     'render:flush-frame',
     'ui-context:flush'

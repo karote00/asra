@@ -2,13 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   EventTypes,
   TransactionEventTypes,
-  type AllEvent
+  type AllEvent,
+  type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
   type FactoryMutationBatchArtifact,
+  type FactoryMutationBatchArtifactStatus,
   type SharedDeliveryBatch,
   type SharedPublication
 } from '..'
@@ -22,7 +24,7 @@ const update = (
 ) => {
   factory.updateTransaction({
     type: TransactionEventTypes.UPDATE_TRANSACTION,
-    eventName: EventTypes.UPDATE_COMPUTED_DATA,
+    eventName: EventTypes.UPDATE_PROPERTY,
     payload: { id, before, after },
     options: {
       shared: SharedDataChannelNames.SCENE_TREE,
@@ -34,11 +36,13 @@ const update = (
 const createUpdateEvent = (
   id: string,
   before: number,
-  after: number
+  after: number,
+  canonicalEvidence?: UpdateTransactionEvent['canonicalEvidence']
 ): Parameters<Factory['updateTransaction']>[0] => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,
-  eventName: EventTypes.UPDATE_COMPUTED_DATA,
-  payload: { id, before, after }
+  eventName: EventTypes.UPDATE_PROPERTY,
+  payload: { id, before, after },
+  canonicalEvidence
 })
 
 const expectDeeplyFrozen = (
@@ -59,6 +63,103 @@ const payloadOf = (event: AllEvent | undefined): unknown =>
   (event as (AllEvent & { payload: unknown }) | undefined)?.payload
 
 describe('Factory immutable mutation batch artifact', () => {
+  it('reuses one already-immutable owner batch at the artifact boundary', () => {
+    const factory = new Factory()
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+    const payload = Object.freeze({
+      id: 'immutable-owner-evidence',
+      before: Object.freeze({ width: 1 }),
+      after: Object.freeze({ width: 2 })
+    })
+    const event = Object.freeze({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_PROPERTY,
+      payload
+    })
+    const events = Object.freeze([event])
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(events)
+    factory.endTransaction()
+
+    expect(artifacts).toHaveLength(1)
+    expect(payloadOf(artifacts[0]?.changes[0]?.event)).toBe(payload)
+  })
+
+  it('combines whole canonical owner batches into one history artifact', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    const propsProjection: unknown[][] = []
+    const sceneProjection: unknown[][] = []
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.PROPS,
+      (changes) => propsProjection.push([...changes])
+    )
+    factory.observeSharedDataChannelBatch(
+      SharedDataChannelNames.SCENE_TREE,
+      (changes) => sceneProjection.push([...changes])
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: {
+          id: 'stroke-a',
+          before: { width: 1 },
+          after: { width: 2 }
+        },
+        options: { shared: SharedDataChannelNames.PROPS }
+      }
+    ])
+    factory.updateTransactionBatch([
+      {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.ADD_ELEMENT,
+        payload: {
+          id: 'element-a',
+          undoType: EventTypes.REMOVE_ELEMENT,
+          data: { id: 'element-a', type: 'vector' }
+        },
+        options: { shared: SharedDataChannelNames.SCENE_TREE }
+      }
+    ])
+    factory.endTransaction()
+
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0]?.changes.map(({ event }) => event.type)).toEqual([
+      EventTypes.UPDATE_PROPERTY,
+      EventTypes.ADD_ELEMENT
+    ])
+    expect(
+      (
+        factory.transact as unknown as {
+          undoStack: FactoryMutationBatchArtifact[]
+        }
+      ).undoStack
+    ).toEqual([artifacts[0]])
+    expect(propsProjection).toHaveLength(1)
+    expect(sceneProjection).toHaveLength(1)
+    expect(sceneProjection[0]).toEqual([
+      expect.objectContaining({ id: 'element-a' })
+    ])
+  })
+
   it('emits one deeply frozen artifact for one committed non-empty outer action', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
@@ -96,22 +197,21 @@ describe('Factory immutable mutation batch artifact', () => {
 
     factory.startTransaction()
     factory.startTransaction()
-    const handle = factory.updateTransactionBatch(
-      [
-        {
-          ...createUpdateEvent('element-a', 0, 1),
-          options: { shared: SharedDataChannelNames.SCENE_TREE }
-        },
-        {
-          ...createUpdateEvent('element-b', 1, 2),
-          options: { shared: SharedDataChannelNames.SCENE_TREE }
-        }
-      ],
-      [{ orderedIds: ['element-a'] }, { orderedIds: ['element-b'] }]
-    )
+    const handle = factory.updateTransactionBatch([
+      {
+        ...createUpdateEvent('element-a', 0, 1),
+        options: { shared: SharedDataChannelNames.SCENE_TREE },
+        canonicalEvidence: { orderedIds: ['element-a'] }
+      },
+      {
+        ...createUpdateEvent('element-b', 1, 2),
+        options: { shared: SharedDataChannelNames.SCENE_TREE },
+        canonicalEvidence: { orderedIds: ['element-b'] }
+      }
+    ])
     expect(handle).not.toBeNull()
     expect(handle?.artifact).toBeNull()
-    handle?.setDeliveryPlan({
+    handle?.setDeliverySequence({
       mode: 'progressive',
       slices: [
         { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -128,14 +228,14 @@ describe('Factory immutable mutation batch artifact', () => {
     expect(artifact).toBe(laterArtifacts[0])
     expect(handle?.artifact).toBe(artifact)
     expect(() =>
-      handle?.setDeliveryPlan({ mode: 'atomic', slices: [] })
-    ).toThrow('Factory mutation batch delivery handle is no longer active')
+      handle?.setDeliverySequence({ mode: 'atomic', slices: [] })
+    ).toThrow('Factory staged artifact controller is no longer active')
     expect(artifact).toMatchObject({
       artifactId: '1:artifact',
       transactionId: 1,
       origin: 'action',
       orderedChangeIds: ['1:change:0', '1:change:1'],
-      deliveryPlan: {
+      deliverySequence: {
         mode: 'progressive',
         slices: [
           { sliceId: 'slice-a', orderedIds: ['element-a'] },
@@ -182,6 +282,240 @@ describe('Factory immutable mutation batch artifact', () => {
     expectDeeplyFrozen(publications[1])
   })
 
+  it('emits progressive and committed artifact status through one immutable observer stream', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const statuses: FactoryMutationBatchArtifactStatus[] = []
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.subscribeToMutationBatchArtifactStatus((status) => {
+      const firstPayload =
+        status.status === 'staged'
+          ? status.batches[0]?.deliveries[0]?.payload
+          : payloadOf(status.artifact.changes[0]?.event)
+      if (firstPayload) {
+        ;(
+          firstPayload as {
+            after: number
+          }
+        ).after = 99
+      }
+      throw new Error('isolated artifact status observer')
+    })
+    factory.subscribeToMutationBatchArtifactStatus((status) =>
+      statuses.push(status)
+    )
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      {
+        ...createUpdateEvent('element-a', 0, 1),
+        options: { shared: SharedDataChannelNames.SCENE_TREE },
+        canonicalEvidence: { orderedIds: ['element-a'] }
+      },
+      {
+        ...createUpdateEvent('element-b', 1, 2),
+        options: { shared: SharedDataChannelNames.SCENE_TREE },
+        canonicalEvidence: { orderedIds: ['element-b'] }
+      }
+    ])
+    const controller = factory.getActiveStagedArtifactController()
+    controller?.setDeliverySequence({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'slice-a', orderedIds: ['element-a'] },
+        { sliceId: 'slice-b', orderedIds: ['element-b'] }
+      ]
+    })
+    controller?.stageSlice('slice-a')
+    controller?.stageSlice('slice-b')
+    factory.endTransaction()
+
+    expect(statuses.map(({ status }) => status)).toEqual([
+      'staged',
+      'staged',
+      'committed'
+    ])
+    expect(
+      statuses.map((status) =>
+        status.status === 'staged'
+          ? {
+              sliceId: status.sliceId,
+              orderedIds: status.orderedIds
+            }
+          : { sliceId: undefined, orderedIds: undefined }
+      )
+    ).toEqual([
+      { sliceId: 'slice-a', orderedIds: ['element-a'] },
+      { sliceId: 'slice-b', orderedIds: ['element-b'] },
+      { sliceId: undefined, orderedIds: undefined }
+    ])
+    expect(artifacts).toHaveLength(1)
+    const stagedStatuses = statuses.filter(
+      (status) => status.status === 'staged'
+    )
+    const committedStatus = statuses.find(
+      (status) => status.status === 'committed'
+    )
+    expect(
+      committedStatus?.status === 'committed'
+        ? committedStatus.artifact
+        : undefined
+    ).toBe(artifacts[0])
+    expect(
+      stagedStatuses.every(({ batches }) =>
+        batches.every((batch) => artifacts[0]?.batches.includes(batch))
+      )
+    ).toBe(true)
+    expect(
+      committedStatus?.status === 'committed'
+        ? payloadOf(committedStatus.artifact.changes[0]?.event)
+        : undefined
+    ).toMatchObject({ after: 1 })
+    statuses.forEach((status) => expectDeeplyFrozen(status))
+  })
+
+  it('owns render-only progressive staging independently from canonical updates and shared publication', () => {
+    const factory = new Factory()
+    const statuses: FactoryMutationBatchArtifactStatus[] = []
+    const publications = vi.fn()
+    factory.subscribeToMutationBatchArtifactStatus((status) =>
+      statuses.push(status)
+    )
+    factory.subscribeToSharedPublication(publications)
+
+    expect(factory.getActiveStagedArtifactController()).toBeNull()
+    factory.startTransaction()
+    const controller = factory.getActiveStagedArtifactController()
+    expect(controller).toMatchObject({
+      artifactId: '1:artifact',
+      transactionId: 1
+    })
+    expect(Object.keys(controller ?? {}).sort()).toEqual([
+      'artifactId',
+      'setDeliverySequence',
+      'stageSlice',
+      'transactionId'
+    ])
+    factory.updateTransactionBatch([
+      createUpdateEvent('local-only-stage', 0, 1, {
+        orderedIds: ['local-only-stage']
+      })
+    ])
+    controller?.setDeliverySequence({
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'local-slice',
+          orderedIds: ['local-only-stage']
+        }
+      ]
+    })
+    controller?.stageSlice('local-slice')
+    factory.endTransaction()
+
+    expect(statuses.map(({ status }) => status)).toEqual([
+      'staged',
+      'committed'
+    ])
+    const stagedStatus = statuses[0]
+    expect(
+      stagedStatus?.status === 'staged' ? stagedStatus.batches : undefined
+    ).toEqual([])
+    const committedStatus = statuses.find(
+      (status) => status.status === 'committed'
+    )
+    expect(
+      committedStatus?.status === 'committed'
+        ? committedStatus.artifact.changes[0]?.orderedIds
+        : undefined
+    ).toEqual(['local-only-stage'])
+    expect(publications).not.toHaveBeenCalled()
+    expect(factory.getActiveStagedArtifactController()).toBeNull()
+    expect(() => controller?.stageSlice('local-slice')).toThrow(
+      'Factory staged artifact controller is no longer active'
+    )
+  })
+
+  it.each([
+    [
+      'before canonical evidence is recorded',
+      false,
+      'Factory mutation delivery sequence must cover every canonical id exactly once'
+    ],
+    [
+      'when its ordered ids do not match canonical evidence',
+      true,
+      'Factory mutation ordered id is not assigned to a progressive delivery slice: canonical-element'
+    ]
+  ])(
+    'rejects a staged slice %s',
+    (_case, recordCanonicalEvidence, expectedError) => {
+      const factory = new Factory()
+      const stagedStatuses: FactoryMutationBatchArtifactStatus[] = []
+      factory.subscribeToMutationBatchArtifactStatus((status) => {
+        if (status.status === 'staged') stagedStatuses.push(status)
+      })
+
+      factory.startTransaction()
+      const controller = factory.getActiveStagedArtifactController()
+      if (recordCanonicalEvidence) {
+        factory.updateTransactionBatch([
+          createUpdateEvent('canonical-element', 0, 1, {
+            orderedIds: ['canonical-element']
+          })
+        ])
+      }
+      controller?.setDeliverySequence({
+        mode: 'progressive',
+        slices: [
+          {
+            sliceId: 'fabricated-slice',
+            orderedIds: ['fabricated-element']
+          }
+        ]
+      })
+
+      expect(() => controller?.stageSlice('fabricated-slice')).toThrow(
+        expectedError
+      )
+      expect(stagedStatuses).toEqual([])
+      expect(() => factory.endTransaction()).not.toThrow()
+    }
+  )
+
+  it('emits no artifact status for an empty transaction and only rolled-back status for a reverted action', () => {
+    const factory = new Factory()
+    const statuses: FactoryMutationBatchArtifactStatus[] = []
+    const artifacts = vi.fn()
+    factory.subscribeToMutationBatchArtifactStatus((status) =>
+      statuses.push(status)
+    )
+    factory.subscribeToMutationBatchArtifact(artifacts)
+
+    factory.startTransaction()
+    factory.endTransaction()
+    expect(statuses).toEqual([])
+
+    factory.startTransaction()
+    factory.updateTransaction(createUpdateEvent('rolled-back', 0, 1))
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(statuses.map(({ status }) => status)).toEqual(['rolled-back'])
+    const rolledBackStatus = statuses[0]
+    expect(
+      rolledBackStatus?.status === 'rolled-back'
+        ? rolledBackStatus.artifact.changes
+        : []
+    ).toHaveLength(1)
+    expect(artifacts).not.toHaveBeenCalled()
+  })
+
   it('keeps the original artifact as the one complete Undo and Redo history action', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
@@ -197,7 +531,7 @@ describe('Factory immutable mutation batch artifact', () => {
       artifacts.push(artifact)
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         const payload = (
           event as AllEvent & {
@@ -207,7 +541,7 @@ describe('Factory immutable mutation batch artifact', () => {
         values.set(payload.id, payload.after)
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          eventName: EventTypes.UPDATE_PROPERTY,
           payload,
           options: { shared: SharedDataChannelNames.SCENE_TREE }
         })
@@ -274,7 +608,7 @@ describe('Factory immutable mutation batch artifact', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'rolled-back', before: 0, after: 1 }
     })
     factory.endTransaction({ outcome: 'rollback' })
@@ -314,8 +648,8 @@ describe('Factory immutable mutation batch artifact', () => {
         inverseEvents
       }))
     )
-    expect(singleArtifacts[0]?.deliveryPlan).toEqual(
-      batchArtifacts[0]?.deliveryPlan
+    expect(singleArtifacts[0]?.deliverySequence).toEqual(
+      batchArtifacts[0]?.deliverySequence
     )
   })
 
@@ -424,10 +758,10 @@ describe('Factory immutable mutation batch artifact', () => {
     ])
     expect(staleHandle?.transactionId).toBe(activeHandle?.transactionId)
     expect(() =>
-      staleHandle?.setDeliveryPlan({ mode: 'atomic', slices: [] })
-    ).toThrow('Factory mutation batch delivery handle is no longer active')
+      staleHandle?.setDeliverySequence({ mode: 'atomic', slices: [] })
+    ).toThrow('Factory staged artifact controller is no longer active')
     expect(() =>
-      activeHandle?.setDeliveryPlan({ mode: 'atomic', slices: [] })
+      activeHandle?.setDeliverySequence({ mode: 'atomic', slices: [] })
     ).not.toThrow()
     factory.endTransaction()
   })
@@ -440,7 +774,7 @@ describe('Factory immutable mutation batch artifact', () => {
     >[] = []
     let nested = false
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
     factory.subscribeToMutationBatchArtifact((artifact) =>
@@ -475,7 +809,7 @@ describe('Factory immutable mutation batch artifact', () => {
         artifacts.push(artifact)
       )
       factory.registerTransactionReplayHandler(
-        EventTypes.UPDATE_COMPUTED_DATA,
+        EventTypes.UPDATE_PROPERTY,
         (event) => {
           factory.updateTransaction({
             type: TransactionEventTypes.UPDATE_TRANSACTION,

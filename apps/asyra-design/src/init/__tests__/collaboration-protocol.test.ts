@@ -92,7 +92,7 @@ const createPublication = ({
         changes: [payload]
       }
     ],
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'progressive',
       slices: [{ sliceId, orderedIds: [deliveryId] }]
     }
@@ -109,9 +109,12 @@ const createTwoBatchPublication = (): SharedPublication => {
     publicationId: 'publication-two-batches',
     deliveries: [...first.deliveries, ...second.deliveries],
     batches: [...first.batches, ...second.batches],
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'progressive',
-      slices: [...first.deliveryPlan.slices, ...second.deliveryPlan.slices]
+      slices: [
+        ...first.deliverySequence.slices,
+        ...second.deliverySequence.slices
+      ]
     }
   }
 }
@@ -168,7 +171,7 @@ const createMultiRecordPublication = (
         changes: payloads
       }
     ],
-    deliveryPlan: {
+    deliverySequence: {
       mode: 'progressive',
       slices: [
         {
@@ -1045,7 +1048,10 @@ describe('collaboration wire protocol', () => {
     const decoded = parseCollaborationClientMessage(
       decodeCollaborationMessage(encoded)
     )
-    if (decoded.type !== CollaborationMessageTypes.SEND_PUBLICATION) {
+    if (
+      !decoded ||
+      decoded.type !== CollaborationMessageTypes.SEND_PUBLICATION
+    ) {
       throw new Error('Deep collaboration request changed message type')
     }
     let decodedPayload = decoded.publication.deliveries[0]?.payload
@@ -1304,7 +1310,7 @@ describe('collaboration wire protocol', () => {
       },
       {
         ...publication,
-        deliveryPlan: {
+        deliverySequence: {
           mode: 'progressive',
           slices: [
             {

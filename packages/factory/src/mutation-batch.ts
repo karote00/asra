@@ -1,7 +1,7 @@
 import type { AllEvent } from '@asyra/reactive-events'
 import type { SharedDeliveryMode, TransactionOrigin } from '@asyra/utils'
 import type {
-  FactoryMutationDeliveryPlan,
+  FactoryMutationDeliverySequence,
   SharedDeliveryBatch
 } from './shared-delivery'
 
@@ -21,26 +21,18 @@ export class FactoryMutationBatchAcceptanceError extends Error {
   }
 }
 
-export interface FactoryMutationSharedRecordInput {
-  readonly orderedIds: readonly string[]
-  readonly payload: object
+export interface FactoryStagedArtifactController {
+  readonly artifactId: string
+  readonly transactionId: number
+  setDeliverySequence(sequence: FactoryMutationDeliverySequence): void
+  stageSlice(sliceId: string): void
 }
-
-export interface FactoryMutationEventDeliveryEvidence {
-  readonly orderedIds: readonly string[]
-  readonly sharedRecords?: readonly FactoryMutationSharedRecordInput[]
-}
-
-export type FactoryMutationBatchDeliveryEvidence = readonly (
-  | FactoryMutationEventDeliveryEvidence
-  | undefined
-)[]
 
 export interface FactoryMutationBatchDeliveryHandle {
   readonly artifactId: string
   readonly transactionId: number
   readonly artifact: FactoryMutationBatchArtifact | null
-  setDeliveryPlan(plan: FactoryMutationDeliveryPlan): void
+  setDeliverySequence(sequence: FactoryMutationDeliverySequence): void
   deliverSlice(sliceId: string): void
 }
 
@@ -72,6 +64,7 @@ export interface FactoryMutationBatchChange {
   readonly changeId: string
   readonly index: number
   readonly event: AllEvent
+  readonly orderedIds: readonly string[]
   readonly inverseEvents: readonly AllEvent[]
   readonly options: FactoryMutationChangeOptions
   readonly shared?: FactoryMutationSharedEvidence
@@ -84,10 +77,45 @@ export interface FactoryMutationBatchArtifact {
   readonly orderedChangeIds: readonly string[]
   readonly changes: readonly FactoryMutationBatchChange[]
   readonly inverses: readonly AllEvent[]
-  readonly deliveryPlan: FactoryMutationDeliveryPlan
+  readonly deliverySequence: FactoryMutationDeliverySequence
   readonly batches: readonly SharedDeliveryBatch[]
 }
 
 export type FactoryMutationBatchArtifactSubscriber = (
   artifact: FactoryMutationBatchArtifact
+) => void
+
+export type FactoryMutationBatchArtifactStatusName =
+  | 'staged'
+  | 'committed'
+  | 'rolled-back'
+  | 'rollback-failed'
+
+interface FactoryMutationBatchArtifactStatusBase {
+  readonly statusId: string
+  readonly artifactId: string
+  readonly transactionId: number
+  readonly origin: TransactionOrigin
+}
+
+export interface FactoryMutationBatchStagedStatus
+  extends FactoryMutationBatchArtifactStatusBase {
+  readonly status: 'staged'
+  readonly sliceId: string
+  readonly orderedIds: readonly string[]
+  readonly batches: readonly SharedDeliveryBatch[]
+}
+
+export interface FactoryMutationBatchSettledStatus
+  extends FactoryMutationBatchArtifactStatusBase {
+  readonly status: Exclude<FactoryMutationBatchArtifactStatusName, 'staged'>
+  readonly artifact: FactoryMutationBatchArtifact
+}
+
+export type FactoryMutationBatchArtifactStatus =
+  | FactoryMutationBatchStagedStatus
+  | FactoryMutationBatchSettledStatus
+
+export type FactoryMutationBatchArtifactStatusSubscriber = (
+  status: FactoryMutationBatchArtifactStatus
 ) => void

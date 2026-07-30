@@ -25,7 +25,7 @@ export const createSharedPublicationFixture = ({
       artifactId,
       batches: [],
       deliveries: [],
-      deliveryPlan: { mode: 'atomic', slices: [] },
+      deliverySequence: { mode: 'atomic', slices: [] },
       origin: 'action',
       publicationId,
       transactionId
@@ -76,7 +76,7 @@ export const createSharedPublicationFixture = ({
       }
     ],
     deliveries: [exactDelivery],
-    deliveryPlan: {
+    deliverySequence: {
       mode: delivery.sharedDelivery === 'immediate' ? 'progressive' : 'atomic',
       slices: [{ orderedIds: [delivery.deliveryId], sliceId }]
     },
