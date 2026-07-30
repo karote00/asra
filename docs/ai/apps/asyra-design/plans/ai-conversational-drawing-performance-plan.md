@@ -225,8 +225,8 @@ single committed benchmark with exactly this mission:
 
 - one dedicated Playwright config discovers only this creation case, uses one
   worker with no retry, trace, screenshot, or video, and starts production
-  preview plus the memory-only collaboration server inside one tracked process
-  group;
+  preview plus the memory-only collaboration server through a fixed
+  test-owned process-group registry;
 - two production browser actors, one fresh empty memory-only document, one
   7,076-element progressive cat creation, and no later property follow-up,
   Undo, Redo, reload, persistence assertion, recording, screenshot, trace, or
@@ -257,17 +257,22 @@ against a production endpoint.
 
 No 7,000-plus benchmark may start without the project-owned guard. Before the
 AI request, the test sends an authenticated `ready` heartbeat and waits until
-the guard confirms process-group ownership and active CPU sampling. A missing
-or rejected handshake prevents the request from starting. The guard samples
-only the test-owned process group and receives one bounded heartbeat from the
-benchmark without walking or hashing the canonical graph. The first
-process-group CPU sample runs immediately after spawn; later samples run at most
-250 milliseconds apart.
+the guard confirms ownership and active CPU sampling for the fixed
+`test-harness`, `client-browser`, `app-server`, and `websocket-server` roles. A
+missing or rejected registration or handshake prevents the request from
+starting. The guard samples only these exact test-owned process groups. The
+150-percent safety decision uses their aggregate CPU, while the report retains
+separate role CPU so browser App work, local preview overhead, WebSocket server
+work, and test-harness overhead are not attributed to one another. The
+benchmark sends one bounded heartbeat without walking or hashing the canonical
+graph. The first process-group CPU sample runs immediately after spawn; later
+samples run at most 250 milliseconds apart.
 
 The fixed limits cannot be relaxed through runner configuration:
 
-- any single test-owned process-tree sample above 150 percent CPU, which stops
-  the benchmark immediately and marks that architecture attempt invalid;
+- any single aggregate test-owned process-tree sample above 150 percent CPU,
+  which stops the benchmark immediately and marks that architecture attempt
+  invalid;
 - no heartbeat for 10 seconds while the process tree remains above the ordinary
   80 percent baseline;
   or
@@ -275,21 +280,22 @@ The fixed limits cannot be relaxed through runner configuration:
   above the ordinary 80 percent baseline.
 
 Crossing a limit is a failed refactor architecture attempt, not a slow pass or a
-benchmark warning. The guard first sends termination to the tracked Playwright,
-headless browser, App server, and collaboration server process group, waits at
-most three seconds, then force terminates only surviving tracked test processes.
-It must report the last completed phase, Actor A and Actor B element counts,
-publication progress, test-owned CPU samples, and last owner timing. If process
-ownership or the heartbeat cannot be established, the benchmark refuses to
-start rather than running unguarded.
+benchmark warning. The guard sends termination to the fixed tracked
+client-browser, App server, WebSocket server, and Playwright harness process
+groups, waits at most three seconds, then force terminates only surviving
+tracked test processes. It must report the last completed phase, Actor A and
+Actor B element counts, publication progress, aggregate and separate role CPU
+samples, and last owner timing. If exact process ownership or the heartbeat
+cannot be established, the benchmark refuses to start rather than running
+unguarded.
 
 Every `ps` sample has a 200-millisecond hard timeout, shorter than the fixed
-250-millisecond cadence. SIGINT, SIGTERM, SIGHUP,
-exceptional guard exit, and benchmark failure all terminate the same exact
-tracked process group. The ordinary Playwright suite always excludes the heavy
-endpoint spec, even if guard environment variables leak into the process. A
-terminal complete heartbeat re-samples and revalidates both exact Actor
-projections; it cannot reuse a report produced before a late extra projection.
+250-millisecond cadence. SIGINT, SIGTERM, SIGHUP, exceptional guard exit, and
+benchmark failure all terminate the same exact registered process groups. The
+ordinary Playwright suite always excludes the heavy endpoint spec, even if guard
+environment variables leak into the process. A terminal complete heartbeat
+re-samples and revalidates both exact Actor projections; it cannot reuse a
+report produced before a late extra projection.
 
 ### Endpoint Iteration and Effectiveness
 

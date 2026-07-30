@@ -22,13 +22,15 @@ Feature: Conversational AI drawing performance
     And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
     When the guarded endpoint benchmark starts
     Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
+    And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
+    And aggregate CPU above 150 percent should stop all exact tracked roles while the report retains separate role CPU
     And each bounded heartbeat should report the current phase, Actor A and Actor B canonical and uncapped Render projection element counts, publication progress, and test-owned process-tree CPU
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
     And exact Undo depth should use the Factory read-only history query rather than private transaction storage
     And ordinary Playwright discovery should exclude this guarded endpoint even when guard environment variables are present
     And the 250-millisecond CPU cadence should be armed before the immediate first sample
-    And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the tracked process group
+    And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And a complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
     And one test-owned CPU sample above 150 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately

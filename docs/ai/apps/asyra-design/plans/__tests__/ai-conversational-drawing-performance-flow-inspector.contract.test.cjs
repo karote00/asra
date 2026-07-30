@@ -154,7 +154,11 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /ordinary Playwright.*excludes.*guard environment variables.*CPU sample.*hard timeout.*SIGINT.*SIGTERM.*SIGHUP.*tracked process group/i
+    /ordinary Playwright.*excludes.*guard environment variables.*CPU sample.*hard timeout.*SIGINT.*SIGTERM.*SIGHUP.*fixed registered process groups/i
+  )
+  assert.match(
+    text,
+    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*aggregate.*150 percent.*separate.*role/i
   )
   assert.match(
     text,
@@ -187,6 +191,10 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.match(
     feature,
     /uncapped Render projection element counts[\s\S]*production performance profile[\s\S]*O\(1\).*Factory publication/i
+  )
+  assert.match(
+    feature,
+    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*aggregate CPU.*150 percent[\s\S]*separate role CPU/i
   )
   assert.match(
     plan,
@@ -449,7 +457,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
         route.producedArtifacts.includes(
           'artifact:composition-batch-sequence'
         )
-    )
+      )
   )
   assert.ok(
     data.routes.some(
@@ -475,7 +483,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
         artifact.id === 'artifact:local-interactive-drawing-proof' &&
         artifact.ownerStepId === 'evaluate-local-interactive-drawing' &&
         artifact.terminal
-      )
+    )
   )
   assert.ok(
     data.artifacts.some(
