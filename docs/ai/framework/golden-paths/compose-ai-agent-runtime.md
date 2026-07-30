@@ -1,15 +1,13 @@
 # Compose an Optional AI Agent Runtime
 
-Use this path when an app wants natural-language planning without transferring
-Feature, permission, transaction, or canonical-state ownership to the runtime.
+Use this path when an app wants to execute natural-language intent without
+transferring Feature, permission, transaction, or canonical-state ownership to
+the runtime.
 
 ## Define App-Owned Actions
 
 ```ts
-import type {
-  AiActionDefinition,
-  AiActionSchemaResult
-} from '@asyra/ai-agent-runtime'
+import type { AiActionDefinition } from '@asyra/ai-agent-runtime'
 import { elementApis } from './common-apis'
 
 interface SetVisibilityArgs {
@@ -17,52 +15,17 @@ interface SetVisibilityArgs {
   visible: boolean
 }
 
-const parseSetVisibility = (
-  value: unknown
-): AiActionSchemaResult<SetVisibilityArgs> => {
-  if (
-    value &&
-    typeof value === 'object' &&
-    Reflect.ownKeys(value).length === 2 &&
-    'elementId' in value &&
-    typeof value.elementId === 'string' &&
-    'visible' in value &&
-    typeof value.visible === 'boolean'
-  ) {
-    return {
-      success: true,
-      value: {
-        elementId: value.elementId,
-        visible: value.visible
-      }
-    }
-  }
-  return {
-    success: false,
-    issues: [
-      {
-        code: 'invalid_visibility',
-        message: 'Expected exact elementId and visible fields.',
-        path: []
-      }
-    ]
-  }
-}
-
 const setVisibility: AiActionDefinition<SetVisibilityArgs> = {
   name: 'set_visibility',
   description: 'Set one existing element visibility.',
-  schema: {
-    providerSchema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['elementId', 'visible'],
-      properties: {
-        elementId: { type: 'string', minLength: 1 },
-        visible: { type: 'boolean' }
-      }
-    },
-    parse: parseSetVisibility
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['elementId', 'visible'],
+    properties: {
+      elementId: { type: 'string', minLength: 1 },
+      visible: { type: 'boolean' }
+    }
   },
   execute: async ({ elementId, visible }, { signal }) => {
     if (signal.aborted) {
@@ -78,10 +41,15 @@ const setVisibility: AiActionDefinition<SetVisibilityArgs> = {
 const actions = [setVisibility]
 ```
 
-The parser must return the strict `AiActionSchemaResult` contract. Do not
-coerce, silently repair, or accept extra keys. Executors use app common/public
-APIs; they never expose arbitrary functions, package internals, or Render
-objects to the provider.
+`inputSchema` is the backend-facing JSON-compatible action description sent to
+the provider. The backend prepares each action's execution arguments and
+bounded redaction-ready summary before returning an `AiActionBatch`. Runtime
+does not parse or validate the model payload against `inputSchema`; permission
+and execution receive the exact server-prepared arguments identity.
+Confirmation and terminal preview redact and retain only the bounded summary,
+never complete action arguments. Executors use app common/public APIs; they
+never expose arbitrary functions, package internals, or Render objects to the
+provider.
 
 ## Select a Replaceable Provider
 
@@ -100,6 +68,12 @@ const provider = createGenericHttpAiProvider({
 The backend owns vendor API keys, authentication, rate limits, and
 provider-specific repair. Do not put a server API key in browser headers,
 metadata, storage, or source.
+
+A test harness may prepare a deterministic response before App startup, but the
+composed provider still exposes only `requestActionBatch(input, { signal })`.
+Live transport and test transport return the same server-prepared
+`AiActionBatch`; neither source selects another Runtime or canonical mutation
+path.
 
 ## Compose the Runtime
 
@@ -124,7 +98,7 @@ const runtime = createAiAgentRuntime({
 ```
 
 Injected resources are borrowed unless they also appear in `ownedResources`.
-Retry is opt-in, bounded to provider planning, and never repeats action
+Retry is opt-in, bounded to the provider request, and never repeats action
 execution or a transaction.
 
 ## Invoke from Feature System
@@ -174,15 +148,23 @@ Render, Collaboration, or borrowed providers.
 
 - AI-disabled startup constructs no runtime, provider, Feature, listener, timer,
   network request, or secret read.
-- Every candidate action validates before permission and mutation.
+- The provider exposes only `requestActionBatch()` and returns one
+  server-prepared `AiActionBatch` with one `batchId`.
+- `runtime.resolveAiActionBatch()` preflights only the control envelope,
+  including the empty-batch rule, duplicate action ids, and unknown actions.
+- Runtime never traverses, validates, normalizes, clones, or freezes action
+  arguments. Permission and execution receive the exact same arguments
+  identity; confirmation and terminal preview receive only the redacted
+  bounded summary.
 - Denial or cancellation opens no transaction.
-- One accepted multi-action plan opens one transaction and produces one
+- One accepted multi-action batch opens one transaction and produces one
   intended undo entry.
 - A resolved app-owned recoverable partial result may commit successful sibling
   mutations in that same undo entry.
 - A rejected/throwing executor is fatal and rolls back without an accepted
   canonical prefix.
-- Fake and generic HTTP providers pass the same action/runtime contract.
+- Direct test providers and generic HTTP providers pass the same
+  action-batch/runtime contract.
 - Audit, preview, failure, context, and metadata redact secret-like values.
 - Progress contains no provider body, action arguments, context, canonical
   state, secret, or chain-of-thought and stops after abort/disposal.

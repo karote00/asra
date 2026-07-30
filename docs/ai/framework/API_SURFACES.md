@@ -285,19 +285,34 @@ Managed property bridges:
   `AiRuntimeCancelledResult`, `AiRuntimeFailedResult`, `AiRuntimeStage`, and
   `AiRuntimeFailureCode`
 - registry/actions: `createAiActionRegistry()`, `AiActionRegistry`,
-  `AiActionDefinition`, `AiActionSchema`, `AiActionSchemaResult`, and
-  `AiActionDescription`
-- provider: `AiProvider`, `AiProviderInput`, `AiProviderError`, and
+  `AiActionDefinition`, and `AiActionDescription`
+  - every definition has one JSON-compatible backend-facing `inputSchema` and
+    one app-owned `execute(args, { signal })`
+- provider: `AiProvider`, `AiProviderInput`, `AiActionBatch`,
+  `AiActionBatchAction`, `AiProviderError`, and
   `createGenericHttpAiProvider(...)`
-- preflight/execution: plan normalization and validation, permission evaluation,
-  confirmation, registered action execution, and transaction-wrapper helpers
-- evidence: `redactAiValue(...)`, `createAiRuntimeAudit(...)`, preview,
-  execution-summary, audit, and redaction types
+  - `AiProvider.requestActionBatch(input, { signal })` is the only provider
+    request and returns one server-prepared action batch identified by
+    `batchId`
+- action-batch resolution: the runtime instance exposes
+  `resolveAiActionBatch(batch, { signal })` and returns
+  `ResolvedAiActionBatch`; permission produces
+  `PermissionReadyAiActionBatch`
+  - Runtime checks only the small control envelope and registered action names
+  - Runtime never traverses, validates, normalizes, clones, or freezes action
+    arguments; permission and execution receive the exact server-prepared
+    arguments identity
+  - there is no top-level resolution helper, client model-preparation API,
+    compatibility wrapper, or alternate payload mode
+- evidence: `redactAiValue(...)`, `createAiRuntimeAudit(...)`, summary-only
+  `AiActionBatchPreview`, execution-summary, audit, and redaction types;
+  confirmation and terminal preview redact only bounded summaries and never
+  retain complete action arguments or geometry
 - importing the package is inert; apps explicitly compose the provider,
   context, actions, permission, confirmation, transaction, and owned resources
 - the generic HTTP adapter uses an app-selected HTTPS or same-origin endpoint;
   it reads no API key or implicit browser credential source
-- one runtime invocation performs provider planning before one accepted
+- one runtime invocation completes its provider request before one accepted
   transaction; provider retry never repeats a transaction or executor
 
 `@asyra/collaboration` (optional runtime)

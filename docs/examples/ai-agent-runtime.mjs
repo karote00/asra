@@ -20,20 +20,25 @@ export const createExampleAiRuntime = () => {
     rollbacks: 0
   }
   const providerInputs = []
+  const serverArguments = {
+    visible: false
+  }
 
   const runtime = createAiAgentRuntime({
     provider: {
-      generateActionPlan: async (input) => {
+      requestActionBatch: async (input) => {
         providerInputs.push(input)
         return {
-          planId: 'example-plan',
+          batchId: 'example-batch',
           explanation: 'Apply one registered action.',
           actions: [
             {
+              arguments: serverArguments,
               id: 'visibility-1',
               name: SET_VISIBILITY,
-              arguments: {
-                visible: false
+              summary: {
+                affectedCount: 1,
+                kind: 'visibility'
               }
             }
           ]
@@ -44,44 +49,21 @@ export const createExampleAiRuntime = () => {
       {
         name: SET_VISIBILITY,
         description: 'Set example visibility.',
-        schema: {
-          providerSchema: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['visible'],
-            properties: {
-              visible: {
-                type: 'boolean'
-              }
-            }
-          },
-          parse: (value) => {
-            if (
-              value &&
-              typeof value === 'object' &&
-              Reflect.ownKeys(value).length === 1 &&
-              typeof value.visible === 'boolean'
-            ) {
-              return {
-                success: true,
-                value: {
-                  visible: value.visible
-                }
-              }
-            }
-            return {
-              success: false,
-              issues: [
-                {
-                  code: 'invalid_visibility',
-                  message: 'visible must be a boolean',
-                  path: ['visible']
-                }
-              ]
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['visible'],
+          properties: {
+            visible: {
+              type: 'boolean'
             }
           }
         },
-        execute: async ({ visible }) => {
+        execute: async (args) => {
+          if (args !== serverArguments) {
+            throw new Error('Runtime replaced the server-prepared arguments.')
+          }
+          const { visible } = args
           state.visible = visible
           return {
             visible
@@ -95,7 +77,12 @@ export const createExampleAiRuntime = () => {
       })
     },
     permissionPolicy: {
-      evaluate: async () => 'allow'
+      evaluate: async ({ action }) => {
+        if (action.arguments !== serverArguments) {
+          throw new Error('Permission received different action arguments.')
+        }
+        return 'allow'
+      }
     },
     confirmationHandler: {
       confirm: async () => false

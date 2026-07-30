@@ -4,25 +4,52 @@ This file is the app-level API contract map.
 
 ## AI Agent Reference
 
-- production `initApp()` startup directly composes the deterministic Mock AI
-  experience; the `ai` URL query is not an activation or disable switch
-- `resolveAsyraDesignAiDeliveryMode(window.location.search)` selects atomic
-  delivery only for one exact `aiDelivery=atomic` value; ordinary startup,
-  empty, unknown, duplicate, and exact progressive values select progressive
-  delivery
-- production Mock startup composes one deterministic provider with no
-  external/model network access,
-  app confirmation broker, app-root-local conversation controller, and current
-  AI history projection; it reads no API key. Its same-origin VTracer demo tool
-  remains inert until an explicit whole-image vectorization turn
-- `composeAiAgentRuntime(...)` supports:
-  - AI-disabled: no runtime and no AI Feature
-  - provider-disabled: the AI Feature returns stable `unavailable` before
-    context or transport
-  - provider-enabled: one isolated `@asyra/ai-agent-runtime` instance
+- `startAsyraDesignApp(...)` requires one non-empty `fileId`, reads at most one
+  exact versioned `AsyraDesignServerResponseRecord` before App and Agent
+  readiness, then passes that resident response into `initApp(...)`
+- the response record has the exact shape
+  `{ fileId, schemaVersion: 1, batch: AiActionBatch }`. The startup reader checks
+  only this transport/control envelope and performs one read-only response-inbox
+  lookup; production App code never writes or repairs the inbox
+- the response inbox currently represents the server-response boundary through
+  IndexedDB. Its preload, structured clone, and handoff timing are recorded as
+  external backend/transport-adapter timing and are excluded from frontend
+  product execution timing
+- the response inbox is not canonical document persistence. The selected
+  document still loads as an empty canonical document, and local actions, Undo,
+  Redo, and remote apply perform no document capture, provider save, or
+  document-IndexedDB read/write
+- `createAsyraDesignServerActionBatchProvider(...)` is the single production
+  provider composition. Its only request method is
+  `requestActionBatch(input, { signal })`, which returns the same resident
+  server-prepared `AiActionBatch` without request-time inbox access, fixture
+  I/O, parsing, normalization, compact encoding, artificial delay, or payload
+  selection
+- production startup always composes that provider, the confirmation broker,
+  app-root-local conversation controller, current AI history projection, and
+  one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
+  switch or second provider execution route
 - `createAsyraDesignAiRuntimeInput(...)` composes the app-owned context,
   bounded action catalog, permission map, confirmation adapter, and common
-  transaction adapter around an app-selected provider
+  transaction adapter around the formal provider
+- `runtime.run()` requests one `AiActionBatch`, and
+  `runtime.resolveAiActionBatch(batch, { signal })` is the only Runtime
+  resolution entry
+- `AiActionBatch` contains one `batchId`, optional explanation, and ordered
+  actions. Each action contains one id, registered name, server-prepared
+  arguments, and bounded redaction-ready summary
+- Runtime validates only the small control envelope: non-empty `batchId`,
+  optional explanation type, non-empty actions, action id/name presence,
+  duplicate action ids, and registered action names. It does not traverse or
+  reinterpret item, path, point, style, bounds, coordinate, or geometry
+  arguments
+- resolution returns one `ResolvedAiActionBatch`; permission receives one
+  `PermissionReadyAiActionBatch`; confirmation and terminal presentation
+  receive one `AiActionBatchPreview`. Every stage preserves `batchId`
+- Runtime does not recursively clone or freeze server-prepared arguments.
+  Permission and execution receive the exact same arguments identity.
+  `AiActionBatchPreview` retains and redacts only bounded summaries, never the
+  complete arguments or composition geometry
 - the reference action catalog contains only:
   - `request_drawing_detail_choice`
   - `insert_vector_composition`
@@ -30,13 +57,25 @@ This file is the app-level API contract map.
   - `remove_ai_composition`
   - `set_element_visibility`
   - `select_elements`
-- composition descriptors are strict, contain ordinary oval/vector elements
-  inside the 2048×2048 workspace, and never accept provider-selected object
-  ids or arbitrary property paths
-- vector items and complete compositions have no artificial item, subpath,
-  per-path point, or composition point-count ceiling; validation requires
-  finite coordinates, internally consistent topology, unique semantic roles,
-  and available machine resources
+- every registered action definition exposes exactly one backend-facing
+  `inputSchema` plus one `execute(args, context)` function. `inputSchema`
+  describes what the server must prepare; the frontend does not run it against
+  returned action arguments and exposes no client model-prepare or
+  model-validation path
+- the server validates and normalizes accepted/skipped roles, bounds, styles,
+  paths, and points, then builds the compact composition artifact before
+  returning the `AiActionBatch`
+- `insert_vector_composition` receives server-prepared metadata, one coordinate
+  `ArrayBuffer`, exact loading bounds, item/path counts, styles, roles, and
+  skipped evidence. The frontend creates one `Float64Array` view and
+  materializes only the current progressive slice before passing ordinary
+  oval/vector descriptors to the App common API and plural Core route
+- canonical topology and IDs remain owned by the ordinary App common API and
+  plural Core route. The server-prepared artifact creates no canonical,
+  Render, history, shared-data, or CRDT state directly
+- provider-prepared compositions have no artificial item, subpath, per-path
+  point, or composition point-count ceiling; acceptance is bounded only by the
+  formal server contract and available machine resources
 - `request_drawing_detail_choice` accepts no provider-selected labels, counts,
   warning copy, attachment data, or canonical ids. It resolves with registered
   App option ids and no canonical mutation; the App projects Balanced
@@ -57,8 +96,8 @@ This file is the app-level API contract map.
   non-composition progressive mutations use ordinary immediate delivery inside
   the same outer transaction. Factory, canonical owners, Render, and optional
   Collaboration retain their ordinary ownership
-- after accepted composition descriptors determine exact bounds, the App sets
-  one validated runtime-only `aiDrawingProgress` System Context value and
+- after the provider returns server-prepared loading bounds, the App sets one
+  runtime-only `aiDrawingProgress` System Context value and
   commits an exact-bounds DOM compositor overlay, then crosses a browser paint
   opportunity before its first canonical mutation. CSS loading activity changes
   only transform and opacity; it has no JavaScript per-frame loop. The state is
@@ -97,32 +136,14 @@ This file is the app-level API contract map.
   canonical or history evidence. The lock is a fixed App policy, not a second
   event bus, progress-state side effect, framework mode, or downstream API
   parameter
-- provider selection is replaceable; deterministic fake and generic HTTP
-  providers use the same runtime and app action contracts
-- collected App context includes a stable App-owned provider prompt that
-  requires the provider to analyze the request, choose only App-registered
-  image-preparation tools, pass the original or detached derived raster to the
-  registered vectorizer, validate and post-process its result, estimate
-  resource impact, and construct only registered action candidates. Runtime
-  preflight, App impact presentation, Framework confirmation, and the ordinary
-  executor remain later owners
-- providers may not invent tools. The current Mock catalog exposes only
-  whole-image VTracer; generic crop, segmentation, background removal, or
-  reimage requirements fail before mutation. A future live provider may use
-  those steps only when the App registers them, and all intermediate rasters
-  remain detached from canonical state, persistence, and collaboration
-- an accepted PNG, JPEG, or WebP attachment plus exact
-  `Vectorize this image` or `將這張圖片轉換成可編輯向量圖形` intent invokes
-  the same-origin App VTracer tool exactly once. WebP is decoded locally and
-  normalized to detached in-memory PNG bytes before the tool call so VTracer
-  decoder differences cannot change accepted-input behavior. The adapter
-  validates the
-  complete-raster SVG into deterministic generic-role ordinary Vector items
-  and returns one existing `insert_vector_composition` action. A trace with one
-  valid item still creates one ordinary Group containing that Vector, while an
-  empty trace fails before mutation; it performs no
-  semantic segmentation, background replacement, OCR, bitmap insertion,
-  external/model request, or fixture fallback
+- collected App context supplies the App-owned prompt, registered action
+  descriptions, and registered image-tool descriptors as provider request
+  input. The server owns tool selection, model work, resource analysis, and
+  construction of the returned action batch; the frontend response route does
+  not execute image preparation while resolving that batch
+- providers may use only App-registered tools. Intermediate image data remains
+  outside canonical state, persistence, and collaboration, and the final
+  server result must still enter the ordinary registered action executor
 - conversation progress contains only the runtime's stable operational
   summaries. Settled UI summaries never render raw arguments, provider bodies,
   canonical ids, secrets, or private chain-of-thought
@@ -132,9 +153,17 @@ This file is the app-level API contract map.
 - the reference app does not read, store, or send a browser-held server API
   key. Production providers should use an app/backend endpoint that owns
   vendor credentials and authorization
+- Actor B never executes Actor A's resident server response. It receives the
+  resulting drawing only through Actor A's canonical publications and the
+  ordinary CRDT apply route
 
 ## DEV Runtime Diagnostics
 
+- the explicit `aiPerformance=profile` diagnostic installs
+  `window.__AsyraAiDrawingPerformance__`; retained counter and phase samples use
+  independent 16,384-entry circular buffers, while scalar counter totals and
+  release-eligibility facts remain exact after older samples are evicted.
+  Profiling observes demanded frames and never schedules a frame itself
 - `initCanvasPipelineDebugger()` dynamically imports the optional Core facade
   only when `import.meta.env.DEV` is true
 - `window.__AsyraCanvasPipelineDebugger__` is a disabled-by-default
@@ -156,10 +185,16 @@ This file is the app-level API contract map.
 - `ASYRA_DESIGN_APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
   WebSocket server's Origin validation
-- a non-empty `fileId` query parameter is the only public collaboration
-  identity accepted by the reference composition
+- one non-empty `fileId` is required to open the App document; it selects the
+  App-owned document session identity and is future server authorization input,
+  but it is never a Collaboration activation flag
+- RenderApp always starts Collaboration after the canonical document selected
+  by `fileId` loads; there is no separate non-Collaboration document route
 - the composition maps `fileId` to both internal document and room identity and
   generates a full UUID actor identity per page
+- one connected Actor is the single-Actor execution case; when another Actor
+  opens the same document session, the same always-on capability becomes the
+  two-Actor CRDT execution case without changing App APIs or URL state
 - the collaboration lifecycle supplies that actor identity to
   `idCounter.setNamespace(...)`; element/component/property IDs generated by
   concurrent pages therefore remain distinct without a transport-owned
@@ -172,22 +207,23 @@ This file is the app-level API contract map.
   public client/server unions, and runtime parsing of untrusted JSON
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- The current RenderApp starts Core and then loads one empty canonical document
-  through `Core.load(...)` for both ordinary local and collaboration demo
-  sessions. It starts without a client persistence provider, so local actions,
-  Undo, Redo, and remote apply perform no IndexedDB read or write and reload
-  durability is intentionally absent. A future production product must connect
-  its server-owned database/checkpoint policy explicitly; the current client
-  does not infer or emulate that policy
-- URLs without `fileId` create no collaboration connection; production builds
-  retain the dynamically loaded reference path so a deployed URL with `fileId`
-  can connect only after the same empty canonical document is loaded
-- URL-level `document`, `room`, and `actor` parameters are not collaboration
-  identity inputs
+- The current startup requires `fileId`, finishes the separate read-only server
+  response-inbox lookup, starts Core, loads one App-owned empty canonical
+  document through `Core.load(...)`, and then always starts Collaboration.
+  RenderApp configures no client document-persistence provider, so local
+  actions, Undo, Redo, and remote apply perform no document-IndexedDB read or
+  write and reload durability is intentionally absent. A future production
+  product must connect its server-owned database/checkpoint policy explicitly;
+  the current client does not infer or emulate that policy
+- production builds retain the dynamically loaded reference path, but that
+  loading boundary is an implementation split rather than an activation flag;
+  the connection always starts after the selected empty canonical document is
+  loaded
+- URL-level `document`, `room`, and `actor` parameters are not identity inputs;
+  `fileId` is the one required document identity
 - `window.__AsyraCollaboration__` is an intentionally retained active-runtime
   diagnostic/manual-test handle exposing immutable `identity`, `getStatus()`, `disconnect()`,
-  `reconnect()`, `whenIdle()`, and `dispose()`; it is absent
-  when collaboration is disabled
+  `reconnect()`, `whenIdle()`, and `dispose()` after Collaboration startup
 
 ## Common APIs (`src/common-apis/*`)
 
