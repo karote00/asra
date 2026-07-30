@@ -212,6 +212,14 @@ Feature: Conversational AI drawing performance
     And a future local animation tick may update computed state without changing a property component or publishing CRDT data
     And the local computed API should accept no "EVENT_OPTIONS"
 
+  Scenario: Settled canvas schedules only demanded frames
+    Given the production App has settled with zero elements and no pending invalidation
+    Then the Pixi Application ticker should not bypass the Render dirty gate
+    And no frame, engine flush, or unbounded performance evidence should continue while idle
+    When pan, zoom, canonical, or computed data changes
+    Then the ordinary Render path should schedule at most one frame and perform at most one explicit engine flush
+    And a future local animation should request later frames through its computed updates instead of a permanent idle loop
+
   Scenario: Raw element data and computed projection use distinct evidence
     Given one action changes a canonical raw element field and another changes local computed projection
     When Scene Tree prepares the raw mutation plan and separately projects computed state

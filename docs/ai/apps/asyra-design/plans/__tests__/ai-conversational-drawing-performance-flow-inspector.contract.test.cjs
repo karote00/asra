@@ -50,7 +50,9 @@ test('performance Inspector authorities resolve and stay immutable', () => {
 
 test('endpoint routes and artifacts resolve through exact owners', () => {
   const stepIds = new Set(data.steps.map(({ id }) => id))
-  const artifacts = new Map(data.artifacts.map((artifact) => [artifact.id, artifact]))
+  const artifacts = new Map(
+    data.artifacts.map((artifact) => [artifact.id, artifact])
+  )
 
   assert.equal(stepIds.size, data.steps.length)
   assert.equal(artifacts.size, data.artifacts.length)
@@ -79,7 +81,10 @@ test('endpoint routes and artifacts resolve through exact owners', () => {
       `${artifact.id} terminal`
     )
     artifact.consumerStepIds.forEach((consumerId) =>
-      assert.ok(stepIds.has(consumerId), `${artifact.id} consumer ${consumerId}`)
+      assert.ok(
+        stepIds.has(consumerId),
+        `${artifact.id} consumer ${consumerId}`
+      )
     )
   })
 })
@@ -124,6 +129,41 @@ test('performance plan and BDD retain the production evidence boundary', () => {
   )
 })
 
+test('render projection owns demand-driven frames without an idle Pixi bypass', () => {
+  const owner = step('project-visible-canonical-slices')
+  const text = contractText(owner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(text, /Pixi Application ticker.*must not.*render.*dirty gate/i)
+  assert.match(
+    text,
+    /settled zero-element.*no scheduled frame.*no engine flush.*bounded performance evidence/i
+  )
+  assert.match(
+    text,
+    /pan.*zoom.*canonical.*computed.*schedule.*one frame.*animation/i
+  )
+  ;[
+    'packages/render-engine/src',
+    'packages/render-engine/src/__tests__',
+    'packages/render-engine-pixi/src',
+    'packages/render-engine-pixi/src/__tests__'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    plan,
+    /Demand-driven render frame ownership[\s\S]*before the receiver\s+endpoint/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Settled canvas schedules only demanded frames[\s\S]*zero elements[\s\S]*Pixi Application ticker[\s\S]*pan, zoom, canonical, or computed[\s\S]*animation/i
+  )
+})
+
 test('each ranked endpoint closes through one guarded high-detail proof', () => {
   const owner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
@@ -134,7 +174,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
 
   assert.match(
     plan,
-    /receiver provider and worker handoff[\s\S]*canonical Props, Scene Tree, and Core[\s\S]*Factory transaction and pub\/sub[\s\S]*remote apply[\s\S]*relay[\s\S]*codec[\s\S]*Render and UI/i
+    /Demand-driven render frame ownership[\s\S]*receiver provider and worker handoff[\s\S]*canonical Props, Scene Tree, and Core[\s\S]*Factory transaction and pub\/sub[\s\S]*remote apply[\s\S]*relay[\s\S]*codec[\s\S]*Visible canonical and UI projection/i
   )
   assert.match(
     plan,
@@ -172,18 +212,12 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     text,
     /250[- ]milliseconds?.*single.*above 150 percent.*immediately.*architecture attempt.*invalid/i
   )
-  assert.match(
-    text,
-    /guard.*ready heartbeat.*before.*7,076-element request/i
-  )
+  assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
     text,
     /last completed phase.*Actor A.*Actor B.*element counts.*owner timing/i
   )
-  assert.match(
-    text,
-    /at most five.*same focused failure.*three/i
-  )
+  assert.match(text, /at most five.*same focused failure.*three/i)
   assert.match(
     feature,
     /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*above 150 percent[\s\S]*invalid architecture attempt[\s\S]*five/i
@@ -299,10 +333,7 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
     text,
     /worker-to-main structured clone.*only inbound object isolation boundary/i
   )
-  assert.match(
-    text,
-    /exactly one.*async.*consumer.*settlement/i
-  )
+  assert.match(text, /exactly one.*async.*consumer.*settlement/i)
   assert.match(
     text,
     /Dedicated Worker owns.*WebSocket.*data plane.*frame-consumed.*directly/i
@@ -343,14 +374,8 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     text,
     /validated.*bounds.*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
   )
-  assert.match(
-    text,
-    /point.*element-count.*budget/i
-  )
-  assert.match(
-    text,
-    /element-count budget capped at 64 per work unit/i
-  )
+  assert.match(text, /point.*element-count.*budget/i)
+  assert.match(text, /element-count budget capped at 64 per work unit/i)
   assert.match(
     text,
     /multiple deterministic plural Core batches.*one outer App transaction.*one intended history action/i
@@ -360,18 +385,12 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     /successful.*batch.*ordinary.*projection.*progress.*later browser task.*AbortSignal/i
   )
   assert.match(text, /CSS.*transform.*opacity.*compositor/i)
-  assert.match(
-    text,
-    /atomic.*one all-children.*progressive.*multiple.*plural/i
-  )
+  assert.match(text, /atomic.*one all-children.*progressive.*multiple.*plural/i)
   assert.match(
     text,
     /production.*Mock AI.*without.*ai.*query.*progressive.*explicit.*atomic/i
   )
-  assert.match(
-    text,
-    /clear.*success.*failure.*cancel.*rollback/i
-  )
+  assert.match(text, /clear.*success.*failure.*cancel.*rollback/i)
   assert.match(
     text,
     /App-owned document interaction lock.*before.*outer App transaction.*pan.*zoom.*block.*document mutation/i
@@ -380,14 +399,8 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     text,
     /viewport navigation.*ordinary Feature execution.*no canonical mutation.*history.*AI action.*transaction evidence/i
   )
-  assert.doesNotMatch(
-    text,
-    /navigation.*never joins the AI transaction/i
-  )
-  assert.match(
-    text,
-    /release.*success.*failure.*cancel.*teardown/i
-  )
+  assert.doesNotMatch(text, /navigation.*never joins the AI transaction/i)
+  assert.match(text, /release.*success.*failure.*cancel.*teardown/i)
   assert.ok(
     owner.forbiddenContributors.includes(
       'AI-only renderer or canonical loading placeholder'
@@ -437,10 +450,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     proofText,
     /one fresh single Actor.*one empty canonical document.*one 7,112-element.*one terminal exact canonical summary/i
   )
-  assert.match(
-    proofText,
-    /connected DOM.*non-zero/i
-  )
+  assert.match(proofText, /connected DOM.*non-zero/i)
   assert.match(
     proofText,
     /longest canonical work unit.*cooperative yield count/i
@@ -454,10 +464,8 @@ test('local progressive drawing paints exact bounds before cooperative canonical
       (route) =>
         route.from === 'stage-local-interactive-composition' &&
         route.to === 'apply-canonical-property-scene-batch' &&
-        route.producedArtifacts.includes(
-          'artifact:composition-batch-sequence'
-        )
-      )
+        route.producedArtifacts.includes('artifact:composition-batch-sequence')
+    )
   )
   assert.ok(
     data.routes.some(
@@ -525,14 +533,8 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     feature,
     /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*later browser task[\s\S]*one outer transaction[\s\S]*one Undo/i
   )
-  assert.match(
-    feature,
-    /at most 64 elements per ordinary work unit/i
-  )
-  assert.match(
-    plan,
-    /64-element work-unit cap[\s\S]*2,048[\s\S]*8,192/i
-  )
+  assert.match(feature, /at most 64 elements per ordinary work unit/i)
+  assert.match(plan, /64-element work-unit cap[\s\S]*2,048[\s\S]*8,192/i)
   assert.match(
     feature,
     /Scenario: Drawing progress keeps navigation responsive while edits stay locked[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*one Undo/i

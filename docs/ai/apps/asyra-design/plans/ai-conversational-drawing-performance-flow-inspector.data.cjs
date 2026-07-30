@@ -298,10 +298,11 @@
       id: 'project-visible-canonical-slices',
       order: 1,
       laneId: 'projection-ui',
-      title: 'Project visible canonical slices',
-      ownerPackage: '@asyra/preset projection composition',
+      title: 'Schedule and project visible canonical frames',
+      ownerPackage:
+        '@asyra/render and @asyra/render-engine-pixi frame ownership',
       purpose:
-        'Consume local and remote Factory batch artifacts through the ordinary Vector route, update only affected UI entries, and retain every progressive visible slice.',
+        'Schedule rendering only from explicit framework invalidation, prevent the concrete Pixi runtime from bypassing the dirty gate, and consume local and remote Factory batch artifacts through the ordinary Vector route.',
       inputs: [
         'artifact:factory-mutation-batch-artifact',
         'artifact:remote-factory-mutation-batch'
@@ -318,6 +319,10 @@
         'One invalidation and one frame flush occur at most once per slice.',
         'The ordinary Vector strategy preserves all 7,076 editable elements, topology, transforms, hierarchy, fills, strokes, and visibility.',
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
+        'The Pixi Application ticker must not render outside the framework dirty gate; one scheduled frame performs at most one explicit engine flush.',
+        'A settled zero-element App has no scheduled frame, no engine flush, and no unbounded performance evidence.',
+        'Pan, zoom, canonical change, and computed change each schedule at most one frame; a future local animation schedules subsequent frames through its ordinary computed updates rather than a permanent idle loop.',
+        'Performance instrumentation records bounded evidence only for demanded frame work and cannot create a second per-frame workload.',
         'No Render-engine bulk command is added; batch composition remains above the existing strategy surface.'
       ],
       bypasses: [
@@ -331,6 +336,7 @@
         '@asyra/core injected-instance batch observer facade',
         '@asyra/preset ordinary Vector strategy',
         '@asyra/render scene scheduling',
+        '@asyra/render-engine-pixi owned frame scheduler and explicit flush',
         'Asyra Design UI context projection'
       ],
       forbiddenContributors: [
@@ -338,7 +344,10 @@
         'Render-owned canonical state',
         'final-only progressive peer output',
         'one full UI map rebuild per ADD_ELEMENT',
-        'diagnostic or evidence geometry'
+        'diagnostic or evidence geometry',
+        'Pixi Application auto-render ticker',
+        'permanent idle frame loop',
+        'unbounded per-frame diagnostic arrays'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -348,11 +357,17 @@
         'packages/preset/src/__tests__',
         'packages/render/src',
         'packages/render/src/__tests__',
+        'packages/render-engine/src',
+        'packages/render-engine/src/__tests__',
+        'packages/render-engine-pixi/src',
+        'packages/render-engine-pixi/src/__tests__',
         'apps/asyra-design/src/contexts/data-change.tsx',
         'apps/asyra-design/src/providers/scene-tree.ts',
         'apps/asyra-design/src/providers/__tests__/scene-tree.test.tsx',
         'apps/asyra-design/src/init/init-app.ts',
-        'apps/asyra-design/src/init/__tests__/init-app.test.ts'
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+        'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
+        'apps/asyra-design/src/init/__tests__/ai-drawing-performance-profile.test.ts'
       ],
       specRefs: [
         '#projection-and-contents-contract',
@@ -432,7 +447,8 @@
       order: 2,
       laneId: 'wire-transport',
       title: 'Admit receiver publication frames',
-      ownerPackage: 'Asyra Design Dedicated Worker WebSocket receiver scheduler',
+      ownerPackage:
+        'Asyra Design Dedicated Worker WebSocket receiver scheduler',
       purpose:
         'Admit validated inbound publication bytes independently from main-thread canonical apply, expose one decoded publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
       inputs: [
@@ -1682,10 +1698,7 @@
         'artifact:remote-factory-mutation-batch',
         'artifact:visible-canonical-slices'
       ],
-      specRefs: [
-        '#remote-apply-contract',
-        '#demo-client-persistence-bypass'
-      ]
+      specRefs: ['#remote-apply-contract', '#demo-client-persistence-bypass']
     }
   ]
 

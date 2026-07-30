@@ -158,7 +158,40 @@ the worker until the prior decoded publication has crossed repeated clone
 boundaries and completed synchronous App dispatch. Step 8 then amplifies that
 coupling by sending only the peer queue head. Browser WebSocket ownership is
 therefore part of the receiver fix; Node server socket write and Render remain
-excluded as first owners.
+excluded as first owners of collaboration convergence latency.
+
+### Zero-element browser CPU attribution
+
+A guarded 0-element diagnostic then separated one ordinary local App, one
+profiled local App, and profiled collaboration Actors without any drawing or
+publication:
+
+- the empty tracked browser phase reached approximately 41.1 percent browser
+  CPU;
+- one ordinary local App with no `fileId`, no Collaboration session, and no
+  performance profile reached approximately 52.4 percent during navigation and
+  approximately 31.9 percent after settling;
+- enabling the performance profile without Collaboration reached approximately
+  57 percent during navigation and approximately 30.6 percent after settling;
+- one connected Actor A reached approximately 55.4 percent during navigation
+  and approximately 29.4 percent after Collaboration was ready;
+- adding Actor B while Actor A remained open raised browser CPU to
+  approximately 85.4 percent during Actor B navigation, while the WebSocket
+  server remained approximately zero and both Actors retained zero elements
+  and zero publications.
+
+These bounded `ps` samples are host safety evidence, not a precise wall-time
+benchmark, but they prove that WebSocket or CRDT idle work is not required for
+the abnormal browser load. Static execution tracing found the first incorrect
+owner: `PixiRenderEngine.startFrameLoop(...)` starts the Pixi Application
+ticker, whose own auto-render callback remains installed. The Asyra dirty gate
+can skip its manual flush while Pixi still renders the full empty canvas every
+animation frame; a dirty frame may render twice. The permanent Render loop also
+updates layers and the optional performance profile on every idle frame.
+
+Demand-driven render frame ownership therefore moves before the receiver
+endpoint. This safety correction does not claim Render is the dominant
+collaboration convergence owner and does not add a Render-engine bulk command.
 
 ### Rejected compression candidate
 
@@ -176,47 +209,55 @@ performs one complete endpoint refactor, its focused correctness gates, and one
 guarded 7,000-plus production proof before the next endpoint starts.
 
 The severity order uses the most recent retained owner evidence, while keeping
-the first incorrect upstream multiplier ahead of downstream cleanup:
+the first incorrect upstream multiplier and host-safety owner ahead of
+downstream cleanup:
 
-1. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
+1. **Demand-driven render frame ownership** — a settled ordinary local
+   zero-element App still used approximately 31.9 percent browser CPU, and
+   static tracing proves the Pixi Application ticker renders outside the Asyra
+   dirty gate. The engine owns a scheduler independent of Pixi auto-render,
+   one invalidation schedules at most one frame, one flush renders at most
+   once, and idle performance evidence remains bounded. Pan, zoom, canonical
+   changes, and local computed changes remain ordinary frame requests.
+2. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
    elements and 11/35 publications at 30 seconds while `frame-consumed`
    intervals grew to approximately 2–3.3 seconds. Existing bounded ingress work
    is retained as partial evidence, but this endpoint is not complete until the
    Worker owns the WebSocket data plane, main-thread recursive freeze and
    duplicate header ownership are removed, and receiver handoff timing exists.
    Only then does it receive the first post-change proof.
-2. **Canonical Props, Scene Tree, and Core source mutation** — local canonical
+3. **Canonical Props, Scene Tree, and Core source mutation** — local canonical
    batch work was approximately 7.991 seconds, and the current first upstream
    multiplier still represents one plural Scene creation as N scalar Scene
    evidence records. The endpoint becomes one complete Props owner batch and
    one plural Scene owner event per Core request, with whole-request preflight
    and no prefix.
-3. **Factory transaction and pub/sub artifact** — Factory phases were
+4. **Factory transaction and pub/sub artifact** — Factory phases were
    approximately 3.909 seconds. One immutable local history artifact remains
    complete, while its shared view carries one ordered batch representation
    instead of parallel synonymous batches, deliveries, records, and changes.
    Required shared-channel internals use batch input and output; public scalar
    conveniences are batch-of-one only.
-4. **Remote apply and main-thread organization** — retained remote apply ranged
+5. **Remote apply and main-thread organization** — retained remote apply ranged
    from approximately 2.358 to 5.894 seconds and earlier inbound dispatch was
    approximately 1.979 seconds. The App consumes each worker-valid batch once
    through one linear policy/organization pass, one Core canonical request, and
    one remote Factory transaction without rebuilding a snapshot.
-5. **Relay and byte backpressure** — the newer server socket callbacks remained
+6. **Relay and byte backpressure** — the newer server socket callbacks remained
    below 2 milliseconds, but source queue wait and relay request duration grew
    with receiver credit. The relay is changed only after the receiver and
    source multipliers are removed, then must keep opaque byte parity, bounded
    peer capacity, and independent acceptance, consumption, and apply receipts.
-6. **Codec encode and decode ownership** — retained worker decode was
+7. **Codec encode and decode ownership** — retained worker decode was
    approximately 1.544 seconds; no retained 7,000-plus encode number exists.
    Worker validation and transferable binary ownership become the only payload
    codec boundary, and the Provider must not recursively clone or freeze the
    complete publication on the main thread.
-7. **Render and UI projection** — retained Render was approximately
-   0.425 seconds locally and 0.682 seconds remotely, so it remains last.
-   Render or UI changes are authorized only when the immediately preceding
-   guarded proof shows that owner is still material. No speculative Render
-   engine bulk command is added.
+8. **Visible canonical and UI projection** — retained canonical projection
+   Render work was approximately 0.425 seconds locally and 0.682 seconds
+   remotely, so no speculative Render-engine bulk command is added. The
+   demand-driven scheduler correction does not authorize a different Vector
+   route or an AI-only projection shortcut.
 
 ### Common Creation-Only Benchmark
 
@@ -488,6 +529,17 @@ intended transaction or history boundary.
 - Render uses the existing ordinary Vector strategy and preserves all 7,076
   editable elements. Each slice causes at most one invalidation and one frame
   flush.
+- The concrete Pixi Application ticker never owns framework rendering and
+  cannot bypass the Render dirty gate. A scheduled frame performs at most one
+  explicit engine flush; after the App settles with no pending invalidation,
+  zero elements produce no frame and no engine flush.
+- Pan, zoom, canonical changes, and local computed changes schedule the same
+  ordinary frame path. A future local animation publishes its computed updates,
+  which request subsequent frames; Render does not run a permanent idle loop
+  in anticipation of animation.
+- The optional performance profile stores bounded timing and counter evidence
+  only for demanded work. It cannot create an unbounded per-frame workload or
+  become the reason an otherwise idle frame exists.
 - UI context updates only affected entries and hierarchy order from the batch
   artifact; it does not rebuild the complete element map for each
   `ADD_ELEMENT`.
@@ -968,28 +1020,31 @@ immediately following endpoint proof have no P0-P2 finding:
    creation-only benchmark, heartbeat, process-tree resource guard, termination,
    and bounded report. This infrastructure step runs no 7,000-plus workload
    until its own unit/integration gates pass.
-3. `admit-receiver-publication-frames`: retain valid committed ingress work,
+3. `project-visible-canonical-slices`: replace Pixi Application auto-render
+   ownership with demand-driven framework frames, bound the optional performance
+   evidence, retain the ordinary Vector projection path, then run the guarded
+   7,076 endpoint proof. If the 0-element comparison does not materially reduce
+   browser CPU, replan this owner before any high-detail proof.
+4. `admit-receiver-publication-frames`: retain valid committed ingress work,
    move the browser WebSocket data plane and wire credit into the Dedicated
    Worker, remove main-thread clone/freeze and duplicate header ownership, add
    receiver timing, then run the guarded 7,076 endpoint proof. If ineffective,
    replan only this owner before a second attempt.
-4. `apply-canonical-property-scene-batch`: replace N scalar source evidence
+5. `apply-canonical-property-scene-batch`: replace N scalar source evidence
    with one complete Props batch and one plural Scene event per Core request,
    then run the guarded endpoint proof.
-5. `record-and-deliver-transaction-batch`: reduce Factory and required shared
+6. `record-and-deliver-transaction-batch`: reduce Factory and required shared
    pub/sub to one immutable history artifact plus one ordered shared batch view,
    then run the guarded endpoint proof.
-6. `apply-remote-publication-batches`: consume worker-valid evidence once and
+7. `apply-remote-publication-batches`: consume worker-valid evidence once and
    apply one linear Core request in one remote transaction, then run the guarded
    endpoint proof.
-7. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
+8. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
    admission, peer byte capacity, and independent receipts, then run the guarded
    endpoint proof.
-8. `encode-publication-frames`: remove redundant main-thread payload ownership
+9. `encode-publication-frames`: remove redundant main-thread payload ownership
    and retain one worker binary encode/decode boundary, then run the guarded
    endpoint proof.
-9. `project-visible-canonical-slices`: run its focused count oracle and the
-   guarded endpoint proof; change Render/UI only if the owner remains material.
 10. `evaluate-performance-and-equivalence`: after every endpoint is effective
     or formally non-material, run the final formal correctness, performance,
     and synchronized visual closure.
