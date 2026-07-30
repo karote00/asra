@@ -25,52 +25,71 @@ export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   requestBodyLimitBytes: 64 * 1024
 })
 
+const DIAGNOSTIC_MAXIMUM_CPU_PERCENT = 200
 const HEARTBEAT_KINDS = new Set(['ready', 'progress', 'complete', 'failed'])
+const MAX_CPU_CONTRIBUTORS = 4
+const PROCESS_CPU_ROLES = new Set([
+  'app-server',
+  'client-browser',
+  'test-harness',
+  'unknown',
+  'websocket-server'
+])
 
-const mergeConfig = (config = {}) => ({
-  ...DEFAULT_RESOURCE_GUARD_CONFIG,
-  ...config,
-  maximumCpuPercent: Math.min(
-    DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
-    Math.max(
-      0,
-      config.maximumCpuPercent ??
-        DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+const mergeConfig = (config = {}) => {
+  const guardMode = config.guardMode === 'diagnostic' ? 'diagnostic' : 'proof'
+  const maximumCpuPercentCeiling =
+    guardMode === 'diagnostic'
+      ? DIAGNOSTIC_MAXIMUM_CPU_PERCENT
+      : DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+
+  return {
+    ...DEFAULT_RESOURCE_GUARD_CONFIG,
+    ...config,
+    guardMode,
+    maximumCpuPercent: Math.min(
+      maximumCpuPercentCeiling,
+      Math.max(
+        0,
+        config.maximumCpuPercent ??
+          DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+      )
+    ),
+    busyCpuPercent: Math.min(
+      DEFAULT_RESOURCE_GUARD_CONFIG.busyCpuPercent,
+      Math.max(
+        0,
+        config.busyCpuPercent ?? DEFAULT_RESOURCE_GUARD_CONFIG.busyCpuPercent
+      )
+    ),
+    sampleIntervalMs: Math.min(
+      DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs,
+      Math.max(
+        50,
+        config.sampleIntervalMs ??
+          DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs
+      )
+    ),
+    sampleTimeoutMs: Math.min(
+      DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
+      Math.max(
+        50,
+        config.sampleTimeoutMs ?? DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs
+      )
+    ),
+    terminationGraceMs: Math.min(
+      DEFAULT_RESOURCE_GUARD_CONFIG.terminationGraceMs,
+      Math.max(0, config.terminationGraceMs ?? 3_000)
+    ),
+    historyLimit: Math.max(
+      1,
+      Math.min(
+        32,
+        config.historyLimit ?? DEFAULT_RESOURCE_GUARD_CONFIG.historyLimit
+      )
     )
-  ),
-  busyCpuPercent: Math.min(
-    DEFAULT_RESOURCE_GUARD_CONFIG.busyCpuPercent,
-    Math.max(
-      0,
-      config.busyCpuPercent ?? DEFAULT_RESOURCE_GUARD_CONFIG.busyCpuPercent
-    )
-  ),
-  sampleIntervalMs: Math.min(
-    DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs,
-    Math.max(
-      50,
-      config.sampleIntervalMs ?? DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs
-    )
-  ),
-  sampleTimeoutMs: Math.min(
-    DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
-    Math.max(
-      50,
-      config.sampleTimeoutMs ?? DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs
-    )
-  ),
-  terminationGraceMs: Math.min(
-    DEFAULT_RESOURCE_GUARD_CONFIG.terminationGraceMs,
-    Math.max(0, config.terminationGraceMs ?? 3_000)
-  ),
-  historyLimit: Math.max(
-    1,
-    Math.min(
-      32,
-      config.historyLimit ?? DEFAULT_RESOURCE_GUARD_CONFIG.historyLimit
-    )
-  )
-})
+  }
+}
 
 const keepLast = (values, limit) =>
   values.length <= limit ? values : values.slice(values.length - limit)
@@ -80,6 +99,122 @@ const isFiniteNonNegativeNumber = (value) =>
 
 const isNonEmptyBoundedString = (value) =>
   typeof value === 'string' && value.length > 0 && value.length <= 160
+
+const createEmptyRoleCpuPercent = () => ({
+  appServer: 0,
+  clientBrowser: 0,
+  testHarness: 0,
+  unknown: 0,
+  websocketServer: 0
+})
+
+const classifyProcessCommand = (command) => {
+  const lowerCommand = command.toLowerCase()
+  if (
+    lowerCommand.includes('dist/collaboration-server/collaboration-server.js')
+  ) {
+    return { executable: 'node', role: 'websocket-server' }
+  }
+  if (lowerCommand.includes('vite') && lowerCommand.includes('preview')) {
+    return { executable: 'node', role: 'app-server' }
+  }
+  if (
+    lowerCommand.includes('chrome-headless-shell') ||
+    lowerCommand.includes('chromium')
+  ) {
+    return {
+      executable: 'chrome-headless-shell',
+      role: 'client-browser'
+    }
+  }
+  if (
+    lowerCommand.includes('playwright') ||
+    lowerCommand.includes('vitest') ||
+    lowerCommand.includes('tinypool') ||
+    lowerCommand.includes('esbuild') ||
+    lowerCommand.includes('performance-resource-guard') ||
+    /(^|\s)yarn(\s|$)/u.test(lowerCommand)
+  ) {
+    const executable = lowerCommand.includes('esbuild')
+      ? 'esbuild'
+      : lowerCommand.includes('yarn')
+        ? 'yarn'
+        : 'node'
+    return { executable, role: 'test-harness' }
+  }
+  const firstToken = command.trim().split(/\s+/u)[0] ?? 'unknown'
+  return {
+    executable: (firstToken.split('/').at(-1) || 'unknown').slice(0, 160),
+    role: 'unknown'
+  }
+}
+
+const roleCpuKey = (role) => {
+  switch (role) {
+    case 'app-server':
+      return 'appServer'
+    case 'client-browser':
+      return 'clientBrowser'
+    case 'test-harness':
+      return 'testHarness'
+    case 'websocket-server':
+      return 'websocketServer'
+    default:
+      return 'unknown'
+  }
+}
+
+const sanitizeRoleCpuPercent = (value) => {
+  const result = createEmptyRoleCpuPercent()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return result
+  }
+  for (const key of Object.keys(result)) {
+    if (isFiniteNonNegativeNumber(value[key])) {
+      result[key] = value[key]
+    }
+  }
+  return result
+}
+
+const sanitizeCpuContributors = (value) => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .flatMap((contributor) => {
+      if (
+        !contributor ||
+        typeof contributor !== 'object' ||
+        Array.isArray(contributor) ||
+        !Number.isSafeInteger(contributor.pid) ||
+        contributor.pid <= 0 ||
+        !Number.isSafeInteger(contributor.parentPid) ||
+        contributor.parentPid < 0 ||
+        !isFiniteNonNegativeNumber(contributor.cpuPercent) ||
+        !isNonEmptyBoundedString(contributor.executable)
+      ) {
+        return []
+      }
+      return [
+        {
+          pid: contributor.pid,
+          parentPid: contributor.parentPid,
+          cpuPercent: contributor.cpuPercent,
+          executable: contributor.executable,
+          ...(PROCESS_CPU_ROLES.has(contributor.role)
+            ? { role: contributor.role }
+            : {})
+        }
+      ]
+    })
+    .sort(
+      (left, right) =>
+        right.cpuPercent - left.cpuPercent || left.pid - right.pid
+    )
+    .slice(0, MAX_CPU_CONTRIBUTORS)
+}
 
 const sanitizeScalarRecord = (value, maximumKeys = 32) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -291,6 +426,7 @@ export const createResourceGuardState = ({
     endpointReport: null,
     heartbeatSamples: [],
     cpuSamples: [],
+    maximumCpuSample: null,
     sampleFailure: null,
     profileRemainder: '',
     profileMetrics: {
@@ -439,17 +575,22 @@ export const evaluateResourceSample = (
     }
   }
 
+  const cpuSample = {
+    pgid: targetPgid,
+    cpuPercent: sample.cpuPercent,
+    contributors: sanitizeCpuContributors(sample.contributors),
+    roleCpuPercent: sanitizeRoleCpuPercent(sample.roleCpuPercent),
+    sampledAtMs: sample.nowMs
+  }
   const cpuSamples = keepLast(
-    [
-      ...state.cpuSamples,
-      {
-        pgid: targetPgid,
-        cpuPercent: sample.cpuPercent,
-        sampledAtMs: sample.nowMs
-      }
-    ],
+    [...state.cpuSamples, cpuSample],
     normalizedConfig.historyLimit
   )
+  const maximumCpuSample =
+    !state.maximumCpuSample ||
+    sample.cpuPercent > state.maximumCpuSample.cpuPercent
+      ? cpuSample
+      : state.maximumCpuSample
 
   let decision = state.stopDecision
   if (!decision && sample.cpuPercent > normalizedConfig.maximumCpuPercent) {
@@ -485,6 +626,7 @@ export const evaluateResourceSample = (
     config: normalizedConfig,
     acceptedProcessSamples: state.acceptedProcessSamples + 1,
     cpuSamples,
+    maximumCpuSample,
     stopDecision: decision
   }
   return {
@@ -504,12 +646,26 @@ export const recordResourceSampleFailure = (
   const message = String(
     error?.message ?? error ?? 'unknown sampling failure'
   ).slice(0, 500)
+  const errorCode =
+    typeof error?.code === 'string' || typeof error?.code === 'number'
+      ? error.code
+      : null
+  const signal =
+    typeof error?.signal === 'string' && error.signal.length <= 32
+      ? error.signal
+      : null
   const nextState = {
     ...state,
     sampleFailure: {
       pgid: targetPgid,
       atMs: nowMs,
-      message
+      errorCode,
+      killed: error?.killed === true,
+      message,
+      signal,
+      timeoutMs:
+        state.config?.sampleTimeoutMs ??
+        DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs
     },
     stopDecision: decision
   }
@@ -699,6 +855,7 @@ export const buildBoundedResourceReport = (
     ownerTiming: heartbeat?.ownerTiming ?? {},
     heartbeats: keepLast(state.heartbeatSamples, historyLimit),
     cpuSamples: keepLast(state.cpuSamples, historyLimit),
+    maximumCpuSample: state.maximumCpuSample,
     sampleFailure: state.sampleFailure,
     profileMetrics: state.profileMetrics,
     endpointReport: state.endpointReport,
@@ -1024,34 +1181,57 @@ const execFilePromise = (implementation, file, args, options) =>
 
 export const sampleTrackedProcessGroupCpu = async (
   pgid,
-  { execFileImpl = execFile, nowMs = Date.now() } = {}
+  {
+    execFileImpl = execFile,
+    nowMs = Date.now(),
+    platform = process.platform
+  } = {}
 ) => {
   if (!Number.isSafeInteger(pgid) || pgid <= 0) {
     throw new TypeError('A positive tracked process-group ID is required')
   }
-  const stdout = await execFilePromise(
-    execFileImpl,
-    'ps',
-    ['-Ao', 'pgid=,%cpu='],
-    {
-      encoding: 'utf8',
-      killSignal: 'SIGKILL',
-      timeout: DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
-      maxBuffer: 256 * 1024
-    }
-  )
+  const processArguments =
+    platform === 'darwin'
+      ? ['-g', String(pgid), '-o', 'pid=,ppid=,pgid=,%cpu=,command=']
+      : ['-Ao', 'pid=,ppid=,pgid=,%cpu=,command=']
+  const stdout = await execFilePromise(execFileImpl, 'ps', processArguments, {
+    encoding: 'utf8',
+    killSignal: 'SIGKILL',
+    timeout: DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
+    maxBuffer: 256 * 1024
+  })
   let cpuPercent = 0
+  const contributors = []
+  const roleCpuPercent = createEmptyRoleCpuPercent()
   for (const line of stdout.split(/\r?\n/u)) {
-    const match = line.trim().match(/^(\d+)\s+(\d+(?:\.\d+)?)$/u)
-    if (!match || Number(match[1]) !== pgid) {
+    const match = line
+      .trim()
+      .match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)(?:\s+(.*))?$/u)
+    if (!match || Number(match[3]) !== pgid) {
       continue
     }
-    cpuPercent += Number(match[2])
+    const processCpuPercent = Number(match[4])
+    cpuPercent += processCpuPercent
+    const command = match[5]?.trim() ?? ''
+    if (command.length > 0) {
+      const classification = classifyProcessCommand(command)
+      roleCpuPercent[roleCpuKey(classification.role)] += processCpuPercent
+      contributors.push({
+        pid: Number(match[1]),
+        parentPid: Number(match[2]),
+        cpuPercent: processCpuPercent,
+        ...classification
+      })
+    } else {
+      roleCpuPercent.unknown += processCpuPercent
+    }
   }
   return {
     pgid,
     cpuPercent,
-    nowMs
+    contributors: sanitizeCpuContributors(contributors),
+    nowMs,
+    roleCpuPercent
   }
 }
 
@@ -1134,6 +1314,11 @@ export const runResourceGuardCli = async (
 ) => {
   const parsed = parseRunnerArguments(argv)
   const normalizedConfig = mergeConfig(config)
+  if (requiresReady && normalizedConfig.guardMode === 'diagnostic') {
+    throw new Error(
+      'Diagnostic CPU mode cannot run an authenticated endpoint proof'
+    )
+  }
   const token = randomBytes(24).toString('hex')
   let state = createResourceGuardState({
     nowMs: now(),

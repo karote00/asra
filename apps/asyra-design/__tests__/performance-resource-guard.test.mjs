@@ -137,6 +137,39 @@ test('allows every tracked process-group sample at or below 150% CPU', () => {
   assert.equal(state.cpuSamples.at(-1).cpuPercent, 150)
 })
 
+test('uses 200% only for an explicit root-cause diagnostic state', () => {
+  const state = createResourceGuardState({
+    nowMs: 0,
+    config: {
+      guardMode: 'diagnostic',
+      maximumCpuPercent: 200
+    }
+  })
+  const belowDiagnosticLimit = evaluateResourceSample(
+    state,
+    {
+      pgid: TARGET_PGID,
+      cpuPercent: 175,
+      nowMs: 250
+    },
+    { targetPgid: TARGET_PGID }
+  )
+  const aboveDiagnosticLimit = evaluateResourceSample(
+    belowDiagnosticLimit.state,
+    {
+      pgid: TARGET_PGID,
+      cpuPercent: 200.01,
+      nowMs: 500
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(belowDiagnosticLimit.state.config.guardMode, 'diagnostic')
+  assert.equal(belowDiagnosticLimit.state.config.maximumCpuPercent, 200)
+  assert.equal(belowDiagnosticLimit.decision.stop, false)
+  assert.equal(aboveDiagnosticLimit.decision.reason, 'cpu-limit-exceeded')
+})
+
 test('stops when heartbeat is stale for more than ten seconds while CPU is above the ordinary 80% baseline', () => {
   const initial = createResourceGuardState({ nowMs: 0 })
   const ready = record(arm(initial), 'ready', 0)
@@ -394,6 +427,36 @@ test('takes the first tracked CPU sample before waiting for the sampling interva
   assert.equal(runtimeProcess.listenerCount('SIGTERM'), 0)
 })
 
+test('forbids diagnostic CPU mode for an authenticated endpoint proof', async () => {
+  const child = new EventEmitter()
+  child.pid = TARGET_PGID
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+  child.unref = () => undefined
+
+  await assert.rejects(
+    runResourceGuardCli(['--owner', OWNER, '--', 'mock-command'], {
+      config: {
+        guardMode: 'diagnostic',
+        maximumCpuPercent: 200
+      },
+      requiresReady: true,
+      runtimeProcess: new EventEmitter(),
+      sampleCpu: async (pgid) => ({
+        cpuPercent: 0,
+        nowMs: 1,
+        pgid
+      }),
+      spawnImpl: () => {
+        queueMicrotask(() => child.emit('close', 0, null))
+        return child
+      },
+      stdout: { write: () => true }
+    }),
+    /Diagnostic CPU mode cannot run an authenticated endpoint proof/u
+  )
+})
+
 test('ignores CPU samples that do not belong to the spawned Playwright PGID', () => {
   const state = createResourceGuardState({ nowMs: 0 })
   const result = evaluateResourceSample(
@@ -435,7 +498,7 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
       state,
       {
         pgid: TARGET_PGID,
-        cpuPercent: 100 + index,
+        cpuPercent: index === 1 ? 149 : 50 + index,
         nowMs: index * 1_000
       },
       { targetPgid: TARGET_PGID, config }
@@ -452,6 +515,23 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   assert.equal(report.phase, 'slice-6')
   assert.equal(report.actorA.elements, 6)
   assert.equal(report.actorB.elements, 5)
+  assert.deepEqual(report.maximumCpuSample, {
+    pgid: TARGET_PGID,
+    cpuPercent: 149,
+    contributors: [],
+    roleCpuPercent: {
+      appServer: 0,
+      clientBrowser: 0,
+      testHarness: 0,
+      unknown: 0,
+      websocketServer: 0
+    },
+    sampledAtMs: 1_000
+  })
+  assert.equal(
+    report.cpuSamples.some(({ sampledAtMs }) => sampledAtMs === 1_000),
+    false
+  )
   assert.deepEqual(report.ownerTiming, {
     actorADurationMs: 12,
     actorAPhase: 'factory:notify-shared-publication',
@@ -462,25 +542,169 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
 })
 
 test('bounds every process-group CPU sample with a hard timeout', async () => {
+  let receivedArguments
   let receivedOptions
   const result = await sampleTrackedProcessGroupCpu(TARGET_PGID, {
-    execFileImpl: (_file, _arguments, options, callback) => {
+    execFileImpl: (_file, arguments_, options, callback) => {
+      receivedArguments = arguments_
       receivedOptions = options
       callback(
         null,
-        [`${TARGET_PGID} 125.5`, `${TARGET_PGID + 1} 999.0`].join('\n')
+        [
+          `${TARGET_PGID} 1 ${TARGET_PGID} 20.0 node playwright test --guard-token=TOP-SECRET`,
+          `${TARGET_PGID + 1} ${TARGET_PGID} ${TARGET_PGID} 40.0 node dist/collaboration-server/collaboration-server.js`,
+          `${TARGET_PGID + 2} ${TARGET_PGID} ${TARGET_PGID} 30.0 node node_modules/vite/bin/vite.js preview`,
+          `${TARGET_PGID + 3} ${TARGET_PGID} ${TARGET_PGID} 30.0 /Applications/chrome-headless-shell --type=renderer`,
+          `${TARGET_PGID + 4} ${TARGET_PGID} ${TARGET_PGID} 5.0 node node_modules/esbuild/bin/esbuild`,
+          `${TARGET_PGID + 5} ${TARGET_PGID} ${TARGET_PGID} 0.5 node custom-task.js`,
+          `${TARGET_PGID + 6} ${TARGET_PGID} ${TARGET_PGID + 1} 999.0 node untracked.js`
+        ].join('\n')
       )
     },
-    nowMs: 1_000
+    nowMs: 1_000,
+    platform: 'darwin'
   })
 
+  assert.deepEqual(receivedArguments, [
+    '-g',
+    String(TARGET_PGID),
+    '-o',
+    'pid=,ppid=,pgid=,%cpu=,command='
+  ])
   assert.equal(receivedOptions.timeout, 200)
   assert.equal(receivedOptions.killSignal, 'SIGKILL')
+  assert.equal(receivedOptions.maxBuffer, 256 * 1024)
   assert.deepEqual(result, {
+    contributors: [
+      {
+        cpuPercent: 40,
+        executable: 'node',
+        parentPid: TARGET_PGID,
+        pid: TARGET_PGID + 1,
+        role: 'websocket-server'
+      },
+      {
+        cpuPercent: 30,
+        executable: 'node',
+        parentPid: TARGET_PGID,
+        pid: TARGET_PGID + 2,
+        role: 'app-server'
+      },
+      {
+        cpuPercent: 30,
+        executable: 'chrome-headless-shell',
+        parentPid: TARGET_PGID,
+        pid: TARGET_PGID + 3,
+        role: 'client-browser'
+      },
+      {
+        cpuPercent: 20,
+        executable: 'node',
+        parentPid: 1,
+        pid: TARGET_PGID,
+        role: 'test-harness'
+      }
+    ],
     cpuPercent: 125.5,
     nowMs: 1_000,
-    pgid: TARGET_PGID
+    pgid: TARGET_PGID,
+    roleCpuPercent: {
+      appServer: 30,
+      clientBrowser: 30,
+      testHarness: 25,
+      unknown: 0.5,
+      websocketServer: 40
+    }
   })
+  assert.equal(JSON.stringify(result).includes('TOP-SECRET'), false)
+})
+
+test('keeps bounded process contributors without weakening the aggregate CPU stop', () => {
+  const state = createResourceGuardState({ nowMs: 0 })
+  const result = evaluateResourceSample(
+    state,
+    {
+      pgid: TARGET_PGID,
+      cpuPercent: 151,
+      nowMs: 1_000,
+      contributors: [
+        {
+          pid: TARGET_PGID + 5,
+          parentPid: TARGET_PGID,
+          cpuPercent: 5,
+          executable: '/usr/local/bin/node',
+          argv: `--token=${TOKEN}`
+        },
+        {
+          pid: TARGET_PGID + 1,
+          parentPid: TARGET_PGID,
+          cpuPercent: 45,
+          executable: '/usr/local/bin/node'
+        },
+        {
+          pid: TARGET_PGID + 2,
+          parentPid: TARGET_PGID,
+          cpuPercent: 35,
+          executable: '/usr/local/bin/esbuild'
+        },
+        {
+          pid: TARGET_PGID + 3,
+          parentPid: TARGET_PGID,
+          cpuPercent: 25,
+          executable: '/Applications/Chrome Headless Shell'
+        },
+        {
+          pid: TARGET_PGID,
+          parentPid: 1,
+          cpuPercent: 20,
+          executable: '/usr/local/bin/yarn'
+        },
+        {
+          pid: -1,
+          parentPid: TARGET_PGID,
+          cpuPercent: 999,
+          executable: '/invalid'
+        },
+        {
+          pid: TARGET_PGID + 6,
+          parentPid: TARGET_PGID,
+          cpuPercent: 21,
+          executable: ''
+        }
+      ]
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(result.accepted, true)
+  assert.equal(result.decision.reason, 'cpu-limit-exceeded')
+  assert.deepEqual(result.state.cpuSamples[0].contributors, [
+    {
+      pid: TARGET_PGID + 1,
+      parentPid: TARGET_PGID,
+      cpuPercent: 45,
+      executable: '/usr/local/bin/node'
+    },
+    {
+      pid: TARGET_PGID + 2,
+      parentPid: TARGET_PGID,
+      cpuPercent: 35,
+      executable: '/usr/local/bin/esbuild'
+    },
+    {
+      pid: TARGET_PGID + 3,
+      parentPid: TARGET_PGID,
+      cpuPercent: 25,
+      executable: '/Applications/Chrome Headless Shell'
+    },
+    {
+      pid: TARGET_PGID,
+      parentPid: 1,
+      cpuPercent: 20,
+      executable: '/usr/local/bin/yarn'
+    }
+  ])
+  assert.equal(JSON.stringify(result.state.cpuSamples).includes(TOKEN), false)
 })
 
 test('terminates the tracked group when the guard receives a signal or exits unexpectedly', async () => {
@@ -672,15 +896,31 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
 
 test('turns process sampling failure into an immediate stop decision', () => {
   const state = createResourceGuardState({ nowMs: 0 })
+  const samplingError = Object.assign(
+    new Error('Command failed: ps -Ao pid=,ppid=,pgid=,%cpu=,comm='),
+    {
+      code: null,
+      killed: true,
+      signal: 'SIGKILL'
+    }
+  )
   const failed = recordResourceSampleFailure(state, {
     targetPgid: TARGET_PGID,
     nowMs: 1_000,
-    error: new Error('ps failed')
+    error: samplingError
   })
 
   assert.equal(failed.decision.stop, true)
   assert.equal(failed.decision.reason, 'resource-sample-failed')
-  assert.equal(failed.state.sampleFailure.message, 'ps failed')
+  assert.deepEqual(failed.state.sampleFailure, {
+    pgid: TARGET_PGID,
+    atMs: 1_000,
+    errorCode: null,
+    killed: true,
+    message: 'Command failed: ps -Ao pid=,ppid=,pgid=,%cpu=,comm=',
+    signal: 'SIGKILL',
+    timeoutMs: 200
+  })
 })
 
 test('fails a successful child exit when a guarded Playwright spec never became ready', () => {
