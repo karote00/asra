@@ -384,6 +384,8 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'create-app/asyra-design/template/src/app/__tests__/ai-conversation-panel.test.tsx',
     'create-app/asyra-design/template/src/toolbar/index.tsx',
     'create-app/asyra-design/template/src/toolbar/__tests__/ai-control.test.tsx',
+    'create-app/asyra-design/template/src/render-app/collaboration-mode.ts',
+    'create-app/asyra-design/template/src/render-app/__tests__/collaboration-mode.test.ts',
     'create-app/asyra-design/template/e2e/conversational-ai-mock.spec.ts',
     'create-app/asyra-design/template/e2e/collaboration-ai-agent-video.spec.ts',
     'docs/ai/framework/packages/ai-agent-runtime.md',
