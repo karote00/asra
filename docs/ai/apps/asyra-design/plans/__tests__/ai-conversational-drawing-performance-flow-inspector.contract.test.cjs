@@ -129,6 +129,107 @@ test('performance plan and BDD retain the production evidence boundary', () => {
   )
 })
 
+test('Mock provider prefix materialization never reads later source records', () => {
+  const owner = step('materialize-bounded-mock-provider-prefix')
+  const text = contractText(owner)
+  const plan = read(data.authority.specPath)
+
+  assert.match(
+    text,
+    /selected only when.*CPU-time attribution.*Mock provider materialization/i
+  )
+  assert.match(
+    text,
+    /record-indexed or statically partitioned.*does not read, decode, tokenize, transform, or materialize.*later records/i
+  )
+  assert.match(
+    text,
+    /sentinel or bounded reader.*16-.*320-.*1,280-item.*never touch record N\+1/i
+  )
+  assert.match(
+    text,
+    /full-detail output.*every item, point, role, order, bounds, transform, and style/i
+  )
+  assert.match(
+    text,
+    /reading or decoding the complete source before slicing a prefix/i
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/src/ai/mock-provider.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/src/ai/__tests__/mock-provider.test.ts'
+    )
+  )
+  assert.match(
+    plan,
+    /record-indexed or statically\s+partitioned[\s\S]*does not read, decode, tokenize, or\s+materialize.*later records[\s\S]*sentinel\/reader/i
+  )
+})
+
+test('AI plan preparation owns one immutable value and bounded preview', () => {
+  const owner = step('prepare-validated-ai-plan-artifact')
+  const text = contractText(owner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    text,
+    /prepareAiProviderPlan.*only public.*separate normalize-then-validate compatibility APIs are removed/i
+  )
+  assert.match(
+    text,
+    /complete plan id.*duplicate ids.*unknown actions.*before any action schema/i
+  )
+  assert.match(
+    text,
+    /raw action arguments.*unknown.*not recursively cloned.*schema owner/i
+  )
+  assert.match(
+    text,
+    /deeply immutable detached execution value.*bounded redaction-ready summary/i
+  )
+  assert.match(
+    text,
+    /permission and execution.*exact same prepared value identity.*no post-schema recursive detach/i
+  )
+  assert.match(
+    text,
+    /confirmation and terminal preview.*bounded summary.*never complete item, path, point, or geometry/i
+  )
+  assert.match(
+    text,
+    /noncanonical.*nonshared.*shared props.*components.*elements.*Factory.*CRDT/i
+  )
+  assert.match(
+    text,
+    /large-payload, sync, async, delivery, progressive, loading, or collaboration flags/i
+  )
+  ;[
+    'packages/ai-agent-runtime/src',
+    'packages/ai-agent-runtime/src/__tests__',
+    'apps/asyra-design/src/ai/actions.ts',
+    'apps/asyra-design/src/ai/confirmation.ts',
+    'apps/asyra-design/src/ai/__tests__',
+    'docs/ai/framework/packages/ai-agent-runtime.md'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    plan,
+    /Validated AI Plan Artifact Contract[\s\S]*prepareAiProviderPlan[\s\S]*complete plan shell[\s\S]*one deeply\s+immutable[\s\S]*execution value[\s\S]*bounded[\s\S]*summary[\s\S]*no sync\/async, large-payload,[\s\S]*delivery, progressive, loading, or collaboration mode/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Runtime prepares one immutable AI plan without parallel geometry graphs[\s\S]*complete plan shell[\s\S]*schema exactly once[\s\S]*same prepared value identity[\s\S]*bounded summary without items, paths, points, or complete geometry[\s\S]*local, noncanonical, and nonshared/i
+  )
+})
+
 test('render projection owns demand-driven frames without an idle Pixi bypass', () => {
   const owner = step('project-visible-canonical-slices')
   const text = contractText(owner)
@@ -188,7 +289,23 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /phase.*Actor A.*Actor B.*canonical element count.*test-owned process-tree CPU/i
+    /latest completed phase.*currently active started phase.*capture time.*Actor A.*Actor B.*canonical element count.*safety-signal sample time.*heartbeat age.*co-temporal/i
+  )
+  assert.match(
+    text,
+    /macOS decayed ps CPU signal.*200 percent.*host-safety stop only/i
+  )
+  assert.match(
+    text,
+    /local-only attribution invocation.*fresh browser process group.*no WebSocket server.*without fileId.*Collaboration remains unavailable/i
+  )
+  assert.match(
+    text,
+    /cumulative OS process CPU-time deltas.*exact wall-time boundary.*separately per role.*never used as owner attribution/i
+  )
+  assert.match(
+    text,
+    /captures the process CPU-time snapshot before atomically opening or closing a phase boundary.*concurrent later heartbeat cannot relabel/i
   )
   assert.match(
     text,
@@ -200,7 +317,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*aggregate.*150 percent.*separate.*role/i
+    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*decayed.*200 percent.*separate.*role/i
   )
   assert.match(
     text,
@@ -212,17 +329,25 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /250[- ]milliseconds?.*single.*above 150 percent.*immediately.*architecture attempt.*invalid/i
+    /250[- ]milliseconds?.*single.*above 200 percent.*immediately.*architecture attempt.*invalid/i
   )
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
     text,
+    /guard-ready heartbeat.*before.*first Actor context.*Actor A.*collaboration ready.*before.*Actor B.*context.*harness.*outside.*product timing/i
+  )
+  assert.match(
+    text,
     /last completed phase.*Actor A.*Actor B.*element counts.*owner timing/i
+  )
+  assert.match(
+    text,
+    /precedes the first completed canonical Group.*does not claim which owner was active.*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1,280-item cat-prefix[\s\S]*two-Actor 1,280-item.*only when[\s\S]*selects exactly one next owner route/i
   )
   assert.match(text, /at most five.*same focused failure.*three/i)
   assert.match(
     feature,
-    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*above 150 percent[\s\S]*invalid architecture attempt[\s\S]*five/i
+    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*above 200 percent[\s\S]*invalid architecture attempt[\s\S]*five/i
   )
   assert.match(
     feature,
@@ -230,7 +355,35 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*aggregate CPU.*150 percent[\s\S]*separate role CPU/i
+    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*decayed CPU safety signal.*200 percent[\s\S]*separate role CPU/i
+  )
+  assert.match(
+    feature,
+    /ready heartbeat.*before the first Actor context[\s\S]*Actor A.*collaboration-ready[\s\S]*before Actor B.*context[\s\S]*outside.*product execution timing/i
+  )
+  assert.match(
+    feature,
+    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*cumulative process CPU-time boundary[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*no WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one provider, Runtime, loading, local canonical, or receiver owner/i
+  )
+  assert.match(
+    plan,
+    /178\s+percent[\s\S]*zero elements[\s\S]*zero publications/i
+  )
+  assert.match(
+    plan,
+    /210\.5[- ]percent[\s\S]*client-browser.*206 percent[\s\S]*one canonical element[\s\S]*empty document Workspace[\s\S]*not[\s\S]*AI\s+Group/i
+  )
+  assert.match(
+    plan,
+    /CPU sample[\s\S]*not a co-temporal snapshot[\s\S]*latest completed phase[\s\S]*prepare-composition-slices[\s\S]*does not yet exclude Group,\s+Core, publication, remote apply, or Render ownership/i
+  )
+  assert.match(
+    plan,
+    /guard-ready heartbeat[\s\S]*Actor A[\s\S]*before Actor B is created/i
+  )
+  assert.match(
+    plan,
+    /creation timing[\s\S]*excludes all staged harness bootstrap/i
   )
   assert.match(
     plan,
@@ -253,6 +406,9 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   const stopRoute = data.routes.find(
     ({ id }) => id === 'route-resource-guard-stop-proof'
   )
+  const attributionRoutes = data.routes.filter(({ id }) =>
+    id.startsWith('route-attribution-to-')
+  )
   assert.deepEqual(successRoute?.producedArtifacts, [
     'artifact:endpoint-performance-proof'
   ])
@@ -263,8 +419,29 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.deepEqual(stopRoute?.producedArtifacts, [
     'artifact:resource-guard-stop-proof'
   ])
+  assert.deepEqual(
+    attributionRoutes.map(({ to }) => to).sort(),
+    [
+      'admit-receiver-publication-frames',
+      'materialize-bounded-mock-provider-prefix',
+      'prepare-validated-ai-plan-artifact',
+      'stage-local-interactive-composition',
+      'yield-ai-loading-paint'
+    ].sort()
+  )
+  attributionRoutes.forEach((route) =>
+    assert.deepEqual(route.producedArtifacts, [
+      'artifact:precanonical-owner-attribution'
+    ])
+  )
   assert.doesNotMatch(successRoute?.predicate ?? '', /resource.stop/i)
   assert.doesNotMatch(stopRoute?.predicate ?? '', /effective|success/i)
+  assert.ok(
+    attributionRoutes.every(
+      ({ predicate }) =>
+        /CPU-time|reduced-motion|two-Actor control/i.test(predicate)
+    )
+  )
 
   const acceptedBaseline = data.artifacts.find(
     ({ id }) => id === 'artifact:accepted-endpoint-baseline'
@@ -274,6 +451,18 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     'evaluate-endpoint-performance'
   ])
   assert.equal(acceptedBaseline?.terminal, false)
+  const ownerAttribution = data.artifacts.find(
+    ({ id }) => id === 'artifact:precanonical-owner-attribution'
+  )
+  assert.equal(ownerAttribution?.ownerStepId, 'evaluate-endpoint-performance')
+  assert.deepEqual([...(ownerAttribution?.consumerStepIds ?? [])].sort(), [
+    'admit-receiver-publication-frames',
+    'materialize-bounded-mock-provider-prefix',
+    'prepare-validated-ai-plan-artifact',
+    'stage-local-interactive-composition',
+    'yield-ai-loading-paint'
+  ])
+  assert.equal(ownerAttribution?.terminal, false)
   assert.match(
     text,
     /first receiver endpoint.*retained.*940\/7,076.*11\/35.*no additional.*seed/i

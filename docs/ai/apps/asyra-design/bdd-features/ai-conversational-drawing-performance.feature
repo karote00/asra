@@ -17,14 +17,34 @@ Feature: Conversational AI drawing performance
     And prior high-detail throughput evidence should retain the receiver provider and worker handoff timing
     And detached profiling should not alter canonical state, delivery, history, retry, cancellation, or terminal results
 
+  Scenario: Runtime prepares one immutable AI plan without parallel geometry graphs
+    Given one untrusted provider candidate contains one large insert-composition action
+    When the Runtime prepares the candidate against the registered action schemas
+    Then the complete plan shell should reject empty, duplicate, or unknown actions before any action schema runs
+    And each raw action argument should enter its registered schema exactly once without a prior Runtime geometry clone
+    And one successful schema result should own one deeply immutable execution value and one bounded redaction-ready summary
+    And permission and execution should receive the same prepared value identity
+    And confirmation and terminal preview should contain the bounded summary without items, paths, points, or complete geometry
+    And Runtime should not detach or freeze the prepared value again
+    And the action definition should receive no large-payload, delivery, progressive, loading, or collaboration mode
+    And Asyra Design insert preparation should preserve exact items, roles, order, bounds, and point counts
+    But canonical topology and IDs should remain owned by the ordinary App common API and plural Core route
+    And the prepared plan should remain local, noncanonical, and nonshared
+
   Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
     And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
     When the guarded endpoint benchmark starts
     Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
+    And the ready heartbeat should be accepted before the first Actor context is created
+    And Actor A should reach collaboration-ready before Actor B context is created
+    And those staged bootstrap phases should remain outside product execution timing
     And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
-    And aggregate CPU above 150 percent should stop all exact tracked roles while the report retains separate role CPU
-    And each bounded heartbeat should report the current phase, Actor A and Actor B canonical and uncapped Render projection element counts, publication progress, and test-owned process-tree CPU
+    And the macOS decayed CPU safety signal above 200 percent should stop all exact tracked roles while the report retains separate role CPU
+    And the decayed CPU safety signal and phaseCpuMaximums should never be used as owner attribution
+    And each bounded heartbeat should report its capture time, the latest completed phase, any currently active started phase, Actor A and Actor B canonical and uncapped Render projection element counts, and publication progress
+    And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
+    And each owner phase should use an atomic cumulative process CPU-time boundary to report wall time, per-role CPU time, and average core use
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
     And exact Undo depth should use the Factory read-only history query rather than private transaction storage
@@ -32,11 +52,19 @@ Feature: Conversational AI drawing performance
     And the 250-millisecond CPU cadence should be armed before the immediate first sample
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And a complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
-    And one test-owned CPU sample above 150 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
+    And one test-owned CPU sample above 200 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
+    And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
+    And each local attribution case should use a fresh browser invocation with no WebSocket server, no fileId, and Collaboration unavailable
+    And one guarded single-Actor 16-item cat-prefix case should first separate complete provider cold materialization from material canonical work
+    And only if that case crosses 200 percent should one equivalent reduced-motion control separate loading-compositor work from provider cold materialization
+    And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider, runtime preparation, schema preparation, bounded preview, loading, Group, and first plural batch work
+    And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
+    And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
+    And the completed attribution should route to exactly one provider, Runtime, loading, local canonical, or receiver owner
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
     And one endpoint should receive at most five materially revised architecture attempts

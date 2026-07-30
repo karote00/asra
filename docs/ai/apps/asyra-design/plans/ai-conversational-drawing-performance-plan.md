@@ -183,15 +183,124 @@ publication:
 These bounded `ps` samples are host safety evidence, not a precise wall-time
 benchmark, but they prove that WebSocket or CRDT idle work is not required for
 the abnormal browser load. Static execution tracing found the first incorrect
-owner: `PixiRenderEngine.startFrameLoop(...)` starts the Pixi Application
-ticker, whose own auto-render callback remains installed. The Asyra dirty gate
-can skip its manual flush while Pixi still renders the full empty canvas every
-animation frame; a dirty frame may render twice. The permanent Render loop also
-updates layers and the optional performance profile on every idle frame.
+owner: the former `PixiRenderEngine.startFrameLoop(...)` started the Pixi
+Application ticker, whose own auto-render callback remained installed. The
+Asyra dirty gate could skip its manual flush while Pixi still rendered the full
+empty canvas every animation frame; a dirty frame could render twice. The
+former permanent Render loop also updated layers and the optional performance
+profile on every idle frame.
 
 Demand-driven render frame ownership therefore moves before the receiver
 endpoint. This safety correction does not claim Render is the dominant
 collaboration convergence owner and does not add a Render-engine bulk command.
+
+The post-refactor guarded comparison used the same production artifact and
+0-element phase sequence. The client-browser role fell from approximately
+31.9 to 6.6 percent for one ordinary local Actor, from 30.6 to 5.4 percent for
+one profiled local Actor, from 29.4 to 4.6 percent for one collaboration-ready
+Actor A, and from 46.4 to 8.2 percent after both Actors connected. Both Actors
+retained zero canonical/rendered elements and zero publications; the WebSocket
+server remained approximately zero after readiness. The browser run did not
+trigger the 200-percent diagnostic stop, and all four tracked process groups
+closed normally. These decayed host samples remain safety/attribution evidence,
+not product wall-time budgets, but their like-for-like reduction satisfies the
+required low-load checkpoint before the one guarded high-detail proof.
+
+The first formal high-detail attempt then stopped during cold bootstrap at 178
+percent aggregate CPU under the superseded 150-percent limit while Actor A and
+Actor B both remained at zero elements and zero publications. No App owner
+timing or creation work had started. The stopped harness opened both Actor
+contexts and navigated them in parallel before its first authenticated
+heartbeat, unlike the accepted staged diagnostic.
+The revised proof therefore accepts one guard-ready heartbeat before the first
+Actor context, brings Actor A through navigation, App readiness, and
+Collaboration readiness before Actor B is created, and reports every bootstrap
+phase through bounded heartbeats. Only after Actor B also settles does the
+unchanged reference/creation route begin; creation timing still starts at the
+same exact 7,076-element request and excludes all staged harness bootstrap.
+
+A later staged run proved that bootstrap correction, but the still-stale
+150-percent proof configuration incorrectly stopped creation at 169.4 percent
+with both Actors at one canonical Group, zero rendered children, and zero
+publications. That stop is threshold-configuration evidence, not an ineffective
+product architecture attempt. The product owner's explicit 200-percent limit
+now governs build diagnostics and the authenticated endpoint proof; only a
+sample above 200 percent is a CPU-limit failure.
+
+The corrected 200-percent proof then stopped 1.281 seconds after the exact
+creation request when aggregate test-owned CPU reached 210.5 percent. The
+client-browser process group contributed 206 percent, while the App preview,
+WebSocket server, and harness contributed approximately 1.9, 1.1, and 1.5
+percent. Both Actors still reported one canonical element, zero Render
+projection elements, and zero publications. That one canonical element is the
+empty document Workspace created during Scene Tree initialization; Workspace
+is deliberately absent from ordinary Render. It is not evidence that the AI
+Group or first children batch was created.
+
+The guard samples process CPU every 250 milliseconds, while the App heartbeat
+can be delayed by a busy renderer and currently reports only the latest
+completed owner phase. The 210.5-percent CPU sample and the retained Actor
+counts are therefore not a co-temporal snapshot. The latest completed phase was
+`ai-app:prepare-composition-slices`; no later phase had completed when the last
+heartbeat was captured. This does not prove which phase was active when the
+later CPU sample crossed the limit, and therefore does not yet exclude Group,
+Core, publication, remote apply, or Render ownership. The first unresolved
+interval begins after the last completed slice-preparation phase and ends at
+the first phase-start/phase-end evidence captured around the guard stop.
+
+On macOS, the current `ps %cpu` signal is a decaying average over as much as
+approximately one minute rather than an instantaneous phase measurement. The
+current connectivity diagnostic also reuses one Chrome process across ordinary
+local, profiled local, and collaboration contexts, so browser startup and
+navigation work can remain in later idle and CRDT samples. The signal remains a
+conservative 200-percent host-safety stop, but it is formally excluded from
+owner attribution. Owner effectiveness instead uses cumulative OS process CPU
+time sampled at atomic phase boundaries and reports each role's CPU-time delta,
+wall time, and average core use.
+
+### Pre-canonical owner attribution
+
+The 7,076-element proof remains paused until the measurement owner first
+removes cross-phase contamination and then separates the first chronological
+product owner without another high-detail run. The attribution sequence is
+deliberately smaller than an endpoint acceptance proof:
+
+1. Run each local attribution case in its own invocation with a fresh browser
+   process group and App preview. Do not start the WebSocket server, do not use
+   `fileId`, require only harness/browser/App process roles, and assert that
+   Collaboration is unavailable.
+2. Run one guarded production single-Actor 16-item cat-prefix case. The current
+   fixture still parses the complete cat source before slicing to 16 items, so
+   this case preserves provider cold-load work while making canonical work
+   negligible.
+3. If that case crosses 200 percent, run the same 16-item case once with reduced
+   motion. A material reduction with equivalent plan and canonical evidence
+   assigns the first owner to the loading compositor; no material reduction
+   assigns it to provider cold materialization.
+4. If the 16-item case stays below 200 percent, run one guarded production
+   single-Actor 1,280-item cat-prefix case. It preserves the same source and
+   ordinary Vector route while increasing runtime normalization, schema,
+   preview, and canonical work.
+5. Only if the single-Actor 1,280-item result cannot distinguish pre-canonical
+   work from collaboration overhead may one two-Actor 1,280-item case run.
+
+These attribution cases report separate provider materialization, runtime plan
+preparation, action-schema preparation, confirmation-preview projection,
+loading paint, Group, first plural children batch, and Actor target task/script
+timing. The guard captures cumulative process CPU time before atomically
+opening or closing an owner boundary; phase attribution uses the resulting
+CPU-time delta divided by wall time, never the decayed `%cpu` maximum. Each
+owner boundary also records both start and completion evidence with its own
+timestamp, while the report labels every safety sample with heartbeat age and
+never turns a stale latest-completed phase into an active-owner claim. They
+retain the 200-percent stop and terminate the exact test-owned process groups.
+They never create an accepted endpoint baseline, never count as a 7,076
+architecture attempt, and cannot establish product equivalence. The resulting
+attribution artifact routes to exactly one owner contract—Mock provider
+materialization, Runtime candidate preparation, App loading paint, local
+canonical composition, or receiver/collaboration admission. Only that selected
+owner receives one complete architecture replan, focused formal tests, and one
+implementation. Only then may the guarded 7,076 proof run again.
 
 ### Rejected compression candidate
 
@@ -303,7 +412,7 @@ the guard confirms ownership and active CPU sampling for the fixed
 `test-harness`, `client-browser`, `app-server`, and `websocket-server` roles. A
 missing or rejected registration or handshake prevents the request from
 starting. The guard samples only these exact test-owned process groups. The
-150-percent safety decision uses their aggregate CPU, while the report retains
+200-percent safety decision uses their aggregate CPU, while the report retains
 separate role CPU so browser App work, local preview overhead, WebSocket server
 work, and test-harness overhead are not attributed to one another. The
 benchmark sends one bounded heartbeat without walking or hashing the canonical
@@ -312,7 +421,7 @@ samples run at most 250 milliseconds apart.
 
 The fixed limits cannot be relaxed through runner configuration:
 
-- any single aggregate test-owned process-tree sample above 150 percent CPU,
+- any single aggregate test-owned process-tree sample above 200 percent CPU,
   which stops the benchmark immediately and marks that architecture attempt
   invalid;
 - no heartbeat for 10 seconds while the process tree remains above the ordinary
@@ -377,7 +486,8 @@ baseline. No ineffective attempt is committed.
 Authorized mutation scope:
 
 - `@asyra/factory`, `@asyra/props-manager`, `@asyra/scene-tree`, `@asyra/core`,
-  `@asyra/collaboration`, `@asyra/preset`, and `@asyra/render`;
+  `@asyra/collaboration`, `@asyra/preset`, `@asyra/render`, and
+  `@asyra/ai-agent-runtime`;
 - Asyra Design AI actions, common APIs, UI projection, Contents,
   Collaboration adapter, codec worker, reference WebSocket server, profiling,
   and formal tests;
@@ -421,6 +531,45 @@ validated AI descriptor
 → one remote Factory transaction per source publication
 → peer Preset/Render/UI projection
 ```
+
+### Validated AI Plan Artifact Contract
+
+`@asyra/ai-agent-runtime` owns one candidate-to-execution trust boundary:
+
+- `prepareAiProviderPlan(providerOutput, registry)` is the only public
+  candidate-plan preparation API. The former separate normalization and
+  validation passes are removed rather than retained as compatibility modes.
+- Runtime first preflights the complete plan shell—plan id, explanation, action
+  ids and names, empty plan, duplicate ids, and unknown actions—without cloning
+  action arguments. No action schema runs until the complete shell passes.
+- Each registered action schema is the sole owner of preparing its raw
+  `arguments: unknown`. One successful schema result contains one deeply
+  immutable, detached execution value and one bounded redaction-ready summary.
+  Runtime does not clone the prepared value again.
+- Permission and execution consume the same prepared value identity.
+  Confirmation and terminal preview consume only the bounded summary; neither
+  retains nor redacts the complete geometry graph.
+- The action-definition contract receives no sync/async, large-payload,
+  delivery, progressive, loading, or collaboration mode. A custom schema is
+  responsible for satisfying the immutable prepared-value contract; Runtime
+  does not add a second defensive graph copy for custom code that violates it.
+- Asyra Design's insert-composition schema prepares accepted/skipped role
+  evidence, exact group bounds, immutable items, and per-item point counts in
+  its one validation pass. The executor derives progressive ranges from those
+  point counts but still creates canonical topology and IDs only in the
+  ordinary App common API and plural Core route.
+- The deterministic Mock provider does not deep-freeze an untrusted candidate
+  to imitate Runtime ownership. If provider materialization is the attributed
+  owner, its static vector source becomes record-indexed or statically
+  partitioned data so a requested prefix does not read, decode, tokenize, or
+  materialize bytes belonging only to later records. A formal sentinel/reader
+  test must fail if a 16-, 320-, or 1,280-item request touches record N+1.
+  Full-detail output retains every item, point, role, order, and style.
+
+The prepared plan is local, noncanonical, and nonshared. It neither creates nor
+combines shared props, shared components, shared elements, Factory
+publications, or CRDT data. Those remain owned by their existing canonical and
+shared-data boundaries.
 
 ### Bulk Mutation Contract
 
@@ -1019,34 +1168,52 @@ immediately following endpoint proof have no P0-P2 finding:
    BDD only.
 2. `evaluate-endpoint-performance`: first implement and formally test the
    creation-only benchmark, heartbeat, process-tree resource guard, termination,
-   and bounded report. This infrastructure step runs no 7,000-plus workload
-   until its own unit/integration gates pass.
+   bounded report, and pre-canonical 16/1,280-item attribution path. This
+   infrastructure step runs no further 7,000-plus workload until its
+   unit/integration gates identify the first chronological owner.
 3. `project-visible-canonical-slices`: replace Pixi Application auto-render
    ownership with demand-driven framework frames, bound the optional performance
-   evidence, retain the ordinary Vector projection path, then run the guarded
-   7,076 endpoint proof. If the 0-element comparison does not materially reduce
-   browser CPU, replan this owner before any high-detail proof.
-4. `admit-receiver-publication-frames`: retain valid committed ingress work,
+   evidence, and retain the ordinary Vector projection path. Its accepted
+   zero-element comparison remains valid, but the 210.5-percent pre-canonical
+   stop creates no accepted high-detail baseline for Render.
+4. Follow exactly one attribution branch:
+   - `materialize-bounded-mock-provider-prefix` only when provider
+     materialization is proven; remove full-source read/decode/tokenization for
+     prefix requests without changing items, points, order, styles, or the
+     ordinary action route.
+   - `prepare-validated-ai-plan-artifact` only when Runtime/schema/preview
+     preparation is proven; prepare one immutable validated action artifact and
+     bounded preview rather than retaining parallel geometry graphs.
+   - `yield-ai-loading-paint` only when the reduced-motion control proves the
+     loading compositor boundary; retain visible progress and allowed pan/zoom
+     without an unbounded animation loop.
+   - `stage-local-interactive-composition` when co-temporal phase evidence
+     proves Group, topology, or plural Core work is first.
+   - `admit-receiver-publication-frames` when only the two-Actor control proves
+     receiver/collaboration admission is first.
+   Focused 16/1,280 gates run for the selected branch before one guarded 7,076
+   proof. Unselected branches receive no production edit.
+5. `admit-receiver-publication-frames`: retain valid committed ingress work,
    move the browser WebSocket data plane and wire credit into the Dedicated
    Worker, remove main-thread clone/freeze and duplicate header ownership, add
    receiver timing, then run the guarded 7,076 endpoint proof. If ineffective,
    replan only this owner before a second attempt.
-5. `apply-canonical-property-scene-batch`: replace N scalar source evidence
+6. `apply-canonical-property-scene-batch`: replace N scalar source evidence
    with one complete Props batch and one plural Scene event per Core request,
    then run the guarded endpoint proof.
-6. `record-and-deliver-transaction-batch`: reduce Factory and required shared
+7. `record-and-deliver-transaction-batch`: reduce Factory and required shared
    pub/sub to one immutable history artifact plus one ordered shared batch view,
    then run the guarded endpoint proof.
-7. `apply-remote-publication-batches`: consume worker-valid evidence once and
+8. `apply-remote-publication-batches`: consume worker-valid evidence once and
    apply one linear Core request in one remote transaction, then run the guarded
    endpoint proof.
-8. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
+9. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
    admission, peer byte capacity, and independent receipts, then run the guarded
    endpoint proof.
-9. `encode-publication-frames`: remove redundant main-thread payload ownership
+10. `encode-publication-frames`: remove redundant main-thread payload ownership
    and retain one worker binary encode/decode boundary, then run the guarded
    endpoint proof.
-10. `evaluate-performance-and-equivalence`: after every endpoint is effective
+11. `evaluate-performance-and-equivalence`: after every endpoint is effective
     or formally non-material, run the final formal correctness, performance,
     and synchronized visual closure.
 
@@ -1094,6 +1261,11 @@ two-Actor collaboration proof.
 
 - Contract: exact owners, graph routes, artifacts, allowlists, failure owners,
   plan anchors, and BDD scenarios.
+- AI plan preparation: complete shell preflight before schema work, one schema
+  preparation per action, prepared-value identity through permission and
+  execution, bounded preview with no geometry, later-invalid no-prefix
+  behavior, and exact 16/320/1,280 item, role, order, bounds, and point-count
+  equivalence.
 - Contents: real 100+ row virtualizer unit/integration case, tail scrolling,
   bounded DOM rows, collapse, and selection.
 - Factory: one immutable artifact, one history action, full Undo/Redo, no

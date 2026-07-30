@@ -24,8 +24,189 @@
 
   const steps = [
     {
-      id: 'project-scrollable-contents-window',
+      id: 'materialize-bounded-mock-provider-prefix',
+      order: 1,
+      laneId: 'app-canonical',
+      title: 'Materialize only the requested Mock provider prefix',
+      ownerPackage: 'Asyra Design deterministic Mock provider',
+      purpose:
+        'Load, decode, tokenize, transform, and materialize only the requested deterministic vector records while preserving exact full-detail output and the ordinary provider-to-Runtime route.',
+      inputs: [
+        'artifact:precanonical-owner-attribution',
+        'deterministic cat vector source',
+        'requested fixture item count'
+      ],
+      outputs: [
+        'artifact:mock-provider-plan-candidate',
+        'artifact:provider-materialization-timing'
+      ],
+      conditions: [
+        'This step is selected only when guarded CPU-time attribution identifies Mock provider materialization as the first material owner.',
+        'The source is record-indexed or statically partitioned so a prefix request does not read, decode, tokenize, transform, or materialize bytes belonging only to later records.',
+        'A formal sentinel or bounded reader proves that 16-, 320-, and 1,280-item requests never touch record N+1.',
+        'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
+        'The provider returns an untrusted candidate and does not deep-freeze it to imitate Runtime ownership.'
+      ],
+      bypasses: [
+        'A full-detail request consumes every source record through the same loader.',
+        'When CPU-time attribution selects another owner, this step receives no production edit.'
+      ],
+      allowedContributors: [
+        'artifact:precanonical-owner-attribution',
+        'Asyra Design deterministic fixture data',
+        'bounded record index or static source partitions',
+        'ordinary Mock provider contract'
+      ],
+      forbiddenContributors: [
+        'reading or decoding the complete source before slicing a prefix',
+        'JavaScript raw-string module parse as the prefix source boundary',
+        'fixture-specific geometry simplification',
+        'provider-selected canonical ids',
+        'Runtime, Core, Render, or Collaboration behavior flags'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/ai/mock-provider.ts',
+        'apps/asyra-design/src/ai/__tests__/mock-provider.test.ts',
+        'apps/asyra-design/src/ai/fixtures'
+      ],
+      specRefs: [
+        '#pre-canonical-owner-attribution',
+        '#validated-ai-plan-artifact-contract',
+        '#non-negotiable-equivalence',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'materialize-bounded-mock-provider-prefix'
+    },
+    {
+      id: 'prepare-validated-ai-plan-artifact',
       order: 2,
+      laneId: 'app-canonical',
+      title: 'Prepare one validated AI plan artifact',
+      ownerPackage: '@asyra/ai-agent-runtime candidate preparation',
+      purpose:
+        'Preflight one complete provider plan shell, delegate each raw action argument exactly once to its registered schema owner, and hand permission, confirmation, and execution one immutable prepared value plus one bounded preview summary without retaining parallel full geometry graphs.',
+      inputs: [
+        'artifact:precanonical-owner-attribution',
+        'artifact:mock-provider-plan-candidate',
+        'untrusted provider candidate output',
+        'registered action definitions and schemas',
+        'runtime redaction policy'
+      ],
+      outputs: [
+        'artifact:validated-ai-plan',
+        'artifact:bounded-ai-plan-preview',
+        'artifact:ai-plan-ingestion-timing'
+      ],
+      conditions: [
+        'This step is selected for production edits only when guarded CPU-time attribution identifies Runtime, action-schema preparation, or preview projection as the first material owner.',
+        'prepareAiProviderPlan(providerOutput, registry) is the only public candidate-plan preparation path; separate normalize-then-validate compatibility APIs are removed.',
+        'Runtime preflights the complete plan id, explanation, action ids, action names, empty-plan rule, duplicate ids, and unknown actions before any action schema runs.',
+        'Raw action arguments remain unknown and are not recursively cloned by Runtime before their registered schema owner prepares them.',
+        'One successful action schema result owns one deeply immutable detached execution value and one bounded redaction-ready summary.',
+        'Permission and execution receive the exact same prepared value identity; Runtime performs no post-schema recursive detach or freeze.',
+        'Confirmation and terminal preview retain and redact only the bounded summary, never complete item, path, point, or geometry arguments.',
+        'Asyra Design insert preparation validates and creates immutable items, accepted and skipped role evidence, exact group bounds, and per-item point counts in one pass while canonical topology and ids remain App common API and Core responsibilities.',
+        'The prepared plan remains local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
+      ],
+      bypasses: [
+        'An invalid plan shell fails before any action schema or executor runs.',
+        'A failed later action schema produces no prepared plan prefix.',
+        'A no-confirmation permission result still creates only the bounded terminal preview and never a full-argument preview.'
+      ],
+      allowedContributors: [
+        '@asyra/ai-agent-runtime plan and action registry owners',
+        'registered Asyra Design action schemas',
+        'runtime redaction of bounded summaries',
+        'artifact:precanonical-owner-attribution'
+      ],
+      forbiddenContributors: [
+        'provider-selected canonical ids',
+        'Runtime recursive cloning before and after action-schema preparation',
+        'complete geometry in confirmation or terminal preview',
+        'compatibility modes for separate normalization and validation',
+        'large-payload, sync, async, delivery, progressive, loading, or collaboration flags on action definitions',
+        'AI-owned shared props, shared components, shared elements, Factory publications, or CRDT state',
+        'fixture-specific item, point, payload, or composition ceilings'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/ai-agent-runtime/src',
+        'packages/ai-agent-runtime/src/__tests__',
+        'apps/asyra-design/src/ai/actions.ts',
+        'apps/asyra-design/src/ai/confirmation.ts',
+        'apps/asyra-design/src/ai/__tests__',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/packages/ai-agent-runtime.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md'
+      ],
+      specRefs: [
+        '#pre-canonical-owner-attribution',
+        '#validated-ai-plan-artifact-contract',
+        '#bulk-mutation-contract',
+        '#non-negotiable-equivalence',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'prepare-validated-ai-plan-artifact'
+    },
+    {
+      id: 'yield-ai-loading-paint',
+      order: 2,
+      laneId: 'projection-ui',
+      title: 'Yield one bounded AI loading paint',
+      ownerPackage: 'Asyra Design AI progress presentation',
+      purpose:
+        'Show the confirmed drawing bounds and progress state without an unbounded loading animation while keeping pan and zoom responsive before canonical slices begin.',
+      inputs: [
+        'artifact:precanonical-owner-attribution',
+        'artifact:validated-ai-plan',
+        'confirmed drawing bounds and item count'
+      ],
+      outputs: [
+        'artifact:visible-loading-boundary',
+        'artifact:loading-paint-timing'
+      ],
+      conditions: [
+        'This step is selected only when an equivalent reduced-motion control materially lowers CPU-time attribution at the loading compositor boundary.',
+        'One bounded paint makes the confirmed frame or background and progress state visible before canonical mutation begins.',
+        'Pan and zoom remain available through the dedicated viewport interaction path while every mutating document action remains locked.',
+        'The loading affordance has no permanent animation, ticker, or invalidation loop.'
+      ],
+      bypasses: [
+        'When attribution selects another owner, existing loading behavior receives no production edit.',
+        'Failure or cancellation clears progress through the existing transaction and interaction-lock boundary.'
+      ],
+      allowedContributors: [
+        'artifact:precanonical-owner-attribution',
+        'artifact:validated-ai-plan',
+        'Asyra Design drawing progress state',
+        'dedicated pan and zoom interaction bus'
+      ],
+      forbiddenContributors: [
+        'a second document mutation bus',
+        'canonical mutation before the loading boundary is visible',
+        'unbounded CSS or JavaScript animation work',
+        'disabling pan or zoom while waiting',
+        'enabling any other document action'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/ai/actions.ts',
+        'apps/asyra-design/src/init/ai-drawing-progress.ts',
+        'apps/asyra-design/src/render-app',
+        'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/src/render-app/__tests__'
+      ],
+      specRefs: [
+        '#pre-canonical-owner-attribution',
+        '#current-local-interactive-drawing-closure',
+        '#step-local-gates'
+      ],
+      failureOwnerStepId: 'yield-ai-loading-paint'
+    },
+    {
+      id: 'project-scrollable-contents-window',
+      order: 3,
       laneId: 'projection-ui',
       title: 'Project a scrollable Contents window',
       ownerPackage: 'Asyra Design Contents',
@@ -132,7 +313,7 @@
     },
     {
       id: 'apply-canonical-property-scene-batch',
-      order: 2,
+      order: 4,
       laneId: 'app-canonical',
       title: 'Apply one canonical property and Scene Tree batch',
       ownerPackage: '@asyra/core canonical batch facade',
@@ -206,14 +387,16 @@
     },
     {
       id: 'stage-local-interactive-composition',
-      order: 1,
+      order: 3,
       laneId: 'app-canonical',
       title: 'Stage one local interactive composition',
       ownerPackage: 'Asyra Design AI composition interaction',
       purpose:
         'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
       inputs: [
-        'validated AI composition descriptor',
+        'artifact:validated-ai-plan',
+        'artifact:bounded-ai-plan-preview',
+        'artifact:visible-loading-boundary',
         'production App Mock AI startup with progressive default and explicit atomic measurement opt-in',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
@@ -772,6 +955,9 @@
       purpose:
         'Run exactly one production two-Actor 7,076-element creation proof immediately after each completed endpoint refactor, compare only its owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
       inputs: [
+        'artifact:provider-materialization-timing',
+        'artifact:ai-plan-ingestion-timing',
+        'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
         'artifact:factory-batch-timing',
@@ -785,21 +971,33 @@
       outputs: [
         'artifact:accepted-endpoint-baseline',
         'artifact:endpoint-performance-proof',
+        'artifact:precanonical-owner-attribution',
         'artifact:resource-guard-stop-proof'
       ],
       conditions: [
         'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
         'A local-only endpoint may additionally use one single-Actor 7,112-element creation, but it cannot replace the two-Actor proof for a collaboration endpoint.',
         'The guard authenticates one ready heartbeat and confirms process ownership and CPU sampling before the 7,076-element request may start.',
-        'A fixed tracked process registry contains only test-harness, client-browser, app-server, and websocket-server; aggregate CPU above 150 percent stops the proof while the bounded report keeps separate role CPU for product, local server, and harness attribution.',
-        'A bounded heartbeat reports the current phase, Actor A and Actor B canonical element counts, publication progress, test-owned process-tree CPU, and latest owner timing without walking the full canonical graph.',
+        'A guard-ready heartbeat is accepted before the first Actor context is created; Actor A reaches collaboration ready before Actor B context creation, and every staged harness bootstrap phase stays outside product timing.',
+        'A fixed tracked process registry contains only test-harness, client-browser, app-server, and websocket-server; the macOS decayed ps CPU signal above 200 percent is a conservative host-safety stop only, while the bounded report keeps separate role CPU for product, local server, and harness attribution.',
+        'A local-only attribution invocation starts a fresh browser process group and App preview, starts no WebSocket server, requires only test-harness, client-browser, and app-server roles, navigates without fileId, and proves Collaboration remains unavailable.',
+        'Each local-only invocation measures exactly one 16-item, reduced-motion 16-item, or 1,280-item case so a preceding Chrome startup or navigation decay cannot contaminate a later case.',
+        'Owner and phase effectiveness use cumulative OS process CPU-time deltas divided by the exact wall-time boundary, reported separately per role; decayed ps percent and phaseCpuMaximums are never used as owner attribution.',
+        'The guard captures the process CPU-time snapshot before atomically opening or closing a phase boundary; a concurrent later heartbeat cannot relabel an earlier CPU snapshot.',
+        'A bounded heartbeat reports the latest completed phase, any currently active started phase, its capture time, Actor A and Actor B canonical element counts, publication progress, and latest completed owner timing without walking the full canonical graph; the guard records a separate safety-signal sample time and heartbeat age rather than presenting the values as co-temporal.',
         'The production performance profile provides O(1) canonical, Render projection, Factory publication, and history scalar queries; Render projection counts remain uncapped so over-projection is reported as a correctness failure.',
         'The ordinary Playwright suite always excludes the guarded endpoint spec even if guard environment variables leak into that process.',
         'The 250-millisecond cadence is armed before the immediate first CPU sample, every sample has a 200-millisecond hard timeout, and guard SIGINT, SIGTERM, SIGHUP, exceptional exit, sampling failure, or benchmark failure terminates only the fixed registered process groups.',
         'A complete heartbeat is accepted only when both Actors remain exactly complete with canonical and uncapped Render projection element counts equal to total and one bounded endpoint report is valid; late over-projection cannot reuse an earlier success report.',
-        'A single test-owned process-tree sample above 150 percent CPU stops the benchmark immediately and marks the active architecture attempt invalid; configuration cannot relax that limit.',
+        'A single test-owned process-tree sample above 200 percent CPU stops the benchmark immediately and marks the active architecture attempt invalid; configuration cannot relax that limit.',
         'CPU above the fixed limit, a stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline fails the active endpoint immediately.',
         'On resource failure the guard terminates tracked Playwright, headless browser, App server, and collaboration server processes before returning the last completed phase, Actor A and Actor B element counts, CPU samples, publication progress, and owner timing.',
+        'A resource stop whose last captured heartbeat precedes the first completed canonical Group pauses the 7,076-element proof but does not claim which owner was active; corrected phase-boundary CPU-time evidence permits one guarded single-Actor 16-item cat-prefix attribution case.',
+        'If the 16-item attribution case crosses 200 percent, exactly one equivalent reduced-motion 16-item control separates loading-compositor work from provider cold materialization.',
+        'If the 16-item attribution case remains below 200 percent, one guarded single-Actor 1,280-item cat-prefix case separates provider materialization, runtime plan preparation, action-schema preparation, bounded preview, loading paint, Group, and first plural children-batch timing.',
+        'A two-Actor 1,280-item attribution case is allowed only when the fresh local-only single-Actor result cannot separate pre-canonical work from collaboration overhead.',
+        'The completed attribution artifact selects exactly one next owner route: Mock provider materialization, Runtime candidate preparation, App loading paint, local canonical composition, or receiver frame admission.',
+        'Attribution cases retain the fixed 200-percent guard and exact process termination, but never create an accepted endpoint baseline, never count as a 7,076 architecture attempt, and cannot establish product equivalence.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
         'Success preserves exact canonical IDs, order, detail, topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
         'Effectiveness requires the owned failing budget to become green or the owned structural, span, or queue metric to improve by at least 15 percent without an adjacent critical owner regressing more than 15 percent.',
@@ -809,6 +1007,7 @@
       bypasses: [
         'The creation-only endpoint proof never runs the complete two-window recording or full three-turn flow.',
         'The first receiver endpoint does not require artifact:accepted-endpoint-baseline because the retained pre-refactor evidence is its fixed seed.',
+        'The bounded 16-item and 1,280-item attribution cases locate the first chronological owner after a pre-canonical resource stop; they do not replace the exact 7,076-element endpoint proof.',
         'An owner proven below five percent of product time remains unchanged rather than receiving a speculative optimization.',
         'Contents and production persistence are outside this endpoint proof.'
       ],
@@ -816,6 +1015,7 @@
         'production Asyra Design App and collaboration server',
         'authenticated guard-ready handshake',
         'detached O(1) runtime counters',
+        'detached Actor-target task and script timing',
         'tracked test-owned process ids',
         'declared owner timing artifacts',
         'one terminal bounded canonical equivalence summary'
@@ -825,6 +1025,11 @@
         'full canonical snapshot polling in the heartbeat',
         'video, screenshots, trace, or CPU profiling',
         'harness overhead attributed to a product owner',
+        'treating a stale heartbeat as co-temporal with a later CPU sample',
+        'using macOS decayed ps percent or phaseCpuMaximums as phase-owner attribution',
+        'reusing one browser process across local-only attribution cases',
+        'starting the WebSocket server for a local-only attribution case',
+        'using a small attribution case as an endpoint acceptance proof',
         'continuing after a resource guard failure',
         'committing an ineffective endpoint attempt'
       ],
@@ -870,6 +1075,9 @@
       purpose:
         'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
+        'artifact:provider-materialization-timing',
+        'artifact:ai-plan-ingestion-timing',
+        'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
         'artifact:factory-mutation-batch-artifact',
@@ -941,6 +1149,89 @@
   ]
 
   const routes = [
+    {
+      id: 'route-mock-provider-candidate-to-runtime',
+      from: 'materialize-bounded-mock-provider-prefix',
+      to: 'prepare-validated-ai-plan-artifact',
+      kind: 'candidate',
+      predicate:
+        'The deterministic Mock provider produced one untrusted candidate without reading source records outside the requested range.',
+      producedArtifacts: ['artifact:mock-provider-plan-candidate']
+    },
+    {
+      id: 'route-validated-ai-plan-to-composition',
+      from: 'prepare-validated-ai-plan-artifact',
+      to: 'yield-ai-loading-paint',
+      kind: 'handoff',
+      predicate:
+        'The complete provider plan shell and every registered action schema prepared successfully.',
+      producedArtifacts: [
+        'artifact:validated-ai-plan',
+        'artifact:bounded-ai-plan-preview'
+      ]
+    },
+    {
+      id: 'route-loading-boundary-to-composition',
+      from: 'yield-ai-loading-paint',
+      to: 'stage-local-interactive-composition',
+      kind: 'paint-boundary',
+      predicate:
+        'The confirmed bounds and bounded progress state reached one browser paint opportunity.',
+      producedArtifacts: ['artifact:visible-loading-boundary']
+    },
+    {
+      id: 'route-provider-materialization-timing-to-endpoint-proof',
+      from: 'materialize-bounded-mock-provider-prefix',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The deterministic provider emitted bounded source-read and materialization timing.',
+      producedArtifacts: ['artifact:provider-materialization-timing']
+    },
+    {
+      id: 'route-provider-materialization-timing-to-final-proof',
+      from: 'materialize-bounded-mock-provider-prefix',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'The accepted provider architecture emitted bounded final source-read and materialization timing.',
+      producedArtifacts: ['artifact:provider-materialization-timing']
+    },
+    {
+      id: 'route-loading-paint-timing-to-endpoint-proof',
+      from: 'yield-ai-loading-paint',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate: 'The loading boundary emitted bounded paint timing.',
+      producedArtifacts: ['artifact:loading-paint-timing']
+    },
+    {
+      id: 'route-loading-paint-timing-to-final-proof',
+      from: 'yield-ai-loading-paint',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'The accepted loading boundary emitted bounded final paint timing.',
+      producedArtifacts: ['artifact:loading-paint-timing']
+    },
+    {
+      id: 'route-ai-plan-ingestion-timing-to-endpoint-proof',
+      from: 'prepare-validated-ai-plan-artifact',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'Provider materialization and candidate-to-prepared plan owners emitted bounded timing.',
+      producedArtifacts: ['artifact:ai-plan-ingestion-timing']
+    },
+    {
+      id: 'route-ai-plan-ingestion-timing-to-final-proof',
+      from: 'prepare-validated-ai-plan-artifact',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'The accepted validated-plan architecture emitted bounded final timing.',
+      producedArtifacts: ['artifact:ai-plan-ingestion-timing']
+    },
     {
       id: 'route-composition-batches-to-canonical',
       from: 'stage-local-interactive-composition',
@@ -1317,6 +1608,51 @@
       producedArtifacts: ['artifact:resource-guard-stop-proof']
     },
     {
+      id: 'route-attribution-to-mock-provider',
+      from: 'evaluate-endpoint-performance',
+      to: 'materialize-bounded-mock-provider-prefix',
+      kind: 'bounded-attribution',
+      predicate:
+        'Fresh single-Actor phase-boundary CPU-time evidence identifies deterministic Mock provider source reading or materialization as the first material owner.',
+      producedArtifacts: ['artifact:precanonical-owner-attribution']
+    },
+    {
+      id: 'route-attribution-to-runtime-preparation',
+      from: 'evaluate-endpoint-performance',
+      to: 'prepare-validated-ai-plan-artifact',
+      kind: 'bounded-attribution',
+      predicate:
+        'Fresh single-Actor phase-boundary CPU-time evidence identifies Runtime normalization, action-schema preparation, or preview projection as the first material owner.',
+      producedArtifacts: ['artifact:precanonical-owner-attribution']
+    },
+    {
+      id: 'route-attribution-to-loading-paint',
+      from: 'evaluate-endpoint-performance',
+      to: 'yield-ai-loading-paint',
+      kind: 'bounded-attribution',
+      predicate:
+        'An equivalent fresh reduced-motion control materially lowers loading-boundary CPU-time while preserving the same plan and canonical result.',
+      producedArtifacts: ['artifact:precanonical-owner-attribution']
+    },
+    {
+      id: 'route-attribution-to-local-composition',
+      from: 'evaluate-endpoint-performance',
+      to: 'stage-local-interactive-composition',
+      kind: 'bounded-attribution',
+      predicate:
+        'Fresh single-Actor phase-boundary CPU-time evidence identifies Group, topology, plural Core request, or cooperative local projection as the first material owner.',
+      producedArtifacts: ['artifact:precanonical-owner-attribution']
+    },
+    {
+      id: 'route-attribution-to-receiver-admission',
+      from: 'evaluate-endpoint-performance',
+      to: 'admit-receiver-publication-frames',
+      kind: 'bounded-attribution',
+      predicate:
+        'Only the separately invoked two-Actor control introduces the first material CPU-time owner at receiver or collaboration admission.',
+      producedArtifacts: ['artifact:precanonical-owner-attribution']
+    },
+    {
       id: 'route-performance-proof',
       from: 'evaluate-performance-and-equivalence',
       kind: 'terminal',
@@ -1326,6 +1662,72 @@
   ]
 
   const artifacts = [
+    {
+      id: 'artifact:mock-provider-plan-candidate',
+      ownerStepId: 'materialize-bounded-mock-provider-prefix',
+      channel: 'ordinary untrusted Mock provider output',
+      consumerStepIds: ['prepare-validated-ai-plan-artifact'],
+      terminal: false
+    },
+    {
+      id: 'artifact:provider-materialization-timing',
+      ownerStepId: 'materialize-bounded-mock-provider-prefix',
+      channel: 'detached source-read and provider materialization timing',
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:validated-ai-plan',
+      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      channel:
+        '@asyra/ai-agent-runtime immutable candidate-to-execution handoff',
+      consumerStepIds: [
+        'yield-ai-loading-paint',
+        'stage-local-interactive-composition'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:visible-loading-boundary',
+      ownerStepId: 'yield-ai-loading-paint',
+      channel: 'one bounded App DOM paint before canonical mutation',
+      consumerStepIds: ['stage-local-interactive-composition'],
+      terminal: false
+    },
+    {
+      id: 'artifact:loading-paint-timing',
+      ownerStepId: 'yield-ai-loading-paint',
+      channel: 'detached loading paint and compositor timing',
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:bounded-ai-plan-preview',
+      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      channel:
+        '@asyra/ai-agent-runtime bounded redaction-ready confirmation and terminal summary',
+      consumerStepIds: [
+        'yield-ai-loading-paint',
+        'stage-local-interactive-composition'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:ai-plan-ingestion-timing',
+      ownerStepId: 'prepare-validated-ai-plan-artifact',
+      channel: 'detached monotonic pre-canonical owner timing',
+      consumerStepIds: [
+        'evaluate-endpoint-performance',
+        'evaluate-performance-and-equivalence'
+      ],
+      terminal: false
+    },
     {
       id: 'artifact:composition-batch-sequence',
       ownerStepId: 'stage-local-interactive-composition',
@@ -1599,6 +2001,20 @@
       terminal: true
     },
     {
+      id: 'artifact:precanonical-owner-attribution',
+      ownerStepId: 'evaluate-endpoint-performance',
+      channel:
+        'fresh-process phase-boundary CPU-time attribution that selects exactly one provider, runtime, loading, canonical, or collaboration owner without endpoint acceptance',
+      consumerStepIds: [
+        'materialize-bounded-mock-provider-prefix',
+        'prepare-validated-ai-plan-artifact',
+        'yield-ai-loading-paint',
+        'stage-local-interactive-composition',
+        'admit-receiver-publication-frames'
+      ],
+      terminal: false
+    },
+    {
       id: 'artifact:resource-guard-stop-proof',
       ownerStepId: 'evaluate-endpoint-performance',
       channel:
@@ -1780,7 +2196,7 @@
       assertions: [
         'Receiver admission, canonical source mutation, Factory pub/sub, remote apply, relay, codec, and material Render/UI owners advance in evidence-ranked order.',
         'Every completed owner receives one creation-only 7,076-element proof before another owner starts, with exact A/B completion and owner timing evidence.',
-        'The process-tree guard terminates tracked test work on any sampled CPU above 150 percent, stale heartbeat, or stalled progress and reports the last phase plus Actor A/B element counts; a CPU-limit stop invalidates that architecture attempt.',
+        'The process-tree guard terminates tracked test work on any sampled CPU above 200 percent, stale heartbeat, or stalled progress and reports the last phase plus Actor A/B element counts; a CPU-limit stop invalidates that architecture attempt.',
         'An ineffective endpoint returns to its first incorrect owner for at most five materially revised attempts; the same focused failure three times stops earlier.'
       ],
       stepIds: [
