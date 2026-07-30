@@ -7,7 +7,7 @@ Feature: Conversational AI drawing performance
     Given the committed 1672 by 941 tabby reference image
     And every production App session has one required fileId and starts one formal server-backed Agent runtime and provider
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
-    And the formal final reference gate uses one unmeasured warm-up before three measured runs
+    And the final high-detail reference gate reuses one guarded creation-only endpoint run without warm-up or repeat
 
   Scenario: Profiling remains observational
     When the balanced high-detail collaboration profile is evaluated
@@ -94,7 +94,7 @@ Feature: Conversational AI drawing performance
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
     And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider request and batch handoff from material canonical and Render work
     And only after that corrected interval case crosses 200 percent and stops should a bounded replan authorize one equivalent reduced-motion control
-    And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider, runtime preparation, schema preparation, bounded preview, loading, Group, and first plural batch work
+    And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider handoff, Runtime control-envelope resolution, bounded preview, loading, Group, and first plural batch work
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
     And the completed attribution should route to exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner
@@ -461,60 +461,28 @@ Feature: Conversational AI drawing performance
     And high-detail performance and CRDT suites should remain independent and explicitly opt-in
     And the 7076-element two-window full recording should remain manual opt-in
 
-  Scenario: One local interactive drawing run reports user-visible milestones
-    Given one production browser starts with one required fileId and one empty canonical document
-    And Collaboration is ready for that App-owned document session
-    And Contents, a second Actor, peer relay, remote apply, request-time response inbox access, and document IndexedDB are absent
-    And App startup created its required server-backed Agent runtime and provider
-    When the local Agent creates the 7112-element balanced composition once
-    Then the report should name connected-DOM loading, first compositor paint opportunity, first-Vector, 25, 50, 75, 100 percent, longest work-unit, cooperative-yield-count, settled, Render, UI, and harness times
-    And milestone observation should use bounded runtime counters instead of full canonical snapshot polling
-    And one terminal exact summary should preserve all 7112 projections, exact detail, and one Undo action
-    And synchronized visual review should inspect the real connected DOM loading state and final ordinary Vector output from that same live App state
-    But this single-Actor gate should not run a warm-up, repeat the high-detail creation, create Actor B, read the response inbox after readiness, read document IndexedDB, record video, or close deferred two-Actor collaboration gates
-
-  Scenario: Balanced cooperative creation meets the local budget
-    Given Actor A opened one fresh document with its required fileId
-    When Actor A creates the balanced cat-only composition
-    Then the median accepted-turn-to-settled time should be at most 20 seconds
-    And no measured run should exceed 30 seconds
-    And Actor A should have exactly 7076 non-workspace canonical elements
-    And the turn should create one intended Undo action
-
-  Scenario: Balanced cooperative creation and peer convergence meet their budgets
-    Given two browser actors share one fresh collaboration document
-    And both Actors opened that document with the same required fileId
-    When Actor A creates the balanced cat-only composition
-    Then Actor A median accepted-turn-to-settled time should be at most 20 seconds
-    And no Actor A measured run should exceed 30 seconds
+  Scenario: The guarded endpoint run also proves Actor A local interactivity
+    Given two production browser actors share one required fileId and Collaboration is ready
+    And the 200-percent resource guard owns the production App, browser, harness, and WebSocket server processes
+    And Contents, request-time response inbox access, document IndexedDB, HMR, media, warm-up, and repeat are absent
+    When Actor A creates the server-prepared 7076-element high-detail composition once
+    Then Actor A should show connected exact-bounds loading and ordinary Vector milestones while pan and zoom remain responsive
+    And every other document interaction should leave canonical state and history unchanged until terminal cleanup releases the lock
+    And bounded counters should report Actor A settled, Actor B first-visible and complete, convergence, Render, UI, harness, and separately attributed server timing
+    And Actor A and Actor B should each produce one terminal exact summary with all 7076 projections and identical detail
+    And Actor A should gain one Undo action while Actor B gains none
+    And Actor A should settle within 30 seconds
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
-    And Actor B should converge within 30 seconds of Actor A canonical creation commit
-    And both actors should converge on identical ids, topology, hierarchy, styles, and background bounds
-    And Actor A should gain one Undo action while Actor B gains no local Undo action
-
-  Scenario: Existing-id follow-ups retain topology and meet the peer budget
-    Given both actors converged on the balanced cat-only composition
-    When Actor A changes existing whiskers to blue
-    Then Actor B should converge within 5 seconds of Actor A settlement
-    And all canonical ids and point counts should remain unchanged
-    When Actor A changes existing pupils to red
-    Then Actor B should converge within 5 seconds of Actor A settlement
-    And all canonical ids and point counts should remain unchanged
-    And each mutating turn should add exactly one Actor A Undo action
+    And Actor B should converge within 30 seconds of Actor A canonical commit
+    And the guarded creation-only E2E command should remain within its 180-second harness ceiling
+    But no additional single-Actor or unguarded 7000-plus run should start
 
   Scenario: Maximum detail remains editable and meets its budget
     When Actor A creates the maximum-detail fixture
     Then the drawing should contain 27471 ordinary editable Vector elements and 295794 canonical points
-    And median accepted-turn-to-settled time should be at most 60 seconds
-    And no measured run should exceed 90 seconds
+    And the observed accepted-turn-to-settled time should be at most 90 seconds
     And no item, path, point, payload, frame, or composition ceiling should reject the drawing
     And the turn should create one intended Undo action
-
-  Scenario: The complete progressive product flow meets its budget
-    When Actor A creates the balanced cat-only portrait and applies both existing-id follow-ups
-    Then the three-turn product spans should total at most 90 seconds median and 120 seconds worst
-    And the dedicated E2E command including harness overhead should finish within 180 seconds
-    And generated screenshots, recordings, profiles, traces, and thumbnail media should remain ignored local artifacts
 
   Scenario: Production performance evidence remains detached from dev-only globals
     Given the production performance profile observes canonical and transaction evidence

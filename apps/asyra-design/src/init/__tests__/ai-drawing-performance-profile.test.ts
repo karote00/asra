@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TransactionStatusPayload } from '@asyra/utils'
 import {
   attachAiDrawingPerformanceRuntimeEvidence,
+  isAiDrawingPerformanceProfileRequested,
   installAiDrawingPerformanceProfile,
-  recordAiDrawingPerformancePublication,
-  resolveAiDrawingPerformanceProfile
+  recordAiDrawingPerformancePublication
 } from '../performance/ai-drawing-performance-profile'
 
 const runtimeGlobal = globalThis as typeof globalThis & {
@@ -19,31 +19,23 @@ afterEach(() => {
 })
 
 describe('AI drawing performance profile', () => {
-  it('accepts one exact profiling configuration without an obsolete AI URL switch', () => {
+  it('enables detached profiling from one exact diagnostic opt-in', () => {
     expect(
-      resolveAiDrawingPerformanceProfile(
-        '?aiDelivery=progressive&aiPerformance=profile'
-      )
-    ).toEqual({
-      contentsMode: 'present',
-      deliveryMode: 'progressive'
-    })
+      isAiDrawingPerformanceProfileRequested('?aiPerformance=profile')
+    ).toBe(true)
     expect(
-      resolveAiDrawingPerformanceProfile(
-        '?aiDelivery=atomic&aiPerformance=profile&aiPerformanceContents=omitted'
+      isAiDrawingPerformanceProfileRequested(
+        '?fileId=fixture-16&aiPerformance=profile'
       )
-    ).toEqual({
-      contentsMode: 'omitted',
-      deliveryMode: 'atomic'
-    })
+    ).toBe(true)
 
     for (const search of [
       '',
+      '?aiPerformance=disabled',
       '?aiPerformance=profile&aiPerformance=profile',
-      '?aiPerformance=profile&aiPerformanceContents=hidden',
-      '?aiDelivery=progressive&aiDelivery=atomic&aiPerformance=profile'
+      '?aiPerformance='
     ]) {
-      expect(resolveAiDrawingPerformanceProfile(search)).toBeNull()
+      expect(isAiDrawingPerformanceProfileRequested(search)).toBe(false)
     }
   })
 
@@ -61,10 +53,6 @@ describe('AI drawing performance profile', () => {
       .mockReturnValueOnce(109)
 
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'present',
-        deliveryMode: 'atomic'
-      },
       now,
       runtime: 'production'
     })
@@ -74,15 +62,12 @@ describe('AI drawing performance profile', () => {
 
     const first = profile.snapshot()
     expect(first).toEqual({
-      configuration: {
-        contentsMode: 'present',
-        deliveryMode: 'atomic'
-      },
       counters: [{ atMs: 9, name: 'render:flush', value: 2 }],
       phases: [{ atMs: 4, durationMs: 3.5, name: 'ui-context:flush' }],
       releaseEvidenceEligible: false,
       runtime: 'production'
     })
+    expect(first).not.toHaveProperty('configuration')
     expect(profile.readLatestPhaseSample()).toEqual({
       atMs: 4,
       durationMs: 3.5,
@@ -102,10 +87,6 @@ describe('AI drawing performance profile', () => {
 
   it('reads one accumulated counter without materializing a full profile snapshot', () => {
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'present',
-        deliveryMode: 'progressive'
-      },
       now: () => 0,
       runtime: 'production'
     })
@@ -134,12 +115,75 @@ describe('AI drawing performance profile', () => {
     profile.dispose()
   })
 
+  it('bounds retained frame evidence without losing exact totals, latest phase, or release eligibility', () => {
+    const evidenceCapacity = 16_384
+    const profile = installAiDrawingPerformanceProfile({
+      now: () => 0,
+      runtime: 'production'
+    })
+
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
+    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
+      'ai-turn:accepted-to-settled',
+      12
+    )
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
+
+    for (let index = 0; index < evidenceCapacity; index += 1) {
+      runtimeGlobal.__asyraDiagnosticCounterSink?.('render-frame-count', 1)
+      runtimeGlobal.__asyraBrowserDragPhaseSink?.('render:flush-frame', index)
+    }
+
+    const snapshot = profile.snapshot()
+    expect(snapshot.counters).toHaveLength(evidenceCapacity)
+    expect(snapshot.phases).toHaveLength(evidenceCapacity)
+    expect(snapshot.counters[0]).toEqual({
+      atMs: 0,
+      name: 'render-frame-count',
+      value: 1
+    })
+    expect(snapshot.phases[0]).toEqual({
+      atMs: 0,
+      durationMs: 0,
+      name: 'render:flush-frame'
+    })
+    expect(snapshot.phases.at(-1)).toEqual({
+      atMs: 0,
+      durationMs: evidenceCapacity - 1,
+      name: 'render:flush-frame'
+    })
+    expect(
+      snapshot.counters.some(({ name }) => name === 'ai-turn:accepted')
+    ).toBe(false)
+    expect(
+      snapshot.phases.some(({ name }) => name === 'ai-turn:accepted-to-settled')
+    ).toBe(false)
+    expect(profile.readCounterTotal('ai-turn:accepted')).toBe(1)
+    expect(profile.readCounterTotal('ai-turn:outcome:success')).toBe(1)
+    expect(profile.readCounterTotal('render-frame-count')).toBe(
+      evidenceCapacity
+    )
+    expect(profile.readLatestPhaseSample()).toEqual({
+      atMs: 0,
+      durationMs: evidenceCapacity - 1,
+      name: 'render:flush-frame'
+    })
+    expect(snapshot.releaseEvidenceEligible).toBe(true)
+
+    profile.reset()
+    expect(profile.snapshot()).toMatchObject({
+      counters: [],
+      phases: [],
+      releaseEvidenceEligible: false
+    })
+    expect(profile.readCounterTotal('render-frame-count')).toBe(0)
+    expect(profile.readLatestPhaseSample()).toBeNull()
+
+    profile.dispose()
+  })
+
   it('reads detached conversation failure evidence without exposing the controller snapshot', () => {
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'present',
-        deliveryMode: 'progressive'
-      },
       now: () => 0,
       runtime: 'production'
     })
@@ -187,15 +231,87 @@ describe('AI drawing performance profile', () => {
     profile.dispose()
   })
 
+  it('records ordered runtime progress spans for local owner attribution', () => {
+    let subscriber:
+      | ((snapshot: {
+          activeTurn: {
+            progress: readonly {
+              attempt: number
+              phase: string
+              summary: string
+            }[]
+          } | null
+          settledTurns: readonly { durationMs: number; outcome: string }[]
+        }) => void)
+      | undefined
+    const now = vi
+      .fn<() => number>()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(11)
+      .mockReturnValueOnce(31)
+      .mockReturnValueOnce(36)
+      .mockReturnValueOnce(46)
+      .mockReturnValueOnce(56)
+      .mockReturnValueOnce(66)
+    const profile = installAiDrawingPerformanceProfile({
+      now,
+      runtime: 'production'
+    })
+    profile.attachConversation({
+      subscribe: (nextSubscriber: typeof subscriber) => {
+        subscriber = nextSubscriber
+        return () => undefined
+      }
+    } as never)
+    const progress: {
+      attempt: number
+      phase: string
+      summary: string
+    }[] = []
+    const publish = (phase: string) => {
+      progress.push({ attempt: 1, phase, summary: phase })
+      subscriber?.({
+        activeTurn: { progress: [...progress] },
+        settledTurns: []
+      })
+    }
+
+    subscriber?.({ activeTurn: { progress: [] }, settledTurns: [] })
+    publish('context')
+    publish('provider')
+    publish('resolution')
+    publish('permission')
+    publish('execution')
+    subscriber?.({
+      activeTurn: null,
+      settledTurns: [{ durationMs: 55, outcome: 'success' }]
+    })
+
+    expect(profile.snapshot().phases).toEqual([
+      { atMs: 31, durationMs: 20, name: 'ai-runtime:context' },
+      { atMs: 36, durationMs: 5, name: 'ai-runtime:provider' },
+      { atMs: 46, durationMs: 10, name: 'ai-runtime:resolution' },
+      { atMs: 56, durationMs: 10, name: 'ai-runtime:permission' },
+      { atMs: 66, durationMs: 10, name: 'ai-runtime:execution' },
+      { atMs: 66, durationMs: 55, name: 'ai-turn:accepted-to-settled' }
+    ])
+
+    profile.dispose()
+  })
+
   it('marks development observations as ineligible for release budgets', () => {
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'omitted',
-        deliveryMode: 'progressive'
-      },
       now: () => 0,
       runtime: 'development'
     })
+
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
+    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
+      'ai-turn:accepted-to-settled',
+      12
+    )
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
 
     expect(profile.snapshot()).toMatchObject({
       releaseEvidenceEligible: false,
@@ -205,17 +321,21 @@ describe('AI drawing performance profile', () => {
     profile.dispose()
   })
 
-  it('marks Contents omission as attribution-only even in production', () => {
+  it('requires complete turn evidence for release eligibility in production', () => {
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'omitted',
-        deliveryMode: 'atomic'
-      },
       now: () => 0,
       runtime: 'production'
     })
 
     expect(profile.snapshot().releaseEvidenceEligible).toBe(false)
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
+    expect(profile.snapshot().releaseEvidenceEligible).toBe(false)
+    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
+      'ai-turn:accepted-to-settled',
+      12
+    )
+    expect(profile.snapshot().releaseEvidenceEligible).toBe(true)
 
     profile.dispose()
   })
@@ -227,6 +347,8 @@ describe('AI drawing performance profile', () => {
     const detachTransactions = vi.fn()
     let authoritativeHistoryDepth = 0
     let renderProjectionElementCount = 1
+    let viewportPosition = { x: 12, y: 34 }
+    let zoom = 1.25
     const canonicalElements = [
       {
         computed: {
@@ -257,10 +379,6 @@ describe('AI drawing performance profile', () => {
     }
     const epochNow = vi.fn<() => number>().mockReturnValueOnce(1_000)
     const profile = installAiDrawingPerformanceProfile({
-      configuration: {
-        contentsMode: 'present',
-        deliveryMode: 'progressive'
-      },
       epochNow,
       now: () => 0,
       runtime: 'production'
@@ -272,6 +390,8 @@ describe('AI drawing performance profile', () => {
       readCanonicalOwnerSnapshot: () => canonicalOwnerSnapshot,
       readHistoryDepth: () => authoritativeHistoryDepth,
       readRenderProjectionElementCount: () => renderProjectionElementCount,
+      readViewportPosition: () => viewportPosition,
+      readZoom: () => zoom,
       subscribeToTransactionStatus: (subscriber) => {
         transactionSubscriber = subscriber
         return detachTransactions
@@ -283,6 +403,12 @@ describe('AI drawing performance profile', () => {
     expect(profile.readFactoryPublicationCount()).toBe(0)
     expect(profile.readHistoryDepth()).toBe(0)
     expect(profile.readRenderProjectionElementCount()).toBe(1)
+    expect(profile.readViewportPosition()).toEqual({ x: 12, y: 34 })
+    expect(profile.readZoom()).toBe(1.25)
+    viewportPosition = { x: -20, y: 45 }
+    zoom = 0.75
+    expect(profile.readViewportPosition()).toEqual({ x: -20, y: 45 })
+    expect(profile.readZoom()).toBe(0.75)
     renderProjectionElementCount = 7077
     expect(profile.readRenderProjectionElementCount()).toBe(7077)
     renderProjectionElementCount = -1
@@ -456,6 +582,10 @@ describe('AI drawing performance profile', () => {
     expect(() => profile.readRenderProjectionElementCount()).toThrow(
       'runtime evidence is unavailable'
     )
+    expect(() => profile.readViewportPosition()).toThrow(
+      'runtime evidence is unavailable'
+    )
+    expect(() => profile.readZoom()).toThrow('runtime evidence is unavailable')
 
     profile.dispose()
   })

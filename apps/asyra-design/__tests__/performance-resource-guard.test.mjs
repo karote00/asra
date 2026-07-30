@@ -9,12 +9,17 @@ import {
   buildBoundedResourceReport,
   buildEndpointPerformancePhases,
   buildRunnerSpawnOptions,
+  createSerializedResourceSampler,
   createResourceGuardState,
+  deriveProcessCpuInterval,
   evaluateResourceSample,
   classifyGuardedChildExit,
   installTrackedProcessLifecycleGuard,
+  parseCpuTimeToMilliseconds,
   parseRunnerArguments,
+  recordGuardedResourcePhaseBoundary,
   recordProfileOutput,
+  recordResourcePhaseBoundary,
   recordResourceHeartbeat,
   recordResourceSampleFailure,
   recordTrackedProcessGroupRegistration,
@@ -22,6 +27,7 @@ import {
   runResourceGuardCli,
   runTrackedProcessLauncher,
   sampleTrackedProcessGroupsCpu,
+  summarizeRendererPerformanceWindow,
   terminateTrackedProcessGroups,
   terminateTrackedProcessGroup,
   verifyTrackedProcessDescendant
@@ -31,15 +37,145 @@ const TARGET_PGID = 4242
 const TOKEN = 'test-resource-guard-token'
 const OWNER = 'admit-receiver-publication-frames'
 
+test('parses cumulative process CPU time without treating it as decayed percent', () => {
+  assert.equal(parseCpuTimeToMilliseconds('0:00.01'), 10)
+  assert.equal(parseCpuTimeToMilliseconds('1:02.34'), 62_340)
+  assert.equal(parseCpuTimeToMilliseconds('2:03:04.56'), 7_384_560)
+  assert.equal(parseCpuTimeToMilliseconds('1-02:03:04.56'), 93_784_560)
+  assert.throws(
+    () => parseCpuTimeToMilliseconds('not-a-time'),
+    /process CPU time/i
+  )
+})
+
+test('reports one renderer operation or idle window from cumulative CDP metrics', () => {
+  const start = {
+    metrics: [
+      { name: 'Timestamp', value: 10 },
+      { name: 'TaskDuration', value: 0.5 },
+      { name: 'ScriptDuration', value: 0.2 },
+      { name: 'LayoutDuration', value: 0.1 },
+      { name: 'RecalcStyleDuration', value: 0.05 },
+      { name: 'JSHeapUsedSize', value: 52_428_800 }
+    ]
+  }
+  const end = {
+    metrics: [
+      { name: 'Timestamp', value: 12 },
+      { name: 'TaskDuration', value: 0.9 },
+      { name: 'ScriptDuration', value: 0.35 },
+      { name: 'LayoutDuration', value: 0.14 },
+      { name: 'RecalcStyleDuration', value: 0.07 },
+      { name: 'JSHeapUsedSize', value: 62_914_560 }
+    ]
+  }
+
+  assert.deepEqual(summarizeRendererPerformanceWindow(start, end), {
+    averageTaskCorePercent: 20,
+    durationMs: 2_000,
+    heapUsedEndBytes: 62_914_560,
+    heapUsedStartBytes: 52_428_800,
+    layoutDurationMs: 40,
+    recalcStyleDurationMs: 20,
+    scriptDurationMs: 150,
+    taskDurationMs: 400
+  })
+  assert.throws(
+    () =>
+      summarizeRendererPerformanceWindow(start, {
+        metrics: end.metrics.filter(({ name }) => name !== 'TaskDuration')
+      }),
+    /TaskDuration/
+  )
+})
+
+test('retains each renderer PID CPU delta without guessing page or worker ownership', () => {
+  const result = deriveProcessCpuInterval(
+    {
+      monotonicMs: 1_000,
+      nowMs: 10_000,
+      processCpuTimes: [
+        {
+          browserProcessType: 'root-browser',
+          cpuTimeMs: 100,
+          pid: 5001,
+          role: 'client-browser'
+        },
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuTimeMs: 200,
+          pid: 5004,
+          role: 'client-browser'
+        },
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuTimeMs: 400,
+          pid: 5008,
+          role: 'client-browser'
+        }
+      ]
+    },
+    {
+      monotonicMs: 1_250,
+      nowMs: 10_250,
+      processCpuTimes: [
+        {
+          browserProcessType: 'root-browser',
+          cpuTimeMs: 110,
+          pid: 5001,
+          role: 'client-browser'
+        },
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuTimeMs: 500,
+          pid: 5004,
+          role: 'client-browser'
+        },
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuTimeMs: 525,
+          pid: 5008,
+          role: 'client-browser'
+        }
+      ]
+    }
+  )
+
+  assert.equal(result.accepted, true)
+  assert.deepEqual(result.sample.rendererProcessIntervals, [
+    {
+      cpuTimeMs: 300,
+      intervalCpuPercent: 120,
+      pid: 5004,
+      targetAttribution: 'unattributed-page-or-worker'
+    },
+    {
+      cpuTimeMs: 125,
+      intervalCpuPercent: 50,
+      pid: 5008,
+      targetAttribution: 'unattributed-page-or-worker'
+    }
+  ])
+  assert.equal(result.sample.intervalCpuPercent, 174)
+  assert.equal(result.sample.roleIntervalCpuPercent.clientBrowser, 174)
+  assert.equal(
+    result.sample.browserProcessTypeIntervalCpuPercent.rendererOrWorker,
+    170
+  )
+})
+
 const heartbeat = ({
   actorAElements = 0,
   actorBElements = 0,
   actorAComplete = false,
   actorBComplete = false,
   phase = 'creating',
+  proofKind = 'endpoint',
   owner = OWNER,
   extra = {}
 } = {}) => ({
+  activePhase: phase === 'complete' ? null : phase,
+  proofKind,
   owner,
   phase,
   actorA: {
@@ -68,6 +204,7 @@ const heartbeat = ({
     actorBDurationMs: 8,
     actorBPhase: 'remote-apply'
   },
+  capturedAtMs: 1_000,
   ...extra
 })
 
@@ -86,26 +223,850 @@ const record = (state, kind, nowMs, value = heartbeat()) =>
     }
   )
 
-const arm = (state, nowMs = 0) =>
-  evaluateResourceSample(
+const arm = (state, nowMs = 0) => {
+  const first = evaluateResourceSample(
     state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 0,
-      nowMs
-    },
+    trackedCpuSample({
+      nowMs,
+      processes: [{ cpuTimeMs: 0, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  return evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: nowMs + 250,
+      processes: [{ cpuTimeMs: 0, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   ).state
+}
 
-test('stops immediately when the tracked process group exceeds 150% CPU', () => {
+const trackedCpuSample = ({
+  cpuPercent = 0,
+  nowMs,
+  processes,
+  trackedProcessRoles = ['test-harness']
+}) => {
+  const roleCpuKey = (role) => {
+    switch (role) {
+      case 'app-server':
+        return 'appServer'
+      case 'client-browser':
+        return 'clientBrowser'
+      case 'test-harness':
+        return 'testHarness'
+      case 'websocket-server':
+        return 'websocketServer'
+      default:
+        return 'unknown'
+    }
+  }
+  const roleCpuTimeMs = {
+    appServer: 0,
+    clientBrowser: 0,
+    testHarness: 0,
+    unknown: 0,
+    websocketServer: 0
+  }
+  for (const process of processes) {
+    roleCpuTimeMs[roleCpuKey(process.role)] += process.cpuTimeMs
+  }
+  return {
+    cpuPercent,
+    cpuTimeMs: processes.reduce(
+      (total, process) => total + process.cpuTimeMs,
+      0
+    ),
+    nowMs,
+    pgid: TARGET_PGID,
+    processCpuTimes: processes,
+    roleCpuTimeMs,
+    trackedProcessRoles
+  }
+}
+
+const advanceWithIdleSamples = (state, targetMs) => {
+  let nextState = state
+  while (nextState.previousProcessCpuSnapshot) {
+    const nextNowMs =
+      nextState.previousProcessCpuSnapshot.monotonicMs +
+      DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs
+    if (nextNowMs > targetMs) break
+    const result = evaluateResourceSample(
+      nextState,
+      trackedCpuSample({
+        nowMs: nextNowMs,
+        processes: nextState.previousProcessCpuSnapshot.processCpuTimes.map(
+          (process) => ({ ...process })
+        ),
+        trackedProcessRoles: nextState.sampledProcessRoles
+      }),
+      { targetPgid: TARGET_PGID }
+    )
+    assert.equal(result.decision.stop, false)
+    nextState = result.state
+  }
+  return nextState
+}
+
+test('uses cumulative 250ms interval CPU after baseline instead of macOS decayed percent', () => {
+  const baseline = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      cpuPercent: 20,
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const interval = evaluateResourceSample(
+    baseline.state,
+    trackedCpuSample({
+      cpuPercent: 900,
+      nowMs: 1_250,
+      processes: [{ cpuTimeMs: 350, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(interval.decision.stop, false)
+  assert.equal(interval.state.cpuSafetySamples.at(-1).intervalCpuPercent, 100)
+  assert.equal(interval.state.cpuSafetySamples.at(-1).decayedCpuPercent, 900)
+  assert.equal(
+    interval.state.maximumIntervalCpuSafetySample.intervalCpuPercent,
+    100
+  )
+  assert.equal(
+    interval.state.maximumBrowserBootstrapDecayedCpuSafetySample
+      .decayedCpuPercent,
+    900
+  )
+  assert.equal(
+    interval.state.maximumBrowserBootstrapIntervalCpuSafetySample
+      .intervalCpuPercent,
+    100
+  )
+})
+
+test('stops on one cumulative CPU-time interval above 200 percent', () => {
+  const baseline = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      cpuPercent: 10,
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const interval = evaluateResourceSample(
+    baseline.state,
+    trackedCpuSample({
+      cpuPercent: 10,
+      nowMs: 1_250,
+      processes: [{ cpuTimeMs: 601, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(interval.state.cpuSafetySamples.at(-1).intervalCpuPercent, 200.4)
+  assert.equal(interval.decision.stop, true)
+  assert.equal(interval.decision.reason, 'cpu-limit-exceeded')
+})
+
+test('rejects an interval whose sampling gap exceeds the fixed safety window', () => {
+  const first = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 0,
+      processes: [{ cpuTimeMs: 0, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const baseline = evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: 250,
+      processes: [{ cpuTimeMs: 25, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const ready = record(baseline.state, 'ready', 250)
+  assert.equal(ready.accepted, true)
+
+  const delayed = evaluateResourceSample(
+    ready.state,
+    trackedCpuSample({
+      nowMs: 626,
+      processes: [{ cpuTimeMs: 50, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(delayed.decision.stop, true)
+  assert.equal(delayed.decision.reason, 'cpu-sample-gap-exceeded')
+})
+
+test('serializes OS sampling and its state consumer in request order', async () => {
+  let activeSamples = 0
+  let maximumActiveSamples = 0
+  let sequence = 0
+  const events = []
+  const runSerialized = createSerializedResourceSampler(async () => {
+    const id = (sequence += 1)
+    activeSamples += 1
+    maximumActiveSamples = Math.max(maximumActiveSamples, activeSamples)
+    events.push(`sample-${id}-start`)
+    await Promise.resolve()
+    events.push(`sample-${id}-end`)
+    activeSamples -= 1
+    return id
+  })
+
+  const results = await Promise.all([
+    runSerialized(async (sample) => {
+      events.push(`consume-${sample}`)
+      return sample
+    }),
+    runSerialized(async (sample) => {
+      events.push(`consume-${sample}`)
+      return sample
+    })
+  ])
+
+  assert.equal(maximumActiveSamples, 1)
+  assert.deepEqual(results, [1, 2])
+  assert.deepEqual(events, [
+    'sample-1-start',
+    'sample-1-end',
+    'consume-1',
+    'sample-2-start',
+    'sample-2-end',
+    'consume-2'
+  ])
+})
+
+test('requires a fresh stable pair after process identity churn before readiness', () => {
+  const first = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const churn = evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: 1_250,
+      processes: [
+        { cpuTimeMs: 125, pid: 1, role: 'test-harness' },
+        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const stable = evaluateResourceSample(
+    churn.state,
+    trackedCpuSample({
+      nowMs: 1_500,
+      processes: [
+        { cpuTimeMs: 225, pid: 1, role: 'test-harness' },
+        { cpuTimeMs: 110, pid: 2, role: 'client-browser' }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(churn.decision.stop, false)
+  assert.equal(churn.state.cpuSafetySamples.at(-1).intervalCpuPercent, null)
+  assert.equal(stable.state.cpuSafetySamples.at(-1).intervalCpuPercent, 80)
+  assert.equal(stable.state.acceptedIntervalSamples, 1)
+})
+
+test('rebaselines instead of stopping when process identity changes after a provisional pre-ready interval', () => {
+  const provisional = arm(createResourceGuardState({ nowMs: 0 }), 1_000)
+  assert.equal(provisional.acceptedIntervalSamples, 1)
+
+  const churn = evaluateResourceSample(
+    provisional,
+    trackedCpuSample({
+      nowMs: 1_500,
+      processes: [
+        { cpuTimeMs: 25, pid: TARGET_PGID, role: 'test-harness' },
+        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(churn.decision.stop, false)
+  assert.equal(churn.state.acceptedIntervalSamples, 0)
+  assert.equal(churn.state.attributionInvalidReason, null)
+})
+
+test('fails closed when process identity changes after guard readiness', () => {
+  const first = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const stable = evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: 1_250,
+      processes: [{ cpuTimeMs: 125, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const ready = record(stable.state, 'ready', 1_250)
+  assert.equal(ready.accepted, true)
+
+  const churn = evaluateResourceSample(
+    ready.state,
+    trackedCpuSample({
+      nowMs: 1_500,
+      processes: [
+        { cpuTimeMs: 150, pid: 1, role: 'test-harness' },
+        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(churn.decision.stop, true)
+  assert.equal(churn.decision.reason, 'tracked-process-identity-changed')
+})
+
+test('attributes one phase from atomic cumulative CPU-time boundaries instead of heartbeat labels', () => {
+  const baselineProcesses = [
+    { cpuTimeMs: 50, pid: 1, role: 'app-server' },
+    { cpuTimeMs: 700, pid: 2, role: 'client-browser' },
+    { cpuTimeMs: 50, pid: 3, role: 'test-harness' }
+  ]
+  const baselineFirst = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 9_500,
+      processes: baselineProcesses
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const baselineSecond = evaluateResourceSample(
+    baselineFirst.state,
+    trackedCpuSample({
+      nowMs: 9_750,
+      processes: baselineProcesses
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const ready = record(
+    baselineSecond.state,
+    'ready',
+    9_750,
+    heartbeat({ phase: 'earlier-heartbeat-label' })
+  )
+  assert.equal(ready.accepted, true)
+  const start = recordResourcePhaseBoundary(
+    ready.state,
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 1_000,
+        nowMs: 10_000,
+        processCpuTimes: [
+          { cpuTimeMs: 100, pid: 1, role: 'app-server' },
+          { cpuTimeMs: 800, pid: 2, role: 'client-browser' },
+          { cpuTimeMs: 100, pid: 3, role: 'test-harness' }
+        ],
+        roleCpuTimeMs: {
+          appServer: 100,
+          clientBrowser: 800,
+          testHarness: 100,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+  assert.equal(start.accepted, true)
+
+  const unrelatedHeartbeat = record(
+    start.state,
+    'progress',
+    10_100,
+    heartbeat({ phase: 'later-heartbeat-label' })
+  )
+  assert.equal(unrelatedHeartbeat.accepted, true)
+
+  const end = recordResourcePhaseBoundary(
+    unrelatedHeartbeat.state,
+    {
+      kind: 'end',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 1_600,
+        nowMs: 11_000,
+        processCpuTimes: [
+          { cpuTimeMs: 150, pid: 1, role: 'app-server' },
+          { cpuTimeMs: 1_300, pid: 2, role: 'client-browser' },
+          { cpuTimeMs: 150, pid: 3, role: 'test-harness' }
+        ],
+        roleCpuTimeMs: {
+          appServer: 150,
+          clientBrowser: 1_300,
+          testHarness: 150,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+
+  assert.equal(end.accepted, true)
+  assert.deepEqual(end.state.phaseCpuTimeSamples, [
+    {
+      averageCpuPercent: 60,
+      browserProcessTypeAverageCpuPercent: {
+        gpuProcess: 0,
+        otherBrowser: 50,
+        rendererOrWorker: 0,
+        rootBrowser: 0,
+        utility: 0
+      },
+      browserProcessTypeCpuTimeMs: {
+        gpuProcess: 0,
+        otherBrowser: 500,
+        rendererOrWorker: 0,
+        rootBrowser: 0,
+        utility: 0
+      },
+      browserProcessTypeMaximumIntervalCpuPercent: {
+        gpuProcess: 0,
+        otherBrowser: 0,
+        rendererOrWorker: 0,
+        rootBrowser: 0,
+        utility: 0
+      },
+      cpuTimeMs: 600,
+      endedAtMs: 11_000,
+      intervalSampleCount: 0,
+      maximumIntervalCpuPercent: 0,
+      phase: 'local-request',
+      roleAverageCpuPercent: {
+        appServer: 5,
+        clientBrowser: 50,
+        testHarness: 5,
+        unknown: 0,
+        websocketServer: 0
+      },
+      roleCpuTimeMs: {
+        appServer: 50,
+        clientBrowser: 500,
+        testHarness: 50,
+        unknown: 0,
+        websocketServer: 0
+      },
+      roleMaximumIntervalCpuPercent: {
+        appServer: 0,
+        clientBrowser: 0,
+        testHarness: 0,
+        unknown: 0,
+        websocketServer: 0
+      },
+      startedAtMs: 10_000,
+      wallTimeMs: 1_000
+    }
+  ])
+  assert.equal(end.state.phaseCpuTimeSamples[0].phase, 'local-request')
+  assert.equal(
+    Object.hasOwn(end.state.phaseCpuTimeSamples[0], 'decayedCpuPercent'),
+    false
+  )
+})
+
+test('applies the 200% safety stop to an explicit phase-boundary sample before attribution', () => {
+  const result = recordGuardedResourcePhaseBoundary(
+    createResourceGuardState({ nowMs: 0 }),
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuPercent: 200.01,
+        cpuTimeMs: 1_000,
+        nowMs: 10_000,
+        pgid: TARGET_PGID,
+        processCpuTimes: [
+          {
+            cpuTimeMs: 1_000,
+            pid: TARGET_PGID,
+            role: 'test-harness'
+          }
+        ],
+        roleCpuTimeMs: {
+          appServer: 0,
+          clientBrowser: 0,
+          testHarness: 1_000,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    {
+      expectedOwner: OWNER,
+      expectedToken: TOKEN,
+      targetPgid: TARGET_PGID
+    }
+  )
+
+  assert.equal(result.accepted, false)
+  assert.equal(result.reason, 'cpu-limit-exceeded')
+  assert.equal(result.decision.stop, true)
+  assert.equal(result.state.activePhaseBoundary, null)
+  assert.equal(result.state.maximumCpuSafetySample.decayedCpuPercent, 200.01)
+})
+
+test('applies post-baseline interval CPU rather than decayed CPU at phase boundaries', () => {
+  const first = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 0,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const baseline = evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: 250,
+      processes: [{ cpuTimeMs: 125, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const ready = record(baseline.state, 'ready', 250)
+  const start = recordGuardedResourcePhaseBoundary(
+    ready.state,
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        ...trackedCpuSample({
+          cpuPercent: 900,
+          nowMs: 500,
+          processes: [{ cpuTimeMs: 150, pid: 1, role: 'test-harness' }]
+        }),
+        monotonicMs: 500
+      },
+      token: TOKEN
+    },
+    {
+      expectedOwner: OWNER,
+      expectedToken: TOKEN,
+      targetPgid: TARGET_PGID
+    }
+  )
+  assert.equal(start.accepted, true)
+  assert.equal(start.decision.stop, false)
+
+  const end = recordGuardedResourcePhaseBoundary(
+    start.state,
+    {
+      kind: 'end',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        ...trackedCpuSample({
+          cpuPercent: 10,
+          nowMs: 750,
+          processes: [{ cpuTimeMs: 651, pid: 1, role: 'test-harness' }]
+        }),
+        monotonicMs: 750
+      },
+      token: TOKEN
+    },
+    {
+      expectedOwner: OWNER,
+      expectedToken: TOKEN,
+      targetPgid: TARGET_PGID
+    }
+  )
+
+  assert.equal(end.accepted, false)
+  assert.equal(end.reason, 'cpu-limit-exceeded')
+  assert.equal(end.state.cpuSafetySamples.at(-1).intervalCpuPercent, 200.4)
+  assert.deepEqual(end.state.phaseCpuTimeSamples, [])
+})
+
+test('does not treat a sub-cadence phase-boundary helper as a 250ms CPU interval', () => {
+  const armed = arm(createResourceGuardState({ nowMs: 0 }))
+  const ready = record(armed, 'ready', 250)
+  assert.equal(ready.accepted, true)
+
+  const start = recordGuardedResourcePhaseBoundary(
+    ready.state,
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        ...trackedCpuSample({
+          cpuPercent: 7.6,
+          nowMs: 277,
+          processes: [
+            {
+              cpuTimeMs: 60,
+              pid: TARGET_PGID,
+              role: 'test-harness'
+            }
+          ]
+        }),
+        monotonicMs: 277
+      },
+      token: TOKEN
+    },
+    {
+      expectedOwner: OWNER,
+      expectedToken: TOKEN,
+      targetPgid: TARGET_PGID
+    }
+  )
+
+  assert.equal(start.accepted, true)
+  assert.equal(start.decision.stop, false)
+  assert.equal(start.state.activePhaseBoundary.phase, 'local-request')
+  assert.equal(
+    start.state.previousProcessCpuSnapshot.monotonicMs,
+    250,
+    'the phase helper must not replace the fixed-cadence safety baseline'
+  )
+  assert.equal(start.state.cpuSafetySamples.at(-1).intervalCpuPercent, null)
+
+  const periodic = evaluateResourceSample(
+    start.state,
+    trackedCpuSample({
+      cpuPercent: 10,
+      nowMs: 500,
+      processes: [
+        {
+          cpuTimeMs: 100,
+          pid: TARGET_PGID,
+          role: 'test-harness'
+        }
+      ]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(periodic.decision.stop, false)
+  assert.equal(periodic.state.cpuSafetySamples.at(-1).intervalWallTimeMs, 250)
+  assert.equal(periodic.state.cpuSafetySamples.at(-1).intervalCpuPercent, 40)
+  assert.equal(periodic.state.activePhaseBoundary.maximumIntervalCpuPercent, 40)
+
+  const overLimit = evaluateResourceSample(
+    start.state,
+    trackedCpuSample({
+      cpuPercent: 10,
+      nowMs: 500,
+      processes: [
+        {
+          cpuTimeMs: 501,
+          pid: TARGET_PGID,
+          role: 'test-harness'
+        }
+      ]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  assert.equal(overLimit.decision.stop, true)
+  assert.equal(overLimit.decision.reason, 'cpu-limit-exceeded')
+  assert.equal(
+    overLimit.state.cpuSafetySamples.at(-1).intervalCpuPercent,
+    200.4
+  )
+})
+
+test('rejects phase attribution when a process present at start exits before the end sample', () => {
+  const start = recordResourcePhaseBoundary(
+    createResourceGuardState({ nowMs: 0 }),
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 300,
+        nowMs: 1_000,
+        processCpuTimes: [
+          { cpuTimeMs: 100, pid: 1, role: 'test-harness' },
+          { cpuTimeMs: 200, pid: 2, role: 'client-browser' }
+        ],
+        roleCpuTimeMs: {
+          appServer: 0,
+          clientBrowser: 200,
+          testHarness: 100,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+  const end = recordResourcePhaseBoundary(
+    start.state,
+    {
+      kind: 'end',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 200,
+        nowMs: 2_000,
+        processCpuTimes: [{ cpuTimeMs: 200, pid: 1, role: 'test-harness' }],
+        roleCpuTimeMs: {
+          appServer: 0,
+          clientBrowser: 0,
+          testHarness: 200,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+
+  assert.equal(end.accepted, false)
+  assert.equal(end.reason, 'phase-process-exited')
+  assert.deepEqual(end.state.phaseCpuTimeSamples, [])
+})
+
+test('rejects phase attribution when a new process appears at the end boundary', () => {
+  const start = recordResourcePhaseBoundary(
+    createResourceGuardState({ nowMs: 0 }),
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: trackedCpuSample({
+        nowMs: 1_000,
+        processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+      }),
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+  const end = recordResourcePhaseBoundary(
+    start.state,
+    {
+      kind: 'end',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: trackedCpuSample({
+        nowMs: 2_000,
+        processes: [
+          { cpuTimeMs: 200, pid: 1, role: 'test-harness' },
+          { cpuTimeMs: 50, pid: 2, role: 'client-browser' }
+        ]
+      }),
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+
+  assert.equal(end.accepted, false)
+  assert.equal(end.reason, 'phase-process-created')
+  assert.deepEqual(end.state.phaseCpuTimeSamples, [])
+})
+
+test('rejects phase attribution after any process identity churn observed by the safety sampler', () => {
+  const start = recordResourcePhaseBoundary(
+    createResourceGuardState({ nowMs: 0 }),
+    {
+      kind: 'start',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 100,
+        nowMs: 1_000,
+        processCpuTimes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }],
+        roleCpuTimeMs: {
+          appServer: 0,
+          clientBrowser: 0,
+          testHarness: 100,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+  const withTransientProcess = evaluateResourceSample(
+    start.state,
+    {
+      cpuPercent: 50,
+      nowMs: 1_250,
+      pgid: TARGET_PGID,
+      processCpuTimes: [
+        { cpuTimeMs: 125, pid: 1, role: 'test-harness' },
+        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+      ]
+    },
+    { targetPgid: TARGET_PGID }
+  )
+  const end = recordResourcePhaseBoundary(
+    withTransientProcess.state,
+    {
+      kind: 'end',
+      owner: OWNER,
+      phase: 'local-request',
+      sample: {
+        cpuTimeMs: 150,
+        nowMs: 2_000,
+        processCpuTimes: [{ cpuTimeMs: 150, pid: 1, role: 'test-harness' }],
+        roleCpuTimeMs: {
+          appServer: 0,
+          clientBrowser: 0,
+          testHarness: 150,
+          unknown: 0,
+          websocketServer: 0
+        }
+      },
+      token: TOKEN
+    },
+    { expectedOwner: OWNER, expectedToken: TOKEN }
+  )
+
+  assert.equal(end.accepted, false)
+  assert.equal(end.reason, 'phase-process-churn')
+  assert.deepEqual(end.state.phaseCpuTimeSamples, [])
+})
+
+test('stops immediately when the tracked process group exceeds 200% CPU', () => {
   const state = createResourceGuardState({ nowMs: 0 })
   const result = evaluateResourceSample(
     state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 150.01,
-      nowMs: 1_000
-    },
+    trackedCpuSample({
+      cpuPercent: 200.01,
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
     {
       targetPgid: TARGET_PGID,
       config: {
@@ -118,32 +1079,38 @@ test('stops immediately when the tracked process group exceeds 150% CPU', () => 
   assert.equal(result.accepted, true)
   assert.equal(result.decision.stop, true)
   assert.equal(result.decision.reason, 'cpu-limit-exceeded')
-  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent, 150)
+  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent, 200)
   assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs, 250)
-  assert.equal(result.state.config.maximumCpuPercent, 150)
+  assert.equal(result.state.config.maximumCpuPercent, 200)
   assert.equal(result.state.config.sampleIntervalMs, 250)
 })
 
-test('allows every tracked process-group sample at or below 150% CPU', () => {
+test('allows every tracked process-group sample at or below 200% CPU', () => {
   let state = createResourceGuardState({ nowMs: 0 })
 
   for (let index = 0; index < 8; index += 1) {
     const result = evaluateResourceSample(
       state,
-      {
-        pgid: TARGET_PGID,
-        cpuPercent: 150,
-        nowMs: (index + 1) * 250
-      },
+      trackedCpuSample({
+        cpuPercent: 200,
+        nowMs: (index + 1) * 250,
+        processes: [
+          {
+            cpuTimeMs: (index + 1) * 500,
+            pid: 1,
+            role: 'test-harness'
+          }
+        ]
+      }),
       { targetPgid: TARGET_PGID }
     )
     assert.equal(result.decision.stop, false)
     state = result.state
   }
-  assert.equal(state.cpuSamples.at(-1).cpuPercent, 150)
+  assert.equal(state.cpuSafetySamples.at(-1).decayedCpuPercent, 200)
 })
 
-test('uses 200% only for an explicit root-cause diagnostic state', () => {
+test('keeps the 200% hard ceiling for an explicit root-cause diagnostic state', () => {
   const state = createResourceGuardState({
     nowMs: 0,
     config: {
@@ -151,22 +1118,31 @@ test('uses 200% only for an explicit root-cause diagnostic state', () => {
       maximumCpuPercent: 200
     }
   })
-  const belowDiagnosticLimit = evaluateResourceSample(
+  const baseline = evaluateResourceSample(
     state,
-    {
-      pgid: TARGET_PGID,
+    trackedCpuSample({
       cpuPercent: 175,
-      nowMs: 250
-    },
+      nowMs: 250,
+      processes: [{ cpuTimeMs: 0, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const belowDiagnosticLimit = evaluateResourceSample(
+    baseline.state,
+    trackedCpuSample({
+      cpuPercent: 900,
+      nowMs: 500,
+      processes: [{ cpuTimeMs: 437.5, pid: 1, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   )
   const aboveDiagnosticLimit = evaluateResourceSample(
     belowDiagnosticLimit.state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 200.01,
-      nowMs: 500
-    },
+    trackedCpuSample({
+      cpuPercent: 10,
+      nowMs: 750,
+      processes: [{ cpuTimeMs: 937.525, pid: 1, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   )
 
@@ -180,14 +1156,15 @@ test('stops when heartbeat is stale for more than ten seconds while CPU is above
   const initial = createResourceGuardState({ nowMs: 0 })
   const ready = record(arm(initial), 'ready', 0)
   assert.equal(ready.accepted, true)
+  const beforeBusy = advanceWithIdleSamples(ready.state, 9_751)
 
   const result = evaluateResourceSample(
-    ready.state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 81,
-      nowMs: 10_001
-    },
+    beforeBusy,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 10_001,
+      processes: [{ cpuTimeMs: 202.5, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   )
 
@@ -199,13 +1176,14 @@ test('stops on stalled A/B progress, but disables progress stall after both acto
   const initial = createResourceGuardState({ nowMs: 0 })
   const armed = arm(initial)
   const ready = record(armed, 'ready', 0)
+  const beforeStall = advanceWithIdleSamples(ready.state, 19_751)
   const stalled = evaluateResourceSample(
-    ready.state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 81,
-      nowMs: 20_001
-    },
+    beforeStall,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 20_001,
+      processes: [{ cpuTimeMs: 202.5, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     {
       targetPgid: TARGET_PGID,
       config: {
@@ -234,18 +1212,20 @@ test('stops on stalled A/B progress, but disables progress stall after both acto
           actorA: {},
           actorB: {},
           owner: OWNER,
+          proofKind: 'endpoint',
           status: 'complete'
         }
       }
     })
   )
+  const beforeCompleteSample = advanceWithIdleSamples(complete.state, 39_751)
   const afterComplete = evaluateResourceSample(
-    complete.state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 81,
-      nowMs: 40_001
-    },
+    beforeCompleteSample,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 40_001,
+      processes: [{ cpuTimeMs: 202.5, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     {
       targetPgid: TARGET_PGID,
       config: {
@@ -261,25 +1241,27 @@ test('stops on stalled A/B progress, but disables progress stall after both acto
 test('does not mistake stale activity for a host emergency at low CPU', () => {
   const initial = createResourceGuardState({ nowMs: 0 })
   const ready = record(arm(initial), 'ready', 0)
+  const beforeLowCpu = advanceWithIdleSamples(ready.state, 59_750)
   const result = evaluateResourceSample(
-    ready.state,
-    {
-      pgid: TARGET_PGID,
-      cpuPercent: 80,
-      nowMs: 60_000
-    },
+    beforeLowCpu,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 60_000,
+      processes: [{ cpuTimeMs: 200, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   )
 
   assert.equal(result.decision.stop, false)
 })
 
-test('authenticates the ready heartbeat before accepting progress and allows bounded scalar evidence', () => {
+test('accepts bounded bootstrap progress before freezing the ready request identity', () => {
   const initial = createResourceGuardState({ nowMs: 0 })
 
   const prematureProgress = record(initial, 'progress', 1)
-  assert.equal(prematureProgress.accepted, false)
-  assert.equal(prematureProgress.reason, 'guard-not-ready')
+  assert.equal(prematureProgress.accepted, true)
+  assert.equal(prematureProgress.state.ready, false)
+  assert.equal(prematureProgress.state.lastHeartbeat.phase, 'creating')
 
   const badToken = recordResourceHeartbeat(
     initial,
@@ -344,6 +1326,33 @@ test('authenticates the ready heartbeat before accepting progress and allows bou
   assert.equal(invalidKind.reason, 'invalid-kind')
 })
 
+test('new pre-ready process registration clears a provisional CPU baseline', () => {
+  let state = arm(createResourceGuardState({ nowMs: 0 }), 1_000)
+  assert.equal(state.acceptedIntervalSamples, 1)
+  assert.notEqual(state.previousProcessCpuSnapshot, null)
+
+  const registration = recordTrackedProcessGroupRegistration(
+    state,
+    {
+      owner: OWNER,
+      pgid: 5001,
+      pid: 5001,
+      role: 'client-browser',
+      token: TOKEN
+    },
+    {
+      descendantVerified: true,
+      expectedOwner: OWNER,
+      expectedToken: TOKEN,
+      rootPgid: TARGET_PGID
+    }
+  )
+
+  assert.equal(registration.accepted, true)
+  assert.equal(registration.state.acceptedIntervalSamples, 0)
+  assert.equal(registration.state.previousProcessCpuSnapshot, null)
+})
+
 test('accepts and reports an over-projected render count without hiding the excess', () => {
   const initial = createResourceGuardState({ nowMs: 0 })
   const ready = record(arm(initial), 'ready', 0)
@@ -386,6 +1395,226 @@ test('rejects a complete heartbeat unless both actors remain exactly complete', 
   assert.equal(result.accepted, false)
   assert.equal(result.reason, 'incomplete-proof')
   assert.equal(result.state.finished, false)
+})
+
+test('accepts a local attribution report without inventing a completed Actor B', () => {
+  const initial = createResourceGuardState({
+    config: { requiredProofKind: 'local-attribution' },
+    nowMs: 0
+  })
+  const localHeartbeat = heartbeat({
+    actorAComplete: true,
+    actorAElements: 17,
+    actorBComplete: false,
+    actorBElements: 0,
+    phase: 'complete',
+    proofKind: 'local-attribution',
+    extra: {
+      actorA: {
+        canonicalElements: 17,
+        complete: true,
+        elements: 17,
+        renderProjectionElements: 17,
+        total: 17
+      },
+      actorB: {
+        canonicalElements: 0,
+        complete: false,
+        elements: 0,
+        renderProjectionElements: 0,
+        total: 0
+      },
+      report: {
+        actorA: {
+          completeMs: 20,
+          diagnostics: { topPhases: [] },
+          firstVisibleMs: 10,
+          summary: { renderedCount: 17, requestedItems: 16, totalCount: 17 }
+        },
+        actorB: null,
+        durationMs: 25,
+        owner: OWNER,
+        proofKind: 'local-attribution',
+        status: 'complete'
+      }
+    }
+  })
+  const ready = record(
+    arm(initial),
+    'ready',
+    0,
+    heartbeat({
+      proofKind: 'local-attribution',
+      extra: {
+        actorB: {
+          canonicalElements: 0,
+          complete: false,
+          elements: 0,
+          renderProjectionElements: 0,
+          total: 0
+        }
+      }
+    })
+  )
+  const completed = record(ready.state, 'complete', 25, localHeartbeat)
+
+  assert.equal(completed.accepted, true)
+  assert.equal(completed.state.finished, true)
+  assert.equal(completed.state.endpointReport.proofKind, 'local-attribution')
+  assert.equal(completed.state.endpointReport.actorB, null)
+  assert.equal(completed.state.lastHeartbeat.actorB.complete, false)
+})
+
+test('keeps a two-Actor small attribution distinct from an endpoint acceptance proof', () => {
+  const initial = createResourceGuardState({
+    config: { requiredProofKind: 'collaboration-attribution' },
+    nowMs: 0
+  })
+  const ready = record(
+    arm(initial),
+    'ready',
+    0,
+    heartbeat({ proofKind: 'collaboration-attribution' })
+  )
+  const completed = record(
+    ready.state,
+    'complete',
+    25,
+    heartbeat({
+      actorAComplete: true,
+      actorAElements: 17,
+      actorBComplete: true,
+      actorBElements: 17,
+      phase: 'complete',
+      proofKind: 'collaboration-attribution',
+      extra: {
+        actorA: {
+          canonicalElements: 17,
+          complete: true,
+          elements: 17,
+          renderProjectionElements: 17,
+          total: 17
+        },
+        actorB: {
+          canonicalElements: 17,
+          complete: true,
+          elements: 17,
+          renderProjectionElements: 17,
+          total: 17
+        },
+        report: {
+          actorA: {
+            completeMs: 20,
+            diagnostics: { topPhases: [] },
+            firstVisibleMs: 10,
+            summary: { renderedCount: 17, requestedItems: 16, totalCount: 17 }
+          },
+          actorB: {
+            completeMs: 22,
+            diagnostics: { topPhases: [] },
+            firstVisibleMs: 12,
+            summary: { renderedCount: 17, requestedItems: 16, totalCount: 17 }
+          },
+          durationMs: 25,
+          owner: OWNER,
+          proofKind: 'collaboration-attribution',
+          status: 'complete'
+        }
+      }
+    })
+  )
+
+  assert.equal(completed.accepted, true)
+  assert.equal(
+    completed.state.endpointReport.proofKind,
+    'collaboration-attribution'
+  )
+  assert.notEqual(completed.state.endpointReport.proofKind, 'endpoint')
+})
+
+test('preserves the bounded failed-heartbeat reason in the final report', () => {
+  const initial = createResourceGuardState({
+    config: { requiredProofKind: 'local-attribution' },
+    nowMs: 0
+  })
+  const ready = record(
+    arm(initial),
+    'ready',
+    0,
+    heartbeat({
+      proofKind: 'local-attribution',
+      extra: {
+        actorB: {
+          canonicalElements: 0,
+          complete: false,
+          elements: 0,
+          renderProjectionElements: 0,
+          total: 0
+        }
+      }
+    })
+  )
+  const failed = record(
+    ready.state,
+    'failed',
+    25,
+    heartbeat({
+      phase: 'failed',
+      proofKind: 'local-attribution',
+      extra: {
+        actorB: {
+          canonicalElements: 0,
+          complete: false,
+          elements: 0,
+          renderProjectionElements: 0,
+          total: 0
+        },
+        error: {
+          message: `Expected phase evidence ${'x'.repeat(600)}`,
+          name: 'AssertionError',
+          secret: 'must-not-leak'
+        }
+      }
+    })
+  )
+  const report = buildBoundedResourceReport(failed.state, {
+    owner: OWNER,
+    targetPgid: TARGET_PGID
+  })
+
+  assert.equal(failed.accepted, true)
+  assert.deepEqual(report.failure, {
+    message: `Expected phase evidence ${'x'.repeat(476)}`,
+    name: 'AssertionError'
+  })
+})
+
+test('pins the proof kind for the complete guarded invocation', () => {
+  const endpointState = createResourceGuardState({
+    config: { requiredProofKind: 'endpoint' },
+    nowMs: 0
+  })
+  const localReady = record(
+    arm(endpointState),
+    'ready',
+    0,
+    heartbeat({
+      proofKind: 'local-attribution',
+      extra: {
+        actorB: {
+          canonicalElements: 0,
+          complete: false,
+          elements: 0,
+          renderProjectionElements: 0,
+          total: 0
+        }
+      }
+    })
+  )
+
+  assert.equal(localReady.accepted, false)
+  assert.equal(localReady.reason, 'unexpected-proof-kind')
+  assert.equal(localReady.state.ready, false)
 })
 
 test('takes the first tracked CPU sample before waiting for the sampling interval', async () => {
@@ -551,7 +1780,7 @@ test('force-kills exact groups when a guarded child does not close', async () =>
       requiresReady: false,
       runtimeProcess: new EventEmitter(),
       sampleCpu: async (pgid) => ({
-        cpuPercent: 151,
+        cpuPercent: 201,
         nowMs: 1,
         pgid
       }),
@@ -593,7 +1822,7 @@ test('forbids diagnostic CPU mode for an authenticated endpoint proof', async ()
         pgid
       }),
       spawnImpl: () => {
-        queueMicrotask(() => child.emit('close', 0, null))
+        globalThis.queueMicrotask(() => child.emit('close', 0, null))
         return child
       },
       stdout: { write: () => true }
@@ -617,7 +1846,7 @@ test('ignores CPU samples that do not belong to the spawned Playwright PGID', ()
   assert.equal(result.accepted, false)
   assert.equal(result.reason, 'untracked-process-group')
   assert.equal(result.decision.stop, false)
-  assert.deepEqual(result.state.cpuSamples, [])
+  assert.deepEqual(result.state.cpuSafetySamples, [])
 })
 
 test('keeps only bounded heartbeat and CPU evidence in its emergency report', () => {
@@ -641,11 +1870,17 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
     ).state
     state = evaluateResourceSample(
       state,
-      {
-        pgid: TARGET_PGID,
+      trackedCpuSample({
         cpuPercent: index === 1 ? 149 : 50 + index,
-        nowMs: index * 1_000
-      },
+        nowMs: index * 1_000,
+        processes: [
+          {
+            cpuTimeMs: index * 100,
+            pid: TARGET_PGID,
+            role: 'test-harness'
+          }
+        ]
+      }),
       { targetPgid: TARGET_PGID, config }
     ).state
   }
@@ -656,26 +1891,17 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   })
 
   assert.equal(report.heartbeats.length, 3)
-  assert.equal(report.cpuSamples.length, 3)
+  assert.equal(report.cpuSafetySamples.length, 3)
   assert.equal(report.phase, 'slice-6')
   assert.equal(report.actorA.elements, 6)
   assert.equal(report.actorB.elements, 5)
-  assert.deepEqual(report.maximumCpuSample, {
-    pgid: TARGET_PGID,
-    cpuPercent: 149,
-    contributors: [],
-    phase: 'slice-1',
-    roleCpuPercent: {
-      appServer: 0,
-      clientBrowser: 0,
-      testHarness: 0,
-      unknown: 0,
-      websocketServer: 0
-    },
-    sampledAtMs: 1_000
-  })
+  assert.equal(report.maximumCpuSafetySample.decayedCpuPercent, 149)
+  assert.equal(report.maximumCpuSafetySample.heartbeatCapturedAtMs, 1_000)
+  assert.equal(report.maximumCpuSafetySample.heartbeatPhase, 'slice-1')
+  assert.equal(report.maximumCpuSafetySample.sampledAtMs, 1_000)
+  assert.equal(report.maximumIntervalCpuSafetySample.intervalCpuPercent, 13.333)
   assert.equal(
-    report.cpuSamples.some(({ sampledAtMs }) => sampledAtMs === 1_000),
+    report.cpuSafetySamples.some(({ sampledAtMs }) => sampledAtMs === 1_000),
     false
   )
   assert.deepEqual(report.ownerTiming, {
@@ -687,7 +1913,7 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   assert.equal(JSON.stringify(report).includes(TOKEN), false)
 })
 
-test('keeps one bounded maximum CPU sample for each diagnostic phase', () => {
+test('never attributes decayed CPU safety samples to diagnostic phases', () => {
   let state = createResourceGuardState({ nowMs: 0 })
   state = record(arm(state), 'ready', 0).state
 
@@ -700,22 +1926,28 @@ test('keeps one bounded maximum CPU sample for each diagnostic phase', () => {
     ).state
     state = evaluateResourceSample(
       state,
-      {
-        pgid: TARGET_PGID,
+      trackedCpuSample({
         cpuPercent: index,
-        nowMs: index * 1_000
-      },
+        nowMs: index * 1_000,
+        processes: [
+          {
+            cpuTimeMs: index * 10,
+            pid: TARGET_PGID,
+            role: 'test-harness'
+          }
+        ]
+      }),
       { targetPgid: TARGET_PGID }
     ).state
   }
 
   state = evaluateResourceSample(
     state,
-    {
-      pgid: TARGET_PGID,
+    trackedCpuSample({
       cpuPercent: 1,
-      nowMs: 31_000
-    },
+      nowMs: 31_000,
+      processes: [{ cpuTimeMs: 310, pid: TARGET_PGID, role: 'test-harness' }]
+    }),
     { targetPgid: TARGET_PGID }
   ).state
 
@@ -724,10 +1956,10 @@ test('keeps one bounded maximum CPU sample for each diagnostic phase', () => {
     targetPgid: TARGET_PGID
   })
 
-  assert.equal(report.phaseCpuMaximums.length, 24)
-  assert.equal(report.phaseCpuMaximums[0].phase, 'phase-7')
-  assert.equal(report.phaseCpuMaximums.at(-1).phase, 'phase-30')
-  assert.equal(report.phaseCpuMaximums.at(-1).cpuPercent, 30)
+  assert.equal(Object.hasOwn(report, 'phaseCpuMaximums'), false)
+  assert.equal(report.maximumCpuSafetySample.decayedCpuPercent, 30)
+  assert.equal(report.maximumCpuSafetySample.heartbeatPhase, 'phase-30')
+  assert.equal(report.phaseCpuTimeSamples.length, 0)
 })
 
 test('samples every registered process group from one bounded OS snapshot', async () => {
@@ -748,14 +1980,19 @@ test('samples every registered process group from one bounded OS snapshot', asyn
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 node /repo/.yarn/releases/yarn-4.9.2.cjs playwright --guard-token=TOP-SECRET`,
-          `5001 ${TARGET_PGID} 5001 91.0 /Applications/chrome-headless-shell --type=renderer`,
-          `5002 ${TARGET_PGID} 5002 4.0 node node_modules/vite/bin/vite.js preview`,
-          `5003 ${TARGET_PGID} 5003 18.0 node dist/collaboration-server/collaboration-server.js`,
-          `6000 ${TARGET_PGID} 6000 999.0 node untracked.js`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 0:00.10 node /repo/.yarn/releases/yarn-4.9.2.cjs playwright --guard-token=TOP-SECRET`,
+          `5001 ${TARGET_PGID} 5001 10.0 0:00.10 /Applications/chrome-headless-shell`,
+          `5004 5001 5001 40.0 0:00.60 /Applications/chrome-headless-shell --type=renderer`,
+          `5005 5001 5001 20.0 0:00.25 /Applications/chrome-headless-shell --type=gpu-process`,
+          `5006 5001 5001 15.0 0:00.20 /Applications/chrome-headless-shell --type=utility`,
+          `5007 5001 5001 6.0 0:00.10 /Applications/chrome-headless-shell --type=zygote`,
+          `5002 ${TARGET_PGID} 5002 4.0 0:00.05 node node_modules/vite/bin/vite.js preview`,
+          `5003 ${TARGET_PGID} 5003 18.0 0:00.20 node dist/collaboration-server/collaboration-server.js`,
+          `6000 ${TARGET_PGID} 6000 999.0 0:30.00 node untracked.js`
         ].join('\n')
       )
     },
+    monotonicMs: 900,
     nowMs: 1_000,
     platform: 'darwin',
     processGroups
@@ -766,19 +2003,43 @@ test('samples every registered process group from one bounded OS snapshot', asyn
     '-g',
     `${TARGET_PGID},5001,5002,5003`,
     '-o',
-    'pid=,ppid=,pgid=,%cpu=,command='
+    'pid=,ppid=,pgid=,%cpu=,time=,command='
   ])
   assert.equal(receivedOptions.timeout, 200)
   assert.equal(receivedOptions.killSignal, 'SIGKILL')
   assert.equal(receivedOptions.maxBuffer, 256 * 1024)
   assert.deepEqual(result, {
+    browserProcessTypeCpuPercent: {
+      gpuProcess: 20,
+      otherBrowser: 6,
+      rendererOrWorker: 40,
+      rootBrowser: 10,
+      utility: 15
+    },
+    browserProcessTypeCpuTimeMs: {
+      gpuProcess: 250,
+      otherBrowser: 100,
+      rendererOrWorker: 600,
+      rootBrowser: 100,
+      utility: 200
+    },
     contributors: [
       {
-        cpuPercent: 91,
+        browserProcessType: 'renderer-or-worker',
+        cpuPercent: 40,
         executable: 'chrome-headless-shell',
-        parentPid: TARGET_PGID,
+        parentPid: 5001,
         pgid: 5001,
-        pid: 5001,
+        pid: 5004,
+        role: 'client-browser'
+      },
+      {
+        browserProcessType: 'gpu-process',
+        cpuPercent: 20,
+        executable: 'chrome-headless-shell',
+        parentPid: 5001,
+        pgid: 5001,
+        pid: 5005,
         role: 'client-browser'
       },
       {
@@ -790,32 +2051,69 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         role: 'websocket-server'
       },
       {
-        cpuPercent: 12,
-        executable: 'yarn',
-        parentPid: 1,
-        pgid: TARGET_PGID,
-        pid: TARGET_PGID,
-        role: 'test-harness'
-      },
-      {
-        cpuPercent: 4,
-        executable: 'node',
-        parentPid: TARGET_PGID,
-        pgid: 5002,
-        pid: 5002,
-        role: 'app-server'
+        browserProcessType: 'utility',
+        cpuPercent: 15,
+        executable: 'chrome-headless-shell',
+        parentPid: 5001,
+        pgid: 5001,
+        pid: 5006,
+        role: 'client-browser'
       }
     ],
+    cpuTimeMs: 1_600,
     cpuPercent: 125,
     missingProcessRoles: [],
+    monotonicMs: 900,
     nowMs: 1_000,
     pgid: TARGET_PGID,
+    processCpuTimes: [
+      { cpuTimeMs: 100, pid: TARGET_PGID, role: 'test-harness' },
+      {
+        browserProcessType: 'root-browser',
+        cpuTimeMs: 100,
+        pid: 5001,
+        role: 'client-browser'
+      },
+      { cpuTimeMs: 50, pid: 5002, role: 'app-server' },
+      { cpuTimeMs: 200, pid: 5003, role: 'websocket-server' },
+      {
+        browserProcessType: 'renderer-or-worker',
+        cpuTimeMs: 600,
+        pid: 5004,
+        role: 'client-browser'
+      },
+      {
+        browserProcessType: 'gpu-process',
+        cpuTimeMs: 250,
+        pid: 5005,
+        role: 'client-browser'
+      },
+      {
+        browserProcessType: 'utility',
+        cpuTimeMs: 200,
+        pid: 5006,
+        role: 'client-browser'
+      },
+      {
+        browserProcessType: 'other-browser',
+        cpuTimeMs: 100,
+        pid: 5007,
+        role: 'client-browser'
+      }
+    ],
     roleCpuPercent: {
       appServer: 4,
       clientBrowser: 91,
       testHarness: 12,
       unknown: 0,
       websocketServer: 18
+    },
+    roleCpuTimeMs: {
+      appServer: 50,
+      clientBrowser: 1_250,
+      testHarness: 100,
+      unknown: 0,
+      websocketServer: 200
     },
     trackedProcessRoles: [
       'test-harness',
@@ -849,9 +2147,11 @@ test('keeps bounded process contributors without weakening the aggregate CPU sto
   const result = evaluateResourceSample(
     state,
     {
-      pgid: TARGET_PGID,
-      cpuPercent: 151,
-      nowMs: 1_000,
+      ...trackedCpuSample({
+        cpuPercent: 201,
+        nowMs: 1_000,
+        processes: [{ cpuTimeMs: 100, pid: TARGET_PGID, role: 'test-harness' }]
+      }),
       contributors: [
         {
           pid: TARGET_PGID + 5,
@@ -903,7 +2203,7 @@ test('keeps bounded process contributors without weakening the aggregate CPU sto
 
   assert.equal(result.accepted, true)
   assert.equal(result.decision.reason, 'cpu-limit-exceeded')
-  assert.deepEqual(result.state.cpuSamples[0].contributors, [
+  assert.deepEqual(result.state.cpuSafetySamples[0].contributors, [
     {
       pid: TARGET_PGID + 1,
       parentPid: TARGET_PGID,
@@ -929,7 +2229,10 @@ test('keeps bounded process contributors without weakening the aggregate CPU sto
       executable: '/usr/local/bin/yarn'
     }
   ])
-  assert.equal(JSON.stringify(result.state.cpuSamples).includes(TOKEN), false)
+  assert.equal(
+    JSON.stringify(result.state.cpuSafetySamples).includes(TOKEN),
+    false
+  )
 })
 
 test('terminates the tracked group when the guard receives a signal or exits unexpectedly', async () => {
@@ -1076,7 +2379,7 @@ test('builds a detached, shell-free runner command with the fixed guard environm
   assert.equal(options.env.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN, TOKEN)
 })
 
-test('plans collaboration build, app build, and Playwright as guarded sequential phases', () => {
+test('builds only the guarded Playwright runtime after separate production setup', () => {
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
     baseEnv: {
@@ -1087,40 +2390,20 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
 
   assert.deepEqual(
     phases.map((phase) => phase.name),
-    ['collaboration-build', 'app-build', 'playwright']
+    ['playwright']
   )
-  assert.deepEqual(
-    phases.map((phase) => phase.guardConfig),
-    [
-      { guardMode: 'diagnostic', maximumCpuPercent: 200 },
-      { guardMode: 'diagnostic', maximumCpuPercent: 200 },
-      {
-        guardMode: 'proof',
-        maximumCpuPercent: 150,
-        requiredProcessRoles: [
-          'test-harness',
-          'client-browser',
-          'app-server',
-          'websocket-server'
-        ]
-      }
+  assert.deepEqual(phases[0].guardConfig, {
+    guardMode: 'proof',
+    maximumCpuPercent: 200,
+    requiredProofKind: 'endpoint',
+    requiredProcessRoles: [
+      'test-harness',
+      'client-browser',
+      'app-server',
+      'websocket-server'
     ]
-  )
+  })
   assert.deepEqual(phases[0].argv, [
-    '--owner',
-    `${OWNER}:collaboration-build`,
-    '--',
-    'yarn',
-    'build:collaboration-server'
-  ])
-  assert.deepEqual(phases[1].argv, [
-    '--owner',
-    `${OWNER}:app-build`,
-    '--',
-    'yarn',
-    'react:build'
-  ])
-  assert.deepEqual(phases[2].argv, [
     '--owner',
     OWNER,
     '--',
@@ -1129,22 +2412,77 @@ test('plans collaboration build, app build, and Playwright as guarded sequential
     'test',
     '--config',
     'playwright.endpoint-performance.config.ts',
-    '--workers=1'
+    '--workers=1',
+    '--grep',
+    'creation-only high-detail endpoint proof'
+  ])
+  assert.equal(phases[0].baseEnv.GOMAXPROCS, undefined)
+  assert.equal(phases[0].baseEnv.NODE_OPTIONS, undefined)
+  assert.equal(phases[0].baseEnv.UV_THREADPOOL_SIZE, undefined)
+  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_APP_URL, 'http://127.0.0.1:3021')
+  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_COLLABORATION_WS_PORT, '4121')
+  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY, '0')
+})
+
+test('builds each single-Actor attribution with the always-on WebSocket service', () => {
+  for (const attributionCase of ['16', '16-reduced-motion', '1280']) {
+    const phases = buildEndpointPerformancePhases({
+      owner: OWNER,
+      baseEnv: {
+        ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: attributionCase,
+        PATH: '/test/bin'
+      }
+    })
+
+    assert.deepEqual(
+      phases.map((phase) => phase.name),
+      ['playwright']
+    )
+    assert.deepEqual(phases[0].ports, [3021, 4121])
+    assert.deepEqual(phases[0].guardConfig.requiredProcessRoles, [
+      'test-harness',
+      'client-browser',
+      'app-server',
+      'websocket-server'
+    ])
+    assert.equal(phases[0].guardConfig.requiredProofKind, 'local-attribution')
+    assert.equal(
+      phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+      attributionCase
+    )
+    assert.equal(phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_LOCAL_ONLY, undefined)
+    assert.deepEqual(phases[0].argv.slice(-2), [
+      '--grep',
+      'single-Actor local attribution'
+    ])
+    assert.equal(
+      phases.some(({ name }) => name === 'collaboration-build'),
+      false
+    )
+  }
+})
+
+test('builds the two-Actor 16-item operation and idle diagnostic as one endpoint proof', () => {
+  const phases = buildEndpointPerformancePhases({
+    owner: OWNER,
+    baseEnv: {
+      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '16-two-actor-activity',
+      PATH: '/test/bin'
+    }
+  })
+
+  assert.equal(
+    phases[0].guardConfig.requiredProofKind,
+    'collaboration-attribution'
+  )
+  assert.deepEqual(phases[0].argv.slice(-2), [
+    '--grep',
+    'two-Actor 16-item operation and idle attribution'
   ])
   assert.equal(
-    phases[1].baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL,
-    'ws://127.0.0.1:4121/asyra-design-collaboration'
+    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    '16-two-actor-activity'
   )
-  assert.equal(phases[1].baseEnv.GOMAXPROCS, '1')
-  assert.equal(phases[1].baseEnv.NODE_OPTIONS, '--v8-pool-size=1')
-  assert.equal(phases[1].baseEnv.UV_THREADPOOL_SIZE, '1')
-  assert.equal(phases[0].baseEnv.GOMAXPROCS, undefined)
-  assert.equal(phases[2].baseEnv.GOMAXPROCS, undefined)
-  assert.equal(phases[2].baseEnv.NODE_OPTIONS, undefined)
-  assert.equal(phases[2].baseEnv.UV_THREADPOOL_SIZE, undefined)
-  assert.equal(phases[2].baseEnv.ASYRA_DESIGN_APP_URL, 'http://127.0.0.1:3021')
-  assert.equal(phases[2].baseEnv.ASYRA_DESIGN_COLLABORATION_WS_PORT, '4121')
-  assert.equal(phases[2].baseEnv.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY, '0')
 })
 
 test('attests that the emitted production artifact owns exactly the endpoint used by the proof', async () => {
@@ -1165,7 +2503,7 @@ test('attests that the emitted production artifact owns exactly the endpoint use
     readFileImpl: async (file) => {
       activeReads += 1
       maximumActiveReads = Math.max(maximumActiveReads, activeReads)
-      await new Promise((resolveRead) => queueMicrotask(resolveRead))
+      await new Promise((resolveRead) => globalThis.queueMicrotask(resolveRead))
       const source = assets.get(file.split('/').at(-1))
       activeReads -= 1
       return source
@@ -1233,12 +2571,10 @@ test('requires one authenticated descendant process group for every proof role b
     'unverified-descendant'
   )
 
-  const armed = arm(state)
-  const beforeAllRoles = record(armed, 'ready', 1)
+  const beforeAllRoles = record(state, 'ready', 1)
   assert.equal(beforeAllRoles.accepted, false)
-  assert.equal(beforeAllRoles.reason, 'process-groups-not-ready')
+  assert.equal(beforeAllRoles.reason, 'guard-not-armed')
 
-  state = armed
   assert.equal(register('app-server', 5002).accepted, true)
   assert.equal(register('websocket-server', 5003).accepted, true)
   const idempotentBrowser = register('client-browser', 5001)
@@ -1265,30 +2601,49 @@ test('requires one authenticated descendant process group for every proof role b
     'invalid-process-group'
   )
 
-  const beforeRoleSample = record(state, 'ready', 2)
-  assert.equal(beforeRoleSample.accepted, false)
-  assert.equal(beforeRoleSample.reason, 'process-groups-not-sampled')
+  const allProcesses = [
+    { cpuTimeMs: 100, pid: TARGET_PGID, role: 'test-harness' },
+    { cpuTimeMs: 100, pid: 5001, role: 'client-browser' },
+    { cpuTimeMs: 100, pid: 5002, role: 'app-server' },
+    { cpuTimeMs: 100, pid: 5003, role: 'websocket-server' }
+  ]
   state = evaluateResourceSample(
     state,
-    {
-      cpuPercent: 0,
+    trackedCpuSample({
       nowMs: 3,
-      pgid: TARGET_PGID,
+      processes: allProcesses,
       trackedProcessRoles: requiredProcessRoles
-    },
+    }),
     { targetPgid: TARGET_PGID }
   ).state
-  const ready = record(state, 'ready', 4)
+  const beforeStablePair = record(state, 'ready', 3)
+  assert.equal(beforeStablePair.accepted, false)
+  assert.equal(beforeStablePair.reason, 'guard-not-armed')
+  state = evaluateResourceSample(
+    state,
+    trackedCpuSample({
+      nowMs: 253,
+      processes: allProcesses,
+      trackedProcessRoles: requiredProcessRoles
+    }),
+    { targetPgid: TARGET_PGID }
+  ).state
+  const ready = record(state, 'ready', 254)
   assert.equal(ready.accepted, true)
 
   const stopping = evaluateResourceSample(
-    state,
-    {
-      cpuPercent: 151,
-      nowMs: 5,
-      pgid: TARGET_PGID,
+    ready.state,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 503,
+      processes: [
+        { cpuTimeMs: 602.5, pid: TARGET_PGID, role: 'test-harness' },
+        { cpuTimeMs: 100, pid: 5001, role: 'client-browser' },
+        { cpuTimeMs: 100, pid: 5002, role: 'app-server' },
+        { cpuTimeMs: 100, pid: 5003, role: 'websocket-server' }
+      ],
       trackedProcessRoles: requiredProcessRoles
-    },
+    }),
     { targetPgid: TARGET_PGID }
   ).state
   assert.equal(
@@ -1324,9 +2679,9 @@ test('stops when a registered process role disappears before proof completion', 
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 yarn playwright`,
-          `5001 ${TARGET_PGID} 5001 40.0 chrome-headless-shell`,
-          `5002 ${TARGET_PGID} 5002 4.0 node vite preview`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 0:00.10 yarn playwright`,
+          `5001 ${TARGET_PGID} 5001 40.0 0:00.40 chrome-headless-shell`,
+          `5002 ${TARGET_PGID} 5002 4.0 0:00.05 node vite preview`
         ].join('\n')
       )
     },
@@ -1423,7 +2778,7 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
       runtimeProcess: { pid: 5002 },
       spawnImpl: (command, args, options) => {
         spawnCall = { args, command, options }
-        queueMicrotask(() => child.emit('close', 0, null))
+        globalThis.queueMicrotask(() => child.emit('close', 0, null))
         return child
       }
     }
@@ -1481,7 +2836,7 @@ test('starts product-group termination before root within one bounded window', a
   assert.equal(result.groups.length, 4)
 })
 
-test('attests the app build before starting Playwright and passes the bounded artifact claim', async () => {
+test('attests separate production setup before starting guarded runtime', async () => {
   const events = []
   const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
   const result = await runEndpointPerformancePipeline(['--owner', OWNER], {
@@ -1496,13 +2851,12 @@ test('attests the app build before starting Playwright and passes the bounded ar
     baseEnv: { PATH: '/test/bin' },
     runPhase: async (argv, options) => {
       const phaseOwner = argv[1]
-      events.push(`phase:${phaseOwner}`)
-      if (phaseOwner === OWNER) {
-        assert.equal(
-          options.baseEnv.ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED,
-          expectedEndpoint
-        )
-      }
+      assert.equal(phaseOwner, OWNER)
+      events.push(`runtime:${phaseOwner}`)
+      assert.equal(
+        options.baseEnv.ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED,
+        expectedEndpoint
+      )
       return {
         exitCode: 0,
         report: { owner: phaseOwner }
@@ -1514,11 +2868,30 @@ test('attests the app build before starting Playwright and passes the bounded ar
   assert.deepEqual(events, [
     'port:3021',
     'port:4121',
-    `phase:${OWNER}:collaboration-build`,
-    `phase:${OWNER}:app-build`,
     'attest-build',
-    `phase:${OWNER}`
+    `runtime:${OWNER}`
   ])
+})
+
+test('does not start the guarded runtime when production artifact attestation fails', async () => {
+  const events = []
+  await assert.rejects(
+    runEndpointPerformancePipeline(['--owner', OWNER], {
+      assertPortAvailable: async () => undefined,
+      attestBuild: async () => {
+        events.push('attest-build')
+        throw new Error('production setup is stale')
+      },
+      baseEnv: { PATH: '/test/bin' },
+      runPhase: async () => {
+        events.push('runtime')
+        return { exitCode: 0, report: null }
+      }
+    }),
+    /production setup is stale/
+  )
+
+  assert.deepEqual(events, ['attest-build'])
 })
 
 test('turns process sampling failure into an immediate stop decision', () => {
@@ -1640,7 +3013,15 @@ test('retains only bounded canonical and owner-timing evidence from a completed 
               topPhases: Array.from({ length: 40 }, (_, index) => ({
                 durationMs: index + 0.5,
                 name: `actor-a-phase-${index}`
-              }))
+              })),
+              visibleWorkerTargets: [
+                ...Array.from(
+                  { length: 20 },
+                  (_, index) => `http://127.0.0.1/worker-${index}.js`
+                ),
+                '',
+                { invalid: true }
+              ]
             },
             firstVisibleMs: 100,
             summary: {
@@ -1666,6 +3047,7 @@ test('retains only bounded canonical and owner-timing evidence from a completed 
           convergedMs: 1_800,
           durationMs: 2_000,
           owner: OWNER,
+          proofKind: 'endpoint',
           status: 'complete',
           ignoredPayload: Array.from({ length: 10_000 }, () => 'drop-me')
         }
@@ -1684,5 +3066,12 @@ test('retains only bounded canonical and owner-timing evidence from a completed 
     { height: 941, id: 'background', width: 1672 }
   ])
   assert.equal(report.endpointReport.actorA.diagnostics.topPhases.length, 24)
+  assert.deepEqual(
+    report.endpointReport.actorA.diagnostics.visibleWorkerTargets,
+    Array.from(
+      { length: 16 },
+      (_, index) => `http://127.0.0.1/worker-${index}.js`
+    )
+  )
   assert.equal(Object.hasOwn(report.endpointReport, 'ignoredPayload'), false)
 })

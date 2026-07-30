@@ -1035,68 +1035,6 @@
       failureOwnerStepId: 'load-empty-demo-document'
     },
     {
-      id: 'evaluate-local-interactive-drawing',
-      order: 1,
-      laneId: 'persistence-proof',
-      title: 'Evaluate one local interactive drawing',
-      ownerPackage: 'Asyra Design single-Actor performance E2E',
-      purpose:
-        'Measure one production single-Actor 7,112-element progressive turn from accepted request through exact-bounds loading, first ordinary Vector, real batch milestones, canonical completion, and settled UI with Collaboration ready but without peer relay, remote apply, or persistence noise.',
-      inputs: [
-        'artifact:local-drawing-progress-state',
-        'artifact:local-document-interaction-lock-state',
-        'artifact:app-bulk-timing',
-        'artifact:visible-canonical-slices',
-        'artifact:render-ui-timing'
-      ],
-      outputs: ['artifact:local-interactive-drawing-proof'],
-      conditions: [
-        'The gate uses one fresh single Actor connected through Collaboration to the empty document session selected by the required fileId URL, the formal Conversational AI provider in default progressive mode, and one 7,112-element balanced composition run without creating Actor B.',
-        'The report names accepted-to-connected DOM loading state, accepted-to-first compositor paint opportunity, accepted-to-first ordinary Vector visible, 25, 50, 75, and 100 percent visible-element milestones, longest canonical work unit, cooperative yield count, product settled time, Render time, UI time, and harness overhead.',
-        'Milestones use O(1) runtime counters and one terminal exact canonical summary; the harness never polls a full canonical snapshot.',
-        'Before the first canonical mutation, the connected DOM loading overlay has a non-zero exact transformed bounds rectangle; that loading state and the ordinary Vector output come from the same live measured App state and receive synchronized visual inspection.',
-        'During a cooperative yield, ordinary viewport pan and zoom repaint the same live App state while every other document interaction produces no canonical mutation or history; terminal cleanup releases the App lock.',
-        'The final state preserves all 7,112 canonical projections, exact bounds and detail, and one intended Undo action.'
-      ],
-      bypasses: [
-        'Contents projection, a second Actor, peer relay, remote apply, and CRDT convergence are excluded from this single-Actor gate; its client-to-server Collaboration transport remains active and server CPU is reported separately.',
-        'No request-time response inbox access, document IndexedDB provider/read/capture/save/write/state hash, reload, screenshot trace, video, or repeated measured run is part of this gate; the one source response lookup completed before App readiness.',
-        'This local proof does not close or waive any deferred collaboration, persistence-policy, Contents, or full-plan gate.'
-      ],
-      allowedContributors: [
-        'production Asyra Design App',
-        'artifact:local-drawing-progress-state',
-        'ordinary Vector projection milestones',
-        'active single-Actor Collaboration transport',
-        'separately attributed WebSocket-server CPU',
-        'detached monotonic production timing',
-        'app-visual-review-sync live App screenshots'
-      ],
-      forbiddenContributors: [
-        'dev-only mutable canonical globals as release evidence',
-        'full canonical snapshot polling',
-        'second browser actor, peer relay, or remote apply',
-        'disabling Collaboration or omitting the required WebSocket server',
-        'request-time response inbox or document IndexedDB timing or state assertions',
-        'warm-up or repeated high-detail creation',
-        'state-only loading visibility evidence',
-        'Canvas or Render-owned loading screenshot',
-        'microtask-only yield presented as browser task evidence'
-      ],
-      cacheDimensions: [],
-      implementationBoundary: [
-        'apps/asyra-design/e2e',
-        'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
-        'apps/asyra-design/src/init/__tests__'
-      ],
-      specRefs: [
-        '#current-local-interactive-drawing-closure',
-        '#current-local-performance-measurement',
-        '#current-local-gates'
-      ],
-      failureOwnerStepId: 'evaluate-local-interactive-drawing'
-    },
-    {
       id: 'evaluate-endpoint-performance',
       order: 2,
       laneId: 'persistence-proof',
@@ -1109,6 +1047,8 @@
         'artifact:provider-response-handoff-timing',
         'artifact:ai-action-batch-ingestion-timing',
         'artifact:loading-paint-timing',
+        'artifact:local-drawing-progress-state',
+        'artifact:local-document-interaction-lock-state',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
         'artifact:factory-batch-timing',
@@ -1122,12 +1062,16 @@
       outputs: [
         'artifact:accepted-endpoint-baseline',
         'artifact:endpoint-performance-proof',
+        'artifact:local-interactive-drawing-proof',
         'artifact:precanonical-owner-attribution',
         'artifact:resource-guard-stop-proof'
       ],
       conditions: [
         'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
-        'A single-Actor endpoint may additionally use one 7,112-element creation with Collaboration connected but no Actor B; it cannot replace the two-Actor proof for a collaboration endpoint.',
+        'That same guarded two-Actor creation is the only automated high-detail run: Actor A proves connected exact-bounds loading, ordinary Vector milestones, responsive viewport pan and zoom during a cooperative yield, blocked document mutation and history while locked, terminal lock release, one intended Undo action, and one terminal exact canonical summary; no additional single-Actor 7,000-plus run is started.',
+        'The performance profile emits detached evidence with no configuration payload; the sole aiPerformance=profile diagnostic opt-in never selects or changes a product route.',
+        'Progress uses O(1) canonical, Render, publication, and history counters. Actor A and Actor B each produce one exact canonical summary only after completion; no Undo or Redo execution polls the full graph.',
+        'The report names Actor A connected loading, first compositor paint opportunity, first ordinary Vector, real visible-element milestones, longest canonical work unit, cooperative yield count, settled time, Actor B first visible and complete, convergence, Render, UI, harness, and separately attributed WebSocket-server CPU.',
         'The guard authenticates one ready heartbeat and confirms process ownership and CPU sampling before the 7,076-element request may start.',
         'Both Actor contexts are created first; Actor A completes navigation and reaches collaboration ready before Actor B navigation, Actor B then reaches collaboration ready before the guard-ready heartbeat, and every staged harness bootstrap phase stays outside product timing.',
         'Production build commands are a separate setup outside the runtime guard and product timing; artifact attestation must succeed before Playwright starts, runtime safety begins with the production App processes, and operation timing begins only at Actor A request submission.',
@@ -1168,7 +1112,7 @@
         'One endpoint receives at most five materially revised architecture attempts; the same focused failure three times stops earlier.'
       ],
       bypasses: [
-        'The creation-only endpoint proof never runs the complete two-window recording or full three-turn flow.',
+        'The creation-only endpoint proof never runs the complete two-window recording, a follow-up turn, or an additional high-detail local run.',
         'The first receiver endpoint does not require artifact:accepted-endpoint-baseline because the retained pre-refactor evidence is its fixed seed.',
         'The bounded 16-item and 1,280-item attribution cases locate the first chronological owner after a pre-canonical resource stop; they do not replace the exact 7,076-element endpoint proof.',
         'The two-Actor 16-item operation-versus-idle diagnostic compares active and settled work only; it does not replace or create artifact:accepted-endpoint-baseline.',
@@ -1181,6 +1125,7 @@
         'detached O(1) runtime counters',
         'detached Actor-target task and script timing',
         'Chromium page-target CDP Performance threadTicks metrics',
+        'Actor A connected DOM loading and ordinary viewport interaction evidence',
         'tracked test-owned process ids',
         'declared owner timing artifacts',
         'one terminal bounded canonical equivalence summary'
@@ -1197,6 +1142,9 @@
         'using macOS decayed ps percent as post-baseline interval CPU',
         'starting a second App preview, a second WebSocket server, or any HMR process',
         'running production build commands inside the runtime performance guard or product timing',
+        'an ordinary Playwright, Vite development, HMR, unguarded, repeated, or retrying 7,000-plus run',
+        'snapshot contentsMode or deliveryMode configuration',
+        'aiDelivery, aiPerformanceContents, ai=mock, or another product-mode query',
         'excluding any Chromium renderer PID, GPU, utility, or other subprocess from the browser CPU total',
         'claiming page main-thread or Web Worker ownership for residual renderer CPU without direct evidence',
         'reusing one browser process across single-Actor attribution cases',
@@ -1207,7 +1155,9 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
         'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts',
+        'apps/asyra-design/src/index.tsx',
         'apps/asyra-design/e2e/performance-resource-guard.mjs',
         'apps/asyra-design/playwright.endpoint-performance.config.ts',
         'apps/asyra-design/__tests__/performance-resource-guard.test.mjs',
@@ -1267,16 +1217,16 @@
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
         'artifact:empty-memory-demo-document',
-        'the accepted endpoint performance proofs'
+        'artifact:endpoint-performance-proof'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
       conditions: [
-        'One warm-up precedes three measured runs and median and worst values are reported separately.',
+        'After the final architecture owner, one final invocation of the same guarded two-Actor 7,076-element endpoint proof reports the accepted observed result against the retained pre-refactor and preceding endpoint baselines; it does not add a warm-up, repeat, or parallel high-detail suite.',
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
         'Response inbox seeding, the fileId-selected response preload, navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
         'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated response inbox read only before App readiness.',
-        'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, independent 7,076-element no-media CRDT and performance runs, and the 27,471-element 295,794-point gate pass.',
+        'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, the final accepted guarded 7,076-element endpoint proof, and the 27,471-element 295,794-point gate pass.',
         'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
         'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
@@ -1296,7 +1246,7 @@
       ],
       forbiddenContributors: [
         'screenshots as canonical semantics authority',
-        'averages that hide worst-run regression',
+        'an additional 7,076-element warm-up, repeat, or unguarded run',
         'harness overhead attributed to a product owner',
         'final-only peer output',
         'committed generated media or profiles'
@@ -1442,25 +1392,25 @@
     {
       id: 'route-app-timing-to-local-proof',
       from: 'stage-local-interactive-composition',
-      to: 'evaluate-local-interactive-drawing',
+      to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The single-Actor local run emitted bounded App bulk timing samples.',
+        'Actor A in the guarded endpoint run emitted bounded App bulk timing samples.',
       producedArtifacts: ['artifact:app-bulk-timing']
     },
     {
       id: 'route-local-drawing-progress-to-proof',
       from: 'stage-local-interactive-composition',
-      to: 'evaluate-local-interactive-drawing',
+      to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'One single-Actor run observed exact-bounds loading, first ordinary Vector, actual batch milestones, and terminal cleanup.',
+        'Actor A in the guarded endpoint run observed exact-bounds loading, first ordinary Vector, actual batch milestones, and terminal cleanup.',
       producedArtifacts: ['artifact:local-drawing-progress-state']
     },
     {
       id: 'route-local-interaction-lock-to-proof',
       from: 'stage-local-interactive-composition',
-      to: 'evaluate-local-interactive-drawing',
+      to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
         'One cooperative yield retained ordinary pan and zoom while other document interactions stayed outside canonical mutation and history.',
@@ -1469,10 +1419,10 @@
     {
       id: 'route-local-visible-slices-to-proof',
       from: 'project-visible-canonical-slices',
-      to: 'evaluate-local-interactive-drawing',
+      to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'One production single-Actor progressive turn emitted ordinary visible Vector milestones.',
+        'Actor A in the guarded endpoint run emitted ordinary visible Vector milestones.',
       producedArtifacts: [
         'artifact:visible-canonical-slices',
         'artifact:render-ui-timing'
@@ -1767,10 +1717,10 @@
     },
     {
       id: 'route-local-interactive-drawing-proof',
-      from: 'evaluate-local-interactive-drawing',
+      from: 'evaluate-endpoint-performance',
       kind: 'terminal',
       predicate:
-        'The current single-Actor formal measurement and synchronized visual review ran once with Collaboration ready and no Actor B.',
+        'The guarded two-Actor creation produced Actor A local interactivity evidence without starting another high-detail run; synchronized visual review remains a later explicit closure.',
       producedArtifacts: ['artifact:local-interactive-drawing-proof']
     },
     {
@@ -1785,9 +1735,10 @@
     {
       id: 'route-endpoint-performance-proof',
       from: 'evaluate-endpoint-performance',
-      kind: 'terminal',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'proof-handoff',
       predicate:
-        'One effective endpoint produced exact guarded high-detail equivalence and owner-effectiveness evidence.',
+        'Every effective endpoint produced exact guarded high-detail equivalence and owner-effectiveness evidence required by final closure.',
       producedArtifacts: ['artifact:endpoint-performance-proof']
     },
     {
@@ -1943,7 +1894,7 @@
       ownerStepId: 'stage-local-interactive-composition',
       channel:
         'runtime-only App System Context to committed DOM compositor overlay',
-      consumerStepIds: ['evaluate-local-interactive-drawing'],
+      consumerStepIds: ['evaluate-endpoint-performance'],
       terminal: false
     },
     {
@@ -1951,7 +1902,7 @@
       ownerStepId: 'stage-local-interactive-composition',
       channel:
         'runtime-only App interaction policy and ordinary viewport input route',
-      consumerStepIds: ['evaluate-local-interactive-drawing'],
+      consumerStepIds: ['evaluate-endpoint-performance'],
       terminal: false
     },
     {
@@ -1959,7 +1910,6 @@
       ownerStepId: 'stage-local-interactive-composition',
       channel: 'detached monotonic timing',
       consumerStepIds: [
-        'evaluate-local-interactive-drawing',
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
@@ -2139,7 +2089,6 @@
       ownerStepId: 'project-visible-canonical-slices',
       channel: 'ordinary local and remote Vector projection',
       consumerStepIds: [
-        'evaluate-local-interactive-drawing',
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
@@ -2160,7 +2109,6 @@
       ownerStepId: 'project-visible-canonical-slices',
       channel: 'detached Render and UI timing',
       consumerStepIds: [
-        'evaluate-local-interactive-drawing',
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
       ],
@@ -2182,8 +2130,8 @@
     },
     {
       id: 'artifact:local-interactive-drawing-proof',
-      ownerStepId: 'evaluate-local-interactive-drawing',
-      channel: 'terminal current-phase formal evidence',
+      ownerStepId: 'evaluate-endpoint-performance',
+      channel: 'guarded endpoint Actor A local-interactivity evidence',
       consumerStepIds: [],
       terminal: true
     },
@@ -2199,9 +2147,9 @@
       id: 'artifact:endpoint-performance-proof',
       ownerStepId: 'evaluate-endpoint-performance',
       channel:
-        'terminal exact endpoint equivalence and effectiveness comparison',
-      consumerStepIds: [],
-      terminal: true
+        'exact endpoint equivalence and effectiveness comparisons consumed by final closure',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
     },
     {
       id: 'artifact:precanonical-owner-attribution',
@@ -2327,7 +2275,7 @@
         'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client document persistence capture, provider save, document IndexedDB read, or document IndexedDB write; the separate pre-ready response inbox read is not document persistence, and remote apply additionally creates no Undo or echo publication.',
       stepIds: [
         'load-empty-demo-document',
-        'evaluate-local-interactive-drawing',
+        'evaluate-endpoint-performance',
         'apply-remote-publication-batches',
         'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
@@ -2418,12 +2366,12 @@
         'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
         'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
         'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
-        'One single-Actor 7,112-element production run reports DOM loading, first compositor paint opportunity, first Vector, 25, 50, 75, 100 percent, longest work unit, cooperative yield count, settled, Render, UI, harness, and separately attributed WebSocket-server timing with Collaboration ready, no Actor B, no Contents, no request-time response inbox read, and no document IndexedDB work.'
+        'The one guarded two-Actor 7,076-element production run reports Actor A DOM loading, first compositor paint opportunity, first Vector, real milestones, longest work unit, cooperative yield count, settled, Render, UI, harness, Actor B completion and convergence, and separately attributed WebSocket-server timing with no Contents, request-time response inbox read, or document IndexedDB work.'
       ],
       stepIds: [
         'stage-local-interactive-composition',
         'project-visible-canonical-slices',
-        'evaluate-local-interactive-drawing'
+        'evaluate-endpoint-performance'
       ],
       specRefs: [
         '#exact-bounds-loading-frame',
@@ -2462,7 +2410,7 @@
       title: 'Formal, performance, and visual closure',
       assertions: [
         'The default 16-item CRDT gate, one change-aware 7,112-element correctness gate, independent high-detail CRDT and performance gates, and maximum-detail gate pass.',
-        'Existing progressive, first-visible, convergence, follow-up, full-flow, and maximum-detail budgets pass with separated owner and harness spans.',
+        'Existing progressive, first-visible, convergence, guarded creation-only, and maximum-detail budgets pass with separated owner and harness spans.',
         'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [

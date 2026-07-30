@@ -67,6 +67,31 @@ const browserLauncherEnvironment = Object.fromEntries(
     (entry): entry is [string, string] => typeof entry[1] === 'string'
   )
 )
+const guardedWebServers = [
+  {
+    command: trackedServerCommand(
+      'websocket-server',
+      'yarn collaboration:server:start'
+    ),
+    env: {
+      ASYRA_DESIGN_APP_URL: appURL,
+      ASYRA_DESIGN_COLLABORATION_WS_HOST: '127.0.0.1',
+      ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort)
+    },
+    url: collaborationHealthURL,
+    reuseExistingServer: false,
+    timeout: 120_000
+  },
+  {
+    command: trackedServerCommand(
+      'app-server',
+      `yarn preview --host 127.0.0.1 ` + `--port ${appPort} --strictPort`
+    ),
+    url: appURL,
+    reuseExistingServer: false,
+    timeout: 120_000
+  }
+]
 
 export default defineConfig({
   testDir: './e2e',
@@ -102,29 +127,5 @@ export default defineConfig({
       }
     }
   ],
-  webServer: [
-    {
-      command: trackedServerCommand(
-        'websocket-server',
-        'yarn collaboration:server:start'
-      ),
-      env: {
-        ASYRA_DESIGN_APP_URL: appURL,
-        ASYRA_DESIGN_COLLABORATION_WS_HOST: '127.0.0.1',
-        ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort)
-      },
-      url: collaborationHealthURL,
-      reuseExistingServer: false,
-      timeout: 120_000
-    },
-    {
-      command: trackedServerCommand(
-        'app-server',
-        `yarn preview --host 127.0.0.1 ` + `--port ${appPort} --strictPort`
-      ),
-      url: appURL,
-      reuseExistingServer: false,
-      timeout: 120_000
-    }
-  ]
+  webServer: guardedWebServers
 })

@@ -10,16 +10,13 @@ const appEnvironment = resolveAsyraDesignEnvironment(
 )
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
 const ordinaryTestIgnore = [
+  'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
   'crdt-endpoint-performance.spec.ts',
   ...(process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
     ? ['render-delta-performance.spec.ts']
     : [])
 ]
-const ordinaryGrepInvert =
-  process.env.ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS === '1'
-    ? undefined
-    : /attaches a reference, chooses balanced detail, and incrementally edits/
 const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
@@ -28,7 +25,6 @@ const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.v
 export default defineConfig({
   testDir: './e2e',
   testIgnore: ordinaryTestIgnore,
-  grepInvert: ordinaryGrepInvert,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -70,10 +66,18 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: process.env.CI
     ? undefined
-    : {
-        command: visualReviewWebServerCommand,
-        url: appEnvironment.appURL,
-        reuseExistingServer: true,
-        timeout: 120 * 1000
-      }
+    : [
+        {
+          command: 'yarn collaboration:server',
+          url: appEnvironment.collaborationHealthURL,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        },
+        {
+          command: visualReviewWebServerCommand,
+          url: appEnvironment.appURL,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        }
+      ]
 })

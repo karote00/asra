@@ -15,6 +15,7 @@ import * as inputSystem from '../foundation/init-input-system'
 import { elementApis } from '../../common-apis/element'
 import { hierarchyApis } from '../../common-apis/hierarchy'
 import { strokeApis } from '../../common-apis/strokes'
+import { viewportApis } from '../../common-apis/viewport'
 import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 import * as aiStartup from '../../ai/startup'
@@ -239,6 +240,10 @@ describe('initApp preset composition', () => {
     const readUndoHistoryDepth = vi
       .spyOn(core.deps.factory, 'getUndoHistoryDepth')
       .mockReturnValue(3)
+    const readViewportPosition = vi
+      .spyOn(viewportApis, 'getPosition')
+      .mockReturnValue({ x: 12, y: 34 })
+    const readZoom = vi.spyOn(viewportApis, 'getScale').mockReturnValue(1.25)
     const attachRuntimeEvidence = vi
       .spyOn(aiDrawingPerformance, 'attachAiDrawingPerformanceRuntimeEvidence')
       .mockReturnValue(detachRuntimeEvidence)
@@ -255,6 +260,8 @@ describe('initApp preset composition', () => {
         readCanonicalOwnerSnapshot: expect.any(Function),
         readHistoryDepth: expect.any(Function),
         readRenderProjectionElementCount: expect.any(Function),
+        readViewportPosition: expect.any(Function),
+        readZoom: expect.any(Function),
         subscribeToTransactionStatus: expect.any(Function)
       }
     )
@@ -262,8 +269,12 @@ describe('initApp preset composition', () => {
     expect(runtimeSource.readCanonicalElementCount()).toBe(0)
     expect(runtimeSource.readHistoryDepth()).toBe(3)
     expect(runtimeSource.readRenderProjectionElementCount()).toBe(7)
+    expect(runtimeSource.readViewportPosition()).toEqual({ x: 12, y: 34 })
+    expect(runtimeSource.readZoom()).toBe(1.25)
     expect(readUndoHistoryDepth).toHaveBeenCalledOnce()
     expect(readProjectedElementCount).toHaveBeenCalledOnce()
+    expect(readViewportPosition).toHaveBeenCalledOnce()
+    expect(readZoom).toHaveBeenCalledOnce()
 
     await initialization.dispose()
 

@@ -4,13 +4,7 @@ import type {
   AsyraDesignAiConversationSnapshot
 } from '../../ai/conversation'
 
-export type AiDrawingPerformanceContentsMode = 'omitted' | 'present'
 export type AiDrawingPerformanceRuntime = 'development' | 'production'
-
-export interface AiDrawingPerformanceConfiguration {
-  readonly contentsMode: AiDrawingPerformanceContentsMode
-  readonly deliveryMode: 'atomic' | 'progressive'
-}
 
 export interface AiDrawingPerformancePhaseSample {
   readonly atMs: number
@@ -35,6 +29,11 @@ export interface AiDrawingPerformanceCanonicalElement {
 export interface AiDrawingPerformanceCanonicalOwnerSnapshot {
   readonly props: unknown
   readonly sceneTree: unknown
+}
+
+export interface AiDrawingPerformanceViewportPosition {
+  readonly x: number
+  readonly y: number
 }
 
 export interface AiDrawingPerformanceFactoryPublicationEvidence {
@@ -89,13 +88,14 @@ export interface AiDrawingPerformanceRuntimeEvidenceSource {
   readCanonicalOwnerSnapshot(): AiDrawingPerformanceCanonicalOwnerSnapshot
   readHistoryDepth(): number
   readRenderProjectionElementCount(): number
+  readViewportPosition(): AiDrawingPerformanceViewportPosition
+  readZoom(): number
   subscribeToTransactionStatus(
     subscriber: (status: TransactionStatusPayload) => void
   ): () => void
 }
 
 export interface AiDrawingPerformanceSnapshot {
-  readonly configuration: AiDrawingPerformanceConfiguration
   readonly counters: readonly AiDrawingPerformanceCounterSample[]
   readonly phases: readonly AiDrawingPerformancePhaseSample[]
   readonly releaseEvidenceEligible: boolean
@@ -117,12 +117,13 @@ export interface AiDrawingPerformanceProfile {
   readHistoryDepth(): number
   readLatestPhaseSample(): AiDrawingPerformancePhaseSample | null
   readRenderProjectionElementCount(): number
+  readViewportPosition(): AiDrawingPerformanceViewportPosition
+  readZoom(): number
   reset(): void
   snapshot(): AiDrawingPerformanceSnapshot
 }
 
 interface InstallAiDrawingPerformanceProfileOptions {
-  readonly configuration: AiDrawingPerformanceConfiguration
   readonly epochNow?: () => number
   readonly now?: () => number
   readonly runtime: AiDrawingPerformanceRuntime
@@ -134,6 +135,50 @@ type CounterSink = (name: string, value: number) => void
 type DiagnosticGlobal = typeof globalThis & {
   __asyraBrowserDragPhaseSink?: PhaseSink
   __asyraDiagnosticCounterSink?: CounterSink
+}
+
+const RETAINED_EVIDENCE_CAPACITY = 16_384
+
+class BoundedEvidenceBuffer<T> {
+  private readonly entries: T[] = []
+  private nextWriteIndex = 0
+
+  constructor(private readonly capacity: number) {}
+
+  append(value: T): void {
+    if (this.entries.length < this.capacity) {
+      this.entries.push(value)
+      return
+    }
+
+    this.entries[this.nextWriteIndex] = value
+    this.nextWriteIndex = (this.nextWriteIndex + 1) % this.capacity
+  }
+
+  clear(): void {
+    this.entries.length = 0
+    this.nextWriteIndex = 0
+  }
+
+  latest(): T | undefined {
+    if (this.entries.length === 0) return
+    if (this.entries.length < this.capacity) {
+      return this.entries.at(-1)
+    }
+    return this.entries[
+      (this.nextWriteIndex + this.capacity - 1) % this.capacity
+    ]
+  }
+
+  toArray(): T[] {
+    if (this.entries.length < this.capacity || this.nextWriteIndex === 0) {
+      return [...this.entries]
+    }
+    return [
+      ...this.entries.slice(this.nextWriteIndex),
+      ...this.entries.slice(0, this.nextWriteIndex)
+    ]
+  }
 }
 
 interface AiDrawingPerformanceRuntimeEvidenceOwner {
@@ -235,45 +280,11 @@ export const recordAiDrawingPerformancePublication = (
   }
 }
 
-const exactlyOne = (
-  search: URLSearchParams,
-  key: string,
-  accepted: readonly string[]
-): string | null => {
-  const values = search.getAll(key)
-  return values.length === 1 && accepted.includes(values[0]) ? values[0] : null
-}
-
-export const resolveAiDrawingPerformanceProfile = (
+export const isAiDrawingPerformanceProfileRequested = (
   search: string
-): AiDrawingPerformanceConfiguration | null => {
-  const values = new URLSearchParams(search)
-  if (exactlyOne(values, 'aiPerformance', ['profile']) !== 'profile') {
-    return null
-  }
-
-  const deliveryValues = values.getAll('aiDelivery')
-  const deliveryMode =
-    deliveryValues.length === 0
-      ? 'atomic'
-      : exactlyOne(values, 'aiDelivery', ['atomic', 'progressive'])
-  if (deliveryMode !== 'atomic' && deliveryMode !== 'progressive') {
-    return null
-  }
-
-  const contentsValues = values.getAll('aiPerformanceContents')
-  const contentsMode =
-    contentsValues.length === 0
-      ? 'present'
-      : exactlyOne(values, 'aiPerformanceContents', ['present', 'omitted'])
-  if (contentsMode !== 'present' && contentsMode !== 'omitted') {
-    return null
-  }
-
-  return Object.freeze({
-    contentsMode,
-    deliveryMode
-  })
+): boolean => {
+  const values = new URLSearchParams(search).getAll('aiPerformance')
+  return values.length === 1 && values[0] === 'profile'
 }
 
 const callDetached = <T extends readonly unknown[]>(
@@ -288,26 +299,20 @@ const callDetached = <T extends readonly unknown[]>(
 }
 
 const freezeSnapshot = (
-  configuration: AiDrawingPerformanceConfiguration,
   counters: readonly AiDrawingPerformanceCounterSample[],
   phases: readonly AiDrawingPerformancePhaseSample[],
+  hasCompleteReleaseEvidence: boolean,
   runtime: AiDrawingPerformanceRuntime
 ): AiDrawingPerformanceSnapshot =>
   Object.freeze({
-    configuration,
     counters: Object.freeze(counters.map((sample) => Object.freeze(sample))),
     phases: Object.freeze(phases.map((sample) => Object.freeze(sample))),
     releaseEvidenceEligible:
-      runtime === 'production' &&
-      configuration.contentsMode === 'present' &&
-      counters.some(({ name }) => name === 'ai-turn:accepted') &&
-      counters.some(({ name }) => name.startsWith('ai-turn:outcome:')) &&
-      phases.some(({ name }) => name === 'ai-turn:accepted-to-settled'),
+      runtime === 'production' && hasCompleteReleaseEvidence,
     runtime
   })
 
 export const installAiDrawingPerformanceProfile = ({
-  configuration,
   epochNow = () => performance.timeOrigin + performance.now(),
   now = () => performance.now(),
   runtime
@@ -315,38 +320,65 @@ export const installAiDrawingPerformanceProfile = ({
   const runtimeGlobal = globalThis as DiagnosticGlobal
   const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
   const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
-  const counters: AiDrawingPerformanceCounterSample[] = []
+  const counters = new BoundedEvidenceBuffer<AiDrawingPerformanceCounterSample>(
+    RETAINED_EVIDENCE_CAPACITY
+  )
   const counterTotals = new Map<string, number>()
   const factoryCommits: AiDrawingPerformanceFactoryCommitEvidence[] = []
   const factoryPublications: AiDrawingPerformanceFactoryPublicationEvidence[] =
     []
   const factoryStatuses: AiDrawingPerformanceFactoryTransactionStatusEvidence[] =
     []
-  const phases: AiDrawingPerformancePhaseSample[] = []
+  const phases = new BoundedEvidenceBuffer<AiDrawingPerformancePhaseSample>(
+    RETAINED_EVIDENCE_CAPACITY
+  )
   let baselineMs = now()
   let conversationDisposer: (() => void) | null = null
   let disposed = false
+  let hasAcceptedToSettledEvidence = false
+  let hasAcceptedTurnEvidence = false
+  let hasSettledOutcomeEvidence = false
   let previousConversationSnapshot: AsyraDesignAiConversationSnapshot | null =
     null
+  let observedRuntimeProgressCount = 0
+  let runtimeProgressClock: {
+    readonly phase: string
+    readonly startedAtMs: number
+  } | null = null
   let runtimeEvidenceDisposer: (() => void) | null = null
   let runtimeEvidenceSource: AiDrawingPerformanceRuntimeEvidenceSource | null =
     null
 
   const elapsed = () => Math.max(0, now() - baselineMs)
-  const recordPhase = (name: string, durationMs: number) => {
+  const recordPhaseAt = (name: string, durationMs: number, atMs: number) => {
     if (disposed || !Number.isFinite(durationMs)) return
-    phases.push(
+    phases.append(
       Object.freeze({
-        atMs: elapsed(),
+        atMs: Math.max(0, atMs),
         durationMs: Math.max(0, durationMs),
         name
       })
     )
+    if (name === 'ai-turn:accepted-to-settled') {
+      hasAcceptedToSettledEvidence = true
+    }
+  }
+  const recordPhase = (name: string, durationMs: number) => {
+    recordPhaseAt(name, durationMs, elapsed())
+  }
+  const recordCounterAt = (name: string, value: number, atMs: number) => {
+    if (disposed || !Number.isFinite(value)) return
+    counters.append(Object.freeze({ atMs: Math.max(0, atMs), name, value }))
+    counterTotals.set(name, (counterTotals.get(name) ?? 0) + value)
+    if (name === 'ai-turn:accepted') {
+      hasAcceptedTurnEvidence = true
+    }
+    if (name.startsWith('ai-turn:outcome:')) {
+      hasSettledOutcomeEvidence = true
+    }
   }
   const recordCounter = (name: string, value: number) => {
-    if (disposed || !Number.isFinite(value)) return
-    counters.push(Object.freeze({ atMs: elapsed(), name, value }))
-    counterTotals.set(name, (counterTotals.get(name) ?? 0) + value)
+    recordCounterAt(name, value, elapsed())
   }
   const phaseSink: PhaseSink = (name, durationMs) => {
     recordPhase(name, durationMs)
@@ -428,27 +460,84 @@ export const installAiDrawingPerformanceProfile = ({
       conversationDisposer?.()
       conversationDisposer = null
       previousConversationSnapshot = null
+      observedRuntimeProgressCount = 0
+      runtimeProgressClock = null
       if (!conversation || disposed) {
         return () => undefined
       }
       const unsubscribe = conversation.subscribe((snapshot) => {
         const previous = previousConversationSnapshot
+        const observedAtMs = now()
+        const observedElapsedMs = Math.max(0, observedAtMs - baselineMs)
         if (!previous?.activeTurn && snapshot.activeTurn) {
-          recordCounter('ai-turn:accepted', 1)
+          recordCounterAt('ai-turn:accepted', 1, observedElapsedMs)
+          observedRuntimeProgressCount = 0
+          runtimeProgressClock = null
+        }
+        if (snapshot.activeTurn) {
+          const nextProgress = snapshot.activeTurn.progress.slice(
+            observedRuntimeProgressCount
+          )
+          for (const update of nextProgress) {
+            if (
+              runtimeProgressClock &&
+              runtimeProgressClock.phase !== update.phase &&
+              runtimeProgressClock.phase !== 'settled'
+            ) {
+              recordPhaseAt(
+                `ai-runtime:${runtimeProgressClock.phase}`,
+                observedAtMs - runtimeProgressClock.startedAtMs,
+                observedElapsedMs
+              )
+            }
+            if (
+              !runtimeProgressClock ||
+              runtimeProgressClock.phase !== update.phase
+            ) {
+              runtimeProgressClock = {
+                phase: update.phase,
+                startedAtMs: observedAtMs
+              }
+            }
+          }
+          observedRuntimeProgressCount = snapshot.activeTurn.progress.length
+        } else if (previous?.activeTurn) {
+          if (
+            runtimeProgressClock &&
+            runtimeProgressClock.phase !== 'settled'
+          ) {
+            recordPhaseAt(
+              `ai-runtime:${runtimeProgressClock.phase}`,
+              observedAtMs - runtimeProgressClock.startedAtMs,
+              observedElapsedMs
+            )
+          }
+          observedRuntimeProgressCount = 0
+          runtimeProgressClock = null
         }
         if (
           snapshot.settledTurns.length > (previous?.settledTurns.length ?? 0)
         ) {
           const settled = snapshot.settledTurns.at(-1)
           if (settled) {
-            recordPhase('ai-turn:accepted-to-settled', settled.durationMs)
-            recordCounter(`ai-turn:outcome:${settled.outcome}`, 1)
+            recordPhaseAt(
+              'ai-turn:accepted-to-settled',
+              settled.durationMs,
+              observedElapsedMs
+            )
+            recordCounterAt(
+              `ai-turn:outcome:${settled.outcome}`,
+              1,
+              observedElapsedMs
+            )
           }
         }
         previousConversationSnapshot = snapshot
       })
       conversationDisposer = () => {
         unsubscribe()
+        observedRuntimeProgressCount = 0
+        runtimeProgressClock = null
         if (conversationDisposer) {
           conversationDisposer = null
         }
@@ -460,6 +549,8 @@ export const installAiDrawingPerformanceProfile = ({
       disposed = true
       conversationDisposer?.()
       conversationDisposer = null
+      observedRuntimeProgressCount = 0
+      runtimeProgressClock = null
       runtimeEvidenceDisposer?.()
       runtimeEvidenceDisposer = null
       runtimeEvidenceSource = null
@@ -556,7 +647,7 @@ export const installAiDrawingPerformanceProfile = ({
           'AI drawing performance runtime evidence is unavailable'
         )
       }
-      const latest = phases.at(-1)
+      const latest = phases.latest()
       return latest ? Object.freeze({ ...latest }) : null
     },
     readRenderProjectionElementCount: () => {
@@ -573,17 +664,54 @@ export const installAiDrawingPerformanceProfile = ({
       }
       return count
     },
+    readViewportPosition: () => {
+      if (!runtimeEvidenceSource || disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      const position = runtimeEvidenceSource.readViewportPosition()
+      if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+        throw new Error('AI drawing performance viewport position is invalid')
+      }
+      return Object.freeze({ x: position.x, y: position.y })
+    },
+    readZoom: () => {
+      if (!runtimeEvidenceSource || disposed) {
+        throw new Error(
+          'AI drawing performance runtime evidence is unavailable'
+        )
+      }
+      const zoom = runtimeEvidenceSource.readZoom()
+      if (!Number.isFinite(zoom) || zoom <= 0) {
+        throw new Error('AI drawing performance zoom is invalid')
+      }
+      return zoom
+    },
     reset: () => {
       if (disposed) return
-      counters.length = 0
+      counters.clear()
       counterTotals.clear()
       factoryCommits.length = 0
       factoryPublications.length = 0
       factoryStatuses.length = 0
-      phases.length = 0
+      phases.clear()
+      observedRuntimeProgressCount = 0
+      runtimeProgressClock = null
+      hasAcceptedToSettledEvidence = false
+      hasAcceptedTurnEvidence = false
+      hasSettledOutcomeEvidence = false
       baselineMs = now()
     },
-    snapshot: () => freezeSnapshot(configuration, counters, phases, runtime)
+    snapshot: () =>
+      freezeSnapshot(
+        counters.toArray(),
+        phases.toArray(),
+        hasAcceptedTurnEvidence &&
+          hasSettledOutcomeEvidence &&
+          hasAcceptedToSettledEvidence,
+        runtime
+      )
   })
 
   runtimeEvidenceOwners.set(profile, {

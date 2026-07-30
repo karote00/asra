@@ -7,17 +7,16 @@ import DataContexts from './contexts/data-change'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 import {
-  installAiDrawingPerformanceProfile,
-  resolveAiDrawingPerformanceProfile
+  isAiDrawingPerformanceProfileRequested,
+  installAiDrawingPerformanceProfile
 } from './init/performance/ai-drawing-performance-profile'
 import { startAsyraDesignApp } from './startup'
 
-const performanceConfiguration = resolveAiDrawingPerformanceProfile(
+const performanceProfileRequested = isAiDrawingPerformanceProfileRequested(
   window.location.search
 )
-const performanceProfile = performanceConfiguration
+const performanceProfile = performanceProfileRequested
   ? installAiDrawingPerformanceProfile({
-      configuration: performanceConfiguration,
       runtime: import.meta.env.PROD ? 'production' : 'development'
     })
   : null

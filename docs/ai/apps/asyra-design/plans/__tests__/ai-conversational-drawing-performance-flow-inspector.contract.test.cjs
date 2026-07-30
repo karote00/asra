@@ -755,6 +755,19 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.deepEqual(successRoute?.producedArtifacts, [
     'artifact:endpoint-performance-proof'
   ])
+  assert.equal(successRoute?.to, 'evaluate-performance-and-equivalence')
+  const endpointProofArtifact = data.artifacts.find(
+    ({ id }) => id === 'artifact:endpoint-performance-proof'
+  )
+  assert.deepEqual(endpointProofArtifact?.consumerStepIds, [
+    'evaluate-performance-and-equivalence'
+  ])
+  assert.equal(endpointProofArtifact?.terminal, false)
+  assert.ok(
+    data.steps
+      .find(({ id }) => id === 'evaluate-performance-and-equivalence')
+      ?.inputs.includes('artifact:endpoint-performance-proof')
+  )
   assert.deepEqual(baselineRoute?.producedArtifacts, [
     'artifact:accepted-endpoint-baseline'
   ])
@@ -895,12 +908,18 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
 
 test('local progressive drawing paints exact bounds before cooperative canonical batches', () => {
   const owner = step('stage-local-interactive-composition')
-  const proofOwner = step('evaluate-local-interactive-drawing')
+  const proofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
   const proofText = contractText(proofOwner)
   const plan = read(data.authority.specPath)
   const feature = read(
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+  assert.equal(
+    data.steps.some(
+      ({ id }) => id === 'evaluate-local-interactive-drawing'
+    ),
+    false
   )
 
   assert.match(
@@ -999,16 +1018,39 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /one fresh single Actor.*Collaboration.*required fileId URL.*one 7,112-element.*one terminal exact canonical summary/i
+    /one production two-Actor 7,076-element.*Actor A.*exact-bounds loading.*pan and zoom.*one terminal exact canonical summary/i
   )
-  assert.match(proofText, /connected DOM.*non-zero/i)
+  assert.match(proofText, /connected exact-bounds loading/i)
   assert.match(
     proofText,
     /longest canonical work unit.*cooperative yield count/i
   )
   assert.match(
     proofText,
-    /Contents.*second Actor.*peer relay.*remote apply.*CRDT.*excluded.*client-to-server Collaboration transport.*server CPU.*separately.*No request-time response inbox access.*document IndexedDB.*repeated measured run/i
+    /only automated high-detail run.*no additional single-Actor/i
+  )
+  assert.match(proofText, /separately attributed WebSocket-server CPU/i)
+  assert.match(
+    proofText,
+    /Contents and production persistence are outside.*unguarded.*7,000-plus run/i
+  )
+  assert.match(
+    proofText,
+    /performance profile.*detached evidence.*no configuration.*aiPerformance=profile.*never.*product route/i
+  )
+  assert.doesNotMatch(proofText, /default progressive mode/i)
+  ;[
+    'snapshot contentsMode or deliveryMode configuration',
+    'aiDelivery, aiPerformanceContents, ai=mock, or another product-mode query'
+  ].forEach((contributor) =>
+    assert.ok(proofOwner.forbiddenContributors.includes(contributor))
+  )
+  ;[
+    'apps/asyra-design/src/index.tsx',
+    'apps/asyra-design/__tests__/playwright-config.test.mjs',
+    'apps/asyra-design/playwright.config.ts'
+  ].forEach((boundary) =>
+    assert.ok(proofOwner.implementationBoundary.includes(boundary), boundary)
   )
   assert.ok(
     data.routes.some(
@@ -1022,7 +1064,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     data.routes.some(
       (route) =>
         route.from === 'stage-local-interactive-composition' &&
-        route.to === 'evaluate-local-interactive-drawing' &&
+        route.to === 'evaluate-endpoint-performance' &&
         route.producedArtifacts.includes('artifact:app-bulk-timing')
     )
   )
@@ -1030,7 +1072,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     data.routes.some(
       (route) =>
         route.from === 'stage-local-interactive-composition' &&
-        route.to === 'evaluate-local-interactive-drawing' &&
+        route.to === 'evaluate-endpoint-performance' &&
         route.producedArtifacts.includes(
           'artifact:local-drawing-progress-state'
         )
@@ -1040,7 +1082,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     data.artifacts.some(
       (artifact) =>
         artifact.id === 'artifact:local-interactive-drawing-proof' &&
-        artifact.ownerStepId === 'evaluate-local-interactive-drawing' &&
+        artifact.ownerStepId === 'evaluate-endpoint-performance' &&
         artifact.terminal
     )
   )
@@ -1106,7 +1148,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
 
 test('demo documents load empty without client persistence', () => {
   const owner = step('load-empty-demo-document')
-  const localProofOwner = step('evaluate-local-interactive-drawing')
+  const localProofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -1174,7 +1216,7 @@ test('demo documents load empty without client persistence', () => {
     !data.routes.some(
       (route) =>
         route.from === 'load-empty-demo-document' &&
-        route.to === 'evaluate-local-interactive-drawing'
+        route.to === 'evaluate-endpoint-performance'
     )
   )
   assert.doesNotMatch(

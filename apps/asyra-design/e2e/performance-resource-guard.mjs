@@ -14,30 +14,43 @@ import {
   setInterval,
   setTimeout
 } from 'node:timers'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
-  maximumCpuPercent: 150,
+  maximumCpuPercent: 200,
   busyCpuPercent: 80,
   heartbeatStaleMs: 10_000,
   progressStaleMs: 20_000,
   sampleIntervalMs: 250,
+  maximumSampleGapMs: 375,
   sampleTimeoutMs: 200,
   terminationGraceMs: 3_000,
   historyLimit: 8,
   requestBodyLimitBytes: 64 * 1024
 })
 
-const DIAGNOSTIC_MAXIMUM_CPU_PERCENT = 200
 const HEARTBEAT_KINDS = new Set(['ready', 'progress', 'complete', 'failed'])
+const MINIMUM_SAFETY_INTERVAL_FRACTION = 0.8
 const MAX_CPU_CONTRIBUTORS = 4
-const MAX_CPU_PHASES = 24
+const MAX_PROCESS_CPU_TIME_ENTRIES = 256
+const PROOF_KINDS = new Set([
+  'endpoint',
+  'local-attribution',
+  'collaboration-attribution'
+])
 const PROCESS_CPU_ROLES = new Set([
   'app-server',
   'client-browser',
   'test-harness',
   'unknown',
   'websocket-server'
+])
+const BROWSER_PROCESS_TYPES = new Set([
+  'gpu-process',
+  'other-browser',
+  'renderer-or-worker',
+  'root-browser',
+  'utility'
 ])
 const TRACKED_PROCESS_ROLES = Object.freeze([
   'test-harness',
@@ -52,6 +65,7 @@ const PRODUCT_PROCESS_ROLES = Object.freeze([
   'websocket-server'
 ])
 const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
+const PHASE_BOUNDARY_PATH = '/phase-boundary'
 const ENDPOINT_ARTIFACT_ENV = 'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
 const GUARD_ENVIRONMENT_KEYS = Object.freeze([
   'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN',
@@ -76,14 +90,15 @@ const normalizeRequiredProcessRoles = (value) => {
 const mergeConfig = (config = {}) => {
   const guardMode = config.guardMode === 'diagnostic' ? 'diagnostic' : 'proof'
   const maximumCpuPercentCeiling =
-    guardMode === 'diagnostic'
-      ? DIAGNOSTIC_MAXIMUM_CPU_PERCENT
-      : DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+    DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
 
   return {
     ...DEFAULT_RESOURCE_GUARD_CONFIG,
     ...config,
     guardMode,
+    requiredProofKind: PROOF_KINDS.has(config.requiredProofKind)
+      ? config.requiredProofKind
+      : 'endpoint',
     requiredProcessRoles: normalizeRequiredProcessRoles(
       config.requiredProcessRoles
     ),
@@ -110,6 +125,7 @@ const mergeConfig = (config = {}) => {
           DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs
       )
     ),
+    maximumSampleGapMs: DEFAULT_RESOURCE_GUARD_CONFIG.maximumSampleGapMs,
     sampleTimeoutMs: Math.min(
       DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
       Math.max(
@@ -148,6 +164,65 @@ const createEmptyRoleCpuPercent = () => ({
   websocketServer: 0
 })
 
+const createEmptyRoleCpuTimeMs = () => ({
+  appServer: 0,
+  clientBrowser: 0,
+  testHarness: 0,
+  unknown: 0,
+  websocketServer: 0
+})
+
+const createEmptyBrowserProcessTypeCpuPercent = () => ({
+  gpuProcess: 0,
+  otherBrowser: 0,
+  rendererOrWorker: 0,
+  rootBrowser: 0,
+  utility: 0
+})
+
+const createEmptyBrowserProcessTypeCpuTimeMs = () => ({
+  gpuProcess: 0,
+  otherBrowser: 0,
+  rendererOrWorker: 0,
+  rootBrowser: 0,
+  utility: 0
+})
+
+export const parseCpuTimeToMilliseconds = (value) => {
+  if (typeof value !== 'string') {
+    throw new TypeError('Process CPU time must be a string')
+  }
+  const match = value
+    .trim()
+    .match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/u)
+  if (!match) {
+    throw new TypeError(`Invalid process CPU time: ${String(value)}`)
+  }
+  const days = Number(match[1] ?? 0)
+  const hours = Number(match[2] ?? 0)
+  const minutes = Number(match[3])
+  const seconds = Number(match[4])
+  if (
+    ![days, hours, minutes, seconds].every(Number.isFinite) ||
+    seconds >= 60 ||
+    (match[2] !== undefined && minutes >= 60) ||
+    (match[1] !== undefined && hours >= 24)
+  ) {
+    throw new TypeError(`Invalid process CPU time: ${value}`)
+  }
+  return Math.round(
+    (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1_000
+  )
+}
+
+const classifyBrowserProcessType = (lowerCommand) => {
+  if (lowerCommand.includes('--type=gpu-process')) return 'gpu-process'
+  if (lowerCommand.includes('--type=renderer')) return 'renderer-or-worker'
+  if (lowerCommand.includes('--type=utility')) return 'utility'
+  if (!lowerCommand.includes('--type=')) return 'root-browser'
+  return 'other-browser'
+}
+
 const classifyProcessCommand = (command) => {
   const lowerCommand = command.toLowerCase()
   if (
@@ -163,6 +238,7 @@ const classifyProcessCommand = (command) => {
     lowerCommand.includes('chromium')
   ) {
     return {
+      browserProcessType: classifyBrowserProcessType(lowerCommand),
       executable: 'chrome-headless-shell',
       role: 'client-browser'
     }
@@ -177,17 +253,33 @@ const classifyProcessCommand = (command) => {
     lowerCommand.includes('performance-resource-guard') ||
     /(^|\s)yarn(\s|$)/u.test(lowerCommand)
   ) {
-    const executable = lowerCommand.includes('esbuild')
-      ? 'esbuild'
-      : lowerCommand.includes('yarn')
-        ? 'yarn'
-        : 'node'
+    let executable = 'node'
+    if (lowerCommand.includes('esbuild')) {
+      executable = 'esbuild'
+    } else if (lowerCommand.includes('yarn')) {
+      executable = 'yarn'
+    }
     return { executable, role: 'test-harness' }
   }
   const firstToken = command.trim().split(/\s+/u)[0] ?? 'unknown'
   return {
     executable: (firstToken.split('/').at(-1) || 'unknown').slice(0, 160),
     role: 'unknown'
+  }
+}
+
+const browserProcessTypeCpuKey = (browserProcessType) => {
+  switch (browserProcessType) {
+    case 'gpu-process':
+      return 'gpuProcess'
+    case 'renderer-or-worker':
+      return 'rendererOrWorker'
+    case 'root-browser':
+      return 'rootBrowser'
+    case 'utility':
+      return 'utility'
+    default:
+      return 'otherBrowser'
   }
 }
 
@@ -219,6 +311,72 @@ const sanitizeRoleCpuPercent = (value) => {
   return result
 }
 
+const sanitizeRoleCpuTimeMs = (value) => {
+  const result = createEmptyRoleCpuTimeMs()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return result
+  }
+  for (const key of Object.keys(result)) {
+    if (isFiniteNonNegativeNumber(value[key])) {
+      result[key] = value[key]
+    }
+  }
+  return result
+}
+
+const sanitizeBrowserProcessTypeCpuPercent = (value) => {
+  const result = createEmptyBrowserProcessTypeCpuPercent()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return result
+  }
+  for (const key of Object.keys(result)) {
+    if (isFiniteNonNegativeNumber(value[key])) {
+      result[key] = value[key]
+    }
+  }
+  return result
+}
+
+const sanitizeProcessCpuTimes = (value) => {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > MAX_PROCESS_CPU_TIME_ENTRIES
+  ) {
+    return []
+  }
+  const pids = new Set()
+  const entries = []
+  for (const entry of value) {
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      Array.isArray(entry) ||
+      !Number.isSafeInteger(entry.pid) ||
+      entry.pid <= 0 ||
+      pids.has(entry.pid) ||
+      !PROCESS_CPU_ROLES.has(entry.role) ||
+      !isFiniteNonNegativeNumber(entry.cpuTimeMs)
+    ) {
+      return []
+    }
+    pids.add(entry.pid)
+    let browserProcessType = null
+    if (entry.role === 'client-browser') {
+      browserProcessType = BROWSER_PROCESS_TYPES.has(entry.browserProcessType)
+        ? entry.browserProcessType
+        : 'other-browser'
+    }
+    entries.push({
+      ...(browserProcessType ? { browserProcessType } : {}),
+      cpuTimeMs: entry.cpuTimeMs,
+      pid: entry.pid,
+      role: entry.role
+    })
+  }
+  return entries.sort((left, right) => left.pid - right.pid)
+}
+
 const sanitizeCpuContributors = (value) => {
   if (!Array.isArray(value)) {
     return []
@@ -248,6 +406,9 @@ const sanitizeCpuContributors = (value) => {
             : {}),
           cpuPercent: contributor.cpuPercent,
           executable: contributor.executable,
+          ...(BROWSER_PROCESS_TYPES.has(contributor.browserProcessType)
+            ? { browserProcessType: contributor.browserProcessType }
+            : {}),
           ...(PROCESS_CPU_ROLES.has(contributor.role)
             ? { role: contributor.role }
             : {})
@@ -309,6 +470,40 @@ const sanitizeScalarRecord = (value, maximumKeys = 32) => {
   return result
 }
 
+const sanitizeBoundedStrings = (value, maximumEntries = 16) =>
+  Array.isArray(value)
+    ? value
+        .filter(isNonEmptyBoundedString)
+        .slice(0, maximumEntries)
+        .map((entry) => entry.slice(0, 160))
+    : []
+
+const sanitizeFailure = (value) => {
+  if (typeof value === 'string' && value.length > 0) {
+    return {
+      message: value.slice(0, 500),
+      name: 'Error'
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+  const message =
+    typeof value.message === 'string' && value.message.length > 0
+      ? value.message.slice(0, 500)
+      : null
+  if (!message) {
+    return null
+  }
+  return {
+    message,
+    name:
+      typeof value.name === 'string' && value.name.length > 0
+        ? value.name.slice(0, 80)
+        : 'Error'
+  }
+}
+
 const sanitizeActor = (actor) => ({
   ...sanitizeScalarRecord(actor),
   elements: actor.elements,
@@ -334,6 +529,56 @@ const sanitizeTopPhases = (value) => {
       {
         durationMs: phase.durationMs,
         name: phase.name
+      }
+    ]
+  })
+}
+
+const sanitizePhaseTimeline = (value) => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.slice(0, 128).flatMap((phase) => {
+    if (
+      !phase ||
+      typeof phase !== 'object' ||
+      Array.isArray(phase) ||
+      !isNonEmptyBoundedString(phase.name) ||
+      !isFiniteNonNegativeNumber(phase.atMs) ||
+      !isFiniteNonNegativeNumber(phase.durationMs)
+    ) {
+      return []
+    }
+    return [
+      {
+        atMs: phase.atMs,
+        durationMs: phase.durationMs,
+        name: phase.name
+      }
+    ]
+  })
+}
+
+const sanitizeCounterTimeline = (value) => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.slice(0, 64).flatMap((counter) => {
+    if (
+      !counter ||
+      typeof counter !== 'object' ||
+      Array.isArray(counter) ||
+      !isNonEmptyBoundedString(counter.name) ||
+      !isFiniteNonNegativeNumber(counter.atMs) ||
+      !isFiniteNonNegativeNumber(counter.value)
+    ) {
+      return []
+    }
+    return [
+      {
+        atMs: counter.atMs,
+        name: counter.name,
+        value: counter.value
       }
     ]
   })
@@ -385,10 +630,15 @@ const sanitizeEndpointActor = (value) => {
     diagnostics: {
       ...sanitizeScalarRecord(diagnostics),
       configuration: sanitizeScalarRecord(diagnostics.configuration),
+      counterTimeline: sanitizeCounterTimeline(diagnostics.counterTimeline),
+      phaseTimeline: sanitizePhaseTimeline(diagnostics.phaseTimeline),
       renderProjectionAnomalies: sanitizeScalarRecord(
         diagnostics.renderProjectionAnomalies
       ),
-      topPhases: sanitizeTopPhases(diagnostics.topPhases)
+      topPhases: sanitizeTopPhases(diagnostics.topPhases),
+      visibleWorkerTargets: sanitizeBoundedStrings(
+        diagnostics.visibleWorkerTargets
+      )
     },
     summary: {
       ...sanitizeScalarRecord(summary),
@@ -397,19 +647,29 @@ const sanitizeEndpointActor = (value) => {
   }
 }
 
-const sanitizeEndpointReport = (value, expectedOwner) => {
+const sanitizeEndpointReport = (value, expectedOwner, proofKind) => {
   if (
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
     value.owner !== expectedOwner ||
+    value.proofKind !== proofKind ||
     value.status !== 'complete'
   ) {
     return null
   }
   const actorA = sanitizeEndpointActor(value.actorA)
-  const actorB = sanitizeEndpointActor(value.actorB)
-  if (!actorA || !actorB) {
+  let actorB
+  if (proofKind === 'local-attribution') {
+    actorB = value.actorB === null ? null : undefined
+  } else {
+    actorB = sanitizeEndpointActor(value.actorB)
+  }
+  if (
+    !actorA ||
+    actorB === undefined ||
+    (proofKind !== 'local-attribution' && !actorB)
+  ) {
     return null
   }
   return {
@@ -417,6 +677,7 @@ const sanitizeEndpointReport = (value, expectedOwner) => {
     actorA,
     actorB,
     owner: expectedOwner,
+    proofKind,
     status: 'complete'
   }
 }
@@ -427,6 +688,7 @@ const sanitizeHeartbeat = (heartbeat) => {
     ...base,
     owner: heartbeat.owner,
     phase: heartbeat.phase,
+    proofKind: heartbeat.proofKind,
     actorA: sanitizeActor(heartbeat.actorA),
     actorB: sanitizeActor(heartbeat.actorB),
     publications: sanitizeScalarRecord(heartbeat.publications),
@@ -583,6 +845,13 @@ export const recordTrackedProcessGroupRegistration = (
     reason: null,
     state: {
       ...state,
+      ...(!state.ready
+        ? {
+            acceptedIntervalSamples: 0,
+            previousProcessCpuSnapshot: null,
+            sampledProcessRoles: []
+          }
+        : {}),
       processGroups: sanitizeTrackedProcessGroups([
         ...processGroups,
         { pgid: registration.pgid, role: registration.role }
@@ -609,6 +878,13 @@ const isActorExactlyComplete = (actor) =>
   actor.elements === actor.total &&
   actor.renderProjectionElements === actor.total
 
+const isInactiveActor = (actor) =>
+  actor.complete === false &&
+  actor.canonicalElements === 0 &&
+  actor.elements === 0 &&
+  actor.renderProjectionElements === 0 &&
+  actor.total === 0
+
 const validateHeartbeat = (heartbeat, expectedOwner) => {
   if (!heartbeat || typeof heartbeat !== 'object' || Array.isArray(heartbeat)) {
     return 'invalid-heartbeat'
@@ -622,7 +898,25 @@ const validateHeartbeat = (heartbeat, expectedOwner) => {
   if (!isNonEmptyBoundedString(heartbeat.phase)) {
     return 'invalid-phase'
   }
+  if (!PROOF_KINDS.has(heartbeat.proofKind)) {
+    return 'invalid-proof-kind'
+  }
+  if (
+    !isFiniteNonNegativeNumber(heartbeat.capturedAtMs) ||
+    !(
+      heartbeat.activePhase === null ||
+      isNonEmptyBoundedString(heartbeat.activePhase)
+    )
+  ) {
+    return 'invalid-phase-timing'
+  }
   if (!validateActor(heartbeat.actorA) || !validateActor(heartbeat.actorB)) {
+    return 'invalid-actor-progress'
+  }
+  if (
+    heartbeat.proofKind === 'local-attribution' &&
+    !isInactiveActor(heartbeat.actorB)
+  ) {
     return 'invalid-actor-progress'
   }
   if (
@@ -651,16 +945,24 @@ export const createResourceGuardState = ({
     readyAtMs: null,
     finished: false,
     acceptedProcessSamples: 0,
+    acceptedIntervalSamples: 0,
     lastHeartbeatAtMs: null,
     lastProgressAtMs: nowMs,
     lastHeartbeat: null,
+    failure: null,
     endpointReport: null,
     processGroups: [],
     sampledProcessRoles: [],
     heartbeatSamples: [],
-    cpuSamples: [],
-    maximumCpuSample: null,
-    phaseCpuMaximums: [],
+    cpuSafetySamples: [],
+    maximumCpuSafetySample: null,
+    maximumIntervalCpuSafetySample: null,
+    maximumBrowserBootstrapDecayedCpuSafetySample: null,
+    maximumBrowserBootstrapIntervalCpuSafetySample: null,
+    previousProcessCpuSnapshot: null,
+    attributionInvalidReason: null,
+    activePhaseBoundary: null,
+    phaseCpuTimeSamples: [],
     sampleFailure: null,
     profileRemainder: '',
     profileMetrics: {
@@ -707,7 +1009,10 @@ export const recordResourceHeartbeat = (
     return { accepted: false, reason: validationFailure, state }
   }
   const config = state.config ?? mergeConfig()
-  if (body.kind === 'ready' && state.acceptedProcessSamples < 1) {
+  if (body.heartbeat.proofKind !== config.requiredProofKind) {
+    return { accepted: false, reason: 'unexpected-proof-kind', state }
+  }
+  if (body.kind === 'ready' && state.acceptedIntervalSamples < 1) {
     return { accepted: false, reason: 'guard-not-armed', state }
   }
   if (
@@ -735,21 +1040,33 @@ export const recordResourceHeartbeat = (
       state
     }
   }
-  if (!state.ready && body.kind !== 'ready' && body.kind !== 'failed') {
+  if (
+    !state.ready &&
+    body.kind !== 'ready' &&
+    body.kind !== 'progress' &&
+    body.kind !== 'failed'
+  ) {
     return { accepted: false, reason: 'guard-not-ready', state }
   }
 
   const heartbeat = sanitizeHeartbeat(body.heartbeat)
   if (
     body.kind === 'complete' &&
-    (!isActorExactlyComplete(heartbeat.actorA) ||
-      !isActorExactlyComplete(heartbeat.actorB))
+    (heartbeat.proofKind === 'local-attribution'
+      ? !isActorExactlyComplete(heartbeat.actorA) ||
+        !isInactiveActor(heartbeat.actorB)
+      : !isActorExactlyComplete(heartbeat.actorA) ||
+        !isActorExactlyComplete(heartbeat.actorB))
   ) {
     return { accepted: false, reason: 'incomplete-proof', state }
   }
   const endpointReport =
     body.kind === 'complete'
-      ? sanitizeEndpointReport(body.heartbeat.report, expectedOwner)
+      ? sanitizeEndpointReport(
+          body.heartbeat.report,
+          expectedOwner,
+          heartbeat.proofKind
+        )
       : state.endpointReport
   if (body.kind === 'complete' && endpointReport === null) {
     return { accepted: false, reason: 'invalid-endpoint-report', state }
@@ -766,6 +1083,10 @@ export const recordResourceHeartbeat = (
     actorAElements: heartbeat.actorA.elements,
     actorBElements: heartbeat.actorB.elements
   }
+  const failure =
+    body.kind === 'failed'
+      ? sanitizeFailure(body.heartbeat.error)
+      : state.failure
 
   return {
     accepted: true,
@@ -779,10 +1100,369 @@ export const recordResourceHeartbeat = (
       lastHeartbeatAtMs: nowMs,
       lastProgressAtMs: madeProgress ? nowMs : state.lastProgressAtMs,
       lastHeartbeat: heartbeat,
+      failure,
       endpointReport,
       heartbeatSamples: keepLast(
         [...state.heartbeatSamples, heartbeatSample],
         config.historyLimit
+      )
+    }
+  }
+}
+
+const roundCpuMetric = (value) => Math.round(value * 1_000) / 1_000
+
+const rendererPerformanceMetricNames = Object.freeze([
+  'Timestamp',
+  'TaskDuration',
+  'ScriptDuration',
+  'LayoutDuration',
+  'RecalcStyleDuration',
+  'JSHeapUsedSize'
+])
+
+const readRendererPerformanceMetricMap = (response) => {
+  if (
+    !response ||
+    typeof response !== 'object' ||
+    Array.isArray(response) ||
+    !Array.isArray(response.metrics)
+  ) {
+    throw new TypeError('Renderer performance response must contain metrics')
+  }
+  const metrics = new Map()
+  for (const metric of response.metrics) {
+    if (
+      metric &&
+      typeof metric === 'object' &&
+      !Array.isArray(metric) &&
+      typeof metric.name === 'string' &&
+      Number.isFinite(metric.value)
+    ) {
+      metrics.set(metric.name, metric.value)
+    }
+  }
+  for (const name of rendererPerformanceMetricNames) {
+    if (!metrics.has(name)) {
+      throw new Error(`Renderer performance metric ${name} is unavailable`)
+    }
+  }
+  return metrics
+}
+
+export const summarizeRendererPerformanceWindow = (
+  startResponse,
+  endResponse
+) => {
+  const start = readRendererPerformanceMetricMap(startResponse)
+  const end = readRendererPerformanceMetricMap(endResponse)
+  const durationMs = (end.get('Timestamp') - start.get('Timestamp')) * 1_000
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new Error('Renderer performance window duration must be positive')
+  }
+  const durationDeltaMs = (name) => {
+    const value = (end.get(name) - start.get(name)) * 1_000
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`Renderer performance metric ${name} moved backwards`)
+    }
+    return roundCpuMetric(value)
+  }
+  const taskDurationMs = durationDeltaMs('TaskDuration')
+  return {
+    averageTaskCorePercent: roundCpuMetric((taskDurationMs / durationMs) * 100),
+    durationMs: roundCpuMetric(durationMs),
+    heapUsedEndBytes: Math.round(end.get('JSHeapUsedSize')),
+    heapUsedStartBytes: Math.round(start.get('JSHeapUsedSize')),
+    layoutDurationMs: durationDeltaMs('LayoutDuration'),
+    recalcStyleDurationMs: durationDeltaMs('RecalcStyleDuration'),
+    scriptDurationMs: durationDeltaMs('ScriptDuration'),
+    taskDurationMs
+  }
+}
+
+const sanitizeProcessCpuSnapshot = (sample) => {
+  if (!sample || typeof sample !== 'object' || Array.isArray(sample)) {
+    return null
+  }
+  const processCpuTimes = sanitizeProcessCpuTimes(sample.processCpuTimes)
+  const monotonicMs = sample.monotonicMs ?? sample.nowMs
+  if (
+    processCpuTimes.length === 0 ||
+    processCpuTimes.length !== sample.processCpuTimes?.length ||
+    !isFiniteNonNegativeNumber(sample.nowMs) ||
+    !isFiniteNonNegativeNumber(monotonicMs)
+  ) {
+    return null
+  }
+  return {
+    monotonicMs,
+    nowMs: sample.nowMs,
+    processCpuTimes
+  }
+}
+
+const processIdentityMatches = (left, right) =>
+  left.pid === right.pid &&
+  left.role === right.role &&
+  (left.browserProcessType ?? null) === (right.browserProcessType ?? null)
+
+const haveExactProcessIdentitySet = (leftEntries, rightEntries) => {
+  if (leftEntries.length !== rightEntries.length) return false
+  const leftByPid = new Map(leftEntries.map((entry) => [entry.pid, entry]))
+  return rightEntries.every((entry) => {
+    const left = leftByPid.get(entry.pid)
+    return left && processIdentityMatches(left, entry)
+  })
+}
+
+export const deriveProcessCpuInterval = (previousSample, currentSample) => {
+  const previous = sanitizeProcessCpuSnapshot(previousSample)
+  const current = sanitizeProcessCpuSnapshot(currentSample)
+  if (!previous || !current) {
+    return { accepted: false, reason: 'invalid-process-sample', sample: null }
+  }
+  if (
+    !haveExactProcessIdentitySet(
+      previous.processCpuTimes,
+      current.processCpuTimes
+    )
+  ) {
+    return {
+      accepted: false,
+      reason: 'process-identity-changed',
+      sample: null
+    }
+  }
+  const previousByPid = new Map(
+    previous.processCpuTimes.map((entry) => [entry.pid, entry])
+  )
+  const wallTimeMs = current.monotonicMs - previous.monotonicMs
+  if (wallTimeMs <= 0) {
+    return { accepted: false, reason: 'invalid-cpu-interval', sample: null }
+  }
+
+  const roleCpuTimeMs = createEmptyRoleCpuTimeMs()
+  const browserProcessTypeCpuTimeMs = createEmptyBrowserProcessTypeCpuTimeMs()
+  const rendererProcessIntervals = []
+  let cpuTimeMs = 0
+  for (const currentEntry of current.processCpuTimes) {
+    const previousEntry = previousByPid.get(currentEntry.pid)
+    const delta = currentEntry.cpuTimeMs - previousEntry.cpuTimeMs
+    if (delta < 0) {
+      return { accepted: false, reason: 'invalid-cpu-interval', sample: null }
+    }
+    cpuTimeMs += delta
+    roleCpuTimeMs[roleCpuKey(currentEntry.role)] += delta
+    if (currentEntry.role === 'client-browser') {
+      browserProcessTypeCpuTimeMs[
+        browserProcessTypeCpuKey(currentEntry.browserProcessType)
+      ] += delta
+      if (currentEntry.browserProcessType === 'renderer-or-worker') {
+        rendererProcessIntervals.push({
+          cpuTimeMs: delta,
+          intervalCpuPercent: roundCpuMetric((delta / wallTimeMs) * 100),
+          pid: currentEntry.pid,
+          targetAttribution: 'unattributed-page-or-worker'
+        })
+      }
+    }
+  }
+
+  const roleIntervalCpuPercent = createEmptyRoleCpuPercent()
+  for (const key of Object.keys(roleIntervalCpuPercent)) {
+    roleIntervalCpuPercent[key] = roundCpuMetric(
+      (roleCpuTimeMs[key] / wallTimeMs) * 100
+    )
+  }
+  const browserProcessTypeIntervalCpuPercent =
+    createEmptyBrowserProcessTypeCpuPercent()
+  for (const key of Object.keys(browserProcessTypeIntervalCpuPercent)) {
+    browserProcessTypeIntervalCpuPercent[key] = roundCpuMetric(
+      (browserProcessTypeCpuTimeMs[key] / wallTimeMs) * 100
+    )
+  }
+
+  return {
+    accepted: true,
+    reason: null,
+    sample: {
+      browserProcessTypeCpuTimeMs,
+      browserProcessTypeIntervalCpuPercent,
+      cpuTimeMs,
+      endedAtMs: current.nowMs,
+      intervalCpuPercent: roundCpuMetric((cpuTimeMs / wallTimeMs) * 100),
+      rendererProcessIntervals,
+      roleCpuTimeMs,
+      roleIntervalCpuPercent,
+      startedAtMs: previous.nowMs,
+      wallTimeMs
+    }
+  }
+}
+
+export const recordResourcePhaseBoundary = (
+  state,
+  body,
+  { expectedToken, expectedOwner }
+) => {
+  const reject = (reason) => ({ accepted: false, reason, state })
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return reject('invalid-body')
+  }
+  if (
+    typeof expectedToken !== 'string' ||
+    expectedToken.length === 0 ||
+    body.token !== expectedToken
+  ) {
+    return reject('invalid-token')
+  }
+  if (!isNonEmptyBoundedString(body.owner) || body.owner !== expectedOwner) {
+    return reject('invalid-owner')
+  }
+  if (
+    !['start', 'end'].includes(body.kind) ||
+    !isNonEmptyBoundedString(body.phase)
+  ) {
+    return reject('invalid-phase-boundary')
+  }
+  const sample = body.sample
+  if (
+    !sample ||
+    typeof sample !== 'object' ||
+    Array.isArray(sample) ||
+    !isFiniteNonNegativeNumber(sample.cpuTimeMs) ||
+    !isFiniteNonNegativeNumber(sample.nowMs)
+  ) {
+    return reject('invalid-process-sample')
+  }
+  const roleCpuTimeMs = sanitizeRoleCpuTimeMs(sample.roleCpuTimeMs)
+  const processCpuTimes = sanitizeProcessCpuTimes(sample.processCpuTimes)
+  const monotonicMs = sample.monotonicMs ?? sample.nowMs
+  if (
+    processCpuTimes.length === 0 ||
+    processCpuTimes.length !== sample.processCpuTimes?.length ||
+    !isFiniteNonNegativeNumber(monotonicMs)
+  ) {
+    return reject('invalid-process-sample')
+  }
+  if (body.kind === 'start') {
+    if (state.activePhaseBoundary !== null) {
+      return reject('phase-already-active')
+    }
+    return {
+      accepted: true,
+      reason: null,
+      state: {
+        ...state,
+        activePhaseBoundary: {
+          browserProcessTypeMaximumIntervalCpuPercent:
+            createEmptyBrowserProcessTypeCpuPercent(),
+          cpuTimeMs: sample.cpuTimeMs,
+          intervalSampleCount: 0,
+          maximumIntervalCpuPercent: 0,
+          phase: body.phase,
+          processCpuTimes,
+          processSetChanged: false,
+          roleMaximumIntervalCpuPercent: createEmptyRoleCpuPercent(),
+          roleCpuTimeMs,
+          startedAtMonotonicMs: monotonicMs,
+          startedAtMs: sample.nowMs
+        }
+      }
+    }
+  }
+
+  const active = state.activePhaseBoundary
+  if (!active || active.phase !== body.phase) {
+    return reject('phase-not-active')
+  }
+  if (active.processSetChanged) {
+    return reject('phase-process-churn')
+  }
+  const wallTimeMs = monotonicMs - active.startedAtMonotonicMs
+  if (wallTimeMs <= 0) {
+    return reject('invalid-phase-delta')
+  }
+  const endingByPid = new Map(
+    processCpuTimes.map((entry) => [entry.pid, entry])
+  )
+  for (const startedProcess of active.processCpuTimes) {
+    if (!endingByPid.has(startedProcess.pid)) {
+      return reject('phase-process-exited')
+    }
+  }
+  if (processCpuTimes.length > active.processCpuTimes.length) {
+    return reject('phase-process-created')
+  }
+  const startingByPid = new Map(
+    active.processCpuTimes.map((entry) => [entry.pid, entry])
+  )
+  const roleCpuTimeDelta = createEmptyRoleCpuTimeMs()
+  const browserProcessTypeCpuTimeDelta =
+    createEmptyBrowserProcessTypeCpuTimeMs()
+  let cpuTimeMs = 0
+  for (const endingProcess of processCpuTimes) {
+    const startingProcess = startingByPid.get(endingProcess.pid)
+    if (
+      startingProcess &&
+      !processIdentityMatches(startingProcess, endingProcess)
+    ) {
+      return reject('invalid-phase-delta')
+    }
+    if (!startingProcess) {
+      return reject('phase-process-created')
+    }
+    const delta = endingProcess.cpuTimeMs - startingProcess.cpuTimeMs
+    if (delta < 0) {
+      return reject('invalid-phase-delta')
+    }
+    cpuTimeMs += delta
+    roleCpuTimeDelta[roleCpuKey(endingProcess.role)] += delta
+    if (endingProcess.role === 'client-browser') {
+      browserProcessTypeCpuTimeDelta[
+        browserProcessTypeCpuKey(endingProcess.browserProcessType)
+      ] += delta
+    }
+  }
+  const roleAverageCpuPercent = createEmptyRoleCpuPercent()
+  for (const key of Object.keys(roleAverageCpuPercent)) {
+    roleAverageCpuPercent[key] = roundCpuMetric(
+      (roleCpuTimeDelta[key] / wallTimeMs) * 100
+    )
+  }
+  const browserProcessTypeAverageCpuPercent =
+    createEmptyBrowserProcessTypeCpuPercent()
+  for (const key of Object.keys(browserProcessTypeAverageCpuPercent)) {
+    browserProcessTypeAverageCpuPercent[key] = roundCpuMetric(
+      (browserProcessTypeCpuTimeDelta[key] / wallTimeMs) * 100
+    )
+  }
+  const phaseSample = {
+    averageCpuPercent: roundCpuMetric((cpuTimeMs / wallTimeMs) * 100),
+    browserProcessTypeAverageCpuPercent,
+    browserProcessTypeCpuTimeMs: browserProcessTypeCpuTimeDelta,
+    browserProcessTypeMaximumIntervalCpuPercent:
+      active.browserProcessTypeMaximumIntervalCpuPercent,
+    cpuTimeMs,
+    endedAtMs: sample.nowMs,
+    intervalSampleCount: active.intervalSampleCount,
+    maximumIntervalCpuPercent: active.maximumIntervalCpuPercent,
+    phase: body.phase,
+    roleAverageCpuPercent,
+    roleCpuTimeMs: roleCpuTimeDelta,
+    roleMaximumIntervalCpuPercent: active.roleMaximumIntervalCpuPercent,
+    startedAtMs: active.startedAtMs,
+    wallTimeMs
+  }
+  return {
+    accepted: true,
+    reason: null,
+    state: {
+      ...state,
+      activePhaseBoundary: null,
+      phaseCpuTimeSamples: keepLast(
+        [...state.phaseCpuTimeSamples, phaseSample],
+        state.config?.historyLimit ?? DEFAULT_RESOURCE_GUARD_CONFIG.historyLimit
       )
     }
   }
@@ -833,6 +1513,21 @@ export const evaluateResourceSample = (
       decision: state.stopDecision ?? noStopDecision
     }
   }
+  const currentProcessCpuSnapshot = sanitizeProcessCpuSnapshot(sample)
+  if (!currentProcessCpuSnapshot) {
+    const decision =
+      state.stopDecision ?? stopDecision('invalid-process-sample', sample.nowMs)
+    return {
+      accepted: false,
+      reason: 'invalid-process-sample',
+      state: {
+        ...state,
+        attributionInvalidReason: 'invalid-process-sample',
+        stopDecision: decision
+      },
+      decision
+    }
+  }
   const missingProcessRoles = normalizeRequiredProcessRoles(
     sample.missingProcessRoles
   )
@@ -840,53 +1535,165 @@ export const evaluateResourceSample = (
     normalizedConfig.requiredProcessRoles.filter((role) =>
       missingProcessRoles.includes(role)
     )
-
-  const cpuSample = {
-    pgid: targetPgid,
-    cpuPercent: sample.cpuPercent,
-    contributors: sanitizeCpuContributors(sample.contributors),
-    phase: state.lastHeartbeat?.phase ?? 'pre-heartbeat',
-    roleCpuPercent: sanitizeRoleCpuPercent(sample.roleCpuPercent),
-    ...(missingProcessRoles.length > 0 ? { missingProcessRoles } : {}),
-    sampledAtMs: sample.nowMs
-  }
-  const cpuSamples = keepLast(
-    [...state.cpuSamples, cpuSample],
-    normalizedConfig.historyLimit
-  )
-  const maximumCpuSample =
-    !state.maximumCpuSample ||
-    sample.cpuPercent > state.maximumCpuSample.cpuPercent
-      ? cpuSample
-      : state.maximumCpuSample
-  const existingPhaseIndex = state.phaseCpuMaximums.findIndex(
-    (phaseSample) => phaseSample.phase === cpuSample.phase
-  )
-  let phaseCpuMaximums = state.phaseCpuMaximums
-  if (existingPhaseIndex < 0) {
-    phaseCpuMaximums = keepLast(
-      [...state.phaseCpuMaximums, cpuSample],
-      MAX_CPU_PHASES
-    )
-  } else if (
-    cpuSample.cpuPercent > state.phaseCpuMaximums[existingPhaseIndex].cpuPercent
-  ) {
-    phaseCpuMaximums = [...state.phaseCpuMaximums]
-    phaseCpuMaximums[existingPhaseIndex] = cpuSample
-  }
   const sampledProcessRoles = normalizeRequiredProcessRoles(
     sample.trackedProcessRoles
   )
+  const hasCompleteRequiredProcessSet =
+    normalizedConfig.requiredProcessRoles.every((role) =>
+      state.processGroups.some((processGroup) => processGroup.role === role)
+    ) &&
+    normalizedConfig.requiredProcessRoles.every((role) =>
+      sampledProcessRoles.includes(role)
+    ) &&
+    missingRequiredProcessRoles.length === 0
 
+  const previousProcessCpuSnapshot = state.previousProcessCpuSnapshot
+  const intervalResult = previousProcessCpuSnapshot
+    ? deriveProcessCpuInterval(
+        previousProcessCpuSnapshot,
+        currentProcessCpuSnapshot
+      )
+    : null
+  const processIdentityChanged =
+    intervalResult?.accepted === false &&
+    intervalResult.reason === 'process-identity-changed'
+  const activePhaseProcessIdentityChanged =
+    state.activePhaseBoundary !== null &&
+    !haveExactProcessIdentitySet(
+      state.activePhaseBoundary.processCpuTimes,
+      currentProcessCpuSnapshot.processCpuTimes
+    )
+  const observedProcessIdentityChanged =
+    processIdentityChanged || activePhaseProcessIdentityChanged
+  const invalidCpuInterval =
+    intervalResult?.accepted === false &&
+    intervalResult.reason === 'invalid-cpu-interval'
+  const derivedIntervalSample = intervalResult?.accepted
+    ? intervalResult.sample
+    : null
+  const minimumSafetyIntervalMs =
+    normalizedConfig.sampleIntervalMs * MINIMUM_SAFETY_INTERVAL_FRACTION
+  const intervalSample =
+    derivedIntervalSample &&
+    derivedIntervalSample.wallTimeMs >= minimumSafetyIntervalMs
+      ? derivedIntervalSample
+      : null
+  const sampleGapExceeded =
+    intervalSample !== null &&
+    intervalSample.wallTimeMs > normalizedConfig.maximumSampleGapMs
+  let acceptedIntervalSamples = state.acceptedIntervalSamples
+  if (!state.ready && observedProcessIdentityChanged) {
+    acceptedIntervalSamples = 0
+  } else if (
+    !state.ready &&
+    (!hasCompleteRequiredProcessSet || intervalSample === null)
+  ) {
+    acceptedIntervalSamples = 0
+  } else if (
+    !observedProcessIdentityChanged &&
+    intervalSample &&
+    hasCompleteRequiredProcessSet
+  ) {
+    acceptedIntervalSamples += 1
+  }
+
+  const heartbeatCapturedAtMs = state.lastHeartbeat?.capturedAtMs ?? null
+  const cpuSafetySample = {
+    pgid: targetPgid,
+    browserProcessTypeDecayedCpuPercent: sanitizeBrowserProcessTypeCpuPercent(
+      sample.browserProcessTypeCpuPercent
+    ),
+    browserProcessTypeIntervalCpuPercent:
+      intervalSample?.browserProcessTypeIntervalCpuPercent ??
+      createEmptyBrowserProcessTypeCpuPercent(),
+    decayedCpuPercent: sample.cpuPercent,
+    intervalCpuPercent: intervalSample?.intervalCpuPercent ?? null,
+    intervalWallTimeMs: intervalSample?.wallTimeMs ?? null,
+    contributors: sanitizeCpuContributors(sample.contributors),
+    guardPhase: state.ready
+      ? (state.activePhaseBoundary?.phase ?? 'between-phases')
+      : 'browser-bootstrap',
+    heartbeatAgeMs:
+      heartbeatCapturedAtMs === null
+        ? null
+        : Math.max(0, sample.nowMs - heartbeatCapturedAtMs),
+    heartbeatCapturedAtMs,
+    heartbeatPhase: state.lastHeartbeat?.phase ?? 'pre-heartbeat',
+    roleDecayedCpuPercent: sanitizeRoleCpuPercent(sample.roleCpuPercent),
+    roleIntervalCpuPercent:
+      intervalSample?.roleIntervalCpuPercent ?? createEmptyRoleCpuPercent(),
+    rendererProcessIntervals: intervalSample?.rendererProcessIntervals ?? [],
+    ...(missingProcessRoles.length > 0 ? { missingProcessRoles } : {}),
+    sampledAtMs: sample.nowMs
+  }
+  const cpuSafetySamples = keepLast(
+    [...state.cpuSafetySamples, cpuSafetySample],
+    normalizedConfig.historyLimit
+  )
+  const maximumCpuSafetySample =
+    !state.maximumCpuSafetySample ||
+    sample.cpuPercent > state.maximumCpuSafetySample.decayedCpuPercent
+      ? cpuSafetySample
+      : state.maximumCpuSafetySample
+  const maximumIntervalCpuSafetySample =
+    intervalSample &&
+    (!state.maximumIntervalCpuSafetySample ||
+      intervalSample.intervalCpuPercent >
+        state.maximumIntervalCpuSafetySample.intervalCpuPercent)
+      ? cpuSafetySample
+      : state.maximumIntervalCpuSafetySample
+  const maximumBrowserBootstrapDecayedCpuSafetySample =
+    !state.ready &&
+    (!state.maximumBrowserBootstrapDecayedCpuSafetySample ||
+      sample.cpuPercent >
+        state.maximumBrowserBootstrapDecayedCpuSafetySample.decayedCpuPercent)
+      ? cpuSafetySample
+      : state.maximumBrowserBootstrapDecayedCpuSafetySample
+  const maximumBrowserBootstrapIntervalCpuSafetySample =
+    !state.ready &&
+    intervalSample &&
+    (!state.maximumBrowserBootstrapIntervalCpuSafetySample ||
+      intervalSample.intervalCpuPercent >
+        state.maximumBrowserBootstrapIntervalCpuSafetySample.intervalCpuPercent)
+      ? cpuSafetySample
+      : state.maximumBrowserBootstrapIntervalCpuSafetySample
   let decision = state.stopDecision
   if (!decision && !state.finished && missingRequiredProcessRoles.length > 0) {
     decision = stopDecision('tracked-process-group-missing', sample.nowMs)
   }
-  if (!decision && sample.cpuPercent > normalizedConfig.maximumCpuPercent) {
+  if (
+    !decision &&
+    observedProcessIdentityChanged &&
+    (state.ready || state.activePhaseBoundary)
+  ) {
+    decision = stopDecision('tracked-process-identity-changed', sample.nowMs)
+  }
+  if (!decision && invalidCpuInterval) {
+    decision = stopDecision('invalid-cpu-interval', sample.nowMs)
+  }
+  if (!decision && sampleGapExceeded) {
+    decision = stopDecision('cpu-sample-gap-exceeded', sample.nowMs)
+  }
+  if (
+    !decision &&
+    intervalSample &&
+    intervalSample.intervalCpuPercent > normalizedConfig.maximumCpuPercent
+  ) {
+    decision = stopDecision('cpu-limit-exceeded', sample.nowMs)
+  }
+  if (
+    !decision &&
+    !intervalSample &&
+    state.acceptedIntervalSamples === 0 &&
+    sample.cpuPercent > normalizedConfig.maximumCpuPercent
+  ) {
     decision = stopDecision('cpu-limit-exceeded', sample.nowMs)
   }
 
-  const hostIsBusy = sample.cpuPercent > normalizedConfig.busyCpuPercent
+  const effectiveCpuPercent =
+    intervalSample?.intervalCpuPercent ??
+    (state.acceptedIntervalSamples === 0 ? sample.cpuPercent : 0)
+  const hostIsBusy = effectiveCpuPercent > normalizedConfig.busyCpuPercent
   if (
     !decision &&
     hostIsBusy &&
@@ -910,14 +1717,74 @@ export const evaluateResourceSample = (
     decision = stopDecision('progress-stale', sample.nowMs)
   }
 
+  let activePhaseBoundary = state.activePhaseBoundary
+  if (activePhaseBoundary) {
+    if (observedProcessIdentityChanged) {
+      activePhaseBoundary = {
+        ...activePhaseBoundary,
+        processSetChanged: true
+      }
+    } else if (intervalSample) {
+      const roleMaximumIntervalCpuPercent = {
+        ...activePhaseBoundary.roleMaximumIntervalCpuPercent
+      }
+      for (const key of Object.keys(roleMaximumIntervalCpuPercent)) {
+        roleMaximumIntervalCpuPercent[key] = Math.max(
+          roleMaximumIntervalCpuPercent[key],
+          intervalSample.roleIntervalCpuPercent[key]
+        )
+      }
+      const browserProcessTypeMaximumIntervalCpuPercent = {
+        ...activePhaseBoundary.browserProcessTypeMaximumIntervalCpuPercent
+      }
+      for (const key of Object.keys(
+        browserProcessTypeMaximumIntervalCpuPercent
+      )) {
+        browserProcessTypeMaximumIntervalCpuPercent[key] = Math.max(
+          browserProcessTypeMaximumIntervalCpuPercent[key],
+          intervalSample.browserProcessTypeIntervalCpuPercent[key]
+        )
+      }
+      activePhaseBoundary = {
+        ...activePhaseBoundary,
+        browserProcessTypeMaximumIntervalCpuPercent,
+        intervalSampleCount: activePhaseBoundary.intervalSampleCount + 1,
+        maximumIntervalCpuPercent: Math.max(
+          activePhaseBoundary.maximumIntervalCpuPercent,
+          intervalSample.intervalCpuPercent
+        ),
+        roleMaximumIntervalCpuPercent
+      }
+    }
+  }
+  let attributionInvalidReason = state.attributionInvalidReason
+  if (
+    observedProcessIdentityChanged &&
+    (state.ready || state.activePhaseBoundary)
+  ) {
+    attributionInvalidReason = 'tracked-process-identity-changed'
+  } else if (sampleGapExceeded) {
+    attributionInvalidReason = 'cpu-sample-gap-exceeded'
+  } else if (invalidCpuInterval) {
+    attributionInvalidReason = 'invalid-cpu-interval'
+  }
   const nextState = {
     ...state,
+    activePhaseBoundary,
+    attributionInvalidReason,
     config: normalizedConfig,
     acceptedProcessSamples: state.acceptedProcessSamples + 1,
+    acceptedIntervalSamples,
     sampledProcessRoles,
-    cpuSamples,
-    maximumCpuSample,
-    phaseCpuMaximums,
+    cpuSafetySamples,
+    maximumCpuSafetySample,
+    maximumIntervalCpuSafetySample,
+    maximumBrowserBootstrapDecayedCpuSafetySample,
+    maximumBrowserBootstrapIntervalCpuSafetySample,
+    previousProcessCpuSnapshot:
+      derivedIntervalSample && !intervalSample
+        ? previousProcessCpuSnapshot
+        : currentProcessCpuSnapshot,
     stopDecision: decision
   }
   return {
@@ -925,6 +1792,44 @@ export const evaluateResourceSample = (
     reason: null,
     state: nextState,
     decision: decision ?? noStopDecision
+  }
+}
+
+export const recordGuardedResourcePhaseBoundary = (
+  state,
+  body,
+  { expectedToken, expectedOwner, targetPgid, config }
+) => {
+  const evaluated = evaluateResourceSample(state, body?.sample, {
+    targetPgid,
+    config
+  })
+  if (!evaluated.accepted) {
+    return evaluated
+  }
+  if (evaluated.decision.stop) {
+    return {
+      accepted: false,
+      reason: evaluated.decision.reason,
+      state: evaluated.state,
+      decision: evaluated.decision
+    }
+  }
+  if (body?.kind === 'start' && evaluated.state.ready !== true) {
+    return {
+      accepted: false,
+      reason: 'guard-not-ready',
+      state: evaluated.state,
+      decision: evaluated.decision
+    }
+  }
+  const boundary = recordResourcePhaseBoundary(evaluated.state, body, {
+    expectedOwner,
+    expectedToken
+  })
+  return {
+    ...boundary,
+    decision: evaluated.decision
   }
 }
 
@@ -1145,13 +2050,22 @@ export const buildBoundedResourceReport = (
     publications: heartbeat?.publications ?? {},
     ownerTiming: heartbeat?.ownerTiming ?? {},
     heartbeats: keepLast(state.heartbeatSamples, historyLimit),
-    cpuSamples: keepLast(state.cpuSamples, historyLimit),
-    maximumCpuSample: state.maximumCpuSample,
-    phaseCpuMaximums: keepLast(state.phaseCpuMaximums, MAX_CPU_PHASES),
+    cpuSafetySamples: keepLast(state.cpuSafetySamples, historyLimit),
+    maximumCpuSafetySample: state.maximumCpuSafetySample,
+    maximumIntervalCpuSafetySample: state.maximumIntervalCpuSafetySample,
+    maximumBrowserBootstrapDecayedCpuSafetySample:
+      state.maximumBrowserBootstrapDecayedCpuSafetySample,
+    maximumBrowserBootstrapIntervalCpuSafetySample:
+      state.maximumBrowserBootstrapIntervalCpuSafetySample,
+    acceptedIntervalSamples: state.acceptedIntervalSamples,
+    attributionInvalidReason: state.attributionInvalidReason,
+    activePhaseBoundary: state.activePhaseBoundary,
+    phaseCpuTimeSamples: keepLast(state.phaseCpuTimeSamples, historyLimit),
     sampleFailure: state.sampleFailure,
     processGroups: sanitizeTrackedProcessGroups(state.processGroups),
     profileMetrics: state.profileMetrics,
     endpointReport: state.endpointReport,
+    failure: state.failure,
     termination,
     childExit,
     childOutputTail: keepLast(
@@ -1474,7 +2388,7 @@ const parseTrackedProcessLauncherArguments = (argv, baseEnv = process.env) => {
 
 const postTrackedProcessRegistration = async (
   registration,
-  { guardUrl, timeoutMs = 3_000, fetchImpl = fetch }
+  { guardUrl, timeoutMs = 3_000, fetchImpl = globalThis.fetch }
 ) => {
   const response = await fetchImpl(
     `${guardUrl.replace(/\/+$/u, '')}${TRACKED_PROCESS_REGISTRATION_PATH}`,
@@ -1482,7 +2396,7 @@ const postTrackedProcessRegistration = async (
       body: JSON.stringify(registration),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
-      signal: AbortSignal.timeout(timeoutMs)
+      signal: globalThis.AbortSignal.timeout(timeoutMs)
     }
   )
   const result = await response.json().catch(() => ({}))
@@ -1499,7 +2413,7 @@ export const runTrackedProcessLauncher = async (
   argv,
   {
     baseEnv = process.env,
-    fetchImpl = fetch,
+    fetchImpl = globalThis.fetch,
     spawnImpl = spawn,
     runtimeProcess = process
   } = {}
@@ -1529,7 +2443,7 @@ export const runTrackedProcessLauncher = async (
 
   const childEnvironment = { ...baseEnv }
   GUARD_ENVIRONMENT_KEYS.forEach((key) => {
-    delete childEnvironment[key]
+    Reflect.deleteProperty(childEnvironment, key)
   })
   const child = spawnImpl(parsed.command, parsed.args, {
     detached: false,
@@ -1595,6 +2509,32 @@ export const buildEndpointPerformancePhases = ({
     'ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT'
   )
   const collaborationUrl = `ws://127.0.0.1:${collaborationPort}/asyra-design-collaboration`
+  const attributionCase =
+    baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
+  const validAttributionCases = new Set([
+    '16',
+    '16-reduced-motion',
+    '1280',
+    '16-two-actor-activity'
+  ])
+  if (attributionCase && !validAttributionCases.has(attributionCase)) {
+    throw new Error(
+      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, or 16-two-actor-activity'
+    )
+  }
+  const twoActorActivityAttribution =
+    attributionCase === '16-two-actor-activity'
+  const singleActorAttribution =
+    attributionCase.length > 0 && !twoActorActivityAttribution
+  let selectedPlaywrightTest = 'creation-only high-detail endpoint proof'
+  let requiredProofKind = 'endpoint'
+  if (singleActorAttribution) {
+    selectedPlaywrightTest = 'single-Actor local attribution'
+    requiredProofKind = 'local-attribution'
+  } else if (twoActorActivityAttribution) {
+    selectedPlaywrightTest = 'two-Actor 16-item operation and idle attribution'
+    requiredProofKind = 'collaboration-attribution'
+  }
   const sharedEnv = {
     ...baseEnv,
     ASYRA_DESIGN_ENDPOINT_APP_PORT: String(appPort),
@@ -1604,46 +2544,10 @@ export const buildEndpointPerformancePhases = ({
     ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort),
     ASYRA_DESIGN_E2E_OWN_SERVERS: '1',
     ASYRA_DESIGN_COLLABORATION_PROFILE: '1',
+    ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: attributionCase,
     VITE_ASYRA_DESIGN_COLLABORATION_WS_URL: collaborationUrl
   }
-  const appBuildEnv = {
-    ...sharedEnv,
-    GOMAXPROCS: '1',
-    NODE_OPTIONS: [sharedEnv.NODE_OPTIONS, '--v8-pool-size=1']
-      .filter(Boolean)
-      .join(' '),
-    UV_THREADPOOL_SIZE: '1'
-  }
-
   return [
-    {
-      name: 'collaboration-build',
-      argv: [
-        '--owner',
-        `${owner}:collaboration-build`,
-        '--',
-        'yarn',
-        'build:collaboration-server'
-      ],
-      baseEnv: sharedEnv,
-      guardConfig: {
-        guardMode: 'diagnostic',
-        maximumCpuPercent: DIAGNOSTIC_MAXIMUM_CPU_PERCENT
-      },
-      requiresReady: false,
-      ports: [appPort, collaborationPort]
-    },
-    {
-      name: 'app-build',
-      argv: ['--owner', `${owner}:app-build`, '--', 'yarn', 'react:build'],
-      baseEnv: appBuildEnv,
-      guardConfig: {
-        guardMode: 'diagnostic',
-        maximumCpuPercent: DIAGNOSTIC_MAXIMUM_CPU_PERCENT
-      },
-      requiresReady: false,
-      ports: [appPort, collaborationPort]
-    },
     {
       name: 'playwright',
       argv: [
@@ -1655,12 +2559,15 @@ export const buildEndpointPerformancePhases = ({
         'test',
         '--config',
         'playwright.endpoint-performance.config.ts',
-        '--workers=1'
+        '--workers=1',
+        '--grep',
+        selectedPlaywrightTest
       ],
       baseEnv: sharedEnv,
       guardConfig: {
         guardMode: 'proof',
         maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
+        requiredProofKind,
         requiredProcessRoles: [...TRACKED_PROCESS_ROLES]
       },
       requiresReady: true,
@@ -1685,7 +2592,10 @@ export const sampleTrackedProcessGroupsCpu = async (
   {
     processGroups,
     execFileImpl = execFile,
-    nowMs = Date.now(),
+    nowMs,
+    now = Date.now,
+    monotonicMs,
+    monotonicNow = () => Number(process.hrtime.bigint()) / 1_000_000,
     platform = process.platform
   } = {}
 ) => {
@@ -1704,8 +2614,8 @@ export const sampleTrackedProcessGroupsCpu = async (
   const processGroupList = groups.map(({ pgid }) => pgid).join(',')
   const processArguments =
     platform === 'darwin'
-      ? ['-g', processGroupList, '-o', 'pid=,ppid=,pgid=,%cpu=,command=']
-      : ['-Ao', 'pid=,ppid=,pgid=,%cpu=,command=']
+      ? ['-g', processGroupList, '-o', 'pid=,ppid=,pgid=,%cpu=,time=,command=']
+      : ['-Ao', 'pid=,ppid=,pgid=,%cpu=,time=,command=']
   const stdout = await execFilePromise(execFileImpl, 'ps', processArguments, {
     encoding: 'utf8',
     killSignal: 'SIGKILL',
@@ -1713,25 +2623,51 @@ export const sampleTrackedProcessGroupsCpu = async (
     maxBuffer: 256 * 1024
   })
   const roleCpuPercent = createEmptyRoleCpuPercent()
+  const roleCpuTimeMs = createEmptyRoleCpuTimeMs()
+  const browserProcessTypeCpuPercent = createEmptyBrowserProcessTypeCpuPercent()
+  const browserProcessTypeCpuTimeMs = createEmptyBrowserProcessTypeCpuTimeMs()
   const contributors = []
+  const processCpuTimes = []
   const sampledPgids = new Set()
   let cpuPercent = 0
+  let cpuTimeMs = 0
   for (const line of stdout.split(/\r?\n/u)) {
     const match = line
       .trim()
-      .match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)(?:\s+(.*))?$/u)
+      .match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\S+)(?:\s+(.*))?$/u)
     if (!match) continue
     const pgid = Number(match[3])
     const group = groupByPgid.get(pgid)
     if (!group) continue
     sampledPgids.add(pgid)
     const processCpuPercent = Number(match[4])
+    const processCpuTimeMs = parseCpuTimeToMilliseconds(match[5])
+    const command = match[6]?.trim() ?? ''
+    const classification =
+      command.length > 0 ? classifyProcessCommand(command) : null
+    const browserProcessType =
+      group.role === 'client-browser'
+        ? (classification?.browserProcessType ?? 'other-browser')
+        : null
     cpuPercent += processCpuPercent
-    roleCpuPercent[roleCpuKey(group.role)] += processCpuPercent
-    const command = match[5]?.trim() ?? ''
-    if (command.length > 0) {
-      const classification = classifyProcessCommand(command)
+    cpuTimeMs += processCpuTimeMs
+    const roleKey = roleCpuKey(group.role)
+    roleCpuPercent[roleKey] += processCpuPercent
+    roleCpuTimeMs[roleKey] += processCpuTimeMs
+    if (browserProcessType) {
+      const browserProcessTypeKey = browserProcessTypeCpuKey(browserProcessType)
+      browserProcessTypeCpuPercent[browserProcessTypeKey] += processCpuPercent
+      browserProcessTypeCpuTimeMs[browserProcessTypeKey] += processCpuTimeMs
+    }
+    processCpuTimes.push({
+      ...(browserProcessType ? { browserProcessType } : {}),
+      cpuTimeMs: processCpuTimeMs,
+      pid: Number(match[1]),
+      role: group.role
+    })
+    if (classification) {
       contributors.push({
+        ...(browserProcessType ? { browserProcessType } : {}),
         cpuPercent: processCpuPercent,
         executable: classification.executable,
         parentPid: Number(match[2]),
@@ -1747,13 +2683,24 @@ export const sampleTrackedProcessGroupsCpu = async (
   const missingProcessRoles = TRACKED_PROCESS_ROLES.filter((role) =>
     groups.some((group) => group.role === role && !sampledPgids.has(group.pgid))
   )
+  if (processCpuTimes.length > MAX_PROCESS_CPU_TIME_ENTRIES) {
+    throw new Error(
+      `Tracked process sample exceeded ${MAX_PROCESS_CPU_TIME_ENTRIES} entries`
+    )
+  }
   return {
+    browserProcessTypeCpuPercent,
+    browserProcessTypeCpuTimeMs,
     pgid: rootPgid,
+    cpuTimeMs,
     cpuPercent,
     contributors: sanitizeCpuContributors(contributors),
     missingProcessRoles,
-    nowMs,
+    monotonicMs: monotonicMs ?? monotonicNow(),
+    nowMs: nowMs ?? now(),
+    processCpuTimes: sanitizeProcessCpuTimes(processCpuTimes),
     roleCpuPercent,
+    roleCpuTimeMs,
     trackedProcessRoles
   }
 }
@@ -1872,6 +2819,29 @@ const appendOutputTail = (tail, chunk, limit) => {
   return keepLast([...tail, ...nextLines], limit)
 }
 
+export const createSerializedResourceSampler = (sampleSnapshot) => {
+  if (typeof sampleSnapshot !== 'function') {
+    throw new TypeError('A resource sample function is required')
+  }
+  let operationTail = Promise.resolve()
+  return (consumeSample) => {
+    if (typeof consumeSample !== 'function') {
+      return Promise.reject(
+        new TypeError('A resource sample consumer is required')
+      )
+    }
+    const operation = operationTail.then(async () => {
+      const sample = await sampleSnapshot()
+      return consumeSample(sample)
+    })
+    operationTail = operation.then(
+      () => undefined,
+      () => undefined
+    )
+    return operation
+  }
+}
+
 export const runResourceGuardCli = async (
   argv,
   {
@@ -1906,11 +2876,24 @@ export const runResourceGuardCli = async (
     config: normalizedConfig
   })
   let targetPgid = null
+  let requestTermination = () => undefined
+  const runSerializedSample = createSerializedResourceSampler(async () => {
+    if (!Number.isSafeInteger(targetPgid) || targetPgid <= 0) {
+      throw new Error('Resource guard process group is not ready')
+    }
+    return sampleCpu(targetPgid, {
+      processGroups: state.processGroups
+    })
+  })
 
   const server = createHttpServer(async (request, response) => {
     if (
       request.method !== 'POST' ||
-      !['/heartbeat', TRACKED_PROCESS_REGISTRATION_PATH].includes(request.url)
+      ![
+        '/heartbeat',
+        PHASE_BOUNDARY_PATH,
+        TRACKED_PROCESS_REGISTRATION_PATH
+      ].includes(request.url)
     ) {
       sendJson(response, 404, { accepted: false })
       return
@@ -1944,15 +2927,77 @@ export const runResourceGuardCli = async (
           })
         }
         state = result.state
-        const statusCode = result.accepted
-          ? 200
-          : result.reason === 'invalid-token'
-            ? 401
-            : 400
+        let statusCode = 400
+        if (result.accepted) {
+          statusCode = 200
+        } else if (result.reason === 'invalid-token') {
+          statusCode = 401
+        }
         sendJson(response, statusCode, {
           accepted: result.accepted,
           ...(result.reason ? { reason: result.reason } : {})
         })
+        return
+      }
+      if (request.url === PHASE_BOUNDARY_PATH) {
+        if (body.token !== token) {
+          sendJson(response, 401, {
+            accepted: false,
+            reason: 'invalid-token'
+          })
+          return
+        }
+        if (
+          body.owner !== parsed.owner ||
+          !['start', 'end'].includes(body.kind) ||
+          !isNonEmptyBoundedString(body.phase) ||
+          !Number.isSafeInteger(targetPgid)
+        ) {
+          sendJson(response, 400, {
+            accepted: false,
+            reason: 'invalid-phase-boundary'
+          })
+          return
+        }
+        let result
+        try {
+          result = await runSerializedSample((sample) => {
+            const nextResult = recordGuardedResourcePhaseBoundary(
+              state,
+              {
+                ...body,
+                sample
+              },
+              {
+                expectedOwner: parsed.owner,
+                expectedToken: token,
+                targetPgid
+              }
+            )
+            state = nextResult.state
+            return nextResult
+          })
+        } catch (error) {
+          const failure = recordResourceSampleFailure(state, {
+            targetPgid,
+            nowMs: now(),
+            error
+          })
+          state = failure.state
+          sendJson(response, 503, {
+            accepted: false,
+            reason: 'resource-sample-failed'
+          })
+          void requestTermination('phase-boundary-sample-failed')
+          return
+        }
+        sendJson(response, result.accepted ? 200 : 409, {
+          accepted: result.accepted,
+          ...(result.reason ? { reason: result.reason } : {})
+        })
+        if (result.decision?.stop) {
+          void requestTermination('phase-boundary-safety')
+        }
         return
       }
       const result = recordResourceHeartbeat(state, body, {
@@ -2129,6 +3174,7 @@ export const runResourceGuardCli = async (
     resolveTerminationStarted()
     return startCleanup()
   }
+  requestTermination = startTermination
   const removeLifecycleGuard = installTrackedProcessLifecycleGuard({
     pgid: targetPgid,
     getProcessGroups: () => state.processGroups,
@@ -2142,18 +3188,18 @@ export const runResourceGuardCli = async (
     }
     evaluationRunning = true
     try {
-      const sample = await sampleCpu(targetPgid, {
-        processGroups: state.processGroups
+      const result = await runSerializedSample((sample) => {
+        if (childClosed) {
+          return null
+        }
+        const nextResult = evaluateResourceSample(state, sample, {
+          targetPgid,
+          config: normalizedConfig
+        })
+        state = nextResult.state
+        return nextResult
       })
-      if (childClosed) {
-        return
-      }
-      const result = evaluateResourceSample(state, sample, {
-        targetPgid,
-        config: normalizedConfig
-      })
-      state = result.state
-      if (result.decision.stop) {
+      if (result?.decision.stop) {
         await startTermination()
       }
     } catch (error) {
@@ -2334,42 +3380,29 @@ export const runEndpointPerformancePipeline = async (
     await assertAvailable(port)
   }
 
-  const results = []
-  let artifactAttestation = null
-  for (const phase of phases) {
-    const phaseEnvironment =
-      phase.name === 'playwright' && artifactAttestation
-        ? {
-            ...phase.baseEnv,
-            [ENDPOINT_ARTIFACT_ENV]: artifactAttestation.endpoint
-          }
-        : phase.baseEnv
-    const result = await runPhase(phase.argv, {
-      ...dependencies,
-      baseEnv: phaseEnvironment,
-      config: phase.guardConfig,
-      requiresReady: phase.requiresReady
-    })
-    results.push({
-      phase: phase.name,
-      exitCode: result.exitCode,
-      report: result.report
-    })
-    if (result.exitCode !== 0) {
-      return {
-        exitCode: result.exitCode,
-        phases: results
-      }
-    }
-    if (phase.name === 'app-build') {
-      artifactAttestation = await attestBuild({
-        expectedEndpoint: phase.baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL
-      })
-    }
-  }
+  const [runtimePhase] = phases
+  const artifactAttestation = await attestBuild({
+    expectedEndpoint:
+      runtimePhase.baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL
+  })
+  const result = await runPhase(runtimePhase.argv, {
+    ...dependencies,
+    baseEnv: {
+      ...runtimePhase.baseEnv,
+      [ENDPOINT_ARTIFACT_ENV]: artifactAttestation.endpoint
+    },
+    config: runtimePhase.guardConfig,
+    requiresReady: runtimePhase.requiresReady
+  })
   return {
-    exitCode: 0,
-    phases: results
+    exitCode: result.exitCode,
+    phases: [
+      {
+        phase: runtimePhase.name,
+        exitCode: result.exitCode,
+        report: result.report
+      }
+    ]
   }
 }
 
@@ -2382,11 +3415,14 @@ if (isMain) {
   const trackedLauncher =
     argv[0] === '--tracked-role' ||
     Boolean(process.env.ASYRA_DESIGN_TRACKED_ROLE)
-  const execution = trackedLauncher
-    ? runTrackedProcessLauncher(argv)
-    : argv.includes('--')
-      ? runResourceGuardCli(argv)
-      : runEndpointPerformancePipeline(argv)
+  let execution
+  if (trackedLauncher) {
+    execution = runTrackedProcessLauncher(argv)
+  } else if (argv.includes('--')) {
+    execution = runResourceGuardCli(argv)
+  } else {
+    execution = runEndpointPerformancePipeline(argv)
+  }
   execution
     .then((result) => {
       process.exitCode = result.exitCode

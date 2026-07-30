@@ -13,6 +13,7 @@ import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
 import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
+import { viewportApis } from '../common-apis/viewport'
 import {
   createAsyraDesignAiConversationController,
   type AsyraDesignAiConversationController
@@ -140,6 +141,8 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
         readHistoryDepth: () => core.deps.factory.getUndoHistoryDepth(),
         readRenderProjectionElementCount: () =>
           core.deps.render.getProjectedElementCount(),
+        readViewportPosition: () => viewportApis.getPosition(),
+        readZoom: () => viewportApis.getScale(),
         subscribeToTransactionStatus: (subscriber) =>
           core.deps.factory.subscribeToTransactionStatus(subscriber)
       })

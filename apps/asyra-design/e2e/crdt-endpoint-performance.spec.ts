@@ -164,6 +164,124 @@ interface PreparedAiTurn {
   }
 }
 
+interface PreparedLocalInteractionProbe {
+  readonly canvasCenter: {
+    readonly x: number
+    readonly y: number
+  }
+  readonly initial: LocalInteractionProbeSnapshot
+  readonly rectangleCenter: {
+    readonly x: number
+    readonly y: number
+  }
+  readonly selectCenter: {
+    readonly x: number
+    readonly y: number
+  }
+}
+
+interface LocalDocumentEventCounts {
+  readonly deleteKey: number
+  readonly historyShortcut: number
+  readonly rectangleButton: number
+  readonly rectangleShortcut: number
+}
+
+interface LocalInteractionProbeSnapshot {
+  readonly canonicalElements: number
+  readonly documentEventAttempts: LocalDocumentEventCounts
+  readonly documentEventDeliveries: LocalDocumentEventCounts
+  readonly documentEventPreventions: LocalDocumentEventCounts
+  readonly keyboardTargetActive: boolean
+  readonly loadingAtZero: {
+    readonly canonicalElements: number
+    readonly connected: boolean
+    readonly phase: string | null
+    readonly rect: {
+      readonly height: number
+      readonly width: number
+      readonly x: number
+      readonly y: number
+    }
+    readonly sourceBounds: {
+      readonly height: number
+      readonly width: number
+      readonly x: number
+      readonly y: number
+    }
+  } | null
+  readonly loadingConnected: boolean
+  readonly rectangleActive: boolean
+  readonly viewport: {
+    readonly x: number
+    readonly y: number
+  }
+  readonly zoom: number
+}
+
+type LocalInteractionProbeTarget =
+  | 'interaction-frame'
+  | 'loading-at-zero'
+  | 'loading-removed'
+  | 'pan-changed'
+  | 'rectangle-active'
+  | 'zoom-changed'
+
+interface LocalNavigationBaseline {
+  readonly viewport: LocalInteractionProbeSnapshot['viewport']
+  readonly zoom: number
+}
+
+interface LocalInteractionProbe {
+  focusKeyboardTarget(): LocalInteractionProbeSnapshot
+  waitFor(
+    target: LocalInteractionProbeTarget,
+    timeoutMs: number,
+    baseline?: LocalNavigationBaseline
+  ): Promise<LocalInteractionProbeSnapshot>
+}
+
+interface LocalInteractionEvidence {
+  readonly blockedActionAttempts: {
+    readonly deleteKeyBlocked: boolean
+    readonly documentEventAttempts: LocalDocumentEventCounts
+    readonly documentEventDeliveries: LocalInteractionProbeSnapshot['documentEventDeliveries']
+    readonly documentEventPreventions: LocalDocumentEventCounts
+    readonly historyShortcutBlocked: boolean
+    readonly rectangleButtonBlocked: boolean
+    readonly rectangleShortcutBlocked: boolean
+    readonly rectangleToolRemainedInactive: boolean
+  }
+  readonly completion: {
+    readonly canonicalElements: number
+    readonly historyActionCount: number
+    readonly loadingRemoved: boolean
+    readonly ordinaryKeyboardToolSwitchAccepted: boolean
+    readonly ordinaryToolSwitchAccepted: boolean
+  }
+  readonly loadingAtZero: NonNullable<
+    LocalInteractionProbeSnapshot['loadingAtZero']
+  >
+  readonly pan: {
+    readonly after: LocalInteractionProbeSnapshot['viewport']
+    readonly before: LocalInteractionProbeSnapshot['viewport']
+  }
+  readonly progress: {
+    readonly cooperativeYieldCount: number
+    readonly longestCanonicalWorkUnitMs: number
+    readonly milestones: readonly {
+      readonly atMs: number
+      readonly completedElements: number
+      readonly sampleIndex: number
+      readonly targetElements: number
+    }[]
+  }
+  readonly zoom: {
+    readonly after: number
+    readonly before: number
+  }
+}
+
 interface TwoActorActivitySummary extends LocalAttributionSummary {
   readonly idleAverageTaskCorePercent: number
   readonly idleHeapUsedEndBytes: number
@@ -182,18 +300,25 @@ interface TwoActorActivitySummary extends LocalAttributionSummary {
 }
 
 interface FinalActorDiagnostics {
-  readonly configuration: {
-    readonly contentsMode: string
-    readonly deliveryMode: string
+  readonly drawingProgress: {
+    readonly canonicalWorkUnitCount: number
+    readonly cooperativeYieldCount: number
+    readonly cooperativeYieldSampleCount: number
+    readonly loadingFrameVisibleCount: number
+    readonly longestCanonicalWorkUnitMs: number
+    readonly milestones: readonly {
+      readonly atMs: number
+      readonly completedElements: number
+      readonly sampleIndex: number
+      readonly targetElements: number
+    }[]
+    readonly strictlyIncreasing: boolean
+    readonly visibleElementLastCount: number
+    readonly visibleElementSampleCount: number
   }
   readonly factoryPublicationCount: number
   readonly historyDepth: number
   readonly localSentCount: number
-  readonly counterTimeline: readonly {
-    readonly atMs: number
-    readonly name: string
-    readonly value: number
-  }[]
   readonly phaseTimeline: readonly {
     readonly atMs: number
     readonly durationMs: number
@@ -242,6 +367,7 @@ interface EndpointReport {
   readonly operationCompletedAtMs?: number
   readonly operationDurationMs?: number
   readonly operationStartedAtMs?: number
+  readonly localInteraction?: LocalInteractionEvidence
   readonly owner: string
   readonly proofKind:
     | 'endpoint'
@@ -340,14 +466,10 @@ const waitForGuardReady = async (
 }
 
 const collaborationURL = (fileId: string) =>
-  `/?fileId=${encodeURIComponent(fileId)}` +
-  '&aiDelivery=progressive' +
-  '&aiPerformance=profile' +
-  '&aiPerformanceContents=omitted'
+  `/?fileId=${encodeURIComponent(fileId)}&aiPerformance=profile`
 
 const singleActorAppURL = (fileId: string) =>
-  `/?fileId=${encodeURIComponent(fileId)}` +
-  '&aiDelivery=progressive&aiPerformanceContents=omitted'
+  `/?fileId=${encodeURIComponent(fileId)}`
 const profiledSingleActorAppURL = (fileId: string) =>
   `${singleActorAppURL(fileId)}&aiPerformance=profile`
 
@@ -975,9 +1097,10 @@ const visibleWorkerTargets = (page: Page): readonly string[] =>
     .sort()
 
 const readFinalDiagnostics = async (
-  page: Page
+  page: Page,
+  expectedDrawingElements: number | null = null
 ): Promise<FinalActorDiagnostics> => {
-  const diagnostics = await page.evaluate(() => {
+  const diagnostics = await page.evaluate((expectedElements) => {
     const profile = window.__AsyraAiDrawingPerformance__
     if (!profile) {
       throw new Error('AI drawing performance profile is unavailable')
@@ -988,18 +1111,77 @@ const readFinalDiagnostics = async (
         remoteProcessed: number
       }
     }
-    const diagnostics = scope.__AsyraEndpointDiagnostics__
-    if (!diagnostics) {
+    const endpointDiagnostics = scope.__AsyraEndpointDiagnostics__
+    if (!endpointDiagnostics) {
       throw new Error('Endpoint performance diagnostics are unavailable')
     }
     const snapshot = profile.snapshot()
     const phaseTotals = new Map<string, number>()
+    const firstPhaseByName = new Map<
+      string,
+      { atMs: number; durationMs: number; name: string }
+    >()
+    const canonicalWorkUnitDurations: number[] = []
     for (const phase of snapshot.phases) {
       phaseTotals.set(
         phase.name,
         (phaseTotals.get(phase.name) ?? 0) + phase.durationMs
       )
+      if (
+        /^(?:ai-app|ai-provider|ai-runtime|ai-server-response-inbox|ai-turn):/u.test(
+          phase.name
+        ) &&
+        !firstPhaseByName.has(phase.name)
+      ) {
+        firstPhaseByName.set(phase.name, {
+          atMs: Math.round(phase.atMs * 1000) / 1000,
+          durationMs: Math.round(phase.durationMs * 1000) / 1000,
+          name: phase.name
+        })
+      }
+      if (phase.name === 'ai-app:create-composition-batch') {
+        canonicalWorkUnitDurations.push(phase.durationMs)
+      }
     }
+    const drawingCounters = snapshot.counters.filter(({ name }) =>
+      name.startsWith('ai-drawing:')
+    )
+    const visibleElementSamples = drawingCounters.filter(
+      ({ name }) => name === 'ai-drawing:visible-element-count'
+    )
+    const targetElements =
+      expectedElements === null
+        ? []
+        : [
+            1,
+            Math.ceil(expectedElements * 0.25),
+            Math.ceil(expectedElements * 0.5),
+            Math.ceil(expectedElements * 0.75),
+            expectedElements
+          ]
+    let minimumSampleIndex = 0
+    const milestones = targetElements.flatMap((target) => {
+      const relativeIndex = visibleElementSamples
+        .slice(minimumSampleIndex)
+        .findIndex(({ value }) => value >= target)
+      if (relativeIndex < 0) return []
+      const sampleIndex = minimumSampleIndex + relativeIndex
+      const sample = visibleElementSamples[sampleIndex]
+      minimumSampleIndex = sampleIndex + 1
+      return sample
+        ? [
+            {
+              atMs: Math.round(sample.atMs * 1000) / 1000,
+              completedElements: sample.value,
+              sampleIndex,
+              targetElements: target
+            }
+          ]
+        : []
+    })
+    const cooperativeYieldSamples = drawingCounters.filter(
+      ({ name }) => name === 'ai-drawing:cooperative-yield-count'
+    )
     const persistencePhaseCount = snapshot.phases.filter(
       ({ name }) =>
         name === 'core:persistence-capture' ||
@@ -1007,32 +1189,32 @@ const readFinalDiagnostics = async (
         name === 'persistence:indexeddb-put'
     ).length
     return {
-      configuration: snapshot.configuration,
+      drawingProgress: {
+        canonicalWorkUnitCount: canonicalWorkUnitDurations.length,
+        cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
+        cooperativeYieldSampleCount: cooperativeYieldSamples.length,
+        loadingFrameVisibleCount: drawingCounters.filter(
+          ({ name }) => name === 'ai-drawing:loading-frame-visible'
+        ).length,
+        longestCanonicalWorkUnitMs:
+          canonicalWorkUnitDurations.length === 0
+            ? 0
+            : Math.max(...canonicalWorkUnitDurations),
+        milestones,
+        strictlyIncreasing: visibleElementSamples.every(
+          ({ value }, index) =>
+            index === 0 ||
+            value > (visibleElementSamples[index - 1]?.value ?? -1)
+        ),
+        visibleElementLastCount: visibleElementSamples.at(-1)?.value ?? 0,
+        visibleElementSampleCount: visibleElementSamples.length
+      },
       factoryPublicationCount: profile.readFactoryPublicationCount(),
       historyDepth: profile.readHistoryDepth(),
-      localSentCount: diagnostics.localSent,
-      counterTimeline: snapshot.counters
-        .filter(({ name }) => name.startsWith('ai-drawing:'))
-        .slice(-64)
-        .map(({ atMs, name, value }) => ({
-          atMs: Math.round(atMs * 1000) / 1000,
-          name,
-          value
-        })),
-      phaseTimeline: snapshot.phases
-        .filter(({ name }) =>
-          /^(?:ai-app|ai-provider|ai-runtime|ai-server-response-inbox|ai-turn):/u.test(
-            name
-          )
-        )
-        .slice(-128)
-        .map(({ atMs, durationMs, name }) => ({
-          atMs: Math.round(atMs * 1000) / 1000,
-          durationMs: Math.round(durationMs * 1000) / 1000,
-          name
-        })),
+      localSentCount: endpointDiagnostics.localSent,
+      phaseTimeline: [...firstPhaseByName.values()],
       persistencePhaseCount,
-      remoteProcessedCount: diagnostics.remoteProcessed,
+      remoteProcessedCount: endpointDiagnostics.remoteProcessed,
       renderProjectionAnomalies: {
         failed: profile.readCounterTotal('render-projection-outcome-failed'),
         missing: profile.readCounterTotal('render-projection-outcome-missing'),
@@ -1047,7 +1229,7 @@ const readFinalDiagnostics = async (
           name
         }))
     }
-  })
+  }, expectedDrawingElements)
   return {
     ...diagnostics,
     visibleWorkerTargets: visibleWorkerTargets(page)
@@ -1066,6 +1248,306 @@ const openAgentAndAttachReference = async (page: Page): Promise<void> => {
     page.getByRole('img', { name: referenceImageName })
   ).toBeVisible()
 }
+
+const installLocalInteractionProbe = async (
+  page: Page
+): Promise<PreparedLocalInteractionProbe> => {
+  const canvasHost = page.getByTestId('asyra-canvas-host')
+  const rectangleTool = page.getByTestId('tool-rectangle')
+  const selectTool = page.getByTestId('tool-select')
+  await expect(canvasHost).toBeVisible()
+  await expect(rectangleTool).toBeVisible()
+  await expect(selectTool).toHaveAttribute('data-active', 'true')
+  const [canvasBounds, rectangleBounds, selectBounds] = await Promise.all([
+    canvasHost.boundingBox(),
+    rectangleTool.boundingBox(),
+    selectTool.boundingBox()
+  ])
+  if (!canvasBounds || !rectangleBounds || !selectBounds) {
+    throw new Error('Local interaction control bounds are unavailable')
+  }
+
+  const initial = await page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
+    }
+    if (scope.__AsyraEndpointLocalInteractionProbe__) {
+      throw new Error('Local interaction probe is already installed')
+    }
+    const profile = window.__AsyraAiDrawingPerformance__
+    if (!profile) {
+      throw new Error('Local interaction probe owners are unavailable')
+    }
+
+    const initialViewport = profile.readViewportPosition()
+    const initialZoom = profile.readZoom()
+    const documentEventAttempts = {
+      deleteKey: 0,
+      historyShortcut: 0,
+      rectangleButton: 0,
+      rectangleShortcut: 0
+    }
+    const documentEventDeliveries = {
+      deleteKey: 0,
+      historyShortcut: 0,
+      rectangleButton: 0,
+      rectangleShortcut: 0
+    }
+    const documentEventPreventions = {
+      deleteKey: 0,
+      historyShortcut: 0,
+      rectangleButton: 0,
+      rectangleShortcut: 0
+    }
+    type DocumentActionName = keyof LocalDocumentEventCounts
+    const recordAttempt = (action: DocumentActionName, event: Event): void => {
+      documentEventAttempts[action] += 1
+      queueMicrotask(() => {
+        if (event.defaultPrevented) {
+          documentEventPreventions[action] += 1
+        }
+      })
+    }
+    const rectangleControl = document.querySelector<HTMLElement>(
+      '[data-testid="tool-rectangle"]'
+    )
+    if (!rectangleControl) {
+      throw new Error('Local interaction rectangle control is unavailable')
+    }
+    rectangleControl.addEventListener('click', () => {
+      documentEventDeliveries.rectangleButton += 1
+    })
+    window.addEventListener(
+      'click',
+      (event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-testid="tool-rectangle"]')
+        ) {
+          recordAttempt('rectangleButton', event)
+        }
+      },
+      { capture: true }
+    )
+    window.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === 'Delete') {
+          recordAttempt('deleteKey', event)
+        } else if (event.metaKey && event.key.toLowerCase() === 'z') {
+          recordAttempt('historyShortcut', event)
+        } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
+          recordAttempt('rectangleShortcut', event)
+        }
+      },
+      { capture: true }
+    )
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Delete') {
+        documentEventDeliveries.deleteKey += 1
+      } else if (event.metaKey && event.key.toLowerCase() === 'z') {
+        documentEventDeliveries.historyShortcut += 1
+      } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
+        documentEventDeliveries.rectangleShortcut += 1
+      }
+    })
+    let loadingAtZero: LocalInteractionProbeSnapshot['loadingAtZero'] = null
+    let observer: MutationObserver | null = null
+
+    const read = (): LocalInteractionProbeSnapshot => {
+      const indicator = document.querySelector<HTMLElement>(
+        '[data-testid="ai-drawing-progress-indicator"]'
+      )
+      const canonicalElements = profile.readCanonicalElementCount()
+      if (indicator?.isConnected && canonicalElements === 0 && !loadingAtZero) {
+        const rect = indicator.getBoundingClientRect()
+        const viewport = profile.readViewportPosition()
+        const zoom = profile.readZoom()
+        const projectedLeft = Number.parseFloat(indicator.style.left)
+        const projectedTop = Number.parseFloat(indicator.style.top)
+        const projectedWidth = Number.parseFloat(indicator.style.width)
+        const projectedHeight = Number.parseFloat(indicator.style.height)
+        loadingAtZero = {
+          canonicalElements,
+          connected: true,
+          phase: indicator.getAttribute('data-phase'),
+          rect: {
+            height: rect.height,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y
+          },
+          sourceBounds: {
+            height: projectedHeight / zoom,
+            width: projectedWidth / zoom,
+            x: (projectedLeft - viewport.x) / zoom,
+            y: (projectedTop - viewport.y) / zoom
+          }
+        }
+        observer?.disconnect()
+        observer = null
+      }
+      return {
+        canonicalElements,
+        documentEventAttempts: { ...documentEventAttempts },
+        documentEventDeliveries: { ...documentEventDeliveries },
+        documentEventPreventions: { ...documentEventPreventions },
+        keyboardTargetActive: document.activeElement === probeRoot,
+        loadingAtZero,
+        loadingConnected: indicator?.isConnected === true,
+        rectangleActive:
+          document
+            .querySelector('[data-testid="tool-rectangle"]')
+            ?.getAttribute('data-active') === 'true',
+        viewport: profile.readViewportPosition(),
+        zoom: profile.readZoom()
+      }
+    }
+    const targetReached = (
+      target: LocalInteractionProbeTarget,
+      snapshot: LocalInteractionProbeSnapshot,
+      observedFrames: number,
+      baseline: LocalNavigationBaseline
+    ): boolean => {
+      switch (target) {
+        case 'interaction-frame':
+          return observedFrames >= 2
+        case 'loading-at-zero':
+          return snapshot.loadingAtZero !== null
+        case 'loading-removed':
+          return snapshot.loadingAtZero !== null && !snapshot.loadingConnected
+        case 'pan-changed':
+          return (
+            snapshot.viewport.x !== baseline.viewport.x ||
+            snapshot.viewport.y !== baseline.viewport.y
+          )
+        case 'rectangle-active':
+          return snapshot.rectangleActive
+        case 'zoom-changed':
+          return snapshot.zoom !== baseline.zoom
+      }
+    }
+
+    const probeRoot = document.querySelector<HTMLElement>(
+      '[data-testid="asyra-canvas-host"]'
+    )
+    if (!probeRoot) {
+      throw new Error('Local interaction probe root is unavailable')
+    }
+    observer = new MutationObserver(() => {
+      read()
+    })
+    observer.observe(probeRoot, {
+      attributeFilter: ['data-active', 'data-phase', 'style'],
+      attributes: true,
+      childList: true,
+      subtree: true
+    })
+
+    const probe: LocalInteractionProbe = {
+      focusKeyboardTarget: () => {
+        probeRoot.focus({ preventScroll: true })
+        return read()
+      },
+      waitFor: (target, timeoutMs, baseline) =>
+        new Promise((resolve, reject) => {
+          const startedAt = performance.now()
+          let observedFrames = 0
+          const navigationBaseline = baseline ?? {
+            viewport: initialViewport,
+            zoom: initialZoom
+          }
+          const inspect = (): void => {
+            observedFrames += 1
+            const snapshot = read()
+            if (
+              targetReached(
+                target,
+                snapshot,
+                observedFrames,
+                navigationBaseline
+              )
+            ) {
+              resolve(snapshot)
+              return
+            }
+            if (performance.now() - startedAt >= timeoutMs) {
+              reject(
+                new Error(
+                  `Local interaction evidence "${target}" timed out at ${JSON.stringify(
+                    snapshot
+                  )}`
+                )
+              )
+              return
+            }
+            requestAnimationFrame(inspect)
+          }
+          requestAnimationFrame(inspect)
+        })
+    }
+    scope.__AsyraEndpointLocalInteractionProbe__ = probe
+    return read()
+  })
+
+  return {
+    canvasCenter: {
+      x: canvasBounds.x + canvasBounds.width * 0.4,
+      y: canvasBounds.y + canvasBounds.height * 0.6
+    },
+    initial,
+    rectangleCenter: {
+      x: rectangleBounds.x + rectangleBounds.width / 2,
+      y: rectangleBounds.y + rectangleBounds.height / 2
+    },
+    selectCenter: {
+      x: selectBounds.x + selectBounds.width / 2,
+      y: selectBounds.y + selectBounds.height / 2
+    }
+  }
+}
+
+const waitForLocalInteractionProbe = (
+  page: Page,
+  target: LocalInteractionProbeTarget,
+  timeoutMs = 10_000,
+  baseline?: LocalNavigationBaseline
+): Promise<LocalInteractionProbeSnapshot> =>
+  page.evaluate(
+    ({ requestedBaseline, requestedTarget, requestedTimeoutMs }) => {
+      const scope = globalThis as typeof globalThis & {
+        __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
+      }
+      const probe = scope.__AsyraEndpointLocalInteractionProbe__
+      if (!probe) {
+        throw new Error('Local interaction probe is unavailable')
+      }
+      return probe.waitFor(
+        requestedTarget,
+        requestedTimeoutMs,
+        requestedBaseline
+      )
+    },
+    {
+      requestedBaseline: baseline,
+      requestedTarget: target,
+      requestedTimeoutMs: timeoutMs
+    }
+  )
+
+const focusLocalInteractionKeyboardTarget = (
+  page: Page
+): Promise<LocalInteractionProbeSnapshot> =>
+  page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
+    }
+    const probe = scope.__AsyraEndpointLocalInteractionProbe__
+    if (!probe) {
+      throw new Error('Local interaction probe is unavailable')
+    }
+    return probe.focusKeyboardTarget()
+  })
 
 const prepareAiTurn = async (
   page: Page,
@@ -1445,12 +1927,11 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     expect(completed.publications.failed).toBe(0)
     expect(getCapturedBrowserErrors(actor.page)).toEqual([])
 
-    const actorADiagnostics = await readFinalDiagnostics(actor.page)
+    const actorADiagnostics = await readFinalDiagnostics(
+      actor.page,
+      requestedItems
+    )
     expect(actorADiagnostics.runtime).toBe('production')
-    expect(actorADiagnostics.configuration).toEqual({
-      contentsMode: 'omitted',
-      deliveryMode: 'progressive'
-    })
     expect(actorADiagnostics.localSentCount).toBe(
       completed.publications.actorALocalSent
     )
@@ -1482,11 +1963,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
           index === 0 || atMs >= timeline[index - 1].atMs
       )
     ).toBe(true)
-    expect(
-      actorADiagnostics.counterTimeline.some(
-        ({ name }) => name === 'ai-drawing:loading-frame-visible'
-      )
-    ).toBe(true)
+    expect(actorADiagnostics.drawingProgress.loadingFrameVisibleCount).toBe(1)
     const finalHeartbeat = await heartbeat.sample()
     const report: EndpointReport = {
       actorA: {
@@ -1698,7 +2175,7 @@ test('two-Actor 16-item operation and idle attribution', async ({
     expect(completed.publications.failed).toBe(0)
 
     const [actorADiagnostics, actorBDiagnostics] = await Promise.all([
-      readFinalDiagnostics(actorA),
+      readFinalDiagnostics(actorA, requestedItems),
       readFinalDiagnostics(actorB)
     ])
     expect(
@@ -1858,6 +2335,9 @@ test('creation-only high-detail endpoint proof', async ({
     if (!preparedTurn) {
       throw new Error('High-detail AI turn was not prepared')
     }
+    const localInteraction = await installLocalInteractionProbe(actorA)
+    expect(localInteraction.initial.canonicalElements).toBe(0)
+    expect(localInteraction.initial.rectangleActive).toBe(false)
     await waitForGuardReady(createConnectivityHeartbeat('request-ready'))
 
     const initialHeartbeat = await heartbeat.sample()
@@ -1869,11 +2349,145 @@ test('creation-only high-detail endpoint proof', async ({
     heartbeat.markCreationStarted(creationStartedAtMs)
     heartbeat.begin()
     await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
+    const loadingState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'loading-at-zero')
+    )
+    const loadingAtZero = loadingState.loadingAtZero
+    if (!loadingAtZero) {
+      throw new Error('Connected loading evidence at zero elements is missing')
+    }
+    expect(loadingAtZero.connected).toBe(true)
+    expect(loadingAtZero.canonicalElements).toBe(0)
+    expect(['preparing', 'drawing']).toContain(loadingAtZero.phase)
+    expect(loadingAtZero.rect.width).toBeGreaterThan(0)
+    expect(loadingAtZero.rect.height).toBeGreaterThan(0)
+    expect(loadingAtZero.rect.width / loadingAtZero.rect.height).toBeCloseTo(
+      1672 / 941,
+      2
+    )
+    expect(loadingAtZero.sourceBounds.x).toBeCloseTo(0, 2)
+    expect(loadingAtZero.sourceBounds.y).toBeCloseTo(0, 2)
+    expect(loadingAtZero.sourceBounds.width).toBeCloseTo(1672, 1)
+    expect(loadingAtZero.sourceBounds.height).toBeCloseTo(941, 1)
+
+    await heartbeat.assertGuarded(
+      actorA.mouse.move(
+        localInteraction.canvasCenter.x,
+        localInteraction.canvasCenter.y
+      )
+    )
+    await heartbeat.assertGuarded(actorA.mouse.wheel(72, 48))
+    const pannedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'pan-changed', 10_000, loadingState)
+    )
+    expect(pannedState.viewport).not.toEqual(loadingState.viewport)
+    expect(pannedState.loadingConnected).toBe(true)
+    expect(pannedState.canonicalElements).toBeLessThan(7076)
+
+    await heartbeat.assertGuarded(actorA.keyboard.down('Meta'))
+    await heartbeat.assertGuarded(actorA.mouse.wheel(0, -120))
+    await heartbeat.assertGuarded(actorA.keyboard.up('Meta'))
+    const zoomedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'zoom-changed', 10_000, pannedState)
+    )
+    expect(zoomedState.zoom).not.toBe(pannedState.zoom)
+    expect(zoomedState.loadingConnected).toBe(true)
+    expect(zoomedState.canonicalElements).toBeLessThan(7076)
+
+    const keyboardTargetState = await heartbeat.assertGuarded(
+      focusLocalInteractionKeyboardTarget(actorA)
+    )
+    expect(keyboardTargetState.keyboardTargetActive).toBe(true)
+    expect(keyboardTargetState.loadingConnected).toBe(true)
+    expect(keyboardTargetState.canonicalElements).toBeLessThan(7076)
+    await heartbeat.assertGuarded(actorA.keyboard.press('r'))
+    await heartbeat.assertGuarded(
+      actorA.mouse.click(
+        localInteraction.rectangleCenter.x,
+        localInteraction.rectangleCenter.y
+      )
+    )
+    await heartbeat.assertGuarded(actorA.keyboard.press('Delete'))
+    await heartbeat.assertGuarded(actorA.keyboard.press('Meta+z'))
+    const blockedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'interaction-frame')
+    )
+    expect(blockedState.rectangleActive).toBe(false)
+    expect(blockedState.documentEventAttempts).toEqual({
+      deleteKey: 1,
+      historyShortcut: 1,
+      rectangleButton: 1,
+      rectangleShortcut: 1
+    })
+    expect(blockedState.documentEventDeliveries).toEqual({
+      deleteKey: 0,
+      historyShortcut: 0,
+      rectangleButton: 0,
+      rectangleShortcut: 0
+    })
+    expect(blockedState.documentEventPreventions).toEqual({
+      deleteKey: 1,
+      historyShortcut: 1,
+      rectangleButton: 1,
+      rectangleShortcut: 1
+    })
+    expect(blockedState.loadingConnected).toBe(true)
+    expect(blockedState.canonicalElements).toBeLessThan(7076)
+
     await heartbeat.assertGuarded(heartbeat.waitForActorAComplete(120_000))
+    await heartbeat.assertGuarded(assertPreparedAiTurnSettled(preparedTurn))
+    const loadingRemovedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'loading-removed')
+    )
+    expect(loadingRemovedState.loadingConnected).toBe(false)
+    await heartbeat.assertGuarded(
+      actorA.mouse.click(
+        localInteraction.rectangleCenter.x,
+        localInteraction.rectangleCenter.y
+      )
+    )
+    const releasedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'rectangle-active')
+    )
+    expect(releasedState.rectangleActive).toBe(true)
+    expect(releasedState.documentEventAttempts.rectangleButton).toBe(2)
+    expect(releasedState.documentEventDeliveries.rectangleButton).toBe(1)
+    expect(releasedState.documentEventPreventions.rectangleButton).toBe(1)
+    await heartbeat.assertGuarded(
+      actorA.mouse.click(
+        localInteraction.selectCenter.x,
+        localInteraction.selectCenter.y
+      )
+    )
+    const selectedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'interaction-frame')
+    )
+    expect(selectedState.rectangleActive).toBe(false)
+    const releasedKeyboardTargetState = await heartbeat.assertGuarded(
+      focusLocalInteractionKeyboardTarget(actorA)
+    )
+    expect(releasedKeyboardTargetState.keyboardTargetActive).toBe(true)
+    await heartbeat.assertGuarded(actorA.keyboard.press('r'))
+    const keyboardReleasedState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'rectangle-active')
+    )
+    expect(keyboardReleasedState.documentEventAttempts.rectangleShortcut).toBe(
+      2
+    )
+    expect(
+      keyboardReleasedState.documentEventDeliveries.rectangleShortcut
+    ).toBe(1)
+    expect(
+      keyboardReleasedState.documentEventPreventions.rectangleShortcut
+    ).toBe(1)
     heartbeat.completePhase('creation')
-    await assertPreparedAiTurnSettled(preparedTurn)
     heartbeat.startPhase('peer-convergence')
-    await postHeartbeat('progress', await heartbeat.sample())
+    const peerConvergenceHeartbeat = await heartbeat.assertGuarded(
+      heartbeat.sample()
+    )
+    await heartbeat.assertGuarded(
+      postHeartbeat('progress', peerConvergenceHeartbeat)
+    )
     const completed = await heartbeat.assertGuarded(
       heartbeat.waitForBothComplete(120_000)
     )
@@ -1917,23 +2531,17 @@ test('creation-only high-detail endpoint proof', async ({
     const [actorADiagnostics, actorBDiagnostics] =
       await heartbeat.assertGuarded(
         Promise.all([
-          readFinalDiagnostics(actorA),
+          readFinalDiagnostics(actorA, expectedFixture.vectorCount),
           readFinalDiagnostics(actorB)
         ])
       )
     const initialAUndoDepth = initialHeartbeat.actorA.undoDepth
     const initialBUndoDepth = initialHeartbeat.actorB.undoDepth
+    const actorAHistoryActionCount =
+      actorADiagnostics.historyDepth - initialAUndoDepth
     expect(actorADiagnostics.runtime).toBe('production')
     expect(actorBDiagnostics.runtime).toBe('production')
-    expect(actorADiagnostics.configuration).toEqual({
-      contentsMode: 'omitted',
-      deliveryMode: 'progressive'
-    })
-    expect(actorBDiagnostics.configuration).toEqual({
-      contentsMode: 'omitted',
-      deliveryMode: 'progressive'
-    })
-    expect(actorADiagnostics.historyDepth - initialAUndoDepth).toBe(1)
+    expect(actorAHistoryActionCount).toBe(1)
     expect(actorADiagnostics.localSentCount).toBeGreaterThan(0)
     expect(actorADiagnostics.factoryPublicationCount).toBe(
       actorADiagnostics.localSentCount
@@ -1945,6 +2553,38 @@ test('creation-only high-detail endpoint proof', async ({
       missing: 0,
       resynced: 0
     })
+    const drawingProgress = actorADiagnostics.drawingProgress
+    expect(drawingProgress.loadingFrameVisibleCount).toBe(1)
+    expect(drawingProgress.strictlyIncreasing).toBe(true)
+    expect(drawingProgress.visibleElementSampleCount).toBeGreaterThanOrEqual(5)
+    expect(drawingProgress.visibleElementLastCount).toBe(
+      expectedFixture.vectorCount
+    )
+    expect(drawingProgress.milestones).toHaveLength(5)
+    expect(
+      drawingProgress.milestones.map(({ targetElements }) => targetElements)
+    ).toEqual([
+      1,
+      Math.ceil(expectedFixture.vectorCount * 0.25),
+      Math.ceil(expectedFixture.vectorCount * 0.5),
+      Math.ceil(expectedFixture.vectorCount * 0.75),
+      expectedFixture.vectorCount
+    ])
+    expect(
+      drawingProgress.milestones.every(
+        ({ sampleIndex }, index, milestones) =>
+          index === 0 ||
+          sampleIndex > (milestones[index - 1]?.sampleIndex ?? -1)
+      )
+    ).toBe(true)
+    expect(drawingProgress.cooperativeYieldSampleCount).toBe(1)
+    expect(drawingProgress.cooperativeYieldCount).toBe(
+      drawingProgress.visibleElementSampleCount
+    )
+    expect(drawingProgress.canonicalWorkUnitCount).toBe(
+      drawingProgress.visibleElementSampleCount
+    )
+    expect(drawingProgress.longestCanonicalWorkUnitMs).toBeGreaterThan(0)
     expect(actorBDiagnostics.historyDepth - initialBUndoDepth).toBe(0)
     expect(actorBDiagnostics.factoryPublicationCount).toBe(0)
     expect(actorBDiagnostics.localSentCount).toBe(0)
@@ -1979,6 +2619,45 @@ test('creation-only high-detail endpoint proof', async ({
       convergedMs,
       durationMs: Date.now() - testStartedAtMs,
       equivalenceProofMs,
+      localInteraction: {
+        blockedActionAttempts: {
+          deleteKeyBlocked:
+            blockedState.documentEventDeliveries.deleteKey === 0,
+          documentEventAttempts: blockedState.documentEventAttempts,
+          documentEventDeliveries: blockedState.documentEventDeliveries,
+          documentEventPreventions: blockedState.documentEventPreventions,
+          historyShortcutBlocked:
+            blockedState.documentEventDeliveries.historyShortcut === 0,
+          rectangleButtonBlocked:
+            blockedState.documentEventDeliveries.rectangleButton === 0,
+          rectangleShortcutBlocked:
+            blockedState.documentEventDeliveries.rectangleShortcut === 0,
+          rectangleToolRemainedInactive: !blockedState.rectangleActive
+        },
+        completion: {
+          canonicalElements: actorASummary.totalCount,
+          historyActionCount: actorAHistoryActionCount,
+          loadingRemoved: !loadingRemovedState.loadingConnected,
+          ordinaryKeyboardToolSwitchAccepted:
+            keyboardReleasedState.rectangleActive,
+          ordinaryToolSwitchAccepted: releasedState.rectangleActive
+        },
+        loadingAtZero,
+        pan: {
+          after: pannedState.viewport,
+          before: loadingState.viewport
+        },
+        progress: {
+          cooperativeYieldCount: drawingProgress.cooperativeYieldCount,
+          longestCanonicalWorkUnitMs:
+            drawingProgress.longestCanonicalWorkUnitMs,
+          milestones: drawingProgress.milestones
+        },
+        zoom: {
+          after: zoomedState.zoom,
+          before: pannedState.zoom
+        }
+      },
       owner: endpointOwner,
       proofKind: 'endpoint',
       status: 'complete'

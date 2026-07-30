@@ -18,8 +18,8 @@ import {
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
 
-const profiledAtomicCollaborationUrl = (fileId: string) =>
-  `${collaborationUrl(fileId)}&aiDelivery=atomic&aiPerformance=profile`
+const profiledCollaborationUrl = (fileId: string) =>
+  `${collaborationUrl(fileId)}&aiPerformance=profile`
 
 const requireAppUrl = (testInfo: TestInfo): string => {
   const appUrl = String(testInfo.project.use.baseURL ?? '')
@@ -608,7 +608,7 @@ test('16-item server response keeps one plural publication through action, Undo,
     fileId,
     itemCount: 16
   })
-  await page.goto(`${collaborationUrl(fileId)}&aiDelivery=atomic`)
+  await page.goto(collaborationUrl(fileId))
   await waitForAppReady(page)
   await captureFactoryPublicationShapes(page)
 
@@ -665,8 +665,8 @@ test('16-item AI response converges through the ordinary two-actor publication p
       itemCount: 16
     })
     await Promise.all([
-      actorA.goto(profiledAtomicCollaborationUrl(fileId)),
-      actorB.goto(profiledAtomicCollaborationUrl(fileId))
+      actorA.goto(profiledCollaborationUrl(fileId)),
+      actorB.goto(profiledCollaborationUrl(fileId))
     ])
     await Promise.all([
       waitForAppReady(actorA),
@@ -859,7 +859,7 @@ test('16-item AI response converges through the ordinary two-actor publication p
   }
 })
 
-test('320-item AI response converges through the ordinary progressive two-actor path', async ({
+test('320-item AI response converges through the ordinary cooperative two-actor path', async ({
   browser
 }, testInfo) => {
   testInfo.setTimeout(100_000)
@@ -1056,14 +1056,12 @@ test('320-item AI response converges through the ordinary progressive two-actor 
   }
 })
 
-test('1,280-item cat prefix measures ordinary progressive two-actor creation', async ({
+test('1,280-item cat prefix measures ordinary cooperative two-actor creation', async ({
   browser
 }, testInfo) => {
   testInfo.setTimeout(60_000)
   const fileId = `e2e-1280-item-cat-prefix-${Date.now()}-${testInfo.workerIndex}`
-  const profiledUrl = `${collaborationUrl(
-    fileId
-  )}&aiDelivery=progressive&aiPerformance=profile`
+  const profiledUrl = profiledCollaborationUrl(fileId)
   const actorAContext = await browser.newContext()
   const actorBContext = await browser.newContext()
   const actorA = await actorAContext.newPage()

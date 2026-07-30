@@ -704,11 +704,11 @@ single committed benchmark with exactly this mission:
 - server queue/drain output normalized into the same bounded endpoint report
   instead of being left only in unstructured server stdout.
 
-Local-only owners may additionally use the existing one-page 7,112-element
-creation gate, but every collaboration owner is judged by the same two-Actor
-7,076-element creation-only benchmark. A benchmark failure caused by its own
-obsolete assertion or harness overhead is a benchmark defect, not evidence
-against a production endpoint.
+Local-only and collaboration owners are judged by the same two-Actor
+7,076-element creation-only benchmark; the Actor A side is also the local
+interaction proof. A benchmark failure caused by its own obsolete assertion or
+harness overhead is a benchmark defect, not evidence against a production
+endpoint.
 
 ### Host Resource Guard
 
@@ -1308,15 +1308,20 @@ intended transaction or history boundary.
 
 ### Current Local Performance Measurement
 
-The current gate performs exactly one 7,112-element balanced cooperative
-plural-batch production run through the always-on server-backed AI route in one
-browser page against one fresh App-owned empty canonical document session
-selected by the required `fileId` URL. Collaboration is ready through the
-WebSocket server before the request, but no Actor B is created.
-The gate has no peer relay, remote apply, Contents projection, IndexedDB
-provider, persistence assertion, reload, warm-up, repeated measured creation,
-video, trace, or full-state polling. WebSocket-server CPU is reported as a
-separate role rather than attributed to the browser product owner.
+The accepted local UX behavior is now proven inside the same guarded
+two-Actor 7,076-element endpoint run used for CRDT effectiveness. Actor A owns
+the local exact-bounds loading, ordinary Vector milestones, pan/zoom,
+interaction-lock, one-Undo, and settled evidence; Actor B owns first-visible,
+completion, and convergence evidence. The ordinary AI performance spec keeps
+only the low-load 16-item profiling sanity check. No second high-detail
+single-Actor run, Vite development/HMR run, retry, or unguarded 7,000-plus run
+is allowed.
+
+The one guarded run has no Contents projection, document IndexedDB,
+persistence, reload, warm-up, repeated measured creation, follow-up turn,
+Undo/Redo execution, media, trace, CPU profile, or full-state polling.
+WebSocket-server CPU is reported as a separate role rather than attributed to
+the browser product owner.
 
 The report must name:
 
@@ -1330,11 +1335,11 @@ The report must name:
 - the final exact canonical element count, bounds/detail equivalence, and Undo
   delta.
 
-Milestones use O(1) runtime counters. The harness may read one bounded exact
-canonical summary only after settlement; it must not repeatedly clone, hash, or
-walk the 7,112-element state. This single run answers the current product
-question without claiming statistical median. The existing multi-run budgets
-remain deferred full-suite gates.
+Milestones use O(1) runtime counters. After both actors complete, the harness
+may read exactly one bounded canonical summary from each actor; it must not
+repeatedly clone, hash, or walk the 7,076-element state. The same guarded run
+answers the local UX and CRDT endpoint questions without claiming a statistical
+median.
 
 The pre-DOM-compositor cooperative-scheduling baseline completed on 2026-07-29
 with Contents omitted and no client persistence:
@@ -1393,8 +1398,10 @@ test/manual harness, the formal production provider, production App build,
 fresh canonical and collaboration state,
 dedicated App and WebSocket ports, and independent actor browser contexts.
 
-One unmeasured warm-up precedes three measured runs. Median and worst values are
-reported separately.
+The high-detail route runs once after each completed endpoint and once after the
+final architecture owner. It reports the observed result against the retained
+pre-refactor and preceding accepted endpoint baselines; it never adds a warm-up
+or repeat.
 
 Production evidence uses the dedicated AI drawing performance profile. It
 returns detached canonical, history, Factory transaction-status, commit, and
@@ -1411,15 +1418,12 @@ IndexedDB state is opened, polled, normalized, stringified, or hashed.
 
 ### Gate Partitioning
 
-- The current single-Actor interactive gate is one 7,112-element cooperative
-  plural-batch run with Collaboration ready through the WebSocket server, no
-  Actor B, and no
-  Contents, peer relay, remote apply, request-time response inbox lookup, document
-  IndexedDB work, or repeat. Browser/App and WebSocket-server CPU remain
-  separate roles.
-- The endpoint benchmark is one guarded two-Actor 7,076-element cooperative
-  plural-batch creation-only run with no follow-up edit, Undo/Redo execution,
-  persistence, media, trace, CPU profile, warm-up, or repeat.
+- The endpoint benchmark is the only automated high-detail gate: one guarded
+  two-Actor 7,076-element cooperative plural-batch creation-only run. Actor A
+  also proves the accepted local loading, progress, pan/zoom, interaction-lock,
+  and one-Undo behavior. There is no additional single-Actor high-detail run.
+- The endpoint run has no follow-up edit, Undo/Redo execution, persistence,
+  media, trace, CPU profile, HMR, warm-up, retry, or repeat.
 - The exact same endpoint benchmark establishes the accepted output baseline
   after every effective owner and is rerun immediately after the next owner
   refactor.
@@ -1466,22 +1470,18 @@ canonical state, delivery, history, retry, cancellation, or terminal results.
 On the reference environment:
 
 - Balanced cooperative plural-batch creation:
-  - median accepted-turn-to-Actor-A-settled time at most 20 seconds;
-  - no measured run over 30 seconds.
-- Collaborative composition:
+  - the guarded observed accepted-turn-to-Actor-A-settled time is at most
+    30 seconds.
+- Collaborative creation:
   - Actor B first visible canonical batch within 2 seconds of Actor A's first
     shared publication;
   - Actor B canonical convergence within 30 seconds of Actor A's canonical
     creation commit;
-  - blue-whisker and red-pupil follow-ups each converge within 5 seconds of
-    Actor A settlement.
-- Full three-turn two-actor product flow:
-  - product spans total at most 90 seconds median and 120 seconds worst;
-  - whole dedicated E2E command, including harness overhead, at most 180
-    seconds.
+  - the guarded creation-only command, including harness overhead, completes
+    within 180 seconds.
 - Maximum detail:
-  - median accepted-turn-to-Actor-A-settled time at most 60 seconds;
-  - no measured run over 90 seconds.
+  - the guarded observed accepted-turn-to-Actor-A-settled time is at most
+    90 seconds.
 
 Budgets are gates, not item, path, point, payload, frame, or composition
 ceilings. A finite valid drawing remains accepted even when a performance gate
@@ -1652,9 +1652,10 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
 The accepted single-Actor path retains the exact loading bounds, cooperative
 plural-batch composition, one outer transaction, one Undo action, and
 responsive pan/zoom behavior already proven by the current local formal tests.
-Endpoint work must not regress those gates. The 7,112-element single-Actor
-benchmark keeps Collaboration active without Actor B, reports WebSocket-server
-work separately, and never replaces the guarded two-Actor collaboration proof.
+Endpoint work must not regress those gates. The guarded two-Actor benchmark
+proves those Actor A behaviors in the same creation used for peer convergence
+and reports WebSocket-server work separately; no duplicate high-detail local
+benchmark runs.
 
 ## Endpoint Proof Gates
 
@@ -1737,15 +1738,14 @@ After all architecture owners are complete, run one heavy closure:
 2. Default 16-item server-response AI CRDT correctness.
 3. One 7,112-element balanced correctness run because canonical and transport
    paths changed.
-4. Independent 7,076-element production no-media CRDT and performance runs.
-5. One warm-up plus three measured runs reporting product execution, artifact,
-   encode, server queue/drain, worker decode, remote apply, Render, UI, and
-   harness overhead. Every high-detail run retains the same host resource guard.
-6. Maximum-detail 27,471-element and 295,794-point gate.
-7. `app-visual-review-sync` from the same measured live App state, with direct
+4. One final invocation of the same guarded two-Actor 7,076-element endpoint
+   proof, reporting product execution, artifact, encode, server queue/drain,
+   worker decode, remote apply, Render, UI, and harness overhead.
+5. Maximum-detail 27,471-element and 295,794-point gate.
+6. `app-visual-review-sync` from the same measured live App state, with direct
    inspection of complete, uncropped Actor A and Actor B output, Styles, IDs,
    and hierarchy.
-8. The 7,076-element two-window full recording only with explicit user opt-in.
+7. The 7,076-element two-window full recording only with explicit user opt-in.
 
 Generated media, recordings, screenshots, traces, profiles, and thumbnails are
 never committed.
