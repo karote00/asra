@@ -50,7 +50,6 @@
         'requestActionBatch() is the only public provider request. It returns one server-prepared AiActionBatch with one batchId and never selects another provider, payload, or execution path.',
         'Request-time provider acquisition performs zero response inbox access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
         'Production provider execution has no artificial delay, phrase fixture fallback, failure simulation, deterministic seed branch, or fixture-selection branch.',
-        'The legacy mode, provider, response-store, fixture-directory, E2E spec, and E2E response-builder paths named in this implementation boundary are deletion or relocation sources only; no production import, export, branch, identifier, UI copy, test id, script name, or generated bundle artifact may retain them.',
         'Actor B never executes the preloaded response and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
         'The server-prepared AiActionBatch remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
@@ -95,10 +94,6 @@
         'apps/asyra-design/src/ai/startup.ts',
         'apps/asyra-design/src/ai/server-action-batch-provider.ts',
         'apps/asyra-design/src/ai/server-response-inbox.ts',
-        'apps/asyra-design/src/ai/mode.ts',
-        'apps/asyra-design/src/ai/mock-provider.ts',
-        'apps/asyra-design/src/ai/mock-backend-response-store.ts',
-        'apps/asyra-design/src/ai/fixtures',
         'apps/asyra-design/src/ai/app-prompt.ts',
         'apps/asyra-design/src/ai/context.ts',
         'apps/asyra-design/src/ai/__tests__',
@@ -111,8 +106,6 @@
         'apps/asyra-design/e2e/server-response-inbox.ts',
         'apps/asyra-design/e2e/test-utils.ts',
         'apps/asyra-design/e2e/conversational-ai.spec.ts',
-        'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
-        'apps/asyra-design/e2e/mock-backend-response-store.ts',
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts'
@@ -158,6 +151,7 @@
         'The server validates and normalizes every item, path, point, role, style, and bound and builds the compact coordinate artifact before App readiness; the front end performs none of that model work.',
         'The front-end composition executor shows the server-prepared loading bounds first and cooperatively materializes only the next progressive slice from the compact artifact.',
         'The shipped create-app template consumes that same compact artifact, point-aware progressive slices, and mixed-type createElementsInParent plural route without retaining a parallel expanded item graph or falling back to per-element creation.',
+        'The production App and shipped template each construct one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
         'Canonical topology and ids remain owned by the ordinary App common API and plural Core route; the server-prepared artifact never creates canonical, shared-data, Render, history, or CRDT state directly.',
         'ResolvedAiActionBatch and PermissionReadyAiActionBatch remain local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
       ],
@@ -182,6 +176,7 @@
         'complete geometry in confirmation or terminal preview',
         'production paths or APIs named Mock, fake, simulate, or local-compat',
         'planId, plan API aliases, compatibility wrappers, or alternate payload modes',
+        'runtime or provider activation flags and optional Agent runtime branches',
         'artificial provider delay, phrase fixture fallback, or failure simulation',
         'large-payload, validation, delivery, progressive, loading, or collaboration flags on action definitions',
         'AI-owned shared props, shared components, shared elements, Factory publications, or CRDT state',
@@ -191,9 +186,25 @@
       implementationBoundary: [
         'packages/ai-agent-runtime/src',
         'packages/ai-agent-runtime/src/__tests__',
+        'apps/asyra-design/src/index.tsx',
+        'apps/asyra-design/src/startup.ts',
+        'apps/asyra-design/src/features/ai-agent/index.ts',
+        'apps/asyra-design/src/features/ai-agent/__tests__/index.test.ts',
+        'apps/asyra-design/src/init/init-app.ts',
+        'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+        'apps/asyra-design/src/init/foundation/init-features.ts',
+        'apps/asyra-design/src/init/foundation/__tests__/init-features.test.ts',
         'apps/asyra-design/src/ai/actions.ts',
+        'apps/asyra-design/src/ai/runtime-input.ts',
+        'apps/asyra-design/src/ai/startup.ts',
+        'apps/asyra-design/src/ai/conversation.ts',
+        'apps/asyra-design/src/ai/presentation.ts',
         'apps/asyra-design/src/ai/confirmation.ts',
         'apps/asyra-design/src/ai/__tests__',
+        'apps/asyra-design/src/app/index.tsx',
+        'apps/asyra-design/src/app/__tests__',
+        'apps/asyra-design/src/toolbar/index.tsx',
+        'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
         'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
         'create-app/asyra-design/template/package.json',
         'create-app/asyra-design/template/src/index.tsx',
@@ -201,7 +212,15 @@
         'create-app/asyra-design/template/src/init/index.ts',
         'create-app/asyra-design/template/src/init/init-app.ts',
         'create-app/asyra-design/template/src/init/__tests__/init-app.test.ts',
+        'create-app/asyra-design/template/src/init/foundation/init-features.ts',
+        'create-app/asyra-design/template/src/init/foundation/__tests__/init-features.test.ts',
+        'create-app/asyra-design/template/src/features/ai-agent/index.ts',
+        'create-app/asyra-design/template/src/features/ai-agent/__tests__/index.test.ts',
         'create-app/asyra-design/template/src/ai',
+        'create-app/asyra-design/template/src/ai/runtime-input.ts',
+        'create-app/asyra-design/template/src/ai/startup.ts',
+        'create-app/asyra-design/template/src/ai/conversation.ts',
+        'create-app/asyra-design/template/src/ai/presentation.ts',
         'create-app/asyra-design/template/src/ai/__tests__/server-prepared-action-consumer.test.ts',
         'create-app/asyra-design/template/src/common-apis/element/apis.ts',
         'create-app/asyra-design/template/src/common-apis/element/vector-apis.ts',
@@ -213,8 +232,6 @@
         'create-app/asyra-design/template/src/toolbar/__tests__/ai-control.test.tsx',
         'create-app/asyra-design/template/src/render-app/collaboration-mode.ts',
         'create-app/asyra-design/template/src/render-app/__tests__/collaboration-mode.test.ts',
-        'create-app/asyra-design/template/e2e/conversational-ai-mock.spec.ts',
-        'create-app/asyra-design/template/e2e/collaboration-ai-agent-video.spec.ts',
         'docs/ai/framework/API_SURFACES.md',
         'docs/ai/framework/packages/ai-agent-runtime.md',
         'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
@@ -344,7 +361,7 @@
       inputs: [
         'artifact:canonical-element-batch-result',
         'one outer App transaction identity',
-        'resolved atomic or progressive delivery mode'
+        'fixed immediate shared-delivery intent for the composition action'
       ],
       outputs: [
         'artifact:factory-mutation-batch-artifact',
@@ -478,7 +495,7 @@
         'artifact:resolved-ai-action-batch',
         'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
-        'production Conversational AI startup with progressive default and explicit atomic measurement opt-in',
+        'single production Conversational AI runtime with fixed cooperative progressive delivery',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
         'App-owned DOM compositor overlay',
@@ -491,11 +508,11 @@
         'artifact:app-bulk-timing'
       ],
       conditions: [
-        'The production Asyra Design entry exposes the formal Conversational AI provider without an ai query and uses the progressive path by default so the ordinary local demo remains cooperative; explicit aiDelivery=atomic retains the one-batch atomic path for isolated measurement.',
+        'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
         'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
-        'Atomic mode creates the Group and submits one all-children plural Core batch; progressive mode creates the Group and submits multiple deterministic plural Core batches.',
+        'The single composition route creates one Group and submits multiple deterministic progressive plural Core batches.',
         'Progressive batch boundaries enforce both a point budget and an element-count budget capped at 64 per work unit; one indivisible element may exceed only the point soft target.',
         'Each successful canonical batch completes its ordinary Factory, Preset, Render, and UI projection, commits actual element progress, awaits one later browser task through the single serialized action loop, and rechecks the Feature-owned AbortSignal before another mutation.',
         'The exact-bounds overlay is App-owned transient DOM projection above the ordinary canvas; its CSS activity animates only transform and opacity on the compositor while every completed element continues through the ordinary editable Vector route.',
@@ -515,7 +532,7 @@
         'App-owned DOM overlay component and compositor-safe CSS animation',
         'App-owned document interaction lock and existing viewport pan and zoom input routes',
         'Agent conversation Cancel control as the only non-navigation DOM interaction exemption',
-        'App-owned delivery mode and serialized cooperative main-thread scheduling policy'
+        'App-owned serialized cooperative main-thread scheduling policy'
       ],
       forbiddenContributors: [
         '7,000 single-item Core calls',
@@ -528,6 +545,7 @@
         'loading, progress, or slice-policy parameters in Core, Props Manager, or Scene Tree',
         'JavaScript per-frame loading animation',
         'a second reactive-events bus used as a scheduling or document-admission lock',
+        'product delivery-mode switches or delivery URL parameters',
         'microtask-only progressive yield',
         'one timeout scheduled independently for every planned range'
       ],
@@ -578,8 +596,8 @@
       ],
       conditions: [
         'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
-        'Atomic delivery performs one batch projection and one visible flush.',
-        'Progressive delivery performs one projection for each formal slice and never collapses to a final-only peer frame.',
+        'Each formal local or remote canonical batch performs one batch projection and at most one visible flush.',
+        'The fixed progressive composition route performs one projection for each formal slice and never collapses to a final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
         'The ordinary Vector strategy preserves all 7,076 editable elements, topology, transforms, hierarchy, fills, strokes, and visibility.',
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
@@ -637,7 +655,7 @@
       ],
       specRefs: [
         '#projection-and-contents-contract',
-        '#visible-atomic-and-progressive-projection',
+        '#visible-progressive-projection',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
@@ -2254,7 +2272,7 @@
     {
       id: 'publication-slices-are-not-canonical-writes',
       statement:
-        'Atomic and progressive slices project and publish existing immutable evidence; they never repeat canonical mutation, split history, or collapse progressive peer visibility.',
+        'Formal publication slices project and publish existing immutable evidence; they never repeat canonical mutation, split history, or collapse progressive peer visibility.',
       stepIds: [
         'record-and-deliver-transaction-batch',
         'project-visible-canonical-slices',
@@ -2343,7 +2361,7 @@
       id: 'bulk-and-history-equivalence',
       title: 'Bulk canonical and history equivalence',
       assertions: [
-        'One Group plus one atomic all-children batch or ordered progressive plural batches preserves exact IDs, order, topology, properties, relationships, and component ownership.',
+        'One Group plus ordered progressive plural batches preserves exact IDs, order, topology, properties, relationships, and component ownership.',
         'A later invalid item leaves no prefix, and single-item APIs are equivalent batch-of-one conveniences.',
         'One immutable Factory artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.'
       ],
@@ -2362,11 +2380,11 @@
       id: 'visible-progressive-projection',
       title: 'Visible progressive projection',
       assertions: [
-        'Atomic delivery flushes once and progressive delivery flushes every formal slice through the ordinary Vector route.',
+        'The single progressive delivery route flushes every formal slice through the ordinary Vector route.',
         'All 7,076 editable elements remain complete and uncropped.'
       ],
       stepIds: ['project-visible-canonical-slices'],
-      specRefs: ['#visible-atomic-and-progressive-projection', '#product-cases']
+      specRefs: ['#visible-progressive-projection', '#product-cases']
     },
     {
       id: 'binary-backpressure-and-remote-apply',
@@ -2439,7 +2457,7 @@
       title: 'Formal, performance, and visual closure',
       assertions: [
         'The default 16-item CRDT gate, one change-aware 7,112-element correctness gate, independent high-detail CRDT and performance gates, and maximum-detail gate pass.',
-        'Existing atomic, progressive, first-visible, convergence, follow-up, full-flow, and maximum-detail budgets pass with separated owner and harness spans.',
+        'Existing progressive, first-visible, convergence, follow-up, full-flow, and maximum-detail budgets pass with separated owner and harness spans.',
         'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [

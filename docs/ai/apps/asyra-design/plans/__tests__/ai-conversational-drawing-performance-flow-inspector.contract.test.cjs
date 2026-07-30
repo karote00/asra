@@ -172,10 +172,6 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/ai/startup.ts',
     'apps/asyra-design/src/ai/server-action-batch-provider.ts',
     'apps/asyra-design/src/ai/server-response-inbox.ts',
-    'apps/asyra-design/src/ai/mode.ts',
-    'apps/asyra-design/src/ai/mock-provider.ts',
-    'apps/asyra-design/src/ai/mock-backend-response-store.ts',
-    'apps/asyra-design/src/ai/fixtures',
     'apps/asyra-design/src/ai/app-prompt.ts',
     'apps/asyra-design/src/ai/context.ts',
     'apps/asyra-design/src/ai/__tests__',
@@ -187,15 +183,9 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/test-data/ai-drawing',
     'apps/asyra-design/e2e/server-response-inbox.ts',
     'apps/asyra-design/e2e/test-utils.ts',
-    'apps/asyra-design/e2e/conversational-ai.spec.ts',
-    'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
-    'apps/asyra-design/e2e/mock-backend-response-store.ts'
+    'apps/asyra-design/e2e/conversational-ai.spec.ts'
   ].forEach((boundary) =>
     assert.ok(providerOwner.implementationBoundary.includes(boundary), boundary)
-  )
-  assert.match(
-    providerText,
-    /legacy mode.*paths named in this implementation boundary.*deletion or relocation sources only.*no production import.*generated bundle artifact/i
   )
   assert.match(
     providerText,
@@ -265,6 +255,19 @@ test('file-scoped server response is prepared before request timing', () => {
   assert.ok(
     owner.implementationBoundary.includes(
       'apps/asyra-design/e2e/server-response-inbox.ts'
+    )
+  )
+  ;[
+    'apps/asyra-design/src/ai/mode.ts',
+    'apps/asyra-design/src/ai/mock-provider.ts',
+    'apps/asyra-design/src/ai/mock-backend-response-store.ts',
+    'apps/asyra-design/src/ai/fixtures',
+    'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
+    'apps/asyra-design/e2e/mock-backend-response-store.ts'
+  ].forEach((staleBoundary) =>
+    assert.ok(
+      !owner.implementationBoundary.includes(staleBoundary),
+      staleBoundary
     )
   )
   const actionBatch = data.artifacts.find(
@@ -366,19 +369,51 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     text,
     /server validates.*normalize.*item.*path.*point.*compact.*before App readiness.*front.?end.*materializ.*progressive slice/i
   )
+  assert.match(
+    text,
+    /production App and shipped template.*one required.*server-backed.*runtime.*startup.*never nullable or optional/i
+  )
+  assert.doesNotMatch(
+    text,
+    /providerEnabled|optional AI runtime|nullable runtime|product delivery-mode switch/i
+  )
   ;[
     'packages/ai-agent-runtime/src',
     'packages/ai-agent-runtime/src/__tests__',
+    'apps/asyra-design/src/index.tsx',
+    'apps/asyra-design/src/startup.ts',
+    'apps/asyra-design/src/features/ai-agent/index.ts',
+    'apps/asyra-design/src/features/ai-agent/__tests__/index.test.ts',
+    'apps/asyra-design/src/init/init-app.ts',
+    'apps/asyra-design/src/init/__tests__/init-app.test.ts',
+    'apps/asyra-design/src/init/foundation/init-features.ts',
+    'apps/asyra-design/src/init/foundation/__tests__/init-features.test.ts',
     'apps/asyra-design/src/ai/actions.ts',
+    'apps/asyra-design/src/ai/runtime-input.ts',
+    'apps/asyra-design/src/ai/startup.ts',
+    'apps/asyra-design/src/ai/conversation.ts',
+    'apps/asyra-design/src/ai/presentation.ts',
     'apps/asyra-design/src/ai/confirmation.ts',
     'apps/asyra-design/src/ai/__tests__',
+    'apps/asyra-design/src/app/index.tsx',
+    'apps/asyra-design/src/app/__tests__',
+    'apps/asyra-design/src/toolbar/index.tsx',
+    'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
     'create-app/asyra-design/template/package.json',
     'create-app/asyra-design/template/src/index.tsx',
     'create-app/asyra-design/template/src/startup.ts',
     'create-app/asyra-design/template/src/init/index.ts',
     'create-app/asyra-design/template/src/init/init-app.ts',
     'create-app/asyra-design/template/src/init/__tests__/init-app.test.ts',
+    'create-app/asyra-design/template/src/init/foundation/init-features.ts',
+    'create-app/asyra-design/template/src/init/foundation/__tests__/init-features.test.ts',
+    'create-app/asyra-design/template/src/features/ai-agent/index.ts',
+    'create-app/asyra-design/template/src/features/ai-agent/__tests__/index.test.ts',
     'create-app/asyra-design/template/src/ai',
+    'create-app/asyra-design/template/src/ai/runtime-input.ts',
+    'create-app/asyra-design/template/src/ai/startup.ts',
+    'create-app/asyra-design/template/src/ai/conversation.ts',
+    'create-app/asyra-design/template/src/ai/presentation.ts',
     'create-app/asyra-design/template/src/ai/__tests__/server-prepared-action-consumer.test.ts',
     'create-app/asyra-design/template/src/common-apis/element/apis.ts',
     'create-app/asyra-design/template/src/common-apis/element/vector-apis.ts',
@@ -390,17 +425,22 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'create-app/asyra-design/template/src/toolbar/__tests__/ai-control.test.tsx',
     'create-app/asyra-design/template/src/render-app/collaboration-mode.ts',
     'create-app/asyra-design/template/src/render-app/__tests__/collaboration-mode.test.ts',
-    'create-app/asyra-design/template/e2e/conversational-ai-mock.spec.ts',
-    'create-app/asyra-design/template/e2e/collaboration-ai-agent-video.spec.ts',
     'docs/ai/framework/packages/ai-agent-runtime.md',
     'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
     'docs/examples/ai-agent-runtime.mjs'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
-  assert.ok(
-    !owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/prepared-composition.ts'
+  ;[
+    'apps/asyra-design/src/ai/composition.ts',
+    'apps/asyra-design/src/ai/prepared-composition.ts',
+    'create-app/asyra-design/template/src/ai/composition.ts',
+    'create-app/asyra-design/template/e2e/conversational-ai-mock.spec.ts',
+    'create-app/asyra-design/template/e2e/collaboration-ai-agent-video.spec.ts'
+  ].forEach((staleBoundary) =>
+    assert.ok(
+      !owner.implementationBoundary.includes(staleBoundary),
+      staleBoundary
     )
   )
   assert.match(
@@ -413,11 +453,11 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     plan,
-    /backend-facing `inputSchema`[\s\S]*no client-side action[\s\S]*schema.*parse.*prepare[\s\S]*compact coordinate artifact[\s\S]*materializes only the next[\s\S]*progressive slice/i
+    /backend-facing `inputSchema`[\s\S]*no client-side action[\s\S]*schema.*parse.*prepare[\s\S]*compact coordinate artifact[\s\S]*materializes only the next[\s\S]*cooperative slice/i
   )
   assert.match(
     plan,
-    /action-definition contract receives no large-payload, validation,[\s\S]*delivery, progressive, loading, or collaboration mode/i
+    /action-definition contract receives no large-payload, validation,[\s\S]*delivery, scheduling, loading, or collaboration control/i
   )
   assert.match(
     feature,
@@ -870,17 +910,25 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(text, /element-count budget capped at 64 per work unit/i)
   assert.match(
     text,
-    /multiple deterministic plural Core batches.*one outer App transaction.*one intended history action/i
+    /multiple deterministic progressive plural Core batches.*one outer App transaction.*one intended history action/i
   )
   assert.match(
     text,
     /successful.*batch.*ordinary.*projection.*progress.*later browser task.*AbortSignal/i
   )
   assert.match(text, /CSS.*transform.*opacity.*compositor/i)
-  assert.match(text, /atomic.*one all-children.*progressive.*multiple.*plural/i)
   assert.match(
     text,
-    /production.*formal Conversational AI provider.*without an ai query.*progressive/i
+    /single.*progressive.*multiple deterministic progressive plural Core batches/i
+  )
+  assert.match(
+    text,
+    /production.*formal.*provider.*without an ai or delivery query.*progressive/i
+  )
+  assert.doesNotMatch(text, /aiDelivery|atomic measurement opt-in|Atomic mode/i)
+  assert.doesNotMatch(
+    text,
+    /App-owned delivery mode|resolved atomic or progressive delivery mode/i
   )
   assert.match(text, /clear.*success.*failure.*cancel.*rollback/i)
   assert.match(
@@ -1011,7 +1059,11 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     plan,
-    /production Asyra Design entry always uses the single formal[\s\S]*server-backed provider[\s\S]*no `ai` query.*activates, disables, or swaps[\s\S]*Ordinary startup selects progressive delivery/i
+    /active production[\s\S]*entry always starts the single server-backed Runtime and formal provider[\s\S]*without an `ai` or delivery query[\s\S]*fixed cooperative progressive[\s\S]*plural-batch composition/i
+  )
+  assert.doesNotMatch(
+    plan,
+    /aiDelivery|Balanced atomic creation|Atomic mode submits|exact atomic or progressive delivery selection/i
   )
   assert.match(
     feature,
@@ -1033,7 +1085,11 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Production App exposes one formal server-backed AI route without URL activation[\s\S]*ordinary production entry[\s\S]*progressive delivery/i
+    /Scenario: Production App exposes one formal server-backed Agent route[\s\S]*ordinary production entry starts with one required fileId[\s\S]*single cooperative progressive plural-batch route/i
+  )
+  assert.doesNotMatch(
+    feature,
+    /aiDelivery|URL resolves exact "aiDelivery=progressive"|atomic delivery mode/i
   )
 })
 

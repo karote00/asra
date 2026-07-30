@@ -5,7 +5,7 @@ Feature: Conversational AI drawing performance
 
   Background:
     Given the committed 1672 by 941 tabby reference image
-    And the production Asyra Design build uses the formal server-backed AI provider
+    And every production App session has one required fileId and starts one formal server-backed Agent runtime and provider
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And the formal final reference gate uses one unmeasured warm-up before three measured runs
 
@@ -29,7 +29,7 @@ Feature: Conversational AI drawing performance
     And permission and execution should receive the same action arguments identity from the resolved batch
     And confirmation and terminal presentation should consume one "AiActionBatchPreview" containing bounded summaries without items, paths, points, or complete geometry
     And Runtime should not recursively detach or freeze the server-prepared arguments
-    And production should expose no action-plan API, planId alias, compatibility conversion, Mock, fake, simulated, or local-only provider path
+    And production should expose only the AiActionBatch API without a compatibility conversion, Mock, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or compact encoding
     And the executor should preserve exact items, roles, order, bounds, and point counts while materializing only the next progressive slice after the server-prepared loading bounds are visible
@@ -135,7 +135,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: Local progressive composition becomes visible in cooperative batches
     Given one validated AI composition contains one Group and 7111 accepted children
-    And the URL resolves exact "aiDelivery=progressive"
+    And the production App session opened with its required fileId
     When the local Agent executes the mutating turn
     Then the App should use deterministic point and element-count batch boundaries with at most 64 elements per ordinary work unit
     And it should call plural "Core.createElementsInParent" once per non-empty batch
@@ -166,22 +166,23 @@ Feature: Conversational AI drawing performance
 
   Scenario: Core exposes one fixed plural element creation path
     Given one validated AI composition contains one Group and many accepted children
-    When the App submits one atomic or progressive child batch
+    When the App submits the next cooperative progressive child batch
     Then it should call plural "Core.createElementsInParent"
     And Core should return only ordered canonical element ids
     And a single-item create API should use the same batch-of-one canonical path
     And Group and children should remain inside one outer Factory transaction
     And Core should expose no Factory delivery handle, progressive handle, timing result, or transport receipt
     And Core should receive no loading, progress, AI mode, slice size, or host-yield parameters
-    And atomic mode should submit one all-children plural batch
-    And progressive mode should submit multiple ordered plural batches without opening another transaction
+    And every non-empty plural Core batch should complete one canonical atomic apply before the serialized loop advances
+    And the complete composition should submit multiple ordered plural batches without opening another transaction
 
-  Scenario: Production App exposes one formal server-backed AI route without URL activation
-    Given the ordinary production entry starts without an "ai" query
-    When the App resolves the drawing delivery policy
-    Then it should select progressive delivery
+  Scenario: Production App exposes one formal server-backed Agent route
+    Given the ordinary production entry starts with one required fileId
+    And App startup constructs one required server-backed Agent runtime and provider
+    When the local Agent executes one server-prepared composition action
+    Then the App should use its single cooperative progressive plural-batch route
     And the composition should yield between deterministic plural Core batches
-    But explicit "aiDelivery=atomic" should retain the one-batch atomic path
+    And no AI activation or delivery query should select another provider, runtime, or composition path
 
   Scenario: Canonical element property replacement uses the update path
     Given group geometry, element geometry, stroke, fill, or property-panel changes replace complete canonical property field values
@@ -462,7 +463,7 @@ Feature: Conversational AI drawing performance
     Given one production browser starts with one required fileId and one empty canonical document
     And Collaboration is ready for that App-owned document session
     And Contents, a second Actor, peer relay, remote apply, request-time response inbox access, and document IndexedDB are absent
-    And the URL resolves exact "aiDelivery=progressive"
+    And App startup created its required server-backed Agent runtime and provider
     When the local Agent creates the 7112-element balanced composition once
     Then the report should name connected-DOM loading, first compositor paint opportunity, first-Vector, 25, 50, 75, 100 percent, longest work-unit, cooperative-yield-count, settled, Render, UI, and harness times
     And milestone observation should use bounded runtime counters instead of full canonical snapshot polling
@@ -470,17 +471,17 @@ Feature: Conversational AI drawing performance
     And synchronized visual review should inspect the real connected DOM loading state and final ordinary Vector output from that same live App state
     But this single-Actor gate should not run a warm-up, repeat the high-detail creation, create Actor B, read the response inbox after readiness, read document IndexedDB, record video, or close deferred two-Actor collaboration gates
 
-  Scenario: Balanced atomic creation meets the local budget
-    Given the URL resolves exact "aiDelivery=atomic"
+  Scenario: Balanced cooperative creation meets the local budget
+    Given Actor A opened one fresh document with its required fileId
     When Actor A creates the balanced cat-only composition
-    Then the median accepted-turn-to-settled time should be at most 12 seconds
-    And no measured run should exceed 20 seconds
+    Then the median accepted-turn-to-settled time should be at most 20 seconds
+    And no measured run should exceed 30 seconds
     And Actor A should have exactly 7076 non-workspace canonical elements
     And the turn should create one intended Undo action
 
-  Scenario: Balanced progressive creation and peer convergence meet their budgets
+  Scenario: Balanced cooperative creation and peer convergence meet their budgets
     Given two browser actors share one fresh collaboration document
-    And the URL resolves exact "aiDelivery=progressive"
+    And both Actors opened that document with the same required fileId
     When Actor A creates the balanced cat-only composition
     Then Actor A median accepted-turn-to-settled time should be at most 20 seconds
     And no Actor A measured run should exceed 30 seconds

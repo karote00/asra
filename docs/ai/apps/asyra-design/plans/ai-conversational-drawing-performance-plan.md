@@ -15,10 +15,17 @@ implementation authority. Framework package contracts remain authoritative
 inside their existing owner boundaries; this checkpoint does not declare any
 unstaged framework plan or framework Inspector complete.
 
-The active product contract uses one formal server-backed AI route and one
-server-prepared `AiActionBatch` payload. Production contains no Mock, fake,
-simulated, or local-compat provider branch. Credential-gated live-provider and
-API-key formal testing remains outside this performance plan.
+`Plan` in this title and file names only this implementation-governance
+document. It is not a product artifact, Runtime phase, provider response, API,
+or type. Product and Runtime vocabulary uses `AiActionBatch`, `batchId`,
+`requestActionBatch()`, and `resolveAiActionBatch()`.
+
+The active product contract uses one always-on server-backed Runtime route, one
+formal provider, one server-prepared `AiActionBatch` payload, and one fixed
+cooperative progressive plural-batch composition. Production contains no Mock,
+fake, simulated, local-compat, provider-disabled, optional-Runtime, or alternate
+delivery branch. Credential-gated live-provider and API-key formal testing
+remains outside this performance plan.
 
 Active architecture artifacts:
 
@@ -52,14 +59,15 @@ whose selected document session always starts Collaboration. Contents remains
 excluded by product direction.
 
 The first manual navigation check then exposed a startup-policy mismatch in the
-superseded implementation, which used `?ai=mock`; its missing delivery flag
-selected the atomic all-children path, so one 7,000-plus-element synchronous
-call prevented the browser from dispatching any input until completion. The
-active production entry uses the single formal server-backed provider without
-an `ai` query and defaults to progressive delivery. Explicit
-`aiDelivery=atomic` remains the atomic opt-in for isolated measurement. This is
-an App startup policy correction, not an Input System, Feature System,
-transaction, or event-bus exception.
+superseded implementation, whose query-selected source could enter a selectable
+all-children route. One 7,000-plus-element synchronous call then prevented the
+browser from dispatching any input until completion. The active production
+entry always starts the single server-backed Runtime and formal provider
+without an `ai` or delivery query, then performs fixed cooperative progressive
+plural-batch composition. The former synchronous all-children route is
+historical diagnostic evidence only and is not selectable by product startup
+or measurement. This is an App startup policy correction, not an Input System,
+Feature System, transaction, or event-bus exception.
 
 The completed local execution phase was deliberately limited to one production
 single Actor drawing turn. It answered four product questions before the
@@ -103,18 +111,19 @@ the target architecture before further production edits.
 
 ### Prior reference baseline
 
-- The original balanced atomic creation settled in 29 seconds and progressive
-  creation settled in 105 seconds.
+- The original selectable one-batch creation settled in 29 seconds and the
+  selectable cooperative sliced creation settled in 105 seconds. Both values
+  describe the superseded product-mode implementation, not current routes.
 - The original blue-whisker and red-pupil follow-ups settled in 20 seconds and
   4.3 seconds.
-- The original full progressive two-actor recording command took 13.2 minutes;
+- The original full sliced two-actor recording command took 13.2 minutes;
   its retained recording is 774.96 seconds long. No post-replan full recording
   has been run, so these values are not a current implementation estimate.
 - Maximum detail originally materialized 27,471 editable Vectors and 295,794
   points in 153 seconds.
-- The already-validated Render projection repair reduced the production atomic
-  three-run range to 9.454-9.795 seconds with a 9.744-second median while
-  retaining all 7,112 ordinary projections.
+- The already-validated Render projection repair reduced the historical
+  one-batch diagnostic three-run range to 9.454-9.795 seconds with a
+  9.744-second median while retaining all 7,112 ordinary projections.
 
 ### Contents attribution and correctness
 
@@ -837,7 +846,7 @@ used; any missing capability stops the step for explicit approval.
 ## Target Architecture
 
 ```text
-test/manual harness optionally seeds one exact versioned server response in the response inbox adapter by fileId
+test/manual harness seeds one exact versioned server response in the response inbox adapter by fileId
 → response inbox bootstrap completes outside the production bundle and before App/Agent readiness
 → user conversation request
 → provider.requestActionBatch()
@@ -850,12 +859,11 @@ test/manual harness optionally seeds one exact versioned server response in the 
 → runtime-only App DOM loading frame
 → compositor paint opportunity
 → create Group
-→ atomic: one all-children plural Core batch
-   or progressive: ordered point-and-element-count plural Core batches
+→ ordered point-and-element-count plural Core batches with cooperative browser-task yields
 → Props/relationship/Scene Tree preflight and canonical apply per plural batch
 → FactoryMutationBatchArtifact
    ├─ one Undo/Redo journal action
-   ├─ atomic or progressive publication slices
+   ├─ ordered publication slices from the same canonical transaction
    ├─ Preset/Render/UI projection
    └─ no collaboration client persistence
 → Dedicated Worker binary encode and WebSocket send
@@ -930,7 +938,7 @@ control-envelope resolution and action orchestration:
   arguments; permission and execution consume the exact same arguments
   identity. `AiActionBatchPreview` consumes only bounded summaries.
 - The action-definition contract receives no large-payload, validation,
-  delivery, progressive, loading, or collaboration mode. An app that wants a
+  delivery, scheduling, loading, or collaboration control. An app that wants a
   stronger trust policy implements it on the server before
   `requestActionBatch()` returns rather than adding another Runtime path.
 - The shipped create-app Asyra Design template, framework golden path, and
@@ -941,7 +949,7 @@ control-envelope resolution and action orchestration:
   paths, and points and builds the compact coordinate artifact before
   returning the `AiActionBatch`.
 - The frontend keeps compact coordinates private and materializes only the next
-  progressive slice after the server-prepared loading bounds are visible. It
+  cooperative slice after the server-prepared loading bounds are visible. It
   performs no item, path, point, style, bounds, role, or model semantic
   validation and no compact encoding.
 - The shipped create-app template consumes that same compact artifact and the
@@ -963,14 +971,11 @@ shared-data boundaries.
   returns ordered canonical element IDs. A single-element convenience delegates
   to this batch-of-one path; Core exposes no AI loading, progress, slice,
   delivery-controller, or timing parameter.
-- Atomic AI composition creates one Group, then submits one all-children plural
-  Core batch.
-- Progressive AI composition creates the same Group, then submits deterministic
-  ordered plural Core batches. Each batch enforces both a point budget and an
-  element-count budget so thousands of zero-point primitives cannot collapse
-  into one blocking call. One indivisible element may exceed only the point
-  soft target.
-- Progressive batch calls remain inside one outer App transaction. They are
+- AI composition creates one Group, then submits deterministic ordered plural
+  Core batches. Each batch enforces both a point budget and an element-count
+  budget so thousands of zero-point primitives cannot collapse into one
+  blocking call. One indivisible element may exceed only the point soft target.
+- Cooperative batch calls remain inside one outer App transaction. They are
   separate canonical batch boundaries for cooperative local visibility, not
   separate App actions, transactions, or history actions.
 - Publication slicing may further frame already-recorded evidence for transport;
@@ -1023,8 +1028,9 @@ shared-data boundaries.
 
 Single-delivery conveniences delegate to batch-of-one. At the canonical owner
 handoff, Factory deeply detaches and freezes the artifact once. The immutable
-artifact contains ordered canonical changes, IDs, inverses, shared-delivery
-mode, and progressive slice boundaries.
+artifact contains ordered canonical changes, IDs, inverses, Factory-owned
+shared-delivery evidence, and ordered publication slice boundaries. Those
+framework fields cannot select App startup, provider, or composition behavior.
 
 History, Render/UI, and Collaboration consume this one artifact. They do not
 call `.save()` to reconstruct it, rebuild snapshots from live owners, or clone
@@ -1042,9 +1048,8 @@ side effect consumed it.
 The write timeline is fixed:
 
 1. One Agent turn opens one outer App transaction.
-2. Group and every atomic or progressive child batch are mutated inside that
-   transaction.
-3. Progressive canonical batches may become locally visible between browser
+2. Group and every child batch are mutated inside that transaction.
+3. Cooperative canonical batches may become locally visible between browser
    paint boundaries, but create no additional App transaction or history
    action. Later publication slicing creates no new canonical writes.
 4. A successful mutating turn creates one Undo action; Undo and Redo each
@@ -1055,14 +1060,14 @@ The write timeline is fixed:
    document persistence capture, save, document IndexedDB read, or document
    IndexedDB write.
 
-No network frame, progressive slice, or observer callback may split the
+No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
 
 ### Projection and Contents Contract
 
-- Preset consumes the batch observer directly. Atomic delivery causes one
-  projection; progressive delivery causes one projection for each formal
-  slice and never collapses to a final-only peer frame.
+- Preset consumes the batch observer directly. Each canonical publication batch
+  causes one projection; each formal slice from the fixed cooperative
+  composition remains peer-visible and never collapses to a final-only frame.
 - Render uses the existing ordinary Vector strategy and preserves all 7,076
   editable elements. Each slice causes at most one invalidation and one frame
   flush.
@@ -1074,9 +1079,10 @@ intended transaction or history boundary.
   changes schedule the same ordinary frame path. A future local animation
   publishes its computed updates, which request subsequent frames; Render does
   not run a permanent idle loop in anticipation of animation.
-- The optional performance profile stores bounded timing and counter evidence
-  only for demanded work. It cannot create an unbounded per-frame workload or
-  become the reason an otherwise idle frame exists.
+- When detached performance evidence is explicitly collected, it stores bounded
+  timing and counters only for demanded work. It cannot change the product
+  route, create an unbounded per-frame workload, or become the reason an
+  otherwise idle frame exists.
 - UI context updates only affected entries and hierarchy order from the batch
   artifact; it does not rebuild the complete element map for each
   `ADD_ELEMENT`.
@@ -1210,14 +1216,11 @@ intended transaction or history boundary.
 
 ### Cooperative Progressive Composition
 
-- The production Asyra Design entry always uses the single formal
-  server-backed provider; no `ai` query activates, disables, or swaps it.
-  Ordinary startup selects progressive delivery. Exact
-  `aiDelivery=atomic` remains an explicit
-  one-batch measurement opt-in; empty, unknown, or duplicate delivery values
-  retain the progressive default.
-- Atomic mode retains one all-children plural Core call.
-- Progressive mode uses deterministic point and element-count boundaries. A
+- The production Asyra Design entry always starts the single server-backed
+  Runtime and formal provider. No `ai` or delivery query activates, disables,
+  swaps, or changes this route, and measurement cannot select another product
+  execution path.
+- Composition always uses deterministic point and element-count boundaries. A
   fixed 64-element work-unit cap independently prevents a large zero-point
   primitive batch; the initial point soft target is 2,048 and later targets
   grow to at most 8,192.
@@ -1242,7 +1245,7 @@ intended transaction or history boundary.
   Undo. Fatal failure or cancellation rolls back the complete composition;
   already-visible immediate evidence uses the same Factory compensation path.
 - Full detail, canonical IDs, ordering, topology, relationships, and history
-  remain exact. The progressive route does not use a bitmap, AI-only renderer,
+  remain exact. The cooperative route does not use a bitmap, AI-only renderer,
   fake canonical background, estimated time progress, or final-only reveal.
 
 ### Document Interaction Lock
@@ -1305,11 +1308,11 @@ intended transaction or history boundary.
 
 ### Current Local Performance Measurement
 
-The current gate performs exactly one 7,112-element balanced progressive
-production run through the formal server-backed AI route in one browser page against
-one fresh App-owned empty canonical document session selected by the required
-`fileId` URL. Collaboration is ready through the WebSocket server before the
-request, but no Actor B is created.
+The current gate performs exactly one 7,112-element balanced cooperative
+plural-batch production run through the always-on server-backed AI route in one
+browser page against one fresh App-owned empty canonical document session
+selected by the required `fileId` URL. Collaboration is ready through the
+WebSocket server before the request, but no Actor B is created.
 The gate has no peer relay, remote apply, Contents projection, IndexedDB
 provider, persistence assertion, reload, warm-up, repeated measured creation,
 video, trace, or full-state polling. WebSocket-server CPU is reported as a
@@ -1408,14 +1411,15 @@ IndexedDB state is opened, polled, normalized, stringified, or hashed.
 
 ### Gate Partitioning
 
-- The current single-Actor interactive gate is one 7,112-element progressive
-  run with Collaboration ready through the WebSocket server, no Actor B, and no
+- The current single-Actor interactive gate is one 7,112-element cooperative
+  plural-batch run with Collaboration ready through the WebSocket server, no
+  Actor B, and no
   Contents, peer relay, remote apply, request-time response inbox lookup, document
   IndexedDB work, or repeat. Browser/App and WebSocket-server CPU remain
   separate roles.
-- The endpoint benchmark is one guarded two-Actor 7,076-element progressive
-  creation-only run with no follow-up edit, Undo/Redo execution, persistence,
-  media, trace, CPU profile, warm-up, or repeat.
+- The endpoint benchmark is one guarded two-Actor 7,076-element cooperative
+  plural-batch creation-only run with no follow-up edit, Undo/Redo execution,
+  persistence, media, trace, CPU profile, warm-up, or repeat.
 - The exact same endpoint benchmark establishes the accepted output baseline
   after every effective owner and is rerun immediately after the next owner
   refactor.
@@ -1461,13 +1465,10 @@ canonical state, delivery, history, retry, cancellation, or terminal results.
 
 On the reference environment:
 
-- Balanced atomic creation:
-  - median accepted-turn-to-Actor-A-settled time at most 12 seconds;
-  - no measured run over 20 seconds.
-- Balanced progressive creation:
+- Balanced cooperative plural-batch creation:
   - median accepted-turn-to-Actor-A-settled time at most 20 seconds;
   - no measured run over 30 seconds.
-- Progressive collaboration:
+- Collaborative composition:
   - Actor B first visible canonical batch within 2 seconds of Actor A's first
     shared publication;
   - Actor B canonical convergence within 30 seconds of Actor A's canonical
@@ -1499,8 +1500,8 @@ Every optimized route preserves:
 - one outer transaction and one intended history action per mutating turn;
 - exact Undo, Redo, recoverable partial-result, fatal rollback, compensation,
   cancellation, and teardown semantics;
-- exact atomic or progressive delivery selection and peer-visible progressive
-  slices;
+- the fixed cooperative plural-batch route and exact peer-visible ordered
+  publication slices;
 - zero client persistence work for both collaboration actors;
 - no reduced detail, bitmap replacement, regenerated full portrait, AI-only
   renderer, final-only peer shortcut, fabricated progress, missing history, or
@@ -1510,12 +1511,11 @@ Every optimized route preserves:
 
 ### One Interactive Composition Action
 
-The App creates one Group. Atomic mode submits all accepted children through one
-plural Core request; progressive mode submits deterministic ordered plural Core
-batches between browser paint boundaries. Both modes remain one App action, one
-outer transaction, one Factory artifact, and one intended Undo. A later fatal
-child failure rolls back the complete action; single-item calls retain the same
-batch-of-one canonical implementation.
+The App creates one Group, then submits deterministic ordered plural Core
+batches between browser paint boundaries. The complete composition remains one
+App action, one outer transaction, one Factory artifact, and one intended Undo.
+A later fatal child failure rolls back the complete action; single-item calls
+retain the same batch-of-one canonical implementation.
 
 ### Local Drawing Progress
 
@@ -1536,10 +1536,11 @@ A 100+ row formal case scrolls the real virtualizer viewport to the final
 canonical element while keeping mounted row count bounded. Collapse,
 selection, and hierarchy order remain correct.
 
-### Visible Atomic and Progressive Projection
+### Visible Cooperative Projection
 
-Atomic delivery projects once. Progressive delivery projects each formal slice
-once, retains ordinary Vector detail, and does not create new canonical writes.
+Each canonical publication batch projects once. Each ordered formal composition
+slice reaches the same ordinary Vector route once and does not create another
+canonical write.
 
 ### Binary Backpressured Collaboration
 
@@ -1649,11 +1650,11 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
 ## Current Local Gates
 
 The accepted single-Actor path retains the exact loading bounds, cooperative
-progressive composition, one outer transaction, one Undo action, and responsive
-pan/zoom behavior already proven by the current local formal tests. Endpoint
-work must not regress those gates. The 7,112-element single-Actor benchmark
-keeps Collaboration active without Actor B, reports WebSocket-server work
-separately, and never replaces the guarded two-Actor collaboration proof.
+plural-batch composition, one outer transaction, one Undo action, and
+responsive pan/zoom behavior already proven by the current local formal tests.
+Endpoint work must not regress those gates. The 7,112-element single-Actor
+benchmark keeps Collaboration active without Actor B, reports WebSocket-server
+work separately, and never replaces the guarded two-Actor collaboration proof.
 
 ## Endpoint Proof Gates
 
@@ -1703,16 +1704,17 @@ separately, and never replaces the guarded two-Actor collaboration proof.
 - Contents: real 100+ row virtualizer unit/integration case, tail scrolling,
   bounded DOM rows, collapse, and selection.
 - Factory: one immutable artifact, one history action, full Undo/Redo, no
-  transaction-end resending of progressive slices, precise compensation, and
+  transaction-end resending of cooperative slices, precise compensation, and
   observer isolation.
 - Props/Scene Tree: later-invalid no-prefix behavior, exact IDs/order/
   relationships/instances, lifecycle-aware create/remove/restore selection,
   retained Scene-then-Props replay, and batch-of-one parity.
-- App/Core: one atomic all-children plural request or deterministic progressive
-  plural requests, point-and-element-count boundaries, cancellation, partial
-  results, and fatal rollback.
-- Projection: one atomic flush, one flush per progressive slice, exact 7,076
-  ordinary Vector projection, and bounded UI updates.
+- App/Core: deterministic cooperative plural requests,
+  point-and-element-count boundaries, cancellation, partial results, and fatal
+  rollback.
+- Projection: one flush per canonical publication batch and each formal
+  cooperative slice, exact 7,076 ordinary Vector projection, and bounded UI
+  updates.
 - Codec/relay: binary round-trip, invalid/truncated/duplicate rejection,
   oversized single record or active publication assembly, one read-only active
   decoded publication, bounded multi-frame ingress and peer-egress windows, opaque
@@ -1770,7 +1772,7 @@ never committed.
 - Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
   client persistence side effects.
 - Existing performance budgets pass without lowering detail or weakening
-  canonical, history, or progressive semantics.
+  canonical, history, cooperative visibility, or publication semantics.
 - The synchronized visual review passes from the same measured live App state.
 - The plan remains active until the product owner explicitly accepts closure.
 
