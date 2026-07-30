@@ -4,15 +4,9 @@ import {
   AiDocumentInteractionTargetProps,
   CANVAS_BACKGROUND_COLOR
 } from '../constants'
+import { createEmptyDocument } from '../config/empty-document'
 import { getCollaborationMode } from './collaboration-mode'
-import type { CoreRawData } from '@asyra/utils'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
-
-const EMPTY_DOCUMENT = {
-  version: '1.0.0',
-  sceneTree: { workspace: '', workspaceList: [], elements: {} },
-  props: {}
-} as const satisfies CoreRawData
 
 export interface CanvasContextMenuInvocation {
   clientX: number
@@ -71,7 +65,6 @@ const RenderApp: React.FC<RenderAppProps> = ({
         }
         const collaborationMode = getCollaborationMode()
 
-        // Phase 3: Single startup call
         await core.start(container, {
           width: window.innerWidth,
           height: window.innerHeight,
@@ -83,23 +76,21 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        core.load(EMPTY_DOCUMENT)
+        core.load(createEmptyDocument())
         if (!active) {
           return
         }
 
-        if (collaborationMode) {
-          const collaborationLifecycle = await import(
-            '../collaboration/lifecycle'
-          )
-          collaborationDisposer = collaborationLifecycle.disposeCollaboration
-          if (!active) {
-            await disposeCollaboration()
-            return
-          }
-          await collaborationLifecycle.startCollaboration(collaborationMode)
-          if (!active) await disposeCollaboration()
+        const collaborationLifecycle = await import(
+          '../collaboration/lifecycle'
+        )
+        collaborationDisposer = collaborationLifecycle.disposeCollaboration
+        if (!active) {
+          await disposeCollaboration()
+          return
         }
+        await collaborationLifecycle.startCollaboration(collaborationMode)
+        if (!active) await disposeCollaboration()
       })
     lifecycleRef.current = lifecycle
     void lifecycle.catch((error: unknown) => {
