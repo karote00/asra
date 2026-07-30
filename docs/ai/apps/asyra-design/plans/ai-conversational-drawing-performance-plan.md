@@ -218,7 +218,8 @@ downstream cleanup:
    dirty gate. The engine owns a scheduler independent of Pixi auto-render,
    one invalidation schedules at most one frame, one flush renders at most
    once, and idle performance evidence remains bounded. Pan, zoom, canonical
-   changes, and local computed changes remain ordinary frame requests.
+   changes, local computed changes, and system property changes remain ordinary
+   frame requests.
 2. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
    elements and 11/35 publications at 30 seconds while `frame-consumed`
    intervals grew to approximately 2–3.3 seconds. Existing bounded ingress work
@@ -533,10 +534,10 @@ intended transaction or history boundary.
   cannot bypass the Render dirty gate. A scheduled frame performs at most one
   explicit engine flush; after the App settles with no pending invalidation,
   zero elements produce no frame and no engine flush.
-- Pan, zoom, canonical changes, and local computed changes schedule the same
-  ordinary frame path. A future local animation publishes its computed updates,
-  which request subsequent frames; Render does not run a permanent idle loop
-  in anticipation of animation.
+- Pan, zoom, canonical changes, local computed changes, and system property
+  changes schedule the same ordinary frame path. A future local animation
+  publishes its computed updates, which request subsequent frames; Render does
+  not run a permanent idle loop in anticipation of animation.
 - The optional performance profile stores bounded timing and counter evidence
   only for demanded work. It cannot create an unbounded per-frame workload or
   become the reason an otherwise idle frame exists.

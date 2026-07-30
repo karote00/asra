@@ -321,7 +321,7 @@
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
         'The Pixi Application ticker must not render outside the framework dirty gate; one scheduled frame performs at most one explicit engine flush.',
         'A settled zero-element App has no scheduled frame, no engine flush, and no unbounded performance evidence.',
-        'Pan, zoom, canonical change, and computed change each schedule at most one frame; a future local animation schedules subsequent frames through its ordinary computed updates rather than a permanent idle loop.',
+        'Pan, zoom, canonical change, computed change, and system property change each schedule at most one frame; a future local animation schedules subsequent frames through its ordinary computed updates rather than a permanent idle loop.',
         'Performance instrumentation records bounded evidence only for demanded frame work and cannot create a second per-frame workload.',
         'No Render-engine bulk command is added; batch composition remains above the existing strategy surface.'
       ],
@@ -352,6 +352,8 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/core/src/data-channel-observer.ts',
+        'packages/core/src/core.ts',
+        'packages/core/src/__tests__',
         'packages/core/src/__tests__/core-start-render.test.ts',
         'packages/preset/src',
         'packages/preset/src/__tests__',

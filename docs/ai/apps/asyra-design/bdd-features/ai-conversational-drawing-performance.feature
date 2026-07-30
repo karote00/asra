@@ -216,7 +216,7 @@ Feature: Conversational AI drawing performance
     Given the production App has settled with zero elements and no pending invalidation
     Then the Pixi Application ticker should not bypass the Render dirty gate
     And no frame, engine flush, or unbounded performance evidence should continue while idle
-    When pan, zoom, canonical, or computed data changes
+    When pan, zoom, canonical, computed, or system property data changes
     Then the ordinary Render path should schedule at most one frame and perform at most one explicit engine flush
     And a future local animation should request later frames through its computed updates instead of a permanent idle loop
 

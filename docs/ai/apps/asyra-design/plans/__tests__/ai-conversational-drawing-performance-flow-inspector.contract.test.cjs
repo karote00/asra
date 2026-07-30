@@ -144,9 +144,11 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
   )
   assert.match(
     text,
-    /pan.*zoom.*canonical.*computed.*schedule.*one frame.*animation/i
+    /pan.*zoom.*canonical.*computed.*system property.*schedule.*one frame.*animation/i
   )
   ;[
+    'packages/core/src/core.ts',
+    'packages/core/src/__tests__',
     'packages/render-engine/src',
     'packages/render-engine/src/__tests__',
     'packages/render-engine-pixi/src',
@@ -160,7 +162,7 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
   )
   assert.match(
     feature,
-    /Scenario: Settled canvas schedules only demanded frames[\s\S]*zero elements[\s\S]*Pixi Application ticker[\s\S]*pan, zoom, canonical, or computed[\s\S]*animation/i
+    /Scenario: Settled canvas schedules only demanded frames[\s\S]*zero elements[\s\S]*Pixi Application ticker[\s\S]*pan, zoom, canonical, computed, or system property[\s\S]*animation/i
   )
 })
 
