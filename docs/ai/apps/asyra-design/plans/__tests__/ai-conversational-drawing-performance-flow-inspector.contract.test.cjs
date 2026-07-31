@@ -1610,6 +1610,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     canonicalText,
+    /validated action owner data.*direct shallow field handoff.*no geometry-data clone/i
+  )
+  assert.match(
+    canonicalText,
     /manager-owned relationship index.*affected-owner batch.*no per-edge subscriptions/i
   )
   assert.match(

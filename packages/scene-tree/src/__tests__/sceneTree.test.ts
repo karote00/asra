@@ -176,6 +176,7 @@ const TEST_VECTOR_TYPE = 'test-vector'
 const TEST_REACTIVE_STROKES_PROPERTY_TYPE = 'test-reactive-strokes'
 const TEST_REACTIVE_VECTOR_TYPE = 'test-reactive-vector'
 const TEST_EMPTY_TYPE = 'test-empty'
+const TEST_PREPARED_OWNER_TYPE = 'test-prepared-owner'
 
 class TestStrokeComponent extends BasePropertyComponent<TestStrokeAttrs> {
   data: TestStrokeAttrs = {
@@ -338,8 +339,16 @@ describe('SceneTree', () => {
         data?: Partial<ElementRawData>
       ) => Element,
       properties: [
-        { name: PropertyTypes.POSITION, type: PropertyTypes.POSITION },
-        { name: PropertyTypes.DIMENSION, type: PropertyTypes.DIMENSION }
+        {
+          name: PropertyTypes.POSITION,
+          type: PropertyTypes.POSITION,
+          alias: ['x', 'y']
+        },
+        {
+          name: PropertyTypes.DIMENSION,
+          type: PropertyTypes.DIMENSION,
+          alias: ['width', 'height']
+        }
       ],
       defaults: {}
     })
@@ -393,6 +402,33 @@ describe('SceneTree', () => {
         {}
       ),
       properties: [],
+      defaults: {}
+    })
+
+    const preparedOwnerProperties = [
+      {
+        name: PropertyTypes.POSITION,
+        type: PropertyTypes.POSITION,
+        alias: ['x', 'y']
+      },
+      {
+        name: PropertyTypes.DIMENSION,
+        type: PropertyTypes.DIMENSION,
+        alias: ['width', 'height']
+      }
+    ]
+    componentRegistry.register({
+      type: TEST_PREPARED_OWNER_TYPE,
+      idPrefix: TEST_PREPARED_OWNER_TYPE,
+      namePrefix: 'Test Prepared Owner',
+      constructor: createDynamicComponent(
+        TEST_PREPARED_OWNER_TYPE,
+        TEST_PREPARED_OWNER_TYPE,
+        'Test Prepared Owner',
+        preparedOwnerProperties,
+        {}
+      ),
+      properties: preparedOwnerProperties,
       defaults: {}
     })
   })
@@ -1717,6 +1753,82 @@ describe('SceneTree', () => {
       propertyIds.forEach((propertyId) => {
         expect(propsManager.getPropertyById(propertyId)).toBeDefined()
       })
+    })
+  })
+
+  it('materializes explicit ordinary property owners from descriptor values before computed projection', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'prepared-owner-first',
+            type: TEST_PREPARED_OWNER_TYPE,
+            x: 17,
+            y: 29,
+            width: 131,
+            height: 197,
+            props: {
+              position: 'prepared-owner-first-position',
+              dimension: 'prepared-owner-first-dimension'
+            }
+          },
+          {
+            id: 'prepared-owner-second',
+            type: TEST_PREPARED_OWNER_TYPE,
+            x: 31,
+            y: 43,
+            width: 211,
+            height: 223,
+            props: {
+              position: 'prepared-owner-second-position',
+              dimension: 'prepared-owner-second-dimension'
+            }
+          }
+        ],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['prepared-owner-first', 'prepared-owner-second'])
+
+    expect(propsManager.save()).toMatchObject({
+      'prepared-owner-first-position': {
+        id: 'prepared-owner-first-position',
+        x: 17,
+        y: 29
+      },
+      'prepared-owner-first-dimension': {
+        id: 'prepared-owner-first-dimension',
+        width: 131,
+        height: 197
+      },
+      'prepared-owner-second-position': {
+        id: 'prepared-owner-second-position',
+        x: 31,
+        y: 43
+      },
+      'prepared-owner-second-dimension': {
+        id: 'prepared-owner-second-dimension',
+        width: 211,
+        height: 223
+      }
+    })
+    expect(
+      sceneTree.getElementById('prepared-owner-first')?.getAllComputedData()
+    ).toMatchObject({
+      x: 17,
+      y: 29,
+      width: 131,
+      height: 197
+    })
+    expect(
+      sceneTree.getElementById('prepared-owner-second')?.getAllComputedData()
+    ).toMatchObject({
+      x: 31,
+      y: 43,
+      width: 211,
+      height: 223
     })
   })
 

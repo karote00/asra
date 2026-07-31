@@ -148,6 +148,14 @@ const reportsAcceptedPropertyMutationHandoff = (error: unknown): boolean =>
   'batchAccepted' in error &&
   (error as { batchAccepted?: unknown }).batchAccepted === true
 
+interface PreparedOrdinaryPropertyRoot {
+  readonly name: string
+  readonly type: string
+  readonly requestedId: string | undefined
+  readonly activeComponent: PropertyComponentInstanceTypes | undefined
+  readonly creationData: Readonly<Record<string, unknown>>
+}
+
 interface PropertyCreationBatchState {
   readonly changeStart: number
   readonly components: PropertyComponentInstanceTypes[]
@@ -161,6 +169,8 @@ interface PropertyCreationBatchState {
   >
   readonly existingUpdates: UpdatePropertyChange[]
   readonly activeSchemaByType: ReadonlyMap<string, PropertySchema | undefined>
+  readonly ordinaryRootCreations: readonly PreparedOrdinaryPropertyRoot[]
+  ordinaryRootCreationIndex: number
 }
 
 interface ActivePropertyBatchState {
@@ -477,12 +487,7 @@ class PropsManager {
   private validatedOrdinaryPropertyCreationArtifacts = new WeakMap<
     PreparedOrdinaryPropertyCreationBatch,
     {
-      roots: readonly {
-        name: string
-        type: string
-        requestedId: string | undefined
-        activeComponent: PropertyComponentInstanceTypes | undefined
-      }[]
+      roots: readonly PreparedOrdinaryPropertyRoot[]
       registrationContracts: readonly PropertyCreationTypeContract[]
     }
   >()
@@ -521,7 +526,10 @@ class PropsManager {
         this.resolvePropertyForComponent(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
-        this.createProperty(data as Partial<PropertyComponentRawData>),
+        this.createPropertyInternal(
+          data as Partial<PropertyComponentRawData>,
+          'relationship-child'
+        ),
       addChange: (change) =>
         this.addChange({
           action: PROPS_ACTIONS.UPDATE_PROPERTY,
@@ -1076,12 +1084,7 @@ class PropsManager {
           )
         }
 
-        const roots: {
-          name: string
-          type: string
-          requestedId: string | undefined
-          activeComponent: PropertyComponentInstanceTypes | undefined
-        }[] = []
+        const roots: PreparedOrdinaryPropertyRoot[] = []
         const reservedNewComponentIds = new Set<string>()
         const preparedRootTypesById = new Map<string, string>()
         const relationshipDescriptors: {
@@ -1205,11 +1208,8 @@ class PropsManager {
             let mappedChild: Record<string, unknown> | null
             try {
               mappedChild = childRelation.toChildData
-                ? childRelation.toChildData(
-                    clonePropsValue(item),
-                    explicitChildId
-                  )
-                : clonePropsValue(item)
+                ? childRelation.toChildData(item, explicitChildId)
+                : item
             } catch {
               mappedChild = null
             }
@@ -1363,10 +1363,13 @@ class PropsManager {
               sourceDefinition.name,
               excludedRelationKeys
             )
+            let defaultCreationValue: unknown
             if (sourceDefinition.defaultValue !== undefined) {
+              defaultCreationValue = deepFreezePropertyContract(
+                clonePropsValue(sourceDefinition.defaultValue)
+              )
               const defaultData = {
-                [sourceDefinition.name]:
-                  sourceDefinition.defaultValue as unknown
+                [sourceDefinition.name]: defaultCreationValue
               }
               assertRuntimePropertyFields(
                 defaultData,
@@ -1376,21 +1379,11 @@ class PropsManager {
               )
               if (relationKey) {
                 relationshipDescriptors.push({
-                  value: sourceDefinition.defaultValue,
+                  value: defaultCreationValue,
                   contract,
                   ownerLabel: `${sourceDefinition.name}.default`
                 })
               }
-            }
-            if (
-              relationKey &&
-              Object.prototype.hasOwnProperty.call(ownerData, relationKey)
-            ) {
-              relationshipDescriptors.push({
-                value: ownerData[relationKey],
-                contract,
-                ownerLabel: sourceDefinition.name
-              })
             }
 
             const requestedId = ownerPropertyIds?.[sourceDefinition.name]
@@ -1407,6 +1400,26 @@ class PropsManager {
                 : []),
               ...(definitionSchema?.fields.map(({ key }) => key) ?? [])
             ])
+            const creationData: Record<string, unknown> = {}
+            if (sourceDefinition.defaultValue !== undefined) {
+              creationData[sourceDefinition.name] = defaultCreationValue
+            }
+            activeMutationKeys.forEach((key) => {
+              if (Object.prototype.hasOwnProperty.call(ownerData, key)) {
+                creationData[key] = ownerData[key]
+              }
+            })
+            const frozenCreationData = Object.freeze(creationData)
+            if (
+              relationKey &&
+              Object.prototype.hasOwnProperty.call(ownerData, relationKey)
+            ) {
+              relationshipDescriptors.push({
+                value: frozenCreationData[relationKey],
+                contract,
+                ownerLabel: sourceDefinition.name
+              })
+            }
             if (
               requestedId !== undefined &&
               (typeof requestedId !== 'string' ||
@@ -1441,7 +1454,8 @@ class PropsManager {
                 type: sourceDefinition.type,
                 requestedId:
                   typeof requestedId === 'string' ? requestedId : undefined,
-                activeComponent
+                activeComponent,
+                creationData: frozenCreationData
               })
             )
           })
@@ -2771,12 +2785,7 @@ class PropsManager {
   private finalizeOrdinaryPropertyCreationBatch(
     batch: PropertyCreationBatchState,
     artifact: {
-      roots: readonly {
-        name: string
-        type: string
-        requestedId: string | undefined
-        activeComponent: PropertyComponentInstanceTypes | undefined
-      }[]
+      roots: readonly PreparedOrdinaryPropertyRoot[]
       registrationContracts: readonly PropertyCreationTypeContract[]
     }
   ): void {
@@ -2786,6 +2795,7 @@ class PropsManager {
     )
     if (
       batch.existingUpdates.length > 0 ||
+      batch.ordinaryRootCreationIndex !== batch.ordinaryRootCreations.length ||
       batch.rootComponents.length !==
         artifact.roots.filter(({ activeComponent }) => !activeComponent).length
     ) {
@@ -2938,29 +2948,56 @@ class PropsManager {
     }
   }
 
-  createProperty(propData: Partial<PropertyComponentRawData>) {
+  private createPropertyInternal(
+    propData: Partial<PropertyComponentRawData>,
+    source: 'owner-root' | 'relationship-child'
+  ) {
     if (this.activePropertyBatch) {
       throw new Error(
         '[PropsManager] Active property reuse batch cannot create property'
       )
     }
 
-    const create = () => this.instantiateProperty(propData)
+    const batch = this.propertyCreationBatch
+    let materializationData = propData
+    if (batch && source === 'owner-root') {
+      const preparedRoot =
+        batch.ordinaryRootCreations[batch.ordinaryRootCreationIndex]
+      if (preparedRoot) {
+        if (propData.type !== preparedRoot.type) {
+          throw new Error(
+            `[PropsManager] Ordinary property creation materialized an unexpected root for "${preparedRoot.name}"`
+          )
+        }
+        batch.ordinaryRootCreationIndex += 1
+        materializationData = {
+          ...propData,
+          ...preparedRoot.creationData,
+          type: preparedRoot.type
+        } as Partial<PropertyComponentRawData>
+      }
+    }
+
+    const create = () => this.instantiateProperty(materializationData)
     const newProperty = this.propertyCreationBatch
       ? create()
       : runWithPropertyComponentAccessor(this.componentAccessor, create)
     if (this.propertyCreationBatch) {
       this.stagePropertyCreation(newProperty)
-      if (typeof propData.id === 'string') {
+      if (typeof materializationData.id === 'string') {
         this.propertyCreationBatch.explicitCreationIdByComponent.set(
           newProperty,
-          propData.id
+          materializationData.id
         )
       }
     } else {
       this.addChangeForAddProperty(newProperty)
     }
     return newProperty
+  }
+
+  createProperty(propData: Partial<PropertyComponentRawData>) {
+    return this.createPropertyInternal(propData, 'owner-root')
   }
 
   private rollbackPropertyCreationBatch(batch: PropertyCreationBatchState) {
@@ -3074,7 +3111,12 @@ class PropsManager {
       rootComponentIds: new Set(),
       explicitCreationIdByComponent: new Map(),
       existingUpdates: [],
-      activeSchemaByType
+      activeSchemaByType,
+      ordinaryRootCreations:
+        ordinaryArtifact?.roots.filter(
+          ({ activeComponent }) => !activeComponent
+        ) ?? Object.freeze([]),
+      ordinaryRootCreationIndex: 0
     }
     this.propertyCreationBatch = batch
     try {

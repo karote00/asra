@@ -496,7 +496,7 @@
         'Every canonical item retains individually addressable property records, stable IDs, shared props, and shared components; performance work may not flatten, omit, or hide those framework records.',
         'The canonical Props and Scene Tree owners construct each ownerId-to-relations index once before element creation; Core delegates the complete batch without rescanning or reconstructing relation evidence.',
         'Props Manager performs one owner-indexed relationship traversal that establishes child-first order, forward and reverse relation indexes, and owner ranges for the complete batch.',
-        'Props batch materialization uses one type-group schema contract and one immutable owner snapshot with no per-record structured clone, save, or isEqual reconstruction loop.',
+        'Props batch materialization uses one type-group schema contract and validated action owner data through one direct shallow field handoff, with no geometry-data clone, no per-record structured clone, save, or isEqual reconstruction loop.',
         'The manager-owned relationship index publishes one affected-owner batch and uses no per-edge subscriptions or one closure per child relationship.',
         'Scene Tree local Computed projection consumes the same owner-issued geometry data, does not rebuild complete Render topology from repeated property-instance reads, and is never shared or included in CRDT publications.',
         'A later invalid item leaves no committed prefix in Props, relationships, instance registries, Scene Tree maps, parent children, or Factory evidence.',

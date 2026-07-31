@@ -744,6 +744,12 @@ describe('PropsManager', () => {
       'second-position',
       'second-dimension'
     ])
+    expect(propsManager.save()).toMatchObject({
+      'first-position': { x: 10, y: 20 },
+      'first-dimension': { width: 30, height: 40 },
+      'second-position': { x: 50, y: 60 },
+      'second-dimension': { width: 70, height: 80 }
+    })
     expect(receipt.result).toEqual([
       {
         [PropertyTypes.POSITION]: 'first-position',
@@ -900,8 +906,16 @@ describe('PropsManager', () => {
 
     const validManager = new PropsManager()
     const registerMany = vi.spyOn(validManager, 'registerMany')
+    let ignoredMetadataReadCount = 0
     const children = {
-      'record-map-child-a': { x: 10, y: 20 },
+      'record-map-child-a': {
+        x: 10,
+        y: 20,
+        get ignoredMetadata() {
+          ignoredMetadataReadCount += 1
+          return { trace: 'preflight-snapshot-only' }
+        }
+      },
       'record-map-child-b': { x: 30, y: 40 }
     }
     const prepared = validManager.preflightOrdinaryPropertyCreationBatch([
@@ -919,11 +933,11 @@ describe('PropsManager', () => {
         }
       }
     ])
+    expect(ignoredMetadataReadCount).toBe(0)
     const receipt = validManager.runInPropertyCreationBatch(() => {
       const parent = validManager.createProperty({
         id: 'record-map-parent',
-        type: parentType,
-        children
+        type: parentType
       } as Partial<PropertyComponentRawData>)
       return validManager.addProperty([parent])
     }, prepared)

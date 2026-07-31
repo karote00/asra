@@ -1360,8 +1360,10 @@ shared-data boundaries.
 - Props Manager performs one whole-batch schema, ID, and relationship preflight,
   one owner-indexed traversal for child-first order, forward/reverse indexes,
   and owner ranges, then one fixed batch materialization and `registerMany`.
-  Materialization performs no per-record structured clone, `.save()`, or
-  `isEqual` reconstruction. A later invalid item leaves no committed prefix.
+  Materialization consumes the validated action owner data through one direct
+  shallow field handoff and performs no geometry-data clone, no per-record
+  structured clone, `.save()`, or `isEqual` reconstruction. A later invalid
+  item leaves no committed prefix.
 - Relationship change propagation uses the manager-owned relationship index and
   one affected-owner batch. It creates no per-edge subscription or one closure
   per child relationship.
@@ -3216,15 +3218,58 @@ Step Execution Card:
 
 The focused regression first failed with every explicitly named ordinary
 position and dimension owner present but all descriptor values absent from
-Props and local computed projection. Props Manager now retains one frozen
-preflight owner snapshot, supplies it only to ordered root materialization,
-keeps relationship-child construction on its separate accessor route, and
-preserves existing requested-id replacement and finalize rejection semantics.
+Props and local computed projection. Props Manager now retains one shallow
+reference to the already-validated action owner fields, supplies those fields
+only to ordered root materialization, keeps relationship-child construction on
+its separate accessor route, and preserves existing requested-id replacement
+and finalize rejection semantics.
 The complete focused Props Manager file passed 160/160, the complete Scene Tree
 file passed 62/62, Core canonical coordination passed 25/25, exact ESLint and
 Props Manager build passed, and the performance Inspector contract passed
 21/21. Record-map relationship coverage proves point-like child records come
-from the prepared owner snapshot without a duplicate caller value handoff.
+from the validated action owner data without cloning unrelated or nested
+geometry fields.
+
+The first post-SharedPublication guarded 16-item proof stopped correctly on a
+293.4-percent raw frontend snapshot. The two renderer-or-worker values were
+148.8 and 131.1 percent; WebSocket-server and test-harness work in the same
+snapshot totaled only 6.7 percent. The guard stopped before its first completed
+canonical heartbeat, but the relay had already accepted all eight progressive
+publications, directly locating the overlap in local canonical/property work
+and peer browser work rather than backend relay.
+
+Step Execution Card:
+
+- Owner: `apply-canonical-property-scene-batch`.
+- Objective: remove the preflight geometry snapshot that copied each
+  already-validated action owner value before ordinary property
+  materialization while preserving schema, ID, relationship, ordering,
+  rollback, and projection semantics.
+- Test-first oracle: record-map preflight must not read an unrelated nested
+  getter merely to prepare root materialization. The corrected expectation
+  failed because the current deep clone read it once.
+- Mutation allowlist: `packages/props-manager/src`,
+  `packages/props-manager/src/__tests__`, this active plan, the performance
+  Inspector, and its contract test.
+- Required gates: complete Props Manager, Scene Tree and affected Core focused
+  suites, Props Manager build, exact lint, Inspector, `diff --check`, bounded
+  review, production setup, and one corrected guarded 16-item proof before any
+  high-detail invocation.
+- Exclusions: no schema or relationship bypass, fixture-specific path, Factory,
+  codec, receiver, relay, remote apply, Render, Contents, Pen Tool, CPU
+  threshold, polling, deadline, dependency, recording, or visual-review
+  change.
+- Stop condition: any correctness or resource stop terminates only that gate
+  and begins the next bounded root-cause iteration without ending the task.
+
+The shallow owner-data handoff passed Props Manager 160/160, Scene Tree 62/62,
+Core canonical coordination 9/9, Inspector 21/21, Props Manager build, exact
+lint, `diff --check`, and bounded review. The corrected guarded 16-item proof
+completed Actor A and Actor B at 17/17 canonical and Render elements with
+eight/eight ordered publications, one/zero Undo depth, zero failures, and
+confirmed teardown. Its maximum raw frontend system value was 196.4 percent,
+below the 250-percent limit; operation completed and converged in 5,007
+milliseconds.
 
 ## Current Local Gates
 
