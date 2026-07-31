@@ -839,6 +839,15 @@ animation frame; it must not change the lock, product scheduling, or
 interaction result. Focused source-contract and lock tests plus another guarded
 16-item proof precede the resumed high-performance invocation.
 
+That resumed invocation completed Actor A and proved the blocked interaction
+snapshot, but the terminal oracle expected the cumulative rectangle-shortcut
+`defaultPrevented` count to remain one. The unlocked, delivered `r` shortcut is
+also intentionally prevented by the ordinary InputSystem to suppress browser
+default behavior, so the correct cumulative terminal count is two while the
+blocked snapshot remains exactly one and delivery remains zero. The formal
+source contract must retain both values before another focused 16-item safety
+proof and resumed endpoint invocation.
+
 ### 2026-07-30 guarded local source pipeline replan
 
 The corrected guarded runs prove that the local creation source pipeline must

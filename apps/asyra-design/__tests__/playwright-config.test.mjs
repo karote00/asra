@@ -538,6 +538,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     highDetailSource,
     /blockedState\.turnAccepted\)\.toBe\(true\)[\s\S]*blockedState\.turnOutcome\)\.toBeNull\(/
   )
+  assert.match(
+    highDetailSource,
+    /blockedState\.documentEventPreventions[\s\S]*rectangleShortcut:\s*1[\s\S]*keyboardReleasedState\.documentEventPreventions\.rectangleShortcut[\s\S]*toBe\(2\)/
+  )
   assert.match(highDetailSource, /readLocalInteractionProbe/)
   assert.match(highDetailSource, /settleFailureEvidenceWithin/)
   assert.doesNotMatch(specSource, /readConversationSnapshot/)

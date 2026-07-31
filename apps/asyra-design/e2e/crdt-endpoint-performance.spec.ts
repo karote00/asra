@@ -2733,7 +2733,7 @@ test('creation-only high-detail endpoint proof', async ({
     ).toBe(1)
     expect(
       keyboardReleasedState.documentEventPreventions.rectangleShortcut
-    ).toBe(1)
+    ).toBe(2)
     heartbeat.completePhase('creation')
     heartbeat.startPhase('peer-convergence')
     const peerConvergenceHeartbeat = await heartbeat.assertGuarded(
