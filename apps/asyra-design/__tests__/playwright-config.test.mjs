@@ -199,6 +199,19 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
     recordingCase,
     /prepareCompleteCatViewport\(actorA\)[\s\S]*prepareCompleteCatViewport\(actorB\)[\s\S]*submitTurn\(actorA,\s*exactCatOnlyPrompt,\s*1,\s*{\s*beforeSendDelayMs:\s*1_000\s*}\)/
   )
+  assert.ok(
+    recordingCase.indexOf('prepareCompleteCatViewport(actorB)') <
+      recordingCase.indexOf(
+        'recorderContext = await browser.newContext'
+      ),
+    'recording must begin only after both live clients are framed'
+  )
+  assert.ok(
+    recordingCase.indexOf(
+      'recorderContext = await browser.newContext'
+    ) < recordingCase.indexOf('await openAgent(actorA)'),
+    'recording must still include the complete Agent interaction'
+  )
   assert.match(
     recordingCase,
     /expectPeerSnapshot\(actorA,\s*actorB,\s*600_000\)[\s\S]*actorB\.waitForTimeout\(1000\)/

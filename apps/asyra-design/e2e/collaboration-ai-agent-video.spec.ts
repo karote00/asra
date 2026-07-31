@@ -2927,20 +2927,10 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
   })
   const actorA = await actorAContext.newPage()
   const actorB = await actorBContext.newPage()
-  const recorderContext = await browser.newContext({
-    deviceScaleFactor: 1,
-    recordVideo: {
-      dir: testInfo.outputPath('side-by-side-video'),
-      size: { height: 1440, width: 1280 }
-    },
-    viewport: { height: 1440, width: 1280 }
-  })
-  const recorder = await createSideBySideRecorder(
-    recorderContext,
-    actorA,
-    actorB
-  )
-  const video = recorder.page.video()
+  let recorderContext: BrowserContext | null = null
+  let recorder: Awaited<ReturnType<typeof createSideBySideRecorder>> | null =
+    null
+  let video: Video | null = null
   const videoPath = testInfo.outputPath(
     'ai-cat-crdt-progressive-side-by-side.webm'
   )
@@ -2951,7 +2941,6 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
       fileId,
       itemCount: 7075
     })
-    recorder.setStep('Opening Asyra Design in two independent actor contexts')
     await Promise.all([
       actorA.goto(collaborationUrl(fileId)),
       actorB.goto(collaborationUrl(fileId))
@@ -2967,11 +2956,6 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
     ])
     await captureProgressiveRuntimeEvidence(actorA)
 
-    recorder.setStep('Opening the Agent panel on Actor A')
-    await openAgent(actorA)
-    recorder.setStep('Dragging the local tabby reference into the Agent panel')
-    await dropReferenceImage(actorA)
-    recorder.setStep('Framing the complete 1672 × 941 output before drawing')
     const [actorAFrame, actorBFrame] = await Promise.all([
       prepareCompleteCatViewport(actorA),
       prepareCompleteCatViewport(actorB)
@@ -2980,6 +2964,21 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
     expect(actorAFrame.scale).toBeLessThan(1)
     expect(actorBFrame.scale).toBeGreaterThan(0)
     expect(actorBFrame.scale).toBeLessThan(1)
+
+    recorderContext = await browser.newContext({
+      deviceScaleFactor: 1,
+      recordVideo: {
+        dir: testInfo.outputPath('side-by-side-video'),
+        size: { height: 1440, width: 1280 }
+      },
+      viewport: { height: 1440, width: 1280 }
+    })
+    recorder = await createSideBySideRecorder(recorderContext, actorA, actorB)
+    video = recorder.page.video()
+    recorder.setStep('Opening the Agent panel on Actor A')
+    await openAgent(actorA)
+    recorder.setStep('Dragging the local tabby reference into the Agent panel')
+    await dropReferenceImage(actorA)
 
     const actorABefore = await getUndoHistoryDepth(actorA)
     const actorBBefore = await getUndoHistoryDepth(actorB)
@@ -3014,8 +3013,10 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
     await captureCheckpoint(actorA, actorB, testInfo, 'progressive-01-created')
     await actorB.waitForTimeout(1000)
   } finally {
-    await recorder.stop()
-    await saveVideo(recorderContext, video, videoPath)
+    if (recorder && recorderContext) {
+      await recorder.stop()
+      await saveVideo(recorderContext, video, videoPath)
+    }
     await Promise.all([actorAContext.close(), actorBContext.close()])
   }
 
