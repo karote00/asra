@@ -1,7 +1,7 @@
 import { MIXED_STRING, createDefaultFill } from '@asyra/utils'
 import { useFills } from '../../providers'
 import { useProperty } from '../../hooks'
-import { changeElementComputedData } from '../../controllers/scene-tree'
+import { updateSelectedElementProperties } from '../../controllers/scene-tree'
 import FillList from './list'
 
 const Fills = () => {
@@ -14,7 +14,7 @@ const Fills = () => {
   const writeFills = (
     nextFills: (string | ReturnType<typeof createDefaultFill>)[]
   ) => {
-    changeElementComputedData('fills', nextFills)
+    updateSelectedElementProperties('fills', nextFills)
   }
 
   const handleAddFill = () => {

@@ -7,6 +7,7 @@ import {
   type StrokeAttrs
 } from '@asyra/utils'
 import type {
+  ElementPropertyPatchUpdate,
   VectorNetwork,
   VectorPointNode,
   VectorSegment,
@@ -25,21 +26,33 @@ export interface PrimaryStrokeColorUpdate {
   readonly elementId: string
 }
 
-const updateStrokePropertyById = core.updatePropertyById as <
-  K extends StrokeWritableKey
->(
-  propertyId: string,
-  key: K,
-  data: StrokeAttrs[K],
-  owner: {
-    ownerElementId: string
-    ownerPropertyName: string
-  },
-  options?: EVENT_OPTIONS
-) => void
-
 const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
   STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
+
+const createStrokeRecordPatch = (
+  elementId: string,
+  strokeId: string,
+  fields: Readonly<Record<string, unknown>>,
+  values?: Readonly<Record<string, unknown>>
+): ElementPropertyPatchUpdate => {
+  if (fields.id !== strokeId) {
+    throw new Error(`Stroke record key "${strokeId}" does not match its id`)
+  }
+  const { id: _strokeId, type: _strokeType, ...recordFields } = fields
+
+  return {
+    elementId,
+    ...(values === undefined ? {} : { values }),
+    records: [
+      {
+        key: PropertyTypes.STROKES,
+        set: {
+          [strokeId]: recordFields
+        }
+      }
+    ]
+  }
+}
 
 const nearlyEqual = (left: unknown, right: number) =>
   isFiniteNumber(left) && Math.abs(left - right) <= 1e-6
@@ -133,9 +146,12 @@ export const strokeApis = {
       }
       return {
         elementId,
-        nextFill: {
-          ...stroke.fill,
-          color
+        nextStroke: {
+          ...stroke,
+          fill: {
+            ...stroke.fill,
+            color
+          }
         },
         strokeId: stroke.id
       }
@@ -145,22 +161,18 @@ export const strokeApis = {
     }
 
     transactionApis.runTransaction(() => {
-      prepared.forEach((update) => {
-        if (!update) {
-          return
-        }
-        updateStrokePropertyById(
-          update.strokeId,
-          'fill',
-          update.nextFill,
-          {
-            ownerElementId: update.elementId,
-            ownerPropertyName: PropertyTypes.STROKES
-          },
-          options
-        )
-      })
-      core.commitPropertyChanges(options)
+      core.patchElementProperties(
+        prepared.flatMap((update) =>
+          update
+            ? [
+                createStrokeRecordPatch(update.elementId, update.strokeId, {
+                  ...update.nextStroke
+                })
+              ]
+            : []
+        ),
+        options
+      )
     })
     return Object.freeze(prepared.map((update) => update !== null))
   },
@@ -200,23 +212,21 @@ export const strokeApis = {
       const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
         ? getVectorBoundsRepairPatch(elementId)
         : null
-      if (vectorBoundsRepairPatch) {
-        core.changeComputedData([elementId], vectorBoundsRepairPatch, options)
-      }
-
-      changedEntries.forEach(([key, value]) => {
-        updateStrokePropertyById(
-          strokeId,
-          key,
-          value,
-          {
-            ownerElementId: elementId,
-            ownerPropertyName: PropertyTypes.STROKES
-          },
-          options
-        )
-      })
-      core.commitPropertyChanges(options)
+      const nextStroke = {
+        ...currentStroke,
+        ...Object.fromEntries(changedEntries)
+      } as Readonly<Record<string, unknown>>
+      core.patchElementProperties(
+        [
+          createStrokeRecordPatch(
+            elementId,
+            strokeId,
+            nextStroke,
+            vectorBoundsRepairPatch ?? undefined
+          )
+        ],
+        options
+      )
     })
   },
 

@@ -96,6 +96,14 @@ Feature: Pen Tool and Path Editing
     Then path editing mode should exit
     And the primary tool should be select
 
+  Scenario: Forced rollback discards transient vector preview
+    Given a pen or vector-point drag has updated local computed preview
+    And canonical Props still contain the pre-preview vector values
+    When the Feature System invokes forced-rollback cancel
+    Then the affected transient vector caches should be cleared as one batch
+    And current canonical Props should be reprojected to local computed data
+    And no Undo action, shared publication, CRDT data, or persistence snapshot should be created
+
   Scenario: Point selection in path editing mode
     Given path editing mode is active
     And primary tool is not pen

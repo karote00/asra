@@ -141,6 +141,15 @@ finishes that session at the interruption position through `onEnd` and commits
 one undoable action. The `cancelPenEditing` execution then applies the following
 editing-mode decision.
 
+This ordinary interruption follows the Feature System `commit-current` policy
+and does not invoke session `onCancel`. `onCancel` is reserved for a true forced
+rollback such as a handler failure or timeout. In that path, Pen and
+SelectVectorPoint clear the affected vector's App-owned transient
+topology/computed caches, then reproject current canonical Props through Core's
+local computed route before runtime and cursor cleanup returns. That restore is
+local-only and produces no Undo action, shared publication, CRDT data, or
+persistence snapshot.
+
 Handled by `cancelPenEditing`:
 
 1. pen tool + path editing mode + connected continuation preview

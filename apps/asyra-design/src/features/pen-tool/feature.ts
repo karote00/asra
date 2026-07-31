@@ -965,6 +965,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         return
       },
       onCancel: (_snapshot, state): undefined => {
+        elementApis.discardTransientVectorPreviews([state.elementId])
         restoreVectorEditingRuntimeState(state.runtimeBefore)
         cursorApis.resetCanvasCursor()
       }
@@ -1269,6 +1270,10 @@ export const selectVectorPointFeature = defineFeature<
       return
     },
     onCancel: (_snapshot, state): undefined => {
+      const previewElementId = state.dragTarget?.elementId
+      if (previewElementId) {
+        elementApis.discardTransientVectorPreviews([previewElementId])
+      }
       state.dragTarget = null
       restoreVectorEditingRuntimeState(state.runtimeBefore)
       cursorApis.resetCanvasCursor()

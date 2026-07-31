@@ -1,7 +1,7 @@
 import { MIXED_STRING, createDefaultStroke } from '@asyra/utils'
 import { useStrokes } from '../../providers'
 import { useProperty } from '../../hooks'
-import { changeElementComputedData } from '../../controllers/scene-tree'
+import { updateSelectedElementProperties } from '../../controllers/scene-tree'
 import StrokeList from './list'
 
 const Strokes = () => {
@@ -14,7 +14,7 @@ const Strokes = () => {
   const writeStrokes = (
     nextStrokes: (string | ReturnType<typeof createDefaultStroke>)[]
   ) => {
-    changeElementComputedData('strokes', nextStrokes)
+    updateSelectedElementProperties('strokes', nextStrokes)
   }
 
   const handleAddStroke = () => {

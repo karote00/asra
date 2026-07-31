@@ -1,3 +1,4 @@
+import type { ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   FillGradientTypes,
   PropertyTypes,
@@ -9,6 +10,7 @@ import {
 import { FILL_PATCH_KEYS, type FillWritableKey } from '../constants'
 import core, { render, sceneTree } from '../contexts'
 import { getChangedDefinedPatchEntries } from './property-patch'
+import { transactionApis } from './transaction'
 
 export type FillPatch = Partial<Pick<FillAttrs, FillWritableKey>>
 
@@ -17,18 +19,28 @@ export interface PrimaryFillColorUpdate {
   readonly elementId: string
 }
 
-const updateFillPropertyById = core.updatePropertyById as <
-  K extends FillWritableKey
->(
-  propertyId: string,
-  key: K,
-  data: FillAttrs[K],
-  owner: {
-    ownerElementId: string
-    ownerPropertyName: string
-  },
-  options?: EVENT_OPTIONS
-) => void
+const createFillRecordPatch = (
+  elementId: string,
+  fillId: string,
+  fill: FillAttrs
+): ElementPropertyPatchUpdate => {
+  if (fill.id !== fillId) {
+    throw new Error(`Fill record key "${fillId}" does not match its id`)
+  }
+  const { id: _fillId, type: _fillType, ...fields } = fill
+
+  return {
+    elementId,
+    records: [
+      {
+        key: PropertyTypes.FILLS,
+        set: {
+          [fillId]: fields
+        }
+      }
+    ]
+  }
+}
 
 interface RenderElementShape {
   toGlobal: (point: PositionData) => PositionData
@@ -571,31 +583,34 @@ export const fillApis = {
         return null
       }
       return {
-        color,
         elementId,
-        fill
+        fillId: fill.id,
+        nextFill: {
+          ...fill,
+          color
+        }
       }
     })
     if (!prepared.some((update) => update !== null)) {
       return Object.freeze(prepared.map(() => false))
     }
 
-    prepared.forEach((update) => {
-      if (!update) {
-        return
-      }
-      updateFillPropertyById(
-        update.fill.id,
-        'color',
-        update.color,
-        {
-          ownerElementId: update.elementId,
-          ownerPropertyName: PropertyTypes.FILLS
-        },
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        prepared.flatMap((update) =>
+          update
+            ? [
+                createFillRecordPatch(
+                  update.elementId,
+                  update.fillId,
+                  update.nextFill
+                )
+              ]
+            : []
+        ),
         options
       )
     })
-    core.commitPropertyChanges(options)
     return Object.freeze(prepared.map((update) => update !== null))
   },
 
@@ -630,19 +645,16 @@ export const fillApis = {
       return
     }
 
-    changedEntries.forEach(([key, value]) => {
-      updateFillPropertyById(
-        fillId,
-        key,
-        value,
-        {
-          ownerElementId: elementId,
-          ownerPropertyName: PropertyTypes.FILLS
-        },
+    const nextFill = {
+      ...currentFill,
+      ...Object.fromEntries(changedEntries)
+    } as FillAttrs
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [createFillRecordPatch(elementId, fillId, nextFill)],
         options
       )
     })
-    core.commitPropertyChanges(options)
   },
   updateFillField: <K extends FillWritableKey>(
     elementId: string,
