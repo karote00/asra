@@ -286,7 +286,6 @@ export class CollaborationTransportWorkerRuntime {
   private activeInboundPublication: ActiveInboundPublication | undefined
   private readonly pendingControlRequestIds = new Set<string>()
   private readonly inboundCodecStartedAt = new Map<string, number>()
-  private readonly inboundPublicationStartedAt = new Map<string, number>()
 
   constructor(options: CollaborationTransportWorkerRuntimeOptions) {
     this.createWebSocket = options.createWebSocket
@@ -786,16 +785,6 @@ export class CollaborationTransportWorkerRuntime {
   private handleCodecResponse(response: PublicationCodecWorkerResponse): void {
     if (this.destroyed || this.terminalFailure) return
     if (response.type === 'publication-frame-consumed') {
-      const frameStartedAt = this.inboundCodecStartedAt.get(response.jobId)
-      if (
-        frameStartedAt !== undefined &&
-        !this.inboundPublicationStartedAt.has(response.header.publicationId)
-      ) {
-        this.inboundPublicationStartedAt.set(
-          response.header.publicationId,
-          frameStartedAt
-        )
-      }
       this.sendFrameConsumed(response.header)
       return
     }
@@ -822,10 +811,6 @@ export class CollaborationTransportWorkerRuntime {
         )
         return
       }
-      const handoffStartedAt =
-        this.inboundPublicationStartedAt.get(
-          response.publication.publicationId
-        ) ?? performance.now()
       const deliveryId = `delivery:${this.generation}:${++this.deliverySequence}`
       this.activeInboundPublication = {
         generation: this.generation,
@@ -833,11 +818,7 @@ export class CollaborationTransportWorkerRuntime {
         publicationId: response.publication.publicationId,
         ...(response.fromActorId ? { fromActorId: response.fromActorId } : {})
       }
-      this.postTiming(
-        'collaboration:receiver-handoff',
-        duration(handoffStartedAt),
-        response.publication.publicationId
-      )
+      const handoffStartedAt = performance.now()
       this.postMessage({
         type: 'publication-delivery',
         generation: this.generation,
@@ -848,7 +829,9 @@ export class CollaborationTransportWorkerRuntime {
           ? {}
           : { durationMs: response.durationMs })
       })
-      this.inboundPublicationStartedAt.delete(
+      this.postTiming(
+        'collaboration:receiver-handoff',
+        duration(handoffStartedAt),
         response.publication.publicationId
       )
       return
@@ -1126,7 +1109,6 @@ export class CollaborationTransportWorkerRuntime {
     this.activeInboundPublication = undefined
     this.pendingControlRequestIds.clear()
     this.inboundCodecStartedAt.clear()
-    this.inboundPublicationStartedAt.clear()
   }
 
   private isCurrent(generation: number): boolean {

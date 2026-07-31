@@ -1242,6 +1242,18 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
   assert.match(text, /exactly one.*async.*consumer.*settlement/i)
   assert.match(
     text,
+    /receiver-handoff timing.*starts only after.*decoded candidate.*closes after.*publication-delivery.*excludes.*codec.*queue/i
+  )
+  assert.match(
+    text,
+    /frame-consumed credit.*only when.*leaves the retained byte window.*App handoff.*independently.*App policy.*canonical apply succeeds/i
+  )
+  assert.match(
+    text,
+    /Slow App apply.*fill but cannot overrun.*retained byte window.*no fabricated wire credit.*handoff releases.*before.*App apply begins/i
+  )
+  assert.match(
+    text,
     /Dedicated Worker owns.*WebSocket.*data plane.*frame-consumed.*directly/i
   )
   assert.match(

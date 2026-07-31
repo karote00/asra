@@ -833,12 +833,13 @@
         'A Dedicated Worker owns the browser WebSocket data plane, receives publication bytes, performs wire admission, and sends frame-consumed directly on its socket without waiting for the main thread.',
         'The main-thread Provider never receives inbound publication bytes and never sends frame-consumed; it exchanges only bounded commands, normalized control evidence, one decoded publication handoff, and apply settlement with the Worker.',
         'Inbound ArrayBuffer data enters a bounded 2 MiB frame-ingress window; one active oversized publication assembly is allowed only without a second queued publication.',
-        'After worker header, order, duplicate, and capacity validation, frame-consumed credit is emitted independently of later App policy or canonical apply.',
+        'After worker header, order, duplicate, and capacity validation, frame-consumed credit is emitted only when that publication leaves the retained byte window for the one App handoff, independently of whether later App policy or canonical apply succeeds.',
         'The worker-to-main structured clone is the only inbound object isolation boundary; validated publication evidence enters a single-consumer ownership contract without a Provider clone or recursive main-thread freeze.',
         'The receiver retains bounded decoded candidates while exposing exactly one read-only publication to exactly one required async Collaboration consumer until its Promise settlement.',
+        'Receiver-handoff timing starts only after one decoded candidate is ready and closes after the sole main-bound publication-delivery post returns; it excludes codec decode and retained-queue time so owner phases do not overlap.',
         'The Dedicated Worker keeps one outbound publication frame in flight and sends the next frame directly on its WebSocket only after exact source-frame-admitted credit.',
         'Successful remote publication settlement releases the next decoded publication; terminal apply failure clears active and pending publications and releases no fabricated progress.',
-        'Slow App apply cannot prevent already-bounded later frames from entering the worker or returning wire credit.',
+        'Slow App apply may fill but cannot overrun the exact retained byte window; queued publications return no fabricated wire credit, and each ordered handoff releases its exact frame credits before that App apply begins.',
         'Disconnect, worker teardown, and invalid settlement reject pending work through ProviderFailure and close all receiver-owned capacity.'
       ],
       bypasses: [

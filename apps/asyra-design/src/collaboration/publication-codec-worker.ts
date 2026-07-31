@@ -92,6 +92,10 @@ interface InboundPublicationAssembly {
   readonly header: PublicationFrameHeader
   readonly frames: (ArrayBuffer | undefined)[]
   readonly frameIds: string[]
+  readonly pendingFrameCredits: {
+    readonly jobId: string
+    readonly header: PublicationFrameHeader
+  }[]
   readonly acceptedChunkIndexes: Set<number>
   receivedCount: number
   acceptedByteLength: number
@@ -345,6 +349,7 @@ export class PublicationCodecWorkerRuntime {
           header,
           frames: new Array<ArrayBuffer | undefined>(header.chunkCount),
           frameIds: [],
+          pendingFrameCredits: [],
           acceptedChunkIndexes: new Set<number>(),
           receivedCount: 0,
           acceptedByteLength: 0
@@ -367,6 +372,10 @@ export class PublicationCodecWorkerRuntime {
       }
       assembly.frames[header.chunkIndex] = request.frame
       assembly.frameIds.push(header.frameId)
+      assembly.pendingFrameCredits.push({
+        jobId: request.jobId,
+        header
+      })
       assembly.acceptedChunkIndexes.add(header.chunkIndex)
       assembly.receivedCount += 1
       assembly.acceptedByteLength += header.frameByteLength
@@ -377,11 +386,6 @@ export class PublicationCodecWorkerRuntime {
       ) {
         this.oversizedAssemblyKey = assemblyKey
       }
-      post({
-        type: 'publication-frame-consumed',
-        jobId: request.jobId,
-        header
-      })
       if (assembly.receivedCount < header.chunkCount) {
         post({
           type: 'publication-frame-accepted',
@@ -458,6 +462,13 @@ export class PublicationCodecWorkerRuntime {
     if (this.oversizedAssemblyKey === key) {
       this.oversizedAssemblyKey = undefined
     }
+    assembly.pendingFrameCredits.forEach(({ jobId: creditJobId, header }) =>
+      post({
+        type: 'publication-frame-consumed',
+        jobId: creditJobId,
+        header
+      })
+    )
     const nextKey = this.inboundAssemblyOrder[0]
     const hasPendingPublication = nextKey
       ? this.inboundAssemblies.get(nextKey)?.decoded !== undefined

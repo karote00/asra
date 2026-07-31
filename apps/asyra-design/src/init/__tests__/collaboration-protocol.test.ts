@@ -478,7 +478,7 @@ describe('collaboration wire protocol', () => {
     ])
   })
 
-  it('separates wire-byte consumption from successful app delivery settlement', () => {
+  it('releases retained wire bytes at ordered app handoff before delivery settlement', () => {
     const firstPublication = createPublication({
       suffix: 'worker-first',
       transactionId: 11
@@ -520,7 +520,6 @@ describe('collaboration wire protocol', () => {
     expect(responses.map((response) => response.type)).toEqual([
       'publication-frame-consumed',
       'decoded-publication',
-      'publication-frame-consumed',
       'publication-frame-accepted'
     ])
     expect(
@@ -539,6 +538,10 @@ describe('collaboration wire protocol', () => {
         type: 'decoded-publication-delivery-settled',
         jobId: 'settle-first'
       },
+      expect.objectContaining({
+        type: 'publication-frame-consumed',
+        jobId: 'decode-second'
+      }),
       expect.objectContaining({
         type: 'decoded-publication',
         jobId: 'settle-first',
