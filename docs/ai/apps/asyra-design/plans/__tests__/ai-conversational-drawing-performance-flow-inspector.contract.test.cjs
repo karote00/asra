@@ -1854,7 +1854,7 @@ test('demo documents load empty without client persistence', () => {
   )
   assert.match(
     text,
-    /root dev:all.*ordinary Playwright.*reference WebSocket server.*before.*App document connection/i
+    /root dev:all.*only workspace package watchers.*App dev server.*explicit collaboration:server.*collaboration Playwright.*separately owns.*reference WebSocket server.*before.*App document connection/i
   )
   assert.doesNotMatch(text, /ordinary non-collaboration.*FILE.*unchanged/i)
   assert.ok(
@@ -1894,6 +1894,6 @@ test('demo documents load empty without client persistence', () => {
   )
   assert.match(
     feature,
-    /root dev:all.*ordinary Playwright.*reference WebSocket server.*App/i
+    /root dev:all[\s\S]*only frontend workspace processes[\s\S]*App dev server[\s\S]*explicit collaboration:server[\s\S]*collaboration Playwright[\s\S]*separately[\s\S]*reference WebSocket server[\s\S]*App/i
   )
 })

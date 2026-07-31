@@ -505,7 +505,8 @@ Feature: Conversational AI drawing performance
     And that fileId selects the App-owned document session
     When the first Actor connects after the document load
     Then Collaboration should always be active for the opened document
-    And root dev:all and ordinary Playwright should make the reference WebSocket server ready before the App connects
+    And root dev:all should start only frontend workspace processes and the App dev server
+    And the explicit collaboration:server command or collaboration Playwright should separately make the reference WebSocket server ready before the App connects
     And one Actor in that document session should be classified as single-Actor processing
     When a second Actor opens the same fileId
     Then both Actors should use the same collaboration room

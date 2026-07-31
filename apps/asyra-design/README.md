@@ -2,7 +2,7 @@
 
 Asyra Design is the open-source reference app built on the Asyra Framework. It
 provides a usable design canvas and demonstrates how an app can compose Asyra's
-state, rendering, interaction, persistence, and optional collaboration APIs.
+state, rendering, interaction, and collaboration APIs.
 
 ## Requirements
 
@@ -39,12 +39,21 @@ ASYRA_DESIGN_APP_URL=http://localhost:4317
 From the repository root:
 
 ```bash
-yarn workspace @asyra/asyra-design react:start
+yarn dev:all
 ```
 
-Open the URL configured by `ASYRA_DESIGN_APP_URL`.
+`dev:all` builds and starts the App's required workspace packages and the App
+dev server only. It does not start the collaboration WebSocket server. Open a
+document with one required non-empty `fileId`, for example:
 
-## Run the Non-Durable Collaboration Demo in Two Windows
+```text
+http://localhost:3000/?fileId=manual-design-file
+```
+
+The App always starts Collaboration for the selected document session. A
+missing or empty `fileId` does not open the App document.
+
+## Use the Non-Durable Collaboration Demo in Two Windows
 
 > [!WARNING]
 > The bundled WebSocket server is a public, memory-only development demo, not a
@@ -57,16 +66,14 @@ The repository includes a live public WebSocket reference server. It runs the
 same Asyra Design, Factory publication, app-owned remote state-application, and
 Provider path that forked apps can use to understand the integration boundary.
 
-Start the server and app in separate terminals:
+Start the collaboration server in a separate terminal:
 
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server
-yarn workspace @asyra/asyra-design react:start
 ```
 
-`collaboration:server` builds the reference server before starting it. To test
-a server restart without rebuilding files or triggering app HMR, stop that
-process and run:
+Then start the frontend in another terminal with `yarn dev:all`. To restart the
+already-built server without rebuilding it, run:
 
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server:start
@@ -84,11 +91,10 @@ values stay isolated. The server retains no publication history, so reconnect
 receives future publications only. The response to `send-publication` confirms
 only that the running memory transport accepted the request.
 
-The browser-local demo database uses IndexedDB and is isolated by the same
-identity: an ordinary URL uses document key `FILE`, while a URL with `fileId`
-uses `FILE:<encoded fileId>`. On first startup, a matching legacy localStorage
-snapshot migrates only when IndexedDB has no document. Refreshing or switching
-between file URLs therefore restores each file's own local snapshot.
+The current demo creates no client persistence provider. Every page loads the
+empty App-owned demo document before connecting, and local or remote mutations
+are not saved to IndexedDB. Reload durability and the future socket
+server-to-backend checkpoint policy are intentionally outside this demo.
 
 You can inspect the connection in DevTools:
 
@@ -122,7 +128,7 @@ It never replaces the manual two-window test surface.
 ## Project Structure
 
 - `src/` — app UI, features, common APIs, and runtime composition
-- `src/collaboration/` — optional collaboration provider and app composition
+- `src/collaboration/` — always-on collaboration provider and app composition
 - `src/render-layers/` — app-owned overlay and preview layers
 - `e2e/` — browser behavior tests, including real multi-window collaboration
 - `collaboration-server.ts` — public memory-only reference server source

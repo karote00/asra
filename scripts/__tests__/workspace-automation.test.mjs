@@ -102,6 +102,38 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
   assert.match(rootManifest.scripts['test:ci'], /test:scripts/)
 })
 
+test('Asyra Design keeps frontend and collaboration server startup separate', () => {
+  const rootManifest = readJSON('package.json')
+  const appReadme = readText('apps/asyra-design/README.md')
+
+  assert.equal(
+    rootManifest.scripts['dev:all'],
+    'yarn gen:turbo:check && node scripts/dev-all.js'
+  )
+  assert.match(appReadme, /yarn dev:all/)
+  assert.match(
+    appReadme,
+    /`dev:all` builds and starts.*workspace packages.*App\s+dev server only/is
+  )
+  assert.doesNotMatch(
+    appReadme,
+    /workspace packages,\s+the memory-only WebSocket reference server,\s+and the App dev server/i
+  )
+  assert.match(
+    appReadme,
+    /yarn workspace @asyra\/asyra-design collaboration:server/
+  )
+  assert.match(
+    appReadme,
+    /yarn workspace @asyra\/asyra-design collaboration:server:start/
+  )
+  assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
+  assert.match(appReadme, /required non-empty `fileId`/i)
+  assert.match(appReadme, /always starts Collaboration/i)
+  assert.match(appReadme, /no client persistence provider/i)
+  assert.doesNotMatch(appReadme, /browser-local demo database uses IndexedDB/i)
+})
+
 test('clean, CI, E2E, and Vercel include the collaboration integration gates', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const vercel = readJSON('vercel.json')
@@ -295,6 +327,12 @@ test('dev:all discovers collaboration and orders its Factory dependency first', 
     initialDirectories.indexOf('packages/factory') <
       initialDirectories.indexOf('packages/collaboration')
   )
+  assert.equal('serviceBuilds' in plan, false)
+  assert.equal('services' in plan, false)
+  assert.deepEqual(plan.app, {
+    dir: 'apps/asyra-design',
+    cmd: 'yarn react:start'
+  })
 })
 
 test('workspace version planning includes collaboration without changing files', () => {

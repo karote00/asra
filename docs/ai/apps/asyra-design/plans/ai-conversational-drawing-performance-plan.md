@@ -1690,8 +1690,10 @@ intended transaction or history boundary.
   `Core.load(...)`, then always starts Collaboration. A missing or empty
   `fileId` cannot open the document. The identity selects the document and is
   future server authorization input; it never toggles Collaboration.
-- Root `dev:all` and ordinary Playwright startup make the reference WebSocket
-  server ready before the App begins its required document connection.
+- Root `dev:all` starts only workspace package watchers and the App dev server.
+  The explicit `collaboration:server` command or collaboration Playwright
+  startup separately owns the reference WebSocket server and makes it ready
+  before the App begins its required document connection.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.

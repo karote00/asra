@@ -1043,7 +1043,7 @@
         'A missing or empty fileId does not open a document session.',
         'After Core starts, RenderApp loads exactly one canonical empty document selected by fileId through the ordinary Core load API before Collaboration connects.',
         'The required fileId URL supplies the document session identity and always starts Collaboration after load; fileId selects which document opens and is never a Collaboration toggle.',
-        'Root dev:all and ordinary Playwright startup both make the reference WebSocket server ready before the App document connection begins.',
+        'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server and makes it ready before the App document connection begins.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
         'Every demo document session starts without creating, initializing, loading, or injecting a client persistence provider.',
         'The same fileId may independently select a pre-ready server response through the response inbox adapter, but that response never enters Core.load and creates no canonical prefix.',
