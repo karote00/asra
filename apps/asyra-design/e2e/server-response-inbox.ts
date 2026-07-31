@@ -508,6 +508,32 @@ export const seedAsyraDesignServerResponse = async (
   { appUrl, fileId, itemCount }: SeedAsyraDesignServerResponseOptions
 ): Promise<AsyraDesignServerResponseRecord> => {
   const record = await createAsyraDesignServerResponseRecord(fileId, itemCount)
+  const action = record.batch.actions[0]
+  const artifact = action?.arguments as ServerCompositionArtifact | undefined
+  if (
+    record.batch.actions.length !== 1 ||
+    !artifact ||
+    !(artifact.coordinates instanceof ArrayBuffer)
+  ) {
+    throw new Error(
+      'Server response seed requires one compact composition action.'
+    )
+  }
+  const browserTransferResponse = {
+    ...record,
+    batch: {
+      ...record.batch,
+      actions: [
+        {
+          ...action,
+          arguments: {
+            ...artifact,
+            coordinates: new Float64Array(artifact.coordinates)
+          }
+        }
+      ]
+    }
+  }
   const seedPage = await context.newPage()
   const routePattern = '**/*'
   const routeHandler = (route: Route) =>
@@ -529,6 +555,43 @@ export const seedAsyraDesignServerResponse = async (
         storeName
       }: ServerResponseSeedPayload): Promise<void> =>
         new Promise((resolve, reject) => {
+          const responseRecord = response as {
+            readonly batch: {
+              readonly actions: readonly {
+                readonly arguments: {
+                  readonly coordinates: unknown
+                }
+              }[]
+            }
+          }
+          const transferredCoordinates =
+            responseRecord.batch.actions[0]?.arguments.coordinates
+          if (!(transferredCoordinates instanceof Float64Array)) {
+            reject(
+              new Error(
+                'Server response seed did not receive binary coordinates.'
+              )
+            )
+            return
+          }
+          const residentResponse = {
+            ...responseRecord,
+            batch: {
+              ...responseRecord.batch,
+              actions: responseRecord.batch.actions.map((action, index) =>
+                index === 0
+                  ? {
+                      ...action,
+                      arguments: {
+                        ...action.arguments,
+                        coordinates: new Float64Array(transferredCoordinates)
+                          .buffer
+                      }
+                    }
+                  : action
+              )
+            }
+          }
           const openRequest = indexedDB.open(databaseName, databaseVersion)
           openRequest.onblocked = () =>
             reject(new Error('Server response inbox seed open was blocked.'))
@@ -566,7 +629,9 @@ export const seedAsyraDesignServerResponse = async (
                 database.close()
                 resolve()
               }
-              transaction.objectStore(storeName).put(response, responseFileId)
+              transaction
+                .objectStore(storeName)
+                .put(residentResponse, responseFileId)
             } catch (error) {
               database.close()
               reject(error)
@@ -576,7 +641,7 @@ export const seedAsyraDesignServerResponse = async (
       {
         databaseName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
         databaseVersion: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-        response: record as unknown,
+        response: browserTransferResponse,
         responseFileId: record.fileId,
         storeName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
       }
