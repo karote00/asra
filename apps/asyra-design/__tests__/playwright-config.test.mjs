@@ -673,6 +673,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     actorSampleSource,
     /nonSuccessfulTurnCount:[\s\S]*ai-turn:outcome:cancelled[\s\S]*ai-turn:outcome:failed[\s\S]*ai-turn:outcome:no-change[\s\S]*ai-turn:outcome:partial/
   )
+  assert.match(
+    actorSampleSource,
+    /lastPublicationFailure:\s*diagnostics\.lastPublicationFailure/
+  )
   assert.doesNotMatch(
     actorSampleSource,
     /getRuntimeEvidence|readCanonicalElements|snapshot\(/
@@ -684,6 +688,14 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(
     specSource,
     /nonSuccessfulTurnCount\s*>\s*0[\s\S]*settled without success/
+  )
+  assert.match(
+    specSource,
+    /actorASample\.failed\s*\+\s*actorBSample\.failed\s*>\s*0[\s\S]*Collaboration publication failed/
+  )
+  assert.match(
+    specSource,
+    /process-failed[\s\S]*const cause[\s\S]*lastPublicationFailure[\s\S]*publicationId/
   )
   assert.match(
     specSource,

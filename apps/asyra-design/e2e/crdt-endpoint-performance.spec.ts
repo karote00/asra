@@ -117,6 +117,25 @@ interface EndpointHeartbeat {
   readonly publications: PublicationHeartbeat
 }
 
+interface EndpointPublicationFailureEvidence {
+  readonly cause: {
+    readonly message: string
+    readonly name: string
+  } | null
+  readonly direction: string | null
+  readonly message: string
+  readonly name: string
+  readonly publicationId: string | null
+  readonly status: string | null
+}
+
+interface EndpointDiagnostics {
+  failed: number
+  lastPublicationFailure: EndpointPublicationFailureEvidence | null
+  localSent: number
+  remoteProcessed: number
+}
+
 interface CanonicalSummary {
   readonly canonicalSha256: string
   readonly firstId: string | null
@@ -567,14 +586,11 @@ const waitForCollaboration = async (
 const installBoundedDiagnostics = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: {
-        failed: number
-        localSent: number
-        remoteProcessed: number
-      }
+      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
     }
-    const diagnostics = {
+    const diagnostics: EndpointDiagnostics = {
       failed: 0,
+      lastPublicationFailure: null,
       localSent: 0,
       remoteProcessed: 0
     }
@@ -585,7 +601,12 @@ const installBoundedDiagnostics = async (page: Page): Promise<void> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const collaboration = (window as any).__AsyraCollaboration__
     collaboration?.observePublicationOutcomes?.(
-      (outcome: { direction?: string; status?: string }) => {
+      (outcome: {
+        direction?: string
+        error?: unknown
+        publicationId?: string
+        status?: string
+      }) => {
         if (outcome.direction === 'local' && outcome.status === 'sent') {
           diagnostics.localSent += 1
         }
@@ -597,6 +618,56 @@ const installBoundedDiagnostics = async (page: Page): Promise<void> => {
           outcome.status === 'process-failed'
         ) {
           diagnostics.failed += 1
+          const error =
+            outcome.error &&
+            typeof outcome.error === 'object' &&
+            !Array.isArray(outcome.error)
+              ? (outcome.error as {
+                  cause?: unknown
+                  message?: unknown
+                  name?: unknown
+                })
+              : null
+          const cause =
+            error?.cause &&
+            typeof error.cause === 'object' &&
+            !Array.isArray(error.cause)
+              ? (error.cause as { message?: unknown; name?: unknown })
+              : null
+          diagnostics.lastPublicationFailure = {
+            cause: cause
+              ? {
+                  message:
+                    typeof cause.message === 'string'
+                      ? cause.message.slice(0, 300)
+                      : String(cause.message ?? '').slice(0, 300),
+                  name:
+                    typeof cause.name === 'string'
+                      ? cause.name.slice(0, 80)
+                      : 'Error'
+                }
+              : null,
+            direction:
+              typeof outcome.direction === 'string'
+                ? outcome.direction.slice(0, 40)
+                : null,
+            message:
+              typeof error?.message === 'string'
+                ? error.message.slice(0, 300)
+                : String(outcome.error ?? '').slice(0, 300),
+            name:
+              typeof error?.name === 'string'
+                ? error.name.slice(0, 80)
+                : 'Error',
+            publicationId:
+              typeof outcome.publicationId === 'string'
+                ? outcome.publicationId.slice(0, 160)
+                : null,
+            status:
+              typeof outcome.status === 'string'
+                ? outcome.status.slice(0, 40)
+                : null
+          }
         }
       }
     )
@@ -616,6 +687,7 @@ const readActorSample = async (
   factoryPublications: number
   failed: number
   historyDepth: number
+  lastPublicationFailure: EndpointPublicationFailureEvidence | null
   latestOwnerTiming: {
     durationMs: number
     name: string
@@ -634,11 +706,7 @@ const readActorSample = async (
       throw new Error('AI drawing performance profile is unavailable')
     }
     const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: {
-        failed: number
-        localSent: number
-        remoteProcessed: number
-      }
+      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
     }
     const diagnostics = scope.__AsyraEndpointDiagnostics__
     if (!diagnostics) {
@@ -649,6 +717,7 @@ const readActorSample = async (
       factoryPublications: profile.readFactoryPublicationCount(),
       failed: diagnostics.failed,
       historyDepth: profile.readHistoryDepth(),
+      lastPublicationFailure: diagnostics.lastPublicationFailure,
       latestFactoryTransactionStatus:
         profile.readLatestFactoryTransactionStatus(),
       latestOwnerTiming: profile.readLatestPhaseSample(),
@@ -778,6 +847,14 @@ const createHeartbeatController = (
         `Actor A AI turn settled without success: ${JSON.stringify({
           factoryTransaction: actorASample.latestFactoryTransactionStatus,
           turn: actorASample.latestTurnSettlement
+        })}`
+      )
+    }
+    if (actorASample.failed + actorBSample.failed > 0) {
+      throw new Error(
+        `Collaboration publication failed: ${JSON.stringify({
+          actorA: actorASample.lastPublicationFailure,
+          actorB: actorBSample.lastPublicationFailure
         })}`
       )
     }
@@ -1212,10 +1289,7 @@ const readFinalDiagnostics = async (
       throw new Error('AI drawing performance profile is unavailable')
     }
     const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: {
-        localSent: number
-        remoteProcessed: number
-      }
+      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
     }
     const endpointDiagnostics = scope.__AsyraEndpointDiagnostics__
     if (!endpointDiagnostics) {
