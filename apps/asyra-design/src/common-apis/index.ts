@@ -14,6 +14,7 @@ export {
   elementApis,
   vectorGeometry,
   type CreateElementOptions,
+  type PreparedElementDescriptor,
   type AppendVectorAnchorPointOptions,
   type VectorPointUpdate
 } from './element'
