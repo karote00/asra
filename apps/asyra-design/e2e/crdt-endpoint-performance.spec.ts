@@ -13,9 +13,11 @@ import {
   waitForAppReady
 } from './test-utils'
 import {
-  seedAsyraDesignServerResponse,
-  type AsyraDesignServerResponseItemCount
+  seedPreparedAsyraDesignServerResponse,
+  type AsyraDesignServerResponseItemCount,
+  type PreparedAsyraDesignServerResponseSeedMetrics
 } from './server-response-inbox'
+import { getPreparedServerResponseVariant } from './prepared-server-response-artifacts.mjs'
 
 const expectedFixture = Object.freeze({
   groupCount: 1,
@@ -164,6 +166,42 @@ interface PreparedAiTurn {
   }
 }
 
+type EndpointAiTurnOutcome =
+  | 'cancelled'
+  | 'failed'
+  | 'no-change'
+  | 'partial'
+  | 'success'
+
+interface EndpointTurnSettlementEvidence {
+  readonly code: string | null
+  readonly message: string | null
+  readonly outcome: EndpointAiTurnOutcome
+  readonly stage: string | null
+  readonly status: string | null
+}
+
+interface EndpointFactoryTransactionStatusEvidence {
+  readonly error?:
+    | string
+    | {
+        readonly message: string
+        readonly name: string
+      }
+  readonly failure?: {
+    readonly cause?:
+      | string
+      | {
+          readonly message: string
+          readonly name: string
+        }
+    readonly kind: string
+    readonly message?: string
+  }
+  readonly status: string
+  readonly transactionId: number
+}
+
 interface PreparedLocalInteractionProbe {
   readonly canvasCenter: {
     readonly x: number
@@ -210,8 +248,13 @@ interface LocalInteractionProbeSnapshot {
       readonly y: number
     }
   } | null
+  readonly latestFactoryTransactionStatus: EndpointFactoryTransactionStatusEvidence | null
   readonly loadingConnected: boolean
   readonly rectangleActive: boolean
+  readonly requestSubmissionClickCount: number
+  readonly turnAccepted: boolean
+  readonly turnOutcome: EndpointAiTurnOutcome | null
+  readonly turnSettlement: EndpointTurnSettlementEvidence | null
   readonly viewport: {
     readonly x: number
     readonly y: number
@@ -234,6 +277,7 @@ interface LocalNavigationBaseline {
 
 interface LocalInteractionProbe {
   focusKeyboardTarget(): LocalInteractionProbeSnapshot
+  read(): LocalInteractionProbeSnapshot
   waitFor(
     target: LocalInteractionProbeTarget,
     timeoutMs: number,
@@ -373,18 +417,29 @@ interface EndpointReport {
     | 'endpoint'
     | 'local-attribution'
     | 'collaboration-attribution'
+  readonly serverResponseSeed?: PreparedAsyraDesignServerResponseSeedMetrics
   readonly status: 'complete'
 }
 
+interface EndpointHeartbeatFailure {
+  readonly message: string
+  readonly name: string
+}
+
 type EndpointHeartbeatEnvelope = EndpointHeartbeat & {
-  readonly error?: unknown
+  readonly browserErrors?: {
+    readonly actorA: readonly string[]
+    readonly actorB: readonly string[]
+  }
+  readonly error?: EndpointHeartbeatFailure | string
+  readonly failureTimeEvidence?: LocalInteractionProbeSnapshot | null
   readonly report?: EndpointReport
 }
 
 const postHeartbeat = async (
   kind: 'ready' | 'progress' | 'complete' | 'failed',
   heartbeat: EndpointHeartbeatEnvelope
-): Promise<{ accepted?: boolean }> => {
+): Promise<{ accepted?: boolean; reason?: string }> => {
   const response = await fetch(`${guardURL}/heartbeat`, {
     body: JSON.stringify({
       heartbeat,
@@ -397,13 +452,16 @@ const postHeartbeat = async (
     method: 'POST',
     signal: AbortSignal.timeout(3_000)
   })
-  if (!response.ok) {
-    throw new Error(
-      `Endpoint performance resource guard rejected ${kind} heartbeat (${response.status})`
-    )
-  }
   const result = (await response.json().catch(() => ({}))) as {
     accepted?: boolean
+    reason?: string
+  }
+  if (!response.ok || result.accepted !== true) {
+    throw new Error(
+      `Endpoint performance resource guard rejected ${kind} heartbeat: ${
+        result.reason ?? response.status
+      }`
+    )
   }
   // Keep runner output bounded and never print the guard token.
   // eslint-disable-next-line no-console
@@ -559,7 +617,10 @@ const readActorSample = async (
     durationMs: number
     name: string
   } | null
+  latestFactoryTransactionStatus: EndpointFactoryTransactionStatusEvidence | null
+  latestTurnSettlement: EndpointTurnSettlementEvidence | null
   localSent: number
+  nonSuccessfulTurnCount: number
   remoteProcessed: number
   renderProjectionElements: number
   successfulTurnCount: number
@@ -585,8 +646,16 @@ const readActorSample = async (
       factoryPublications: profile.readFactoryPublicationCount(),
       failed: diagnostics.failed,
       historyDepth: profile.readHistoryDepth(),
+      latestFactoryTransactionStatus:
+        profile.readLatestFactoryTransactionStatus(),
       latestOwnerTiming: profile.readLatestPhaseSample(),
+      latestTurnSettlement: profile.readLatestTurnSettlement(),
       localSent: diagnostics.localSent,
+      nonSuccessfulTurnCount:
+        profile.readCounterTotal('ai-turn:outcome:cancelled') +
+        profile.readCounterTotal('ai-turn:outcome:failed') +
+        profile.readCounterTotal('ai-turn:outcome:no-change') +
+        profile.readCounterTotal('ai-turn:outcome:partial'),
       remoteProcessed: diagnostics.remoteProcessed,
       renderProjectionElements: profile.readRenderProjectionElementCount(),
       successfulTurnCount: profile.readCounterTotal('ai-turn:outcome:success')
@@ -595,6 +664,24 @@ const readActorSample = async (
 
 const delay = (durationMs: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMs))
+
+const FAILURE_EVIDENCE_UNAVAILABLE = Object.freeze({
+  status: 'unavailable' as const
+})
+
+const settleFailureEvidenceWithin = <T>(
+  operation: Promise<T>,
+  timeoutMs: number
+): Promise<
+  | { readonly status: 'available'; readonly value: T }
+  | typeof FAILURE_EVIDENCE_UNAVAILABLE
+> =>
+  Promise.race([
+    operation
+      .then((value) => ({ status: 'available' as const, value }))
+      .catch(() => FAILURE_EVIDENCE_UNAVAILABLE),
+    delay(timeoutMs).then(() => FAILURE_EVIDENCE_UNAVAILABLE)
+  ])
 
 const waitForConnectivityCpuSample = async (
   phase: string,
@@ -683,6 +770,14 @@ const createHeartbeatController = (
       readActorSample(actorA),
       readActorSample(actorB)
     ])
+    if (actorASample.nonSuccessfulTurnCount > 0) {
+      throw new Error(
+        `Actor A AI turn settled without success: ${JSON.stringify({
+          factoryTransaction: actorASample.latestFactoryTransactionStatus,
+          turn: actorASample.latestTurnSettlement
+        })}`
+      )
+    }
     const elapsedMs =
       creationStartedAtMs === null ? null : Date.now() - creationStartedAtMs
     const actorARendered = actorASample.renderProjectionElements
@@ -853,6 +948,14 @@ const createLocalAttributionHeartbeatController = (
 
   const sample = async (): Promise<EndpointHeartbeat> => {
     const actorASample = await readActorSample(actorA)
+    if (actorASample.nonSuccessfulTurnCount > 0) {
+      throw new Error(
+        `Actor A AI turn settled without success: ${JSON.stringify({
+          factoryTransaction: actorASample.latestFactoryTransactionStatus,
+          turn: actorASample.latestTurnSettlement
+        })}`
+      )
+    }
     const elapsedMs =
       creationStartedAtMs === null ? null : Date.now() - creationStartedAtMs
     const rendered = actorASample.renderProjectionElements
@@ -1299,6 +1402,7 @@ const installLocalInteractionProbe = async (
       rectangleButton: 0,
       rectangleShortcut: 0
     }
+    let requestSubmissionClickCount = 0
     type DocumentActionName = keyof LocalDocumentEventCounts
     const recordAttempt = (action: DocumentActionName, event: Event): void => {
       documentEventAttempts[action] += 1
@@ -1311,9 +1415,19 @@ const installLocalInteractionProbe = async (
     const rectangleControl = document.querySelector<HTMLElement>(
       '[data-testid="tool-rectangle"]'
     )
-    if (!rectangleControl) {
-      throw new Error('Local interaction rectangle control is unavailable')
+    const preparedSend = document.querySelector<HTMLElement>(
+      '[data-endpoint-prepared-ai-submit="true"]'
+    )
+    if (!rectangleControl || !preparedSend) {
+      throw new Error('Local interaction controls are unavailable')
     }
+    preparedSend.addEventListener(
+      'click',
+      () => {
+        requestSubmissionClickCount += 1
+      },
+      { capture: true, once: true }
+    )
     rectangleControl.addEventListener('click', () => {
       documentEventDeliveries.rectangleButton += 1
     })
@@ -1351,15 +1465,47 @@ const installLocalInteractionProbe = async (
         documentEventDeliveries.rectangleShortcut += 1
       }
     })
+    const acceptedTurnBaseline = profile.readCounterTotal('ai-turn:accepted')
+    const turnOutcomeBaselines: Record<EndpointAiTurnOutcome, number> = {
+      cancelled: profile.readCounterTotal('ai-turn:outcome:cancelled'),
+      failed: profile.readCounterTotal('ai-turn:outcome:failed'),
+      'no-change': profile.readCounterTotal('ai-turn:outcome:no-change'),
+      partial: profile.readCounterTotal('ai-turn:outcome:partial'),
+      success: profile.readCounterTotal('ai-turn:outcome:success')
+    }
+    const turnOutcomes: readonly EndpointAiTurnOutcome[] = [
+      'cancelled',
+      'failed',
+      'no-change',
+      'partial',
+      'success'
+    ]
     let loadingAtZero: LocalInteractionProbeSnapshot['loadingAtZero'] = null
-    let observer: MutationObserver | null = null
+    let stableLoadingFrameCount = 0
 
     const read = (): LocalInteractionProbeSnapshot => {
       const indicator = document.querySelector<HTMLElement>(
         '[data-testid="ai-drawing-progress-indicator"]'
       )
       const canonicalElements = profile.readCanonicalElementCount()
-      if (indicator?.isConnected && canonicalElements === 0 && !loadingAtZero) {
+      const turnOutcome =
+        turnOutcomes.find(
+          (outcome) =>
+            profile.readCounterTotal(`ai-turn:outcome:${outcome}`) >
+            turnOutcomeBaselines[outcome]
+        ) ?? null
+      const turnAccepted =
+        profile.readCounterTotal('ai-turn:accepted') > acceptedTurnBaseline
+      const latestFactoryTransactionStatus =
+        profile.readLatestFactoryTransactionStatus()
+      const turnSettlement = profile.readLatestTurnSettlement()
+      if (
+        indicator?.isConnected &&
+        canonicalElements === 0 &&
+        turnAccepted &&
+        turnOutcome === null &&
+        !loadingAtZero
+      ) {
         const rect = indicator.getBoundingClientRect()
         const viewport = profile.readViewportPosition()
         const zoom = profile.readZoom()
@@ -1384,8 +1530,6 @@ const installLocalInteractionProbe = async (
             y: (projectedTop - viewport.y) / zoom
           }
         }
-        observer?.disconnect()
-        observer = null
       }
       return {
         canonicalElements,
@@ -1393,12 +1537,17 @@ const installLocalInteractionProbe = async (
         documentEventDeliveries: { ...documentEventDeliveries },
         documentEventPreventions: { ...documentEventPreventions },
         keyboardTargetActive: document.activeElement === probeRoot,
+        latestFactoryTransactionStatus,
         loadingAtZero,
         loadingConnected: indicator?.isConnected === true,
         rectangleActive:
           document
             .querySelector('[data-testid="tool-rectangle"]')
             ?.getAttribute('data-active') === 'true',
+        requestSubmissionClickCount,
+        turnAccepted,
+        turnOutcome,
+        turnSettlement,
         viewport: profile.readViewportPosition(),
         zoom: profile.readZoom()
       }
@@ -1407,13 +1556,20 @@ const installLocalInteractionProbe = async (
       target: LocalInteractionProbeTarget,
       snapshot: LocalInteractionProbeSnapshot,
       observedFrames: number,
-      baseline: LocalNavigationBaseline
+      baseline: LocalNavigationBaseline,
+      stableLoadingFrames: number
     ): boolean => {
       switch (target) {
         case 'interaction-frame':
           return observedFrames >= 2
         case 'loading-at-zero':
-          return snapshot.loadingAtZero !== null
+          return (
+            snapshot.loadingAtZero !== null &&
+            snapshot.loadingConnected &&
+            snapshot.turnAccepted &&
+            snapshot.turnOutcome === null &&
+            stableLoadingFrames >= 2
+          )
         case 'loading-removed':
           return snapshot.loadingAtZero !== null && !snapshot.loadingConnected
         case 'pan-changed':
@@ -1434,21 +1590,12 @@ const installLocalInteractionProbe = async (
     if (!probeRoot) {
       throw new Error('Local interaction probe root is unavailable')
     }
-    observer = new MutationObserver(() => {
-      read()
-    })
-    observer.observe(probeRoot, {
-      attributeFilter: ['data-active', 'data-phase', 'style'],
-      attributes: true,
-      childList: true,
-      subtree: true
-    })
-
     const probe: LocalInteractionProbe = {
       focusKeyboardTarget: () => {
         probeRoot.focus({ preventScroll: true })
         return read()
       },
+      read,
       waitFor: (target, timeoutMs, baseline) =>
         new Promise((resolve, reject) => {
           const startedAt = performance.now()
@@ -1461,11 +1608,54 @@ const installLocalInteractionProbe = async (
             observedFrames += 1
             const snapshot = read()
             if (
+              snapshot.loadingConnected &&
+              snapshot.canonicalElements === 0 &&
+              snapshot.turnAccepted &&
+              snapshot.turnOutcome === null
+            ) {
+              stableLoadingFrameCount += 1
+            } else {
+              stableLoadingFrameCount = 0
+            }
+            if (
+              target === 'loading-at-zero' &&
+              observedFrames >= 2 &&
+              !snapshot.turnAccepted
+            ) {
+              reject(
+                new Error(
+                  snapshot.requestSubmissionClickCount === 0
+                    ? 'Prepared request click did not reach the armed Send control.'
+                    : 'Agent did not accept the dispatched request.'
+                )
+              )
+              return
+            }
+            if (
+              (target === 'loading-at-zero' ||
+                target === 'pan-changed' ||
+                target === 'zoom-changed') &&
+              snapshot.turnOutcome !== null
+            ) {
+              reject(
+                new Error(
+                  `AI turn settled before "${target}" evidence with outcome "${
+                    snapshot.turnOutcome
+                  }": ${JSON.stringify({
+                    factoryTransaction: snapshot.latestFactoryTransactionStatus,
+                    turn: snapshot.turnSettlement
+                  })}`
+                )
+              )
+              return
+            }
+            if (
               targetReached(
                 target,
                 snapshot,
                 observedFrames,
-                navigationBaseline
+                navigationBaseline,
+                stableLoadingFrameCount
               )
             ) {
               resolve(snapshot)
@@ -1549,6 +1739,20 @@ const focusLocalInteractionKeyboardTarget = (
     return probe.focusKeyboardTarget()
   })
 
+const readLocalInteractionProbe = (
+  page: Page
+): Promise<LocalInteractionProbeSnapshot> =>
+  page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
+    }
+    const probe = scope.__AsyraEndpointLocalInteractionProbe__
+    if (!probe) {
+      throw new Error('Local interaction probe is unavailable')
+    }
+    return probe.read()
+  })
+
 const prepareAiTurn = async (
   page: Page,
   prompt: string
@@ -1563,6 +1767,9 @@ const prepareAiTurn = async (
   if (!bounds) {
     throw new Error('Prepared AI Send button bounds are unavailable')
   }
+  await send.evaluate((element) => {
+    element.setAttribute('data-endpoint-prepared-ai-submit', 'true')
+  })
   return {
     page,
     sendCenter: {
@@ -1625,12 +1832,13 @@ const prepareEndpointActorsSequentially = async ({
   readonly baseURL: string
   readonly browser: Browser
   readonly fileId: string
-  readonly serverResponseItemCount?: AsyraDesignServerResponseItemCount
+  readonly serverResponseItemCount: AsyraDesignServerResponseItemCount
   readonly proofKind?: EndpointHeartbeat['proofKind']
 }): Promise<{
   actorA: Page
   actorB: Page
   contexts: readonly [BrowserContext, BrowserContext]
+  serverResponseSeed: PreparedAsyraDesignServerResponseSeedMetrics
 }> => {
   const contexts: BrowserContext[] = []
   try {
@@ -1656,17 +1864,33 @@ const prepareEndpointActorsSequentially = async ({
     const actorB = await createActor(browser, baseURL)
     contexts.push(actorB.context)
 
-    if (serverResponseItemCount !== undefined) {
-      await waitForConnectivityCpuSample(
-        'actor-a-server-response-seed',
-        () =>
-          seedAsyraDesignServerResponse(actorA.context, {
-            appUrl: collaborationURL(fileId),
-            fileId,
-            itemCount: serverResponseItemCount
-          }),
-        proofKind
+    const preparedResponse = getPreparedServerResponseVariant(
+      serverResponseItemCount
+    )
+    if (fileId !== preparedResponse.fileId) {
+      throw new Error(
+        'Endpoint actor fileId must match its prepared server response.'
       )
+    }
+    let serverResponseSeed:
+      | PreparedAsyraDesignServerResponseSeedMetrics
+      | undefined
+    await waitForConnectivityCpuSample(
+      'actor-a-server-response-seed',
+      async () => {
+        serverResponseSeed = await seedPreparedAsyraDesignServerResponse(
+          actorA.context,
+          {
+            appUrl: new URL(collaborationURL(fileId), baseURL).href,
+            fileId,
+            publicPath: preparedResponse.publicPath
+          }
+        )
+      },
+      proofKind
+    )
+    if (serverResponseSeed === undefined) {
+      throw new Error('Prepared server response seed metrics are unavailable.')
     }
     await waitForConnectivityCpuSample(
       'actor-a-blank-idle',
@@ -1714,7 +1938,8 @@ const prepareEndpointActorsSequentially = async ({
     return {
       actorA: actorA.page,
       actorB: actorB.page,
-      contexts: [actorA.context, actorB.context]
+      contexts: [actorA.context, actorB.context],
+      serverResponseSeed
     }
   } catch (error) {
     await closeContexts(contexts)
@@ -1828,8 +2053,9 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     throw new Error('Endpoint performance App URL is unavailable')
   }
   const requestedItems = endpointAttributionCase === '1280' ? 1280 : 16
+  const preparedResponse = getPreparedServerResponseVariant(requestedItems)
   const expectedTotal = requestedItems + 1
-  const fileId = `single-attribution-${endpointAttributionCase}-${Date.now()}`
+  const fileId = preparedResponse.fileId
   const prompt =
     requestedItems === 1280
       ? 'create the 1280-item CRDT performance fixture'
@@ -1857,16 +2083,29 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   }
 
   try {
+    let serverResponseSeed:
+      | PreparedAsyraDesignServerResponseSeedMetrics
+      | undefined
     await waitForConnectivityCpuSample(
       'local-server-response-seed',
-      () =>
-        seedAsyraDesignServerResponse(actor.context, {
-          appUrl: profiledSingleActorAppURL(fileId),
-          fileId,
-          itemCount: requestedItems
-        }),
+      async () => {
+        serverResponseSeed = await seedPreparedAsyraDesignServerResponse(
+          actor.context,
+          {
+            appUrl: new URL(
+              profiledSingleActorAppURL(fileId),
+              baseURL
+            ).href,
+            fileId,
+            publicPath: preparedResponse.publicPath
+          }
+        )
+      },
       'local-attribution'
     )
+    if (serverResponseSeed === undefined) {
+      throw new Error('Prepared server response seed metrics are unavailable.')
+    }
     await waitForConnectivityCpuSample(
       'local-app-and-collaboration-ready',
       async () => {
@@ -1991,6 +2230,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       equivalenceProofMs: null,
       owner: endpointOwner,
       proofKind: 'local-attribution',
+      serverResponseSeed,
       status: 'complete'
     }
     await postHeartbeat('complete', {
@@ -2013,7 +2253,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
         error instanceof Error
           ? {
               message: error.message.slice(0, 500),
-              name: error.name
+              name: error.name.slice(0, 80)
             }
           : String(error).slice(0, 500)
     }).catch(() => undefined)
@@ -2035,15 +2275,17 @@ test('two-Actor 16-item operation and idle attribution', async ({
     throw new Error('Endpoint performance App URL is unavailable')
   }
   const requestedItems = 16
+  const preparedResponse = getPreparedServerResponseVariant(requestedItems)
   const expectedTotal = 17
-  const fileId = `two-actor-activity-16-${Date.now()}`
-  const { actorA, actorB, contexts } = await prepareEndpointActorsSequentially({
-    baseURL,
-    browser,
-    fileId,
-    serverResponseItemCount: 16,
-    proofKind: 'collaboration-attribution'
-  })
+  const fileId = preparedResponse.fileId
+  const { actorA, actorB, contexts, serverResponseSeed } =
+    await prepareEndpointActorsSequentially({
+      baseURL,
+      browser,
+      fileId,
+      serverResponseItemCount: requestedItems,
+      proofKind: 'collaboration-attribution'
+    })
   const heartbeat = createHeartbeatController(
     actorA,
     actorB,
@@ -2260,6 +2502,7 @@ test('two-Actor 16-item operation and idle attribution', async ({
       operationStartedAtMs,
       owner: endpointOwner,
       proofKind: 'collaboration-attribution',
+      serverResponseSeed,
       status: 'complete'
     }
     await postHeartbeat('complete', {
@@ -2282,7 +2525,7 @@ test('two-Actor 16-item operation and idle attribution', async ({
         error instanceof Error
           ? {
               message: error.message.slice(0, 500),
-              name: error.name
+              name: error.name.slice(0, 80)
             }
           : String(error).slice(0, 500)
     }).catch(() => undefined)
@@ -2307,13 +2550,15 @@ test('creation-only high-detail endpoint proof', async ({
   if (!baseURL) {
     throw new Error('Endpoint performance App URL is unavailable')
   }
-  const fileId = `endpoint-${endpointOwner}-${Date.now()}`
-  const { actorA, actorB, contexts } = await prepareEndpointActorsSequentially({
-    baseURL,
-    browser,
-    fileId,
-    serverResponseItemCount: 7075
-  })
+  const preparedResponse = getPreparedServerResponseVariant(7075)
+  const fileId = preparedResponse.fileId
+  const { actorA, actorB, contexts, serverResponseSeed } =
+    await prepareEndpointActorsSequentially({
+      baseURL,
+      browser,
+      fileId,
+      serverResponseItemCount: preparedResponse.itemCount
+    })
   const heartbeat = createHeartbeatController(actorA, actorB)
   const testStartedAtMs = Date.now()
   let report: EndpointReport | null = null
@@ -2400,6 +2645,8 @@ test('creation-only high-detail endpoint proof', async ({
     expect(keyboardTargetState.keyboardTargetActive).toBe(true)
     expect(keyboardTargetState.loadingConnected).toBe(true)
     expect(keyboardTargetState.canonicalElements).toBeLessThan(7076)
+    expect(keyboardTargetState.turnAccepted).toBe(true)
+    expect(keyboardTargetState.turnOutcome).toBeNull()
     await heartbeat.assertGuarded(actorA.keyboard.press('r'))
     await heartbeat.assertGuarded(
       actorA.mouse.click(
@@ -2433,6 +2680,8 @@ test('creation-only high-detail endpoint proof', async ({
     })
     expect(blockedState.loadingConnected).toBe(true)
     expect(blockedState.canonicalElements).toBeLessThan(7076)
+    expect(blockedState.turnAccepted).toBe(true)
+    expect(blockedState.turnOutcome).toBeNull()
 
     await heartbeat.assertGuarded(heartbeat.waitForActorAComplete(120_000))
     await heartbeat.assertGuarded(assertPreparedAiTurnSettled(preparedTurn))
@@ -2660,6 +2909,7 @@ test('creation-only high-detail endpoint proof', async ({
       },
       owner: endpointOwner,
       proofKind: 'endpoint',
+      serverResponseSeed,
       status: 'complete'
     }
     await heartbeat.stop()
@@ -2673,8 +2923,11 @@ test('creation-only high-detail endpoint proof', async ({
     // eslint-disable-next-line no-console
     console.log(`ASYRA_ENDPOINT_REPORT ${JSON.stringify(report)}`)
   } catch (error) {
-    await heartbeat.stop()
-    const latest = heartbeat.readLatest() ?? {
+    const heartbeatStopped = await settleFailureEvidenceWithin(
+      heartbeat.stop(),
+      1_250
+    )
+    let latest = heartbeat.readLatest() ?? {
       activePhase: null,
       actorA: {
         canonicalElements: 0,
@@ -2716,15 +2969,42 @@ test('creation-only high-detail endpoint proof', async ({
         failed: 0
       }
     }
+    let failureTimeEvidence: LocalInteractionProbeSnapshot | null = null
+    if (heartbeatStopped.status === 'available') {
+      const freshHeartbeat = await settleFailureEvidenceWithin(
+        heartbeat.sample(),
+        1_000
+      )
+      if (freshHeartbeat.status === 'available') {
+        latest = freshHeartbeat.value
+      }
+      const freshFailureEvidence = await settleFailureEvidenceWithin(
+        readLocalInteractionProbe(actorA),
+        1_000
+      )
+      if (freshFailureEvidence.status === 'available') {
+        failureTimeEvidence = freshFailureEvidence.value
+      }
+    }
+    const browserErrors = {
+      actorA: getCapturedBrowserErrors(actorA)
+        .slice(-4)
+        .map((message) => message.slice(0, 300)),
+      actorB: getCapturedBrowserErrors(actorB)
+        .slice(-4)
+        .map((message) => message.slice(0, 300))
+    }
     await postHeartbeat('failed', {
       ...latest,
+      browserErrors,
       error:
         error instanceof Error
           ? {
               message: error.message.slice(0, 500),
-              name: error.name
+              name: error.name.slice(0, 80)
             }
-          : String(error).slice(0, 500)
+          : String(error).slice(0, 500),
+      failureTimeEvidence
     }).catch(() => undefined)
     // eslint-disable-next-line no-console
     console.log(
@@ -2733,9 +3013,11 @@ test('creation-only high-detail endpoint proof', async ({
           error instanceof Error
             ? {
                 message: error.message.slice(0, 500),
-                name: error.name
+                name: error.name.slice(0, 80)
               }
             : String(error).slice(0, 500),
+        browserErrors,
+        failureTimeEvidence,
         heartbeat: latest,
         owner: endpointOwner,
         status: 'failed'

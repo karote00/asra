@@ -2762,6 +2762,11 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
         ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: TOKEN,
         ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
         ASYRA_DESIGN_ENDPOINT_OWNER: OWNER,
+        ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR:
+          '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current',
+        ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
+        ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH:
+          '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
         KEEP_ME: 'yes'
       },
       fetchImpl: async (url, options) => {
@@ -2808,6 +2813,18 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
   )
   assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_GUARD_URL, undefined)
   assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_OWNER, undefined)
+  assert.equal(
+    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR,
+    undefined
+  )
+  assert.equal(
+    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
+    undefined
+  )
+  assert.equal(
+    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH,
+    undefined
+  )
 })
 
 test('starts product-group termination before root within one bounded window', async () => {
@@ -2839,6 +2856,10 @@ test('starts product-group termination before root within one bounded window', a
 test('attests separate production setup before starting guarded runtime', async () => {
   const events = []
   const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
+  const expectedPreviewOutDir =
+    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current'
+  const expectedManifestPath = `${expectedPreviewOutDir}/__endpoint-test__/server-responses/manifest.json`
+  const expectedProductionIndexSha256 = 'a'.repeat(64)
   const result = await runEndpointPerformancePipeline(['--owner', OWNER], {
     assertPortAvailable: async (port) => {
       events.push(`port:${port}`)
@@ -2848,6 +2869,22 @@ test('attests separate production setup before starting guarded runtime', async 
       events.push('attest-build')
       return { assetsInspected: 2, endpoint: actualEndpoint }
     },
+    attestResponsePreview: async () => {
+      events.push('attest-response-preview')
+      return {
+        currentPath: expectedPreviewOutDir,
+        manifest: {
+          variants: [
+            { itemCount: 16 },
+            { itemCount: 320 },
+            { itemCount: 1280 },
+            { itemCount: 7075 }
+          ]
+        },
+        manifestPath: expectedManifestPath,
+        productionIndexSha256: expectedProductionIndexSha256
+      }
+    },
     baseEnv: { PATH: '/test/bin' },
     runPhase: async (argv, options) => {
       const phaseOwner = argv[1]
@@ -2856,6 +2893,22 @@ test('attests separate production setup before starting guarded runtime', async 
       assert.equal(
         options.baseEnv.ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED,
         expectedEndpoint
+      )
+      assert.equal(
+        options.baseEnv.ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR,
+        expectedPreviewOutDir
+      )
+      assert.equal(
+        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH,
+        expectedManifestPath
+      )
+      assert.equal(
+        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
+        expectedProductionIndexSha256
+      )
+      assert.equal(
+        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_PAYLOAD,
+        undefined
       )
       return {
         exitCode: 0,
@@ -2869,6 +2922,7 @@ test('attests separate production setup before starting guarded runtime', async 
     'port:3021',
     'port:4121',
     'attest-build',
+    'attest-response-preview',
     `runtime:${OWNER}`
   ])
 })
@@ -2892,6 +2946,38 @@ test('does not start the guarded runtime when production artifact attestation fa
   )
 
   assert.deepEqual(events, ['attest-build'])
+})
+
+test('does not spawn the guarded runtime when response overlay manifest or gzip attestation fails', async () => {
+  const events = []
+  await assert.rejects(
+    runEndpointPerformancePipeline(['--owner', OWNER], {
+      assertPortAvailable: async (port) => {
+        events.push(`port:${port}`)
+      },
+      attestBuild: async ({ expectedEndpoint }) => {
+        events.push('attest-build')
+        return { assetsInspected: 1, endpoint: expectedEndpoint }
+      },
+      attestResponsePreview: async () => {
+        events.push('attest-response-preview')
+        throw new Error('prepared response manifest gzip sha256 mismatch')
+      },
+      baseEnv: { PATH: '/test/bin' },
+      runPhase: async () => {
+        events.push('runtime-spawn')
+        return { exitCode: 0, report: null }
+      }
+    }),
+    /manifest gzip sha256 mismatch/i
+  )
+
+  assert.deepEqual(events, [
+    'port:3021',
+    'port:4121',
+    'attest-build',
+    'attest-response-preview'
+  ])
 })
 
 test('turns process sampling failure into an immediate stop decision', () => {

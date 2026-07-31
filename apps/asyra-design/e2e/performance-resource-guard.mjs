@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import process from 'node:process'
 import {
   clearInterval,
@@ -67,11 +67,19 @@ const PRODUCT_PROCESS_ROLES = Object.freeze([
 const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
 const PHASE_BOUNDARY_PATH = '/phase-boundary'
 const ENDPOINT_ARTIFACT_ENV = 'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
+const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR'
+const ENDPOINT_RESPONSE_ARTIFACT_ENV =
+  'ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
+const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV =
+  'ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH'
 const GUARD_ENVIRONMENT_KEYS = Object.freeze([
   'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN',
   'ASYRA_DESIGN_ENDPOINT_GUARD_URL',
   'ASYRA_DESIGN_ENDPOINT_OWNER',
   ENDPOINT_ARTIFACT_ENV,
+  ENDPOINT_PREVIEW_OUT_DIR_ENV,
+  ENDPOINT_RESPONSE_ARTIFACT_ENV,
+  ENDPOINT_RESPONSE_MANIFEST_PATH_ENV,
   'ASYRA_DESIGN_TRACKED_EXECUTABLE',
   'ASYRA_DESIGN_TRACKED_ROLE'
 ])
@@ -776,6 +784,60 @@ export const attestEndpointBuildArtifact = async ({
     assetsInspected: assetNames.length,
     endpoint: normalizedExpectedEndpoint
   }
+}
+
+const normalizePreparedResponsePreviewAttestation = (attestation) => {
+  if (
+    !attestation ||
+    typeof attestation !== 'object' ||
+    Array.isArray(attestation)
+  ) {
+    throw new TypeError(
+      'Prepared response preview attestation must be an object'
+    )
+  }
+  const { currentPath, manifestPath, productionIndexSha256 } = attestation
+  if (!isNonEmptyBoundedString(currentPath) || !isAbsolute(currentPath)) {
+    throw new TypeError(
+      'Prepared response preview attestation requires one bounded absolute output path'
+    )
+  }
+  if (!isNonEmptyBoundedString(manifestPath) || !isAbsolute(manifestPath)) {
+    throw new TypeError(
+      'Prepared response preview attestation requires one bounded absolute manifest path'
+    )
+  }
+  const relativeManifestPath = relative(currentPath, manifestPath)
+  if (
+    relativeManifestPath.length === 0 ||
+    relativeManifestPath === '..' ||
+    relativeManifestPath.startsWith('../') ||
+    isAbsolute(relativeManifestPath)
+  ) {
+    throw new TypeError(
+      'Prepared response preview manifest must belong to the attested output directory'
+    )
+  }
+  if (
+    typeof productionIndexSha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(productionIndexSha256)
+  ) {
+    throw new TypeError(
+      'Prepared response preview attestation requires one SHA-256 production index digest'
+    )
+  }
+  return {
+    currentPath,
+    manifestPath,
+    productionIndexSha256
+  }
+}
+
+const attestPreparedResponsePreview = async () => {
+  const { attestPreparedServerResponsePreview } = await import(
+    './prepared-server-response-artifacts.mjs'
+  )
+  return attestPreparedServerResponsePreview()
 }
 
 export const recordTrackedProcessGroupRegistration = (
@@ -3371,6 +3433,8 @@ export const runEndpointPerformancePipeline = async (
   const assertAvailable =
     dependencies.assertPortAvailable ?? assertPortAvailable
   const attestBuild = dependencies.attestBuild ?? attestEndpointBuildArtifact
+  const attestResponsePreview =
+    dependencies.attestResponsePreview ?? attestPreparedResponsePreview
   const runPhase = dependencies.runPhase ?? runResourceGuardCli
   const phases = buildEndpointPerformancePhases({
     owner,
@@ -3385,11 +3449,18 @@ export const runEndpointPerformancePipeline = async (
     expectedEndpoint:
       runtimePhase.baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL
   })
+  const responsePreviewAttestation =
+    normalizePreparedResponsePreviewAttestation(await attestResponsePreview())
   const result = await runPhase(runtimePhase.argv, {
     ...dependencies,
     baseEnv: {
       ...runtimePhase.baseEnv,
-      [ENDPOINT_ARTIFACT_ENV]: artifactAttestation.endpoint
+      [ENDPOINT_ARTIFACT_ENV]: artifactAttestation.endpoint,
+      [ENDPOINT_PREVIEW_OUT_DIR_ENV]: responsePreviewAttestation.currentPath,
+      [ENDPOINT_RESPONSE_ARTIFACT_ENV]:
+        responsePreviewAttestation.productionIndexSha256,
+      [ENDPOINT_RESPONSE_MANIFEST_PATH_ENV]:
+        responsePreviewAttestation.manifestPath
     },
     config: runtimePhase.guardConfig,
     requiresReady: runtimePhase.requiresReady

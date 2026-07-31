@@ -28,6 +28,11 @@ const listTests = (config, environment = {}) => {
 const endpointPerformanceEnvironment = {
   ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED:
     'ws://127.0.0.1:4121/asyra-design-collaboration',
+  ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR:
+    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current',
+  ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
+  ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH:
+    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
   ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: 'config-contract-token',
   ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
   ASYRA_DESIGN_ENDPOINT_OWNER: 'admit-receiver-publication-frames'
@@ -189,11 +194,22 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     '../e2e/performance-resource-guard.mjs',
     import.meta.url
   )
-  const [configSource, guardSource, specSource, manifestSource] =
+  const serverResponseInboxURL = new URL(
+    '../e2e/server-response-inbox.ts',
+    import.meta.url
+  )
+  const [
+    configSource,
+    guardSource,
+    specSource,
+    serverResponseInboxSource,
+    manifestSource
+  ] =
     await Promise.all([
       readFile(configURL, 'utf8'),
       readFile(guardURL, 'utf8'),
       readFile(specURL, 'utf8'),
+      readFile(serverResponseInboxURL, 'utf8'),
       readFile(new URL('../package.json', import.meta.url), 'utf8')
     ])
   const manifest = JSON.parse(manifestSource)
@@ -217,6 +233,25 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
       }
     }
   )
+  const invalidResponseAttestation = spawnSync(
+    'yarn',
+    [
+      'playwright',
+      'test',
+      '--list',
+      '--config',
+      'playwright.endpoint-performance.config.ts'
+    ],
+    {
+      cwd: appDirectory,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...endpointPerformanceEnvironment,
+        ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'not-a-digest'
+      }
+    }
+  )
   const guarded = listTests(
     'playwright.endpoint-performance.config.ts',
     endpointPerformanceEnvironment
@@ -227,7 +262,17 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     `${unguarded.stdout}\n${unguarded.stderr}`,
     /endpoint performance resource guard/i
   )
+  assert.notEqual(invalidResponseAttestation.status, 0)
+  assert.match(
+    `${invalidResponseAttestation.stdout}\n${invalidResponseAttestation.stderr}`,
+    /response artifact attestation must be one SHA-256 digest/i
+  )
   assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
+  assert.doesNotMatch(
+    serverResponseInboxSource,
+    /MAXIMUM_COMPRESSED_RESPONSE_BYTES|maximumCompressedBytes/,
+    'the attested response must not gain an arbitrary payload ceiling'
+  )
   assert.match(guarded, /empty-document two-Actor endpoint connectivity/)
   assert.match(guarded, /single-Actor local attribution/)
   assert.match(guarded, /two-Actor 16-item operation and idle attribution/)
@@ -260,6 +305,13 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(configSource, /trackedServerCommand\(\s*['"]app-server['"]/)
   assert.match(configSource, /yarn preview/)
+  assert.match(
+    configSource,
+    /--outDir \$\{JSON\.stringify\(responsePreviewOutDir\)\}/
+  )
+  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR/)
+  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH/)
+  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED/)
   assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED/)
   assert.match(configSource, /launchOptions/)
   assert.match(configSource, /client-browser/)
@@ -415,13 +467,25 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     preparedTurnSource,
-    /\.fill\(prompt\)[\s\S]*click\(\{\s*trial:\s*true\s*\}\)[\s\S]*boundingBox\(/
+    /\.fill\(prompt\)[\s\S]*click\(\{\s*trial:\s*true\s*\}\)[\s\S]*boundingBox\(\)[\s\S]*data-endpoint-prepared-ai-submit/
   )
   const triggerPreparedTurnSource = specSource.slice(
     specSource.indexOf('const triggerPreparedAiTurn'),
     specSource.indexOf('const assertPreparedAiTurnSettled')
   )
   assert.match(triggerPreparedTurnSource, /page\.mouse\.click/)
+  assert.match(specSource, /turnAccepted/)
+  assert.match(specSource, /readLatestTurnSettlement/)
+  assert.match(specSource, /readLatestFactoryTransactionStatus/)
+  assert.match(
+    specSource,
+    /AI turn settled before[\s\S]*snapshot\.turnSettlement/
+  )
+  assert.match(
+    specSource,
+    /Prepared request click did not reach the armed Send control/
+  )
+  assert.match(specSource, /Agent did not accept the dispatched request/)
   assert.doesNotMatch(specSource, /(?:[?&])ai=mock/)
   assert.match(specSource, /readCanonicalElementCount/)
   assert.match(specSource, /readCounterTotal/)
@@ -458,6 +522,21 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /focusLocalInteractionKeyboardTarget/)
   assert.match(highDetailSource, /loadingConnected\)\.toBe\(true\)/)
   assert.match(highDetailSource, /canonicalElements\)\.toBeLessThan\(7076\)/)
+  assert.match(specSource, /stableLoadingFrameCount/)
+  assert.match(specSource, /turnOutcome/)
+  assert.match(specSource, /AI turn settled before/)
+  assert.match(
+    highDetailSource,
+    /blockedState\.turnAccepted\)\.toBe\(true\)[\s\S]*blockedState\.turnOutcome\)\.toBeNull\(/
+  )
+  assert.match(highDetailSource, /readLocalInteractionProbe/)
+  assert.match(highDetailSource, /settleFailureEvidenceWithin/)
+  assert.doesNotMatch(specSource, /readConversationSnapshot/)
+  assert.match(
+    highDetailSource,
+    /const browserErrors[\s\S]*getCapturedBrowserErrors\(actorA\)[\s\S]*getCapturedBrowserErrors\(actorB\)/
+  )
+  assert.match(highDetailSource, /\.slice\(-4\)/)
   assert.match(highDetailSource, /drawingProgress\.milestones/)
   assert.match(
     highDetailSource,
@@ -571,9 +650,37 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     actorSampleSource,
     /successfulTurnCount:\s*profile\.readCounterTotal\(['"]ai-turn:outcome:success['"]\)/
   )
+  assert.match(
+    actorSampleSource,
+    /nonSuccessfulTurnCount:[\s\S]*ai-turn:outcome:cancelled[\s\S]*ai-turn:outcome:failed[\s\S]*ai-turn:outcome:no-change[\s\S]*ai-turn:outcome:partial/
+  )
   assert.doesNotMatch(
     actorSampleSource,
     /getRuntimeEvidence|readCanonicalElements|snapshot\(/
+  )
+  assert.match(
+    specSource,
+    /requestSubmissionClickCount[\s\S]*data-endpoint-prepared-ai-submit/
+  )
+  assert.match(
+    specSource,
+    /nonSuccessfulTurnCount\s*>\s*0[\s\S]*settled without success/
+  )
+  assert.match(
+    specSource,
+    /failureTimeEvidence\?:\s*LocalInteractionProbeSnapshot\s*\|\s*null/
+  )
+  assert.match(
+    specSource,
+    /error\?:\s*EndpointHeartbeatFailure[\s\S]*response\.json[\s\S]*!response\.ok\s*\|\|\s*result\.accepted\s*!==\s*true[\s\S]*result\.reason\s*\?\?\s*response\.status/
+  )
+  assert.match(
+    specSource,
+    /preparedSend\.addEventListener\([\s\S]*once:\s*true/
+  )
+  assert.doesNotMatch(
+    specSource,
+    /closest\(['"]\[data-endpoint-prepared-ai-submit/
   )
   assert.match(
     manifest.scripts['test:e2e:crdt-endpoint-performance'],
@@ -582,6 +689,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(
     manifest.scripts['test:e2e:crdt-endpoint-performance'],
     /ASYRA_DESIGN_ENDPOINT_OWNER/
+  )
+  assert.match(
+    manifest.scripts['prepare:e2e:endpoint-performance'],
+    /react:build.*prepare-server-response-preview\.mjs/
   )
   ;[
     ['test:e2e:ai-attribution:16', '16'],

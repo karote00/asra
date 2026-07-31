@@ -3,7 +3,6 @@ import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import type { BrowserContext, Route } from '@playwright/test'
-import { createDefaultFill, createDefaultStroke } from '@asyra/utils'
 import { AsyraDesignAiActionNames } from '../src/constants/ai-actions'
 import type { PreparedElementDescriptor } from '../src/common-apis'
 import {
@@ -33,6 +32,20 @@ export interface SeedAsyraDesignServerResponseOptions {
   readonly appUrl: string
   readonly fileId: string
   readonly itemCount: AsyraDesignServerResponseItemCount
+}
+
+export interface SeedPreparedAsyraDesignServerResponseOptions {
+  readonly appUrl: string
+  readonly fileId: string
+  readonly publicPath: string
+}
+
+export interface PreparedAsyraDesignServerResponseSeedMetrics {
+  readonly compressedBytes: number
+  readonly decodeMs: number
+  readonly fetchMs: number
+  readonly indexedDbWriteMs: number
+  readonly totalMs: number
 }
 
 interface ServerResponseMetadata {
@@ -74,6 +87,7 @@ interface ServerResponseSeedPayload {
 }
 
 const WORKSPACE_LIMIT = 2048
+const MAXIMUM_SEED_STRING_LENGTH = 1_024
 
 class StableCanonicalIdWriter {
   private readonly counters = new Map<string, number>()
@@ -268,6 +282,36 @@ const createRootPropertyIds = (
     names.map((name) => [name, idWriter.next('pp')])
   ) as PreparedElementDescriptor['props']
 
+const createPreparedFillDescriptor = (id: string, color: string) => ({
+  id,
+  type: 'fill',
+  kind: 'solid',
+  defaultColorFormat: 'hex',
+  colorFormat: 'hex',
+  color,
+  opacity: 1,
+  visible: true,
+  gradient: null
+})
+
+const createPreparedStrokeDescriptor = (
+  id: string,
+  color: string,
+  width: number
+) => ({
+  id,
+  type: 'stroke',
+  style: 'solid',
+  position: 'center',
+  width,
+  dash: 20,
+  gap: 20,
+  fill: createPreparedFillDescriptor(id, color),
+  joinType: 'round',
+  capType: 'round',
+  miterAngle: 28.96
+})
+
 const createStyleDescriptors = (
   style: ServerCompositionStyle,
   idWriter: StableCanonicalIdWriter
@@ -275,23 +319,16 @@ const createStyleDescriptors = (
   fills:
     style.fillColor === undefined
       ? []
-      : [
-          createDefaultFill({
-            color: style.fillColor,
-            id: idWriter.next('fill')
-          })
-        ],
+      : [createPreparedFillDescriptor(idWriter.next('fill'), style.fillColor)],
   strokes:
     style.strokeColor === undefined
       ? []
       : [
-          createDefaultStroke({
-            capType: 'round',
-            color: style.strokeColor,
-            id: idWriter.next('stroke'),
-            joinType: 'round',
-            width: style.strokeWidth ?? 1
-          })
+          createPreparedStrokeDescriptor(
+            idWriter.next('stroke'),
+            style.strokeColor,
+            style.strokeWidth ?? 1
+          )
         ]
 })
 
@@ -776,4 +813,215 @@ export const seedAsyraDesignServerResponse = async (
   }
 
   return record
+}
+
+export const seedPreparedAsyraDesignServerResponse = async (
+  context: BrowserContext,
+  { appUrl, fileId, publicPath }: SeedPreparedAsyraDesignServerResponseOptions
+): Promise<PreparedAsyraDesignServerResponseSeedMetrics> => {
+  const appOrigin = new URL(appUrl)
+  const preparedResponseUrl = new URL(publicPath, appOrigin)
+  if (
+    !['http:', 'https:'].includes(appOrigin.protocol) ||
+    preparedResponseUrl.origin !== appOrigin.origin ||
+    fileId.trim().length === 0 ||
+    fileId.length > MAXIMUM_SEED_STRING_LENGTH ||
+    publicPath.trim().length === 0 ||
+    publicPath.length > MAXIMUM_SEED_STRING_LENGTH
+  ) {
+    throw new Error(
+      'Prepared server response seed requires bounded same-origin inputs.'
+    )
+  }
+
+  const seedPageUrl = new URL(
+    `/__endpoint-test__/server-response-seed/${encodeURIComponent(fileId)}`,
+    appOrigin
+  ).href
+  const seedPage = await context.newPage()
+  const routeHandler = (route: Route) =>
+    route.fulfill({
+      body: '<!doctype html><html><body></body></html>',
+      contentType: 'text/html; charset=utf-8',
+      status: 200
+    })
+
+  await seedPage.route(seedPageUrl, routeHandler)
+  try {
+    await seedPage.goto(seedPageUrl, { waitUntil: 'domcontentloaded' })
+    const metrics = await seedPage.evaluate(
+      async ({
+        databaseName,
+        databaseVersion,
+        publicResponsePath,
+        responseFileId,
+        schemaVersion,
+        storeName
+      }): Promise<PreparedAsyraDesignServerResponseSeedMetrics> => {
+        const isRecord = (value: unknown): value is Record<string, unknown> =>
+          typeof value === 'object' && value !== null && !Array.isArray(value)
+        const hasExactKeys = (
+          value: Record<string, unknown>,
+          expectedKeys: readonly string[]
+        ): boolean => {
+          const actualKeys = Object.keys(value)
+          return (
+            actualKeys.length === expectedKeys.length &&
+            expectedKeys.every((key) =>
+              Object.prototype.hasOwnProperty.call(value, key)
+            )
+          )
+        }
+        const boundedString = (value: unknown): value is string =>
+          typeof value === 'string' && value.length > 0 && value.length <= 1_024
+        const roundDuration = (value: number): number =>
+          Math.round(value * 1_000) / 1_000
+
+        const totalStartedAt = performance.now()
+        const fetchStartedAt = performance.now()
+        const fetchResponse = await fetch(publicResponsePath, {
+          cache: 'force-cache'
+        })
+        if (!fetchResponse.ok) {
+          throw new Error(
+            `Prepared server response fetch failed (${fetchResponse.status}).`
+          )
+        }
+        const compressedResponse = await fetchResponse.arrayBuffer()
+        const fetchMs = performance.now() - fetchStartedAt
+        if (compressedResponse.byteLength === 0) {
+          throw new Error(
+            'Prepared server response has an invalid compressed size.'
+          )
+        }
+
+        const decodeStartedAt = performance.now()
+        const decompressedResponse = new Response(
+          new Blob([compressedResponse])
+            .stream()
+            .pipeThrough(new DecompressionStream('gzip'))
+        )
+        const response: unknown = await decompressedResponse.json()
+        if (
+          !isRecord(response) ||
+          !hasExactKeys(response, ['batch', 'fileId', 'schemaVersion']) ||
+          response.fileId !== responseFileId ||
+          response.schemaVersion !== schemaVersion ||
+          !isRecord(response.batch) ||
+          !hasExactKeys(response.batch, [
+            'actions',
+            'batchId',
+            'explanation'
+          ]) ||
+          !Array.isArray(response.batch.actions) ||
+          response.batch.actions.length !== 1 ||
+          !boundedString(response.batch.batchId) ||
+          !boundedString(response.batch.explanation)
+        ) {
+          throw new Error(
+            'Prepared server response envelope does not match the inbox contract.'
+          )
+        }
+        const [action] = response.batch.actions
+        if (
+          !isRecord(action) ||
+          !hasExactKeys(action, ['arguments', 'id', 'name', 'summary']) ||
+          !boundedString(action.id) ||
+          !boundedString(action.name) ||
+          !isRecord(action.arguments) ||
+          !isRecord(action.summary)
+        ) {
+          throw new Error(
+            'Prepared server response action envelope is invalid.'
+          )
+        }
+        const decodeMs = performance.now() - decodeStartedAt
+
+        const indexedDbWriteStartedAt = performance.now()
+        await new Promise<void>((resolve, reject) => {
+          const openRequest = indexedDB.open(databaseName, databaseVersion)
+          openRequest.onblocked = () =>
+            reject(
+              new Error('Prepared server response inbox open was blocked.')
+            )
+          openRequest.onerror = () =>
+            reject(
+              openRequest.error ??
+                new Error('Prepared server response inbox open failed.')
+            )
+          openRequest.onupgradeneeded = () => {
+            if (!openRequest.result.objectStoreNames.contains(storeName)) {
+              openRequest.result.createObjectStore(storeName)
+            }
+          }
+          openRequest.onsuccess = () => {
+            const database = openRequest.result
+            try {
+              const transaction = database.transaction(storeName, 'readwrite')
+              transaction.onabort = () => {
+                database.close()
+                reject(
+                  transaction.error ??
+                    new Error(
+                      'Prepared server response inbox transaction was aborted.'
+                    )
+                )
+              }
+              transaction.onerror = () => {
+                database.close()
+                reject(
+                  transaction.error ??
+                    new Error(
+                      'Prepared server response inbox transaction failed.'
+                    )
+                )
+              }
+              transaction.oncomplete = () => {
+                database.close()
+                resolve()
+              }
+              transaction.objectStore(storeName).put(response, responseFileId)
+            } catch (error) {
+              database.close()
+              reject(error)
+            }
+          }
+        })
+        const indexedDbWriteMs = performance.now() - indexedDbWriteStartedAt
+
+        return {
+          compressedBytes: compressedResponse.byteLength,
+          decodeMs: roundDuration(decodeMs),
+          fetchMs: roundDuration(fetchMs),
+          indexedDbWriteMs: roundDuration(indexedDbWriteMs),
+          totalMs: roundDuration(performance.now() - totalStartedAt)
+        }
+      },
+      {
+        databaseName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
+        databaseVersion: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
+        publicResponsePath: publicPath,
+        responseFileId: fileId,
+        schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION,
+        storeName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
+      }
+    )
+    if (
+      !Number.isInteger(metrics.compressedBytes) ||
+      metrics.compressedBytes <= 0 ||
+      [metrics.decodeMs, metrics.fetchMs, metrics.indexedDbWriteMs].some(
+        (metric) =>
+          !Number.isFinite(metric) || metric < 0 || metric > metrics.totalMs
+      ) ||
+      !Number.isFinite(metrics.totalMs) ||
+      metrics.totalMs < 0 ||
+      metrics.totalMs > 3_600_000
+    ) {
+      throw new Error('Prepared server response seed returned invalid metrics.')
+    }
+    return metrics
+  } finally {
+    await seedPage.unroute(seedPageUrl, routeHandler)
+    await seedPage.close()
+  }
 }
