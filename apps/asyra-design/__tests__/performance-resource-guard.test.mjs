@@ -99,19 +99,19 @@ test('retains direct renderer CPU-time milliseconds without converting them to p
           browserProcessType: 'root-browser',
           cpuTimeMs: 100,
           pid: 5001,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           browserProcessType: 'renderer-or-worker',
           cpuTimeMs: 200,
           pid: 5004,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           browserProcessType: 'renderer-or-worker',
           cpuTimeMs: 400,
           pid: 5008,
-          role: 'client-browser'
+          role: 'client-a-browser'
         }
       ]
     },
@@ -123,19 +123,19 @@ test('retains direct renderer CPU-time milliseconds without converting them to p
           browserProcessType: 'root-browser',
           cpuTimeMs: 110,
           pid: 5001,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           browserProcessType: 'renderer-or-worker',
           cpuTimeMs: 500,
           pid: 5004,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           browserProcessType: 'renderer-or-worker',
           cpuTimeMs: 525,
           pid: 5008,
-          role: 'client-browser'
+          role: 'client-a-browser'
         }
       ]
     }
@@ -246,8 +246,10 @@ const trackedCpuSample = ({
     switch (role) {
       case 'app-server':
         return 'appServer'
-      case 'client-browser':
-        return 'clientBrowser'
+      case 'client-a-browser':
+        return 'actorABrowser'
+      case 'client-b-browser':
+        return 'actorBBrowser'
       case 'test-harness':
         return 'testHarness'
       case 'websocket-server':
@@ -258,14 +260,16 @@ const trackedCpuSample = ({
   }
   const roleCpuTimeMs = {
     appServer: 0,
-    clientBrowser: 0,
+    actorABrowser: 0,
+    actorBBrowser: 0,
     testHarness: 0,
     unknown: 0,
     websocketServer: 0
   }
   const roleCpuPercent = {
     appServer: 0,
-    clientBrowser: 0,
+    actorABrowser: 0,
+    actorBBrowser: 0,
     testHarness: 0,
     unknown: 0,
     websocketServer: 0
@@ -284,7 +288,10 @@ const trackedCpuSample = ({
     roleCpuTimeMs[roleKey] += process.cpuTimeMs
     roleCpuPercent[roleKey] += processCpuPercent
     rawCpuPercent += processCpuPercent
-    if (process.role === 'client-browser') {
+    if (
+      process.role === 'client-a-browser' ||
+      process.role === 'client-b-browser'
+    ) {
       switch (process.browserProcessType) {
         case 'gpu-process':
           browserProcessTypeCpuPercent.gpuProcess += processCpuPercent
@@ -354,7 +361,7 @@ test('uses raw same-snapshot CPU and rejects converted interval percentages as s
           cpuPercent: 100,
           cpuTimeMs: 100,
           pid: 1,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           cpuPercent: 5,
@@ -363,7 +370,7 @@ test('uses raw same-snapshot CPU and rejects converted interval percentages as s
           role: 'test-harness'
         }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -377,7 +384,7 @@ test('uses raw same-snapshot CPU and rejects converted interval percentages as s
           cpuPercent: 199.4,
           cpuTimeMs: 1_093.0075,
           pid: 1,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           cpuPercent: 9.8,
@@ -386,7 +393,7 @@ test('uses raw same-snapshot CPU and rejects converted interval percentages as s
           role: 'test-harness'
         }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -417,7 +424,7 @@ test('stops on one raw same-snapshot aggregate CPU value above 400 percent', () 
           cpuPercent: 240,
           cpuTimeMs: 100,
           pid: 1,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           cpuPercent: 160.01,
@@ -426,7 +433,7 @@ test('stops on one raw same-snapshot aggregate CPU value above 400 percent', () 
           role: 'test-harness'
         }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -437,7 +444,7 @@ test('stops on one raw same-snapshot aggregate CPU value above 400 percent', () 
 })
 
 test('enforces the raw 250% frontend peak separately from the raw 400% aggregate safety ceiling', () => {
-  const evaluateRawSnapshot = (clientBrowser, testHarness) =>
+  const evaluateRawSnapshot = (actorABrowser, testHarness) =>
     evaluateResourceSample(
       createResourceGuardState({ nowMs: 0 }),
       trackedCpuSample({
@@ -445,10 +452,10 @@ test('enforces the raw 250% frontend peak separately from the raw 400% aggregate
         processes: [
           {
             browserProcessType: 'renderer-or-worker',
-            cpuPercent: clientBrowser,
+            cpuPercent: actorABrowser,
             cpuTimeMs: 100,
             pid: 1,
-            role: 'client-browser'
+            role: 'client-a-browser'
           },
           {
             cpuPercent: testHarness,
@@ -457,7 +464,7 @@ test('enforces the raw 250% frontend peak separately from the raw 400% aggregate
             role: 'test-harness'
           }
         ],
-        trackedProcessRoles: ['test-harness', 'client-browser']
+        trackedProcessRoles: ['test-harness', 'client-a-browser']
       }),
       { targetPgid: TARGET_PGID }
     )
@@ -510,17 +517,17 @@ test('retains each App renderer raw percent-CPU contribution independently', () 
             cpuPercent: 101.25,
             cpuTimeMs: 100,
             pid: 5004,
-            role: 'client-browser'
+            role: 'client-a-browser'
           },
           {
             browserProcessType: 'renderer-or-worker',
             cpuPercent: 98.15,
             cpuTimeMs: 100,
             pid: 5008,
-            role: 'client-browser'
+            role: 'client-a-browser'
           }
         ],
-        trackedProcessRoles: ['client-browser']
+        trackedProcessRoles: ['client-a-browser']
       }),
       contributors: [
         {
@@ -530,7 +537,7 @@ test('retains each App renderer raw percent-CPU contribution independently', () 
           parentPid: 5001,
           pgid: 5001,
           pid: 5004,
-          role: 'client-browser'
+          role: 'client-a-browser'
         },
         {
           browserProcessType: 'renderer-or-worker',
@@ -539,7 +546,7 @@ test('retains each App renderer raw percent-CPU contribution independently', () 
           parentPid: 5001,
           pgid: 5001,
           pid: 5008,
-          role: 'client-browser'
+          role: 'client-a-browser'
         }
       ]
     },
@@ -554,8 +561,8 @@ test('retains each App renderer raw percent-CPU contribution independently', () 
   assert.deepEqual(
     result.state.cpuSafetySamples.at(-1).rendererProcessRawCpuPercent,
     [
-      { pid: 5004, rawCpuPercent: 101.25 },
-      { pid: 5008, rawCpuPercent: 98.15 }
+      { actor: 'actorA', pid: 5004, rawCpuPercent: 101.25 },
+      { actor: 'actorA', pid: 5008, rawCpuPercent: 98.15 }
     ]
   )
 })
@@ -678,9 +685,9 @@ test('accepts a complete raw snapshot after process identity churn before readin
       nowMs: 1_250,
       processes: [
         { cpuTimeMs: 125, pid: 1, role: 'test-harness' },
-        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+        { cpuTimeMs: 10, pid: 2, role: 'client-a-browser' }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -690,9 +697,9 @@ test('accepts a complete raw snapshot after process identity churn before readin
       nowMs: 1_500,
       processes: [
         { cpuTimeMs: 225, pid: 1, role: 'test-harness' },
-        { cpuTimeMs: 110, pid: 2, role: 'client-browser' }
+        { cpuTimeMs: 110, pid: 2, role: 'client-a-browser' }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -712,9 +719,9 @@ test('rebaselines instead of stopping when process identity changes before readi
       nowMs: 1_500,
       processes: [
         { cpuTimeMs: 25, pid: TARGET_PGID, role: 'test-harness' },
-        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+        { cpuTimeMs: 10, pid: 2, role: 'client-a-browser' }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -750,9 +757,9 @@ test('fails closed when process identity changes after guard readiness', () => {
       nowMs: 1_500,
       processes: [
         { cpuTimeMs: 150, pid: 1, role: 'test-harness' },
-        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+        { cpuTimeMs: 10, pid: 2, role: 'client-a-browser' }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -764,7 +771,7 @@ test('fails closed when process identity changes after guard readiness', () => {
 test('attributes one phase from atomic cumulative CPU-time boundaries instead of heartbeat labels', () => {
   const baselineProcesses = [
     { cpuTimeMs: 50, pid: 1, role: 'app-server' },
-    { cpuTimeMs: 700, pid: 2, role: 'client-browser' },
+    { cpuTimeMs: 700, pid: 2, role: 'client-a-browser' },
     { cpuTimeMs: 50, pid: 3, role: 'test-harness' }
   ]
   const baselineFirst = evaluateResourceSample(
@@ -801,12 +808,12 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
         nowMs: 10_000,
         processCpuTimes: [
           { cpuTimeMs: 100, pid: 1, role: 'app-server' },
-          { cpuTimeMs: 800, pid: 2, role: 'client-browser' },
+          { cpuTimeMs: 800, pid: 2, role: 'client-a-browser' },
           { cpuTimeMs: 100, pid: 3, role: 'test-harness' }
         ],
         roleCpuTimeMs: {
           appServer: 100,
-          clientBrowser: 800,
+          actorABrowser: 800,
           testHarness: 100,
           unknown: 0,
           websocketServer: 0
@@ -837,12 +844,12 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
         nowMs: 11_000,
         processCpuTimes: [
           { cpuTimeMs: 150, pid: 1, role: 'app-server' },
-          { cpuTimeMs: 1_300, pid: 2, role: 'client-browser' },
+          { cpuTimeMs: 1_300, pid: 2, role: 'client-a-browser' },
           { cpuTimeMs: 150, pid: 3, role: 'test-harness' }
         ],
         roleCpuTimeMs: {
           appServer: 150,
-          clientBrowser: 1_300,
+          actorABrowser: 1_300,
           testHarness: 150,
           unknown: 0,
           websocketServer: 0
@@ -877,7 +884,8 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
       rawSampleCount: 0,
       roleCpuTimeMs: {
         appServer: 50,
-        clientBrowser: 500,
+        actorABrowser: 500,
+        actorBBrowser: 0,
         testHarness: 50,
         unknown: 0,
         websocketServer: 0
@@ -914,7 +922,7 @@ test('applies the 400% aggregate safety stop to an explicit phase-boundary sampl
         ],
         roleCpuTimeMs: {
           appServer: 0,
-          clientBrowser: 0,
+          actorABrowser: 0,
           testHarness: 1_000,
           unknown: 0,
           websocketServer: 0
@@ -1112,11 +1120,11 @@ test('rejects phase attribution when a process present at start exits before the
         nowMs: 1_000,
         processCpuTimes: [
           { cpuTimeMs: 100, pid: 1, role: 'test-harness' },
-          { cpuTimeMs: 200, pid: 2, role: 'client-browser' }
+          { cpuTimeMs: 200, pid: 2, role: 'client-a-browser' }
         ],
         roleCpuTimeMs: {
           appServer: 0,
-          clientBrowser: 200,
+          actorABrowser: 200,
           testHarness: 100,
           unknown: 0,
           websocketServer: 0
@@ -1138,7 +1146,7 @@ test('rejects phase attribution when a process present at start exits before the
         processCpuTimes: [{ cpuTimeMs: 200, pid: 1, role: 'test-harness' }],
         roleCpuTimeMs: {
           appServer: 0,
-          clientBrowser: 0,
+          actorABrowser: 0,
           testHarness: 200,
           unknown: 0,
           websocketServer: 0
@@ -1179,7 +1187,7 @@ test('rejects phase attribution when a new process appears at the end boundary',
         nowMs: 2_000,
         processes: [
           { cpuTimeMs: 200, pid: 1, role: 'test-harness' },
-          { cpuTimeMs: 50, pid: 2, role: 'client-browser' }
+          { cpuTimeMs: 50, pid: 2, role: 'client-a-browser' }
         ]
       }),
       token: TOKEN
@@ -1205,7 +1213,7 @@ test('rejects phase attribution after any process identity churn observed by the
         processCpuTimes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }],
         roleCpuTimeMs: {
           appServer: 0,
-          clientBrowser: 0,
+          actorABrowser: 0,
           testHarness: 100,
           unknown: 0,
           websocketServer: 0
@@ -1223,7 +1231,7 @@ test('rejects phase attribution after any process identity churn observed by the
       pgid: TARGET_PGID,
       processCpuTimes: [
         { cpuTimeMs: 125, pid: 1, role: 'test-harness' },
-        { cpuTimeMs: 10, pid: 2, role: 'client-browser' }
+        { cpuTimeMs: 10, pid: 2, role: 'client-a-browser' }
       ]
     },
     { targetPgid: TARGET_PGID }
@@ -1240,7 +1248,7 @@ test('rejects phase attribution after any process identity churn observed by the
         processCpuTimes: [{ cpuTimeMs: 150, pid: 1, role: 'test-harness' }],
         roleCpuTimeMs: {
           appServer: 0,
-          clientBrowser: 0,
+          actorABrowser: 0,
           testHarness: 150,
           unknown: 0,
           websocketServer: 0
@@ -1294,12 +1302,12 @@ test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
       ...trackedCpuSample({
         cpuPercent: 250.01,
         nowMs: 1_000,
-        processes: [{ cpuTimeMs: 100, pid: 1, role: 'client-browser' }],
-        trackedProcessRoles: ['client-browser']
+        processes: [{ cpuTimeMs: 100, pid: 1, role: 'client-a-browser' }],
+        trackedProcessRoles: ['client-a-browser']
       }),
       roleCpuPercent: {
         appServer: 0,
-        clientBrowser: 250.01,
+        actorABrowser: 250.01,
         testHarness: 0,
         unknown: 0,
         websocketServer: 0
@@ -1316,6 +1324,84 @@ test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
     250.01
   )
   assert.equal(result.state.overallCpuLimitViolationSample, null)
+})
+
+test('applies the frontend CPU limit to Actor A and Actor B independently', () => {
+  const state = createResourceGuardState({ nowMs: 0 })
+  const result = evaluateResourceSample(
+    state,
+    {
+      ...trackedCpuSample({
+        cpuPercent: 280,
+        nowMs: 1_000,
+        processes: [
+          { cpuTimeMs: 100, pid: 1, role: 'client-a-browser' },
+          { cpuTimeMs: 100, pid: 2, role: 'client-b-browser' }
+        ],
+        trackedProcessRoles: ['client-a-browser', 'client-b-browser']
+      }),
+      roleCpuPercent: {
+        actorABrowser: 140,
+        actorBBrowser: 140,
+        appServer: 0,
+        testHarness: 0,
+        unknown: 0,
+        websocketServer: 0
+      }
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(result.accepted, true)
+  assert.equal(result.decision.stop, false)
+  assert.deepEqual(
+    result.state.maximumFrontendCpuSafetySample.actorFrontendRawCpuPercent,
+    {
+      actorA: 140,
+      actorB: 140
+    }
+  )
+
+  const second = evaluateResourceSample(
+    result.state,
+    {
+      ...trackedCpuSample({
+        cpuPercent: 290,
+        nowMs: 1_250,
+        processes: [
+          { cpuTimeMs: 110, pid: 1, role: 'client-a-browser' },
+          { cpuTimeMs: 110, pid: 2, role: 'client-b-browser' }
+        ],
+        trackedProcessRoles: ['client-a-browser', 'client-b-browser']
+      }),
+      roleCpuPercent: {
+        actorABrowser: 50,
+        actorBBrowser: 240,
+        appServer: 0,
+        testHarness: 0,
+        unknown: 0,
+        websocketServer: 0
+      }
+    },
+    { targetPgid: TARGET_PGID }
+  )
+  assert.equal(second.decision.stop, false)
+  assert.equal(
+    second.state.maximumActorAFrontendCpuSafetySample.actorFrontendRawCpuPercent
+      .actorA,
+    140
+  )
+  assert.equal(
+    second.state.maximumActorBFrontendCpuSafetySample.actorFrontendRawCpuPercent
+      .actorB,
+    240
+  )
+  assert.equal(second.state.maximumAggregateCpuSafetySample.rawCpuPercent, 290)
+  const report = buildBoundedResourceReport(second.state, {
+    owner: OWNER,
+    targetPgid: TARGET_PGID
+  })
+  assert.equal(report.maximumAggregateCpuSafetySample.rawCpuPercent, 290)
 })
 
 test('allows the exact endpoint proof to use the 500% high-detail frontend and aggregate ceilings', () => {
@@ -1337,7 +1423,7 @@ test('allows the exact endpoint proof to use the 500% high-detail frontend and a
           {
             cpuTimeMs: 100,
             pid: 1,
-            role: 'client-browser'
+            role: 'client-a-browser'
           },
           {
             cpuPercent: 49,
@@ -1346,11 +1432,11 @@ test('allows the exact endpoint proof to use the 500% high-detail frontend and a
             role: 'test-harness'
           }
         ],
-        trackedProcessRoles: ['client-browser', 'test-harness']
+        trackedProcessRoles: ['client-a-browser', 'test-harness']
       }),
       roleCpuPercent: {
         appServer: 0,
-        clientBrowser: 450,
+        actorABrowser: 450,
         testHarness: 49,
         unknown: 0,
         websocketServer: 0
@@ -1548,9 +1634,9 @@ test('does not invalidate an accepted proof when Chrome process identity changes
       nowMs: 1_250,
       processes: [
         { cpuTimeMs: 0, pid: TARGET_PGID, role: 'test-harness' },
-        { cpuTimeMs: 0, pid: 5001, role: 'client-browser' }
+        { cpuTimeMs: 0, pid: 5001, role: 'client-a-browser' }
       ],
-      trackedProcessRoles: ['test-harness', 'client-browser']
+      trackedProcessRoles: ['test-harness', 'client-a-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -1659,7 +1745,7 @@ test('new pre-ready process registration clears a provisional CPU baseline', () 
       owner: OWNER,
       pgid: 5001,
       pid: 5001,
-      role: 'client-browser',
+      role: 'client-a-browser',
       token: TOKEN
     },
     {
@@ -2410,7 +2496,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
   let snapshotCount = 0
   const processGroups = [
     { pgid: TARGET_PGID, role: 'test-harness' },
-    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5001, role: 'client-a-browser' },
     { pgid: 5002, role: 'app-server' },
     { pgid: 5003, role: 'websocket-server' }
   ]
@@ -2473,7 +2559,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         parentPid: 5001,
         pgid: 5001,
         pid: 5004,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         browserProcessType: 'gpu-process',
@@ -2482,7 +2568,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         parentPid: 5001,
         pgid: 5001,
         pid: 5005,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         cpuPercent: 18,
@@ -2499,7 +2585,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         parentPid: 5001,
         pgid: 5001,
         pid: 5006,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         cpuPercent: 12,
@@ -2516,7 +2602,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         parentPid: TARGET_PGID,
         pgid: 5001,
         pid: 5001,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         browserProcessType: 'other-browser',
@@ -2525,7 +2611,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         parentPid: 5001,
         pgid: 5001,
         pid: 5007,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         cpuPercent: 4,
@@ -2548,7 +2634,7 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         browserProcessType: 'root-browser',
         cpuTimeMs: 100,
         pid: 5001,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       { cpuTimeMs: 50, pid: 5002, role: 'app-server' },
       { cpuTimeMs: 200, pid: 5003, role: 'websocket-server' },
@@ -2556,49 +2642,90 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         browserProcessType: 'renderer-or-worker',
         cpuTimeMs: 600,
         pid: 5004,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         browserProcessType: 'gpu-process',
         cpuTimeMs: 250,
         pid: 5005,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         browserProcessType: 'utility',
         cpuTimeMs: 200,
         pid: 5006,
-        role: 'client-browser'
+        role: 'client-a-browser'
       },
       {
         browserProcessType: 'other-browser',
         cpuTimeMs: 100,
         pid: 5007,
-        role: 'client-browser'
+        role: 'client-a-browser'
       }
     ],
     roleCpuPercent: {
       appServer: 4,
-      clientBrowser: 91,
+      actorABrowser: 91,
+      actorBBrowser: 0,
       testHarness: 12,
       unknown: 0,
       websocketServer: 18
     },
     roleCpuTimeMs: {
       appServer: 50,
-      clientBrowser: 1_250,
+      actorABrowser: 1_250,
+      actorBBrowser: 0,
       testHarness: 100,
       unknown: 0,
       websocketServer: 200
     },
     trackedProcessRoles: [
       'test-harness',
-      'client-browser',
+      'client-a-browser',
       'app-server',
       'websocket-server'
     ]
   })
   assert.equal(JSON.stringify(result).includes('TOP-SECRET'), false)
+})
+
+test('attributes two Chromium process groups to Actor A and Actor B from one OS snapshot', async () => {
+  const processGroups = [
+    { pgid: TARGET_PGID, role: 'test-harness' },
+    { pgid: 5001, role: 'client-a-browser' },
+    { pgid: 5002, role: 'client-b-browser' },
+    { pgid: 5003, role: 'app-server' },
+    { pgid: 5004, role: 'websocket-server' }
+  ]
+  const result = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
+    execFileImpl: (_file, _arguments, _options, callback) => {
+      callback(
+        null,
+        [
+          `${TARGET_PGID} 1 ${TARGET_PGID} 2.0 0:00.10 yarn playwright`,
+          `5001 ${TARGET_PGID} 5001 138.0 0:00.40 chrome-headless-shell --type=renderer`,
+          `5002 ${TARGET_PGID} 5002 130.3 0:00.35 chrome-headless-shell --type=renderer`,
+          `5003 ${TARGET_PGID} 5003 1.0 0:00.05 node vite preview`,
+          `5004 ${TARGET_PGID} 5004 0.5 0:00.02 node collaboration-server.js`
+        ].join('\n')
+      )
+    },
+    monotonicMs: 900,
+    nowMs: 1_000,
+    platform: 'darwin',
+    processGroups
+  })
+
+  assert.equal(result.roleCpuPercent.actorABrowser, 138)
+  assert.equal(result.roleCpuPercent.actorBBrowser, 130.3)
+  assert.equal(result.cpuPercent, 271.8)
+  assert.deepEqual(result.trackedProcessRoles, [
+    'test-harness',
+    'client-a-browser',
+    'client-b-browser',
+    'app-server',
+    'websocket-server'
+  ])
 })
 
 test('fails closed when the bounded OS snapshot command fails', async () => {
@@ -2881,7 +3008,8 @@ test('builds only the guarded Playwright runtime after separate production setup
     requiredProofKind: 'endpoint',
     requiredProcessRoles: [
       'test-harness',
-      'client-browser',
+      'client-a-browser',
+      'client-b-browser',
       'app-server',
       'websocket-server'
     ]
@@ -2924,7 +3052,7 @@ test('builds each single-Actor attribution with the always-on WebSocket service'
     assert.deepEqual(phases[0].ports, [3021, 4121])
     assert.deepEqual(phases[0].guardConfig.requiredProcessRoles, [
       'test-harness',
-      'client-browser',
+      'client-a-browser',
       'app-server',
       'websocket-server'
     ])
@@ -3062,7 +3190,7 @@ test('attests that the emitted production artifact owns exactly the endpoint use
 test('requires one authenticated descendant process group for every proof role before ready', () => {
   const requiredProcessRoles = [
     'test-harness',
-    'client-browser',
+    'client-a-browser',
     'app-server',
     'websocket-server'
   ]
@@ -3090,7 +3218,7 @@ test('requires one authenticated descendant process group for every proof role b
   }
 
   assert.equal(register('test-harness', TARGET_PGID).accepted, true)
-  assert.equal(register('client-browser', 5001).accepted, true)
+  assert.equal(register('client-a-browser', 5001).accepted, true)
   assert.equal(
     register('app-server', 5002, { token: 'wrong-token' }).reason,
     'invalid-token'
@@ -3110,10 +3238,10 @@ test('requires one authenticated descendant process group for every proof role b
 
   assert.equal(register('app-server', 5002).accepted, true)
   assert.equal(register('websocket-server', 5003).accepted, true)
-  const idempotentBrowser = register('client-browser', 5001)
+  const idempotentBrowser = register('client-a-browser', 5001)
   assert.equal(idempotentBrowser.accepted, true)
   assert.equal(idempotentBrowser.state.processGroups.length, 4)
-  assert.equal(register('client-browser', 5999).reason, 'role-conflict')
+  assert.equal(register('client-a-browser', 5999).reason, 'role-conflict')
   assert.equal(
     recordTrackedProcessGroupRegistration(
       state,
@@ -3121,7 +3249,7 @@ test('requires one authenticated descendant process group for every proof role b
         owner: OWNER,
         pgid: 6001,
         pid: 6000,
-        role: 'client-browser',
+        role: 'client-a-browser',
         token: TOKEN
       },
       {
@@ -3136,7 +3264,7 @@ test('requires one authenticated descendant process group for every proof role b
 
   const allProcesses = [
     { cpuTimeMs: 100, pid: TARGET_PGID, role: 'test-harness' },
-    { cpuTimeMs: 100, pid: 5001, role: 'client-browser' },
+    { cpuTimeMs: 100, pid: 5001, role: 'client-a-browser' },
     { cpuTimeMs: 100, pid: 5002, role: 'app-server' },
     { cpuTimeMs: 100, pid: 5003, role: 'websocket-server' }
   ]
@@ -3159,7 +3287,7 @@ test('requires one authenticated descendant process group for every proof role b
       nowMs: 503,
       processes: [
         { cpuTimeMs: 1_102.5, pid: TARGET_PGID, role: 'test-harness' },
-        { cpuTimeMs: 100, pid: 5001, role: 'client-browser' },
+        { cpuTimeMs: 100, pid: 5001, role: 'client-a-browser' },
         { cpuTimeMs: 100, pid: 5002, role: 'app-server' },
         { cpuTimeMs: 100, pid: 5003, role: 'websocket-server' }
       ],
@@ -3191,7 +3319,7 @@ test('requires one authenticated descendant process group for every proof role b
 test('stops when a registered process role disappears before proof completion', async () => {
   const processGroups = [
     { pgid: TARGET_PGID, role: 'test-harness' },
-    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5001, role: 'client-a-browser' },
     { pgid: 5002, role: 'app-server' },
     { pgid: 5003, role: 'websocket-server' }
   ]
@@ -3214,7 +3342,7 @@ test('stops when a registered process role disappears before proof completion', 
   assert.deepEqual(sampled.missingProcessRoles, ['websocket-server'])
   assert.deepEqual(sampled.trackedProcessRoles, [
     'test-harness',
-    'client-browser',
+    'client-a-browser',
     'app-server'
   ])
   const evaluated = evaluateResourceSample(
@@ -3351,7 +3479,7 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
 test('starts product-group termination before root within one bounded window', async () => {
   const processGroups = [
     { pgid: TARGET_PGID, role: 'test-harness' },
-    { pgid: 5001, role: 'client-browser' },
+    { pgid: 5001, role: 'client-a-browser' },
     { pgid: 5002, role: 'app-server' },
     { pgid: 5003, role: 'websocket-server' }
   ]

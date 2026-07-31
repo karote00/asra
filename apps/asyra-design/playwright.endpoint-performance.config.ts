@@ -161,7 +161,7 @@ export default defineConfig({
           env: {
             ...browserLauncherEnvironment,
             ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
-            ASYRA_DESIGN_TRACKED_ROLE: 'client-browser'
+            ASYRA_DESIGN_TRACKED_ROLE: 'client-a-browser'
           },
           executablePath: guardLauncherPath
         }

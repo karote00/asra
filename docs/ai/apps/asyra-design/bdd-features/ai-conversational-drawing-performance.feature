@@ -75,19 +75,20 @@ Feature: Conversational AI drawing performance
     And the fileId-selected response inbox read should complete before App and Agent readiness
     And those response-inbox, App, and Collaboration bootstrap phases should remain outside product execution timing
     And response inbox adapter seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
-    And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
+    And the fixed two-Actor tracked roles should be test-harness, client-a-browser, client-b-browser, app-server, and websocket-server while a single-Actor attribution omits only client-b-browser
+    And Actor A and Actor B should run in independently launched Chromium process groups
     And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
     And one complete operating-system ps snapshot with exact PID-set equality should retain the raw percent-CPU value for every tracked process
     And the nominal 250-millisecond polling cadence should only request another raw system snapshot and should never become a measurement window or CPU-percentage formula
     And periodic and phase-boundary sampling should share one serialized OS sample queue with ordered state consumption
     And an observed sampling gap above 375 milliseconds should fail closed because the guard may have missed a raw system peak
-    And the exact 7076-element high-performance case should use a 500-percent raw same-snapshot complete client-browser limit while 16-item and 1280-item safety or attribution cases retain 250 percent
-    And one raw same-snapshot complete client-browser sum above the active proof-class limit or one raw same-snapshot aggregate frontend, backend, and harness sum above 500 percent for 7076 or 400 percent for 16-item and 1280-item should stop all exact tracked roles while the violation report retains separate role CPU
-    And only the highest complete raw client-browser snapshot should be retained as the frontend performance peak while backend and harness CPU remain excluded from that peak
+    And the exact 7076-element high-performance case should use a 500-percent raw same-snapshot limit for each complete Actor browser process group while 16-item and 1280-item safety or attribution cases retain 250 percent per Actor
+    And one raw same-snapshot complete Actor A or Actor B browser sum above the active per-Actor proof-class limit or one raw same-snapshot aggregate both-Actor frontend, backend, and harness sum above 500 percent for 7076 or 400 percent for 16-item and 1280-item should stop all exact tracked roles while the violation report retains separate role CPU
+    And Actor A and Actor B should each retain their own highest complete raw frontend snapshot while backend and harness CPU remain excluded from both Actor peaks
     And subtracting cumulative process CPU time, dividing by elapsed wall time, normalizing to the polling cadence, averaging snapshots, or otherwise converting an interval into CPU percent should never determine the formal peak, pass, failure, or stop
     And raw system percent-CPU snapshots and phaseCpuMaximums should never be used as owner attribution
-    And root-browser, GPU, utility, other browser CPU, and each renderer PID should remain separately visible and fully included in the browser total
-    And each renderer PID should retain its own raw same-snapshot system percent-CPU value
+    And root-browser, GPU, utility, other browser CPU, and each renderer PID should remain separately visible and fully included in its owning Actor browser total
+    And each renderer PID should retain its Actor identity and its own raw same-snapshot system percent-CPU value
     And page-target CDP should report TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration while visible worker targets are reported separately
     And unexplained renderer CPU should remain residual renderer evidence instead of being guessed as page or Worker ownership
     And bootstrap before guard ready should remain safety-only while legal process registration or identity churn resets the candidate baseline
@@ -113,7 +114,7 @@ Feature: Conversational AI drawing performance
     And after a valid terminal complete heartbeat closes the product proof window, later Chrome teardown process-identity changes should not create a resource stop or invalidate the accepted proof while exact process-group termination remains required
     And a local-attribution complete heartbeat should use a distinct proof kind, validate Actor A only, carry no Actor B report, and never create an accepted endpoint baseline
     And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
-    And one raw same-snapshot complete client-browser sum above 500 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 500 percent should stop the 7076-element benchmark immediately and mark the active endpoint as an invalid architecture attempt
+    And one raw same-snapshot complete Actor A or Actor B browser sum above 500 percent or one raw same-snapshot aggregate both-Actor frontend, backend, and harness sum above 500 percent should stop the 7076-element benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning

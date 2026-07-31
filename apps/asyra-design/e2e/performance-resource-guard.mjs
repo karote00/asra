@@ -41,7 +41,8 @@ const PROOF_KINDS = new Set([
 ])
 const PROCESS_CPU_ROLES = new Set([
   'app-server',
-  'client-browser',
+  'client-a-browser',
+  'client-b-browser',
   'test-harness',
   'unknown',
   'websocket-server'
@@ -55,15 +56,21 @@ const BROWSER_PROCESS_TYPES = new Set([
 ])
 const TRACKED_PROCESS_ROLES = Object.freeze([
   'test-harness',
-  'client-browser',
+  'client-a-browser',
+  'client-b-browser',
   'app-server',
   'websocket-server'
 ])
 const TRACKED_PROCESS_ROLE_SET = new Set(TRACKED_PROCESS_ROLES)
 const PRODUCT_PROCESS_ROLES = Object.freeze([
-  'client-browser',
+  'client-a-browser',
+  'client-b-browser',
   'app-server',
   'websocket-server'
+])
+const CLIENT_BROWSER_PROCESS_ROLES = new Set([
+  'client-a-browser',
+  'client-b-browser'
 ])
 const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
 const PHASE_BOUNDARY_PATH = '/phase-boundary'
@@ -181,16 +188,18 @@ const isNonEmptyBoundedString = (value) =>
   typeof value === 'string' && value.length > 0 && value.length <= 160
 
 const createEmptyRoleCpuPercent = () => ({
+  actorABrowser: 0,
+  actorBBrowser: 0,
   appServer: 0,
-  clientBrowser: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
 })
 
 const createEmptyRoleCpuTimeMs = () => ({
+  actorABrowser: 0,
+  actorBBrowser: 0,
   appServer: 0,
-  clientBrowser: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
@@ -264,7 +273,7 @@ const classifyProcessCommand = (command) => {
     return {
       browserProcessType: classifyBrowserProcessType(lowerCommand),
       executable: 'chrome-headless-shell',
-      role: 'client-browser'
+      role: 'client-a-browser'
     }
   }
   if (
@@ -311,8 +320,10 @@ const roleCpuKey = (role) => {
   switch (role) {
     case 'app-server':
       return 'appServer'
-    case 'client-browser':
-      return 'clientBrowser'
+    case 'client-a-browser':
+      return 'actorABrowser'
+    case 'client-b-browser':
+      return 'actorBBrowser'
     case 'test-harness':
       return 'testHarness'
     case 'websocket-server':
@@ -386,7 +397,7 @@ const sanitizeProcessCpuTimes = (value) => {
     }
     pids.add(entry.pid)
     let browserProcessType = null
-    if (entry.role === 'client-browser') {
+    if (CLIENT_BROWSER_PROCESS_ROLES.has(entry.role)) {
       browserProcessType = BROWSER_PROCESS_TYPES.has(entry.browserProcessType)
         ? entry.browserProcessType
         : 'other-browser'
@@ -1079,6 +1090,9 @@ export const createResourceGuardState = ({
     cpuSafetySamples: [],
     maximumFrontendCpuSafetySample: null,
     maximumFrontendBootstrapCpuSafetySample: null,
+    maximumActorAFrontendCpuSafetySample: null,
+    maximumActorBFrontendCpuSafetySample: null,
+    maximumAggregateCpuSafetySample: null,
     overallCpuLimitViolationSample: null,
     lastProcessSampleMonotonicMs: null,
     previousProcessSnapshot: null,
@@ -1379,7 +1393,7 @@ export const deriveProcessCpuTimeDelta = (previousSample, currentSample) => {
     }
     cpuTimeMs += delta
     roleCpuTimeMs[roleCpuKey(currentEntry.role)] += delta
-    if (currentEntry.role === 'client-browser') {
+    if (CLIENT_BROWSER_PROCESS_ROLES.has(currentEntry.role)) {
       browserProcessTypeCpuTimeMs[
         browserProcessTypeCpuKey(currentEntry.browserProcessType)
       ] += delta
@@ -1525,7 +1539,7 @@ export const recordResourcePhaseBoundary = (
     }
     cpuTimeMs += delta
     roleCpuTimeDelta[roleCpuKey(endingProcess.role)] += delta
-    if (endingProcess.role === 'client-browser') {
+    if (CLIENT_BROWSER_PROCESS_ROLES.has(endingProcess.role)) {
       browserProcessTypeCpuTimeDelta[
         browserProcessTypeCpuKey(endingProcess.browserProcessType)
       ] += delta
@@ -1683,10 +1697,18 @@ export const evaluateResourceSample = (
   const browserProcessTypeRawCpuPercent = sanitizeBrowserProcessTypeCpuPercent(
     sample.browserProcessTypeCpuPercent
   )
-  const frontendRawCpuPercent = roundCpuMetric(roleRawCpuPercent.clientBrowser)
+  const actorFrontendRawCpuPercent = {
+    actorA: roundCpuMetric(roleRawCpuPercent.actorABrowser),
+    actorB: roundCpuMetric(roleRawCpuPercent.actorBBrowser)
+  }
+  const frontendRawCpuPercent = Math.max(
+    actorFrontendRawCpuPercent.actorA,
+    actorFrontendRawCpuPercent.actorB
+  )
   const contributors = sanitizeCpuContributors(sample.contributors)
   const cpuSafetySample = {
     pgid: targetPgid,
+    actorFrontendRawCpuPercent,
     browserProcessTypeRawCpuPercent,
     contributors,
     frontendRawCpuPercent,
@@ -1703,10 +1725,14 @@ export const evaluateResourceSample = (
     rendererProcessRawCpuPercent: contributors
       .filter(
         ({ browserProcessType, role }) =>
-          role === 'client-browser' &&
+          CLIENT_BROWSER_PROCESS_ROLES.has(role) &&
           browserProcessType === 'renderer-or-worker'
       )
-      .map(({ cpuPercent, pid }) => ({ pid, rawCpuPercent: cpuPercent })),
+      .map(({ cpuPercent, pid, role }) => ({
+        actor: role === 'client-a-browser' ? 'actorA' : 'actorB',
+        pid,
+        rawCpuPercent: cpuPercent
+      })),
     roleRawCpuPercent,
     ...(missingProcessRoles.length > 0 ? { missingProcessRoles } : {}),
     sampledAtMs: sample.nowMs
@@ -1728,6 +1754,26 @@ export const evaluateResourceSample = (
         state.maximumFrontendBootstrapCpuSafetySample.frontendRawCpuPercent)
       ? cpuSafetySample
       : state.maximumFrontendBootstrapCpuSafetySample
+  const maximumActorAFrontendCpuSafetySample =
+    !state.maximumActorAFrontendCpuSafetySample ||
+    actorFrontendRawCpuPercent.actorA >
+      state.maximumActorAFrontendCpuSafetySample.actorFrontendRawCpuPercent
+        .actorA
+      ? cpuSafetySample
+      : state.maximumActorAFrontendCpuSafetySample
+  const maximumActorBFrontendCpuSafetySample =
+    !state.maximumActorBFrontendCpuSafetySample ||
+    actorFrontendRawCpuPercent.actorB >
+      state.maximumActorBFrontendCpuSafetySample.actorFrontendRawCpuPercent
+        .actorB
+      ? cpuSafetySample
+      : state.maximumActorBFrontendCpuSafetySample
+  const maximumAggregateCpuSafetySample =
+    !state.maximumAggregateCpuSafetySample ||
+    cpuSafetySample.rawCpuPercent >
+      state.maximumAggregateCpuSafetySample.rawCpuPercent
+      ? cpuSafetySample
+      : state.maximumAggregateCpuSafetySample
   let decision = state.stopDecision
   if (!decision && !state.finished && missingRequiredProcessRoles.length > 0) {
     decision = stopDecision('tracked-process-group-missing', sample.nowMs)
@@ -1827,6 +1873,9 @@ export const evaluateResourceSample = (
     cpuSafetySamples,
     maximumFrontendCpuSafetySample,
     maximumFrontendBootstrapCpuSafetySample,
+    maximumActorAFrontendCpuSafetySample,
+    maximumActorBFrontendCpuSafetySample,
+    maximumAggregateCpuSafetySample,
     overallCpuLimitViolationSample,
     lastProcessSampleMonotonicMs: currentProcessCpuSnapshot.monotonicMs,
     previousProcessSnapshot: currentProcessCpuSnapshot,
@@ -2108,6 +2157,11 @@ export const buildBoundedResourceReport = (
     maximumFrontendCpuSafetySample: state.maximumFrontendCpuSafetySample,
     maximumFrontendBootstrapCpuSafetySample:
       state.maximumFrontendBootstrapCpuSafetySample,
+    maximumActorAFrontendCpuSafetySample:
+      state.maximumActorAFrontendCpuSafetySample,
+    maximumActorBFrontendCpuSafetySample:
+      state.maximumActorBFrontendCpuSafetySample,
+    maximumAggregateCpuSafetySample: state.maximumAggregateCpuSafetySample,
     overallCpuLimitViolationSample: state.overallCpuLimitViolationSample,
     acceptedRawSamples: state.acceptedRawSamples,
     attributionInvalidReason: state.attributionInvalidReason,
@@ -2501,10 +2555,9 @@ export const runTrackedProcessLauncher = async (
     detached: false,
     env: childEnvironment,
     shell: false,
-    stdio:
-      parsed.role === 'client-browser'
-        ? ['ignore', 'inherit', 'inherit', 3, 4]
-        : 'inherit'
+    stdio: CLIENT_BROWSER_PROCESS_ROLES.has(parsed.role)
+      ? ['ignore', 'inherit', 'inherit', 3, 4]
+      : 'inherit'
   })
   return await new Promise((resolveChild, rejectChild) => {
     child.once('error', rejectChild)
@@ -2583,6 +2636,13 @@ export const buildEndpointPerformancePhases = ({
   ].includes(attributionCase)
   const singleActorAttribution =
     attributionCase.length > 0 && !twoActorActivityAttribution
+  const requiredProcessRoles = [
+    'test-harness',
+    'client-a-browser',
+    ...(!singleActorAttribution ? ['client-b-browser'] : []),
+    'app-server',
+    'websocket-server'
+  ]
   let selectedPlaywrightTest = 'creation-only high-detail endpoint proof'
   let requiredProofKind = 'endpoint'
   if (singleActorAttribution) {
@@ -2632,7 +2692,7 @@ export const buildEndpointPerformancePhases = ({
             ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumHighDetailCpuPercent
             : DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent,
         requiredProofKind,
-        requiredProcessRoles: [...TRACKED_PROCESS_ROLES]
+        requiredProcessRoles
       },
       requiresReady: true,
       ports: [appPort, collaborationPort]
@@ -2709,10 +2769,9 @@ export const sampleTrackedProcessGroupsCpu = async (
     const command = match[6]?.trim() ?? ''
     const classification =
       command.length > 0 ? classifyProcessCommand(command) : null
-    const browserProcessType =
-      group.role === 'client-browser'
-        ? (classification?.browserProcessType ?? 'other-browser')
-        : null
+    const browserProcessType = CLIENT_BROWSER_PROCESS_ROLES.has(group.role)
+      ? (classification?.browserProcessType ?? 'other-browser')
+      : null
     cpuPercent += processCpuPercent
     cpuTimeMs += processCpuTimeMs
     const roleKey = roleCpuKey(group.role)

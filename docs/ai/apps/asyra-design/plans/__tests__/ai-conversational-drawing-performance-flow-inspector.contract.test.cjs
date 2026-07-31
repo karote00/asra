@@ -618,6 +618,10 @@ test('Factory reuses existing action history and exposes only the minimal wire a
     /no post-action save.*isEqual.*finalize-save.*full-document comparison.*evidence clone/i
   )
   assert.match(
+    factoryText,
+    /canonical owner issues.*frozen Props-then-Scene outer container.*checks only frozen transaction structural roots.*exact outer identity.*never traverses nested geometry.*external shallow-frozen batches remain isolated/i
+  )
+  assert.match(
     `${canonicalText} ${projectionText}`,
     /local-canonical-owner-batch.*ordinary local and remote canonical owner batches.*without History evidence/i
   )
@@ -653,6 +657,8 @@ test('Factory reuses existing action history and exposes only the minimal wire a
     'packages/factory/src/mutation-batch.ts',
     'packages/factory/src/shared-delivery.ts',
     'packages/factory/src/shared-data-channel.ts',
+    'packages/scene-tree/src/sceneTree.ts',
+    'packages/scene-tree/src/__tests__/sceneTree.test.ts',
     'packages/collaboration/src/cloning.ts',
     'packages/collaboration/src/providers/memory/hub.ts',
     'packages/collaboration/src/providers/memory/provider.ts',
@@ -836,7 +842,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   assert.match(text, /375-millisecond.*observation-gap.*fail.*closed/i)
   assert.match(
     text,
-    /single-Actor attribution invocation.*fresh browser process group.*required fileId URL.*Collaboration session.*WebSocket server.*no Actor B/i
+    /single-Actor attribution invocation.*fresh client-a-browser process group.*required fileId URL.*Collaboration session.*WebSocket server.*no Actor B or client-b-browser/i
   )
   assert.match(
     text,
@@ -904,11 +910,11 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*one production preview.*one WebSocket server.*HMR.*absent/i
+    /fixed.*test-harness.*client-a-browser.*client-b-browser.*app-server.*websocket-server.*single-Actor.*omits.*client-b-browser.*one production preview.*one WebSocket server.*HMR.*absent/i
   )
   assert.match(
     text,
-    /highest complete raw client-browser snapshot.*performance peak.*backend and harness CPU never enter that peak.*aggregate stop evaluation.*proof-class violation report/i
+    /Actor A and Actor B.*separate highest complete raw frontend snapshots.*backend and harness CPU enter neither Actor peak.*aggregate stop evaluation.*proof-class violation report/i
   )
   assert.match(
     text,
@@ -920,12 +926,12 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /single raw operating-system snapshot.*complete client-browser sum.*active proof-class limit.*500 percent.*7,076-element.*250 percent.*16-item and 1,280-item.*aggregate.*500 percent.*7,076-element.*400 percent.*16-item and 1,280-item.*immediately.*architecture attempt invalid/i
+    /single raw operating-system snapshot.*complete Actor A or complete Actor B browser sum.*per-Actor proof-class limit.*500 percent.*7,076-element.*250 percent.*16-item and 1,280-item.*aggregate both-Actor frontend\/backend\/harness.*500 percent.*7,076-element.*400 percent.*16-item and 1,280-item.*immediately.*architecture attempt invalid/i
   )
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
     text,
-    /both Actor contexts.*Actor A.*navigation.*collaboration ready.*before.*Actor B.*navigation.*collaboration ready.*before.*guard-ready heartbeat.*harness.*outside.*product timing/i
+    /Actor A and Actor B.*independently launched Chromium process groups.*contexts.*Actor A.*navigation.*collaboration ready.*before.*Actor B.*navigation.*collaboration ready.*before.*guard-ready heartbeat.*harness.*outside.*product timing/i
   )
   assert.match(
     text,
@@ -977,7 +983,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /exact guarded 7,076-element creation-only endpoint.*high-performance test.*500-percent raw same-snapshot complete client-browser.*500-percent raw same-snapshot aggregate.*16-item and 1,280-item.*250-percent frontend.*400-percent aggregate/i
+    /exact guarded 7,076-element creation-only endpoint.*high-performance test.*500-percent raw same-snapshot limit for each independently launched complete Actor browser process group.*500-percent raw same-snapshot aggregate.*16-item and 1,280-item.*250-percent per-Actor frontend.*400-percent aggregate/i
   )
   assert.match(
     feature,
@@ -989,7 +995,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*separate role CPU/i
+    /fixed two-Actor tracked roles.*test-harness.*client-a-browser.*client-b-browser.*app-server.*websocket-server[\s\S]*independently launched Chromium process groups[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent per Actor[\s\S]*aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*separate role CPU/i
   )
   assert.match(
     feature,
@@ -1635,6 +1641,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
   assert.match(
     proofText,
     /complete local source pipeline.*one guarded 7,076-element proof.*not after each internal owner/i
+  )
+  assert.match(
+    proofText,
+    /retained counter ring rollover.*exact accumulated loading-frame total/i
   )
   assert.match(
     feature,

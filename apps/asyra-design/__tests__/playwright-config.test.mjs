@@ -323,12 +323,18 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED/)
   assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED/)
   assert.match(configSource, /launchOptions/)
-  assert.match(configSource, /client-browser/)
+  assert.match(configSource, /client-a-browser/)
+  assert.doesNotMatch(configSource, /client-b-browser/)
 
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_URL/)
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN/)
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_OWNER/)
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE/)
+  assert.match(specSource, /ASYRA_DESIGN_TRACKED_ROLE:\s*['"]client-b-browser/)
+  assert.match(
+    specSource,
+    /chromium\.launch\([\s\S]{0,500}executablePath:\s*guardLauncherPath/
+  )
   assert.match(specSource, /postPhaseBoundary/)
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
   assert.match(specSource, /actorB:\s*null/)
@@ -558,6 +564,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /loadingConnected\)\.toBe\(true\)/)
   assert.match(highDetailSource, /canonicalElements\)\.toBeLessThan\(7076\)/)
   assert.match(specSource, /stableLoadingFrameCount/)
+  assert.match(
+    specSource,
+    /loadingFrameVisibleCount:\s*profile\.readCounterTotal\(\s*['"]ai-drawing:loading-frame-visible['"]\s*\)/
+  )
   const localInteractionProbeSource = specSource.slice(
     specSource.indexOf('const installLocalInteractionProbe'),
     specSource.indexOf('const waitForLocalInteractionProbe')
@@ -727,6 +737,9 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   const actorBCreateIndex = stagedBootstrapSource.indexOf(
     'const actorB = await createActor'
   )
+  const actorBBrowserLaunchIndex = stagedBootstrapSource.indexOf(
+    'actorBBrowser = await launchTrackedActorBBrowser()'
+  )
   const preparedActorsIndex = highDetailSource.indexOf(
     'await prepareEndpointActorsSequentially'
   )
@@ -746,7 +759,17 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     "'actor-b-navigation'"
   )
   assert.ok(actorACreateIndex >= 0)
+  assert.ok(actorBBrowserLaunchIndex > actorACreateIndex)
+  assert.ok(actorBCreateIndex > actorBBrowserLaunchIndex)
   assert.ok(actorBCreateIndex > actorACreateIndex)
+  assert.match(
+    stagedBootstrapSource,
+    /const actorB = await createActor\(actorBBrowser,\s*baseURL\)/
+  )
+  assert.doesNotMatch(
+    stagedBootstrapSource,
+    /const actorB = await createActor\(browser,\s*baseURL\)/
+  )
   assert.ok(actorANavigationIndex > actorBCreateIndex)
   assert.ok(actorACollaborationReadyIndex > actorANavigationIndex)
   assert.ok(actorBNavigationIndex > actorACollaborationReadyIndex)

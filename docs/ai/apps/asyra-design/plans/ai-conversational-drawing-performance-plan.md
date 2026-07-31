@@ -735,18 +735,20 @@ remaining endpoint proof. References to 150- or 200-percent stops elsewhere in
 the dated evidence remain historical observations only and are not active
 configuration.
 
-- The formal performance peak is the maximum same-snapshot sum of the raw
-  operating-system `%cpu` values for the complete `client-browser` process
-  group. Guarded 16-, 320-, and 1,280-item safety or attribution cases retain the
-  fixed 250-percent frontend limit. The exact guarded 7,076-element
-  high-performance case uses a 500-percent frontend limit. Backend and harness
-  CPU are excluded from that peak.
+- Actor A and Actor B each have one formal frontend performance peak: the
+  maximum same-snapshot sum of raw operating-system `%cpu` values for that
+  Actor's independently launched complete Chromium process group. The two
+  Actor values are never added for a per-client limit. Guarded 16-, 320-, and
+  1,280-item safety or attribution cases retain the fixed 250-percent limit for
+  each Actor. The exact guarded 7,076-element high-performance case uses a
+  500-percent limit for each Actor. Backend and harness CPU are excluded from
+  both peaks.
 - The aggregate frontend, App-server, WebSocket-server, and test-harness safety
-  value is the same-snapshot sum of those raw operating-system `%cpu` values.
-  Its limit is 500 percent for the exact 7,076-element high-performance case
-  and 400 percent for 16-, 320-, and 1,280-item safety or attribution cases;
-  crossing it stops the exact tracked groups and reports their raw
-  contributions.
+  value is the same-snapshot sum of both Actor Chromium groups and those
+  backend/harness raw operating-system `%cpu` values. Its limit is 500 percent
+  for the exact 7,076-element high-performance case and 400 percent for 16-,
+  320-, and 1,280-item safety or attribution cases; crossing it stops the exact
+  tracked groups and reports their raw contributions.
 - Polling may occur every 250 milliseconds, but polling cadence is never a CPU
   measurement window. The guard must not subtract cumulative CPU time, divide
   by elapsed time, normalize to the cadence, or use any converted percentage
@@ -1034,17 +1036,21 @@ the existing production App artifact embeds the required collaboration
 endpoint. No 7,000-plus runtime benchmark may start without that attestation and
 the project-owned guard. Before the AI request, the test sends an authenticated
 `ready` heartbeat and waits until the guard confirms ownership and active CPU
-sampling for the fixed
-`test-harness`, `client-browser`, `app-server`, and `websocket-server` roles. A
-missing or rejected registration or handshake prevents the request from
-starting. Each invocation proves that its ports were free, then owns one
-production preview and one WebSocket server; Vite development mode, HMR, and
-pre-existing listeners are forbidden. The guard samples only these exact
-test-owned process groups. Its aggregate includes every Chromium root,
-renderer, GPU, utility, and other browser process. The report retains each
-renderer PID's raw system-reported `%cpu` value from the same snapshot as well
-as role breakdowns so browser App work, local preview overhead, WebSocket
-server work, and test-harness overhead are not attributed to one another.
+sampling for the fixed `test-harness`, `client-a-browser`,
+`client-b-browser`, `app-server`, and `websocket-server` roles for a two-Actor
+proof. A single-Actor attribution requires only `client-a-browser`. A missing
+or rejected registration or handshake prevents the request from starting.
+Each invocation proves that its ports were free, then owns one production
+preview and one WebSocket server; Vite development mode, HMR, and pre-existing
+listeners are forbidden. Actor A and Actor B run in independently launched
+Chromium process groups. The guard samples only these exact test-owned process
+groups. Each Actor frontend value includes that Actor Chromium root, renderer,
+GPU, utility, and other browser processes; the aggregate safety value includes
+both Actor groups plus the server and harness groups. The report retains each
+renderer PID's Actor identity and raw system-reported `%cpu` value from the
+same snapshot as well as role breakdowns so Actor A, Actor B, local preview
+overhead, WebSocket server work, and test-harness overhead are not attributed
+to one another.
 Page-target CDP reports main-thread task,
 script, layout, and style-recalculation deltas; CDP-visible workers are named
 separately; the remaining unexplained renderer contribution stays residual
@@ -1063,10 +1069,11 @@ peak.
 The fixed limits cannot be relaxed through runner configuration:
 
 - for the exact 7,076-element high-performance proof, any single raw system
-  snapshot whose complete `client-browser` sum is above 500 percent CPU stops
-  the benchmark immediately and marks that architecture attempt invalid;
+  snapshot whose complete Actor A or complete Actor B browser sum is above 500
+  percent CPU stops the benchmark immediately and marks that architecture
+  attempt invalid;
 - for 16-, 320-, and 1,280-item safety or attribution proofs, the corresponding
-  complete `client-browser` limit remains 250 percent CPU;
+  complete per-Actor browser limit remains 250 percent CPU;
 - for the exact 7,076-element high-performance proof, any single raw system
   snapshot whose aggregate frontend, App-server, WebSocket-server, and
   test-harness sum is above 500 percent CPU stops the benchmark immediately;
@@ -1079,14 +1086,14 @@ The fixed limits cannot be relaxed through runner configuration:
   above the ordinary 80 percent baseline.
 
 Crossing a limit is a failed refactor architecture attempt, not a slow pass or a
-benchmark warning. The guard sends termination to the fixed tracked
-client-browser, App server, WebSocket server, and Playwright harness process
-groups, waits at most three seconds, then force terminates only surviving
-tracked test processes. It must report the last completed phase, Actor A and
-Actor B element counts, publication progress, aggregate and separate role CPU
-samples, and last owner timing. If exact process ownership or the heartbeat
-cannot be established, the benchmark refuses to start rather than running
-unguarded.
+benchmark warning. The guard sends termination to the fixed tracked Actor A
+browser, Actor B browser, App server, WebSocket server, and Playwright harness
+process groups, waits at most three seconds, then force terminates only
+surviving tracked test processes. It must report the last completed phase,
+Actor A and Actor B element counts, publication progress, both per-Actor
+frontend peaks, aggregate and separate role CPU samples, and last owner
+timing. If exact process ownership or the heartbeat cannot be established, the
+benchmark refuses to start rather than running unguarded.
 
 Every `ps` sample has a 200-millisecond hard timeout, shorter than the fixed
 250-millisecond cadence. SIGINT, SIGTERM, SIGHUP, exceptional guard exit, and
@@ -2317,7 +2324,8 @@ Step Execution Card:
   `apps/asyra-design/e2e/performance-resource-guard.mjs`,
   `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
   `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
-  the performance Inspector, and its contract test.
+  the performance Inspector, its contract test, and the directly referenced
+  AI conversational drawing performance BDD feature.
 - Required gates: focused failing-oracle evidence, focused resource-guard and
   harness-config suites, Inspector contract, exact lint, bounded diff review,
   one guarded 16-item proof, then one materially revised guarded 7,076-element
@@ -3270,6 +3278,132 @@ eight/eight ordered publications, one/zero Undo depth, zero failures, and
 confirmed teardown. Its maximum raw frontend system value was 196.4 percent,
 below the 250-percent limit; operation completed and converged in 5,007
 milliseconds.
+
+The next relay-owned 7,076-element invocation stayed below its 500-percent
+limits and completed Actor A and Actor B at 7,076/7,076 canonical and Render
+elements with 136/136 ordered publications, one/zero Undo depth, zero
+publication failures, and 10,055-millisecond convergence. Its observed raw
+combined Chromium value was 333.9 percent. That value joined both Actor
+contexts from one Chrome process group and is therefore not a valid per-Actor
+frontend peak; it remains aggregate observation evidence only. The run then
+failed because the terminal
+diagnostic reconstructed `loadingFrameVisibleCount` from a retained sample ring
+after more than 16,384 later counter samples had evicted that first sample.
+The existing exact counter total still retained the event.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: make the loading-frame terminal oracle consume the profile's O(1)
+  exact accumulated counter total so bounded sample-ring rollover cannot erase
+  already-proven evidence.
+- Test-first oracle: the Playwright config contract requires
+  `readCounterTotal('ai-drawing:loading-frame-visible')`; the current
+  snapshot-filter implementation failed that oracle. The performance-profile
+  rollover test already proves accumulated totals survive sample eviction.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: complete Playwright config and performance-profile focused
+  suites, Inspector, exact lint, `diff --check`, bounded review, production
+  setup, one guarded 16-item proof, then one materially corrected final
+  7,076-element proof.
+- Exclusions: no product action, counter emission, retained-ring size, CPU
+  formula or threshold, polling, heartbeat, deadline, workload, codec,
+  receiver, remote apply, relay data plane, Render, Contents, Pen Tool,
+  dependency, recording, or visual-review change.
+- Stop condition: any correctness, resource, or time stop ends only that gate
+  and begins the next bounded owner iteration.
+
+The corrected guarded 16-item proof then reached a raw frontend CPU resource
+stop at operation start after the relay had already accepted all eight source
+publications and before the first canonical progress heartbeat. The preceding
+accepted 16-item diagnostics identify
+`factory:owner-batch-clone` as a 70.3-millisecond recursive copy of the complete
+already-validated geometry graph. Scene Tree combines the Props and Scene
+owner events in one new frozen outer array, but that array does not retain the
+Reactive Events detached-owner identity, so Factory correctly treats it as
+untrusted external input and clones it again.
+
+Step Execution Card:
+
+- Owner: `record-and-deliver-transaction-batch`.
+- Objective: preserve the detached identity of the already-immutable canonical
+  owner batch when Scene Tree creates its ordered Props-then-Scene outer
+  container, so Factory can reuse that exact batch without another recursive
+  geometry traversal.
+- Test-first oracle: the existing combined canonical handoff test requires the
+  exact batch received by the transaction owner to be recognized as a detached
+  transaction value. The current unmarked frozen array fails that expectation.
+- Mutation allowlist: `packages/reactive-events/src/app/publish.ts`,
+  `packages/reactive-events/src/__tests__/transaction-batch.test.ts`,
+  `packages/scene-tree/src/sceneTree.ts`,
+  `packages/scene-tree/src/__tests__/sceneTree.test.ts`,
+  `packages/factory/src/__tests__/factory-batch-regressions.test.ts`, this
+  active plan, the performance Inspector and its contract test, plus the
+  Reactive Events and Factory package contracts.
+- Required gates: complete Reactive Events transaction-batch, Scene Tree,
+  affected Factory batch/publication, and Inspector suites; exact package
+  builds and lint; `diff --check`; bounded review; production setup; then one
+  corrected guarded 16-item proof before any high-detail invocation.
+- Exclusions: no external shallow-frozen trust, schema or relationship bypass,
+  new history representation, publication shape, codec, receiver, remote
+  apply, relay data plane, Render, Contents, Pen Tool, CPU threshold, polling,
+  deadline, dependency, recording, or visual-review change.
+- Stop condition: any correctness, resource, or time stop ends only that gate
+  and begins the next bounded owner iteration without ending the task.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: launch Actor A and Actor B in independently registered Chromium
+  process groups, retain one raw same-snapshot frontend CPU value and peak for
+  each Actor, apply the proof-class frontend limit to each Actor separately,
+  and reserve their sum for the distinct aggregate safety limit.
+- Test-first oracle: one raw sample with Actor A at 140 percent, Actor B at 140
+  percent, and aggregate CPU at 280 percent must pass the 250-percent
+  per-Actor frontend gate while reporting both exact Actor values. The current
+  combined `client-browser` role incorrectly stops at 280 percent.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/playwright.endpoint-performance.config.ts`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: prove the new guard oracle fails first; pass the complete
+  focused resource-guard and Playwright-config suites, Inspector contract,
+  exact lint, `diff --check`, and bounded review; then rerun one guarded
+  two-Actor 16-item proof before any high-detail invocation.
+- Exclusions: no workload, prompt, fixture, CPU threshold, sampling cadence,
+  deadline, product route, CRDT owner, browser profile, package, Contents, Pen
+  Tool, recording, trace, or screenshot change.
+- Stop condition: inability to establish two independently attributable
+  Chromium process groups invalidates the performance proof and returns to
+  this owner; it does not authorize a combined frontend metric or stop the
+  overall task.
+
+The per-Actor guard correction passed 73/73 resource-guard tests, 7/7
+Playwright-config tests, 21/21 Inspector contract tests, exact lint,
+Playwright discovery, and `diff --check`. The formal oracle first failed
+because `client-a-browser` and `client-b-browser` were not recognized
+independently, then passed with separate sampled process groups, separate Actor
+peaks, and one retained aggregate peak. Full App TypeScript checking remains
+blocked by pre-existing dirty AI/Common API/Contents errors outside this owner;
+the endpoint spec itself loads through the formal Playwright config.
+
+The final bounded guarded 16-item proof launched Actor A and Actor B in
+separate Chromium process groups and completed without a resource stop. Actor
+A's real raw operating-system frontend peak was 169.0 percent, Actor B's was
+125.0 percent, and the overall same-snapshot peak across both browsers, App
+server, WebSocket server, and harness was 306.2 percent. Both Actors completed
+17/17 canonical and Render elements, Actor A sent eight ordered publications,
+Actor B applied all eight with zero failures, history depth remained one/zero,
+operation duration was 5,072 milliseconds, convergence was 5,010
+milliseconds, and all five tracked process groups terminated exactly. The
+earlier 284.9-percent combined-browser stop is invalid as a per-client
+frontend decision and must not be used as endpoint evidence.
 
 ## Current Local Gates
 

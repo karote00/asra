@@ -1,4 +1,5 @@
 import {
+  chromium,
   expect,
   test,
   type Browser,
@@ -36,6 +37,9 @@ const referenceImagePath = fileURLToPath(
     '../visual-review-records/research/research-02-original-tabby-source.png',
     import.meta.url
   )
+)
+const guardLauncherPath = fileURLToPath(
+  new URL('./performance-resource-guard.mjs', import.meta.url)
 )
 
 const requireEnvironment = (name: string): string => {
@@ -1466,9 +1470,9 @@ const readFinalDiagnostics = async (
         canonicalWorkUnitCount: canonicalWorkUnitDurations.length,
         cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
         cooperativeYieldSampleCount: cooperativeYieldSamples.length,
-        loadingFrameVisibleCount: drawingCounters.filter(
-          ({ name }) => name === 'ai-drawing:loading-frame-visible'
-        ).length,
+        loadingFrameVisibleCount: profile.readCounterTotal(
+          'ai-drawing:loading-frame-visible'
+        ),
         longestCanonicalWorkUnitMs:
           canonicalWorkUnitDurations.length === 0
             ? 0
@@ -2189,6 +2193,22 @@ const createActor = async (
   }
 }
 
+const launchTrackedActorBBrowser = async (): Promise<Browser> => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string'
+    )
+  )
+  return await chromium.launch({
+    env: {
+      ...env,
+      ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
+      ASYRA_DESIGN_TRACKED_ROLE: 'client-b-browser'
+    },
+    executablePath: guardLauncherPath
+  })
+}
+
 const prepareEndpointActorsSequentially = async ({
   baseURL,
   browser,
@@ -2204,10 +2224,12 @@ const prepareEndpointActorsSequentially = async ({
 }): Promise<{
   actorA: Page
   actorB: Page
+  actorBBrowser: Browser
   contexts: readonly [BrowserContext, BrowserContext]
   serverResponseSeed: PreparedAsyraDesignServerResponseSeedMetrics
 }> => {
   const contexts: BrowserContext[] = []
+  let actorBBrowser: Browser | null = null
   try {
     await postHeartbeat(
       'progress',
@@ -2228,7 +2250,8 @@ const prepareEndpointActorsSequentially = async ({
         'actor-b-context-create'
       )
     )
-    const actorB = await createActor(browser, baseURL)
+    actorBBrowser = await launchTrackedActorBBrowser()
+    const actorB = await createActor(actorBBrowser, baseURL)
     contexts.push(actorB.context)
 
     const preparedResponse = getPreparedServerResponseVariant(
@@ -2305,11 +2328,13 @@ const prepareEndpointActorsSequentially = async ({
     return {
       actorA: actorA.page,
       actorB: actorB.page,
+      actorBBrowser,
       contexts: [actorA.context, actorB.context],
       serverResponseSeed
     }
   } catch (error) {
     await closeContexts(contexts)
+    await actorBBrowser?.close().catch(() => undefined)
     throw error
   }
 }
@@ -2327,7 +2352,9 @@ test('empty-document two-Actor endpoint connectivity', async ({
   }
   const fileId = `connectivity-${endpointOwner}-${Date.now()}`
   const contexts: BrowserContext[] = []
+  let actorBBrowser: Browser | null = null
   try {
+    actorBBrowser = await launchTrackedActorBBrowser()
     await waitForGuardReady(createConnectivityHeartbeat('browser-launched'))
     await delay(750)
     const ordinarySingleActor = await createActor(browser, baseURL)
@@ -2380,7 +2407,7 @@ test('empty-document two-Actor endpoint connectivity', async ({
     await waitForConnectivityCpuSample('actor-a-collaboration-ready', () =>
       waitForCollaboration(actorA.page, 'Actor A')
     )
-    const actorB = await createActor(browser, baseURL)
+    const actorB = await createActor(actorBBrowser, baseURL)
     contexts.push(actorB.context)
     await waitForConnectivityCpuSample('actor-b-blank-idle')
     await waitForConnectivityCpuSample('actor-b-navigation', () =>
@@ -2407,6 +2434,7 @@ test('empty-document two-Actor endpoint connectivity', async ({
     expect(getCapturedBrowserErrors(actorB.page)).toEqual([])
   } finally {
     await closeContexts(contexts)
+    await actorBBrowser?.close().catch(() => undefined)
   }
 })
 
@@ -2657,7 +2685,7 @@ test('two-Actor operation and idle attribution', async ({
   } else if (requestedItems === 320) {
     prompt = 'create the 320-item CRDT performance fixture'
   }
-  const { actorA, actorB, contexts, serverResponseSeed } =
+  const { actorA, actorB, actorBBrowser, contexts, serverResponseSeed } =
     await prepareEndpointActorsSequentially({
       baseURL,
       browser,
@@ -2910,7 +2938,8 @@ test('two-Actor operation and idle attribution', async ({
     await Promise.allSettled([
       actorASession.detach(),
       actorBSession.detach(),
-      closeContexts(contexts)
+      closeContexts(contexts),
+      actorBBrowser.close()
     ])
   }
 })
@@ -2928,7 +2957,7 @@ test('creation-only high-detail endpoint proof', async ({
   }
   const preparedResponse = getPreparedServerResponseVariant(7075)
   const fileId = preparedResponse.fileId
-  const { actorA, actorB, contexts, serverResponseSeed } =
+  const { actorA, actorB, actorBBrowser, contexts, serverResponseSeed } =
     await prepareEndpointActorsSequentially({
       baseURL,
       browser,
@@ -3474,6 +3503,7 @@ test('creation-only high-detail endpoint proof', async ({
     throw error
   } finally {
     await closeContexts(contexts)
+    await actorBBrowser.close().catch(() => undefined)
   }
 
   expect(report).not.toBeNull()
