@@ -889,6 +889,41 @@ describe('collaboration wire protocol', () => {
     expect(descriptorReadCount).toBe(unsplitDescriptorReads)
   })
 
+  it('writes one large prepared delivery directly into final frame ownership', () => {
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-direct-frame-ownership',
+      publication: createPublication({
+        payload: {
+          id: 'direct-frame-ownership',
+          source: `direct-frame-copy:${'x'.repeat(96 * 1024)}`
+        },
+        suffix: 'direct-frame-ownership'
+      })
+    }
+    const originalSet = Uint8Array.prototype.set
+    const largeCopyByteLengths: number[] = []
+    const set = vi
+      .spyOn(Uint8Array.prototype, 'set')
+      .mockImplementation(function (source, offset) {
+        if (source.byteLength >= 64 * 1024) {
+          largeCopyByteLengths.push(source.byteLength)
+        }
+        return originalSet.call(this, source, offset)
+      })
+
+    try {
+      const frames = encodePublicationMessageFrames(request)
+
+      expect(frames).toHaveLength(1)
+      expect(decodePublicationMessageFrames(frames)).toEqual(request)
+    } finally {
+      set.mockRestore()
+    }
+
+    expect(largeCopyByteLengths).toHaveLength(2)
+  })
+
   it('treats 1 MiB as a soft frame target and accepts one oversized indivisible delivery', () => {
     const oversizedPublication = createPublication({
       payload: { source: 'x'.repeat(1_100_000) },

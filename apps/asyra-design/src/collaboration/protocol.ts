@@ -684,7 +684,7 @@ const buildPublicationFrame = (
     PublicationFrameHeader,
     'frameByteLength' | 'frameId' | 'payloadByteLength' | 'version'
   >,
-  payload: Uint8Array
+  payload: PublicationPayloadChunk
 ): ArrayBuffer => {
   const requestIdBytes = publicationFrameStringBytes(header.requestId)
   const publicationIdBytes = publicationFrameStringBytes(header.publicationId)
@@ -715,7 +715,14 @@ const buildPublicationFrame = (
   bytes.set(publicationIdBytes, offset)
   offset += publicationIdBytes.byteLength
   bytes.set(fromActorIdBytes, offset)
-  bytes.set(payload, headerByteLength)
+  offset = headerByteLength
+  payload.segments.forEach((segment) => {
+    bytes.set(segment, offset)
+    offset += segment.byteLength
+  })
+  if (offset !== bytes.byteLength) {
+    throw new TypeError('[collaboration] publication frame length mismatch')
+  }
   return bytes.buffer
 }
 
@@ -917,11 +924,16 @@ const publicationFrameHeaderByteLength = (
   publicationFrameStringBytes(publicationId).byteLength +
   publicationFrameStringBytes(fromActorId).byteLength
 
+interface PublicationPayloadChunk {
+  readonly byteLength: number
+  readonly segments: readonly Uint8Array[]
+}
+
 const encodePublicationPayloadChunks = (
   publication: SharedPublication,
   softTargetBytes: number,
   headerByteLength: number
-): readonly Uint8Array[] => {
+): readonly PublicationPayloadChunk[] => {
   const units = publicationWireUnits(publication)
   if (units.length === 0) {
     throw new TypeError('[collaboration] publication has no wire deliveries')
@@ -934,10 +946,11 @@ const encodePublicationPayloadChunks = (
     const unitEncoding = prepareCompactBinaryEncoding(unit)
     return encodePreparedCompactBinary(unitEncoding)
   })
+  const prefixByteLength = PUBLICATION_PAYLOAD_FIXED_BYTES + metadata.byteLength
   const payloadByteLength = encodedUnits.reduce(
     (total, unit) =>
       total + PUBLICATION_PAYLOAD_UNIT_LENGTH_BYTES + unit.byteLength,
-    PUBLICATION_PAYLOAD_FIXED_BYTES + metadata.byteLength
+    prefixByteLength
   )
   if (
     !Number.isSafeInteger(payloadByteLength) ||
@@ -947,83 +960,91 @@ const encodePublicationPayloadChunks = (
       '[collaboration] publication payload exceeds wire range'
     )
   }
-  const encoded = new Uint8Array(payloadByteLength)
-  encoded.set(PUBLICATION_PAYLOAD_MAGIC, 0)
-  encoded[4] = PUBLICATION_PAYLOAD_VERSION
-  const view = new DataView(encoded.buffer)
-  view.setUint32(8, metadata.byteLength, true)
-  view.setUint32(12, encodedUnits.length, true)
-  encoded.set(metadata, PUBLICATION_PAYLOAD_FIXED_BYTES)
-  const itemRanges: { start: number; end: number }[] = []
-  let itemOffset = PUBLICATION_PAYLOAD_FIXED_BYTES + metadata.byteLength
-  for (const unit of encodedUnits) {
-    const start = itemOffset
-    view.setUint32(itemOffset, unit.byteLength, true)
-    itemOffset += PUBLICATION_PAYLOAD_UNIT_LENGTH_BYTES
-    encoded.set(unit, itemOffset)
-    itemOffset += unit.byteLength
-    itemRanges.push({ start, end: itemOffset })
+  const prefix = new Uint8Array(prefixByteLength)
+  prefix.set(PUBLICATION_PAYLOAD_MAGIC, 0)
+  prefix[4] = PUBLICATION_PAYLOAD_VERSION
+  const prefixView = new DataView(prefix.buffer)
+  prefixView.setUint32(8, metadata.byteLength, true)
+  prefixView.setUint32(12, encodedUnits.length, true)
+  prefix.set(metadata, PUBLICATION_PAYLOAD_FIXED_BYTES)
+  const items = encodedUnits.map((unit) => {
+    const length = new Uint8Array(PUBLICATION_PAYLOAD_UNIT_LENGTH_BYTES)
+    new DataView(length.buffer).setUint32(0, unit.byteLength, true)
+    return {
+      byteLength: length.byteLength + unit.byteLength,
+      segments: [length, unit] as const
+    }
+  })
+  const onlyItem = items[0]
+  if (onlyItem && items.length === 1) {
+    return [
+      {
+        byteLength: payloadByteLength,
+        segments: [prefix, ...onlyItem.segments]
+      }
+    ]
   }
-  if (itemOffset !== encoded.byteLength) {
-    throw new TypeError('[collaboration] publication payload length mismatch')
-  }
-  if (itemRanges.length === 1) return [encoded]
 
   const payloadCapacity = Math.max(1, softTargetBytes - headerByteLength)
-  const ranges: { start: number; end: number }[] = []
-  let currentStart = 0
-  let currentEnd = 0
+  const chunks: PublicationPayloadChunk[] = []
+  let currentByteLength = 0
+  let currentSegments: Uint8Array[] = []
   const flush = (): void => {
-    if (currentEnd <= currentStart) return
-    ranges.push({ start: currentStart, end: currentEnd })
-    currentStart = currentEnd
+    if (currentByteLength === 0) return
+    chunks.push({
+      byteLength: currentByteLength,
+      segments: currentSegments
+    })
+    currentByteLength = 0
+    currentSegments = []
   }
 
-  const prefixByteLength = PUBLICATION_PAYLOAD_FIXED_BYTES + metadata.byteLength
-  while (currentEnd < prefixByteLength) {
-    const available = payloadCapacity - (currentEnd - currentStart)
-    const consumed = Math.min(available, prefixByteLength - currentEnd)
-    currentEnd += consumed
-    if (currentEnd - currentStart === payloadCapacity) {
+  let prefixOffset = 0
+  while (prefixOffset < prefix.byteLength) {
+    const consumed = Math.min(
+      payloadCapacity - currentByteLength,
+      prefix.byteLength - prefixOffset
+    )
+    currentSegments.push(prefix.subarray(prefixOffset, prefixOffset + consumed))
+    prefixOffset += consumed
+    currentByteLength += consumed
+    if (currentByteLength === payloadCapacity) {
       flush()
     }
   }
 
-  for (const range of itemRanges) {
-    if (range.start !== currentEnd) {
-      throw new TypeError('[collaboration] invalid publication delivery range')
-    }
-    const currentByteLength = currentEnd - currentStart
-    const deliveryByteLength = range.end - range.start
+  for (const item of items) {
     if (
       currentByteLength > 0 &&
-      currentByteLength + deliveryByteLength > payloadCapacity
+      currentByteLength + item.byteLength > payloadCapacity
     ) {
       flush()
     }
-    if (deliveryByteLength > payloadCapacity) {
+    if (item.byteLength > payloadCapacity) {
       flush()
-      ranges.push(range)
-      currentStart = range.end
-      currentEnd = range.end
+      chunks.push(item)
       continue
     }
-    currentEnd += deliveryByteLength
+    currentSegments.push(...item.segments)
+    currentByteLength += item.byteLength
   }
   flush()
   if (
-    ranges.length === 0 ||
-    ranges[0]?.start !== 0 ||
-    ranges[ranges.length - 1]?.end !== encoded.byteLength ||
-    ranges.some(
-      (range, index) =>
-        range.end <= range.start ||
-        (index > 0 && ranges[index - 1]?.end !== range.start)
-    )
+    chunks.length === 0 ||
+    chunks.some(
+      ({ byteLength, segments }) =>
+        byteLength <= 0 ||
+        segments.reduce(
+          (segmentBytes, segment) => segmentBytes + segment.byteLength,
+          0
+        ) !== byteLength
+    ) ||
+    chunks.reduce((total, chunk) => total + chunk.byteLength, 0) !==
+      payloadByteLength
   ) {
     throw new TypeError('[collaboration] invalid publication frame ranges')
   }
-  return ranges.map(({ start, end }) => encoded.subarray(start, end))
+  return chunks
 }
 
 export const encodePublicationMessageFrames = (
