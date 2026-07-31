@@ -20,6 +20,7 @@ import {
   normalizeGroupsForElements,
   prepareGroupOperation,
   prepareUngroupOperation,
+  projectGroupGeometryPropertyUpdates,
   ungroupElement
 } from './group'
 
@@ -40,13 +41,15 @@ export {
   normalizeGroupsForElements,
   prepareGroupOperation,
   prepareUngroupOperation,
+  projectGroupGeometryPropertyUpdates,
   ungroupElement
 }
 export type {
   GroupBounds,
+  GroupGeometryProjectionCore,
   GroupOperationCore,
   GroupOperationResult,
-  GroupPlanningCore,
+  GroupHierarchyReadCore,
   NormalizedGroupBounds,
   PreparedGroupOperation,
   PreparedUngroupOperation,

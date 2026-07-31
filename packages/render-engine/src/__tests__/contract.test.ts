@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   RenderEngineCapabilities,
   UnsupportedRenderEngineCapabilityError,
@@ -67,8 +67,8 @@ describe('@asyra/render-engine contract', () => {
       query: (query) => recording.query(query),
       subscribeToInteraction: (listener) =>
         recording.subscribeToInteraction(listener),
-      startFrameLoop: (callback) => recording.startFrameLoop(callback),
-      stopFrameLoop: () => recording.stopFrameLoop(),
+      requestFrame: (callback) => recording.requestFrame(callback),
+      cancelFrame: () => recording.cancelFrame(),
       destroy: () => recording.destroy()
     }
 
@@ -81,6 +81,25 @@ describe('@asyra/render-engine contract', () => {
 
     expect(report.engine).toBe(facade)
     expect(report.operationTypes.at(-1)).toBe('destroy')
+  })
+
+  it('delivers one requested frame at most once and cancels pending work', () => {
+    const engine = new RecordingRenderEngine({ name: 'frame-scheduling' })
+    engine.initialize({ host: {}, width: 100, height: 100 })
+    const callback = vi.fn()
+
+    engine.requestFrame(callback)
+    engine.emitFrame(1)
+    engine.emitFrame(2)
+
+    expect(callback).toHaveBeenCalledOnce()
+    expect(callback).toHaveBeenCalledWith(1)
+
+    engine.requestFrame(callback)
+    engine.cancelFrame()
+    engine.emitFrame(3)
+
+    expect(callback).toHaveBeenCalledOnce()
   })
 
   it('keeps recording engine instances isolated', async () => {

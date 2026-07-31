@@ -182,6 +182,37 @@ describe('AI drawing performance profile', () => {
     profile.dispose()
   })
 
+  it('bounds diagnostic names and accumulated counter key space', () => {
+    const counterKeyCapacity = 1_024
+    const profile = installAiDrawingPerformanceProfile({
+      now: () => 0,
+      runtime: 'production'
+    })
+
+    for (let index = 0; index < counterKeyCapacity; index += 1) {
+      runtimeGlobal.__asyraDiagnosticCounterSink?.(`counter-${index}`, 1)
+    }
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('counter-overflow', 1)
+    runtimeGlobal.__asyraDiagnosticCounterSink?.('counter-0', 1)
+    const oversizedName = `phase-${'x'.repeat(512)}`
+    runtimeGlobal.__asyraBrowserDragPhaseSink?.(oversizedName, 1)
+    runtimeGlobal.__asyraDiagnosticCounterSink?.(oversizedName, 1)
+
+    expect(profile.readCounterTotal('counter-0')).toBe(2)
+    expect(profile.readCounterTotal('counter-overflow')).toBe(0)
+    expect(profile.readCounterTotal(oversizedName)).toBe(0)
+    expect(
+      profile
+        .snapshot()
+        .counters.some(({ name }) => name === 'counter-overflow')
+    ).toBe(false)
+    expect(
+      profile.snapshot().phases.some(({ name }) => name === oversizedName)
+    ).toBe(false)
+
+    profile.dispose()
+  })
+
   it('reads detached conversation failure evidence without exposing the controller snapshot', () => {
     const profile = installAiDrawingPerformanceProfile({
       now: () => 0,
@@ -226,6 +257,13 @@ describe('AI drawing performance profile', () => {
     expect(evidence).toEqual(controllerSnapshot)
     expect(evidence).not.toBe(controllerSnapshot)
     expect(evidence?.settledTurns).not.toBe(controllerSnapshot.settledTurns)
+    expect(profile.readLatestTurnSettlement()).toEqual({
+      code: 'AI_FEATURE_FAILED',
+      message: null,
+      outcome: 'failed',
+      stage: 'feature',
+      status: 'failed'
+    })
 
     detach()
     profile.dispose()
@@ -297,6 +335,62 @@ describe('AI drawing performance profile', () => {
       { atMs: 66, durationMs: 55, name: 'ai-turn:accepted-to-settled' }
     ])
 
+    profile.dispose()
+  })
+
+  it('bounds settlement strings without reading accessors or nested server geometry', () => {
+    const profile = installAiDrawingPerformanceProfile({
+      now: () => 0,
+      runtime: 'production'
+    })
+    const stageGetter = vi.fn(() => {
+      throw new Error('stage accessor must not run')
+    })
+    const geometryTrap = vi.fn(() => {
+      throw new Error('nested geometry must not be traversed')
+    })
+    const result: Record<string, unknown> = {
+      code: 'C'.repeat(100),
+      geometry: new Proxy(
+        {},
+        {
+          getOwnPropertyDescriptor: geometryTrap,
+          getPrototypeOf: geometryTrap,
+          ownKeys: geometryTrap
+        }
+      ),
+      message: 'M'.repeat(400),
+      status: 'failed'
+    }
+    Object.defineProperty(result, 'stage', {
+      enumerable: true,
+      get: stageGetter
+    })
+    profile.attachConversation({
+      subscribe: (subscriber: (snapshot: unknown) => void) => {
+        subscriber({
+          activeTurn: null,
+          settledTurns: [
+            {
+              durationMs: 1,
+              outcome: 'failed',
+              result
+            }
+          ]
+        })
+        return () => undefined
+      }
+    } as never)
+
+    expect(profile.readLatestTurnSettlement()).toEqual({
+      code: 'C'.repeat(80),
+      message: 'M'.repeat(300),
+      outcome: 'failed',
+      stage: null,
+      status: 'failed'
+    })
+    expect(stageGetter).not.toHaveBeenCalled()
+    expect(geometryTrap).not.toHaveBeenCalled()
     profile.dispose()
   })
 
@@ -399,6 +493,7 @@ describe('AI drawing performance profile', () => {
     })
 
     expect(profile).not.toHaveProperty('attachRuntimeEvidence')
+    expect(profile.readLatestFactoryTransactionStatus()).toBeNull()
     expect(profile.readCanonicalElementCount()).toBe(1)
     expect(profile.readFactoryPublicationCount()).toBe(0)
     expect(profile.readHistoryDepth()).toBe(0)
@@ -435,6 +530,18 @@ describe('AI drawing performance profile', () => {
       timestamp: 700,
       transactionId: 6,
       undoableChangeCount: 2
+    })
+    expect(profile.readLatestFactoryTransactionStatus()).toMatchObject({
+      failure: {
+        cause: {
+          message: 'canonical mutation failed',
+          name: 'TypeError'
+        },
+        kind: 'handler-error',
+        message: 'action rolled back'
+      },
+      status: 'rolled-back',
+      transactionId: 6
     })
     expect(profile.readHistoryDepth()).toBe(0)
     authoritativeHistoryDepth = 1
@@ -538,6 +645,42 @@ describe('AI drawing performance profile', () => {
       factoryStatuses: []
     })
     expect(profile.readFactoryPublicationCount()).toBe(0)
+    expect(profile.readLatestFactoryTransactionStatus()).toBeNull()
+
+    const boundedError = new Error('E'.repeat(400))
+    boundedError.name = 'N'.repeat(100)
+    transactionSubscriber?.({
+      changeCount: 0,
+      error: boundedError,
+      failure: {
+        cause: new Error('C'.repeat(400)),
+        kind: 'handler-error',
+        message: 'F'.repeat(400)
+      },
+      nonRollbackableChangeCount: 0,
+      origin: 'action',
+      providerName: 'P'.repeat(100),
+      rollbackableChangeCount: 0,
+      status: 'rolled-back',
+      timestamp: 775,
+      transactionId: 8,
+      undoableChangeCount: 0
+    })
+    expect(profile.readLatestFactoryTransactionStatus()).toMatchObject({
+      error: {
+        message: 'E'.repeat(300),
+        name: 'N'.repeat(80)
+      },
+      failure: {
+        cause: {
+          message: 'C'.repeat(300),
+          name: 'Error'
+        },
+        message: 'F'.repeat(300)
+      },
+      providerName: 'P'.repeat(80)
+    })
+    profile.reset()
 
     transactionSubscriber?.({
       changeCount: 2,
@@ -587,6 +730,126 @@ describe('AI drawing performance profile', () => {
     )
     expect(() => profile.readZoom()).toThrow('runtime evidence is unavailable')
 
+    profile.dispose()
+  })
+
+  it('retains a fixed-capacity window for Factory status, commit, and publication evidence', () => {
+    const capacity = 16_384
+    let transactionSubscriber:
+      | ((status: TransactionStatusPayload) => void)
+      | undefined
+    const profile = installAiDrawingPerformanceProfile({
+      epochNow: () => 1_000,
+      now: () => 0,
+      runtime: 'production'
+    })
+    const detachRuntime = attachAiDrawingPerformanceRuntimeEvidence(profile, {
+      readCanonicalElementCount: () => 0,
+      readCanonicalElements: () => [],
+      readCanonicalOwnerSnapshot: () => ({ props: {}, sceneTree: {} }),
+      readHistoryDepth: () => 0,
+      readRenderProjectionElementCount: () => 0,
+      readViewportPosition: () => ({ x: 0, y: 0 }),
+      readZoom: () => 1,
+      subscribeToTransactionStatus: (subscriber) => {
+        transactionSubscriber = subscriber
+        return () => undefined
+      }
+    })
+
+    for (let index = 0; index < capacity + 3; index += 1) {
+      transactionSubscriber?.({
+        changeCount: 1,
+        nonRollbackableChangeCount: 0,
+        origin: 'action',
+        rollbackableChangeCount: 1,
+        status: 'committed',
+        timestamp: index,
+        transactionId: index,
+        undoableChangeCount: 1
+      })
+      recordAiDrawingPerformancePublication(profile, {
+        deliveryCount: 1,
+        publicationId: `publication-${index}`
+      })
+    }
+
+    const evidence = profile.getRuntimeEvidence()
+    expect(evidence.factoryStatuses).toHaveLength(capacity)
+    expect(evidence.factoryCommits).toHaveLength(capacity)
+    expect(evidence.factoryPublications).toHaveLength(capacity)
+    expect(evidence.factoryStatuses[0]?.transactionId).toBe(3)
+    expect(evidence.factoryCommits[0]?.transactionId).toBe(3)
+    expect(evidence.factoryPublications[0]?.publicationId).toBe(
+      'publication-3'
+    )
+    expect(profile.readLatestFactoryTransactionStatus()?.transactionId).toBe(
+      capacity + 2
+    )
+    expect(profile.readFactoryPublicationCount()).toBe(capacity)
+
+    detachRuntime()
+    profile.dispose()
+  })
+
+  it('captures hostile diagnostic values without losing the latest status', () => {
+    let transactionSubscriber:
+      | ((status: TransactionStatusPayload) => void)
+      | undefined
+    const profile = installAiDrawingPerformanceProfile({
+      now: () => 0,
+      runtime: 'production'
+    })
+    const hostileTrap = vi.fn(() => {
+      throw new Error('diagnostic object must not be inspected dynamically')
+    })
+    const hostileValue = new Proxy(
+      {},
+      {
+        get: hostileTrap,
+        getOwnPropertyDescriptor: hostileTrap,
+        getPrototypeOf: hostileTrap,
+        ownKeys: hostileTrap
+      }
+    )
+    const detachRuntime = attachAiDrawingPerformanceRuntimeEvidence(profile, {
+      readCanonicalElementCount: () => 0,
+      readCanonicalElements: () => [],
+      readCanonicalOwnerSnapshot: () => ({ props: {}, sceneTree: {} }),
+      readHistoryDepth: () => 0,
+      readRenderProjectionElementCount: () => 0,
+      readViewportPosition: () => ({ x: 0, y: 0 }),
+      readZoom: () => 1,
+      subscribeToTransactionStatus: (subscriber) => {
+        transactionSubscriber = subscriber
+        return () => undefined
+      }
+    })
+
+    expect(() =>
+      transactionSubscriber?.({
+        changeCount: 0,
+        error: hostileValue,
+        failure: {
+          cause: hostileValue,
+          kind: 'handler-error'
+        },
+        nonRollbackableChangeCount: 0,
+        origin: 'action',
+        rollbackableChangeCount: 0,
+        status: 'rolled-back',
+        timestamp: 10,
+        transactionId: 10,
+        undoableChangeCount: 0
+      })
+    ).not.toThrow()
+    expect(profile.readLatestFactoryTransactionStatus()).toMatchObject({
+      status: 'rolled-back',
+      transactionId: 10
+    })
+    expect(hostileTrap).toHaveBeenCalled()
+
+    detachRuntime()
     profile.dispose()
   })
 })

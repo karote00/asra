@@ -18,6 +18,8 @@ import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   type AddRemoveElementChange,
+  type AddRemoveElementEntry,
+  type AddRemoveElementsChange,
   type ComputedAttrs,
   type GroupRawData,
   type MoveElementsChange,
@@ -28,14 +30,17 @@ import {
   type SubtreeChange,
   type UpdateElementBatchChange,
   type UpdateElementChange,
+  type UpdateElementDataChange,
   type UpdateElementPatchChange,
   type WorkspaceRawData
 } from '@asyra/utils'
 import type {
+  AllEvent,
   UpdateComputedDataBatchEvent,
   UpdateComputedDataEvent,
   UpdateComputedDataPatchEvent
 } from '@asyra/reactive-events'
+import { subscribeToEventBatches } from '@asyra/reactive-events'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import { createCleanupReporter } from '../cleanup-reporter'
 import {
@@ -78,6 +83,25 @@ const recordRenderProjectionOutcome = (outcome: unknown) => {
 const getMatchingPropertiesForSceneTreeChange = (
   change: SceneTreeChange
 ): string[] => {
+  if (change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA) {
+    const rawChange = change as UpdateElementDataChange
+    return Array.from(
+      new Set(
+        rawChange.changes.flatMap(({ key, before, after }) =>
+          propertyRegistry.getMatchingProperties({
+            action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+            eventName: rawChange.eventName,
+            id: rawChange.id,
+            key,
+            before,
+            after,
+            options: rawChange.options
+          } as unknown as SceneTreeChange)
+        )
+      )
+    )
+  }
+
   if (
     change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH &&
     change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
@@ -133,15 +157,49 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
       const { data, parentId, index } = change as AddRemoveElementChange
+      if (
+        typeof parentId === 'string' &&
+        Number.isInteger(index) &&
+        (index as number) >= 0
+      ) {
+        return recordRenderProjectionOutcome(
+          renderSceneTreeStore.addElements([
+            { data, parentId, index: index as number }
+          ])[0]
+        )
+      }
       return recordRenderProjectionOutcome(
         renderSceneTreeStore.addElementById(data.id, parentId, index)
       )
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
       const { parentId, index, data } = change as AddRemoveElementChange
+      if (
+        typeof parentId === 'string' &&
+        Number.isInteger(index) &&
+        (index as number) >= 0
+      ) {
+        return recordRenderProjectionOutcome(
+          renderSceneTreeStore.removeElements([
+            { data, parentId, index: index as number }
+          ])[0]
+        )
+      }
       return recordRenderProjectionOutcome(
         renderSceneTreeStore.removeElement(data, parentId, index)
       )
+    }
+    case SCENE_TREE_ACTIONS.ADD_ELEMENTS: {
+      const { entries } = change as AddRemoveElementsChange
+      return renderSceneTreeStore
+        .addElements(entries)
+        .map(recordRenderProjectionOutcome)
+    }
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENTS: {
+      const { entries } = change as AddRemoveElementsChange
+      return renderSceneTreeStore
+        .removeElements(entries)
+        .map(recordRenderProjectionOutcome)
     }
     case SCENE_TREE_ACTIONS.MOVE_ELEMENTS: {
       const { moves } = change as MoveElementsChange
@@ -154,6 +212,21 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
       return recordRenderProjectionOutcome(
         renderSceneTreeStore.applySubtreeChange(change as SubtreeChange)
       )
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
+      const { id, changes, options } = change as UpdateElementDataChange
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElementBatch(
+          id,
+          changes.map(({ key, before, after }) => ({
+            owner: 'raw',
+            key,
+            before,
+            after
+          })),
+          options
+        )
+      )
+    }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, owner, key, before, after, options } =
         change as UpdateElementChange
@@ -185,13 +258,7 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
 
 const toRenderElementAddition = (
   change: SceneTreeChange
-):
-  | {
-      elementId: string
-      parentId: string
-      index: number
-    }
-  | undefined => {
+): AddRemoveElementEntry | undefined => {
   if (change.action !== SCENE_TREE_ACTIONS.ADD_ELEMENT) {
     return
   }
@@ -207,10 +274,53 @@ const toRenderElementAddition = (
     return
   }
   return {
-    elementId: data.id,
+    data,
     parentId,
     index: index as number
   }
+}
+
+const toLocalComputedSceneTreeChange = (
+  event:
+    | UpdateComputedDataEvent
+    | UpdateComputedDataBatchEvent
+    | UpdateComputedDataPatchEvent
+): SceneTreeChange | undefined => {
+  const { payload } = event
+
+  if ('patch' in payload) {
+    return {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: payload.id,
+      patch: payload.patch
+    } as UpdateElementPatchChange
+  }
+
+  if ('changes' in payload) {
+    if (payload.changes.some(({ owner }) => owner !== 'computed')) {
+      return
+    }
+    return {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      id: payload.id,
+      changes: payload.changes
+    } as UpdateElementBatchChange
+  }
+
+  if (payload.owner !== 'computed') {
+    return
+  }
+  return {
+    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+    eventName: EventTypes.UPDATE_COMPUTED_DATA,
+    id: payload.id,
+    owner: payload.owner,
+    key: payload.key,
+    before: payload.before,
+    after: payload.after
+  } as UpdateElementChange
 }
 
 export const projectLocalComputedEventToRender = (
@@ -219,41 +329,34 @@ export const projectLocalComputedEventToRender = (
     | UpdateComputedDataBatchEvent
     | UpdateComputedDataPatchEvent
 ) => {
-  const { payload } = event
-
-  if ('patch' in payload) {
-    return updateRenderSceneTree({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      id: payload.id,
-      patch: payload.patch
-    } as UpdateElementPatchChange)
+  const change = toLocalComputedSceneTreeChange(event)
+  if (change) {
+    return updateRenderSceneTree(change)
   }
+}
 
-  if ('changes' in payload) {
-    if (payload.changes.some(({ owner }) => owner !== 'computed')) {
-      return
-    }
-    return updateRenderSceneTree({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      id: payload.id,
-      changes: payload.changes
-    } as UpdateElementBatchChange)
-  }
+const isLocalComputedSceneTreeChange = (change: SceneTreeChange): boolean =>
+  change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA ||
+  change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH ||
+  change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
 
-  if (payload.owner !== 'computed') {
+const toLocalComputedProjectionEvent = (
+  event: AllEvent
+):
+  | UpdateComputedDataEvent
+  | UpdateComputedDataBatchEvent
+  | UpdateComputedDataPatchEvent
+  | undefined => {
+  if (
+    event.type !== EventTypes.UPDATE_COMPUTED_DATA &&
+    event.type !== EventTypes.UPDATE_COMPUTED_DATA_PATCH
+  ) {
     return
   }
-  return updateRenderSceneTree({
-    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-    eventName: EventTypes.UPDATE_COMPUTED_DATA,
-    id: payload.id,
-    owner: payload.owner,
-    key: payload.key,
-    before: payload.before,
-    after: payload.after
-  } as UpdateElementChange)
+  return event as
+    | UpdateComputedDataEvent
+    | UpdateComputedDataBatchEvent
+    | UpdateComputedDataPatchEvent
 }
 
 const updateRenderSceneTreeBatch = (changes: readonly SceneTreeChange[]) => {
@@ -278,13 +381,9 @@ const updateRenderSceneTreeBatch = (changes: readonly SceneTreeChange[]) => {
       nextIndex += 1
     }
 
-    if (additions.length === 1) {
-      updateRenderSceneTree(change)
-    } else {
-      renderSceneTreeStore
-        .addElementsById(additions)
-        .forEach(recordRenderProjectionOutcome)
-    }
+    renderSceneTreeStore
+      .addElements(additions)
+      .forEach(recordRenderProjectionOutcome)
     changeIndex = nextIndex
   }
 }
@@ -357,23 +456,33 @@ const syncElementSelectionAndDerived = (
   )
 }
 
-const syncSelectionOnElementRemoval = (
+const syncSelectionOnElementRemovals = (
   core: PresetCoreAPIs,
-  removedId: string
-) => {
+  removedIds: readonly string[]
+): boolean => {
   const selection = core.getSelection(SelectionChannels.ELEMENT)
   if (!selection) {
-    return
+    return false
   }
 
+  const removedIdSet = new Set(
+    removedIds.filter(
+      (removedId) => typeof removedId === 'string' && removedId.length > 0
+    )
+  )
+  if (removedIdSet.size === 0) {
+    return false
+  }
   const current = Array.from(selection.getSelectedIds())
-  if (!current.includes(removedId)) {
-    return
+  const next = current.filter((id) => !removedIdSet.has(id))
+  if (next.length === current.length) {
+    return false
   }
 
-  selection.select(current.filter((id) => id !== removedId))
+  selection.select(next)
   selection.cleanChanges()
   renderSelectionStore.updateSelection(SelectionChannels.ELEMENT)
+  return true
 }
 
 // Sync vector point/segment selection mirrors for UI consumers.
@@ -480,7 +589,9 @@ const sceneTreeChangeUpdatesProjectedHierarchy = (
 ): boolean => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT:
+    case SCENE_TREE_ACTIONS.ADD_ELEMENTS:
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT:
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENTS:
     case SCENE_TREE_ACTIONS.MOVE_ELEMENTS:
     case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
     case SCENE_TREE_ACTIONS.RESTORE_SUBTREE:
@@ -560,6 +671,7 @@ const projectUIContextSceneTreeBatch = (
       requestedIndex?: number
     ): void => {
       if (!parentId) return
+      emitDiagnosticCounter('ui-context-membership-add-scalar')
       const children = childrenByParent.get(parentId) ?? []
       const existingIndex = children.indexOf(elementId)
       if (existingIndex >= 0) {
@@ -572,6 +684,91 @@ const projectUIContextSceneTreeBatch = (
       children.splice(index, 0, elementId)
       childrenByParent.set(parentId, children)
       dirtyParentIds.add(parentId)
+    }
+
+    const insertMembershipBatch = (
+      entries: readonly {
+        parentId: string
+        elementId: string
+        index: number
+      }[]
+    ): void => {
+      if (entries.length === 0) {
+        return
+      }
+      emitDiagnosticCounter('ui-context-membership-add-batch')
+      emitDiagnosticCounter(
+        'ui-context-membership-add-batch-entry',
+        entries.length
+      )
+      const entriesByParent = new Map<
+        string,
+        {
+          elementId: string
+          index: number
+        }[]
+      >()
+      entries.forEach(({ parentId, elementId, index }) => {
+        const parentEntries = entriesByParent.get(parentId) ?? []
+        parentEntries.push({ elementId, index })
+        entriesByParent.set(parentId, parentEntries)
+      })
+
+      entriesByParent.forEach((parentEntries, parentId) => {
+        const insertedIds = new Set(
+          parentEntries.map(({ elementId }) => elementId)
+        )
+        const retainedChildren = (childrenByParent.get(parentId) ?? []).filter(
+          (childId) => !insertedIds.has(childId)
+        )
+        const insertionByIndex = new Map(
+          parentEntries.map(
+            ({ elementId, index }) => [index, elementId] as const
+          )
+        )
+        const children: string[] = []
+        let retainedIndex = 0
+        const childCount = retainedChildren.length + insertionByIndex.size
+        for (let index = 0; index < childCount; index += 1) {
+          const insertedId = insertionByIndex.get(index)
+          if (insertedId) {
+            children.push(insertedId)
+          } else {
+            const retainedId = retainedChildren[retainedIndex]
+            if (retainedId) {
+              children.push(retainedId)
+              retainedIndex += 1
+            }
+          }
+        }
+        childrenByParent.set(parentId, children)
+        dirtyParentIds.add(parentId)
+      })
+    }
+
+    const removeMembershipBatch = (
+      entries: readonly {
+        parentId: string
+        elementId: string
+      }[]
+    ): void => {
+      const removedIdsByParent = new Map<string, Set<string>>()
+      entries.forEach(({ parentId, elementId }) => {
+        const removedIds = removedIdsByParent.get(parentId) ?? new Set<string>()
+        removedIds.add(elementId)
+        removedIdsByParent.set(parentId, removedIds)
+      })
+      removedIdsByParent.forEach((removedIds, parentId) => {
+        const children = childrenByParent.get(parentId)
+        if (!children) return
+        const retainedChildren = children.filter(
+          (childId) => !removedIds.has(childId)
+        )
+        if (retainedChildren.length !== children.length) {
+          childrenByParent.set(parentId, retainedChildren)
+          dirtyParentIds.add(parentId)
+        }
+      })
     }
 
     const setProjectedValue = (
@@ -610,7 +807,23 @@ const projectUIContextSceneTreeBatch = (
       changedElementIds.add(elementId)
     }
 
+    const pendingScalarAdditionMemberships: {
+      parentId: string
+      elementId: string
+      index: number
+    }[] = []
+    const flushScalarAdditionMemberships = (): void => {
+      if (pendingScalarAdditionMemberships.length === 0) {
+        return
+      }
+      insertMembershipBatch(pendingScalarAdditionMemberships)
+      pendingScalarAdditionMemberships.length = 0
+    }
+
     changes.forEach((change) => {
+      if (change.action !== SCENE_TREE_ACTIONS.ADD_ELEMENT) {
+        flushScalarAdditionMemberships()
+      }
       switch (change.action) {
         case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
           const { data, parentId, index } = change as AddRemoveElementChange
@@ -637,7 +850,49 @@ const projectUIContextSceneTreeBatch = (
             )
             dirtyParentIds.add(elementId)
           }
-          insertMembership(projectedParentId, elementId, index)
+          if (
+            projectedParentId &&
+            Number.isInteger(index) &&
+            (index as number) >= 0
+          ) {
+            pendingScalarAdditionMemberships.push({
+              parentId: projectedParentId,
+              elementId,
+              index: index as number
+            })
+          } else {
+            insertMembership(projectedParentId, elementId, index)
+          }
+          break
+        }
+        case SCENE_TREE_ACTIONS.ADD_ELEMENTS: {
+          const { entries } = change as AddRemoveElementsChange
+          const membershipEntries: {
+            parentId: string
+            elementId: string
+            index: number
+          }[] = []
+          entries.forEach(({ data, parentId, index }) => {
+            const elementData = cloneProjectedElementData(data)
+            const elementId =
+              typeof elementData?.id === 'string' ? elementData.id : undefined
+            if (!elementData || !elementId) return
+            elementData.parentId = parentId
+            ensureMutableMap()[elementId] = elementData
+            changedElementIds.add(elementId)
+            if (Array.isArray(elementData.children)) {
+              childrenByParent.set(
+                elementId,
+                elementData.children.filter(
+                  (childId): childId is string =>
+                    typeof childId === 'string' && childId.length > 0
+                )
+              )
+              dirtyParentIds.add(elementId)
+            }
+            membershipEntries.push({ parentId, elementId, index })
+          })
+          insertMembershipBatch(membershipEntries)
           break
         }
         case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
@@ -652,6 +907,21 @@ const projectUIContextSceneTreeBatch = (
           Reflect.deleteProperty(ensureMutableMap(), elementId)
           changedElementIds.add(elementId)
           childrenByParent.delete(elementId)
+          break
+        }
+        case SCENE_TREE_ACTIONS.REMOVE_ELEMENTS: {
+          const { entries } = change as AddRemoveElementsChange
+          removeMembershipBatch(
+            entries.map(({ data, parentId }) => ({
+              parentId,
+              elementId: data.id
+            }))
+          )
+          entries.forEach(({ data }) => {
+            Reflect.deleteProperty(ensureMutableMap(), data.id)
+            changedElementIds.add(data.id)
+            childrenByParent.delete(data.id)
+          })
           break
         }
         case SCENE_TREE_ACTIONS.MOVE_ELEMENTS: {
@@ -740,6 +1010,13 @@ const projectUIContextSceneTreeBatch = (
           })
           break
         }
+        case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
+          const { id, changes: updates } = change as UpdateElementDataChange
+          updates.forEach(({ key, after }) => {
+            setProjectedValue(id, key, after)
+          })
+          break
+        }
         case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
           const { id, key, after } = change as UpdateElementChange
           setProjectedValue(id, key, after)
@@ -761,6 +1038,7 @@ const projectUIContextSceneTreeBatch = (
         }
       }
     })
+    flushScalarAdditionMemberships()
 
     dirtyParentIds.forEach((parentId) => {
       const parent = next[parentId]
@@ -789,9 +1067,11 @@ const projectUIContextSceneTreeBatch = (
         )
       ]
       const rootParentIds: string[] = []
+      const rootParentIdSet = new Set<string>()
       orderedCandidates.forEach((elementId) => {
         const parentId = getProjectedParentId(next[elementId])
-        if (parentId && !next[parentId] && !rootParentIds.includes(parentId)) {
+        if (parentId && !next[parentId] && !rootParentIdSet.has(parentId)) {
+          rootParentIdSet.add(parentId)
           rootParentIds.push(parentId)
         }
       })
@@ -820,12 +1100,14 @@ const projectUIContextSceneTreeBatch = (
 interface PendingUIContextSync {
   elementSelectionAndDerived: boolean
   dirtyPropertyKeys: Set<string>
+  removedElementIds: Set<string>
   sceneTreeChanges: SceneTreeChange[]
 }
 
 const createPendingUIContextSync = (): PendingUIContextSync => ({
   elementSelectionAndDerived: false,
   dirtyPropertyKeys: new Set(),
+  removedElementIds: new Set(),
   sceneTreeChanges: []
 })
 
@@ -846,6 +1128,7 @@ const resetPendingUIContextSync = (lifetime: UIContextSyncLifetime): void => {
 const hasPendingUIContextSync = (lifetime: UIContextSyncLifetime): boolean =>
   lifetime.pending.elementSelectionAndDerived ||
   lifetime.pending.dirtyPropertyKeys.size > 0 ||
+  lifetime.pending.removedElementIds.size > 0 ||
   lifetime.pending.sceneTreeChanges.length > 0
 
 const flushPendingUIContextSync = (
@@ -865,6 +1148,13 @@ const flushPendingUIContextSync = (
     emitDiagnosticCounter('ui-context-transaction-flush')
 
     projectUIContextSceneTreeBatch(pending.sceneTreeChanges)
+
+    if (
+      pending.removedElementIds.size > 0 &&
+      syncSelectionOnElementRemovals(core, [...pending.removedElementIds])
+    ) {
+      pending.elementSelectionAndDerived = true
+    }
 
     if (pending.elementSelectionAndDerived) {
       emitDiagnosticCounter('ui-context-sync-element-selection-derived')
@@ -934,13 +1224,19 @@ const handleUIContextSceneTreeChange = (
     lifetime.pending.dirtyPropertyKeys.add(key)
   })
 
+  let removedIds: readonly string[] = []
   if (change.action === SCENE_TREE_ACTIONS.REMOVE_ELEMENT) {
-    const removedId = (change as AddRemoveElementChange).data.id
-    if (typeof removedId === 'string' && removedId.length > 0) {
-      syncSelectionOnElementRemoval(core, removedId)
-      lifetime.pending.elementSelectionAndDerived = true
-    }
+    removedIds = [(change as AddRemoveElementChange).data.id]
+  } else if (change.action === SCENE_TREE_ACTIONS.REMOVE_ELEMENTS) {
+    removedIds = (change as AddRemoveElementsChange).entries.map(
+      ({ data }) => data.id
+    )
   }
+  removedIds.forEach((removedId) => {
+    if (typeof removedId === 'string' && removedId.length > 0) {
+      lifetime.pending.removedElementIds.add(removedId)
+    }
+  })
 }
 
 const applySelectionChangeToRuntime = (
@@ -1076,14 +1372,16 @@ export const registerDefaultDataChannelObservers = (
       if (uiContextSyncLifetime.disposed) {
         return
       }
-      changes.forEach((change) => {
-        handleUIContextSceneTreeChange(
-          change,
-          core,
-          deps,
-          uiContextSyncLifetime
-        )
-      })
+      changes
+        .filter((change) => !isLocalComputedSceneTreeChange(change))
+        .forEach((change) => {
+          handleUIContextSceneTreeChange(
+            change,
+            core,
+            deps,
+            uiContextSyncLifetime
+          )
+        })
       flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
     }
   })
@@ -1093,7 +1391,9 @@ export const registerDefaultDataChannelObservers = (
     channel: SharedDataChannelNames.SCENE_TREE,
     onBatch: (changes: readonly SceneTreeChange[]) => {
       if (!disposed) {
-        updateRenderSceneTreeBatch(changes)
+        updateRenderSceneTreeBatch(
+          changes.filter((change) => !isLocalComputedSceneTreeChange(change))
+        )
       }
     }
   })
@@ -1120,6 +1420,39 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
+    if (renderSceneEnabled || uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToEventBatches((events) => {
+          if (disposed) {
+            return
+          }
+          const localComputedChanges = events.flatMap((event) => {
+            const computedEvent = toLocalComputedProjectionEvent(event)
+            if (!computedEvent) {
+              return []
+            }
+            const change = toLocalComputedSceneTreeChange(computedEvent)
+            return change ? [change] : []
+          })
+          if (renderSceneEnabled) {
+            updateRenderSceneTreeBatch(localComputedChanges)
+          }
+          if (uiContextEnabled && localComputedChanges.length > 0) {
+            localComputedChanges.forEach((change) => {
+              handleUIContextSceneTreeChange(
+                change,
+                core,
+                deps,
+                uiContextSyncLifetime
+              )
+            })
+            flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
+          }
+        })
+      )
+      cleanupReporter.report()
+    }
+
     if (renderSceneEnabled) {
       eventSubscriptions.push(
         subscribeToSynchronousEvent(EventTypes.FILE_LOAD_COMPLETE, () => {

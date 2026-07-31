@@ -27,8 +27,8 @@ import {
   Mesh,
   MeshGeometry,
   Texture,
-  type FederatedPointerEvent,
-  type Ticker
+  Ticker,
+  type FederatedPointerEvent
 } from 'pixi.js'
 import {
   createPixiOwnedResource,
@@ -93,6 +93,7 @@ export class PixiRenderEngine implements RenderEngine {
   >()
   private readonly interactionListeners =
     new Set<RenderEngineInteractionListener>()
+  private frameTicker: Ticker | null = null
   private frameHandler: ((ticker: Ticker) => void) | null = null
   private destroyed = false
   private nextHandleId = 1
@@ -286,21 +287,32 @@ export class PixiRenderEngine implements RenderEngine {
     }
   }
 
-  startFrameLoop(callback: RenderEngineFrameCallback): void {
-    const app = this.assertReady()
-    this.stopFrameLoop()
-    this.frameHandler = (ticker) => callback(ticker.lastTime)
-    app.ticker.add(this.frameHandler)
-    app.ticker.start()
+  requestFrame(callback: RenderEngineFrameCallback): void {
+    this.assertReady()
+    this.cancelFrame()
+    const ticker = this.frameTicker ?? new Ticker()
+    const frameHandler = (currentTicker: Ticker) => {
+      if (this.frameHandler !== frameHandler) {
+        return
+      }
+      this.cancelFrame()
+      callback(currentTicker.lastTime)
+    }
+    this.frameTicker = ticker
+    this.frameHandler = frameHandler
+    ticker.add(frameHandler)
+    ticker.start()
   }
 
-  stopFrameLoop(): void {
-    if (!this.app || !this.frameHandler) {
+  cancelFrame(): void {
+    const ticker = this.frameTicker
+    const frameHandler = this.frameHandler
+    this.frameHandler = null
+    if (!ticker || !frameHandler) {
       return
     }
-    this.app.ticker.remove(this.frameHandler)
-    this.app.ticker.stop()
-    this.frameHandler = null
+    ticker.remove(frameHandler)
+    ticker.stop()
   }
 
   destroy(): RenderEngineDestroyResult {
@@ -318,7 +330,9 @@ export class PixiRenderEngine implements RenderEngine {
       alreadyDestroyed: false
     }
 
-    this.stopFrameLoop()
+    this.cancelFrame()
+    this.frameTicker?.destroy()
+    this.frameTicker = null
     if (this.app) {
       this.detachInteractionEvents(this.app.stage)
     }

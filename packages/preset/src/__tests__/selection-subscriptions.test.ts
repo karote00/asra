@@ -11,7 +11,11 @@ import {
   SCENE_TREE_ACTIONS,
   type SelectionChange
 } from '@asyra/utils'
-import { EventTypes, publishEvent } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  publishEvent,
+  publishEventsToObservers
+} from '@asyra/reactive-events'
 import { registerSelections } from '../selection/register-default-selections'
 import {
   projectLocalComputedEventToRender,
@@ -192,6 +196,161 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
+  it('registers one ordinary computed batch projection lifetime and excludes shared computed evidence', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const renderBatch = vi
+      .spyOn(renderSceneTreeStore, 'updateElementBatch')
+      .mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    const renderPatch = vi
+      .spyOn(renderSceneTreeStore, 'updateElementPatch')
+      .mockReturnValue({ status: 'applied', elementId: 'vector-2' })
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', ['vector-1', 'vector-2'])
+    uiContext.set('elementDataMap', {
+      'vector-1': {
+        id: 'vector-1',
+        type: VECTOR_TYPE,
+        visible: true,
+        lock: false
+      },
+      'vector-2': {
+        id: 'vector-2',
+        type: VECTOR_TYPE,
+        visible: true
+      }
+    })
+    const uiSet = vi.spyOn(uiContext, 'set')
+    const ordinaryComputedEvents = [
+      {
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'vector-1',
+          changes: [
+            {
+              owner: 'computed',
+              key: 'visible',
+              before: true,
+              after: false
+            },
+            {
+              owner: 'computed',
+              key: 'lock',
+              before: false,
+              after: true
+            }
+          ]
+        }
+      },
+      {
+        type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          id: 'vector-2',
+          patch: {
+            values: {
+              visible: {
+                before: true,
+                after: false
+              }
+            }
+          }
+        }
+      }
+    ] as const
+    let disposeRender = () => undefined
+    let disposeUIContext = () => undefined
+
+    try {
+      // Preset installs Render and UI context as two independent defaults.
+      // One ordinary computed batch must still reach each singleton projection
+      // exactly once.
+      disposeRender = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      disposeUIContext = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { uiContext: true }
+      )
+      renderBatch.mockClear()
+      renderPatch.mockClear()
+      uiSet.mockClear()
+
+      publishEventsToObservers(ordinaryComputedEvents)
+
+      expect(renderBatch).toHaveBeenCalledOnce()
+      expect(renderPatch).toHaveBeenCalledOnce()
+      expect(
+        uiSet.mock.calls.filter(([property]) => property === 'elementDataMap')
+      ).toHaveLength(1)
+      expect(uiContext.get('elementDataMap')).toEqual({
+        'vector-1': {
+          id: 'vector-1',
+          type: VECTOR_TYPE,
+          visible: false,
+          lock: true
+        },
+        'vector-2': {
+          id: 'vector-2',
+          type: VECTOR_TYPE,
+          visible: false
+        }
+      })
+
+      const renderBatchCallCount = renderBatch.mock.calls.length
+      const renderPatchCallCount = renderPatch.mock.calls.length
+      const uiSetCallCount = uiSet.mock.calls.length
+      const sharedComputedChanges = ordinaryComputedEvents.map(
+        ({ payload }) => payload
+      )
+      deliverObserverChanges(
+        observers.get('preset.render.sceneTree'),
+        sharedComputedChanges
+      )
+      deliverObserverChanges(
+        observers.get('preset.uiContext.sceneTree'),
+        sharedComputedChanges
+      )
+
+      expect(renderBatch).toHaveBeenCalledTimes(renderBatchCallCount)
+      expect(renderPatch).toHaveBeenCalledTimes(renderPatchCallCount)
+      expect(uiSet).toHaveBeenCalledTimes(uiSetCallCount)
+
+      disposeUIContext()
+      disposeRender()
+      publishEventsToObservers(ordinaryComputedEvents)
+
+      expect(renderBatch).toHaveBeenCalledTimes(renderBatchCallCount)
+      expect(renderPatch).toHaveBeenCalledTimes(renderPatchCallCount)
+      expect(uiSet).toHaveBeenCalledTimes(uiSetCallCount)
+    } finally {
+      disposeUIContext()
+      disposeRender()
+      uiSet.mockRestore()
+      renderBatch.mockRestore()
+      renderPatch.mockRestore()
+      reload.mockRestore()
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+    }
+  })
+
   it('rebuilds Render projection immediately after every observer registration', () => {
     const lifecycle: string[] = []
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
@@ -366,7 +525,7 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('routes complete Scene Tree deltas and records Render projection outcomes', async () => {
+  it('routes shared canonical Scene Tree deltas without projecting local computed evidence', async () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -377,8 +536,8 @@ describe('Preset Selection Subscriptions', () => {
       unregisterDataChannelObserver: (name: string) => observers.delete(name)
     } as unknown as PresetCoreAPIs
     const dependencies = createDeps()
-    const add = vi.spyOn(renderSceneTreeStore, 'addElementById')
-    const remove = vi.spyOn(renderSceneTreeStore, 'removeElement')
+    const add = vi.spyOn(renderSceneTreeStore, 'addElements')
+    const remove = vi.spyOn(renderSceneTreeStore, 'removeElements')
     const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
     const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
     const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
@@ -387,8 +546,8 @@ describe('Preset Selection Subscriptions', () => {
     const reload = vi
       .spyOn(renderSceneTreeStore, 'reload')
       .mockImplementation(() => undefined)
-    add.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
-    remove.mockReturnValue({ status: 'removed', elementId: 'vector-1' })
+    add.mockReturnValue([{ status: 'applied', elementId: 'vector-1' }])
+    remove.mockReturnValue([{ status: 'removed', elementId: 'vector-1' }])
     scalar.mockReturnValue({ status: 'resynced', elementId: 'vector-1' })
     batch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
     patch.mockReturnValue({ status: 'failed', elementId: 'vector-1' })
@@ -459,13 +618,28 @@ describe('Preset Selection Subscriptions', () => {
           options: { undoable: false }
         },
         {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+          eventName: EventTypes.UPDATE_ELEMENT_DATA,
+          id: 'vector-1',
+          changes: [
+            {
+              key: 'name',
+              before: 'Vector',
+              after: 'Renamed Vector'
+            },
+            {
+              key: 'visible',
+              before: true,
+              after: false
+            }
+          ],
+          options: { undoable: false }
+        },
+        {
           action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
           eventName: 'update-computed',
           id: 'vector-1',
-          changes: [
-            { owner: 'raw', key: 'x', before: 0, after: 10 },
-            { owner: 'computed', key: 'y', before: 0, after: 20 }
-          ],
+          changes: [{ owner: 'computed', key: 'y', before: 0, after: 20 }],
           options: { undoable: false }
         },
         {
@@ -498,49 +672,47 @@ describe('Preset Selection Subscriptions', () => {
         restoreSubtreeChange
       ])
 
-      expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
-      expect(scalar).toHaveBeenCalledWith(
-        'vector-1',
-        'computed',
-        'visible',
-        true,
-        false,
-        { undoable: false }
-      )
+      expect(add).toHaveBeenCalledWith([
+        {
+          data: { id: 'vector-1', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
+      expect(scalar).not.toHaveBeenCalled()
+      expect(batch).toHaveBeenCalledTimes(1)
       expect(batch).toHaveBeenCalledWith(
         'vector-1',
         [
-          { owner: 'raw', key: 'x', before: 0, after: 10 },
-          { owner: 'computed', key: 'y', before: 0, after: 20 }
+          {
+            owner: 'raw',
+            key: 'name',
+            before: 'Vector',
+            after: 'Renamed Vector'
+          },
+          {
+            owner: 'raw',
+            key: 'visible',
+            before: true,
+            after: false
+          }
         ],
         { undoable: false }
       )
-      expect(patch).toHaveBeenCalledWith(
-        'vector-1',
+      expect(patch).not.toHaveBeenCalled()
+      expect(remove).toHaveBeenCalledWith([
         {
-          records: {
-            points: {
-              set: {
-                p1: { after: { id: 'p1', x: 0, y: 0 } }
-              }
-            }
-          }
-        },
-        { undoable: false }
-      )
-      expect(remove).toHaveBeenCalledWith(
-        { id: 'vector-1', type: 'vector' },
-        'group-1',
-        1
-      )
+          data: { id: 'vector-1', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
       expect(move).toHaveBeenCalledWith(moves)
       expect(subtree).toHaveBeenNthCalledWith(1, subtreeChange)
       expect(subtree).toHaveBeenNthCalledWith(2, restoreSubtreeChange)
       expect(counters).toEqual([
         'render-projection-outcome-applied',
-        'render-projection-outcome-resynced',
         'render-projection-outcome-applied',
-        'render-projection-outcome-failed',
         'render-projection-outcome-removed',
         'render-projection-outcome-applied',
         'render-projection-outcome-removed',
@@ -560,7 +732,7 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('routes contiguous same-parent additions through one Render relationship batch', () => {
+  it('routes one canonical Scene addition batch through one Render relationship batch', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -572,7 +744,7 @@ describe('Preset Selection Subscriptions', () => {
     } as unknown as PresetCoreAPIs
     const addSingle = vi.spyOn(renderSceneTreeStore, 'addElementById')
     const addBatch = vi
-      .spyOn(renderSceneTreeStore, 'addElementsById')
+      .spyOn(renderSceneTreeStore, 'addElements')
       .mockReturnValue([
         { status: 'applied', elementId: 'child-a' },
         { status: 'applied', elementId: 'child-b' }
@@ -591,23 +763,37 @@ describe('Preset Selection Subscriptions', () => {
     try {
       deliverObserverChanges(observer, [
         {
-          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-          data: { id: 'child-a', type: 'vector' },
-          parentId: 'group-1',
-          index: 0
-        },
-        {
-          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-          data: { id: 'child-b', type: 'vector' },
-          parentId: 'group-1',
-          index: 1
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          eventName: EventTypes.ADD_ELEMENTS,
+          undoType: EventTypes.REMOVE_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          entries: [
+            {
+              data: { id: 'child-b', type: 'vector' },
+              parentId: 'group-1',
+              index: 1
+            },
+            {
+              data: { id: 'child-a', type: 'vector' },
+              parentId: 'group-1',
+              index: 0
+            }
+          ]
         }
       ])
 
       expect(addBatch).toHaveBeenCalledOnce()
       expect(addBatch).toHaveBeenCalledWith([
-        { elementId: 'child-a', parentId: 'group-1', index: 0 },
-        { elementId: 'child-b', parentId: 'group-1', index: 1 }
+        {
+          data: { id: 'child-b', type: 'vector' },
+          parentId: 'group-1',
+          index: 1
+        },
+        {
+          data: { id: 'child-a', type: 'vector' },
+          parentId: 'group-1',
+          index: 0
+        }
       ])
       expect(addSingle).not.toHaveBeenCalled()
     } finally {
@@ -636,15 +822,20 @@ describe('Preset Selection Subscriptions', () => {
       throw new Error('formal batch projection must not scan canonical state')
     })
     dependencies.sceneTree.getAllElements = getAllElements
-    const addSingle = vi
-      .spyOn(renderSceneTreeStore, 'addElementById')
-      .mockReturnValue({ status: 'applied', elementId: 'group-1' })
     const addBatch = vi
-      .spyOn(renderSceneTreeStore, 'addElementsById')
+      .spyOn(renderSceneTreeStore, 'addElements')
       .mockImplementation((additions) =>
-        additions.map(({ elementId }) => ({
+        additions.map(({ data }) => ({
           status: 'applied',
-          elementId
+          elementId: data.id
+        }))
+      )
+    const remove = vi
+      .spyOn(renderSceneTreeStore, 'removeElements')
+      .mockImplementation((entries) =>
+        entries.map(({ data }) => ({
+          status: 'removed',
+          elementId: data.id
         }))
       )
     const reload = vi
@@ -720,8 +911,7 @@ describe('Preset Selection Subscriptions', () => {
       renderObserver?.onBatch?.(firstBatch)
       uiObserver?.onBatch?.(firstBatch)
 
-      expect(addSingle).toHaveBeenCalledTimes(2)
-      expect(addBatch).not.toHaveBeenCalled()
+      expect(addBatch).toHaveBeenCalledTimes(2)
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
         'elementDataMap',
         'flattenedElementIds'
@@ -758,13 +948,26 @@ describe('Preset Selection Subscriptions', () => {
           'elementDataMap'
         ) ?? {})['group-1']?.children
       ).toEqual(['child-a', 'child-b', 'child-c'])
-      expect(addSingle).toHaveBeenCalledTimes(2)
-      expect(addSingle).toHaveBeenNthCalledWith(1, 'group-1', 'workspace-1', 0)
-      expect(addSingle).toHaveBeenNthCalledWith(2, 'child-a', 'group-1', 0)
-      expect(addBatch).toHaveBeenCalledOnce()
-      expect(addBatch).toHaveBeenCalledWith([
-        { elementId: 'child-b', parentId: 'group-1', index: 1 },
-        { elementId: 'child-c', parentId: 'group-1', index: 2 }
+      expect(addBatch).toHaveBeenCalledTimes(3)
+      expect(addBatch).toHaveBeenNthCalledWith(3, [
+        {
+          data: {
+            id: 'child-b',
+            parentId: 'group-1',
+            type: VECTOR_TYPE
+          },
+          parentId: 'group-1',
+          index: 1
+        },
+        {
+          data: {
+            id: 'child-c',
+            parentId: 'group-1',
+            type: VECTOR_TYPE
+          },
+          parentId: 'group-1',
+          index: 2
+        }
       ])
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
         'elementDataMap',
@@ -784,13 +987,16 @@ describe('Preset Selection Subscriptions', () => {
       uiSet.mockClear()
       uiObserver?.onBatch?.([
         {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-          eventName: 'update-computed',
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+          eventName: EventTypes.UPDATE_ELEMENT_DATA,
           id: 'child-a',
-          owner: 'raw',
-          key: 'name',
-          before: undefined,
-          after: 'Renamed child',
+          changes: [
+            {
+              key: 'name',
+              before: 'Child A',
+              after: 'Renamed child'
+            }
+          ],
           options: { undoable: false }
         }
       ])
@@ -823,13 +1029,305 @@ describe('Preset Selection Subscriptions', () => {
         }
       ])
       expect(uiSet).not.toHaveBeenCalled()
+
+      uiSet.mockClear()
+      renderObserver?.onBatch?.([
+        {
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          eventName: EventTypes.REMOVE_ELEMENTS,
+          undoType: EventTypes.ADD_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          entries: [
+            {
+              data: {
+                id: 'child-a',
+                parentId: 'group-1',
+                type: VECTOR_TYPE
+              },
+              parentId: 'group-1',
+              index: 0
+            },
+            {
+              data: {
+                id: 'child-c',
+                parentId: 'group-1',
+                type: VECTOR_TYPE
+              },
+              parentId: 'group-1',
+              index: 2
+            }
+          ]
+        }
+      ])
+      uiObserver?.onBatch?.([
+        {
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          eventName: EventTypes.REMOVE_ELEMENTS,
+          undoType: EventTypes.ADD_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          entries: [
+            {
+              data: {
+                id: 'child-a',
+                parentId: 'group-1',
+                type: VECTOR_TYPE
+              },
+              parentId: 'group-1',
+              index: 0
+            },
+            {
+              data: {
+                id: 'child-c',
+                parentId: 'group-1',
+                type: VECTOR_TYPE
+              },
+              parentId: 'group-1',
+              index: 2
+            }
+          ]
+        }
+      ])
+
+      expect(remove).toHaveBeenCalledOnce()
+      expect(remove).toHaveBeenCalledWith([
+        {
+          data: {
+            id: 'child-a',
+            parentId: 'group-1',
+            type: VECTOR_TYPE
+          },
+          parentId: 'group-1',
+          index: 0
+        },
+        {
+          data: {
+            id: 'child-c',
+            parentId: 'group-1',
+            type: VECTOR_TYPE
+          },
+          parentId: 'group-1',
+          index: 2
+        }
+      ])
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'group-1',
+        'child-b'
+      ])
+      expect(
+        (uiContext.get<Record<string, { children?: string[] }>>(
+          'elementDataMap'
+        ) ?? {})['group-1']?.children
+      ).toEqual(['child-b'])
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap',
+        'flattenedElementIds'
+      ])
+      expect(getAllElements).not.toHaveBeenCalled()
     } finally {
       dispose()
       propertyRegistry.unregister('flattenedElementIds')
       propertyRegistry.unregister('elementDataMap')
-      addSingle.mockRestore()
       addBatch.mockRestore()
+      remove.mockRestore()
       reload.mockRestore()
+      uiSet.mockRestore()
+    }
+  })
+
+  it('projects a scalar addition run through one UI membership batch', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) =>
+        observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
+    }
+    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+    const counters = new Map<string, number>()
+    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+      counters.set(name, (counters.get(name) ?? 0) + value)
+    }
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', [])
+    uiContext.set('elementDataMap', {})
+    const uiSet = vi.spyOn(uiContext, 'set')
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { uiContext: true }
+    )
+    const childCount = 128
+    const children = Array.from(
+      { length: childCount },
+      (_unused, index) => `child-${index}`
+    )
+
+    try {
+      uiSet.mockClear()
+      deliverObserverChanges(
+        observers.get('preset.uiContext.sceneTree'),
+        [
+          {
+            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+            data: {
+              children: [],
+              id: 'group-1',
+              parentId: 'workspace-1',
+              type: EntityTypes.GROUP
+            },
+            parentId: 'workspace-1',
+            index: 0
+          },
+          ...children.map((elementId, index) => ({
+            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+            data: {
+              id: elementId,
+              parentId: 'group-1',
+              type: VECTOR_TYPE
+            },
+            parentId: 'group-1',
+            index
+          }))
+        ]
+      )
+
+      expect(counters.get('ui-context-membership-add-batch')).toBe(1)
+      expect(counters.get('ui-context-membership-add-batch-entry')).toBe(
+        childCount + 1
+      )
+      expect(counters.get('ui-context-membership-add-scalar') ?? 0).toBe(0)
+      expect(
+        (uiContext.get<Record<string, { children?: string[] }>>(
+          'elementDataMap'
+        ) ?? {})['group-1']?.children
+      ).toEqual(children)
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'group-1',
+        ...children
+      ])
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap',
+        'flattenedElementIds'
+      ])
+    } finally {
+      dispose()
+      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+      uiSet.mockRestore()
+    }
+  })
+
+  it('projects one ordered plural Vector addition batch without scanning canonical state', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) =>
+        observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+    const getAllElements = vi.fn(() => {
+      throw new Error('plural UI projection must not scan canonical state')
+    })
+    dependencies.sceneTree.getAllElements = getAllElements
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
+    }
+    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+    const counters = new Map<string, number>()
+    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+      counters.set(name, (counters.get(name) ?? 0) + value)
+    }
+    const groupData = {
+      children: [] as string[],
+      id: 'group-1',
+      parentId: 'workspace-1',
+      type: EntityTypes.GROUP
+    }
+    const vectorCount = 128
+    const vectors = Array.from({ length: vectorCount }, (_unused, index) => ({
+      componentIds: [
+        `vector-geometry-${index}`,
+        `vector-appearance-${index}`
+      ],
+      id: `vector-${index}`,
+      name: `Vector ${index}`,
+      parentId: 'group-1',
+      relationshipIds: [`group-1:vector-${index}`],
+      type: VECTOR_TYPE,
+      visible: index % 2 === 0
+    }))
+    const vectorIds = vectors.map(({ id }) => id)
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', ['group-1'])
+    uiContext.set('elementDataMap', { 'group-1': groupData })
+    const uiSet = vi.spyOn(uiContext, 'set')
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { uiContext: true }
+    )
+
+    try {
+      uiSet.mockClear()
+      deliverObserverChanges(
+        observers.get('preset.uiContext.sceneTree'),
+        [
+          {
+            action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+            eventName: EventTypes.ADD_ELEMENTS,
+            undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+            undoType: EventTypes.REMOVE_ELEMENTS,
+            entries: vectors.map((data, index) => ({
+              data,
+              parentId: 'group-1',
+              index
+            }))
+          }
+        ]
+      )
+
+      const projectedMap =
+        uiContext.get<Record<string, Record<string, unknown>>>(
+          'elementDataMap'
+        ) ?? {}
+      expect(Object.keys(projectedMap)).toEqual(['group-1', ...vectorIds])
+      expect(vectors.map(({ id }) => projectedMap[id])).toEqual(vectors)
+      expect(projectedMap['group-1']).toEqual({
+        ...groupData,
+        children: vectorIds
+      })
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'group-1',
+        ...vectorIds
+      ])
+      expect(counters.get('ui-context-membership-add-batch')).toBe(1)
+      expect(counters.get('ui-context-membership-add-batch-entry')).toBe(
+        vectorCount
+      )
+      expect(counters.get('ui-context-membership-add-scalar') ?? 0).toBe(0)
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
+        'elementDataMap',
+        'flattenedElementIds'
+      ])
+      expect(getAllElements).not.toHaveBeenCalled()
+    } finally {
+      dispose()
+      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
       uiSet.mockRestore()
     }
   })
@@ -845,7 +1343,7 @@ describe('Preset Selection Subscriptions', () => {
       unregisterDataChannelObserver: (name: string) => observers.delete(name)
     } as unknown as PresetCoreAPIs
     const addSingle = vi.spyOn(renderSceneTreeStore, 'addElementById')
-    const addBatch = vi.spyOn(renderSceneTreeStore, 'addElementsById')
+    const addBatch = vi.spyOn(renderSceneTreeStore, 'addElements')
     const reload = vi
       .spyOn(renderSceneTreeStore, 'reload')
       .mockImplementation(() => undefined)
@@ -1416,14 +1914,14 @@ describe('Preset Selection Subscriptions', () => {
       action: SelectionActions.SELECT_ELEMENTS,
       eventName: SelectionEventNames.SELECT_ELEMENTS,
       before: [],
-      after: ['rect-1', 'oval-1']
+      after: ['rect-1', 'oval-1', 'star-1']
     } satisfies SelectionChange)
 
     expect(
       Array.from(
         selections.get(SelectionChannels.ELEMENT)?.getSelectedIds() ?? []
       )
-    ).toEqual(['rect-1', 'oval-1'])
+    ).toEqual(['rect-1', 'oval-1', 'star-1'])
 
     selectionRuntimeObserver?.onChange({
       selectionType: SelectionChannels.VECTOR_POINT,
@@ -1452,14 +1950,41 @@ describe('Preset Selection Subscriptions', () => {
         selections.get(SelectionChannels.VECTOR_SEGMENT)?.getSelectedIds() ?? []
       )
     ).toEqual(['segment-1'])
+    const elementSelection = selections.get(SelectionChannels.ELEMENT)
+    if (!elementSelection) {
+      throw new Error('Expected the element selection runtime')
+    }
+    const selectSpy = vi.spyOn(elementSelection, 'select')
+    const cleanChangesSpy = vi.spyOn(elementSelection, 'cleanChanges')
+    const renderSelectionSpy = vi.spyOn(renderSelectionStore, 'updateSelection')
     const sceneTreeObserver = observers.get('preset.uiContext.sceneTree')
     expect(sceneTreeObserver).toBeDefined()
 
     deliverObserverChanges(sceneTreeObserver, [
       {
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        data: { id: 'oval-1', type: 'oval' },
-        parentId: 'workspace-1'
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+        entries: [
+          {
+            data: { id: 'oval-1', type: 'oval' },
+            parentId: 'workspace-1',
+            index: 1
+          },
+          {
+            data: { id: 'not-selected', type: 'vector' },
+            parentId: 'workspace-1',
+            index: 2
+          }
+        ]
+      },
+      {
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+        entries: [
+          {
+            data: { id: 'star-1', type: 'star' },
+            parentId: 'workspace-1',
+            index: 3
+          }
+        ]
       }
     ])
 
@@ -1468,8 +1993,11 @@ describe('Preset Selection Subscriptions', () => {
         selections.get(SelectionChannels.ELEMENT)?.getSelectedIds() ?? []
       )
     ).toEqual(['rect-1'])
-
-    const renderSelectionSpy = vi.spyOn(renderSelectionStore, 'updateSelection')
+    expect(selectSpy).toHaveBeenCalledOnce()
+    expect(selectSpy).toHaveBeenCalledWith(['rect-1'])
+    expect(cleanChangesSpy).toHaveBeenCalledOnce()
+    expect(renderSelectionSpy).toHaveBeenCalledOnce()
+    expect(renderSelectionSpy).toHaveBeenCalledWith(SelectionChannels.ELEMENT)
 
     // Undo/redo path publishes direct selection events (not shared-channel updates).
     // Ensure those events still refresh render selection mirrors.
@@ -1489,10 +2017,15 @@ describe('Preset Selection Subscriptions', () => {
         selections.get(SelectionChannels.ELEMENT)?.getSelectedIds() ?? []
       )
     ).toEqual(['rect-1', 'vector-1'])
-    expect(renderSelectionSpy).toHaveBeenCalledWith(SelectionChannels.ELEMENT)
+    expect(renderSelectionSpy).toHaveBeenCalledTimes(2)
+    expect(renderSelectionSpy).toHaveBeenLastCalledWith(
+      SelectionChannels.ELEMENT
+    )
 
     disposeObservers()
     disposeSelections()
+    selectSpy.mockRestore()
+    cleanChangesSpy.mockRestore()
     renderSelectionSpy.mockRestore()
   })
 

@@ -9,11 +9,12 @@ import * as presetPublicApi from '../index'
 import {
   prepareGroupOperation,
   prepareUngroupOperation,
+  projectGroupGeometryPropertyUpdates,
   groupElements,
   moveElementsWithGroupGeometry,
   normalizeGroupsForElements,
   ungroupElement,
-  type GroupPlanningCore
+  type GroupHierarchyReadCore
 } from '../components/group'
 
 const createSnapshot = (): SceneTreeRawData => ({
@@ -91,7 +92,7 @@ const createSnapshot = (): SceneTreeRawData => ({
   }
 })
 
-const createCore = (snapshot: SceneTreeRawData): GroupPlanningCore => ({
+const createCore = (snapshot: SceneTreeRawData): GroupHierarchyReadCore => ({
   sceneTreeSaveData: () => structuredClone(snapshot)
 })
 
@@ -112,23 +113,29 @@ describe('official Preset Group operation planning', () => {
     expect(presetPublicApi.normalizeGroupsForElements).toBe(
       normalizeGroupsForElements
     )
+    expect(presetPublicApi.projectGroupGeometryPropertyUpdates).toBe(
+      projectGroupGeometryPropertyUpdates
+    )
   })
 
   it('plans non-contiguous grouping by canonical sibling order and first selected slot', () => {
     const snapshot = createSnapshot()
     const before = structuredClone(snapshot)
 
-    const plan = prepareGroupOperation(createCore(snapshot), ['last', 'first'])
+    const preparedGroup = prepareGroupOperation(createCore(snapshot), [
+      'last',
+      'first'
+    ])
 
-    expect(plan).toEqual({
+    expect(preparedGroup).toEqual({
       kind: 'group',
       parentId: 'workspace',
       groupIndex: 0,
       elementIds: ['first', 'last']
     })
     expect(snapshot).toEqual(before)
-    expect(Object.isFrozen(plan)).toBe(true)
-    expect(Object.isFrozen(plan.elementIds)).toBe(true)
+    expect(Object.isFrozen(preparedGroup)).toBe(true)
+    expect(Object.isFrozen(preparedGroup.elementIds)).toBe(true)
   })
 
   it('plans nested and empty Group ungroup at the existing Group slot', () => {
@@ -178,6 +185,105 @@ describe('official Preset Group operation planning', () => {
 })
 
 describe('official Preset Group geometry adapters', () => {
+  it('projects an initial geometry update through every nested Group before canonical apply', () => {
+    const snapshot = createSnapshot()
+    snapshot.elements.outer.children = ['nested-group']
+    snapshot.elements['nested-group'].children = ['nested-leaf', 'first']
+    snapshot.elements.first.parentId = 'nested-group'
+    const computed = {
+      outer: { x: 100, y: 50, width: 65, height: 35 },
+      'nested-group': { x: 20, y: 30, width: 65, height: 35 },
+      'nested-leaf': { x: 10, y: 15, width: 40, height: 25 },
+      first: { x: 80, y: 10, width: 20, height: 15 }
+    }
+    const beforeSnapshot = structuredClone(snapshot)
+    const beforeComputed = structuredClone(computed)
+    const core = {
+      sceneTreeSaveData: vi.fn(() => structuredClone(snapshot)),
+      getElementComputedData: vi.fn((elementId: keyof typeof computed) =>
+        structuredClone(computed[elementId])
+      ),
+      updateElementProperties: vi.fn()
+    }
+
+    const request = projectGroupGeometryPropertyUpdates(core, [
+      {
+        elementId: 'nested-leaf',
+        values: { x: 35, y: 20, width: 50 }
+      }
+    ])
+
+    expect(request).toEqual([
+      {
+        elementId: 'nested-leaf',
+        values: { x: 0, y: 10, width: 50 }
+      },
+      {
+        elementId: 'nested-group',
+        values: { x: 0, y: 0, width: 65, height: 35 }
+      },
+      {
+        elementId: 'first',
+        values: { x: 45, y: 0 }
+      },
+      {
+        elementId: 'outer',
+        values: { x: 155, y: 90, width: 65, height: 35 }
+      }
+    ])
+    expect(new Set(request.map(({ elementId }) => elementId)).size).toBe(
+      request.length
+    )
+    expect(core.updateElementProperties).not.toHaveBeenCalled()
+    expect(snapshot).toEqual(beforeSnapshot)
+    expect(computed).toEqual(beforeComputed)
+  })
+
+  it('returns non-geometry property updates without reading or mutating Group state', () => {
+    const core = {
+      sceneTreeSaveData: vi.fn(),
+      getElementComputedData: vi.fn(),
+      updateElementProperties: vi.fn()
+    }
+
+    expect(
+      projectGroupGeometryPropertyUpdates(core, [
+        { elementId: 'first', values: { rotation: 15 } }
+      ])
+    ).toEqual([{ elementId: 'first', values: { rotation: 15 } }])
+    expect(core.sceneTreeSaveData).not.toHaveBeenCalled()
+    expect(core.getElementComputedData).not.toHaveBeenCalled()
+    expect(core.updateElementProperties).not.toHaveBeenCalled()
+  })
+
+  it('rejects duplicate or invalid later geometry targets without canonical mutation', () => {
+    const snapshot = createSnapshot()
+    const core = {
+      sceneTreeSaveData: vi.fn(() => structuredClone(snapshot)),
+      getElementComputedData: vi.fn(() => ({
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10
+      })),
+      updateElementProperties: vi.fn()
+    }
+
+    expect(() =>
+      projectGroupGeometryPropertyUpdates(core, [
+        { elementId: 'first', values: { x: 5 } },
+        { elementId: 'first', values: { y: 6 } }
+      ])
+    ).toThrow(/unique element ids/i)
+    expect(() =>
+      projectGroupGeometryPropertyUpdates(core, [
+        { elementId: 'first', values: { x: 5 } },
+        { elementId: 'missing', values: { width: 20 } }
+      ])
+    ).toThrow(/missing/i)
+    expect(core.updateElementProperties).not.toHaveBeenCalled()
+  })
+
   it('groups canonical ids with direct-child bounds and world-position-preserving coordinates', () => {
     const snapshot = createSnapshot()
     const computed = {
@@ -194,7 +300,7 @@ describe('official Preset Group geometry adapters', () => {
         elementIds: ['first', 'last'],
         moves: []
       })),
-      changeComputedData: vi.fn(),
+      updateElementProperties: vi.fn(),
       removeSubtree: vi.fn()
     }
     const options = { shared: 'sceneTree' }
@@ -221,16 +327,12 @@ describe('official Preset Group geometry adapters', () => {
       },
       options
     )
-    expect(core.changeComputedData).toHaveBeenNthCalledWith(
-      1,
-      ['first'],
-      { x: 0, y: 10 },
-      options
-    )
-    expect(core.changeComputedData).toHaveBeenNthCalledWith(
-      2,
-      ['last'],
-      { x: 70, y: 0 },
+    expect(core.updateElementProperties).toHaveBeenCalledOnce()
+    expect(core.updateElementProperties).toHaveBeenCalledWith(
+      [
+        { elementId: 'first', values: { x: 0, y: 10 } },
+        { elementId: 'last', values: { x: 70, y: 0 } }
+      ],
       options
     )
     expect(result).toEqual({
@@ -257,7 +359,7 @@ describe('official Preset Group geometry adapters', () => {
         elementIds: ['nested-leaf'],
         moves: []
       })),
-      changeComputedData: vi.fn(),
+      updateElementProperties: vi.fn(),
       removeSubtree: vi.fn((elementId: string) => ({
         elementId,
         removed: []
@@ -277,15 +379,14 @@ describe('official Preset Group geometry adapters', () => {
       },
       undefined
     )
-    expect(core.changeComputedData).toHaveBeenCalledWith(
-      ['nested-leaf'],
-      { x: 105, y: 60 },
+    expect(core.updateElementProperties).toHaveBeenCalledWith(
+      [{ elementId: 'nested-leaf', values: { x: 105, y: 60 } }],
       undefined
     )
     expect(core.removeSubtree).toHaveBeenCalledWith('nested-group', undefined)
 
     core.moveElements.mockClear()
-    core.changeComputedData.mockClear()
+    core.updateElementProperties.mockClear()
     core.removeSubtree.mockClear()
 
     expect(ungroupElement(core as never, 'empty')).toEqual({
@@ -294,7 +395,7 @@ describe('official Preset Group geometry adapters', () => {
       removed: true
     })
     expect(core.moveElements).not.toHaveBeenCalled()
-    expect(core.changeComputedData).not.toHaveBeenCalled()
+    expect(core.updateElementProperties).not.toHaveBeenCalled()
     expect(core.removeSubtree).toHaveBeenCalledWith('empty', undefined)
   })
 
@@ -310,7 +411,7 @@ describe('official Preset Group geometry adapters', () => {
       })),
       createElementInParent: vi.fn(),
       moveElements: vi.fn(),
-      changeComputedData: vi.fn(),
+      updateElementProperties: vi.fn(),
       removeSubtree: vi.fn()
     }
 
@@ -346,7 +447,7 @@ describe('official Preset Group geometry adapters', () => {
       ),
       createElementInParent: vi.fn(),
       moveElements: vi.fn(),
-      changeComputedData: vi.fn(),
+      updateElementProperties: vi.fn(),
       removeSubtree: vi.fn()
     }
     const options = { shared: 'sceneTree' }
@@ -359,22 +460,16 @@ describe('official Preset Group geometry adapters', () => {
         bounds: { x: 90, y: 50, width: 100, height: 60 }
       }
     ])
-    expect(core.changeComputedData).toHaveBeenNthCalledWith(
-      1,
-      ['standalone-group'],
-      { x: 90, y: 50, width: 100, height: 60 },
-      options
-    )
-    expect(core.changeComputedData).toHaveBeenNthCalledWith(
-      2,
-      ['first'],
-      { x: 0, y: 20 },
-      options
-    )
-    expect(core.changeComputedData).toHaveBeenNthCalledWith(
-      3,
-      ['last'],
-      { x: 80, y: 0 },
+    expect(core.updateElementProperties).toHaveBeenCalledOnce()
+    expect(core.updateElementProperties).toHaveBeenCalledWith(
+      [
+        {
+          elementId: 'standalone-group',
+          values: { x: 90, y: 50, width: 100, height: 60 }
+        },
+        { elementId: 'first', values: { x: 0, y: 20 } },
+        { elementId: 'last', values: { x: 80, y: 0 } }
+      ],
       options
     )
   })
@@ -413,13 +508,16 @@ describe('official Preset Group geometry adapters', () => {
       ),
       createElementInParent: vi.fn(),
       moveElements: vi.fn(),
-      changeComputedData: vi.fn(
+      updateElementProperties: vi.fn(
         (
-          [elementId]: [keyof typeof computed],
-          data: Partial<(typeof computed)[keyof typeof computed]>
-        ) => {
-          Object.assign(computed[elementId], data)
-        }
+          updates: readonly {
+            elementId: keyof typeof computed
+            values: Partial<(typeof computed)[keyof typeof computed]>
+          }[]
+        ) =>
+          updates.forEach(({ elementId, values }) => {
+            Object.assign(computed[elementId], values)
+          })
       ),
       removeSubtree: vi.fn()
     }
@@ -439,6 +537,7 @@ describe('official Preset Group geometry adapters', () => {
       inner: { x: 0, y: 0, width: 40, height: 25 },
       first: { x: 0, y: 0, width: 40, height: 25 }
     })
+    expect(core.updateElementProperties).toHaveBeenCalledOnce()
   })
 
   it('rederives every nested ancestor after a leaf geometry change', () => {
@@ -475,13 +574,16 @@ describe('official Preset Group geometry adapters', () => {
       ),
       createElementInParent: vi.fn(),
       moveElements: vi.fn(),
-      changeComputedData: vi.fn(
+      updateElementProperties: vi.fn(
         (
-          [elementId]: [keyof typeof computed],
-          data: Partial<(typeof computed)[keyof typeof computed]>
-        ) => {
-          Object.assign(computed[elementId], data)
-        }
+          updates: readonly {
+            elementId: keyof typeof computed
+            values: Partial<(typeof computed)[keyof typeof computed]>
+          }[]
+        ) =>
+          updates.forEach(({ elementId, values }) => {
+            Object.assign(computed[elementId], values)
+          })
       ),
       removeSubtree: vi.fn()
     }
@@ -501,6 +603,7 @@ describe('official Preset Group geometry adapters', () => {
       inner: { x: 0, y: 0, width: 40, height: 25 },
       first: { x: 0, y: 0, width: 40, height: 25 }
     })
+    expect(core.updateElementProperties).toHaveBeenCalledOnce()
   })
 
   it('reparents through official Groups without changing child world positions', () => {
@@ -553,13 +656,16 @@ describe('official Preset Group geometry adapters', () => {
           ]
         }
       }),
-      changeComputedData: vi.fn(
+      updateElementProperties: vi.fn(
         (
-          [elementId]: [keyof typeof computed],
-          data: Partial<(typeof computed)[keyof typeof computed]>
-        ) => {
-          Object.assign(computed[elementId], data)
-        }
+          updates: readonly {
+            elementId: keyof typeof computed
+            values: Partial<(typeof computed)[keyof typeof computed]>
+          }[]
+        ) =>
+          updates.forEach(({ elementId, values }) => {
+            Object.assign(computed[elementId], values)
+          })
       ),
       removeSubtree: vi.fn()
     }
@@ -604,5 +710,21 @@ describe('official Preset Group geometry adapters', () => {
       width: 20,
       height: 20
     })
+    expect(core.updateElementProperties).toHaveBeenCalledOnce()
+    expect(core.updateElementProperties).toHaveBeenCalledWith(
+      [
+        { elementId: 'first', values: { x: 0, y: 0 } },
+        {
+          elementId: 'source',
+          values: { x: 100, y: 0, width: 0, height: 0 }
+        },
+        {
+          elementId: 'target',
+          values: { x: 110, y: 0, width: 210, height: 20 }
+        },
+        { elementId: 'last', values: { x: 190, y: 0 } }
+      ],
+      undefined
+    )
   })
 })

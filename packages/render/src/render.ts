@@ -69,7 +69,8 @@ class Render {
   viewport: ViewportLayer
   private customLayerContainers: RenderContainer[] = []
   private attachedCustomLayers = new Set<RenderContainer>()
-  private _tickerActive = false
+  private started = false
+  private frameScheduled = false
   private readonly _animateHandler: () => void
   private readonly interactionBridge: RenderInteractionBridge
   private readonly engineInteractionBridge: RenderEngineInteractionBridge
@@ -98,6 +99,10 @@ class Render {
     this.engineProvider = options.engineProvider ?? null
     this.viewport = new ViewportLayer()
     this._animateHandler = () => {
+      if (!this.frameScheduled) {
+        return
+      }
+      this.frameScheduled = false
       this.flushFrame()
     }
     this.interactionBridge = new RenderInteractionBridge((event) =>
@@ -123,29 +128,24 @@ class Render {
   }
 
   start(): void {
-    if (this._tickerActive) {
+    if (this.started) {
       console.warn('Render ticker already started')
       return
     }
 
-    this.run()
-    this._tickerActive = true
-    this.requestRender()
+    this.requireEngine()
+    this.started = true
+    this.renderDirty = true
     this.flushFrame()
   }
 
   stop(): void {
-    if (!this._tickerActive) {
+    if (!this.started) {
       return
     }
 
-    this.engine?.stopFrameLoop()
-    this._tickerActive = false
-  }
-
-  run(): void {
-    const engine = this.requireEngine()
-    engine.startFrameLoop(this._animateHandler)
+    this.started = false
+    this.cancelScheduledFrame()
   }
 
   updateLayers(): boolean {
@@ -186,6 +186,7 @@ class Render {
     }
 
     this.renderDirty = true
+    this.scheduleFrame()
   }
 
   flushFrame(): void {
@@ -193,12 +194,14 @@ class Render {
       return
     }
 
+    this.cancelScheduledFrame()
     this.flushingFrame = true
     this.renderFrameId += 1
     this.currentFrameHandoffCount = 0
     this.publishFrameEvidence('start')
     emitDiagnosticCounter('render-frame-count')
     emitDiagnosticCounter('render-frame-id', this.renderFrameId)
+    let frameFailed = false
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()
@@ -215,6 +218,7 @@ class Render {
         this.publishFrameEvidence('complete', 'rendered')
       })
     } catch (error) {
+      frameFailed = true
       this.publishFrameEvidence('complete', 'failed')
       throw error
     } finally {
@@ -223,7 +227,33 @@ class Render {
         this.renderDirty = true
         this.nextFrameRenderDirty = false
       }
+      if (this.renderDirty && !frameFailed) {
+        this.scheduleFrame()
+      }
     }
+  }
+
+  private scheduleFrame(): void {
+    if (!this.started || !this.app || !this.runtime || this.frameScheduled) {
+      return
+    }
+
+    const engine = this.requireEngine()
+    this.frameScheduled = true
+    try {
+      engine.requestFrame(this._animateHandler)
+    } catch (error) {
+      this.frameScheduled = false
+      throw error
+    }
+  }
+
+  private cancelScheduledFrame(): void {
+    if (!this.frameScheduled) {
+      return
+    }
+    this.frameScheduled = false
+    this.engine?.cancelFrame()
   }
 
   registerLayer(

@@ -35,9 +35,9 @@ const vectorConsistencySource = () =>
     'utf8'
   )
 
-const changeComputedDataSource = () =>
+const updateElementPropertiesSource = () =>
   readFileSync(
-    '../../apps/asyra-design/src/common-apis/element/change-computed-data.ts',
+    '../../apps/asyra-design/src/common-apis/element/update-element-properties.ts',
     'utf8'
   )
 
@@ -389,10 +389,12 @@ describe('vector path editing transaction boundary', () => {
     expect(source).not.toContain('renderSceneTreeStore')
   })
 
-  it('uses framework computed patch events for point drag mutations', () => {
+  it('separates local drag previews from canonical vector commits', () => {
     const source = vectorApisSource()
 
-    expect(source).toContain('core.changeComputedDataPatch(')
+    expect(source).toContain('core.patchLocalComputedData(')
+    expect(source).not.toContain('core.changeComputedDataPatch(')
+    expect(source).toContain('core.patchElementProperties(')
     expect(source).toContain('commitVectorPointMutation(')
     expect(source).not.toContain('commitVectorComputedUndoSnapshot')
     expect(source).not.toContain('syncVectorComputedRenderSnapshot')
@@ -414,12 +416,13 @@ describe('vector path editing transaction boundary', () => {
     expect(vectorConsistency).not.toContain('handleModeByPointId')
   })
 
-  it('wraps finite computed-data writes with runTransaction', () => {
-    const source = changeComputedDataSource()
+  it('wraps canonical element-property writes with runTransaction', () => {
+    const source = updateElementPropertiesSource()
 
     expect(source).toMatch(
-      /runTransaction\(\(\) => \{[\s\S]*?core\.changeComputedData\(elementIds, data, options\)[\s\S]*?normalizeGroupsForElements\(core, elementIds, options\)[\s\S]*?\}\)/
+      /runTransaction\(\(\) => \{[\s\S]*?projectGroupGeometryPropertyUpdates\([\s\S]*?core\.updateElementProperties\(request, options\)[\s\S]*?\}\)/
     )
+    expect(source).not.toContain('normalizeGroupsForElements(')
     expect(source).not.toContain('startTransaction')
     expect(source).not.toContain('endTransaction')
   })

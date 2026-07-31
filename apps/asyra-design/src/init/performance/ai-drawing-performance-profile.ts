@@ -102,6 +102,14 @@ export interface AiDrawingPerformanceSnapshot {
   readonly runtime: AiDrawingPerformanceRuntime
 }
 
+export interface AiDrawingPerformanceTurnSettlementEvidence {
+  readonly code: string | null
+  readonly message: string | null
+  readonly outcome: AsyraDesignAiConversationSnapshot['settledTurns'][number]['outcome']
+  readonly stage: string | null
+  readonly status: string | null
+}
+
 export interface AiDrawingPerformanceProfile {
   attachConversation(
     conversation: AsyraDesignAiConversationController | null
@@ -115,7 +123,9 @@ export interface AiDrawingPerformanceProfile {
   readCanonicalOwnerSnapshot(): AiDrawingPerformanceCanonicalOwnerSnapshot
   readFactoryPublicationCount(): number
   readHistoryDepth(): number
+  readLatestFactoryTransactionStatus(): AiDrawingPerformanceFactoryTransactionStatusEvidence | null
   readLatestPhaseSample(): AiDrawingPerformancePhaseSample | null
+  readLatestTurnSettlement(): AiDrawingPerformanceTurnSettlementEvidence | null
   readRenderProjectionElementCount(): number
   readViewportPosition(): AiDrawingPerformanceViewportPosition
   readZoom(): number
@@ -138,6 +148,40 @@ type DiagnosticGlobal = typeof globalThis & {
 }
 
 const RETAINED_EVIDENCE_CAPACITY = 16_384
+const RETAINED_COUNTER_KEY_CAPACITY = 1_024
+const RETAINED_EVIDENCE_NAME_LENGTH = 160
+
+const isBoundedEvidenceName = (name: unknown): name is string =>
+  typeof name === 'string' &&
+  name.length > 0 &&
+  name.length <= RETAINED_EVIDENCE_NAME_LENGTH
+
+const readBoundedOwnString = (
+  value: unknown,
+  key: string,
+  maximumLength: number
+): string | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, key)
+  return descriptor?.enumerable &&
+    'value' in descriptor &&
+    typeof descriptor.value === 'string'
+    ? descriptor.value.slice(0, maximumLength)
+    : null
+}
+
+const captureTurnSettlement = (
+  settled: AsyraDesignAiConversationSnapshot['settledTurns'][number]
+): AiDrawingPerformanceTurnSettlementEvidence =>
+  Object.freeze({
+    code: readBoundedOwnString(settled.result, 'code', 80),
+    message: readBoundedOwnString(settled.result, 'message', 300),
+    outcome: settled.outcome,
+    stage: readBoundedOwnString(settled.result, 'stage', 80),
+    status: readBoundedOwnString(settled.result, 'status', 80)
+  })
 
 class BoundedEvidenceBuffer<T> {
   private readonly entries: T[] = []
@@ -158,6 +202,10 @@ class BoundedEvidenceBuffer<T> {
   clear(): void {
     this.entries.length = 0
     this.nextWriteIndex = 0
+  }
+
+  get length(): number {
+    return this.entries.length
   }
 
   latest(): T | undefined {
@@ -198,34 +246,50 @@ const serializeDiagnosticValue = (
   value: unknown
 ): AiDrawingPerformanceDiagnosticValue | undefined => {
   if (value === undefined) return
-  if (value instanceof Error) {
-    return Object.freeze({
-      message: value.message,
-      name: value.name
-    })
-  }
   if (
     typeof value === 'string' ||
     typeof value === 'number' ||
     typeof value === 'boolean' ||
     value === null
   ) {
-    return String(value)
+    return String(value).slice(0, 300)
   }
-  const candidate = value as { message?: unknown; name?: unknown }
-  if (
-    typeof candidate.message === 'string' ||
-    typeof candidate.name === 'string'
-  ) {
+  const readOwnDiagnosticString = (
+    target: object,
+    key: string,
+    maximumLength: number
+  ): string | undefined => {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key)
+      return descriptor &&
+        'value' in descriptor &&
+        typeof descriptor.value === 'string'
+        ? descriptor.value.slice(0, maximumLength)
+        : undefined
+    } catch {
+      return
+    }
+  }
+  const candidate = value as object
+  const message = readOwnDiagnosticString(candidate, 'message', 300)
+  let name = readOwnDiagnosticString(candidate, 'name', 80)
+  if (!name && message) {
+    try {
+      const prototype = Object.getPrototypeOf(candidate)
+      if (prototype) {
+        name = readOwnDiagnosticString(prototype, 'name', 80)
+      }
+    } catch {
+      // Hostile diagnostic objects retain bounded fallback evidence.
+    }
+  }
+  if (message || name) {
     return Object.freeze({
-      message:
-        typeof candidate.message === 'string'
-          ? candidate.message
-          : String(value),
-      name: typeof candidate.name === 'string' ? candidate.name : 'Error'
+      message: message ?? 'Diagnostic value unavailable',
+      name: name ?? 'Error'
     })
   }
-  return String(value)
+  return 'Diagnostic value unavailable'
 }
 
 const captureFactoryTransactionStatus = (
@@ -244,7 +308,7 @@ const captureFactoryTransactionStatus = (
             kind: status.failure.kind,
             ...(status.failure.message === undefined
               ? {}
-              : { message: status.failure.message })
+              : { message: status.failure.message.slice(0, 300) })
           })
         }
       : {}),
@@ -252,7 +316,7 @@ const captureFactoryTransactionStatus = (
     origin: status.origin,
     ...(status.providerName === undefined
       ? {}
-      : { providerName: status.providerName }),
+      : { providerName: status.providerName.slice(0, 80) }),
     rollbackableChangeCount: status.rollbackableChangeCount,
     status: status.status,
     transactionId: status.transactionId,
@@ -324,11 +388,18 @@ export const installAiDrawingPerformanceProfile = ({
     RETAINED_EVIDENCE_CAPACITY
   )
   const counterTotals = new Map<string, number>()
-  const factoryCommits: AiDrawingPerformanceFactoryCommitEvidence[] = []
-  const factoryPublications: AiDrawingPerformanceFactoryPublicationEvidence[] =
-    []
-  const factoryStatuses: AiDrawingPerformanceFactoryTransactionStatusEvidence[] =
-    []
+  const factoryCommits =
+    new BoundedEvidenceBuffer<AiDrawingPerformanceFactoryCommitEvidence>(
+      RETAINED_EVIDENCE_CAPACITY
+    )
+  const factoryPublications =
+    new BoundedEvidenceBuffer<AiDrawingPerformanceFactoryPublicationEvidence>(
+      RETAINED_EVIDENCE_CAPACITY
+    )
+  const factoryStatuses =
+    new BoundedEvidenceBuffer<AiDrawingPerformanceFactoryTransactionStatusEvidence>(
+      RETAINED_EVIDENCE_CAPACITY
+    )
   const phases = new BoundedEvidenceBuffer<AiDrawingPerformancePhaseSample>(
     RETAINED_EVIDENCE_CAPACITY
   )
@@ -338,6 +409,8 @@ export const installAiDrawingPerformanceProfile = ({
   let hasAcceptedToSettledEvidence = false
   let hasAcceptedTurnEvidence = false
   let hasSettledOutcomeEvidence = false
+  let latestTurnSettlement: AiDrawingPerformanceTurnSettlementEvidence | null =
+    null
   let previousConversationSnapshot: AsyraDesignAiConversationSnapshot | null =
     null
   let observedRuntimeProgressCount = 0
@@ -351,7 +424,13 @@ export const installAiDrawingPerformanceProfile = ({
 
   const elapsed = () => Math.max(0, now() - baselineMs)
   const recordPhaseAt = (name: string, durationMs: number, atMs: number) => {
-    if (disposed || !Number.isFinite(durationMs)) return
+    if (
+      disposed ||
+      !isBoundedEvidenceName(name) ||
+      !Number.isFinite(durationMs)
+    ) {
+      return
+    }
     phases.append(
       Object.freeze({
         atMs: Math.max(0, atMs),
@@ -367,7 +446,15 @@ export const installAiDrawingPerformanceProfile = ({
     recordPhaseAt(name, durationMs, elapsed())
   }
   const recordCounterAt = (name: string, value: number, atMs: number) => {
-    if (disposed || !Number.isFinite(value)) return
+    if (
+      disposed ||
+      !isBoundedEvidenceName(name) ||
+      !Number.isFinite(value) ||
+      (!counterTotals.has(name) &&
+        counterTotals.size >= RETAINED_COUNTER_KEY_CAPACITY)
+    ) {
+      return
+    }
     counters.append(Object.freeze({ atMs: Math.max(0, atMs), name, value }))
     counterTotals.set(name, (counterTotals.get(name) ?? 0) + value)
     if (name === 'ai-turn:accepted') {
@@ -406,9 +493,9 @@ export const installAiDrawingPerformanceProfile = ({
       detachTransactionStatus = source.subscribeToTransactionStatus(
         (status) => {
           if (disposed || !Number.isFinite(status.timestamp)) return
-          factoryStatuses.push(captureFactoryTransactionStatus(status))
+          factoryStatuses.append(captureFactoryTransactionStatus(status))
           if (status.status !== 'committed') return
-          factoryCommits.push(
+          factoryCommits.append(
             Object.freeze({
               capturedAtMs: status.timestamp,
               origin: status.origin,
@@ -444,7 +531,7 @@ export const installAiDrawingPerformanceProfile = ({
   }): void => {
     const capturedAtMs = epochNow()
     if (disposed || !Number.isFinite(capturedAtMs)) return
-    factoryPublications.push(
+    factoryPublications.append(
       Object.freeze({
         capturedAtMs,
         deliveryCount: publication.deliveryCount,
@@ -460,6 +547,7 @@ export const installAiDrawingPerformanceProfile = ({
       conversationDisposer?.()
       conversationDisposer = null
       previousConversationSnapshot = null
+      latestTurnSettlement = null
       observedRuntimeProgressCount = 0
       runtimeProgressClock = null
       if (!conversation || disposed) {
@@ -520,6 +608,7 @@ export const installAiDrawingPerformanceProfile = ({
         ) {
           const settled = snapshot.settledTurns.at(-1)
           if (settled) {
+            latestTurnSettlement = captureTurnSettlement(settled)
             recordPhaseAt(
               'ai-turn:accepted-to-settled',
               settled.durationMs,
@@ -568,9 +657,9 @@ export const installAiDrawingPerformanceProfile = ({
     getRuntimeEvidence: () =>
       (() => {
         const detached = structuredClone({
-          factoryCommits,
-          factoryPublications,
-          factoryStatuses
+          factoryCommits: factoryCommits.toArray(),
+          factoryPublications: factoryPublications.toArray(),
+          factoryStatuses: factoryStatuses.toArray()
         })
         return Object.freeze({
           factoryCommits: Object.freeze(
@@ -641,6 +730,7 @@ export const installAiDrawingPerformanceProfile = ({
       }
       return depth
     },
+    readLatestFactoryTransactionStatus: () => factoryStatuses.latest() ?? null,
     readLatestPhaseSample: () => {
       if (disposed) {
         throw new Error(
@@ -650,6 +740,7 @@ export const installAiDrawingPerformanceProfile = ({
       const latest = phases.latest()
       return latest ? Object.freeze({ ...latest }) : null
     },
+    readLatestTurnSettlement: () => latestTurnSettlement,
     readRenderProjectionElementCount: () => {
       if (!runtimeEvidenceSource || disposed) {
         throw new Error(
@@ -692,15 +783,16 @@ export const installAiDrawingPerformanceProfile = ({
       if (disposed) return
       counters.clear()
       counterTotals.clear()
-      factoryCommits.length = 0
-      factoryPublications.length = 0
-      factoryStatuses.length = 0
+      factoryCommits.clear()
+      factoryPublications.clear()
+      factoryStatuses.clear()
       phases.clear()
       observedRuntimeProgressCount = 0
       runtimeProgressClock = null
       hasAcceptedToSettledEvidence = false
       hasAcceptedTurnEvidence = false
       hasSettledOutcomeEvidence = false
+      latestTurnSettlement = null
       baselineMs = now()
     },
     snapshot: () =>
