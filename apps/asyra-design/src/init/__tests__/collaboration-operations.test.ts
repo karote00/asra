@@ -724,6 +724,33 @@ describe('Asyra Design app-owned collaboration processing', () => {
     )
   })
 
+  it('accepts complete ordered property evidence for one remote element removal request', () => {
+    const harness = createHarness()
+    const elementIds = ['rect-a', 'rect-b']
+
+    expect(
+      harness.processPublication(
+        publication(
+          canonicalRemovalDeliveries(elementIds, true),
+          'complete-element-removal'
+        )
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'element-removal',
+        removals: [...elementIds].reverse().map((elementId) =>
+          expect.objectContaining({
+            data: expect.objectContaining({ id: elementId })
+          })
+        )
+      })
+    ])
+  })
+
   it('uses the same one-request boundary for a progressive canonical slice', () => {
     const harness = createHarness()
     const elementIds = ['rect-a', 'rect-b', 'rect-c']
