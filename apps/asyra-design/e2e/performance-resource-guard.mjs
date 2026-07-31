@@ -2025,10 +2025,18 @@ export const recordProfileOutput = (state, chunk, { flush = false } = {}) => {
       continue
     }
     const evidence = metric.evidence
+    const sampleCount = evidence.sampleCount
+    if (
+      !Number.isSafeInteger(sampleCount) ||
+      sampleCount < 1 ||
+      sampleCount > 8
+    ) {
+      continue
+    }
     profileMetrics = {
       counts: {
         ...profileMetrics.counts,
-        [metric.type]: profileMetrics.counts[metric.type] + 1
+        [metric.type]: profileMetrics.counts[metric.type] + sampleCount
       },
       maximums: {
         writeCallbackMs: maximum(

@@ -842,32 +842,39 @@ test('peer-applied remains a distinct acknowledged server receipt', async () => 
       child,
       'AI_COLLABORATION_SERVER_PEER_APPLIED '
     )
-    const response = responseFor(receiver, 'peer-applied-request')
-
-    receiver.send(
-      JSON.stringify({
-        type: 'peer-applied',
-        requestId: 'peer-applied-request',
-        publicationId: 'publication-a',
-        fromActorId: 'peer-applied-source'
-      })
-    )
-
-    assert.deepEqual(await response, {
-      type: 'response',
-      requestId: 'peer-applied-request',
-      ok: true
+    const responses = Array.from({ length: 8 }, (_, index) => {
+      const requestId = `peer-applied-request-${index + 1}`
+      const response = responseFor(receiver, requestId)
+      receiver.send(
+        JSON.stringify({
+          type: 'peer-applied',
+          requestId,
+          publicationId: `publication-${index + 1}`,
+          fromActorId: 'peer-applied-source'
+        })
+      )
+      return response
     })
+
+    assert.deepEqual(
+      await Promise.all(responses),
+      Array.from({ length: 8 }, (_, index) => ({
+        type: 'response',
+        requestId: `peer-applied-request-${index + 1}`,
+        ok: true
+      }))
+    )
     const evidence = JSON.parse(
       (await receiptEvidence).slice(
         'AI_COLLABORATION_SERVER_PEER_APPLIED '.length
       )
     )
     assert.deepEqual(evidence, {
-      requestId: 'peer-applied-request',
-      publicationId: 'publication-a',
+      requestId: 'peer-applied-request-8',
+      publicationId: 'publication-8',
       fromActorId: 'peer-applied-source',
-      appliedByActorId: 'peer-applied-receiver'
+      appliedByActorId: 'peer-applied-receiver',
+      sampleCount: 8
     })
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
@@ -1013,7 +1020,6 @@ test('publication queue sends admitted frames before contiguous dual-gated retir
   const child = startServer({
     port,
     origin,
-    profile: true,
     holdPeerWriteCallbacks: true
   })
   const sockets = []
@@ -1076,17 +1082,8 @@ test('publication queue sends admitted frames before contiguous dual-gated retir
     sender.send(frames[3], { binary: true })
     await noMessageBefore(fourthAdmission)
 
-    const firstDrain = waitForStdoutLine(
-      child,
-      'AI_COLLABORATION_SERVER_PEER_DRAIN '
-    )
     sendFrameConsumed(peer, receivedWindow[0])
-    await noMessageBefore(firstDrain)
     await releasePeerWriteCallback(child)
-    const firstDrainEvidence = JSON.parse(
-      (await firstDrain).slice('AI_COLLABORATION_SERVER_PEER_DRAIN '.length)
-    )
-    assert.equal(firstDrainEvidence.frameId, receivedWindow[0].frameId)
     await noMessageBefore(fourthAdmission)
 
     await releasePeerWriteCallback(child)

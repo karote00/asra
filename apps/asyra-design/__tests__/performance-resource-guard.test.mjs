@@ -3556,10 +3556,10 @@ test('aggregates bounded collaboration profile metrics into the final report', (
   state = recordProfileOutput(
     state,
     [
-      'AI_COLLABORATION_SERVER_PEER_WRITE {"writeCallbackMs":1.25,"queueBytes":1024}',
-      'AI_COLLABORATION_SERVER_PEER_DRAIN {"drainMs":9.5,"queueBytes":512}',
-      'AI_COLLABORATION_SERVER_PROFILE {"queueWaitMs":4.25,"totalMs":12.75}',
-      'AI_COLLABORATION_SERVER_PEER_APPLIED {"publicationId":"pub-1","applyMs":7.5}',
+      'AI_COLLABORATION_SERVER_PEER_WRITE {"sampleCount":8,"writeCallbackMs":1.25,"queueBytes":1024}',
+      'AI_COLLABORATION_SERVER_PEER_DRAIN {"sampleCount":8,"drainMs":9.5,"queueBytes":512}',
+      'AI_COLLABORATION_SERVER_PROFILE {"sampleCount":8,"queueWaitMs":4.25,"totalMs":12.75}',
+      'AI_COLLABORATION_SERVER_PEER_APPLIED {"sampleCount":8,"publicationId":"pub-8","applyMs":7.5}',
       ''
     ].join('\n')
   )
@@ -3570,10 +3570,10 @@ test('aggregates bounded collaboration profile metrics into the final report', (
   })
 
   assert.deepEqual(report.profileMetrics.counts, {
-    profile: 1,
-    peerWrite: 1,
-    peerDrain: 1,
-    peerApplied: 1
+    profile: 8,
+    peerWrite: 8,
+    peerDrain: 8,
+    peerApplied: 8
   })
   assert.equal(report.profileMetrics.maximums.writeCallbackMs, 1.25)
   assert.equal(report.profileMetrics.maximums.drainMs, 9.5)

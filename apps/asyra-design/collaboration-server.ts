@@ -57,6 +57,70 @@ const rounded = (value: number): number => Math.round(value * 1_000) / 1_000
 const elapsed = (startedAtMs: number): number => performance.now() - startedAtMs
 const epochNow = (): number => performance.timeOrigin + performance.now()
 
+const COLLABORATION_PROFILE_BATCH_SIZE = 8
+type CollaborationProfilePrefix =
+  | 'AI_COLLABORATION_SERVER_PROFILE'
+  | 'AI_COLLABORATION_SERVER_PEER_WRITE'
+  | 'AI_COLLABORATION_SERVER_PEER_DRAIN'
+  | 'AI_COLLABORATION_SERVER_PEER_APPLIED'
+interface CollaborationProfileBatch {
+  readonly sampleCount: number
+  readonly latest: Readonly<Record<string, unknown>>
+  readonly maxima: Readonly<Record<string, number>>
+}
+const collaborationProfileMaximumKeys: Readonly<
+  Record<CollaborationProfilePrefix, readonly string[]>
+> = {
+  AI_COLLABORATION_SERVER_PROFILE: ['queueWaitMs', 'totalMs'],
+  AI_COLLABORATION_SERVER_PEER_WRITE: ['writeCallbackMs', 'queueBytes'],
+  AI_COLLABORATION_SERVER_PEER_DRAIN: ['drainMs', 'queueBytes'],
+  AI_COLLABORATION_SERVER_PEER_APPLIED: []
+}
+const collaborationProfileBatches = new Map<
+  CollaborationProfilePrefix,
+  CollaborationProfileBatch
+>()
+
+const recordCollaborationProfile = (
+  prefix: CollaborationProfilePrefix,
+  evidence: Readonly<Record<string, unknown>>,
+  { immediate = false }: Readonly<{ immediate?: boolean }> = {}
+): void => {
+  if (!collaborationProfilingEnabled) return
+  if (immediate) {
+    console.log(`${prefix} ${JSON.stringify({ ...evidence, sampleCount: 1 })}`)
+    return
+  }
+
+  const current = collaborationProfileBatches.get(prefix)
+  const maxima = { ...(current?.maxima ?? {}) }
+  collaborationProfileMaximumKeys[prefix].forEach((key) => {
+    const value = evidence[key]
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return
+    }
+    maxima[key] = Math.max(maxima[key] ?? 0, value)
+  })
+  const batch = {
+    sampleCount: (current?.sampleCount ?? 0) + 1,
+    latest: evidence,
+    maxima
+  }
+  if (batch.sampleCount < COLLABORATION_PROFILE_BATCH_SIZE) {
+    collaborationProfileBatches.set(prefix, batch)
+    return
+  }
+
+  collaborationProfileBatches.delete(prefix)
+  console.log(
+    `${prefix} ${JSON.stringify({
+      ...batch.latest,
+      ...batch.maxima,
+      sampleCount: batch.sampleCount
+    })}`
+  )
+}
+
 interface OutboundPublicationFrame {
   readonly bytes: Uint8Array
   readonly header: PublicationFrameHeader
@@ -380,19 +444,15 @@ const retireCompletedOutboundFrames = (peer: PeerSession): void => {
     peer.queuedBytes -= active.bytes.byteLength
     if (peer.queuedBytes < 0) peer.queuedBytes = 0
     retired = true
-    if (collaborationProfilingEnabled) {
-      console.log(
-        `AI_COLLABORATION_SERVER_PEER_DRAIN ${JSON.stringify({
-          requestId: active.sourceRequestId,
-          actorId: peer.actorId,
-          publicationId: active.header.publicationId,
-          frameId: active.header.frameId,
-          frameBytes: active.bytes.byteLength,
-          queueBytes: peer.queuedBytes,
-          drainMs: rounded(elapsed(active.enqueuedAtMs))
-        })}`
-      )
-    }
+    recordCollaborationProfile('AI_COLLABORATION_SERVER_PEER_DRAIN', {
+      requestId: active.sourceRequestId,
+      actorId: peer.actorId,
+      publicationId: active.header.publicationId,
+      frameId: active.header.frameId,
+      frameBytes: active.bytes.byteLength,
+      queueBytes: peer.queuedBytes,
+      drainMs: rounded(elapsed(active.enqueuedAtMs))
+    })
   }
   if (retired && peer.capacityWaiters.size > 0) {
     notifyCapacityWaiters(peer, true)
@@ -404,18 +464,18 @@ const failPeerWrite = (
   active: OutboundPublicationFrame,
   error: Error
 ): void => {
-  if (collaborationProfilingEnabled) {
-    console.log(
-      `AI_COLLABORATION_SERVER_PEER_WRITE ${JSON.stringify({
-        requestId: active.sourceRequestId,
-        actorId: peer.actorId,
-        publicationId: active.header.publicationId,
-        frameId: active.header.frameId,
-        frameBytes: active.bytes.byteLength,
-        error: { name: error.name, message: error.message }
-      })}`
-    )
-  }
+  recordCollaborationProfile(
+    'AI_COLLABORATION_SERVER_PEER_WRITE',
+    {
+      requestId: active.sourceRequestId,
+      actorId: peer.actorId,
+      publicationId: active.header.publicationId,
+      frameId: active.header.frameId,
+      frameBytes: active.bytes.byteLength,
+      error: { name: error.name, message: error.message }
+    },
+    { immediate: true }
+  )
   removePeer(peer)
   if (
     peer.socket.readyState === WebSocket.OPEN ||
@@ -445,24 +505,21 @@ const sendAdmittedFrame = (
         return
       }
       frame.sendCallbackDone = true
-      if (collaborationProfilingEnabled) {
-        console.log(
-          `AI_COLLABORATION_SERVER_PEER_WRITE ${JSON.stringify({
-            requestId: frame.sourceRequestId,
-            actorId: peer.actorId,
-            publicationId: frame.header.publicationId,
-            frameId: frame.header.frameId,
-            frameBytes: frame.bytes.byteLength,
-            sendStartedAtMs,
-            writeCallbackAtMs: epochNow(),
-            writeCallbackMs: rounded(epochNow() - sendStartedAtMs),
-            bufferedAmountBefore,
-            bufferedAmountAtCallback: peer.socket.bufferedAmount,
-            queueBytes: peer.queuedBytes,
-            perMessageDeflate: false
-          })}`
-        )
-      }
+      const writeCallbackAtMs = epochNow()
+      recordCollaborationProfile('AI_COLLABORATION_SERVER_PEER_WRITE', {
+        requestId: frame.sourceRequestId,
+        actorId: peer.actorId,
+        publicationId: frame.header.publicationId,
+        frameId: frame.header.frameId,
+        frameBytes: frame.bytes.byteLength,
+        sendStartedAtMs,
+        writeCallbackAtMs,
+        writeCallbackMs: rounded(writeCallbackAtMs - sendStartedAtMs),
+        bufferedAmountBefore,
+        bufferedAmountAtCallback: peer.socket.bufferedAmount,
+        queueBytes: peer.queuedBytes,
+        perMessageDeflate: false
+      })
       retireCompletedOutboundFrames(peer)
     }
   )
@@ -686,16 +743,12 @@ webSocketServer.on('connection', (socket) => {
         '[collaboration] peer-applied source must be another room actor'
       )
     }
-    if (collaborationProfilingEnabled) {
-      console.log(
-        `AI_COLLABORATION_SERVER_PEER_APPLIED ${JSON.stringify({
-          requestId: message.requestId,
-          publicationId: message.publicationId,
-          fromActorId: message.fromActorId,
-          appliedByActorId: peer.actorId
-        })}`
-      )
-    }
+    recordCollaborationProfile('AI_COLLABORATION_SERVER_PEER_APPLIED', {
+      requestId: message.requestId,
+      publicationId: message.publicationId,
+      fromActorId: message.fromActorId,
+      appliedByActorId: peer.actorId
+    })
     sendControl(socket, {
       type: CollaborationMessageTypes.RESPONSE,
       requestId: message.requestId,
@@ -926,21 +979,16 @@ webSocketServer.on('connection', (socket) => {
           requestId: request.requestId,
           ok: true
         })
-        if (collaborationProfilingEnabled) {
-          console.log(
-            `AI_COLLABORATION_SERVER_PROFILE ${JSON.stringify({
-              requestId: request.requestId,
-              type: request.messageType,
-              publicationCount: request.publicationCount,
-              frameCount: request.frameCount,
-              frameBytes: request.frameBytes,
-              peerCount: request.recipients.filter(({ closed }) => !closed)
-                .length,
-              queueWaitMs: rounded(request.queueWaitMs),
-              totalMs: rounded(elapsed(request.receivedAtMs))
-            })}`
-          )
-        }
+        recordCollaborationProfile('AI_COLLABORATION_SERVER_PROFILE', {
+          requestId: request.requestId,
+          type: request.messageType,
+          publicationCount: request.publicationCount,
+          frameCount: request.frameCount,
+          frameBytes: request.frameBytes,
+          peerCount: request.recipients.filter(({ closed }) => !closed).length,
+          queueWaitMs: rounded(request.queueWaitMs),
+          totalMs: rounded(elapsed(request.receivedAtMs))
+        })
       })
       .catch((error) => {
         if (sourceFrameAdmission !== admission || inboundFailed) return

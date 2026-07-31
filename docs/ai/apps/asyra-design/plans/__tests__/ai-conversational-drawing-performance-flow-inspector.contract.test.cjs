@@ -1519,6 +1519,26 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
 })
 
+test('relay profiling batches diagnostic evidence without changing raw CPU safety', () => {
+  const owner = step('evaluate-endpoint-performance')
+  const text = contractText(owner)
+
+  assert.match(
+    text,
+    /relay profiling.*once per eight.*same-type records.*sampleCount.*exact counts.*maxima.*raw CPU safety/i
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/collaboration-server.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-design/__tests__/collaboration-server.test.mjs'
+    )
+  )
+})
+
 test('local source endpoint keeps canonical records while removing repeated single-record work', () => {
   const stageOwner = step('stage-local-interactive-composition')
   const canonicalOwner = step('apply-canonical-property-scene-batch')
