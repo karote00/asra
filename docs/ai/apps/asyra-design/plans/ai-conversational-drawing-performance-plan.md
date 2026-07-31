@@ -769,6 +769,33 @@ After those gates, one corrected guarded 16-item proof must pass. A replacement
 invalid attempt already consumed the available high-detail test budget. No
 later CRDT owner begins before that decision.
 
+### 2026-07-31 corrected raw CPU checkpoint result
+
+The product owner authorized the complete remaining plan. The corrected
+guarded 16-item local-source proof passed with exact 17/17 canonical and Render
+counts, one Undo entry, eight Factory publications, a 146.4-percent raw
+frontend peak, and 153.0-percent same-snapshot aggregate CPU.
+
+The authorized single guarded 7,076-element local-source proof then crossed the
+real raw frontend limit at 251.7 percent; the same snapshot aggregate was 259.0
+percent, so the 400-percent aggregate limit did not fire. The guard stopped and
+confirmed all four tracked process groups at Actor A 1,522/7,076, Actor B
+0/7,076, 49 Factory publications, and 48 locally sent publications. This stop
+is valid raw evidence and must not be replaced by another local-source
+7,076-element invocation.
+
+The required fresh single-Actor 1,280-item attribution completed at 1,281/1,281
+in 3,098 milliseconds with a 221.7-percent raw frontend peak and 226.4-percent
+same-snapshot aggregate CPU. Provider handoff and Runtime resolution remained
+below one millisecond. The material local transaction contained 2,403.1
+milliseconds of composition-batch work, including 796.3 milliseconds of
+Dedicated Worker encode, 484.7 milliseconds of Factory shared-channel append,
+and 350.5 milliseconds of Render projection. Actor B was absent, so receiver,
+remote apply, and relay cannot own this stop. The bounded replan therefore
+selects the already ordered `encode-publication-frames` owner and proceeds with
+its existing focused-tests → bounded-review → guarded-16 gate without another
+7,076-element run.
+
 ### 2026-07-30 guarded local source pipeline replan
 
 The corrected guarded runs prove that the local creation source pipeline must
