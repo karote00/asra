@@ -1282,6 +1282,23 @@ test('Core returns ordered ids while Factory records transaction evidence direct
     activeFactoryText,
     /Factory transaction owner records.*canonical Props and Scene evidence directly/i
   )
+  assert.deepEqual(
+    factoryOwner.implementationBoundary.filter((entry) =>
+      entry.startsWith('packages/reactive-events/')
+    ),
+    [
+      'packages/reactive-events/src/app/events.ts',
+      'packages/reactive-events/src/app/publish.ts',
+      'packages/reactive-events/src/scene-tree/events.ts',
+      'packages/reactive-events/src/scene-tree/publish.ts',
+      'packages/reactive-events/src/scene-tree/subscribes.ts',
+      'packages/reactive-events/src/transaction-owner.ts',
+      'packages/reactive-events/src/types.ts',
+      'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
+      'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
+      'packages/reactive-events/src/__tests__/transaction-boundary.test.ts'
+    ]
+  )
   assert.doesNotMatch(
     `${activeCanonicalText}\n${activeFactoryText}`,
     /CanonicalElementBatchResult|canonical-element-batch-result|delivery handle/i

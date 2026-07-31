@@ -391,6 +391,7 @@
       allowedContributors: [
         'Factory transaction and journal owners with their ordered canonical evidence',
         'Factory shared-data channel',
+        'Reactive Events batch transaction contract that forwards and observes the ordered canonical batch without a scalar owner path',
         'ordinary ordered canonical delivery evidence'
       ],
       forbiddenContributors: [
@@ -405,7 +406,17 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/factory/src',
-        'packages/factory/src/__tests__'
+        'packages/factory/src/__tests__',
+        'packages/reactive-events/src/app/events.ts',
+        'packages/reactive-events/src/app/publish.ts',
+        'packages/reactive-events/src/scene-tree/events.ts',
+        'packages/reactive-events/src/scene-tree/publish.ts',
+        'packages/reactive-events/src/scene-tree/subscribes.ts',
+        'packages/reactive-events/src/transaction-owner.ts',
+        'packages/reactive-events/src/types.ts',
+        'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
+        'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
+        'packages/reactive-events/src/__tests__/transaction-boundary.test.ts'
       ],
       specRefs: [
         '#factory-mutation-batch-artifact',

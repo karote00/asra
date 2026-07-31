@@ -1099,6 +1099,9 @@ handoff, the active Factory transaction records ordered Props and Scene owner
 evidence directly. The owner establishes isolation once; Factory and
 `LocalSharedDataChannel` trust that boundary and perform no recursive frozen
 tree scan.
+The Reactive Events transaction contract forwards and observes this ordered
+batch through one batch-only owner route; it does not retain a second scalar
+transaction-owner implementation.
 `Core.createElementsInParent(...)` returns only ordered element IDs and never
 returns a Factory delivery/evidence handle. The immutable artifact contains
 ordered canonical changes, IDs, inverses, Factory-owned
