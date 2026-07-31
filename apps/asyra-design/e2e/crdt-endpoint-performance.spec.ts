@@ -25,6 +25,7 @@ const expectedFixture = Object.freeze({
   vectorCount: 7075
 })
 const CRDT_FLOW_TIMEOUT_MS = 180_000
+const ENDPOINT_HEARTBEAT_INTERVAL_MS = 5_000
 const remainingCrdtFlowTimeoutMs = (startedAtMs: number): number =>
   Math.max(1, startedAtMs + CRDT_FLOW_TIMEOUT_MS - Date.now())
 const exactCatOnlyPrompt =
@@ -59,8 +60,11 @@ const endpointAttributionCase =
 const endpointLocalAttribution = ['16', '16-reduced-motion', '1280'].includes(
   endpointAttributionCase
 )
-const endpointTwoActorActivityAttribution =
-  endpointAttributionCase === '16-two-actor-activity'
+const endpointTwoActorActivityAttribution = [
+  '16-two-actor-activity',
+  '1280-two-actor-attribution',
+  '320-two-actor-attribution'
+].includes(endpointAttributionCase)
 const endpointOwner = endpointGuardEnabled
   ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_OWNER')
   : 'guarded-endpoint-disabled'
@@ -109,6 +113,7 @@ interface EndpointHeartbeat {
     readonly actorBDurationMs: number
     readonly actorBPhase: string
   }
+  readonly ownerEvidence?: EndpointOwnerEvidence | null
   readonly phase: string
   readonly proofKind:
     | 'endpoint'
@@ -186,6 +191,12 @@ interface PreparedAiTurn {
     readonly x: number
     readonly y: number
   }
+}
+
+interface EndpointPhaseTiming {
+  readonly atMs: number
+  readonly durationMs: number
+  readonly name: string
 }
 
 type EndpointAiTurnOutcome =
@@ -285,6 +296,7 @@ interface LocalInteractionProbeSnapshot {
 }
 
 type LocalInteractionProbeTarget =
+  | 'first-visible'
   | 'interaction-frame'
   | 'loading-at-zero'
   | 'loading-removed'
@@ -300,6 +312,10 @@ interface LocalNavigationBaseline {
 interface LocalInteractionProbe {
   focusKeyboardTarget(): LocalInteractionProbeSnapshot
   read(): LocalInteractionProbeSnapshot
+  waitForCanonicalProgress(
+    minimumCanonicalElements: number,
+    timeoutMs: number
+  ): Promise<LocalInteractionProbeSnapshot>
   waitFor(
     target: LocalInteractionProbeTarget,
     timeoutMs: number,
@@ -385,11 +401,7 @@ interface FinalActorDiagnostics {
   readonly factoryPublicationCount: number
   readonly historyDepth: number
   readonly localSentCount: number
-  readonly phaseTimeline: readonly {
-    readonly atMs: number
-    readonly durationMs: number
-    readonly name: string
-  }[]
+  readonly phaseTimeline: readonly EndpointPhaseTiming[]
   readonly persistencePhaseCount: number
   readonly remoteProcessedCount: number
   readonly renderProjectionAnomalies: {
@@ -403,6 +415,17 @@ interface FinalActorDiagnostics {
     readonly name: string
   }[]
   readonly visibleWorkerTargets: readonly string[]
+}
+
+interface EndpointOwnerEvidence {
+  readonly actorA: {
+    readonly diagnostics: FinalActorDiagnostics
+    readonly summary: Record<string, never>
+  } | null
+  readonly actorB: {
+    readonly diagnostics: FinalActorDiagnostics
+    readonly summary: Record<string, never>
+  } | null
 }
 
 interface EndpointReport {
@@ -439,6 +462,7 @@ interface EndpointReport {
     | 'endpoint'
     | 'local-attribution'
     | 'collaboration-attribution'
+  readonly responseInboxPreload?: EndpointPhaseTiming
   readonly serverResponseSeed?: PreparedAsyraDesignServerResponseSeedMetrics
   readonly status: 'complete'
 }
@@ -446,6 +470,7 @@ interface EndpointReport {
 interface EndpointHeartbeatFailure {
   readonly message: string
   readonly name: string
+  readonly ownerEvidence?: EndpointOwnerEvidence | null
 }
 
 type EndpointHeartbeatEnvelope = EndpointHeartbeat & {
@@ -583,8 +608,10 @@ const waitForCollaboration = async (
   }
 }
 
-const installBoundedDiagnostics = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
+const installBoundedDiagnostics = async (
+  page: Page
+): Promise<EndpointPhaseTiming> =>
+  page.evaluate(() => {
     const scope = globalThis as typeof globalThis & {
       __AsyraEndpointDiagnostics__?: EndpointDiagnostics
     }
@@ -676,9 +703,21 @@ const installBoundedDiagnostics = async (page: Page): Promise<void> => {
     if (!profile) {
       throw new Error('AI drawing performance profile is unavailable')
     }
+    const responseInboxPreload = profile
+      .snapshot()
+      .phases.find(
+        ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
+      )
+    if (!responseInboxPreload) {
+      throw new Error('Response inbox preload timing is unavailable')
+    }
     profile.reset()
+    return {
+      atMs: Math.round(responseInboxPreload.atMs * 1000) / 1000,
+      durationMs: Math.round(responseInboxPreload.durationMs * 1000) / 1000,
+      name: responseInboxPreload.name
+    }
   })
-}
 
 const readActorSample = async (
   page: Page
@@ -830,6 +869,9 @@ const createHeartbeatController = (
   let actorACompleteAtMs: number | null = null
   let actorBFirstVisibleAtMs: number | null = null
   let actorBCompleteAtMs: number | null = null
+  let previousActorBProgress: string | null = null
+  let unchangedActorBProgressSamples = 0
+  let stalledOwnerEvidence: EndpointOwnerEvidence | null = null
   let latest: EndpointHeartbeat | null = null
   let rejectFailure: (error: Error) => void = () => undefined
   const failure = new Promise<never>((_resolve, reject) => {
@@ -875,6 +917,56 @@ const createHeartbeatController = (
       actorBSample.canonicalElements === expectedTotal &&
       actorBRendered === expectedTotal &&
       publicationsSettled
+    const actorBProgress = [
+      actorBSample.canonicalElements,
+      actorBSample.renderProjectionElements,
+      actorBSample.remoteProcessed
+    ].join(':')
+    if (
+      proofKind === 'endpoint' &&
+      creationStartedAtMs !== null &&
+      actorAComplete &&
+      !actorBComplete
+    ) {
+      if (actorBProgress === previousActorBProgress) {
+        unchangedActorBProgressSamples += 1
+      } else {
+        previousActorBProgress = actorBProgress
+        unchangedActorBProgressSamples = 0
+      }
+      if (
+        unchangedActorBProgressSamples >= 2 &&
+        stalledOwnerEvidence === null
+      ) {
+        const [actorAFinalDiagnostics, actorBFinalDiagnostics] =
+          await Promise.all([
+            settleFailureEvidenceWithin(
+              readFinalDiagnostics(actorA, expectedFixture.vectorCount),
+              1_500
+            ),
+            settleFailureEvidenceWithin(readFinalDiagnostics(actorB), 1_500)
+          ])
+        stalledOwnerEvidence = {
+          actorA:
+            actorAFinalDiagnostics.status === 'available'
+              ? {
+                  diagnostics: actorAFinalDiagnostics.value,
+                  summary: {}
+                }
+              : null,
+          actorB:
+            actorBFinalDiagnostics.status === 'available'
+              ? {
+                  diagnostics: actorBFinalDiagnostics.value,
+                  summary: {}
+                }
+              : null
+        }
+      }
+    } else {
+      previousActorBProgress = null
+      unchangedActorBProgressSamples = 0
+    }
     if (
       elapsedMs !== null &&
       actorARendered > 0 &&
@@ -926,6 +1018,7 @@ const createHeartbeatController = (
         actorBDurationMs: actorBSample.latestOwnerTiming?.durationMs ?? 0,
         actorBPhase: actorBSample.latestOwnerTiming?.name ?? 'unavailable'
       },
+      ...(stalledOwnerEvidence ? { ownerEvidence: stalledOwnerEvidence } : {}),
       phase: latestCompletedPhase,
       proofKind,
       publications: {
@@ -942,7 +1035,7 @@ const createHeartbeatController = (
 
   const run = async (): Promise<void> => {
     while (active) {
-      await delay(1_000)
+      await delay(ENDPOINT_HEARTBEAT_INTERVAL_MS)
       if (!active) return
       try {
         await postHeartbeat('progress', await sample())
@@ -1096,7 +1189,7 @@ const createLocalAttributionHeartbeatController = (
 
   const run = async (): Promise<void> => {
     while (active) {
-      await delay(1_000)
+      await delay(ENDPOINT_HEARTBEAT_INTERVAL_MS)
       if (!active) return
       try {
         await postHeartbeat('progress', await sample())
@@ -1558,7 +1651,6 @@ const installLocalInteractionProbe = async (
       'success'
     ]
     let loadingAtZero: LocalInteractionProbeSnapshot['loadingAtZero'] = null
-    let stableLoadingFrameCount = 0
 
     const read = (): LocalInteractionProbeSnapshot => {
       const indicator = document.querySelector<HTMLElement>(
@@ -1637,6 +1729,14 @@ const installLocalInteractionProbe = async (
       stableLoadingFrames: number
     ): boolean => {
       switch (target) {
+        case 'first-visible':
+          return (
+            snapshot.canonicalElements > 0 &&
+            snapshot.loadingConnected &&
+            snapshot.turnAccepted &&
+            snapshot.turnOutcome === null &&
+            stableLoadingFrames >= 2
+          )
         case 'interaction-frame':
           return observedFrames >= 2
         case 'loading-at-zero':
@@ -1667,91 +1767,259 @@ const installLocalInteractionProbe = async (
     if (!probeRoot) {
       throw new Error('Local interaction probe root is unavailable')
     }
+    const waitForBoundedProbeFrames = (frameCount: number): Promise<number> =>
+      new Promise((resolve) => {
+        let observedFrames = 0
+        const advance = (): void => {
+          observedFrames += 1
+          if (observedFrames >= frameCount) {
+            resolve(observedFrames)
+            return
+          }
+          requestAnimationFrame(advance)
+        }
+        requestAnimationFrame(advance)
+      })
+    const assertTurnRemainsActive = (
+      target: LocalInteractionProbeTarget,
+      snapshot: LocalInteractionProbeSnapshot
+    ): void => {
+      if (
+        (target === 'loading-at-zero' ||
+          target === 'first-visible' ||
+          target === 'pan-changed' ||
+          target === 'zoom-changed') &&
+        snapshot.turnOutcome !== null
+      ) {
+        throw new Error(
+          `AI turn settled before "${target}" evidence with outcome "${
+            snapshot.turnOutcome
+          }": ${JSON.stringify({
+            factoryTransaction: snapshot.latestFactoryTransactionStatus,
+            turn: snapshot.turnSettlement
+          })}`
+        )
+      }
+    }
+    const waitForLoadingTarget = (
+      target: 'first-visible' | 'loading-at-zero',
+      timeoutMs: number,
+      navigationBaseline: LocalNavigationBaseline
+    ): Promise<LocalInteractionProbeSnapshot> =>
+      new Promise((resolve, reject) => {
+        let settled = false
+        let frameScheduled = false
+        let observedFrames = 0
+        let stableLoadingFrameCount = 0
+        let observer: MutationObserver | null = null
+        const finish = (
+          result: { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
+        ): void => {
+          if (settled) return
+          settled = true
+          globalThis.clearTimeout(timeoutId)
+          observer?.disconnect()
+          if ('error' in result) {
+            reject(result.error)
+          } else {
+            resolve(result.snapshot)
+          }
+        }
+        const inspectLoadingMutation = (): void => {
+          frameScheduled = false
+          if (settled) return
+          observedFrames += 1
+          const snapshot = read()
+          try {
+            assertTurnRemainsActive(target, snapshot)
+          } catch (error) {
+            finish({
+              error: error instanceof Error ? error : new Error(String(error))
+            })
+            return
+          }
+          const targetStable =
+            target === 'loading-at-zero'
+              ? snapshot.loadingConnected &&
+                snapshot.canonicalElements === 0 &&
+                snapshot.turnAccepted &&
+                snapshot.turnOutcome === null
+              : snapshot.loadingConnected &&
+                snapshot.canonicalElements > 0 &&
+                snapshot.turnAccepted &&
+                snapshot.turnOutcome === null
+          if (targetStable) {
+            stableLoadingFrameCount += 1
+          } else {
+            stableLoadingFrameCount = 0
+          }
+          if (
+            targetReached(
+              target,
+              snapshot,
+              observedFrames,
+              navigationBaseline,
+              stableLoadingFrameCount
+            )
+          ) {
+            finish({ snapshot })
+            return
+          }
+          if (stableLoadingFrameCount === 1) {
+            scheduleLoadingInspection()
+          }
+        }
+        const scheduleLoadingInspection = (): void => {
+          if (settled || frameScheduled) return
+          frameScheduled = true
+          requestAnimationFrame(inspectLoadingMutation)
+        }
+        const timeoutId = globalThis.setTimeout(() => {
+          const snapshot = read()
+          let message = 'Agent did not accept the dispatched request.'
+          if (snapshot.requestSubmissionClickCount === 0) {
+            message =
+              'Prepared request click did not reach the armed Send control.'
+          } else if (snapshot.turnAccepted) {
+            message = `Local interaction evidence "${target}" timed out at ${JSON.stringify(
+              snapshot
+            )}`
+          }
+          finish({
+            error: new Error(message)
+          })
+        }, timeoutMs)
+        observer = new MutationObserver(scheduleLoadingInspection)
+        observer.observe(document.body, {
+          attributes: true,
+          childList: true,
+          subtree: true
+        })
+        scheduleLoadingInspection()
+      })
+    const waitForCanonicalProgress = (
+      minimumCanonicalElements: number,
+      timeoutMs: number
+    ): Promise<LocalInteractionProbeSnapshot> =>
+      new Promise((resolve, reject) => {
+        if (
+          !Number.isSafeInteger(minimumCanonicalElements) ||
+          minimumCanonicalElements <= 0
+        ) {
+          reject(new Error('Invalid local canonical progress target'))
+          return
+        }
+        let settled = false
+        let frameScheduled = false
+        let stableProgressFrames = 0
+        let observer: MutationObserver | null = null
+        const finish = (
+          result: { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
+        ): void => {
+          if (settled) return
+          settled = true
+          globalThis.clearTimeout(timeoutId)
+          observer?.disconnect()
+          if ('error' in result) {
+            reject(result.error)
+          } else {
+            resolve(result.snapshot)
+          }
+        }
+        const inspectProgressMutation = (): void => {
+          frameScheduled = false
+          if (settled) return
+          const snapshot = read()
+          if (
+            snapshot.turnOutcome !== null ||
+            !snapshot.turnAccepted ||
+            !snapshot.loadingConnected
+          ) {
+            finish({
+              error: new Error(
+                `AI turn settled before canonical progress ${String(
+                  minimumCanonicalElements
+                )}: ${JSON.stringify({
+                  canonicalElements: snapshot.canonicalElements,
+                  factoryTransaction: snapshot.latestFactoryTransactionStatus,
+                  turn: snapshot.turnSettlement,
+                  turnOutcome: snapshot.turnOutcome
+                })}`
+              )
+            })
+            return
+          }
+          if (snapshot.canonicalElements >= minimumCanonicalElements) {
+            stableProgressFrames += 1
+          } else {
+            stableProgressFrames = 0
+          }
+          if (stableProgressFrames >= 2) {
+            finish({ snapshot })
+            return
+          }
+          if (stableProgressFrames === 1) {
+            scheduleProgressInspection()
+          }
+        }
+        const scheduleProgressInspection = (): void => {
+          if (settled || frameScheduled) return
+          frameScheduled = true
+          requestAnimationFrame(inspectProgressMutation)
+        }
+        const timeoutId = globalThis.setTimeout(() => {
+          const snapshot = read()
+          finish({
+            error: new Error(
+              `Local canonical progress ${String(
+                minimumCanonicalElements
+              )} timed out at ${JSON.stringify(snapshot)}`
+            )
+          })
+        }, timeoutMs)
+        observer = new MutationObserver(scheduleProgressInspection)
+        observer.observe(document.body, {
+          attributes: true,
+          childList: true,
+          subtree: true
+        })
+        scheduleProgressInspection()
+      })
     const probe: LocalInteractionProbe = {
       focusKeyboardTarget: () => {
         probeRoot.focus({ preventScroll: true })
         return read()
       },
       read,
-      waitFor: (target, timeoutMs, baseline) =>
-        new Promise((resolve, reject) => {
-          const startedAt = performance.now()
-          let observedFrames = 0
-          const navigationBaseline = baseline ?? {
-            viewport: initialViewport,
-            zoom: initialZoom
-          }
-          const inspect = (): void => {
-            observedFrames += 1
-            const snapshot = read()
-            if (
-              snapshot.loadingConnected &&
-              snapshot.canonicalElements === 0 &&
-              snapshot.turnAccepted &&
-              snapshot.turnOutcome === null
-            ) {
-              stableLoadingFrameCount += 1
-            } else {
-              stableLoadingFrameCount = 0
-            }
-            if (
-              target === 'loading-at-zero' &&
-              observedFrames >= 2 &&
-              !snapshot.turnAccepted
-            ) {
-              reject(
-                new Error(
-                  snapshot.requestSubmissionClickCount === 0
-                    ? 'Prepared request click did not reach the armed Send control.'
-                    : 'Agent did not accept the dispatched request.'
-                )
-              )
-              return
-            }
-            if (
-              (target === 'loading-at-zero' ||
-                target === 'pan-changed' ||
-                target === 'zoom-changed') &&
-              snapshot.turnOutcome !== null
-            ) {
-              reject(
-                new Error(
-                  `AI turn settled before "${target}" evidence with outcome "${
-                    snapshot.turnOutcome
-                  }": ${JSON.stringify({
-                    factoryTransaction: snapshot.latestFactoryTransactionStatus,
-                    turn: snapshot.turnSettlement
-                  })}`
-                )
-              )
-              return
-            }
-            if (
-              targetReached(
-                target,
-                snapshot,
-                observedFrames,
-                navigationBaseline,
-                stableLoadingFrameCount
-              )
-            ) {
-              resolve(snapshot)
-              return
-            }
-            if (performance.now() - startedAt >= timeoutMs) {
-              reject(
-                new Error(
-                  `Local interaction evidence "${target}" timed out at ${JSON.stringify(
-                    snapshot
-                  )}`
-                )
-              )
-              return
-            }
-            requestAnimationFrame(inspect)
-          }
-          requestAnimationFrame(inspect)
-        })
+      waitForCanonicalProgress,
+      waitFor: async (target, timeoutMs, baseline) => {
+        const navigationBaseline = baseline ?? {
+          viewport: initialViewport,
+          zoom: initialZoom
+        }
+        if (target === 'loading-at-zero' || target === 'first-visible') {
+          return waitForLoadingTarget(target, timeoutMs, navigationBaseline)
+        }
+        const observedFrames = await waitForBoundedProbeFrames(2)
+        const snapshot = read()
+        assertTurnRemainsActive(target, snapshot)
+        if (
+          !targetReached(
+            target,
+            snapshot,
+            observedFrames,
+            navigationBaseline,
+            0
+          )
+        ) {
+          throw new Error(
+            `Local interaction evidence "${target}" did not settle after its bounded frame handoff: ${JSON.stringify(
+              snapshot
+            )}`
+          )
+        }
+        return snapshot
+      }
     }
     scope.__AsyraEndpointLocalInteractionProbe__ = probe
     return read()
@@ -1799,6 +2067,28 @@ const waitForLocalInteractionProbe = (
       requestedBaseline: baseline,
       requestedTarget: target,
       requestedTimeoutMs: timeoutMs
+    }
+  )
+
+const waitForLocalCanonicalProgress = (
+  page: Page,
+  minimumCanonicalElements: number,
+  timeoutMs = 10_000
+): Promise<LocalInteractionProbeSnapshot> =>
+  page.evaluate(
+    ({ minimum, timeout }) => {
+      const scope = globalThis as typeof globalThis & {
+        __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
+      }
+      const probe = scope.__AsyraEndpointLocalInteractionProbe__
+      if (!probe) {
+        throw new Error('Local interaction probe is unavailable')
+      }
+      return probe.waitForCanonicalProgress(minimum, timeout)
+    },
+    {
+      minimum: minimumCanonicalElements,
+      timeout: timeoutMs
     }
   )
 
@@ -2189,7 +2479,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       },
       'local-attribution'
     )
-    await installBoundedDiagnostics(actor.page)
+    const responseInboxPreload = await installBoundedDiagnostics(actor.page)
     await openAgent(actor.page)
     await actorSession.send('Performance.enable', { timeDomain: 'threadTicks' })
     let preparedTurn: PreparedAiTurn | null = null
@@ -2260,7 +2550,6 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     )
     expect(attributionPhaseNames).toEqual(
       expect.arrayContaining([
-        'ai-server-response-inbox:preload-file-response',
         'ai-provider:server-response-handoff',
         'ai-runtime:provider',
         'ai-runtime:resolution',
@@ -2270,6 +2559,10 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
         'ai-app:create-composition-batch'
       ])
     )
+    expect(responseInboxPreload).toMatchObject({
+      name: 'ai-server-response-inbox:preload-file-response'
+    })
+    expect(responseInboxPreload.durationMs).toBeGreaterThanOrEqual(0)
     expect(
       actorADiagnostics.phaseTimeline.every(
         ({ atMs }, index, timeline) =>
@@ -2304,6 +2597,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       equivalenceProofMs: null,
       owner: endpointOwner,
       proofKind: 'local-attribution',
+      responseInboxPreload,
       serverResponseSeed,
       status: 'complete'
     }
@@ -2337,7 +2631,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   }
 })
 
-test('two-Actor 16-item operation and idle attribution', async ({
+test('two-Actor operation and idle attribution', async ({
   browser
 }, testInfo) => {
   test.skip(
@@ -2348,10 +2642,21 @@ test('two-Actor 16-item operation and idle attribution', async ({
   if (!baseURL) {
     throw new Error('Endpoint performance App URL is unavailable')
   }
-  const requestedItems = 16
+  let requestedItems = 16
+  if (endpointAttributionCase === '1280-two-actor-attribution') {
+    requestedItems = 1280
+  } else if (endpointAttributionCase === '320-two-actor-attribution') {
+    requestedItems = 320
+  }
   const preparedResponse = getPreparedServerResponseVariant(requestedItems)
-  const expectedTotal = 17
+  const expectedTotal = requestedItems + 1
   const fileId = preparedResponse.fileId
+  let prompt = 'create the fast CRDT performance fixture'
+  if (requestedItems === 1280) {
+    prompt = 'create the 1280-item CRDT performance fixture'
+  } else if (requestedItems === 320) {
+    prompt = 'create the 320-item CRDT performance fixture'
+  }
   const { actorA, actorB, contexts, serverResponseSeed } =
     await prepareEndpointActorsSequentially({
       baseURL,
@@ -2392,10 +2697,7 @@ test('two-Actor 16-item operation and idle attribution', async ({
     await waitForConnectivityCpuSample(
       'two-actor-request-prepared',
       async () => {
-        preparedTurn = await prepareAiTurn(
-          actorA,
-          'create the fast CRDT performance fixture'
-        )
+        preparedTurn = await prepareAiTurn(actorA, prompt)
       },
       'collaboration-attribution'
     )
@@ -2654,16 +2956,17 @@ test('creation-only high-detail endpoint proof', async ({
     if (!preparedTurn) {
       throw new Error('High-detail AI turn was not prepared')
     }
+    const initialHeartbeat = await heartbeat.sample()
     const localInteraction = await installLocalInteractionProbe(actorA)
     expect(localInteraction.initial.canonicalElements).toBe(0)
     expect(localInteraction.initial.rectangleActive).toBe(false)
     await waitForGuardReady(createConnectivityHeartbeat('request-ready'))
 
-    const initialHeartbeat = await heartbeat.sample()
-    await postHeartbeat('progress', initialHeartbeat)
-
     heartbeat.startPhase('creation')
-    await postHeartbeat('progress', await heartbeat.sample())
+    await postHeartbeat(
+      'progress',
+      createConnectivityHeartbeat('actors-ready', 'endpoint', 'creation')
+    )
     const creationStartedAtMs = Date.now()
     heartbeat.markCreationStarted(creationStartedAtMs)
     heartbeat.begin()
@@ -2690,6 +2993,15 @@ test('creation-only high-detail endpoint proof', async ({
     expect(loadingAtZero.sourceBounds.width).toBeCloseTo(1672, 1)
     expect(loadingAtZero.sourceBounds.height).toBeCloseTo(941, 1)
 
+    const firstVisibleState = await heartbeat.assertGuarded(
+      waitForLocalInteractionProbe(actorA, 'first-visible')
+    )
+    expect(firstVisibleState.canonicalElements).toBeGreaterThan(0)
+    expect(firstVisibleState.canonicalElements).toBeLessThan(7076)
+    expect(firstVisibleState.loadingConnected).toBe(true)
+    expect(firstVisibleState.turnAccepted).toBe(true)
+    expect(firstVisibleState.turnOutcome).toBeNull()
+
     await heartbeat.assertGuarded(
       actorA.mouse.move(
         localInteraction.canvasCenter.x,
@@ -2704,6 +3016,17 @@ test('creation-only high-detail endpoint proof', async ({
     expect(pannedState.loadingConnected).toBe(true)
     expect(pannedState.canonicalElements).toBeLessThan(7076)
 
+    const quarterProgressState = await heartbeat.assertGuarded(
+      waitForLocalCanonicalProgress(
+        actorA,
+        Math.ceil(expectedFixture.vectorCount * 0.25)
+      )
+    )
+    expect(quarterProgressState.loadingConnected).toBe(true)
+    expect(quarterProgressState.canonicalElements).toBeLessThan(7076)
+    expect(quarterProgressState.turnAccepted).toBe(true)
+    expect(quarterProgressState.turnOutcome).toBeNull()
+
     await heartbeat.assertGuarded(actorA.keyboard.down('Meta'))
     await heartbeat.assertGuarded(actorA.mouse.wheel(0, -120))
     await heartbeat.assertGuarded(actorA.keyboard.up('Meta'))
@@ -2713,6 +3036,17 @@ test('creation-only high-detail endpoint proof', async ({
     expect(zoomedState.zoom).not.toBe(pannedState.zoom)
     expect(zoomedState.loadingConnected).toBe(true)
     expect(zoomedState.canonicalElements).toBeLessThan(7076)
+
+    const halfProgressState = await heartbeat.assertGuarded(
+      waitForLocalCanonicalProgress(
+        actorA,
+        Math.ceil(expectedFixture.vectorCount * 0.5)
+      )
+    )
+    expect(halfProgressState.loadingConnected).toBe(true)
+    expect(halfProgressState.canonicalElements).toBeLessThan(7076)
+    expect(halfProgressState.turnAccepted).toBe(true)
+    expect(halfProgressState.turnOutcome).toBeNull()
 
     const keyboardTargetState = await heartbeat.assertGuarded(
       focusLocalInteractionKeyboardTarget(actorA)
@@ -2729,6 +3063,18 @@ test('creation-only high-detail endpoint proof', async ({
         localInteraction.rectangleCenter.y
       )
     )
+
+    const threeQuarterProgressState = await heartbeat.assertGuarded(
+      waitForLocalCanonicalProgress(
+        actorA,
+        Math.ceil(expectedFixture.vectorCount * 0.75)
+      )
+    )
+    expect(threeQuarterProgressState.loadingConnected).toBe(true)
+    expect(threeQuarterProgressState.canonicalElements).toBeLessThan(7076)
+    expect(threeQuarterProgressState.turnAccepted).toBe(true)
+    expect(threeQuarterProgressState.turnOutcome).toBeNull()
+
     await heartbeat.assertGuarded(actorA.keyboard.press('Delete'))
     await heartbeat.assertGuarded(actorA.keyboard.press('Meta+z'))
     const blockedState = await heartbeat.assertGuarded(
@@ -3051,6 +3397,7 @@ test('creation-only high-detail endpoint proof', async ({
       }
     }
     let failureTimeEvidence: LocalInteractionProbeSnapshot | null = null
+    let failureOwnerEvidence: EndpointHeartbeatFailure['ownerEvidence'] = null
     if (heartbeatStopped.status === 'available') {
       const freshHeartbeat = await settleFailureEvidenceWithin(
         heartbeat.sample(),
@@ -3066,6 +3413,30 @@ test('creation-only high-detail endpoint proof', async ({
       if (freshFailureEvidence.status === 'available') {
         failureTimeEvidence = freshFailureEvidence.value
       }
+      const [actorAFinalDiagnostics, actorBFinalDiagnostics] =
+        await Promise.all([
+          settleFailureEvidenceWithin(
+            readFinalDiagnostics(actorA, expectedFixture.vectorCount),
+            1_500
+          ),
+          settleFailureEvidenceWithin(readFinalDiagnostics(actorB), 1_500)
+        ])
+      failureOwnerEvidence = {
+        actorA:
+          actorAFinalDiagnostics.status === 'available'
+            ? {
+                diagnostics: actorAFinalDiagnostics.value,
+                summary: {}
+              }
+            : null,
+        actorB:
+          actorBFinalDiagnostics.status === 'available'
+            ? {
+                diagnostics: actorBFinalDiagnostics.value,
+                summary: {}
+              }
+            : null
+      }
     }
     const browserErrors = {
       actorA: getCapturedBrowserErrors(actorA)
@@ -3075,28 +3446,24 @@ test('creation-only high-detail endpoint proof', async ({
         .slice(-4)
         .map((message) => message.slice(0, 300))
     }
+    const failureError: EndpointHeartbeatFailure = {
+      message:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : String(error).slice(0, 500),
+      name: error instanceof Error ? error.name.slice(0, 80) : 'Error',
+      ownerEvidence: failureOwnerEvidence
+    }
     await postHeartbeat('failed', {
       ...latest,
       browserErrors,
-      error:
-        error instanceof Error
-          ? {
-              message: error.message.slice(0, 500),
-              name: error.name.slice(0, 80)
-            }
-          : String(error).slice(0, 500),
+      error: failureError,
       failureTimeEvidence
     }).catch(() => undefined)
     // eslint-disable-next-line no-console
     console.log(
       `ASYRA_ENDPOINT_REPORT ${JSON.stringify({
-        error:
-          error instanceof Error
-            ? {
-                message: error.message.slice(0, 500),
-                name: error.name.slice(0, 80)
-              }
-            : String(error).slice(0, 500),
+        error: failureError,
         browserErrors,
         failureTimeEvidence,
         heartbeat: latest,

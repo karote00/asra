@@ -204,14 +204,13 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     specSource,
     serverResponseInboxSource,
     manifestSource
-  ] =
-    await Promise.all([
-      readFile(configURL, 'utf8'),
-      readFile(guardURL, 'utf8'),
-      readFile(specURL, 'utf8'),
-      readFile(serverResponseInboxURL, 'utf8'),
-      readFile(new URL('../package.json', import.meta.url), 'utf8')
-    ])
+  ] = await Promise.all([
+    readFile(configURL, 'utf8'),
+    readFile(guardURL, 'utf8'),
+    readFile(specURL, 'utf8'),
+    readFile(serverResponseInboxURL, 'utf8'),
+    readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ])
   const manifest = JSON.parse(manifestSource)
   const unguarded = spawnSync(
     'yarn',
@@ -275,7 +274,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(guarded, /empty-document two-Actor endpoint connectivity/)
   assert.match(guarded, /single-Actor local attribution/)
-  assert.match(guarded, /two-Actor 16-item operation and idle attribution/)
+  assert.match(guarded, /two-Actor operation and idle attribution/)
   assert.match(guarded, /creation-only high-detail endpoint proof/)
   assert.match(guarded, /Total: 4 tests in 1 file/)
 
@@ -325,6 +324,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
   assert.match(specSource, /actorB:\s*null/)
   assert.match(specSource, /phaseTimeline/)
+  assert.match(specSource, /responseInboxPreload/)
+  assert.ok(
+    specSource.indexOf('const responseInboxPreload = profile') <
+      specSource.indexOf('profile.reset()')
+  )
   assert.match(specSource, /drawingProgress/)
   assert.doesNotMatch(specSource, /counterTimeline/)
   assert.match(specSource, /postHeartbeat\(['"]ready['"]/)
@@ -429,9 +433,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     /completed\.publications\.actorALocalSent\)\.toBeGreaterThan\(0\)[\s\S]*actorBRemoteProcessed\)\.toBe\(0\)/
   )
   const twoActorActivitySource = specSource.slice(
-    specSource.indexOf(
-      "test('two-Actor 16-item operation and idle attribution'"
-    ),
+    specSource.indexOf("test('two-Actor operation and idle attribution'"),
     specSource.indexOf("test('creation-only high-detail endpoint proof'")
   )
   assert.match(twoActorActivitySource, /Performance\.getMetrics/)
@@ -446,7 +448,22 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     twoActorActivitySource,
     /waitForBothComplete[\s\S]*endGuardPhase\(['"]operation['"]\)[\s\S]*startPhase\(['"]post-completion-idle['"]\)[\s\S]*delay\(10_000\)[\s\S]*completePhase\(['"]post-completion-idle['"]\)/
   )
-  assert.match(twoActorActivitySource, /expectedTotal\s*=\s*17/)
+  assert.match(
+    twoActorActivitySource,
+    /let requestedItems\s*=\s*16[\s\S]*endpointAttributionCase\s*===\s*['"]1280-two-actor-attribution['"][\s\S]{0,80}requestedItems\s*=\s*1280[\s\S]*expectedTotal\s*=\s*requestedItems\s*\+\s*1/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /requestedItems\s*===\s*1280[\s\S]*create the 1280-item CRDT performance fixture/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /endpointAttributionCase\s*===\s*['"]320-two-actor-attribution['"][\s\S]{0,80}requestedItems\s*=\s*320/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /requestedItems\s*===\s*320[\s\S]*create the 320-item CRDT performance fixture/
+  )
   assert.match(
     twoActorActivitySource,
     /proofKind:\s*['"]collaboration-attribution['"]/
@@ -532,6 +549,50 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /loadingConnected\)\.toBe\(true\)/)
   assert.match(highDetailSource, /canonicalElements\)\.toBeLessThan\(7076\)/)
   assert.match(specSource, /stableLoadingFrameCount/)
+  const localInteractionProbeSource = specSource.slice(
+    specSource.indexOf('const installLocalInteractionProbe'),
+    specSource.indexOf('const waitForLocalInteractionProbe')
+  )
+  assert.match(localInteractionProbeSource, /MutationObserver/)
+  assert.match(localInteractionProbeSource, /waitForBoundedProbeFrames/)
+  assert.match(
+    localInteractionProbeSource,
+    /case ['"]first-visible['"]:[\s\S]*canonicalElements\s*>\s*0[\s\S]*loadingConnected/
+  )
+  assert.doesNotMatch(
+    localInteractionProbeSource,
+    /requestAnimationFrame\(inspect\)/
+  )
+  assert.match(specSource, /const ENDPOINT_HEARTBEAT_INTERVAL_MS = 5_000/)
+  const heartbeatControllerSource = specSource.slice(
+    specSource.indexOf('const createHeartbeatController ='),
+    specSource.indexOf('const installLocalInteractionProbe =')
+  )
+  assert.equal(
+    heartbeatControllerSource.match(/delay\(ENDPOINT_HEARTBEAT_INTERVAL_MS\)/g)
+      ?.length,
+    2
+  )
+  assert.doesNotMatch(heartbeatControllerSource, /delay\(1_000\)/)
+  assert.match(heartbeatControllerSource, /unchangedActorBProgressSamples/)
+  assert.match(
+    heartbeatControllerSource,
+    /unchangedActorBProgressSamples\s*>=\s*2/
+  )
+  assert.equal(
+    heartbeatControllerSource.match(
+      /readFinalDiagnostics\(\s*actorA,\s*expectedFixture\.vectorCount/g
+    )?.length,
+    1
+  )
+  assert.equal(
+    heartbeatControllerSource.match(/readFinalDiagnostics\(\s*actorB/g)?.length,
+    1
+  )
+  assert.match(
+    heartbeatControllerSource,
+    /ownerEvidence:\s*stalledOwnerEvidence/
+  )
   assert.match(specSource, /turnOutcome/)
   assert.match(specSource, /AI turn settled before/)
   assert.match(
@@ -544,6 +605,18 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(highDetailSource, /readLocalInteractionProbe/)
   assert.match(highDetailSource, /settleFailureEvidenceWithin/)
+  const highDetailFailureSource = highDetailSource.slice(
+    highDetailSource.indexOf('} catch (error) {')
+  )
+  assert.equal(
+    highDetailFailureSource.match(/readFinalDiagnostics\(\s*actorA/g)?.length,
+    1
+  )
+  assert.equal(
+    highDetailFailureSource.match(/readFinalDiagnostics\(\s*actorB/g)?.length,
+    1
+  )
+  assert.match(highDetailFailureSource, /ownerEvidence:\s*failureOwnerEvidence/)
   assert.doesNotMatch(specSource, /readConversationSnapshot/)
   assert.match(
     highDetailSource,
@@ -563,7 +636,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     "heartbeat.startPhase('creation')"
   )
   const guardedCreationHeartbeatIndex = highDetailSource.indexOf(
-    "postHeartbeat('progress', await heartbeat.sample())"
+    "createConnectivityHeartbeat('actors-ready', 'endpoint', 'creation')"
   )
   const creationStartedAtIndex = highDetailSource.indexOf(
     'const creationStartedAtMs = Date.now()'
@@ -578,6 +651,53 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.ok(
     highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)') >
       creationMarkIndex
+  )
+  const requestReadyToDispatchSource = highDetailSource.slice(
+    highDetailSource.indexOf(
+      "waitForGuardReady(createConnectivityHeartbeat('request-ready'))"
+    ),
+    highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)')
+  )
+  assert.doesNotMatch(requestReadyToDispatchSource, /heartbeat\.sample\(\)/)
+  assert.equal(
+    requestReadyToDispatchSource.match(
+      /createConnectivityHeartbeat\('actors-ready', 'endpoint', 'creation'\)/g
+    )?.length,
+    1
+  )
+  const firstVisibleHandoffIndex = highDetailSource.indexOf(
+    "waitForLocalInteractionProbe(actorA, 'first-visible'"
+  )
+  const firstMouseMoveIndex = highDetailSource.indexOf('actorA.mouse.move(')
+  const quarterProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.25)'
+  )
+  const halfProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.5)'
+  )
+  const threeQuarterProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.75)'
+  )
+  const zoomInputIndex = highDetailSource.indexOf(
+    "actorA.keyboard.down('Meta')"
+  )
+  const rectangleShortcutIndex = highDetailSource.indexOf(
+    "actorA.keyboard.press('r')"
+  )
+  const deleteInputIndex = highDetailSource.indexOf(
+    "actorA.keyboard.press('Delete')"
+  )
+  assert.ok(firstVisibleHandoffIndex > creationMarkIndex)
+  assert.ok(firstMouseMoveIndex > firstVisibleHandoffIndex)
+  assert.ok(quarterProgressIndex > firstMouseMoveIndex)
+  assert.ok(zoomInputIndex > quarterProgressIndex)
+  assert.ok(halfProgressIndex > zoomInputIndex)
+  assert.ok(rectangleShortcutIndex > halfProgressIndex)
+  assert.ok(threeQuarterProgressIndex > rectangleShortcutIndex)
+  assert.ok(deleteInputIndex > threeQuarterProgressIndex)
+  assert.match(
+    highDetailSource,
+    /firstVisibleState\.canonicalElements\)\.toBeGreaterThan\(0\)[\s\S]*firstVisibleState\.canonicalElements\)\.toBeLessThan\(7076\)[\s\S]*firstVisibleState\.loadingConnected\)\.toBe\(true\)/
   )
   assert.ok(
     highDetailSource.indexOf(
@@ -644,10 +764,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     guardSource,
     /request\.url === PHASE_BOUNDARY_PATH[\s\S]{0,5000}recordResourceSampleFailure[\s\S]{0,1000}phase-boundary-sample-failed/
   )
-  assert.match(
-    highDetailSource,
-    /postHeartbeat\(['"]progress['"],\s*initialHeartbeat\)/
+  const initialHeartbeatIndex = highDetailSource.indexOf(
+    'const initialHeartbeat = await heartbeat.sample()'
   )
+  assert.ok(initialHeartbeatIndex >= 0)
+  assert.ok(initialHeartbeatIndex < guardReadyIndex)
   assert.match(specSource, /browserErrors/)
   assert.match(
     specSource,
@@ -733,7 +854,9 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     ['test:e2e:ai-attribution:16', '16'],
     ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],
     ['test:e2e:ai-attribution:1280', '1280'],
-    ['test:e2e:ai-crdt-activity:16', '16-two-actor-activity']
+    ['test:e2e:ai-crdt-activity:16', '16-two-actor-activity'],
+    ['test:e2e:ai-crdt-attribution:1280', '1280-two-actor-attribution'],
+    ['test:e2e:ai-crdt-attribution:320', '320-two-actor-attribution']
   ].forEach(([script, attributionCase]) => {
     assert.match(
       manifest.scripts[script],

@@ -1879,6 +1879,37 @@ test('preserves the bounded failed-heartbeat reason in the final report', () => 
         error: {
           message: `Expected phase evidence ${'x'.repeat(600)}`,
           name: 'AssertionError',
+          ownerEvidence: {
+            actorA: {
+              diagnostics: {
+                phaseTimeline: [
+                  {
+                    atMs: 1,
+                    durationMs: 2,
+                    name: 'must-not-leak-timeline'
+                  }
+                ],
+                topPhases: Array.from({ length: 30 }, (_, index) => ({
+                  durationMs: index + 1,
+                  name: `actor-a-phase-${index}`
+                }))
+              },
+              secret: 'must-not-leak',
+              summary: {}
+            },
+            actorB: {
+              diagnostics: {
+                remoteProcessedCount: 72,
+                topPhases: [
+                  {
+                    durationMs: 123.456,
+                    name: 'collaboration:remote-publication-apply'
+                  }
+                ]
+              },
+              summary: {}
+            }
+          },
           secret: 'must-not-leak'
         }
       }
@@ -1892,7 +1923,32 @@ test('preserves the bounded failed-heartbeat reason in the final report', () => 
   assert.equal(failed.accepted, true)
   assert.deepEqual(report.failure, {
     message: `Expected phase evidence ${'x'.repeat(476)}`,
-    name: 'AssertionError'
+    name: 'AssertionError',
+    ownerEvidence: {
+      actorA: {
+        diagnostics: {
+          renderProjectionAnomalies: {},
+          topPhases: Array.from({ length: 24 }, (_, index) => ({
+            durationMs: index + 1,
+            name: `actor-a-phase-${index}`
+          })),
+          visibleWorkerTargets: []
+        }
+      },
+      actorB: {
+        diagnostics: {
+          remoteProcessedCount: 72,
+          renderProjectionAnomalies: {},
+          topPhases: [
+            {
+              durationMs: 123.456,
+              name: 'collaboration:remote-publication-apply'
+            }
+          ],
+          visibleWorkerTargets: []
+        }
+      }
+    }
   })
 })
 
@@ -2172,7 +2228,38 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
       heartbeat({
         actorAElements: index,
         actorBElements: index - 1,
-        phase: `slice-${index}`
+        phase: `slice-${index}`,
+        extra:
+          index === 6
+            ? {
+                ownerEvidence: {
+                  actorA: {
+                    diagnostics: {
+                      topPhases: [
+                        {
+                          durationMs: 45.5,
+                          name: 'actor-a-complete'
+                        }
+                      ]
+                    },
+                    secret: 'must-not-leak',
+                    summary: { secret: 'must-not-leak' }
+                  },
+                  actorB: {
+                    diagnostics: {
+                      remoteProcessedCount: 74,
+                      topPhases: [
+                        {
+                          durationMs: 987.5,
+                          name: 'actor-b-active-owner'
+                        }
+                      ]
+                    },
+                    summary: {}
+                  }
+                }
+              }
+            : {}
       })
     ).state
     state = evaluateResourceSample(
@@ -2222,7 +2309,35 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
     actorBDurationMs: 8,
     actorBPhase: 'remote-apply'
   })
+  assert.deepEqual(report.ownerEvidence, {
+    actorA: {
+      diagnostics: {
+        renderProjectionAnomalies: {},
+        topPhases: [
+          {
+            durationMs: 45.5,
+            name: 'actor-a-complete'
+          }
+        ],
+        visibleWorkerTargets: []
+      }
+    },
+    actorB: {
+      diagnostics: {
+        remoteProcessedCount: 74,
+        renderProjectionAnomalies: {},
+        topPhases: [
+          {
+            durationMs: 987.5,
+            name: 'actor-b-active-owner'
+          }
+        ],
+        visibleWorkerTargets: []
+      }
+    }
+  })
   assert.equal(JSON.stringify(report).includes(TOKEN), false)
+  assert.equal(JSON.stringify(report).includes('must-not-leak'), false)
 })
 
 test('never attributes raw CPU safety samples to diagnostic phases', () => {
@@ -2832,11 +2947,59 @@ test('builds the two-Actor 16-item operation and idle diagnostic as one endpoint
   assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
   assert.deepEqual(phases[0].argv.slice(-2), [
     '--grep',
-    'two-Actor 16-item operation and idle attribution'
+    'two-Actor operation and idle attribution'
   ])
   assert.equal(
     phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
     '16-two-actor-activity'
+  )
+})
+
+test('builds the two-Actor 1280-item attribution under the small-case guard', () => {
+  const phases = buildEndpointPerformancePhases({
+    owner: OWNER,
+    baseEnv: {
+      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '1280-two-actor-attribution',
+      PATH: '/test/bin'
+    }
+  })
+
+  assert.equal(
+    phases[0].guardConfig.requiredProofKind,
+    'collaboration-attribution'
+  )
+  assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
+  assert.deepEqual(phases[0].argv.slice(-2), [
+    '--grep',
+    'two-Actor operation and idle attribution'
+  ])
+  assert.equal(
+    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    '1280-two-actor-attribution'
+  )
+})
+
+test('builds the two-Actor 320-item fallback under the small-case guard', () => {
+  const phases = buildEndpointPerformancePhases({
+    owner: OWNER,
+    baseEnv: {
+      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '320-two-actor-attribution',
+      PATH: '/test/bin'
+    }
+  })
+
+  assert.equal(
+    phases[0].guardConfig.requiredProofKind,
+    'collaboration-attribution'
+  )
+  assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
+  assert.deepEqual(phases[0].argv.slice(-2), [
+    '--grep',
+    'two-Actor operation and idle attribution'
+  ])
+  assert.equal(
+    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    '320-two-actor-attribution'
   )
 })
 

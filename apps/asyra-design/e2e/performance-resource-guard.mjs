@@ -499,32 +499,6 @@ const sanitizeBoundedStrings = (value, maximumEntries = 16) =>
         .map((entry) => entry.slice(0, 160))
     : []
 
-const sanitizeFailure = (value) => {
-  if (typeof value === 'string' && value.length > 0) {
-    return {
-      message: value.slice(0, 500),
-      name: 'Error'
-    }
-  }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  const message =
-    typeof value.message === 'string' && value.message.length > 0
-      ? value.message.slice(0, 500)
-      : null
-  if (!message) {
-    return null
-  }
-  return {
-    message,
-    name:
-      typeof value.name === 'string' && value.name.length > 0
-        ? value.name.slice(0, 80)
-        : 'Error'
-  }
-}
-
 const sanitizeActor = (actor) => ({
   ...sanitizeScalarRecord(actor),
   elements: actor.elements,
@@ -668,6 +642,74 @@ const sanitizeEndpointActor = (value) => {
   }
 }
 
+const sanitizeFailureOwnerEvidence = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+  const sanitizeFailureActor = (actorValue) => {
+    if (
+      !actorValue ||
+      typeof actorValue !== 'object' ||
+      Array.isArray(actorValue) ||
+      !actorValue.diagnostics ||
+      typeof actorValue.diagnostics !== 'object' ||
+      Array.isArray(actorValue.diagnostics)
+    ) {
+      return null
+    }
+    const diagnostics = actorValue.diagnostics
+    return {
+      diagnostics: {
+        ...sanitizeScalarRecord(diagnostics),
+        renderProjectionAnomalies: sanitizeScalarRecord(
+          diagnostics.renderProjectionAnomalies
+        ),
+        topPhases: sanitizeTopPhases(diagnostics.topPhases),
+        visibleWorkerTargets: sanitizeBoundedStrings(
+          diagnostics.visibleWorkerTargets
+        )
+      }
+    }
+  }
+  const actorA = sanitizeFailureActor(value.actorA)
+  const actorB = sanitizeFailureActor(value.actorB)
+  if (!actorA && !actorB) {
+    return null
+  }
+  return {
+    actorA,
+    actorB
+  }
+}
+
+const sanitizeFailure = (value) => {
+  if (typeof value === 'string' && value.length > 0) {
+    return {
+      message: value.slice(0, 500),
+      name: 'Error'
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+  const message =
+    typeof value.message === 'string' && value.message.length > 0
+      ? value.message.slice(0, 500)
+      : null
+  if (!message) {
+    return null
+  }
+  const ownerEvidence = sanitizeFailureOwnerEvidence(value.ownerEvidence)
+  return {
+    message,
+    name:
+      typeof value.name === 'string' && value.name.length > 0
+        ? value.name.slice(0, 80)
+        : 'Error',
+    ...(ownerEvidence ? { ownerEvidence } : {})
+  }
+}
+
 const sanitizeEndpointReport = (value, expectedOwner, proofKind) => {
   if (
     !value ||
@@ -713,7 +755,8 @@ const sanitizeHeartbeat = (heartbeat) => {
     actorA: sanitizeActor(heartbeat.actorA),
     actorB: sanitizeActor(heartbeat.actorB),
     publications: sanitizeScalarRecord(heartbeat.publications),
-    ownerTiming: sanitizeScalarRecord(heartbeat.ownerTiming)
+    ownerTiming: sanitizeScalarRecord(heartbeat.ownerTiming),
+    ownerEvidence: sanitizeFailureOwnerEvidence(heartbeat.ownerEvidence)
   }
 }
 
@@ -2048,6 +2091,7 @@ export const buildBoundedResourceReport = (
     actorB: heartbeat?.actorB ?? null,
     publications: heartbeat?.publications ?? {},
     ownerTiming: heartbeat?.ownerTiming ?? {},
+    ownerEvidence: heartbeat?.ownerEvidence ?? null,
     heartbeats: keepLast(state.heartbeatSamples, historyLimit),
     cpuSafetySamples: keepLast(state.cpuSafetySamples, historyLimit),
     maximumFrontendCpuSafetySample: state.maximumFrontendCpuSafetySample,
@@ -2512,15 +2556,20 @@ export const buildEndpointPerformancePhases = ({
     '16',
     '16-reduced-motion',
     '1280',
-    '16-two-actor-activity'
+    '16-two-actor-activity',
+    '1280-two-actor-attribution',
+    '320-two-actor-attribution'
   ])
   if (attributionCase && !validAttributionCases.has(attributionCase)) {
     throw new Error(
-      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, or 16-two-actor-activity'
+      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, 16-two-actor-activity, 1280-two-actor-attribution, or 320-two-actor-attribution'
     )
   }
-  const twoActorActivityAttribution =
-    attributionCase === '16-two-actor-activity'
+  const twoActorActivityAttribution = [
+    '16-two-actor-activity',
+    '1280-two-actor-attribution',
+    '320-two-actor-attribution'
+  ].includes(attributionCase)
   const singleActorAttribution =
     attributionCase.length > 0 && !twoActorActivityAttribution
   let selectedPlaywrightTest = 'creation-only high-detail endpoint proof'
@@ -2529,7 +2578,7 @@ export const buildEndpointPerformancePhases = ({
     selectedPlaywrightTest = 'single-Actor local attribution'
     requiredProofKind = 'local-attribution'
   } else if (twoActorActivityAttribution) {
-    selectedPlaywrightTest = 'two-Actor 16-item operation and idle attribution'
+    selectedPlaywrightTest = 'two-Actor operation and idle attribution'
     requiredProofKind = 'collaboration-attribution'
   }
   const sharedEnv = {

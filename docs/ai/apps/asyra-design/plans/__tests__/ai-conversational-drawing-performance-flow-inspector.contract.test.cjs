@@ -831,6 +831,14 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
+    /in-page interaction evidence.*event-driven observation.*fixed bounded frame handoff.*never.*recursive requestAnimationFrame polling loop.*second per-frame workload/i
+  )
+  assert.match(
+    text,
+    /Playwright progress observation.*one O\(1\) scalar sample.*each Actor.*five seconds[\s\S]*250-millisecond raw operating-system sampler.*ten-second heartbeat.*twenty-second progress.*unchanged/i
+  )
+  assert.match(
+    text,
     /Response inbox seed, read, structured clone, and handoff.*external backend and transport-adapter timing.*recorded separately.*excluded from frontend product execution/i
   )
   assert.match(
@@ -904,11 +912,35 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
+    /two-Actor 1,280-item.*resource stop[\s\S]*one two-Actor 320-item fallback[\s\S]*same 250-percent frontend and 400-percent aggregate guards[\s\S]*page-target operation window/i
+  )
+  assert.match(
+    text,
     /one design hypothesis.*at most five.*same focused failure three times.*resource stop.*time ceiling.*bounded root-cause analysis.*new owner iteration.*does not stop the overall task/i
   )
   assert.match(
     text,
     /180-second product-flow deadline.*240-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+  )
+  assert.match(
+    text,
+    /failed or timed-out endpoint.*bounded final diagnostics.*Actor A.*Actor B.*top 24 phases.*guard failure report.*next owner/i
+  )
+  assert.match(
+    text,
+    /pre-stall owner snapshot.*two consecutive five-second.*Actor B.*top 24.*guard emergency report.*before termination.*does not change.*progress-stale/i
+  )
+  assert.match(
+    text,
+    /accepted request-ready.*creation-start heartbeat.*no dual-page sample.*dispatch.*first dual-Actor scalar sample.*five-second heartbeat/i
+  )
+  assert.match(
+    text,
+    /initial history baseline.*before request-ready.*loading at zero.*event-first.*first visible canonical element.*bounded frame handoff.*pan and zoom.*blocked input.*turn remains active/i
+  )
+  assert.match(
+    text,
+    /Independent loading-time interaction proofs.*pan after first visible.*zoom after 25-percent.*rectangle shortcut and button lock after 50 percent.*Delete plus Undo lock after 75 percent.*mutation-driven.*bounded frame.*no fixed delay/i
   )
   assert.match(
     text,
