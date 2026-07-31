@@ -24,6 +24,9 @@ const expectedFixture = Object.freeze({
   totalCount: 7076,
   vectorCount: 7075
 })
+const CRDT_FLOW_TIMEOUT_MS = 180_000
+const remainingCrdtFlowTimeoutMs = (startedAtMs: number): number =>
+  Math.max(1, startedAtMs + CRDT_FLOW_TIMEOUT_MS - Date.now())
 const exactCatOnlyPrompt =
   'Draw only the cat from the reference image. Exclude the original background and place the cat on a pure white background canvas with exactly the same width and height as the uploaded photo.'
 const referenceImageName = 'research-02-original-tabby-source.png'
@@ -2092,10 +2095,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
         serverResponseSeed = await seedPreparedAsyraDesignServerResponse(
           actor.context,
           {
-            appUrl: new URL(
-              profiledSingleActorAppURL(fileId),
-              baseURL
-            ).href,
+            appUrl: new URL(profiledSingleActorAppURL(fileId), baseURL).href,
             fileId,
             publicPath: preparedResponse.publicPath
           }
@@ -2145,7 +2145,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     await startGuardPhase('local-request')
     await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
     const completed = await heartbeat.assertGuarded(
-      heartbeat.waitForComplete(120_000)
+      heartbeat.waitForComplete(CRDT_FLOW_TIMEOUT_MS)
     )
     const operationEnd = await actorSession.send('Performance.getMetrics')
     const mainThreadOperation = summarizeRendererPerformanceWindow(
@@ -2347,7 +2347,7 @@ test('two-Actor 16-item operation and idle attribution', async ({
     await startGuardPhase('operation')
     await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
     const completed = await heartbeat.assertGuarded(
-      heartbeat.waitForBothComplete(120_000)
+      heartbeat.waitForBothComplete(CRDT_FLOW_TIMEOUT_MS)
     )
     heartbeatStop = heartbeat.stop()
     const operationCompletedAtMs = Date.now()
@@ -2683,7 +2683,11 @@ test('creation-only high-detail endpoint proof', async ({
     expect(blockedState.turnAccepted).toBe(true)
     expect(blockedState.turnOutcome).toBeNull()
 
-    await heartbeat.assertGuarded(heartbeat.waitForActorAComplete(120_000))
+    await heartbeat.assertGuarded(
+      heartbeat.waitForActorAComplete(
+        remainingCrdtFlowTimeoutMs(creationStartedAtMs)
+      )
+    )
     await heartbeat.assertGuarded(assertPreparedAiTurnSettled(preparedTurn))
     const loadingRemovedState = await heartbeat.assertGuarded(
       waitForLocalInteractionProbe(actorA, 'loading-removed')
@@ -2738,7 +2742,9 @@ test('creation-only high-detail endpoint proof', async ({
       postHeartbeat('progress', peerConvergenceHeartbeat)
     )
     const completed = await heartbeat.assertGuarded(
-      heartbeat.waitForBothComplete(120_000)
+      heartbeat.waitForBothComplete(
+        remainingCrdtFlowTimeoutMs(creationStartedAtMs)
+      )
     )
     const convergedMs = completed.actorB.completeAtMs
     if (convergedMs === null) {

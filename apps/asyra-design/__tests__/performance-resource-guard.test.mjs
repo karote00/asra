@@ -11,7 +11,7 @@ import {
   buildRunnerSpawnOptions,
   createSerializedResourceSampler,
   createResourceGuardState,
-  deriveProcessCpuInterval,
+  deriveProcessCpuTimeDelta,
   evaluateResourceSample,
   classifyGuardedChildExit,
   installTrackedProcessLifecycleGuard,
@@ -89,8 +89,8 @@ test('reports one renderer operation or idle window from cumulative CDP metrics'
   )
 })
 
-test('retains each renderer PID CPU delta without guessing page or worker ownership', () => {
-  const result = deriveProcessCpuInterval(
+test('retains direct renderer CPU-time milliseconds without converting them to percent', () => {
+  const result = deriveProcessCpuTimeDelta(
     {
       monotonicMs: 1_000,
       nowMs: 10_000,
@@ -142,26 +142,20 @@ test('retains each renderer PID CPU delta without guessing page or worker owners
   )
 
   assert.equal(result.accepted, true)
-  assert.deepEqual(result.sample.rendererProcessIntervals, [
+  assert.deepEqual(result.sample.rendererProcessCpuTimeMs, [
     {
       cpuTimeMs: 300,
-      intervalCpuPercent: 120,
       pid: 5004,
       targetAttribution: 'unattributed-page-or-worker'
     },
     {
       cpuTimeMs: 125,
-      intervalCpuPercent: 50,
       pid: 5008,
       targetAttribution: 'unattributed-page-or-worker'
     }
   ])
-  assert.equal(result.sample.intervalCpuPercent, 174)
-  assert.equal(result.sample.roleIntervalCpuPercent.clientBrowser, 174)
-  assert.equal(
-    result.sample.browserProcessTypeIntervalCpuPercent.rendererOrWorker,
-    170
-  )
+  assert.equal(result.sample.browserProcessTypeCpuTimeMs.rendererOrWorker, 425)
+  assert.equal(Object.hasOwn(result.sample, 'intervalCpuPercent'), false)
 })
 
 const heartbeat = ({
@@ -243,7 +237,7 @@ const arm = (state, nowMs = 0) => {
 }
 
 const trackedCpuSample = ({
-  cpuPercent = 0,
+  cpuPercent = null,
   nowMs,
   processes,
   trackedProcessRoles = ['test-harness']
@@ -269,11 +263,49 @@ const trackedCpuSample = ({
     unknown: 0,
     websocketServer: 0
   }
+  const roleCpuPercent = {
+    appServer: 0,
+    clientBrowser: 0,
+    testHarness: 0,
+    unknown: 0,
+    websocketServer: 0
+  }
+  const browserProcessTypeCpuPercent = {
+    gpuProcess: 0,
+    otherBrowser: 0,
+    rendererOrWorker: 0,
+    rootBrowser: 0,
+    utility: 0
+  }
+  let rawCpuPercent = 0
   for (const process of processes) {
-    roleCpuTimeMs[roleCpuKey(process.role)] += process.cpuTimeMs
+    const roleKey = roleCpuKey(process.role)
+    const processCpuPercent = process.cpuPercent ?? 0
+    roleCpuTimeMs[roleKey] += process.cpuTimeMs
+    roleCpuPercent[roleKey] += processCpuPercent
+    rawCpuPercent += processCpuPercent
+    if (process.role === 'client-browser') {
+      switch (process.browserProcessType) {
+        case 'gpu-process':
+          browserProcessTypeCpuPercent.gpuProcess += processCpuPercent
+          break
+        case 'renderer-or-worker':
+          browserProcessTypeCpuPercent.rendererOrWorker += processCpuPercent
+          break
+        case 'root-browser':
+          browserProcessTypeCpuPercent.rootBrowser += processCpuPercent
+          break
+        case 'utility':
+          browserProcessTypeCpuPercent.utility += processCpuPercent
+          break
+        default:
+          browserProcessTypeCpuPercent.otherBrowser += processCpuPercent
+      }
+    }
   }
   return {
-    cpuPercent,
+    browserProcessTypeCpuPercent,
+    cpuPercent: cpuPercent ?? rawCpuPercent,
     cpuTimeMs: processes.reduce(
       (total, process) => total + process.cpuTimeMs,
       0
@@ -281,6 +313,7 @@ const trackedCpuSample = ({
     nowMs,
     pgid: TARGET_PGID,
     processCpuTimes: processes,
+    roleCpuPercent,
     roleCpuTimeMs,
     trackedProcessRoles
   }
@@ -288,16 +321,16 @@ const trackedCpuSample = ({
 
 const advanceWithIdleSamples = (state, targetMs) => {
   let nextState = state
-  while (nextState.previousProcessCpuSnapshot) {
+  while (nextState.previousProcessSnapshot) {
     const nextNowMs =
-      nextState.previousProcessCpuSnapshot.monotonicMs +
+      nextState.previousProcessSnapshot.monotonicMs +
       DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs
     if (nextNowMs > targetMs) break
     const result = evaluateResourceSample(
       nextState,
       trackedCpuSample({
         nowMs: nextNowMs,
-        processes: nextState.previousProcessCpuSnapshot.processCpuTimes.map(
+        processes: nextState.previousProcessSnapshot.processCpuTimes.map(
           (process) => ({ ...process })
         ),
         trackedProcessRoles: nextState.sampledProcessRoles
@@ -310,68 +343,221 @@ const advanceWithIdleSamples = (state, targetMs) => {
   return nextState
 }
 
-test('uses cumulative 250ms interval CPU after baseline instead of macOS decayed percent', () => {
+test('uses raw same-snapshot CPU and rejects converted interval percentages as stop evidence', () => {
   const baseline = evaluateResourceSample(
     createResourceGuardState({ nowMs: 0 }),
     trackedCpuSample({
-      cpuPercent: 20,
       nowMs: 1_000,
-      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+      processes: [
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuPercent: 100,
+          cpuTimeMs: 100,
+          pid: 1,
+          role: 'client-browser'
+        },
+        {
+          cpuPercent: 5,
+          cpuTimeMs: 100,
+          pid: 2,
+          role: 'test-harness'
+        }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
-  const interval = evaluateResourceSample(
+  const rawSnapshot = evaluateResourceSample(
     baseline.state,
     trackedCpuSample({
-      cpuPercent: 900,
       nowMs: 1_250,
-      processes: [{ cpuTimeMs: 350, pid: 1, role: 'test-harness' }]
+      processes: [
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuPercent: 199.4,
+          cpuTimeMs: 1_093.0075,
+          pid: 1,
+          role: 'client-browser'
+        },
+        {
+          cpuPercent: 9.8,
+          cpuTimeMs: 110,
+          pid: 2,
+          role: 'test-harness'
+        }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
 
-  assert.equal(interval.decision.stop, false)
-  assert.equal(interval.state.cpuSafetySamples.at(-1).intervalCpuPercent, 100)
-  assert.equal(interval.state.cpuSafetySamples.at(-1).decayedCpuPercent, 900)
+  assert.equal(rawSnapshot.decision.stop, false)
+  assert.equal(rawSnapshot.state.cpuSafetySamples.at(-1).rawCpuPercent, 209.2)
   assert.equal(
-    interval.state.maximumIntervalCpuSafetySample.intervalCpuPercent,
-    100
+    rawSnapshot.state.cpuSafetySamples.at(-1).frontendRawCpuPercent,
+    199.4
   )
   assert.equal(
-    interval.state.maximumBrowserBootstrapDecayedCpuSafetySample
-      .decayedCpuPercent,
-    900
-  )
-  assert.equal(
-    interval.state.maximumBrowserBootstrapIntervalCpuSafetySample
-      .intervalCpuPercent,
-    100
+    Object.hasOwn(
+      rawSnapshot.state.cpuSafetySamples.at(-1),
+      'intervalCpuPercent'
+    ),
+    false
   )
 })
 
-test('stops on one cumulative CPU-time interval above 200 percent', () => {
-  const baseline = evaluateResourceSample(
+test('stops on one raw same-snapshot aggregate CPU value above 400 percent', () => {
+  const result = evaluateResourceSample(
     createResourceGuardState({ nowMs: 0 }),
     trackedCpuSample({
-      cpuPercent: 10,
       nowMs: 1_000,
-      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
-    }),
-    { targetPgid: TARGET_PGID }
-  )
-  const interval = evaluateResourceSample(
-    baseline.state,
-    trackedCpuSample({
-      cpuPercent: 10,
-      nowMs: 1_250,
-      processes: [{ cpuTimeMs: 601, pid: 1, role: 'test-harness' }]
+      processes: [
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuPercent: 240,
+          cpuTimeMs: 100,
+          pid: 1,
+          role: 'client-browser'
+        },
+        {
+          cpuPercent: 160.01,
+          cpuTimeMs: 100,
+          pid: 2,
+          role: 'test-harness'
+        }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
     }),
     { targetPgid: TARGET_PGID }
   )
 
-  assert.equal(interval.state.cpuSafetySamples.at(-1).intervalCpuPercent, 200.4)
-  assert.equal(interval.decision.stop, true)
-  assert.equal(interval.decision.reason, 'cpu-limit-exceeded')
+  assert.equal(result.state.cpuSafetySamples.at(-1).rawCpuPercent, 400.01)
+  assert.equal(result.decision.stop, true)
+  assert.equal(result.decision.reason, 'cpu-limit-exceeded')
+})
+
+test('enforces the raw 250% frontend peak separately from the raw 400% aggregate safety ceiling', () => {
+  const evaluateRawSnapshot = (clientBrowser, testHarness) =>
+    evaluateResourceSample(
+      createResourceGuardState({ nowMs: 0 }),
+      trackedCpuSample({
+        nowMs: 1_000,
+        processes: [
+          {
+            browserProcessType: 'renderer-or-worker',
+            cpuPercent: clientBrowser,
+            cpuTimeMs: 100,
+            pid: 1,
+            role: 'client-browser'
+          },
+          {
+            cpuPercent: testHarness,
+            cpuTimeMs: 100,
+            pid: 2,
+            role: 'test-harness'
+          }
+        ],
+        trackedProcessRoles: ['test-harness', 'client-browser']
+      }),
+      { targetPgid: TARGET_PGID }
+    )
+
+  const allowed = evaluateRawSnapshot(250, 150)
+  const frontendExceeded = evaluateRawSnapshot(250.01, 0)
+  const aggregateExceeded = evaluateRawSnapshot(240, 160.01)
+
+  assert.equal(allowed.decision.stop, false)
+  assert.equal(allowed.state.cpuSafetySamples.at(-1).frontendRawCpuPercent, 250)
+  assert.equal(allowed.state.cpuSafetySamples.at(-1).rawCpuPercent, 400)
+  assert.equal(frontendExceeded.decision.reason, 'frontend-cpu-limit-exceeded')
+  assert.equal(aggregateExceeded.decision.reason, 'cpu-limit-exceeded')
+
+  const allowedReport = buildBoundedResourceReport(allowed.state, {
+    owner: OWNER,
+    targetPgid: TARGET_PGID
+  })
+  const aggregateFailureReport = buildBoundedResourceReport(
+    aggregateExceeded.state,
+    {
+      owner: OWNER,
+      targetPgid: TARGET_PGID
+    }
+  )
+  assert.equal(
+    allowedReport.maximumFrontendCpuSafetySample.frontendRawCpuPercent,
+    250
+  )
+  assert.equal(
+    Object.hasOwn(allowedReport, 'maximumFrontendIntervalCpuSafetySample'),
+    false
+  )
+  assert.equal(allowedReport.overallCpuLimitViolationSample, null)
+  assert.equal(
+    aggregateFailureReport.overallCpuLimitViolationSample.rawCpuPercent,
+    400.01
+  )
+})
+
+test('retains each App renderer raw percent-CPU contribution independently', () => {
+  const result = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    {
+      ...trackedCpuSample({
+        nowMs: 1_000,
+        processes: [
+          {
+            browserProcessType: 'renderer-or-worker',
+            cpuPercent: 101.25,
+            cpuTimeMs: 100,
+            pid: 5004,
+            role: 'client-browser'
+          },
+          {
+            browserProcessType: 'renderer-or-worker',
+            cpuPercent: 98.15,
+            cpuTimeMs: 100,
+            pid: 5008,
+            role: 'client-browser'
+          }
+        ],
+        trackedProcessRoles: ['client-browser']
+      }),
+      contributors: [
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuPercent: 101.25,
+          executable: 'chrome-headless-shell',
+          parentPid: 5001,
+          pgid: 5001,
+          pid: 5004,
+          role: 'client-browser'
+        },
+        {
+          browserProcessType: 'renderer-or-worker',
+          cpuPercent: 98.15,
+          executable: 'chrome-headless-shell',
+          parentPid: 5001,
+          pgid: 5001,
+          pid: 5008,
+          role: 'client-browser'
+        }
+      ]
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(result.decision.stop, false)
+  assert.equal(
+    result.state.cpuSafetySamples.at(-1).frontendRawCpuPercent,
+    199.4
+  )
+  assert.deepEqual(
+    result.state.cpuSafetySamples.at(-1).rendererProcessRawCpuPercent,
+    [
+      { pid: 5004, rawCpuPercent: 101.25 },
+      { pid: 5008, rawCpuPercent: 98.15 }
+    ]
+  )
 })
 
 test('rejects an interval whose sampling gap exceeds the fixed safety window', () => {
@@ -405,6 +591,37 @@ test('rejects an interval whose sampling gap exceeds the fixed safety window', (
 
   assert.equal(delayed.decision.stop, true)
   assert.equal(delayed.decision.reason, 'cpu-sample-gap-exceeded')
+})
+
+test('treats a short extra observation as an independent raw snapshot', () => {
+  const first = evaluateResourceSample(
+    createResourceGuardState({ nowMs: 0 }),
+    trackedCpuSample({
+      nowMs: 1_000,
+      processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const shortObservation = evaluateResourceSample(
+    first.state,
+    trackedCpuSample({
+      nowMs: 1_193,
+      processes: [{ cpuTimeMs: 119, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+  const nextScheduledObservation = evaluateResourceSample(
+    shortObservation.state,
+    trackedCpuSample({
+      nowMs: 1_445,
+      processes: [{ cpuTimeMs: 144, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(shortObservation.state.cpuSafetySamples.at(-1).rawCpuPercent, 0)
+  assert.equal(nextScheduledObservation.decision.stop, false)
+  assert.equal(nextScheduledObservation.state.attributionInvalidReason, null)
 })
 
 test('serializes OS sampling and its state consumer in request order', async () => {
@@ -446,7 +663,7 @@ test('serializes OS sampling and its state consumer in request order', async () 
   ])
 })
 
-test('requires a fresh stable pair after process identity churn before readiness', () => {
+test('accepts a complete raw snapshot after process identity churn before readiness', () => {
   const first = evaluateResourceSample(
     createResourceGuardState({ nowMs: 0 }),
     trackedCpuSample({
@@ -481,14 +698,13 @@ test('requires a fresh stable pair after process identity churn before readiness
   )
 
   assert.equal(churn.decision.stop, false)
-  assert.equal(churn.state.cpuSafetySamples.at(-1).intervalCpuPercent, null)
-  assert.equal(stable.state.cpuSafetySamples.at(-1).intervalCpuPercent, 80)
-  assert.equal(stable.state.acceptedIntervalSamples, 1)
+  assert.equal(churn.state.acceptedRawSamples, 1)
+  assert.equal(stable.state.acceptedRawSamples, 2)
 })
 
-test('rebaselines instead of stopping when process identity changes after a provisional pre-ready interval', () => {
+test('rebaselines instead of stopping when process identity changes before readiness', () => {
   const provisional = arm(createResourceGuardState({ nowMs: 0 }), 1_000)
-  assert.equal(provisional.acceptedIntervalSamples, 1)
+  assert.equal(provisional.acceptedRawSamples, 2)
 
   const churn = evaluateResourceSample(
     provisional,
@@ -504,7 +720,7 @@ test('rebaselines instead of stopping when process identity changes after a prov
   )
 
   assert.equal(churn.decision.stop, false)
-  assert.equal(churn.state.acceptedIntervalSamples, 0)
+  assert.equal(churn.state.acceptedRawSamples, 1)
   assert.equal(churn.state.attributionInvalidReason, null)
 })
 
@@ -640,14 +856,6 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
   assert.equal(end.accepted, true)
   assert.deepEqual(end.state.phaseCpuTimeSamples, [
     {
-      averageCpuPercent: 60,
-      browserProcessTypeAverageCpuPercent: {
-        gpuProcess: 0,
-        otherBrowser: 50,
-        rendererOrWorker: 0,
-        rootBrowser: 0,
-        utility: 0
-      },
       browserProcessTypeCpuTimeMs: {
         gpuProcess: 0,
         otherBrowser: 500,
@@ -655,7 +863,7 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
         rootBrowser: 0,
         utility: 0
       },
-      browserProcessTypeMaximumIntervalCpuPercent: {
+      browserProcessTypeMaximumRawCpuPercent: {
         gpuProcess: 0,
         otherBrowser: 0,
         rendererOrWorker: 0,
@@ -664,27 +872,13 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
       },
       cpuTimeMs: 600,
       endedAtMs: 11_000,
-      intervalSampleCount: 0,
-      maximumIntervalCpuPercent: 0,
+      maximumFrontendRawCpuPercent: 0,
       phase: 'local-request',
-      roleAverageCpuPercent: {
-        appServer: 5,
-        clientBrowser: 50,
-        testHarness: 5,
-        unknown: 0,
-        websocketServer: 0
-      },
+      rawSampleCount: 0,
       roleCpuTimeMs: {
         appServer: 50,
         clientBrowser: 500,
         testHarness: 50,
-        unknown: 0,
-        websocketServer: 0
-      },
-      roleMaximumIntervalCpuPercent: {
-        appServer: 0,
-        clientBrowser: 0,
-        testHarness: 0,
         unknown: 0,
         websocketServer: 0
       },
@@ -699,7 +893,7 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
   )
 })
 
-test('applies the 200% safety stop to an explicit phase-boundary sample before attribution', () => {
+test('applies the 400% aggregate safety stop to an explicit phase-boundary sample before attribution', () => {
   const result = recordGuardedResourcePhaseBoundary(
     createResourceGuardState({ nowMs: 0 }),
     {
@@ -707,7 +901,7 @@ test('applies the 200% safety stop to an explicit phase-boundary sample before a
       owner: OWNER,
       phase: 'local-request',
       sample: {
-        cpuPercent: 200.01,
+        cpuPercent: 400.01,
         cpuTimeMs: 1_000,
         nowMs: 10_000,
         pgid: TARGET_PGID,
@@ -739,10 +933,13 @@ test('applies the 200% safety stop to an explicit phase-boundary sample before a
   assert.equal(result.reason, 'cpu-limit-exceeded')
   assert.equal(result.decision.stop, true)
   assert.equal(result.state.activePhaseBoundary, null)
-  assert.equal(result.state.maximumCpuSafetySample.decayedCpuPercent, 200.01)
+  assert.equal(
+    result.state.overallCpuLimitViolationSample.rawCpuPercent,
+    400.01
+  )
 })
 
-test('applies post-baseline interval CPU rather than decayed CPU at phase boundaries', () => {
+test('uses raw phase-boundary CPU without converting CPU-time deltas', () => {
   const first = evaluateResourceSample(
     createResourceGuardState({ nowMs: 0 }),
     trackedCpuSample({
@@ -768,7 +965,7 @@ test('applies post-baseline interval CPU rather than decayed CPU at phase bounda
       phase: 'local-request',
       sample: {
         ...trackedCpuSample({
-          cpuPercent: 900,
+          cpuPercent: 399,
           nowMs: 500,
           processes: [{ cpuTimeMs: 150, pid: 1, role: 'test-harness' }]
         }),
@@ -795,7 +992,7 @@ test('applies post-baseline interval CPU rather than decayed CPU at phase bounda
         ...trackedCpuSample({
           cpuPercent: 10,
           nowMs: 750,
-          processes: [{ cpuTimeMs: 651, pid: 1, role: 'test-harness' }]
+          processes: [{ cpuTimeMs: 1_151, pid: 1, role: 'test-harness' }]
         }),
         monotonicMs: 750
       },
@@ -808,13 +1005,19 @@ test('applies post-baseline interval CPU rather than decayed CPU at phase bounda
     }
   )
 
-  assert.equal(end.accepted, false)
-  assert.equal(end.reason, 'cpu-limit-exceeded')
-  assert.equal(end.state.cpuSafetySamples.at(-1).intervalCpuPercent, 200.4)
-  assert.deepEqual(end.state.phaseCpuTimeSamples, [])
+  assert.equal(end.accepted, true)
+  assert.equal(end.reason, null)
+  assert.equal(end.state.cpuSafetySamples.at(-1).rawCpuPercent, 10)
+  assert.equal(end.state.phaseCpuTimeSamples.length, 1)
+  assert.equal(end.state.phaseCpuTimeSamples[0].cpuTimeMs, 1_001)
+  assert.equal(end.state.phaseCpuTimeSamples[0].wallTimeMs, 250)
+  assert.equal(
+    Object.hasOwn(end.state.phaseCpuTimeSamples[0], 'averageCpuPercent'),
+    false
+  )
 })
 
-test('does not treat a sub-cadence phase-boundary helper as a 250ms CPU interval', () => {
+test('treats sub-cadence phase boundaries as independent raw snapshots', () => {
   const armed = arm(createResourceGuardState({ nowMs: 0 }))
   const ready = record(armed, 'ready', 250)
   assert.equal(ready.accepted, true)
@@ -851,12 +1054,8 @@ test('does not treat a sub-cadence phase-boundary helper as a 250ms CPU interval
   assert.equal(start.accepted, true)
   assert.equal(start.decision.stop, false)
   assert.equal(start.state.activePhaseBoundary.phase, 'local-request')
-  assert.equal(
-    start.state.previousProcessCpuSnapshot.monotonicMs,
-    250,
-    'the phase helper must not replace the fixed-cadence safety baseline'
-  )
-  assert.equal(start.state.cpuSafetySamples.at(-1).intervalCpuPercent, null)
+  assert.equal(start.state.previousProcessSnapshot.monotonicMs, 277)
+  assert.equal(start.state.cpuSafetySamples.at(-1).rawCpuPercent, 7.6)
 
   const periodic = evaluateResourceSample(
     start.state,
@@ -875,18 +1074,20 @@ test('does not treat a sub-cadence phase-boundary helper as a 250ms CPU interval
   )
 
   assert.equal(periodic.decision.stop, false)
-  assert.equal(periodic.state.cpuSafetySamples.at(-1).intervalWallTimeMs, 250)
-  assert.equal(periodic.state.cpuSafetySamples.at(-1).intervalCpuPercent, 40)
-  assert.equal(periodic.state.activePhaseBoundary.maximumIntervalCpuPercent, 40)
+  assert.equal(periodic.state.cpuSafetySamples.at(-1).rawCpuPercent, 10)
+  assert.equal(
+    periodic.state.activePhaseBoundary.maximumFrontendRawCpuPercent,
+    0
+  )
 
   const overLimit = evaluateResourceSample(
     start.state,
     trackedCpuSample({
-      cpuPercent: 10,
+      cpuPercent: 400.01,
       nowMs: 500,
       processes: [
         {
-          cpuTimeMs: 501,
+          cpuTimeMs: 1_001,
           pid: TARGET_PGID,
           role: 'test-harness'
         }
@@ -896,10 +1097,7 @@ test('does not treat a sub-cadence phase-boundary helper as a 250ms CPU interval
   )
   assert.equal(overLimit.decision.stop, true)
   assert.equal(overLimit.decision.reason, 'cpu-limit-exceeded')
-  assert.equal(
-    overLimit.state.cpuSafetySamples.at(-1).intervalCpuPercent,
-    200.4
-  )
+  assert.equal(overLimit.state.cpuSafetySamples.at(-1).rawCpuPercent, 400.01)
 })
 
 test('rejects phase attribution when a process present at start exits before the end sample', () => {
@@ -1058,12 +1256,12 @@ test('rejects phase attribution after any process identity churn observed by the
   assert.deepEqual(end.state.phaseCpuTimeSamples, [])
 })
 
-test('stops immediately when the tracked process group exceeds 200% CPU', () => {
+test('stops immediately when the tracked process group exceeds 400% aggregate CPU', () => {
   const state = createResourceGuardState({ nowMs: 0 })
   const result = evaluateResourceSample(
     state,
     trackedCpuSample({
-      cpuPercent: 200.01,
+      cpuPercent: 400.01,
       nowMs: 1_000,
       processes: [{ cpuTimeMs: 100, pid: 1, role: 'test-harness' }]
     }),
@@ -1079,24 +1277,58 @@ test('stops immediately when the tracked process group exceeds 200% CPU', () => 
   assert.equal(result.accepted, true)
   assert.equal(result.decision.stop, true)
   assert.equal(result.decision.reason, 'cpu-limit-exceeded')
-  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent, 200)
+  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent, 400)
+  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent, 250)
   assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs, 250)
-  assert.equal(result.state.config.maximumCpuPercent, 200)
+  assert.equal(result.state.config.maximumCpuPercent, 400)
+  assert.equal(result.state.config.maximumFrontendCpuPercent, 250)
   assert.equal(result.state.config.sampleIntervalMs, 250)
 })
 
-test('allows every tracked process-group sample at or below 200% CPU', () => {
+test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
+  const state = createResourceGuardState({ nowMs: 0 })
+  const result = evaluateResourceSample(
+    state,
+    {
+      ...trackedCpuSample({
+        cpuPercent: 250.01,
+        nowMs: 1_000,
+        processes: [{ cpuTimeMs: 100, pid: 1, role: 'client-browser' }],
+        trackedProcessRoles: ['client-browser']
+      }),
+      roleCpuPercent: {
+        appServer: 0,
+        clientBrowser: 250.01,
+        testHarness: 0,
+        unknown: 0,
+        websocketServer: 0
+      }
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(result.accepted, true)
+  assert.equal(result.decision.stop, true)
+  assert.equal(result.decision.reason, 'frontend-cpu-limit-exceeded')
+  assert.equal(
+    result.state.maximumFrontendBootstrapCpuSafetySample.frontendRawCpuPercent,
+    250.01
+  )
+  assert.equal(result.state.overallCpuLimitViolationSample, null)
+})
+
+test('allows every tracked process-group sample at or below 400% aggregate CPU', () => {
   let state = createResourceGuardState({ nowMs: 0 })
 
   for (let index = 0; index < 8; index += 1) {
     const result = evaluateResourceSample(
       state,
       trackedCpuSample({
-        cpuPercent: 200,
+        cpuPercent: 400,
         nowMs: (index + 1) * 250,
         processes: [
           {
-            cpuTimeMs: (index + 1) * 500,
+            cpuTimeMs: (index + 1) * 1_000,
             pid: 1,
             role: 'test-harness'
           }
@@ -1107,7 +1339,7 @@ test('allows every tracked process-group sample at or below 200% CPU', () => {
     assert.equal(result.decision.stop, false)
     state = result.state
   }
-  assert.equal(state.cpuSafetySamples.at(-1).decayedCpuPercent, 200)
+  assert.equal(state.cpuSafetySamples.at(-1).rawCpuPercent, 400)
 })
 
 test('keeps the 200% hard ceiling for an explicit root-cause diagnostic state', () => {
@@ -1130,7 +1362,7 @@ test('keeps the 200% hard ceiling for an explicit root-cause diagnostic state', 
   const belowDiagnosticLimit = evaluateResourceSample(
     baseline.state,
     trackedCpuSample({
-      cpuPercent: 900,
+      cpuPercent: 175,
       nowMs: 500,
       processes: [{ cpuTimeMs: 437.5, pid: 1, role: 'test-harness' }]
     }),
@@ -1139,7 +1371,7 @@ test('keeps the 200% hard ceiling for an explicit root-cause diagnostic state', 
   const aboveDiagnosticLimit = evaluateResourceSample(
     belowDiagnosticLimit.state,
     trackedCpuSample({
-      cpuPercent: 10,
+      cpuPercent: 200.01,
       nowMs: 750,
       processes: [{ cpuTimeMs: 937.525, pid: 1, role: 'test-harness' }]
     }),
@@ -1161,7 +1393,7 @@ test('stops when heartbeat is stale for more than ten seconds while CPU is above
   const result = evaluateResourceSample(
     beforeBusy,
     trackedCpuSample({
-      cpuPercent: 0,
+      cpuPercent: 81,
       nowMs: 10_001,
       processes: [{ cpuTimeMs: 202.5, pid: TARGET_PGID, role: 'test-harness' }]
     }),
@@ -1180,7 +1412,7 @@ test('stops on stalled A/B progress, but disables progress stall after both acto
   const stalled = evaluateResourceSample(
     beforeStall,
     trackedCpuSample({
-      cpuPercent: 0,
+      cpuPercent: 81,
       nowMs: 20_001,
       processes: [{ cpuTimeMs: 202.5, pid: TARGET_PGID, role: 'test-harness' }]
     }),
@@ -1328,8 +1560,8 @@ test('accepts bounded bootstrap progress before freezing the ready request ident
 
 test('new pre-ready process registration clears a provisional CPU baseline', () => {
   let state = arm(createResourceGuardState({ nowMs: 0 }), 1_000)
-  assert.equal(state.acceptedIntervalSamples, 1)
-  assert.notEqual(state.previousProcessCpuSnapshot, null)
+  assert.equal(state.acceptedRawSamples, 2)
+  assert.notEqual(state.previousProcessSnapshot, null)
 
   const registration = recordTrackedProcessGroupRegistration(
     state,
@@ -1349,8 +1581,8 @@ test('new pre-ready process registration clears a provisional CPU baseline', () 
   )
 
   assert.equal(registration.accepted, true)
-  assert.equal(registration.state.acceptedIntervalSamples, 0)
-  assert.equal(registration.state.previousProcessCpuSnapshot, null)
+  assert.equal(registration.state.acceptedRawSamples, 0)
+  assert.equal(registration.state.previousProcessSnapshot, null)
 })
 
 test('accepts and reports an over-projected render count without hiding the excess', () => {
@@ -1895,11 +2127,16 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   assert.equal(report.phase, 'slice-6')
   assert.equal(report.actorA.elements, 6)
   assert.equal(report.actorB.elements, 5)
-  assert.equal(report.maximumCpuSafetySample.decayedCpuPercent, 149)
-  assert.equal(report.maximumCpuSafetySample.heartbeatCapturedAtMs, 1_000)
-  assert.equal(report.maximumCpuSafetySample.heartbeatPhase, 'slice-1')
-  assert.equal(report.maximumCpuSafetySample.sampledAtMs, 1_000)
-  assert.equal(report.maximumIntervalCpuSafetySample.intervalCpuPercent, 13.333)
+  assert.equal(report.maximumFrontendCpuSafetySample.frontendRawCpuPercent, 0)
+  assert.equal(
+    report.maximumFrontendCpuSafetySample.heartbeatCapturedAtMs,
+    null
+  )
+  assert.equal(report.maximumFrontendCpuSafetySample.sampledAtMs, 0)
+  assert.equal(
+    Object.hasOwn(report, 'maximumFrontendIntervalCpuSafetySample'),
+    false
+  )
   assert.equal(
     report.cpuSafetySamples.some(({ sampledAtMs }) => sampledAtMs === 1_000),
     false
@@ -1913,7 +2150,7 @@ test('keeps only bounded heartbeat and CPU evidence in its emergency report', ()
   assert.equal(JSON.stringify(report).includes(TOKEN), false)
 })
 
-test('never attributes decayed CPU safety samples to diagnostic phases', () => {
+test('never attributes raw CPU safety samples to diagnostic phases', () => {
   let state = createResourceGuardState({ nowMs: 0 })
   state = record(arm(state), 'ready', 0).state
 
@@ -1957,8 +2194,8 @@ test('never attributes decayed CPU safety samples to diagnostic phases', () => {
   })
 
   assert.equal(Object.hasOwn(report, 'phaseCpuMaximums'), false)
-  assert.equal(report.maximumCpuSafetySample.decayedCpuPercent, 30)
-  assert.equal(report.maximumCpuSafetySample.heartbeatPhase, 'phase-30')
+  assert.equal(Object.hasOwn(report, 'maximumCpuSafetySample'), false)
+  assert.equal(report.maximumFrontendCpuSafetySample.frontendRawCpuPercent, 0)
   assert.equal(report.phaseCpuTimeSamples.length, 0)
 })
 
@@ -2058,6 +2295,40 @@ test('samples every registered process group from one bounded OS snapshot', asyn
         pgid: 5001,
         pid: 5006,
         role: 'client-browser'
+      },
+      {
+        cpuPercent: 12,
+        executable: 'yarn',
+        parentPid: 1,
+        pgid: TARGET_PGID,
+        pid: TARGET_PGID,
+        role: 'test-harness'
+      },
+      {
+        browserProcessType: 'root-browser',
+        cpuPercent: 10,
+        executable: 'chrome-headless-shell',
+        parentPid: TARGET_PGID,
+        pgid: 5001,
+        pid: 5001,
+        role: 'client-browser'
+      },
+      {
+        browserProcessType: 'other-browser',
+        cpuPercent: 6,
+        executable: 'chrome-headless-shell',
+        parentPid: 5001,
+        pgid: 5001,
+        pid: 5007,
+        role: 'client-browser'
+      },
+      {
+        cpuPercent: 4,
+        executable: 'node',
+        parentPid: TARGET_PGID,
+        pgid: 5002,
+        pid: 5002,
+        role: 'app-server'
       }
     ],
     cpuTimeMs: 1_600,
@@ -2148,7 +2419,7 @@ test('keeps bounded process contributors without weakening the aggregate CPU sto
     state,
     {
       ...trackedCpuSample({
-        cpuPercent: 201,
+        cpuPercent: 401,
         nowMs: 1_000,
         processes: [{ cpuTimeMs: 100, pid: TARGET_PGID, role: 'test-harness' }]
       }),
@@ -2227,6 +2498,12 @@ test('keeps bounded process contributors without weakening the aggregate CPU sto
       parentPid: 1,
       cpuPercent: 20,
       executable: '/usr/local/bin/yarn'
+    },
+    {
+      pid: TARGET_PGID + 5,
+      parentPid: TARGET_PGID,
+      cpuPercent: 5,
+      executable: '/usr/local/bin/node'
     }
   ])
   assert.equal(
@@ -2394,7 +2671,8 @@ test('builds only the guarded Playwright runtime after separate production setup
   )
   assert.deepEqual(phases[0].guardConfig, {
     guardMode: 'proof',
-    maximumCpuPercent: 200,
+    maximumCpuPercent: 400,
+    maximumFrontendCpuPercent: 250,
     requiredProofKind: 'endpoint',
     requiredProcessRoles: [
       'test-harness',
@@ -2616,19 +2894,7 @@ test('requires one authenticated descendant process group for every proof role b
     }),
     { targetPgid: TARGET_PGID }
   ).state
-  const beforeStablePair = record(state, 'ready', 3)
-  assert.equal(beforeStablePair.accepted, false)
-  assert.equal(beforeStablePair.reason, 'guard-not-armed')
-  state = evaluateResourceSample(
-    state,
-    trackedCpuSample({
-      nowMs: 253,
-      processes: allProcesses,
-      trackedProcessRoles: requiredProcessRoles
-    }),
-    { targetPgid: TARGET_PGID }
-  ).state
-  const ready = record(state, 'ready', 254)
+  const ready = record(state, 'ready', 3)
   assert.equal(ready.accepted, true)
 
   const stopping = evaluateResourceSample(
@@ -2637,7 +2903,7 @@ test('requires one authenticated descendant process group for every proof role b
       cpuPercent: 0,
       nowMs: 503,
       processes: [
-        { cpuTimeMs: 602.5, pid: TARGET_PGID, role: 'test-harness' },
+        { cpuTimeMs: 1_102.5, pid: TARGET_PGID, role: 'test-harness' },
         { cpuTimeMs: 100, pid: 5001, role: 'client-browser' },
         { cpuTimeMs: 100, pid: 5002, role: 'app-server' },
         { cpuTimeMs: 100, pid: 5003, role: 'websocket-server' }

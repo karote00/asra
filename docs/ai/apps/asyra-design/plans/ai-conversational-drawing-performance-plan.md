@@ -6,9 +6,11 @@ Active Level 3 endpoint-ordered app performance closure. PR #101 is merged and
 the existing
 `codex/asyra-design-ai-conversational-drawing-performance` branch remains the
 implementation base. Production implementation and formal validation continue
-one Inspector owner step at a time, and every completed performance endpoint is
-followed first by one guarded 16-item safety proof and then by one guarded
-high-detail proof before another endpoint may advance.
+one Inspector owner step at a time. Every completed performance endpoint is
+followed by one guarded 16-item safety proof before another endpoint may
+advance. A guarded 7,076-element proof runs only at the named local-source,
+relay, and final checkpoints and requires explicit product-owner approval after
+the invalid 2026-07-31 attempt.
 
 This plan, its Inspector data, contract test, and BDD are the active app-level
 implementation authority. Framework package contracts remain authoritative
@@ -223,7 +225,8 @@ server remained approximately zero after readiness. The browser run did not
 trigger the 200-percent diagnostic stop, and all four tracked process groups
 closed normally. These decayed host samples remain safety/attribution evidence,
 not product wall-time budgets, but their like-for-like reduction satisfies the
-required low-load checkpoint before the one guarded high-detail proof.
+required low-load checkpoint before the then-planned local-source guarded
+high-detail proof.
 
 The first formal high-detail attempt then stopped during cold bootstrap at 178
 percent aggregate CPU under the superseded 150-percent limit while Actor A and
@@ -247,56 +250,59 @@ publications. That stop is threshold-configuration evidence, not an ineffective
 product architecture attempt. Production build commands are now a separate
 setup outside the runtime guard and all product timing. The runtime pipeline
 attests the already-built endpoint artifact before Playwright starts; it does
-not build through the performance guard. The product owner's explicit
-200-percent limit begins with the authenticated App runtime, while product
-operation timing begins only at Actor A request submission.
+not build through the performance guard. The historical 200-percent limit began
+with the authenticated App runtime, while product operation timing began only
+at Actor A request submission.
 
-The corrected 200-percent proof then stopped 1.281 seconds after the exact
-creation request when aggregate test-owned CPU reached 210.5 percent. The
-client-browser process group contributed 206 percent, while the App preview,
-WebSocket server, and harness contributed approximately 1.9, 1.1, and 1.5
-percent. Both Actors still reported one canonical element, zero Render
-projection elements, and zero publications. That one canonical element is the
-empty document Workspace created during Scene Tree initialization; Workspace
-is deliberately absent from ordinary Render. It is not evidence that the AI
-Group or first children batch was created.
+That historical proof stopped 1.281 seconds after the exact creation request
+when the then-reported aggregate test-owned CPU reached 210.5 percent. The
+reported client-browser process group was 206 percent, while the App preview,
+WebSocket server, and harness were approximately 1.9, 1.1, and 1.5 percent.
+Those values are below the current 250-percent frontend and 400-percent
+aggregate limits and therefore do not authorize a current CPU stop. Both Actors
+still reported one canonical element, zero Render projection elements, and
+zero publications. That one canonical element is the empty document Workspace
+created during Scene Tree initialization; Workspace is deliberately absent
+from ordinary Render. It is not evidence that the AI Group or first children
+batch was created.
 
-The guard samples process CPU every 250 milliseconds, while the App heartbeat
-can be delayed by a busy renderer and currently reports only the latest
+The historical guard polled process CPU every 250 milliseconds, while the App
+heartbeat could be delayed by a busy renderer and reported only the latest
 completed owner phase. The 210.5-percent CPU sample and the retained Actor
-counts are therefore not a co-temporal snapshot. The latest completed phase was
+counts were therefore not a co-temporal snapshot. The latest completed phase was
 `ai-app:prepare-composition-slices`; no later phase had completed when the last
 heartbeat was captured. This does not prove which phase was active when the
-later CPU sample crossed the limit, and therefore does not yet exclude Group,
-Core, publication, remote apply, or Render ownership. The first unresolved
-interval begins after the last completed slice-preparation phase and ends at
-the first phase-start/phase-end evidence captured around the guard stop.
+later CPU sample crossed the historical limit, and therefore does not exclude
+Group, Core, publication, remote apply, or Render ownership. The first
+unresolved phase span begins after the last completed slice-preparation phase
+and ends at the first phase-start/phase-end evidence captured around the guard
+stop.
 
-On macOS, `ps %cpu` is a decaying average over as much as approximately one
-minute rather than the CPU used during the guard's latest 250-millisecond
-period. Reading it every 250 milliseconds does not turn it into an interval
-measurement. A young Chromium process can therefore retain bootstrap, JIT,
-navigation, compositor, or GPU work in a later sample. Summing the root browser,
-renderer-or-worker, GPU, utility, and other browser values remains correct for host protection,
-but the decayed value cannot be interpreted as the CPU consumed during that
-specific sample window.
+For all subsequent work, the only formal CPU percentage is the raw `%cpu`
+reported by the operating system in one `ps` snapshot. The guard polls at a
+nominal 250-millisecond cadence, but that cadence is only how often it asks the
+system for a new value; it is not a measurement window and never participates
+in a CPU-percentage formula. The complete frontend value is the same-snapshot
+sum of the raw system values for the App's Chromium root browser, renderer or
+worker, GPU, utility, and other browser processes. The formal frontend peak is
+the highest such raw `client-browser` snapshot and has a fixed 250-percent
+limit. Backend and harness CPU never enter that peak.
 
-The corrected guard establishes two cumulative `ps time=` samples for one exact,
-stable PID set and computes each 250-millisecond interval as total process CPU
-time delta divided by monotonic wall-time delta. One interval above 200 percent
-still stops the exact owned process groups immediately; the limit is not raised,
-averaged away, or made dependent on consecutive failures. Before the stable
-baseline exists, a decayed sample above 200 percent still fails closed as a
-bootstrap overload. After baseline, the decayed value is retained only as a
-diagnostic. Browser subprocess classes remain visible separately and all remain
-inside the aggregate; a Web Worker hosted by a renderer is not falsely reported
-as its own OS process.
+The aggregate safety value is the same-snapshot sum of the raw system values
+for frontend, App server, WebSocket server, and test harness. One raw aggregate
+snapshot above 400 percent stops the exact owned process groups and reports the
+contributing roles. The guard must not derive a percentage from cumulative
+process CPU time, divide CPU-time deltas by wall time, normalize a sample to the
+polling cadence, average multiple snapshots into the formal peak, or use any
+such converted percentage for pass/fail. Cumulative CPU milliseconds may be
+retained only as non-percentage diagnostic evidence and cannot replace the raw
+system snapshot.
 
 Periodic and phase-boundary sampling share one serialized OS-sample and
 state-consumption queue. No overlapping `ps` calls or out-of-order state update
-may form an interval. A fixed 375-millisecond sample-gap ceiling fails closed
-when sampling is delayed beyond the bounded observation window; it never
-accepts a longer average that could hide a shorter unobserved spike.
+may combine values from different snapshots. A fixed 375-millisecond
+observation-gap ceiling fails closed because the guard may have missed a raw
+system peak; it does not construct a longer interval average.
 
 Production build commands run only as separate setup outside the runtime guard
 and product timing. Artifact attestation must succeed before Playwright may
@@ -307,8 +313,8 @@ before guard-ready is safety-only: legal process registration or identity churn
 resets the candidate baseline and is never attributed to a product owner. After
 the App, Collaboration, and Agent UI settle, the harness resolves the prompt
 field and submit control, performs prompt fill and actionability outside the
-product boundary, and then takes one fresh stable pair that freezes the exact
-request PID set. App-owned request acceptance or dispatch starts
+product boundary, and then takes one complete raw system snapshot that freezes
+the exact request PID set. App-owned request acceptance or dispatch starts
 `local-request`. No Playwright locator, visibility, count, text, or attribute
 polling executes inside that measured window. One App-owned O(1) scalar
 completion signal closes product timing; UI assertions execute afterward.
@@ -352,17 +358,19 @@ deliberately smaller than an endpoint acceptance proof:
    Vector records contain 12,919 points and its progressive sizes are
    `[2, 2, 10, 2]`, so Group plus early high-detail canonical and Render work is
    material; it is not treated as a negligible placeholder.
-5. If corrected interval CPU crosses 200 percent, terminate first and perform
-   the required bounded replan. That replan may authorize the same 16-item case
-   once with reduced motion. A material reduction with an equivalent
+5. If the raw system-reported frontend snapshot crosses 250 percent, or the raw
+   same-snapshot frontend/backend/harness total crosses 400 percent, terminate
+   first and perform the required bounded replan. That replan may authorize the
+   same 16-item case once with reduced motion. A material reduction with an equivalent
    `AiActionBatch` and
    canonical evidence assigns the first owner to loading/compositor work; no
    material reduction returns attribution to the remaining measured browser
    owners rather than guessing provider ownership.
-6. If the 16-item case stays below 200 percent, run one guarded production
-   single-Actor 1,280-item cat-prefix case. It preserves the same source and
-   ordinary Vector route while increasing Runtime batch resolution, preview,
-   and canonical work.
+6. If the 16-item case stays at or below the 250-percent frontend limit and the
+   400-percent aggregate safety limit, run one guarded production single-Actor
+   1,280-item cat-prefix case. It preserves the same source and ordinary Vector
+   route while increasing Runtime batch resolution, preview, and canonical
+   work.
 7. Only if the single-Actor 1,280-item result cannot distinguish Actor A and
    client-to-server work from peer relay or Actor B remote apply may one
    two-Actor 1,280-item case run.
@@ -373,18 +381,19 @@ timing remains recorded but is excluded from frontend product execution and
 cannot affect Runtime, Render, or CRDT effectiveness. The cases then report an
 ordered browser-monotonic product timeline for provider request/batch handoff,
 Runtime batch resolution, `AiActionBatchPreview` projection, loading
-evidence, Group, and plural children-batch work. One
-request-wide cumulative process CPU-time boundary reports the harness, browser,
-App, and optional server CPU-time deltas without pretending to retrospectively
-split OS CPU among nested JavaScript spans. Every boundary snapshot also passes
-through the same 200-percent safety evaluator as the 250-millisecond sampler.
-Every boundary and 250-millisecond safety snapshot compares the same PID and
-role identities. Any observed process identity change makes attribution invalid
-rather than undercounted. An unobserved sub-interval helper shorter than the
-sampling cadence cannot be reconstructed from `ps`, so request-wide OS CPU is
-corroborating evidence and is never the sole owner-attribution signal. Each
-safety sample retains its own heartbeat age and never turns a stale
-latest-completed phase into an active-owner claim.
+evidence, Group, and plural children-batch work. One request-wide cumulative
+process CPU-time boundary may report direct CPU-time milliseconds for the
+harness, browser, App, and optional server without converting those deltas into
+a CPU percentage or retrospectively splitting OS CPU among nested JavaScript
+spans. Every boundary snapshot passes the same raw system-reported
+250-percent frontend and 400-percent aggregate safety evaluators as the
+periodic sampler.
+Every periodic and boundary safety snapshot compares the same PID and role
+identities. Any observed process identity change makes attribution invalid
+rather than undercounted. Raw OS snapshots remain corroborating evidence and
+are never the sole owner-attribution signal. Each safety sample retains its own
+heartbeat age and never turns a stale latest-completed phase into an
+active-owner claim.
 
 Local attribution uses an explicit `local-attribution` proof kind. It requires
 only Actor A exact completion and carries no Actor B report; it must never
@@ -395,15 +404,17 @@ remains attribution evidence, not an accepted endpoint proof.
 The pipeline fixes one required proof kind for the entire guarded invocation;
 an endpoint, local-attribution, or collaboration-attribution run cannot switch
 category in a later heartbeat.
-The cases retain the 200-percent stop and terminate the exact test-owned process
-groups. They never count as a 7,076 architecture attempt and cannot establish
-product equivalence. The resulting attribution artifact routes to exactly one
+The cases retain the 250-percent frontend and 400-percent aggregate stops and
+terminate the exact test-owned process groups. They never count as a 7,076
+architecture attempt and cannot establish product equivalence. The resulting
+attribution artifact routes to exactly one
 owner contract—server response bootstrap/request-boundary contamination,
 Runtime batch resolution,
 App loading paint, local canonical composition, or receiver/collaboration
 admission. Only that selected owner receives one complete architecture replan,
-focused formal tests, and one implementation. Only then may the guarded 7,076
-proof run again.
+focused formal tests, and one implementation. Only then, and only with explicit
+product-owner approval after the invalid 2026-07-31 attempt, may a replacement
+guarded 7,076 proof run.
 
 ### 2026-07-30 local attribution result and selected owner
 
@@ -450,31 +461,38 @@ four local publications. Its request-wide cumulative CPU-time boundary measured
 87.119 percent browser, 3.747 percent App preview, 7.494 percent harness, and
 0.468 percent WebSocket server.
 
+Those CPU-time-derived percentages are historical diagnostic values only. They
+cannot be used as the formal frontend peak, pass/fail evidence, or a resource
+stop under the corrected raw-snapshot contract.
+
 A second equivalent run was stopped when the old decayed signal reported
 207.7 percent aggregate and 205.5 percent for the browser. Its last one-second
 heartbeat retained 5/17 elements and first-visible at 1.078 seconds. This
-decayed value is not a 250-millisecond CPU measurement, so it cannot establish
-that the product consumed 207.7 percent during the stop interval, cannot select
-a product owner, and does not consume an architecture attempt. It remains a
-valid conservative stop: the guard terminated and verified the exact browser,
-App, WebSocket, and harness process groups before returning.
+decayed raw system value was evaluated against the then-active 200-percent
+aggregate threshold, so the guard terminated and verified the exact browser,
+App, WebSocket, and harness process groups before returning. It is historical
+safety evidence only: it is below the current 250-percent frontend and
+400-percent aggregate limits, cannot select a product owner, and does not
+consume an architecture attempt.
 
-The mismatch between the completed request-wide average and the later decayed
-sample selects the guard measurement contract, not a speculative product patch.
-After the interval guard and exact PID-set equality tests pass, one fresh
-always-on 16-item run is the next permitted browser proof. No 1,280-item or
-7,000-plus run is permitted until that corrected small proof stays within the
-200-percent interval limit and reports a usable first-owner timeline.
+The mismatch between the completed request-wide average and the later raw
+system sample selects the guard measurement contract, not a speculative product
+patch. After the raw-snapshot guard and exact PID-set equality tests pass, one
+fresh always-on 16-item run is the next permitted browser proof. No 1,280-item
+or 7,000-plus run is permitted until that corrected small proof stays within
+the active frontend and aggregate limits and reports a usable first-owner
+timeline.
 
 ### 2026-07-30 measured-window contamination and renderer split
 
-The next fresh single-Actor 16-item run produced one valid
-251.287-millisecond safety interval at 234.791 percent aggregate CPU. The
-browser contributed the full interval, with the coarse `renderer-or-worker`
-bucket at 218.873 percent, GPU at 11.939 percent, and root browser at 3.980
-percent; App preview, WebSocket server, and the Node harness reported zero CPU
-in that exact interval. The guard correctly terminated every owned process
-group, so this remains a valid safety stop.
+The next fresh single-Actor 16-item run produced a historical
+251.287-millisecond converted interval report at 234.791 percent aggregate CPU.
+The converted browser contribution was 218.873 percent for the coarse
+`renderer-or-worker` bucket, 11.939 percent for GPU, and 3.980 percent for the
+root browser; App preview, WebSocket server, and the Node harness reported zero
+in that converted interval. The guard terminated every owned process group, but
+these converted percentages are invalid formal CPU peak and stop evidence under
+the corrected raw-snapshot contract.
 
 It is invalid for product-owner selection. `local-request` began before the
 harness called the superseded `submitMockTurn(...)` helper, which still performed prompt
@@ -485,22 +503,23 @@ does not remove harness-induced Browser process work. The last heartbeat also
 preceded the CPU sample and retained 0/17 elements; it is not co-temporal
 evidence that canonical work had not begun.
 
-The next run keeps the same 200-percent guard but corrects the measurement
-contract before changing production. Prompt fill, locator resolution, and
-actionability complete outside the product boundary. App-owned request
-acceptance or dispatch starts `local-request`; no Playwright polling occurs
-until an O(1) App completion signal ends product timing, after which UI
-correctness assertions resume.
+The next permitted run uses the 250-percent raw frontend and 400-percent raw
+aggregate guards and corrects the measurement contract before changing
+production. Prompt fill, locator resolution, and actionability complete outside
+the product boundary. App-owned request acceptance or dispatch starts
+`local-request`; no Playwright polling occurs until an O(1) App completion
+signal ends product timing, after which UI correctness assertions resume.
 
 Browser attribution also stops collapsing every Chrome renderer into one
-semantic owner. The guard retains each renderer PID's 250-millisecond CPU
-delta. Actor A page-target CDP reports `TaskDuration`, `ScriptDuration`,
+semantic owner. The guard retains each renderer PID's raw same-snapshot system
+`%cpu` value. Actor A page-target CDP reports `TaskDuration`, `ScriptDuration`,
 `LayoutDuration`, and `RecalcStyleDuration`; CDP-visible worker targets are
 reported independently. CPU that remains inside a renderer process but is not
 explained by page-target or visible-worker evidence is reported as residual
 renderer cost, not guessed to be main-thread, Worker, raster, or compositor
 ownership. GPU remains a separate process class and every subprocess remains
-inside the 200-percent aggregate.
+inside both the 250-percent frontend total and the 400-percent overall safety
+aggregate.
 
 Static inspection also retains a separate downstream finding for the next
 owner boundary: after first visible, each progressive slice currently performs
@@ -508,8 +527,9 @@ growing UI hierarchy reconstruction, Render parent-membership validation,
 canonical snapshot seeding, and a possible retained-scene frame. This finding
 does not expand the active Runtime implementation segment. After the Runtime
 focused gates, one fresh guarded 1,280-item run must show the owned
-pre-first-visible work improved by at least 15 percent without crossing the
-200-percent safety limit. If the run still stops only after first visible, the
+pre-first-visible work improved by at least 15 percent without crossing either
+the 250-percent frontend limit or the 400-percent aggregate safety limit. If the
+run still stops only after first visible, the
 Runtime result is recorded and work advances through a new Step Execution Card
 to `project-visible-canonical-slices`; it must not be hidden by changing slice
 size, detail, IDs, history, or the CPU limit. No 7,076-element or collaboration
@@ -620,13 +640,15 @@ inside runtime timing, and no Playwright locator or assertion polling inside
 waiting time, not product work. The response inbox preload completed before App readiness and stayed
 separate external-backend/transport timing.
 
-After that historical delay, one valid 252.599-millisecond interval crossed the fixed
-limit at 221.695 percent aggregate CPU. One renderer PID contributed 201.901
-percent, the second renderer PID contributed zero, GPU contributed 7.918
-percent, and App preview, WebSocket server, and harness each contributed 3.959
-percent. The guard terminated and verified every owned process group. At the
-stop Actor A remained at 0/17 canonical elements, 0/17 Render projection
-elements, zero Factory publications, and no completed canonical Group.
+After that historical delay, one converted 252.599-millisecond interval report
+crossed the then-active limit at 221.695 percent aggregate CPU. Its converted
+role values attributed 201.901 percent to one renderer PID, zero to the second
+renderer PID, 7.918 percent to GPU, and 3.959 percent each to App preview,
+WebSocket server, and harness. The guard terminated and verified every owned
+process group. These converted percentages are invalid formal CPU peak and stop
+evidence under the current raw-snapshot contract. At the stop Actor A remained
+at 0/17 canonical elements, 0/17 Render projection elements, zero Factory
+publications, and no completed canonical Group.
 
 The timing and execution order select the first chronological owner without
 guessing a PID-to-target mapping. The resident provider returns at 650
@@ -685,9 +707,67 @@ slice ranges. The App does not build another graph. It uses the existing
 crosses a browser paint opportunity after the Group, and only then submits the
 prepared child ranges.
 
-The next browser proof is the same guarded 16-item case. It must complete below
-the fixed 200-percent host limit with exact canonical, Render, transaction, and
-History evidence before any guarded 7,076-element proof is permitted.
+The next browser proof is the same guarded 16-item case. It must complete at or
+below the fixed 250-percent frontend limit and the 400-percent aggregate safety
+limit with exact canonical, Render, transaction, and History evidence before
+any guarded 7,076-element proof is permitted.
+
+### 2026-07-31 active resource-budget revision
+
+This user-directed revision supersedes the earlier guard thresholds for every
+remaining endpoint proof. References to 150- or 200-percent stops elsewhere in
+the dated evidence remain historical observations only and are not active
+configuration.
+
+- The formal performance peak is the maximum same-snapshot sum of the raw
+  operating-system `%cpu` values for the complete `client-browser` process
+  group, with a fixed 250-percent limit. Backend and harness CPU are excluded
+  from that peak.
+- The aggregate frontend, App-server, WebSocket-server, and test-harness safety
+  value is the same-snapshot sum of those raw operating-system `%cpu` values.
+  Its limit is fixed at 400 percent; crossing it stops the exact tracked groups
+  and reports their raw contributions.
+- Polling may occur every 250 milliseconds, but polling cadence is never a CPU
+  measurement window. The guard must not subtract cumulative CPU time, divide
+  by elapsed time, normalize to the cadence, or use any converted percentage
+  for the formal peak or either stop decision.
+- The CRDT product-flow deadline from Actor A request submission through Actor
+  B convergence is 180 seconds. The guarded Playwright ceiling is 240 seconds
+  so bounded bootstrap, final assertions, and teardown cannot preempt that
+  product deadline.
+- Crossing either raw CPU limit or either time ceiling terminates the current
+  benchmark action and its exact tracked processes, but it never terminates
+  this implementation task. The current owner immediately enters bounded root
+  cause analysis, re-reads its Inspector contract, revises only that owner plan
+  and formal oracle, and executes the resulting new iteration before any
+  downstream owner may advance.
+
+### 2026-07-31 raw CPU contract correction checkpoint
+
+The attempted 7,076-element proof after the minimal SharedPublication cutover
+was terminated by an unauthorized converted interval percentage. That attempt
+is invalid evidence: it does not establish an App performance failure, does not
+count as an architecture attempt, creates no accepted endpoint baseline, and
+must not be used to select a CRDT owner. The converted 397.203-percent frontend
+and 401.175-percent aggregate values are rejected. Its same-snapshot raw system
+values were 199.4 percent for the complete frontend and 209.2 percent for the
+aggregate, so neither user-defined limit was crossed.
+
+No browser or 7,076-element proof may run from this checkpoint until:
+
+1. the product owner reviews this revised plan and Inspector contract;
+2. the resource-guard formal test first proves that converted CPU-time interval
+   percentages cannot drive peak or stop decisions;
+3. the guard implementation uses only same-snapshot raw system `%cpu` values
+   for the 250-percent frontend peak/stop and 400-percent aggregate stop;
+4. focused guard, configuration, and Inspector contract tests pass; and
+5. bounded review confirms that no interval-derived percentage remains in a
+   formal peak, pass/fail result, or violation report.
+
+After those gates, one corrected guarded 16-item proof must pass. A replacement
+7,076-element proof requires explicit product-owner approval because the
+invalid attempt already consumed the available high-detail test budget. No
+later CRDT owner begins before that decision.
 
 ### 2026-07-30 guarded local source pipeline replan
 
@@ -837,11 +917,13 @@ single committed benchmark with exactly this mission:
 - server queue/drain output normalized into the same bounded endpoint report
   instead of being left only in unstructured server stdout.
 
-Local-only and collaboration owners are judged by the same two-Actor
-7,076-element creation-only benchmark; the Actor A side is also the local
-interaction proof. A benchmark failure caused by its own obsolete assertion or
-harness overhead is a benchmark defect, not evidence against a production
-endpoint.
+At the explicitly named local-source, relay, and final checkpoints, local and
+collaboration evidence comes from the same two-Actor 7,076-element
+creation-only benchmark; the Actor A side is also the local interaction proof.
+Intervening codec, receiver, and remote-apply owners close through their focused
+tests and guarded 16-item proof without another high-detail invocation. A
+benchmark failure caused by its own obsolete assertion or harness overhead is a
+benchmark defect, not evidence against a production endpoint.
 
 ### Host Resource Guard
 
@@ -859,29 +941,32 @@ production preview and one WebSocket server; Vite development mode, HMR, and
 pre-existing listeners are forbidden. The guard samples only these exact
 test-owned process groups. Its aggregate includes every Chromium root,
 renderer, GPU, utility, and other browser process. The report retains each
-renderer PID's interval CPU delta as well as role breakdowns so browser App
-work, local preview overhead, WebSocket server work, and test-harness overhead
-are not attributed to one another. Page-target CDP reports main-thread task,
+renderer PID's raw system-reported `%cpu` value from the same snapshot as well
+as role breakdowns so browser App work, local preview overhead, WebSocket
+server work, and test-harness overhead are not attributed to one another.
+Page-target CDP reports main-thread task,
 script, layout, and style-recalculation deltas; CDP-visible workers are named
 separately; the remaining unexplained renderer contribution stays residual
 rather than being guessed as a page or Worker owner. The benchmark sends one
 bounded heartbeat without walking or hashing the canonical graph.
 
-The immediate first sample records identities and cumulative CPU time. A second
-sample with the same exact PID set establishes the interval baseline; later
-samples run at most 250 milliseconds apart and calculate
-`sum(cpuTimeDelta) / monotonicWallTimeDelta * 100`. The product request cannot
-start before this stable baseline exists. Before baseline, the macOS decayed
-value may only fail closed as bootstrap overload. After baseline it remains
-diagnostic and cannot replace interval CPU. Periodic and phase-boundary
-requests use the same serialized sample queue; a gap above 375 milliseconds
-fails closed.
+The immediate first sample records the exact process identities and their raw
+system-reported `%cpu` values. The product request cannot start before one
+complete required-role snapshot exists. Later polling nominally occurs every
+250 milliseconds, solely to ask the operating system for another raw snapshot.
+No sample subtracts cumulative CPU time or divides by wall time. Periodic and
+phase-boundary requests use the same serialized sample queue; a gap above 375
+milliseconds fails closed because the guard may have missed a system-reported
+peak.
 
 The fixed limits cannot be relaxed through runner configuration:
 
-- any single aggregate test-owned process-tree interval above 200 percent CPU,
-  which stops the benchmark immediately and marks that architecture attempt
-  invalid;
+- any single raw system snapshot whose complete `client-browser` sum is above
+  250 percent CPU, which stops the benchmark immediately and marks that
+  architecture attempt invalid;
+- any single raw system snapshot whose aggregate frontend, App-server,
+  WebSocket-server, and test-harness sum is above 400 percent CPU, which stops
+  the benchmark immediately and reports the raw contributing roles;
 - no heartbeat for 10 seconds while the process tree remains above the ordinary
   80 percent baseline;
   or
@@ -909,11 +994,12 @@ request boundary requires exact PID-set equality with its start sample.
 Pre-ready bootstrap remains safety-only and resets its candidate baseline after
 legal process registration or PID churn. Once App, Collaboration, and Agent
 bootstrap settle, prompt fill, locator resolution, and actionability finish
-outside product timing, and a fresh stable pair freezes request identity.
+outside product timing, and one complete raw system snapshot freezes request
+identity.
 App-owned request acceptance or dispatch then starts `local-request`, which
-retains interval maximum and cumulative average CPU. No Playwright polling runs
-inside that interval; an O(1) App completion signal closes it before UI
-assertions resume.
+retains the maximum raw frontend system value observed during the product
+window. No Playwright polling runs inside that window; an O(1) App completion
+signal closes it before UI assertions resume.
 
 ### Endpoint Iteration and Effectiveness
 
@@ -922,12 +1008,15 @@ Each endpoint uses this fixed loop:
 1. replace the endpoint with one complete owner architecture rather than a
    parameter tweak, cache guess, fixture branch, or downstream patch;
 2. pass focused formal tests and bounded review;
-3. run one guarded 7,000-plus creation proof immediately;
-4. accept the endpoint only when exact product equivalence holds and either its
+3. pass one guarded 16-item safety proof using only raw system CPU percentages;
+4. run a guarded 7,000-plus creation proof only at the explicitly named local
+   source, relay, and final closure checkpoints, and only after product-owner
+   approval when an earlier invalid run consumed the high-detail test budget;
+5. accept the endpoint only when exact product equivalence holds and either its
    failing budget becomes green or its owned structural/span/queue metric
    improves by at least 15 percent without making an adjacent critical owner
    more than 15 percent worse;
-5. if the result is ineffective, replace that endpoint's plan from the first
+6. if the result is ineffective, replace that endpoint's plan from the first
    incorrect owner and repeat without advancing.
 
 The first receiver endpoint uses the retained pre-refactor result—Actor B at
@@ -942,11 +1031,15 @@ percent, even when another downstream endpoint still prevents convergence. An
 owner already below five percent of product time may be classified as
 non-material and left unchanged after one proof; this avoids over-design.
 
-An endpoint has at most five architecture attempts. The project hard stop still
-applies earlier when the same focused failure occurs three times, the host
-resource guard fires, or exact canonical/history equivalence is lost. Only an
-effective endpoint may receive a local commit and establish the next endpoint's
-baseline. No ineffective attempt is committed.
+One design hypothesis receives at most five materially revised architecture
+attempts. The same focused failure three times, a host resource stop, a time
+ceiling, or lost canonical/history equivalence terminates the current attempt
+and forces a bounded self-iteration: capture the first blocker, identify its
+root cause inside the current owner, re-read the Inspector, revise the owner
+plan and formal oracle, and execute the new plan. None of those stop conditions
+ends the overall task, and no downstream owner advances around the failure.
+Only an effective endpoint may receive a local commit and establish the next
+endpoint's baseline. No ineffective attempt is committed.
 
 ## Bounded Contract
 
@@ -1681,8 +1774,11 @@ On the reference environment:
     shared publication;
   - Actor B canonical convergence within 30 seconds of Actor A's canonical
     creation commit;
-  - the guarded creation-only command, including harness overhead, completes
-    within 180 seconds.
+  - the hard CRDT flow deadline from Actor A request submission through Actor B
+    convergence is 180 seconds;
+  - the guarded Playwright test ceiling is 240 seconds so bounded bootstrap,
+    final assertions, and teardown cannot preempt the 180-second product-flow
+    deadline.
 - Maximum detail:
   - the guarded observed accepted-turn-to-Actor-A-settled time is at most
     90 seconds.
@@ -1793,66 +1889,68 @@ fabricated convergence.
 
 ## Owner Step Execution Order
 
-Each Inspector owner still completes focused formal tests and bounded review
-before the next owner begins. The App, Core/Props/Scene, Factory, and local
-projection owners together form one causal local source endpoint; because the
-known browser workload is already unsafe, that endpoint receives one guarded
-high-detail proof only after the complete sequence rather than after every
-internal owner:
+Each Inspector owner completes focused formal tests, bounded review, and one
+local owner-step commit before the next owner begins. The current committed
+foundation is:
 
-1. `contract-readiness-replan`: update this plan, Inspector, contract test, and
-   BDD only.
-2. `evaluate-endpoint-performance`: first implement and formally test the
-   creation-only benchmark, heartbeat, process-tree resource guard, termination,
-   bounded report, and pre-canonical 16/1,280-item attribution path. This
-   infrastructure step runs no further 7,000-plus workload until its
-   unit/integration gates identify the first chronological owner.
-3. `project-visible-canonical-slices`: replace Pixi Application auto-render
-   ownership with demand-driven framework frames, bound the optional performance
-   evidence, and retain the ordinary Vector projection path. Its accepted
-   zero-element comparison remains valid, but the 210.5-percent pre-canonical
-   stop creates no accepted high-detail baseline for Render.
-4. `preload-file-scoped-server-response` and
-   `resolve-server-prepared-action-batch`: preload one exact
-   `PreparedDrawingArtifact` by required `fileId`, then keep Runtime limited to
-   its small action-batch control envelope and bounded preview.
-5. Complete the local source endpoint in this fixed owner order:
-   - `stage-local-interactive-composition`: create the Group, cross one browser
-     paint opportunity, then submit already-prepared flat child-batch ranges
-     through `Core.createElementsInParentFromCanonicalData(...)` with a fixed
-     2,048-point and 64-element boundary.
-   - `apply-canonical-property-scene-batch`: add Core owner indexes, Props fixed
-     batch materialization and manager-owned relation propagation, and Scene
-     local Computed projection from the same owner artifact.
-   - `record-and-deliver-transaction-batch`: retain one rich local history
-     artifact and inverse, then derive one separate minimal transport wire
-     artifact.
-   - `project-visible-canonical-slices`: consume the local batch directly and
-     keep at most one ordinary Vector projection/flush per slice.
-   Each owner gets focused tests and bounded review. Then
-   `evaluate-endpoint-performance` runs one guarded 16-item proof. Only after it
-   passes may one guarded 7,076-element proof run for the complete local source
-   endpoint, not one proof per internal owner.
-6. `encode-publication-frames`: consume only the minimal transport wire
-   artifact, remove redundant main-thread payload ownership, and retain one
-   worker binary encode/decode boundary. Its guarded 16-item proof must pass
-   before any later receiver, remote, relay, or high-detail proof.
-7. `admit-receiver-publication-frames`: retain valid committed ingress work,
-   move the browser WebSocket data plane and wire credit into the Dedicated
-   Worker, remove main-thread clone/freeze and duplicate header ownership, add
-   receiver timing, then pass its guarded 16-item proof.
-8. `apply-remote-publication-batches`: consume worker-valid evidence once and
-   apply one linear Core request in one remote transaction, then pass its
-   guarded 16-item proof.
-9. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
-   admission, peer byte capacity, and independent receipts, then run the guarded
-   16-item proof followed by the single guarded 7,076-element endpoint proof.
-10. `evaluate-performance-and-equivalence`: after every endpoint is effective
-    or formally non-material, run the final formal correctness, performance,
-    and synchronized visual closure.
+- `50c184d03 refactor(collaboration): deliver minimal shared publications`;
+- `c13165571 test(factory): satisfy shared publication lint`.
+
+The minimal SharedPublication cutover is therefore complete. The current
+blocker is the incorrect CPU measurement contract in
+`evaluate-endpoint-performance`, not a CRDT owner failure. Remaining work uses
+this exact order:
+
+1. **Raw CPU contract review checkpoint** — update this plan, Inspector, BDD,
+   and contract test only. Define frontend peak and both hard stops from
+   same-snapshot raw system `%cpu`; explicitly forbid CPU-time interval
+   conversion in formal peak/pass/fail evidence; record the interrupted 7,076
+   attempt as invalid. Run no browser workload. Stop and notify the product
+   owner for inspection.
+2. **Correct `evaluate-endpoint-performance`** — first strengthen the formal
+   guard test so the current interval-derived stop fails. Then make the guard
+   use raw same-snapshot system `%cpu` for the complete Chrome frontend peak and
+   250-percent stop, and for the 400-percent aggregate stop. Converted CPU-time
+   percentages must disappear from decisions and formal reports. Run only
+   focused guard/configuration/Inspector tests and bounded review, then create
+   one local commit. Do not run a browser or 7,076 elements in this step.
+3. **Revalidate the complete local source endpoint** — run one corrected
+   guarded 16-item proof. It must preserve exact canonical, Render, transaction,
+   History, and publication evidence while reporting only the maximum raw
+   frontend system value. After it passes, stop for explicit product-owner
+   approval before any replacement 7,076-element proof. If approved, run that
+   proof once and report Actor A completion, publication timing, raw frontend
+   peak, and aggregate raw safety status. A raw limit violation or focused
+   correctness failure terminates only that benchmark invocation and returns
+   this owner to bounded root-cause analysis and a revised iteration.
+4. **`encode-publication-frames`** — consume the minimal transport wire artifact
+   once, move binary encode/decode into the Dedicated Worker, and remove
+   main-thread duplicate clone/freeze/JSON ownership. Pass focused tests,
+   bounded review, and one guarded 16-item proof. Do not run 7,076.
+5. **`admit-receiver-publication-frames`** — move Browser WebSocket data-plane
+   admission and wire credit into the Worker, hand one applicable publication
+   at a time to the main thread, and add receiver queue/handoff timing. Pass
+   focused tests, bounded review, and one guarded 16-item proof.
+6. **`apply-remote-publication-batches`** — perform one linear organization per
+   source publication, one Core canonical request, and one remote Factory
+   transaction with no Undo, echo, or persistence. Pass focused tests, bounded
+   review, and one guarded 16-item proof.
+7. **`relay-frames-with-backpressure`** — relay opaque frames without
+   decode/re-encode, enforce per-peer byte queues and watermarks, handle slow
+   peers, and keep wire-consumed, peer-applied, and sender-accepted receipts
+   distinct. Pass focused tests and one guarded 16-item proof; then stop for
+   explicit approval before its one guarded 7,076-element proof.
+8. **`evaluate-performance-and-equivalence`** — run 16-item correctness,
+   7,112-element balanced correctness, separate 7,076 CRDT and performance
+   checks, affected unit/integration tests, lint, production build,
+   synchronized A/B live-state visual review, and the 27,471 maximum-detail
+   gate. The full recording remains manual opt-in.
 
 Existing committed results and current WIP are preserved and absorbed only
 inside their matching owner step. No cross-owner WIP commit is allowed.
+Every resource or time stop terminates only the active benchmark invocation.
+The task remains active and returns to the same Inspector owner for root-cause
+analysis, bounded replan, test-first correction, and a new validated iteration.
 
 ## Current Local Gates
 
@@ -1932,9 +2030,13 @@ benchmark runs.
 - Demo startup: ordinary local and collaboration sessions load one empty
   canonical document and never configure client persistence.
 
-Each owner step runs focused unit and integration gates first, then exactly one
-guarded 7,076 creation-only proof. The full multi-turn high-detail suite is not
-repeated after every step.
+Each owner step runs focused unit and integration gates first. A guarded
+7,076-element creation-only proof runs only at the explicitly named complete
+local source, relay, and final closure checkpoints, never after codec, receiver,
+or remote apply individually. After an invalid high-detail attempt consumes the
+available test budget, any replacement invocation requires explicit
+product-owner approval. The full multi-turn high-detail suite is not repeated
+after every step.
 
 ## Final Gates
 
@@ -1945,9 +2047,10 @@ After all architecture owners are complete, run one heavy closure:
 2. Default 16-item server-response AI CRDT correctness.
 3. One 7,112-element balanced correctness run because canonical and transport
    paths changed.
-4. One final invocation of the same guarded two-Actor 7,076-element endpoint
-   proof, reporting product execution, artifact, encode, server queue/drain,
-   worker decode, remote apply, Render, UI, and harness overhead.
+4. After explicit product-owner approval, one final invocation of the same
+   guarded two-Actor 7,076-element endpoint proof, reporting product execution,
+   artifact, encode, server queue/drain, worker decode, remote apply, Render,
+   UI, and harness overhead.
 5. Maximum-detail 27,471-element and 295,794-point gate.
 6. `app-visual-review-sync` from the same measured live App state, with direct
    inspection of complete, uncropped Actor A and Actor B output, Styles, IDs,
@@ -1960,8 +2063,11 @@ never committed.
 ## Definition of Done
 
 - Every Step-local gate passes before its owner step advances.
-- Every endpoint has one accepted guarded 7,076-element creation proof, or one
-  proof that the owner is below five percent of product time and therefore
+- Every endpoint has one accepted guarded 16-item proof. The named complete
+  local-source, relay, and final checkpoints each have their explicitly
+  approved guarded 7,076-element creation proof; no codec, receiver, or remote
+  apply step creates an additional high-detail proof.
+- An owner below five percent of product time has direct owned evidence and
   remains intentionally unchanged.
 - No endpoint exceeds five architecture attempts, and no resource-aborted or
   otherwise ineffective attempt is committed.

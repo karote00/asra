@@ -58,10 +58,10 @@ Feature: Conversational AI drawing performance
     And Preset, Render, and UI should not split that local canonical batch into single-entry changes
     And every successful slice should cross a browser paint opportunity before the next canonical mutation
 
-  Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
+  Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
     And its guarded 16-item safety proof completed below the fixed host limit
-    And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
+    And the local-source, relay, or final checkpoint has explicit product-owner approval for at most one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
     And production build commands completed as separate setup outside the runtime guard and product timing
     And artifact attestation succeeded before Playwright started
     When the guarded endpoint benchmark starts
@@ -75,55 +75,68 @@ Feature: Conversational AI drawing performance
     And response inbox adapter seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
     And the fixed tracked roles should be test-harness, client-browser, app-server, and websocket-server
     And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
-    And two stable cumulative CPU-time samples with exact PID-set equality should establish the 250-millisecond interval CPU signal
+    And one complete operating-system ps snapshot with exact PID-set equality should retain the raw percent-CPU value for every tracked process
+    And the nominal 250-millisecond polling cadence should only request another raw system snapshot and should never become a measurement window or CPU-percentage formula
     And periodic and phase-boundary sampling should share one serialized OS sample queue with ordered state consumption
-    And an observed sampling gap above 375 milliseconds should fail closed instead of averaging away an unobserved spike
-    And one interval CPU sample above 200 percent should stop all exact tracked roles while the report retains separate role CPU
-    And the macOS decayed CPU signal should remain bootstrap fail-closed evidence before baseline and diagnostic-only evidence after baseline
-    And the decayed CPU signal and phaseCpuMaximums should never be used as owner attribution
+    And an observed sampling gap above 375 milliseconds should fail closed because the guard may have missed a raw system peak
+    And one raw same-snapshot complete client-browser sum above 250 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop all exact tracked roles while the violation report retains separate role CPU
+    And only the highest complete raw client-browser snapshot should be retained as the frontend performance peak while backend and harness CPU remain excluded from that peak
+    And subtracting cumulative process CPU time, dividing by elapsed wall time, normalizing to the polling cadence, averaging snapshots, or otherwise converting an interval into CPU percent should never determine the formal peak, pass, failure, or stop
+    And raw system percent-CPU snapshots and phaseCpuMaximums should never be used as owner attribution
     And root-browser, GPU, utility, other browser CPU, and each renderer PID should remain separately visible and fully included in the browser total
-    And each renderer PID should retain its own 250-millisecond CPU delta
+    And each renderer PID should retain its own raw same-snapshot system percent-CPU value
     And page-target CDP should report TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration while visible worker targets are reported separately
     And unexplained renderer CPU should remain residual renderer evidence instead of being guessed as page or Worker ownership
     And bootstrap before guard ready should remain safety-only while legal process registration or identity churn resets the candidate baseline
-    And one fresh stable pair after App, Collaboration, and Agent readiness should freeze the request identity
+    And one complete raw system snapshot after App, Collaboration, and Agent readiness should freeze the request identity
     And prompt fill, locator resolution, and actionability should complete outside the product boundary
     And App-owned request acceptance or dispatch should start local-request
-    And no Playwright locator, visibility, count, text, or attribute polling should execute in the measured window
+    And no Playwright locator, visibility, count, text, or attribute polling should execute in the product window
     And one App-owned O(1) scalar completion signal should end product timing before UI assertions run after the boundary
-    And local-request should report interval maximum and cumulative average CPU after that stable baseline
+    And local-request should report the maximum raw frontend system value observed during the product window
     And each bounded heartbeat should report its capture time, the latest completed phase, any currently active started phase, Actor A and Actor B canonical and uncapped Render projection element counts, and publication progress
     And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
-    And each attribution invocation should use one request-wide cumulative process CPU-time boundary to report wall time, per-role CPU time, and average core use
+    And each attribution invocation may retain one request-wide cumulative process CPU-time boundary as direct non-percentage milliseconds per role
     And ordered browser-monotonic owner spans should distinguish provider request and batch handoff, Runtime resolution, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
-    And every boundary sample should pass the same 200-percent safety evaluation and require exact PID-set equality while any observed process identity change across the boundary or 250-millisecond samples should make attribution invalid
-    And an unobserved sub-interval helper should prevent request-wide OS CPU from becoming the sole owner-attribution signal
+    And every boundary sample should pass the same raw same-snapshot 250-percent frontend and 400-percent aggregate safety evaluations and require exact PID-set equality while any observed process identity change across samples should make attribution invalid
+    And raw operating-system CPU should never become the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
     And exact Undo depth should use the Factory read-only history query rather than private transaction storage
     And ordinary Playwright discovery should exclude this guarded endpoint even when guard environment variables are present
-    And the 250-millisecond CPU cadence should be armed before the immediate first sample
+    And the 250-millisecond polling cadence should be armed before the immediate first raw system sample
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
     And a local-attribution complete heartbeat should use a distinct proof kind, validate Actor A only, carry no Actor B report, and never create an accepted endpoint baseline
     And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
-    And one test-owned interval CPU sample above 200 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
+    And one raw same-snapshot complete client-browser sum above 250 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
+    And a raw CPU limit, 180-second product-flow deadline, or 240-second Playwright ceiling should stop the current benchmark action without stopping the implementation task
+    And the same owner should immediately capture the first blocker, find its bounded root cause, re-read the Inspector, revise its owner plan and formal oracle, and execute the new iteration before any downstream owner advances
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
     And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider request and batch handoff from material canonical and Render work
-    And only after that corrected interval case crosses 200 percent and stops should a bounded replan authorize one equivalent reduced-motion control
+    And only after that corrected raw-snapshot case crosses the 250-percent frontend or 400-percent aggregate limit and stops should a bounded replan authorize one equivalent reduced-motion control
     And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider handoff, Runtime control-envelope resolution, bounded preview, loading, Group, and first plural batch work
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
     And the completed attribution should route to exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
-    And one endpoint should receive at most five materially revised architecture attempts
-    But the same focused failure three times should stop earlier
+    And one design hypothesis should receive at most five materially revised architecture attempts before mandatory root-cause replanning
+    But the same focused failure three times should end that attempt loop and start a new bounded owner iteration rather than stopping the task
+
+  Scenario: Converted CPU-time percentages cannot consume a high-detail proof
+    Given the 2026-07-31 7076-element attempt stopped only because cumulative CPU-time deltas were converted into interval percentages
+    And that attempt recorded a raw same-snapshot frontend value of 199.4 percent
+    And that attempt recorded a raw same-snapshot aggregate value of 209.2 percent
+    When the performance evidence is evaluated against the raw 250-percent frontend and 400-percent aggregate limits
+    Then the converted 397.203-percent frontend value and 401.175-percent aggregate value should be rejected as formal peak and stop evidence
+    And the attempt should create no accepted baseline, architecture-attempt count, or next-owner selection
+    And no replacement 7076-element run should start before contract review, focused guard correction, a corrected guarded 16-item proof, bounded review, and explicit product-owner approval
 
   Scenario: Two-Actor 16-item activity separates operation from settled idle
     Given production build commands completed as separate setup outside the runtime guard
@@ -141,7 +154,7 @@ Feature: Conversational AI drawing performance
     And those deltas should report page main-thread task occupancy rather than complete Actor CPU
     And worker, GPU, browser, App server, WebSocket server, and harness work should remain in separate OS guard evidence
     And operation timing should contain no response inbox adapter read or fixture materialization
-    And the 200-percent interval hard stop should remain active during operation and idle
+    And the raw same-snapshot 250-percent frontend and 400-percent aggregate hard stops should remain active during operation and idle
     And the case should use collaboration-attribution and should not create an accepted endpoint baseline
 
   Scenario: Exact-bounds loading state precedes local drawing
@@ -529,7 +542,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
-    And the 200-percent resource guard owns the production App, browser, harness, and WebSocket server processes
+    And the 250-percent frontend and 400-percent aggregate resource guards own the production App, browser, harness, and WebSocket server processes
     And the independently attested response preview overlay is served instead of modifying canonical production dist
     And Contents, request-time response inbox access, document IndexedDB, HMR, media, warm-up, and repeat are absent
     When Actor A creates the server-prepared 7076-element high-detail composition once
@@ -541,7 +554,8 @@ Feature: Conversational AI drawing performance
     And Actor A should settle within 30 seconds
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
     And Actor B should converge within 30 seconds of Actor A canonical commit
-    And the guarded creation-only E2E command should remain within its 180-second harness ceiling
+    And the CRDT product flow from Actor A request through Actor B convergence should have a 180-second deadline
+    And the guarded Playwright test should have a 240-second ceiling so bootstrap, assertions, and teardown cannot preempt that product deadline
     But no additional single-Actor or unguarded 7000-plus run should start
 
   Scenario: Maximum detail remains editable and meets its budget

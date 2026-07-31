@@ -485,10 +485,14 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     /front end should perform no item, path, or point validation or drawing-artifact encoding/i
   )
   assert.match(feature, /submitting only the next prepared progressive slice/i)
+  assert.match(plan, /converted 252\.599-millisecond interval report/i)
+  assert.match(plan, /221\.695 percent aggregate CPU/i)
+  assert.match(plan, /201\.901 percent to one renderer PID/i)
   assert.match(
     plan,
-    /221\.695 percent[\s\S]*renderer PID.*201\.901[\s\S]*0\/17/i
+    /converted percentages are invalid formal CPU peak and stop\s+evidence/i
   )
+  assert.match(plan, /At the stop Actor A remained\s+at 0\/17/i)
   assert.match(
     plan,
     /superseded fixed 650-millisecond artificial delay[\s\S]*Runtime then synchronously calls the registered action schema/i
@@ -519,10 +523,7 @@ test('latest guarded source evidence requires flat canonical batches before high
     stageText,
     /existing.*Core\.createElementsInParentFromCanonicalData.*Group.*paint opportunity.*before.*child batch/i
   )
-  assert.match(
-    proofText,
-    /guarded 16-item.*must pass.*before.*7,076-element/i
-  )
+  assert.match(proofText, /guarded 16-item.*must pass.*before.*7,076-element/i)
   assert.match(
     feature,
     /Scenario: Guarded flat-batch source proof precedes high-detail execution[\s\S]*12919 points[\s\S]*eight prepared slices[\s\S]*Runtime pre-execute[\s\S]*less than 1 millisecond[\s\S]*Group[\s\S]*paint opportunity[\s\S]*children[\s\S]*guarded 7076/i
@@ -580,10 +581,11 @@ test('Factory separates rich local history evidence from the transport wire arti
     'project-visible-canonical-slices',
     'evaluate-performance-and-equivalence'
   ])
-  assert.equal(wireArtifact?.ownerStepId, 'record-and-deliver-transaction-batch')
-  assert.deepEqual(wireArtifact?.consumerStepIds, [
-    'encode-publication-frames'
-  ])
+  assert.equal(
+    wireArtifact?.ownerStepId,
+    'record-and-deliver-transaction-batch'
+  )
+  assert.deepEqual(wireArtifact?.consumerStepIds, ['encode-publication-frames'])
   assert.equal(
     data.artifacts.some(
       ({ id }) => id === 'artifact:shared-publication-batches'
@@ -668,10 +670,7 @@ test('codec refactor and guarded 16-item proof precede receiver, remote, relay, 
   assert.equal(wireOrder.get('admit-receiver-publication-frames'), 2)
   assert.equal(wireOrder.get('apply-remote-publication-batches'), 3)
   assert.equal(wireOrder.get('relay-frames-with-backpressure'), 4)
-  assert.match(
-    proofText,
-    /guarded 16-item.*before.*guarded 7,076-element/i
-  )
+  assert.match(proofText, /guarded 16-item.*before.*guarded 7,076-element/i)
   assert.match(
     plan,
     /encode-publication-frames[\s\S]*guarded 16-item[\s\S]*admit-receiver-publication-frames[\s\S]*apply-remote-publication-batches[\s\S]*relay-frames-with-backpressure[\s\S]*guarded 7,076/i
@@ -745,7 +744,7 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
   )
 })
 
-test('each ranked endpoint closes through one guarded high-detail proof', () => {
+test('each ranked endpoint closes through the guarded proof schedule', () => {
   const owner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
@@ -759,11 +758,15 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     plan,
-    /complete endpoint refactor[\s\S]*one guarded 7,000-plus[\s\S]*at most five architecture attempts/i
+    /complete endpoint refactor[\s\S]*one guarded 7,000-plus production/i
+  )
+  assert.match(
+    plan,
+    /One design hypothesis receives at most five materially revised architecture\s+attempts/i
   )
   assert.match(
     text,
-    /guarded 16-item.*before exactly one production two-Actor 7,076-element.*after each completed endpoint/i
+    /guarded 16-item.*after each completed endpoint refactor.*exactly one production two-Actor 7,076-element.*named local-source, relay, and final checkpoints/i
   )
   assert.match(
     text,
@@ -771,7 +774,19 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /two stable cumulative CPU-time samples.*250-millisecond interval CPU.*200 percent.*hard stop.*decayed ps.*diagnostic/i
+    /one complete operating-system ps snapshot.*raw percent-CPU.*250 milliseconds.*not a measurement window.*never.*CPU-percentage formula.*raw same-snapshot.*250 percent.*aggregate.*400 percent/i
+  )
+  assert.match(
+    text,
+    /subtracting cumulative process CPU time.*dividing by wall time.*normalizing to polling cadence.*averaging snapshots.*converted percentage.*formal CPU peak.*stop decision/i
+  )
+  assert.doesNotMatch(
+    text,
+    /establish(?:es)? the 250-millisecond interval CPU signal|complete client-browser interval above 250 percent|aggregate frontend, backend, and harness interval above 400 percent/i
+  )
+  assert.doesNotMatch(
+    feature,
+    /complete client-browser interval above 250 percent|aggregate frontend, backend, and harness interval above 400 percent|each renderer PID should retain its own 250-millisecond CPU delta/i
   )
   assert.match(
     text,
@@ -789,22 +804,22 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     text,
     /periodic.*phase-boundary.*one serialized.*OS sample.*no overlapping.*out-of-order/i
   )
-  assert.match(text, /375-millisecond.*sample gap.*fail.*closed/i)
+  assert.match(text, /375-millisecond.*observation-gap.*fail.*closed/i)
   assert.match(
     text,
     /single-Actor attribution invocation.*fresh browser process group.*required fileId URL.*Collaboration session.*WebSocket server.*no Actor B/i
   )
   assert.match(
     text,
-    /one request-wide cumulative OS process CPU-time boundary.*exact wall time.*per-role.*ordered browser-monotonic.*inner owner attribution/i
+    /request-wide cumulative OS process CPU-time milliseconds.*non-percentage diagnostic.*never converts.*CPU percent.*ordered browser-monotonic.*inner owner attribution/i
   )
   assert.match(
     text,
-    /phase-boundary sample.*same.*200-percent safety evaluation.*exact PID set equality.*observed process identity change.*attribution invalid/i
+    /phase-boundary sample.*raw same-snapshot 250-percent frontend.*400-percent aggregate safety evaluations.*exact PID set equality.*observed process identity change.*attribution invalid/i
   )
   assert.match(
     text,
-    /bootstrap.*before.*ready.*safety-only.*fresh stable pair.*local-request.*cumulative average/i
+    /bootstrap before ready.*safety-only.*complete raw system snapshot.*local-request.*maximum raw frontend system value/i
   )
   assert.match(
     text,
@@ -820,11 +835,11 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /no Playwright locator.*polling.*measured window.*App-owned O\(1\).*completion.*ends product timing.*UI.*after/i
+    /maximum raw frontend system value.*product window.*no Playwright locator.*polling.*App-owned O\(1\).*completion.*ends product timing.*UI.*after/i
   )
   assert.match(
     text,
-    /each renderer PID.*250-millisecond.*CPU delta.*page-target CDP.*TaskDuration.*ScriptDuration.*LayoutDuration.*RecalcStyleDuration.*visible worker target.*residual renderer/i
+    /each renderer PID.*raw same-snapshot system percent.*page-target CDP.*TaskDuration.*ScriptDuration.*LayoutDuration.*RecalcStyleDuration.*visible worker target.*residual renderer/i
   )
   assert.match(
     text,
@@ -836,7 +851,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /observed process identity change.*250-millisecond.*invalid.*unobserved sub-interval helper.*never.*sole owner-attribution/i
+    /observed process identity change across samples.*attribution invalid.*raw OS CPU.*never.*sole owner-attribution/i
   )
   assert.match(
     text,
@@ -844,11 +859,15 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /ordinary Playwright.*excludes.*guard environment variables.*CPU sample.*hard timeout.*SIGINT.*SIGTERM.*SIGHUP.*fixed registered process groups/i
+    /ordinary Playwright.*excludes.*guard environment variables.*raw system snapshot.*hard timeout.*SIGINT.*SIGTERM.*SIGHUP.*fixed registered process groups/i
   )
   assert.match(
     text,
-    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*one production preview.*one WebSocket server.*HMR.*absent.*200 percent.*separate.*role/i
+    /fixed.*test-harness.*client-browser.*app-server.*websocket-server.*one production preview.*one WebSocket server.*HMR.*absent/i
+  )
+  assert.match(
+    text,
+    /highest complete raw client-browser snapshot.*performance peak.*backend and harness CPU never enter that peak.*aggregate stop evaluation.*400-percent violation report/i
   )
   assert.match(
     text,
@@ -860,7 +879,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /250[- ]milliseconds?.*interval CPU.*single.*above 200 percent.*immediately.*architecture attempt.*invalid/i
+    /single raw operating-system snapshot.*complete client-browser sum.*above 250 percent.*aggregate.*above 400 percent.*immediately.*architecture attempt invalid/i
   )
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
@@ -875,10 +894,21 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     text,
     /precedes the first completed canonical Group.*does not claim which owner was active.*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1,280-item cat-prefix[\s\S]*two-Actor 1,280-item.*only when[\s\S]*selects exactly one next owner route/i
   )
-  assert.match(text, /at most five.*same focused failure.*three/i)
+  assert.match(
+    text,
+    /one design hypothesis.*at most five.*same focused failure three times.*resource stop.*time ceiling.*bounded root-cause analysis.*new owner iteration.*does not stop the overall task/i
+  )
+  assert.match(
+    text,
+    /180-second product-flow deadline.*240-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+  )
+  assert.match(
+    text,
+    /hard CRDT product-flow deadline.*180 seconds.*Playwright ceiling.*240 seconds.*cannot preempt/i
+  )
   assert.match(
     feature,
-    /Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host[\s\S]*one 7076-element creation with no follow-up[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CPU[\s\S]*above 200 percent[\s\S]*invalid architecture attempt[\s\S]*five/i
+    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*raw same-snapshot complete client-browser sum above 250 percent[\s\S]*raw same-snapshot aggregate.*above 400 percent[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
   )
   assert.match(
     feature,
@@ -886,7 +916,11 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*250-millisecond interval CPU[\s\S]*200 percent[\s\S]*separate role CPU/i
+    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*client-browser.*250 percent[\s\S]*aggregate.*400 percent[\s\S]*separate role CPU/i
+  )
+  assert.match(
+    feature,
+    /CRDT product flow.*Actor A request.*Actor B convergence.*180-second deadline[\s\S]*Playwright test.*240-second ceiling.*cannot preempt/i
   )
   assert.match(
     feature,
@@ -898,7 +932,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*unobserved sub-interval helper[\s\S]*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner/i
+    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary.*direct non-percentage milliseconds[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*raw operating-system CPU.*never.*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner/i
   )
   assert.match(
     feature,
@@ -922,7 +956,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     feature,
-    /each renderer PID[\s\S]*250-millisecond CPU delta[\s\S]*page-target CDP[\s\S]*visible worker targets[\s\S]*residual renderer/i
+    /each renderer PID[\s\S]*raw same-snapshot system percent-CPU value[\s\S]*page-target CDP[\s\S]*visible worker targets[\s\S]*residual renderer/i
   )
   assert.match(
     plan,
@@ -934,7 +968,15 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     plan,
-    /CPU sample[\s\S]*not a co-temporal snapshot[\s\S]*latest completed phase[\s\S]*prepare-composition-slices[\s\S]*does not yet exclude Group,\s+Core, publication, remote apply, or Render ownership/i
+    /210\.5-percent CPU sample and the retained Actor\s+counts were therefore not a co-temporal snapshot/i
+  )
+  assert.match(
+    plan,
+    /latest completed phase was\s+`ai-app:prepare-composition-slices`/i
+  )
+  assert.match(
+    plan,
+    /does not exclude\s+Group, Core, publication, remote apply, or Render ownership/i
   )
   assert.match(
     plan,
@@ -946,19 +988,55 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     plan,
-    /always-on 16-item[\s\S]*12,919 points[\s\S]*17\/17[\s\S]*2\.076 seconds[\s\S]*98\.829 percent[\s\S]*207\.7 percent[\s\S]*5\/17[\s\S]*decayed.*not.*250-millisecond/i
+    /always-on 16-item guard correction[\s\S]*12,919 points[\s\S]*17\/17 canonical[\s\S]*2\.076 seconds[\s\S]*98\.829 percent average core use/i
   )
   assert.match(
     plan,
-    /234\.791 percent[\s\S]*renderer-or-worker[\s\S]*218\.873 percent[\s\S]*valid safety stop[\s\S]*invalid for product-owner selection[\s\S]*Playwright[\s\S]*Browser process/i
+    /decayed raw system value was evaluated against the then-active\s+200-percent\s+aggregate threshold/i
   )
   assert.match(
     plan,
-    /bootstrap[\s\S]*safety-only[\s\S]*fresh stable pair[\s\S]*local-request[\s\S]*exact PID-set equality/i
+    /historical\s+safety evidence only: it is below the current 250-percent frontend and\s+400-percent aggregate limits/i
   )
   assert.match(
     plan,
-    /production build commands[\s\S]*separate\s+setup[\s\S]*outside.*runtime guard[\s\S]*(?:artifact attestation|attests.*artifact).*before.*Playwright[\s\S]*product\s+operation timing.*Actor A request submission/i
+    /historical\s+251\.287-millisecond converted interval report at 234\.791 percent aggregate CPU/i
+  )
+  assert.match(
+    plan,
+    /converted browser contribution was 218\.873 percent for the coarse\s+`renderer-or-worker` bucket[\s\S]*converted percentages are invalid formal CPU peak and stop evidence/i
+  )
+  assert.match(
+    plan,
+    /invalid for product-owner selection[\s\S]*Playwright[\s\S]*Browser process/i
+  )
+  assert.match(
+    plan,
+    /bootstrap[\s\S]*safety-only[\s\S]*complete raw system snapshot[\s\S]*local-request[\s\S]*exact PID-set equality/i
+  )
+  assert.match(
+    plan,
+    /raw CPU contract correction checkpoint[\s\S]*converted 397\.203-percent frontend[\s\S]*401\.175-percent aggregate[\s\S]*raw system\s+values were 199\.4 percent[\s\S]*209\.2 percent[\s\S]*neither user-defined limit was crossed[\s\S]*explicit product-owner approval/i
+  )
+  assert.match(
+    text,
+    /converted 397\.203-percent frontend.*401\.175-percent aggregate.*invalid evidence.*raw same-snapshot frontend and aggregate values were 199\.4 and 209\.2 percent.*no accepted baseline or architecture-attempt count.*cannot select a CRDT owner/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Converted CPU-time percentages cannot consume a high-detail proof[\s\S]*raw same-snapshot frontend value of 199\.4 percent[\s\S]*raw same-snapshot aggregate value of 209\.2 percent[\s\S]*converted 397\.203-percent frontend value and 401\.175-percent aggregate value.*rejected[\s\S]*no accepted baseline, architecture-attempt count, or next-owner selection[\s\S]*explicit product-owner approval/i
+  )
+  assert.match(
+    plan,
+    /Production build commands are now a separate\s+setup outside the runtime guard and all product timing/i
+  )
+  assert.match(
+    plan,
+    /runtime pipeline\s+attests the already-built endpoint artifact before Playwright starts/i
+  )
+  assert.match(
+    plan,
+    /product operation timing began only\s+at Actor A request submission/i
   )
   assert.match(
     plan,
@@ -1150,9 +1228,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
   assert.equal(
-    data.steps.some(
-      ({ id }) => id === 'evaluate-local-interactive-drawing'
-    ),
+    data.steps.some(({ id }) => id === 'evaluate-local-interactive-drawing'),
     false
   )
 
@@ -1161,7 +1237,10 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     /server-prepared flat canonical element and property batches.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
   )
   assert.match(text, /point.*element-count.*budget/i)
-  assert.match(text, /element-count budget capped at 64 elements per work unit/i)
+  assert.match(
+    text,
+    /element-count budget capped at 64 elements per work unit/i
+  )
   assert.match(
     text,
     /multiple deterministic progressive plural Core child batches.*one outer App transaction.*one intended history action/i
@@ -1261,7 +1340,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /only automated high-detail run.*no additional single-Actor/i
+    /explicitly approved local-source, relay, or final checkpoint.*only high-detail invocation for the checkpoint.*no warm-up, repeat, or additional single-Actor/i
   )
   assert.match(proofText, /separately attributed WebSocket-server CPU/i)
   assert.match(
@@ -1365,10 +1444,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*browser paint opportunity[\s\S]*one outer transaction[\s\S]*one Undo/i
   )
   assert.match(feature, /at most 64 elements per ordinary work unit/i)
-  assert.match(
-    plan,
-    /64-element work-unit cap[\s\S]*fixed 2,048-point budget/i
-  )
+  assert.match(plan, /64-element work-unit cap[\s\S]*fixed 2,048-point budget/i)
   assert.match(
     feature,
     /Scenario: Drawing progress keeps navigation responsive while edits stay locked[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*one Undo/i

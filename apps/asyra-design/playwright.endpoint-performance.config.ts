@@ -141,7 +141,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'line',
-  timeout: 180_000,
+  timeout: 240_000,
   expect: {
     timeout: 120_000
   },

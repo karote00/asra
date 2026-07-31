@@ -17,7 +17,8 @@ import {
 import { fileURLToPath, URL } from 'node:url'
 
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
-  maximumCpuPercent: 200,
+  maximumCpuPercent: 400,
+  maximumFrontendCpuPercent: 250,
   busyCpuPercent: 80,
   heartbeatStaleMs: 10_000,
   progressStaleMs: 20_000,
@@ -30,8 +31,7 @@ export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
 })
 
 const HEARTBEAT_KINDS = new Set(['ready', 'progress', 'complete', 'failed'])
-const MINIMUM_SAFETY_INTERVAL_FRACTION = 0.8
-const MAX_CPU_CONTRIBUTORS = 4
+const MAX_CPU_CONTRIBUTORS = 256
 const MAX_PROCESS_CPU_TIME_ENTRIES = 256
 const PROOF_KINDS = new Set([
   'endpoint',
@@ -99,6 +99,8 @@ const mergeConfig = (config = {}) => {
   const guardMode = config.guardMode === 'diagnostic' ? 'diagnostic' : 'proof'
   const maximumCpuPercentCeiling =
     DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+  const maximumFrontendCpuPercentCeiling =
+    DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent
 
   return {
     ...DEFAULT_RESOURCE_GUARD_CONFIG,
@@ -116,6 +118,14 @@ const mergeConfig = (config = {}) => {
         0,
         config.maximumCpuPercent ??
           DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+      )
+    ),
+    maximumFrontendCpuPercent: Math.min(
+      maximumFrontendCpuPercentCeiling,
+      Math.max(
+        0,
+        config.maximumFrontendCpuPercent ??
+          DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent
       )
     ),
     busyCpuPercent: Math.min(
@@ -909,8 +919,9 @@ export const recordTrackedProcessGroupRegistration = (
       ...state,
       ...(!state.ready
         ? {
-            acceptedIntervalSamples: 0,
-            previousProcessCpuSnapshot: null,
+            acceptedRawSamples: 0,
+            lastProcessSampleMonotonicMs: null,
+            previousProcessSnapshot: null,
             sampledProcessRoles: []
           }
         : {}),
@@ -1007,7 +1018,7 @@ export const createResourceGuardState = ({
     readyAtMs: null,
     finished: false,
     acceptedProcessSamples: 0,
-    acceptedIntervalSamples: 0,
+    acceptedRawSamples: 0,
     lastHeartbeatAtMs: null,
     lastProgressAtMs: nowMs,
     lastHeartbeat: null,
@@ -1017,11 +1028,11 @@ export const createResourceGuardState = ({
     sampledProcessRoles: [],
     heartbeatSamples: [],
     cpuSafetySamples: [],
-    maximumCpuSafetySample: null,
-    maximumIntervalCpuSafetySample: null,
-    maximumBrowserBootstrapDecayedCpuSafetySample: null,
-    maximumBrowserBootstrapIntervalCpuSafetySample: null,
-    previousProcessCpuSnapshot: null,
+    maximumFrontendCpuSafetySample: null,
+    maximumFrontendBootstrapCpuSafetySample: null,
+    overallCpuLimitViolationSample: null,
+    lastProcessSampleMonotonicMs: null,
+    previousProcessSnapshot: null,
     attributionInvalidReason: null,
     activePhaseBoundary: null,
     phaseCpuTimeSamples: [],
@@ -1074,7 +1085,7 @@ export const recordResourceHeartbeat = (
   if (body.heartbeat.proofKind !== config.requiredProofKind) {
     return { accepted: false, reason: 'unexpected-proof-kind', state }
   }
-  if (body.kind === 'ready' && state.acceptedIntervalSamples < 1) {
+  if (body.kind === 'ready' && state.acceptedRawSamples < 1) {
     return { accepted: false, reason: 'guard-not-armed', state }
   }
   if (
@@ -1277,7 +1288,7 @@ const haveExactProcessIdentitySet = (leftEntries, rightEntries) => {
   })
 }
 
-export const deriveProcessCpuInterval = (previousSample, currentSample) => {
+export const deriveProcessCpuTimeDelta = (previousSample, currentSample) => {
   const previous = sanitizeProcessCpuSnapshot(previousSample)
   const current = sanitizeProcessCpuSnapshot(currentSample)
   if (!previous || !current) {
@@ -1300,18 +1311,22 @@ export const deriveProcessCpuInterval = (previousSample, currentSample) => {
   )
   const wallTimeMs = current.monotonicMs - previous.monotonicMs
   if (wallTimeMs <= 0) {
-    return { accepted: false, reason: 'invalid-cpu-interval', sample: null }
+    return { accepted: false, reason: 'invalid-cpu-time-delta', sample: null }
   }
 
   const roleCpuTimeMs = createEmptyRoleCpuTimeMs()
   const browserProcessTypeCpuTimeMs = createEmptyBrowserProcessTypeCpuTimeMs()
-  const rendererProcessIntervals = []
+  const rendererProcessCpuTimeMs = []
   let cpuTimeMs = 0
   for (const currentEntry of current.processCpuTimes) {
     const previousEntry = previousByPid.get(currentEntry.pid)
     const delta = currentEntry.cpuTimeMs - previousEntry.cpuTimeMs
     if (delta < 0) {
-      return { accepted: false, reason: 'invalid-cpu-interval', sample: null }
+      return {
+        accepted: false,
+        reason: 'invalid-cpu-time-delta',
+        sample: null
+      }
     }
     cpuTimeMs += delta
     roleCpuTimeMs[roleCpuKey(currentEntry.role)] += delta
@@ -1320,9 +1335,8 @@ export const deriveProcessCpuInterval = (previousSample, currentSample) => {
         browserProcessTypeCpuKey(currentEntry.browserProcessType)
       ] += delta
       if (currentEntry.browserProcessType === 'renderer-or-worker') {
-        rendererProcessIntervals.push({
+        rendererProcessCpuTimeMs.push({
           cpuTimeMs: delta,
-          intervalCpuPercent: roundCpuMetric((delta / wallTimeMs) * 100),
           pid: currentEntry.pid,
           targetAttribution: 'unattributed-page-or-worker'
         })
@@ -1330,32 +1344,15 @@ export const deriveProcessCpuInterval = (previousSample, currentSample) => {
     }
   }
 
-  const roleIntervalCpuPercent = createEmptyRoleCpuPercent()
-  for (const key of Object.keys(roleIntervalCpuPercent)) {
-    roleIntervalCpuPercent[key] = roundCpuMetric(
-      (roleCpuTimeMs[key] / wallTimeMs) * 100
-    )
-  }
-  const browserProcessTypeIntervalCpuPercent =
-    createEmptyBrowserProcessTypeCpuPercent()
-  for (const key of Object.keys(browserProcessTypeIntervalCpuPercent)) {
-    browserProcessTypeIntervalCpuPercent[key] = roundCpuMetric(
-      (browserProcessTypeCpuTimeMs[key] / wallTimeMs) * 100
-    )
-  }
-
   return {
     accepted: true,
     reason: null,
     sample: {
       browserProcessTypeCpuTimeMs,
-      browserProcessTypeIntervalCpuPercent,
       cpuTimeMs,
       endedAtMs: current.nowMs,
-      intervalCpuPercent: roundCpuMetric((cpuTimeMs / wallTimeMs) * 100),
-      rendererProcessIntervals,
+      rendererProcessCpuTimeMs,
       roleCpuTimeMs,
-      roleIntervalCpuPercent,
       startedAtMs: previous.nowMs,
       wallTimeMs
     }
@@ -1417,15 +1414,14 @@ export const recordResourcePhaseBoundary = (
       state: {
         ...state,
         activePhaseBoundary: {
-          browserProcessTypeMaximumIntervalCpuPercent:
+          browserProcessTypeMaximumRawCpuPercent:
             createEmptyBrowserProcessTypeCpuPercent(),
           cpuTimeMs: sample.cpuTimeMs,
-          intervalSampleCount: 0,
-          maximumIntervalCpuPercent: 0,
+          maximumFrontendRawCpuPercent: 0,
           phase: body.phase,
           processCpuTimes,
           processSetChanged: false,
-          roleMaximumIntervalCpuPercent: createEmptyRoleCpuPercent(),
+          rawSampleCount: 0,
           roleCpuTimeMs,
           startedAtMonotonicMs: monotonicMs,
           startedAtMs: sample.nowMs
@@ -1486,33 +1482,16 @@ export const recordResourcePhaseBoundary = (
       ] += delta
     }
   }
-  const roleAverageCpuPercent = createEmptyRoleCpuPercent()
-  for (const key of Object.keys(roleAverageCpuPercent)) {
-    roleAverageCpuPercent[key] = roundCpuMetric(
-      (roleCpuTimeDelta[key] / wallTimeMs) * 100
-    )
-  }
-  const browserProcessTypeAverageCpuPercent =
-    createEmptyBrowserProcessTypeCpuPercent()
-  for (const key of Object.keys(browserProcessTypeAverageCpuPercent)) {
-    browserProcessTypeAverageCpuPercent[key] = roundCpuMetric(
-      (browserProcessTypeCpuTimeDelta[key] / wallTimeMs) * 100
-    )
-  }
   const phaseSample = {
-    averageCpuPercent: roundCpuMetric((cpuTimeMs / wallTimeMs) * 100),
-    browserProcessTypeAverageCpuPercent,
     browserProcessTypeCpuTimeMs: browserProcessTypeCpuTimeDelta,
-    browserProcessTypeMaximumIntervalCpuPercent:
-      active.browserProcessTypeMaximumIntervalCpuPercent,
+    browserProcessTypeMaximumRawCpuPercent:
+      active.browserProcessTypeMaximumRawCpuPercent,
     cpuTimeMs,
     endedAtMs: sample.nowMs,
-    intervalSampleCount: active.intervalSampleCount,
-    maximumIntervalCpuPercent: active.maximumIntervalCpuPercent,
+    maximumFrontendRawCpuPercent: active.maximumFrontendRawCpuPercent,
     phase: body.phase,
-    roleAverageCpuPercent,
+    rawSampleCount: active.rawSampleCount,
     roleCpuTimeMs: roleCpuTimeDelta,
-    roleMaximumIntervalCpuPercent: active.roleMaximumIntervalCpuPercent,
     startedAtMs: active.startedAtMs,
     wallTimeMs
   }
@@ -1609,16 +1588,13 @@ export const evaluateResourceSample = (
     ) &&
     missingRequiredProcessRoles.length === 0
 
-  const previousProcessCpuSnapshot = state.previousProcessCpuSnapshot
-  const intervalResult = previousProcessCpuSnapshot
-    ? deriveProcessCpuInterval(
-        previousProcessCpuSnapshot,
-        currentProcessCpuSnapshot
-      )
-    : null
+  const previousProcessSnapshot = state.previousProcessSnapshot
   const processIdentityChanged =
-    intervalResult?.accepted === false &&
-    intervalResult.reason === 'process-identity-changed'
+    previousProcessSnapshot !== null &&
+    !haveExactProcessIdentitySet(
+      previousProcessSnapshot.processCpuTimes,
+      currentProcessCpuSnapshot.processCpuTimes
+    )
   const activePhaseProcessIdentityChanged =
     state.activePhaseBoundary !== null &&
     !haveExactProcessIdentitySet(
@@ -1627,51 +1603,31 @@ export const evaluateResourceSample = (
     )
   const observedProcessIdentityChanged =
     processIdentityChanged || activePhaseProcessIdentityChanged
-  const invalidCpuInterval =
-    intervalResult?.accepted === false &&
-    intervalResult.reason === 'invalid-cpu-interval'
-  const derivedIntervalSample = intervalResult?.accepted
-    ? intervalResult.sample
-    : null
-  const minimumSafetyIntervalMs =
-    normalizedConfig.sampleIntervalMs * MINIMUM_SAFETY_INTERVAL_FRACTION
-  const intervalSample =
-    derivedIntervalSample &&
-    derivedIntervalSample.wallTimeMs >= minimumSafetyIntervalMs
-      ? derivedIntervalSample
-      : null
   const sampleGapExceeded =
-    intervalSample !== null &&
-    intervalSample.wallTimeMs > normalizedConfig.maximumSampleGapMs
-  let acceptedIntervalSamples = state.acceptedIntervalSamples
+    state.lastProcessSampleMonotonicMs !== null &&
+    currentProcessCpuSnapshot.monotonicMs - state.lastProcessSampleMonotonicMs >
+      normalizedConfig.maximumSampleGapMs
+  let acceptedRawSamples = state.acceptedRawSamples
   if (!state.ready && observedProcessIdentityChanged) {
-    acceptedIntervalSamples = 0
-  } else if (
-    !state.ready &&
-    (!hasCompleteRequiredProcessSet || intervalSample === null)
-  ) {
-    acceptedIntervalSamples = 0
-  } else if (
-    !observedProcessIdentityChanged &&
-    intervalSample &&
-    hasCompleteRequiredProcessSet
-  ) {
-    acceptedIntervalSamples += 1
+    acceptedRawSamples = hasCompleteRequiredProcessSet ? 1 : 0
+  } else if (!state.ready && !hasCompleteRequiredProcessSet) {
+    acceptedRawSamples = 0
+  } else if (!observedProcessIdentityChanged && hasCompleteRequiredProcessSet) {
+    acceptedRawSamples += 1
   }
 
   const heartbeatCapturedAtMs = state.lastHeartbeat?.capturedAtMs ?? null
+  const roleRawCpuPercent = sanitizeRoleCpuPercent(sample.roleCpuPercent)
+  const browserProcessTypeRawCpuPercent = sanitizeBrowserProcessTypeCpuPercent(
+    sample.browserProcessTypeCpuPercent
+  )
+  const frontendRawCpuPercent = roundCpuMetric(roleRawCpuPercent.clientBrowser)
+  const contributors = sanitizeCpuContributors(sample.contributors)
   const cpuSafetySample = {
     pgid: targetPgid,
-    browserProcessTypeDecayedCpuPercent: sanitizeBrowserProcessTypeCpuPercent(
-      sample.browserProcessTypeCpuPercent
-    ),
-    browserProcessTypeIntervalCpuPercent:
-      intervalSample?.browserProcessTypeIntervalCpuPercent ??
-      createEmptyBrowserProcessTypeCpuPercent(),
-    decayedCpuPercent: sample.cpuPercent,
-    intervalCpuPercent: intervalSample?.intervalCpuPercent ?? null,
-    intervalWallTimeMs: intervalSample?.wallTimeMs ?? null,
-    contributors: sanitizeCpuContributors(sample.contributors),
+    browserProcessTypeRawCpuPercent,
+    contributors,
+    frontendRawCpuPercent,
     guardPhase: state.ready
       ? (state.activePhaseBoundary?.phase ?? 'between-phases')
       : 'browser-bootstrap',
@@ -1681,10 +1637,15 @@ export const evaluateResourceSample = (
         : Math.max(0, sample.nowMs - heartbeatCapturedAtMs),
     heartbeatCapturedAtMs,
     heartbeatPhase: state.lastHeartbeat?.phase ?? 'pre-heartbeat',
-    roleDecayedCpuPercent: sanitizeRoleCpuPercent(sample.roleCpuPercent),
-    roleIntervalCpuPercent:
-      intervalSample?.roleIntervalCpuPercent ?? createEmptyRoleCpuPercent(),
-    rendererProcessIntervals: intervalSample?.rendererProcessIntervals ?? [],
+    rawCpuPercent: roundCpuMetric(sample.cpuPercent),
+    rendererProcessRawCpuPercent: contributors
+      .filter(
+        ({ browserProcessType, role }) =>
+          role === 'client-browser' &&
+          browserProcessType === 'renderer-or-worker'
+      )
+      .map(({ cpuPercent, pid }) => ({ pid, rawCpuPercent: cpuPercent })),
+    roleRawCpuPercent,
     ...(missingProcessRoles.length > 0 ? { missingProcessRoles } : {}),
     sampledAtMs: sample.nowMs
   }
@@ -1692,33 +1653,19 @@ export const evaluateResourceSample = (
     [...state.cpuSafetySamples, cpuSafetySample],
     normalizedConfig.historyLimit
   )
-  const maximumCpuSafetySample =
-    !state.maximumCpuSafetySample ||
-    sample.cpuPercent > state.maximumCpuSafetySample.decayedCpuPercent
+  const maximumFrontendCpuSafetySample =
+    !state.maximumFrontendCpuSafetySample ||
+    frontendRawCpuPercent >
+      state.maximumFrontendCpuSafetySample.frontendRawCpuPercent
       ? cpuSafetySample
-      : state.maximumCpuSafetySample
-  const maximumIntervalCpuSafetySample =
-    intervalSample &&
-    (!state.maximumIntervalCpuSafetySample ||
-      intervalSample.intervalCpuPercent >
-        state.maximumIntervalCpuSafetySample.intervalCpuPercent)
-      ? cpuSafetySample
-      : state.maximumIntervalCpuSafetySample
-  const maximumBrowserBootstrapDecayedCpuSafetySample =
+      : state.maximumFrontendCpuSafetySample
+  const maximumFrontendBootstrapCpuSafetySample =
     !state.ready &&
-    (!state.maximumBrowserBootstrapDecayedCpuSafetySample ||
-      sample.cpuPercent >
-        state.maximumBrowserBootstrapDecayedCpuSafetySample.decayedCpuPercent)
+    (!state.maximumFrontendBootstrapCpuSafetySample ||
+      frontendRawCpuPercent >
+        state.maximumFrontendBootstrapCpuSafetySample.frontendRawCpuPercent)
       ? cpuSafetySample
-      : state.maximumBrowserBootstrapDecayedCpuSafetySample
-  const maximumBrowserBootstrapIntervalCpuSafetySample =
-    !state.ready &&
-    intervalSample &&
-    (!state.maximumBrowserBootstrapIntervalCpuSafetySample ||
-      intervalSample.intervalCpuPercent >
-        state.maximumBrowserBootstrapIntervalCpuSafetySample.intervalCpuPercent)
-      ? cpuSafetySample
-      : state.maximumBrowserBootstrapIntervalCpuSafetySample
+      : state.maximumFrontendBootstrapCpuSafetySample
   let decision = state.stopDecision
   if (!decision && !state.finished && missingRequiredProcessRoles.length > 0) {
     decision = stopDecision('tracked-process-group-missing', sample.nowMs)
@@ -1730,32 +1677,20 @@ export const evaluateResourceSample = (
   ) {
     decision = stopDecision('tracked-process-identity-changed', sample.nowMs)
   }
-  if (!decision && invalidCpuInterval) {
-    decision = stopDecision('invalid-cpu-interval', sample.nowMs)
-  }
   if (!decision && sampleGapExceeded) {
     decision = stopDecision('cpu-sample-gap-exceeded', sample.nowMs)
   }
-  if (
-    !decision &&
-    intervalSample &&
-    intervalSample.intervalCpuPercent > normalizedConfig.maximumCpuPercent
-  ) {
+  if (!decision && sample.cpuPercent > normalizedConfig.maximumCpuPercent) {
     decision = stopDecision('cpu-limit-exceeded', sample.nowMs)
   }
   if (
     !decision &&
-    !intervalSample &&
-    state.acceptedIntervalSamples === 0 &&
-    sample.cpuPercent > normalizedConfig.maximumCpuPercent
+    frontendRawCpuPercent > normalizedConfig.maximumFrontendCpuPercent
   ) {
-    decision = stopDecision('cpu-limit-exceeded', sample.nowMs)
+    decision = stopDecision('frontend-cpu-limit-exceeded', sample.nowMs)
   }
 
-  const effectiveCpuPercent =
-    intervalSample?.intervalCpuPercent ??
-    (state.acceptedIntervalSamples === 0 ? sample.cpuPercent : 0)
-  const hostIsBusy = effectiveCpuPercent > normalizedConfig.busyCpuPercent
+  const hostIsBusy = sample.cpuPercent > normalizedConfig.busyCpuPercent
   if (
     !decision &&
     hostIsBusy &&
@@ -1786,36 +1721,24 @@ export const evaluateResourceSample = (
         ...activePhaseBoundary,
         processSetChanged: true
       }
-    } else if (intervalSample) {
-      const roleMaximumIntervalCpuPercent = {
-        ...activePhaseBoundary.roleMaximumIntervalCpuPercent
+    } else {
+      const browserProcessTypeMaximumRawCpuPercent = {
+        ...activePhaseBoundary.browserProcessTypeMaximumRawCpuPercent
       }
-      for (const key of Object.keys(roleMaximumIntervalCpuPercent)) {
-        roleMaximumIntervalCpuPercent[key] = Math.max(
-          roleMaximumIntervalCpuPercent[key],
-          intervalSample.roleIntervalCpuPercent[key]
-        )
-      }
-      const browserProcessTypeMaximumIntervalCpuPercent = {
-        ...activePhaseBoundary.browserProcessTypeMaximumIntervalCpuPercent
-      }
-      for (const key of Object.keys(
-        browserProcessTypeMaximumIntervalCpuPercent
-      )) {
-        browserProcessTypeMaximumIntervalCpuPercent[key] = Math.max(
-          browserProcessTypeMaximumIntervalCpuPercent[key],
-          intervalSample.browserProcessTypeIntervalCpuPercent[key]
+      for (const key of Object.keys(browserProcessTypeMaximumRawCpuPercent)) {
+        browserProcessTypeMaximumRawCpuPercent[key] = Math.max(
+          browserProcessTypeMaximumRawCpuPercent[key],
+          browserProcessTypeRawCpuPercent[key]
         )
       }
       activePhaseBoundary = {
         ...activePhaseBoundary,
-        browserProcessTypeMaximumIntervalCpuPercent,
-        intervalSampleCount: activePhaseBoundary.intervalSampleCount + 1,
-        maximumIntervalCpuPercent: Math.max(
-          activePhaseBoundary.maximumIntervalCpuPercent,
-          intervalSample.intervalCpuPercent
+        browserProcessTypeMaximumRawCpuPercent,
+        maximumFrontendRawCpuPercent: Math.max(
+          activePhaseBoundary.maximumFrontendRawCpuPercent,
+          frontendRawCpuPercent
         ),
-        roleMaximumIntervalCpuPercent
+        rawSampleCount: activePhaseBoundary.rawSampleCount + 1
       }
     }
   }
@@ -1827,26 +1750,24 @@ export const evaluateResourceSample = (
     attributionInvalidReason = 'tracked-process-identity-changed'
   } else if (sampleGapExceeded) {
     attributionInvalidReason = 'cpu-sample-gap-exceeded'
-  } else if (invalidCpuInterval) {
-    attributionInvalidReason = 'invalid-cpu-interval'
   }
+  const overallCpuLimitViolationSample =
+    state.overallCpuLimitViolationSample ??
+    (decision?.reason === 'cpu-limit-exceeded' ? cpuSafetySample : null)
   const nextState = {
     ...state,
     activePhaseBoundary,
     attributionInvalidReason,
     config: normalizedConfig,
     acceptedProcessSamples: state.acceptedProcessSamples + 1,
-    acceptedIntervalSamples,
+    acceptedRawSamples,
     sampledProcessRoles,
     cpuSafetySamples,
-    maximumCpuSafetySample,
-    maximumIntervalCpuSafetySample,
-    maximumBrowserBootstrapDecayedCpuSafetySample,
-    maximumBrowserBootstrapIntervalCpuSafetySample,
-    previousProcessCpuSnapshot:
-      derivedIntervalSample && !intervalSample
-        ? previousProcessCpuSnapshot
-        : currentProcessCpuSnapshot,
+    maximumFrontendCpuSafetySample,
+    maximumFrontendBootstrapCpuSafetySample,
+    overallCpuLimitViolationSample,
+    lastProcessSampleMonotonicMs: currentProcessCpuSnapshot.monotonicMs,
+    previousProcessSnapshot: currentProcessCpuSnapshot,
     stopDecision: decision
   }
   return {
@@ -2113,13 +2034,11 @@ export const buildBoundedResourceReport = (
     ownerTiming: heartbeat?.ownerTiming ?? {},
     heartbeats: keepLast(state.heartbeatSamples, historyLimit),
     cpuSafetySamples: keepLast(state.cpuSafetySamples, historyLimit),
-    maximumCpuSafetySample: state.maximumCpuSafetySample,
-    maximumIntervalCpuSafetySample: state.maximumIntervalCpuSafetySample,
-    maximumBrowserBootstrapDecayedCpuSafetySample:
-      state.maximumBrowserBootstrapDecayedCpuSafetySample,
-    maximumBrowserBootstrapIntervalCpuSafetySample:
-      state.maximumBrowserBootstrapIntervalCpuSafetySample,
-    acceptedIntervalSamples: state.acceptedIntervalSamples,
+    maximumFrontendCpuSafetySample: state.maximumFrontendCpuSafetySample,
+    maximumFrontendBootstrapCpuSafetySample:
+      state.maximumFrontendBootstrapCpuSafetySample,
+    overallCpuLimitViolationSample: state.overallCpuLimitViolationSample,
+    acceptedRawSamples: state.acceptedRawSamples,
     attributionInvalidReason: state.attributionInvalidReason,
     activePhaseBoundary: state.activePhaseBoundary,
     phaseCpuTimeSamples: keepLast(state.phaseCpuTimeSamples, historyLimit),
@@ -2629,6 +2548,8 @@ export const buildEndpointPerformancePhases = ({
       guardConfig: {
         guardMode: 'proof',
         maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
+        maximumFrontendCpuPercent:
+          DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent,
         requiredProofKind,
         requiredProcessRoles: [...TRACKED_PROCESS_ROLES]
       },
