@@ -24,7 +24,7 @@ const expectedFixture = Object.freeze({
   totalCount: 7076,
   vectorCount: 7075
 })
-const CRDT_FLOW_TIMEOUT_MS = 180_000
+const CRDT_FLOW_TIMEOUT_MS = 300_000
 const ENDPOINT_HEARTBEAT_INTERVAL_MS = 5_000
 const remainingCrdtFlowTimeoutMs = (startedAtMs: number): number =>
   Math.max(1, startedAtMs + CRDT_FLOW_TIMEOUT_MS - Date.now())

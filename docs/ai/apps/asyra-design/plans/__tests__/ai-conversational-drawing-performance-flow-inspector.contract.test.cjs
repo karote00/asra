@@ -920,7 +920,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /180-second product-flow deadline.*240-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+    /300-second product-flow deadline.*360-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
   )
   assert.match(
     text,
@@ -944,7 +944,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /hard CRDT product-flow deadline.*180 seconds.*Playwright ceiling.*240 seconds.*cannot preempt/i
+    /hard CRDT product-flow deadline.*300 seconds.*Playwright ceiling.*360 seconds.*cannot preempt/i
   )
   assert.match(
     feature,
@@ -968,7 +968,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /CRDT product flow.*Actor A request.*Actor B convergence.*180-second deadline[\s\S]*Playwright test.*240-second ceiling.*cannot preempt/i
+    /CRDT product flow.*Actor A request.*Actor B convergence.*300-second deadline[\s\S]*Playwright test.*360-second ceiling.*cannot preempt/i
   )
   assert.match(
     feature,

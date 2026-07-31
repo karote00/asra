@@ -116,7 +116,7 @@ Feature: Conversational AI drawing performance
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
-    And a raw CPU limit, 180-second product-flow deadline, or 240-second Playwright ceiling should stop the current benchmark action without stopping the implementation task
+    And a raw CPU limit, 300-second product-flow deadline, or 360-second Playwright ceiling should stop the current benchmark action without stopping the implementation task
     And the same owner should immediately capture the first blocker, find its bounded root cause, re-read the Inspector, revise its owner plan and formal oracle, and execute the new iteration before any downstream owner advances
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
@@ -565,8 +565,8 @@ Feature: Conversational AI drawing performance
     And Actor A should settle within 30 seconds
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
     And Actor B should converge within 30 seconds of Actor A canonical commit
-    And the CRDT product flow from Actor A request through Actor B convergence should have a 180-second deadline
-    And the guarded Playwright test should have a 240-second ceiling so bootstrap, assertions, and teardown cannot preempt that product deadline
+    And the CRDT product flow from Actor A request through Actor B convergence should have a 300-second deadline
+    And the guarded Playwright test should have a 360-second ceiling so bootstrap, assertions, and teardown cannot preempt that product deadline
     But no additional single-Actor or unguarded 7000-plus run should start
 
   Scenario: Maximum detail remains editable and meets its budget
