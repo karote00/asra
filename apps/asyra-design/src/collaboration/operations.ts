@@ -1,7 +1,7 @@
 import type {
-  SharedDelivery,
-  SharedDeliveryBatch,
-  SharedPublication
+  SharedPublication,
+  SharedPublicationBatch,
+  SharedPublicationDelivery
 } from '@asyra/factory'
 import type {
   CanonicalChange,
@@ -53,6 +53,18 @@ interface ClassifiedRemoteRestore {
 
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
+
+const publicationBatches = (
+  publication: SharedPublication
+): readonly SharedPublicationBatch[] =>
+  publication.slices.flatMap(({ batches }) => batches)
+
+const publicationDeliveries = (publication: SharedPublication) =>
+  publication.slices.flatMap(({ batches }) =>
+    batches.flatMap(({ channel, deliveries }) =>
+      deliveries.map((delivery) => ({ channel, delivery }))
+    )
+  )
 
 const publicationReplayMode = (
   origin: SharedPublication['origin']
@@ -138,7 +150,7 @@ const isAddRemoveElements = (
 type CanonicalElementEvidenceDirection = 'add' | 'remove'
 
 const canonicalElementEntriesFromDelivery = (
-  delivery: SharedDelivery,
+  delivery: SharedPublicationDelivery,
   direction: CanonicalElementEvidenceDirection
 ): readonly AddRemoveElementEntry[] | null => {
   const scalarEvent =
@@ -332,8 +344,11 @@ const isUpdateProperty = (value: unknown): value is Record<string, unknown> =>
   (value.ownerPropertyName === undefined ||
     isNonBlankString(value.ownerPropertyName))
 
-const isSupportedPayload = (delivery: SharedDelivery): boolean => {
-  if (delivery.channel === SharedDataChannelNames.SCENE_TREE) {
+const isSupportedPayload = (
+  channel: string,
+  delivery: SharedPublicationDelivery
+): boolean => {
+  if (channel === SharedDataChannelNames.SCENE_TREE) {
     switch (delivery.eventName) {
       case EventTypes.ADD_ELEMENT:
         return isAddRemoveElement(
@@ -371,7 +386,7 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
         return isSubtreeChange(delivery.payload)
     }
   }
-  if (delivery.channel === SharedDataChannelNames.PROPS) {
+  if (channel === SharedDataChannelNames.PROPS) {
     switch (delivery.eventName) {
       case EventTypes.ADD_PROPERTY:
         return isAddRemoveProperties(
@@ -395,9 +410,10 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
 const classifyRemoteRestore = (
   publication: SharedPublication
 ): ClassifiedRemoteRestore | undefined => {
-  const restoreDeliveries = publication.deliveries.filter(
-    (delivery) =>
-      delivery.channel === SharedDataChannelNames.SCENE_TREE &&
+  const deliveries = publicationDeliveries(publication)
+  const restoreDeliveries = deliveries.filter(
+    ({ channel, delivery }) =>
+      channel === SharedDataChannelNames.SCENE_TREE &&
       delivery.eventName === EventTypes.CHANGE_SUBTREE &&
       isRecord(delivery.payload) &&
       delivery.payload.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE
@@ -405,15 +421,17 @@ const classifyRemoteRestore = (
   if (restoreDeliveries.length === 0) {
     return
   }
-  const restoreDelivery = restoreDeliveries[0] as SharedDelivery
-  const restoreIndex = publication.deliveries.indexOf(restoreDelivery)
-  const propertyDeliveries = publication.deliveries.slice(0, restoreIndex)
+  const restoreDelivery = restoreDeliveries[0]?.delivery
+  const restoreIndex = deliveries.findIndex(
+    ({ delivery }) => delivery === restoreDelivery
+  )
+  const propertyDeliveries = deliveries.slice(0, restoreIndex)
   const validRestoreEnvelope =
     restoreDeliveries.length === 1 &&
-    restoreIndex === publication.deliveries.length - 1 &&
+    restoreIndex === deliveries.length - 1 &&
     propertyDeliveries.every(
-      (delivery) =>
-        delivery.channel === SharedDataChannelNames.PROPS &&
+      ({ channel, delivery }) =>
+        channel === SharedDataChannelNames.PROPS &&
         delivery.eventName === EventTypes.ADD_PROPERTY &&
         isAddRemoveProperties(
           delivery.payload,
@@ -421,7 +439,11 @@ const classifyRemoteRestore = (
           EventTypes.ADD_PROPERTY
         )
     )
-  if (!validRestoreEnvelope || !isSubtreeChange(restoreDelivery.payload)) {
+  if (
+    !restoreDelivery ||
+    !validRestoreEnvelope ||
+    !isSubtreeChange(restoreDelivery.payload)
+  ) {
     throw new Error(
       '[asyra-design collaboration] invalid subtree restore publication'
     )
@@ -437,7 +459,7 @@ const classifyRemoteRestore = (
     },
     propsSnapshot: {
       components: propertyDeliveries.flatMap(
-        (delivery) =>
+        ({ delivery }) =>
           (delivery.payload as { data: PropsRestoreSnapshot['components'] })
             .data
       )
@@ -445,9 +467,12 @@ const classifyRemoteRestore = (
   }
 }
 
-const assertSupportedDelivery = (delivery: SharedDelivery): void => {
+const assertSupportedDelivery = (
+  channel: string,
+  delivery: SharedPublicationDelivery
+): void => {
   if (
-    delivery.channel === SharedDataChannelNames.SCENE_TREE &&
+    channel === SharedDataChannelNames.SCENE_TREE &&
     (delivery.eventName === EventTypes.UPDATE_COMPUTED_DATA ||
       delivery.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH)
   ) {
@@ -455,23 +480,22 @@ const assertSupportedDelivery = (delivery: SharedDelivery): void => {
       '[asyra-design collaboration] remote publication contains local-only computed projection evidence'
     )
   }
-  if (!isSupportedPayload(delivery)) {
+  if (!isSupportedPayload(channel, delivery)) {
     throw new Error(
-      `[asyra-design collaboration] unsupported collaboration delivery ${delivery.channel}/${delivery.eventName}`
+      `[asyra-design collaboration] unsupported collaboration delivery ${channel}/${delivery.eventName}`
     )
   }
 }
 
 const isAddPropertyDelivery = (
-  delivery: SharedDelivery | undefined
-): delivery is SharedDelivery<
+  delivery: SharedPublicationDelivery | undefined
+): delivery is SharedPublicationDelivery<
   Readonly<{
     data: readonly PropertyComponentRawData[]
   }>
 > =>
   Boolean(
     delivery &&
-      delivery.channel === SharedDataChannelNames.PROPS &&
       delivery.eventName === EventTypes.ADD_PROPERTY &&
       isAddRemoveProperties(
         delivery.payload,
@@ -481,15 +505,14 @@ const isAddPropertyDelivery = (
   )
 
 const isRemovePropertyDelivery = (
-  delivery: SharedDelivery | undefined
-): delivery is SharedDelivery<
+  delivery: SharedPublicationDelivery | undefined
+): delivery is SharedPublicationDelivery<
   Readonly<{
     data: readonly PropertyComponentRawData[]
   }>
 > =>
   Boolean(
     delivery &&
-      delivery.channel === SharedDataChannelNames.PROPS &&
       delivery.eventName === EventTypes.REMOVE_PROPERTY &&
       isAddRemoveProperties(
         delivery.payload,
@@ -500,33 +523,38 @@ const isRemovePropertyDelivery = (
 
 const isDirectPublicationBatch = (
   publication: SharedPublication,
-  batch: SharedDeliveryBatch
-): boolean =>
-  batch.artifactId === publication.artifactId &&
-  batch.transactionId === publication.transactionId &&
-  batch.origin === publication.origin &&
-  batch.deliveries.length > 0 &&
-  batch.deliveries.length === batch.records.length &&
-  batch.deliveries.length === batch.changes.length &&
-  batch.deliveries.every((delivery, index) => {
-    const record = batch.records[index]
-    return (
-      delivery.artifactId === batch.artifactId &&
-      delivery.batchId === batch.batchId &&
-      delivery.transactionId === batch.transactionId &&
-      delivery.origin === batch.origin &&
-      delivery.kind === batch.kind &&
-      delivery.channel === batch.channel &&
-      delivery.sharedDelivery === batch.sharedDelivery &&
-      record?.recordId === delivery.recordId &&
-      record.deliveryId === delivery.deliveryId &&
-      delivery.record.recordId === record.recordId &&
-      delivery.record.deliveryId === record.deliveryId
+  batch: SharedPublicationBatch
+): boolean => {
+  const containingSlices = publication.slices.filter(({ batches }) =>
+    batches.includes(batch)
+  )
+  return (
+    containingSlices.length === 1 &&
+    isNonBlankString(batch.batchId) &&
+    isNonBlankString(batch.channel) &&
+    batch.deliveries.length > 0 &&
+    batch.deliveries.every(
+      ({ deliveryId, eventName, orderedIds }) =>
+        isNonBlankString(deliveryId) &&
+        isNonBlankString(eventName) &&
+        orderedIds.length > 0 &&
+        orderedIds.every(isNonBlankString)
     )
-  })
+  )
+}
 
-const orderedIdsFromBatch = (batch: SharedDeliveryBatch): readonly string[] =>
-  batch.records.flatMap(({ orderedIds }) => orderedIds)
+const orderedIdsFromBatch = (
+  batch: SharedPublicationBatch
+): readonly string[] => {
+  const seen = new Set<string>()
+  return batch.deliveries.flatMap(({ orderedIds }) =>
+    orderedIds.filter((orderedId) => {
+      if (seen.has(orderedId)) return false
+      seen.add(orderedId)
+      return true
+    })
+  )
+}
 
 const sameOrderedIds = (
   actual: readonly string[],
@@ -564,15 +592,13 @@ const orderCanonicalElementEntries = (
 
 const hasDirectSliceBoundary = (
   publication: SharedPublication,
-  batch: SharedDeliveryBatch
+  batch: SharedPublicationBatch
 ): boolean => {
-  const sliceBoundary = publication.deliverySequence.slices.find(
-    ({ sliceId }) => sliceId === batch.sliceId
+  const sliceBoundary = publication.slices.find(({ batches }) =>
+    batches.includes(batch)
   )
   if (!sliceBoundary) return false
-  const sliceBatches = publication.batches.filter(
-    ({ sliceId }) => sliceId === batch.sliceId
-  )
+  const sliceBatches = sliceBoundary.batches
   if (
     sliceBatches.length === 0 ||
     sliceBatches.some(
@@ -584,35 +610,38 @@ const hasDirectSliceBoundary = (
   const deliveryIds = sliceBatches.flatMap(({ deliveries }) =>
     deliveries.map(({ deliveryId }) => deliveryId)
   )
-  const seenRecordIds = new Set<string>()
-  const recordOrderedIds = sliceBatches.flatMap(({ records }) =>
-    records.flatMap(({ orderedIds }) =>
+  const seenOrderedIds = new Set<string>()
+  const canonicalOrderedIds = sliceBatches.flatMap(({ deliveries }) =>
+    deliveries.flatMap(({ orderedIds }) =>
       orderedIds.filter((orderedId) => {
-        if (seenRecordIds.has(orderedId)) return false
-        seenRecordIds.add(orderedId)
+        if (seenOrderedIds.has(orderedId)) return false
+        seenOrderedIds.add(orderedId)
         return true
       })
     )
   )
   return (
     sameOrderedIds(sliceBoundary.orderedIds, deliveryIds) ||
-    (publication.deliverySequence.mode === 'progressive' &&
-      sameOrderedIds(sliceBoundary.orderedIds, recordOrderedIds))
+    (publication.mode === 'progressive' &&
+      sameOrderedIds(sliceBoundary.orderedIds, canonicalOrderedIds))
   )
 }
 
 const assertDirectPublicationBatchEvidence = (
   publication: SharedPublication
 ): void => {
-  const artifactDeliveries = publication.batches.flatMap(
-    ({ deliveries }) => deliveries
-  )
+  const batches = publicationBatches(publication)
+  const artifactDeliveries = batches.flatMap(({ deliveries }) => deliveries)
+  const batchIds = new Set<string>()
+  const deliveryIds = new Set<string>()
+  const isCompensation = publication.origin === 'rollback-compensation'
   if (
-    publication.batches.length === 0 ||
-    artifactDeliveries.length !== publication.deliveries.length ||
+    publication.slices.length === 0 ||
+    batches.length === 0 ||
+    artifactDeliveries.length === 0 ||
+    isCompensation !== owns(publication, 'compensatesPublicationId') ||
     artifactDeliveries.some(
-      ({ deliveryId }, index) =>
-        deliveryId !== publication.deliveries[index]?.deliveryId
+      (delivery) => isCompensation !== owns(delivery, 'compensatesDeliveryId')
     )
   ) {
     throw new Error(
@@ -620,11 +649,27 @@ const assertDirectPublicationBatchEvidence = (
     )
   }
   if (
-    publication.batches.some(
-      (batch) =>
+    publication.slices.some(
+      ({ sliceId, orderedIds, batches: sliceBatches }) =>
+        !isNonBlankString(sliceId) ||
+        orderedIds.length === 0 ||
+        sliceBatches.length === 0
+    ) ||
+    batches.some((batch) => {
+      if (batchIds.has(batch.batchId)) return true
+      batchIds.add(batch.batchId)
+      if (
         !isDirectPublicationBatch(publication, batch) ||
         !hasDirectSliceBoundary(publication, batch)
-    )
+      ) {
+        return true
+      }
+      return batch.deliveries.some(({ deliveryId }) => {
+        if (deliveryIds.has(deliveryId)) return true
+        deliveryIds.add(deliveryId)
+        return false
+      })
+    })
   ) {
     throw new Error(
       '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
@@ -634,12 +679,14 @@ const assertDirectPublicationBatchEvidence = (
 
 const assertRemotePublication = (publication: SharedPublication): void => {
   assertDirectPublicationBatchEvidence(publication)
-  publication.deliveries.forEach(assertSupportedDelivery)
+  publicationBatches(publication).forEach(({ channel, deliveries }) =>
+    deliveries.forEach((delivery) => assertSupportedDelivery(channel, delivery))
+  )
 }
 
 const classifyPropertyComponentBatch = (
   publication: SharedPublication,
-  batch: SharedDeliveryBatch
+  batch: SharedPublicationBatch
 ): readonly PropertyComponentValuesUpdate[] | null => {
   if (
     !batch.deliveries.some(
@@ -688,7 +735,7 @@ const classifyPropertyComponentBatch = (
 
 const classifyElementDataBatch = (
   publication: SharedPublication,
-  batch: SharedDeliveryBatch
+  batch: SharedPublicationBatch
 ): readonly UpdateElementDataChange[] | null => {
   if (
     !batch.deliveries.some(
@@ -718,7 +765,7 @@ const classifyElementDataBatch = (
 
 const classifyHierarchyMoveBatch = (
   publication: SharedPublication,
-  batch: SharedDeliveryBatch
+  batch: SharedPublicationBatch
 ): readonly HierarchyMove[] | null => {
   if (
     !batch.deliveries.some(
@@ -750,12 +797,13 @@ const classifyHierarchyMoveBatch = (
 
 const classifySubtreeRemovalBatch = (
   publication: SharedPublication,
+  batches: readonly SharedPublicationBatch[],
   startBatchIndex: number
 ): Readonly<{
   change: SubtreeChange
   consumedBatchCount: number
 }> | null => {
-  const sceneBatch = publication.batches[startBatchIndex]
+  const sceneBatch = batches[startBatchIndex]
   const sceneDelivery = sceneBatch?.deliveries[0]
   if (
     !sceneBatch ||
@@ -777,8 +825,7 @@ const classifySubtreeRemovalBatch = (
   }
   let consumedBatchCount = 1
   while (true) {
-    const propertyBatch =
-      publication.batches[startBatchIndex + consumedBatchCount]
+    const propertyBatch = batches[startBatchIndex + consumedBatchCount]
     if (
       !propertyBatch ||
       propertyBatch.channel !== SharedDataChannelNames.PROPS ||
@@ -807,13 +854,14 @@ const classifySubtreeRemovalBatch = (
 
 const classifyCanonicalCreationBatch = (
   publication: SharedPublication,
+  batches: readonly SharedPublicationBatch[],
   startBatchIndex: number
 ): Readonly<{
   change: Extract<CanonicalChange, { kind: 'element-creation' }>
   consumedBatchCount: number
 }> | null => {
-  const propertyBatch = publication.batches[startBatchIndex]
-  const sceneBatch = publication.batches[startBatchIndex + 1]
+  const propertyBatch = batches[startBatchIndex]
+  const sceneBatch = batches[startBatchIndex + 1]
   if (
     !propertyBatch ||
     !sceneBatch ||
@@ -823,8 +871,11 @@ const classifyCanonicalCreationBatch = (
     !hasDirectSliceBoundary(publication, sceneBatch) ||
     propertyBatch.channel !== SharedDataChannelNames.PROPS ||
     sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    propertyBatch.kind !== sceneBatch.kind ||
-    propertyBatch.sharedDelivery !== sceneBatch.sharedDelivery
+    !publication.slices.some(
+      ({ batches: sliceBatches }) =>
+        sliceBatches.includes(propertyBatch) &&
+        sliceBatches.includes(sceneBatch)
+    )
   ) {
     return null
   }
@@ -904,12 +955,13 @@ const classifyCanonicalCreationBatch = (
 
 const classifyCanonicalRemovalBatch = (
   publication: SharedPublication,
+  batches: readonly SharedPublicationBatch[],
   startBatchIndex: number
 ): Readonly<{
   removals: readonly RemoteCanonicalElementRemoval[]
   consumedBatchCount: number
 }> | null => {
-  const sceneBatch = publication.batches[startBatchIndex]
+  const sceneBatch = batches[startBatchIndex]
   if (
     !sceneBatch ||
     !isDirectPublicationBatch(publication, sceneBatch) ||
@@ -952,7 +1004,7 @@ const classifyCanonicalRemovalBatch = (
     return null
   }
 
-  const propertyBatchCandidate = publication.batches[startBatchIndex + 1]
+  const propertyBatchCandidate = batches[startBatchIndex + 1]
   const hasPropertyRemovalCandidate =
     propertyBatchCandidate?.channel === SharedDataChannelNames.PROPS &&
     propertyBatchCandidate.deliveries.some(
@@ -966,8 +1018,11 @@ const classifyCanonicalRemovalBatch = (
     (!propertyBatch.deliveries.every(isRemovePropertyDelivery) ||
       !isDirectPublicationBatch(publication, propertyBatch) ||
       !hasDirectSliceBoundary(publication, propertyBatch) ||
-      sceneBatch.kind !== propertyBatch.kind ||
-      sceneBatch.sharedDelivery !== propertyBatch.sharedDelivery ||
+      !publication.slices.some(
+        ({ batches: sliceBatches }) =>
+          sliceBatches.includes(sceneBatch) &&
+          sliceBatches.includes(propertyBatch)
+      ) ||
       !sameOrderedIds(orderedIdsFromBatch(propertyBatch), elementIds))
   ) {
     throw new Error(
@@ -985,15 +1040,24 @@ const createRemoteApplySteps = (
   publication: SharedPublication
 ): readonly CanonicalChange[] => {
   const changes: CanonicalChange[] = []
+  const batches = publicationBatches(publication)
   let batchIndex = 0
-  while (batchIndex < publication.batches.length) {
-    const creation = classifyCanonicalCreationBatch(publication, batchIndex)
+  while (batchIndex < batches.length) {
+    const creation = classifyCanonicalCreationBatch(
+      publication,
+      batches,
+      batchIndex
+    )
     if (creation) {
       changes.push(creation.change)
       batchIndex += creation.consumedBatchCount
       continue
     }
-    const removal = classifyCanonicalRemovalBatch(publication, batchIndex)
+    const removal = classifyCanonicalRemovalBatch(
+      publication,
+      batches,
+      batchIndex
+    )
     if (removal) {
       changes.push(
         Object.freeze({
@@ -1004,7 +1068,7 @@ const createRemoteApplySteps = (
       batchIndex += removal.consumedBatchCount
       continue
     }
-    const batch = publication.batches[batchIndex] as SharedDeliveryBatch
+    const batch = batches[batchIndex] as SharedPublicationBatch
     const propertyUpdates = classifyPropertyComponentBatch(publication, batch)
     if (propertyUpdates) {
       changes.push(
@@ -1038,7 +1102,11 @@ const createRemoteApplySteps = (
       batchIndex += 1
       continue
     }
-    const subtreeRemoval = classifySubtreeRemovalBatch(publication, batchIndex)
+    const subtreeRemoval = classifySubtreeRemovalBatch(
+      publication,
+      batches,
+      batchIndex
+    )
     if (subtreeRemoval) {
       changes.push(
         Object.freeze({

@@ -113,7 +113,9 @@ describe('Factory batch regression contracts', () => {
     ])
     expect(
       publications.map((publication) =>
-        publication.batches.map((batch) => `${batch.sliceId}:${batch.channel}`)
+        publication.slices.flatMap((slice) =>
+          slice.batches.map((batch) => `${slice.sliceId}:${batch.channel}`)
+        )
       )
     ).toEqual([
       [
@@ -133,14 +135,18 @@ describe('Factory batch regression contracts', () => {
       `slice-b:${SharedDataChannelNames.PROPS}`,
       `slice-b:${SharedDataChannelNames.SCENE_TREE}`
     ])
-    expect(publications.flatMap((publication) => publication.batches)).toEqual(
-      artifacts[0]?.batches
+    const publicationBatches = publications.flatMap(({ slices }) =>
+      slices.flatMap(({ batches }) => batches)
     )
-    publications
-      .flatMap((publication) => publication.batches)
-      .forEach((batch, index) => {
-        expect(batch).toBe(artifacts[0]?.batches[index])
-      })
+    expect(publicationBatches.map(({ batchId }) => batchId)).toEqual(
+      artifacts[0]?.batches.map(({ batchId }) => batchId)
+    )
+    publicationBatches.forEach((batch, index) => {
+      expect(batch).not.toBe(artifacts[0]?.batches[index])
+      expect(batch.deliveries[0]?.payload).toBe(
+        artifacts[0]?.batches[index]?.deliveries[0]?.payload
+      )
+    })
   })
 
   it('links history replay only to records that were actually delivered', () => {
@@ -236,8 +242,10 @@ describe('Factory batch regression contracts', () => {
     expect(undoProjected.map(payloadId)).toEqual(['element-a'])
     expect(
       undoPublications.flatMap((publication) =>
-        publication.batches.flatMap((batch) =>
-          batch.records.flatMap((record) => record.orderedIds)
+        publication.slices.flatMap(({ batches }) =>
+          batches.flatMap(({ deliveries }) =>
+            deliveries.flatMap(({ orderedIds }) => orderedIds)
+          )
         )
       )
     ).toEqual(['element-a'])
@@ -380,26 +388,24 @@ describe('Factory batch regression contracts', () => {
 
     const summarize = (publication: SharedPublication | undefined) => ({
       origin: publication?.origin,
-      batches: publication?.batches.map((batch) => ({
-        channel: batch.channel,
-        kind: batch.kind,
-        ids: batch.deliveries.map(({ payload }) => payloadId(payload)),
-        recordIds: batch.records.flatMap(({ orderedIds }) => orderedIds)
-      }))
+      batches: publication?.slices.flatMap(({ batches }) =>
+        batches.map((batch) => ({
+          channel: batch.channel,
+          ids: batch.deliveries.map(({ payload }) => payloadId(payload)),
+          recordIds: batch.deliveries.flatMap(({ orderedIds }) => orderedIds)
+        }))
+      )
     })
     const expectAtomicBatchIntegrity = (
       publication: SharedPublication | undefined
     ) => {
-      expect(publication?.deliverySequence).toEqual({
-        mode: 'atomic',
-        slices: publication?.batches.map((batch) => ({
-          sliceId: batch.sliceId,
-          orderedIds: batch.deliveries.map(({ deliveryId }) => deliveryId)
-        }))
-      })
-      publication?.batches.forEach((batch) => {
-        expect(batch.deliveries).toHaveLength(batch.records.length)
-        expect(batch.changes).toHaveLength(batch.records.length)
+      expect(publication?.mode).toBe('atomic')
+      publication?.slices.forEach((slice) => {
+        expect(slice.orderedIds).toEqual(
+          slice.batches.flatMap(({ deliveries }) =>
+            deliveries.map(({ deliveryId }) => deliveryId)
+          )
+        )
       })
     }
 
@@ -408,25 +414,21 @@ describe('Factory batch regression contracts', () => {
       batches: [
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-group'],
           recordIds: ['group']
         },
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-group'],
           recordIds: ['group']
         },
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-a', 'props-b'],
           recordIds: ['props-a', 'props-b']
         },
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-a', 'scene-b'],
           recordIds: ['scene-a', 'scene-b']
         }
@@ -443,31 +445,31 @@ describe('Factory batch regression contracts', () => {
       batches: [
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-b', 'scene-a'],
           recordIds: ['scene-b', 'scene-a']
         },
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-b', 'props-a'],
           recordIds: ['props-b', 'props-a']
         },
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-group'],
           recordIds: ['group']
         },
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-group'],
           recordIds: ['group']
         }
       ]
     })
-    expect(artifacts.at(-1)?.batches).toEqual(publications[0]?.batches)
+    expect(artifacts.at(-1)?.batches.map(({ batchId }) => batchId)).toEqual(
+      publications[0]?.slices.flatMap(({ batches }) =>
+        batches.map(({ batchId }) => batchId)
+      )
+    )
     expectAtomicBatchIntegrity(publications[0])
 
     publications.length = 0
@@ -479,31 +481,31 @@ describe('Factory batch regression contracts', () => {
       batches: [
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-group'],
           recordIds: ['group']
         },
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-group'],
           recordIds: ['group']
         },
         {
           channel: SharedDataChannelNames.PROPS,
-          kind: 'forward',
           ids: ['props-a', 'props-b'],
           recordIds: ['props-a', 'props-b']
         },
         {
           channel: SharedDataChannelNames.SCENE_TREE,
-          kind: 'forward',
           ids: ['scene-a', 'scene-b'],
           recordIds: ['scene-a', 'scene-b']
         }
       ]
     })
-    expect(artifacts.at(-1)?.batches).toEqual(publications[0]?.batches)
+    expect(artifacts.at(-1)?.batches.map(({ batchId }) => batchId)).toEqual(
+      publications[0]?.slices.flatMap(({ batches }) =>
+        batches.map(({ batchId }) => batchId)
+      )
+    )
     expectAtomicBatchIntegrity(publications[0])
   })
 
@@ -784,7 +786,14 @@ describe('Factory batch regression contracts', () => {
       deliveryBatches[0]?.deliveries.map(({ payload }) => payloadId(payload))
     ).toEqual(orderedIds)
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.batches).toEqual(deliveryBatches)
+    const publicationDeliveries =
+      publications[0]?.slices.flatMap(({ batches }) =>
+        batches.flatMap(({ deliveries }) => deliveries)
+      ) ?? []
+    expect(publicationDeliveries).toHaveLength(7_112)
+    expect(
+      publicationDeliveries.map(({ payload }) => payloadId(payload))
+    ).toEqual(orderedIds)
   })
 
   it.each([

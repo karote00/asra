@@ -176,9 +176,16 @@ infrastructure.
 - shared channels transport detached committed payloads only; they do not own
   canonical Scene Tree state, Render snapshots, or an independent revision
   authority
-- `subscribeToSharedPublication(...)` observes one batch per synchronous
-  immediate delivery action or committed transaction-end batch; a batch may
-  contain changes for multiple elements or state owners
+- `subscribeToSharedPublication(...)` observes one immutable minimal
+  `SharedPublication` per synchronous immediate delivery action or committed
+  transaction-end batch. Its exact transport hierarchy is publication
+  identity/origin/mode → ordered slices → channel batches → ordered payload
+  deliveries
+- the transport publication contains no inverse events, local history or
+  rollback evidence, duplicated top-level delivery list, record/change alias,
+  or nested record wrapper. Those remain on the Factory-owned rich local
+  artifact; only actual compensation publications carry publication and
+  delivery correlation ids
 - `FactoryMutationDeliverySequence` is the immutable, already-decided
   publication order for one mutation artifact. It carries `atomic` or
   `progressive` mode plus ordered slice boundaries; it is execution evidence,

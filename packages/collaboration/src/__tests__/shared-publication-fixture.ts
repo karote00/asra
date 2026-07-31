@@ -1,21 +1,23 @@
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/factory'
 
 interface SharedPublicationFixtureDelivery {
   readonly channel: string
   readonly deliveryId: string
   readonly eventName: string
+  readonly orderedIds: readonly string[]
   readonly payload: object
-  readonly sharedDelivery: SharedDelivery['sharedDelivery']
 }
 
 interface SharedPublicationFixtureInput {
   readonly delivery?: SharedPublicationFixtureDelivery
+  readonly mode: SharedPublication['mode']
   readonly publicationId: string
   readonly transactionId: number
 }
 
 export const createSharedPublicationFixture = ({
   delivery,
+  mode,
   publicationId,
   transactionId
 }: SharedPublicationFixtureInput): SharedPublication => {
@@ -23,65 +25,41 @@ export const createSharedPublicationFixture = ({
   if (!delivery) {
     return {
       artifactId,
-      batches: [],
-      deliveries: [],
-      deliverySequence: { mode: 'atomic', slices: [] },
+      mode,
       origin: 'action',
       publicationId,
+      slices: [],
       transactionId
     }
   }
 
   const batchId = `${artifactId}:batch`
-  const recordId = `${delivery.deliveryId}:record`
   const sliceId = `${artifactId}:slice`
-  const record = {
-    deliveryId: delivery.deliveryId,
-    inverseEvents: [],
-    occurrence: 0,
-    orderedIds: [],
-    payload: delivery.payload,
-    recordId
-  }
-  const exactDelivery: SharedDelivery = {
-    artifactId,
-    batchId,
-    channel: delivery.channel,
+  const exactDelivery = {
     deliveryId: delivery.deliveryId,
     eventName: delivery.eventName,
-    kind: 'forward',
-    origin: 'action',
-    payload: delivery.payload,
-    record,
-    recordId,
-    sharedDelivery: delivery.sharedDelivery,
-    transactionId
+    orderedIds: delivery.orderedIds,
+    payload: delivery.payload
   }
 
   return {
     artifactId,
-    batches: [
-      {
-        artifactId,
-        batchId,
-        changes: [delivery.payload],
-        channel: delivery.channel,
-        deliveries: [exactDelivery],
-        kind: 'forward',
-        origin: 'action',
-        records: [record],
-        sharedDelivery: delivery.sharedDelivery,
-        sliceId,
-        transactionId
-      }
-    ],
-    deliveries: [exactDelivery],
-    deliverySequence: {
-      mode: delivery.sharedDelivery === 'immediate' ? 'progressive' : 'atomic',
-      slices: [{ orderedIds: [delivery.deliveryId], sliceId }]
-    },
+    mode,
     origin: 'action',
     publicationId,
+    slices: [
+      {
+        sliceId,
+        orderedIds: delivery.orderedIds,
+        batches: [
+          {
+            batchId,
+            channel: delivery.channel,
+            deliveries: [exactDelivery]
+          }
+        ]
+      }
+    ],
     transactionId
   }
 }

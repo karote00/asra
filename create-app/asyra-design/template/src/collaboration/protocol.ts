@@ -1,4 +1,8 @@
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
+import type {
+  SharedPublication,
+  SharedPublicationBatch,
+  SharedPublicationDelivery
+} from '@asyra/factory'
 import type {
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage,
@@ -116,10 +120,9 @@ export type CollaborationServerMessage =
   | FailureMessage
   | ConnectionErrorMessage
 
-const sharedDeliveryOrigins = new Set<SharedDelivery['origin']>([
+const sharedPublicationOrigins = new Set<SharedPublication['origin']>([
   'action',
   'automation',
-  'remote',
   'undo',
   'redo',
   'load-migration',
@@ -129,34 +132,158 @@ const sharedDeliveryOrigins = new Set<SharedDelivery['origin']>([
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0
 
-const isSharedDelivery = (value: unknown): value is SharedDelivery =>
+const isStringArray = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every((item) => isNonBlankString(item))
+
+const hasExactOwnKeys = (
+  value: Record<string, unknown>,
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[] = []
+): boolean => {
+  const allowedKeys = new Set([...requiredKeys, ...optionalKeys])
+  const ownKeys = Object.keys(value)
+  return (
+    requiredKeys.every((key) =>
+      Object.prototype.hasOwnProperty.call(value, key)
+    ) && ownKeys.every((key) => allowedKeys.has(key))
+  )
+}
+
+const hasUniqueStrings = (values: readonly string[]): boolean =>
+  new Set(values).size === values.length
+
+const sameStrings = (
+  actual: readonly string[],
+  expected: readonly string[]
+): boolean =>
+  actual.length === expected.length &&
+  actual.every((value, index) => value === expected[index])
+
+const isSharedPublicationDelivery = (
+  value: unknown
+): value is SharedPublicationDelivery =>
   isRecord(value) &&
+  hasExactOwnKeys(
+    value,
+    ['deliveryId', 'eventName', 'orderedIds', 'payload'],
+    ['compensatesDeliveryId']
+  ) &&
   isNonBlankString(value.deliveryId) &&
-  isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  (value.kind === 'forward' || value.kind === 'compensation') &&
-  isNonBlankString(value.channel) &&
   isNonBlankString(value.eventName) &&
-  Object.prototype.hasOwnProperty.call(value, 'payload') &&
-  (value.sharedDelivery === 'transaction-end' ||
-    value.sharedDelivery === 'immediate') &&
-  (value.compensatesDeliveryId === undefined ||
-    isNonBlankString(value.compensatesDeliveryId))
+  isStringArray(value.orderedIds) &&
+  hasUniqueStrings(value.orderedIds) &&
+  isJsonTransportValue(value.payload) &&
+  (Object.prototype.hasOwnProperty.call(value, 'compensatesDeliveryId')
+    ? isNonBlankString(value.compensatesDeliveryId)
+    : true)
+
+const isSharedPublicationBatch = (
+  value: unknown
+): value is SharedPublicationBatch =>
+  isRecord(value) &&
+  hasExactOwnKeys(value, ['batchId', 'channel', 'deliveries']) &&
+  isNonBlankString(value.batchId) &&
+  isNonBlankString(value.channel) &&
+  Array.isArray(value.deliveries) &&
+  value.deliveries.length > 0 &&
+  value.deliveries.every(isSharedPublicationDelivery)
 
 export const isSharedPublication = (
   value: unknown
-): value is SharedPublication =>
-  isRecord(value) &&
-  isNonBlankString(value.publicationId) &&
-  isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  Array.isArray(value.deliveries) &&
-  value.deliveries.every(
-    (delivery) =>
-      isSharedDelivery(delivery) &&
-      delivery.transactionId === value.transactionId &&
-      delivery.origin === value.origin
-  )
+): value is SharedPublication => {
+  if (
+    !isRecord(value) ||
+    !hasExactOwnKeys(
+      value,
+      [
+        'publicationId',
+        'artifactId',
+        'transactionId',
+        'origin',
+        'mode',
+        'slices'
+      ],
+      ['compensatesPublicationId']
+    ) ||
+    !isNonBlankString(value.publicationId) ||
+    !isNonBlankString(value.artifactId) ||
+    !isPositiveInteger(value.transactionId) ||
+    !sharedPublicationOrigins.has(
+      value.origin as SharedPublication['origin']
+    ) ||
+    (value.mode !== 'atomic' && value.mode !== 'progressive') ||
+    !Array.isArray(value.slices) ||
+    value.slices.length === 0 ||
+    (value.mode === 'atomic' && value.slices.length !== 1) ||
+    (Object.prototype.hasOwnProperty.call(value, 'compensatesPublicationId') &&
+      !isNonBlankString(value.compensatesPublicationId))
+  ) {
+    return false
+  }
+
+  const isCompensation = value.origin === 'rollback-compensation'
+  if (
+    isCompensation !==
+    Object.prototype.hasOwnProperty.call(value, 'compensatesPublicationId')
+  ) {
+    return false
+  }
+
+  const sliceIds = new Set<string>()
+  const batchIds = new Set<string>()
+  const deliveryIds = new Set<string>()
+  for (const slice of value.slices) {
+    if (
+      !isRecord(slice) ||
+      !hasExactOwnKeys(slice, ['sliceId', 'orderedIds', 'batches']) ||
+      !isNonBlankString(slice.sliceId) ||
+      sliceIds.has(slice.sliceId) ||
+      !isStringArray(slice.orderedIds) ||
+      !hasUniqueStrings(slice.orderedIds) ||
+      !Array.isArray(slice.batches) ||
+      slice.batches.length === 0
+    ) {
+      return false
+    }
+    sliceIds.add(slice.sliceId)
+
+    const sliceDeliveryIds: string[] = []
+    const sliceOrderedIds: string[] = []
+    const seenSliceOrderedIds = new Set<string>()
+    for (const batch of slice.batches) {
+      if (!isSharedPublicationBatch(batch) || batchIds.has(batch.batchId)) {
+        return false
+      }
+      batchIds.add(batch.batchId)
+      for (const delivery of batch.deliveries) {
+        if (
+          deliveryIds.has(delivery.deliveryId) ||
+          isCompensation !==
+            Object.prototype.hasOwnProperty.call(
+              delivery,
+              'compensatesDeliveryId'
+            )
+        ) {
+          return false
+        }
+        deliveryIds.add(delivery.deliveryId)
+        sliceDeliveryIds.push(delivery.deliveryId)
+        delivery.orderedIds.forEach((orderedId) => {
+          if (seenSliceOrderedIds.has(orderedId)) return
+          seenSliceOrderedIds.add(orderedId)
+          sliceOrderedIds.push(orderedId)
+        })
+      }
+    }
+    if (
+      !sameStrings(slice.orderedIds, sliceDeliveryIds) &&
+      !sameStrings(slice.orderedIds, sliceOrderedIds)
+    ) {
+      return false
+    }
+  }
+  return deliveryIds.size > 0
+}
 
 const isJsonTransportValueInternal = (
   value: unknown,

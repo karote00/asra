@@ -4,14 +4,15 @@ import { MemoryHub, MemoryProvider } from '../providers/memory'
 import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const publication = createSharedPublicationFixture({
+  mode: 'progressive',
   publicationId: 'publication-a',
   transactionId: 1,
   delivery: {
     deliveryId: 'publication-a:delivery',
     channel: 'document',
     eventName: 'set-value',
-    payload: { value: 1 },
-    sharedDelivery: 'immediate'
+    orderedIds: ['document'],
+    payload: { value: 1 }
   }
 })
 

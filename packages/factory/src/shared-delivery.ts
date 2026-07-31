@@ -51,15 +51,37 @@ export interface SharedDeliveryBatch<TPayload = unknown> {
 
 export type SharedDeliveryBatchSubscriber = (batch: SharedDeliveryBatch) => void
 
+export type SharedPublicationOrigin =
+  | Exclude<TransactionOrigin, 'remote'>
+  | 'rollback-compensation'
+
+export interface SharedPublicationDelivery<TPayload = unknown> {
+  readonly deliveryId: string
+  readonly eventName: string
+  readonly orderedIds: readonly string[]
+  readonly payload: TPayload
+  readonly compensatesDeliveryId?: string
+}
+
+export interface SharedPublicationBatch<TPayload = unknown> {
+  readonly batchId: string
+  readonly channel: string
+  readonly deliveries: readonly SharedPublicationDelivery<TPayload>[]
+}
+
+export interface SharedPublicationSlice<TPayload = unknown> {
+  readonly sliceId: string
+  readonly orderedIds: readonly string[]
+  readonly batches: readonly SharedPublicationBatch<TPayload>[]
+}
+
 export interface SharedPublication {
   readonly publicationId: string
   readonly artifactId: string
   readonly transactionId: number
-  readonly origin: SharedDeliveryOrigin
-  readonly deliveries: readonly SharedDelivery[]
-  readonly batches: readonly SharedDeliveryBatch[]
-  readonly deliverySequence: FactoryMutationDeliverySequence
-  readonly compensationPublicationId?: string
+  readonly origin: SharedPublicationOrigin
+  readonly mode: FactoryMutationDeliveryMode
+  readonly slices: readonly SharedPublicationSlice[]
   readonly compensatesPublicationId?: string
 }
 

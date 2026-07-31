@@ -15,14 +15,15 @@ describe('collaboration clone profiling', () => {
     const sink = vi.fn()
     profilerGlobal.__asyraBrowserDragPhaseSink = sink
     const publication = createSharedPublicationFixture({
+      mode: 'progressive',
       publicationId: 'publication-a',
       transactionId: 1,
       delivery: {
         deliveryId: 'delivery-a',
         channel: 'sceneTree',
         eventName: 'addElement',
-        payload: { id: 'element-a' },
-        sharedDelivery: 'immediate'
+        orderedIds: ['element-a'],
+        payload: { id: 'element-a' }
       }
     })
 
@@ -30,7 +31,11 @@ describe('collaboration clone profiling', () => {
 
     expect(cloned).toEqual(publication)
     expect(cloned).not.toBe(publication)
-    expect(cloned.deliveries).not.toBe(publication.deliveries)
+    expect(cloned.slices).not.toBe(publication.slices)
+    expect(cloned.slices[0]?.batches).not.toBe(publication.slices[0]?.batches)
+    expect(cloned.slices[0]?.batches[0]?.deliveries[0]?.payload).not.toBe(
+      publication.slices[0]?.batches[0]?.deliveries[0]?.payload
+    )
     expect(sink).toHaveBeenCalledOnce()
     expect(sink).toHaveBeenCalledWith(
       'collaboration:clone-publication',

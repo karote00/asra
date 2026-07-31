@@ -4,7 +4,6 @@ import {
   type ProcessRemotePublication
 } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
-import { applyEventToSynchronousOwners } from '@asyra/reactive-events'
 import { idCounter } from '@asyra/utils'
 import core, { factory } from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
@@ -60,14 +59,11 @@ const start = async (
       connectionMetadata: { fileId: mode.fileId }
     }
   })
-  const applyRemotePublication = createAsyraDesignPublicationProcessor(
-    factory.runRemoteTransaction.bind(factory),
-    (event) => factory.applyRemoteEvent(event, applyEventToSynchronousOwners),
-    undefined,
-    core,
-    core.createElementsInParentFromCanonicalData.bind(core),
-    core.removeElementsFromCanonicalData.bind(core)
-  )
+  const applyRemotePublication = createAsyraDesignPublicationProcessor({
+    runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
+    decideRemotePublication: (publication) => publication,
+    applyCanonicalChanges: core.applyCanonicalChanges.bind(core)
+  })
   const processRemotePublication = createRemotePublicationHandler(
     applyRemotePublication
   )

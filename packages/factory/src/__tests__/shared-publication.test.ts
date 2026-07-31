@@ -17,7 +17,6 @@ import {
   TransactionRollbackError,
   type FactoryMutationBatchArtifact,
   type SharedDataChannel,
-  type SharedDelivery,
   type SharedDeliveryBatch,
   type SharedPublication
 } from '..'
@@ -80,7 +79,175 @@ const createHarness = () => {
   }
 }
 
+const publicationBatches = (publication: SharedPublication) =>
+  publication.slices.flatMap(({ batches }) => batches)
+
+const publicationDeliveries = (publication: SharedPublication) =>
+  publicationBatches(publication).flatMap(({ deliveries }) => deliveries)
+
 describe('Factory action-level shared publication', () => {
+  it('exposes one minimal ordered transport hierarchy with only actual rollback links', () => {
+    type TransportDelivery = {
+      readonly deliveryId: string
+      readonly eventName: string
+      readonly orderedIds: readonly string[]
+      readonly payload: unknown
+      readonly compensatesDeliveryId?: string
+    }
+    type TransportBatch = {
+      readonly batchId: string
+      readonly channel: string
+      readonly deliveries: readonly TransportDelivery[]
+    }
+    type TransportSlice = {
+      readonly sliceId: string
+      readonly orderedIds: readonly string[]
+      readonly batches: readonly TransportBatch[]
+    }
+    type TransportPublication = {
+      readonly publicationId: string
+      readonly artifactId: string
+      readonly transactionId: number
+      readonly origin: string
+      readonly mode: 'atomic' | 'progressive'
+      readonly slices: readonly TransportSlice[]
+      readonly compensatesPublicationId?: string
+    }
+    const asTransportPublication = (
+      publication: SharedPublication
+    ): TransportPublication => publication as unknown as TransportPublication
+    const exactOwnKeys = (
+      label: string,
+      value: object,
+      expected: readonly string[]
+    ) => {
+      expect(Object.keys(value).sort(), label).toEqual([...expected].sort())
+    }
+    const expectTransportShape = (
+      publication: TransportPublication,
+      kind: 'forward' | 'compensation',
+      publicationIndex: number
+    ) => {
+      const isCompensation = kind === 'compensation'
+      exactOwnKeys(
+        `${kind} publication ${publicationIndex} must expose only the transport contract and an actual correlation`,
+        publication,
+        [
+          'publicationId',
+          'artifactId',
+          'transactionId',
+          'origin',
+          'mode',
+          'slices',
+          ...(isCompensation ? ['compensatesPublicationId'] : [])
+        ]
+      )
+      publication.slices.forEach((slice, sliceIndex) => {
+        exactOwnKeys(
+          `${kind} slice ${publicationIndex}:${sliceIndex} must own its ordered channel batches`,
+          slice,
+          ['sliceId', 'orderedIds', 'batches']
+        )
+        slice.batches.forEach((batch, batchIndex) => {
+          exactOwnKeys(
+            `${kind} batch ${publicationIndex}:${sliceIndex}:${batchIndex} must expose no local aliases`,
+            batch,
+            ['batchId', 'channel', 'deliveries']
+          )
+          batch.deliveries.forEach((delivery, deliveryIndex) => {
+            exactOwnKeys(
+              `${kind} delivery ${publicationIndex}:${sliceIndex}:${batchIndex}:${deliveryIndex} must expose one remote-apply payload and only an actual correlation`,
+              delivery,
+              [
+                'deliveryId',
+                'eventName',
+                'orderedIds',
+                'payload',
+                ...(isCompensation ? ['compensatesDeliveryId'] : [])
+              ]
+            )
+          })
+        })
+      })
+    }
+
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent('element-a', 1, {}, { orderedIds: ['element-a'] }),
+      createUpdateEvent('element-b', 2, {}, { orderedIds: ['element-b'] })
+    ])
+    handle?.setDeliverySequence({
+      mode: 'progressive',
+      slices: [
+        { sliceId: 'slice-a', orderedIds: ['element-a'] },
+        { sliceId: 'slice-b', orderedIds: ['element-b'] }
+      ]
+    })
+    handle?.deliverSlice('slice-a')
+    handle?.deliverSlice('slice-b')
+
+    const forwardPublications = publications.slice().map(asTransportPublication)
+    expect(forwardPublications).toHaveLength(2)
+
+    factory.endTransaction({ outcome: 'rollback' })
+
+    const compensationPublications = publications
+      .slice(forwardPublications.length)
+      .map(asTransportPublication)
+    expect(compensationPublications).toHaveLength(2)
+
+    forwardPublications.forEach((publication, publicationIndex) =>
+      expectTransportShape(publication, 'forward', publicationIndex)
+    )
+
+    expect(
+      forwardPublications.flatMap(({ slices }) =>
+        slices.map(({ orderedIds }) => orderedIds)
+      )
+    ).toEqual([['element-a'], ['element-b']])
+    expect(
+      forwardPublications.flatMap(({ slices }) =>
+        slices.flatMap(({ batches }) =>
+          batches.flatMap(({ deliveries }) =>
+            deliveries.map(({ deliveryId }) => deliveryId)
+          )
+        )
+      )
+    ).toEqual(['1:0:forward', '1:1:forward'])
+
+    compensationPublications.forEach((publication, publicationIndex) =>
+      expectTransportShape(publication, 'compensation', publicationIndex)
+    )
+
+    expect(
+      compensationPublications.map(
+        ({ compensatesPublicationId }) => compensatesPublicationId
+      )
+    ).toEqual(
+      forwardPublications.map(({ publicationId }) => publicationId).reverse()
+    )
+    expect(
+      compensationPublications.flatMap(({ slices }) =>
+        slices.map(({ orderedIds }) => orderedIds)
+      )
+    ).toEqual([['element-b'], ['element-a']])
+    expect(
+      compensationPublications.flatMap(({ slices }) =>
+        slices.flatMap(({ batches }) =>
+          batches.flatMap(({ deliveries }) =>
+            deliveries.map(({ compensatesDeliveryId }) => compensatesDeliveryId)
+          )
+        )
+      )
+    ).toEqual(['1:1:forward', '1:0:forward'])
+  })
+
   it('emits detached settlement spans for channel delivery and publication', () => {
     const runtimeGlobal = globalThis as typeof globalThis & {
       __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
@@ -150,7 +317,7 @@ describe('Factory action-level shared publication', () => {
     factory.endTransaction()
 
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toEqual([
+    expect(publicationDeliveries(publications[0]!)).toEqual([
       expect.objectContaining({
         eventName: EventTypes.MOVE_ELEMENTS,
         payload: expect.objectContaining({
@@ -184,34 +351,31 @@ describe('Factory action-level shared publication', () => {
       publicationId: '1:publication:1',
       artifactId: '1:artifact',
       transactionId: 1,
-      origin: 'action',
-      deliveries: [
-        expect.objectContaining({
-          deliveryId: '1:0:forward',
-          payload: expect.objectContaining({ id: 'element-a', after: 1 })
-        }),
-        expect.objectContaining({
-          deliveryId: '1:1:forward',
-          payload: expect.objectContaining({ id: 'element-a', after: 2 })
-        }),
-        expect.objectContaining({
-          deliveryId: '1:2:forward',
-          payload: expect.objectContaining({ id: 'element-b', after: 3 })
-        })
-      ]
+      origin: 'action'
     })
-    expect(publications[0]?.batches).toHaveLength(3)
+    expect(publicationDeliveries(publications[0]!)).toEqual([
+      expect.objectContaining({
+        deliveryId: '1:0:forward',
+        payload: expect.objectContaining({ id: 'element-a', after: 1 })
+      }),
+      expect.objectContaining({
+        deliveryId: '1:1:forward',
+        payload: expect.objectContaining({ id: 'element-a', after: 2 })
+      }),
+      expect.objectContaining({
+        deliveryId: '1:2:forward',
+        payload: expect.objectContaining({ id: 'element-b', after: 3 })
+      })
+    ])
+    expect(publicationBatches(publications[0]!)).toHaveLength(3)
     expect(
-      publications[0]?.batches?.map((batch) =>
+      publicationBatches(publications[0]!).map((batch) =>
         batch.deliveries.map((delivery) => delivery.deliveryId)
       )
     ).toEqual([['1:0:forward'], ['1:1:forward'], ['1:2:forward']])
     expect(
-      publications[0]?.batches?.every(
-        (batch) =>
-          batch.artifactId === '1:artifact' &&
-          Object.isFrozen(batch) &&
-          Object.isFrozen(batch.deliveries)
+      publicationBatches(publications[0]!).every(
+        (batch) => Object.isFrozen(batch) && Object.isFrozen(batch.deliveries)
       )
     ).toBe(true)
 
@@ -366,16 +530,17 @@ describe('Factory action-level shared publication', () => {
         orderedIds: ['element-b']
       }
     ])
+    const transportDeliveries = publications.flatMap(publicationDeliveries)
+    const localRecords = artifacts[0]?.changes[0]?.shared?.records ?? []
     expect(
-      publications.flatMap(({ batches }) =>
-        batches.flatMap(({ records }) => records)
-      )
-    ).toEqual(artifacts[0]?.changes[0]?.shared?.records)
-    expect(
-      publications.flatMap(({ batches }) =>
-        batches.flatMap(({ records }) => records)
-      )[0]
-    ).toBe(artifacts[0]?.changes[0]?.shared?.records[0])
+      transportDeliveries.map(({ orderedIds, payload }) => ({
+        orderedIds,
+        payload
+      }))
+    ).toEqual(
+      localRecords.map(({ orderedIds, payload }) => ({ orderedIds, payload }))
+    )
+    expect(transportDeliveries[0]?.payload).toBe(localRecords[0]?.payload)
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
@@ -431,9 +596,7 @@ describe('Factory action-level shared publication', () => {
 
     factory.undo()
     expect(
-      publications.flatMap(({ deliveries }) =>
-        deliveries.map(({ payload }) => payload)
-      )
+      publications.flatMap(publicationDeliveries).map(({ payload }) => payload)
     ).toEqual([
       expect.objectContaining({ id: 'element-b', after: 0 }),
       expect.objectContaining({ id: 'element-a', after: 0 })
@@ -445,9 +608,7 @@ describe('Factory action-level shared publication', () => {
     publications.length = 0
     factory.redo()
     expect(
-      publications.flatMap(({ deliveries }) =>
-        deliveries.map(({ payload }) => payload)
-      )
+      publications.flatMap(publicationDeliveries).map(({ payload }) => payload)
     ).toEqual([
       expect.objectContaining({ id: 'element-a', after: 1 }),
       expect.objectContaining({ id: 'element-b', after: 2 })
@@ -866,33 +1027,21 @@ describe('Factory action-level shared publication', () => {
     ])
     const compensations = publications.slice(2)
     expect(
-      compensations.every(
-        (publication) => publication.deliverySequence.mode === 'progressive'
-      )
+      compensations.every((publication) => publication.mode === 'progressive')
     ).toBe(true)
     expect(
-      compensations.flatMap(({ deliverySequence }) =>
-        deliverySequence.slices.map(({ sliceId }) => sliceId)
-      )
-    ).toEqual(
-      compensations.flatMap(({ batches }) =>
-        batches.map(({ sliceId }) => sliceId)
-      )
-    )
-    expect(
-      compensations.flatMap(({ deliverySequence }) =>
-        deliverySequence.slices.map(({ orderedIds }) => orderedIds)
+      compensations.flatMap(({ slices }) =>
+        slices.map(({ orderedIds }) => orderedIds)
       )
     ).toEqual([['element-b'], ['element-a']])
     expect(
-      compensations.flatMap(({ batches }) =>
-        batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      compensations.map(
+        ({ compensatesPublicationId }) => compensatesPublicationId
       )
     ).toEqual(
       publications
         .slice(0, 2)
-        .flatMap(({ batches }) => batches)
-        .map(({ batchId }) => batchId)
+        .map(({ publicationId }) => publicationId)
         .reverse()
     )
     expect(
@@ -953,13 +1102,11 @@ describe('Factory action-level shared publication', () => {
     await Promise.resolve()
     factory.endTransaction()
 
-    expect(
-      publications.map(({ batches }) =>
-        batches.map(({ sharedDelivery }) => sharedDelivery)
-      )
-    ).toEqual([['transaction-end'], ['transaction-end'], ['immediate']])
     expect(artifacts).toHaveLength(1)
     expect(artifacts[0]?.changes).toHaveLength(3)
+    expect(
+      artifacts[0]?.batches.map(({ sharedDelivery }) => sharedDelivery)
+    ).toEqual(['transaction-end', 'transaction-end', 'immediate'])
     expect(artifacts[0]?.deliverySequence).toMatchObject({
       mode: 'progressive',
       slices: [
@@ -988,28 +1135,15 @@ describe('Factory action-level shared publication', () => {
       (factory.transact as unknown as { redoStack: unknown[] }).redoStack
     ).toHaveLength(1)
     expect(
-      publications.flatMap(({ batches }) =>
-        batches.map(({ deliveries, sharedDelivery }) => ({
-          elementIds: deliveries.map(
-            ({ payload }) => (payload as { id: string }).id
-          ),
-          sharedDelivery
-        }))
+      publications.flatMap((publication) =>
+        publicationBatches(publication).map(({ deliveries }) =>
+          deliveries.map(({ payload }) => (payload as { id: string }).id)
+        )
       )
-    ).toEqual([
-      {
-        elementIds: ['ordinary-immediate'],
-        sharedDelivery: 'immediate'
-      },
-      {
-        elementIds: ['composition-b'],
-        sharedDelivery: 'transaction-end'
-      },
-      {
-        elementIds: ['composition-a'],
-        sharedDelivery: 'transaction-end'
-      }
-    ])
+    ).toEqual([['ordinary-immediate'], ['composition-b'], ['composition-a']])
+    expect(
+      artifacts.at(-1)?.batches.map(({ sharedDelivery }) => sharedDelivery)
+    ).toEqual(['immediate', 'transaction-end', 'transaction-end'])
 
     publications.length = 0
     expect(() => factory.redo()).not.toThrow()
@@ -1017,32 +1151,19 @@ describe('Factory action-level shared publication', () => {
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
     expect(
-      publications.flatMap(({ batches }) =>
-        batches.map(({ deliveries, sharedDelivery }) => ({
-          elementIds: deliveries.map(
-            ({ payload }) => (payload as { id: string }).id
-          ),
-          sharedDelivery
-        }))
+      publications.flatMap((publication) =>
+        publicationBatches(publication).map(({ deliveries }) =>
+          deliveries.map(({ payload }) => (payload as { id: string }).id)
+        )
       )
-    ).toEqual([
-      {
-        elementIds: ['composition-a'],
-        sharedDelivery: 'transaction-end'
-      },
-      {
-        elementIds: ['composition-b'],
-        sharedDelivery: 'transaction-end'
-      },
-      {
-        elementIds: ['ordinary-immediate'],
-        sharedDelivery: 'immediate'
-      }
-    ])
+    ).toEqual([['composition-a'], ['composition-b'], ['ordinary-immediate']])
+    expect(
+      artifacts.at(-1)?.batches.map(({ sharedDelivery }) => sharedDelivery)
+    ).toEqual(['transaction-end', 'transaction-end', 'immediate'])
   })
 
   it('compensates mixed progressive slices and later immediate delivery in reverse publication order', async () => {
-    const { factory, publications } = createHarness()
+    const { factory, publications, deliveryBatches } = createHarness()
     const artifacts = vi.fn()
     factory.subscribeToMutationBatchArtifact(artifacts)
     factory.registerTransactionReplayHandler(
@@ -1079,9 +1200,8 @@ describe('Factory action-level shared publication', () => {
     })
     await Promise.resolve()
 
-    const forwardBatches = publications.flatMap(({ batches }) => batches)
     expect(
-      forwardBatches.map(({ deliveries, sharedDelivery }) => ({
+      deliveryBatches.map(({ deliveries, sharedDelivery }) => ({
         elementIds: deliveries.map(
           ({ payload }) => (payload as { id: string }).id
         ),
@@ -1113,13 +1233,18 @@ describe('Factory action-level shared publication', () => {
       )
     ).toBe(true)
     expect(
-      compensations.flatMap(({ batches }) =>
-        batches.map(({ compensatesBatchId }) => compensatesBatchId)
+      compensations.map(
+        ({ compensatesPublicationId }) => compensatesPublicationId
       )
-    ).toEqual(forwardBatches.map(({ batchId }) => batchId).reverse())
+    ).toEqual(
+      publications
+        .slice(0, forwardPublicationCount)
+        .map(({ publicationId }) => publicationId)
+        .reverse()
+    )
     expect(
-      compensations.flatMap(({ batches }) =>
-        batches.map(({ deliveries }) =>
+      compensations.flatMap((publication) =>
+        publicationBatches(publication).map(({ deliveries }) =>
           deliveries.map(({ payload }) => (payload as { id: string }).id)
         )
       )
@@ -1171,8 +1296,8 @@ describe('Factory action-level shared publication', () => {
     expect(() => factory.endTransaction()).not.toThrow()
 
     expect(
-      publications.flatMap(({ batches }) =>
-        batches.map(({ deliveries }) =>
+      publications.flatMap((publication) =>
+        publicationBatches(publication).map(({ deliveries }) =>
           deliveries.map(({ payload }) => (payload as { id: string }).id)
         )
       )
@@ -1221,27 +1346,16 @@ describe('Factory action-level shared publication', () => {
     factory.redo()
 
     expect(
-      publications.flatMap(({ batches }) =>
-        batches.map(({ deliveries, sharedDelivery }) => ({
-          elementIds: deliveries.map(
-            ({ payload }) => (payload as { id: string }).id
-          ),
-          sharedDelivery
-        }))
+      publications.flatMap((publication) =>
+        publicationBatches(publication).map(({ deliveries }) =>
+          deliveries.map(({ payload }) => (payload as { id: string }).id)
+        )
       )
-    ).toEqual([
-      {
-        elementIds: ['composition-a'],
-        sharedDelivery: 'transaction-end'
-      },
-      {
-        elementIds: ['composition-b'],
-        sharedDelivery: 'transaction-end'
-      },
-      {
-        elementIds: ['ordinary-immediate'],
-        sharedDelivery: 'immediate'
-      }
+    ).toEqual([['composition-a'], ['composition-b'], ['ordinary-immediate']])
+    expect(publications.map(({ mode }) => mode)).toEqual([
+      'progressive',
+      'progressive',
+      'progressive'
     ])
   })
 
@@ -1392,7 +1506,7 @@ describe('Factory action-level shared publication', () => {
     factory.endTransaction()
 
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(2)
+    expect(publicationDeliveries(publications[0]!)).toHaveLength(2)
     expect(publications[0]?.publicationId).toBe('1:publication:1')
   })
 
@@ -1465,16 +1579,16 @@ describe('Factory action-level shared publication', () => {
     expect(committedPublications[0]).toEqual(
       expect.objectContaining({
         publicationId: '1:publication:1',
-        origin: 'action',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({
-              id: 'unacknowledged-until-commit'
-            })
-          })
-        ]
+        origin: 'action'
       })
     )
+    expect(publicationDeliveries(committedPublications[0]!)).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          id: 'unacknowledged-until-commit'
+        })
+      })
+    ])
   })
 
   it('does not acknowledge an immediate publication when every subscriber rejects it', async () => {
@@ -1505,19 +1619,7 @@ describe('Factory action-level shared publication', () => {
     expect(rollbackPublications).toEqual([])
   })
 
-  it('compensates only acknowledged immediate batches with their predeclared identities and never resends them at commit', async () => {
-    type ForwardDeliveryWithCompensationIdentity = SharedDelivery & {
-      readonly compensationDeliveryIds?: readonly string[]
-    }
-    type ForwardBatchWithCompensationIdentity = SharedDeliveryBatch & {
-      readonly compensationBatchId?: string
-      readonly deliveries: readonly ForwardDeliveryWithCompensationIdentity[]
-    }
-    type ForwardPublicationWithCompensationIdentity = SharedPublication & {
-      readonly compensationPublicationId?: string
-      readonly batches: readonly ForwardBatchWithCompensationIdentity[]
-    }
-
+  it('keeps reserved compensation identities local and publishes only actual acknowledged correlations', async () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -1541,13 +1643,12 @@ describe('Factory action-level shared publication', () => {
     await Promise.resolve()
 
     expect(acknowledgedPublications).toHaveLength(1)
-    const forwardPublication =
-      acknowledgedPublications[0] as ForwardPublicationWithCompensationIdentity
-    const forwardBatch = forwardPublication.batches[0]
+    const forwardPublication = acknowledgedPublications[0]!
+    const forwardBatch = deliveredForwardBatches[0]
     const forwardDelivery = forwardBatch?.deliveries[0]
     expect
-      .soft(forwardPublication.compensationPublicationId)
-      .toEqual(expect.any(String))
+      .soft(Object.keys(forwardPublication))
+      .not.toContain('compensationPublicationId')
     expect.soft(forwardBatch?.compensationBatchId).toEqual(expect.any(String))
     expect
       .soft(forwardDelivery?.compensationDeliveryIds)
@@ -1571,21 +1672,27 @@ describe('Factory action-level shared publication', () => {
 
     expect.soft(rollbackPublications).toHaveLength(1)
     const compensationPublication = rollbackPublications[0]
-    const compensationBatch = compensationPublication?.batches[0]
+    const compensationBatch = compensationPublication
+      ? publicationBatches(compensationPublication)[0]
+      : undefined
     const compensationDelivery = compensationBatch?.deliveries[0]
     expect
       .soft(compensationPublication?.publicationId)
-      .toBe(forwardPublication.compensationPublicationId)
-    expect.soft(compensationPublication?.batches).toHaveLength(1)
+      .toBe(`${forwardPublication.publicationId}:compensation`)
+    expect
+      .soft(compensationPublication?.compensatesPublicationId)
+      .toBe(forwardPublication.publicationId)
+    expect
+      .soft(
+        compensationPublication
+          ? publicationBatches(compensationPublication)
+          : []
+      )
+      .toHaveLength(1)
     expect
       .soft(compensationBatch?.batchId)
       .toBe(forwardBatch?.compensationBatchId)
-    expect
-      .soft(compensationBatch?.compensatesBatchId)
-      .toBe(forwardBatch?.batchId)
-    expect
-      .soft(compensationBatch?.compensatesBatchId)
-      .not.toBe(unacknowledgedBatchId)
+    expect.soft(compensationBatch?.batchId).not.toBe(unacknowledgedBatchId)
     expect
       .soft(compensationDelivery?.deliveryId)
       .toBe(forwardDelivery?.compensationDeliveryIds?.[0])
@@ -1615,38 +1722,33 @@ describe('Factory action-level shared publication', () => {
     await Promise.resolve()
 
     expect(publications).toHaveLength(1)
-    const compensationPublicationId = publications[0]?.compensationPublicationId
+    const forwardPublicationId = publications[0]?.publicationId
     const forwardArtifactId = publications[0]?.artifactId
-    const forwardBatchIds =
-      publications[0]?.batches.map((batch) => batch.batchId) ?? []
+    const forwardBatchIds = publicationBatches(publications[0]!).map(
+      (batch) => batch.batchId
+    )
     factory.endTransaction({ outcome: 'rollback' })
 
     expect(publications).toHaveLength(2)
     expect(publications[1]).toMatchObject({
-      publicationId: compensationPublicationId,
+      publicationId: `${forwardPublicationId}:compensation`,
       artifactId: forwardArtifactId,
       transactionId: 1,
       origin: 'rollback-compensation',
-      deliveries: [
-        expect.objectContaining({
-          kind: 'compensation',
-          compensatesDeliveryId: '1:1:forward'
-        }),
-        expect.objectContaining({
-          kind: 'compensation',
-          compensatesDeliveryId: '1:0:forward'
-        })
-      ]
+      compensatesPublicationId: forwardPublicationId
     })
-    expect(publications[1]?.batches).toHaveLength(2)
+    expect(publicationDeliveries(publications[1]!)).toEqual([
+      expect.objectContaining({
+        compensatesDeliveryId: '1:1:forward'
+      }),
+      expect.objectContaining({
+        compensatesDeliveryId: '1:0:forward'
+      })
+    ])
+    expect(publicationBatches(publications[1]!)).toHaveLength(2)
     expect(
-      publications[1]?.batches?.every(
-        (batch) => batch.artifactId === forwardArtifactId
-      )
-    ).toBe(true)
-    expect(
-      publications[1]?.batches.map((batch) => batch.compensatesBatchId)
-    ).toEqual([...forwardBatchIds].reverse())
+      publicationBatches(publications[1]!).map((batch) => batch.batchId)
+    ).not.toEqual(forwardBatchIds)
   })
 
   it('compensates one atomic forward batch as one reversed batch with its own sequence', async () => {
@@ -1661,8 +1763,9 @@ describe('Factory action-level shared publication', () => {
 
     expect(projectedBatches).toHaveLength(1)
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.batches).toHaveLength(1)
-    const forwardBatch = publications[0]?.batches[0]
+    expect(publicationBatches(publications[0]!)).toHaveLength(1)
+    const forwardPublication = publications[0]!
+    const forwardBatch = publicationBatches(forwardPublication)[0]
 
     factory.endTransaction({ outcome: 'rollback' })
 
@@ -1676,21 +1779,20 @@ describe('Factory action-level shared publication', () => {
       ['element-b', 'element-a']
     ])
     expect(publications).toHaveLength(2)
-    expect(publications[1]?.batches).toHaveLength(1)
-    const compensationBatch = publications[1]?.batches[0]
-    expect(compensationBatch?.compensatesBatchId).toBe(forwardBatch?.batchId)
-    expect(compensationBatch?.sliceId).not.toBe(forwardBatch?.sliceId)
-    expect(publications[1]?.deliverySequence).toEqual({
+    expect(publicationBatches(publications[1]!)).toHaveLength(1)
+    const compensationBatch = publicationBatches(publications[1]!)[0]
+    expect(compensationBatch?.batchId).not.toBe(forwardBatch?.batchId)
+    expect(publications[1]).toMatchObject({
       mode: 'progressive',
-      slices: [
-        {
-          sliceId: compensationBatch?.sliceId,
-          orderedIds: compensationBatch?.deliveries.map(
-            ({ deliveryId }) => deliveryId
-          )
-        }
-      ]
+      compensatesPublicationId: forwardPublication.publicationId
     })
+    expect(publications[1]?.slices).toEqual([
+      expect.objectContaining({
+        orderedIds: compensationBatch?.deliveries.map(
+          ({ deliveryId }) => deliveryId
+        )
+      })
+    ])
   })
 
   it('schedules one immediate publication task for one element batch', () => {
@@ -1727,50 +1829,54 @@ describe('Factory action-level shared publication', () => {
 
     expect(publications).toEqual([
       expect.objectContaining({
-        origin: 'action',
-        deliveries: [expect.objectContaining({ deliveryId: '1:0:forward' })]
+        origin: 'action'
       }),
       expect.objectContaining({
-        origin: 'action',
-        deliveries: [expect.objectContaining({ deliveryId: '1:1:forward' })]
+        origin: 'action'
       })
+    ])
+    expect(publications.map(publicationDeliveries)).toEqual([
+      [expect.objectContaining({ deliveryId: '1:0:forward' })],
+      [expect.objectContaining({ deliveryId: '1:1:forward' })]
     ])
 
     factory.endTransaction({ outcome: 'rollback' })
 
     expect(publications).toHaveLength(4)
     expect(publications[2]).toMatchObject({
-      publicationId: publications[1]?.compensationPublicationId,
+      publicationId: `${publications[1]?.publicationId}:compensation`,
       transactionId: 1,
       origin: 'rollback-compensation',
-      deliveries: [
-        expect.objectContaining({
-          deliveryId: '1:1:compensation:0',
-          compensatesDeliveryId: '1:1:forward',
-          payload: expect.objectContaining({
-            id: 'element-b',
-            before: 2,
-            after: 1
-          })
-        })
-      ]
+      compensatesPublicationId: publications[1]?.publicationId
     })
+    expect(publicationDeliveries(publications[2]!)).toEqual([
+      expect.objectContaining({
+        deliveryId: '1:1:compensation:0',
+        compensatesDeliveryId: '1:1:forward',
+        payload: expect.objectContaining({
+          id: 'element-b',
+          before: 2,
+          after: 1
+        })
+      })
+    ])
     expect(publications[3]).toMatchObject({
-      publicationId: publications[0]?.compensationPublicationId,
+      publicationId: `${publications[0]?.publicationId}:compensation`,
       transactionId: 1,
       origin: 'rollback-compensation',
-      deliveries: [
-        expect.objectContaining({
-          deliveryId: '1:0:compensation:0',
-          compensatesDeliveryId: '1:0:forward',
-          payload: expect.objectContaining({
-            id: 'element-a',
-            before: 1,
-            after: 0
-          })
-        })
-      ]
+      compensatesPublicationId: publications[0]?.publicationId
     })
+    expect(publicationDeliveries(publications[3]!)).toEqual([
+      expect.objectContaining({
+        deliveryId: '1:0:compensation:0',
+        compensatesDeliveryId: '1:0:forward',
+        payload: expect.objectContaining({
+          id: 'element-a',
+          before: 1,
+          after: 0
+        })
+      })
+    ])
     expect(
       projected.map((change) => {
         const payload = change as { id: string; after: number }
@@ -1780,14 +1886,11 @@ describe('Factory action-level shared publication', () => {
     expect(
       publications
         .slice(2)
-        .flatMap(({ batches }) =>
-          batches.map((batch) => batch.compensatesBatchId)
-        )
+        .map(({ compensatesPublicationId }) => compensatesPublicationId)
     ).toEqual(
       publications
         .slice(0, 2)
-        .flatMap((publication) => publication.batches)
-        .map((batch) => batch.batchId)
+        .map(({ publicationId }) => publicationId)
         .reverse()
     )
     expect(
@@ -1837,7 +1940,7 @@ describe('Factory action-level shared publication', () => {
 
     expect(publications).toHaveLength(1)
     expect(
-      publications[0]?.deliveries.map(
+      publicationDeliveries(publications[0]!).map(
         ({ payload }) => (payload as { id: string }).id
       )
     ).toEqual(['element-a', 'element-b'])
@@ -1852,19 +1955,15 @@ describe('Factory action-level shared publication', () => {
     factory.undo()
 
     expect(publications).toHaveLength(1)
-    expect(publications[0]).toEqual(
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'undo' }))
+    expect(publicationDeliveries(publications[0]!)).toEqual([
       expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-b' })
-          }),
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-a' })
-          })
-        ]
+        payload: expect.objectContaining({ id: 'element-b' })
+      }),
+      expect.objectContaining({
+        payload: expect.objectContaining({ id: 'element-a' })
       })
-    )
+    ])
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(0)
@@ -1876,27 +1975,21 @@ describe('Factory action-level shared publication', () => {
     factory.redo()
 
     expect(publications).toHaveLength(1)
-    expect(publications[0]).toEqual(
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'redo' }))
+    expect(publicationDeliveries(publications[0]!)).toEqual([
       expect.objectContaining({
-        origin: 'redo',
-        deliveries: [
-          expect.objectContaining({
-            sharedDelivery: 'transaction-end',
-            payload: expect.objectContaining({
-              id: 'element-a',
-              after: 1
-            })
-          }),
-          expect.objectContaining({
-            sharedDelivery: 'transaction-end',
-            payload: expect.objectContaining({
-              id: 'element-b',
-              after: 2
-            })
-          })
-        ]
+        payload: expect.objectContaining({
+          id: 'element-a',
+          after: 1
+        })
+      }),
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          id: 'element-b',
+          after: 2
+        })
       })
-    )
+    ])
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
@@ -1977,36 +2070,35 @@ describe('Factory action-level shared publication', () => {
     factory.undo()
 
     expect(publications).toHaveLength(1)
-    expect(publications[0]).toEqual(
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'undo' }))
+    const undoBatches = publicationBatches(publications[0]!)
+    expect(undoBatches.map(({ channel }) => channel)).toEqual([
+      SharedDataChannelNames.PROPS,
+      SharedDataChannelNames.SCENE_TREE
+    ])
+    expect(undoBatches.flatMap(({ deliveries }) => deliveries)).toEqual([
       expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            channel: SharedDataChannelNames.PROPS,
-            eventName: EventTypes.ADD_PROPERTY,
-            payload: expect.objectContaining({
-              action: PROPS_ACTIONS.ADD_PROPERTY,
-              eventName: EventTypes.ADD_PROPERTY,
-              data: [
-                expect.objectContaining({
-                  id: 'position-b',
-                  x: 12,
-                  y: 24
-                })
-              ]
+        eventName: EventTypes.ADD_PROPERTY,
+        payload: expect.objectContaining({
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [
+            expect.objectContaining({
+              id: 'position-b',
+              x: 12,
+              y: 24
             })
-          }),
-          expect.objectContaining({
-            channel: SharedDataChannelNames.SCENE_TREE,
-            eventName: EventTypes.CHANGE_SUBTREE,
-            payload: expect.objectContaining({
-              action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
-              rootParentChildrenAfter: ['element-a', 'element-c']
-            })
-          })
-        ]
+          ]
+        })
+      }),
+      expect.objectContaining({
+        eventName: EventTypes.CHANGE_SUBTREE,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+          rootParentChildrenAfter: ['element-a', 'element-c']
+        })
       })
-    )
+    ])
   })
 
   it('replays progressive publications separately while consuming one undo or redo action', async () => {
@@ -2029,51 +2121,37 @@ describe('Factory action-level shared publication', () => {
     factory.undo()
 
     expect(publications).toHaveLength(2)
-    expect(publications[0]).toEqual(
-      expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-a', after: 1 })
-          })
-        ]
-      })
-    )
-    expect(publications[1]).toEqual(
-      expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-a', after: 0 })
-          })
-        ]
-      })
-    )
+    expect(publications.every(({ origin }) => origin === 'undo')).toBe(true)
+    expect(publications.map(publicationDeliveries)).toEqual([
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 1 })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 0 })
+        })
+      ]
+    ])
 
     publications.length = 0
     factory.redo()
 
     expect(publications).toHaveLength(2)
-    expect(publications[0]).toEqual(
-      expect.objectContaining({
-        origin: 'redo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-a', after: 1 })
-          })
-        ]
-      })
-    )
-    expect(publications[1]).toEqual(
-      expect.objectContaining({
-        origin: 'redo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({ id: 'element-a', after: 2 })
-          })
-        ]
-      })
-    )
+    expect(publications.every(({ origin }) => origin === 'redo')).toBe(true)
+    expect(publications.map(publicationDeliveries)).toEqual([
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 1 })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 2 })
+        })
+      ]
+    ])
   })
 
   it('preserves replay order when undo crosses transaction-end and immediate deliveries', async () => {
@@ -2095,22 +2173,18 @@ describe('Factory action-level shared publication', () => {
     factory.undo()
 
     expect(
-      publications.flatMap(({ deliveries }) =>
-        deliveries.map(
-          ({ payload }) => (payload as { id?: unknown }).id as string
-        )
-      )
+      publications
+        .flatMap(publicationDeliveries)
+        .map(({ payload }) => (payload as { id?: unknown }).id as string)
     ).toEqual(['transaction-end-second', 'immediate-first'])
 
     publications.length = 0
     factory.redo()
 
     expect(
-      publications.flatMap(({ deliveries }) =>
-        deliveries.map(
-          ({ payload }) => (payload as { id?: unknown }).id as string
-        )
-      )
+      publications
+        .flatMap(publicationDeliveries)
+        .map(({ payload }) => (payload as { id?: unknown }).id as string)
     ).toEqual(['immediate-first', 'transaction-end-second'])
   })
 
@@ -2136,28 +2210,24 @@ describe('Factory action-level shared publication', () => {
 
     expect(() => factory.undo()).toThrow('Transaction rollback failed')
     expect(publications).toHaveLength(2)
-    expect(publications[0]).toEqual(
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'undo' }))
+    expect(publicationDeliveries(publications[0]!)).toEqual([
       expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            kind: 'forward',
-            payload: expect.objectContaining({ after: 1 })
-          })
-        ]
+        payload: expect.objectContaining({ after: 1 })
       })
-    )
+    ])
     expect(publications[1]).toEqual(
       expect.objectContaining({
         origin: 'rollback-compensation',
-        deliveries: [
-          expect.objectContaining({
-            kind: 'compensation',
-            payload: expect.objectContaining({ after: 2 })
-          })
-        ]
+        compensatesPublicationId: publications[0]?.publicationId
       })
     )
+    expect(publicationDeliveries(publications[1]!)).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({ after: 2 }),
+        compensatesDeliveryId: expect.any(String)
+      })
+    ])
 
     failSecondReplay = false
     replayCount = 0
@@ -2199,7 +2269,7 @@ describe('Factory action-level shared publication', () => {
     )
     const laterPublications: SharedPublication[] = []
     factory.subscribeToSharedPublication((publication) => {
-      const payload = publication.deliveries[0]?.payload as {
+      const payload = publicationDeliveries(publication)[0]?.payload as {
         after: { value: number }
       }
       payload.after.value = 99
@@ -2222,16 +2292,14 @@ describe('Factory action-level shared publication', () => {
     factory.endTransaction()
 
     expect(laterPublications).toEqual([
+      expect.objectContaining({ origin: 'action' })
+    ])
+    expect(publicationDeliveries(laterPublications[0]!)).toEqual([
       expect.objectContaining({
-        origin: 'action',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({
-              before: { value: 0 },
-              after: { value: 1 }
-            })
-          })
-        ]
+        payload: expect.objectContaining({
+          before: { value: 0 },
+          after: { value: 1 }
+        })
       })
     ])
 
@@ -2239,16 +2307,14 @@ describe('Factory action-level shared publication', () => {
     factory.undo()
 
     expect(laterPublications).toEqual([
+      expect.objectContaining({ origin: 'undo' })
+    ])
+    expect(publicationDeliveries(laterPublications[0]!)).toEqual([
       expect.objectContaining({
-        origin: 'undo',
-        deliveries: [
-          expect.objectContaining({
-            payload: expect.objectContaining({
-              before: { value: 1 },
-              after: { value: 0 }
-            })
-          })
-        ]
+        payload: expect.objectContaining({
+          before: { value: 1 },
+          after: { value: 0 }
+        })
       })
     ])
   })
@@ -2303,9 +2369,7 @@ describe('Factory action-level shared publication', () => {
 
     expect(publications).toHaveLength(2)
     expect(
-      publications.flatMap(({ deliveries }) =>
-        deliveries.map(({ payload }) => payload)
-      )
+      publications.flatMap(publicationDeliveries).map(({ payload }) => payload)
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'element-outer', after: 1 }),

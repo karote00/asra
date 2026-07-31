@@ -8,30 +8,22 @@ import {
   DisposalError,
   createCollaboration,
   type CreateCollaborationInput,
-  type InboundPublication,
-  type InboundPublicationLease,
   type Provider
 } from '..'
-import { deepFreeze } from '../deep-freeze'
 import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const publication: SharedPublication = createSharedPublicationFixture({
+  mode: 'progressive',
   publicationId: 'publication-a',
   transactionId: 1,
   delivery: {
     deliveryId: 'delivery-a',
     channel: 'document',
     eventName: 'set-value',
-    payload: { value: 1 },
-    sharedDelivery: 'immediate'
+    orderedIds: ['document'],
+    payload: { value: 1 }
   }
 })
-
-const publicationDelivery = (): SharedPublication['deliveries'][number] => {
-  const delivery = publication.deliveries[0]
-  if (!delivery) throw new Error('Fixture publication delivery is unavailable')
-  return delivery
-}
 
 const createProvider = (overrides: Partial<Provider> = {}): Provider => ({
   identity: {
@@ -43,7 +35,7 @@ const createProvider = (overrides: Partial<Provider> = {}): Provider => ({
   disconnect: vi.fn(),
   reconnect: vi.fn(),
   destroy: vi.fn(),
-  getStatus: vi.fn((): ReturnType<Provider['getStatus']> => 'idle'),
+  getStatus: vi.fn((): ReturnType<Provider['getStatus']> => 'connected'),
   onStatusChange: vi.fn(() => () => undefined),
   sendPublication: vi.fn(),
   onPublication: vi.fn(() => () => undefined),
@@ -89,10 +81,19 @@ describe('Collaboration ownership, processing, and disposal', () => {
     expect(provider.onPublication).not.toHaveBeenCalled()
   })
 
-  it('hands one ordered source burst to a batch-capable Provider once', async () => {
+  it('sends every Factory publication exactly once and preserves outbound FIFO until each send settles', async () => {
     let subscriber: SharedPublicationSubscriber | undefined
-    const sendPublications = vi.fn()
-    const provider = Object.assign(createProvider(), { sendPublications })
+    let settleFirst: (() => void) | undefined
+    const firstSend = new Promise<void>((resolve) => {
+      settleFirst = resolve
+    })
+    const sendPublication = vi.fn<Provider['sendPublication']>(
+      (nextPublication) =>
+        nextPublication.publicationId === 'publication-a'
+          ? firstSend
+          : Promise.resolve()
+    )
+    const provider = createProvider({ sendPublication })
     const instance = createCollaboration(
       input({
         provider,
@@ -108,27 +109,37 @@ describe('Collaboration ownership, processing, and disposal', () => {
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
     await instance.start()
     const secondPublication = createSharedPublicationFixture({
+      mode: 'progressive',
       publicationId: 'publication-b',
       transactionId: 2,
       delivery: {
         deliveryId: 'delivery-b',
         channel: 'document',
         eventName: 'set-value',
-        payload: { value: 2 },
-        sharedDelivery: 'immediate'
+        orderedIds: ['document'],
+        payload: { value: 2 }
       }
     })
 
     subscriber?.(publication)
     subscriber?.(secondPublication)
+    await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledOnce())
+
+    expect(sendPublication.mock.calls[0]?.[0].publicationId).toBe(
+      'publication-a'
+    )
+    expect(sendPublication.mock.calls[0]?.[0]).toBe(publication)
+    await Promise.resolve()
+    expect(sendPublication).toHaveBeenCalledTimes(1)
+    expect(outcomes).toEqual([])
+
+    settleFirst?.()
     await instance.whenIdle()
 
-    expect(sendPublications).toHaveBeenCalledOnce()
-    expect(sendPublications).toHaveBeenCalledWith([
-      publication,
-      secondPublication
-    ])
-    expect(provider.sendPublication).not.toHaveBeenCalled()
+    expect(
+      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
+    ).toEqual(['publication-a', 'publication-b'])
+    expect(sendPublication.mock.calls[1]?.[0]).toBe(secondPublication)
     expect(outcomes).toEqual([
       {
         direction: 'local',
@@ -143,66 +154,17 @@ describe('Collaboration ownership, processing, and disposal', () => {
     ])
   })
 
-  it('reports a detached batch failure without wedging the idle boundary', async () => {
+  it('skips disconnected Factory publications without sending or replaying them after reconnect', async () => {
     let subscriber: SharedPublicationSubscriber | undefined
-    const sendPublications = vi.fn()
-    const provider = Object.assign(createProvider(), { sendPublications })
-    const instance = createCollaboration(
-      input({
-        provider,
-        factory: {
-          subscribeToSharedPublication: vi.fn((next) => {
-            subscriber = next
-            return () => undefined
-          })
-        }
+    let status: ReturnType<Provider['getStatus']> = 'connected'
+    const provider = createProvider({
+      getStatus: vi.fn(() => status),
+      disconnect: vi.fn(async () => {
+        status = 'disconnected'
+      }),
+      reconnect: vi.fn(async () => {
+        status = 'connected'
       })
-    )
-    const outcomes: unknown[] = []
-    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
-    await instance.start()
-    const invalidPublication: SharedPublication = {
-      ...publication,
-      deliveries: [
-        {
-          ...publicationDelivery(),
-          payload: { invalid: () => undefined }
-        }
-      ]
-    }
-
-    subscriber?.(invalidPublication)
-    const idleOutcome = await Promise.race([
-      instance.whenIdle().then(() => 'idle'),
-      new Promise<'timeout'>((resolve) =>
-        setTimeout(() => resolve('timeout'), 100)
-      )
-    ])
-
-    expect(idleOutcome).toBe('idle')
-    expect(sendPublications).not.toHaveBeenCalled()
-    expect(outcomes).toEqual([
-      expect.objectContaining({
-        direction: 'local',
-        status: 'send-failed',
-        publicationId: invalidPublication.publicationId,
-        error: expect.any(Error)
-      })
-    ])
-  })
-
-  it('keeps a declared send window full while reporting reversed acknowledgements in source order', async () => {
-    let subscriber: SharedPublicationSubscriber | undefined
-    const acknowledgements: (() => void)[] = []
-    const sendPublications = vi.fn<NonNullable<Provider['sendPublications']>>(
-      (_publications) =>
-        new Promise<void>((resolve) => {
-          acknowledgements.push(resolve)
-        })
-    )
-    const provider = Object.assign(createProvider(), {
-      maxConcurrentPublicationSends: 100,
-      sendPublications
     })
     const instance = createCollaboration(
       input({
@@ -218,80 +180,39 @@ describe('Collaboration ownership, processing, and disposal', () => {
     const outcomes: unknown[] = []
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
     await instance.start()
-    const publications = Array.from({ length: 68 }, (_, index) => ({
-      ...publication,
-      publicationId: `publication-${index + 1}`,
-      transactionId: index + 1
-    }))
+    await instance.disconnect()
 
-    publications.forEach((next) => subscriber?.(next))
-    await vi.waitFor(() => expect(sendPublications).toHaveBeenCalledTimes(16))
-
-    expect(
-      sendPublications.mock.calls.map(([batch]) =>
-        batch.map(({ publicationId }: SharedPublication) => publicationId)
-      )
-    ).toEqual(
-      Array.from({ length: 16 }, (_, batchIndex) =>
-        Array.from(
-          { length: 4 },
-          (_value, offset) => `publication-${batchIndex * 4 + offset + 1}`
-        )
-      )
-    )
-    expect(provider.sendPublication).not.toHaveBeenCalled()
-    ;[...acknowledgements].reverse().forEach((acknowledge) => acknowledge())
-    await vi.waitFor(() => expect(sendPublications).toHaveBeenCalledTimes(17))
-    expect(outcomes).toEqual(
-      publications.slice(0, 64).map(({ publicationId }) => ({
-        direction: 'local',
-        status: 'sent',
-        publicationId
-      }))
-    )
-
-    acknowledgements[16]?.()
+    subscriber?.(publication)
     await instance.whenIdle()
 
-    expect(
-      sendPublications.mock.calls[16]?.[0].map(
-        ({ publicationId }: SharedPublication) => publicationId
-      )
-    ).toEqual([
-      'publication-65',
-      'publication-66',
-      'publication-67',
-      'publication-68'
-    ])
-    expect(outcomes).toEqual(
-      publications.map(({ publicationId }) => ({
+    expect(provider.sendPublication).not.toHaveBeenCalled()
+    expect(outcomes).toEqual([
+      {
         direction: 'local',
-        status: 'sent',
-        publicationId
-      }))
-    )
+        status: 'skipped',
+        publicationId: 'publication-a'
+      }
+    ])
+
+    await instance.reconnect()
+    await instance.whenIdle()
+
+    expect(provider.sendPublication).not.toHaveBeenCalled()
   })
 
-  it('honors a Provider single-publication request boundary without serializing the send window', async () => {
+  it('does not replay an accepted FIFO entry whose connection ended before Provider handoff', async () => {
     let subscriber: SharedPublicationSubscriber | undefined
-    const acknowledgements: (() => void)[] = []
+    let settleFirst: (() => void) | undefined
+    const firstSend = new Promise<void>((resolve) => {
+      settleFirst = resolve
+    })
     const sendPublication = vi.fn<Provider['sendPublication']>(
-      (_publication) =>
-        new Promise<void>((resolve) => {
-          acknowledgements.push(resolve)
-        })
+      (nextPublication) =>
+        nextPublication.publicationId === 'publication-a'
+          ? firstSend
+          : Promise.resolve()
     )
-    const sendPublications = vi.fn<NonNullable<Provider['sendPublications']>>()
-    const provider = Object.assign(
-      createProvider({
-        sendPublication
-      }),
-      {
-        maxConcurrentPublicationSends: 5,
-        maxPublicationsPerSend: 1,
-        sendPublications
-      }
-    )
+    const provider = createProvider({ sendPublication })
     const instance = createCollaboration(
       input({
         provider,
@@ -305,46 +226,6 @@ describe('Collaboration ownership, processing, and disposal', () => {
     )
     const outcomes: unknown[] = []
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
-    await instance.start()
-    const publications = Array.from({ length: 5 }, (_, index) => ({
-      ...publication,
-      publicationId: `publication-${index + 1}`,
-      transactionId: index + 1
-    }))
-
-    publications.forEach((next) => subscriber?.(next))
-    await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledTimes(5))
-
-    expect(
-      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
-    ).toEqual(publications.map(({ publicationId }) => publicationId))
-    expect(sendPublications).not.toHaveBeenCalled()
-    ;[...acknowledgements].reverse().forEach((acknowledge) => acknowledge())
-    await instance.whenIdle()
-
-    expect(outcomes).toEqual(
-      publications.map(({ publicationId }) => ({
-        direction: 'local',
-        status: 'sent',
-        publicationId
-      }))
-    )
-  })
-
-  it('preserves ordered single sends for a Provider without batch capability', async () => {
-    let subscriber: SharedPublicationSubscriber | undefined
-    const provider = createProvider()
-    const instance = createCollaboration(
-      input({
-        provider,
-        factory: {
-          subscribeToSharedPublication: vi.fn((next) => {
-            subscriber = next
-            return () => undefined
-          })
-        }
-      })
-    )
     await instance.start()
     const secondPublication: SharedPublication = {
       ...publication,
@@ -353,213 +234,34 @@ describe('Collaboration ownership, processing, and disposal', () => {
 
     subscriber?.(publication)
     subscriber?.(secondPublication)
-    await instance.whenIdle()
+    await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledOnce())
 
-    expect(provider.sendPublication).toHaveBeenCalledTimes(2)
-    expect(
-      vi
-        .mocked(provider.sendPublication)
-        .mock.calls.map(([sent]) => sent.publicationId)
-    ).toEqual(['publication-a', 'publication-b'])
-  })
-
-  it('applies a Provider batch through separate ordered app callbacks', async () => {
-    let batchSubscriber:
-      | ((publications: readonly InboundPublication[]) => void)
-      | undefined
-    const provider = Object.assign(createProvider(), {
-      onPublications: vi.fn(
-        (next: (publications: readonly InboundPublication[]) => void) => {
-          batchSubscriber = next
-          return () => undefined
-        }
-      )
-    })
-    const processRemotePublication = vi.fn()
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    await instance.start()
-    const secondPublication: SharedPublication = {
-      ...publication,
-      publicationId: 'publication-b'
-    }
-
-    batchSubscriber?.([
-      { publication, fromActorId: 'actor-b' },
-      { publication: secondPublication, fromActorId: 'actor-b' }
-    ])
+    await instance.disconnect()
+    await instance.reconnect()
+    settleFirst?.()
     await instance.whenIdle()
 
     expect(
-      processRemotePublication.mock.calls.map(
-        ([received]) => received.publicationId
-      )
-    ).toEqual(['publication-a', 'publication-b'])
-    expect(provider.onPublication).not.toHaveBeenCalled()
-  })
-
-  it('treats onPublications as the complete inbound feed for a singleton', async () => {
-    let batchSubscriber:
-      | ((publications: readonly InboundPublication[]) => void)
-      | undefined
-    const provider = Object.assign(createProvider(), {
-      onPublications: vi.fn(
-        (next: (publications: readonly InboundPublication[]) => void) => {
-          batchSubscriber = next
-          return () => undefined
-        }
-      )
-    })
-    const processRemotePublication = vi.fn()
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    await instance.start()
-
-    batchSubscriber?.([{ publication, fromActorId: 'actor-b' }])
-    await instance.whenIdle()
-
-    expect(processRemotePublication).toHaveBeenCalledOnce()
-    expect(processRemotePublication).toHaveBeenCalledWith(publication, {
-      fromActorId: 'actor-b'
-    })
-    expect(provider.onPublication).not.toHaveBeenCalled()
-  })
-
-  it('delivers one detached inbound publication to the app once', async () => {
-    let subscriber: ((inbound: InboundPublication) => void) | undefined
-    const provider = createProvider({
-      onPublication: vi.fn((next) => {
-        subscriber = next
-        return () => undefined
-      })
-    })
-    const processRemotePublication = vi.fn()
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    await instance.start()
-
-    subscriber?.({ publication, fromActorId: 'actor-b' })
-    await instance.whenIdle()
-
-    expect(processRemotePublication).toHaveBeenCalledOnce()
-    expect(processRemotePublication).toHaveBeenCalledWith(publication, {
-      fromActorId: 'actor-b'
-    })
-
-    const received = processRemotePublication.mock.calls[0]?.[0]
-    expect(received).not.toBe(publication)
-    expect(received.deliveries).not.toBe(publication.deliveries)
-  })
-
-  it('reuses one immutable inbound lease and settles only after async app success', async () => {
-    let leaseSubscriber: ((lease: InboundPublicationLease) => void) | undefined
-    let releaseApply: (() => void) | undefined
-    const applySettled = new Promise<void>((resolve) => {
-      releaseApply = resolve
-    })
-    const settle = vi.fn()
-    const immutablePublication = deepFreeze(structuredClone(publication))
-    const provider = createProvider({
-      onInboundPublicationLease: vi.fn((next) => {
-        leaseSubscriber = next
-        return () => undefined
-      })
-    })
-    const processRemotePublication = vi.fn(async () => {
-      await applySettled
-    })
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    const clonePhases: string[] = []
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (phaseName: string) => void
-      }
-    ).__asyraBrowserDragPhaseSink = (phaseName) => clonePhases.push(phaseName)
-    await instance.start()
-
-    leaseSubscriber?.({
-      publication: immutablePublication,
-      fromActorId: 'actor-b',
-      settle
-    })
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(processRemotePublication).toHaveBeenCalledOnce()
-    expect(processRemotePublication).toHaveBeenCalledWith(
-      immutablePublication,
-      { fromActorId: 'actor-b' }
-    )
-    expect(settle).not.toHaveBeenCalled()
-    expect(clonePhases).not.toContain(
-      'collaboration:clone-inbound-publications'
-    )
-    expect(provider.onPublication).not.toHaveBeenCalled()
-
-    releaseApply?.()
-    await instance.whenIdle()
-
-    expect(settle).toHaveBeenCalledOnce()
-    expect(settle).toHaveBeenCalledWith({ outcome: 'success' })
-    delete (
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: unknown
-      }
-    ).__asyraBrowserDragPhaseSink
-  })
-
-  it('settles one failed inbound lease terminally without retrying it', async () => {
-    let leaseSubscriber: ((lease: InboundPublicationLease) => void) | undefined
-    const failure = new Error('leased app rejection')
-    const settle = vi.fn()
-    const immutablePublication = deepFreeze(structuredClone(publication))
-    const provider = createProvider({
-      onInboundPublicationLease: vi.fn((next) => {
-        leaseSubscriber = next
-        return () => undefined
-      })
-    })
-    const processRemotePublication = vi.fn(async () => {
-      throw failure
-    })
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    const outcomes: unknown[] = []
-    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
-    await instance.start()
-
-    leaseSubscriber?.({
-      publication: immutablePublication,
-      fromActorId: 'actor-b',
-      settle
-    })
-    await instance.whenIdle()
-
-    expect(processRemotePublication).toHaveBeenCalledOnce()
-    expect(settle).toHaveBeenCalledOnce()
-    expect(settle).toHaveBeenCalledWith({
-      outcome: 'terminal-failure',
-      error: failure
-    })
+      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
+    ).toEqual(['publication-a'])
     expect(outcomes).toEqual([
       {
-        direction: 'remote',
-        status: 'process-failed',
-        publicationId: 'publication-a',
-        fromActorId: 'actor-b',
-        error: failure
+        direction: 'local',
+        status: 'sent',
+        publicationId: 'publication-a'
+      },
+      {
+        direction: 'local',
+        status: 'skipped',
+        publicationId: 'publication-b'
       }
     ])
   })
 
-  it('awaits an async app callback before reporting success or advancing FIFO', async () => {
-    let subscriber: ((inbound: InboundPublication) => void) | undefined
+  it('binds one async onPublication callback that remains pending until app apply completes', async () => {
+    let subscriber:
+      | ((publication: SharedPublication) => Promise<void>)
+      | undefined
     let releaseFirst: (() => void) | undefined
     const firstSettled = new Promise<void>((resolve) => {
       releaseFirst = resolve
@@ -571,7 +273,9 @@ describe('Collaboration ownership, processing, and disposal', () => {
     const timeline: string[] = []
     const provider = createProvider({
       onPublication: vi.fn((next) => {
-        subscriber = next
+        subscriber = next as unknown as (
+          publication: SharedPublication
+        ) => Promise<void>
         return () => undefined
       })
     })
@@ -591,16 +295,27 @@ describe('Collaboration ownership, processing, and disposal', () => {
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
     await instance.start()
 
-    subscriber?.({ publication, fromActorId: 'actor-b' })
-    subscriber?.({ publication: secondPublication, fromActorId: 'actor-b' })
+    expect(provider.onPublication).toHaveBeenCalledOnce()
+    const firstCompletion = subscriber?.(publication)
+    let firstCallbackSettled = false
+    void Promise.resolve(firstCompletion).then(() => {
+      firstCallbackSettled = true
+    })
     await Promise.resolve()
     await Promise.resolve()
 
+    expect(firstCompletion).toBeInstanceOf(Promise)
     expect(timeline).toEqual(['start:publication-a'])
+    expect(processRemotePublication.mock.calls[0]?.[0]).toBe(publication)
     expect(outcomes).toEqual([])
+    expect(firstCallbackSettled).toBe(false)
 
     releaseFirst?.()
-    await instance.whenIdle()
+    await firstCompletion
+
+    const secondCompletion = subscriber?.(secondPublication)
+    expect(secondCompletion).toBeInstanceOf(Promise)
+    await secondCompletion
 
     expect(timeline).toEqual([
       'start:publication-a',
@@ -612,24 +327,26 @@ describe('Collaboration ownership, processing, and disposal', () => {
       {
         direction: 'remote',
         status: 'processed',
-        publicationId: 'publication-a',
-        fromActorId: 'actor-b'
+        publicationId: 'publication-a'
       },
       {
         direction: 'remote',
         status: 'processed',
-        publicationId: 'publication-b',
-        fromActorId: 'actor-b'
+        publicationId: 'publication-b'
       }
     ])
   })
 
-  it('reports an asynchronously rejected app callback as failed', async () => {
-    let subscriber: ((inbound: InboundPublication) => void) | undefined
+  it('rejects a failed async onPublication callback without retrying app apply', async () => {
+    let subscriber:
+      | ((publication: SharedPublication) => Promise<void>)
+      | undefined
     const failure = new Error('async app rejection')
     const provider = createProvider({
       onPublication: vi.fn((next) => {
-        subscriber = next
+        subscriber = next as unknown as (
+          publication: SharedPublication
+        ) => Promise<void>
         return () => undefined
       })
     })
@@ -643,40 +360,9 @@ describe('Collaboration ownership, processing, and disposal', () => {
     instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
     await instance.start()
 
-    subscriber?.({ publication, fromActorId: 'actor-b' })
-    await instance.whenIdle()
-
-    expect(outcomes).toEqual([
-      {
-        direction: 'remote',
-        status: 'process-failed',
-        publicationId: 'publication-a',
-        fromActorId: 'actor-b',
-        error: failure
-      }
-    ])
-  })
-
-  it('reports app callback failure without retry or semantic handling', async () => {
-    let subscriber: ((inbound: InboundPublication) => void) | undefined
-    const failure = new Error('app rejected publication')
-    const provider = createProvider({
-      onPublication: vi.fn((next) => {
-        subscriber = next
-        return () => undefined
-      })
-    })
-    const processRemotePublication = vi.fn(() => {
-      throw failure
-    })
-    const instance = createCollaboration(
-      input({ provider, processRemotePublication })
-    )
-    const outcomes: unknown[] = []
-    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
-    await instance.start()
-
-    subscriber?.({ publication, fromActorId: 'actor-b' })
+    const completion = subscriber?.(publication)
+    expect(completion).toBeInstanceOf(Promise)
+    await expect(completion).rejects.toBe(failure)
     await instance.whenIdle()
 
     expect(processRemotePublication).toHaveBeenCalledOnce()
@@ -685,7 +371,43 @@ describe('Collaboration ownership, processing, and disposal', () => {
         direction: 'remote',
         status: 'process-failed',
         publicationId: 'publication-a',
-        fromActorId: 'actor-b',
+        error: failure
+      }
+    ])
+  })
+
+  it('reports one active Provider rejection without retrying or fabricating a sent outcome', async () => {
+    let subscriber: SharedPublicationSubscriber | undefined
+    const failure = new Error('transport permanently rejected publication')
+    const sendPublication = vi.fn<Provider['sendPublication']>(() =>
+      Promise.reject(failure)
+    )
+    const provider = createProvider({ sendPublication })
+    const instance = createCollaboration(
+      input({
+        provider,
+        factory: {
+          subscribeToSharedPublication: vi.fn((next) => {
+            subscriber = next
+            return () => undefined
+          })
+        }
+      })
+    )
+    const outcomes: unknown[] = []
+    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
+    await instance.start()
+
+    subscriber?.(publication)
+    await instance.whenIdle()
+
+    expect(sendPublication).toHaveBeenCalledOnce()
+    expect(sendPublication).toHaveBeenCalledWith(publication)
+    expect(outcomes).toEqual([
+      {
+        direction: 'local',
+        status: 'send-failed',
+        publicationId: 'publication-a',
         error: failure
       }
     ])

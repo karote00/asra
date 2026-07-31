@@ -72,61 +72,38 @@ const createPublication = ({
   const artifactId = `${transactionId}:artifact`
   const batchId = `${transactionId}:batch:${suffix}`
   const deliveryId = `${transactionId}:delivery:${suffix}`
-  const recordId = `${transactionId}:record:${suffix}`
   const sliceId = `${transactionId}:slice:${suffix}`
-  const record = {
-    recordId,
-    deliveryId,
-    occurrence: 0,
-    orderedIds: [`element-${suffix}`],
-    payload,
-    inverseEvents: []
-  }
   const delivery = {
     deliveryId,
-    artifactId,
-    batchId,
-    transactionId,
-    origin,
-    kind: 'forward' as const,
-    channel,
     eventName,
-    payload,
-    recordId,
-    record,
-    sharedDelivery: 'immediate' as const
+    orderedIds: [`element-${suffix}`],
+    payload
   }
   return {
     publicationId: `publication-${suffix}`,
     artifactId,
     transactionId,
     origin,
-    deliveries: [delivery],
-    batches: [
+    mode: 'progressive',
+    slices: [
       {
-        batchId,
         sliceId,
-        artifactId,
-        transactionId,
-        origin,
-        kind: 'forward',
-        channel,
-        sharedDelivery: 'immediate',
-        deliveries: [delivery],
-        records: [record],
-        changes: [payload]
+        orderedIds: delivery.orderedIds,
+        batches: [
+          {
+            batchId,
+            channel,
+            deliveries: [delivery]
+          }
+        ]
       }
-    ],
-    deliverySequence: {
-      mode: 'progressive',
-      slices: [{ sliceId, orderedIds: [deliveryId] }]
-    }
+    ]
   }
 }
 
 const publication = createPublication()
 
-const createTwoRecordPublication = (
+const createTwoDeliveryPublication = (
   sourceLength = 2_048
 ): SharedPublication => {
   const artifactId = '4:artifact'
@@ -136,61 +113,31 @@ const createTwoRecordPublication = (
     { id: 'element-multi-a', source: 'a'.repeat(sourceLength) },
     { id: 'element-multi-b', source: 'b'.repeat(sourceLength) }
   ]
-  const records = payloads.map((payload, index) => {
-    const deliveryId = `4:delivery:${index}`
-    return {
-      recordId: `4:record:${index}`,
-      deliveryId,
-      occurrence: index,
-      orderedIds: [payload.id],
-      payload,
-      inverseEvents: []
-    }
-  })
-  const deliveries = records.map((record, index) => ({
-    deliveryId: record.deliveryId,
-    artifactId,
-    batchId,
-    transactionId: 4,
-    origin: 'action' as const,
-    kind: 'forward' as const,
-    channel: 'sceneTree',
+  const deliveries = payloads.map((payload, index) => ({
+    deliveryId: `4:delivery:${index}`,
     eventName: 'updateComputedData',
-    payload: payloads[index] as object,
-    recordId: record.recordId,
-    record,
-    sharedDelivery: 'immediate' as const
+    orderedIds: [payload.id],
+    payload
   }))
   return {
     publicationId: 'publication-multi',
     artifactId,
     transactionId: 4,
     origin: 'action',
-    deliveries,
-    batches: [
+    mode: 'progressive',
+    slices: [
       {
-        batchId,
         sliceId,
-        artifactId,
-        transactionId: 4,
-        origin: 'action',
-        kind: 'forward',
-        channel: 'sceneTree',
-        sharedDelivery: 'immediate',
-        deliveries,
-        records,
-        changes: payloads
+        orderedIds: deliveries.flatMap(({ orderedIds }) => orderedIds),
+        batches: [
+          {
+            batchId,
+            channel: 'sceneTree',
+            deliveries
+          }
+        ]
       }
-    ],
-    deliverySequence: {
-      mode: 'progressive',
-      slices: [
-        {
-          sliceId,
-          orderedIds: deliveries.map(({ deliveryId }) => deliveryId)
-        }
-      ]
-    }
+    ]
   }
 }
 
@@ -913,7 +860,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     provider.onFailure(failures)
     await provider.connect()
     const sending = provider.sendPublication(
-      createTwoRecordPublication(700_000)
+      createTwoDeliveryPublication(700_000)
     )
 
     try {
@@ -973,7 +920,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     try {
       await expect(
-        provider.sendPublication(createTwoRecordPublication(700_000))
+        provider.sendPublication(createTwoDeliveryPublication(700_000))
       ).resolves.toBeUndefined()
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
 
@@ -1009,10 +956,10 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const provider = createProvider(server.endpoint)
     await provider.connect()
     const firstOutcome = provider.sendPublication(
-      createTwoRecordPublication(700_000)
+      createTwoDeliveryPublication(700_000)
     )
     const secondOutcome = provider
-      .sendPublication(createTwoRecordPublication(700_000))
+      .sendPublication(createTwoDeliveryPublication(700_000))
       .catch((error: unknown) => error)
 
     try {
@@ -1064,7 +1011,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const provider = createProvider(server.endpoint)
     await provider.connect()
     const publicationSending = provider.sendPublication(
-      createTwoRecordPublication(700_000)
+      createTwoDeliveryPublication(700_000)
     )
 
     await vi.waitFor(() => expect(headers).toHaveLength(1))
@@ -1334,7 +1281,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
   })
 
   it('credits every inbound binary frame exactly once before delivery and records finite worker timings', async () => {
-    const inboundPublication = createTwoRecordPublication()
+    const inboundPublication = createTwoDeliveryPublication()
     const inboundFrames = encodePublicationMessageFrames(
       {
         type: 'publication',
@@ -1552,7 +1499,11 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       ).toHaveLength(1)
       expect(received[0]?.publicationId).toBe(publications[0]?.publicationId)
       expect(Object.isFrozen(received[0])).toBe(false)
-      expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(false)
+      expect(
+        Object.isFrozen(
+          received[0]?.slices[0]?.batches[0]?.deliveries[0]?.payload
+        )
+      ).toBe(false)
       expect(appliedPublicationIds).toEqual([])
 
       firstSettlement.resolve(undefined)
@@ -1824,7 +1775,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
   })
 
   it('assembles interleaved multi-chunk publications and releases them in first-seen order', async () => {
-    const firstPublication = createTwoRecordPublication()
+    const firstPublication = createTwoDeliveryPublication()
     const secondPublication = createPublication({
       suffix: 'interleaved-b',
       transactionId: 5
@@ -1917,7 +1868,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
   })
 
   it('rejects a duplicate inbound chunk without issuing duplicate frame credit', async () => {
-    const inboundPublication = createTwoRecordPublication()
+    const inboundPublication = createTwoDeliveryPublication()
     const frames = encodePublicationMessageFrames(
       {
         type: 'publication',
@@ -2030,7 +1981,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
   })
 
   it('rejects a later publication before the prior publication finishes within one burst', async () => {
-    const firstPublication = createTwoRecordPublication()
+    const firstPublication = createTwoDeliveryPublication()
     const secondPublication = createPublication({
       suffix: 'same-burst-b',
       transactionId: 24
@@ -2137,7 +2088,11 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     expect(received[0]).toEqual(publication)
     expect(received[0]).not.toBe(publication)
     expect(Object.isFrozen(received[0])).toBe(false)
-    expect(Object.isFrozen(received[0]?.deliveries[0]?.payload)).toBe(false)
+    expect(
+      Object.isFrozen(
+        received[0]?.slices[0]?.batches[0]?.deliveries[0]?.payload
+      )
+    ).toBe(false)
     await provider.destroy()
   })
 

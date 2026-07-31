@@ -1,6 +1,6 @@
 import type { SharedPublication } from '@asyra/factory'
 
-import type { InboundPublication, ProviderAwarenessMessage } from './provider'
+import type { ProviderAwarenessMessage } from './provider'
 
 const measureClone = <T>(phaseName: string, clone: () => T): T => {
   const sink = (
@@ -27,20 +27,6 @@ export const clonePublication = (
 ): SharedPublication =>
   measureClone('collaboration:clone-publication', () =>
     structuredClone(publication)
-  )
-
-export const clonePublications = (
-  publications: readonly SharedPublication[]
-): readonly SharedPublication[] =>
-  measureClone('collaboration:clone-publications', () =>
-    structuredClone(publications)
-  )
-
-export const cloneInboundPublications = (
-  publications: readonly InboundPublication[]
-): readonly InboundPublication[] =>
-  measureClone('collaboration:clone-inbound-publications', () =>
-    structuredClone(publications)
   )
 
 export const cloneAwareness = (

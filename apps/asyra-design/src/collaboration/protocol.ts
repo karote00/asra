@@ -1,9 +1,8 @@
 import type {
-  FactoryMutationDeliverySequence,
-  FactoryMutationSharedRecordEvidence,
-  SharedDelivery,
-  SharedDeliveryBatch,
-  SharedPublication
+  SharedPublication,
+  SharedPublicationBatch,
+  SharedPublicationDelivery,
+  SharedPublicationSlice
 } from '@asyra/factory'
 import type {
   ProviderAwarenessDisconnect,
@@ -175,10 +174,9 @@ export type CollaborationServerMessage =
   | FailureMessage
   | ConnectionErrorMessage
 
-const sharedDeliveryOrigins = new Set<SharedDelivery['origin']>([
+const sharedPublicationOrigins = new Set<SharedPublication['origin']>([
   'action',
   'automation',
-  'remote',
   'undo',
   'redo',
   'load-migration',
@@ -187,9 +185,6 @@ const sharedDeliveryOrigins = new Set<SharedDelivery['origin']>([
 
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0
-
-const isNonNegativeInteger = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0
 
 const areJsonTransportValuesEqual = (
   left: unknown,
@@ -235,108 +230,60 @@ const areJsonTransportValuesEqual = (
 const isStringArray = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((item) => isNonBlankString(item))
 
-const isSharedRecordEvidence = (
-  value: unknown
-): value is FactoryMutationSharedRecordEvidence =>
-  isRecord(value) &&
-  isNonBlankString(value.recordId) &&
-  isNonBlankString(value.deliveryId) &&
-  isNonNegativeInteger(value.occurrence) &&
-  isStringArray(value.orderedIds) &&
-  isRecord(value.payload) &&
-  Array.isArray(value.inverseEvents) &&
-  isJsonTransportValue(value)
-
-const isSharedDelivery = (value: unknown): value is SharedDelivery =>
-  isRecord(value) &&
-  isNonBlankString(value.deliveryId) &&
-  isNonBlankString(value.artifactId) &&
-  isNonBlankString(value.batchId) &&
-  isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  (value.kind === 'forward' || value.kind === 'compensation') &&
-  isNonBlankString(value.channel) &&
-  isNonBlankString(value.eventName) &&
-  Object.prototype.hasOwnProperty.call(value, 'payload') &&
-  isNonBlankString(value.recordId) &&
-  isSharedRecordEvidence(value.record) &&
-  value.recordId === value.record.recordId &&
-  value.deliveryId === value.record.deliveryId &&
-  areJsonTransportValuesEqual(value.payload, value.record.payload) &&
-  (value.sharedDelivery === 'transaction-end' ||
-    value.sharedDelivery === 'immediate') &&
-  (value.compensatesDeliveryId === undefined ||
-    isNonBlankString(value.compensatesDeliveryId))
-
-const isSharedDeliveryBatch = (
-  value: unknown
-): value is SharedDeliveryBatch => {
-  if (
-    !isRecord(value) ||
-    !isNonBlankString(value.batchId) ||
-    !isNonBlankString(value.sliceId) ||
-    !isNonBlankString(value.artifactId) ||
-    !isPositiveInteger(value.transactionId) ||
-    !sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) ||
-    (value.kind !== 'forward' && value.kind !== 'compensation') ||
-    !isNonBlankString(value.channel) ||
-    (value.sharedDelivery !== 'transaction-end' &&
-      value.sharedDelivery !== 'immediate') ||
-    !Array.isArray(value.deliveries) ||
-    value.deliveries.length === 0 ||
-    !Array.isArray(value.records) ||
-    !Array.isArray(value.changes) ||
-    value.deliveries.length !== value.records.length ||
-    value.deliveries.length !== value.changes.length
-  ) {
-    return false
-  }
-  const { changes, deliveries, records } = value
+const hasExactOwnKeys = (
+  value: Record<string, unknown>,
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[] = []
+): boolean => {
+  const allowedKeys = new Set([...requiredKeys, ...optionalKeys])
+  const ownKeys = Object.keys(value)
   return (
-    deliveries.every((delivery, index) => {
-      const record = records[index]
-      return (
-        isSharedDelivery(delivery) &&
-        isSharedRecordEvidence(record) &&
-        delivery.batchId === value.batchId &&
-        delivery.artifactId === value.artifactId &&
-        delivery.transactionId === value.transactionId &&
-        delivery.origin === value.origin &&
-        delivery.kind === value.kind &&
-        delivery.channel === value.channel &&
-        delivery.sharedDelivery === value.sharedDelivery &&
-        areJsonTransportValuesEqual(delivery.record, record) &&
-        areJsonTransportValuesEqual(delivery.payload, changes[index])
-      )
-    }) &&
-    (value.compensatesBatchId === undefined ||
-      isNonBlankString(value.compensatesBatchId))
+    requiredKeys.every((key) =>
+      Object.prototype.hasOwnProperty.call(value, key)
+    ) && ownKeys.every((key) => allowedKeys.has(key))
   )
 }
 
-const isDeliverySequence = (
+const hasUniqueStrings = (values: readonly string[]): boolean =>
+  new Set(values).size === values.length
+
+const isSharedPublicationDelivery = (
   value: unknown
-): value is FactoryMutationDeliverySequence => {
+): value is SharedPublicationDelivery => {
   if (
     !isRecord(value) ||
-    (value.mode !== 'atomic' && value.mode !== 'progressive') ||
-    !Array.isArray(value.slices)
+    !hasExactOwnKeys(
+      value,
+      ['deliveryId', 'eventName', 'orderedIds', 'payload'],
+      ['compensatesDeliveryId']
+    ) ||
+    !isNonBlankString(value.deliveryId) ||
+    !isNonBlankString(value.eventName) ||
+    !isStringArray(value.orderedIds) ||
+    !hasUniqueStrings(value.orderedIds) ||
+    !isJsonTransportValue(value.payload) ||
+    (Object.prototype.hasOwnProperty.call(value, 'compensatesDeliveryId') &&
+      !isNonBlankString(value.compensatesDeliveryId))
   ) {
     return false
   }
-  const sliceIds = new Set<string>()
-  return value.slices.every((slice) => {
-    if (
-      !isRecord(slice) ||
-      !isNonBlankString(slice.sliceId) ||
-      !isStringArray(slice.orderedIds) ||
-      sliceIds.has(slice.sliceId)
-    ) {
-      return false
-    }
-    sliceIds.add(slice.sliceId)
-    return true
-  })
+  return true
+}
+
+const isSharedPublicationBatch = (
+  value: unknown
+): value is SharedPublicationBatch => {
+  if (
+    !isRecord(value) ||
+    !hasExactOwnKeys(value, ['batchId', 'channel', 'deliveries']) ||
+    !isNonBlankString(value.batchId) ||
+    !isNonBlankString(value.channel) ||
+    !Array.isArray(value.deliveries) ||
+    value.deliveries.length === 0
+  ) {
+    return false
+  }
+  return value.deliveries.every(isSharedPublicationDelivery)
 }
 
 export const isSharedPublication = (
@@ -344,59 +291,93 @@ export const isSharedPublication = (
 ): value is SharedPublication => {
   if (
     !isRecord(value) ||
+    !hasExactOwnKeys(
+      value,
+      [
+        'publicationId',
+        'artifactId',
+        'transactionId',
+        'origin',
+        'mode',
+        'slices'
+      ],
+      ['compensatesPublicationId']
+    ) ||
     !isNonBlankString(value.publicationId) ||
     !isNonBlankString(value.artifactId) ||
     !isPositiveInteger(value.transactionId) ||
-    !sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) ||
-    !Array.isArray(value.deliveries) ||
-    value.deliveries.length === 0 ||
-    !Array.isArray(value.batches) ||
-    value.batches.length === 0 ||
-    !isDeliverySequence(value.deliverySequence)
+    !sharedPublicationOrigins.has(
+      value.origin as SharedPublication['origin']
+    ) ||
+    (value.mode !== 'atomic' && value.mode !== 'progressive') ||
+    !Array.isArray(value.slices) ||
+    value.slices.length === 0 ||
+    (value.mode === 'atomic' && value.slices.length !== 1) ||
+    (Object.prototype.hasOwnProperty.call(value, 'compensatesPublicationId') &&
+      !isNonBlankString(value.compensatesPublicationId))
   ) {
     return false
   }
-  const sliceIds = new Set(
-    value.deliverySequence.slices.map(({ sliceId }) => sliceId)
-  )
+  const isCompensation = value.origin === 'rollback-compensation'
+  if (
+    isCompensation !==
+    Object.prototype.hasOwnProperty.call(value, 'compensatesPublicationId')
+  ) {
+    return false
+  }
+  const sliceIds = new Set<string>()
   const batchIds = new Set<string>()
   const deliveryIds = new Set<string>()
-  const recordIds = new Set<string>()
-  for (const batch of value.batches) {
+  for (const slice of value.slices) {
     if (
-      !isSharedDeliveryBatch(batch) ||
-      batchIds.has(batch.batchId) ||
-      batch.artifactId !== value.artifactId ||
-      batch.transactionId !== value.transactionId ||
-      batch.origin !== value.origin ||
-      !sliceIds.has(batch.sliceId)
+      !isRecord(slice) ||
+      !hasExactOwnKeys(slice, ['sliceId', 'orderedIds', 'batches']) ||
+      !isNonBlankString(slice.sliceId) ||
+      sliceIds.has(slice.sliceId) ||
+      !isStringArray(slice.orderedIds) ||
+      !hasUniqueStrings(slice.orderedIds) ||
+      !Array.isArray(slice.batches) ||
+      slice.batches.length === 0
     ) {
       return false
     }
-    batchIds.add(batch.batchId)
-    for (const delivery of batch.deliveries) {
-      if (
-        deliveryIds.has(delivery.deliveryId) ||
-        recordIds.has(delivery.recordId)
-      ) {
+    sliceIds.add(slice.sliceId)
+    const sliceDeliveryIds: string[] = []
+    const sliceOrderedIds: string[] = []
+    const seenSliceOrderedIds = new Set<string>()
+    for (const batch of slice.batches) {
+      if (!isSharedPublicationBatch(batch) || batchIds.has(batch.batchId)) {
         return false
       }
-      deliveryIds.add(delivery.deliveryId)
-      recordIds.add(delivery.recordId)
+      batchIds.add(batch.batchId)
+      for (const delivery of batch.deliveries) {
+        if (
+          deliveryIds.has(delivery.deliveryId) ||
+          isCompensation !==
+            Object.prototype.hasOwnProperty.call(
+              delivery,
+              'compensatesDeliveryId'
+            )
+        ) {
+          return false
+        }
+        deliveryIds.add(delivery.deliveryId)
+        sliceDeliveryIds.push(delivery.deliveryId)
+        delivery.orderedIds.forEach((orderedId) => {
+          if (seenSliceOrderedIds.has(orderedId)) return
+          seenSliceOrderedIds.add(orderedId)
+          sliceOrderedIds.push(orderedId)
+        })
+      }
+    }
+    if (
+      !areJsonTransportValuesEqual(slice.orderedIds, sliceDeliveryIds) &&
+      !areJsonTransportValuesEqual(slice.orderedIds, sliceOrderedIds)
+    ) {
+      return false
     }
   }
-  const batchDeliveries = value.batches.flatMap((batch) => batch.deliveries)
-  return (
-    value.deliveries.length === batchDeliveries.length &&
-    value.deliveries.every(
-      (delivery, index) =>
-        isSharedDelivery(delivery) &&
-        delivery.artifactId === value.artifactId &&
-        delivery.transactionId === value.transactionId &&
-        delivery.origin === value.origin &&
-        areJsonTransportValuesEqual(delivery, batchDeliveries[index])
-    )
-  )
+  return deliveryIds.size > 0
 }
 
 type JsonTransportTraversalFrame =
@@ -546,25 +527,21 @@ export interface EncodePublicationMessageFramesOptions {
 interface PublicationWireBatchMetadata {
   readonly batchId: string
   readonly sliceId: string
-  readonly artifactId: string
-  readonly transactionId: number
-  readonly origin: SharedDeliveryBatch['origin']
-  readonly kind: SharedDeliveryBatch['kind']
+  readonly orderedIds: readonly string[]
   readonly channel: string
-  readonly sharedDelivery: SharedDeliveryBatch['sharedDelivery']
-  readonly compensatesBatchId?: string
 }
 
 interface PublicationWireUnit {
   readonly batch: PublicationWireBatchMetadata
-  readonly delivery: SharedDelivery
+  readonly delivery: SharedPublicationDelivery
 }
 
 interface PublicationWireMetadata {
   readonly artifactId: string
   readonly transactionId: number
   readonly origin: SharedPublication['origin']
-  readonly deliverySequence: FactoryMutationDeliverySequence
+  readonly mode: SharedPublication['mode']
+  readonly compensatesPublicationId?: string
 }
 
 interface PublicationWireChunk extends PublicationWireMetadata {
@@ -904,23 +881,18 @@ const publicationMessageParts = (
 const publicationWireUnits = (
   publication: SharedPublication
 ): readonly PublicationWireUnit[] =>
-  publication.batches.flatMap((batch) =>
-    batch.deliveries.map((delivery) => ({
-      batch: {
-        batchId: batch.batchId,
-        sliceId: batch.sliceId,
-        artifactId: batch.artifactId,
-        transactionId: batch.transactionId,
-        origin: batch.origin,
-        kind: batch.kind,
-        channel: batch.channel,
-        sharedDelivery: batch.sharedDelivery,
-        ...(batch.compensatesBatchId
-          ? { compensatesBatchId: batch.compensatesBatchId }
-          : {})
-      },
-      delivery
-    }))
+  publication.slices.flatMap((slice) =>
+    slice.batches.flatMap((batch) =>
+      batch.deliveries.map((delivery) => ({
+        batch: {
+          batchId: batch.batchId,
+          sliceId: slice.sliceId,
+          orderedIds: slice.orderedIds,
+          channel: batch.channel
+        },
+        delivery
+      }))
+    )
   )
 
 const publicationWireMetadata = (
@@ -929,7 +901,10 @@ const publicationWireMetadata = (
   artifactId: publication.artifactId,
   transactionId: publication.transactionId,
   origin: publication.origin,
-  deliverySequence: publication.deliverySequence
+  mode: publication.mode,
+  ...(publication.compensatesPublicationId
+    ? { compensatesPublicationId: publication.compensatesPublicationId }
+    : {})
 })
 
 const publicationFrameHeaderByteLength = (
@@ -949,7 +924,7 @@ const encodePublicationPayloadChunks = (
 ): readonly Uint8Array[] => {
   const units = publicationWireUnits(publication)
   if (units.length === 0) {
-    throw new TypeError('[collaboration] publication has no wire records')
+    throw new TypeError('[collaboration] publication has no wire deliveries')
   }
   const metadataEncoding = prepareCompactBinaryEncoding(
     publicationWireMetadata(publication)
@@ -1016,24 +991,24 @@ const encodePublicationPayloadChunks = (
 
   for (const range of itemRanges) {
     if (range.start !== currentEnd) {
-      throw new TypeError('[collaboration] invalid publication record range')
+      throw new TypeError('[collaboration] invalid publication delivery range')
     }
     const currentByteLength = currentEnd - currentStart
-    const recordByteLength = range.end - range.start
+    const deliveryByteLength = range.end - range.start
     if (
       currentByteLength > 0 &&
-      currentByteLength + recordByteLength > payloadCapacity
+      currentByteLength + deliveryByteLength > payloadCapacity
     ) {
       flush()
     }
-    if (recordByteLength > payloadCapacity) {
+    if (deliveryByteLength > payloadCapacity) {
       flush()
       ranges.push(range)
       currentStart = range.end
       currentEnd = range.end
       continue
     }
-    currentEnd += recordByteLength
+    currentEnd += deliveryByteLength
   }
   flush()
   if (
@@ -1108,57 +1083,66 @@ const isPublicationWireBatchMetadata = (
   value: unknown
 ): value is PublicationWireBatchMetadata =>
   isRecord(value) &&
+  hasExactOwnKeys(value, ['batchId', 'sliceId', 'orderedIds', 'channel']) &&
   isNonBlankString(value.batchId) &&
   isNonBlankString(value.sliceId) &&
-  isNonBlankString(value.artifactId) &&
-  isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  (value.kind === 'forward' || value.kind === 'compensation') &&
-  isNonBlankString(value.channel) &&
-  (value.sharedDelivery === 'transaction-end' ||
-    value.sharedDelivery === 'immediate') &&
-  (value.compensatesBatchId === undefined ||
-    isNonBlankString(value.compensatesBatchId))
+  isStringArray(value.orderedIds) &&
+  hasUniqueStrings(value.orderedIds) &&
+  isNonBlankString(value.channel)
 
 const isPublicationWireMetadata = (
   value: unknown
 ): value is PublicationWireMetadata =>
   isRecord(value) &&
+  hasExactOwnKeys(
+    value,
+    ['artifactId', 'transactionId', 'origin', 'mode'],
+    ['compensatesPublicationId']
+  ) &&
   isNonBlankString(value.artifactId) &&
   isPositiveInteger(value.transactionId) &&
-  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
-  isDeliverySequence(value.deliverySequence)
+  sharedPublicationOrigins.has(value.origin as SharedPublication['origin']) &&
+  (value.mode === 'atomic' || value.mode === 'progressive') &&
+  (Object.prototype.hasOwnProperty.call(value, 'compensatesPublicationId')
+    ? value.origin === 'rollback-compensation' &&
+      isNonBlankString(value.compensatesPublicationId)
+    : value.origin !== 'rollback-compensation')
 
 const isPublicationWireUnit = (
   value: unknown,
   metadata: PublicationWireMetadata
 ): value is PublicationWireUnit =>
   isRecord(value) &&
+  hasExactOwnKeys(value, ['batch', 'delivery']) &&
   isPublicationWireBatchMetadata(value.batch) &&
-  isSharedDelivery(value.delivery) &&
-  value.batch.artifactId === metadata.artifactId &&
-  value.batch.transactionId === metadata.transactionId &&
-  value.batch.origin === metadata.origin &&
-  value.delivery.batchId === value.batch.batchId &&
-  value.delivery.artifactId === value.batch.artifactId &&
-  value.delivery.transactionId === value.batch.transactionId &&
-  value.delivery.origin === value.batch.origin &&
-  value.delivery.kind === value.batch.kind &&
-  value.delivery.channel === value.batch.channel &&
-  value.delivery.sharedDelivery === value.batch.sharedDelivery
+  isSharedPublicationDelivery(value.delivery) &&
+  (metadata.origin === 'rollback-compensation') ===
+    Object.prototype.hasOwnProperty.call(
+      value.delivery,
+      'compensatesDeliveryId'
+    )
 
 const isPublicationWireChunk = (
   value: unknown
-): value is PublicationWireChunk =>
-  isRecord(value) &&
-  isPublicationWireMetadata(value) &&
-  Array.isArray(value.units) &&
-  value.units.length > 0 &&
-  value.units.every((unit) => isPublicationWireUnit(unit, value))
+): value is PublicationWireChunk => {
+  if (!isRecord(value) || !Array.isArray(value.units)) return false
+  const { units, ...metadata } = value
+  return (
+    isPublicationWireMetadata(metadata) &&
+    units.length > 0 &&
+    units.every((unit) => isPublicationWireUnit(unit, metadata))
+  )
+}
 
 interface MutablePublicationBatch {
   readonly metadata: PublicationWireBatchMetadata
-  readonly deliveries: SharedDelivery[]
+  readonly deliveries: SharedPublicationDelivery[]
+}
+
+interface MutablePublicationSlice {
+  readonly sliceId: string
+  readonly orderedIds: readonly string[]
+  readonly batches: MutablePublicationBatch[]
 }
 
 const rebuildPublication = (
@@ -1175,22 +1159,24 @@ const rebuildPublication = (
         chunk.artifactId !== first.artifactId ||
         chunk.transactionId !== first.transactionId ||
         chunk.origin !== first.origin ||
-        !areJsonTransportValuesEqual(
-          chunk.deliverySequence,
-          first.deliverySequence
-        )
+        chunk.mode !== first.mode ||
+        chunk.compensatesPublicationId !== first.compensatesPublicationId
     )
   ) {
     throw new TypeError('[collaboration] inconsistent publication frame chunks')
   }
-  const batches: MutablePublicationBatch[] = []
+  const slices: MutablePublicationSlice[] = []
+  const slicesById = new Map<string, MutablePublicationSlice>()
   const batchesById = new Map<string, MutablePublicationBatch>()
   chunks
     .flatMap(({ units }) => units)
     .forEach(({ batch, delivery }) => {
       const existing = batchesById.get(batch.batchId)
       if (existing) {
-        if (batches[batches.length - 1] !== existing) {
+        const currentSlice = slices[slices.length - 1]
+        if (
+          currentSlice?.batches[currentSlice.batches.length - 1] !== existing
+        ) {
           throw new TypeError(
             '[collaboration] non-contiguous publication batch chunks'
           )
@@ -1203,26 +1189,48 @@ const rebuildPublication = (
         existing.deliveries.push(delivery)
         return
       }
+      let slice = slicesById.get(batch.sliceId)
+      if (slice) {
+        if (
+          slices[slices.length - 1] !== slice ||
+          !areJsonTransportValuesEqual(slice.orderedIds, batch.orderedIds)
+        ) {
+          throw new TypeError(
+            '[collaboration] inconsistent publication slice chunks'
+          )
+        }
+      } else {
+        slice = {
+          sliceId: batch.sliceId,
+          orderedIds: batch.orderedIds,
+          batches: []
+        }
+        slicesById.set(batch.sliceId, slice)
+        slices.push(slice)
+      }
       const created = { metadata: batch, deliveries: [delivery] }
       batchesById.set(batch.batchId, created)
-      batches.push(created)
+      slice.batches.push(created)
     })
-  const rebuiltBatches: SharedDeliveryBatch[] = batches.map(
-    ({ metadata, deliveries }) => ({
-      ...metadata,
-      deliveries,
-      records: deliveries.map(({ record }) => record),
-      changes: deliveries.map(({ payload }) => payload)
-    })
-  )
+  const rebuiltSlices: SharedPublicationSlice[] = slices.map((slice) => ({
+    sliceId: slice.sliceId,
+    orderedIds: slice.orderedIds,
+    batches: slice.batches.map(({ metadata, deliveries }) => ({
+      batchId: metadata.batchId,
+      channel: metadata.channel,
+      deliveries
+    }))
+  }))
   const publication: SharedPublication = {
     publicationId,
     artifactId: first.artifactId,
     transactionId: first.transactionId,
     origin: first.origin,
-    deliveries: rebuiltBatches.flatMap(({ deliveries }) => deliveries),
-    batches: rebuiltBatches,
-    deliverySequence: first.deliverySequence
+    mode: first.mode,
+    slices: rebuiltSlices,
+    ...(first.compensatesPublicationId
+      ? { compensatesPublicationId: first.compensatesPublicationId }
+      : {})
   }
   if (!isSharedPublication(publication)) {
     throw new TypeError('[collaboration] invalid decoded shared publication')

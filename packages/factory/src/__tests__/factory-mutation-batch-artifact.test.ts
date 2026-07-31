@@ -267,7 +267,12 @@ describe('Factory immutable mutation batch artifact', () => {
     expect(deliveryBatches).toHaveLength(2)
     expect(publications).toHaveLength(2)
     artifact?.batches.forEach((batch, index) => {
-      expect(publications[index]?.batches[0]).toBe(batch)
+      const publicationBatch = publications[index]?.slices[0]?.batches[0]
+      expect(publicationBatch?.batchId).toBe(batch.batchId)
+      expect(publicationBatch).not.toBe(batch)
+      expect(publicationBatch?.deliveries[0]?.payload).toBe(
+        batch.deliveries[0]?.payload
+      )
       expect(deliveryBatches[index]).toBe(batch)
       expect(observedBatches[index]?.[0]).toBe(batch.deliveries[0]?.payload)
     })

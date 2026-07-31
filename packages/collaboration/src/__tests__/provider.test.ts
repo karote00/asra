@@ -1,8 +1,44 @@
 import type { SharedPublication } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
+// @ts-expect-error InboundPublication was removed from the public contract.
+import type { InboundPublication } from '..'
+// @ts-expect-error InboundPublicationLease was removed from the public contract.
+import type { InboundPublicationLease } from '..'
+// @ts-expect-error InboundPublicationLeaseSettlement was removed from the public contract.
+import type { InboundPublicationLeaseSettlement } from '..'
+import type { Provider } from '../provider'
+import * as providerContract from '../provider'
 import { PROVIDER_FAILURE_CODES, isProviderFailureCode } from '../provider'
 import { MemoryHub, MemoryProvider } from '../providers/memory'
+import type { MemoryHubOptions } from '../providers/memory'
 import { createSharedPublicationFixture } from './shared-publication-fixture'
+
+type RemovedProviderCapability = Extract<
+  keyof Provider,
+  | 'maxConcurrentPublicationSends'
+  | 'maxPublicationsPerSend'
+  | 'onInboundPublicationLease'
+  | 'onPublications'
+  | 'sendPublications'
+>
+type RemovedMemoryHubCapability = Extract<
+  keyof MemoryHubOptions,
+  'acknowledgePublications'
+>
+
+const REMOVED_PROVIDER_CAPABILITIES: Record<RemovedProviderCapability, never> =
+  {}
+const REMOVED_MEMORY_HUB_CAPABILITIES: Record<
+  RemovedMemoryHubCapability,
+  never
+> = {}
+type RemovedProviderExportProbe = [
+  InboundPublication,
+  InboundPublicationLease,
+  InboundPublicationLeaseSettlement
+]
+const REMOVED_PROVIDER_EXPORT_PROBE: RemovedProviderExportProbe | undefined =
+  undefined
 
 const identity = (actorId: string, roomId = 'room-a') => ({
   documentId: 'document-a',
@@ -11,20 +47,38 @@ const identity = (actorId: string, roomId = 'room-a') => ({
   connectionMetadata: { token: `token-for-${actorId}` }
 })
 
+const firstDeliveryOf = (publication: SharedPublication | undefined) =>
+  publication?.slices[0]?.batches[0]?.deliveries[0]
+
 const publication = (publicationId: string, value: number): SharedPublication =>
   createSharedPublicationFixture({
+    mode: 'progressive',
     publicationId,
     transactionId: value,
     delivery: {
       deliveryId: `${publicationId}:delivery`,
       channel: 'scene',
       eventName: 'set-value',
-      payload: { value },
-      sharedDelivery: 'immediate'
+      orderedIds: [publicationId],
+      payload: { value }
     }
   })
 
 describe('replaceable collaboration Provider contract', () => {
+  it('does not expose removed compatibility capabilities', () => {
+    const provider = new MemoryProvider(new MemoryHub(), identity('actor-a'))
+
+    expect(Object.keys(REMOVED_PROVIDER_CAPABILITIES)).toEqual([])
+    expect(Object.keys(REMOVED_MEMORY_HUB_CAPABILITIES)).toEqual([])
+    expect(REMOVED_PROVIDER_EXPORT_PROBE).toBeUndefined()
+    expect(providerContract).not.toHaveProperty('createInboundPublicationLease')
+    expect(provider).not.toHaveProperty('sendPublications')
+    expect(provider).not.toHaveProperty('onPublications')
+    expect(provider).not.toHaveProperty('onInboundPublicationLease')
+    expect(provider).not.toHaveProperty('maxConcurrentPublicationSends')
+    expect(provider).not.toHaveProperty('maxPublicationsPerSend')
+  })
+
   it('owns one frozen runtime registry for Provider failure codes', () => {
     expect(PROVIDER_FAILURE_CODES).toEqual([
       'connection-rejected',
@@ -40,194 +94,310 @@ describe('replaceable collaboration Provider contract', () => {
     expect(isProviderFailureCode('unknown-provider-failure')).toBe(false)
   })
 
-  it('transports one detached publication to live room peers without sender echo', async () => {
+  it('transports one detached publication to a live room peer without sender echo', async () => {
     const hub = new MemoryHub()
-    const first = new MemoryProvider(hub, identity('actor-a'))
-    const second = new MemoryProvider(hub, identity('actor-b'))
-    const firstInbound = vi.fn()
-    const secondInbound = vi.fn()
-    first.onPublication(firstInbound)
-    second.onPublication((inbound) => {
-      const payload = inbound.publication.deliveries[0]?.payload as {
-        value: number
-      }
-      payload.value = 999
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const senderInbound = vi.fn(async () => undefined)
+    let received: SharedPublication | undefined
+    sender.onPublication(senderInbound)
+    receiver.onPublication(async (inbound) => {
+      received = inbound
     })
-    second.onPublication(secondInbound)
-    await first.connect()
-    await second.connect()
+    await sender.connect()
+    await receiver.connect()
     const sent = publication('publication-a', 1)
 
-    await first.sendPublication(sent)
+    await sender.sendPublication(sent)
 
-    expect(firstInbound).not.toHaveBeenCalled()
-    expect(secondInbound).toHaveBeenCalledTimes(1)
-    expect(secondInbound).toHaveBeenCalledWith({
-      publication: sent,
-      fromActorId: 'actor-a'
-    })
-    expect((sent.deliveries[0]?.payload as { value: number }).value).toBe(1)
+    expect(senderInbound).not.toHaveBeenCalled()
+    expect(received).toEqual(sent)
+    expect(received).not.toBe(sent)
+    expect(firstDeliveryOf(received)?.payload).not.toBe(
+      firstDeliveryOf(sent)?.payload
+    )
+    expect((firstDeliveryOf(sent)?.payload as { value: number }).value).toBe(1)
   })
 
-  it('fans out one detached ordered publication batch through the hub once', async () => {
-    const acknowledgePublication = vi.fn()
-    const acknowledgePublications = vi.fn(() => true)
-    const hub = new MemoryHub({
-      acknowledgePublication,
-      acknowledgePublications
+  it('allows exactly one active async publication consumer and releases the slot on unsubscribe', () => {
+    const provider = new MemoryProvider(new MemoryHub(), identity('actor-a'))
+    const firstConsumer = vi.fn(async () => undefined)
+    const secondConsumer = vi.fn(async () => undefined)
+
+    const unsubscribeFirst = provider.onPublication(firstConsumer)
+
+    expect(() => provider.onPublication(secondConsumer)).toThrow()
+
+    unsubscribeFirst()
+
+    expect(() => provider.onPublication(secondConsumer)).not.toThrow()
+  })
+
+  it('accepts outbound delivery without waiting for peer canonical apply', async () => {
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    let releaseConsumer: (() => void) | undefined
+    const consumerSettlement = new Promise<void>((resolve) => {
+      releaseConsumer = resolve
     })
-    const sender = new MemoryProvider(
-      hub,
-      identity('actor-a')
-    ) as MemoryProvider & {
-      sendPublications(
-        publications: readonly SharedPublication[]
-      ): Promise<void>
-    }
+    const consumer = vi.fn(() => consumerSettlement)
+    receiver.onPublication(consumer)
+    await sender.connect()
+    await receiver.connect()
+
+    await expect(
+      sender.sendPublication(publication('publication-a', 1))
+    ).resolves.toBeUndefined()
+
+    expect(consumer).toHaveBeenCalledOnce()
+
+    releaseConsumer?.()
+    await consumerSettlement
+  })
+
+  it('bounds each memory peer to one accepted inbound publication until its consumer settles', async () => {
+    const acknowledgePublication = vi.fn(() => true)
+    const hub = new MemoryHub({ acknowledgePublication })
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const receivePublication = vi.spyOn(receiver, 'receivePublication')
+    let releaseFirst: (() => void) | undefined
+    const firstSettlement = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const consumedPublicationIds: string[] = []
+    receiver.onPublication(async (inbound) => {
+      consumedPublicationIds.push(inbound.publicationId)
+      if (inbound.publicationId === 'publication-a') {
+        await firstSettlement
+      }
+    })
+    await sender.connect()
+    await receiver.connect()
+
+    await sender.sendPublication(publication('publication-a', 1))
+    const secondAcceptance = sender.sendPublication(
+      publication('publication-b', 2)
+    )
+    let secondAccepted = false
+    void secondAcceptance.then(() => {
+      secondAccepted = true
+    })
+    await vi.waitFor(() =>
+      expect(acknowledgePublication).toHaveBeenCalledTimes(2)
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(receivePublication).toHaveBeenCalledOnce()
+    expect(consumedPublicationIds).toEqual(['publication-a'])
+    expect(secondAccepted).toBe(false)
+
+    releaseFirst?.()
+    await expect(secondAcceptance).resolves.toBeUndefined()
+    await vi.waitFor(() =>
+      expect(consumedPublicationIds).toEqual(['publication-a', 'publication-b'])
+    )
+  })
+
+  it('removes the connection-end waiter when app settlement wins the capacity race', async () => {
+    const acknowledgePublication = vi.fn(() => true)
+    const hub = new MemoryHub({ acknowledgePublication })
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    let releaseFirst: (() => void) | undefined
+    const firstSettlement = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    receiver.onPublication(async (inbound) => {
+      if (inbound.publicationId === 'publication-a') {
+        await firstSettlement
+      }
+    })
+    await sender.connect()
+    await receiver.connect()
+
+    await sender.sendPublication(publication('publication-a', 1))
+    const secondAcceptance = sender.sendPublication(
+      publication('publication-b', 2)
+    )
+    await vi.waitFor(() =>
+      expect(acknowledgePublication).toHaveBeenCalledTimes(2)
+    )
+    const connection = (
+      hub as unknown as {
+        peerConnections: Map<
+          MemoryProvider,
+          { readonly endWaiters: ReadonlySet<() => void> }
+        >
+      }
+    ).peerConnections.get(receiver)
+
+    await vi.waitFor(() => expect(connection?.endWaiters.size).toBe(1))
+
+    releaseFirst?.()
+    await secondAcceptance
+
+    expect(connection?.endWaiters.size).toBe(0)
+  })
+
+  it('releases a disconnected peer capacity waiter and never replays it after reconnect', async () => {
+    const acknowledgePublication = vi.fn(() => true)
+    const hub = new MemoryHub({ acknowledgePublication })
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    let releaseFirst: (() => void) | undefined
+    const firstSettlement = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const consumedPublicationIds: string[] = []
+    receiver.onPublication(async (inbound) => {
+      consumedPublicationIds.push(inbound.publicationId)
+      if (inbound.publicationId === 'publication-a') {
+        await firstSettlement
+      }
+    })
+    await sender.connect()
+    await receiver.connect()
+
+    await sender.sendPublication(publication('publication-a', 1))
+    const staleAcceptance = sender.sendPublication(
+      publication('publication-b', 2)
+    )
+    let staleAccepted = false
+    void staleAcceptance.then(() => {
+      staleAccepted = true
+    })
+    await vi.waitFor(() =>
+      expect(acknowledgePublication).toHaveBeenCalledTimes(2)
+    )
+
+    await receiver.disconnect()
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(staleAccepted).toBe(true)
+    expect(consumedPublicationIds).toEqual(['publication-a'])
+
+    await receiver.reconnect()
+    const futureAcceptance = sender.sendPublication(
+      publication('publication-c', 3)
+    )
+    let futureAccepted = false
+    void futureAcceptance.then(() => {
+      futureAccepted = true
+    })
+    await vi.waitFor(() =>
+      expect(acknowledgePublication).toHaveBeenCalledTimes(3)
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(futureAccepted).toBe(true)
+    expect(consumedPublicationIds).toEqual(['publication-a'])
+
+    releaseFirst?.()
+    await Promise.all([staleAcceptance, futureAcceptance])
+    await vi.waitFor(() =>
+      expect(consumedPublicationIds).toEqual(['publication-a', 'publication-c'])
+    )
+  })
+
+  it('keeps inbound delivery pending until the exclusive async consumer settles', async () => {
     const receiver = new MemoryProvider(
-      hub,
+      new MemoryHub(),
       identity('actor-b')
     ) as MemoryProvider & {
-      onPublications(
-        subscriber: (
-          publications: readonly {
-            publication: SharedPublication
-            fromActorId?: string
-          }[]
-        ) => void
-      ): () => void
+      receivePublication(publication: SharedPublication): Promise<void>
     }
-    const inbound = vi.fn()
-    receiver.onPublications(inbound)
-    await sender.connect()
+    let releaseConsumer: (() => void) | undefined
+    const consumerSettlement = new Promise<void>((resolve) => {
+      releaseConsumer = resolve
+    })
+    const consumer = vi.fn(() => consumerSettlement)
+    receiver.onPublication(consumer)
     await receiver.connect()
-    const publications = [
-      publication('publication-a', 1),
-      publication('publication-b', 2)
-    ] as const
 
-    await sender.sendPublications(publications)
+    expect(receiver.receivePublication).toBeTypeOf('function')
 
-    expect(inbound).toHaveBeenCalledOnce()
-    expect(inbound).toHaveBeenCalledWith([
-      { publication: publications[0], fromActorId: 'actor-a' },
-      { publication: publications[1], fromActorId: 'actor-a' }
-    ])
-    expect(inbound.mock.calls[0]?.[0]).not.toBe(publications)
-    expect(inbound.mock.calls[0]?.[0][0].publication).not.toBe(publications[0])
-    expect(acknowledgePublications).toHaveBeenCalledOnce()
-    expect(acknowledgePublications).toHaveBeenCalledWith(
-      publications,
-      sender.identity
+    const inboundDelivery = receiver.receivePublication(
+      publication('publication-a', 1)
     )
-    expect(acknowledgePublication).not.toHaveBeenCalled()
+    const deliveryOutcome = vi.fn()
+    void inboundDelivery.then(
+      () => deliveryOutcome('resolved'),
+      () => deliveryOutcome('rejected')
+    )
+
+    await vi.waitFor(() => expect(consumer).toHaveBeenCalledOnce())
+    await Promise.resolve()
+
+    expect(deliveryOutcome).not.toHaveBeenCalled()
+
+    releaseConsumer?.()
+    await expect(inboundDelivery).resolves.toBeUndefined()
+    expect(deliveryOutcome).toHaveBeenCalledWith('resolved')
   })
 
-  it('does not fall back to per-publication clone work for an unguarded hub batch', async () => {
-    const hub = new MemoryHub()
-    const sender = new MemoryProvider(hub, identity('actor-a'))
-    const receiver = new MemoryProvider(hub, identity('actor-b'))
-    const inbound = vi.fn()
-    receiver.onPublications(inbound)
-    await sender.connect()
-    await receiver.connect()
-    const phaseSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraBrowserDragPhaseSink = phaseSink
-
-    try {
-      await sender.sendPublications([
-        publication('publication-a', 1),
-        publication('publication-b', 2)
-      ])
-    } finally {
-      delete (
-        globalThis as typeof globalThis & {
-          __asyraBrowserDragPhaseSink?: unknown
-        }
-      ).__asyraBrowserDragPhaseSink
+  it('returns the exclusive async consumer rejection to the inbound delivery caller', async () => {
+    const receiver = new MemoryProvider(
+      new MemoryHub(),
+      identity('actor-b')
+    ) as MemoryProvider & {
+      receivePublication(publication: SharedPublication): Promise<void>
     }
+    const failure = new Error('canonical apply failed')
+    const consumerRejection = Promise.reject(failure)
+    void consumerRejection.catch(() => undefined)
+    receiver.onPublication(() => consumerRejection)
+    await receiver.connect()
 
-    expect(inbound).toHaveBeenCalledOnce()
-    const phaseNames = phaseSink.mock.calls.map(([phaseName]) => phaseName)
-    expect(phaseNames).not.toContain('collaboration:clone-publication')
+    expect(receiver.receivePublication).toBeTypeOf('function')
+
+    await expect(
+      receiver.receivePublication(publication('publication-a', 1))
+    ).rejects.toBe(failure)
+  })
+
+  it('releases memory peer capacity after one app rejection without retrying or reporting a transport failure', async () => {
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
+    const failure = new Error('canonical apply failed')
+    const receivedPublicationIds: string[] = []
+    const providerFailure = vi.fn()
+    receiver.onFailure(providerFailure)
+    receiver.onPublication(async (inbound) => {
+      receivedPublicationIds.push(inbound.publicationId)
+      if (inbound.publicationId === 'publication-a') throw failure
+    })
+    await sender.connect()
+    await receiver.connect()
+
+    await expect(
+      sender.sendPublication(publication('publication-a', 1))
+    ).resolves.toBeUndefined()
+    await expect(
+      sender.sendPublication(publication('publication-b', 2))
+    ).resolves.toBeUndefined()
+    await vi.waitFor(() =>
+      expect(receivedPublicationIds).toEqual(['publication-a', 'publication-b'])
+    )
+
     expect(
-      phaseNames.filter(
-        (phaseName) => phaseName === 'collaboration:clone-publications'
+      receivedPublicationIds.filter(
+        (publicationId) => publicationId === 'publication-a'
       )
-    ).toHaveLength(2)
-    expect(phaseNames).not.toContain('collaboration:clone-inbound-publications')
+    ).toHaveLength(1)
+    expect(providerFailure).not.toHaveBeenCalled()
   })
 
-  it('isolates multiple batch subscribers without adding a single-item path', async () => {
+  it('forwards repeated equal publications without deduplicating them', async () => {
     const hub = new MemoryHub()
     const sender = new MemoryProvider(hub, identity('actor-a'))
     const receiver = new MemoryProvider(hub, identity('actor-b'))
-    const secondInbound = vi.fn()
-    receiver.onPublications((inbound) => {
-      const payload = inbound[0]?.publication.deliveries[0]?.payload as {
-        value: number
-      }
-      payload.value = 999
+    const receivedPublicationIds: string[] = []
+    receiver.onPublication(async (inbound) => {
+      receivedPublicationIds.push(inbound.publicationId)
     })
-    receiver.onPublications(secondInbound)
-    await sender.connect()
-    await receiver.connect()
-    const sent = publication('publication-a', 1)
-
-    await sender.sendPublications([sent, publication('publication-b', 2)])
-
-    expect(secondInbound).toHaveBeenCalledOnce()
-    expect(
-      (
-        secondInbound.mock.calls[0]?.[0][0].publication.deliveries[0]
-          ?.payload as { value: number }
-      ).value
-    ).toBe(1)
-    expect((sent.deliveries[0]?.payload as { value: number }).value).toBe(1)
-  })
-
-  it('isolates legacy single subscribers from batch subscriber mutation', async () => {
-    const hub = new MemoryHub()
-    const sender = new MemoryProvider(hub, identity('actor-a'))
-    const receiver = new MemoryProvider(hub, identity('actor-b'))
-    const singleInbound = vi.fn()
-    receiver.onPublications((inbound) => {
-      const payload = inbound[0]?.publication.deliveries[0]?.payload as {
-        value: number
-      }
-      payload.value = 999
-    })
-    receiver.onPublication(singleInbound)
-    await sender.connect()
-    await receiver.connect()
-
-    await sender.sendPublications([
-      publication('publication-a', 1),
-      publication('publication-b', 2)
-    ])
-
-    expect(
-      (
-        singleInbound.mock.calls[0]?.[0].publication.deliveries[0]?.payload as {
-          value: number
-        }
-      ).value
-    ).toBe(1)
-  })
-
-  it('forwards repeated equal publications instead of deduplicating them', async () => {
-    const hub = new MemoryHub()
-    const sender = new MemoryProvider(hub, identity('actor-a'))
-    const receiver = new MemoryProvider(hub, identity('actor-b'))
-    const inbound = vi.fn()
-    receiver.onPublication(inbound)
     await sender.connect()
     await receiver.connect()
     const repeated = publication('publication-a', 1)
@@ -235,10 +405,7 @@ describe('replaceable collaboration Provider contract', () => {
     await sender.sendPublication(repeated)
     await sender.sendPublication(repeated)
 
-    expect(inbound).toHaveBeenCalledTimes(2)
-    expect(
-      inbound.mock.calls.map(([received]) => received.publication)
-    ).toEqual([repeated, repeated])
+    expect(receivedPublicationIds).toEqual(['publication-a', 'publication-a'])
   })
 
   it('isolates rooms and reconnects to future publications without replay', async () => {
@@ -246,10 +413,14 @@ describe('replaceable collaboration Provider contract', () => {
     const sender = new MemoryProvider(hub, identity('actor-a'))
     const peer = new MemoryProvider(hub, identity('actor-b'))
     const otherRoom = new MemoryProvider(hub, identity('actor-c', 'room-b'))
-    const peerInbound = vi.fn()
-    const otherRoomInbound = vi.fn()
-    peer.onPublication(peerInbound)
-    otherRoom.onPublication(otherRoomInbound)
+    const peerPublicationIds: string[] = []
+    const otherRoomPublicationIds: string[] = []
+    peer.onPublication(async (inbound) => {
+      peerPublicationIds.push(inbound.publicationId)
+    })
+    otherRoom.onPublication(async (inbound) => {
+      otherRoomPublicationIds.push(inbound.publicationId)
+    })
     await sender.connect()
     await peer.connect()
     await otherRoom.connect()
@@ -259,17 +430,12 @@ describe('replaceable collaboration Provider contract', () => {
     await sender.sendPublication(publication('publication-2', 2))
     await peer.reconnect()
 
-    expect(peerInbound).toHaveBeenCalledTimes(1)
-    expect(otherRoomInbound).not.toHaveBeenCalled()
+    expect(peerPublicationIds).toEqual(['publication-1'])
+    expect(otherRoomPublicationIds).toEqual([])
 
     await sender.sendPublication(publication('publication-3', 3))
 
-    expect(peerInbound).toHaveBeenCalledTimes(2)
-    expect(
-      peerInbound.mock.calls.map(
-        ([received]) => received.publication.publicationId
-      )
-    ).toEqual(['publication-1', 'publication-3'])
+    expect(peerPublicationIds).toEqual(['publication-1', 'publication-3'])
     expect('requestSync' in peer).toBe(false)
     expect('exchangeStateVector' in peer).toBe(false)
     expect('sendSyncUpdate' in peer).toBe(false)

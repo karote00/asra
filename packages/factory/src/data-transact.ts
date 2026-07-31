@@ -148,7 +148,11 @@ import type {
   FactoryMutationDeliverySequence,
   SharedDelivery,
   SharedDeliveryBatch,
-  SharedPublication
+  SharedDeliveryOrigin,
+  SharedPublication,
+  SharedPublicationBatch,
+  SharedPublicationDelivery,
+  SharedPublicationSlice
 } from './shared-delivery'
 import {
   FactoryMutationBatchAcceptanceError,
@@ -846,7 +850,7 @@ class DataTransact {
         entry.shared.change.options
       )
       entry.shared.inverseEvents = deepFreezeValue(
-        entry.options.rollbackable
+        entry.options.rollbackable || entry.options.undoable
           ? (entry.inverseEvents ?? []).map((inverseEvent) => {
               const inversePayload = (
                 inverseEvent as AllEvent & {
@@ -1588,7 +1592,7 @@ class DataTransact {
 
   private createSharedPublication(
     entries: readonly TransactionJournalEntry[],
-    origin: SharedPublication['origin'] = this.transactionOrigin()
+    origin: SharedDeliveryOrigin = this.transactionOrigin()
   ): SharedPublication | undefined {
     return this.createSharedPublicationFromRecords(
       this.sharedRecordRefs(entries),
@@ -1598,10 +1602,10 @@ class DataTransact {
 
   private createSharedPublicationFromRecords(
     records: readonly JournalSharedRecordRef[],
-    origin: SharedPublication['origin'] = this.transactionOrigin()
+    origin: SharedDeliveryOrigin = this.transactionOrigin()
   ): SharedPublication | undefined {
     return measureBrowserDragPhase('factory:create-shared-publication', () => {
-      if (this.transactionOrigin() === 'remote') return
+      if (this.transactionOrigin() === 'remote' || origin === 'remote') return
       const publishableRecords = records.filter(({ record }) => {
         if (!record.delivered || record.publicationId !== undefined) {
           return false
@@ -1624,7 +1628,7 @@ class DataTransact {
       if (!publication) return
       publishableRecords.forEach(({ record }) => {
         record.publicationId = publication.publicationId
-        record.compensationPublicationId = publication.compensationPublicationId
+        record.compensationPublicationId = `${publication.publicationId}:compensation`
       })
       this.publicationAcknowledgements.set(publication, () => {
         publishableRecords.forEach(({ record }) => {
@@ -1637,46 +1641,79 @@ class DataTransact {
 
   private createSharedPublicationFromBatches(
     batches: readonly SharedDeliveryBatch[],
-    origin: SharedPublication['origin'],
+    origin: SharedDeliveryOrigin,
     identity: {
       publicationId?: string
-      compensationPublicationId?: string
       compensatesPublicationId?: string
     } = {}
   ): SharedPublication | undefined {
-    if (batches.length === 0) return
-    const frozenBatches = deepFreezeValue([...batches])
-    const deliveries = deepFreezeValue(
-      frozenBatches.flatMap((batch) => batch.deliveries)
+    if (
+      batches.length === 0 ||
+      origin === 'remote' ||
+      this.transactionOrigin() === 'remote'
+    ) {
+      return
+    }
+    const deliverySequence = this.resolveDeliverySequence(batches, {
+      includeActiveSequence: origin !== 'rollback-compensation',
+      modeOverride:
+        origin === 'rollback-compensation' &&
+        this.activeDeliverySequence?.mode === 'progressive'
+          ? 'progressive'
+          : undefined,
+      orderedIdsFromRecords:
+        origin === 'rollback-compensation' &&
+        this.activeDeliverySequence?.mode === 'progressive'
+    })
+    const publicationBatchesBySliceId = new Map<
+      string,
+      SharedPublicationBatch[]
+    >()
+    batches.forEach((batch) => {
+      const deliveries: readonly SharedPublicationDelivery[] = Object.freeze(
+        batch.deliveries.map((delivery) =>
+          Object.freeze({
+            deliveryId: delivery.deliveryId,
+            eventName: delivery.eventName,
+            orderedIds: delivery.record.orderedIds,
+            payload: delivery.payload,
+            ...(delivery.compensatesDeliveryId
+              ? { compensatesDeliveryId: delivery.compensatesDeliveryId }
+              : {})
+          })
+        )
+      )
+      const publicationBatch: SharedPublicationBatch = Object.freeze({
+        batchId: batch.batchId,
+        channel: batch.channel,
+        deliveries
+      })
+      const sliceBatches = publicationBatchesBySliceId.get(batch.sliceId) ?? []
+      sliceBatches.push(publicationBatch)
+      publicationBatchesBySliceId.set(batch.sliceId, sliceBatches)
+    })
+    const slices: readonly SharedPublicationSlice[] = Object.freeze(
+      deliverySequence.slices.map((slice) =>
+        Object.freeze({
+          sliceId: slice.sliceId,
+          orderedIds: slice.orderedIds,
+          batches: Object.freeze([
+            ...(publicationBatchesBySliceId.get(slice.sliceId) ?? [])
+          ])
+        })
+      )
     )
     const publicationId = identity.publicationId ?? this.nextPublicationId()
-    const compensationPublicationId =
-      identity.compensationPublicationId ??
-      (origin === 'rollback-compensation'
-        ? undefined
-        : `${publicationId}:compensation`)
-    return deepFreezeValue({
+    return Object.freeze({
       publicationId,
       artifactId: this.currentArtifactId,
       transactionId: this.currentTransactionId,
       origin,
-      deliveries,
-      batches: frozenBatches,
-      ...(compensationPublicationId ? { compensationPublicationId } : {}),
+      mode: deliverySequence.mode,
+      slices,
       ...(identity.compensatesPublicationId
         ? { compensatesPublicationId: identity.compensatesPublicationId }
-        : {}),
-      deliverySequence: this.resolveDeliverySequence(frozenBatches, {
-        includeActiveSequence: origin !== 'rollback-compensation',
-        modeOverride:
-          origin === 'rollback-compensation' &&
-          this.activeDeliverySequence?.mode === 'progressive'
-            ? 'progressive'
-            : undefined,
-        orderedIdsFromRecords:
-          origin === 'rollback-compensation' &&
-          this.activeDeliverySequence?.mode === 'progressive'
-      })
+        : {})
     })
   }
 
@@ -1700,8 +1737,7 @@ class DataTransact {
       const batchState = state.batchStateById.get(batch.batchId)
       if (!batchState) return
       batchState.publicationId = publication.publicationId
-      batchState.compensationPublicationId =
-        publication.compensationPublicationId
+      batchState.compensationPublicationId = `${publication.publicationId}:compensation`
     })
     this.publicationAcknowledgements.set(publication, () => {
       publishableBatches.forEach((batch) => {

@@ -204,7 +204,11 @@ This file is the app-level API contract map.
 - `src/collaboration/protocol.ts` is the app-owned wire
   contract shared by the browser provider and reference server; it owns message
   discriminants, named request/server message variants composed into the
-  public client/server unions, and runtime parsing of untrusted JSON
+  public client/server unions, and runtime parsing of untrusted JSON. Binary
+  publication frames encode and decode the exact minimal
+  publication → slices → channel batches → deliveries hierarchy; decode does
+  not reconstruct Factory records, inverse/history evidence, or removed
+  top-level aliases
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
 - The current startup requires `fileId`, finishes the separate read-only server

@@ -381,29 +381,31 @@ const captureFactoryPublicationShapes = (page: Page) =>
       runtime.__factoryPublicationShapes.push({
         publicationId: publication.publicationId,
         origin: publication.origin,
-        batches: publication.batches.map((batch) => ({
-          channel: batch.channel,
-          kind: batch.kind,
-          sharedDelivery: batch.sharedDelivery,
-          events: batch.deliveries.map((delivery) => {
-            const payload =
-              typeof delivery.payload === 'object' &&
-              delivery.payload !== null &&
-              !Array.isArray(delivery.payload)
-                ? (delivery.payload as Record<string, unknown>)
-                : {}
-            return {
-              eventName: delivery.eventName,
-              action: payload.action,
-              entryCount: Array.isArray(payload.entries)
-                ? payload.entries.length
-                : undefined,
-              dataCount: Array.isArray(payload.data)
-                ? payload.data.length
-                : undefined
-            }
-          }),
-          orderedIds: batch.records.flatMap((record) => record.orderedIds)
+        mode: publication.mode,
+        slices: publication.slices.map((slice) => ({
+          orderedIds: slice.orderedIds,
+          batches: slice.batches.map((batch) => ({
+            channel: batch.channel,
+            events: batch.deliveries.map((delivery) => {
+              const payload =
+                typeof delivery.payload === 'object' &&
+                delivery.payload !== null &&
+                !Array.isArray(delivery.payload)
+                  ? (delivery.payload as Record<string, unknown>)
+                  : {}
+              return {
+                eventName: delivery.eventName,
+                action: payload.action,
+                entryCount: Array.isArray(payload.entries)
+                  ? payload.entries.length
+                  : undefined,
+                dataCount: Array.isArray(payload.data)
+                  ? payload.data.length
+                  : undefined,
+                orderedIds: delivery.orderedIds
+              }
+            })
+          }))
         }))
       })
     })

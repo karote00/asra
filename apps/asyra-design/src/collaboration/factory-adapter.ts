@@ -1,5 +1,9 @@
 import type { CollaborationFactory } from '@asyra/collaboration'
-import type { Factory, SharedPublication } from '@asyra/factory'
+import type {
+  Factory,
+  SharedPublication,
+  SharedPublicationSlice
+} from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
 import { recordAiDrawingPerformancePublication } from '../init/performance/ai-drawing-performance-profile'
@@ -14,10 +18,38 @@ export const createDocumentCollaborationFactory = (
 ): CollaborationFactory => ({
   subscribeToSharedPublication: (subscriber) =>
     factory.subscribeToSharedPublication((publication: SharedPublication) => {
-      const batches = publication.batches.filter((batch) =>
-        documentChannels.has(batch.channel)
+      let publicationIsDocumentOnly = true
+      const slices = publication.slices.flatMap((slice) => {
+        const batches = slice.batches.filter(({ channel }) =>
+          documentChannels.has(channel)
+        )
+        if (batches.length !== slice.batches.length) {
+          publicationIsDocumentOnly = false
+        }
+        if (batches.length === 0) return []
+        if (batches.length === slice.batches.length) return [slice]
+
+        const retainedIds = new Set(
+          batches.flatMap(({ deliveries }) =>
+            deliveries.flatMap(({ deliveryId, orderedIds }) => [
+              deliveryId,
+              ...orderedIds
+            ])
+          )
+        )
+        return [
+          Object.freeze({
+            sliceId: slice.sliceId,
+            orderedIds: Object.freeze(
+              slice.orderedIds.filter((orderedId) => retainedIds.has(orderedId))
+            ),
+            batches: Object.freeze(batches)
+          } satisfies SharedPublicationSlice)
+        ]
+      })
+      const deliveries = slices.flatMap(({ batches }) =>
+        batches.flatMap(({ deliveries: batchDeliveries }) => batchDeliveries)
       )
-      const deliveries = batches.flatMap((batch) => batch.deliveries)
       if (deliveries.length === 0) return
       if (
         deliveries.some(
@@ -41,17 +73,13 @@ export const createDocumentCollaborationFactory = (
           // Detached profiling cannot alter the canonical transport route.
         }
       }
-      const retainedSliceIds = new Set(batches.map(({ sliceId }) => sliceId))
-      subscriber({
-        ...publication,
-        deliveries,
-        batches,
-        deliverySequence: {
-          ...publication.deliverySequence,
-          slices: publication.deliverySequence.slices.filter(({ sliceId }) =>
-            retainedSliceIds.has(sliceId)
-          )
-        }
-      })
+      subscriber(
+        publicationIsDocumentOnly
+          ? publication
+          : Object.freeze({
+              ...publication,
+              slices: Object.freeze(slices)
+            })
+      )
     })
 })

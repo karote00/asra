@@ -47,55 +47,32 @@ const createPublication = ({
   const artifactId = `${transactionId}:artifact`
   const batchId = `${transactionId}:batch:${suffix}`
   const deliveryId = `${transactionId}:delivery:${suffix}`
-  const recordId = `${transactionId}:record:${suffix}`
   const sliceId = `${transactionId}:slice:${suffix}`
-  const record = {
-    recordId,
-    deliveryId,
-    occurrence: 0,
-    orderedIds: [`element-${suffix}`],
-    payload,
-    inverseEvents: []
-  }
   const delivery = {
     deliveryId,
-    artifactId,
-    batchId,
-    transactionId,
-    origin: 'action' as const,
-    kind: 'forward' as const,
-    channel,
     eventName,
-    payload,
-    recordId,
-    record,
-    sharedDelivery: 'immediate' as const
+    orderedIds: [`element-${suffix}`],
+    payload
   }
   return {
     publicationId: `publication-${suffix}`,
     artifactId,
     transactionId,
     origin: 'action',
-    deliveries: [delivery],
-    batches: [
+    mode: 'progressive',
+    slices: [
       {
-        batchId,
         sliceId,
-        artifactId,
-        transactionId,
-        origin: 'action',
-        kind: 'forward',
-        channel,
-        sharedDelivery: 'immediate',
-        deliveries: [delivery],
-        records: [record],
-        changes: [payload]
+        orderedIds: delivery.orderedIds,
+        batches: [
+          {
+            batchId,
+            channel,
+            deliveries: [delivery]
+          }
+        ]
       }
-    ],
-    deliverySequence: {
-      mode: 'progressive',
-      slices: [{ sliceId, orderedIds: [deliveryId] }]
-    }
+    ]
   }
 }
 
@@ -107,83 +84,138 @@ const createTwoBatchPublication = (): SharedPublication => {
   return {
     ...first,
     publicationId: 'publication-two-batches',
-    deliveries: [...first.deliveries, ...second.deliveries],
-    batches: [...first.batches, ...second.batches],
-    deliverySequence: {
-      mode: 'progressive',
-      slices: [
-        ...first.deliverySequence.slices,
-        ...second.deliverySequence.slices
-      ]
-    }
+    slices: [...first.slices, ...second.slices]
   }
 }
 
-const createMultiRecordPublication = (
+const createMultiDeliveryPublication = (
   payloads: readonly object[]
 ): SharedPublication => {
   const artifactId = '3:artifact'
   const batchId = '3:batch:multi'
   const sliceId = '3:slice:multi'
-  const records = payloads.map((payload, index) => {
-    const deliveryId = `3:delivery:${index}`
-    return {
-      recordId: `3:record:${index}`,
-      deliveryId,
-      occurrence: index,
-      orderedIds: [`element-${index}`],
-      payload,
-      inverseEvents: []
-    }
-  })
-  const deliveries = records.map((record, index) => ({
-    deliveryId: record.deliveryId,
-    artifactId,
-    batchId,
-    transactionId: 3,
-    origin: 'action' as const,
-    kind: 'forward' as const,
-    channel: 'sceneTree',
+  const deliveries = payloads.map((payload, index) => ({
+    deliveryId: `3:delivery:${index}`,
     eventName: 'updateComputedData',
-    payload: payloads[index] as object,
-    recordId: record.recordId,
-    record,
-    sharedDelivery: 'immediate' as const
+    orderedIds: [`element-${index}`],
+    payload
   }))
   return {
     publicationId: 'publication-multi',
     artifactId,
     transactionId: 3,
     origin: 'action',
-    deliveries,
-    batches: [
+    mode: 'progressive',
+    slices: [
       {
-        batchId,
         sliceId,
-        artifactId,
-        transactionId: 3,
-        origin: 'action',
-        kind: 'forward',
-        channel: 'sceneTree',
-        sharedDelivery: 'immediate',
-        deliveries,
-        records,
-        changes: payloads
+        orderedIds: deliveries.flatMap(({ orderedIds }) => orderedIds),
+        batches: [
+          {
+            batchId,
+            channel: 'sceneTree',
+            deliveries
+          }
+        ]
       }
-    ],
-    deliverySequence: {
-      mode: 'progressive',
-      slices: [
-        {
-          sliceId,
-          orderedIds: deliveries.map(({ deliveryId }) => deliveryId)
-        }
-      ]
-    }
+    ]
   }
 }
 
 describe('collaboration wire protocol', () => {
+  it('round-trips only the minimal nested publication hierarchy', () => {
+    const minimalPublication: SharedPublication = {
+      publicationId: 'publication-minimal',
+      artifactId: 'artifact-minimal',
+      transactionId: 7,
+      origin: 'action',
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'slice-minimal',
+          orderedIds: ['element-minimal'],
+          batches: [
+            {
+              batchId: 'batch-minimal',
+              channel: 'sceneTree',
+              deliveries: [
+                {
+                  deliveryId: 'delivery-minimal',
+                  eventName: 'updateElementData',
+                  orderedIds: ['element-minimal'],
+                  payload: { id: 'element-minimal', visible: true }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-minimal',
+      publication: minimalPublication
+    }
+
+    const frames = encodePublicationMessageFrames(request)
+
+    expect(decodePublicationMessageFrames(frames)).toEqual(request)
+    expect(Object.keys(minimalPublication).sort()).toEqual(
+      [
+        'artifactId',
+        'mode',
+        'origin',
+        'publicationId',
+        'slices',
+        'transactionId'
+      ].sort()
+    )
+  })
+
+  it('round-trips only actual compensation correlation fields', () => {
+    const source = createPublication({
+      suffix: 'compensation',
+      transactionId: 8
+    })
+    const slice = source.slices[0]
+    const batch = slice?.batches[0]
+    const delivery = batch?.deliveries[0]
+    if (!slice || !batch || !delivery) {
+      throw new Error('Expected a nested publication fixture')
+    }
+    const compensation: SharedPublication = {
+      ...source,
+      publicationId: `${source.publicationId}:compensation`,
+      origin: 'rollback-compensation',
+      compensatesPublicationId: source.publicationId,
+      slices: [
+        {
+          ...slice,
+          batches: [
+            {
+              ...batch,
+              deliveries: [
+                {
+                  ...delivery,
+                  compensatesDeliveryId: delivery.deliveryId
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-compensation',
+      publication: compensation
+    }
+
+    expect(
+      decodePublicationMessageFrames(encodePublicationMessageFrames(request))
+    ).toEqual(request)
+  })
+
   it('keeps control messages as ordinary JSON while every publication uses a versioned binary frame', () => {
     const hello = {
       type: CollaborationMessageTypes.HELLO,
@@ -576,7 +608,7 @@ describe('collaboration wire protocol', () => {
   })
 
   it('keeps multi-assembly continuation within the exact worker byte window', () => {
-    const oversizedPublication = createMultiRecordPublication([
+    const oversizedPublication = createMultiDeliveryPublication([
       { source: 'a'.repeat(1_150_000) },
       { source: 'b'.repeat(1_150_000) }
     ])
@@ -738,82 +770,52 @@ describe('collaboration wire protocol', () => {
     ).toThrow(/duplicate publication identity/)
   })
 
-  it('rejects duplicate batch, delivery, and record identities before framing', () => {
+  it('rejects duplicate batch and delivery identities before framing', () => {
     const base = createTwoBatchPublication()
-    const firstBatch = base.batches[0]
-    const secondBatch = base.batches[1]
+    const firstSlice = base.slices[0]
+    const secondSlice = base.slices[1]
+    const firstBatch = firstSlice?.batches[0]
+    const secondBatch = secondSlice?.batches[0]
     const firstDelivery = firstBatch?.deliveries[0]
     const secondDelivery = secondBatch?.deliveries[0]
-    if (!firstBatch || !secondBatch || !firstDelivery || !secondDelivery) {
+    if (
+      !firstSlice ||
+      !secondSlice ||
+      !firstBatch ||
+      !secondBatch ||
+      !firstDelivery ||
+      !secondDelivery
+    ) {
       throw new Error('Expected a two-batch publication fixture')
     }
 
-    const duplicateBatchDelivery = {
-      ...secondDelivery,
-      batchId: firstBatch.batchId
-    }
     const duplicateBatchId: SharedPublication = {
       ...base,
-      deliveries: [firstDelivery, duplicateBatchDelivery],
-      batches: [
-        firstBatch,
+      slices: [
+        firstSlice,
         {
-          ...secondBatch,
-          batchId: firstBatch.batchId,
-          deliveries: [duplicateBatchDelivery]
+          ...secondSlice,
+          batches: [{ ...secondBatch, batchId: firstBatch.batchId }]
         }
       ]
     }
 
-    const duplicateDeliveryRecord = {
-      ...secondDelivery.record,
-      deliveryId: firstDelivery.deliveryId
-    }
     const duplicateDelivery = {
       ...secondDelivery,
-      deliveryId: firstDelivery.deliveryId,
-      record: duplicateDeliveryRecord
+      deliveryId: firstDelivery.deliveryId
     }
     const duplicateDeliveryId: SharedPublication = {
       ...base,
-      deliveries: [firstDelivery, duplicateDelivery],
-      batches: [
-        firstBatch,
+      slices: [
+        firstSlice,
         {
-          ...secondBatch,
-          deliveries: [duplicateDelivery],
-          records: [duplicateDeliveryRecord]
+          ...secondSlice,
+          batches: [{ ...secondBatch, deliveries: [duplicateDelivery] }]
         }
       ]
     }
 
-    const duplicateRecord = {
-      ...secondDelivery.record,
-      recordId: firstDelivery.recordId
-    }
-    const duplicateRecordDelivery = {
-      ...secondDelivery,
-      recordId: firstDelivery.recordId,
-      record: duplicateRecord
-    }
-    const duplicateRecordId: SharedPublication = {
-      ...base,
-      deliveries: [firstDelivery, duplicateRecordDelivery],
-      batches: [
-        firstBatch,
-        {
-          ...secondBatch,
-          deliveries: [duplicateRecordDelivery],
-          records: [duplicateRecord]
-        }
-      ]
-    }
-
-    for (const candidate of [
-      duplicateBatchId,
-      duplicateDeliveryId,
-      duplicateRecordId
-    ]) {
+    for (const candidate of [duplicateBatchId, duplicateDeliveryId]) {
       expect(() =>
         encodePublicationMessageFrames({
           type: CollaborationMessageTypes.SEND_PUBLICATION,
@@ -824,8 +826,8 @@ describe('collaboration wire protocol', () => {
     }
   })
 
-  it('splits a multi-record publication only at canonical record boundaries', () => {
-    const publicationWithRecords = createMultiRecordPublication(
+  it('splits a multi-delivery publication only at canonical delivery boundaries', () => {
+    const publicationWithDeliveries = createMultiDeliveryPublication(
       Array.from({ length: 12 }, (_, index) => ({
         id: `element-${index}`,
         source: `${String(index).padStart(2, '0')}:${'x'.repeat(768)}`
@@ -833,8 +835,8 @@ describe('collaboration wire protocol', () => {
     )
     const request: CollaborationRequestMessage = {
       type: CollaborationMessageTypes.SEND_PUBLICATION,
-      requestId: 'request-record-chunks',
-      publication: publicationWithRecords
+      requestId: 'request-delivery-chunks',
+      publication: publicationWithDeliveries
     }
 
     const frames = encodePublicationMessageFrames(request, {
@@ -846,7 +848,7 @@ describe('collaboration wire protocol', () => {
     expect(decodePublicationMessageFrames(frames)).toEqual(request)
   })
 
-  it('does not re-encode discarded record ranges while planning chunks', () => {
+  it('does not re-encode discarded delivery ranges while planning chunks', () => {
     let descriptorReadCount = 0
     const payloads = Array.from(
       { length: 16 },
@@ -866,8 +868,8 @@ describe('collaboration wire protocol', () => {
     )
     const request: CollaborationRequestMessage = {
       type: CollaborationMessageTypes.SEND_PUBLICATION,
-      requestId: 'request-linear-record-plan',
-      publication: createMultiRecordPublication(payloads)
+      requestId: 'request-linear-delivery-batch',
+      publication: createMultiDeliveryPublication(payloads)
     }
 
     encodePublicationMessageFrames(request, {
@@ -884,7 +886,7 @@ describe('collaboration wire protocol', () => {
     expect(descriptorReadCount).toBe(unsplitDescriptorReads)
   })
 
-  it('treats 1 MiB as a soft frame target and accepts one oversized indivisible record', () => {
+  it('treats 1 MiB as a soft frame target and accepts one oversized indivisible delivery', () => {
     const oversizedPublication = createPublication({
       payload: { source: 'x'.repeat(1_100_000) },
       suffix: 'oversized'
@@ -902,16 +904,16 @@ describe('collaboration wire protocol', () => {
     expect(decodePublicationMessageFrames(frames)).toEqual(request)
   })
 
-  it('keeps one oversized record indivisible beside other canonical records', () => {
+  it('keeps one oversized delivery indivisible beside other canonical deliveries', () => {
     const request: CollaborationRequestMessage = {
       type: CollaborationMessageTypes.SEND_PUBLICATION,
-      requestId: 'request-oversized-among-records',
-      publication: createMultiRecordPublication([
+      requestId: 'request-oversized-among-deliveries',
+      publication: createMultiDeliveryPublication([
         {
-          id: 'oversized-record',
-          source: 'unique-oversized-record-value'.repeat(48_000)
+          id: 'oversized-delivery',
+          source: 'unique-oversized-delivery-value'.repeat(48_000)
         },
-        { id: 'tail-record', source: 'tail' }
+        { id: 'tail-delivery', source: 'tail' }
       ])
     }
 
@@ -1054,7 +1056,8 @@ describe('collaboration wire protocol', () => {
     ) {
       throw new Error('Deep collaboration request changed message type')
     }
-    let decodedPayload = decoded.publication.deliveries[0]?.payload
+    let decodedPayload =
+      decoded.publication.slices[0]?.batches[0]?.deliveries[0]?.payload
     for (let index = wrappers.length - 1; index >= 0; index -= 1) {
       if (wrappers[index] === 'array') {
         expect(Array.isArray(decodedPayload)).toBe(true)
@@ -1220,7 +1223,7 @@ describe('collaboration wire protocol', () => {
     expect(
       parseCollaborationServerMessage({
         ...inbound,
-        publications: [publication, { ...secondPublication, deliveries: null }]
+        publications: [publication, { ...secondPublication, slices: null }]
       })
     ).toBeUndefined()
   })
@@ -1258,7 +1261,7 @@ describe('collaboration wire protocol', () => {
       parseCollaborationClientMessage({
         type: CollaborationMessageTypes.SEND_PUBLICATION,
         requestId: 'request-1',
-        publication: { ...publication, deliveries: 'not-an-array' }
+        publication: { ...publication, slices: 'not-an-array' }
       })
     ).toBeUndefined()
     expect(
@@ -1273,52 +1276,61 @@ describe('collaboration wire protocol', () => {
       })
     ).toBeDefined()
 
+    const slice = publication.slices[0]
+    const batch = slice?.batches[0]
+    const delivery = batch?.deliveries[0]
+    if (!slice || !batch || !delivery) {
+      throw new Error('Expected a nested publication fixture')
+    }
     const incompletePublications = [
-      { publicationId: 'publication-a', deliveries: publication.deliveries },
+      { publicationId: 'publication-a', slices: publication.slices },
       { ...publication, origin: 'unsupported-origin' },
       {
         ...publication,
-        deliveries: [
+        slices: [
           {
-            transactionId: 1,
-            origin: 'action',
-            kind: 'forward',
-            channel: 'sceneTree',
-            eventName: 'updateComputedData',
-            payload: { value: 1 },
-            sharedDelivery: 'immediate'
+            ...slice,
+            batches: [
+              {
+                ...batch,
+                deliveries: [
+                  {
+                    deliveryId: delivery.deliveryId,
+                    eventName: delivery.eventName,
+                    payload: delivery.payload
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
       {
         ...publication,
-        deliveries: [
+        slices: [
           {
-            ...publication.deliveries[0],
-            sharedDelivery: 'unsupported-delivery-mode'
+            ...slice,
+            batches: [
+              {
+                ...batch,
+                deliveries: [{ ...delivery, sharedDelivery: 'immediate' }]
+              }
+            ]
           }
         ]
       },
       {
         ...publication,
-        batches: [
+        slices: [
           {
-            ...publication.batches[0],
-            artifactId: 'different-artifact'
+            ...slice,
+            batches: [{ ...batch, artifactId: 'different-artifact' }]
           }
         ]
       },
       {
         ...publication,
-        deliverySequence: {
-          mode: 'progressive',
-          slices: [
-            {
-              sliceId: 'different-slice',
-              orderedIds: ['element-a']
-            }
-          ]
-        }
+        slices: [{ ...slice, orderedIds: ['different-element'] }]
       }
     ]
 

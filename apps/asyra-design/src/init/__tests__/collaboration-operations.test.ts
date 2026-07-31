@@ -1,5 +1,8 @@
 import type { CanonicalChange } from '@asyra/core'
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
+import type {
+  SharedPublication,
+  SharedPublicationDelivery
+} from '@asyra/factory'
 import {
   EventTypes,
   getTransactionReplayMode,
@@ -17,91 +20,74 @@ import {
   type DecideRemotePublication
 } from '../../collaboration/operations'
 
+type TestPublicationDelivery = SharedPublicationDelivery & {
+  readonly batchId: string
+  readonly channel: string
+}
+
 const delivery = (
   channel: string,
   eventName: string,
   payload: unknown,
   deliveryId = eventName
-): SharedDelivery => {
-  const artifactId = 'artifact-test'
-  const batchId = `batch-${deliveryId}`
-  const recordId = `record-${deliveryId}`
-  return {
-    deliveryId,
-    artifactId,
-    batchId,
-    transactionId: 1,
-    origin: 'action',
-    kind: 'forward',
-    channel,
-    eventName,
-    payload,
-    recordId,
-    record: {
-      recordId,
-      deliveryId,
-      occurrence: 1,
-      orderedIds: [],
-      payload: payload as object,
-      inverseEvents: []
-    },
-    sharedDelivery: 'immediate'
-  }
-}
+): TestPublicationDelivery => ({
+  deliveryId,
+  batchId: `batch-${deliveryId}`,
+  channel,
+  eventName,
+  orderedIds: [deliveryId],
+  payload
+})
 
 const publication = (
-  deliveries: readonly SharedDelivery[],
+  deliveries: readonly TestPublicationDelivery[],
   publicationId = 'publication-a',
   origin: SharedPublication['origin'] = 'action'
 ): SharedPublication => {
-  const normalizedDeliveries = deliveries.map((item) => ({
-    ...item,
-    origin
-  }))
-  const artifactId =
-    normalizedDeliveries[0]?.artifactId ?? `artifact-${publicationId}`
   const groupedBatches: {
     batchId: string
-    deliveries: SharedDelivery[]
+    channel: string
+    deliveries: SharedPublicationDelivery[]
   }[] = []
 
-  normalizedDeliveries.forEach((item) => {
+  deliveries.forEach(({ batchId, channel, ...item }) => {
+    const publicationDelivery =
+      origin === 'rollback-compensation'
+        ? {
+            ...item,
+            compensatesDeliveryId: `forward-${item.deliveryId}`
+          }
+        : item
     const active = groupedBatches[groupedBatches.length - 1]
-    if (active?.batchId === item.batchId) {
-      active.deliveries.push(item)
+    if (active?.batchId === batchId) {
+      active.deliveries.push(publicationDelivery)
       return
     }
-    groupedBatches.push({ batchId: item.batchId, deliveries: [item] })
+    groupedBatches.push({
+      batchId,
+      channel,
+      deliveries: [publicationDelivery]
+    })
   })
 
   return {
     publicationId,
-    artifactId,
+    artifactId: `artifact-${publicationId}`,
     transactionId: 1,
     origin,
-    deliveries: normalizedDeliveries,
-    batches: groupedBatches.map(({ batchId, deliveries: batchDeliveries }) => ({
-      batchId,
-      sliceId: batchId,
-      artifactId: batchDeliveries[0]?.artifactId ?? artifactId,
-      transactionId: batchDeliveries[0]?.transactionId ?? 1,
-      origin: batchDeliveries[0]?.origin ?? 'action',
-      kind: batchDeliveries[0]?.kind ?? 'forward',
-      channel: batchDeliveries[0]?.channel ?? '',
-      sharedDelivery: batchDeliveries[0]?.sharedDelivery ?? 'immediate',
-      deliveries: batchDeliveries,
-      records: batchDeliveries.map(({ record }) => record),
-      changes: batchDeliveries.map(({ payload }) => payload)
-    })),
-    deliverySequence: {
-      mode: 'atomic',
-      slices: groupedBatches.map(
-        ({ batchId, deliveries: batchDeliveries }) => ({
-          sliceId: batchId,
-          orderedIds: batchDeliveries.map(({ deliveryId }) => deliveryId)
-        })
-      )
-    }
+    mode: 'atomic',
+    ...(origin === 'rollback-compensation'
+      ? { compensatesPublicationId: `forward-${publicationId}` }
+      : {}),
+    slices: [
+      {
+        sliceId: `slice-${publicationId}`,
+        orderedIds: groupedBatches.flatMap(({ deliveries: batchDeliveries }) =>
+          batchDeliveries.map(({ deliveryId }) => deliveryId)
+        ),
+        batches: groupedBatches
+      }
+    ]
   }
 }
 
@@ -111,21 +97,21 @@ const withExplicitCanonicalDeliverySequence = (
   orderedIds: readonly string[]
 ): SharedPublication => ({
   ...source,
-  batches: source.batches.map((batch) => ({
-    ...batch,
-    sliceId
-  })),
-  deliverySequence: {
-    mode: 'progressive',
-    slices: [{ sliceId, orderedIds }]
-  }
+  mode: 'progressive',
+  slices: [
+    {
+      sliceId,
+      orderedIds,
+      batches: source.slices.flatMap(({ batches }) => batches)
+    }
+  ]
 })
 
 const canonicalCreationDeliveries = (
   elementIds: readonly string[],
   parentId = 'workspace-a',
   startIndex = 0
-): readonly SharedDelivery[] => {
+): readonly TestPublicationDelivery[] => {
   const properties = elementIds.map((elementId) => ({
     id: `position-${elementId}`,
     type: 'position'
@@ -169,18 +155,12 @@ const canonicalCreationDeliveries = (
     {
       ...propertyDelivery,
       batchId: propertiesBatchId,
-      record: {
-        ...propertyDelivery.record,
-        orderedIds: [...elementIds]
-      }
+      orderedIds: [...elementIds]
     },
     {
       ...elementDelivery,
       batchId: elementsBatchId,
-      record: {
-        ...elementDelivery.record,
-        orderedIds: [...elementIds]
-      }
+      orderedIds: [...elementIds]
     }
   ]
 }
@@ -189,7 +169,7 @@ const canonicalContainerCreationDeliveries = (
   elementId: string,
   parentId = 'workspace-a',
   index = 0
-): readonly SharedDelivery[] => {
+): readonly TestPublicationDelivery[] => {
   const propertyIds = [
     `position-${elementId}`,
     `dimension-${elementId}`,
@@ -237,18 +217,12 @@ const canonicalContainerCreationDeliveries = (
     {
       ...propertyDelivery,
       batchId: `batch-container-properties-${elementId}`,
-      record: {
-        ...propertyDelivery.record,
-        orderedIds: [elementId]
-      }
+      orderedIds: [elementId]
     },
     {
       ...elementDelivery,
       batchId: `batch-container-${elementId}`,
-      record: {
-        ...elementDelivery.record,
-        orderedIds: [elementId]
-      }
+      orderedIds: [elementId]
     }
   ]
 }
@@ -256,7 +230,7 @@ const canonicalContainerCreationDeliveries = (
 const canonicalRemovalDeliveries = (
   elementIds: readonly string[],
   includePropertyEvidence: boolean
-): readonly SharedDelivery[] => {
+): readonly TestPublicationDelivery[] => {
   const removalIds = [...elementIds].reverse()
   const sceneBatchId = `batch-remove-elements-${elementIds.join('-')}`
   const propsBatchId = `batch-remove-properties-${elementIds.join('-')}`
@@ -286,10 +260,7 @@ const canonicalRemovalDeliveries = (
     {
       ...sceneDelivery,
       batchId: sceneBatchId,
-      record: {
-        ...sceneDelivery.record,
-        orderedIds: removalIds
-      }
+      orderedIds: removalIds
     }
   ]
   if (!includePropertyEvidence) {
@@ -310,10 +281,7 @@ const canonicalRemovalDeliveries = (
     return {
       ...propertyDelivery,
       batchId: propsBatchId,
-      record: {
-        ...propertyDelivery.record,
-        orderedIds: [elementId]
-      }
+      orderedIds: [elementId]
     }
   })
   return [...sceneDeliveries, ...propertyDeliveries]
@@ -322,7 +290,7 @@ const canonicalRemovalDeliveries = (
 const propertyUpdateDeliveries = (
   propertyId: string,
   values: Readonly<Record<string, unknown>>
-): readonly SharedDelivery[] => {
+): readonly TestPublicationDelivery[] => {
   const batchId = `batch-update-${propertyId}`
   return Object.entries(values).map(([key, after]) => {
     const item = delivery(
@@ -342,7 +310,7 @@ const propertyUpdateDeliveries = (
   })
 }
 
-const subtreeRemovalDelivery = (): SharedDelivery =>
+const subtreeRemovalDelivery = (): TestPublicationDelivery =>
   delivery(
     SharedDataChannelNames.SCENE_TREE,
     EventTypes.CHANGE_SUBTREE,
@@ -379,7 +347,7 @@ const subtreeRemovalDelivery = (): SharedDelivery =>
     'remove-subtree-group-a'
   )
 
-const restoreDeliveries = (): readonly SharedDelivery[] => [
+const restoreDeliveries = (): readonly TestPublicationDelivery[] => [
   delivery(
     SharedDataChannelNames.PROPS,
     EventTypes.ADD_PROPERTY,
@@ -456,6 +424,52 @@ const createHarness = (options: HarnessOptions = {}) => {
 }
 
 describe('Asyra Design app-owned collaboration processing', () => {
+  it('applies a minimal nested property publication without legacy aliases', () => {
+    const harness = createHarness()
+    const minimalPublication: SharedPublication = {
+      publicationId: 'minimal-property-update',
+      artifactId: 'artifact-minimal-property-update',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'atomic',
+      slices: [
+        {
+          sliceId: 'slice-minimal-property-update',
+          orderedIds: ['delivery-minimal-property-update'],
+          batches: [
+            {
+              batchId: 'batch-minimal-property-update',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [
+                {
+                  deliveryId: 'delivery-minimal-property-update',
+                  eventName: EventTypes.UPDATE_PROPERTY,
+                  orderedIds: ['element-a'],
+                  payload: {
+                    action: PROPS_ACTIONS.UPDATE_PROPERTY,
+                    eventName: EventTypes.UPDATE_PROPERTY,
+                    id: 'position-a',
+                    key: 'x',
+                    before: 0,
+                    after: 10
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    expect(harness.processPublication(minimalPublication)).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        updates: [{ propertyId: 'position-a', values: { x: 10 } }]
+      }
+    ])
+  })
+
   it('rejects remote computed projection before policy or mutation', () => {
     const harness = createHarness()
     const computed = delivery(
@@ -856,22 +870,28 @@ describe('Asyra Design app-owned collaboration processing', () => {
           propertyUpdateDeliveries('position-a', { x: 10 }),
           'missing-batches'
         ),
-        batches: []
+        slices: []
       })
     ],
     [
-      'inconsistent batch artifact',
+      'duplicate batch identity',
       false,
       () => {
         const source = publication(
           propertyUpdateDeliveries('position-a', { x: 10 }),
           'inconsistent-artifact'
         )
+        const firstSlice = source.slices[0]
+        if (!firstSlice) throw new Error('Expected publication slice')
         return {
           ...source,
-          batches: source.batches.map((batch, index) =>
-            index === 0 ? { ...batch, artifactId: 'different-artifact' } : batch
-          )
+          slices: [
+            firstSlice,
+            {
+              ...firstSlice,
+              sliceId: `${firstSlice.sliceId}:duplicate`
+            }
+          ]
         }
       }
     ],
@@ -883,20 +903,26 @@ describe('Asyra Design app-owned collaboration processing', () => {
           canonicalCreationDeliveries(['rect-a']),
           'split-creation'
         )
+        const propertyBatch = source.slices[0]?.batches[0]
+        const sceneBatch = source.slices[0]?.batches[1]
+        if (!propertyBatch || !sceneBatch) {
+          throw new Error('Expected property and Scene batches')
+        }
         return {
           ...source,
-          batches: source.batches.map((batch, index) =>
-            index === 1
-              ? {
-                  ...batch,
-                  sharedDelivery: 'transaction-end' as const,
-                  deliveries: batch.deliveries.map((item) => ({
-                    ...item,
-                    sharedDelivery: 'transaction-end' as const
-                  }))
-                }
-              : batch
-          )
+          mode: 'progressive' as const,
+          slices: [
+            {
+              sliceId: 'property-slice',
+              orderedIds: ['rect-a'],
+              batches: [propertyBatch]
+            },
+            {
+              sliceId: 'scene-slice',
+              orderedIds: ['rect-a'],
+              batches: [sceneBatch]
+            }
+          ]
         }
       }
     ],

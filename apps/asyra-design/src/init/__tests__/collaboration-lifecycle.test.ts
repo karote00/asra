@@ -21,7 +21,6 @@ const remotePublication = (publicationId: string): SharedPublication => {
   const artifactId = `artifact-${publicationId}`
   const batchId = `batch-${publicationId}`
   const deliveryId = `delivery-${publicationId}`
-  const recordId = `record-${publicationId}`
   const payload = {
     action: PROPS_ACTIONS.UPDATE_PROPERTY,
     eventName: EventTypes.UPDATE_PROPERTY,
@@ -30,53 +29,31 @@ const remotePublication = (publicationId: string): SharedPublication => {
     before: 0,
     after: 10
   }
-  const record = {
-    recordId,
-    deliveryId,
-    occurrence: 1,
-    orderedIds: [],
-    payload,
-    inverseEvents: []
-  }
   const delivery = {
     deliveryId,
-    artifactId,
-    batchId,
-    transactionId: 1,
-    origin: 'action' as const,
-    kind: 'forward' as const,
-    channel: SharedDataChannelNames.PROPS,
     eventName: EventTypes.UPDATE_PROPERTY,
-    payload,
-    recordId,
-    record,
-    sharedDelivery: 'immediate' as const
+    orderedIds: [`position-${publicationId}`],
+    payload
   }
   return {
     publicationId,
     artifactId,
     transactionId: 1,
     origin: 'action',
-    deliveries: [delivery],
-    batches: [
+    mode: 'atomic',
+    slices: [
       {
-        batchId,
         sliceId: batchId,
-        artifactId,
-        transactionId: 1,
-        origin: 'action',
-        kind: 'forward',
-        channel: SharedDataChannelNames.PROPS,
-        sharedDelivery: 'immediate',
-        deliveries: [delivery],
-        records: [record],
-        changes: [payload]
+        orderedIds: [deliveryId],
+        batches: [
+          {
+            batchId,
+            channel: SharedDataChannelNames.PROPS,
+            deliveries: [delivery]
+          }
+        ]
       }
-    ],
-    deliverySequence: {
-      mode: 'atomic',
-      slices: [{ sliceId: batchId, orderedIds: [deliveryId] }]
-    }
+    ]
   }
 }
 

@@ -1,6 +1,6 @@
 import type { Factory, SharedPublication } from '@asyra/factory'
 import type { Awareness } from './awareness'
-import type { InboundPublication, Provider } from './provider'
+import type { Provider } from './provider'
 
 export type CollaborationResourceOwnership = 'owned' | 'borrowed'
 
@@ -12,8 +12,7 @@ export interface CollaborationResourceOwnershipMap {
 export type CollaborationFactory = Pick<Factory, 'subscribeToSharedPublication'>
 
 export type ProcessRemotePublication = (
-  publication: SharedPublication,
-  context: Readonly<Omit<InboundPublication, 'publication'>>
+  publication: SharedPublication
 ) => void | Promise<void>
 
 export interface CreateCollaborationInput {

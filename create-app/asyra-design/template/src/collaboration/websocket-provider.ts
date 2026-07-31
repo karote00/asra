@@ -6,7 +6,6 @@ import {
   type Provider,
   type ProviderIdentity,
   type ProviderStatus,
-  type InboundPublication,
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage
 } from '@asyra/collaboration'
@@ -21,6 +20,7 @@ import {
 } from './protocol'
 
 type Subscriber<T> = (value: T) => void
+type PublicationConsumer = (publication: SharedPublication) => Promise<void>
 
 interface PendingRequest {
   resolve(value: unknown): void
@@ -46,6 +46,20 @@ const toFailure = (
     publicationId
   )
 
+const deepFreezePublication = <T>(
+  value: T,
+  seen = new WeakSet<object>()
+): T => {
+  if (value === null || typeof value !== 'object') return value
+  const object = value as object
+  if (seen.has(object)) return value
+  seen.add(object)
+  Reflect.ownKeys(object).forEach((key) =>
+    deepFreezePublication(Reflect.get(object, key), seen)
+  )
+  return Object.freeze(value)
+}
+
 export class CollaborationWebSocketProvider implements Provider {
   readonly identity: ProviderIdentity
 
@@ -58,9 +72,8 @@ export class CollaborationWebSocketProvider implements Provider {
   private requestSequence = 0
   private readonly pendingRequests = new Map<string, PendingRequest>()
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
-  private readonly publicationSubscribers = new Set<
-    Subscriber<InboundPublication>
-  >()
+  private publicationConsumer: PublicationConsumer | null = null
+  private inboundPublicationTail: Promise<void> = Promise.resolve()
   private readonly awarenessSubscribers = new Set<
     Subscriber<ProviderAwarenessMessage>
   >()
@@ -303,7 +316,7 @@ export class CollaborationWebSocketProvider implements Provider {
       new ProviderFailure('disposed', '[collaboration] provider is disposed')
     )
     this.statusSubscribers.clear()
-    this.publicationSubscribers.clear()
+    this.publicationConsumer = null
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -324,8 +337,19 @@ export class CollaborationWebSocketProvider implements Provider {
     })
   }
 
-  onPublication(subscriber: Subscriber<InboundPublication>): () => void {
-    return this.subscribe(this.publicationSubscribers, subscriber)
+  onPublication(consume: PublicationConsumer): () => void {
+    this.requireUsable()
+    if (this.publicationConsumer) {
+      throw new Error(
+        '[collaboration] an inbound publication consumer is already registered'
+      )
+    }
+    this.publicationConsumer = consume
+    return () => {
+      if (this.publicationConsumer === consume) {
+        this.publicationConsumer = null
+      }
+    }
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -404,10 +428,12 @@ export class CollaborationWebSocketProvider implements Provider {
       return
     }
     if (message.type === CollaborationMessageTypes.PUBLICATION) {
-      this.emit(this.publicationSubscribers, {
-        publication: structuredClone(message.publication),
-        ...(message.fromActorId ? { fromActorId: message.fromActorId } : {})
-      })
+      const consume = this.publicationConsumer
+      if (!consume) return
+      const publication = deepFreezePublication(message.publication)
+      this.inboundPublicationTail = this.inboundPublicationTail
+        .then(() => consume(publication))
+        .catch(() => undefined)
       return
     }
     if (message.type === CollaborationMessageTypes.AWARENESS) {

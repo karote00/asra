@@ -10,18 +10,28 @@ import {
 
 const publication: SharedPublication = {
   publicationId: 'publication-a',
+  artifactId: 'artifact-a',
   transactionId: 1,
   origin: 'action',
-  deliveries: [
+  mode: 'atomic',
+  slices: [
     {
-      deliveryId: 'delivery-a',
-      transactionId: 1,
-      origin: 'action',
-      kind: 'forward',
-      channel: 'sceneTree',
-      eventName: 'updateComputedData',
-      payload: { value: 1 },
-      sharedDelivery: 'immediate'
+      sliceId: 'slice-a',
+      orderedIds: ['delivery-a'],
+      batches: [
+        {
+          batchId: 'batch-a',
+          channel: 'sceneTree',
+          deliveries: [
+            {
+              deliveryId: 'delivery-a',
+              eventName: 'updateComputedData',
+              orderedIds: ['element-a'],
+              payload: { value: 1 }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
@@ -70,7 +80,7 @@ describe('collaboration wire protocol', () => {
       parseCollaborationClientMessage({
         type: CollaborationMessageTypes.SEND_PUBLICATION,
         requestId: 'request-1',
-        publication: { ...publication, deliveries: 'not-an-array' }
+        publication: { ...publication, slices: 'not-an-array' }
       })
     ).toBeUndefined()
     expect(
@@ -79,11 +89,21 @@ describe('collaboration wire protocol', () => {
         requestId: 'request-1',
         publication: {
           ...publication,
-          deliveries: [
+          slices: [
             {
-              ...publication.deliveries[0],
-              channel: 'app-specific-channel',
-              eventName: 'app-specific-event'
+              ...publication.slices[0],
+              batches: [
+                {
+                  ...publication.slices[0]?.batches[0],
+                  channel: 'app-specific-channel',
+                  deliveries: [
+                    {
+                      ...publication.slices[0]?.batches[0]?.deliveries[0],
+                      eventName: 'app-specific-event'
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -91,30 +111,31 @@ describe('collaboration wire protocol', () => {
     ).toBeDefined()
 
     const incompletePublications = [
-      { publicationId: 'publication-a', deliveries: publication.deliveries },
+      { publicationId: 'publication-a', slices: publication.slices },
       { ...publication, origin: 'unsupported-origin' },
       {
         ...publication,
-        deliveries: [
+        slices: [
           {
-            transactionId: 1,
-            origin: 'action',
-            kind: 'forward',
-            channel: 'sceneTree',
-            eventName: 'updateComputedData',
-            payload: { value: 1 },
-            sharedDelivery: 'immediate'
+            ...publication.slices[0],
+            batches: [
+              {
+                ...publication.slices[0]?.batches[0],
+                deliveries: [
+                  {
+                    eventName: 'updateComputedData',
+                    orderedIds: ['element-a'],
+                    payload: { value: 1 }
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
       {
         ...publication,
-        deliveries: [
-          {
-            ...publication.deliveries[0],
-            sharedDelivery: 'unsupported-delivery-mode'
-          }
-        ]
+        deliveries: publication.slices[0]?.batches[0]?.deliveries
       }
     ]
 
@@ -124,6 +145,30 @@ describe('collaboration wire protocol', () => {
           type: CollaborationMessageTypes.SEND_PUBLICATION,
           requestId: 'request-1',
           publication: incompletePublication
+        })
+      ).toBeUndefined()
+    })
+  })
+
+  it('rejects every removed rich or top-level publication alias', () => {
+    const aliases = [
+      'deliveries',
+      'batches',
+      'deliverySequence',
+      'records',
+      'changes',
+      'record',
+      'inverseEvents',
+      'sharedDelivery',
+      'kind'
+    ]
+
+    aliases.forEach((alias) => {
+      expect(
+        parseCollaborationClientMessage({
+          type: CollaborationMessageTypes.SEND_PUBLICATION,
+          requestId: `request-${alias}`,
+          publication: { ...publication, [alias]: [] }
         })
       ).toBeUndefined()
     })

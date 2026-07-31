@@ -1,16 +1,45 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { SharedPublication, SharedPublicationBatch } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
 
+const batch = (
+  channel: string,
+  deliveryId: string,
+  eventName: string,
+  payload: unknown
+): SharedPublicationBatch => ({
+  batchId: `batch-${deliveryId}`,
+  channel,
+  deliveries: [{ deliveryId, eventName, orderedIds: [deliveryId], payload }]
+})
+
+const publication = (
+  publicationId: string,
+  batches: readonly SharedPublicationBatch[]
+): SharedPublication => ({
+  publicationId,
+  artifactId: `artifact-${publicationId}`,
+  transactionId: 1,
+  origin: 'action',
+  mode: 'atomic',
+  slices: [
+    {
+      sliceId: `slice-${publicationId}`,
+      orderedIds: batches.flatMap(({ deliveries }) =>
+        deliveries.map(({ deliveryId }) => deliveryId)
+      ),
+      batches
+    }
+  ]
+})
+
 describe('Asyra Design collaboration composition', () => {
   it('forwards only app-owned document channels', () => {
     let publicationSubscriber:
-      | ((publication: {
-          publicationId: string
-          deliveries: { channel: string }[]
-        }) => void)
+      | ((publication: SharedPublication) => void)
       | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
@@ -22,23 +51,28 @@ describe('Asyra Design collaboration composition', () => {
     const received = vi.fn()
 
     filtered.subscribeToSharedPublication(received as never)
-    publicationSubscriber?.({
-      publicationId: 'selection-only',
-      deliveries: [{ channel: 'selection' }]
-    })
-    publicationSubscriber?.({
-      publicationId: 'mixed-action',
-      deliveries: [
-        { channel: 'selection' },
-        { channel: 'sceneTree' },
-        { channel: 'props' }
-      ]
-    })
+    publicationSubscriber?.(
+      publication('selection-only', [
+        batch('selection', 'selection-only', 'selection.change', {})
+      ])
+    )
+    const mixed = publication('mixed-action', [
+      batch('selection', 'selection-local', 'selection.change', {}),
+      batch('sceneTree', 'scene-document', 'scene.change', {}),
+      batch('props', 'props-document', 'props.change', {})
+    ])
+    publicationSubscriber?.(mixed)
 
     expect(received).toHaveBeenCalledTimes(1)
     expect(received).toHaveBeenCalledWith({
-      publicationId: 'mixed-action',
-      deliveries: [{ channel: 'sceneTree' }, { channel: 'props' }]
+      ...mixed,
+      slices: [
+        {
+          ...mixed.slices[0],
+          orderedIds: ['scene-document', 'props-document'],
+          batches: mixed.slices[0]?.batches.slice(1)
+        }
+      ]
     })
     expect('runRemoteTransaction' in filtered).toBe(false)
     expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
@@ -46,21 +80,7 @@ describe('Asyra Design collaboration composition', () => {
 
   it('applies accepted Group hierarchy deliveries once without remote selection takeover', () => {
     let publicationSubscriber:
-      | ((publication: {
-          publicationId: string
-          transactionId: number
-          origin: 'action'
-          deliveries: {
-            deliveryId: string
-            transactionId: number
-            origin: 'action'
-            kind: 'forward'
-            channel: string
-            eventName: string
-            payload: unknown
-            sharedDelivery: 'transaction-end'
-          }[]
-        }) => void)
+      | ((publication: SharedPublication) => void)
       | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
@@ -77,29 +97,16 @@ describe('Asyra Design collaboration composition', () => {
     )
     filtered.subscribeToSharedPublication(processPublication)
 
-    publicationSubscriber?.({
-      publicationId: 'group-command',
-      transactionId: 1,
-      origin: 'action',
-      deliveries: [
-        {
-          deliveryId: 'selection-local-only',
-          transactionId: 1,
-          origin: 'action',
-          kind: 'forward',
-          channel: 'selection',
-          eventName: 'selection.change',
-          payload: { selectedIds: ['group-a'] },
-          sharedDelivery: 'transaction-end'
-        },
-        {
-          deliveryId: 'group-created',
-          transactionId: 1,
-          origin: 'action',
-          kind: 'forward',
-          channel: SharedDataChannelNames.SCENE_TREE,
-          eventName: EventTypes.ADD_ELEMENT,
-          payload: {
+    publicationSubscriber?.(
+      publication('group-command', [
+        batch('selection', 'selection-local-only', 'selection.change', {
+          selectedIds: ['group-a']
+        }),
+        batch(
+          SharedDataChannelNames.SCENE_TREE,
+          'group-created',
+          EventTypes.ADD_ELEMENT,
+          {
             action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
             eventName: EventTypes.ADD_ELEMENT,
             data: {
@@ -110,17 +117,13 @@ describe('Asyra Design collaboration composition', () => {
             },
             parentId: 'workspace-a',
             index: 0
-          },
-          sharedDelivery: 'transaction-end'
-        },
-        {
-          deliveryId: 'children-moved',
-          transactionId: 1,
-          origin: 'action',
-          kind: 'forward',
-          channel: SharedDataChannelNames.SCENE_TREE,
-          eventName: EventTypes.MOVE_ELEMENTS,
-          payload: {
+          }
+        ),
+        batch(
+          SharedDataChannelNames.SCENE_TREE,
+          'children-moved',
+          EventTypes.MOVE_ELEMENTS,
+          {
             action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
             eventName: EventTypes.MOVE_ELEMENTS,
             moves: [
@@ -130,11 +133,10 @@ describe('Asyra Design collaboration composition', () => {
                 after: { parentId: 'group-a', index: 0 }
               }
             ]
-          },
-          sharedDelivery: 'transaction-end'
-        }
-      ]
-    })
+          }
+        )
+      ])
+    )
 
     expect(runRemoteTransaction).toHaveBeenCalledOnce()
     expect(process).toHaveBeenCalledTimes(2)

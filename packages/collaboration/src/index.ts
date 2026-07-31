@@ -19,14 +19,10 @@ export type {
 export {
   PROVIDER_FAILURE_CODES,
   ProviderFailure,
-  createInboundPublicationLease,
   createProviderIdentitySnapshot,
   isProviderFailureCode
 } from './provider'
 export type {
-  InboundPublication,
-  InboundPublicationLease,
-  InboundPublicationLeaseSettlement,
   Provider,
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage,
