@@ -38,13 +38,22 @@ export {
 }
 export type { PropertyDefinition } from './registries/property-definition'
 export type {
-  ActivePropertyPlan,
-  PropertyCreationPlan,
+  PreparedActivePropertyBatch,
+  PreparedPropertyCreationBatch,
   OrdinaryPropertyCreationOwner,
-  OrdinaryPropertyCreationPlan,
+  PreparedOrdinaryPropertyCreationBatch,
   PreparedPropsTransactionEvent,
   CanonicalPropertyDeliveryOwner,
-  CanonicalPropertyDeliveryRecord
+  CanonicalPropertyDeliveryRecord,
+  PropertyValuesMutation,
+  PropertyRecordsMutation,
+  CreateOwnerPropertiesMutation,
+  CreateExactPropertyGraphMutation,
+  RemoveExactOrphanPropertyGraphsMutation,
+  PropertyMutation,
+  PropertyMutationBatchRequest,
+  PreparedPropertyMutationBatch,
+  PropertyMutationBatchResult
 } from './manager/props-manager'
 export type { PropertyComponentConstructor } from './components'
 export {

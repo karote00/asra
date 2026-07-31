@@ -88,8 +88,13 @@ packages/props-manager/src/
 
 - config-mode `children.childType` is retained as a declarative definition so
   Core can remove/define that relation by rebuilding the constructor atomically
-- child subscriptions are disposed when a property instance is removed,
-  replay-retained state is reset, or the runtime is rebuilt
+- Props Manager owns one forward owner-to-children index and one reverse
+  child-to-owners index. Relationship components do not allocate one
+  subscription or closure per child edge.
+- A child property emits only its own canonical `UPDATE_PROPERTY` evidence.
+  `resolvePropertyAncestorIds(...)` returns the ordered affected ancestor
+  closure so Scene can perform one local computed projection batch without
+  synthesizing duplicate parent property writes.
 - constructor-mode child/dependency logic is opaque and must declare a local
   `registration.relations` entry; hard dependencies use `unregister-source`
 - unknown property types are diagnosed and skipped during load; the factory no
@@ -126,6 +131,23 @@ pre-start property-type redefinition facade:
 - the config runtime derives defaults, persistence, value projection, unit
   projection, runtime reject, and load fallback from the committed definition.
 
+## Canonical Property Mutation Batch
+
+- `preparePropertyMutationBatch(...)` validates the complete ordered
+  schema/ID/relationship graph and produces one owner-issued, one-shot
+  `PreparedPropertyMutationBatch`.
+- `applyPreparedPropertyMutationBatch(...)` materializes the prepared
+  child-first snapshots, registers all new instances through one
+  `registerMany(...)` boundary, updates the relationship indexes, and hands one
+  ordered evidence batch to the transaction owner.
+- Prepared creation snapshots are the canonical apply input. Apply does not
+  serialize and deep-compare every newly created component again; custom
+  constructors are responsible for obeying their registered schema and
+  relationship contract.
+- A later invalid operation rejects during complete preflight, before the first
+  component, relationship index, evidence, or transaction write. A one-item
+  request uses the same batch shape.
+
 These exports are the package-owner handoff for Core coordination, not an app
 composition bypass. Apps use the Core public facade. Constructor-mode behavior,
 semantic field migration, relation changes, render, and UI remain outside this
@@ -148,4 +170,4 @@ owner; constructor-mode customization keeps the unregister-then-define flow.
 - Declarative schema/runtime commits are atomic and preserve child config.
 - Registration removal is rejected while active or replay-retained instances
   use the type; `unregister -> define` leaves no stale schema, constructor, or
-  child subscription.
+  relationship index entry.

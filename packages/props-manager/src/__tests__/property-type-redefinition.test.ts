@@ -320,6 +320,32 @@ describe('declarative property type definition owner', () => {
     )
   })
 
+  it('rejects relationship descriptor defaults as registered-state drift', () => {
+    const descriptorDefault = [{ id: 'descriptor-child', value: 1 }]
+    registerPropertySchema({
+      ...schema,
+      fields: schema.fields.map((field) =>
+        field.key === 'children'
+          ? { ...field, defaultValue: descriptorDefault }
+          : field
+      )
+    })
+    registerPropertyComponent(TYPE, InitialComponent, undefined, {
+      ...config,
+      defaults: {
+        ...config.defaults,
+        children: descriptorDefault
+      }
+    })
+
+    expect(() => getDeclarativePropertyTypeDefinition(TYPE)).toThrowError(
+      expect.objectContaining<Partial<PropertyTypeDefinitionError>>({
+        code: 'PROPERTY_TYPE_DEFINITION_DRIFT',
+        type: TYPE
+      })
+    )
+  })
+
   it('rejects invalid complete definitions before changing either registry', () => {
     registerDeclarativeType()
     const oldSchema = getPropertySchema(TYPE)
@@ -377,6 +403,50 @@ describe('declarative property type definition owner', () => {
             defaultValue: undefined
           }
         ]
+      },
+      {
+        ...nextDefinition(),
+        fields: nextDefinition().fields.map((field) =>
+          field.key === 'children'
+            ? {
+                ...field,
+                defaultValue: [{ id: 'descriptor-child', value: 1 }]
+              }
+            : field
+        )
+      },
+      {
+        ...nextDefinition(),
+        fields: nextDefinition().fields.map((field) =>
+          field.key === 'children'
+            ? {
+                ...field,
+                defaultValue: ['duplicate-child', 'duplicate-child']
+              }
+            : field
+        )
+      },
+      {
+        ...nextDefinition(),
+        fields: nextDefinition().fields.map((field) =>
+          field.key === 'children'
+            ? {
+                ...field,
+                defaultValue: ['']
+              }
+            : field
+        )
+      },
+      {
+        ...nextDefinition(),
+        fields: nextDefinition().fields.map((field) =>
+          field.key === 'children'
+            ? {
+                ...field,
+                persist: false
+              }
+            : field
+        )
       }
     ]
 
@@ -622,46 +692,43 @@ describe('declarative property type definition owner', () => {
     ])
   })
 
-  it('keeps child subscriptions live after applying an explicit child-first creation plan', () => {
+  it('keeps a child-first creation batch in the manager relationship index', () => {
     registerDeclarativeType()
     registerPropertyComponent(CHILD_TYPE, ChildComponent)
     commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
     const sourceManager = new PropsManager()
     const sourceChild = sourceManager.createProperty({
-      id: 'planned-live-child',
+      id: 'prepared-live-child',
       type: CHILD_TYPE
     })
     sourceManager.addProperty([sourceChild])
     const sourceParent = sourceManager.createProperty({
-      id: 'planned-live-parent',
+      id: 'prepared-live-parent',
       type: TYPE,
-      children: ['planned-live-child']
+      children: ['prepared-live-child']
     })
     sourceManager.addProperty([sourceParent])
     const snapshots = [sourceChild.save(), sourceParent.save()]
     sourceManager.dispose()
 
     const manager = new PropsManager()
-    const plan = manager.preflightPropertyCreationBatch(snapshots, [
-      'planned-live-parent'
+    const prepared = manager.preflightPropertyCreationBatch(snapshots, [
+      'prepared-live-parent'
     ])
     manager.runInPropertyCreationBatch(() => {
-      manager.applyPropertyCreationBatch(plan)
+      manager.applyPropertyCreationBatch(prepared)
     })
-    const child = manager.getPropertyById('planned-live-child')
-    const parent = manager.getPropertyById('planned-live-parent')
+    const child = manager.getPropertyById('prepared-live-child')
+    const parent = manager.getPropertyById('prepared-live-parent')
     const parentChanges: unknown[] = []
     parent?.on((change) => parentChanges.push(change))
 
     child?.set('value' as never, 9 as never)
 
-    expect(parentChanges).toEqual([
-      expect.objectContaining({
-        id: 'planned-live-parent',
-        key: 'children',
-        after: 9
-      })
-    ])
+    expect(parentChanges).toEqual([])
+    expect(manager.resolvePropertyAncestorIds(['prepared-live-child'])).toEqual(
+      ['prepared-live-child', 'prepared-live-parent']
+    )
   })
 
   it('rebinds a source-ordered active parent after its child is registered', () => {
@@ -681,12 +748,12 @@ describe('declarative property type definition owner', () => {
     })
     manager.addProperty([parent, child])
     manager.cleanChanges()
-    const plan = manager.preflightActivePropertyBatch(
+    const prepared = manager.preflightActivePropertyBatch(
       [parent.save(), child.save()],
       ['active-source-parent']
     )
 
-    manager.runInActivePropertyBatch(plan, () => undefined)
+    manager.runInActivePropertyBatch(prepared, () => undefined)
     expect(manager.changes).toEqual([])
     expect(manager.save()).toEqual({
       'active-source-parent': parent.save(),
@@ -696,13 +763,10 @@ describe('declarative property type definition owner', () => {
     parent.on((change) => parentChanges.push(change))
     child.set('value' as never, 9 as never)
 
-    expect(parentChanges).toEqual([
-      expect.objectContaining({
-        id: 'active-source-parent',
-        key: 'children',
-        after: 9
-      })
-    ])
+    expect(parentChanges).toEqual([])
+    expect(manager.resolvePropertyAncestorIds(['active-source-child'])).toEqual(
+      ['active-source-child', 'active-source-parent']
+    )
   })
 
   it('keeps an existing child relationship live when creating its parent in a batch', () => {

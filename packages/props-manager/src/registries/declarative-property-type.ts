@@ -21,6 +21,7 @@ import {
   markPropertyComponentBatchRebindable,
   propertyComponentRegistry,
   registerPropertyComponent,
+  resolvePropertyComponentConfigRoles,
   restorePropertyComponentAfterFailedDeclarativeCommit,
   type PropertyComponentConfigRegistration
 } from './property-component'
@@ -325,18 +326,33 @@ const normalizeDefinition = <TFields extends object>(
 const uniqueKeys = (keys: readonly string[]) => [...new Set(keys)]
 const isString = (value: unknown): value is string => typeof value === 'string'
 
-const getConfigRoles = (config: PropertyComponentConfigRegistration) => {
-  const defaults = isRecord(config.defaults) ? config.defaults : {}
-  const inferredPersistKeys = Object.keys(defaults)
-  if (config.children && !inferredPersistKeys.includes(config.children.key)) {
-    inferredPersistKeys.push(config.children.key)
+const assertCanonicalRelationshipDefault = (
+  type: string,
+  config: PropertyComponentConfigRegistration,
+  defaults: Readonly<Record<string, unknown>>,
+  persistKeys: readonly string[],
+  code: PropertyTypeDefinitionErrorCode
+): void => {
+  const relation = config.children
+  if (!relation) {
+    return
   }
-  const persistKeys = config.persistKeys ?? inferredPersistKeys
-  const unitKeys =
-    config.unitKeys ?? persistKeys.filter((key) => key.endsWith('Unit'))
-  const valueKeys =
-    config.valueKeys ?? persistKeys.filter((key) => !unitKeys.includes(key))
-  return { defaults, persistKeys, valueKeys, unitKeys }
+  const value = defaults[relation.key]
+  if (
+    !Object.prototype.hasOwnProperty.call(defaults, relation.key) ||
+    !persistKeys.includes(relation.key) ||
+    !Array.isArray(value) ||
+    value.some(
+      (childId) => typeof childId !== 'string' || childId.length === 0
+    ) ||
+    new Set(value).size !== value.length
+  ) {
+    failDefinition(
+      code,
+      type,
+      `Property relationship default "${relation.key}" must be a persisted ordered array of unique canonical ids`
+    )
+  }
 }
 
 const projectRegisteredDefinition = <TFields extends object>(
@@ -344,12 +360,20 @@ const projectRegisteredDefinition = <TFields extends object>(
   schema: PropertySchema,
   config: PropertyComponentConfigRegistration
 ): PropertyTypeDefinition<TFields> => {
-  const { defaults, persistKeys, valueKeys, unitKeys } = getConfigRoles(config)
+  const { defaults, persistKeys, valueKeys, unitKeys } =
+    resolvePropertyComponentConfigRoles(config)
   const schemaKeys = schema.fields.map((field) => field.key)
   const defaultKeys = Object.keys(defaults)
   const knownKeys = new Set(schemaKeys)
   const drift = (message: string): never =>
     failDefinition('PROPERTY_TYPE_DEFINITION_DRIFT', type, message)
+  assertCanonicalRelationshipDefault(
+    type,
+    config,
+    defaults,
+    persistKeys,
+    'PROPERTY_TYPE_DEFINITION_DRIFT'
+  )
 
   if (
     schema.type !== type ||
@@ -497,7 +521,15 @@ export const createPropertyComponentFromConfig = (
     ])
   )
   const isAllowedDynamicKey = (key: string) => !reservedDynamicKeys.has(key)
-  const { persistKeys, valueKeys, unitKeys } = getConfigRoles(config)
+  const { persistKeys, valueKeys, unitKeys } =
+    resolvePropertyComponentConfigRoles(config)
+  assertCanonicalRelationshipDefault(
+    config.type,
+    config,
+    defaults,
+    persistKeys,
+    'PROPERTY_TYPE_DEFINITION_INVALID'
+  )
 
   const normalizeChildrenValue = (
     value: unknown,
@@ -581,7 +613,6 @@ export const createPropertyComponentFromConfig = (
 
   class ConfiguredPropertyComponent extends BasePropertyComponent<PropertyComponentInstanceDataTypes> {
     data!: PropertyComponentInstanceDataTypes
-    private childSubscriptions = new Map<string, () => void>()
 
     constructor(data: Partial<PropertyComponentRawData>) {
       super()
@@ -593,36 +624,9 @@ export const createPropertyComponentFromConfig = (
       this.load(data as PropertyComponentRawData)
     }
 
-    private syncChildSubscriptions(childIds: string[]): void {
-      if (!children) return
-      const nextIds = new Set(childIds.filter(isString))
-      this.childSubscriptions.forEach((unsubscribe, childId) => {
-        if (nextIds.has(childId)) return
-        unsubscribe()
-        this.childSubscriptions.delete(childId)
-      })
-
-      nextIds.forEach((childId) => {
-        if (this.childSubscriptions.has(childId)) return
-        const child = this.propertyComponentAccessor.getPropertyById(childId)
-        if (!child || child.get('type') !== children.childType) return
-        const unsubscribe = child.on((change) => {
-          this.emitChange({
-            id: this.get('id'),
-            key: children.key,
-            before: change.before,
-            after: change.after,
-            options: change.options
-          })
-        })
-        this.childSubscriptions.set(childId, unsubscribe)
-      })
-    }
-
     load(data: PropertyComponentRawData): void {
       this.data.id = typeof data.id === 'string' ? data.id : this.data.id
       const rawData: Record<string, unknown> = isRecord(data) ? data : {}
-      let nextChildIds: string[] | null = null
       persistKeys.forEach((key) => {
         if (children && key === children.key) {
           const normalized = normalizeChildrenValue(
@@ -632,7 +636,6 @@ export const createPropertyComponentFromConfig = (
           if (normalized) {
             this.data[key as keyof PropertyComponentInstanceDataTypes] =
               normalized as never
-            nextChildIds = normalized
           }
           return
         }
@@ -642,18 +645,6 @@ export const createPropertyComponentFromConfig = (
           rawData[key]
         )
       })
-
-      if (children) {
-        const fallbackIds =
-          nextChildIds ??
-          ((this.data as unknown as Record<string, unknown>)[children.key] as
-            | string[]
-            | undefined) ??
-          []
-        this.syncChildSubscriptions(
-          Array.isArray(fallbackIds) ? fallbackIds : []
-        )
-      }
 
       if (!allowDynamicKeys) return
       Object.entries(rawData).forEach(([key, value]) => {
@@ -723,7 +714,6 @@ export const createPropertyComponentFromConfig = (
           normalized as unknown as PropertyComponentInstanceDataTypes[K],
           options
         )
-        this.syncChildSubscriptions(normalized)
         return
       }
       if (
@@ -739,11 +729,6 @@ export const createPropertyComponentFromConfig = (
       }
       if (!(key in this.data)) return
       super.set(key, value, options)
-    }
-
-    dispose(): void {
-      this.childSubscriptions.forEach((unsubscribe) => unsubscribe())
-      this.childSubscriptions.clear()
     }
   }
 

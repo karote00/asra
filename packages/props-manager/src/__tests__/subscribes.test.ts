@@ -44,6 +44,22 @@ const nestedParentDefinition = {
 const NestedParentComponent = createPropertyComponentFromConfig(
   nestedParentDefinition
 )
+const RETAINED_REPLAY_TYPE = 'subscriber-retained-replay'
+const retainedReplayDefinition = {
+  type: RETAINED_REPLAY_TYPE,
+  defaults: { children: [] as string[] },
+  persistKeys: ['children'],
+  valueKeys: ['children'],
+  children: {
+    key: 'children',
+    childType: RETAINED_REPLAY_TYPE,
+    mode: 'ids-or-objects' as const,
+    collection: 'array-or-record' as const
+  }
+}
+const RetainedReplayComponent = createPropertyComponentFromConfig(
+  retainedReplayDefinition
+)
 
 describe('props-manager subscribes', () => {
   beforeEach(() => {
@@ -56,6 +72,12 @@ describe('props-manager subscribes', () => {
       NestedParentComponent,
       undefined,
       nestedParentDefinition
+    )
+    registerPropertyComponent(
+      RETAINED_REPLAY_TYPE,
+      RetainedReplayComponent,
+      undefined,
+      retainedReplayDefinition
     )
   })
 
@@ -158,7 +180,9 @@ describe('props-manager subscribes', () => {
       ).toEqual(source[1])
       expect(propsManager.changes).toEqual([])
       expect(
-        applyPropertyCreationBatch.mock.calls.map(([plan]) => plan.componentIds)
+        applyPropertyCreationBatch.mock.calls.map(
+          ([prepared]) => prepared.componentIds
+        )
       ).toEqual([['batch-position-first', 'batch-position-second']])
       expect(createProperty).not.toHaveBeenCalled()
       expect(addProperty).not.toHaveBeenCalled()
@@ -492,7 +516,7 @@ describe('props-manager subscribes', () => {
     expect(propsManager.changes).toEqual([])
   })
 
-  it('rebinds an omitted nonempty relationship default after a parent-first partial batch', () => {
+  it('indexes an omitted nonempty relationship default without a per-child subscription', () => {
     const relationshipType = 'partial-nonempty-default-parent'
     const relationshipDefinition = {
       type: relationshipType,
@@ -547,12 +571,14 @@ describe('props-manager subscribes', () => {
       type: relationshipType,
       children: ['partial-nonempty-default-child']
     })
-    expect(parentChanges).toEqual([
-      expect.objectContaining({
-        id: 'partial-nonempty-default-parent',
-        key: 'children',
-        after: 55
-      })
+    expect(parentChanges).toEqual([])
+    expect(
+      propsManager.resolvePropertyAncestorIds([
+        'partial-nonempty-default-child'
+      ])
+    ).toEqual([
+      'partial-nonempty-default-child',
+      'partial-nonempty-default-parent'
     ])
   })
 
@@ -726,13 +752,10 @@ describe('props-manager subscribes', () => {
 
       child?.set('x' as never, 55 as never)
 
-      expect(parentChanges).toEqual([
-        expect.objectContaining({
-          id: 'batch-parent',
-          key: 'children',
-          after: 55
-        })
-      ])
+      expect(parentChanges).toEqual([])
+      expect(
+        propsManager.resolvePropertyAncestorIds(['batch-child-first'])
+      ).toEqual(['batch-child-first', 'batch-parent'])
     } finally {
       propsManager.commitChanges = originalCommitChanges
     }
@@ -847,13 +870,10 @@ describe('props-manager subscribes', () => {
 
       child?.set('x' as never, 55 as never)
 
-      expect(parentChanges).toEqual([
-        expect.objectContaining({
-          id: 'parent-first-parent',
-          key: 'children',
-          after: 55
-        })
-      ])
+      expect(parentChanges).toEqual([])
+      expect(
+        propsManager.resolvePropertyAncestorIds(['parent-first-child'])
+      ).toEqual(['parent-first-child', 'parent-first-parent'])
     } finally {
       subscription.unsubscribe()
     }
@@ -915,13 +935,10 @@ describe('props-manager subscribes', () => {
 
     child?.set('x' as never, 55 as never)
 
-    expect(parentChanges).toEqual([
-      expect.objectContaining({
-        id: 'owned-relationship-parent',
-        key: 'children',
-        after: 55
-      })
-    ])
+    expect(parentChanges).toEqual([])
+    expect(
+      propsManager.resolvePropertyAncestorIds(['owned-relationship-child'])
+    ).toEqual(['owned-relationship-child', 'owned-relationship-parent'])
   })
 
   it('hides a parent-first declarative component until relationship rebind completes', () => {
@@ -996,7 +1013,10 @@ describe('props-manager subscribes', () => {
 
     child?.set('x' as never, 55 as never)
 
-    expect(parentChanges).toHaveLength(1)
+    expect(parentChanges).toEqual([])
+    expect(
+      propsManager.resolvePropertyAncestorIds(['pending-relationship-child'])
+    ).toEqual(['pending-relationship-child', 'pending-relationship-parent'])
   })
 
   it('rebinds multi-level parent-first relationships in dependency order', () => {
@@ -1059,13 +1079,10 @@ describe('props-manager subscribes', () => {
 
     leaf?.set('value' as never, 55 as never)
 
-    expect(parentChanges).toEqual([
-      expect.objectContaining({
-        id: 'multi-level-parent',
-        key: 'children',
-        after: 55
-      })
-    ])
+    expect(parentChanges).toEqual([])
+    expect(
+      propsManager.resolvePropertyAncestorIds(['multi-level-leaf'])
+    ).toEqual(['multi-level-leaf', 'multi-level-middle', 'multi-level-parent'])
   })
 
   it('rolls back a failed fresh ADD_PROPERTY payload without a prefix', () => {
@@ -1406,6 +1423,279 @@ describe('props-manager subscribes', () => {
           data: [restored.save()]
         })
       ])
+    } finally {
+      subscription.unsubscribe()
+    }
+  })
+
+  it('replays exact orphan REMOVE evidence through undo ADD and redo REMOVE with exact graph identities', () => {
+    const firstChild = new PositionComponent({
+      id: 'orphan-replay-child-a',
+      type: PropertyTypes.POSITION,
+      x: 1,
+      y: 2,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    const secondChild = new PositionComponent({
+      id: 'orphan-replay-child-b',
+      type: PropertyTypes.POSITION,
+      x: 3,
+      y: 4,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    })
+    const root = new NestedParentComponent({
+      id: 'orphan-replay-root',
+      type: NESTED_PARENT_TYPE,
+      children: ['orphan-replay-child-a', 'orphan-replay-child-b']
+    })
+    ;[firstChild, secondChild, root].forEach((component) =>
+      propsManager.addToMap(component)
+    )
+    propsManager.cleanChanges()
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
+    committedChanges.length = 0
+
+    try {
+      propsManager.updateProperties({
+        operations: [
+          {
+            kind: 'remove-exact-orphan-property-graphs',
+            orphanRootPropertyIds: ['orphan-replay-root'],
+            retainedRootPropertyIds: []
+          }
+        ]
+      })
+      const removeEvidence = committedChanges.find(
+        ({ action }) => action === PROPS_ACTIONS.REMOVE_PROPERTY
+      ) as AddRemovePropertyChange
+      expect(removeEvidence.data.map(({ id }) => id)).toEqual([
+        'orphan-replay-root',
+        'orphan-replay-child-a',
+        'orphan-replay-child-b'
+      ])
+      expect(removeEvidence.undoType).toBe(EventTypes.ADD_PROPERTY)
+      expect(removeEvidence.undoAction).toBe(PROPS_ACTIONS.ADD_PROPERTY)
+
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            ...removeEvidence,
+            eventName: EventTypes.ADD_PROPERTY,
+            action: PROPS_ACTIONS.ADD_PROPERTY
+          }
+        })
+      )
+
+      expect(propsManager.getPropertyById('orphan-replay-root')).toBe(root)
+      expect(propsManager.getPropertyById('orphan-replay-child-a')).toBe(
+        firstChild
+      )
+      expect(propsManager.getPropertyById('orphan-replay-child-b')).toBe(
+        secondChild
+      )
+      const restoredIndexes = propsManager as unknown as {
+        relationshipChildIdsByOwnerId: Map<string, readonly string[]>
+        relationshipOwnerIdsByChildId: Map<string, Set<string>>
+      }
+      expect(
+        restoredIndexes.relationshipChildIdsByOwnerId.get('orphan-replay-root')
+      ).toEqual(['orphan-replay-child-a', 'orphan-replay-child-b'])
+      expect([
+        ...(restoredIndexes.relationshipOwnerIdsByChildId.get(
+          'orphan-replay-child-a'
+        ) ?? [])
+      ]).toEqual(['orphan-replay-root'])
+      expect([
+        ...(restoredIndexes.relationshipOwnerIdsByChildId.get(
+          'orphan-replay-child-b'
+        ) ?? [])
+      ]).toEqual(['orphan-replay-root'])
+
+      runInTransactionReplayMode('redo', () =>
+        publishEvent({
+          type: EventTypes.REMOVE_PROPERTY,
+          payload: {
+            ...removeEvidence,
+            eventName: EventTypes.REMOVE_PROPERTY,
+            action: PROPS_ACTIONS.REMOVE_PROPERTY
+          }
+        })
+      )
+
+      expect(propsManager.getPropertyById('orphan-replay-root')).toBeUndefined()
+      expect(
+        propsManager.getPropertyById('orphan-replay-child-a')
+      ).toBeUndefined()
+      expect(
+        propsManager.getPropertyById('orphan-replay-child-b')
+      ).toBeUndefined()
+      expect(propsManager.getRestoreComponentById('orphan-replay-root')).toBe(
+        root
+      )
+      expect(
+        propsManager.getRestoreComponentById('orphan-replay-child-a')
+      ).toBe(firstChild)
+      expect(
+        propsManager.getRestoreComponentById('orphan-replay-child-b')
+      ).toBe(secondChild)
+      expect(
+        restoredIndexes.relationshipChildIdsByOwnerId.has('orphan-replay-root')
+      ).toBe(false)
+      expect(
+        restoredIndexes.relationshipOwnerIdsByChildId.has(
+          'orphan-replay-child-a'
+        )
+      ).toBe(false)
+      expect(
+        restoredIndexes.relationshipOwnerIdsByChildId.has(
+          'orphan-replay-child-b'
+        )
+      ).toBe(false)
+    } finally {
+      subscription.unsubscribe()
+    }
+  })
+
+  it('replays an orphan edge without rebuilding its retained shared root or descendants', () => {
+    const retainedDescendant = new RetainedReplayComponent({
+      id: 'retained-replay-descendant',
+      type: RETAINED_REPLAY_TYPE,
+      children: []
+    })
+    const retainedRoot = new RetainedReplayComponent({
+      id: 'retained-replay-root',
+      type: RETAINED_REPLAY_TYPE,
+      children: ['retained-replay-descendant']
+    })
+    const orphanRoot = new RetainedReplayComponent({
+      id: 'retained-replay-orphan',
+      type: RETAINED_REPLAY_TYPE,
+      children: ['retained-replay-root']
+    })
+    ;[retainedDescendant, retainedRoot, orphanRoot].forEach((component) =>
+      propsManager.addToMap(component)
+    )
+    propsManager.cleanChanges()
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
+    const indexes = propsManager as unknown as {
+      relationshipChildIdsByOwnerId: Map<string, readonly string[]>
+      relationshipOwnerIdsByChildId: Map<string, Set<string>>
+    }
+    const expectRetainedGraphIdentity = () => {
+      expect(propsManager.getPropertyById('retained-replay-root')).toBe(
+        retainedRoot
+      )
+      expect(propsManager.getPropertyById('retained-replay-descendant')).toBe(
+        retainedDescendant
+      )
+      expect(
+        indexes.relationshipChildIdsByOwnerId.get('retained-replay-root')
+      ).toEqual(['retained-replay-descendant'])
+      expect([
+        ...(indexes.relationshipOwnerIdsByChildId.get(
+          'retained-replay-descendant'
+        ) ?? [])
+      ]).toEqual(['retained-replay-root'])
+    }
+    committedChanges.length = 0
+
+    try {
+      propsManager.updateProperties({
+        operations: [
+          {
+            kind: 'remove-exact-orphan-property-graphs',
+            orphanRootPropertyIds: ['retained-replay-orphan'],
+            retainedRootPropertyIds: ['retained-replay-root']
+          }
+        ]
+      })
+      const removeEvidence = committedChanges.find(
+        ({ action }) => action === PROPS_ACTIONS.REMOVE_PROPERTY
+      ) as AddRemovePropertyChange
+
+      expect(removeEvidence.data.map(({ id }) => id)).toEqual([
+        'retained-replay-orphan'
+      ])
+      expect(
+        propsManager.getPropertyById('retained-replay-orphan')
+      ).toBeUndefined()
+      expect(
+        propsManager.getRestoreComponentById('retained-replay-orphan')
+      ).toBe(orphanRoot)
+      expect(
+        indexes.relationshipChildIdsByOwnerId.has('retained-replay-orphan')
+      ).toBe(false)
+      expect([
+        ...(indexes.relationshipOwnerIdsByChildId.get('retained-replay-root') ??
+          [])
+      ]).toEqual([])
+      expectRetainedGraphIdentity()
+
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.ADD_PROPERTY,
+          payload: {
+            ...removeEvidence,
+            eventName: EventTypes.ADD_PROPERTY,
+            action: PROPS_ACTIONS.ADD_PROPERTY
+          }
+        })
+      )
+
+      expect(propsManager.getPropertyById('retained-replay-orphan')).toBe(
+        orphanRoot
+      )
+      expect(
+        indexes.relationshipChildIdsByOwnerId.get('retained-replay-orphan')
+      ).toEqual(['retained-replay-root'])
+      expect([
+        ...(indexes.relationshipOwnerIdsByChildId.get('retained-replay-root') ??
+          [])
+      ]).toEqual(['retained-replay-orphan'])
+      expectRetainedGraphIdentity()
+
+      runInTransactionReplayMode('redo', () =>
+        publishEvent({
+          type: EventTypes.REMOVE_PROPERTY,
+          payload: {
+            ...removeEvidence,
+            eventName: EventTypes.REMOVE_PROPERTY,
+            action: PROPS_ACTIONS.REMOVE_PROPERTY
+          }
+        })
+      )
+
+      expect(
+        propsManager.getPropertyById('retained-replay-orphan')
+      ).toBeUndefined()
+      expect(
+        propsManager.getRestoreComponentById('retained-replay-orphan')
+      ).toBe(orphanRoot)
+      expect(
+        indexes.relationshipChildIdsByOwnerId.has('retained-replay-orphan')
+      ).toBe(false)
+      expect([
+        ...(indexes.relationshipOwnerIdsByChildId.get('retained-replay-root') ??
+          [])
+      ]).toEqual([])
+      expectRetainedGraphIdentity()
     } finally {
       subscription.unsubscribe()
     }

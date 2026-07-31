@@ -116,7 +116,6 @@ export const createChildrenMapPropertyComponentDefinition = (
       type: config.type,
       [config.key]: []
     }
-    private childSubscriptions = new Map<string, () => void>()
 
     constructor(data: Partial<ChildrenMapAttrs>) {
       super()
@@ -200,42 +199,6 @@ export const createChildrenMapPropertyComponentDefinition = (
       return nextIds
     }
 
-    private syncChildSubscriptions(childIds: string[]) {
-      const nextIds = new Set(childIds.filter((id) => typeof id === 'string'))
-      this.childSubscriptions.forEach((unsubscribe, childId) => {
-        if (nextIds.has(childId)) {
-          return
-        }
-
-        unsubscribe()
-        this.childSubscriptions.delete(childId)
-      })
-
-      const accessor = this.propertyComponentAccessor
-      nextIds.forEach((childId) => {
-        if (this.childSubscriptions.has(childId)) {
-          return
-        }
-
-        const child = accessor.getPropertyById(childId)
-        if (!child || child.get('type') !== config.childType) {
-          return
-        }
-
-        const unsubscribe = child.on((change) => {
-          this.emitChange({
-            id: this.get('id'),
-            key: config.key,
-            before: change.before,
-            after: change.after,
-            options: change.options
-          })
-        })
-
-        this.childSubscriptions.set(childId, unsubscribe)
-      })
-    }
-
     private resolveChildIds(value: unknown): string[] | null {
       const stringIds = toStringArray(value)
       if (stringIds) {
@@ -271,7 +234,6 @@ export const createChildrenMapPropertyComponentDefinition = (
       }
 
       super.set(key, childIds as ChildrenMapAttrs[K])
-      this.syncChildSubscriptions(childIds)
     }
 
     load(data: PropertyComponentRawData): void {
@@ -280,7 +242,6 @@ export const createChildrenMapPropertyComponentDefinition = (
         (data as Record<string, unknown>)[config.key]
       )
       this.data[config.key] = childIds ?? []
-      this.syncChildSubscriptions(this.getChildIds())
     }
 
     save(): PropertyComponentRawData {

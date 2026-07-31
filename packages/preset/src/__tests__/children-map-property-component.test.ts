@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import core from '@asyra/core'
 import {
   createDefaultFill,
   PropertyTypes,
   type SetterChangeRecord
 } from '@asyra/utils'
+import { fillsPropertyComponentDefinition } from '../props/components/fills-component'
 import { strokesPropertyComponentDefinition } from '../props/components/strokes-component'
 import { vectorPointsPropertyComponentDefinition } from '../props/components/vector-points-component'
 
@@ -126,9 +127,69 @@ describe('children-map property component', () => {
       'shared-point': expect.objectContaining({ id: 'shared-point', x: 2 })
     })
   })
+
+  it('does not allocate per-child subscriptions for indexed relationships', () => {
+    const PropsManager = core.deps.props
+      .constructor as new () => typeof core.deps.props
+    const manager = new PropsManager()
+    const child = {
+      get: (key: string) => {
+        if (key === 'id') return 'active-child'
+        if (key === 'type') return PropertyTypes.VECTOR_POINT
+        return undefined
+      },
+      on: vi.fn(() => () => undefined)
+    }
+    manager.addToMap(child as never)
+    const parent = createVectorPointsComponent()
+    parent.load({
+      id: 'vector-points-parent',
+      type: PropertyTypes.VECTOR_POINTS,
+      points: ['active-child']
+    })
+
+    expect(child.on).not.toHaveBeenCalled()
+  })
 })
 
 describe('stroke child relationship projection', () => {
+  it('declares fill and stroke roots as record-capable relations', () => {
+    expect(fillsPropertyComponentDefinition.children).toMatchObject({
+      key: 'fills',
+      mode: 'ids-or-objects',
+      collection: 'array-or-record'
+    })
+    expect(strokesPropertyComponentDefinition.children).toMatchObject({
+      key: 'strokes',
+      mode: 'ids-or-objects',
+      collection: 'array-or-record'
+    })
+  })
+
+  it('binds keyed record creation to the canonical child id', () => {
+    const fillAdapter = fillsPropertyComponentDefinition.children?.toChildData
+    const strokeAdapter =
+      strokesPropertyComponentDefinition.children?.toChildData
+    if (!fillAdapter || !strokeAdapter) {
+      throw new Error('Fill and stroke relationships require child adapters')
+    }
+
+    expect(fillAdapter({ color: '#123456' }, 'fill-canonical')).toMatchObject({
+      id: 'fill-canonical',
+      type: PropertyTypes.FILL,
+      color: '#123456'
+    })
+    expect(strokeAdapter({ width: 4 }, 'stroke-canonical')).toMatchObject({
+      id: 'stroke-canonical',
+      type: PropertyTypes.STROKE,
+      width: 4,
+      fill: {
+        id: 'stroke-canonical',
+        type: PropertyTypes.FILL
+      }
+    })
+  })
+
   it('rebinds the nested fill identity to the canonical stroke child id', () => {
     if (
       !('children' in strokesPropertyComponentDefinition) ||

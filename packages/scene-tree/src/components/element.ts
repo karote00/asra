@@ -5,8 +5,7 @@ import type {
   IElement,
   IProps,
   PropsRawData,
-  ComputedAttrs,
-  PropertyComponentInstanceDataTypes
+  ComputedAttrs
 } from '@asyra/utils'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import {
@@ -26,7 +25,7 @@ import ElementChangeHandler from './element-change-handler'
 import type { PropertyDefinition, PropsManager } from '@asyra/props-manager'
 import { getSceneTreePropsManager } from '../props-manager-context'
 
-const elementChangeHandler = new ElementChangeHandler('raw')
+const elementChangeHandler = new ElementChangeHandler()
 
 type ElementDataType = Partial<ElementRawData>
 
@@ -147,6 +146,24 @@ class Element<T extends ElementAttrs = ElementAttrs>
     this.data.parentId = parentId
   }
 
+  /**
+   * Scene Tree canonical owner write. The matching immutable
+   * UPDATE_ELEMENT_DATA evidence is prepared and delivered by SceneTree.
+   */
+  assignCanonicalElementData(
+    values: Readonly<Partial<Pick<ElementRawData, 'name' | 'visible' | 'lock'>>>
+  ): void {
+    if (values.name !== undefined) {
+      this.data.name = values.name as T['name']
+    }
+    if (values.visible !== undefined) {
+      this.data.visible = values.visible as T['visible']
+    }
+    if (values.lock !== undefined) {
+      this.data.lock = values.lock as T['lock']
+    }
+  }
+
   setupProps(propsData?: Partial<PropsRawData>) {
     const elementId = this.get('id') as string
     if (this.data.type !== EntityTypes.WORKSPACE) {
@@ -167,25 +184,15 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K],
-    options?: EvnetOptions
+    data: ComputedAttrs[K]
   ) {
     if (key in this.computed.data || !(key in this.data)) {
-      this.computed.set(key, data, options)
-
-      // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
-      type KEY = keyof PropertyComponentInstanceDataTypes
-      this.props.updateData(
-        key as KEY,
-        data as PropertyComponentInstanceDataTypes[KEY],
-        options
-      )
+      this.computed.set(key, data)
     }
   }
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
-      this.computed.setup(this.props, this.computedPropertyNames)
       return this.computed.save()
     }
 

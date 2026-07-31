@@ -378,7 +378,7 @@ describe('Core declarative property type redefinition', () => {
     expect(init).not.toHaveBeenCalled()
   })
 
-  it('blocks startup when a redefinition leaves a stale property-child key', async () => {
+  it('rejects a redefinition that would leave a stale property-child key before registry mutation', () => {
     const { core } = createCoreForTest()
     defineDeclarativeType(core, {
       type: CHILD,
@@ -389,16 +389,24 @@ describe('Core declarative property type redefinition', () => {
       fields: [{ key: 'children', kind: 'array', defaultValue: [] }],
       children: { key: 'children', childType: CHILD }
     })
-    core.redefinePropertyType(STYLE, (current) => ({
-      ...current,
-      fields: [createField('current', 2)]
-    }))
-    const init = setSuccessfulRenderer(core)
+    const previousDefinition = core.getPropertyTypeDefinition(STYLE)
+    const previousSchema = propertySchemaRegistry.get(STYLE)
+    const previousComponent = propertyComponentRegistry.get(STYLE)
 
-    await expect(
-      core.start(document.createElement('div'), { width: 1, height: 1 })
-    ).rejects.toMatchObject({ code: 'DANGLING_RELATION' })
-    expect(init).not.toHaveBeenCalled()
+    expect(() =>
+      core.redefinePropertyType(STYLE, (current) => ({
+        ...current,
+        fields: [createField('current', 2)]
+      }))
+    ).toThrowError(
+      expect.objectContaining<Partial<PropertyTypeDefinitionError>>({
+        code: 'PROPERTY_TYPE_DEFINITION_INVALID',
+        type: STYLE
+      })
+    )
+    expect(propertySchemaRegistry.get(STYLE)).toBe(previousSchema)
+    expect(propertyComponentRegistry.get(STYLE)).toBe(previousComponent)
+    expect(core.getPropertyTypeDefinition(STYLE)).toEqual(previousDefinition)
   })
 
   it('allows an explicitly permitted dynamic component alias after redefinition', async () => {
@@ -423,25 +431,10 @@ describe('Core declarative property type redefinition', () => {
     expect(init).toHaveBeenCalledOnce()
   })
 
-  it('accepts app-declared fields in id-first updates without an unsafe cast', () => {
-    interface CustomFields {
-      customCount: number
-      customLabel: string
-    }
+  it('does not expose caller-managed property update and commit operations', () => {
     const { core } = createCoreForTest()
 
-    expect(() => {
-      core.updatePropertyById<CustomFields>(
-        'missing-property',
-        'customCount',
-        3
-      )
-      core.updatePropertyById<CustomFields>(
-        'missing-property',
-        'customLabel',
-        'ready'
-      )
-      core.updatePropertyById('missing-property', 'x', 3)
-    }).not.toThrow()
+    expect(core).not.toHaveProperty('updatePropertyById')
+    expect(core).not.toHaveProperty('commitPropertyChanges')
   })
 })

@@ -23,12 +23,11 @@ import {
   PropertyTypes,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
-  SharedDataChannelNames,
   Unit,
   resetIdCounter,
   type AddRemoveElementChange,
+  type AddRemoveElementsChange,
   type AddRemovePropertyChange,
-  type ComputedAttrs,
   type CreateElementData,
   type ElementRawData,
   type PropertyComponentRawData,
@@ -45,12 +44,13 @@ import {
   publishEvent,
   runInTransactionReplayMode,
   runWithTransactionOwner,
+  subscribeToEventBatches,
   subscribeToEvents,
   wasTransactionReplayApplied,
   type AddElementEvent,
-  type UpdateComputedDataBatchEvent,
-  type UpdateComputedDataEvent,
-  type UpdateComputedDataPatchEvent,
+  type RemoveElementEvent,
+  type UpdateElementDataEvent,
+  type TransactionOwner,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 
@@ -274,6 +274,15 @@ class TestStrokesComponent extends BasePropertyComponent<TestStrokesAttrs> {
   }
 }
 
+const createTestTransactionOwner = () =>
+  ({
+    startTransaction: vi.fn(),
+    updateTransactionBatch: vi.fn(),
+    endTransaction: vi.fn(),
+    undo: vi.fn(),
+    redo: vi.fn()
+  }) satisfies TransactionOwner
+
 describe('SceneTree', () => {
   let sceneTree: SceneTree
 
@@ -442,33 +451,39 @@ describe('SceneTree', () => {
   })
 
   it('should add an element to the map', () => {
-    const element = {
-      get: vi.fn(() => 'el-add')
-    } as unknown as ElementInstanceTypes
+    const element = sceneTree.createElement(
+      { id: 'el-add', type: TEST_EMPTY_TYPE },
+      false
+    )
+    expect(element).not.toBeNull()
 
-    sceneTree.addToMap(element)
+    sceneTree.addToMap(element as ElementInstanceTypes)
 
     expect(sceneTree.getAllElements().has('el-add')).toBe(true)
   })
 
   it('should remove an element from the map', () => {
-    const element = {
-      get: vi.fn(() => 'el-remove')
-    } as unknown as ElementInstanceTypes
+    const element = sceneTree.createElement(
+      { id: 'el-remove', type: TEST_EMPTY_TYPE },
+      false
+    )
+    expect(element).not.toBeNull()
 
-    sceneTree.addToMap(element)
+    sceneTree.addToMap(element as ElementInstanceTypes)
     expect(sceneTree.getAllElements().has('el-remove')).toBe(true)
 
-    sceneTree.removeFromMap(element)
+    sceneTree.removeFromMap(element as ElementInstanceTypes)
     expect(sceneTree.getAllElements().has('el-remove')).toBe(false)
   })
 
   it('should get an element by ID', () => {
-    const element = {
-      get: vi.fn(() => 'el-get')
-    } as unknown as ElementInstanceTypes
+    const element = sceneTree.createElement(
+      { id: 'el-get', type: TEST_EMPTY_TYPE },
+      false
+    )
+    expect(element).not.toBeNull()
 
-    sceneTree.addToMap(element)
+    sceneTree.addToMap(element as ElementInstanceTypes)
 
     expect(sceneTree.getElementById('el-get')).toBe(element)
   })
@@ -505,49 +520,36 @@ describe('SceneTree', () => {
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.ADD_ELEMENT)
   })
 
-  it('should add a change for removing an element', () => {
-    const elementData = { id: 'el-change-remove', type: 'rect' }
-    const element = {
-      save: vi.fn(() => elementData),
-      get: vi.fn(() => 'el-change-remove')
-    } as unknown as ElementInstanceTypes
-
-    sceneTree.addChangeForRemoveElement(element)
-
-    expect(sceneTree.changes.length).toBe(1)
-    expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.REMOVE_ELEMENT)
-  })
-
   it('records the original parent and child index before removing an element', () => {
-    const observed: SceneTreeChange[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type === EventTypes.UPDATE_TRANSACTION &&
-        'payload' in event &&
-        (event.payload as SceneTreeChange).action ===
-          SCENE_TREE_ACTIONS.REMOVE_ELEMENT
-      ) {
-        observed.push(event.payload as SceneTreeChange)
-      }
-    })
     sceneTree.init()
     const workspaceId = sceneTree.workspace
     sceneTree.addNewElement({ id: 'first', type: 'rect', x: 0, y: 0 })
     sceneTree.addNewElement({ id: 'middle', type: 'rect', x: 0, y: 0 })
     sceneTree.addNewElement({ id: 'last', type: 'rect', x: 0, y: 0 })
     sceneTree.cleanChanges()
+    const transactionOwner = createTestTransactionOwner()
 
-    expect(sceneTree.removeElement({ id: 'middle' })).toBe(true)
+    expect(
+      runWithTransactionOwner(transactionOwner, () =>
+        sceneTree.removeElement({ id: 'middle' })
+      )
+    ).toBe(true)
 
-    expect(observed).toEqual([
+    expect(transactionOwner.updateTransactionBatch).toHaveBeenCalledWith([
       expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        parentId: workspaceId,
-        index: 1
+        eventName: EventTypes.REMOVE_ELEMENTS,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          entries: [
+            expect.objectContaining({
+              parentId: workspaceId,
+              index: 1,
+              data: expect.objectContaining({ id: 'middle' })
+            })
+          ]
+        })
       })
     ])
-
-    subscription.unsubscribe()
   })
 
   it('restores a removed element to its original container and child index', () => {
@@ -604,38 +606,33 @@ describe('SceneTree', () => {
       throw new Error('Expected middle element before removal')
     }
 
-    expect(sceneTreeSingleton.removeElement({ id: 'middle' }, containerB)).toBe(
-      true
-    )
+    const removalOwner = createTestTransactionOwner()
+    expect(
+      runWithTransactionOwner(removalOwner, () =>
+        sceneTreeSingleton.removeElement({ id: 'middle' }, containerB)
+      )
+    ).toBe(true)
     expect(containerB.get('children')).toEqual(['first', 'last'])
 
-    const replayAddChanges: SceneTreeChange[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type !== EventTypes.UPDATE_TRANSACTION ||
-        !('payload' in event)
-      ) {
-        return
-      }
-      const change = event.payload as SceneTreeChange
-      if (
-        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
-        'data' in change &&
-        change.data.id === 'middle'
-      ) {
-        replayAddChanges.push(change)
-      }
-    })
-
+    const updateTransactionBatch = vi.fn()
+    const transactionOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
     runInTransactionReplayMode('rollback', () =>
-      publishEvent({
-        type: EventTypes.ADD_ELEMENT,
-        payload: {
-          data: { ...removedData, x: 0, y: 0 },
-          parentId: 'container-b',
-          index: 1
-        }
-      } as unknown as AddElementEvent)
+      runWithTransactionOwner(transactionOwner, () =>
+        publishEvent({
+          type: EventTypes.ADD_ELEMENT,
+          payload: {
+            data: removedData,
+            parentId: 'container-b',
+            index: 1
+          }
+        } as unknown as AddElementEvent)
+      )
     )
 
     expect(containerA.get('children')).toEqual(['container-b'])
@@ -643,18 +640,28 @@ describe('SceneTree', () => {
     expect(sceneTreeSingleton.getElementById('middle')?.get('parentId')).toBe(
       'container-b'
     )
-    expect(replayAddChanges).toEqual([
+    expect(updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(updateTransactionBatch.mock.calls[0]?.[0]).toEqual([
       expect.objectContaining({
-        parentId: 'container-b',
-        index: 1,
-        data: expect.objectContaining({ parentId: 'container-b' })
+        eventName: EventTypes.ADD_ELEMENTS,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          entries: [
+            expect.objectContaining({
+              parentId: 'container-b',
+              index: 1,
+              data: expect.objectContaining({
+                id: 'middle',
+                parentId: 'container-b'
+              })
+            })
+          ]
+        })
       })
     ])
-
-    subscription.unsubscribe()
   })
 
-  it('records one structural scene-tree event for each add and remove', () => {
+  it('records ordinary add and typed batch removal evidence', () => {
     sceneTreeSingleton.init()
     const events: UpdateTransactionEvent[] = []
     const subscription = subscribeToEvents((event) => {
@@ -681,10 +688,27 @@ describe('SceneTree', () => {
     expect(getSceneActions()).toEqual([SCENE_TREE_ACTIONS.ADD_ELEMENT])
 
     events.length = 0
+    const removalOwner = createTestTransactionOwner()
     expect(
-      sceneTreeSingleton.removeElement({ id: 'single-structural-owner' })
+      runWithTransactionOwner(removalOwner, () =>
+        sceneTreeSingleton.removeElement({ id: 'single-structural-owner' })
+      )
     ).toBe(true)
-    expect(getSceneActions()).toEqual([SCENE_TREE_ACTIONS.REMOVE_ELEMENT])
+    expect(removalOwner.updateTransactionBatch).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventName: EventTypes.REMOVE_ELEMENTS,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          entries: [
+            expect.objectContaining({
+              data: expect.objectContaining({
+                id: 'single-structural-owner'
+              })
+            })
+          ]
+        })
+      })
+    ])
 
     subscription.unsubscribe()
   })
@@ -784,7 +808,7 @@ describe('SceneTree', () => {
     const workspace = sceneTree.currentWorkspace as Workspace
     const addNewElements = vi.spyOn(workspace, 'addNewElements')
 
-    sceneTree.addNewElement(elementData, undefined, -1, false)
+    sceneTree.addNewElement(elementData, undefined, -1)
 
     expect(addNewElements).toHaveBeenCalledOnce()
     expect(addNewElements).toHaveBeenCalledWith(
@@ -794,7 +818,7 @@ describe('SceneTree', () => {
     )
   })
 
-  it('acknowledges replayed add after scene mutation but before commit failure', () => {
+  it('acknowledges replayed add after the transaction owner accepts its Scene batch', () => {
     sceneTreeSingleton.init()
     sceneTreeSingleton.addNewElement({
       id: 'replay-add-failure',
@@ -806,30 +830,40 @@ describe('SceneTree', () => {
       .getElementById('replay-add-failure')
       ?.save()
     expect(removedData).toBeDefined()
-    sceneTreeSingleton.removeElement({ id: 'replay-add-failure' })
+    runWithTransactionOwner(createTestTransactionOwner(), () =>
+      sceneTreeSingleton.removeElement({ id: 'replay-add-failure' })
+    )
 
-    const replayFailure = new Error('props commit failed after scene add')
-    const originalCommitChanges = propsManager.commitChanges
-    propsManager.commitChanges = vi.fn(() => {
-      throw replayFailure
-    })
+    const replayFailure = Object.assign(
+      new Error('transaction owner failed after accepting scene add'),
+      { batchAccepted: true }
+    )
+    const transactionOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(() => {
+        throw replayFailure
+      }),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
 
     let capturedFailure: unknown
     try {
       runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.ADD_ELEMENT,
-          payload: {
-            data: removedData,
-            parentId: sceneTreeSingleton.workspace,
-            index: 0
-          }
-        } as AddElementEvent)
+        runWithTransactionOwner(transactionOwner, () =>
+          publishEvent({
+            type: EventTypes.ADD_ELEMENT,
+            payload: {
+              data: removedData,
+              parentId: sceneTreeSingleton.workspace,
+              index: 0
+            }
+          } as AddElementEvent)
+        )
       )
     } catch (failure) {
       capturedFailure = failure
-    } finally {
-      propsManager.commitChanges = originalCommitChanges
     }
 
     expect(capturedFailure).toBe(replayFailure)
@@ -839,7 +873,7 @@ describe('SceneTree', () => {
     ).toBeDefined()
   })
 
-  it('acknowledges replayed remove after scene mutation but before commit failure', () => {
+  it('acknowledges replayed remove after the transaction owner accepts its Scene batch', () => {
     sceneTreeSingleton.init()
     sceneTreeSingleton.addNewElement({
       id: 'replay-remove-failure',
@@ -854,26 +888,37 @@ describe('SceneTree', () => {
     if (!removableElement) {
       throw new Error('Expected replay-remove-failure before removal')
     }
-    removableElement.cleanup = vi.fn()
-
-    const replayFailure = new Error('props commit failed after scene remove')
-    const originalCommitChanges = propsManager.commitChanges
-    propsManager.commitChanges = vi.fn(() => {
-      throw replayFailure
-    })
+    const data = removableElement.save()
+    const replayFailure = Object.assign(
+      new Error('transaction owner failed after accepting scene remove'),
+      { batchAccepted: true }
+    )
+    const transactionOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(() => {
+        throw replayFailure
+      }),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
 
     let capturedFailure: unknown
     try {
       runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.REMOVE_ELEMENT,
-          payload: { data: { id: 'replay-remove-failure' } }
-        } as unknown as AddElementEvent)
+        runWithTransactionOwner(transactionOwner, () =>
+          publishEvent({
+            type: EventTypes.REMOVE_ELEMENT,
+            payload: {
+              data,
+              parentId: sceneTreeSingleton.workspace,
+              index: 0
+            }
+          } as RemoveElementEvent)
+        )
       )
     } catch (failure) {
       capturedFailure = failure
-    } finally {
-      propsManager.commitChanges = originalCommitChanges
     }
 
     expect(capturedFailure).toBe(replayFailure)
@@ -881,53 +926,6 @@ describe('SceneTree', () => {
     expect(
       sceneTreeSingleton.getElementById('replay-remove-failure')
     ).toBeUndefined()
-  })
-
-  it('acknowledges replayed computed data after the write but before a listener failure', () => {
-    sceneTreeSingleton.init()
-    sceneTreeSingleton.addNewElement({
-      id: 'computed-post-write-failure',
-      type: 'rect',
-      x: 0,
-      y: 0
-    })
-    const element = sceneTreeSingleton.getElementById(
-      'computed-post-write-failure'
-    )
-    expect(element).toBeDefined()
-    if (!element) {
-      throw new Error('Expected computed-post-write-failure element')
-    }
-    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
-      0
-    const replayFailure = new Error('computed listener failed after write')
-    const unsubscribe = element.computed.on(() => {
-      throw replayFailure
-    })
-
-    let capturedFailure: unknown
-    try {
-      runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
-          payload: {
-            id: 'computed-post-write-failure',
-            key: 'x',
-            before: 0,
-            after: 10,
-            owner: 'computed'
-          }
-        } as UpdateComputedDataEvent)
-      )
-    } catch (failure) {
-      capturedFailure = failure
-    } finally {
-      unsubscribe()
-    }
-
-    expect(capturedFailure).toBe(replayFailure)
-    expect(element.computed.get('x')).toBe(10)
-    expect(wasTransactionReplayApplied(capturedFailure)).toBe(true)
   })
 
   it.each([
@@ -953,398 +951,190 @@ describe('SceneTree', () => {
         throw new Error(`Expected element-owner-${key}`)
       }
 
-      runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
-          payload: {
-            id: `element-owner-${key}`,
-            key,
-            before,
-            after,
-            owner: 'raw'
-          }
-        } as UpdateComputedDataEvent)
+      const transactionOwner: TransactionOwner = {
+        startTransaction: vi.fn(),
+        updateTransactionBatch: vi.fn(),
+        endTransaction: vi.fn(),
+        undo: vi.fn(),
+        redo: vi.fn()
+      }
+      const applied = runInTransactionReplayMode('undo', () =>
+        runWithTransactionOwner(transactionOwner, () =>
+          publishEvent({
+            type: EventTypes.UPDATE_ELEMENT_DATA,
+            payload: {
+              id: `element-owner-${key}`,
+              changes: [{ key, before, after }]
+            }
+          } as UpdateElementDataEvent)
+        )
       )
 
+      expect(applied).toBe(true)
       expect(element.get(key)).toBe(after)
     }
   )
 
-  it('routes a same-name computed replay through Computed without mutating raw data', () => {
+  it('replays one raw element field batch through one Scene preparation handoff', () => {
     sceneTreeSingleton.init()
     sceneTreeSingleton.addNewElement({
-      id: 'same-name-computed-owner',
+      id: 'raw-element-batch-replay',
       type: 'rect',
+      name: 'Before',
       visible: true,
+      lock: false,
       x: 0,
       y: 0
     })
     const element = sceneTreeSingleton.getElementById(
-      'same-name-computed-owner'
+      'raw-element-batch-replay'
     )
     expect(element).toBeDefined()
     if (!element) {
-      throw new Error('Expected same-name-computed-owner element')
+      throw new Error('Expected raw-element-batch-replay element')
     }
-    const computedData = (
-      element.computed as unknown as { data: Record<string, DataTypes> }
-    ).data
-    computedData.visible = true
-
-    runInTransactionReplayMode('undo', () =>
-      publishEvent({
-        type: EventTypes.UPDATE_COMPUTED_DATA,
-        payload: {
-          id: 'same-name-computed-owner',
-          key: 'visible',
-          before: true,
-          after: false,
-          owner: 'computed'
-        }
-      } as UpdateComputedDataEvent)
-    )
-
-    expect(element.get('visible')).toBe(true)
-    expect(computedData.visible).toBe(false)
-  })
-
-  it('applies an ordered computed-data batch as one state-owner event', () => {
-    sceneTreeSingleton.init()
-    sceneTreeSingleton.addNewElement({
-      id: 'computed-batch-owner',
-      type: 'rect',
-      x: 0,
-      y: 0
-    })
-    const element = sceneTreeSingleton.getElementById('computed-batch-owner')
-    expect(element).toBeDefined()
-    if (!element) {
-      throw new Error('Expected computed-batch-owner element')
+    const updateTransactionBatch = vi.fn()
+    const transactionOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch,
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
     }
 
     const applied = runInTransactionReplayMode('redo', () =>
-      publishEvent({
-        type: EventTypes.UPDATE_COMPUTED_DATA,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA,
-          id: 'computed-batch-owner',
-          changes: [
-            { owner: 'computed', key: 'x', before: 0, after: 10 },
-            { owner: 'computed', key: 'y', before: 0, after: 20 },
-            { owner: 'computed', key: 'x', before: 10, after: 5 }
-          ]
-        }
-      } as UpdateComputedDataBatchEvent)
+      runWithTransactionOwner(transactionOwner, () =>
+        publishEvent({
+          type: EventTypes.UPDATE_ELEMENT_DATA,
+          payload: {
+            id: 'raw-element-batch-replay',
+            changes: [
+              { key: 'name', before: 'Before', after: 'After' },
+              { key: 'visible', before: true, after: false },
+              { key: 'lock', before: false, after: true }
+            ]
+          }
+        } as UpdateElementDataEvent)
+      )
     )
 
     expect(applied).toBe(true)
-    expect(element.computed.get('x')).toBe(5)
-    expect(element.computed.get('y')).toBe(20)
+    expect(element.get('name')).toBe('After')
+    expect(element.get('visible')).toBe(false)
+    expect(element.get('lock')).toBe(true)
+    expect(updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(
+      (
+        updateTransactionBatch.mock
+          .calls[0]?.[0] as readonly UpdateTransactionEvent[]
+      )[0]?.payload
+    ).toMatchObject({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+      id: 'raw-element-batch-replay',
+      changes: [
+        { key: 'name', before: 'Before', after: 'After' },
+        { key: 'visible', before: true, after: false },
+        { key: 'lock', before: false, after: true }
+      ]
+    })
   })
 
-  it('preserves a special own record id during computed patch replay', () => {
-    sceneTreeSingleton.init()
-    sceneTreeSingleton.addNewElement({
-      id: 'special-record-replay',
+  it('preflights local computed patches before mutating computed state', () => {
+    const element = new MockRectangle({
+      id: 'missing-value-base',
       type: 'rect',
-      x: 0,
-      y: 0
+      visible: true
     })
-    const element = sceneTreeSingleton.getElementById('special-record-replay')
-    expect(element).toBeDefined()
-    if (!element) {
-      throw new Error('Expected special-record-replay element')
-    }
-    const computedData = (
-      element.computed as unknown as { data: Record<string, DataTypes> }
-    ).data
-    computedData.points = {}
-    const set: Record<string, unknown> = {}
+    sceneTree.addToMap(element)
+    const beforeSnapshot = element.getAllComputedData()
+
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: element.get('id'),
+          patch: {
+            values: { pointCoordinateSpace: 'workspace' }
+          }
+        }
+      ])
+    ).toThrow(
+      'Computed data patch value base "pointCoordinateSpace" must already exist'
+    )
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: element.get('id'),
+          patch: {
+            values: { visible: false }
+          }
+        }
+      ])
+    ).toThrow('Local computed patches cannot update canonical key "visible"')
+
+    expect(element.getAllComputedData()).toEqual(beforeSnapshot)
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('preserves special own record ids on the local computed patch route', () => {
+    const element = new MockRectangle({
+      id: 'special-record-local-patch',
+      type: 'rect'
+    })
+    sceneTree.addToMap(element)
+    sceneTree.updateLocalComputedData([
+      {
+        elementId: element.get('id'),
+        values: { points: {} }
+      }
+    ])
+    const after = { id: '__proto__', x: 10, y: 20 }
+    const set = Object.create(null) as Record<string, typeof after>
     Object.defineProperty(set, '__proto__', {
-      value: {
-        after: { id: '__proto__', x: 10, y: 20 }
-      },
+      value: after,
       enumerable: true,
       configurable: true,
       writable: true
     })
 
-    runInTransactionReplayMode('undo', () =>
-      publishEvent({
-        type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        payload: {
-          id: 'special-record-replay',
-          patch: {
-            records: {
-              points: { set }
-            }
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: element.get('id'),
+        patch: {
+          records: {
+            points: { set }
           }
         }
-      } as UpdateComputedDataPatchEvent)
-    )
+      }
+    ])
 
-    const points = computedData.points as Record<string, unknown>
+    const points = (
+      element.getAllComputedData() as unknown as Record<string, unknown>
+    ).points as Record<string, unknown>
     expect(Object.prototype.hasOwnProperty.call(points, '__proto__')).toBe(true)
     expect(points['__proto__']).toEqual({
       id: '__proto__',
       x: 10,
       y: 20
     })
+    expect(sceneTree.changes).toEqual([])
   })
 
-  it.each([undefined, 'invalid'] as const)(
-    'rejects replay owner %s before canonical mutation',
-    (owner) => {
-      sceneTreeSingleton.init()
-      const id = `invalid-replay-owner-${String(owner)}`
-      sceneTreeSingleton.addNewElement({
-        id,
-        type: 'rect',
-        visible: true,
-        x: 0,
-        y: 0
-      })
-      const element = sceneTreeSingleton.getElementById(id)
-      expect(element).toBeDefined()
-      if (!element) {
-        throw new Error(`Expected ${id} element`)
-      }
-
-      runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
-          payload: {
-            id,
-            key: 'visible',
-            before: true,
-            after: false,
-            owner
-          }
-        } as unknown as UpdateComputedDataEvent)
-      )
-
-      expect(element.get('visible')).toBe(true)
-    }
-  )
-
-  it('does not acknowledge a replayed computed data failure before the write', () => {
-    sceneTreeSingleton.init()
-    sceneTreeSingleton.addNewElement({
-      id: 'computed-pre-write-failure',
-      type: 'rect',
-      x: 0,
-      y: 0
-    })
-    const element = sceneTreeSingleton.getElementById(
-      'computed-pre-write-failure'
-    )
-    expect(element).toBeDefined()
-    if (!element) {
-      throw new Error('Expected computed-pre-write-failure element')
-    }
-    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
-      0
-    const replayFailure = new Error('computed failed before write')
-    const originalUpdateComputedData = element.updateComputedData
-    element.updateComputedData = vi.fn(() => {
-      throw replayFailure
-    })
-
-    let capturedFailure: unknown
-    try {
-      runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
-          payload: {
-            id: 'computed-pre-write-failure',
-            key: 'x',
-            before: 0,
-            after: 10,
-            owner: 'computed'
-          }
-        } as UpdateComputedDataEvent)
-      )
-    } catch (failure) {
-      capturedFailure = failure
-    } finally {
-      element.updateComputedData = originalUpdateComputedData
-    }
-
-    expect(capturedFailure).toBe(replayFailure)
-    expect(element.computed.get('x')).toBe(0)
-    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
-  })
-
-  it('does not acknowledge a no-op computed replay before a cleanup failure', () => {
-    sceneTreeSingleton.init()
-    sceneTreeSingleton.addNewElement({
-      id: 'computed-no-op-failure',
-      type: 'rect',
-      x: 10,
-      y: 0
-    })
-    const element = sceneTreeSingleton.getElementById('computed-no-op-failure')
-    expect(element).toBeDefined()
-    if (!element) {
-      throw new Error('Expected computed-no-op-failure element')
-    }
-    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
-      10
-    const replayFailure = new Error('cleanup failed after computed no-op')
-    const originalCommitChanges = propsManager.commitChanges
-    propsManager.commitChanges = vi.fn(() => {
-      throw replayFailure
-    })
-
-    let capturedFailure: unknown
-    try {
-      runInTransactionReplayMode('undo', () =>
-        publishEvent({
-          type: EventTypes.UPDATE_COMPUTED_DATA,
-          payload: {
-            id: 'computed-no-op-failure',
-            key: 'x',
-            before: 0,
-            after: 10,
-            owner: 'computed'
-          }
-        } as UpdateComputedDataEvent)
-      )
-    } catch (failure) {
-      capturedFailure = failure
-    } finally {
-      propsManager.commitChanges = originalCommitChanges
-    }
-
-    expect(capturedFailure).toBe(replayFailure)
-    expect(element.computed.get('x')).toBe(10)
-    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
-  })
-
-  // Test updateComputedData
-  it('should call updateComputedData on the element', () => {
-    const element = {
-      get: vi.fn(() => 'el-computed'),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-    sceneTree.updateComputedData('el-computed', 'x', 100)
-    expect(element.updateComputedData).toHaveBeenCalledWith('x', 100)
-  })
-
-  it.each([
-    ['computed-only', 'pointCoordinateSpace', 'workspace'],
-    ['raw same-name', 'visible', false]
-  ] as const)(
-    'rejects a missing %s top-level value patch before real Element mutation',
-    (_case, key, after) => {
-      const element = new MockRectangle({
-        id: `missing-value-base-${key}`,
-        type: 'rect',
-        visible: true
-      })
-      sceneTree.addToMap(element)
-      const beforeSnapshot = element.getAllComputedData()
-
-      expect(() =>
-        sceneTree.patchComputedData(element.get('id'), {
-          values: { [key]: after }
-        })
-      ).toThrow(`Computed data patch value base "${key}" must already exist`)
-
-      expect(element.getAllComputedData()).toEqual(beforeSnapshot)
-      expect(sceneTree.changes).toEqual([])
-    }
-  )
-
-  it('updates computed data when a property component changes', () => {
-    const element = new MockRectangle()
-    sceneTree.addToMap(element)
-
-    const positionId = element.props.getPropId(PropertyTypes.POSITION)
-    if (!positionId) {
-      throw new Error('Position property component was not created.')
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    propsManager.updatePropsData(positionId, 'x' as any, 120)
-    expect(element.computed.get('x')).toBe(120)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    propsManager.updatePropsData(positionId, 'xUnit' as any, Unit.PERCENT)
-    expect(element.computed.get('x')).toBe(120)
-  })
-
-  it('refreshes owner computed data from a nested stroke property snapshot', () => {
-    const initialFill: TestPaint = {
-      kind: 'solid',
-      color: '#cccccc',
-      opacity: 1
-    }
-    const nextFill: TestPaint = {
-      kind: 'solid',
-      color: '#d90909',
-      opacity: 0.5
-    }
-
-    const stroke = propsManager.createProperty({
-      id: 'stroke-1',
-      type: TEST_STROKE_PROPERTY_TYPE,
-      fill: initialFill,
-      width: 10
-    }) as TestStrokeComponent
-    propsManager.addToMap(stroke)
-    const strokes = propsManager.createProperty({
-      id: 'strokes-1',
-      type: TEST_STROKES_PROPERTY_TYPE,
-      strokes: ['stroke-1']
-    })
-    propsManager.addToMap(strokes)
-
-    const element = sceneTreeSingleton.createElement({
-      id: 'vector-1',
-      type: TEST_VECTOR_TYPE,
-      props: {
-        strokes: 'strokes-1'
-      } as unknown as ElementRawData['props']
-    }) as ElementInstanceTypes
-    sceneTreeSingleton.addToMap(element)
-    sceneTreeSingleton.cleanChanges()
-
-    stroke.data.fill = nextFill
-    sceneTreeSingleton.refreshComputedDataFromProperty('vector-1', 'strokes', {
-      undoable: false
-    })
-
-    expect(element.computed.get('strokes')).toEqual({
-      'stroke-1': {
-        id: 'stroke-1',
-        fill: nextFill,
-        width: 10
-      }
-    })
-    expect(sceneTreeSingleton.changes).toContainEqual(
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        id: 'vector-1',
-        key: 'strokes',
-        after: {
-          'stroke-1': {
-            id: 'stroke-1',
-            fill: nextFill,
-            width: 10
-          }
-        }
-      })
-    )
-  })
-
-  it('publishes owner computed data when a nested stroke property transaction commits', () => {
+  it('derives nested shared-component computed data locally from one canonical property commit', () => {
     const events: UpdateTransactionEvent[] = []
+    const computedBatches: unknown[][] = []
     const subscription = subscribeToEvents((event) => {
       if (event.type === EventTypes.UPDATE_TRANSACTION) {
         events.push(event as UpdateTransactionEvent)
+      }
+    })
+    const batchSubscription = subscribeToEventBatches((eventBatch) => {
+      const computedEvents = eventBatch.filter(
+        (event) =>
+          event.type === EventTypes.UPDATE_COMPUTED_DATA ||
+          event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH
+      )
+      if (computedEvents.length > 0) {
+        computedBatches.push(computedEvents)
       }
     })
     events.length = 0
@@ -1363,14 +1153,14 @@ describe('SceneTree', () => {
     propsManager.addToMap(stroke)
     const strokes = propsManager.createProperty({
       id: 'strokes-1',
-      type: TEST_STROKES_PROPERTY_TYPE,
+      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
       strokes: ['stroke-1']
     })
     propsManager.addToMap(strokes)
 
     const element = sceneTreeSingleton.createElement({
       id: 'vector-1',
-      type: TEST_VECTOR_TYPE,
+      type: TEST_REACTIVE_VECTOR_TYPE,
       props: {
         strokes: 'strokes-1'
       } as unknown as ElementRawData['props']
@@ -1378,124 +1168,58 @@ describe('SceneTree', () => {
     sceneTreeSingleton.addToMap(element)
     sceneTreeSingleton.cleanChanges()
 
-    propsManager.updatePropertyById(
-      'stroke-1',
-      'fill',
-      nextFill,
-      {
-        ownerElementId: 'vector-1',
-        ownerPropertyName: 'strokes'
-      },
-      { undoable: false }
-    )
-    expect((stroke as TestStrokeComponent).get('fill')).toEqual(nextFill)
-    propsManager.commitChanges({ undoable: false })
-
-    expect(element.computed.get('strokes')).toEqual({
-      'stroke-1': {
-        id: 'stroke-1',
-        fill: nextFill,
-        width: 10
-      }
-    })
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: EventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
-        options: expect.objectContaining({
-          shared: SharedDataChannelNames.SCENE_TREE
-        }),
-        payload: expect.objectContaining({
-          id: 'vector-1'
-        })
+    try {
+      propsManager.updatePropertyById('stroke-1', 'fill', nextFill, {
+        undoable: false
       })
-    )
+      expect((stroke as TestStrokeComponent).get('fill')).toEqual(nextFill)
+      propsManager.commitChanges({ undoable: false })
 
-    subscription.unsubscribe()
-  })
-
-  it('batches transient vector computed-data key deltas in order', () => {
-    const events: UpdateTransactionEvent[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_TRANSACTION) {
-        events.push(event as UpdateTransactionEvent)
-      }
-    })
-    events.length = 0
-
-    sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      id: 'vector-1',
-      owner: 'computed',
-      key: 'points',
-      before: {},
-      after: { p1: { x: 0, y: 0 } },
-      options: { undoable: false }
-    } as SceneTreeChange)
-    sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      id: 'vector-1',
-      owner: 'computed',
-      key: 'segments',
-      before: {},
-      after: { s1: { startId: 'p1', endId: 'p2' } },
-      options: { undoable: false }
-    } as SceneTreeChange)
-    sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      id: 'vector-1',
-      owner: 'computed',
-      key: 'networks',
-      before: {},
-      after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } },
-      options: { undoable: false }
-    } as SceneTreeChange)
-
-    sceneTree.commitSceneTreeTransaction()
-
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: EventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA,
-          id: 'vector-1',
-          changes: [
-            {
-              owner: 'computed',
-              key: 'points',
-              before: {},
-              after: { p1: { x: 0, y: 0 } }
-            },
-            {
-              owner: 'computed',
-              key: 'segments',
-              before: {},
-              after: { s1: { startId: 'p1', endId: 'p2' } }
-            },
-            {
-              owner: 'computed',
-              key: 'networks',
-              before: {},
-              after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } }
-            }
-          ]
-        },
-        options: {
-          undoable: false,
-          shared: SharedDataChannelNames.SCENE_TREE
+      expect(computedBatches).toEqual([
+        [
+          expect.objectContaining({
+            type: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: expect.objectContaining({
+              id: 'vector-1'
+            })
+          })
+        ]
+      ])
+      expect(element.computed.get('strokes')).toEqual([
+        {
+          id: 'stroke-1',
+          fill: nextFill,
+          width: 10
         }
-      })
-    ])
-    subscription.unsubscribe()
+      ])
+      expect(
+        events.filter(
+          ({ eventName }) => eventName === EventTypes.UPDATE_COMPUTED_DATA
+        )
+      ).toEqual([])
+    } finally {
+      batchSubscription.unsubscribe()
+      subscription.unsubscribe()
+    }
   })
 
   // Test load and save
   it('should load data correctly', () => {
+    const position = propsManager.createProperty(
+      new TestPositionComponent({
+        id: 'load-position',
+        x: 10,
+        y: 20
+      }).save()
+    )
+    const dimension = propsManager.createProperty(
+      new TestDimensionComponent({
+        id: 'load-dimension',
+        width: 100,
+        height: 80
+      }).save()
+    )
+    propsManager.addProperty([position, dimension])
     const dataToLoad = {
       workspace: 'ws-load',
       workspaceList: ['ws-load'],
@@ -1515,7 +1239,11 @@ describe('SceneTree', () => {
           name: 'el-load-1',
           parentId: 'ws-load',
           visible: true,
-          lock: false
+          lock: false,
+          props: {
+            position: position.get('id'),
+            dimension: dimension.get('id')
+          }
         }
       }
     }
@@ -1834,6 +1562,21 @@ describe('SceneTree', () => {
   })
 
   it('applies only its own one-shot validated artifact without rerunning validation', () => {
+    const position = propsManager.createProperty(
+      new TestPositionComponent({
+        id: 'one-shot-load-position',
+        x: 1,
+        y: 2
+      }).save()
+    )
+    const dimension = propsManager.createProperty(
+      new TestDimensionComponent({
+        id: 'one-shot-load-dimension',
+        width: 30,
+        height: 40
+      }).save()
+    )
+    propsManager.addProperty([position, dimension])
     const validation = sceneTree.validateLoadData({
       workspace: 'workspace',
       workspaceList: ['workspace'],
@@ -1853,7 +1596,11 @@ describe('SceneTree', () => {
           name: 'Rect',
           parentId: 'workspace',
           visible: true,
-          lock: false
+          lock: false,
+          props: {
+            position: position.get('id'),
+            dimension: dimension.get('id')
+          }
         }
       }
     })
@@ -1942,170 +1689,6 @@ describe('SceneTree', () => {
     )
   })
 
-  it('adds one ordered element batch without cloning the growing parent child list', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const set = vi.spyOn(workspace, 'set')
-    const replaceChildren = vi.spyOn(
-      workspace,
-      'replaceChildrenFromCanonicalBatch'
-    )
-    const createPropertyBatch = vi.spyOn(
-      propsManager,
-      'runInPropertyCreationBatch'
-    )
-    const commit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
-    const sceneChanges: SceneTreeChange[] = []
-    const propsChanges: PropsChange[] = []
-    const transactionEvents: UpdateTransactionEvent[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_TRANSACTION && 'payload' in event) {
-        transactionEvents.push(event as UpdateTransactionEvent)
-        if (
-          Object.values(SCENE_TREE_ACTIONS).includes(
-            (event.payload as SceneTreeChange).action
-          )
-        ) {
-          sceneChanges.push(event.payload as SceneTreeChange)
-        }
-        if (
-          Object.values(PROPS_ACTIONS).includes(
-            (event.payload as PropsChange).action
-          )
-        ) {
-          propsChanges.push(event.payload as PropsChange)
-        }
-      }
-    })
-    const batchOwner = sceneTree as SceneTree & {
-      addNewElements(
-        data: readonly {
-          id: string
-          type: string
-          x: number
-          y: number
-        }[],
-        parent?: GroupInstanceTypes,
-        index?: number,
-        options?: { undoable?: boolean }
-      ): readonly string[]
-    }
-
-    expect(
-      batchOwner.addNewElements(
-        [
-          { id: 'batch-1', type: 'rect', x: 0, y: 0 },
-          { id: 'batch-2', type: 'rect', x: 10, y: 10 },
-          { id: 'batch-3', type: 'rect', x: 20, y: 20 }
-        ],
-        workspace as GroupInstanceTypes,
-        undefined,
-        { undoable: true }
-      )
-    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
-    expect(workspace.get('children')).toEqual(['batch-1', 'batch-2', 'batch-3'])
-    expect(set.mock.calls.filter(([key]) => key === 'children')).toHaveLength(0)
-    expect(replaceChildren).toHaveBeenCalledOnce()
-    expect(createPropertyBatch).toHaveBeenCalledOnce()
-    expect(
-      sceneChanges
-        .filter(
-          (change) =>
-            change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
-            'data' in change &&
-            change.data.id.startsWith('batch-')
-        )
-        .map((change) => ('data' in change ? change.data.id : null))
-    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
-    expect(
-      sceneChanges.filter(
-        (change) =>
-          change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
-          'owner' in change &&
-          change.owner === 'raw' &&
-          change.key === 'children'
-      )
-    ).toEqual([])
-    const propertyBatch = propsChanges.filter(
-      (change) => change.action === PROPS_ACTIONS.ADD_PROPERTY
-    )
-    expect(propertyBatch).toHaveLength(1)
-    const propertyData = (propertyBatch[0] as AddRemovePropertyChange).data
-    expect(propertyData).toHaveLength(6)
-    const propertyIds = new Set(propertyData.map(({ id }) => id))
-    const expectedPropertyIds: string[] = []
-    ;['batch-1', 'batch-2', 'batch-3'].forEach((elementId, index) => {
-      const props = sceneTree.getElementById(elementId)?.save().props
-      expectedPropertyIds.push(
-        props?.position as string,
-        props?.dimension as string
-      )
-      expect(propertyIds.has(props?.position as string)).toBe(true)
-      expect(propertyIds.has(props?.dimension as string)).toBe(true)
-      const position = propsManager.getPropertyById(
-        props?.position as string
-      ) as TestPositionComponent | undefined
-      expect(position?.get('x')).toBe(index * 10)
-      expect(position?.get('y')).toBe(index * 10)
-    })
-    expect(propertyData.map(({ id }) => id)).toEqual(expectedPropertyIds)
-    expect(propertyData).toEqual(
-      expectedPropertyIds.map((propertyId) =>
-        propsManager.getPropertyById(propertyId)?.save()
-      )
-    )
-    const orderedBatchEvents = transactionEvents.filter(({ payload }) => {
-      const change = payload as PropsChange | SceneTreeChange
-      if (change.action === PROPS_ACTIONS.ADD_PROPERTY) {
-        return true
-      }
-      return (
-        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
-        'data' in change &&
-        change.data.id.startsWith('batch-')
-      )
-    })
-    expect(
-      orderedBatchEvents.map(({ payload }) => {
-        const change = payload as PropsChange | SceneTreeChange
-        return change.action === PROPS_ACTIONS.ADD_PROPERTY
-          ? 'props:add'
-          : `scene:add:${(change as AddRemoveElementChange).data.id}`
-      })
-    ).toEqual([
-      'props:add',
-      'scene:add:batch-1',
-      'scene:add:batch-2',
-      'scene:add:batch-3'
-    ])
-    expect(orderedBatchEvents.map(({ options }) => options)).toEqual([
-      { undoable: true, shared: SharedDataChannelNames.PROPS },
-      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE },
-      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE },
-      { undoable: true, shared: SharedDataChannelNames.SCENE_TREE }
-    ])
-    orderedBatchEvents.slice(1).forEach(({ payload }, index) => {
-      const change = payload as AddRemoveElementChange
-      const elementId = `batch-${index + 1}`
-      expect(change.data).toEqual(sceneTree.getElementById(elementId)?.save())
-      expect(change.parentId).toBe(workspace.get('id'))
-      expect(change.index).toBe(index)
-    })
-    const detachedPropertyEvidence = structuredClone(propertyData)
-    const firstPosition = propsManager.getPropertyById(
-      expectedPropertyIds[0]
-    ) as TestPositionComponent
-    firstPosition.set('x', 999)
-    expect(propertyData).toEqual(detachedPropertyEvidence)
-    expect(commit).toHaveBeenCalledOnce()
-    expect(commit.mock.calls[0]?.[0]).toEqual({ undoable: true })
-    expect(
-      commit.mock.calls[0]?.[1]?.elements.map((element) => element.get('id'))
-    ).toEqual(['batch-1', 'batch-2', 'batch-3'])
-    expect(commit.mock.calls[0]?.[1]?.propsEvents).toHaveLength(1)
-    subscription.unsubscribe()
-  })
-
   it('keeps empty, partial, and mixed ordinary props on the existing creation path', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
@@ -2135,679 +1718,6 @@ describe('SceneTree', () => {
         expect(propsManager.getPropertyById(propertyId)).toBeDefined()
       })
     })
-  })
-
-  it('creates exact canonical properties and elements as one ordered owner batch', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const properties = [
-      new TestPositionComponent({
-        id: 'canonical-position-1',
-        x: 12,
-        y: 24
-      }).save(),
-      new TestDimensionComponent({
-        id: 'canonical-dimension-1',
-        width: 80,
-        height: 40
-      }).save(),
-      new TestPositionComponent({
-        id: 'canonical-position-2',
-        x: 36,
-        y: 48
-      }).save(),
-      new TestDimensionComponent({
-        id: 'canonical-dimension-2',
-        width: 120,
-        height: 60
-      }).save()
-    ]
-    const elements = [
-      {
-        id: 'canonical-element-1',
-        type: 'rect',
-        name: 'Canonical Rectangle 1',
-        parentId: workspace.get('id'),
-        visible: true,
-        lock: false,
-        props: {
-          position: 'canonical-position-1',
-          dimension: 'canonical-dimension-1'
-        }
-      },
-      {
-        id: 'canonical-element-2',
-        type: 'rect',
-        name: 'Canonical Rectangle 2',
-        parentId: workspace.get('id'),
-        visible: true,
-        lock: false,
-        props: {
-          position: 'canonical-position-2',
-          dimension: 'canonical-dimension-2'
-        }
-      }
-    ] satisfies readonly ElementRawData[]
-    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
-    const { subscription } = (() => {
-      const subscription = subscribeToEvents((event) => {
-        if (
-          event.type !== EventTypes.UPDATE_TRANSACTION ||
-          !('payload' in event)
-        ) {
-          return
-        }
-        const change = event.payload as SceneTreeChange | PropsChange
-        if (
-          change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
-          change.action === PROPS_ACTIONS.ADD_PROPERTY
-        ) {
-          orderedChanges.push(change as PropsChange | AddRemoveElementChange)
-        }
-      })
-      orderedChanges.length = 0
-      return { subscription }
-    })()
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalData(
-        elements,
-        properties,
-        workspace as GroupInstanceTypes,
-        undefined,
-        { undoable: false }
-      )
-    ).toEqual(['canonical-element-1', 'canonical-element-2'])
-
-    expect(propsManager.save()).toEqual(
-      Object.fromEntries(properties.map((property) => [property.id, property]))
-    )
-    expect(
-      elements.map(({ id }) => sceneTree.getElementById(id)?.save())
-    ).toEqual(elements)
-    expect(
-      orderedChanges.map((change) =>
-        change.action === PROPS_ACTIONS.ADD_PROPERTY
-          ? {
-              action: change.action,
-              data: (change as AddRemovePropertyChange).data
-            }
-          : {
-              action: change.action,
-              data: (change as AddRemoveElementChange).data,
-              index: (change as AddRemoveElementChange).index
-            }
-      )
-    ).toEqual([
-      { action: PROPS_ACTIONS.ADD_PROPERTY, data: properties },
-      {
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: elements[0],
-        index: 0
-      },
-      {
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: elements[1],
-        index: 1
-      }
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('keeps canonical property and element evidence detached from caller data', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const stroke = new TestStrokeComponent({
-      id: 'detached-canonical-stroke',
-      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
-      width: 6
-    }).save()
-    const strokes = {
-      id: 'detached-canonical-strokes',
-      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      strokes: ['detached-canonical-stroke']
-    } as PropertyComponentRawData
-    const element = {
-      id: 'detached-canonical-vector',
-      type: TEST_REACTIVE_VECTOR_TYPE,
-      name: 'Detached Canonical Vector',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {
-        strokes: 'detached-canonical-strokes'
-      } as unknown as ElementRawData['props']
-    } satisfies ElementRawData
-    const expectedProperties = structuredClone([stroke, strokes])
-    const expectedElement = structuredClone(element)
-    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type !== EventTypes.UPDATE_TRANSACTION ||
-        !('payload' in event)
-      ) {
-        return
-      }
-      const change = event.payload as SceneTreeChange | PropsChange
-      if (
-        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
-        change.action === PROPS_ACTIONS.ADD_PROPERTY
-      ) {
-        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
-      }
-    })
-    orderedChanges.length = 0
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalData(
-        [element],
-        [stroke, strokes],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['detached-canonical-vector'])
-    const evidenceBeforeCallerMutation = structuredClone(orderedChanges)
-
-    ;(
-      stroke as unknown as {
-        fill: { color: string }
-      }
-    ).fill.color = '#abcdef'
-    ;(
-      strokes as unknown as {
-        strokes: string[]
-      }
-    ).strokes.push('caller-only-stroke')
-    element.name = 'Caller-only name'
-    ;(element.props as Record<string, string>).strokes = 'caller-only-owner'
-
-    expect(
-      propsManager.getPropertyById('detached-canonical-stroke')?.save()
-    ).toEqual(expectedProperties[0])
-    expect(
-      propsManager.getPropertyById('detached-canonical-strokes')?.save()
-    ).toEqual(expectedProperties[1])
-    expect(
-      sceneTree.getElementById('detached-canonical-vector')?.save()
-    ).toEqual(expectedElement)
-    expect(orderedChanges).toEqual(evidenceBeforeCallerMutation)
-    subscription.unsubscribe()
-  })
-
-  it('binds child-first canonical property relationships through the owner batch', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const stroke = new TestStrokeComponent({
-      id: 'canonical-stroke',
-      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
-      width: 6
-    }).save()
-    const strokes = {
-      id: 'canonical-strokes',
-      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      strokes: ['canonical-stroke']
-    } as PropertyComponentRawData
-    const element = {
-      id: 'canonical-vector',
-      type: TEST_REACTIVE_VECTOR_TYPE,
-      name: 'Canonical Vector',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {
-        strokes: 'canonical-strokes'
-      } as unknown as ElementRawData['props']
-    } satisfies ElementRawData
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalData(
-        [element],
-        [stroke, strokes],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['canonical-vector'])
-
-    expect(sceneTree.getElementById('canonical-vector')?.save()).toEqual(
-      element
-    )
-    expect(
-      sceneTree.getElementById('canonical-vector')?.getAllComputedData()
-    ).toMatchObject({
-      strokes: [
-        {
-          id: 'canonical-stroke',
-          fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
-          width: 6
-        }
-      ]
-    })
-    expect(propsManager.changes).toEqual([])
-    expect(sceneTree.changes).toEqual([])
-    const createdStroke = propsManager.getPropertyById('canonical-stroke')
-    createdStroke?.set('width' as never, 12 as never)
-    expect(
-      sceneTree
-        .getElementById('canonical-vector')
-        ?.computed.get('strokes' as never)
-    ).toMatchObject([
-      {
-        id: 'canonical-stroke',
-        fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
-        width: 12
-      }
-    ])
-    expect(propsManager.changes).toContainEqual(
-      expect.objectContaining({
-        id: 'canonical-stroke',
-        key: 'width',
-        after: 12
-      })
-    )
-  })
-
-  it('reuses exact active property relationships for one ordered canonical element batch', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const strokeData = new TestStrokeComponent({
-      id: 'active-canonical-stroke',
-      fill: { kind: 'solid', color: '#123456', opacity: 0.75 },
-      width: 6
-    }).save()
-    const stroke = propsManager.createProperty(strokeData)
-    propsManager.addProperty([stroke])
-    const strokesData = {
-      id: 'active-canonical-strokes',
-      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      strokes: ['active-canonical-stroke']
-    } as PropertyComponentRawData
-    const strokes = propsManager.createProperty(strokesData)
-    propsManager.addProperty([strokes])
-    propsManager.cleanChanges()
-    const properties = [strokes.save(), stroke.save()]
-    const elements = [1, 2].map(
-      (suffix) =>
-        ({
-          id: `active-canonical-vector-${suffix}`,
-          type: TEST_REACTIVE_VECTOR_TYPE,
-          name: `Active Canonical Vector ${suffix}`,
-          parentId: workspace.get('id'),
-          visible: true,
-          lock: false,
-          props: {
-            strokes: 'active-canonical-strokes'
-          } as unknown as ElementRawData['props']
-        }) satisfies ElementRawData
-    )
-    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type !== EventTypes.UPDATE_TRANSACTION ||
-        !('payload' in event)
-      ) {
-        return
-      }
-      const change = event.payload as SceneTreeChange | PropsChange
-      if (
-        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
-        change.action === PROPS_ACTIONS.ADD_PROPERTY
-      ) {
-        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
-      }
-    })
-    orderedChanges.length = 0
-    const addToMap = vi.spyOn(propsManager, 'addToMap')
-    const strokeSave = vi.spyOn(stroke, 'save')
-    const strokesSave = vi.spyOn(strokes, 'save')
-
-    const createdIds =
-      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-        elements,
-        properties,
-        workspace as GroupInstanceTypes,
-        undefined,
-        { undoable: false }
-      )
-    const repeatedRegistrationCount = addToMap.mock.calls.length
-    const exactSaveCounts = {
-      stroke: strokeSave.mock.calls.length,
-      strokes: strokesSave.mock.calls.length
-    }
-    addToMap.mockRestore()
-    strokeSave.mockRestore()
-    strokesSave.mockRestore()
-
-    expect(createdIds).toEqual([
-      'active-canonical-vector-1',
-      'active-canonical-vector-2'
-    ])
-    expect(repeatedRegistrationCount).toBe(0)
-    expect(exactSaveCounts).toEqual({
-      stroke: 2,
-      strokes: 2
-    })
-    expect(propsManager.getPropertyById(strokeData.id)).toBe(stroke)
-    expect(propsManager.getPropertyById(strokesData.id)).toBe(strokes)
-    expect(
-      elements.map(({ id }) => sceneTree.getElementById(id)?.save())
-    ).toEqual(elements)
-    expect(
-      orderedChanges.map((change) => ({
-        action: change.action,
-        data: (change as AddRemoveElementChange).data,
-        index: (change as AddRemoveElementChange).index
-      }))
-    ).toEqual([
-      {
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: elements[0],
-        index: 0
-      },
-      {
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: elements[1],
-        index: 1
-      }
-    ])
-
-    stroke.set('width' as never, 12 as never)
-    expect(
-      sceneTree
-        .getElementById('active-canonical-vector-1')
-        ?.computed.get('strokes' as never)
-    ).toMatchObject([
-      {
-        id: 'active-canonical-stroke',
-        width: 12
-      }
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('rejects stale active property evidence before applying a scene prefix', () => {
-    sceneTree.init()
-    sceneTree.cleanChanges()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const position = propsManager.createProperty(
-      new TestPositionComponent({
-        id: 'active-stale-position',
-        x: 4,
-        y: 8
-      }).save()
-    )
-    const dimension = propsManager.createProperty(
-      new TestDimensionComponent({
-        id: 'active-stale-dimension',
-        width: 16,
-        height: 32
-      }).save()
-    )
-    propsManager.addProperty([position, dimension])
-    propsManager.cleanChanges()
-    const beforeElementIds = [...sceneTree.getAllElements().keys()]
-    const beforeChildren = workspace.get('children')
-    const beforeChildrenSnapshot = [...beforeChildren]
-    const beforeProps = propsManager.save()
-    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
-    const replaceBatchParentChildren = vi.spyOn(
-      workspace,
-      'replaceBatchParentChildren'
-    )
-    const element = {
-      id: 'active-stale-element',
-      type: 'rect',
-      name: 'Active Stale Element',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {
-        position: 'active-stale-position',
-        dimension: 'active-stale-dimension'
-      }
-    } satisfies ElementRawData
-
-    expect(() =>
-      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-        [element],
-        [
-          { ...position.save(), x: 999 },
-          dimension.save()
-        ] as readonly PropertyComponentRawData[],
-        workspace as GroupInstanceTypes
-      )
-    ).toThrow(/changed exact component data/i)
-
-    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
-    expect(workspace.get('children')).toBe(beforeChildren)
-    expect(workspace.get('children')).toEqual(beforeChildrenSnapshot)
-    expect(propsManager.save()).toEqual(beforeProps)
-    expect(propsManager.changes).toEqual([])
-    expect(sceneTree.changes).toEqual([])
-    expect(sceneCommit).not.toHaveBeenCalled()
-    expect(replaceBatchParentChildren).not.toHaveBeenCalled()
-  })
-
-  it('preserves shared new owners and rejects untracked active owners', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const sharedStroke = new TestStrokeComponent({
-      id: 'canonical-shared-stroke',
-      width: 4
-    }).save()
-    const sharedStrokes = {
-      id: 'canonical-shared-strokes',
-      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      strokes: ['canonical-shared-stroke']
-    } as PropertyComponentRawData
-    const sharedElements = [1, 2].map(
-      (suffix) =>
-        ({
-          id: `canonical-shared-${suffix}`,
-          type: TEST_REACTIVE_VECTOR_TYPE,
-          name: `Canonical Shared ${suffix}`,
-          parentId: workspace.get('id'),
-          visible: true,
-          lock: false,
-          props: {
-            strokes: 'canonical-shared-strokes'
-          } as unknown as ElementRawData['props']
-        }) satisfies ElementRawData
-    )
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalData(
-        sharedElements,
-        [sharedStroke, sharedStrokes],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['canonical-shared-1', 'canonical-shared-2'])
-    expect(
-      sharedElements.map(({ id }) => sceneTree.getElementById(id)?.save())
-    ).toEqual(sharedElements)
-
-    const active = propsManager.createProperty({
-      id: 'existing-shared-strokes',
-      type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
-      strokes: []
-    })
-    propsManager.addProperty([active])
-    propsManager.cleanChanges()
-    const ordinaryElement = {
-      id: 'ordinary-existing-owner',
-      type: TEST_REACTIVE_VECTOR_TYPE,
-      name: 'Ordinary Existing Owner',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {
-        strokes: 'existing-shared-strokes'
-      } as unknown as ElementRawData['props']
-    } satisfies ElementRawData
-    const canonicalElement = {
-      ...ordinaryElement,
-      id: 'canonical-existing-owner',
-      name: 'Canonical Existing Owner'
-    } satisfies ElementRawData
-
-    expect(
-      sceneTree.addNewElement(
-        ordinaryElement as unknown as CreateElementData,
-        workspace as GroupInstanceTypes
-      )
-    ).toBe('ordinary-existing-owner')
-    expect(() =>
-      sceneTree.addNewElementsFromCanonicalData(
-        [canonicalElement],
-        [],
-        workspace as GroupInstanceTypes
-      )
-    ).toThrow(/property owner/i)
-    expect(sceneTree.getElementById('ordinary-existing-owner')?.save()).toEqual(
-      ordinaryElement
-    )
-    expect(sceneTree.getElementById('canonical-existing-owner')).toBeUndefined()
-    expect(propsManager.getPropertyById('existing-shared-strokes')).toBe(active)
-  })
-
-  it('creates an exact zero-slot canonical component without inventing properties', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const element = {
-      id: 'canonical-empty',
-      type: TEST_EMPTY_TYPE,
-      name: 'Canonical Empty',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {} as unknown as ElementRawData['props']
-    } satisfies ElementRawData
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalData(
-        [element],
-        [],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['canonical-empty'])
-    expect(sceneTree.getElementById('canonical-empty')?.save()).toEqual(element)
-    expect(propsManager.save()).toEqual({})
-  })
-
-  it('creates an exact zero-slot canonical component through the active-property route', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const element = {
-      id: 'active-canonical-empty',
-      type: TEST_EMPTY_TYPE,
-      name: 'Active Canonical Empty',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {} as unknown as ElementRawData['props']
-    } satisfies ElementRawData
-    const orderedChanges: (PropsChange | AddRemoveElementChange)[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type !== EventTypes.UPDATE_TRANSACTION ||
-        !('payload' in event)
-      ) {
-        return
-      }
-      const change = event.payload as SceneTreeChange | PropsChange
-      if (
-        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT ||
-        change.action === PROPS_ACTIONS.ADD_PROPERTY
-      ) {
-        orderedChanges.push(change as PropsChange | AddRemoveElementChange)
-      }
-    })
-    orderedChanges.length = 0
-
-    expect(
-      sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-        [element],
-        [],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['active-canonical-empty'])
-    expect(sceneTree.getElementById(element.id)?.save()).toEqual(element)
-    expect(propsManager.save()).toEqual({})
-    expect(orderedChanges).toEqual([
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: element,
-        index: 0
-      })
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('rejects invalid canonical ownership and rolls back exact-data failures without a prefix', () => {
-    sceneTree.init()
-    sceneTree.cleanChanges()
-    propsManager.cleanChanges()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const beforeElementIds = [...sceneTree.getAllElements().keys()]
-    const beforeChildren = [...workspace.get('children')]
-    const beforeProps = propsManager.save()
-    const position = new TestPositionComponent({
-      id: 'canonical-rollback-position',
-      x: 4,
-      y: 8
-    }).save()
-    const dimension = new TestDimensionComponent({
-      id: 'canonical-rollback-dimension',
-      width: 16,
-      height: 32
-    }).save()
-    const element = {
-      id: 'canonical-rollback-element',
-      type: 'rect',
-      name: 'Canonical Rollback Element',
-      parentId: workspace.get('id'),
-      visible: true,
-      lock: false,
-      props: {
-        position: position.id,
-        dimension: dimension.id
-      },
-      unexpected: 'must not be dropped'
-    } as ElementRawData
-    const propsCommit = vi.spyOn(propsManager, 'commitChanges')
-    const sceneCommit = vi.spyOn(sceneTree, 'commitSceneTreeTransaction')
-
-    expect(() =>
-      sceneTree.addNewElementsFromCanonicalData(
-        [element],
-        [position, dimension],
-        workspace as GroupInstanceTypes
-      )
-    ).toThrow(/changed exact element data/i)
-
-    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
-    expect(workspace.get('children')).toEqual(beforeChildren)
-    expect(propsManager.save()).toEqual(beforeProps)
-    expect(propsManager.changes).toEqual([])
-    expect(sceneTree.changes).toEqual([])
-    expect(propsCommit).not.toHaveBeenCalled()
-    expect(sceneCommit).not.toHaveBeenCalled()
-
-    expect(() =>
-      sceneTree.addNewElementsFromCanonicalData(
-        [
-          {
-            ...element,
-            unexpected: undefined,
-            props: {
-              position: dimension.id,
-              dimension: position.id
-            }
-          } as ElementRawData
-        ],
-        [position, dimension],
-        workspace as GroupInstanceTypes
-      )
-    ).toThrow(/invalid "position" property owner/i)
-    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
-    expect(propsManager.save()).toEqual(beforeProps)
   })
 
   it('rejects a failed canonical element batch without a scene or property prefix', () => {
@@ -3022,151 +1932,6 @@ describe('SceneTree', () => {
     expect(propsManager.save()).toEqual(beforeProps)
     expect(sceneTree.changes).toEqual([])
     expect(propsManager.changes).toEqual([])
-  })
-
-  it('materializes ids-or-objects defaults and descriptor overrides through one final property registry batch', () => {
-    const childType = 'scene-ordinary-paint'
-    const parentType = 'scene-ordinary-paints'
-    const elementType = 'scene-ordinary-painted-element'
-    const childDefaults = { color: '#cccccc', opacity: 1 }
-    const ChildComponent = createPropertyComponentFromConfig({
-      type: childType,
-      defaults: childDefaults,
-      persistKeys: ['color', 'opacity'],
-      valueKeys: ['color', 'opacity']
-    })
-    const parentDefinition = {
-      type: parentType,
-      defaults: { paints: [] as string[] },
-      persistKeys: ['paints'],
-      valueKeys: ['paints'],
-      children: {
-        key: 'paints',
-        childType,
-        mode: 'ids-or-objects' as const,
-        toChildData: (item: Record<string, unknown>) => ({
-          ...childDefaults,
-          ...item
-        }),
-        toValue: (
-          child: { get: (key: string) => unknown },
-          childId: string
-        ) => ({
-          id: childId,
-          color: child.get('color'),
-          opacity: child.get('opacity')
-        })
-      }
-    }
-    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
-    registerPropertySchema({
-      type: childType,
-      fields: [
-        {
-          key: 'color',
-          kind: 'string',
-          validate: (value) => typeof value === 'string' && value.length > 0,
-          defaultValue: childDefaults.color
-        },
-        {
-          key: 'opacity',
-          kind: 'number',
-          validate: (value) =>
-            typeof value === 'number' && value >= 0 && value <= 1,
-          defaultValue: childDefaults.opacity
-        }
-      ]
-    })
-    registerPropertySchema({
-      type: parentType,
-      fields: [
-        {
-          key: 'paints',
-          kind: 'array',
-          validate: (value) =>
-            Array.isArray(value) &&
-            value.every((item) => typeof item === 'string'),
-          defaultValue: []
-        }
-      ]
-    })
-    registerPropertyComponent(childType, ChildComponent)
-    registerPropertyComponent(
-      parentType,
-      ParentComponent,
-      undefined,
-      parentDefinition
-    )
-    const properties = [
-      {
-        name: 'paints',
-        type: parentType,
-        defaultValue: [{ color: '#111111', opacity: 1 }]
-      }
-    ]
-    componentRegistry.register({
-      type: elementType,
-      idPrefix: elementType,
-      namePrefix: 'Painted Element',
-      constructor: createDynamicComponent(
-        elementType,
-        elementType,
-        'Painted Element',
-        properties,
-        {}
-      ),
-      properties,
-      defaults: {}
-    })
-    sceneTree.init()
-    sceneTree.cleanChanges()
-    propsManager.cleanChanges()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    const registerMany = vi.spyOn(propsManager, 'registerMany')
-
-    expect(
-      sceneTree.addNewElements(
-        [
-          {
-            id: 'painted-first',
-            type: elementType,
-            x: 0,
-            y: 0,
-            paints: [{ color: '#222222', opacity: 0.5 }]
-          },
-          {
-            id: 'painted-second',
-            type: elementType,
-            x: 0,
-            y: 0,
-            paints: [{ color: '#333333', opacity: 0.75 }]
-          }
-        ] as CreateElementData[],
-        workspace as GroupInstanceTypes
-      )
-    ).toEqual(['painted-first', 'painted-second'])
-
-    expect(registerMany).toHaveBeenCalledTimes(1)
-    expect(registerMany.mock.calls[0]?.[0]).toHaveLength(4)
-    expect(Object.keys(propsManager.save())).toHaveLength(4)
-    expect(
-      sceneTree.getElementById('painted-first')?.computed.get('paints' as never)
-    ).toEqual([
-      expect.objectContaining({
-        color: '#222222',
-        opacity: 0.5
-      })
-    ])
-    expect(
-      sceneTree
-        .getElementById('painted-second')
-        ?.computed.get('paints' as never)
-    ).toEqual([
-      expect.objectContaining({
-        color: '#333333',
-        opacity: 0.75
-      })
-    ])
   })
 
   it('rejects a later invalid ids-or-objects child before ordinary batch materialization', () => {
@@ -3526,9 +2291,11 @@ describe('SceneTree', () => {
       throw new Error('Expected canonical tombstone fixture')
     }
     expect(
-      sceneTree.removeElement(
-        { id: tombstoneId },
-        workspace as GroupInstanceTypes
+      runWithTransactionOwner(createTestTransactionOwner(), () =>
+        sceneTree.removeElement(
+          { id: tombstoneId },
+          workspace as GroupInstanceTypes
+        )
       )
     ).toBe(true)
     expect(sceneTree._deletedMap.get(tombstoneId)).toBe(tombstone)
@@ -3542,20 +2309,9 @@ describe('SceneTree', () => {
     const individualHandoff = vi.fn((_event: UpdateTransactionEvent) => {
       throw handoffFailure
     })
-    const batchHandoff = vi.fn(
-      (
-        _events: readonly UpdateTransactionEvent[],
-        _evidence: readonly {
-          orderedIds: readonly string[]
-          sharedRecords?: readonly {
-            orderedIds: readonly string[]
-            payload: object
-          }[]
-        }[]
-      ) => {
-        throw handoffFailure
-      }
-    )
+    const batchHandoff = vi.fn((_events: readonly UpdateTransactionEvent[]) => {
+      throw handoffFailure
+    })
     const transactionOwner = {
       startTransaction: vi.fn(),
       updateTransaction: individualHandoff,
@@ -3597,19 +2353,22 @@ describe('SceneTree', () => {
         }
         return `unexpected:${change.action}`
       }) ?? []
-    const deliveryEvidence = batchHandoff.mock.calls[0]?.[1] ?? []
-    const propertyRecord = deliveryEvidence[0]?.sharedRecords?.[0]
+    const deliveredEvents = batchHandoff.mock.calls[0]?.[0] ?? []
+    const propertyRecord =
+      deliveredEvents[0]?.canonicalEvidence?.sharedRecords?.[0]
 
     expect({
       individualHandoffCalls: individualHandoff.mock.calls.length,
       batchHandoffCalls: batchHandoff.mock.calls.length,
       orderedBatch,
-      propsEvidenceOrderedIds: deliveryEvidence[0]?.orderedIds ?? [],
+      propsEvidenceOrderedIds:
+        deliveredEvents[0]?.canonicalEvidence?.orderedIds ?? [],
       propsRecordOrderedIds: propertyRecord?.orderedIds ?? [],
       propsRecordPropertyCount:
         (propertyRecord?.payload as AddRemovePropertyChange | undefined)?.data
           .length ?? 0,
-      sceneEvidenceOrderedIds: deliveryEvidence[1]?.orderedIds ?? [],
+      sceneEvidenceOrderedIds:
+        deliveredEvents[1]?.canonicalEvidence?.orderedIds ?? [],
       activeElementRestored: sceneTree.getElementById(reusedId) === undefined,
       tombstoneRestored: sceneTree._deletedMap.get(tombstoneId) === tombstone,
       parentRestored:
@@ -3651,9 +2410,11 @@ describe('SceneTree', () => {
       throw new Error('Expected canonical collision tombstone fixture')
     }
     expect(
-      sceneTree.removeElement(
-        { id: tombstoneId },
-        workspace as GroupInstanceTypes
+      runWithTransactionOwner(createTestTransactionOwner(), () =>
+        sceneTree.removeElement(
+          { id: tombstoneId },
+          workspace as GroupInstanceTypes
+        )
       )
     ).toBe(true)
 
@@ -3699,15 +2460,17 @@ describe('SceneTree', () => {
     }
 
     expect(
-      runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.addNewElements(
-          [
-            { id: 'observer-batch-1', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
-            { id: 'observer-batch-2', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
-            { id: 'observer-batch-3', type: TEST_EMPTY_TYPE, x: 0, y: 0 }
-          ],
-          workspace as GroupInstanceTypes
-        )
+      runWithTransactionOwner(
+        transactionOwner as unknown as TransactionOwner,
+        () =>
+          sceneTree.addNewElements(
+            [
+              { id: 'observer-batch-1', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+              { id: 'observer-batch-2', type: TEST_EMPTY_TYPE, x: 0, y: 0 },
+              { id: 'observer-batch-3', type: TEST_EMPTY_TYPE, x: 0, y: 0 }
+            ],
+            workspace as GroupInstanceTypes
+          )
       )
     ).toEqual(['observer-batch-1', 'observer-batch-2', 'observer-batch-3'])
 
@@ -3797,43 +2560,74 @@ describe('SceneTree', () => {
     expect(sceneTree.changes).toEqual([])
   })
 
-  it('Step 4 canonical owner: rejects a transaction owner without batch acceptance before any handoff prefix', () => {
+  it('keeps one plural Scene event while exposing one ordered shared record per inserted element', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
-    const addManyToMap = vi.spyOn(sceneTree, 'addManyToMap')
-    const replaceChildren = vi.spyOn(
-      workspace,
-      'replaceChildrenFromCanonicalBatch'
+    const parentId = workspace.get('id')
+    const elements = [
+      {
+        id: 'progressive-scene-record-a',
+        type: TEST_EMPTY_TYPE,
+        name: 'Progressive Scene Record A',
+        parentId,
+        visible: true,
+        lock: false,
+        props: {}
+      },
+      {
+        id: 'progressive-scene-record-b',
+        type: TEST_EMPTY_TYPE,
+        name: 'Progressive Scene Record B',
+        parentId,
+        visible: true,
+        lock: false,
+        props: {}
+      }
+    ] as unknown as readonly ElementRawData[]
+    const transactionOwner = createTestTransactionOwner()
+    const preparedMutation = sceneTree.prepareElementInsertion({
+      elements,
+      ownerRelations: [],
+      parentId
+    })
+
+    const result = runWithTransactionOwner(transactionOwner, () =>
+      sceneTree.applyPreparedElementMutation(preparedMutation)
     )
-    const updateTransaction = vi.fn()
-    const transactionOwner = {
-      startTransaction: vi.fn(),
-      updateTransaction,
-      endTransaction: vi.fn(),
-      undo: vi.fn(),
-      redo: vi.fn()
-    }
 
-    expect(() =>
-      runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.addNewElements(
-          [{ id: 'non-batch-owner-element', type: 'rect', x: 10, y: 20 }],
-          workspace as GroupInstanceTypes
-        )
+    expect(result.orderedElementIds).toEqual(elements.map(({ id }) => id))
+    expect(transactionOwner.updateTransactionBatch).toHaveBeenCalledOnce()
+    const events = transactionOwner.updateTransactionBatch.mock
+      .calls[0]?.[0] as readonly UpdateTransactionEvent[] | undefined
+    expect(events).toHaveLength(1)
+    expect(events?.[0]?.eventName).toBe(EventTypes.ADD_ELEMENTS)
+    expect(
+      (events?.[0]?.payload as AddRemoveElementsChange).entries.map(
+        ({ data }) => data.id
       )
-    ).toThrow(/batch-capable transaction owner/i)
-
-    expect(updateTransaction).not.toHaveBeenCalled()
-    expect(addManyToMap).not.toHaveBeenCalled()
-    expect(replaceChildren).not.toHaveBeenCalled()
-    expect(sceneTree.getElementById('non-batch-owner-element')).toBeUndefined()
-    expect(workspace.get('children')).toEqual([])
-    expect(propsManager.save()).toEqual({})
-    expect(propsManager.changes).toEqual([])
-    expect(sceneTree.changes).toEqual([])
+    ).toEqual(elements.map(({ id }) => id))
+    expect(
+      events?.[0]?.canonicalEvidence?.sharedRecords?.map(
+        ({ orderedIds, payload }) => ({
+          orderedIds,
+          payloadIds: (payload as AddRemoveElementsChange).entries.map(
+            ({ data }) => data.id
+          )
+        })
+      )
+    ).toEqual([
+      {
+        orderedIds: ['progressive-scene-record-a'],
+        payloadIds: ['progressive-scene-record-a']
+      },
+      {
+        orderedIds: ['progressive-scene-record-b'],
+        payloadIds: ['progressive-scene-record-b']
+      }
+    ])
   })
 
-  it('Step 4 canonical owner: removes one exact Scene batch while separate Props evidence stays active', () => {
+  it('applies one exact canonical Scene removal preparation while Props stay active', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
     sceneTree.addNewElements(
@@ -3856,10 +2650,7 @@ describe('SceneTree', () => {
       index
     }))
     const propertySnapshot = propsManager.save()
-    const replaceChildren = vi.spyOn(
-      workspace,
-      'replaceChildrenFromCanonicalBatch'
-    )
+    const replaceChildren = vi.spyOn(workspace, 'replaceBatchParentChildren')
     sceneTree.cleanChanges()
     propsManager.cleanChanges()
     const updateTransaction = vi.fn()
@@ -3873,11 +2664,15 @@ describe('SceneTree', () => {
       redo: vi.fn()
     }
 
-    expect(
-      runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.removeElementsUsingActiveProperties(removals)
-      )
-    ).toEqual(['active-props-remove-1', 'active-props-remove-2'])
+    const preparedMutation = sceneTree.prepareCanonicalElementRemoval(removals)
+    const result = runWithTransactionOwner(transactionOwner, () =>
+      sceneTree.applyPreparedElementMutation(preparedMutation)
+    )
+
+    expect(result.orderedElementIds).toEqual([
+      'active-props-remove-1',
+      'active-props-remove-2'
+    ])
 
     expect(workspace.get('children')).toEqual([])
     expect(sceneTree.getElementById('active-props-remove-1')).toBeUndefined()
@@ -3886,32 +2681,46 @@ describe('SceneTree', () => {
     expect(replaceChildren).toHaveBeenCalledOnce()
     expect(updateTransaction).not.toHaveBeenCalled()
     expect(updateTransactionBatch).toHaveBeenCalledOnce()
+    const events = updateTransactionBatch.mock
+      .calls[0]?.[0] as readonly UpdateTransactionEvent[]
+    expect(events).toHaveLength(1)
+    expect(events[0]?.payload).toMatchObject({
+      action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS
+    })
     expect(
-      updateTransactionBatch.mock.calls[0]?.[0].map(
-        ({ payload }: UpdateTransactionEvent) => ({
-          action: (payload as AddRemoveElementChange).action,
-          id: (payload as AddRemoveElementChange).data.id
+      (events[0]?.payload as AddRemoveElementsChange).entries.map(
+        ({ data }) => data.id
+      )
+    ).toEqual(['active-props-remove-1', 'active-props-remove-2'])
+    expect(updateTransactionBatch.mock.calls[0]).toHaveLength(1)
+    expect(events[0]?.canonicalEvidence?.orderedIds).toEqual([
+      'active-props-remove-1',
+      'active-props-remove-2'
+    ])
+    expect(
+      events[0]?.canonicalEvidence?.sharedRecords?.map(
+        ({ orderedIds, payload }) => ({
+          orderedIds,
+          payloadIds: (payload as AddRemoveElementsChange).entries.map(
+            ({ data }) => data.id
+          )
         })
       )
     ).toEqual([
       {
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        id: 'active-props-remove-1'
+        orderedIds: ['active-props-remove-1'],
+        payloadIds: ['active-props-remove-1']
       },
       {
-        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-        id: 'active-props-remove-2'
+        orderedIds: ['active-props-remove-2'],
+        payloadIds: ['active-props-remove-2']
       }
-    ])
-    expect(updateTransactionBatch.mock.calls[0]?.[1]).toEqual([
-      { orderedIds: ['active-props-remove-1'] },
-      { orderedIds: ['active-props-remove-2'] }
     ])
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
   })
 
-  it('Step 4 canonical owner: rejects a later stale active-property removal with no prefix', () => {
+  it('rejects later stale canonical removal evidence with no Scene prefix', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
     sceneTree.addNewElements(
@@ -3932,7 +2741,7 @@ describe('SceneTree', () => {
     propsManager.cleanChanges()
 
     expect(() =>
-      sceneTree.removeElementsUsingActiveProperties([
+      sceneTree.prepareCanonicalElementRemoval([
         {
           data: head.save(),
           parentId: workspace.get('id'),
@@ -3944,7 +2753,7 @@ describe('SceneTree', () => {
           index: 1
         }
       ])
-    ).toThrow(/exact element evidence/i)
+    ).toThrow(/stale canonical evidence/i)
 
     expect(workspace.get('children')).toEqual(beforeChildren)
     expect(sceneTree.getElementById('active-props-valid-head')).toBe(head)
@@ -3954,33 +2763,7 @@ describe('SceneTree', () => {
     expect(sceneTree.changes).toEqual([])
   })
 
-  it('Step 4 canonical owner: makes active-property single removal exactly batch-of-one', () => {
-    sceneTree.init()
-    const workspace = sceneTree.currentWorkspace as Workspace
-    sceneTree.addNewElement(
-      { id: 'active-props-single', type: 'rect', x: 10, y: 20 },
-      workspace as GroupInstanceTypes
-    )
-    const element = sceneTree.getElementById('active-props-single')
-    if (!element) {
-      throw new Error('Expected active-property single removal fixture')
-    }
-    const removal = {
-      data: element.save(),
-      parentId: workspace.get('id'),
-      index: 0
-    }
-    const removeBatch = vi.spyOn(
-      sceneTree,
-      'removeElementsUsingActiveProperties'
-    )
-
-    expect(sceneTree.removeElementUsingActiveProperties(removal)).toBe(true)
-    expect(removeBatch).toHaveBeenCalledOnce()
-    expect(removeBatch).toHaveBeenCalledWith([removal], undefined)
-  })
-
-  it('Step 4 canonical owner: rejects nested element removals before changing hierarchy or retained properties', () => {
+  it('rejects nested canonical removals before changing hierarchy or retained properties', () => {
     const containerType = 'active-removal-container'
     componentRegistry.register({
       type: containerType,
@@ -4022,7 +2805,7 @@ describe('SceneTree', () => {
     propsManager.cleanChanges()
 
     expect(() =>
-      sceneTree.removeElementsUsingActiveProperties([
+      sceneTree.prepareCanonicalElementRemoval([
         {
           data: group.save(),
           parentId: workspace.get('id'),
@@ -4045,7 +2828,7 @@ describe('SceneTree', () => {
     expect(propsManager.changes).toEqual([])
   })
 
-  it('Step 4 canonical owner: leaves replay unapplied when batch handoff fails before acceptance', () => {
+  it('leaves canonical replay unapplied when its Scene batch handoff is rejected', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
     sceneTree.addNewElement(
@@ -4062,17 +2845,6 @@ describe('SceneTree', () => {
       index: 0
     }
     const beforeProps = propsManager.save()
-    const positionId = element.props.getPropId(PropertyTypes.POSITION)
-    const position = positionId
-      ? (propsManager.getPropertyById(positionId) as TestPositionComponent)
-      : undefined
-    if (!position) {
-      throw new Error('Expected pre-accept retained position property')
-    }
-    const originalGetValue = position.getValue.bind(position)
-    position.getValue = vi.fn(() => {
-      throw new Error('rollback must not reconstruct computed subscriptions')
-    })
     sceneTree.cleanChanges()
     propsManager.cleanChanges()
     const preacceptFailure = Object.assign(
@@ -4089,12 +2861,13 @@ describe('SceneTree', () => {
       undo: vi.fn(),
       redo: vi.fn()
     }
+    const preparedMutation = sceneTree.prepareCanonicalElementRemoval([removal])
     let capturedFailure: unknown
 
     try {
       runInTransactionReplayMode('undo', () =>
         runWithTransactionOwner(transactionOwner, () =>
-          sceneTree.removeElementsUsingActiveProperties([removal])
+          sceneTree.applyPreparedElementMutation(preparedMutation)
         )
       )
     } catch (error) {
@@ -4109,13 +2882,9 @@ describe('SceneTree', () => {
     expect(propsManager.save()).toEqual(beforeProps)
     expect(sceneTree.changes).toEqual([])
     expect(propsManager.changes).toEqual([])
-
-    position.getValue = originalGetValue
-    position.set('x', 64)
-    expect(element.computed.get('x')).toBe(64)
   })
 
-  it('Step 4 canonical owner: rejects an inactive batch owner without losing canonical evidence', () => {
+  it('treats canonical Scene batch handoff as void', () => {
     sceneTree.init()
     const workspace = sceneTree.currentWorkspace as Workspace
     sceneTree.addNewElement(
@@ -4138,82 +2907,32 @@ describe('SceneTree', () => {
       redo: vi.fn()
     }
 
-    expect(() =>
-      runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.removeElementsUsingActiveProperties([
-          {
-            data: element.save(),
-            parentId: workspace.get('id'),
-            index: 0
-          }
-        ])
-      )
-    ).toThrow(/active transaction/i)
+    const preparedMutation = sceneTree.prepareCanonicalElementRemoval([
+      {
+        data: element.save(),
+        parentId: workspace.get('id'),
+        index: 0
+      }
+    ])
+    const result = runWithTransactionOwner(transactionOwner, () =>
+      sceneTree.applyPreparedElementMutation(preparedMutation)
+    )
 
-    expect(workspace.get('children')).toEqual([element.get('id')])
-    expect(sceneTree.getElementById(element.get('id'))).toBe(element)
-    expect(sceneTree._deletedMap.has(element.get('id'))).toBe(false)
+    expect(result.orderedElementIds).toEqual([element.get('id')])
+
+    expect(transactionOwner.updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(transactionOwner.updateTransactionBatch.mock.calls[0]).toHaveLength(
+      1
+    )
+    expect(workspace.get('children')).toEqual([])
+    expect(sceneTree.getElementById(element.get('id'))).toBeUndefined()
+    expect(sceneTree._deletedMap.get(element.get('id'))).toBe(element)
     expect(propsManager.save()).toEqual(beforeProps)
     expect(sceneTree.changes).toEqual([])
     expect(propsManager.changes).toEqual([])
   })
 
-  it.each(['undo', 'redo'] as const)(
-    'Step 4 canonical owner: rejects a null %s replay handoff without losing canonical evidence',
-    (replayMode) => {
-      sceneTree.init()
-      const workspace = sceneTree.currentWorkspace as Workspace
-      sceneTree.addNewElement(
-        {
-          id: `active-removal-null-${replayMode}`,
-          type: 'rect',
-          x: 10,
-          y: 20
-        },
-        workspace as GroupInstanceTypes
-      )
-      const element = sceneTree.getElementById(
-        `active-removal-null-${replayMode}`
-      )
-      if (!element) {
-        throw new Error(`Expected null ${replayMode} removal fixture`)
-      }
-      const beforeProps = propsManager.save()
-      sceneTree.cleanChanges()
-      propsManager.cleanChanges()
-      const transactionOwner = {
-        startTransaction: vi.fn(),
-        updateTransaction: vi.fn(),
-        updateTransactionBatch: vi.fn(() => null),
-        endTransaction: vi.fn(),
-        undo: vi.fn(),
-        redo: vi.fn()
-      }
-
-      expect(() =>
-        runInTransactionReplayMode(replayMode, () =>
-          runWithTransactionOwner(transactionOwner, () =>
-            sceneTree.removeElementsUsingActiveProperties([
-              {
-                data: element.save(),
-                parentId: workspace.get('id'),
-                index: 0
-              }
-            ])
-          )
-        )
-      ).toThrow(/active transaction/i)
-
-      expect(workspace.get('children')).toEqual([element.get('id')])
-      expect(sceneTree.getElementById(element.get('id'))).toBe(element)
-      expect(sceneTree._deletedMap.has(element.get('id'))).toBe(false)
-      expect(propsManager.save()).toEqual(beforeProps)
-      expect(sceneTree.changes).toEqual([])
-      expect(propsManager.changes).toEqual([])
-    }
-  )
-
-  it('Step 4 canonical owner: reactivates computed subscriptions after retained replay restore', () => {
+  it('restores property relations before canonical projection resumes', () => {
     sceneTreeSingleton.init()
     const workspace = sceneTreeSingleton.currentWorkspace as Workspace
     sceneTreeSingleton.addNewElement(
@@ -4234,35 +2953,63 @@ describe('SceneTree', () => {
     sceneTreeSingleton.cleanChanges()
     propsManager.cleanChanges()
 
-    expect(
-      sceneTreeSingleton.removeElementUsingActiveProperties({
+    const preparedRemoval = sceneTreeSingleton.prepareCanonicalElementRemoval([
+      {
         data,
         parentId: workspace.get('id'),
         index: 0
-      })
-    ).toBe(true)
+      }
+    ])
+    const removalOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
+    expect(
+      runWithTransactionOwner(removalOwner, () =>
+        sceneTreeSingleton.applyPreparedElementMutation(preparedRemoval)
+      ).orderedElementIds
+    ).toEqual([data.id])
+    const transactionOwner: TransactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    }
     runInTransactionReplayMode('undo', () =>
-      publishEvent({
-        type: EventTypes.ADD_ELEMENT,
-        payload: {
-          data,
-          parentId: workspace.get('id'),
-          index: 0
-        }
-      } as AddElementEvent)
+      runWithTransactionOwner(transactionOwner, () =>
+        publishEvent({
+          type: EventTypes.ADD_ELEMENT,
+          payload: {
+            data,
+            parentId: workspace.get('id'),
+            index: 0
+          }
+        } as AddElementEvent)
+      )
     )
 
-    const position = propsManager.getPropertyById(
-      positionId
-    ) as TestPositionComponent
-    position.set('x', 88)
+    expect(
+      sceneTreeSingleton.getElementPropertyRelations(positionId)
+    ).toContainEqual(
+      expect.objectContaining({
+        ownerElementId: element.get('id'),
+        ownerPropertyName: PropertyTypes.POSITION,
+        componentId: positionId
+      })
+    )
+    propsManager.updatePropertyById(positionId, 'x', 88)
+    propsManager.commitChanges()
 
     expect(
       sceneTreeSingleton.getElementById(element.get('id'))?.computed.get('x')
     ).toBe(88)
   })
 
-  it('Step 4 canonical owner: restores a complete retained subtree when its batch handoff is rejected', () => {
+  it('restores a complete retained subtree when its Scene batch handoff is rejected', () => {
     const containerType = 'active-subtree-container'
     componentRegistry.register({
       type: containerType,
@@ -4321,7 +3068,7 @@ describe('SceneTree', () => {
 
     expect(() =>
       runWithTransactionOwner(transactionOwner, () =>
-        sceneTree.removeSubtreeUsingActiveProperties(group.get('id'))
+        sceneTree.removeSubtree(group.get('id'))
       )
     ).toThrow(handoffFailure)
 
@@ -4372,12 +3119,19 @@ describe('SceneTree', () => {
     sceneTree.cleanChanges()
     propsManager.cleanChanges()
 
-    const snapshot = sceneTree.removeSubtreeUsingActiveProperties(
-      group.get('id')
+    const transactionOwner = {
+      startTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(),
+      endTransaction: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn()
+    } as TransactionOwner
+    const snapshot = runWithTransactionOwner(transactionOwner, () =>
+      sceneTree.removeSubtree(group.get('id'))
     )
-    const plan = sceneTree.preflightRestoreSubtree(snapshot)
+    const preparedMutation = sceneTree.preflightRestoreSubtree(snapshot)
 
-    expect(plan.entries).toEqual([
+    expect(preparedMutation.entries).toEqual([
       {
         elementId: 'accepted-active-subtree-child',
         strategy: 'reuse'
@@ -4388,22 +3142,21 @@ describe('SceneTree', () => {
       }
     ])
 
-    const childTombstone = sceneTree._deletedMap.get(
-      'accepted-active-subtree-child'
+    const hierarchyFailure = new Error('retained hierarchy restore failed')
+    const replaceBatchParentChildren =
+      workspace.replaceBatchParentChildren.bind(workspace)
+    vi.spyOn(workspace, 'replaceBatchParentChildren').mockImplementation(
+      (parent, children) => {
+        if (parent.get('id') === group.get('id') && children.length > 0) {
+          throw hierarchyFailure
+        }
+        replaceBatchParentChildren(parent, children)
+      }
     )
-    const positionId = childTombstone?.props.getPropId(PropertyTypes.POSITION)
-    const position = positionId
-      ? (propsManager.getPropertyById(positionId) as TestPositionComponent)
-      : undefined
-    if (!childTombstone || !position) {
-      throw new Error('Expected retained subtree property fixture')
-    }
-    const setupFailure = new Error('retained computed setup failed')
-    position.getValue = vi.fn(() => {
-      throw setupFailure
-    })
 
-    expect(() => sceneTree.applyRestoreSubtree(plan)).toThrow(setupFailure)
+    expect(() => sceneTree.applyRestoreSubtree(preparedMutation)).toThrow(
+      hierarchyFailure
+    )
     expect(workspace.get('children')).toEqual([])
     expect(sceneTree.getElementById('accepted-active-subtree')).toBeUndefined()
     expect(

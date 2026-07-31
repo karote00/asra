@@ -36,6 +36,7 @@ const createCoreForTest = () => {
     load: vi.fn(),
     applyValidatedLoad: vi.fn(),
     getAllElements: vi.fn(() => new Map()),
+    preflightLoadPropertyRelations: vi.fn(),
     validateLoadData: vi.fn(() => ({
       data: { workspace: 'ws-1', workspaceList: ['ws-1'], elements: {} },
       diagnostics: [] as LoadDiagnostic[],
@@ -245,6 +246,10 @@ describe('Core load validation pipeline', () => {
       workspaceList: [],
       elements: {}
     })
+    expect(sceneTree.preflightLoadPropertyRelations).toHaveBeenCalledWith(
+      sceneTree.validateLoadData.mock.results[0].value,
+      props.validateLoadData.mock.results[0].value.data
+    )
     expect(sceneTree.applyValidatedLoad).toHaveBeenCalledWith(
       sceneTree.validateLoadData.mock.results[0].value
     )
@@ -270,7 +275,10 @@ describe('Core load validation pipeline', () => {
       sceneTree.applyValidatedLoad.mock.invocationCallOrder[0],
       systemContext.applyValidatedManagedProperties.mock.invocationCallOrder[0]
     ]
-    expect(Math.max(...validationOrders)).toBeLessThan(Math.min(...applyOrders))
+    const preflightOrder =
+      sceneTree.preflightLoadPropertyRelations.mock.invocationCallOrder[0]
+    expect(Math.max(...validationOrders)).toBeLessThan(preflightOrder)
+    expect(preflightOrder).toBeLessThan(Math.min(...applyOrders))
     expect(fileLoadEvents).toHaveLength(fileLoadEventBaseline + 1)
     expect(diagnosticsHook).toHaveBeenCalledTimes(1)
     expect(diagnosticsHook.mock.calls[0][0]).toEqual([
@@ -315,8 +323,125 @@ describe('Core load validation pipeline', () => {
 
     expect(props.applyValidatedLoad).not.toHaveBeenCalled()
     expect(sceneTree.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(systemContext.validateManagedProperties).toHaveBeenCalledOnce()
     expect(systemContext.applyValidatedManagedProperties).not.toHaveBeenCalled()
+    expect(sceneTree.preflightLoadPropertyRelations).not.toHaveBeenCalled()
   })
+
+  it('rejects detached relation preflight with original owner artifacts and no load prefix', () => {
+    const { core, props, sceneTree, systemContext } = createCoreForTest()
+    const propsValidation = {
+      data: {
+        'relation-property': {
+          id: 'relation-property',
+          type: 'position'
+        }
+      },
+      diagnostics: [] as LoadDiagnostic[]
+    }
+    const sceneValidation = {
+      data: { workspace: 'ws-1', workspaceList: ['ws-1'], elements: {} },
+      diagnostics: [] as LoadDiagnostic[],
+      valid: true
+    }
+    const failure = new Error('detached relation preflight failed')
+    props.validateLoadData.mockReturnValue(propsValidation)
+    sceneTree.validateLoadData.mockReturnValue(sceneValidation)
+    sceneTree.preflightLoadPropertyRelations.mockImplementation(
+      (receivedSceneValidation, receivedPropsData) => {
+        expect(receivedSceneValidation).toBe(sceneValidation)
+        expect(receivedPropsData).toBe(propsValidation.data)
+        throw failure
+      }
+    )
+    const diagnosticsHook = vi.fn()
+    core.registerLoadDiagnosticsHook(diagnosticsHook)
+    const fileLoadEvents: number[] = []
+    const subscription = subscribeToFileLoadComplete(() => {
+      fileLoadEvents.push(1)
+    })
+    const fileLoadEventBaseline = fileLoadEvents.length
+
+    expect(() =>
+      core.load({
+        version: 'v2',
+        sceneTree: sceneValidation.data,
+        props: propsValidation.data
+      })
+    ).toThrow(failure)
+    subscription.unsubscribe()
+
+    expect(props.validateLoadData).toHaveBeenCalledOnce()
+    expect(sceneTree.validateLoadData).toHaveBeenCalledOnce()
+    expect(systemContext.validateManagedProperties).toHaveBeenCalledOnce()
+    expect(sceneTree.preflightLoadPropertyRelations).toHaveBeenCalledOnce()
+    expect(
+      Math.max(
+        props.validateLoadData.mock.invocationCallOrder[0],
+        sceneTree.validateLoadData.mock.invocationCallOrder[0],
+        systemContext.validateManagedProperties.mock.invocationCallOrder[0]
+      )
+    ).toBeLessThan(
+      sceneTree.preflightLoadPropertyRelations.mock.invocationCallOrder[0]
+    )
+    expect(props.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(sceneTree.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(systemContext.applyValidatedManagedProperties).not.toHaveBeenCalled()
+    expect(core.version).toBe('1.0.0')
+    expect(fileLoadEvents).toHaveLength(fileLoadEventBaseline)
+    expect(diagnosticsHook).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['Props', 0],
+    ['Scene Tree', 1],
+    ['System Context', 2]
+  ] as const)(
+    'does not publish load completion or version when %s apply fails',
+    (_label, failingApplyIndex) => {
+      const { core, props, sceneTree, systemContext } = createCoreForTest()
+      const failure = new Error(`owner apply ${failingApplyIndex} failed`)
+      const applyOwners = [
+        props.applyValidatedLoad,
+        sceneTree.applyValidatedLoad,
+        systemContext.applyValidatedManagedProperties
+      ] as const
+      applyOwners.forEach((applyOwner, index) => {
+        applyOwner.mockImplementation(() => {
+          expect(core.version).toBe('1.0.0')
+          if (index === failingApplyIndex) {
+            throw failure
+          }
+        })
+      })
+      const diagnosticsHook = vi.fn()
+      core.registerLoadDiagnosticsHook(diagnosticsHook)
+      const fileLoadEvents: number[] = []
+      const subscription = subscribeToFileLoadComplete(() => {
+        fileLoadEvents.push(1)
+      })
+      const fileLoadEventBaseline = fileLoadEvents.length
+
+      expect(() =>
+        core.load({
+          version: 'v2',
+          sceneTree: { workspace: '', workspaceList: [], elements: {} },
+          props: {}
+        })
+      ).toThrow(failure)
+      subscription.unsubscribe()
+
+      expect(sceneTree.preflightLoadPropertyRelations).toHaveBeenCalledOnce()
+      applyOwners.forEach((applyOwner, index) => {
+        expect(applyOwner).toHaveBeenCalledTimes(
+          index <= failingApplyIndex ? 1 : 0
+        )
+      })
+      expect(core.version).toBe('1.0.0')
+      expect(fileLoadEvents).toHaveLength(fileLoadEventBaseline)
+      expect(diagnosticsHook).not.toHaveBeenCalled()
+    }
+  )
 
   it('emits detached apply evidence without Props or Scene canonical readback', () => {
     const { core, props, sceneTree, systemContext } = createCoreForTest()

@@ -7,6 +7,7 @@ import {
 } from '@asyra/factory'
 import propsManager, {
   createPropertyComponentFromConfig,
+  elementPropertyRegistry,
   propertyComponentRegistry,
   registerPropertyComponent
 } from '@asyra/props-manager'
@@ -15,12 +16,10 @@ import sceneTree, {
   createDynamicComponent
 } from '@asyra/scene-tree'
 import {
-  addProperty as publishAddProperty,
   EventTypes,
-  getTransactionOwner,
   runTransaction,
   runWithTransactionOwner,
-  type UpdateTransactionEvent
+  subscribeToEventBatches
 } from '@asyra/reactive-events'
 import {
   EntityTypes,
@@ -35,7 +34,6 @@ import {
   type TransactionStatusPayload
 } from '@asyra/utils'
 import { Core } from '../core'
-import type { CanonicalElementBatchResult } from '../index'
 
 const LEAF_TYPE = 'gate3-factory-leaf'
 const CONTAINER_TYPE = 'gate3-factory-container'
@@ -90,6 +88,10 @@ const registerComponents = () => {
     properties: [{ name: 'value', type: CANONICAL_PROPERTY_TYPE }],
     defaults: {}
   })
+  elementPropertyRegistry.register(
+    { name: 'value', type: CANONICAL_PROPERTY_TYPE },
+    CANONICAL_LEAF_TYPE
+  )
 }
 
 const registerProperties = () => {
@@ -123,17 +125,6 @@ const add = (
 const childrenOf = (parentId: string): string[] => [
   ...(sceneTree.getElementById(parentId) as GroupInstanceTypes).get('children')
 ]
-
-type CanonicalElementBatchCoreContract = Core & {
-  createElementsInParentBatch: (
-    data: readonly CreateElementData[],
-    parentId: string,
-    index?: number,
-    options?: {
-      sharedDelivery?: 'transaction-end' | 'immediate'
-    }
-  ) => CanonicalElementBatchResult
-}
 
 const createCoreFacade = (factory: Factory): Core =>
   new Core({
@@ -201,9 +192,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
     expect(childrenOf(sceneTree.workspace)).toEqual(['target'])
     expect(childrenOf('target')).toEqual(['moved'])
-    expect(propsManager.save()).toEqual({})
+    expect(propsManager.save()).toEqual(originalProps)
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(3)
+    expect(publications[0]?.deliveries).toHaveLength(2)
 
     factory.undo()
 
@@ -228,7 +219,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(sceneTree.getElementById('first-child')).toBeUndefined()
     expect(sceneTree.getElementById('nested')).toBeUndefined()
     expect(sceneTree.getElementById('grandchild')).toBeUndefined()
-    expect(propsManager.save()).toEqual({})
+    expect(propsManager.save()).toEqual(originalProps)
     expect(publications).toHaveLength(3)
     expect(publications[2]?.origin).toBe('redo')
 
@@ -307,6 +298,254 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
+  it('replays one real plural Scene removal through the same tombstone on Undo and Redo', () => {
+    const factory = new Factory()
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const retained = add('tombstone-retained', LEAF_TYPE, root)
+    const removed = add('tombstone-replayed', LEAF_TYPE, root)
+    sceneTree.cleanChanges()
+    const prepared = sceneTree.prepareElementRemoval(['tombstone-replayed'])
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        sceneTree.applyPreparedElementMutation(prepared, {
+          shared: SharedDataChannelNames.SCENE_TREE
+        })
+      })
+    })
+
+    expect(childrenOf(sceneTree.workspace)).toEqual(['tombstone-retained'])
+    expect(sceneTree.getElementById('tombstone-replayed')).toBeUndefined()
+    expect(sceneTree._deletedMap.get('tombstone-replayed')).toBe(removed)
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.deliveries).toHaveLength(1)
+
+    factory.undo()
+
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'tombstone-retained',
+      'tombstone-replayed'
+    ])
+    expect(sceneTree.getElementById('tombstone-retained')).toBe(retained)
+    expect(sceneTree.getElementById('tombstone-replayed')).toBe(removed)
+    expect(sceneTree._deletedMap.has('tombstone-replayed')).toBe(false)
+    expect(publications).toHaveLength(2)
+    expect(publications[1]?.origin).toBe('undo')
+
+    factory.redo()
+
+    expect(childrenOf(sceneTree.workspace)).toEqual(['tombstone-retained'])
+    expect(sceneTree.getElementById('tombstone-replayed')).toBeUndefined()
+    expect(sceneTree._deletedMap.get('tombstone-replayed')).toBe(removed)
+    expect(publications).toHaveLength(3)
+    expect(publications[2]?.origin).toBe('redo')
+
+    factory.transact.reset()
+  })
+
+  it('coordinates complete element-property targets before one Props apply', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    const core = createCoreFacade(factory)
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const first = add('property-target-first', CANONICAL_LEAF_TYPE, root)
+    const second = add('property-target-second', CANONICAL_LEAF_TYPE, root)
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const sequence: string[] = []
+    const resolveTargets =
+      sceneTree.resolveElementPropertyTargets.bind(sceneTree)
+    const prepareProperties =
+      propsManager.preparePropertyMutationBatch.bind(propsManager)
+    const applyProperties =
+      propsManager.applyPreparedPropertyMutationBatch.bind(propsManager)
+    const resolveSpy = vi
+      .spyOn(sceneTree, 'resolveElementPropertyTargets')
+      .mockImplementation((requests) => {
+        sequence.push('target')
+        return resolveTargets(requests)
+      })
+    const prepareSpy = vi
+      .spyOn(propsManager, 'preparePropertyMutationBatch')
+      .mockImplementation((mutations) => {
+        sequence.push('props-preflight')
+        return prepareProperties(mutations)
+      })
+    const applySpy = vi
+      .spyOn(propsManager, 'applyPreparedPropertyMutationBatch')
+      .mockImplementation((prepared) => {
+        sequence.push('props-apply')
+        return applyProperties(prepared)
+      })
+    let result: readonly string[] = []
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        result = core.updateElementProperties([
+          {
+            elementId: first.get('id'),
+            values: { value: 19 }
+          },
+          {
+            elementId: second.get('id'),
+            values: { value: 23 }
+          }
+        ])
+      })
+    })
+
+    expect(sequence).toEqual(['target', 'props-preflight', 'props-apply'])
+    expect(result).toEqual(['property-target-first', 'property-target-second'])
+    expect(
+      propsManager
+        .getPropertyById(first.props.getPropId('value') as string)
+        ?.save()
+    ).toMatchObject({ value: 19 })
+    expect(
+      propsManager
+        .getPropertyById(second.props.getPropId('value') as string)
+        ?.save()
+    ).toMatchObject({ value: 23 })
+    expect(resolveSpy).toHaveBeenCalledOnce()
+    expect(prepareSpy).toHaveBeenCalledOnce()
+    expect(applySpy).toHaveBeenCalledOnce()
+
+    resolveSpy.mockRestore()
+    prepareSpy.mockRestore()
+    applySpy.mockRestore()
+    factory.transact.reset()
+  })
+
+  it('reprojects canonical property action, Undo, and Redo through ordinary computed batches', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    const core = createCoreFacade(factory)
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    const element = add(
+      'property-projection-history',
+      CANONICAL_LEAF_TYPE,
+      root
+    )
+    const getComputedValue = (): unknown =>
+      (element.getAllComputedData() as Record<string, unknown>).value
+    const computedBatches: unknown[][] = []
+    const computedTransactionEvents: unknown[] = []
+    const subscription = subscribeToEventBatches((events) => {
+      const computedEvents = events.filter(
+        ({ type }) =>
+          type === EventTypes.UPDATE_COMPUTED_DATA ||
+          type === EventTypes.UPDATE_COMPUTED_DATA_PATCH
+      )
+      if (computedEvents.length > 0) {
+        computedBatches.push(computedEvents)
+      }
+      computedTransactionEvents.push(
+        ...events.filter(
+          (event) =>
+            event.type === EventTypes.UPDATE_TRANSACTION &&
+            'eventName' in event &&
+            (event.eventName === EventTypes.UPDATE_COMPUTED_DATA ||
+              event.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH)
+        )
+      )
+    })
+
+    try {
+      factory.transact.reset()
+      runWithTransactionOwner(factory.getTransactionOwner(), () => {
+        runTransaction(() => {
+          core.updateElementProperties([
+            {
+              elementId: element.get('id'),
+              values: { value: 19 }
+            }
+          ])
+        })
+      })
+
+      expect(getComputedValue()).toBe(19)
+      expect(computedBatches).toHaveLength(1)
+
+      computedBatches.length = 0
+      factory.undo()
+
+      expect(getComputedValue()).toBe(0)
+      expect(computedBatches).toHaveLength(1)
+
+      computedBatches.length = 0
+      factory.redo()
+
+      expect(getComputedValue()).toBe(19)
+      expect(computedBatches).toHaveLength(1)
+      expect(computedTransactionEvents).toEqual([])
+    } finally {
+      subscription.unsubscribe()
+      factory.transact.reset()
+    }
+  })
+
+  it('leaves no cross-owner prefix when a later element-property target is invalid', () => {
+    const factory = new Factory()
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+    const core = createCoreFacade(factory)
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+    add('property-valid-prefix', CANONICAL_LEAF_TYPE, root)
+    sceneTree.cleanChanges()
+    propsManager.cleanChanges()
+    const beforeProps = propsManager.save()
+    const applySpy = vi.spyOn(
+      propsManager,
+      'applyPreparedPropertyMutationBatch'
+    )
+
+    expect(() =>
+      runWithTransactionOwner(factory.getTransactionOwner(), () => {
+        runTransaction(() => {
+          core.updateElementProperties([
+            {
+              elementId: 'property-valid-prefix',
+              values: { value: 19 }
+            },
+            {
+              elementId: 'property-missing-tail',
+              values: { value: 23 }
+            }
+          ])
+        })
+      })
+    ).toThrow(/property-missing-tail/i)
+
+    expect(applySpy).not.toHaveBeenCalled()
+    expect(propsManager.save()).toEqual(beforeProps)
+    expect(propsManager.changes).toEqual([])
+    expect(sceneTree.changes).toEqual([])
+    expect(artifacts).toEqual([])
+
+    applySpy.mockRestore()
+    factory.transact.reset()
+  })
+
   it('keeps public-facade Group and children on one outer transaction handle and history action', () => {
     const factory = new Factory()
     const statuses: TransactionStatusPayload[] = []
@@ -324,13 +563,12 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       artifacts.push(artifact)
     )
     const core = createCoreFacade(factory)
-    const batchCore = core as CanonicalElementBatchCoreContract
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
     const childIds = Array.from(
       { length: 16 },
       (_, index) => `facade-child-${index + 1}`
     )
-    let result: CanonicalElementBatchResult | undefined
+    let result: readonly string[] = []
 
     runWithTransactionOwner(factory.getTransactionOwner(), () => {
       runTransaction(() => {
@@ -338,7 +576,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
           { id: 'facade-group', type: CONTAINER_TYPE, x: 0, y: 0 },
           root.get('id')
         )
-        result = batchCore.createElementsInParentBatch(
+        result = core.createElementsInParent(
           childIds.map((id, index) => ({
             id,
             type: CANONICAL_LEAF_TYPE,
@@ -349,21 +587,13 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
           groupId
         )
 
-        expect(result.orderedElementIds).toEqual(childIds)
-        expect(result.deliveryHandle.artifact).toBeNull()
+        expect(result).toEqual(childIds)
+        expect(Object.isFrozen(result)).toBe(true)
         expect(artifacts).toEqual([])
       })
     })
 
-    const committedResult = result as CanonicalElementBatchResult
     expect(artifacts).toHaveLength(1)
-    expect(committedResult.deliveryHandle.artifactId).toBe(
-      artifacts[0]?.artifactId
-    )
-    expect(committedResult.deliveryHandle.transactionId).toBe(
-      artifacts[0]?.transactionId
-    )
-    expect(committedResult.deliveryHandle.artifact).toBe(artifacts[0])
     expect(
       artifacts[0]?.changes.flatMap(
         (change) =>
@@ -421,157 +651,6 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
-  it('returns owner-issued detached monotonic timing for the complete canonical batch handoff', () => {
-    const factory = new Factory()
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.PROPS,
-      new LocalSharedDataChannel()
-    )
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      new LocalSharedDataChannel()
-    )
-    const core = createCoreFacade(factory) as CanonicalElementBatchCoreContract
-    const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    const originalUpdateTransactionBatch =
-      factory.updateTransactionBatch.bind(factory)
-    let handoffCount = 0
-    let handoffCompletedAtMs: number | undefined
-    factory.updateTransactionBatch = (...args) => {
-      handoffCount += 1
-      const handle = originalUpdateTransactionBatch(...args)
-      handoffCompletedAtMs = performance.now()
-      return handle
-    }
-    let result: CanonicalElementBatchResult | undefined
-
-    runWithTransactionOwner(factory.getTransactionOwner(), () => {
-      runTransaction(() => {
-        result = core.createElementsInParentBatch(
-          [
-            { id: 'timed-child-1', type: LEAF_TYPE, x: 0, y: 0 },
-            { id: 'timed-child-2', type: LEAF_TYPE, x: 0, y: 0 }
-          ],
-          root.get('id')
-        )
-      })
-    })
-
-    const timing = (result as CanonicalElementBatchResult).timing
-    expect(timing).toEqual({
-      owner: '@asyra/core',
-      clock: 'monotonic',
-      startedAtMs: expect.any(Number),
-      completedAtMs: expect.any(Number),
-      durationMs: expect.any(Number)
-    })
-    expect(timing.startedAtMs).toBeGreaterThanOrEqual(0)
-    expect(timing.completedAtMs).toBeGreaterThanOrEqual(timing.startedAtMs)
-    expect(timing.durationMs).toBe(timing.completedAtMs - timing.startedAtMs)
-    expect(timing.durationMs).toBeGreaterThanOrEqual(0)
-    expect(handoffCount).toBe(1)
-    expect(handoffCompletedAtMs).toEqual(expect.any(Number))
-    expect(timing.startedAtMs).toBeLessThanOrEqual(
-      handoffCompletedAtMs as number
-    )
-    expect(timing.completedAtMs).toBeGreaterThanOrEqual(
-      handoffCompletedAtMs as number
-    )
-    expect(Object.isFrozen(timing)).toBe(true)
-    const timingSnapshot = { ...timing }
-
-    factory.undo()
-
-    expect(timing).toEqual(timingSnapshot)
-    factory.transact.reset()
-  })
-
-  it('rejects a second canonical handoff before it reaches Factory and rolls back the outer transaction', () => {
-    const factory = new Factory()
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.PROPS,
-      new LocalSharedDataChannel()
-    )
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      new LocalSharedDataChannel()
-    )
-    const core = createCoreFacade(factory) as CanonicalElementBatchCoreContract
-    const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    const originalFactoryUpdateTransactionBatch =
-      factory.updateTransactionBatch.bind(factory)
-    let factoryHandoffCount = 0
-    const factoryHandoffEventNames: string[][] = []
-    factory.updateTransactionBatch = (...args) => {
-      factoryHandoffCount += 1
-      factoryHandoffEventNames.push(args[0].map(({ eventName }) => eventName))
-      return originalFactoryUpdateTransactionBatch(...args)
-    }
-    const originalAddNewElements = sceneTree.addNewElements
-    sceneTree.addNewElements = vi.fn(
-      (...args: Parameters<typeof originalAddNewElements>) => {
-        const orderedElementIds = originalAddNewElements.apply(sceneTree, args)
-        const batchOwner = getTransactionOwner()
-        if (
-          !batchOwner ||
-          !('updateTransactionBatch' in batchOwner) ||
-          typeof batchOwner.updateTransactionBatch !== 'function'
-        ) {
-          throw new Error('Expected a batch-capable transaction owner')
-        }
-        batchOwner.updateTransactionBatch([
-          {
-            type: EventTypes.UPDATE_TRANSACTION,
-            eventName: 'core-double-canonical-handoff-probe',
-            payload: {
-              action: 'core-double-canonical-handoff-probe'
-            },
-            options: {
-              rollbackable: false,
-              undoable: false
-            }
-          }
-        ] satisfies readonly UpdateTransactionEvent[])
-        return orderedElementIds
-      }
-    ) as typeof sceneTree.addNewElements
-    let observedFailure: unknown
-
-    try {
-      runWithTransactionOwner(factory.getTransactionOwner(), () =>
-        runTransaction(() =>
-          core.createElementsInParentBatch(
-            [
-              {
-                id: 'double-handoff-child',
-                type: LEAF_TYPE,
-                x: 0,
-                y: 0
-              }
-            ],
-            root.get('id')
-          )
-        )
-      )
-    } catch (error) {
-      observedFailure = error
-    } finally {
-      sceneTree.addNewElements = originalAddNewElements
-    }
-
-    expect(factoryHandoffCount).toBe(2)
-    expect(factoryHandoffEventNames.flat()).not.toContain(
-      'core-double-canonical-handoff-probe'
-    )
-    expect(observedFailure).toMatchObject({
-      message: expect.stringMatching(/exactly one Factory handoff/i)
-    })
-    expect(sceneTree.getElementById('double-handoff-child')).toBeUndefined()
-    expect(childrenOf(sceneTree.workspace)).toEqual([])
-
-    factory.transact.reset()
-  })
-
   it('lets one outer Factory rollback restore an accepted canonical batch after immediate delivery failure', () => {
     const factory = new Factory()
     const deliveryFailure = new Error('canonical immediate delivery failed')
@@ -593,14 +672,14 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       artifacts.push(artifact)
     )
     factory.subscribeToTransactionStatus((status) => statuses.push(status))
-    const core = createCoreFacade(factory) as CanonicalElementBatchCoreContract
+    const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
     let observedFailure: unknown
 
     try {
       runWithTransactionOwner(factory.getTransactionOwner(), () =>
         runTransaction(() =>
-          core.createElementsInParentBatch(
+          core.createElementsInParent(
             [
               {
                 id: 'accepted-immediate-failure',
@@ -651,16 +730,13 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.subscribeToMutationBatchArtifact((artifact) =>
       artifacts.push(artifact)
     )
-    const batchCore = createCoreFacade(
-      factory
-    ) as CanonicalElementBatchCoreContract
+    const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
 
-    expect(typeof batchCore.createElementsInParentBatch).toBe('function')
     expect(() =>
       runWithTransactionOwner(factory.getTransactionOwner(), () => {
         runTransaction(() => {
-          batchCore.createElementsInParentBatch(
+          core.createElementsInParent(
             [
               {
                 id: 'valid-prefix-candidate',
@@ -695,6 +771,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
   it('records exact canonical properties and elements as one ordered history action', () => {
     const factory = new Factory()
+    const core = createCoreFacade(factory)
     const publications: SharedPublication[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.PROPS,
@@ -739,7 +816,11 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     runWithTransactionOwner(factory.getTransactionOwner(), () => {
       runTransaction(() => {
         expect(
-          sceneTree.addNewElementsFromCanonicalData(elements, properties, root)
+          core.createElementsInParentFromCanonicalData(
+            elements,
+            properties,
+            root.get('id')
+          )
         ).toEqual(['canonical-history-1', 'canonical-history-2'])
       })
     })
@@ -757,21 +838,11 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
         eventName: EventTypes.ADD_PROPERTY,
         action: PROPS_ACTIONS.ADD_PROPERTY
       },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.ADD_PROPERTY,
-        action: PROPS_ACTIONS.ADD_PROPERTY
-      },
-      {
+      ...elements.map(() => ({
         channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.ADD_ELEMENT,
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.ADD_ELEMENT,
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
-      }
+        eventName: EventTypes.ADD_ELEMENTS,
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENTS
+      }))
     ])
     expect(
       (
@@ -781,13 +852,16 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       ).data
     ).toEqual(properties)
     expect(
-      (
-        publications[0]?.deliveries[1]?.payload as {
-          data: readonly PropertyComponentRawData[]
-        }
-      ).data
-    ).toEqual([])
-
+      publications[0]?.deliveries.slice(1).map(({ payload }) =>
+        (
+          payload as {
+            entries: readonly {
+              data: ElementRawData
+            }[]
+          }
+        ).entries.map(({ data: { id } }) => id)
+      )
+    ).toEqual(elements.map(({ id }) => [id]))
     factory.undo()
 
     expect(childrenOf(sceneTree.workspace)).toEqual([])
@@ -816,185 +890,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
-  it('records source properties before one exact active-property element batch', () => {
-    const factory = new Factory()
-    const publications: SharedPublication[] = []
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.PROPS,
-      new LocalSharedDataChannel()
-    )
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      new LocalSharedDataChannel()
-    )
-    factory.subscribeToSharedPublication((publication) =>
-      publications.push(publication)
-    )
-    const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    const properties = [
-      {
-        id: 'active-shared-value',
-        type: CANONICAL_PROPERTY_TYPE,
-        value: 17
-      }
-    ] as readonly PropertyComponentRawData[]
-    const elements = [
-      {
-        id: 'active-history-1',
-        type: CANONICAL_LEAF_TYPE,
-        name: 'Active History 1',
-        parentId: root.get('id'),
-        visible: true,
-        lock: false,
-        props: { value: 'active-shared-value' }
-      },
-      {
-        id: 'active-history-2',
-        type: CANONICAL_LEAF_TYPE,
-        name: 'Active History 2',
-        parentId: root.get('id'),
-        visible: true,
-        lock: false,
-        props: { value: 'active-shared-value' }
-      }
-    ] as unknown as readonly ElementRawData[]
-    let activeProperty: ReturnType<typeof propsManager.getPropertyById>
-
-    runWithTransactionOwner(factory.getTransactionOwner(), () => {
-      runTransaction(() => {
-        publishAddProperty([...properties])
-        activeProperty = propsManager.getPropertyById('active-shared-value')
-        expect(
-          sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-            elements,
-            properties,
-            root
-          )
-        ).toEqual(['active-history-1', 'active-history-2'])
-      })
-    })
-
-    expect(propsManager.getPropertyById('active-shared-value')).toBe(
-      activeProperty
-    )
-    expect(publications).toHaveLength(1)
-    expect(
-      publications[0]?.deliveries.map(({ channel, eventName, payload }) => ({
-        channel,
-        eventName,
-        action: (payload as { action?: string }).action
-      }))
-    ).toEqual([
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.ADD_PROPERTY,
-        action: PROPS_ACTIONS.ADD_PROPERTY
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.ADD_ELEMENT,
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.ADD_ELEMENT,
-        action: SCENE_TREE_ACTIONS.ADD_ELEMENT
-      }
-    ])
-    expect(
-      (
-        publications[0]?.deliveries[0]?.payload as {
-          data: readonly PropertyComponentRawData[]
-        }
-      ).data
-    ).toEqual(properties)
-    expect(
-      publications[0]?.deliveries.filter(
-        ({ channel }) => channel === SharedDataChannelNames.PROPS
-      )
-    ).toHaveLength(1)
-
-    factory.undo()
-    expect(childrenOf(sceneTree.workspace)).toEqual([])
-    expect(propsManager.save()).toEqual({})
-
-    factory.redo()
-    expect(childrenOf(sceneTree.workspace)).toEqual([
-      'active-history-1',
-      'active-history-2'
-    ])
-    expect(propsManager.save()).toEqual({
-      'active-shared-value': properties[0]
-    })
-    expect(publications.map(({ origin }) => origin)).toEqual([
-      'action',
-      'undo',
-      'redo'
-    ])
-
-    factory.transact.reset()
-  })
-
-  it('rolls back source properties when the active-property scene batch cannot commit', () => {
-    const factory = new Factory()
-    const publications: SharedPublication[] = []
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.PROPS,
-      new LocalSharedDataChannel()
-    )
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      new LocalSharedDataChannel()
-    )
-    factory.subscribeToSharedPublication((publication) =>
-      publications.push(publication)
-    )
-    const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    const property = {
-      id: 'active-failed-value',
-      type: CANONICAL_PROPERTY_TYPE,
-      value: 33
-    } as PropertyComponentRawData
-    const element = {
-      id: 'active-failed-element',
-      type: CANONICAL_LEAF_TYPE,
-      name: 'Active Failed Element',
-      parentId: root.get('id'),
-      visible: true,
-      lock: false,
-      props: { value: 'active-failed-value' }
-    } as unknown as ElementRawData
-    vi.spyOn(sceneTree, 'commitSceneTreeTransaction').mockImplementationOnce(
-      () => {
-        throw new Error('active scene evidence commit failed')
-      }
-    )
-
-    expect(() =>
-      runWithTransactionOwner(factory.getTransactionOwner(), () => {
-        runTransaction(() => {
-          publishAddProperty([property])
-          sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-            [element],
-            [property],
-            root
-          )
-        })
-      })
-    ).toThrow('active scene evidence commit failed')
-
-    expect(childrenOf(sceneTree.workspace)).toEqual([])
-    expect(sceneTree.getElementById(element.id)).toBeUndefined()
-    expect(propsManager.save()).toEqual({})
-    expect(publications).toEqual([])
-    factory.undo()
-    expect(publications).toEqual([])
-
-    factory.transact.reset()
-  })
-
   it('rolls back canonical properties when scene evidence cannot commit', () => {
     const factory = new Factory()
+    const core = createCoreFacade(factory)
     const publications: SharedPublication[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.PROPS,
@@ -1008,16 +906,19 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       publications.push(publication)
     )
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    vi.spyOn(sceneTree, 'commitSceneTreeTransaction').mockImplementationOnce(
-      () => {
+    const applyPreparedElementMutation =
+      sceneTree.applyPreparedElementMutation.bind(sceneTree)
+    const applySpy = vi
+      .spyOn(sceneTree, 'applyPreparedElementMutation')
+      .mockImplementationOnce((prepared, options) => {
+        applyPreparedElementMutation(prepared, options)
         throw new Error('scene evidence commit failed')
-      }
-    )
+      })
 
     expect(() =>
       runWithTransactionOwner(factory.getTransactionOwner(), () => {
         runTransaction(() => {
-          sceneTree.addNewElementsFromCanonicalData(
+          core.createElementsInParentFromCanonicalData(
             [
               {
                 id: 'canonical-failed-element',
@@ -1036,11 +937,12 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
                 value: 33
               }
             ] as readonly PropertyComponentRawData[],
-            root
+            root.get('id')
           )
         })
       })
     ).toThrow('scene evidence commit failed')
+    applySpy.mockRestore()
 
     expect(childrenOf(sceneTree.workspace)).toEqual([])
     expect(sceneTree.getElementById('canonical-failed-element')).toBeUndefined()
@@ -1052,8 +954,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
-  it('rejects an active top-level owner without corrupting its existing element on undo', () => {
+  it('reuses one active shared property across elements and preserves its original owner through undo', () => {
     const factory = new Factory()
+    const core = createCoreFacade(factory)
     const publications: SharedPublication[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.PROPS,
@@ -1067,13 +970,11 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       publications.push(publication)
     )
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
-    const activeProperty = propsManager.createProperty({
+    const property = {
       id: 'existing-owner-value',
       type: CANONICAL_PROPERTY_TYPE,
       value: 44
-    })
-    propsManager.addProperty([activeProperty])
-    propsManager.cleanChanges()
+    } as PropertyComponentRawData
     const existingElement = {
       id: 'existing-owner-element',
       type: CANONICAL_LEAF_TYPE,
@@ -1083,29 +984,35 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       lock: false,
       props: { value: 'existing-owner-value' }
     } as unknown as ElementRawData
-    sceneTree.addNewElement(
-      existingElement as unknown as CreateElementData,
-      root
-    )
-    sceneTree.cleanChanges()
+    const sharedElement = {
+      ...existingElement,
+      id: 'shared-owner-element',
+      name: 'Shared Owner Element'
+    } as ElementRawData
 
-    expect(() =>
-      runWithTransactionOwner(factory.getTransactionOwner(), () => {
-        runTransaction(() => {
-          sceneTree.addNewElementsFromCanonicalData(
-            [
-              {
-                ...existingElement,
-                id: 'rejected-active-owner-element',
-                name: 'Rejected Active Owner Element'
-              }
-            ],
-            [],
-            root
-          )
-        })
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        core.createElementsInParentFromCanonicalData(
+          [existingElement],
+          [property],
+          root.get('id')
+        )
       })
-    ).toThrow(/property owner/i)
+    })
+    const activeProperty = propsManager.getPropertyById('existing-owner-value')
+    publications.length = 0
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        expect(
+          core.createElementsInParentFromCanonicalData(
+            [sharedElement],
+            [],
+            root.get('id')
+          )
+        ).toEqual(['shared-owner-element'])
+      })
+    })
 
     expect(propsManager.getPropertyById('existing-owner-value')).toBe(
       activeProperty
@@ -1113,16 +1020,56 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(sceneTree.getElementById('existing-owner-element')?.save()).toEqual(
       existingElement
     )
+    expect(sceneTree.getElementById('shared-owner-element')?.save()).toEqual(
+      sharedElement
+    )
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'existing-owner-element',
+      'shared-owner-element'
+    ])
+    expect(propsManager.save()).toEqual({
+      'existing-owner-value': property
+    })
     expect(
-      sceneTree.getElementById('rejected-active-owner-element')
-    ).toBeUndefined()
-    expect(childrenOf(sceneTree.workspace)).toEqual(['existing-owner-element'])
-    expect(publications).toEqual([])
+      sceneTree
+        .getElementPropertyRelations('existing-owner-value')
+        .map(({ ownerElementId }) => ownerElementId)
+    ).toEqual(['existing-owner-element', 'shared-owner-element'])
+    expect(publications).toHaveLength(1)
+
     factory.undo()
     expect(childrenOf(sceneTree.workspace)).toEqual(['existing-owner-element'])
+    expect(sceneTree.getElementById('shared-owner-element')).toBeUndefined()
     expect(propsManager.getPropertyById('existing-owner-value')).toBe(
       activeProperty
     )
+    expect(
+      sceneTree
+        .getElementPropertyRelations('existing-owner-value')
+        .map(({ ownerElementId }) => ownerElementId)
+    ).toEqual(['existing-owner-element'])
+
+    factory.redo()
+    expect(childrenOf(sceneTree.workspace)).toEqual([
+      'existing-owner-element',
+      'shared-owner-element'
+    ])
+    expect(sceneTree.getElementById('shared-owner-element')?.save()).toEqual(
+      sharedElement
+    )
+    expect(propsManager.getPropertyById('existing-owner-value')).toBe(
+      activeProperty
+    )
+    expect(
+      sceneTree
+        .getElementPropertyRelations('existing-owner-value')
+        .map(({ ownerElementId }) => ownerElementId)
+    ).toEqual(['existing-owner-element', 'shared-owner-element'])
+    expect(publications.map(({ origin }) => origin)).toEqual([
+      'action',
+      'undo',
+      'redo'
+    ])
 
     factory.transact.reset()
   })

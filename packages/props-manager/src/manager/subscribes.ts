@@ -18,8 +18,6 @@ interface UpdatePropertyChangePayload {
   id: string
   key: keyof PropertyComponentInstanceDataTypes
   after: PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
-  ownerElementId?: string
-  ownerPropertyName?: string
 }
 
 const isUpdatePropertyChangePayload = (
@@ -44,13 +42,13 @@ export const initPropXSubscribes = () => {
       }
 
       if (replayMode === null) {
-        const creationPlan =
+        const preparedCreationBatch =
           propsManager.preflightNormalizedPropertyCreationBatch(
             payload.data,
             payload.data.map(({ id }) => id)
           )
         const creationBatch = propsManager.runInPropertyCreationBatch(() =>
-          propsManager.applyPropertyCreationBatch(creationPlan)
+          propsManager.applyPropertyCreationBatch(preparedCreationBatch)
         )
         try {
           acknowledgeTransactionReplayApplied()
@@ -121,12 +119,6 @@ export const initPropXSubscribes = () => {
         payload.id,
         payload.key,
         payload.after,
-        payload.ownerElementId && payload.ownerPropertyName
-          ? {
-              ownerElementId: payload.ownerElementId,
-              ownerPropertyName: payload.ownerPropertyName
-            }
-          : undefined,
         options
       )
       const applied = propsManager.changes.length > previousChangeCount

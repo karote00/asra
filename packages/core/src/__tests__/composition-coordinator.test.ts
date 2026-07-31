@@ -9,7 +9,12 @@ import {
 import { renderStrategyRegistry } from '@asyra/render'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import { propertyRegistry } from '@asyra/ui-context'
-import { RegistrationGraph, idCounter, nameCounter } from '@asyra/utils'
+import {
+  RegistrationGraph,
+  idCounter,
+  nameCounter,
+  type ElementRawData
+} from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { unregisterComponent as unregisterComponentDirect } from '../define-component'
 import { Core } from '../core'
@@ -666,6 +671,14 @@ describe('Core composition coordinator', () => {
       namePrefix: 'Composition Shape',
       properties: [{ name: 'fills', type: FILLS }]
     })
+    const activeData = Object.freeze({
+      id: 'owned-active-shape',
+      type: SHAPE,
+      name: 'Owned Active Shape',
+      parentId: '',
+      visible: true,
+      lock: false
+    }) satisfies ElementRawData
     ownedSceneTree.addToMap({
       get: (key: string) => {
         if (key === 'id') {
@@ -675,7 +688,8 @@ describe('Core composition coordinator', () => {
           return SHAPE
         }
         return
-      }
+      },
+      save: () => activeData
     } as never)
 
     expectRelationError(

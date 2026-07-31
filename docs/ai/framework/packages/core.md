@@ -13,6 +13,8 @@ System orchestrator and lifecycle coordinator.
 - curated facade re-exports for high-value helpers
 - top-level registration entrypoints for framework extension
 - request API composition across packages
+- ordered coordination of already validated canonical source changes through
+  the existing Props and Scene Tree owner facades
 - canonical vector model tokens, discriminant guards, generated-id ordering,
   control identifiers, point-target position projection, and segment-to-anchor
   handle reference lookup; editing and presentation policy remain outside Core
@@ -23,6 +25,8 @@ System orchestrator and lifecycle coordinator.
 - UI rendering details
 - engine-specific graphics primitives
 - concrete render-engine selection, capability inspection, or resources
+- Collaboration publications, transport framing, local/remote policy,
+  transaction origin, or persistence policy
 
 ## Extension Points
 
@@ -57,6 +61,10 @@ System orchestrator and lifecycle coordinator.
 - `CoreConcreteAPIs = CoreBasicAPIs + CoreExtensionAPIs`.
 - `CorePresetInstallAPIs` is the strict preset-facing subset used by
   `@asyra/preset` composition installation.
+- `applyCanonicalChanges(changes)` is the origin-neutral coordination facade
+  for one already validated ordered canonical request. Its caller owns the one
+  enclosing Factory transaction. It accepts no origin, transport, suppression,
+  publication, receipt, profiling, or compatibility options.
 
 ## Instance Contract
 
@@ -92,6 +100,10 @@ System orchestrator and lifecycle coordinator.
   and advanced-renderer failures without initializing later phases or
   publishing false ready
 - remain unaware of concrete engine instances, capabilities, and resources
+- a successful `setSystemProperty(...)` delegates the state update to System
+  Context and requests one ordinary frame from the Core-bound Render instance;
+  Core does not interpret the property or add a second projection path, and
+  Render coalesces repeated requests before the next demanded frame
 - permanently close registration composition at the first `start(...)` method
   entry, even if renderer initialization later rejects
 - validate every declared registration relation before renderer side effects
@@ -256,8 +268,26 @@ System orchestrator and lifecycle coordinator.
 - Preset/app code should consume render abstractions through `core.xxx` when
   Core exposes them. Normal app bootstrap does not construct a `RenderAdapter`;
   import one only for an advanced full-renderer replacement.
-- Child-property edits that must refresh computed/render state should go through core props bridge APIs (`updatePropertyById` + `commitPropertyChanges`) with owner metadata rather than rewriting parent computed arrays in app code.
-- Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
+- Canonical element-property edits go through the plural
+  `updateElementProperties(...)` replacement API or
+  `patchElementProperties(...)` record-delta API. Core first obtains one
+  read-only `ResolvedElementPropertyTargets` result and one
+  `PreparedPropertyMutationBatch`, then applies the Props-owned batch; callers
+  do not run per-field update/commit loops.
+- `createElementsInParent(...)` is the canonical plural creation facade.
+  Core asks Props to prepare the complete owner-property batch, builds one
+  owner-id relation index, asks Scene to prepare the complete insertion, then
+  applies both owners. It never rescans the full relation list for each
+  element; one-element creation delegates as batch-of-one.
+- A caller that already owns detached canonical source evidence may submit one
+  ordered `CanonicalChange[]` through `applyCanonicalChanges(...)`. The closed
+  union covers property components, raw element data, hierarchy moves,
+  subtree removal/restore, and canonical element creation/removal. Core
+  preserves order and delegates to the existing owner APIs; it does not parse
+  `SharedPublication`, choose App policy, or open a second transaction.
+- Core/Scene bridge rule: Scene recomputes local computed projection from
+  committed source-property evidence; app handlers do not duplicate that
+  projection or publish computed state as canonical data.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 
 ## Declarative Property Type Redefinition

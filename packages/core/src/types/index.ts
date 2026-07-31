@@ -1,15 +1,13 @@
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
-import { PropertyOwnerRef, PropsAPIs } from './props'
+import { PropsAPIs } from './props'
 import { RenderAPIs } from './render'
-import {
-  SceneTreeAPIs,
-  type CanonicalElementBatchResult,
-  type CanonicalElementBatchTimingArtifact
-} from './scene-tree'
+import { SceneTreeAPIs } from './scene-tree'
 import { ElementSelectionActionAPIs } from './element-selection'
 import { FeatureSystemAPIs } from './feature-system'
 import { UIContextAPIs } from './ui-context'
 import { SystemManagedPropertyAPIs } from './system-properties'
+import { ElementPropertyAPIs } from './element-properties'
+import type { CanonicalChangeAPIs } from './canonical-changes'
 
 export { HandlerDeps } from './deps'
 export type {
@@ -24,19 +22,19 @@ export {
 export type { LoadHookExecutionErrorCode } from './load-migration'
 
 export {
-  PropertyOwnerRef,
   InputSystemRawAPIs,
   InputSystemAPIs,
   PropsAPIs,
   RenderAPIs,
   SceneTreeAPIs,
-  CanonicalElementBatchResult,
-  CanonicalElementBatchTimingArtifact,
   ElementSelectionActionAPIs,
   FeatureSystemAPIs,
   UIContextAPIs,
-  SystemManagedPropertyAPIs
+  SystemManagedPropertyAPIs,
+  ElementPropertyAPIs
 }
+export type { PropertyComponentValuesUpdate } from './props'
+export type { CanonicalChange, CanonicalChangeAPIs } from './canonical-changes'
 
 export type CoreAPIs = InputSystemAPIs &
   PropsAPIs &
@@ -45,4 +43,6 @@ export type CoreAPIs = InputSystemAPIs &
   ElementSelectionActionAPIs &
   FeatureSystemAPIs &
   UIContextAPIs &
-  SystemManagedPropertyAPIs
+  SystemManagedPropertyAPIs &
+  ElementPropertyAPIs &
+  CanonicalChangeAPIs

@@ -1,35 +1,25 @@
 import {
   Bounds,
-  ComputedDataPatch,
   CreateElementData,
   ElementRawData,
   GroupInstanceTypes,
+  HierarchyMove,
   SceneTreeRawData,
-  DataTypes,
   EVENT_OPTIONS,
   MoveHierarchyRequest,
   MoveHierarchyResult,
   RemoveSubtreeResult,
   PropertyComponentRawData,
-  SceneTreeRestorePlan,
-  SceneTreeRestoreSnapshot
+  PreparedSceneTreeRestore,
+  SceneTreeRestoreSnapshot,
+  SubtreeChange,
+  UpdateElementDataChange
 } from '@asyra/utils'
-import type { FactoryMutationBatchDeliveryHandle } from '@asyra/factory'
-import type { CanonicalElementRemoval } from '@asyra/scene-tree'
-
-export interface CanonicalElementBatchTimingArtifact {
-  readonly owner: '@asyra/core'
-  readonly clock: 'monotonic'
-  readonly startedAtMs: number
-  readonly completedAtMs: number
-  readonly durationMs: number
-}
-
-export interface CanonicalElementBatchResult {
-  readonly orderedElementIds: readonly string[]
-  readonly deliveryHandle: FactoryMutationBatchDeliveryHandle
-  readonly timing: CanonicalElementBatchTimingArtifact
-}
+import type {
+  CanonicalElementRemoval,
+  LocalComputedDataPatchUpdate,
+  LocalComputedDataUpdate
+} from '@asyra/scene-tree'
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
@@ -47,12 +37,6 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => string
-  createElementsInParentBatch: (
-    data: readonly CreateElementData[],
-    parentId: string,
-    index?: number,
-    options?: EVENT_OPTIONS
-  ) => CanonicalElementBatchResult
   createElementsInParent: (
     data: readonly CreateElementData[],
     parentId: string,
@@ -66,13 +50,6 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => readonly string[]
-  createElementsInParentFromCanonicalDataUsingActiveProperties: (
-    elements: readonly ElementRawData[],
-    properties: readonly PropertyComponentRawData[],
-    parentId: string,
-    index?: number,
-    options?: EVENT_OPTIONS
-  ) => readonly string[]
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
@@ -80,43 +57,39 @@ export interface SceneTreeRawAPIs {
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS
   ) => MoveHierarchyResult
+  applyHierarchyMoves: (
+    moves: readonly HierarchyMove[],
+    options?: EVENT_OPTIONS
+  ) => boolean
+  applyElementDataChanges: (
+    changes: readonly UpdateElementDataChange[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   removeSubtree: (
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  removeSubtreeUsingActiveProperties: (
-    elementId: string,
+  removeSubtreeFromCanonicalData: (
+    change: SubtreeChange,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  removeElementUsingActiveProperties: (
-    removal: CanonicalElementRemoval,
-    options?: EVENT_OPTIONS
-  ) => boolean
-  removeElementsUsingActiveProperties: (
+  removeElementsFromCanonicalData: (
     removals: readonly CanonicalElementRemoval[],
     options?: EVENT_OPTIONS
   ) => readonly string[]
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
+  ) => PreparedSceneTreeRestore
   applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+    preparedRestore: PreparedSceneTreeRestore,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  changeComputedData: (
-    elementIds: string[],
-    data: Record<string, DataTypes>,
-    options?: EVENT_OPTIONS
+  updateLocalComputedData: (updates: readonly LocalComputedDataUpdate[]) => void
+  patchLocalComputedData: (
+    updates: readonly LocalComputedDataPatchUpdate[]
   ) => void
-  changeComputedDataPatch: (
-    elementIds: string[],
-    patch: ComputedDataPatch,
-    options?: EVENT_OPTIONS
-  ) => void
-  refreshComputedDataFromProperty: (
-    elementId: string,
-    propertyName: string,
-    options?: EVENT_OPTIONS
+  projectLocalComputedDataFromPropertyIds: (
+    propertyIds: readonly string[]
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean

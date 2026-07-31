@@ -1,7 +1,9 @@
 import {
   SceneTree,
   componentRegistry,
-  type CanonicalElementRemoval
+  type CanonicalElementRemoval,
+  type PreparedElementMutation,
+  type PreparedSubtreeRemoval
 } from '@asyra/scene-tree'
 import {
   Render,
@@ -9,24 +11,23 @@ import {
   createEvenOddFillStyle,
   createMeshProjection
 } from '@asyra/render'
-import type { PropsManager } from '@asyra/props-manager'
+import type {
+  PropertyMutation,
+  PreparedPropertyMutationBatch,
+  PropsManager
+} from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
 import type { Factory } from '@asyra/factory'
-import type {
-  FactoryMutationBatchDeliveryEvidence,
-  FactoryMutationBatchDeliveryHandle
-} from '@asyra/factory'
-import {
-  runWithTransactionOwner,
-  type UpdateTransactionEvent
-} from '@asyra/reactive-events'
 import {
   type EVENT_OPTIONS,
   type MoveHierarchyRequest,
   type GroupInstanceTypes,
-  type PropertyComponentInstanceDataTypes,
   type PropsComponentRawData,
-  EntityTypes
+  type CreateElementData,
+  type ElementPropertyRelation,
+  type ElementRawData,
+  EntityTypes,
+  name
 } from '@asyra/utils'
 
 import { createPropsAPIs, type PropsRequests } from './props'
@@ -37,12 +38,9 @@ import { createInputSystemAPIs } from './input-system'
 import { createFeatureSystemAPIs } from './feature-system'
 import { createUIContextAPIs } from './ui-context'
 import { createSystemPropertyAPIs } from './system-properties'
+import { createElementPropertyAPIs } from './element-properties'
 import { getAllElementsWorldBounds } from './scene-bounds'
-import { CoreAPIs } from '../types'
-import type {
-  CanonicalElementBatchResult,
-  CanonicalElementBatchTimingArtifact
-} from '../types/scene-tree'
+import type { CanonicalChange, CoreAPIs } from '../types'
 
 export const createAPIs = (
   sceneTree: SceneTree,
@@ -51,64 +49,6 @@ export const createAPIs = (
   props: PropsManager,
   factory: Factory
 ): CoreAPIs => {
-  const readMonotonicTimeMs = (): number => {
-    const sampledAtMs = globalThis.performance.now()
-    return Number.isFinite(sampledAtMs) ? Math.max(0, sampledAtMs) : 0
-  }
-
-  const runCanonicalElementBatch = (
-    mutate: () => readonly string[]
-  ): CanonicalElementBatchResult => {
-    const startedAtMs = readMonotonicTimeMs()
-    const transactionOwner = factory.getTransactionOwner()
-    let deliveryHandle: FactoryMutationBatchDeliveryHandle | null = null
-    let factoryHandoffObserved = false
-    const batchTransactionOwner = {
-      ...transactionOwner,
-      updateTransactionBatch: (
-        events: readonly UpdateTransactionEvent[],
-        deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
-      ) => {
-        if (factoryHandoffObserved) {
-          throw new Error(
-            '[Core] Canonical element batch requires exactly one Factory handoff'
-          )
-        }
-        factoryHandoffObserved = true
-        const handle = factory.updateTransactionBatch(events, deliveryEvidence)
-        if (!handle) {
-          throw new Error(
-            '[Core] Canonical element batch requires an active outer transaction'
-          )
-        }
-        deliveryHandle = handle
-        return handle
-      }
-    }
-    const orderedElementIds = runWithTransactionOwner(
-      batchTransactionOwner,
-      mutate
-    )
-    if (!deliveryHandle) {
-      throw new Error(
-        '[Core] Canonical element batch did not produce a Factory delivery handle'
-      )
-    }
-    const completedAtMs = Math.max(startedAtMs, readMonotonicTimeMs())
-    const timing: CanonicalElementBatchTimingArtifact = Object.freeze({
-      owner: '@asyra/core',
-      clock: 'monotonic',
-      startedAtMs,
-      completedAtMs,
-      durationMs: completedAtMs - startedAtMs
-    })
-    return Object.freeze({
-      orderedElementIds: Object.freeze([...orderedElementIds]),
-      deliveryHandle,
-      timing
-    })
-  }
-
   const requireContainerParent = (parentId: string): GroupInstanceTypes => {
     const parent = sceneTree.getElementById(parentId)
     const parentType = parent?.get('type')
@@ -126,54 +66,266 @@ export const createAPIs = (
     return parent as GroupInstanceTypes
   }
 
+  const freezeOrderedElementIds = (
+    elementIds: readonly string[]
+  ): readonly string[] => Object.freeze([...elementIds])
+
+  const requireOrderedIds = (
+    owner: string,
+    actual: readonly string[],
+    expected: readonly string[]
+  ): void => {
+    if (
+      actual.length !== expected.length ||
+      actual.some((elementId, index) => elementId !== expected[index])
+    ) {
+      throw new Error(
+        `[Core] ${owner} returned canonical ids that do not match the requested order`
+      )
+    }
+  }
+
+  const getDescriptorRegistration = (descriptor: CreateElementData) => {
+    const descriptorType = descriptor.type
+    const registration =
+      typeof descriptorType === 'string'
+        ? componentRegistry.get(descriptorType)
+        : undefined
+    if (!registration) {
+      throw new Error(
+        `[Core] Cannot create element with unregistered type "${String(
+          descriptorType ?? ''
+        )}"`
+      )
+    }
+    return registration
+  }
+
+  const getDescriptorDefinitions = (
+    registration: ReturnType<typeof getDescriptorRegistration>
+  ) => {
+    const constructorDefinitions = (
+      registration.constructor as typeof registration.constructor & {
+        ordinaryPropertyDefinitions?: typeof registration.properties
+      }
+    ).ordinaryPropertyDefinitions
+    return registration.properties.length > 0
+      ? registration.properties
+      : (constructorDefinitions ?? [])
+  }
+
+  const buildOrdinaryElementData = (
+    descriptor: CreateElementData,
+    parentId: string,
+    ownerPropertyIds: Readonly<Record<string, string>> | undefined
+  ): ElementRawData => {
+    const registration = getDescriptorRegistration(descriptor)
+    const elementId = descriptor.id
+    if (typeof elementId !== 'string' || elementId.length === 0) {
+      throw new Error('[Core] Prepared element descriptor requires an id')
+    }
+    return {
+      id: elementId,
+      type: registration.type as ElementRawData['type'],
+      name:
+        typeof descriptor.name === 'string' && descriptor.name.length > 0
+          ? descriptor.name
+          : name(registration.namePrefix),
+      parentId,
+      visible:
+        typeof descriptor.visible === 'boolean' ? descriptor.visible : true,
+      lock: typeof descriptor.lock === 'boolean' ? descriptor.lock : false,
+      props: { ...ownerPropertyIds },
+      ...(registration.isContainer ? { children: [] } : {})
+    } as ElementRawData
+  }
+
+  const indexOwnerPropertyIds = (
+    ownerRelations: readonly ElementPropertyRelation[]
+  ): ReadonlyMap<string, Readonly<Record<string, string>>> => {
+    const ownerPropertyIds = new Map<string, Record<string, string>>()
+    ownerRelations.forEach(
+      ({
+        ownerElementId,
+        ownerPropertyName,
+        componentId
+      }: ElementPropertyRelation) => {
+        const current = ownerPropertyIds.get(ownerElementId)
+        if (current) {
+          current[ownerPropertyName] = componentId
+          return
+        }
+        ownerPropertyIds.set(ownerElementId, {
+          [ownerPropertyName]: componentId
+        })
+      }
+    )
+    return ownerPropertyIds
+  }
+
+  const prepareOrphanPropertyMutation = (
+    preparedSceneRemoval: Pick<
+      PreparedSubtreeRemoval,
+      'orphanRootPropertyIds' | 'retainedRootPropertyIds'
+    >,
+    options?: EVENT_OPTIONS
+  ): PreparedPropertyMutationBatch | undefined => {
+    if (preparedSceneRemoval.orphanRootPropertyIds.length === 0) {
+      return undefined
+    }
+    return props.preparePropertyMutationBatch({
+      operations: [
+        {
+          kind: 'remove-exact-orphan-property-graphs',
+          orphanRootPropertyIds: preparedSceneRemoval.orphanRootPropertyIds,
+          retainedRootPropertyIds: preparedSceneRemoval.retainedRootPropertyIds
+        }
+      ],
+      options
+    })
+  }
+
+  const applyFullRemoval = (
+    preparedSceneRemoval: PreparedElementMutation &
+      Pick<
+        PreparedSubtreeRemoval,
+        'orphanRootPropertyIds' | 'retainedRootPropertyIds'
+      >,
+    preparedProperties: PreparedPropertyMutationBatch | undefined,
+    options?: EVENT_OPTIONS
+  ): readonly string[] => {
+    const sceneResult = sceneTree.applyPreparedElementMutation(
+      preparedSceneRemoval,
+      options
+    )
+    if (preparedProperties) {
+      props.applyPreparedPropertyMutationBatch(preparedProperties)
+    }
+    return freezeOrderedElementIds(sceneResult.orderedElementIds)
+  }
+
+  const applyPreparedSubtreeRemoval = (
+    preparedSceneRemoval: PreparedSubtreeRemoval,
+    options?: EVENT_OPTIONS
+  ) => {
+    const preparedProperties = prepareOrphanPropertyMutation(
+      preparedSceneRemoval,
+      options
+    )
+    applyFullRemoval(preparedSceneRemoval, preparedProperties, options)
+    const evidence = preparedSceneRemoval.evidence[0]
+    if (!evidence) {
+      throw new Error(
+        '[Core] Subtree removal requires one Scene-owned subtree result'
+      )
+    }
+    return Object.freeze({
+      elementId: evidence.elementId,
+      removed: evidence.removed,
+      rootParentChildrenAfter: evidence.rootParentChildrenAfter
+    })
+  }
+
   const sceneTreeRequests: SceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
+    getCurrentWorkspaceId: () => sceneTree.workspace,
     getElementComputedData: (elementId: string) =>
       sceneTree.getElementById(elementId)?.getAllComputedData() as
         | Record<string, unknown>
         | undefined,
     moveElements: (request: MoveHierarchyRequest, options?: EVENT_OPTIONS) =>
       sceneTree.moveElements(request, options),
+    applyHierarchyMoves: (moves, options) =>
+      sceneTree.applyHierarchyMoves(moves, options),
+    applyElementDataChanges: (changes, options) => {
+      const preparedSceneMutation =
+        sceneTree.prepareCanonicalElementDataMutation(changes)
+      return freezeOrderedElementIds(
+        sceneTree.applyPreparedElementMutation(preparedSceneMutation, options)
+          .orderedElementIds
+      )
+    },
     removeSubtree: (elementId: string, options?: EVENT_OPTIONS) =>
-      sceneTree.removeSubtree(elementId, options),
-    removeSubtreeUsingActiveProperties: (
-      elementId: string,
-      options?: EVENT_OPTIONS
-    ) => sceneTree.removeSubtreeUsingActiveProperties(elementId, options),
-    removeElementUsingActiveProperties: (
-      removal: CanonicalElementRemoval,
-      options?: EVENT_OPTIONS
-    ) => sceneTree.removeElementUsingActiveProperties(removal, options),
-    removeElementsUsingActiveProperties: (
+      applyPreparedSubtreeRemoval(
+        sceneTree.prepareSubtreeRemoval(elementId),
+        options
+      ),
+    removeSubtreeFromCanonicalData: (change, options) =>
+      applyPreparedSubtreeRemoval(
+        sceneTree.prepareCanonicalSubtreeRemoval(change),
+        options
+      ),
+    removeElementsFromCanonicalData: (
       removals: readonly CanonicalElementRemoval[],
       options?: EVENT_OPTIONS
-    ) => sceneTree.removeElementsUsingActiveProperties(removals, options),
+    ) => {
+      if (removals.length === 0) {
+        return Object.freeze([])
+      }
+      const preparedSceneRemoval =
+        sceneTree.prepareCanonicalElementRemoval(removals)
+      const preparedProperties = prepareOrphanPropertyMutation(
+        preparedSceneRemoval,
+        options
+      )
+      return applyFullRemoval(preparedSceneRemoval, preparedProperties, options)
+    },
     preflightRestoreSubtree: (snapshot) =>
       sceneTree.preflightRestoreSubtree(snapshot),
-    applyRestoreSubtree: (plan, options) =>
-      sceneTree.applyRestoreSubtree(plan, options),
-    createElements: (data, parent, index, options) =>
-      runCanonicalElementBatch(() =>
-        sceneTree.addNewElements(data, parent, index, options)
-      ),
-    createElementsInParentBatch: (data, parentId, index, options) =>
-      runCanonicalElementBatch(() =>
-        sceneTree.addNewElements(
-          data,
-          requireContainerParent(parentId),
-          index,
-          options
-        )
-      ),
+    applyRestoreSubtree: (preparedRestore, options) =>
+      sceneTree.applyRestoreSubtree(preparedRestore, options),
     createElementsInParent: (data, parentId, index, options) => {
-      return runCanonicalElementBatch(() =>
-        sceneTree.addNewElements(
-          data,
-          requireContainerParent(parentId),
-          index,
-          options
+      requireContainerParent(parentId)
+      const operations: PropertyMutation[] = data.flatMap((descriptor) => {
+        const registration = getDescriptorRegistration(descriptor)
+        const elementId = descriptor.id
+        if (typeof elementId !== 'string' || elementId.length === 0) {
+          throw new Error('[Core] Prepared element descriptor requires an id')
+        }
+        const definitions = getDescriptorDefinitions(registration)
+        return definitions.length === 0
+          ? []
+          : [
+              {
+                kind: 'create-owner-properties',
+                ownerElementId: elementId,
+                ownerElementType: registration.type,
+                definitions,
+                data: descriptor,
+                ...(descriptor.props
+                  ? {
+                      propertyIds: descriptor.props
+                    }
+                  : {})
+              }
+            ]
+      })
+      const preparedProperties = props.preparePropertyMutationBatch({
+        operations,
+        options
+      })
+      const ownerPropertyIds = indexOwnerPropertyIds(
+        preparedProperties.ownerRelations
+      )
+      const elements = data.map((descriptor) =>
+        buildOrdinaryElementData(
+          descriptor,
+          parentId,
+          ownerPropertyIds.get(descriptor.id ?? '')
         )
-      ).orderedElementIds
+      )
+      const preparedSceneInsertion = sceneTree.prepareElementInsertion({
+        parentId,
+        index,
+        elements,
+        ownerRelations: preparedProperties.ownerRelations
+      })
+      props.applyPreparedPropertyMutationBatch(preparedProperties)
+      const sceneResult = sceneTree.applyPreparedElementMutation(
+        preparedSceneInsertion,
+        options
+      )
+      return freezeOrderedElementIds(sceneResult.orderedElementIds)
     },
     createElementsInParentFromCanonicalData: (
       elements,
@@ -182,46 +334,47 @@ export const createAPIs = (
       index,
       options
     ) => {
-      return runCanonicalElementBatch(() =>
-        sceneTree.addNewElementsFromCanonicalData(
-          elements,
-          properties,
-          requireContainerParent(parentId),
-          index,
-          options
-        )
-      ).orderedElementIds
-    },
-    createElementsInParentFromCanonicalDataUsingActiveProperties: (
-      elements,
-      properties,
-      parentId,
-      index,
-      options
-    ) => {
-      return runCanonicalElementBatch(() =>
-        sceneTree.addNewElementsFromCanonicalDataUsingActiveProperties(
-          elements,
-          properties,
-          requireContainerParent(parentId),
-          index,
-          options
-        )
-      ).orderedElementIds
-    },
-    refreshComputedDataFromProperty: (
-      elementId: string,
-      propertyName: string,
-      options?: EVENT_OPTIONS
-    ) => {
-      sceneTree.refreshComputedDataFromProperty(
-        elementId,
-        propertyName,
+      const parent = requireContainerParent(parentId)
+      const parentChildren = parent.get('children')
+      const insertionIndex = index === undefined ? parentChildren.length : index
+      const preparedSceneInsertion = sceneTree.prepareCanonicalElementInsertion(
+        {
+          entries: elements.map((data, offset) => ({
+            data,
+            parentId,
+            index: insertionIndex + offset
+          }))
+        }
+      )
+      const preparedProperties =
+        preparedSceneInsertion.ownerRelations.length > 0 ||
+        properties.length > 0
+          ? props.preparePropertyMutationBatch({
+              operations: [
+                {
+                  kind: 'create-exact-property-graph',
+                  ownerRelations: preparedSceneInsertion.ownerRelations,
+                  components: properties
+                }
+              ],
+              options
+            })
+          : undefined
+      if (preparedProperties) {
+        props.applyPreparedPropertyMutationBatch(preparedProperties)
+      }
+      const sceneResult = sceneTree.applyPreparedElementMutation(
+        preparedSceneInsertion,
         options
       )
-      props.commitChanges(options)
-      sceneTree.commitSceneTreeTransaction(options)
+      return freezeOrderedElementIds(sceneResult.orderedElementIds)
     },
+    updateLocalComputedData: (updates) =>
+      sceneTree.updateLocalComputedData(updates),
+    patchLocalComputedData: (updates) =>
+      sceneTree.patchLocalComputedData(updates),
+    projectLocalComputedDataFromPropertyIds: (propertyIds) =>
+      sceneTree.projectLocalComputedDataFromPropertyIds(propertyIds),
     isContainerType: (type: string) => {
       if (
         type === EntityTypes.WORKSPACE ||
@@ -261,32 +414,131 @@ export const createAPIs = (
   }
 
   const propsRequests: PropsRequests = {
-    updatePropertyById: (propertyId, key, data, owner, options) =>
-      props.updatePropertyById(
-        propertyId,
-        key as keyof PropertyComponentInstanceDataTypes,
-        data as never,
-        owner,
-        options
-      ),
-    commitPropertyChanges: (options) => props.commitChanges(options),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     propsLoadData: (data: unknown) => props.load(data as any),
     propsSaveData: () => props.save() as PropsComponentRawData,
     preflightRestoreProperties: (snapshot, ownerRelations) =>
       props.preflightRestoreProperties(snapshot, ownerRelations),
-    applyRestoreProperties: (plan, options) =>
-      props.applyRestoreProperties(plan, options)
+    applyRestoreProperties: (preparedRestore, options) =>
+      props.applyRestoreProperties(preparedRestore, options),
+    preparePropertyMutationBatch: (request) =>
+      props.preparePropertyMutationBatch(request),
+    applyPreparedPropertyMutationBatch: (preparedBatch) =>
+      props.applyPreparedPropertyMutationBatch(preparedBatch)
+  }
+
+  const propsAPIs = createPropsAPIs(propsRequests)
+  const sceneTreeAPIs = createSceneTreeAPIs(sceneTreeRequests)
+
+  const applyCanonicalChanges = (changes: readonly CanonicalChange[]): void => {
+    for (const change of changes) {
+      switch (change.kind) {
+        case 'property-components': {
+          const propertyIds = propsAPIs.updatePropertyComponents(change.updates)
+          requireOrderedIds(
+            'property-component owner',
+            propertyIds,
+            change.updates.map(({ propertyId }) => propertyId)
+          )
+          break
+        }
+        case 'element-data': {
+          const elementIds = sceneTreeAPIs.applyElementDataChanges(
+            change.changes
+          )
+          requireOrderedIds(
+            'element-data owner',
+            elementIds,
+            change.changes.map(({ id: elementId }) => elementId)
+          )
+          break
+        }
+        case 'hierarchy-moves': {
+          if (
+            change.moves.length > 0 &&
+            !sceneTreeAPIs.applyHierarchyMoves(change.moves)
+          ) {
+            throw new Error(
+              '[Core] Hierarchy owner rejected a non-empty canonical move batch'
+            )
+          }
+          break
+        }
+        case 'subtree-removal': {
+          const result = sceneTreeAPIs.removeSubtreeFromCanonicalData(
+            change.change
+          )
+          if (result.elementId !== change.change.elementId) {
+            throw new Error(
+              '[Core] Subtree owner returned a different canonical root id'
+            )
+          }
+          break
+        }
+        case 'subtree-restore': {
+          const preparedSceneRestore = sceneTreeAPIs.preflightRestoreSubtree(
+            change.sceneSnapshot
+          )
+          const preparedPropsRestore = propsAPIs.preflightRestoreProperties(
+            change.propsSnapshot,
+            preparedSceneRestore.propertyOwnerRelations
+          )
+          propsAPIs.applyRestoreProperties(preparedPropsRestore)
+          const result = sceneTreeAPIs.applyRestoreSubtree(preparedSceneRestore)
+          if (result.elementId !== change.sceneSnapshot.elementId) {
+            throw new Error(
+              '[Core] Restore owner returned a different canonical root id'
+            )
+          }
+          break
+        }
+        case 'element-creation': {
+          const elementIds =
+            sceneTreeAPIs.createElementsInParentFromCanonicalData(
+              change.elements,
+              change.properties,
+              change.parentId,
+              change.index
+            )
+          requireOrderedIds(
+            'element-creation owner',
+            elementIds,
+            change.elements.map(({ id: elementId }) => elementId)
+          )
+          break
+        }
+        case 'element-removal': {
+          const elementIds = sceneTreeAPIs.removeElementsFromCanonicalData(
+            change.removals
+          )
+          requireOrderedIds(
+            'element-removal owner',
+            elementIds,
+            change.removals.map(({ data }) => data.id)
+          )
+          break
+        }
+      }
+    }
   }
 
   return {
     ...createInputSystemAPIs(),
     ...createFeatureSystemAPIs(),
-    ...createPropsAPIs(propsRequests),
+    ...propsAPIs,
     ...createRenderAPIs(renderRequests),
-    ...createSceneTreeAPIs(sceneTreeRequests),
+    ...sceneTreeAPIs,
+    ...createElementPropertyAPIs({
+      resolveElementPropertyTargets: (requests) =>
+        sceneTree.resolveElementPropertyTargets(requests),
+      preparePropertyMutationBatch: (request) =>
+        props.preparePropertyMutationBatch(request),
+      applyPreparedPropertyMutationBatch: (preparedBatch) =>
+        props.applyPreparedPropertyMutationBatch(preparedBatch)
+    }),
     ...createElementSelectionAPIs(selection, factory),
     ...createUIContextAPIs(),
-    ...createSystemPropertyAPIs()
+    ...createSystemPropertyAPIs(),
+    applyCanonicalChanges
   }
 }

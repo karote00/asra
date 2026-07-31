@@ -14,61 +14,86 @@ describe('ElementChangeHandler canonical owner provenance', () => {
     vi.restoreAllMocks()
   })
 
-  it.each(['raw', 'computed'] as const)(
-    'emits %s owner provenance with the committed scalar change',
-    (owner) => {
-      const addChange = vi
-        .spyOn(sceneTree, 'addChange')
-        .mockImplementation(() => undefined)
-      const handler = new ElementChangeHandler(owner)
+  it('records raw element fields as canonical UPDATE_ELEMENT_DATA evidence', () => {
+    expect(SCENE_TREE_ACTIONS).toMatchObject({
+      UPDATE_ELEMENT_DATA: 'updateElementData'
+    })
+    expect(EventTypes).toMatchObject({
+      UPDATE_ELEMENT_DATA: 'updateElementData'
+    })
 
-      handler.addChange({
-        id: 'element-1',
-        key: 'visible',
-        before: true,
-        after: false
-      })
+    const addChange = vi
+      .spyOn(sceneTree, 'addChange')
+      .mockImplementation(() => undefined)
+    const handler = new ElementChangeHandler()
 
-      expect(addChange).toHaveBeenCalledWith({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
-        owner,
-        id: 'element-1',
-        key: 'visible',
-        before: true,
-        after: false
-      })
-    }
-  )
+    handler.addChange({
+      id: 'element-1',
+      key: 'visible',
+      before: true,
+      after: false
+    })
 
-  it.each(['raw', 'computed'] as const)(
-    'preserves %s provenance through the Setter callback boundary',
-    (owner) => {
-      const addChange = vi
-        .spyOn(sceneTree, 'addChange')
-        .mockImplementation(() => undefined)
-      const handler = new ElementChangeHandler(owner)
-      const setter = new Setter<ElementAttrs>(handler.addChange)
-      setter.data = {
-        id: 'element-1',
-        type: EntityTypes.ELEMENT,
-        name: 'Element',
-        parentId: '',
-        visible: true,
-        lock: false
-      }
-
-      setter.set('visible', false)
-
-      expect(addChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          owner,
-          id: 'element-1',
+    expect(addChange).toHaveBeenCalledWith({
+      action: 'updateElementData',
+      eventName: 'updateElementData',
+      id: 'element-1',
+      changes: [
+        {
           key: 'visible',
           before: true,
           after: false
-        })
-      )
+        }
+      ]
+    })
+  })
+
+  it('does not turn non-element fields into canonical Scene evidence', () => {
+    const addChange = vi
+      .spyOn(sceneTree, 'addChange')
+      .mockImplementation(() => undefined)
+    const handler = new ElementChangeHandler()
+
+    handler.addChange({
+      id: 'element-1',
+      key: 'x',
+      before: 0,
+      after: 24
+    })
+
+    expect(addChange).not.toHaveBeenCalled()
+  })
+
+  it('preserves the raw element route through the Setter callback boundary', () => {
+    const addChange = vi
+      .spyOn(sceneTree, 'addChange')
+      .mockImplementation(() => undefined)
+    const handler = new ElementChangeHandler()
+    const setter = new Setter<ElementAttrs>(handler.addChange)
+    setter.data = {
+      id: 'element-1',
+      type: EntityTypes.ELEMENT,
+      name: 'Element',
+      parentId: '',
+      visible: true,
+      lock: false
     }
-  )
+
+    setter.set('visible', false)
+
+    expect(addChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
+        id: 'element-1',
+        changes: [
+          {
+            key: 'visible',
+            before: true,
+            after: false
+          }
+        ]
+      })
+    )
+  })
 })

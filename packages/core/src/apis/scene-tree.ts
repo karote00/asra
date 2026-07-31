@@ -1,21 +1,11 @@
-import {
-  type AddElementEvent,
-  changeComputedData,
-  changeComputedDataBatch,
-  changeComputedDataPatch,
-  EventTypes,
-  publishEventToObservers,
-  sceneTreeInit,
-  sceneTreeLoadData
-} from '@asyra/reactive-events'
+import { sceneTreeInit, sceneTreeLoadData } from '@asyra/reactive-events'
 import {
   Bounds,
-  ComputedDataPatch,
   CreateElementData,
-  DataTypes,
   ElementRawData,
   EVENT_OPTIONS,
   GroupInstanceTypes,
+  HierarchyMove,
   PropertyComponentRawData,
   SceneTreeRawData,
   EntityTypes,
@@ -23,22 +13,30 @@ import {
   MoveHierarchyRequest,
   MoveHierarchyResult,
   RemoveSubtreeResult,
-  SceneTreeRestorePlan,
-  SceneTreeRestoreSnapshot
+  PreparedSceneTreeRestore,
+  SceneTreeRestoreSnapshot,
+  SubtreeChange,
+  UpdateElementDataChange
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
-import type { CanonicalElementBatchResult } from '../types/scene-tree'
-import type { CanonicalElementRemoval } from '@asyra/scene-tree'
+import type {
+  CanonicalElementRemoval,
+  LocalComputedDataPatchUpdate,
+  LocalComputedDataUpdate
+} from '@asyra/scene-tree'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
+  getCurrentWorkspaceId: () => string
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
-  refreshComputedDataFromProperty: (
-    elementId: string,
-    propertyName: string,
-    options?: EVENT_OPTIONS
+  updateLocalComputedData: (updates: readonly LocalComputedDataUpdate[]) => void
+  patchLocalComputedData: (
+    updates: readonly LocalComputedDataPatchUpdate[]
+  ) => void
+  projectLocalComputedDataFromPropertyIds: (
+    propertyIds: readonly string[]
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean
@@ -46,41 +44,33 @@ export interface SceneTreeRequests {
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS
   ) => MoveHierarchyResult
+  applyHierarchyMoves: (
+    moves: readonly HierarchyMove[],
+    options?: EVENT_OPTIONS
+  ) => boolean
+  applyElementDataChanges: (
+    changes: readonly UpdateElementDataChange[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   removeSubtree: (
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  removeSubtreeUsingActiveProperties: (
-    elementId: string,
+  removeSubtreeFromCanonicalData: (
+    change: SubtreeChange,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  removeElementUsingActiveProperties: (
-    removal: CanonicalElementRemoval,
-    options?: EVENT_OPTIONS
-  ) => boolean
-  removeElementsUsingActiveProperties: (
+  removeElementsFromCanonicalData: (
     removals: readonly CanonicalElementRemoval[],
     options?: EVENT_OPTIONS
   ) => readonly string[]
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
+  ) => PreparedSceneTreeRestore
   applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+    preparedRestore: PreparedSceneTreeRestore,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  createElements: (
-    data: readonly CreateElementData[],
-    parent?: GroupInstanceTypes,
-    index?: number,
-    options?: EVENT_OPTIONS
-  ) => CanonicalElementBatchResult
-  createElementsInParentBatch: (
-    data: readonly CreateElementData[],
-    parentId: string,
-    index?: number,
-    options?: EVENT_OPTIONS
-  ) => CanonicalElementBatchResult
   createElementsInParent: (
     data: readonly CreateElementData[],
     parentId: string,
@@ -88,13 +78,6 @@ export interface SceneTreeRequests {
     options?: EVENT_OPTIONS
   ) => readonly string[]
   createElementsInParentFromCanonicalData: (
-    elements: readonly ElementRawData[],
-    properties: readonly PropertyComponentRawData[],
-    parentId: string,
-    index?: number,
-    options?: EVENT_OPTIONS
-  ) => readonly string[]
-  createElementsInParentFromCanonicalDataUsingActiveProperties: (
     elements: readonly ElementRawData[],
     properties: readonly PropertyComponentRawData[],
     parentId: string,
@@ -121,74 +104,37 @@ export const createSceneTreeAPIs = (
     }
   }
 
-  const requireSingleElementId = (
-    expectedElementId: string,
-    result: CanonicalElementBatchResult
-  ): string => {
-    if (result.orderedElementIds.length !== 1) {
+  const freezeOrderedElementIds = (
+    elementIds: readonly string[]
+  ): readonly string[] => Object.freeze([...elementIds])
+
+  const requireSingleElementId = (elementIds: readonly string[]): string => {
+    if (elementIds.length !== 1) {
       throw new Error(
         '[Core] Canonical batch-of-one requires exactly one ordered element id'
       )
     }
-    const [elementId] = result.orderedElementIds
-    if (elementId !== expectedElementId) {
-      throw new Error(
-        `[Core] Canonical batch-of-one expected canonical element id "${expectedElementId}"`
-      )
-    }
+    const [elementId] = elementIds
     return elementId
   }
 
-  const executeCanonicalElementBatch = (
-    prepared: readonly ReturnType<typeof prepareElementData>[],
-    request: (
-      data: readonly CreateElementData[]
-    ) => CanonicalElementBatchResult,
-    createCompatibilityPayload: (
-      data: CreateElementData
-    ) => AddElementEvent['payload'],
-    options?: EVENT_OPTIONS
-  ): CanonicalElementBatchResult => {
-    const result = request(prepared.map(({ data: elementData }) => elementData))
-    if (prepared.length === 1) {
-      const [single] = prepared
-      requireSingleElementId(single.elementId, result)
-      publishEventToObservers({
-        type: EventTypes.ADD_ELEMENT,
-        payload: createCompatibilityPayload(single.data),
-        options
-      })
-    }
-    return result
-  }
-
-  const createElementsInParentBatch = (
+  const createElementsInParent = (
     data: readonly CreateElementData[],
     parentId: string,
     index?: number,
     options?: EVENT_OPTIONS
-  ): CanonicalElementBatchResult => {
+  ): readonly string[] => {
     if (data.length === 0) {
-      throw new Error(
-        '[Core] Canonical element batch requires at least one element'
-      )
+      return Object.freeze([])
     }
     const prepared = data.map(prepareElementData)
-    return executeCanonicalElementBatch(
-      prepared,
-      (elementData) =>
-        sceneTreeRequests.createElementsInParentBatch(
-          elementData,
-          parentId,
-          index,
-          options
-        ),
-      (elementData) => ({
-        data: elementData,
+    return freezeOrderedElementIds(
+      sceneTreeRequests.createElementsInParent(
+        prepared.map(({ data: elementData }) => elementData),
         parentId,
-        index
-      }),
-      options
+        index,
+        options
+      )
     )
   }
 
@@ -199,19 +145,11 @@ export const createSceneTreeAPIs = (
       index?: number,
       options?: EVENT_OPTIONS
     ) {
-      const prepared = prepareElementData(data)
-      const result = executeCanonicalElementBatch(
-        [prepared],
-        (elementData) =>
-          sceneTreeRequests.createElements(elementData, parent, index, options),
-        (elementData) => ({
-          data: elementData,
-          parent,
-          index
-        }),
-        options
+      const parentId =
+        parent?.get('id') ?? sceneTreeRequests.getCurrentWorkspaceId()
+      return requireSingleElementId(
+        createElementsInParent([data], parentId, index, options)
       )
-      return requireSingleElementId(prepared.elementId, result)
     },
     createElementInParent(
       data: CreateElementData,
@@ -219,38 +157,11 @@ export const createSceneTreeAPIs = (
       index?: number,
       options?: EVENT_OPTIONS
     ) {
-      const prepared = prepareElementData(data)
-      const result = executeCanonicalElementBatch(
-        [prepared],
-        (elementData) =>
-          sceneTreeRequests.createElementsInParentBatch(
-            elementData,
-            parentId,
-            index,
-            options
-          ),
-        (elementData) => ({
-          data: elementData,
-          parentId,
-          index
-        }),
-        options
+      return requireSingleElementId(
+        createElementsInParent([data], parentId, index, options)
       )
-      return requireSingleElementId(prepared.elementId, result)
     },
-    createElementsInParentBatch,
-    createElementsInParent(
-      data: readonly CreateElementData[],
-      parentId: string,
-      index?: number,
-      options?: EVENT_OPTIONS
-    ) {
-      if (data.length === 0) {
-        return []
-      }
-      return createElementsInParentBatch(data, parentId, index, options)
-        .orderedElementIds
-    },
+    createElementsInParent,
     createElementsInParentFromCanonicalData(
       elements: readonly ElementRawData[],
       properties: readonly PropertyComponentRawData[],
@@ -264,37 +175,16 @@ export const createSceneTreeAPIs = (
             '[Core] Canonical element batch cannot contain orphan properties'
           )
         }
-        return []
+        return freezeOrderedElementIds([])
       }
-      return sceneTreeRequests.createElementsInParentFromCanonicalData(
-        elements,
-        properties,
-        parentId,
-        index,
-        options
-      )
-    },
-    createElementsInParentFromCanonicalDataUsingActiveProperties(
-      elements: readonly ElementRawData[],
-      properties: readonly PropertyComponentRawData[],
-      parentId: string,
-      index?: number,
-      options?: EVENT_OPTIONS
-    ) {
-      if (elements.length === 0) {
-        if (properties.length > 0) {
-          throw new Error(
-            '[Core] Canonical element batch cannot contain orphan properties'
-          )
-        }
-        return []
-      }
-      return sceneTreeRequests.createElementsInParentFromCanonicalDataUsingActiveProperties(
-        elements,
-        properties,
-        parentId,
-        index,
-        options
+      return freezeOrderedElementIds(
+        sceneTreeRequests.createElementsInParentFromCanonicalData(
+          elements,
+          properties,
+          parentId,
+          index,
+          options
+        )
       )
     },
     getElementComputedData(elementId: string) {
@@ -319,91 +209,75 @@ export const createSceneTreeAPIs = (
     moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.moveElements(request, options)
     },
+    applyHierarchyMoves(
+      moves: readonly HierarchyMove[],
+      options?: EVENT_OPTIONS
+    ) {
+      if (moves.length === 0) {
+        return false
+      }
+      return sceneTreeRequests.applyHierarchyMoves(moves, options)
+    },
+    applyElementDataChanges(
+      changes: readonly UpdateElementDataChange[],
+      options?: EVENT_OPTIONS
+    ) {
+      if (changes.length === 0) {
+        return freezeOrderedElementIds([])
+      }
+      return freezeOrderedElementIds(
+        sceneTreeRequests.applyElementDataChanges(changes, options)
+      )
+    },
     removeSubtree(elementId: string, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.removeSubtree(elementId, options)
     },
-    removeSubtreeUsingActiveProperties(
-      elementId: string,
+    removeSubtreeFromCanonicalData(
+      change: SubtreeChange,
       options?: EVENT_OPTIONS
     ) {
-      return sceneTreeRequests.removeSubtreeUsingActiveProperties(
-        elementId,
-        options
-      )
+      return sceneTreeRequests.removeSubtreeFromCanonicalData(change, options)
     },
-    removeElementUsingActiveProperties(
-      removal: CanonicalElementRemoval,
-      options?: EVENT_OPTIONS
-    ) {
-      return sceneTreeRequests.removeElementUsingActiveProperties(
-        removal,
-        options
-      )
-    },
-    removeElementsUsingActiveProperties(
+    removeElementsFromCanonicalData(
       removals: readonly CanonicalElementRemoval[],
       options?: EVENT_OPTIONS
     ) {
-      return sceneTreeRequests.removeElementsUsingActiveProperties(
-        removals,
-        options
+      if (removals.length === 0) {
+        return Object.freeze([])
+      }
+      return freezeOrderedElementIds(
+        sceneTreeRequests.removeElementsFromCanonicalData(removals, options)
       )
     },
     preflightRestoreSubtree(snapshot: SceneTreeRestoreSnapshot) {
       return sceneTreeRequests.preflightRestoreSubtree(snapshot)
     },
-    applyRestoreSubtree(plan: SceneTreeRestorePlan, options?: EVENT_OPTIONS) {
-      return sceneTreeRequests.applyRestoreSubtree(plan, options)
+    applyRestoreSubtree(
+      preparedRestore: PreparedSceneTreeRestore,
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.applyRestoreSubtree(preparedRestore, options)
     },
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()
     },
-    changeComputedData(
-      elementIds: string[],
-      data: Record<string, DataTypes>,
-      options?: EVENT_OPTIONS
-    ) {
-      const entries = Object.entries(data ?? {})
-      if (entries.length === 0) {
+    updateLocalComputedData(updates: readonly LocalComputedDataUpdate[]) {
+      if (updates.length === 0) {
         return
       }
-
-      if (options?.undoable === false && entries.length > 1) {
-        changeComputedDataBatch(elementIds, data, options)
-        return
-      }
-
-      entries.forEach(([key, value]) => {
-        changeComputedData(elementIds, key, value, options)
-      })
+      sceneTreeRequests.updateLocalComputedData(updates)
     },
-    changeComputedDataPatch(
-      elementIds: string[],
-      patch: ComputedDataPatch,
-      options?: EVENT_OPTIONS
-    ) {
-      const hasValues = Object.keys(patch.values ?? {}).length > 0
-      const hasRecords = Object.values(patch.records ?? {}).some(
-        (recordPatch) =>
-          Object.keys(recordPatch.set ?? {}).length > 0 ||
-          (recordPatch.remove?.length ?? 0) > 0
-      )
-      if (!hasValues && !hasRecords) {
+    patchLocalComputedData(updates: readonly LocalComputedDataPatchUpdate[]) {
+      if (updates.length === 0) {
         return
       }
-
-      changeComputedDataPatch(elementIds, patch, options)
+      sceneTreeRequests.patchLocalComputedData(updates)
     },
-    refreshComputedDataFromProperty(
-      elementId: string,
-      propertyName: string,
-      options?: EVENT_OPTIONS
-    ) {
-      sceneTreeRequests.refreshComputedDataFromProperty(
-        elementId,
-        propertyName,
-        options
-      )
+    projectLocalComputedDataFromPropertyIds(propertyIds: readonly string[]) {
+      if (propertyIds.length === 0) {
+        return
+      }
+      sceneTreeRequests.projectLocalComputedDataFromPropertyIds(propertyIds)
     },
     isContainerType(type: string) {
       return sceneTreeRequests.isContainerType(type)

@@ -1,4 +1,4 @@
-import { MapRegistry } from '@asyra/utils'
+import { MapRegistry, isRecord } from '@asyra/utils'
 import type { PropertyComponentConstructor } from '../components'
 import { clonePropertyDefinitionRecord } from './property-definition-value'
 import type { PropertyRegistrationOptions } from './registration-options'
@@ -27,6 +27,22 @@ export interface PropertyComponentConfigRegistration {
   allowDynamicKeys?: boolean
   dynamicReservedKeys?: string[]
   children?: PropertyChildRelationDefinition
+}
+
+export const resolvePropertyComponentConfigRoles = (
+  config: PropertyComponentConfigRegistration
+) => {
+  const defaults = isRecord(config.defaults) ? config.defaults : {}
+  const inferredPersistKeys = Object.keys(defaults)
+  if (config.children && !inferredPersistKeys.includes(config.children.key)) {
+    inferredPersistKeys.push(config.children.key)
+  }
+  const persistKeys = config.persistKeys ?? inferredPersistKeys
+  const unitKeys =
+    config.unitKeys ?? persistKeys.filter((key) => key.endsWith('Unit'))
+  const valueKeys =
+    config.valueKeys ?? persistKeys.filter((key) => !unitKeys.includes(key))
+  return { defaults, persistKeys, valueKeys, unitKeys }
 }
 
 const batchRebindablePropertyComponentRelations = new WeakMap<

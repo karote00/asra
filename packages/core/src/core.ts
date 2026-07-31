@@ -204,33 +204,34 @@ class Core implements CoreAPIs {
   clearRenderInteractionTargets!: RenderAPIs['clearRenderInteractionTargets']
   registerRenderInteractionHandler!: RenderAPIs['registerRenderInteractionHandler']
   unregisterRenderInteractionHandler!: RenderAPIs['unregisterRenderInteractionHandler']
-  updatePropertyById!: CoreAPIs['updatePropertyById']
-  commitPropertyChanges!: CoreAPIs['commitPropertyChanges']
   propsLoadData!: CoreAPIs['propsLoadData']
   propsSaveData!: CoreAPIs['propsSaveData']
   preflightRestoreProperties!: CoreAPIs['preflightRestoreProperties']
   applyRestoreProperties!: CoreAPIs['applyRestoreProperties']
+  updatePropertyComponents!: CoreAPIs['updatePropertyComponents']
+  updateElementProperties!: CoreAPIs['updateElementProperties']
+  patchElementProperties!: CoreAPIs['patchElementProperties']
+  applyCanonicalChanges!: CoreAPIs['applyCanonicalChanges']
 
   sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   createElement!: SceneTreeAPIs['createElement']
   createElementInParent!: SceneTreeAPIs['createElementInParent']
-  createElementsInParentBatch!: SceneTreeAPIs['createElementsInParentBatch']
   createElementsInParent!: SceneTreeAPIs['createElementsInParent']
   createElementsInParentFromCanonicalData!: SceneTreeAPIs['createElementsInParentFromCanonicalData']
-  createElementsInParentFromCanonicalDataUsingActiveProperties!: SceneTreeAPIs['createElementsInParentFromCanonicalDataUsingActiveProperties']
   getElementComputedData!: SceneTreeAPIs['getElementComputedData']
   moveElements!: SceneTreeAPIs['moveElements']
+  applyHierarchyMoves!: SceneTreeAPIs['applyHierarchyMoves']
+  applyElementDataChanges!: SceneTreeAPIs['applyElementDataChanges']
   removeSubtree!: SceneTreeAPIs['removeSubtree']
-  removeSubtreeUsingActiveProperties!: SceneTreeAPIs['removeSubtreeUsingActiveProperties']
-  removeElementUsingActiveProperties!: SceneTreeAPIs['removeElementUsingActiveProperties']
-  removeElementsUsingActiveProperties!: SceneTreeAPIs['removeElementsUsingActiveProperties']
+  removeSubtreeFromCanonicalData!: SceneTreeAPIs['removeSubtreeFromCanonicalData']
+  removeElementsFromCanonicalData!: SceneTreeAPIs['removeElementsFromCanonicalData']
   preflightRestoreSubtree!: SceneTreeAPIs['preflightRestoreSubtree']
   applyRestoreSubtree!: SceneTreeAPIs['applyRestoreSubtree']
-  changeComputedData!: SceneTreeAPIs['changeComputedData']
-  changeComputedDataPatch!: SceneTreeAPIs['changeComputedDataPatch']
-  refreshComputedDataFromProperty!: SceneTreeAPIs['refreshComputedDataFromProperty']
+  updateLocalComputedData!: SceneTreeAPIs['updateLocalComputedData']
+  patchLocalComputedData!: SceneTreeAPIs['patchLocalComputedData']
+  projectLocalComputedDataFromPropertyIds!: SceneTreeAPIs['projectLocalComputedDataFromPropertyIds']
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   isContainerType!: SceneTreeAPIs['isContainerType']
   selectByChannel!: ElementSelectionActionAPIs['selectByChannel']
@@ -269,6 +270,12 @@ class Core implements CoreAPIs {
     )
 
     Object.assign(this, apis as CoreAPIs)
+
+    const setSystemProperty = this.setSystemProperty
+    this.setSystemProperty = ((key, value) => {
+      setSystemProperty(key, value)
+      deps.render.requestRender()
+    }) as SystemManagedPropertyAPIs['setSystemProperty']
 
     const unregisterSystemProperty = this.unregisterSystemProperty
     this.unregisterSystemProperty = ((key) => {
@@ -1810,12 +1817,6 @@ class Core implements CoreAPIs {
         message: item.message
       }))
     )
-    if (sceneValidation.valid === false) {
-      throw new Error(
-        '[Core] Scene Tree rejected invalid hierarchy before package apply'
-      )
-    }
-
     const systemValidation = this.deps.systemContext.validateManagedProperties(
       normalizedAfterHooks.systemContext
     )
@@ -1827,11 +1828,22 @@ class Core implements CoreAPIs {
       }))
     )
 
-    this.version = normalizedAfterHooks.version
+    if (sceneValidation.valid === false) {
+      throw new Error(
+        '[Core] Scene Tree rejected invalid hierarchy before package apply'
+      )
+    }
+
+    this.deps.sceneTree.preflightLoadPropertyRelations(
+      sceneValidation,
+      propsValidation.data
+    )
+
     this.deps.props.applyValidatedLoad(propsValidation)
     this.deps.sceneTree.applyValidatedLoad(sceneValidation)
     this.deps.systemContext.applyValidatedManagedProperties(systemValidation)
 
+    this.version = normalizedAfterHooks.version
     fileLoadComplete()
 
     this.emitLoadDiagnostics(diagnostics, () =>

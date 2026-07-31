@@ -421,6 +421,7 @@ describe('property child relations', () => {
       type: TEST_TYPE,
       childIds: ['relation-child']
     } as Partial<PropertyComponentRawData>)
+    propsManager.addToMap(parent)
     const listener = vi.fn()
     parent.on(listener)
 
@@ -428,7 +429,10 @@ describe('property child relations', () => {
       'x' as keyof PropertyComponentInstanceDataTypes,
       6 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
     )
-    expect(listener).toHaveBeenCalledOnce()
+    expect(listener).not.toHaveBeenCalled()
+    expect(propsManager.resolvePropertyAncestorIds(['relation-child'])).toEqual(
+      ['relation-child', 'relation-parent']
+    )
   })
 
   it('fails before mutation for active and replay-retained parents and invalid relation operations', () => {

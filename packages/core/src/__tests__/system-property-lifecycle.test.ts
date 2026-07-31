@@ -4,7 +4,7 @@ import { Core } from '../core'
 
 const PROPERTY_KEY = 'preset-cleanup-test-property'
 
-const createCoreForTest = () =>
+const createCoreForTest = (requestRender = vi.fn()) =>
   new Core({
     inputSystem: {} as never,
     factory: {
@@ -16,7 +16,8 @@ const createCoreForTest = () =>
     props: {} as never,
     render: {
       getViewportPosition: () => ({ x: 0, y: 0 }),
-      getViewportScale: () => 1
+      getViewportScale: () => 1,
+      requestRender
     } as never,
     sceneTree: {} as never,
     selection: {} as never,
@@ -24,6 +25,20 @@ const createCoreForTest = () =>
   })
 
 describe('Core system-property lifecycle facade', () => {
+  it('requests one render after a successful managed property update', () => {
+    const requestRender = vi.fn()
+    const core = createCoreForTest(requestRender)
+    try {
+      core.defineSystemProperty(PROPERTY_KEY, 1)
+
+      core.setSystemProperty(PROPERTY_KEY, 2)
+
+      expect(requestRender).toHaveBeenCalledTimes(1)
+    } finally {
+      systemContext.unregisterProperty(PROPERTY_KEY)
+    }
+  })
+
   it('reports and unregisters a managed property while composition is open', () => {
     const core = createCoreForTest()
     try {
