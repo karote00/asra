@@ -721,8 +721,10 @@ configuration.
 
 - The formal performance peak is the maximum same-snapshot sum of the raw
   operating-system `%cpu` values for the complete `client-browser` process
-  group, with a fixed 250-percent limit. Backend and harness CPU are excluded
-  from that peak.
+  group. Guarded 16-item and 1,280-item safety or attribution cases retain the
+  fixed 250-percent frontend limit. The exact guarded 7,076-element
+  high-performance case uses a 400-percent frontend limit. Backend and harness
+  CPU are excluded from that peak.
 - The aggregate frontend, App-server, WebSocket-server, and test-harness safety
   value is the same-snapshot sum of those raw operating-system `%cpu` values.
   Its limit is fixed at 400 percent; crossing it stops the exact tracked groups
@@ -759,7 +761,8 @@ No browser or 7,076-element proof may run from this checkpoint until:
 2. the resource-guard formal test first proves that converted CPU-time interval
    percentages cannot drive peak or stop decisions;
 3. the guard implementation uses only same-snapshot raw system `%cpu` values
-   for the 250-percent frontend peak/stop and 400-percent aggregate stop;
+   for the then-current 250-percent frontend peak/stop and 400-percent
+   aggregate stop;
 4. focused guard, configuration, and Inspector contract tests pass; and
 5. bounded review confirms that no interval-derived percentage remains in a
    formal peak, pass/fail result, or violation report.
@@ -777,12 +780,13 @@ counts, one Undo entry, eight Factory publications, a 146.4-percent raw
 frontend peak, and 153.0-percent same-snapshot aggregate CPU.
 
 The authorized single guarded 7,076-element local-source proof then crossed the
-real raw frontend limit at 251.7 percent; the same snapshot aggregate was 259.0
-percent, so the 400-percent aggregate limit did not fire. The guard stopped and
-confirmed all four tracked process groups at Actor A 1,522/7,076, Actor B
-0/7,076, 49 Factory publications, and 48 locally sent publications. This stop
-is valid raw evidence and must not be replaced by another local-source
-7,076-element invocation.
+then-current raw frontend limit at 251.7 percent; the same snapshot aggregate
+was 259.0 percent, so the 400-percent aggregate limit did not fire. The guard
+stopped and confirmed all four tracked process groups at Actor A 1,522/7,076,
+Actor B 0/7,076, 49 Factory publications, and 48 locally sent publications.
+The raw snapshot remains valid observation evidence, but the later product
+owner threshold revision below supersedes its stop classification and it is
+not a completed endpoint proof.
 
 The required fresh single-Actor 1,280-item attribution completed at 1,281/1,281
 in 3,098 milliseconds with a 221.7-percent raw frontend peak and 226.4-percent
@@ -795,6 +799,25 @@ remote apply, and relay cannot own this stop. The bounded replan therefore
 selects the already ordered `encode-publication-frames` owner and proceeds with
 its existing focused-tests → bounded-review → guarded-16 gate without another
 7,076-element run.
+
+### 2026-07-31 high-performance CPU threshold revision
+
+The product owner classifies the exact 7,076-element creation-only endpoint as
+a high-performance test and raises only that invocation's complete frontend raw
+same-snapshot CPU limit to 400 percent. Guarded 16-item and 1,280-item safety or
+attribution cases remain at 250 percent. Every invocation retains the
+400-percent raw same-snapshot aggregate frontend, backend, and harness hard
+safety limit.
+
+Therefore the earlier 251.7-percent frontend and 259.0-percent aggregate stop
+does not exceed either current 7,076-element limit. It remains an incomplete
+run, not accepted endpoint evidence. Before remote-apply work advances, the
+formal guard test must fail against the old threshold selection, the guard and
+this exact contract must be corrected, focused guard/configuration/Inspector
+tests and bounded review must pass, and the local-source guarded 7,076-element
+proof must run once under the corrected limits. A real 400-percent frontend or
+aggregate stop still terminates only that benchmark action and returns the
+active owner to bounded root-cause analysis and a revised iteration.
 
 ### 2026-07-30 guarded local source pipeline replan
 
@@ -1950,6 +1973,10 @@ this exact order:
    peak, and aggregate raw safety status. A raw limit violation or focused
    correctness failure terminates only that benchmark invocation and returns
    this owner to bounded root-cause analysis and a revised iteration.
+   The later product-owner threshold revision classifies this exact
+   7,076-element proof as high performance, sets its frontend limit to 400
+   percent, leaves the aggregate limit at 400 percent, and requires one
+   corrected local-source rerun before step 6 may advance.
 4. **`encode-publication-frames`** — consume the minimal transport wire artifact
    once, move binary encode/decode into the Dedicated Worker, and remove
    main-thread duplicate clone/freeze/JSON ownership. Pass focused tests,

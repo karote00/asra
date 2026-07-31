@@ -79,7 +79,8 @@ Feature: Conversational AI drawing performance
     And the nominal 250-millisecond polling cadence should only request another raw system snapshot and should never become a measurement window or CPU-percentage formula
     And periodic and phase-boundary sampling should share one serialized OS sample queue with ordered state consumption
     And an observed sampling gap above 375 milliseconds should fail closed because the guard may have missed a raw system peak
-    And one raw same-snapshot complete client-browser sum above 250 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop all exact tracked roles while the violation report retains separate role CPU
+    And the exact 7076-element high-performance case should use a 400-percent raw same-snapshot complete client-browser limit while 16-item and 1280-item safety or attribution cases retain 250 percent
+    And one raw same-snapshot complete client-browser sum above the active proof-class limit or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop all exact tracked roles while the violation report retains separate role CPU
     And only the highest complete raw client-browser snapshot should be retained as the frontend performance peak while backend and harness CPU remain excluded from that peak
     And subtracting cumulative process CPU time, dividing by elapsed wall time, normalizing to the polling cadence, averaging snapshots, or otherwise converting an interval into CPU percent should never determine the formal peak, pass, failure, or stop
     And raw system percent-CPU snapshots and phaseCpuMaximums should never be used as owner attribution
@@ -98,7 +99,7 @@ Feature: Conversational AI drawing performance
     And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
     And each attribution invocation may retain one request-wide cumulative process CPU-time boundary as direct non-percentage milliseconds per role
     And ordered browser-monotonic owner spans should distinguish provider request and batch handoff, Runtime resolution, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
-    And every boundary sample should pass the same raw same-snapshot 250-percent frontend and 400-percent aggregate safety evaluations and require exact PID-set equality while any observed process identity change across samples should make attribution invalid
+    And every boundary sample should pass the same active proof-class raw same-snapshot frontend and fixed 400-percent aggregate safety evaluations and require exact PID-set equality while any observed process identity change across samples should make attribution invalid
     And raw operating-system CPU should never become the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
@@ -109,7 +110,7 @@ Feature: Conversational AI drawing performance
     And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
     And a local-attribution complete heartbeat should use a distinct proof kind, validate Actor A only, carry no Actor B report, and never create an accepted endpoint baseline
     And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
-    And one raw same-snapshot complete client-browser sum above 250 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop the benchmark immediately and mark the active endpoint as an invalid architecture attempt
+    And one raw same-snapshot complete client-browser sum above 400 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop the 7076-element benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
@@ -137,6 +138,15 @@ Feature: Conversational AI drawing performance
     Then the converted 397.203-percent frontend value and 401.175-percent aggregate value should be rejected as formal peak and stop evidence
     And the attempt should create no accepted baseline, architecture-attempt count, or next-owner selection
     And no replacement 7076-element run should start before contract review, focused guard correction, a corrected guarded 16-item proof, bounded review, and explicit product-owner approval
+
+  Scenario: Revised high-performance threshold requires a corrected local-source proof
+    Given the earlier local-source 7076-element attempt stopped at a raw same-snapshot frontend value of 251.7 percent
+    And its same-snapshot aggregate value was 259.0 percent
+    When the product owner classifies 7076 elements as a high-performance test with a 400-percent frontend limit
+    Then the earlier stop should remain raw observation evidence but should not be accepted as a limit violation or completed endpoint proof
+    And guarded 16-item and 1280-item cases should retain their 250-percent frontend limit
+    And every case should retain the 400-percent aggregate hard safety limit
+    And one corrected local-source 7076-element proof should run after focused threshold tests and bounded review before remote apply advances
 
   Scenario: Two-Actor 16-item activity separates operation from settled idle
     Given production build commands completed as separate setup outside the runtime guard
@@ -542,7 +552,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
-    And the 250-percent frontend and 400-percent aggregate resource guards own the production App, browser, harness, and WebSocket server processes
+    And the 400-percent frontend and 400-percent aggregate high-performance resource guards own the production App, browser, harness, and WebSocket server processes
     And the independently attested response preview overlay is served instead of modifying canonical production dist
     And Contents, request-time response inbox access, document IndexedDB, HMR, media, warm-up, and repeat are absent
     When Actor A creates the server-prepared 7076-element high-detail composition once

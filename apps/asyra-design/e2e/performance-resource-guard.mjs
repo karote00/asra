@@ -97,18 +97,21 @@ const normalizeRequiredProcessRoles = (value) => {
 
 const mergeConfig = (config = {}) => {
   const guardMode = config.guardMode === 'diagnostic' ? 'diagnostic' : 'proof'
+  const requiredProofKind = PROOF_KINDS.has(config.requiredProofKind)
+    ? config.requiredProofKind
+    : 'endpoint'
   const maximumCpuPercentCeiling =
     DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
   const maximumFrontendCpuPercentCeiling =
-    DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent
+    requiredProofKind === 'endpoint'
+      ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+      : DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent
 
   return {
     ...DEFAULT_RESOURCE_GUARD_CONFIG,
     ...config,
     guardMode,
-    requiredProofKind: PROOF_KINDS.has(config.requiredProofKind)
-      ? config.requiredProofKind
-      : 'endpoint',
+    requiredProofKind,
     requiredProcessRoles: normalizeRequiredProcessRoles(
       config.requiredProcessRoles
     ),
@@ -2549,7 +2552,9 @@ export const buildEndpointPerformancePhases = ({
         guardMode: 'proof',
         maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
         maximumFrontendCpuPercent:
-          DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent,
+          requiredProofKind === 'endpoint'
+            ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+            : DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent,
         requiredProofKind,
         requiredProcessRoles: [...TRACKED_PROCESS_ROLES]
       },

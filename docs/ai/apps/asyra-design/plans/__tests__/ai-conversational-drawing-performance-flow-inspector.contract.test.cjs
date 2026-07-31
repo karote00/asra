@@ -774,7 +774,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /one complete operating-system ps snapshot.*raw percent-CPU.*250 milliseconds.*not a measurement window.*never.*CPU-percentage formula.*raw same-snapshot.*250 percent.*aggregate.*400 percent/i
+    /one complete operating-system ps snapshot.*raw percent-CPU.*250 milliseconds.*not a measurement window.*never.*CPU-percentage formula.*raw same-snapshot.*400 percent.*7,076-element.*250 percent.*16-item.*1,280-item.*aggregate.*400 percent/i
   )
   assert.match(
     text,
@@ -815,7 +815,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /phase-boundary sample.*raw same-snapshot 250-percent frontend.*400-percent aggregate safety evaluations.*exact PID set equality.*observed process identity change.*attribution invalid/i
+    /phase-boundary sample.*active proof-class raw same-snapshot frontend evaluation.*400 percent.*7,076-element.*250 percent.*16-item and 1,280-item.*400-percent aggregate safety evaluation.*exact PID set equality.*observed process identity change.*attribution invalid/i
   )
   assert.match(
     text,
@@ -879,7 +879,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /single raw operating-system snapshot.*complete client-browser sum.*above 250 percent.*aggregate.*above 400 percent.*immediately.*architecture attempt invalid/i
+    /single raw operating-system snapshot.*complete client-browser sum.*active proof-class limit.*400 percent.*7,076-element.*250 percent.*16-item and 1,280-item.*aggregate.*above 400 percent.*immediately.*architecture attempt invalid/i
   )
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
@@ -908,7 +908,15 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*raw same-snapshot complete client-browser sum above 250 percent[\s\S]*raw same-snapshot aggregate.*above 400 percent[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
+    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*400-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*above 400 percent[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
+  )
+  assert.match(
+    text,
+    /exact guarded 7,076-element creation-only endpoint.*high-performance test.*400-percent raw same-snapshot complete client-browser limit.*16-item and 1,280-item.*250-percent frontend limit.*400-percent raw same-snapshot aggregate/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Revised high-performance threshold requires a corrected local-source proof[\s\S]*251\.7 percent[\s\S]*259\.0 percent[\s\S]*400-percent frontend limit[\s\S]*not be accepted as a limit violation or completed endpoint proof[\s\S]*250-percent frontend limit[\s\S]*400-percent aggregate hard safety limit[\s\S]*before remote apply advances/i
   )
   assert.match(
     feature,
@@ -916,7 +924,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*client-browser.*250 percent[\s\S]*aggregate.*400 percent[\s\S]*separate role CPU/i
+    /fixed tracked roles.*test-harness.*client-browser.*app-server.*websocket-server[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*7076-element high-performance case.*400-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*aggregate.*400 percent[\s\S]*separate role CPU/i
   )
   assert.match(
     feature,

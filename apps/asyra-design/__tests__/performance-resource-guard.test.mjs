@@ -1317,6 +1317,39 @@ test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
   assert.equal(result.state.overallCpuLimitViolationSample, null)
 })
 
+test('allows the exact endpoint proof to use the 400% high-detail frontend ceiling', () => {
+  const state = createResourceGuardState({
+    nowMs: 0,
+    config: {
+      maximumFrontendCpuPercent: 400,
+      requiredProofKind: 'endpoint'
+    }
+  })
+  const result = evaluateResourceSample(
+    state,
+    {
+      ...trackedCpuSample({
+        cpuPercent: 300,
+        nowMs: 1_000,
+        processes: [{ cpuTimeMs: 100, pid: 1, role: 'client-browser' }],
+        trackedProcessRoles: ['client-browser']
+      }),
+      roleCpuPercent: {
+        appServer: 0,
+        clientBrowser: 300,
+        testHarness: 0,
+        unknown: 0,
+        websocketServer: 0
+      }
+    },
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(result.accepted, true)
+  assert.equal(result.decision.stop, false)
+  assert.equal(result.state.config.maximumFrontendCpuPercent, 400)
+})
+
 test('allows every tracked process-group sample at or below 400% aggregate CPU', () => {
   let state = createResourceGuardState({ nowMs: 0 })
 
@@ -2672,7 +2705,7 @@ test('builds only the guarded Playwright runtime after separate production setup
   assert.deepEqual(phases[0].guardConfig, {
     guardMode: 'proof',
     maximumCpuPercent: 400,
-    maximumFrontendCpuPercent: 250,
+    maximumFrontendCpuPercent: 400,
     requiredProofKind: 'endpoint',
     requiredProcessRoles: [
       'test-harness',
@@ -2724,6 +2757,7 @@ test('builds each single-Actor attribution with the always-on WebSocket service'
       'websocket-server'
     ])
     assert.equal(phases[0].guardConfig.requiredProofKind, 'local-attribution')
+    assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
     assert.equal(
       phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
       attributionCase
@@ -2753,6 +2787,7 @@ test('builds the two-Actor 16-item operation and idle diagnostic as one endpoint
     phases[0].guardConfig.requiredProofKind,
     'collaboration-attribution'
   )
+  assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
   assert.deepEqual(phases[0].argv.slice(-2), [
     '--grep',
     'two-Actor 16-item operation and idle attribution'
