@@ -9,6 +9,7 @@ import { SharedDataChannelNames } from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
+  type FactoryMutationBatchAppliedResult,
   type FactoryMutationBatchArtifact,
   type FactoryMutationDeliverySequence,
   type SharedDeliveryBatch,
@@ -171,9 +172,15 @@ describe('Factory batch regression contracts', () => {
       }
     )
     const artifacts: FactoryMutationBatchArtifact[] = []
+    let appliedResult: FactoryMutationBatchAppliedResult | undefined
     factory.subscribeToMutationBatchArtifact((artifact) =>
       artifacts.push(artifact)
     )
+    factory.subscribeToMutationBatchArtifactStatus((status) => {
+      if (status.status === 'committed') {
+        appliedResult = status.appliedResult
+      }
+    })
 
     factory.startTransaction()
     const handle = factory.updateTransactionBatch([
@@ -208,9 +215,7 @@ describe('Factory batch regression contracts', () => {
         ).deliveryId
     )
     expect(recordDeliveryIds.every(Boolean)).toBe(true)
-    expect(forwardArtifact?.changes[0]?.shared?.deliveryIds).toEqual([
-      recordDeliveryIds[0]
-    ])
+    expect(appliedResult?.deliveryIds).toEqual([recordDeliveryIds[0]])
 
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -838,5 +843,46 @@ describe('Factory batch regression contracts', () => {
       ])
     ).not.toThrow()
     expect(() => factory.endTransaction()).not.toThrow()
+  })
+
+  it('isolates a shallow-frozen external batch before the journal handoff', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const artifacts: FactoryMutationBatchArtifact[] = []
+    factory.subscribeToMutationBatchArtifact((artifact) =>
+      artifacts.push(artifact)
+    )
+    const event = createUpdateEvent(
+      'element-a',
+      SharedDataChannelNames.SCENE_TREE,
+      EventTypes.UPDATE_PROPERTY,
+      {
+        orderedIds: ['element-a'],
+        sharedRecords: [createRecord('element-a')]
+      }
+    )
+    const externalBatch = Object.freeze([event])
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(externalBatch)
+
+    expect(Object.isFrozen(event)).toBe(false)
+    expect(Object.isFrozen(event.payload)).toBe(false)
+    expect(Object.isFrozen(event.canonicalEvidence)).toBe(false)
+    ;(event.payload as { id: string }).id = 'caller-mutated'
+    ;(event.canonicalEvidence?.orderedIds as string[])[0] = 'caller-mutated'
+    factory.endTransaction()
+
+    expect(
+      (
+        artifacts[0]?.changes[0]?.event as
+          | (AllEvent & { payload?: { id?: string } })
+          | undefined
+      )?.payload?.id
+    ).toBe('element-a')
+    expect(artifacts[0]?.changes[0]?.orderedIds).toEqual(['element-a'])
   })
 })

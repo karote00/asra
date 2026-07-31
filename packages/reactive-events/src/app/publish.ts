@@ -122,6 +122,13 @@ const cloneTransactionValue = <T>(
   return clone as T
 }
 
+const detachedTransactionValues = new WeakSet<object>()
+
+export const isDetachedTransactionValue = (value: unknown): boolean =>
+  value !== null &&
+  typeof value === 'object' &&
+  detachedTransactionValues.has(value)
+
 const deepFreezeTransactionValue = <T>(
   value: T,
   seen = new WeakSet<object>()
@@ -138,13 +145,15 @@ const deepFreezeTransactionValue = <T>(
   Reflect.ownKeys(object).forEach((key) => {
     deepFreezeTransactionValue(Reflect.get(object, key), seen)
   })
-  return Object.freeze(value)
+  Object.freeze(value)
+  detachedTransactionValues.add(object)
+  return value
 }
 
 const detachTransactionEvents = (
   events: readonly UpdateTransactionEvent[]
 ): readonly UpdateTransactionEvent[] =>
-  Object.isFrozen(events)
+  isDetachedTransactionValue(events)
     ? events
     : deepFreezeTransactionValue(cloneTransactionValue([...events]))
 

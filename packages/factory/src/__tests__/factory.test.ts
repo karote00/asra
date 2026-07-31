@@ -3,10 +3,10 @@ import { Factory } from '../factory'
 import { LocalSharedDataChannel } from '../shared-data-channel'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
+  type AllEvent,
   EventTypes,
   getTransactionOwner,
   subscribeToEndTransaction,
-  subscribeToEvents,
   subscribeToUserActionCompleted,
   updateTransaction,
   UpdateTransactionEvent,
@@ -29,6 +29,7 @@ describe('Factory', () => {
     // Spy on the methods of the actual DataTransact instance
     vi.spyOn(factory.transact, 'start')
     vi.spyOn(factory.transact, 'update')
+    vi.spyOn(factory.transact, 'updateBatch')
     vi.spyOn(factory.transact, 'end')
     vi.spyOn(factory.transact, 'undo')
     vi.spyOn(factory.transact, 'redo')
@@ -39,15 +40,18 @@ describe('Factory', () => {
     expect(factory.transact.start).toHaveBeenCalledTimes(1)
   })
 
-  it('should call DataTransact.update when updateTransaction is called', () => {
+  it('delegates the public scalar update through Factory batch-of-one', () => {
     const mockEvent: UpdateTransactionEvent = {
       type: TransactionEventTypes.UPDATE_TRANSACTION,
       eventName: 'test-event',
       payload: { changes: [] }
     }
+    const updateBatch = vi.spyOn(factory, 'updateTransactionBatch')
+
     factory.updateTransaction(mockEvent)
-    expect(factory.transact.update).toHaveBeenCalledTimes(1)
-    expect(factory.transact.update).toHaveBeenCalledWith(mockEvent)
+
+    expect(updateBatch).toHaveBeenCalledOnce()
+    expect(updateBatch).toHaveBeenCalledWith([mockEvent])
   })
 
   it('exposes the canonical batch handoff on the owning transaction owner', () => {
@@ -57,15 +61,20 @@ describe('Factory', () => {
     const events: readonly UpdateTransactionEvent[] = [
       {
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'batch-owner', before: 0, after: 1 }
       }
     ]
 
     expect(typeof owner.updateTransactionBatch).toBe('function')
+    expect('updateTransaction' in owner).toBe(false)
     owner.updateTransactionBatch(events)
     expect(updateBatch).toHaveBeenCalledOnce()
-    expect(updateBatch).toHaveBeenCalledWith(events, undefined)
+    expect(updateBatch).toHaveBeenCalledWith(events)
+  })
+
+  it('does not expose a scalar shared-delivery subscription route', () => {
+    expect('subscribeToSharedDelivery' in factory).toBe(false)
   })
 
   it('should call DataTransact.end when endTransaction is called', () => {
@@ -82,14 +91,20 @@ describe('Factory', () => {
     factory.subscribeToTransactionStatus((status) => statuses.push(status))
 
     factory.runRemoteTransaction(() => {
-      updateTransaction(
-        EventTypes.UPDATE_COMPUTED_DATA,
-        { id: 'remote', before: 0, after: 1 },
-        { undoable: true, rollbackable: false }
-      )
+      updateTransaction({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: { id: 'remote', before: 0, after: 1 },
+        options: { undoable: true, rollbackable: false }
+      })
     })
 
-    expect(factory.transact.update).toHaveBeenCalledTimes(1)
+    expect(factory.transact.updateBatch).toHaveBeenCalledTimes(1)
+    expect(factory.transact.updateBatch).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventName: EventTypes.UPDATE_PROPERTY
+      })
+    ])
     expect(statuses).toEqual([
       expect.objectContaining({
         origin: 'remote',
@@ -110,7 +125,7 @@ describe('Factory', () => {
     const events: readonly UpdateTransactionEvent[] = [
       {
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'remote-batch-owner', before: 0, after: 1 }
       }
     ]
@@ -124,7 +139,7 @@ describe('Factory', () => {
     })
 
     expect(updateBatch).toHaveBeenCalledOnce()
-    expect(updateBatch).toHaveBeenCalledWith(events, undefined)
+    expect(updateBatch).toHaveBeenCalledWith(events)
     expect(publications).not.toHaveBeenCalled()
     expect(captures).not.toHaveBeenCalled()
     expect(statuses).toEqual([
@@ -159,24 +174,26 @@ describe('Factory', () => {
     factory.registerTransactionReplayHandler(EventTypes.CHANGE_SUBTREE, replay)
 
     factory.runRemoteTransaction(() => {
-      updateTransaction(
-        EventTypes.ADD_PROPERTY,
-        {
+      updateTransaction({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.ADD_PROPERTY,
+        payload: {
           action: PROPS_ACTIONS.ADD_PROPERTY,
           undoType: EventTypes.REMOVE_PROPERTY,
           undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
           eventName: EventTypes.ADD_PROPERTY,
           data: [{ id: 'position-group-a', type: 'position' }]
         },
-        {
+        options: {
           shared: SharedDataChannelNames.PROPS,
           undoable: true,
           rollbackable: false
         }
-      )
-      updateTransaction(
-        EventTypes.CHANGE_SUBTREE,
-        {
+      })
+      updateTransaction({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        payload: {
           action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
           undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
           eventName: EventTypes.CHANGE_SUBTREE,
@@ -196,12 +213,12 @@ describe('Factory', () => {
           ],
           rootParentChildrenAfter: []
         },
-        {
+        options: {
           shared: SharedDataChannelNames.SCENE_TREE,
           undoable: true,
           rollbackable: false
         }
-      )
+      })
     })
 
     expect(projections).toEqual(['props', 'scene'])
@@ -266,21 +283,23 @@ describe('Factory', () => {
     expect(() =>
       factory.runRemoteTransaction(() => {
         propsActive = true
-        updateTransaction(
-          EventTypes.ADD_PROPERTY,
-          {
+        updateTransaction({
+          type: EventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.ADD_PROPERTY,
+          payload: {
             action: PROPS_ACTIONS.ADD_PROPERTY,
             undoType: EventTypes.REMOVE_PROPERTY,
             undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
             eventName: EventTypes.ADD_PROPERTY,
             data: [{ id: 'position-group-a', type: 'position' }]
           },
-          { shared: SharedDataChannelNames.PROPS }
-        )
+          options: { shared: SharedDataChannelNames.PROPS }
+        })
         sceneActive = true
-        updateTransaction(
-          EventTypes.CHANGE_SUBTREE,
-          {
+        updateTransaction({
+          type: EventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.CHANGE_SUBTREE,
+          payload: {
             action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
             undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
             eventName: EventTypes.CHANGE_SUBTREE,
@@ -300,8 +319,8 @@ describe('Factory', () => {
             ],
             rootParentChildrenAfter: []
           },
-          { shared: SharedDataChannelNames.SCENE_TREE }
-        )
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
         throw new Error('remote restore settlement failed')
       })
     ).toThrow('remote restore settlement failed')
@@ -328,11 +347,12 @@ describe('Factory', () => {
 
     try {
       factory.runRemoteTransaction(() => {
-        updateTransaction(
-          EventTypes.UPDATE_COMPUTED_DATA,
-          { id: 'remote', before: 0, after: 1 },
-          { shared: SharedDataChannelNames.SCENE_TREE }
-        )
+        updateTransaction({
+          type: EventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          payload: { id: 'remote', before: 0, after: 1 },
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
       })
 
       expect(order).toEqual(['projection', 'end'])
@@ -345,18 +365,16 @@ describe('Factory', () => {
   it('forwards one remote event unchanged without state-owner payload interpretation', () => {
     const appliedEvents: unknown[] = []
     const event = {
-      type: EventTypes.UPDATE_COMPUTED_DATA,
+      type: 'factory.test.remote-opaque-event',
       payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
         id: 'remote-element',
         changes: [
-          { owner: 'computed', key: 'x', before: 0, after: 1 },
-          { owner: 'computed', key: 'x', before: 1, after: 2 },
-          { owner: 'computed', key: 'x', before: 2, after: 1 }
+          { owner: 'custom', key: 'x', before: 0, after: 1 },
+          { owner: 'custom', key: 'x', before: 1, after: 2 },
+          { owner: 'custom', key: 'x', before: 2, after: 1 }
         ]
       }
-    } as const
+    } as unknown as AllEvent
 
     const applied = factory.runRemoteTransaction(() =>
       factory.applyRemoteEvent(event, (forwardEvent) => {
@@ -368,22 +386,22 @@ describe('Factory', () => {
     expect(applied).toBe(true)
     expect(appliedEvents).toEqual([event])
     expect(appliedEvents[0]).not.toBe(event)
-    expect((appliedEvents[0] as typeof event).payload).not.toBe(event.payload)
+    expect((appliedEvents[0] as { payload: unknown }).payload).not.toBe(
+      (event as unknown as { payload: unknown }).payload
+    )
   })
 
   it('reports the state owner result for the one forwarded remote event', () => {
     const event = {
-      type: EventTypes.UPDATE_COMPUTED_DATA,
+      type: 'factory.test.remote-owner-result',
       payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
         id: 'remote-element',
         changes: [
-          { owner: 'computed', key: 'x', before: 0, after: 1 },
-          { owner: 'computed', key: 'y', before: 0, after: 1 }
+          { owner: 'custom', key: 'x', before: 0, after: 1 },
+          { owner: 'custom', key: 'y', before: 0, after: 1 }
         ]
       }
-    } as const
+    } as unknown as AllEvent
 
     const noOp = factory.runRemoteTransaction(() =>
       factory.applyRemoteEvent(event, () => false)
@@ -417,7 +435,7 @@ describe('Factory', () => {
     first.startTransaction()
     first.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'first', before: 0, after: 1 }
     })
     first.endTransaction()
@@ -449,7 +467,7 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'capture-order', before: 0, after: 1 }
     })
 
@@ -471,7 +489,7 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'value', before: 0, after: 1 }
     })
 
@@ -491,7 +509,7 @@ describe('Factory', () => {
     isolatedFactory.startTransaction()
     isolatedFactory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'value', before: 0, after: 1 }
     })
     isolatedFactory.endTransaction()
@@ -515,7 +533,7 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'capture-replay', before: 0, after: 1 }
     })
     factory.endTransaction()
@@ -532,7 +550,7 @@ describe('Factory', () => {
     factory.runRemoteTransaction(() => {
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'remote-capture-bypass', before: 0, after: 1 }
       })
     })
@@ -549,7 +567,7 @@ describe('Factory', () => {
     customFactory.startTransaction()
     customFactory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'custom', before: 0, after: 1 }
     })
     customFactory.endTransaction()
@@ -584,7 +602,7 @@ describe('Factory', () => {
     )
     const sharedEvent: UpdateTransactionEvent = {
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'test-event', before: 0, after: 1 },
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     }
@@ -615,7 +633,7 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'non-undoable-test-event',
         before: 0,
@@ -646,7 +664,7 @@ describe('Factory', () => {
 
     interface OrderedChange {
       id: string
-      owner: 'raw' | 'computed'
+      owner: 'shape' | 'stroke'
       before: number
       after: number
       evidence: { sequence: number }
@@ -665,9 +683,9 @@ describe('Factory', () => {
     factory.startTransaction()
     ;[1, 2, 3].forEach((sequence) => {
       const payload = {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
         id: 'ordered-element',
-        owner: sequence % 2 === 0 ? ('raw' as const) : ('computed' as const),
+        owner: sequence % 2 === 0 ? ('shape' as const) : ('stroke' as const),
         key: 'x',
         before: sequence - 1,
         after: sequence,
@@ -675,7 +693,7 @@ describe('Factory', () => {
       }
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload,
         options: { shared: SharedDataChannelNames.SCENE_TREE }
       })
@@ -691,7 +709,7 @@ describe('Factory', () => {
     const expectedChanges = [1, 2, 3].map((sequence) =>
       expect.objectContaining({
         id: 'ordered-element',
-        owner: sequence % 2 === 0 ? 'raw' : 'computed',
+        owner: sequence % 2 === 0 ? 'shape' : 'stroke',
         before: sequence - 1,
         after: sequence,
         evidence: { sequence }
@@ -703,11 +721,11 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
         id: 'rolled-back-element',
-        owner: 'computed',
+        owner: 'stroke',
         key: 'x',
         before: 0,
         after: 1
@@ -746,7 +764,7 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'test-event', before: 0, after: 1 },
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     })
@@ -778,7 +796,7 @@ describe('Factory', () => {
     expect(() =>
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'observer-safe', before: 0, after: 1 },
         options: {
           shared: SharedDataChannelNames.SCENE_TREE,
@@ -809,7 +827,7 @@ describe('Factory', () => {
     expect(() =>
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'compensated', before: 0, after: 1 },
         options: {
           shared: SharedDataChannelNames.SCENE_TREE,
@@ -823,213 +841,5 @@ describe('Factory', () => {
       expect.objectContaining({ id: 'compensated', before: 0, after: 1 }),
       expect.objectContaining({ id: 'compensated', before: 1, after: 0 })
     ])
-  })
-
-  it('inverts computed patch payloads during undo and replays original patch during redo', () => {
-    const observedPatches: unknown[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
-        'payload' in event
-      ) {
-        observedPatches.push((event.payload as { patch: unknown }).patch)
-      }
-    })
-    observedPatches.length = 0
-
-    const payload = {
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      id: 'vector-1',
-      patch: {
-        values: {
-          x: { before: 0, after: 10 }
-        },
-        records: {
-          points: {
-            set: {
-              A: {
-                before: { id: 'A', x: 0, y: 0 },
-                after: { id: 'A', x: 10, y: 10 }
-              },
-              U: {
-                before: undefined,
-                after: { id: 'U', x: 15, y: 15 }
-              },
-              B: {
-                after: { id: 'B', x: 20, y: 20 }
-              }
-            },
-            remove: {
-              C: {
-                before: { id: 'C', x: 30, y: 30 }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      payload
-    })
-    factory.endTransaction()
-
-    factory.undo()
-    factory.redo()
-
-    expect(observedPatches).toEqual([
-      {
-        values: {
-          x: { before: 10, after: 0 }
-        },
-        records: {
-          points: {
-            set: {
-              A: {
-                before: { id: 'A', x: 10, y: 10 },
-                after: { id: 'A', x: 0, y: 0 }
-              },
-              U: {
-                before: { id: 'U', x: 15, y: 15 },
-                after: undefined
-              },
-              C: {
-                after: { id: 'C', x: 30, y: 30 }
-              }
-            },
-            remove: {
-              B: {
-                before: { id: 'B', x: 20, y: 20 }
-              }
-            }
-          }
-        }
-      },
-      payload.patch
-    ])
-
-    subscription.unsubscribe()
-  })
-
-  it('treats an inherited record before value as absent during patch inversion', () => {
-    const observedPatches: unknown[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
-        'payload' in event
-      ) {
-        observedPatches.push((event.payload as { patch: unknown }).patch)
-      }
-    })
-    const inheritedChange = Object.assign(
-      Object.create({ before: { id: 'A', x: 0, y: 0 } }) as {
-        before: { id: string; x: number; y: number }
-        after: { id: string; x: number; y: number }
-      },
-      { after: { id: 'A', x: 10, y: 10 } }
-    )
-
-    factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        id: 'vector-inherited-before',
-        patch: {
-          records: {
-            points: {
-              set: { A: inheritedChange }
-            }
-          }
-        }
-      }
-    })
-    factory.endTransaction()
-
-    factory.undo()
-
-    expect(observedPatches[0]).toEqual({
-      records: {
-        points: {
-          remove: {
-            A: { before: { id: 'A', x: 10, y: 10 } }
-          }
-        }
-      }
-    })
-
-    subscription.unsubscribe()
-  })
-
-  it('preserves special own record ids while inverting computed patches', () => {
-    const observedPatches: unknown[] = []
-    const subscription = subscribeToEvents((event) => {
-      if (
-        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
-        'payload' in event
-      ) {
-        observedPatches.push((event.payload as { patch: unknown }).patch)
-      }
-    })
-    const recordSet: Record<string, unknown> = {}
-    Object.defineProperty(recordSet, '__proto__', {
-      value: {
-        after: { id: '__proto__', x: 10, y: 20 }
-      },
-      enumerable: true,
-      configurable: true,
-      writable: true
-    })
-
-    factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        id: 'vector-special-id',
-        patch: {
-          records: {
-            points: { set: recordSet }
-          }
-        }
-      }
-    })
-    factory.endTransaction()
-
-    factory.undo()
-    factory.redo()
-
-    const inverseRemove = (
-      observedPatches[0] as {
-        records: { points: { remove: Record<string, unknown> } }
-      }
-    ).records.points.remove
-    const replaySet = (
-      observedPatches[1] as {
-        records: { points: { set: Record<string, unknown> } }
-      }
-    ).records.points.set
-    expect(
-      Object.prototype.hasOwnProperty.call(inverseRemove, '__proto__')
-    ).toBe(true)
-    expect(inverseRemove['__proto__']).toEqual({
-      before: { id: '__proto__', x: 10, y: 20 }
-    })
-    expect(Object.prototype.hasOwnProperty.call(replaySet, '__proto__')).toBe(
-      true
-    )
-    expect(replaySet['__proto__']).toEqual({
-      after: { id: '__proto__', x: 10, y: 20 }
-    })
-
-    subscription.unsubscribe()
   })
 })

@@ -5,7 +5,7 @@ import {
   Factory,
   LocalSharedDataChannel,
   type SharedDataChannel,
-  type SharedDelivery
+  type SharedDeliveryBatch
 } from '..'
 
 const update = (
@@ -16,7 +16,7 @@ const update = (
 ) => {
   factory.updateTransaction({
     type: TransactionEventTypes.UPDATE_TRANSACTION,
-    eventName: EventTypes.UPDATE_COMPUTED_DATA,
+    eventName: EventTypes.UPDATE_PROPERTY,
     payload: { id: 'shared-delivery', before: 0, after: 1 },
     options: {
       shared: SharedDataChannelNames.SCENE_TREE,
@@ -34,9 +34,9 @@ const createHarness = () => {
     SharedDataChannelNames.SCENE_TREE,
     (change) => projected.push(change)
   )
-  const deliveries: SharedDelivery[] = []
-  factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
-  return { factory, deliveries, projected }
+  const deliveryBatches: SharedDeliveryBatch[] = []
+  factory.subscribeToSharedDeliveryBatch((batch) => deliveryBatches.push(batch))
+  return { factory, deliveryBatches, projected }
 }
 
 describe('Factory local shared delivery contract', () => {
@@ -79,67 +79,107 @@ describe('Factory local shared delivery contract', () => {
     ).toBe(true)
   })
 
-  it('uses custom appendBatch only when the channel declares an atomic batch boundary', () => {
-    const appended: unknown[] = []
-    const appendBatch = vi.fn(() => {
-      throw new Error('unmarked appendBatch must not be used')
+  it('delivers one ordered built-in batch to an observer snapshot', () => {
+    const channel = new LocalSharedDataChannel()
+    const firstBatches: (readonly unknown[])[] = []
+    const secondObserver = vi.fn()
+    const lateObserver = vi.fn()
+    let disposeSecond: () => void = () => undefined
+    channel.observeBatch((batch) => {
+      firstBatches.push(batch)
+      disposeSecond()
+      channel.observeBatch(lateObserver)
     })
-    const channel: SharedDataChannel = {
-      append: (change) => appended.push(change),
-      appendBatch,
-      observe: () => () => undefined
-    }
-    const factory = new Factory()
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      channel
-    )
+    disposeSecond = channel.observeBatch(secondObserver)
+    const source: [
+      { id: string; nested: { value: number } },
+      { id: string; nested: { value: number } }
+    ] = [
+      { id: 'first', nested: { value: 1 } },
+      { id: 'second', nested: { value: 2 } }
+    ]
 
-    factory.startTransaction()
-    update(factory)
-    update(factory)
+    channel.appendBatch(source)
+    source[0].nested.value = 99
 
-    expect(() => factory.endTransaction()).not.toThrow()
-    expect(appendBatch).not.toHaveBeenCalled()
-    expect(appended).toHaveLength(2)
+    expect(secondObserver).toHaveBeenCalledTimes(1)
+    expect(lateObserver).not.toHaveBeenCalled()
+    expect(secondObserver.mock.calls[0]?.[0]).toBe(firstBatches[0])
+    expect(firstBatches[0]).toEqual([
+      { id: 'first', nested: { value: 1 } },
+      { id: 'second', nested: { value: 2 } }
+    ])
+    expect(Object.isFrozen(firstBatches[0])).toBe(true)
+    expect(Object.isFrozen(firstBatches[0]?.[0])).toBe(true)
+    expect(
+      Object.isFrozen(
+        (firstBatches[0]?.[0] as { nested: { value: number } }).nested
+      )
+    ).toBe(true)
+
+    channel.appendBatch([{ id: 'next' }])
+
+    expect(secondObserver).toHaveBeenCalledTimes(1)
+    expect(lateObserver).toHaveBeenCalledTimes(1)
   })
 
-  it('delivers one grouped batch through an explicitly atomic custom channel', () => {
-    const append = vi.fn()
-    const appendBatch = vi.fn()
-    const channel: SharedDataChannel = {
-      batchAppendIsAtomic: true,
-      append,
-      appendBatch,
-      observe: () => () => undefined
+  it.each([
+    [
+      'appendBatch',
+      {
+        observeBatch: () => () => undefined
+      }
+    ],
+    [
+      'observeBatch',
+      {
+        appendBatch: () => undefined
+      }
+    ]
+  ])(
+    'rejects registration when a custom channel omits required %s',
+    (missingMethod, incompleteChannel) => {
+      const factory = new Factory()
+
+      expect(() =>
+        factory.registerSharedDataChannel(
+          SharedDataChannelNames.SCENE_TREE,
+          incompleteChannel as unknown as SharedDataChannel
+        )
+      ).toThrow(new RegExp(missingMethod))
+      expect(
+        factory.hasSharedDataChannel(SharedDataChannelNames.SCENE_TREE)
+      ).toBe(false)
     }
-    const factory = new Factory()
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      channel
-    )
+  )
 
-    factory.startTransaction()
-    update(factory)
-    update(factory)
-    factory.endTransaction()
-
-    expect(append).not.toHaveBeenCalled()
-    expect(appendBatch).toHaveBeenCalledTimes(1)
-    expect(appendBatch.mock.calls[0]?.[0]).toHaveLength(2)
-  })
-
-  it('fans a legacy single observer out to batch observers with one frozen identity', () => {
-    const sourceHandlers = new Set<(change: unknown) => void>()
-    const channel: SharedDataChannel = {
-      append: (change) => {
-        ;[...sourceHandlers].forEach((handler) => handler(change))
-      },
-      observe: (handler) => {
+  it('uses one exact custom batch shape without legacy flags or capability probes', () => {
+    const sourceHandlers = new Set<(changes: readonly unknown[]) => void>()
+    const appendBatch = vi.fn((changes: readonly unknown[]) => {
+      ;[...sourceHandlers].forEach((handler) => handler(changes))
+    })
+    const target = {
+      appendBatch,
+      observeBatch: (handler: (changes: readonly unknown[]) => void) => {
         sourceHandlers.add(handler)
         return () => sourceHandlers.delete(handler)
       }
     }
+    const channel = new Proxy(target, {
+      get: (batchChannel, property, receiver) => {
+        if (
+          property === 'append' ||
+          property === 'observe' ||
+          property === 'batchAppendIsAtomic'
+        ) {
+          throw new Error(`legacy capability probe: ${String(property)}`)
+        }
+        return Reflect.get(batchChannel, property, receiver)
+      },
+      getPrototypeOf: () => {
+        throw new Error('prototype inspection is forbidden')
+      }
+    }) as SharedDataChannel
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -151,7 +191,11 @@ describe('Factory local shared delivery contract', () => {
       SharedDataChannelNames.SCENE_TREE,
       (batch) => {
         firstBatches.push(batch)
-        ;(batch[0] as { after: number }).after = 99
+        ;(
+          batch[0] as {
+            after: { value: number }
+          }
+        ).after.value = 99
       }
     )
     factory.observeSharedDataChannelBatch(
@@ -159,16 +203,42 @@ describe('Factory local shared delivery contract', () => {
       (batch) => laterBatches.push(batch)
     )
 
-    expect(sourceHandlers.size).toBe(1)
     factory.startTransaction()
-    update(factory)
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_PROPERTY,
+      payload: {
+        id: 'custom-native-batch-a',
+        before: { value: 0 },
+        after: { value: 1 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_PROPERTY,
+      payload: {
+        id: 'custom-native-batch-b',
+        before: { value: 1 },
+        after: { value: 2 }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
     factory.endTransaction()
 
+    expect(appendBatch).toHaveBeenCalledTimes(1)
+    expect(appendBatch.mock.calls[0]?.[0]).toHaveLength(2)
     expect(firstBatches).toHaveLength(1)
     expect(laterBatches).toHaveLength(1)
     expect(firstBatches[0]).toBe(laterBatches[0])
+    expect(
+      laterBatches[0]?.map((change) => (change as { id: string }).id)
+    ).toEqual(['custom-native-batch-a', 'custom-native-batch-b'])
     expect(laterBatches[0]?.[0]).toEqual(
-      expect.objectContaining({ before: 0, after: 1 })
+      expect.objectContaining({
+        before: { value: 0 },
+        after: { value: 1 }
+      })
     )
     expect(Object.isFrozen(laterBatches[0])).toBe(true)
     expect(Object.isFrozen(laterBatches[0]?.[0])).toBe(true)
@@ -176,20 +246,15 @@ describe('Factory local shared delivery contract', () => {
 
   it('fans a custom native batch observer out once with one frozen identity', () => {
     const sourceHandlers = new Set<(changes: readonly unknown[]) => void>()
-    const channel: SharedDataChannel = {
-      batchAppendIsAtomic: true,
-      append: (change) => {
-        ;[...sourceHandlers].forEach((handler) => handler([change]))
-      },
-      appendBatch: (changes) => {
+    const channel = {
+      appendBatch: (changes: readonly unknown[]) => {
         ;[...sourceHandlers].forEach((handler) => handler(changes))
       },
-      observe: () => () => undefined,
-      observeBatch: (handler) => {
+      observeBatch: (handler: (changes: readonly unknown[]) => void) => {
         sourceHandlers.add(handler)
         return () => sourceHandlers.delete(handler)
       }
-    }
+    } as SharedDataChannel
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -217,7 +282,7 @@ describe('Factory local shared delivery contract', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'custom-native-batch-fanout',
         before: { value: 0 },
@@ -253,16 +318,17 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('publishes detached transaction-end delivery metadata after local projection', () => {
-    const { factory, deliveries, projected } = createHarness()
+    const { factory, deliveryBatches, projected } = createHarness()
 
     factory.startTransaction()
     update(factory)
     expect(projected).toEqual([])
-    expect(deliveries).toEqual([])
+    expect(deliveryBatches).toEqual([])
     factory.endTransaction()
 
     expect(projected).toHaveLength(1)
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         deliveryId: '1:0:forward',
         artifactId: '1:artifact',
@@ -271,7 +337,7 @@ describe('Factory local shared delivery contract', () => {
         origin: 'action',
         kind: 'forward',
         channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: expect.objectContaining({
           id: 'shared-delivery',
           before: 0,
@@ -294,29 +360,31 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('discards a transaction-end delivery when rollback happens before flush', () => {
-    const { factory, deliveries, projected } = createHarness()
+    const { factory, deliveryBatches, projected } = createHarness()
 
     factory.startTransaction()
     update(factory)
     factory.endTransaction({ outcome: 'rollback' })
 
     expect(projected).toEqual([])
-    expect(deliveries).toEqual([])
+    expect(deliveryBatches).toEqual([])
   })
 
   it('publishes one linked compensation for an immediate delivery', () => {
-    const { factory, deliveries, projected } = createHarness()
+    const { factory, deliveryBatches, projected } = createHarness()
 
     factory.startTransaction()
     update(factory, { sharedDelivery: 'immediate' })
-    expect(deliveries).toHaveLength(1)
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toHaveLength(1)
     factory.endTransaction({ outcome: 'rollback' })
 
     expect(projected).toEqual([
       expect.objectContaining({ before: 0, after: 1 }),
       expect.objectContaining({ before: 1, after: 0 })
     ])
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(2)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         deliveryId: '1:0:forward',
         origin: 'action',
@@ -337,16 +405,14 @@ describe('Factory local shared delivery contract', () => {
   it('compensates a remote immediate projection without local evidence side effects', () => {
     const { factory, projected } = createHarness()
     const failure = new Error('remote action failed after immediate projection')
-    const delivery = vi.fn()
     const deliveryBatch = vi.fn()
     const publication = vi.fn()
     const artifact = vi.fn()
-    factory.subscribeToSharedDelivery(delivery)
     factory.subscribeToSharedDeliveryBatch(deliveryBatch)
     factory.subscribeToSharedPublication(publication)
     factory.subscribeToMutationBatchArtifact(artifact)
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
 
@@ -361,7 +427,6 @@ describe('Factory local shared delivery contract', () => {
       expect.objectContaining({ before: 0, after: 1 }),
       expect.objectContaining({ before: 1, after: 0 })
     ])
-    expect(delivery).not.toHaveBeenCalled()
     expect(deliveryBatch).not.toHaveBeenCalled()
     expect(publication).not.toHaveBeenCalled()
     expect(artifact).not.toHaveBeenCalled()
@@ -374,7 +439,7 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('publishes compensation on the inverse event route', () => {
-    const { factory, deliveries } = createHarness()
+    const { factory, deliveryBatches } = createHarness()
 
     factory.startTransaction()
     factory.updateTransaction({
@@ -391,7 +456,7 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction({ outcome: 'rollback' })
 
-    expect(deliveries).toEqual([
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         kind: 'forward',
         eventName: EventTypes.ADD_ELEMENT
@@ -405,15 +470,15 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('publishes committed undo and redo replay as inverse and forward deliveries', () => {
-    const { factory, deliveries, projected } = createHarness()
+    const { factory, deliveryBatches, projected } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
     factory.startTransaction()
     update(factory)
     factory.endTransaction()
-    deliveries.length = 0
+    deliveryBatches.length = 0
     projected.length = 0
 
     factory.undo()
@@ -421,7 +486,8 @@ describe('Factory local shared delivery contract', () => {
     expect(projected).toEqual([
       expect.objectContaining({ before: 1, after: 0 })
     ])
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         origin: 'undo',
         kind: 'forward',
@@ -430,14 +496,15 @@ describe('Factory local shared delivery contract', () => {
       })
     ])
 
-    deliveries.length = 0
+    deliveryBatches.length = 0
     projected.length = 0
     factory.redo()
 
     expect(projected).toEqual([
       expect.objectContaining({ before: 0, after: 1 })
     ])
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         origin: 'redo',
         kind: 'forward',
@@ -448,9 +515,9 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('restores the source immediate mode when a replay handler leaves delivery unset', () => {
-    const { factory, deliveries } = createHarness()
+    const { factory, deliveryBatches } = createHarness()
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
@@ -469,10 +536,11 @@ describe('Factory local shared delivery contract', () => {
     factory.startTransaction()
     update(factory, { sharedDelivery: 'immediate' })
     factory.endTransaction()
-    deliveries.length = 0
+    deliveryBatches.length = 0
 
     factory.undo()
 
+    const deliveries = deliveryBatches.flatMap((batch) => batch.deliveries)
     expect(deliveries).toHaveLength(1)
     expect(deliveries[0]).toEqual(
       expect.objectContaining({
@@ -489,11 +557,11 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('omits an unset canonical payload options field from shared delivery', () => {
-    const { factory, deliveries } = createHarness()
+    const { factory, deliveryBatches } = createHarness()
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'shared-delivery',
         before: 0,
@@ -504,6 +572,7 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction()
 
+    const deliveries = deliveryBatches.flatMap((batch) => batch.deliveries)
     expect(deliveries).toHaveLength(1)
     expect(
       Object.prototype.hasOwnProperty.call(deliveries[0]?.payload, 'options')
@@ -511,11 +580,11 @@ describe('Factory local shared delivery contract', () => {
   })
 
   it('omits unset fields from canonical payload mutation options', () => {
-    const { factory, deliveries } = createHarness()
+    const { factory, deliveryBatches } = createHarness()
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'shared-delivery',
         before: 0,
@@ -531,6 +600,7 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction()
 
+    const deliveries = deliveryBatches.flatMap((batch) => batch.deliveries)
     expect(deliveries).toHaveLength(1)
     expect(deliveries[0]?.payload).toEqual(
       expect.objectContaining({ options: { undoable: false } })
@@ -543,17 +613,17 @@ describe('Factory local shared delivery contract', () => {
     ).toEqual(['undoable'])
   })
 
-  it('isolates delivery subscriber failure from other subscribers and commit', () => {
+  it('isolates delivery batch subscriber failure from other subscribers and commit', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
     const later = vi.fn()
-    factory.subscribeToSharedDelivery(() => {
+    factory.subscribeToSharedDeliveryBatch(() => {
       throw new Error('observer failed')
     })
-    factory.subscribeToSharedDelivery(later)
+    factory.subscribeToSharedDeliveryBatch(later)
 
     factory.startTransaction()
     update(factory)
@@ -562,27 +632,27 @@ describe('Factory local shared delivery contract', () => {
     expect(later).toHaveBeenCalledTimes(1)
   })
 
-  it('isolates nested delivery subscriber mutation from later delivery and compensation', () => {
+  it('isolates nested delivery batch subscriber mutation from later delivery and compensation', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const laterDeliveries: SharedDelivery[] = []
-    factory.subscribeToSharedDelivery((delivery) => {
-      const payload = delivery.payload as {
+    const laterDeliveryBatches: SharedDeliveryBatch[] = []
+    factory.subscribeToSharedDeliveryBatch((batch) => {
+      const payload = batch.deliveries[0]?.payload as {
         after: { value: number }
       }
       payload.after.value = 99
     })
-    factory.subscribeToSharedDelivery((delivery) =>
-      laterDeliveries.push(delivery)
+    factory.subscribeToSharedDeliveryBatch((batch) =>
+      laterDeliveryBatches.push(batch)
     )
 
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'nested-shared-delivery',
         before: { value: 0 },
@@ -595,7 +665,7 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction({ outcome: 'rollback' })
 
-    expect(laterDeliveries).toEqual([
+    expect(laterDeliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         kind: 'forward',
         payload: expect.objectContaining({
@@ -613,34 +683,32 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
-  it('isolates Factory-owned delivery and history from custom channel mutation', () => {
+  it('keeps Factory-owned delivery and history immutable across a custom batch channel', () => {
     const factory = new Factory()
-    const retainedChanges: unknown[] = []
-    const channel: SharedDataChannel = {
-      append: (change) => {
-        retainedChanges.push(change)
-        const payload = change as {
-          after: { value: number }
-        }
-        payload.after.value = 99
+    const retainedBatches: (readonly unknown[])[] = []
+    const channel = {
+      appendBatch: (changes: readonly unknown[]) => {
+        retainedBatches.push(changes)
       },
-      observe: () => () => undefined
-    }
-    const deliveries: SharedDelivery[] = []
+      observeBatch: () => () => undefined
+    } as SharedDataChannel
+    const deliveryBatches: SharedDeliveryBatch[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       channel
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
-    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+    factory.subscribeToSharedDeliveryBatch((batch) =>
+      deliveryBatches.push(batch)
+    )
 
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'custom-channel-a',
         before: { value: 0 },
@@ -650,7 +718,7 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'custom-channel-b',
         before: { value: 10 },
@@ -660,7 +728,8 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction()
 
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         origin: 'action',
         payload: expect.objectContaining({
@@ -678,18 +747,27 @@ describe('Factory local shared delivery contract', () => {
         })
       })
     ])
-    const retainedFirst = retainedChanges[0] as {
+    expect(retainedBatches).toHaveLength(1)
+    expect(retainedBatches[0]).toHaveLength(2)
+    const retainedFirst = retainedBatches[0]?.[0] as {
       before: { value: number }
     }
-    const retainedSecond = retainedChanges[1] as {
+    const retainedSecond = retainedBatches[0]?.[1] as {
       after: { value: number }
     }
-    retainedFirst.before.value = 88
-    retainedSecond.after.value = 77
-    deliveries.length = 0
+    expect(Object.isFrozen(retainedBatches[0])).toBe(true)
+    expect(Object.isFrozen(retainedFirst.before)).toBe(true)
+    expect(() => {
+      retainedFirst.before.value = 88
+    }).toThrow(TypeError)
+    expect(() => {
+      retainedSecond.after.value = 77
+    }).toThrow(TypeError)
+    deliveryBatches.length = 0
     factory.undo()
 
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         origin: 'undo',
         payload: expect.objectContaining({
@@ -708,10 +786,11 @@ describe('Factory local shared delivery contract', () => {
       })
     ])
 
-    deliveries.length = 0
+    deliveryBatches.length = 0
     factory.redo()
 
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         origin: 'redo',
         payload: expect.objectContaining({
@@ -731,66 +810,36 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
-  it('isolates the owned snapshot when the Local channel prototype is replaced', () => {
+  it('keeps built-in batch delivery independent from the scalar prototype convenience', () => {
     const originalAppend = LocalSharedDataChannel.prototype.append
-    const retainedChanges: unknown[] = []
+    const scalarAppend = vi.fn((_change: unknown) => {
+      throw new Error('Factory internals must not call scalar append')
+    })
     LocalSharedDataChannel.prototype.append = function (change) {
-      retainedChanges.push(change)
-      const payload = change as {
-        after: { value: number }
-      }
-      payload.after.value = 99
+      scalarAppend(change)
     }
 
     try {
       const factory = new Factory()
-      const deliveries: SharedDelivery[] = []
       factory.registerSharedDataChannel(
         SharedDataChannelNames.SCENE_TREE,
         new LocalSharedDataChannel()
       )
-      factory.registerTransactionReplayHandler(
-        EventTypes.UPDATE_COMPUTED_DATA,
-        () => true
-      )
-      factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
 
       factory.startTransaction()
       factory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: {
-          id: 'prototype-channel-mutation',
+          id: 'prototype-scalar-convenience',
           before: { value: 0 },
           after: { value: 1 }
         },
         options: { shared: SharedDataChannelNames.SCENE_TREE }
       })
-      factory.endTransaction()
 
-      expect(deliveries).toEqual([
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            before: { value: 0 },
-            after: { value: 1 }
-          })
-        })
-      ])
-      ;(
-        retainedChanges[0] as {
-          before: { value: number }
-        }
-      ).before.value = 88
-      deliveries.length = 0
-      factory.undo()
-      expect(deliveries).toEqual([
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            before: { value: 1 },
-            after: { value: 0 }
-          })
-        })
-      ])
+      expect(() => factory.endTransaction()).not.toThrow()
+      expect(scalarAppend).not.toHaveBeenCalled()
     } finally {
       LocalSharedDataChannel.prototype.append = originalAppend
     }
@@ -801,11 +850,8 @@ describe('Factory local shared delivery contract', () => {
       'instance append override',
       () => {
         const channel = new LocalSharedDataChannel()
-        channel.append = (change) => {
-          const payload = change as {
-            after: { value: number }
-          }
-          payload.after.value = 99
+        channel.append = () => {
+          throw new Error('Factory internals must not call scalar append')
         }
         return channel
       }
@@ -814,77 +860,78 @@ describe('Factory local shared delivery contract', () => {
       'Local channel subclass',
       () => {
         class MutatingLocalSharedDataChannel extends LocalSharedDataChannel {
-          override append(change: unknown): void {
-            const payload = change as {
-              after: { value: number }
-            }
-            payload.after.value = 99
+          override append(): void {
+            throw new Error('Factory internals must not call scalar append')
           }
         }
         return new MutatingLocalSharedDataChannel()
       }
     ]
-  ])('isolates the owned snapshot from a %s', (_name, createChannel) => {
-    const factory = new Factory()
-    const deliveries: SharedDelivery[] = []
-    factory.registerSharedDataChannel(
-      SharedDataChannelNames.SCENE_TREE,
-      createChannel()
-    )
-    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+  ])(
+    'keeps Factory batch delivery independent from a %s',
+    (_name, createChannel) => {
+      const factory = new Factory()
+      const deliveryBatches: SharedDeliveryBatch[] = []
+      factory.registerSharedDataChannel(
+        SharedDataChannelNames.SCENE_TREE,
+        createChannel()
+      )
+      factory.subscribeToSharedDeliveryBatch((batch) =>
+        deliveryBatches.push(batch)
+      )
 
-    factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      payload: {
-        id: 'non-built-in-local-channel',
-        before: { value: 0 },
-        after: { value: 1 }
-      },
-      options: { shared: SharedDataChannelNames.SCENE_TREE }
-    })
-    factory.endTransaction()
-
-    expect(deliveries).toEqual([
-      expect.objectContaining({
-        payload: expect.objectContaining({
+      factory.startTransaction()
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: {
+          id: 'non-built-in-local-channel',
           before: { value: 0 },
           after: { value: 1 }
-        })
+        },
+        options: { shared: SharedDataChannelNames.SCENE_TREE }
       })
-    ])
-  })
+      expect(() => factory.endTransaction()).not.toThrow()
 
-  it('falls back to the isolated custom boundary without inspecting a channel Proxy prototype', () => {
-    const deliveries: SharedDelivery[] = []
-    const target: SharedDataChannel = {
-      append: (change) => {
-        const payload = change as {
-          after: { value: number }
-        }
-        payload.after.value = 99
-      },
-      observe: () => () => undefined
+      expect(deliveryBatches).toHaveLength(1)
+      expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            before: { value: 0 },
+            after: { value: 1 }
+          })
+        })
+      ])
+    }
+  )
+
+  it('uses an exact custom batch Proxy without inspecting its prototype', () => {
+    const deliveryBatches: SharedDeliveryBatch[] = []
+    const appendBatch = vi.fn()
+    const target = {
+      appendBatch,
+      observeBatch: () => () => undefined
     }
     const channel = new Proxy(target, {
       getPrototypeOf: () => {
         throw new Error('prototype inspection blocked')
       }
-    })
+    }) as SharedDataChannel
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       channel
     )
-    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+    factory.subscribeToSharedDeliveryBatch((batch) =>
+      deliveryBatches.push(batch)
+    )
 
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
-        id: 'proxy-channel-mutation',
+        id: 'proxy-batch-channel',
         before: { value: 0 },
         after: { value: 1 }
       },
@@ -892,7 +939,9 @@ describe('Factory local shared delivery contract', () => {
     })
 
     expect(() => factory.endTransaction()).not.toThrow()
-    expect(deliveries).toEqual([
+    expect(appendBatch).toHaveBeenCalledOnce()
+    expect(deliveryBatches).toHaveLength(1)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         payload: expect.objectContaining({
           before: { value: 0 },
@@ -902,19 +951,15 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
-  it('rolls back the exact journal when a custom channel mutates and rejects its input', () => {
+  it('rolls back the exact journal when a custom batch channel rejects its input', () => {
     const factory = new Factory()
-    const failure = new Error('custom channel append failed')
-    const channel: SharedDataChannel = {
-      append: (change) => {
-        const payload = change as {
-          after: { value: number }
-        }
-        payload.after.value = 99
+    const failure = new Error('custom channel appendBatch failed')
+    const channel = {
+      appendBatch: () => {
         throw failure
       },
-      observe: () => () => undefined
-    }
+      observeBatch: () => () => undefined
+    } as SharedDataChannel
     const publications: unknown[] = []
     const replayed: unknown[] = []
     const statuses: { origin: string; status: string }[] = []
@@ -923,7 +968,7 @@ describe('Factory local shared delivery contract', () => {
       channel
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event, mode) => {
         expect(mode).toBe('rollback')
         replayed.push((event as { payload: unknown }).payload)
@@ -938,7 +983,7 @@ describe('Factory local shared delivery contract', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'custom-channel-failure',
         before: { value: 0 },
@@ -966,32 +1011,29 @@ describe('Factory local shared delivery contract', () => {
     ).toEqual([])
   })
 
-  it('keeps immediate compensation exact when a custom channel mutates its input', () => {
+  it('keeps immediate compensation exact through a custom batch channel', () => {
     const factory = new Factory()
-    const channel: SharedDataChannel = {
-      append: (change) => {
-        const payload = change as {
-          after: { value: number }
-        }
-        payload.after.value = 99
-      },
-      observe: () => () => undefined
-    }
-    const deliveries: SharedDelivery[] = []
+    const channel = {
+      appendBatch: vi.fn(),
+      observeBatch: () => () => undefined
+    } as SharedDataChannel
+    const deliveryBatches: SharedDeliveryBatch[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       channel
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       () => true
     )
-    factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
+    factory.subscribeToSharedDeliveryBatch((batch) =>
+      deliveryBatches.push(batch)
+    )
 
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: {
         id: 'custom-channel-immediate',
         before: { value: 0 },
@@ -1004,7 +1046,8 @@ describe('Factory local shared delivery contract', () => {
     })
     factory.endTransaction({ outcome: 'rollback' })
 
-    expect(deliveries).toEqual([
+    expect(deliveryBatches).toHaveLength(2)
+    expect(deliveryBatches.flatMap((batch) => batch.deliveries)).toEqual([
       expect.objectContaining({
         kind: 'forward',
         payload: expect.objectContaining({
@@ -1025,19 +1068,15 @@ describe('Factory local shared delivery contract', () => {
     ).toEqual([])
   })
 
-  it('keeps remote rollback exact without history or publication when a custom channel mutates and rejects', () => {
+  it('keeps remote rollback exact when a custom batch channel rejects', () => {
     const factory = new Factory()
-    const failure = new Error('remote custom channel append failed')
-    const channel: SharedDataChannel = {
-      append: (change) => {
-        const payload = change as {
-          after: { value: number }
-        }
-        payload.after.value = 99
+    const failure = new Error('remote custom channel appendBatch failed')
+    const channel = {
+      appendBatch: () => {
         throw failure
       },
-      observe: () => () => undefined
-    }
+      observeBatch: () => () => undefined
+    } as SharedDataChannel
     const publications: unknown[] = []
     const replayed: unknown[] = []
     const statuses: { origin: string; status: string }[] = []
@@ -1046,7 +1085,7 @@ describe('Factory local shared delivery contract', () => {
       channel
     )
     factory.registerTransactionReplayHandler(
-      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_PROPERTY,
       (event, mode) => {
         expect(mode).toBe('rollback')
         replayed.push((event as { payload: unknown }).payload)
@@ -1062,7 +1101,7 @@ describe('Factory local shared delivery contract', () => {
       factory.runRemoteTransaction(() => {
         factory.updateTransaction({
           type: TransactionEventTypes.UPDATE_TRANSACTION,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          eventName: EventTypes.UPDATE_PROPERTY,
           payload: {
             id: 'remote-custom-channel-failure',
             before: { value: 0 },
@@ -1098,7 +1137,7 @@ describe('Factory local shared delivery contract', () => {
       new LocalSharedDataChannel()
     )
     const laterProjection = vi.fn()
-    const delivery = vi.fn()
+    const deliveryBatch = vi.fn()
     factory.observeSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       (change) => {
@@ -1109,7 +1148,7 @@ describe('Factory local shared delivery contract', () => {
       SharedDataChannelNames.SCENE_TREE,
       laterProjection
     )
-    factory.subscribeToSharedDelivery(delivery)
+    factory.subscribeToSharedDeliveryBatch(deliveryBatch)
 
     factory.startTransaction()
     update(factory)
@@ -1118,9 +1157,13 @@ describe('Factory local shared delivery contract', () => {
     expect(laterProjection).toHaveBeenCalledWith(
       expect.objectContaining({ after: 1 })
     )
-    expect(delivery).toHaveBeenCalledWith(
+    expect(deliveryBatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: expect.objectContaining({ after: 1 })
+        deliveries: [
+          expect.objectContaining({
+            payload: expect.objectContaining({ after: 1 })
+          })
+        ]
       })
     )
   })

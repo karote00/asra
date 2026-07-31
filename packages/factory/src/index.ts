@@ -39,9 +39,8 @@ export const observeSharedDataChannelBatch = <TChange = unknown>(
 ) => factory.observeSharedDataChannelBatch<TChange>(name, handler)
 
 export const updateTransactionBatch = (
-  events: Parameters<Factory['updateTransactionBatch']>[0],
-  deliveryEvidence?: Parameters<Factory['updateTransactionBatch']>[1]
-) => factory.updateTransactionBatch(events, deliveryEvidence)
+  events: Parameters<Factory['updateTransactionBatch']>[0]
+) => factory.updateTransactionBatch(events)
 
 export const registerTransactionInverter = (
   eventName: string,
@@ -57,10 +56,6 @@ export const subscribeToTransactionStatus = (
   subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
 ) => factory.subscribeToTransactionStatus(subscriber)
 
-export const subscribeToSharedDelivery = (
-  subscriber: Parameters<Factory['subscribeToSharedDelivery']>[0]
-) => factory.subscribeToSharedDelivery(subscriber)
-
 export const subscribeToSharedDeliveryBatch = (
   subscriber: Parameters<Factory['subscribeToSharedDeliveryBatch']>[0]
 ) => factory.subscribeToSharedDeliveryBatch(subscriber)
@@ -72,6 +67,13 @@ export const subscribeToSharedPublication = (
 export const subscribeToMutationBatchArtifact = (
   subscriber: Parameters<Factory['subscribeToMutationBatchArtifact']>[0]
 ) => factory.subscribeToMutationBatchArtifact(subscriber)
+
+export const subscribeToMutationBatchArtifactStatus = (
+  subscriber: Parameters<Factory['subscribeToMutationBatchArtifactStatus']>[0]
+) => factory.subscribeToMutationBatchArtifactStatus(subscriber)
+
+export const getActiveStagedArtifactController = () =>
+  factory.getActiveStagedArtifactController()
 
 export default factory
 export { Factory }

@@ -46,7 +46,6 @@ export interface FactoryMutationChangeOptions {
 export interface FactoryMutationSharedEvidence {
   readonly channel: string
   readonly payload: unknown
-  readonly deliveryIds: readonly string[]
   readonly inverseEvents: readonly AllEvent[]
   readonly records: readonly FactoryMutationSharedRecordEvidence[]
 }
@@ -81,6 +80,12 @@ export interface FactoryMutationBatchArtifact {
   readonly batches: readonly SharedDeliveryBatch[]
 }
 
+export interface FactoryMutationBatchAppliedResult {
+  readonly artifactId: string
+  readonly transactionId: number
+  readonly deliveryIds: readonly string[]
+}
+
 export type FactoryMutationBatchArtifactSubscriber = (
   artifact: FactoryMutationBatchArtifact
 ) => void
@@ -110,6 +115,7 @@ export interface FactoryMutationBatchSettledStatus
   extends FactoryMutationBatchArtifactStatusBase {
   readonly status: Exclude<FactoryMutationBatchArtifactStatusName, 'staged'>
   readonly artifact: FactoryMutationBatchArtifact
+  readonly appliedResult: FactoryMutationBatchAppliedResult
 }
 
 export type FactoryMutationBatchArtifactStatus =

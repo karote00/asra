@@ -24,16 +24,15 @@ import {
   type SharedDataChannelName
 } from './shared-data-channel'
 import {
-  type SharedDelivery,
   type SharedDeliveryBatch,
   type SharedDeliveryBatchSubscriber,
-  type SharedDeliverySubscriber,
   type SharedPublication,
   type SharedPublicationSubscriber
 } from './shared-delivery'
 import type {
-  FactoryMutationBatchDeliveryEvidence,
   FactoryMutationBatchArtifact,
+  FactoryMutationBatchArtifactStatus,
+  FactoryMutationBatchArtifactStatusSubscriber,
   FactoryMutationBatchArtifactSubscriber,
   FactoryMutationBatchDeliveryHandle
 } from './mutation-batch'
@@ -50,8 +49,7 @@ export interface FactoryOptions {
 
 export interface FactoryTransactionOwner extends TransactionOwner {
   updateTransactionBatch(
-    events: readonly UpdateTransactionEvent[],
-    deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
+    events: readonly UpdateTransactionEvent[]
   ): FactoryMutationBatchDeliveryHandle | null
 }
 
@@ -72,14 +70,14 @@ class Factory {
   private readonly commitCaptureSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
-  private readonly sharedDeliverySubscribers =
-    new Set<SharedDeliverySubscriber>()
   private readonly sharedDeliveryBatchSubscribers =
     new Set<SharedDeliveryBatchSubscriber>()
   private readonly sharedPublicationSubscribers =
     new Set<SharedPublicationSubscriber>()
   private readonly mutationBatchArtifactSubscribers =
     new Set<FactoryMutationBatchArtifactSubscriber>()
+  private readonly mutationBatchArtifactStatusSubscribers =
+    new Set<FactoryMutationBatchArtifactStatusSubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -95,20 +93,17 @@ class Factory {
         ? userActionCompleted
         : undefined,
       onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
-      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery),
-      hasSharedDeliverySubscribers: () =>
-        this.sharedDeliverySubscribers.size > 0,
       onSharedDeliveryBatch: (batch) => this.emitSharedDeliveryBatch(batch),
       onSharedPublication: (publication) =>
         this.emitSharedPublication(publication),
       onMutationBatchArtifact: (artifact) =>
-        this.emitMutationBatchArtifact(artifact)
+        this.emitMutationBatchArtifact(artifact),
+      onMutationBatchArtifactStatus: (status) =>
+        this.emitMutationBatchArtifactStatus(status)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
-      updateTransaction: (event) => this.updateTransaction(event),
-      updateTransactionBatch: (events, deliveryEvidence) =>
-        this.updateTransactionBatch(events, deliveryEvidence),
+      updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: (endOptions) => this.endTransaction(endOptions),
       undo: () => this.undo(),
       redo: () => this.redo()
@@ -125,16 +120,6 @@ class Factory {
     })
   }
 
-  private emitSharedDelivery(delivery: SharedDelivery): void {
-    ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
-      try {
-        subscriber(delivery)
-      } catch {
-        // Collaboration observers cannot alter local canonical settlement.
-      }
-    })
-  }
-
   private emitSharedDeliveryBatch(batch: SharedDeliveryBatch): void {
     ;[...this.sharedDeliveryBatchSubscribers].forEach((subscriber) => {
       try {
@@ -145,15 +130,19 @@ class Factory {
     })
   }
 
-  private emitSharedPublication(publication: SharedPublication): void {
-    measureBrowserDragPhase('factory:notify-shared-publication', () => {
-      ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
+  private emitSharedPublication(publication: SharedPublication): boolean {
+    return measureBrowserDragPhase('factory:notify-shared-publication', () => {
+      const subscribers = [...this.sharedPublicationSubscribers]
+      let handedOff = false
+      subscribers.forEach((subscriber) => {
         try {
           subscriber(publication)
+          handedOff = true
         } catch {
           // Collaboration observers cannot alter local canonical settlement.
         }
       })
+      return handedOff
     })
   }
 
@@ -165,6 +154,18 @@ class Factory {
         subscriber(artifact)
       } catch {
         // Artifact observers cannot alter canonical settlement.
+      }
+    })
+  }
+
+  private emitMutationBatchArtifactStatus(
+    status: FactoryMutationBatchArtifactStatus
+  ): void {
+    ;[...this.mutationBatchArtifactStatusSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(status)
+      } catch {
+        // Artifact status observers cannot alter canonical settlement.
       }
     })
   }
@@ -191,14 +192,11 @@ class Factory {
   }
 
   updateTransaction(event: UpdateTransactionEvent) {
-    return this.transact.update(event)
+    return this.updateTransactionBatch([event])
   }
 
-  updateTransactionBatch(
-    events: readonly UpdateTransactionEvent[],
-    deliveryEvidence?: FactoryMutationBatchDeliveryEvidence
-  ) {
-    return this.transact.updateBatch(events, deliveryEvidence)
+  updateTransactionBatch(events: readonly UpdateTransactionEvent[]) {
+    return this.transact.updateBatch(events)
   }
 
   endTransaction(options?: EndTransactionOptions) {
@@ -209,9 +207,7 @@ class Factory {
     this.transact.start('remote')
     const reactiveBoundaryOwner: FactoryTransactionOwner = {
       startTransaction: () => undefined,
-      updateTransaction: (event) => this.updateTransaction(event),
-      updateTransactionBatch: (events, deliveryEvidence) =>
-        this.updateTransactionBatch(events, deliveryEvidence),
+      updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: () => undefined,
       undo: () => this.undo(),
       redo: () => this.redo()
@@ -271,6 +267,10 @@ class Factory {
 
   getTransactionOwner(): FactoryTransactionOwner {
     return this.transactionOwner
+  }
+
+  getActiveStagedArtifactController() {
+    return this.transact.getActiveStagedArtifactController()
   }
 
   getUndoHistoryDepth(): number {
@@ -405,13 +405,6 @@ class Factory {
     return this.sharedDataChannels.observeBatch(name, handler)
   }
 
-  subscribeToSharedDelivery(subscriber: SharedDeliverySubscriber): () => void {
-    this.sharedDeliverySubscribers.add(subscriber)
-    return () => {
-      this.sharedDeliverySubscribers.delete(subscriber)
-    }
-  }
-
   subscribeToSharedDeliveryBatch(
     subscriber: SharedDeliveryBatchSubscriber
   ): () => void {
@@ -436,6 +429,15 @@ class Factory {
     this.mutationBatchArtifactSubscribers.add(subscriber)
     return () => {
       this.mutationBatchArtifactSubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToMutationBatchArtifactStatus(
+    subscriber: FactoryMutationBatchArtifactStatusSubscriber
+  ): () => void {
+    this.mutationBatchArtifactStatusSubscribers.add(subscriber)
+    return () => {
+      this.mutationBatchArtifactStatusSubscribers.delete(subscriber)
     }
   }
 }

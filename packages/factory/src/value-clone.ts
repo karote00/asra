@@ -1,3 +1,5 @@
+import { isDetachedTransactionValue } from '@asyra/reactive-events'
+
 export const cloneValue = <T>(
   value: T,
   seen = new WeakMap<object, unknown>()
@@ -41,6 +43,12 @@ export const cloneValue = <T>(
 }
 
 const deeplyFrozenValues = new WeakSet<object>()
+
+export const isDeeplyFrozenValue = (value: unknown): boolean =>
+  value === null ||
+  typeof value !== 'object' ||
+  deeplyFrozenValues.has(value) ||
+  isDetachedTransactionValue(value)
 
 export const deepFreezeValue = <T>(
   value: T,

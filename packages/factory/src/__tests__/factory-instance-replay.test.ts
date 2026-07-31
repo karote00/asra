@@ -5,12 +5,16 @@ import {
   startTransaction,
   subscribeToSynchronousEvent,
   TransactionEventTypes,
-  type UpdateComputedDataEvent
+  type AllEvent
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
 import { SharedDataChannelNames } from '@asyra/utils'
 import defaultFactory, { Factory } from '../index'
 import { LocalSharedDataChannel } from '../shared-data-channel'
+
+type TestPropertyEvent = AllEvent & {
+  payload: { id: string; before: number; after: number }
+}
 
 describe('Factory replay instance isolation', () => {
   it('does not route a custom Factory undo through the default owner', () => {
@@ -29,7 +33,7 @@ describe('Factory replay instance isolation', () => {
       customFactory.startTransaction()
       customFactory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'custom', before: 0, after: 1 }
       })
       customFactory.endTransaction()
@@ -60,30 +64,29 @@ describe('Factory replay instance isolation', () => {
       SharedDataChannelNames.SCENE_TREE,
       channel
     )
-    const replaySubscription =
-      subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-        EventTypes.UPDATE_COMPUTED_DATA,
-        (event) => {
-          if (!customFactory.isInUndoRedo()) {
-            return
-          }
-          customFactory.updateTransaction({
-            type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
-            payload: event.payload,
-            options: {
-              shared: SharedDataChannelNames.SCENE_TREE,
-              sharedDelivery: 'immediate'
-            }
-          })
+    const replaySubscription = subscribeToSynchronousEvent<TestPropertyEvent>(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        if (!customFactory.isInUndoRedo()) {
+          return
         }
-      )
+        customFactory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          payload: event.payload,
+          options: {
+            shared: SharedDataChannelNames.SCENE_TREE,
+            sharedDelivery: 'immediate'
+          }
+        })
+      }
+    )
 
     try {
       customFactory.startTransaction()
       customFactory.updateTransaction({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'custom', before: 0, after: 1 }
       })
       customFactory.endTransaction()

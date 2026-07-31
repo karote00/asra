@@ -55,8 +55,11 @@ Provide typed cross-package event communication.
 - `TransactionOwner` exposes only `updateTransactionBatch(...)`.
   `updateTransaction(...)` is a batch-of-one convenience, not a second owner
   implementation. An owner-issued immutable batch keeps one identity through
-  Reactive Events and Factory; mutable external input is isolated at the
-  Factory boundary.
+  Reactive Events and Factory. Reactive Events isolates every external batch
+  once, including caller-owned frozen containers; the read-only
+  `isDetachedTransactionValue(...)` owner marker lets Factory trust that
+  framework-issued graph in O(1). Direct external Factory input remains
+  isolated at the Factory boundary.
 - Canonical replay/apply owners use `subscribeToSynchronousEvent(...)`; an apply
   exception reaches Factory synchronously and can become `rollback-failed`.
   Ordinary RxJS subscribers remain observation/diagnostic consumers and are not

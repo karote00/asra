@@ -46,7 +46,7 @@ const createOwner = (
 })
 
 describe('transaction batch publishing', () => {
-  it('hands one ordered owner-issued immutable batch identity to the owner once', () => {
+  it('hands one ordered isolated immutable batch identity to the owner once', () => {
     const ownerUpdate = vi.fn()
     const disposeOwner = registerTransactionOwner(createOwner(ownerUpdate))
     const sourcePayload = {
@@ -84,9 +84,9 @@ describe('transaction batch publishing', () => {
         'property.first',
         'property.second'
       ])
-      expect(delivered).toBe(sourceEvents)
-      expect(delivered?.[0]).toBe(sourceEvents[0])
-      expect(delivered?.[0]?.payload).toBe(sourcePayload)
+      expect(delivered).not.toBe(sourceEvents)
+      expect(delivered?.[0]).not.toBe(sourceEvents[0])
+      expect(delivered?.[0]?.payload).not.toBe(sourcePayload)
       expect(Object.isFrozen(delivered)).toBe(true)
       expect(Object.isFrozen(delivered?.[0])).toBe(true)
       expect(
@@ -94,7 +94,7 @@ describe('transaction batch publishing', () => {
           (delivered?.[0]?.payload as typeof sourcePayload).property.after
         )
       ).toBe(true)
-      expect(delivered?.[0]?.canonicalEvidence).toBe(
+      expect(delivered?.[0]?.canonicalEvidence).not.toBe(
         sourceEvents[0]?.canonicalEvidence
       )
       expect(Object.isFrozen(delivered?.[0]?.canonicalEvidence)).toBe(true)
@@ -107,6 +107,35 @@ describe('transaction batch publishing', () => {
         'property.first',
         'property.second'
       ])
+    } finally {
+      disposeOwner()
+    }
+  })
+
+  it('isolates an externally shallow-frozen batch once and reuses its issued identity', () => {
+    const ownerUpdate = vi.fn()
+    const disposeOwner = registerTransactionOwner(createOwner(ownerUpdate))
+    const sourceEvent = createTransactionEvent('property.external', {
+      nested: { value: 1 }
+    })
+    const externalBatch = Object.freeze([sourceEvent])
+
+    try {
+      updateTransactionBatch(externalBatch)
+      const issuedBatch = ownerUpdate.mock.calls[0]?.[0] as
+        | readonly UpdateTransactionEvent[]
+        | undefined
+
+      expect(issuedBatch).not.toBe(externalBatch)
+      expect(issuedBatch?.[0]).not.toBe(sourceEvent)
+      expect(Object.isFrozen(sourceEvent)).toBe(false)
+      expect(Object.isFrozen(sourceEvent.payload)).toBe(false)
+      expect(Object.isFrozen(issuedBatch)).toBe(true)
+      expect(Object.isFrozen(issuedBatch?.[0])).toBe(true)
+      expect(Object.isFrozen(issuedBatch?.[0]?.payload)).toBe(true)
+
+      updateTransactionBatch(issuedBatch ?? [])
+      expect(ownerUpdate.mock.calls[1]?.[0]).toBe(issuedBatch)
     } finally {
       disposeOwner()
     }

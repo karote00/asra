@@ -5,7 +5,7 @@ import {
   type AllEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
-import { SharedDataChannelNames } from '@asyra/utils'
+import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
@@ -14,6 +14,7 @@ import {
   type SharedDeliveryBatch,
   type SharedPublication
 } from '..'
+import { deepFreezeValue } from '../value-clone'
 
 const update = (
   factory: Factory,
@@ -69,17 +70,17 @@ describe('Factory immutable mutation batch artifact', () => {
     factory.subscribeToMutationBatchArtifact((artifact) =>
       artifacts.push(artifact)
     )
-    const payload = Object.freeze({
+    const payload = {
       id: 'immutable-owner-evidence',
-      before: Object.freeze({ width: 1 }),
-      after: Object.freeze({ width: 2 })
-    })
-    const event = Object.freeze({
+      before: { width: 1 },
+      after: { width: 2 }
+    }
+    const event = {
       type: TransactionEventTypes.UPDATE_TRANSACTION,
       eventName: EventTypes.UPDATE_PROPERTY,
       payload
-    })
-    const events = Object.freeze([event])
+    }
+    const events = deepFreezeValue([event])
 
     factory.startTransaction()
     factory.updateTransactionBatch(events)
@@ -699,6 +700,65 @@ describe('Factory immutable mutation batch artifact', () => {
     expect(Object.isFrozen(inverse?.payload.data)).toBe(true)
   })
 
+  it('derives one canonical inverse for a multi-record framework batch', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const transact = factory.transact as unknown as {
+      createReplayEvents: (
+        event: AllEvent,
+        direction: 'forward' | 'inverse',
+        provenance?: 'detached' | 'factory-owned-journal'
+      ) => AllEvent[]
+    }
+    const createReplayEvents = transact.createReplayEvents.bind(
+      factory.transact
+    )
+    const inverseCalls: AllEvent[] = []
+    transact.createReplayEvents = (event, direction, provenance) => {
+      if (direction === 'inverse') {
+        inverseCalls.push(event)
+      }
+      return createReplayEvents(event, direction, provenance)
+    }
+    const entries = [
+      { data: { id: 'element-a' }, parentId: 'group', index: 0 },
+      { data: { id: 'element-b' }, parentId: 'group', index: 1 }
+    ]
+    const payload = {
+      action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+      eventName: EventTypes.ADD_ELEMENTS,
+      undoType: EventTypes.REMOVE_ELEMENTS,
+      undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+      entries
+    }
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.ADD_ELEMENTS,
+        payload,
+        options: { shared: SharedDataChannelNames.SCENE_TREE },
+        canonicalEvidence: {
+          orderedIds: ['element-a', 'element-b'],
+          sharedRecords: entries.map((entry) => ({
+            orderedIds: [entry.data.id],
+            payload: {
+              ...payload,
+              entries: [entry]
+            }
+          }))
+        }
+      }
+    ])
+    factory.endTransaction()
+
+    expect(inverseCalls).toHaveLength(1)
+  })
+
   it('keeps custom inverter input and output detached from canonical evidence', () => {
     const factory = new Factory()
     const artifacts: FactoryMutationBatchArtifact[] = []
@@ -805,8 +865,12 @@ describe('Factory immutable mutation batch artifact', () => {
       const factory = new Factory()
       const channelName = 'not-yet-registered'
       const artifacts: FactoryMutationBatchArtifact[] = []
+      const statuses: FactoryMutationBatchArtifactStatus[] = []
       factory.subscribeToMutationBatchArtifact((artifact) =>
         artifacts.push(artifact)
+      )
+      factory.subscribeToMutationBatchArtifactStatus((status) =>
+        statuses.push(status)
       )
       factory.registerTransactionReplayHandler(
         EventTypes.UPDATE_PROPERTY,
@@ -829,7 +893,14 @@ describe('Factory immutable mutation batch artifact', () => {
       factory.endTransaction()
 
       expect(artifacts).toHaveLength(1)
-      expect(artifacts[0]?.changes[0]?.shared?.deliveryIds).toEqual([])
+      const committedStatus = statuses.find(
+        (status) => status.status === 'committed'
+      )
+      expect(
+        committedStatus?.status === 'committed'
+          ? committedStatus.appliedResult.deliveryIds
+          : undefined
+      ).toEqual([])
 
       const projected: unknown[] = []
       factory.registerSharedDataChannel(
