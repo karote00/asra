@@ -160,12 +160,16 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
 })
 
 test('the AI CRDT recording owns dedicated fresh app and collaboration servers', async () => {
-  const [configSource, manifestSource] = await Promise.all([
+  const [configSource, manifestSource, recordingSource] = await Promise.all([
     readFile(
       new URL('../playwright.collaboration.config.ts', import.meta.url),
       'utf8'
     ),
-    readFile(new URL('../package.json', import.meta.url), 'utf8')
+    readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    readFile(
+      new URL('../e2e/collaboration-ai-agent-video.spec.ts', import.meta.url),
+      'utf8'
+    )
   ])
   const manifest = JSON.parse(manifestSource)
   const command = manifest.scripts['test:e2e:ai-crdt-video']
@@ -178,6 +182,35 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
   assert.match(
     command,
     /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/asyra-design-collaboration/
+  )
+
+  const recordingCase = recordingSource.slice(
+    recordingSource.indexOf(
+      "test('records two live CRDT clients while Agent creates"
+    )
+  )
+  assert.match(recordingSource, /grid-template-rows:\s*1fr 1fr/)
+  assert.doesNotMatch(recordingSource, /grid-template-columns:\s*1fr 1fr/)
+  assert.match(
+    recordingSource,
+    /size:\s*{\s*height:\s*1440,\s*width:\s*1280\s*}/
+  )
+  assert.match(
+    recordingCase,
+    /prepareCompleteCatViewport\(actorA\)[\s\S]*prepareCompleteCatViewport\(actorB\)[\s\S]*submitTurn\(actorA,\s*exactCatOnlyPrompt,\s*1,\s*{\s*beforeSendDelayMs:\s*1_000\s*}\)/
+  )
+  assert.match(
+    recordingCase,
+    /expectPeerSnapshot\(actorA,\s*actorB,\s*600_000\)[\s\S]*actorB\.waitForTimeout\(1000\)/
+  )
+  assert.doesNotMatch(
+    recordingCase,
+    /make the whiskers blue|make the pupils red|observeProgressiveCreation/
+  )
+  assert.doesNotMatch(
+    `${configSource}\n${recordingSource}`,
+    /ASYRA_DESIGN_RUN_FORMAL_REPEATED_PERFORMANCE|recordRepeatedPerformanceSample|resolvePerformanceGateRun/,
+    'the one-shot high-detail and recording routes must not add warm-up or repeat modes'
   )
 })
 
@@ -211,6 +244,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     readFile(serverResponseInboxURL, 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8')
   ])
+  const connectivityCpuSampleSource = specSource.slice(
+    specSource.indexOf('const waitForConnectivityCpuSample'),
+    specSource.indexOf('const createConnectivityHeartbeat')
+  )
   const manifest = JSON.parse(manifestSource)
   const unguarded = spawnSync(
     'yarn',
@@ -331,6 +368,9 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_OWNER/)
   assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE/)
   assert.match(specSource, /ASYRA_DESIGN_TRACKED_ROLE:\s*['"]client-b-browser/)
+  assert.match(specSource, /\/resource-status/)
+  assert.match(specSource, /previousSettledSampleAtMs/)
+  assert.doesNotMatch(connectivityCpuSampleSource, /await delay\(750\)/)
   assert.match(
     specSource,
     /chromium\.launch\([\s\S]{0,500}executablePath:\s*guardLauncherPath/
@@ -645,6 +685,14 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /drawingProgress\.milestones/)
   assert.match(
     highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
+  assert.match(
+    highDetailSource,
     /peerConvergenceHeartbeat\s*=\s*await heartbeat\.assertGuarded\(\s*heartbeat\.sample\(\)/
   )
   assert.match(
@@ -759,7 +807,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     "'actor-b-navigation'"
   )
   assert.ok(actorACreateIndex >= 0)
-  assert.ok(actorBBrowserLaunchIndex > actorACreateIndex)
+  assert.ok(actorBBrowserLaunchIndex > actorACollaborationReadyIndex)
   assert.ok(actorBCreateIndex > actorBBrowserLaunchIndex)
   assert.ok(actorBCreateIndex > actorACreateIndex)
   assert.match(
@@ -770,7 +818,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     stagedBootstrapSource,
     /const actorB = await createActor\(browser,\s*baseURL\)/
   )
-  assert.ok(actorANavigationIndex > actorBCreateIndex)
+  assert.ok(actorANavigationIndex > actorACreateIndex)
   assert.ok(actorACollaborationReadyIndex > actorANavigationIndex)
   assert.ok(actorBNavigationIndex > actorACollaborationReadyIndex)
   assert.ok(preparedActorsIndex >= 0)

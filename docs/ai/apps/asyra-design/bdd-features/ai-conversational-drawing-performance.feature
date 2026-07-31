@@ -68,9 +68,9 @@ Feature: Conversational AI drawing performance
     And artifact attestation succeeded before Playwright started
     When the guarded endpoint benchmark starts
     Then an authenticated ready heartbeat should confirm process ownership and CPU sampling before the drawing request
-    And both Actor contexts should be created before the ready heartbeat
-    And Actor A should reach collaboration-ready before Actor B navigation
-    And Actor B should reach collaboration-ready before the ready heartbeat
+    And Actor A should reach collaboration-ready and two fresh raw settled samples before the independent Actor B browser is launched
+    And Actor B should reach collaboration-ready and both Actors should reach two fresh raw settled samples before the ready heartbeat
+    And settled bootstrap samples should require the requested Actor roles, freshness, both per-Actor browser values, and the real overall value below the ordinary 80-percent idle baseline instead of using a fixed sleep
     And the test or manual harness should seed the exact server response inbox before Actor A navigation
     And the fileId-selected response inbox read should complete before App and Agent readiness
     And those response-inbox, App, and Collaboration bootstrap phases should remain outside product execution timing
@@ -187,7 +187,7 @@ Feature: Conversational AI drawing performance
     Given one validated AI composition contains one Group and 7111 accepted children
     And the production App session opened with its required fileId
     When the local Agent executes the mutating turn
-    Then the App should use deterministic point and element-count batch boundaries with at most 64 elements per ordinary work unit
+    Then the App should use deterministic point and element-count batch boundaries with at most 32 elements per ordinary work unit
     And it should call plural "Core.createElementsInParent" once per non-empty batch
     And every successful batch should complete ordinary projection and advance actual element progress
     And the next batch should begin only after a browser paint opportunity in the same serialized loop

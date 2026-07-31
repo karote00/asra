@@ -74,6 +74,7 @@ const CLIENT_BROWSER_PROCESS_ROLES = new Set([
 ])
 const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
 const PHASE_BOUNDARY_PATH = '/phase-boundary'
+const RESOURCE_STATUS_PATH = '/resource-status'
 const ENDPOINT_ARTIFACT_ENV = 'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
 const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR'
 const ENDPOINT_RESPONSE_ARTIFACT_ENV =
@@ -2126,6 +2127,42 @@ export const recordProfileOutput = (state, chunk, { flush = false } = {}) => {
   }
 }
 
+export const readBootstrapResourceStatus = (
+  state,
+  {
+    nowMs = Date.now(),
+    requiredBrowserRoles = state.config.requiredProcessRoles.filter((role) =>
+      CLIENT_BROWSER_PROCESS_ROLES.has(role)
+    )
+  } = {}
+) => {
+  const sample = state.cpuSafetySamples.at(-1) ?? null
+  const requiredRoles = requiredBrowserRoles.filter((role) =>
+    CLIENT_BROWSER_PROCESS_ROLES.has(role)
+  )
+  const fresh =
+    sample !== null &&
+    nowMs >= sample.sampledAtMs &&
+    nowMs - sample.sampledAtMs <= state.config.maximumSampleGapMs
+  const rolesPresent = requiredRoles.every((role) =>
+    state.sampledProcessRoles.includes(role)
+  )
+  return {
+    actorFrontendRawCpuPercent: sample?.actorFrontendRawCpuPercent ?? {
+      actorA: 0,
+      actorB: 0
+    },
+    overallRawCpuPercent: sample?.rawCpuPercent ?? 0,
+    sampledAtMs: sample?.sampledAtMs ?? null,
+    settled:
+      fresh &&
+      rolesPresent &&
+      sample.actorFrontendRawCpuPercent.actorA <= state.config.busyCpuPercent &&
+      sample.actorFrontendRawCpuPercent.actorB <= state.config.busyCpuPercent &&
+      sample.rawCpuPercent <= state.config.busyCpuPercent
+  }
+}
+
 export const buildBoundedResourceReport = (
   state,
   {
@@ -3015,6 +3052,7 @@ export const runResourceGuardCli = async (
       ![
         '/heartbeat',
         PHASE_BOUNDARY_PATH,
+        RESOURCE_STATUS_PATH,
         TRACKED_PROCESS_REGISTRATION_PATH
       ].includes(request.url)
     ) {
@@ -3026,6 +3064,30 @@ export const runResourceGuardCli = async (
         request,
         normalizedConfig.requestBodyLimitBytes
       )
+      if (request.url === RESOURCE_STATUS_PATH) {
+        if (
+          body.token !== token ||
+          body.owner !== parsed.owner ||
+          !Array.isArray(body.requiredBrowserRoles) ||
+          body.requiredBrowserRoles.some(
+            (role) => !CLIENT_BROWSER_PROCESS_ROLES.has(role)
+          )
+        ) {
+          sendJson(response, 400, {
+            accepted: false,
+            reason: 'invalid-resource-status'
+          })
+          return
+        }
+        sendJson(response, 200, {
+          accepted: true,
+          ...readBootstrapResourceStatus(state, {
+            nowMs: now(),
+            requiredBrowserRoles: body.requiredBrowserRoles
+          })
+        })
+        return
+      }
       if (request.url === TRACKED_PROCESS_REGISTRATION_PATH) {
         let result = recordTrackedProcessGroupRegistration(state, body, {
           descendantVerified: false,

@@ -931,7 +931,11 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   assert.match(text, /guard.*ready heartbeat.*before.*7,076-element request/i)
   assert.match(
     text,
-    /Actor A and Actor B.*independently launched Chromium process groups.*contexts.*Actor A.*navigation.*collaboration ready.*before.*Actor B.*navigation.*collaboration ready.*before.*guard-ready heartbeat.*harness.*outside.*product timing/i
+    /Actor A and Actor B.*independently launched Chromium process groups.*Actor A.*navigation.*Collaboration readiness.*two fresh raw samples.*before Actor B is launched.*Actor B.*navigation.*Collaboration readiness.*both Actors.*two fresh settled samples.*before.*guard-ready heartbeat.*harness.*outside.*product timing/i
+  )
+  assert.match(
+    text,
+    /Bootstrap settled status.*read-only authenticated guard view.*latest raw operating-system sample.*requested Actor browser role.*observation-gap ceiling.*80-percent idle baseline.*never excludes startup CPU.*fixed sleep/i
   )
   assert.match(
     text,
@@ -1007,7 +1011,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /both Actor contexts[\s\S]*Actor A.*collaboration-ready[\s\S]*before Actor B.*navigation[\s\S]*Actor B.*collaboration-ready[\s\S]*before the ready heartbeat[\s\S]*outside.*product execution timing/i
+    /Actor A.*collaboration-ready.*two fresh raw settled samples.*before.*Actor B browser is launched[\s\S]*Actor B.*collaboration-ready.*both Actors.*two fresh raw settled samples.*before the ready heartbeat[\s\S]*fixed sleep/i
   )
   assert.match(
     feature,
@@ -1059,7 +1063,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     plan,
-    /both Actor contexts[\s\S]*Actor A[\s\S]*before Actor B navigation[\s\S]*guard-ready\s+heartbeat/i
+    /Actor A[\s\S]*two fresh raw settled samples[\s\S]*before[\s\S]*Actor B browser\s+is launched[\s\S]*guard-ready\s+heartbeat/i
   )
   assert.match(
     plan,
@@ -1336,7 +1340,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(text, /point.*element-count.*budget/i)
   assert.match(
     text,
-    /element-count budget capped at 64 elements per work unit/i
+    /element-count budget capped at 32 elements per work unit/i
   )
   assert.match(
     text,
@@ -1554,8 +1558,8 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     feature,
     /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*browser paint opportunity[\s\S]*one outer transaction[\s\S]*one Undo/i
   )
-  assert.match(feature, /at most 64 elements per ordinary work unit/i)
-  assert.match(plan, /64-element work-unit cap[\s\S]*fixed 2,048-point budget/i)
+  assert.match(feature, /at most 32 elements per ordinary work unit/i)
+  assert.match(plan, /32-element work-unit cap[\s\S]*fixed 2,048-point budget/i)
   assert.match(
     feature,
     /Scenario: Drawing progress keeps navigation responsive while edits stay locked[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*one Undo/i
@@ -1616,7 +1620,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     stageText,
-    /every successful canonical slice.*browser paint opportunity.*fixed point budget.*64 elements/i
+    /every successful canonical slice.*browser paint opportunity.*fixed point budget.*32 elements/i
   )
   assert.match(
     canonicalText,

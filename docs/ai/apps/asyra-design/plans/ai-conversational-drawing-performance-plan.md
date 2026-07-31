@@ -1333,7 +1333,7 @@ shared-data boundaries.
 - AI composition creates one Group through that canonical-data surface, crosses
   one browser paint opportunity after the Group, and only then submits
   deterministic ordered child ranges through the same route. Each range uses
-  one fixed 2,048-point budget and a 64-element work-unit cap so thousands of
+  one fixed 2,048-point budget and a 32-element work-unit cap so thousands of
   zero-point primitives cannot collapse into one blocking call. One indivisible
   element may exceed only the point budget.
 - Cooperative batch calls remain inside one outer App transaction. They are
@@ -1640,7 +1640,7 @@ intended transaction or history boundary.
   swaps, or changes this route, and measurement cannot select another product
   execution path.
 - Composition always uses deterministic point and element-count boundaries. A
-  64-element work-unit cap independently prevents a large zero-point primitive
+  32-element work-unit cap independently prevents a large zero-point primitive
   batch, and one fixed 2,048-point budget prevents later slices from growing
   into long main-thread blocks. One indivisible element may exceed only the
   point budget.
@@ -3408,6 +3408,198 @@ operation duration was 5,072 milliseconds, convergence was 5,010
 milliseconds, and all five tracked process groups terminated exactly. The
 earlier 284.9-percent combined-browser stop is invalid as a per-client
 frontend decision and must not be used as endpoint evidence.
+
+The following 7,076 checkpoint stopped before the AI request with both Actors
+at zero elements and zero publications. Each browser stayed below its
+500-percent per-Actor limit, but the two independently launched Chrome
+bootstrap workloads overlapped at a real 578.4-percent overall snapshot. The
+guard correctly stopped and terminated every tracked group. This is a harness
+bootstrap sequencing failure, not product execution evidence.
+
+Revised Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: create, navigate, and settle Actor A's independent Chromium
+  process group across two fresh raw settled samples before the Actor B browser
+  is launched; then create, navigate, and settle Actor B across two fresh raw
+  settled samples before the guard-ready heartbeat, using fresh raw guard
+  samples rather than a fixed sleep.
+- Test-first oracle: a bounded guard status reports settled only when the
+  required Actor browser roles are present in a fresh sample and both the
+  per-Actor values and real overall value are at or below the ordinary
+  80-percent idle baseline; missing Actor B or a 90-percent overall sample is
+  not settled.
+- Mutation allowlist: the existing `evaluate-endpoint-performance` guard,
+  endpoint spec, Playwright-config test, resource-guard test, active plan,
+  Inspector, Inspector contract, and BDD files.
+- Required gates: focused guard/config/Inspector suites, exact lint,
+  `diff --check`, one guarded 16-item proof, then one corrected 7,076
+  checkpoint.
+- Exclusions: no CPU limit, workload, product action, CRDT owner, App runtime,
+  sampling formula, fixed startup delay, deadline, dependency, Contents, Pen
+  Tool, media, trace, or recording change.
+- Stop condition: any raw limit still stops the exact action; the task returns
+  here with the first bootstrap phase and does not weaken the guard.
+
+The serialized-bootstrap implementation passed its focused guard, Playwright
+config, and Inspector suites, exact lint, Playwright discovery, `diff --check`,
+bounded review, and guarded 16-item proof. The 16-item proof completed both
+Actors at 17/17 canonical and Render elements with eight/eight publications,
+one/zero Undo depth, zero failures, 5,005-millisecond convergence, and
+5,090-millisecond operation time. The same raw snapshot at its aggregate peak
+reported Actor A at 144.4 percent, Actor B at 138.8 percent, and all tracked
+frontend, backend, and harness processes at 292.8 percent.
+
+The resulting 7,076 root-cause run no longer overlapped browser bootstrap and
+stayed below every 500-percent limit. Actor A's independent browser peak was
+367.5 percent, Actor B's was 298.6 percent, and the real overall peak was
+435.4 percent. Both Actors reached 7,076/7,076 canonical and Render elements,
+136/136 publications, one/zero Undo depth, zero publication failures, first
+visible at the 5,023-millisecond heartbeat, and complete at the
+10,035-millisecond heartbeat. A post-product Playwright assertion then failed
+without a guard stop. The bounded command projection mistakenly omitted the
+already-retained failure payload, so this invocation is not accepted as the
+formal endpoint proof and its missing assertion must not be guessed.
+
+Root-cause capture iteration:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: recover the exact already-formal post-product assertion and its
+  bounded failure evidence without changing the product, workload, limits,
+  sampling, timing, or correctness oracle.
+- Inputs and outputs: reuse the unchanged guarded endpoint and emit only the
+  existing bounded failure, Actor A/B state, per-Actor raw peaks, overall raw
+  peak, endpoint report, and confirmed teardown fields.
+- Authorization: the product owner's standing stop-condition instruction
+  explicitly requires root-cause iteration and re-execution rather than ending
+  the task. This permits one replacement root-cause invocation; it is not a
+  warm-up, accepted proof, or evidence that can hide the first failure.
+- Required gates: the preceding focused suites, bounded review, and guarded
+  16-item proof remain valid because no implementation changed. The replacement
+  command must include the exact failure field and must not start another run
+  until that failure selects a revised owner.
+- Exclusions: no implementation, oracle, threshold, deadline, workload,
+  browser topology, CPU formula, CRDT, Render, Contents, Pen Tool, dependency,
+  media, trace, profile, or recording change.
+- Stop condition: capture the exact first failure, terminate every tracked
+  group, and return immediately to a revised Step Execution Card before any
+  further 7,076 invocation.
+
+The replacement root-cause invocation stopped correctly before canonical
+progress on a 580.1-percent real overall snapshot. Actor A's independent
+browser was 297.4 percent, Actor B's was 260.4 percent, the App server was
+zero, the WebSocket server was 7.6 percent, and the test harness was 14.7
+percent. The two hot renderer processes were 287.8 and 253.9 percent. Neither
+Actor crossed its independent 500-percent limit, but their simultaneous
+frontend work correctly crossed the overall 500-percent safety limit. Every
+tracked process group terminated exactly.
+
+The accepted 16-item proof supplies the bounded comparison: its point-heavy
+source formed eight narrow publications for 16 children and peaked at Actor A
+144.4 percent, Actor B 138.8 percent, and 292.8 percent overall. The
+7,076-element source formed 136 publications for 7,075 children, averaging
+about 52 children per publication. Actor A's next local canonical slice
+therefore overlaps Actor B's preceding remote publication apply in two
+independent renderer processes. The differential selects the element-count
+work-unit width at `stage-local-interactive-composition`; backend relay and
+harness work are not the first incorrect owner.
+
+Revised Step Execution Card:
+
+- Owner: `stage-local-interactive-composition`.
+- Objective: reduce the fixed prepared composition element-count work-unit
+  cap from 64 to 32 while retaining the fixed 2,048-point budget, so the same
+  source publication boundary reduces both Actor A local and Actor B remote
+  renderer/Worker bursts without merging clients, suppressing peer visibility,
+  or changing the bulk action.
+- Test-first oracle: the formal server-response harness and Inspector contract
+  must require exactly 32 elements at most per prepared work unit. The current
+  64-element constant and Inspector conditions must fail first.
+- Inputs and outputs: preserve the same server-prepared
+  `PreparedDrawingArtifact`, flat canonical descriptors, exact IDs/order/
+  geometry, one serialized paint-yield loop, one outer transaction, one Undo,
+  ordered progressive `SharedPublication` records, and exact remote apply.
+- Mutation allowlist:
+  `apps/asyra-design/src/ai/prepared-drawing-artifact.ts`,
+  `apps/asyra-design/test-data/ai-drawing/server-response-inbox.test.ts`,
+  this active plan, the performance Inspector and its contract test, the
+  performance BDD, and `docs/ai/apps/asyra-design/API_SURFACES.md`.
+- Required gates: prove the focused harness and Inspector oracles fail first;
+  pass the complete server-response harness, affected AI composition tests,
+  Inspector, exact lint, `diff --check`, and bounded review; then one guarded
+  16-item proof. Only after that materially narrower source boundary passes may
+  one replacement 7,076 proof run.
+- Exclusions: no point budget, prepared geometry, validation, clone, Factory
+  history, publication shape, codec, receiver, remote apply, relay, Render,
+  CPU limit/formula/cadence, deadline, Contents, Pen Tool, template, package,
+  dependency, media, trace, profile, or recording change.
+- Stop condition: any correctness, resource, or time stop ends only that gate,
+  selects the first direct owner, and begins another bounded iteration without
+  weakening the limits or ending the task.
+
+The 32-element source boundary passed the server-response harness 5/5,
+composition and prepared-consumer suites 35/35, Inspector 21/21, exact lint,
+`diff --check`, and bounded review. Its guarded 16-item proof completed both
+Actors at 17/17 canonical and Render elements with eight/eight publications,
+one/zero Undo depth, zero failures, 5,064-millisecond operation time, and
+5,006-millisecond convergence. Actor A's independent browser peak was 167.7
+percent, Actor B's was 136.5 percent, the real overall peak was 281.9 percent,
+and all five tracked groups terminated exactly. The materially narrower
+7,076-element replacement is now permitted once.
+
+The first replacement used an older 01:38 attested response overlay rather
+than the newly changed source constant. Its manifest still reported 136
+slices, a 64-element maximum, and 107 slices above 32 elements, so its
+476.9-percent overall result is not evidence for the 32-element boundary and
+must not be used as improvement proof. It nevertheless stayed below every CPU
+limit and completed both Actors at 7,076/7,076 with 136/136 publications,
+one/zero Undo depth, and zero publication failures.
+
+That run exposed the next formal oracle bug after product completion:
+`cooperativeYieldCount` retained the exact 136 total while the bounded counter
+ring retained only the last 77 visible-element samples. Comparing an exact
+total with a bounded sample-array length failed as Expected 77 / Received 136.
+The exact local-sent publication count was also 136 and is the correct
+independent equality for one publication per successful source work unit.
+
+Revised Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: compare exact cooperative-yield total with exact Actor A
+  local-sent publication total, never with bounded retained sample length, and
+  require explicit production setup plus manifest attestation before evaluating
+  the new 32-element source boundary.
+- Test-first oracle: the Playwright config contract requires
+  `drawingProgress.cooperativeYieldCount` to equal
+  `completed.publications.actorALocalSent` and forbids equality with
+  `drawingProgress.visibleElementSampleCount`. The current high-detail oracle
+  must fail first.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector and its contract test only if their oracle is
+  incomplete.
+- Required gates: fail then pass the focused Playwright config oracle; pass
+  guard/config, Inspector, exact lint, `diff --check`, and bounded review;
+  execute `prepare:e2e:endpoint-performance`; prove the 7,075-child manifest
+  has no slice above 32; run one guarded 16-item proof, then one materially
+  corrected 7,076 proof.
+- Exclusions: no product constant, point budget, geometry, counter emission,
+  retained-ring capacity, transaction, publication shape, CPU limit/formula/
+  cadence, deadline, codec, receiver, remote apply, relay, Render, Contents,
+  Pen Tool, dependency, media, trace, profile, or recording change.
+- Stop condition: any setup, correctness, resource, or time failure selects
+  its direct owner and begins another bounded iteration; no stale artifact or
+  bounded sample count can be accepted as exact evidence.
+
+Explicit production setup rebuilt and attested the response overlay. The
+7,075-child manifest now contains 239 slices, no slice above 32 elements, and
+no stale 64-element range. The setup-backed guarded 16-item proof completed
+17/17 canonical and Render elements with eight/eight publications, one/zero
+Undo depth, zero failures, 5,070-millisecond operation time, and
+5,010-millisecond convergence. Actor A's peak was 135.6 percent, Actor B's was
+135.2 percent, the real overall peak was 267.3 percent, and exact teardown
+completed. One 32-element 7,076 proof is now permitted.
 
 ## Current Local Gates
 

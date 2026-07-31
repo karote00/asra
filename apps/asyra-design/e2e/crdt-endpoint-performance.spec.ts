@@ -520,6 +520,45 @@ const postHeartbeat = async (
   return result
 }
 
+const waitForBootstrapCpuSettled = async (
+  requiredBrowserRoles: readonly ('client-a-browser' | 'client-b-browser')[]
+): Promise<void> => {
+  const deadlineMs = Date.now() + 20_000
+  let previousSettledSampleAtMs: number | null = null
+  while (Date.now() < deadlineMs) {
+    const response = await fetch(`${guardURL}/resource-status`, {
+      body: JSON.stringify({
+        owner: endpointOwner,
+        requiredBrowserRoles,
+        token: guardToken
+      }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+      signal: AbortSignal.timeout(3_000)
+    })
+    const result = (await response.json().catch(() => ({}))) as {
+      accepted?: boolean
+      sampledAtMs?: number | null
+      settled?: boolean
+    }
+    if (!response.ok || result.accepted !== true) {
+      throw new Error('Endpoint bootstrap resource status was rejected')
+    }
+    if (
+      result.settled === true &&
+      typeof result.sampledAtMs === 'number' &&
+      result.sampledAtMs !== previousSettledSampleAtMs
+    ) {
+      if (previousSettledSampleAtMs !== null) return
+      previousSettledSampleAtMs = result.sampledAtMs
+    } else if (result.settled !== true) {
+      previousSettledSampleAtMs = null
+    }
+    await delay(250)
+  }
+  throw new Error('Endpoint bootstrap CPU did not settle within 20 seconds')
+}
+
 const postPhaseBoundary = async (
   kind: 'start' | 'end',
   phase: string
@@ -808,7 +847,11 @@ const waitForConnectivityCpuSample = async (
     createConnectivityHeartbeat('bootstrap', proofKind, phase)
   )
   await action?.()
-  await delay(750)
+  await waitForBootstrapCpuSettled(
+    phase.startsWith('actor-b') || phase === 'connected'
+      ? ['client-a-browser', 'client-b-browser']
+      : ['client-a-browser']
+  )
   await postHeartbeat('progress', createConnectivityHeartbeat(phase, proofKind))
 }
 
@@ -2242,18 +2285,6 @@ const prepareEndpointActorsSequentially = async ({
     const actorA = await createActor(browser, baseURL)
     contexts.push(actorA.context)
 
-    await postHeartbeat(
-      'progress',
-      createConnectivityHeartbeat(
-        'actor-a-context-created',
-        proofKind,
-        'actor-b-context-create'
-      )
-    )
-    actorBBrowser = await launchTrackedActorBBrowser()
-    const actorB = await createActor(actorBBrowser, baseURL)
-    contexts.push(actorB.context)
-
     const preparedResponse = getPreparedServerResponseVariant(
       serverResponseItemCount
     )
@@ -2302,6 +2333,18 @@ const prepareEndpointActorsSequentially = async ({
       () => waitForCollaboration(actorA.page, 'Actor A'),
       proofKind
     )
+
+    await postHeartbeat(
+      'progress',
+      createConnectivityHeartbeat(
+        'actor-a-collaboration-ready',
+        proofKind,
+        'actor-b-context-create'
+      )
+    )
+    actorBBrowser = await launchTrackedActorBBrowser()
+    const actorB = await createActor(actorBBrowser, baseURL)
+    contexts.push(actorB.context)
 
     await waitForConnectivityCpuSample(
       'actor-b-blank-idle',
@@ -3284,7 +3327,7 @@ test('creation-only high-detail endpoint proof', async ({
     ).toBe(true)
     expect(drawingProgress.cooperativeYieldSampleCount).toBe(1)
     expect(drawingProgress.cooperativeYieldCount).toBe(
-      drawingProgress.visibleElementSampleCount
+      completed.publications.actorALocalSent
     )
     expect(drawingProgress.canonicalWorkUnitCount).toBe(
       drawingProgress.visibleElementSampleCount

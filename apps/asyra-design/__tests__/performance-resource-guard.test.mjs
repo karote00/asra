@@ -23,6 +23,7 @@ import {
   recordResourceHeartbeat,
   recordResourceSampleFailure,
   recordTrackedProcessGroupRegistration,
+  readBootstrapResourceStatus,
   runEndpointPerformancePipeline,
   runResourceGuardCli,
   runTrackedProcessLauncher,
@@ -1402,6 +1403,56 @@ test('applies the frontend CPU limit to Actor A and Actor B independently', () =
     targetPgid: TARGET_PGID
   })
   assert.equal(report.maximumAggregateCpuSafetySample.rawCpuPercent, 290)
+})
+
+test('reports bootstrap settled only from fresh required Actor samples below the idle baseline', () => {
+  const evaluate = (cpuPercent, trackedProcessRoles) =>
+    evaluateResourceSample(
+      createResourceGuardState({ nowMs: 0 }),
+      trackedCpuSample({
+        cpuPercent,
+        nowMs: 1_000,
+        processes: [
+          {
+            cpuPercent: 30,
+            cpuTimeMs: 100,
+            pid: 1,
+            role: 'client-a-browser'
+          },
+          {
+            cpuPercent: 30,
+            cpuTimeMs: 100,
+            pid: 2,
+            role: 'client-b-browser'
+          }
+        ],
+        trackedProcessRoles
+      }),
+      { targetPgid: TARGET_PGID }
+    ).state
+  const requiredBrowserRoles = ['client-a-browser', 'client-b-browser']
+
+  assert.equal(
+    readBootstrapResourceStatus(evaluate(70, requiredBrowserRoles), {
+      nowMs: 1_100,
+      requiredBrowserRoles
+    }).settled,
+    true
+  )
+  assert.equal(
+    readBootstrapResourceStatus(evaluate(70, ['client-a-browser']), {
+      nowMs: 1_100,
+      requiredBrowserRoles
+    }).settled,
+    false
+  )
+  assert.equal(
+    readBootstrapResourceStatus(evaluate(90, requiredBrowserRoles), {
+      nowMs: 1_100,
+      requiredBrowserRoles
+    }).settled,
+    false
+  )
 })
 
 test('allows the exact endpoint proof to use the 500% high-detail frontend and aggregate ceilings', () => {
