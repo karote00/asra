@@ -574,6 +574,43 @@ describe('Asyra Design app-owned collaboration processing', () => {
     })
   })
 
+  it('organizes each source publication topology exactly once', () => {
+    const source = publication(
+      [
+        ...canonicalContainerCreationDeliveries('group-a'),
+        ...canonicalCreationDeliveries(['rect-a', 'rect-b'], 'group-a'),
+        ...propertyUpdateDeliveries('position-rect-a', { x: 30, y: 40 })
+      ],
+      'single-linear-organization'
+    )
+    let publicationTopologyReads = 0
+    let sliceTopologyReads = 0
+    const observedSlices = source.slices.map((slice) => {
+      const sourceBatches = slice.batches
+      return {
+        ...slice,
+        get batches() {
+          sliceTopologyReads += 1
+          return sourceBatches
+        }
+      }
+    })
+    const observedPublication: SharedPublication = {
+      ...source,
+      get slices() {
+        publicationTopologyReads += 1
+        return observedSlices
+      }
+    }
+    const harness = createHarness()
+
+    expect(harness.processPublication(observedPublication)).toBe(true)
+    expect(publicationTopologyReads).toBe(1)
+    expect(sliceTopologyReads).toBe(observedSlices.length)
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+  })
+
   it('does not republish inbound raw events after Core accepts the request', () => {
     const markerPropertyId = 'raw-republish-marker'
     const observedRawEvents: AllEvent[] = []

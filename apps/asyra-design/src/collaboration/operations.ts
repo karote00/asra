@@ -51,20 +51,22 @@ interface ClassifiedRemoteRestore {
   propsSnapshot: PropsRestoreSnapshot
 }
 
+type SharedPublicationSlice = SharedPublication['slices'][number]
+
+interface OrganizedRemotePublication {
+  readonly batches: readonly SharedPublicationBatch[]
+  readonly deliveries: readonly Readonly<{
+    channel: string
+    delivery: SharedPublicationDelivery
+  }>[]
+  readonly sliceByBatch: ReadonlyMap<
+    SharedPublicationBatch,
+    SharedPublicationSlice
+  >
+}
+
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
-
-const publicationBatches = (
-  publication: SharedPublication
-): readonly SharedPublicationBatch[] =>
-  publication.slices.flatMap(({ batches }) => batches)
-
-const publicationDeliveries = (publication: SharedPublication) =>
-  publication.slices.flatMap(({ batches }) =>
-    batches.flatMap(({ channel, deliveries }) =>
-      deliveries.map((delivery) => ({ channel, delivery }))
-    )
-  )
 
 const publicationReplayMode = (
   origin: SharedPublication['origin']
@@ -408,9 +410,9 @@ const isSupportedPayload = (
 }
 
 const classifyRemoteRestore = (
-  publication: SharedPublication
+  organization: OrganizedRemotePublication
 ): ClassifiedRemoteRestore | undefined => {
-  const deliveries = publicationDeliveries(publication)
+  const { deliveries } = organization
   const restoreDeliveries = deliveries.filter(
     ({ channel, delivery }) =>
       channel === SharedDataChannelNames.SCENE_TREE &&
@@ -521,28 +523,6 @@ const isRemovePropertyDelivery = (
       )
   )
 
-const isDirectPublicationBatch = (
-  publication: SharedPublication,
-  batch: SharedPublicationBatch
-): boolean => {
-  const containingSlices = publication.slices.filter(({ batches }) =>
-    batches.includes(batch)
-  )
-  return (
-    containingSlices.length === 1 &&
-    isNonBlankString(batch.batchId) &&
-    isNonBlankString(batch.channel) &&
-    batch.deliveries.length > 0 &&
-    batch.deliveries.every(
-      ({ deliveryId, eventName, orderedIds }) =>
-        isNonBlankString(deliveryId) &&
-        isNonBlankString(eventName) &&
-        orderedIds.length > 0 &&
-        orderedIds.every(isNonBlankString)
-    )
-  )
-}
-
 const orderedIdsFromBatch = (
   batch: SharedPublicationBatch
 ): readonly string[] => {
@@ -562,6 +542,119 @@ const sameOrderedIds = (
 ): boolean =>
   actual.length === expected.length &&
   actual.every((id, index) => id === expected[index])
+
+const organizeRemotePublication = (
+  publication: SharedPublication
+): OrganizedRemotePublication => {
+  const slices = publication.slices
+  const batches: SharedPublicationBatch[] = []
+  const deliveries: {
+    channel: string
+    delivery: SharedPublicationDelivery
+  }[] = []
+  const sliceByBatch = new Map<SharedPublicationBatch, SharedPublicationSlice>()
+  const batchIds = new Set<string>()
+  const deliveryIds = new Set<string>()
+  const isCompensation = publication.origin === 'rollback-compensation'
+  if (
+    slices.length === 0 ||
+    isCompensation !== owns(publication, 'compensatesPublicationId')
+  ) {
+    throw new Error(
+      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+    )
+  }
+
+  for (const slice of slices) {
+    const sliceBatches = slice.batches
+    if (
+      !isNonBlankString(slice.sliceId) ||
+      slice.orderedIds.length === 0 ||
+      sliceBatches.length === 0
+    ) {
+      throw new Error(
+        '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+      )
+    }
+    const sliceDeliveryIds: string[] = []
+    const sliceCanonicalOrderedIds: string[] = []
+    const seenSliceCanonicalIds = new Set<string>()
+
+    for (const batch of sliceBatches) {
+      const batchDeliveries = batch.deliveries
+      if (
+        sliceByBatch.has(batch) ||
+        batchIds.has(batch.batchId) ||
+        !isNonBlankString(batch.batchId) ||
+        !isNonBlankString(batch.channel) ||
+        batchDeliveries.length === 0
+      ) {
+        throw new Error(
+          '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+        )
+      }
+      batchIds.add(batch.batchId)
+      sliceByBatch.set(batch, slice)
+      batches.push(batch)
+
+      for (const delivery of batchDeliveries) {
+        if (
+          deliveryIds.has(delivery.deliveryId) ||
+          !isNonBlankString(delivery.deliveryId) ||
+          !isNonBlankString(delivery.eventName) ||
+          delivery.orderedIds.length === 0 ||
+          delivery.orderedIds.some((orderedId) => !isNonBlankString(orderedId))
+        ) {
+          throw new Error(
+            '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+          )
+        }
+        if (isCompensation !== owns(delivery, 'compensatesDeliveryId')) {
+          throw new Error(
+            '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+          )
+        }
+        deliveryIds.add(delivery.deliveryId)
+        sliceDeliveryIds.push(delivery.deliveryId)
+        delivery.orderedIds.forEach((orderedId) => {
+          if (seenSliceCanonicalIds.has(orderedId)) return
+          seenSliceCanonicalIds.add(orderedId)
+          sliceCanonicalOrderedIds.push(orderedId)
+        })
+        deliveries.push({
+          channel: batch.channel,
+          delivery
+        })
+      }
+    }
+
+    if (
+      !sameOrderedIds(slice.orderedIds, sliceDeliveryIds) &&
+      !(
+        publication.mode === 'progressive' &&
+        sameOrderedIds(slice.orderedIds, sliceCanonicalOrderedIds)
+      )
+    ) {
+      throw new Error(
+        '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+      )
+    }
+  }
+
+  if (batches.length === 0 || deliveries.length === 0) {
+    throw new Error(
+      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+    )
+  }
+  deliveries.forEach(({ channel, delivery }) =>
+    assertSupportedDelivery(channel, delivery)
+  )
+  return Object.freeze({
+    batches: Object.freeze(batches),
+    deliveries: Object.freeze(deliveries.map((entry) => Object.freeze(entry))),
+    sliceByBatch
+  })
+}
 
 const orderCanonicalElementEntries = (
   entries: readonly AddRemoveElementEntry[],
@@ -590,102 +683,7 @@ const orderCanonicalElementEntries = (
     : orderedEntries
 }
 
-const hasDirectSliceBoundary = (
-  publication: SharedPublication,
-  batch: SharedPublicationBatch
-): boolean => {
-  const sliceBoundary = publication.slices.find(({ batches }) =>
-    batches.includes(batch)
-  )
-  if (!sliceBoundary) return false
-  const sliceBatches = sliceBoundary.batches
-  if (
-    sliceBatches.length === 0 ||
-    sliceBatches.some(
-      (sliceBatch) => !isDirectPublicationBatch(publication, sliceBatch)
-    )
-  ) {
-    return false
-  }
-  const deliveryIds = sliceBatches.flatMap(({ deliveries }) =>
-    deliveries.map(({ deliveryId }) => deliveryId)
-  )
-  const seenOrderedIds = new Set<string>()
-  const canonicalOrderedIds = sliceBatches.flatMap(({ deliveries }) =>
-    deliveries.flatMap(({ orderedIds }) =>
-      orderedIds.filter((orderedId) => {
-        if (seenOrderedIds.has(orderedId)) return false
-        seenOrderedIds.add(orderedId)
-        return true
-      })
-    )
-  )
-  return (
-    sameOrderedIds(sliceBoundary.orderedIds, deliveryIds) ||
-    (publication.mode === 'progressive' &&
-      sameOrderedIds(sliceBoundary.orderedIds, canonicalOrderedIds))
-  )
-}
-
-const assertDirectPublicationBatchEvidence = (
-  publication: SharedPublication
-): void => {
-  const batches = publicationBatches(publication)
-  const artifactDeliveries = batches.flatMap(({ deliveries }) => deliveries)
-  const batchIds = new Set<string>()
-  const deliveryIds = new Set<string>()
-  const isCompensation = publication.origin === 'rollback-compensation'
-  if (
-    publication.slices.length === 0 ||
-    batches.length === 0 ||
-    artifactDeliveries.length === 0 ||
-    isCompensation !== owns(publication, 'compensatesPublicationId') ||
-    artifactDeliveries.some(
-      (delivery) => isCompensation !== owns(delivery, 'compensatesDeliveryId')
-    )
-  ) {
-    throw new Error(
-      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
-    )
-  }
-  if (
-    publication.slices.some(
-      ({ sliceId, orderedIds, batches: sliceBatches }) =>
-        !isNonBlankString(sliceId) ||
-        orderedIds.length === 0 ||
-        sliceBatches.length === 0
-    ) ||
-    batches.some((batch) => {
-      if (batchIds.has(batch.batchId)) return true
-      batchIds.add(batch.batchId)
-      if (
-        !isDirectPublicationBatch(publication, batch) ||
-        !hasDirectSliceBoundary(publication, batch)
-      ) {
-        return true
-      }
-      return batch.deliveries.some(({ deliveryId }) => {
-        if (deliveryIds.has(deliveryId)) return true
-        deliveryIds.add(deliveryId)
-        return false
-      })
-    })
-  ) {
-    throw new Error(
-      '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
-    )
-  }
-}
-
-const assertRemotePublication = (publication: SharedPublication): void => {
-  assertDirectPublicationBatchEvidence(publication)
-  publicationBatches(publication).forEach(({ channel, deliveries }) =>
-    deliveries.forEach((delivery) => assertSupportedDelivery(channel, delivery))
-  )
-}
-
 const classifyPropertyComponentBatch = (
-  publication: SharedPublication,
   batch: SharedPublicationBatch
 ): readonly PropertyComponentValuesUpdate[] | null => {
   if (
@@ -697,8 +695,6 @@ const classifyPropertyComponentBatch = (
   }
   if (
     batch.channel !== SharedDataChannelNames.PROPS ||
-    !isDirectPublicationBatch(publication, batch) ||
-    !hasDirectSliceBoundary(publication, batch) ||
     !batch.deliveries.every(
       (delivery) =>
         delivery.eventName === EventTypes.UPDATE_PROPERTY &&
@@ -734,7 +730,6 @@ const classifyPropertyComponentBatch = (
 }
 
 const classifyElementDataBatch = (
-  publication: SharedPublication,
   batch: SharedPublicationBatch
 ): readonly UpdateElementDataChange[] | null => {
   if (
@@ -746,8 +741,6 @@ const classifyElementDataBatch = (
   }
   if (
     batch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    !isDirectPublicationBatch(publication, batch) ||
-    !hasDirectSliceBoundary(publication, batch) ||
     !batch.deliveries.every(
       ({ eventName, payload }) =>
         eventName === EventTypes.UPDATE_ELEMENT_DATA &&
@@ -764,7 +757,6 @@ const classifyElementDataBatch = (
 }
 
 const classifyHierarchyMoveBatch = (
-  publication: SharedPublication,
   batch: SharedPublicationBatch
 ): readonly HierarchyMove[] | null => {
   if (
@@ -776,8 +768,6 @@ const classifyHierarchyMoveBatch = (
   }
   if (
     batch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    !isDirectPublicationBatch(publication, batch) ||
-    !hasDirectSliceBoundary(publication, batch) ||
     !batch.deliveries.every(
       ({ eventName, payload }) =>
         eventName === EventTypes.MOVE_ELEMENTS && isMoveElements(payload)
@@ -796,7 +786,6 @@ const classifyHierarchyMoveBatch = (
 }
 
 const classifySubtreeRemovalBatch = (
-  publication: SharedPublication,
   batches: readonly SharedPublicationBatch[],
   startBatchIndex: number
 ): Readonly<{
@@ -814,11 +803,7 @@ const classifySubtreeRemovalBatch = (
   ) {
     return null
   }
-  if (
-    sceneBatch.deliveries.length !== 1 ||
-    !isDirectPublicationBatch(publication, sceneBatch) ||
-    !hasDirectSliceBoundary(publication, sceneBatch)
-  ) {
+  if (sceneBatch.deliveries.length !== 1) {
     throw new Error(
       '[asyra-design collaboration] invalid subtree removal Scene evidence'
     )
@@ -835,11 +820,7 @@ const classifySubtreeRemovalBatch = (
     ) {
       break
     }
-    if (
-      !isDirectPublicationBatch(publication, propertyBatch) ||
-      !hasDirectSliceBoundary(publication, propertyBatch) ||
-      !propertyBatch.deliveries.every(isRemovePropertyDelivery)
-    ) {
+    if (!propertyBatch.deliveries.every(isRemovePropertyDelivery)) {
       throw new Error(
         '[asyra-design collaboration] invalid subtree removal property evidence'
       )
@@ -853,29 +834,21 @@ const classifySubtreeRemovalBatch = (
 }
 
 const classifyCanonicalCreationBatch = (
-  publication: SharedPublication,
-  batches: readonly SharedPublicationBatch[],
+  organization: OrganizedRemotePublication,
   startBatchIndex: number
 ): Readonly<{
   change: Extract<CanonicalChange, { kind: 'element-creation' }>
   consumedBatchCount: number
 }> | null => {
+  const { batches, sliceByBatch } = organization
   const propertyBatch = batches[startBatchIndex]
   const sceneBatch = batches[startBatchIndex + 1]
   if (
     !propertyBatch ||
     !sceneBatch ||
-    !isDirectPublicationBatch(publication, propertyBatch) ||
-    !isDirectPublicationBatch(publication, sceneBatch) ||
-    !hasDirectSliceBoundary(publication, propertyBatch) ||
-    !hasDirectSliceBoundary(publication, sceneBatch) ||
     propertyBatch.channel !== SharedDataChannelNames.PROPS ||
     sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE ||
-    !publication.slices.some(
-      ({ batches: sliceBatches }) =>
-        sliceBatches.includes(propertyBatch) &&
-        sliceBatches.includes(sceneBatch)
-    )
+    sliceByBatch.get(propertyBatch) !== sliceByBatch.get(sceneBatch)
   ) {
     return null
   }
@@ -954,20 +927,15 @@ const classifyCanonicalCreationBatch = (
 }
 
 const classifyCanonicalRemovalBatch = (
-  publication: SharedPublication,
-  batches: readonly SharedPublicationBatch[],
+  organization: OrganizedRemotePublication,
   startBatchIndex: number
 ): Readonly<{
   removals: readonly RemoteCanonicalElementRemoval[]
   consumedBatchCount: number
 }> | null => {
+  const { batches, sliceByBatch } = organization
   const sceneBatch = batches[startBatchIndex]
-  if (
-    !sceneBatch ||
-    !isDirectPublicationBatch(publication, sceneBatch) ||
-    !hasDirectSliceBoundary(publication, sceneBatch) ||
-    sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE
-  ) {
+  if (!sceneBatch || sceneBatch.channel !== SharedDataChannelNames.SCENE_TREE) {
     return null
   }
 
@@ -1016,13 +984,7 @@ const classifyCanonicalRemovalBatch = (
   if (
     propertyBatch &&
     (!propertyBatch.deliveries.every(isRemovePropertyDelivery) ||
-      !isDirectPublicationBatch(publication, propertyBatch) ||
-      !hasDirectSliceBoundary(publication, propertyBatch) ||
-      !publication.slices.some(
-        ({ batches: sliceBatches }) =>
-          sliceBatches.includes(sceneBatch) &&
-          sliceBatches.includes(propertyBatch)
-      ) ||
+      sliceByBatch.get(sceneBatch) !== sliceByBatch.get(propertyBatch) ||
       !sameOrderedIds(orderedIdsFromBatch(propertyBatch), elementIds))
   ) {
     throw new Error(
@@ -1037,27 +999,19 @@ const classifyCanonicalRemovalBatch = (
 }
 
 const createRemoteApplySteps = (
-  publication: SharedPublication
+  organization: OrganizedRemotePublication
 ): readonly CanonicalChange[] => {
   const changes: CanonicalChange[] = []
-  const batches = publicationBatches(publication)
+  const { batches } = organization
   let batchIndex = 0
   while (batchIndex < batches.length) {
-    const creation = classifyCanonicalCreationBatch(
-      publication,
-      batches,
-      batchIndex
-    )
+    const creation = classifyCanonicalCreationBatch(organization, batchIndex)
     if (creation) {
       changes.push(creation.change)
       batchIndex += creation.consumedBatchCount
       continue
     }
-    const removal = classifyCanonicalRemovalBatch(
-      publication,
-      batches,
-      batchIndex
-    )
+    const removal = classifyCanonicalRemovalBatch(organization, batchIndex)
     if (removal) {
       changes.push(
         Object.freeze({
@@ -1069,7 +1023,7 @@ const createRemoteApplySteps = (
       continue
     }
     const batch = batches[batchIndex] as SharedPublicationBatch
-    const propertyUpdates = classifyPropertyComponentBatch(publication, batch)
+    const propertyUpdates = classifyPropertyComponentBatch(batch)
     if (propertyUpdates) {
       changes.push(
         Object.freeze({
@@ -1080,7 +1034,7 @@ const createRemoteApplySteps = (
       batchIndex += 1
       continue
     }
-    const elementDataChanges = classifyElementDataBatch(publication, batch)
+    const elementDataChanges = classifyElementDataBatch(batch)
     if (elementDataChanges) {
       changes.push(
         Object.freeze({
@@ -1091,7 +1045,7 @@ const createRemoteApplySteps = (
       batchIndex += 1
       continue
     }
-    const hierarchyMoves = classifyHierarchyMoveBatch(publication, batch)
+    const hierarchyMoves = classifyHierarchyMoveBatch(batch)
     if (hierarchyMoves) {
       changes.push(
         Object.freeze({
@@ -1102,11 +1056,7 @@ const createRemoteApplySteps = (
       batchIndex += 1
       continue
     }
-    const subtreeRemoval = classifySubtreeRemovalBatch(
-      publication,
-      batches,
-      batchIndex
-    )
+    const subtreeRemoval = classifySubtreeRemovalBatch(batches, batchIndex)
     if (subtreeRemoval) {
       changes.push(
         Object.freeze({
@@ -1134,12 +1084,13 @@ export const createAsyraDesignPublicationProcessor =
   ) => boolean) =>
   (publication) => {
     return runWithDetachedBrowserTiming(() => {
-      measureBrowserDragPhase('collaboration:remote-input-preflight', () =>
-        assertRemotePublication(publication)
+      const inboundOrganization = measureBrowserDragPhase(
+        'collaboration:remote-input-preflight',
+        () => organizeRemotePublication(publication)
       )
       const inboundRestore = measureBrowserDragPhase(
         'collaboration:remote-restore-classify',
-        () => classifyRemoteRestore(publication)
+        () => classifyRemoteRestore(inboundOrganization)
       )
       const acceptedPublication = measureBrowserDragPhase(
         'collaboration:remote-policy',
@@ -1158,18 +1109,19 @@ export const createAsyraDesignPublicationProcessor =
         }
         runRemoteTransaction(mutate)
       }
-      if (acceptedPublication !== publication) {
-        measureBrowserDragPhase(
-          'collaboration:remote-accepted-input-preflight',
-          () => assertRemotePublication(acceptedPublication)
-        )
-      }
+      const acceptedOrganization =
+        acceptedPublication === publication
+          ? inboundOrganization
+          : measureBrowserDragPhase(
+              'collaboration:remote-accepted-input-preflight',
+              () => organizeRemotePublication(acceptedPublication)
+            )
       const acceptedRestore =
         acceptedPublication === publication
           ? inboundRestore
           : measureBrowserDragPhase(
               'collaboration:remote-accepted-restore-classify',
-              () => classifyRemoteRestore(acceptedPublication)
+              () => classifyRemoteRestore(acceptedOrganization)
             )
       if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
         throw new Error(
@@ -1191,7 +1143,7 @@ export const createAsyraDesignPublicationProcessor =
       }
       const canonicalChanges = measureBrowserDragPhase(
         'collaboration:remote-canonical-batch-derive',
-        () => createRemoteApplySteps(acceptedPublication)
+        () => createRemoteApplySteps(acceptedOrganization)
       )
       canonicalChanges.forEach((change) => {
         if (change.kind !== 'element-creation') {

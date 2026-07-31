@@ -613,6 +613,10 @@ test('Factory separates rich local history evidence from the transport wire arti
     /changes atomically.*never contains parallel old and new publication shapes.*compatibility conversion.*optional legacy aliases/i
   )
   assert.match(
+    contractText(remoteOwner),
+    /source slices.*batches.*delivery order.*batch-to-slice membership.*one linear pass.*without rescanning slices or merging publications/i
+  )
+  assert.match(
     plan,
     /Factory Local History and Transport Wire Artifacts[\s\S]*one remote-apply payload[\s\S]*ordered IDs[\s\S]*metadata[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias/i
   )
