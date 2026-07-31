@@ -518,6 +518,12 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /documentEventAttempts/)
   assert.match(highDetailSource, /documentEventDeliveries/)
   assert.match(highDetailSource, /documentEventPreventions/)
+  const interactionAttemptObserverSource = specSource.slice(
+    specSource.indexOf('const recordAttempt ='),
+    specSource.indexOf('const rectangleControl')
+  )
+  assert.match(interactionAttemptObserverSource, /requestAnimationFrame/)
+  assert.doesNotMatch(interactionAttemptObserverSource, /queueMicrotask/)
   assert.match(highDetailSource, /deleteKeyBlocked/)
   assert.match(highDetailSource, /historyShortcutBlocked/)
   assert.match(highDetailSource, /rectangleShortcutBlocked/)

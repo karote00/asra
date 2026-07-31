@@ -830,6 +830,15 @@ exact tracked process-group termination remains mandatory. Both corrections
 require focused formal tests and a passing guarded 16-item proof before the
 corrected 7,076-element run resumes.
 
+The next corrected invocation captured loading and all four locked interaction
+attempts correctly, with zero document deliveries, but its E2E probe sampled
+`defaultPrevented` from a microtask before the later-registered capture lock
+listener completed. The product lock already has formal unit coverage proving
+`preventDefault()`. The observer must defer only that evidence read to the next
+animation frame; it must not change the lock, product scheduling, or
+interaction result. Focused source-contract and lock tests plus another guarded
+16-item proof precede the resumed high-performance invocation.
+
 ### 2026-07-30 guarded local source pipeline replan
 
 The corrected guarded runs prove that the local creation source pipeline must

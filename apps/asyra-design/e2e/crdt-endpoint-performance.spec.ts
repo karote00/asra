@@ -1409,7 +1409,7 @@ const installLocalInteractionProbe = async (
     type DocumentActionName = keyof LocalDocumentEventCounts
     const recordAttempt = (action: DocumentActionName, event: Event): void => {
       documentEventAttempts[action] += 1
-      queueMicrotask(() => {
+      requestAnimationFrame(() => {
         if (event.defaultPrevented) {
           documentEventPreventions[action] += 1
         }
