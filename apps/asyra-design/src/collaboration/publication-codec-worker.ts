@@ -471,30 +471,3 @@ export class PublicationCodecWorkerRuntime {
     return true
   }
 }
-
-interface PublicationCodecWorkerScope {
-  readonly document?: unknown
-  addEventListener(
-    type: 'message',
-    listener: (event: MessageEvent<PublicationCodecWorkerRequest>) => void
-  ): void
-  postMessage(
-    response: PublicationCodecWorkerResponse,
-    transfer?: readonly Transferable[]
-  ): void
-}
-
-const workerScope = globalThis as unknown as PublicationCodecWorkerScope
-
-if (
-  workerScope.document === undefined &&
-  typeof workerScope.addEventListener === 'function' &&
-  typeof workerScope.postMessage === 'function'
-) {
-  const runtime = new PublicationCodecWorkerRuntime()
-  workerScope.addEventListener('message', (event) => {
-    runtime.handle(event.data, (response, transfer = []) =>
-      workerScope.postMessage(response, transfer)
-    )
-  })
-}
