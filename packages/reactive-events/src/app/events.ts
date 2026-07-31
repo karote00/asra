@@ -19,11 +19,22 @@ export interface StartTransactionEvent {
   type: EventTypes
 }
 
+export interface TransactionCanonicalRecordEvidence {
+  readonly orderedIds: readonly string[]
+  readonly payload: object
+}
+
+export interface TransactionCanonicalEvidence {
+  readonly orderedIds: readonly string[]
+  readonly sharedRecords?: readonly TransactionCanonicalRecordEvidence[]
+}
+
 export interface UpdateTransactionEvent {
   type: EventTypes
   eventName: string
   payload: unknown
   options?: EVENT_OPTIONS
+  canonicalEvidence?: TransactionCanonicalEvidence
 }
 
 export interface EndTransactionEvent {

@@ -1,4 +1,4 @@
-import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
+import { UNDO } from '@asyra/utils'
 import type {
   RenderPointerPayload,
   RenderPointerCapturePayload,
@@ -8,13 +8,16 @@ import type {
   TransactionFailureKind,
   TransactionStatusPayload
 } from '@asyra/utils'
-import { publishEvent } from '../event-bus'
+import { publishEvent, publishEventsToObservers } from '../event-bus'
 import { EventTypes } from '../types'
 import {
   getTransactionOwner,
   type TransactionOwner
 } from '../transaction-owner'
-import type { UserActionCompletedPayload } from './events'
+import type {
+  UpdateTransactionEvent,
+  UserActionCompletedPayload
+} from './events'
 
 export const renderIsReady = () => {
   publishEvent({
@@ -32,11 +35,13 @@ interface TransactionBoundaryState {
   depth: number
   rollbackOnly: boolean
   rollbackOnlyFailure?: TransactionFailure
+  pendingObserverEvents: UpdateTransactionEvent[]
 }
 
 const createTransactionBoundaryState = (): TransactionBoundaryState => ({
   depth: 0,
-  rollbackOnly: false
+  rollbackOnly: false,
+  pendingObserverEvents: []
 })
 
 const ownerBoundaryStates = new WeakMap<
@@ -66,6 +71,7 @@ export const startTransaction = () => {
   if (state.depth === 0) {
     state.rollbackOnly = false
     state.rollbackOnlyFailure = undefined
+    state.pendingObserverEvents = []
     owner?.startTransaction()
     publishEvent({
       type: EventTypes.START_TRANSACTION
@@ -74,19 +80,94 @@ export const startTransaction = () => {
   state.depth += 1
 }
 
-export const updateTransaction = (
-  eventName: string,
-  payload: unknown,
-  options?: EVENT_OPTIONS
+const cloneTransactionValue = <T>(
+  value: T,
+  seen = new WeakMap<object, unknown>()
+): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  const source = value as object
+  const existing = seen.get(source)
+  if (existing) {
+    return existing as T
+  }
+
+  const clone: object = Array.isArray(value)
+    ? []
+    : Object.create(Object.getPrototypeOf(value))
+  seen.set(source, clone)
+  Reflect.ownKeys(source).forEach((key) => {
+    if (Array.isArray(source) && key === 'length') {
+      return
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(source, key)
+    if (!descriptor) {
+      return
+    }
+    const snapshot =
+      'value' in descriptor ? descriptor.value : Reflect.get(source, key)
+    Object.defineProperty(clone, key, {
+      value: cloneTransactionValue(snapshot, seen),
+      enumerable: descriptor.enumerable,
+      configurable: true,
+      writable: true
+    })
+  })
+  if (Array.isArray(source) && Array.isArray(clone)) {
+    clone.length = source.length
+  }
+
+  return clone as T
+}
+
+const deepFreezeTransactionValue = <T>(
+  value: T,
+  seen = new WeakSet<object>()
+): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  const object = value as object
+  if (seen.has(object)) {
+    return value
+  }
+  seen.add(object)
+  Reflect.ownKeys(object).forEach((key) => {
+    deepFreezeTransactionValue(Reflect.get(object, key), seen)
+  })
+  return Object.freeze(value)
+}
+
+const detachTransactionEvents = (
+  events: readonly UpdateTransactionEvent[]
+): readonly UpdateTransactionEvent[] =>
+  Object.isFrozen(events)
+    ? events
+    : deepFreezeTransactionValue(cloneTransactionValue([...events]))
+
+export const updateTransactionBatch = (
+  events: readonly UpdateTransactionEvent[]
 ) => {
-  const event = {
-    type: EventTypes.UPDATE_TRANSACTION,
-    eventName: eventName,
-    payload: payload,
-    options
-  } as const
-  getTransactionOwner()?.updateTransaction(event)
-  publishEvent(event)
+  if (events.length === 0) {
+    return
+  }
+
+  const detachedEvents = detachTransactionEvents(events)
+  const owner = getTransactionOwner()
+  owner?.updateTransactionBatch(detachedEvents)
+  const state = getTransactionBoundaryState(owner)
+  if (state.depth > 0) {
+    state.pendingObserverEvents.push(...detachedEvents)
+    return
+  }
+  publishEventsToObservers(detachedEvents)
+}
+
+export const updateTransaction = (event: UpdateTransactionEvent) => {
+  updateTransactionBatch([event])
 }
 
 export const endTransaction = (options: EndTransactionOptions = {}) => {
@@ -108,8 +189,12 @@ export const endTransaction = (options: EndTransactionOptions = {}) => {
       : (options.outcome ?? 'commit')
     const failure = state.rollbackOnlyFailure ?? options.failure
     const payload = failure ? { outcome, failure } : { outcome }
+    const pendingObserverEvents = Object.freeze([
+      ...state.pendingObserverEvents
+    ])
     state.rollbackOnly = false
     state.rollbackOnlyFailure = undefined
+    state.pendingObserverEvents = []
 
     let ownerFailed = false
     let ownerError: unknown
@@ -119,6 +204,13 @@ export const endTransaction = (options: EndTransactionOptions = {}) => {
       ownerFailed = true
       ownerError = error
     } finally {
+      if (
+        !ownerFailed &&
+        outcome === 'commit' &&
+        pendingObserverEvents.length > 0
+      ) {
+        publishEventsToObservers(pendingObserverEvents)
+      }
       publishEvent({
         type: EventTypes.END_TRANSACTION,
         payload
