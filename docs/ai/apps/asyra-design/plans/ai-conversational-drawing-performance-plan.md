@@ -17,8 +17,11 @@ unstaged framework plan or framework Inspector complete.
 
 `Plan` in this title and file names only this implementation-governance
 document. It is not a product artifact, Runtime phase, provider response, API,
-or type. Product and Runtime vocabulary uses `AiActionBatch`, `batchId`,
-`requestActionBatch()`, and `resolveAiActionBatch()`.
+or type. Product and Runtime vocabulary names completed preparation or resolved
+evidence directly with `Prepared…`, `Resolved…`, `…Batch`, `…Artifact`, or
+`…Sequence`; it never calls executable data a plan. The conversational AI
+boundary uses `AiActionBatch`, `batchId`, `requestActionBatch()`, and
+`resolveAiActionBatch()`.
 
 The active product contract uses one always-on server-backed Runtime route, one
 formal provider, one server-prepared `AiActionBatch` payload, and one fixed
@@ -509,16 +512,18 @@ to `project-visible-canonical-slices`; it must not be hidden by changing slice
 size, detail, IDs, history, or the CPU limit. No 7,076-element or collaboration
 run resumes until the local 1,280-item path stays below the host guard.
 
-### 2026-07-30 superseded Mock/plan implementation root cause
+### 2026-07-30 superseded alternate test-source implementation root cause
 
 This subsection is retained only as historical diagnostic evidence. The
-superseded implementation called its local test source “Mock backend” and its
-payload a “plan”; neither name nor route is part of the active production
-contract below.
+superseded implementation used a test-only backend name and a scheduling term
+for its payload. Neither name nor route is part of the active production
+contract below; runtime vocabulary now distinguishes an `AiActionBatch`, a
+`PreparedDrawingArtifact`, canonical batches, publication batches, and ordered
+sequences.
 
 The next corrected two-Actor 16-item activity run excluded build time and
 isolated a sub-second operation spike, but source inspection then proved that
-the request was not a bounded 16-item provider response. The Mock provider
+the request was not a bounded 16-item provider response. The test response
 dynamically imported the complete 1,484,028-byte cat SVG, scanned all 7,075
 source paths, tokenized and transformed the complete 156,373-point retained
 graph, and only then kept the first 16 items with 12,919 points. It discarded
@@ -527,9 +532,8 @@ graph, and only then kept the first 16 items with 12,919 points. It discarded
 That work is test-fixture preparation, not AI Runtime, canonical batch, Render,
 WebSocket, CRDT, or Actor B apply. The affected CPU spike therefore cannot be
 used to select any of those product owners. The first incorrect owner is the
-Mock backend bootstrap/request boundary, and the former
-`materialize-bounded-mock-provider-prefix` step is replaced rather than kept as
-a compatibility path.
+test response bootstrap/request boundary. Its former prefix-materialization
+step is deleted rather than kept as a compatibility path.
 
 The replacement test architecture uses a harness-owned IndexedDB response
 inbox adapter, separate from document persistence:
@@ -593,20 +597,72 @@ This evidence originally selected client-side action-schema preparation as the
 first chronological owner. The product responsibility decision made on
 2026-07-30 changes the remedy: model validation, normalization, summarization,
 and compact encoding belong to the backend, while the design tool consumes the
-server-prepared result. The historical Inspector owner was
-`resolve-server-prepared-ai-plan`; the active contract replaces it with
+server-prepared result. The historical Inspector owner used ambiguous
+scheduling vocabulary; the active contract replaces it with
 `resolve-server-prepared-action-batch`, not a client Worker validation step.
 
 The active test/manual harness uses the response inbox adapter to represent the
 server boundary without adding another production provider. Its seed path
-prepares the exact compact artifact before App navigation; the formal provider
-returns the resident `AiActionBatch` through `requestActionBatch()`. Runtime
-resolves only the small batch/action control envelope through
+prepares the exact `PreparedDrawingArtifact` before App navigation; the formal
+provider returns the resident `AiActionBatch` through `requestActionBatch()`.
+Runtime resolves only the small batch/action control envelope through
 `resolveAiActionBatch()` and passes the original arguments identity to
-permission and execution. The App then
-materializes only each progressive slice before ordinary canonical creation.
+permission and execution. The App then submits each already-prepared
+progressive canonical descriptor slice to ordinary canonical creation.
 No additional browser proof is permitted until this complete boundary and its
 focused formal gates are finished.
+
+### 2026-07-30 guarded local source pipeline replan
+
+The corrected guarded runs prove that the local creation source pipeline must
+be restructured as one architecture segment before another high-detail browser
+proof:
+
+- The exact 16 vectors contain 12,919 points and approximately 26,030
+  independently addressable canonical property records.
+- The exact 7,075 vectors contain 156,373 points and approximately
+  397,674 independently addressable canonical property records: point,
+  segment, network, root vector, and fill records all retain stable IDs.
+- The 7,076-element two-Actor attempt crossed the fixed 200-percent host guard
+  during Actor A creation. One fresh single-Actor 16-item attempt, without
+  Actor B or reference-image attachment, also crossed the guard. Therefore
+  peer navigation and image metadata are not the first owner.
+- Static owner tracing identifies avoidable repeated work around those required
+  records: frontend point/topology rematerialization, repeated vector
+  validation/bounds/normalization, full-batch relationship filtering per
+  element, per-record structured clone/save/equality work, per-edge observer
+  closures, Computed topology reconstruction, recursive immutable scans, and
+  local publication splitting.
+
+The records themselves are not the bug. Shared props, future shared
+components, shared elements, relationships, stable canonical IDs, full vector
+detail, and one complete Undo action remain non-negotiable. The corrected local
+source pipeline is therefore implemented once as:
+
+1. The server returns one `PreparedDrawingArtifact` containing exact ordered
+   canonical descriptors, stable IDs, relationships, topology, bounds, styles,
+   and formal slice boundaries. The frontend builds no duplicate point-object
+   or topology graph and performs no model validation, bounds calculation, or
+   normalization.
+2. Core builds one owner-to-relationship index before element creation.
+3. Props performs one owner-indexed relationship traversal, one fixed batch
+   materialization boundary, and one manager-owned affected-owner
+   notification. It retains every property instance but creates no per-edge
+   subscriptions and no per-record clone/save/equality boundary.
+4. Scene Tree applies one map/parent boundary. Local `Computed` data projects
+   from the same owner artifact and never enters shared data or CRDT.
+5. Factory accepts the owner-issued immutable artifact without rescanning its
+   tree, derives the canonical inverse once, sends one canonical batch to local
+   consumers, and exposes ordered record ranges only to transport.
+6. Preset/Render/UI consume each formal local batch directly and create at most
+   one visible flush per slice.
+
+This is one local source endpoint even though its implementation crosses the
+App, Core, Props, Scene Tree, Factory, and projection owners. Focused formal
+tests and bounded review still occur at each owner boundary, but the next
+guarded 7,076-element proof runs once only after the complete source pipeline,
+not after every internal owner. This avoids repeating an already-known unsafe
+browser workload before the causal chain is complete.
 
 ### Rejected compression candidate
 
@@ -855,7 +911,7 @@ test/manual harness seeds one exact versioned server response in the response in
 → ResolvedAiActionBatch
 → permission resolution produces PermissionReadyAiActionBatch
 → confirmation and terminal presentation consume AiActionBatchPreview
-→ consume server-prepared exact bounds, summary, metadata, and compact geometry
+→ consume one server-prepared PreparedDrawingArtifact with exact canonical descriptors
 → runtime-only App DOM loading frame
 → compositor paint opportunity
 → create Group
@@ -879,11 +935,13 @@ test/manual harness seeds one exact versioned server response in the response in
 - Production contains one formal server-backed provider. The provider calls
   `requestActionBatch()` and knows nothing about fixtures, IndexedDB, test
   phrases, or local compatibility.
-- The test/manual harness alone may validate and normalize one exact model
-  response, derive its bounded summary and compact composition geometry, and
-  seed the versioned `AiActionBatch` into an IndexedDB response inbox adapter
-  under the required `fileId`. That deterministic preparation, seed code, and
-  fixture data are excluded from the production bundle.
+- The test/manual harness alone may stand in for the backend by validating and
+  normalizing one exact model response, deriving its bounded summary, and
+  building one `PreparedDrawingArtifact` with canonical descriptors, stable
+  IDs, relationships, topology, bounds, styles, and formal slice boundaries.
+  It seeds the versioned `AiActionBatch` into an IndexedDB response inbox
+  adapter under the required `fileId`. That deterministic preparation, seed
+  code, and fixture data are excluded from the production bundle.
 - The response inbox adapter performs at most one bounded lookup for that exact
   `fileId` before App and Agent readiness, Collaboration performance readiness,
   and the stable CPU baseline. It is harness transport evidence, not an App
@@ -894,17 +952,18 @@ test/manual harness seeds one exact versioned server response in the response in
   performs no artificial delay, phrase-selected fixture fallback, failure
   simulation, response-inbox access, dynamic fixture import, JSON/SVG parsing,
   path tokenization, coordinate transform, fixture materialization,
-  full-source slicing, model validation, normalization, compact encoding, or
-  provider deep-freeze.
+  full-source slicing, model validation, normalization, drawing-artifact
+  encoding, or provider deep-freeze.
 - A harness run without the exact inbox record fails harness setup before
   product timing. It never creates a production fallback.
 - The response remains local, noncanonical, and nonshared.
   `Core.load(...)` still receives only the empty document, Actor A and Actor B
   remain at zero canonical elements before the conversation request, and Actor
   B receives the drawing only through ordinary canonical CRDT publications.
-- The compact artifact preserves every item, path, point, role, order, bound,
-  transform, and style without retaining a parallel full point-object graph in
-  the frontend batch.
+- `PreparedDrawingArtifact` preserves every canonical descriptor, stable ID,
+  relationship, item, path, point, role, order, bound, transform, and style
+  without retaining a parallel full point-object or topology graph in the
+  frontend batch.
 - The response inbox adapter is not document persistence. Production App code
   neither contains nor writes its deterministic seed/fixture implementation;
   local actions, Undo, Redo, and remote apply continue to perform zero
@@ -927,8 +986,9 @@ control-envelope resolution and action orchestration:
   action ids and names, bounded summaries, empty batch, duplicate ids, and
   unknown actions. It never traverses item, path, point, style, bounds,
   coordinate, or geometry arguments.
-- The former action-plan API, `planId`, plan aliases, conversion helpers, and
-  compatibility overloads are deleted. Production exposes no Mock, fake,
+- The former alternate action-preparation API, its scheduling-oriented
+  identifiers, conversion helpers, and compatibility overloads are deleted.
+  Production exposes one action-batch route and no test-source, fake,
   simulated, local-only, or local-compat provider path or naming.
 - Each registered action definition exposes one backend-facing `inputSchema`
   for server preparation and one executor. There is no client-side action
@@ -946,19 +1006,21 @@ control-envelope resolution and action orchestration:
   contract inside the ordinary Runtime flow. They contain no test-source or
   compatibility implementation.
 - The server validates and normalizes accepted/skipped roles, bounds, styles,
-  paths, and points and builds the compact coordinate artifact before
-  returning the `AiActionBatch`.
-- The frontend keeps compact coordinates private and materializes only the next
-  cooperative slice after the server-prepared loading bounds are visible. It
-  performs no item, path, point, style, bounds, role, or model semantic
-  validation and no compact encoding.
-- The shipped create-app template consumes that same compact artifact and the
-  same point-aware current-slice contract. Each mixed oval/vector slice enters
-  one `createElementsInParent(...)` call; the template accepts no full-item
-  compatibility input, `itemPointCounts`, or per-element fallback.
-- Canonical topology and IDs remain owned by the ordinary App common API and
-  plural Core route. The server-prepared artifact never writes canonical,
-  Render, history, shared-data, or CRDT state directly.
+  paths, points, stable IDs, relationships, and topology and builds one
+  `PreparedDrawingArtifact` before returning the `AiActionBatch`.
+- The frontend submits each already-prepared cooperative descriptor slice after
+  the server-prepared loading bounds are visible. It performs no item, path,
+  point, style, bounds, role, model semantic, or topology validation; no
+  drawing-artifact encoding; and no second point-object graph construction.
+- The shipped create-app template consumes that same
+  `PreparedDrawingArtifact` and point-aware current-slice contract. Each mixed
+  oval/vector slice enters one `createElementsInParent(...)` call; the template
+  accepts no full-item compatibility input, `itemPointCounts`, or per-element
+  fallback.
+- The server issues stable descriptor IDs and relationships, while the ordinary
+  App common API and plural Core route remain the only canonical commit owners.
+  The prepared artifact never writes canonical, Render, history, shared-data,
+  or CRDT state directly.
 
 The `ResolvedAiActionBatch` is local, noncanonical, and nonshared. It neither creates nor
 combines shared props, shared components, shared elements, Factory
@@ -972,9 +1034,10 @@ shared-data boundaries.
   to this batch-of-one path; Core exposes no AI loading, progress, slice,
   delivery-controller, or timing parameter.
 - AI composition creates one Group, then submits deterministic ordered plural
-  Core batches. Each batch enforces both a point budget and an element-count
-  budget so thousands of zero-point primitives cannot collapse into one
-  blocking call. One indivisible element may exceed only the point soft target.
+  Core batches from the server-prepared canonical descriptors. Each batch uses
+  one fixed 2,048-point budget and a 64-element work-unit cap so thousands of
+  zero-point primitives cannot collapse into one blocking call. One indivisible
+  element may exceed only the point budget.
 - Cooperative batch calls remain inside one outer App transaction. They are
   separate canonical batch boundaries for cooperative local visibility, not
   separate App actions, transactions, or history actions.
@@ -982,38 +1045,43 @@ shared-data boundaries.
   it does not repeat a completed canonical mutation.
 - Every single-item public API becomes a batch-of-one convenience over the same
   canonical implementation.
-- Public creation APIs are selected by data lifecycle, never blocked by local
-  or remote origin: ordinary descriptors use `addNewElement`/`addNewElements`,
-  detached canonical snapshots use `addNewElementsFromCanonicalData`, and
-  canonical data whose property owners are already active uses
-  `addNewElementsFromCanonicalDataUsingActiveProperties`. An active transaction
-  owner must atomically accept canonical batch evidence; this is a capability
-  invariant, not a caller-identity policy.
-- Removal follows the same lifecycle rule. Ordinary `removeElement` owns
-  complete element and property cleanup, while `removeSubtree` owns a complete
-  container hierarchy. Retained
-  history or collaboration evidence whose Props removal is carried separately
-  uses `removeElementUsingActiveProperties`/
-  `removeElementsUsingActiveProperties`; a complete retained container
-  hierarchy uses `removeSubtreeUsingActiveProperties`. These paths preserve the
-  source Scene-then-Props evidence order without applying either owner twice.
-  The single-element form is the batch-of-one convenience, and none of these
-  APIs is restricted by local or remote origin.
+- One origin-neutral canonical lifecycle selects evidence by data lifecycle,
+  never by caller identity. Ordinary descriptors provide source creation or
+  removal data; detached canonical data provides exact IDs, relations, and
+  ordering; retained property evidence carries its separate Props cleanup or
+  restore batch. Scene Tree always produces one `PreparedElementMutation`, and
+  Core coordinates any separate Props evidence without applying either owner
+  twice.
+- Ordinary creation and removal own their complete Scene and Props lifecycle.
+  A complete retained container hierarchy is prepared and applied once through
+  the same plural Scene mutation owner while its separate retained Props
+  evidence remains active. Single-item conveniences are batch-of-one calls to
+  that same implementation. No origin-specific API family or local/remote mode
+  exists.
 - Retained removal and restore preflight the complete Scene, Props,
   relationship, parent-index, ID, and tombstone evidence before apply. A later
   invalid item leaves no Scene, property, relationship, registry, tombstone,
   parent-list, history-readiness, or publication prefix.
+- Every independently addressable property record and stable ID remains
+  canonical so shared props, shared components, and shared elements retain
+  their framework semantics. Core first builds one owner-to-relationship index
+  instead of filtering the complete relation set for every element.
 - Props Manager performs one whole-batch schema, ID, and relationship preflight,
-  then instance materialization, relationship rebind, and `registerMany`.
-  A later invalid item leaves no committed prefix.
+  one owner-indexed traversal for child-first order, forward/reverse indexes,
+  and owner ranges, then one fixed batch materialization and `registerMany`.
+  Materialization performs no per-record structured clone, `.save()`, or
+  `isEqual` reconstruction. A later invalid item leaves no committed prefix.
+- Relationship change propagation uses the manager-owned relationship index and
+  one affected-owner batch. It creates no per-edge subscription or one closure
+  per child relationship.
 - Scene Tree performs one map-registration phase, one parent children
-  replacement, and one ordered batch evidence handoff. Required instance
-  construction, local relationship wiring, local observer binding, and ordered
-  Scene evidence entries may iterate N inside their canonical owner. They must
-  not create N Core requests, Props registration phases, Scene map or parent
-  replacement phases, Factory batch handoffs, or App transactions. Step 11
-  profiling must identify one of these owner-local loops as a material
-  bottleneck before deeper micro-batching becomes a release blocker.
+  replacement, and one ordered batch evidence handoff. Required property and
+  element instances remain one per canonical ID, but construction creates no N
+  Core requests, Props registration phases, relationship graph traversals,
+  observer registries, Scene map or parent replacements, Factory handoffs, or
+  App transactions. Local `Computed` projection consumes the same owner-issued
+  artifact instead of rebuilding complete topology through property-instance
+  reads; it remains local Render evidence and never enters shared data.
 
 ### Factory Mutation Batch Artifact
 
@@ -1027,15 +1095,24 @@ shared-data boundaries.
 - an ordered batch observer API.
 
 Single-delivery conveniences delegate to batch-of-one. At the canonical owner
-handoff, Factory deeply detaches and freezes the artifact once. The immutable
-artifact contains ordered canonical changes, IDs, inverses, Factory-owned
+handoff, the active Factory transaction records ordered Props and Scene owner
+evidence directly. The owner establishes isolation once; Factory and
+`LocalSharedDataChannel` trust that boundary and perform no recursive frozen
+tree scan.
+`Core.createElementsInParent(...)` returns only ordered element IDs and never
+returns a Factory delivery/evidence handle. The immutable artifact contains
+ordered canonical changes, IDs, inverses, Factory-owned
 shared-delivery evidence, and ordered publication slice boundaries. Those
 framework fields cannot select App startup, provider, or composition behavior.
 
-History, Render/UI, and Collaboration consume this one artifact. They do not
-call `.save()` to reconstruct it, rebuild snapshots from live owners, or clone
-each observed delivery independently. An observer mutation attempt cannot
-pollute another consumer.
+History, Render/UI, and Collaboration consume this one artifact. The canonical
+inverse is derived once and reused for History and compensation. Local
+observers receive one canonical batch; Collaboration receives ordered
+transport record ranges over the same artifact. Transport framing never splits
+local projection into one observer change per element. Consumers do not call
+`.save()` to reconstruct evidence, rebuild snapshots from live owners, rescan
+the immutable tree, or clone each observed delivery independently. An observer
+mutation attempt cannot pollute another consumer.
 
 During Undo and Redo, the retained artifact returns to the canonical owner
 without reordering its Scene and Props evidence. Only an explicitly applied
@@ -1221,25 +1298,19 @@ intended transaction or history boundary.
   swaps, or changes this route, and measurement cannot select another product
   execution path.
 - Composition always uses deterministic point and element-count boundaries. A
-  fixed 64-element work-unit cap independently prevents a large zero-point
-  primitive batch; the initial point soft target is 2,048 and later targets
-  grow to at most 8,192.
-- On the exact nested cat-vector fixtures, the 64-element cap leaves the
-  point-heavy 16-item prefix unchanged at four batches, reduces the 320-item
-  prefix from 13 to 9 batches, and reduces the 1,280-item prefix from 43 to 24
-  batches. The corresponding 7,075-child slice count is deterministically
-  reduced from 224 to 115; this is a boundary-count projection, not a wall-time
-  claim.
+  64-element work-unit cap independently prevents a large zero-point primitive
+  batch, and one fixed 2,048-point budget prevents later slices from growing
+  into long main-thread blocks. One indivisible element may exceed only the
+  point budget.
 - The App calls the existing plural Core creation API once per non-empty batch.
   Core, Props Manager, and Scene Tree retain one fixed batch mission and receive
   no loading, progress, AI mode, slice size, or host-yield parameters.
-- Each successful batch reaches the ordinary Factory/Preset/Render/UI route,
-  advances progress by the number of actually accepted visible elements, then
-  awaits a later browser task before the next batch. The batches execute in one
-  serialized loop; they are never independently scheduled and never overlap.
-  A pure microtask and one timeout scheduled per planned range are not valid
-  yields. Explicit browser paint opportunities remain before the first
-  mutation and at named visible milestones. After every awaited boundary the
+- Every successful canonical slice reaches the ordinary
+  Factory/Preset/Render/UI route, advances progress by the number of actually
+  accepted visible elements, then awaits one browser paint opportunity before
+  the next slice. The slices execute in one serialized loop; they are never
+  independently scheduled and never overlap. A pure microtask and one timeout
+  scheduled per range are not valid yields. After every awaited boundary the
   action checks its Feature-owned `AbortSignal`.
 - Group and every batch remain in one outer transaction and create one intended
   Undo. Fatal failure or cancellation rolls back the complete composition;
@@ -1585,8 +1656,12 @@ fabricated convergence.
 
 ## Owner Step Execution Order
 
-No endpoint advances until its focused formal tests, bounded review, and
-immediately following endpoint proof have no P0-P2 finding:
+Each Inspector owner still completes focused formal tests and bounded review
+before the next owner begins. The App, Core/Props/Scene, Factory, and local
+projection owners together form one causal local source endpoint; because the
+known browser workload is already unsafe, that endpoint receives one guarded
+high-detail proof only after the complete sequence rather than after every
+internal owner:
 
 1. `contract-readiness-replan`: update this plan, Inspector, contract test, and
    BDD only.
@@ -1600,47 +1675,39 @@ immediately following endpoint proof have no P0-P2 finding:
    evidence, and retain the ordinary Vector projection path. Its accepted
    zero-element comparison remains valid, but the 210.5-percent pre-canonical
    stop creates no accepted high-detail baseline for Render.
-4. After the corrected always-on Collaboration startup and single-Actor
-   attribution rerun, follow exactly one attribution branch:
-   - `preload-file-scoped-server-response` when harness response
-     acquisition contaminates request timing; seed one exact versioned response
-     in the harness-owned response inbox adapter before App navigation and
-     preload it by required `fileId` before readiness.
-   - `resolve-server-prepared-action-batch` only when Runtime/preview
-     resolution is proven; accept one server-prepared `AiActionBatch`, resolve
-     it through `resolveAiActionBatch()`, and retain bounded
-     `AiActionBatchPreview` without client model validation or parallel
-     geometry graphs.
-   - `yield-ai-loading-paint` only when the reduced-motion control proves the
-     loading compositor boundary; retain visible progress and allowed pan/zoom
-     without an unbounded animation loop.
-   - `stage-local-interactive-composition` when co-temporal phase evidence
-     proves Group, topology, or plural Core work is first.
-   - `admit-receiver-publication-frames` when only the two-Actor control proves
-     receiver/collaboration admission is first.
-     Focused 16/1,280 gates run for the selected branch before one guarded 7,076
-     proof. Unselected branches receive no production edit.
-5. `admit-receiver-publication-frames`: retain valid committed ingress work,
+4. `preload-file-scoped-server-response` and
+   `resolve-server-prepared-action-batch`: preload one exact
+   `PreparedDrawingArtifact` by required `fileId`, then keep Runtime limited to
+   its small action-batch control envelope and bounded preview.
+5. Complete the local source endpoint in this fixed owner order:
+   - `stage-local-interactive-composition`: submit already-prepared canonical
+     descriptor slices with a fixed 2,048-point and 64-element boundary and a
+     browser paint opportunity after every successful slice.
+   - `apply-canonical-property-scene-batch`: add Core owner indexes, Props fixed
+     batch materialization and manager-owned relation propagation, and Scene
+     local Computed projection from the same owner artifact.
+   - `record-and-deliver-transaction-batch`: retain one immutable artifact and
+     inverse, one local canonical batch, and transport-only record ranges.
+   - `project-visible-canonical-slices`: consume the local batch directly and
+     keep at most one ordinary Vector projection/flush per slice.
+   Each owner gets focused tests and bounded review. Then
+   `evaluate-endpoint-performance` runs one guarded 7,076-element proof for the
+   complete local source endpoint, not one proof per internal owner.
+6. `admit-receiver-publication-frames`: retain valid committed ingress work,
    move the browser WebSocket data plane and wire credit into the Dedicated
    Worker, remove main-thread clone/freeze and duplicate header ownership, add
    receiver timing, then run the guarded 7,076 endpoint proof. If ineffective,
    replan only this owner before a second attempt.
-6. `apply-canonical-property-scene-batch`: replace N scalar source evidence
-   with one complete Props batch and one plural Scene event per Core request,
-   then run the guarded endpoint proof.
-7. `record-and-deliver-transaction-batch`: reduce Factory and required shared
-   pub/sub to one immutable history artifact plus one ordered shared batch view,
-   then run the guarded endpoint proof.
-8. `apply-remote-publication-batches`: consume worker-valid evidence once and
+7. `apply-remote-publication-batches`: consume worker-valid evidence once and
    apply one linear Core request in one remote transaction, then run the guarded
    endpoint proof.
-9. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
+8. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
    admission, peer byte capacity, and independent receipts, then run the guarded
    endpoint proof.
-10. `encode-publication-frames`: remove redundant main-thread payload ownership
+9. `encode-publication-frames`: remove redundant main-thread payload ownership
     and retain one worker binary encode/decode boundary, then run the guarded
     endpoint proof.
-11. `evaluate-performance-and-equivalence`: after every endpoint is effective
+10. `evaluate-performance-and-equivalence`: after every endpoint is effective
     or formally non-material, run the final formal correctness, performance,
     and synchronized visual closure.
 

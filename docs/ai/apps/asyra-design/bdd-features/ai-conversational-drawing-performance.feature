@@ -24,18 +24,29 @@ Feature: Conversational AI drawing performance
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
     And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
-    And the server-prepared action should contain one compact coordinate artifact and one bounded redaction-ready summary rather than a parallel point-object graph
+    And the server-prepared action should contain one PreparedDrawingArtifact and one bounded redaction-ready summary rather than a parallel point-object graph
     And permission resolution should return one "PermissionReadyAiActionBatch"
     And permission and execution should receive the same action arguments identity from the resolved batch
     And confirmation and terminal presentation should consume one "AiActionBatchPreview" containing bounded summaries without items, paths, points, or complete geometry
     And Runtime should not recursively detach or freeze the server-prepared arguments
     And production should expose only the AiActionBatch API without a compatibility conversion, Mock, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
-    And the front end should perform no item, path, or point validation or compact encoding
-    And the executor should preserve exact items, roles, order, bounds, and point counts while materializing only the next progressive slice after the server-prepared loading bounds are visible
-    And the shipped create-app template should consume the same compact artifact and submit each mixed oval/vector slice through one createElementsInParent call without full-item compatibility input
-    But canonical topology and IDs should remain owned by the ordinary App common API and plural Core route
+    And the front end should perform no item, path, or point validation or drawing-artifact encoding
+    And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive slice after the server-prepared loading bounds are visible
+    And the shipped create-app template should consume the same PreparedDrawingArtifact and submit each mixed oval/vector slice through one createElementsInParent call without full-item compatibility input
+    But the ordinary App common API and plural Core route should remain the only canonical commit owners
     And the resolved batch should remain local, noncanonical, and nonshared
+
+  Scenario: Local source pipeline preserves shared records without per-record runtime work
+    Given the server-prepared drawing artifact contains stable property records and IDs for every point, segment, network, root Vector, and fill
+    When Actor A submits each prepared canonical descriptor slice through the plural Core route
+    Then Core should build one owner-to-relationship index before element creation
+    And Props should materialize the complete slice without a per-record structured clone, save, or equality boundary
+    And relationship propagation should use one manager-owned affected-owner batch with no per-edge subscription
+    And Scene Tree local Computed projection should consume the same owner artifact and remain outside shared data
+    And Factory should deliver one local canonical batch while exposing ordered record ranges only to transport
+    And Preset, Render, and UI should not split that local canonical batch into single-entry changes
+    And every successful slice should cross a browser paint opportunity before the next canonical mutation
 
   Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
@@ -140,7 +151,7 @@ Feature: Conversational AI drawing performance
     Then the App should use deterministic point and element-count batch boundaries with at most 64 elements per ordinary work unit
     And it should call plural "Core.createElementsInParent" once per non-empty batch
     And every successful batch should complete ordinary projection and advance actual element progress
-    And the next batch should begin only from a later browser task in the same serialized loop
+    And the next batch should begin only after a browser paint opportunity in the same serialized loop
     And a microtask-only yield or one independently scheduled timeout per range should not satisfy that boundary
     And the Feature-owned AbortSignal should be checked after every awaited boundary
     And all batches should remain inside one outer transaction
@@ -151,7 +162,7 @@ Feature: Conversational AI drawing performance
   Scenario: Drawing progress keeps navigation responsive while edits stay locked
     Given one progressive local AI drawing turn is active
     And the App acquired its document interaction lock before the outer transaction
-    When the serialized composition loop yields to a later browser task
+    When the serialized composition loop yields through a browser paint opportunity
     Then ordinary viewport pan and zoom should remain available
     And pan and zoom should repaint the same live loading frame and ordinary Vector output
     And navigation may continue through ordinary Feature execution and its existing transaction wrapper
@@ -172,6 +183,7 @@ Feature: Conversational AI drawing performance
     And a single-item create API should use the same batch-of-one canonical path
     And Group and children should remain inside one outer Factory transaction
     And Core should expose no Factory delivery handle, progressive handle, timing result, or transport receipt
+    And the active Factory transaction should record ordered Props and Scene owner evidence directly
     And Core should receive no loading, progress, AI mode, slice size, or host-yield parameters
     And every non-empty plural Core batch should complete one canonical atomic apply before the serialized loop advances
     And the complete composition should submit multiple ordered plural batches without opening another transaction
@@ -191,9 +203,9 @@ Feature: Conversational AI drawing performance
     When one or many elements receive those complete field replacements
     Then Core should use plural "updateElementProperties"
     And that API should not accept record set or remove operations
-    And Scene Tree should resolve the complete element-to-property target plan without mutation
+    And Scene Tree should resolve the complete element-to-property targets without mutation
     And Props Manager should preflight every complete property value before one apply
-    And a property-only request should require no Scene mutation plan
+    And a property-only request should require no prepared Scene mutation
     And the result should contain only ordered affected element ids
     And a later invalid target or value should leave no property or evidence prefix
 
@@ -208,24 +220,33 @@ Feature: Conversational AI drawing performance
     And forward and inverse evidence should restore exact values, registry membership, relations, and order
     And "changeComputedData" and "changeComputedDataPatch" should not remain as canonical compatibility APIs
 
-  Scenario: Props and Scene Tree apply separate owner plans
+  Scenario: Props and Scene Tree apply separate prepared owner mutations
     Given an accepted batch contains property inputs and Scene lifecycle inputs
     When Core requests complete owner preflights
     Then Props Manager should validate schema, property instances, relationships, registration, and property evidence
     And Core should call public Props prepare and apply owner capabilities instead of package-private methods
     And active property value replacements and record patches should use one whole-batch preflight and apply
     And Scene Tree should validate Scene ids, maps, parent children, hierarchy order, tombstones, and Scene evidence
-    And a canonical Scene insertion plan should expose its frozen owner relations for Core to pass unchanged to Props exact graph creation
+    And "PreparedCanonicalElementInsertion" should expose its frozen owner relations for Core to pass unchanged to Props exact graph creation
     And Scene Tree element-to-property target resolution should be read-only
-    And Core should receive both complete owner plans before authorizing either apply
+    And Core should receive both complete prepared owner mutations before authorizing either apply
     And Props Manager should not mutate Scene maps or hierarchy
     And Scene Tree should not materialize property instances, rebind relationships, or register properties
     And a later invalid item should leave no committed owner prefix
     And an unexpected apply failure should roll back both owners through the outer Factory transaction
 
+  Scenario: Canonical lifecycle selects evidence without origin-specific APIs
+    Given ordinary descriptors provide complete source creation or removal data
+    And detached canonical data provides exact ids, relations, and ordering
+    And retained property evidence provides its separate Props cleanup or restore batch
+    When Core coordinates the matching Props and Scene owner preparations
+    Then one origin-neutral canonical lifecycle should apply the complete evidence
+    And Scene Tree should produce one "PreparedElementMutation"
+    And no "UsingActiveProperties" API family or local/remote mutation mode should exist
+
   Scenario: Scene plural evidence remains sliceable without splitting records
     Given one accepted Scene batch contains many canonical elements
-    When Scene Tree applies the complete insertion or removal plan
+    When Scene Tree applies the complete prepared insertion or removal mutation
     Then Scene Tree should emit one plural Scene event
     And Scene Tree should expose one ordered shared record per element for "ADD_ELEMENTS" and "REMOVE_ELEMENTS"
     And a publication slice may group complete records but should not split one semantic record
@@ -246,11 +267,11 @@ Feature: Conversational AI drawing performance
     Given two element relation tuples reference the same canonical root property graph
     And that graph contains a nested child which is also another element's canonical root
     When a direct Scene removal releases the first relation
-    Then the Scene plan should record released and retained relations and retain Props
+    Then the prepared Scene removal should record released and retained relations and retain Props
     And the remaining element relation should keep the same root and descendant component ids active
     When Core full lifecycle removes the final relation
     Then Scene Tree should identify the deduplicated orphan root from an exact relation-set read
-    And Scene Tree should provide the complete retained root property ids from all planned remaining element relations
+    And Scene Tree should provide the complete retained root property ids from all prepared remaining element relations
     And Core should pass orphan and retained root ids unchanged without inspecting the property graph
     And Props Manager should stop orphan traversal at every retained root
     And Props Manager should remove only the final orphan property graph exactly once
@@ -268,11 +289,11 @@ Feature: Conversational AI drawing performance
   Scenario: Typed subtree removal remains one Scene mission
     Given one non-empty Group owns nested editable elements and canonical property relations
     When Scene Tree calls "prepareSubtreeRemoval" with that one root
-    Then the plan should contain the complete child-first canonical element order
-    And the plan should contain one "CHANGE_SUBTREE" evidence record
-    And the plan should delegate mutation to the same "applyElementMutationPlan" owner
+    Then the prepared removal should contain the complete child-first canonical element order
+    And the prepared removal should contain one "CHANGE_SUBTREE" evidence record
+    And the prepared removal should delegate mutation to the same "applyPreparedElementMutation" owner
     And a direct Scene apply should retain Props
-    When Core full lifecycle applies that plan
+    When Core full lifecycle applies that prepared removal
     Then Core should pass the complete orphan and retained root ids unchanged to Props
 
   Scenario: Load relations preflight before any owner applies
@@ -434,7 +455,7 @@ Feature: Conversational AI drawing performance
     But it should remain a local reset and create no Factory action or CRDT clear publication
 
   Scenario: Required fileId preloads one server response inbox record before App readiness
-    Given the test or manual harness validates, normalizes, summarizes, and compacts one exact model response outside the production bundle
+    Given the test or manual harness validates, normalizes, summarizes, and builds one PreparedDrawingArtifact from one exact model response outside the production bundle
     And it wrote that versioned server-prepared "AiActionBatch" to the IndexedDB response inbox adapter before App navigation
     And the required fileId selects that response independently from the empty canonical document
     When App bootstrap begins
@@ -444,7 +465,7 @@ Feature: Conversational AI drawing performance
     And the canonical document should remain empty, noncanonical, and nonshared before Actor A sends a conversation request
     When Actor A sends the response's expected request through the ordinary Agent route
     Then the provider should call only "requestActionBatch()" and return the server-prepared batch selected by fileId
-    And request-time response inbox access, fixture import, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, compact encoding, materialization, slicing, and provider deep-freeze should remain zero
+    And request-time response inbox access, fixture import, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, drawing-artifact encoding, materialization, slicing, and provider deep-freeze should remain zero
     And production should contain no artificial delay, phrase-selected fixture fallback, failure simulation, or Mock, fake, simulated, and local-compat provider naming
     And deterministic preparation, seed data, and fixture selection should remain test or manual harness concerns excluded from the production bundle
     And Actor B should receive the drawing only through Actor A canonical CRDT publications

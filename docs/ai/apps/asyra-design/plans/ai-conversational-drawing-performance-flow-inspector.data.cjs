@@ -30,7 +30,7 @@
       title: 'Preload one file-scoped server response',
       ownerPackage: 'Asyra Design server response inbox',
       purpose:
-        'Read one versioned server-prepared AiActionBatch from the response inbox adapter by required fileId before App and Agent readiness, then hand it through the single formal provider requestActionBatch() contract without request-time model preparation.',
+        'Read one versioned server-prepared AiActionBatch containing a PreparedDrawingArtifact from the response inbox adapter by required fileId before App and Agent readiness, then hand it through the single formal provider requestActionBatch() contract without request-time model preparation.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'required fileId',
@@ -53,7 +53,7 @@
         'Actor B never executes the preloaded response and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
         'The server-prepared AiActionBatch remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
-        'The compact artifact preserves every item, path, point, role, order, bound, transform, and style while avoiding a resident duplicate point-object graph.'
+        'PreparedDrawingArtifact preserves every canonical descriptor, stable ID, relationship, item, path, point, role, order, bound, transform, and style while avoiding a resident duplicate point-object graph.'
       ],
       bypasses: [
         'Live server transport and the response inbox adapter deliver the same server response into the same requestActionBatch() provider contract without selecting different App behavior.',
@@ -80,8 +80,8 @@
         'deterministic preparation, seed data, or fixture modules in the production bundle',
         'planId, plan API aliases, or compatibility aliases',
         'front-end item, path, point, style, bounds, role, or model semantic validation',
-        'front-end model normalization or compact encoding',
-        'provider-selected canonical ids',
+        'front-end model normalization or drawing-artifact encoding',
+        'front-end replacement IDs for server-issued stable descriptor IDs',
         'Runtime, Core, Render, or Collaboration behavior flags'
       ],
       cacheDimensions: [],
@@ -148,11 +148,11 @@
         'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
         'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
         'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
-        'The server validates and normalizes every item, path, point, role, style, and bound and builds the compact coordinate artifact before App readiness; the front end performs none of that model work.',
-        'The front-end composition executor shows the server-prepared loading bounds first and cooperatively materializes only the next progressive slice from the compact artifact.',
-        'The shipped create-app template consumes that same compact artifact, point-aware progressive slices, and mixed-type createElementsInParent plural route without retaining a parallel expanded item graph or falling back to per-element creation.',
+        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact of canonical descriptors before App readiness; the front end performs none of that model work.',
+        'The front-end composition executor shows the server-prepared loading bounds first and cooperatively submits each already-prepared canonical descriptor slice without materializing a second point-object or topology graph.',
+        'The shipped create-app template consumes that same PreparedDrawingArtifact, point-aware progressive slices, and mixed-type createElementsInParent plural route without retaining a parallel expanded item graph or falling back to per-element creation.',
         'The production App and shipped template each construct one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
-        'Canonical topology and ids remain owned by the ordinary App common API and plural Core route; the server-prepared artifact never creates canonical, shared-data, Render, history, or CRDT state directly.',
+        'The server issues stable descriptor IDs and relationships, while the ordinary App common API and plural Core route remain the only canonical commit owners; the PreparedDrawingArtifact never writes canonical, shared-data, Render, history, or CRDT state directly.',
         'ResolvedAiActionBatch and PermissionReadyAiActionBatch remain local, noncanonical, and nonshared; shared props, components, elements, Factory evidence, and CRDT data remain in their existing owners.'
       ],
       bypasses: [
@@ -167,11 +167,11 @@
         'artifact:precanonical-owner-attribution'
       ],
       forbiddenContributors: [
-        'provider-selected canonical ids',
         'Runtime recursive argument cloning or freezing',
         'client-side action schema validation, normalization, parse, or prepare',
         'front-end item, path, point, style, bounds, role, or geometry semantic validation',
-        'front-end compact artifact encoding',
+        'front-end drawing-artifact encoding',
+        'front-end regeneration of stable descriptor IDs or relationships',
         'template full-item compatibility input, itemPointCounts, or per-element mixed-type creation fallback',
         'complete geometry in confirmation or terminal preview',
         'production paths or APIs named Mock, fake, simulate, or local-compat',
@@ -360,7 +360,7 @@
       purpose:
         'Create one immutable Factory-owned mutation artifact that carries canonical changes, inverses, history intent, shared-delivery mode, and publication slices to every downstream consumer.',
       inputs: [
-        'artifact:canonical-element-batch-result',
+        'ordered canonical Props and Scene owner evidence recorded through the active Factory transaction',
         'one outer App transaction identity',
         'fixed immediate shared-delivery intent for the composition action'
       ],
@@ -371,7 +371,11 @@
       ],
       conditions: [
         'Factory exposes FactoryMutationBatchArtifact, SharedDeliveryBatch, SharedPublication.batches, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch.',
-        'The canonical handoff is deeply detached and frozen once; History, Render/UI, and Collaboration share the same immutable evidence.',
+        'The Factory transaction owner records ordered canonical Props and Scene evidence directly; Core does not return a delivery or evidence handoff.',
+        'The owner-issued immutable artifact establishes isolation once; Factory and LocalSharedDataChannel perform no recursive frozen scan, and the canonical inverse is derived once.',
+        'History, Render/UI, and Collaboration share the same owner-issued immutable artifact without reconstructing or rescanning its canonical records.',
+        'The canonical inverse is derived exactly once while that artifact is recorded and is reused by History, rollback compensation, and Redo.',
+        'Local observers receive one local canonical batch, while Collaboration receives ordered transport record ranges over the same artifact; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Retained Undo and Redo evidence preserves the source artifact order and returns to the canonical owner; only an explicitly applied owner result can ready the corresponding publication batch.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
@@ -385,8 +389,7 @@
         'A transaction-end atomic publication is unavailable before canonical commit.'
       ],
       allowedContributors: [
-        'artifact:canonical-element-batch-result',
-        'Factory transaction and journal owners',
+        'Factory transaction and journal owners with their ordered canonical evidence',
         'Factory shared-data channel',
         'ordinary ordered canonical delivery evidence'
       ],
@@ -394,6 +397,8 @@
         'one history action per progressive slice',
         'downstream .save() reconstruction of canonical evidence',
         'per-observer independent delivery cloning',
+        'recursive deep-freeze or immutable-tree scans after the canonical owner handoff',
+        'splitting one local canonical batch into one local observer change per element',
         'AI-specific history or compensation',
         'dropped or reordered canonical changes'
       ],
@@ -423,22 +428,27 @@
         'artifact:factory-mutation-batch-artifact'
       ],
       outputs: [
-        'artifact:canonical-element-batch-result',
+        'ordered canonical element IDs',
         'artifact:canonical-batch-timing'
       ],
       conditions: [
         'Props Manager performs one whole-batch schema, ID, and relationship preflight before instance materialization, relationship rebind, and registerMany.',
+        'Every canonical item retains individually addressable property records, stable IDs, shared props, and shared components; performance work may not flatten, omit, or hide those framework records.',
+        'Core constructs one ownerId-to-relations index before element creation, so each element consumes only its own relation range instead of filtering the full batch.',
+        'Props Manager performs one owner-indexed relationship traversal that establishes child-first order, forward and reverse relation indexes, and owner ranges for the complete batch.',
+        'Props batch materialization uses one type-group schema contract and one immutable owner snapshot with no per-record structured clone, save, or isEqual reconstruction loop.',
+        'The manager-owned relationship index publishes one affected-owner batch and uses no per-edge subscriptions or one closure per child relationship.',
+        'Scene Tree local Computed projection consumes the same owner-issued artifact, does not rebuild topology from property instances, and is never shared or included in CRDT publications.',
         'A later invalid item leaves no committed prefix in Props, relationships, instance registries, Scene Tree maps, parent children, or Factory evidence.',
         'Scene Tree performs one map registration phase, one parent children replacement, and one ordered batch evidence handoff that preserves every canonical entry.',
-        'Required instance construction, local relationship wiring, local observer binding, and ordered Scene evidence entries may iterate N inside their canonical owner without creating N Core requests, Props registration phases, Scene map or parent replacement phases, Factory batch handoffs, or App transactions.',
-        'Step 11 profiling must identify an owner-local iteration as a material bottleneck before deeper micro-batching becomes a release blocker.',
-        'CanonicalElementBatchResult preserves ordered element IDs and a Factory-owned delivery handle.',
+        'Required property and element instances remain one per canonical ID, but construction uses fixed batch materializers and creates no per-record API, transaction, relationship-graph, observer-registry, clone, save, or equality boundary.',
+        'Core.createElementsInParent returns only ordered canonical element IDs; Factory records canonical owner evidence independently through its active transaction.',
         'Single-item APIs are exactly equivalent batch-of-one conveniences.',
-        'Public creation API choice follows data lifecycle rather than origin: ordinary descriptors use addNewElement or addNewElements, detached canonical snapshots use addNewElementsFromCanonicalData, and canonical data whose property owners are already active uses addNewElementsFromCanonicalDataUsingActiveProperties.',
-        'No creation API is restricted by local or remote origin; an active transaction owner must instead atomically accept the canonical batch evidence.',
-        'Ordinary removal owns complete property cleanup, while canonical removal with active properties uses removeElementUsingActiveProperties or removeElementsUsingActiveProperties when separate retained Props evidence owns property removal.',
-        'A complete retained container hierarchy uses removeSubtreeUsingActiveProperties so the hierarchy is preflighted, mutated, and handed off once while its separate retained Props evidence remains active.',
-        'The single removeElementUsingActiveProperties API is exactly the batch-of-one convenience for removeElementsUsingActiveProperties.',
+        'One origin-neutral canonical lifecycle selects prepared evidence by data lifecycle: ordinary descriptors provide source creation data, detached canonical data provides exact identity and relations, and retained property evidence keeps its separate Props cleanup or restore batch.',
+        'Scene Tree always produces one PreparedElementMutation for the selected lifecycle; Core coordinates any separate Props cleanup or restore evidence without introducing caller-origin policy.',
+        'Ordinary creation and removal own their complete Scene and Props lifecycle, while detached canonical data and retained property evidence preserve exact IDs, ordering, relations, and source evidence without applying either owner twice.',
+        'A complete retained container hierarchy is prepared and applied once through the same plural Scene mutation owner while its separate retained Props evidence remains active.',
+        'Every single-item convenience delegates to the same batch-of-one prepared mutation.',
         'Retained removal and restore preflight the complete Scene, Props, relationship, parent-index, ID, and tombstone evidence before apply so a later invalid item leaves no committed prefix.',
         'No removal API is restricted by local or remote origin; callers choose by property lifecycle and exact evidence ownership.'
       ],
@@ -452,7 +462,7 @@
         '@asyra/core public facade',
         '@asyra/props-manager canonical components and registries',
         '@asyra/scene-tree hierarchy and map owners',
-        '@asyra/factory delivery handle'
+        '@asyra/factory active transaction boundary'
       ],
       forbiddenContributors: [
         'App access to package-private stores',
@@ -461,7 +471,10 @@
         'fixture-specific canonical handling',
         'treating a semantic no-op as an applied replay result',
         'reordering retained Scene and Props evidence',
-        'post-hoc full-composition geometry repair'
+        'post-hoc full-composition geometry repair',
+        'per-edge relationship subscriptions or closure fan-out',
+        'shared UPDATE_COMPUTED_DATA publications for locally derived Render projection',
+        'UsingActiveProperties API families or local/remote mutation modes'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -491,9 +504,10 @@
       title: 'Stage one local interactive composition',
       ownerPackage: 'Asyra Design AI composition interaction',
       purpose:
-        'Convert one validated descriptor into an exact-bounds runtime loading state committed by the App DOM and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, canonical identity ownership, transaction intent, or failure semantics.',
+        'Commit one server-prepared PreparedDrawingArtifact through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, stable descriptor IDs, transaction intent, or failure semantics.',
       inputs: [
         'artifact:resolved-ai-action-batch',
+        'server-prepared canonical descriptors in one PreparedDrawingArtifact',
         'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
         'single production Conversational AI runtime with fixed cooperative progressive delivery',
@@ -511,12 +525,13 @@
       conditions: [
         'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
         'Contents is fixed as excluded and does not mount in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
-        'After validated accepted descriptors determine exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
+        'Server-prepared canonical descriptors provide exact bounds, stable IDs, relationships, property records, and topology; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
+        'After those prepared descriptors provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
         'The single composition route creates one Group and submits multiple deterministic progressive plural Core batches.',
-        'Progressive batch boundaries enforce both a point budget and an element-count budget capped at 64 per work unit; one indivisible element may exceed only the point soft target.',
-        'Each successful canonical batch completes its ordinary Factory, Preset, Render, and UI projection, commits actual element progress, awaits one later browser task through the single serialized action loop, and rechecks the Feature-owned AbortSignal before another mutation.',
+        'Progressive batch boundaries use one fixed 2,048-point budget and an element-count budget capped at 64 elements per work unit; one indivisible element may exceed only the point budget.',
+        'Every successful canonical slice completes its ordinary Factory, Preset, Render, and UI projection, commits actual element progress, awaits one browser paint opportunity, and then continues through the single serialized action loop with a fixed point budget of 2,048 and at most 64 elements after rechecking the Feature-owned AbortSignal.',
         'The exact-bounds overlay is App-owned transient DOM projection above the ordinary canvas; its CSS activity animates only transform and opacity on the compositor while every completed element continues through the ordinary editable Vector route.',
         'One outer App transaction contains the Group and every child batch and expresses one intended history action.',
         'The App clears drawing progress and releases the document interaction lock after success, failure, cancellation, or teardown; failure and cancellation preserve complete canonical rollback and visible compensation.'
@@ -538,7 +553,9 @@
       ],
       forbiddenContributors: [
         '7,000 single-item Core calls',
-        'provider-selected canonical IDs',
+        'front-end replacement of server-issued stable descriptor IDs',
+        'front-end point-object or topology rematerialization',
+        'front-end vector validation, bounds calculation, or normalization',
         'reduced VTracer detail or bitmap replacement',
         'one App transaction per slice',
         'AI-only renderer or canonical loading placeholder',
@@ -550,7 +567,7 @@
         'product delivery-mode switches or delivery URL parameters',
         'performanceContentsMode or another profile-selected product projection',
         'microtask-only progressive yield',
-        'one timeout scheduled independently for every planned range'
+        'one timeout scheduled independently for every prepared range'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -601,6 +618,7 @@
       ],
       conditions: [
         'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
+        'Preset and UI consume one local canonical batch directly; transport may expose ordered record ranges, but Factory does not split local projection into single-entry changes.',
         'Each formal local or remote canonical batch performs one batch projection and at most one visible flush.',
         'The fixed progressive composition route performs one projection for each formal slice and never collapses to a final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
@@ -1067,6 +1085,7 @@
         'artifact:resource-guard-stop-proof'
       ],
       conditions: [
+        'The complete local source pipeline—PreparedDrawingArtifact submission, Core indexing, Props and Scene batch application, Factory artifact delivery, and local projection—receives one guarded 7,076-element proof after all of those internal owners are complete, not after each internal owner.',
         'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
         'That same guarded two-Actor creation is the only automated high-detail run: Actor A proves connected exact-bounds loading, ordinary Vector milestones, responsive viewport pan and zoom during a cooperative yield, blocked document mutation and history while locked, terminal lock release, one intended Undo action, and one terminal exact canonical summary; no additional single-Actor 7,000-plus run is started.',
         'The performance profile emits detached evidence with no configuration payload; the sole aiPerformance=profile diagnostic opt-in never selects or changes a product route.',
@@ -1427,15 +1446,6 @@
         'artifact:visible-canonical-slices',
         'artifact:render-ui-timing'
       ]
-    },
-    {
-      id: 'route-canonical-result-to-factory',
-      from: 'apply-canonical-property-scene-batch',
-      to: 'record-and-deliver-transaction-batch',
-      kind: 'handoff',
-      predicate:
-        'The complete canonical batch applied without a prefix failure.',
-      producedArtifacts: ['artifact:canonical-element-batch-result']
     },
     {
       id: 'route-history-artifact-to-canonical-replay',
@@ -1916,13 +1926,6 @@
       terminal: false
     },
     {
-      id: 'artifact:canonical-element-batch-result',
-      ownerStepId: 'apply-canonical-property-scene-batch',
-      channel: '@asyra/core canonical batch result',
-      consumerStepIds: ['record-and-deliver-transaction-batch'],
-      terminal: false
-    },
-    {
       id: 'artifact:canonical-batch-timing',
       ownerStepId: 'apply-canonical-property-scene-batch',
       channel: 'detached monotonic timing',
@@ -2216,7 +2219,6 @@
       ],
       artifactIds: [
         'artifact:composition-batch-sequence',
-        'artifact:canonical-element-batch-result',
         'artifact:factory-mutation-batch-artifact',
         'artifact:shared-publication-batches'
       ],

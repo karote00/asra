@@ -201,7 +201,7 @@ test('production conversational AI uses one ActionBatch contract without compati
   )
   assert.match(
     plan,
-    /former action-plan API[\s\S]*planId[\s\S]*plan aliases[\s\S]*compatibility overloads.*deleted/i
+    /former alternate action-preparation API[\s\S]*scheduling-oriented[\s\S]*identifiers[\s\S]*compatibility overloads.*deleted/i
   )
   assert.match(
     feature,
@@ -313,11 +313,11 @@ test('file-scoped server response is prepared before request timing', () => {
   )
   assert.match(
     plan,
-    /File-scoped Server Response Inbox Contract[\s\S]*test\/manual harness.*validate and normalize[\s\S]*bounded summary.*compact composition geometry[\s\S]*IndexedDB response inbox adapter[\s\S]*App and Agent readiness[\s\S]*At request time.*requestActionBatch\(\)[\s\S]*no artificial delay/i
+    /File-scoped Server Response Inbox Contract[\s\S]*test\/manual harness[\s\S]*validat[\s\S]*normaliz[\s\S]*bounded summary[\s\S]*PreparedDrawingArtifact[\s\S]*IndexedDB response inbox[\s\S]*App and Agent readiness[\s\S]*At request time.*requestActionBatch\(\)[\s\S]*no artificial delay/i
   )
   assert.match(
     feature,
-    /Scenario: Required fileId preloads one server response inbox record before App readiness[\s\S]*compacts one exact model response.*outside the production bundle[\s\S]*IndexedDB response inbox adapter[\s\S]*canonical document.*empty[\s\S]*request-time response inbox access/i
+    /Scenario: Required fileId preloads one server response inbox record before App readiness[\s\S]*builds one PreparedDrawingArtifact.*outside the production bundle[\s\S]*IndexedDB response inbox adapter[\s\S]*canonical document.*empty[\s\S]*request-time response inbox access/i
   )
 })
 
@@ -347,7 +347,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server-prepared.*bounded redaction-ready summary.*compact.*coordinate/i
+    /server-prepared.*bounded redaction-ready summary.*PreparedDrawingArtifact/i
   )
   assert.match(
     text,
@@ -367,7 +367,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*compact.*before App readiness.*front.?end.*materializ.*progressive slice/i
+    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*before App readiness.*front.?end.*submits.*prepared canonical descriptor slice/i
   )
   assert.match(
     text,
@@ -454,7 +454,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     plan,
-    /backend-facing `inputSchema`[\s\S]*no client-side action[\s\S]*schema.*parse.*prepare[\s\S]*compact coordinate artifact[\s\S]*materializes only the next[\s\S]*cooperative slice/i
+    /backend-facing `inputSchema`[\s\S]*no client-side action[\s\S]*schema.*parse.*prepare[\s\S]*PreparedDrawingArtifact[\s\S]*submits each already-prepared[\s\S]*cooperative slice/i
   )
   assert.match(
     plan,
@@ -468,12 +468,12 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     feature,
     /test or manual harness.*validates, normalizes[\s\S]*outside the production bundle[\s\S]*before App navigation[\s\S]*resident before App readiness/i
   )
-  assert.match(feature, /server-prepared action.*compact coordinate artifact/i)
+  assert.match(feature, /server-prepared action.*PreparedDrawingArtifact/i)
   assert.match(
     feature,
-    /front end should perform no item, path, or point validation or compact encoding/i
+    /front end should perform no item, path, or point validation or drawing-artifact encoding/i
   )
-  assert.match(feature, /materializing only the next progressive slice/i)
+  assert.match(feature, /submitting only the next prepared progressive slice/i)
   assert.match(
     plan,
     /221\.695 percent[\s\S]*renderer PID.*201\.901[\s\S]*0\/17/i
@@ -924,17 +924,17 @@ test('local progressive drawing paints exact bounds before cooperative canonical
 
   assert.match(
     text,
-    /validated.*bounds.*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
+    /server-prepared canonical descriptors.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
   )
   assert.match(text, /point.*element-count.*budget/i)
-  assert.match(text, /element-count budget capped at 64 per work unit/i)
+  assert.match(text, /element-count budget capped at 64 elements per work unit/i)
   assert.match(
     text,
     /multiple deterministic progressive plural Core batches.*one outer App transaction.*one intended history action/i
   )
   assert.match(
     text,
-    /successful.*batch.*ordinary.*projection.*progress.*later browser task.*AbortSignal/i
+    /successful canonical slice.*ordinary.*projection.*progress.*browser paint opportunity.*AbortSignal/i
   )
   assert.match(text, /CSS.*transform.*opacity.*compositor/i)
   assert.match(
@@ -979,7 +979,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     'Canvas or Render-owned loading overlay',
     'JavaScript per-frame loading animation',
     'microtask-only progressive yield',
-    'one timeout scheduled independently for every planned range'
+    'one timeout scheduled independently for every prepared range'
   ].forEach((contributor) =>
     assert.ok(owner.forbiddenContributors.includes(contributor), contributor)
   )
@@ -1104,7 +1104,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     plan,
-    /Cooperative Progressive Composition[\s\S]*point[\s\S]*element-count[\s\S]*later browser task[\s\S]*one outer transaction[\s\S]*one intended Undo/i
+    /Cooperative Progressive Composition[\s\S]*point[\s\S]*element-count[\s\S]*browser paint opportunity[\s\S]*one outer transaction[\s\S]*one intended Undo/i
   )
   assert.match(
     plan,
@@ -1128,10 +1128,13 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*later browser task[\s\S]*one outer transaction[\s\S]*one Undo/i
+    /Scenario: Local progressive composition becomes visible in cooperative batches[\s\S]*point and element-count[\s\S]*browser paint opportunity[\s\S]*one outer transaction[\s\S]*one Undo/i
   )
   assert.match(feature, /at most 64 elements per ordinary work unit/i)
-  assert.match(plan, /64-element work-unit cap[\s\S]*2,048[\s\S]*8,192/i)
+  assert.match(
+    plan,
+    /64-element work-unit cap[\s\S]*fixed 2,048-point budget/i
+  )
   assert.match(
     feature,
     /Scenario: Drawing progress keeps navigation responsive while edits stay locked[\s\S]*pan[\s\S]*zoom[\s\S]*document mutation[\s\S]*one Undo/i
@@ -1143,6 +1146,155 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.doesNotMatch(
     feature,
     /aiDelivery|URL resolves exact "aiDelivery=progressive"|atomic delivery mode/i
+  )
+})
+
+test('local source endpoint keeps canonical records while removing repeated single-record work', () => {
+  const stageOwner = step('stage-local-interactive-composition')
+  const canonicalOwner = step('apply-canonical-property-scene-batch')
+  const factoryOwner = step('record-and-deliver-transaction-batch')
+  const projectionOwner = step('project-visible-canonical-slices')
+  const proofOwner = step('evaluate-endpoint-performance')
+  const stageText = contractText(stageOwner)
+  const canonicalText = contractText(canonicalOwner)
+  const factoryText = contractText(factoryOwner)
+  const projectionText = contractText(projectionOwner)
+  const proofText = contractText(proofOwner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    plan,
+    /16 vectors.*12,919 points[\s\S]*26,030[\s\S]*property records[\s\S]*7,075 vectors.*156,373 points[\s\S]*397,674[\s\S]*property records/i
+  )
+  assert.match(
+    stageText,
+    /server-prepared canonical descriptors.*no intermediate point-object graph.*no repeated vector validation, bounds, or normalization/i
+  )
+  assert.match(
+    stageText,
+    /every successful canonical slice.*browser paint opportunity.*fixed point budget.*64 elements/i
+  )
+  assert.match(
+    canonicalText,
+    /individually addressable property records.*stable ids.*shared props.*shared components/i
+  )
+  assert.match(
+    canonicalText,
+    /one owner-indexed relationship traversal.*child-first order.*forward and reverse relation indexes.*owner ranges/i
+  )
+  assert.match(
+    canonicalText,
+    /batch materialization.*no per-record structured clone.*save.*isEqual/i
+  )
+  assert.match(
+    canonicalText,
+    /manager-owned relationship index.*affected-owner batch.*no per-edge subscriptions/i
+  )
+  assert.match(
+    canonicalText,
+    /local Computed projection.*same owner-issued artifact.*does not rebuild topology from property instances.*never shared/i
+  )
+  assert.match(
+    factoryText,
+    /owner-issued immutable artifact.*no recursive frozen scan.*canonical inverse.*once/i
+  )
+  assert.match(
+    `${factoryText} ${projectionText}`,
+    /local canonical batch.*transport record ranges.*does not split local projection into single-entry changes/i
+  )
+  assert.match(
+    proofText,
+    /complete local source pipeline.*one guarded 7,076-element proof.*not after each internal owner/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Local source pipeline preserves shared records without per-record runtime work[\s\S]*stable property records and IDs[\s\S]*no per-edge subscription[\s\S]*local Computed[\s\S]*one local canonical batch/i
+  )
+})
+
+test('canonical lifecycle uses one origin-neutral prepared mutation route', () => {
+  const owner = step('apply-canonical-property-scene-batch')
+  const activeText = [
+    owner.id,
+    owner.title,
+    owner.purpose,
+    ...owner.inputs,
+    ...owner.outputs,
+    ...owner.conditions,
+    ...owner.bypasses,
+    ...owner.allowedContributors
+  ].join(' ')
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    activeText,
+    /one origin-neutral canonical lifecycle.*ordinary descriptors.*detached canonical data.*retained property evidence/i
+  )
+  assert.doesNotMatch(activeText, /UsingActiveProperties/)
+  assert.doesNotMatch(activeText, /\bplan(?:s|ned|ning)?\b|Plan\b/)
+  assert.match(
+    plan,
+    /one origin-neutral canonical lifecycle[\s\S]*ordinary descriptors[\s\S]*detached canonical data[\s\S]*retained property evidence/i
+  )
+  assert.doesNotMatch(
+    plan.match(
+      /### Bulk Mutation Contract\n([\s\S]*?)\n### Factory Mutation Batch Artifact/
+    )?.[1] ?? '',
+    /UsingActiveProperties|\bplan(?:s|ned|ning)?\b|Plan\b/
+  )
+  assert.match(
+    feature,
+    /Scenario: Canonical lifecycle selects evidence without origin-specific APIs[\s\S]*ordinary descriptors[\s\S]*detached canonical data[\s\S]*retained property evidence[\s\S]*one origin-neutral/i
+  )
+})
+
+test('Core returns ordered ids while Factory records transaction evidence directly', () => {
+  const canonicalOwner = step('apply-canonical-property-scene-batch')
+  const factoryOwner = step('record-and-deliver-transaction-batch')
+  const activeCanonicalText = [
+    canonicalOwner.purpose,
+    ...canonicalOwner.inputs,
+    ...canonicalOwner.outputs,
+    ...canonicalOwner.conditions,
+    ...canonicalOwner.bypasses,
+    ...canonicalOwner.allowedContributors
+  ].join(' ')
+  const activeFactoryText = [
+    factoryOwner.purpose,
+    ...factoryOwner.inputs,
+    ...factoryOwner.outputs,
+    ...factoryOwner.conditions,
+    ...factoryOwner.bypasses,
+    ...factoryOwner.allowedContributors
+  ].join(' ')
+
+  assert.match(
+    activeCanonicalText,
+    /Core\.createElementsInParent.*returns only ordered canonical element IDs/i
+  )
+  assert.match(
+    activeFactoryText,
+    /Factory transaction owner records.*canonical Props and Scene evidence directly/i
+  )
+  assert.doesNotMatch(
+    `${activeCanonicalText}\n${activeFactoryText}`,
+    /CanonicalElementBatchResult|canonical-element-batch-result|delivery handle/i
+  )
+  assert.equal(
+    data.routes.some(({ id }) => id === 'route-canonical-result-to-factory'),
+    false
+  )
+  assert.equal(
+    data.artifacts.some(
+      ({ id }) => id === 'artifact:canonical-element-batch-result'
+    ),
+    false
   )
 })
 
