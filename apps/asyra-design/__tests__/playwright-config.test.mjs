@@ -697,6 +697,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     manifest.scripts['prepare:e2e:endpoint-performance'],
     /react:build.*prepare-server-response-preview\.mjs/
   )
+  assert.match(
+    manifest.scripts['prepare:e2e:endpoint-performance'],
+    /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/asyra-design-collaboration yarn react:build/
+  )
   ;[
     ['test:e2e:ai-attribution:16', '16'],
     ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],

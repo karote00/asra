@@ -63,7 +63,7 @@
     "test:ci": "yarn test:ai && yarn test:server-response-harness && yarn test:local",
     "test:e2e": "playwright test",
     "test:e2e:collaboration": "playwright test --config playwright.collaboration.config.ts",
-    "prepare:e2e:endpoint-performance": "yarn build:collaboration-server && yarn react:build && node e2e/prepare-server-response-preview.mjs",
+    "prepare:e2e:endpoint-performance": "yarn build:collaboration-server && VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws://127.0.0.1:4121/asyra-design-collaboration yarn react:build && node e2e/prepare-server-response-preview.mjs",
     "test:e2e:crdt-endpoint-performance": "node e2e/performance-resource-guard.mjs --owner \"$ASYRA_DESIGN_ENDPOINT_OWNER\"",
     "test:e2e:ai-attribution:16": "ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE=16 ASYRA_DESIGN_ENDPOINT_OWNER=evaluate-endpoint-performance node e2e/performance-resource-guard.mjs --owner evaluate-endpoint-performance",
     "test:e2e:ai-attribution:16-reduced-motion": "ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE=16-reduced-motion ASYRA_DESIGN_ENDPOINT_OWNER=evaluate-endpoint-performance node e2e/performance-resource-guard.mjs --owner evaluate-endpoint-performance",
