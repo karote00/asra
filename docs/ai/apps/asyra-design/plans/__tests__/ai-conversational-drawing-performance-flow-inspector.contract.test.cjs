@@ -1315,8 +1315,10 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
 
 test('local progressive drawing paints exact bounds before cooperative canonical batches', () => {
   const owner = step('stage-local-interactive-composition')
+  const contentsOwner = step('project-scrollable-contents-window')
   const proofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
+  const contentsText = contractText(contentsOwner)
   const proofText = contractText(proofOwner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -1355,7 +1357,21 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     text,
-    /Contents.*fixed.*excluded.*not mount.*detached performance profile.*never configures.*App/i
+    /Contents.*fixed.*mounted.*production App.*detached performance profile.*never configures.*App/i
+  )
+  assert.match(
+    contentsText,
+    /production App mounts.*ordinary Contents projection.*left sidebar.*without.*performance-profile.*URL-selected bypass/i
+  )
+  assert.ok(
+    contentsOwner.implementationBoundary.includes(
+      'apps/asyra-design/src/app/index.tsx'
+    )
+  )
+  assert.ok(
+    contentsOwner.implementationBoundary.includes(
+      'apps/asyra-design/src/app/__tests__/App.test.tsx'
+    )
   )
   assert.doesNotMatch(text, /aiDelivery|atomic measurement opt-in|Atomic mode/i)
   assert.doesNotMatch(
@@ -1546,7 +1562,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     feature,
-    /Scenario: Production App exposes one formal server-backed Agent route[\s\S]*ordinary production entry starts with one required fileId[\s\S]*single cooperative progressive plural-batch route[\s\S]*should not mount Contents[\s\S]*detached performance profile should not configure the App/i
+    /Scenario: Production App exposes one formal server-backed Agent route[\s\S]*ordinary production entry starts with one required fileId[\s\S]*single cooperative progressive plural-batch route[\s\S]*should mount its ordinary Contents projection[\s\S]*detached performance profile should not configure the App/i
   )
   assert.doesNotMatch(
     feature,

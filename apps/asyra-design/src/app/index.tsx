@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ToolBar from '../toolbar'
+import Contents from '../contents'
 import Properties from '../properties'
 import Animation from '../animation'
 import { toTailwindPixelSize } from '../tailwind-size'
@@ -227,6 +228,7 @@ const App: React.FC<AppProps> = ({
         conversation={ai.conversation}
         history={ai.history}
       />
+      <Contents />
       <Properties />
       <Animation />
       <div

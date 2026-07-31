@@ -79,8 +79,9 @@ element cap has been raised from 32 to 64 with formal 16-, 320-, and 1,280-item
 boundary coverage. The prior timing runs disabled Collaboration and are
 therefore retained only as pure-client diagnostics, not as production
 single-Actor acceptance. The next measurements use one required `fileId` URL
-whose selected document session always starts Collaboration. Contents remains
-excluded by product direction.
+whose selected document session always starts Collaboration. Contents is
+mounted as the ordinary production projection; earlier measurements that
+omitted it remain diagnostic only.
 
 The first manual navigation check then exposed a startup-policy mismatch in the
 superseded implementation, whose query-selected source could enter a selectable
@@ -113,8 +114,9 @@ evidence, but they no longer represent the current production startup contract.
 
 The prior local-only stop is superseded by the product owner's 2026-07-30
 authorization for endpoint-ordered CRDT refactoring. Each endpoint still closes
-independently and cannot borrow a later endpoint's expected improvement.
-Contents and production persistence remain excluded.
+independently and cannot borrow a later endpoint's expected improvement. This
+endpoint refactor does not optimize Contents or production persistence, but the
+production App still mounts the ordinary Contents projection.
 
 All current Asyra Design demo documents are intentionally memory-only on the
 client. After Core starts, RenderApp loads one App-owned canonical empty

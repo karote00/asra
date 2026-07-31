@@ -232,7 +232,7 @@ Feature: Conversational AI drawing performance
     And App startup constructs one required server-backed Agent runtime and provider
     When the local Agent executes one server-prepared composition action
     Then the App should use its single cooperative progressive plural-batch route
-    And the production App should not mount Contents
+    And the production App should mount its ordinary Contents projection
     And an opt-in detached performance profile should not configure the App, provider, Runtime, composition route, or Contents projection
     And the composition should yield between deterministic plural Core batches
     And no AI activation or delivery query should select another provider, runtime, or composition path

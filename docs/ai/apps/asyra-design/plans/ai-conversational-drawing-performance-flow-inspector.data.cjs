@@ -327,7 +327,8 @@
         'The virtualizer observes the actual inner scroll element that receives scrollTop changes.',
         'The DOM retains only viewport plus overscan rows while scroll range represents every canonical entry.',
         'A real 100+ row unit and integration case can scroll to and interact with the last canonical element.',
-        'Collapse, expansion, selection, and hierarchy order retain ordinary Contents behavior.'
+        'Collapse, expansion, selection, and hierarchy order retain ordinary Contents behavior.',
+        'The production App mounts the ordinary Contents projection once in the left sidebar without a performance-profile or URL-selected bypass.'
       ],
       bypasses: [
         'An empty hierarchy renders the ordinary empty Contents state without a virtual row.',
@@ -347,6 +348,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/src/app/index.tsx',
+        'apps/asyra-design/src/app/__tests__/App.test.tsx',
         'apps/asyra-design/src/contents',
         'apps/asyra-design/src/contents/__tests__'
       ],
@@ -589,7 +592,7 @@
       ],
       conditions: [
         'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
-        'Contents is fixed as excluded and does not mount in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
+        'Contents is fixed as mounted in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
         'Server-prepared flat canonical element and property batches provide exact bounds, stable IDs, relationships, property records, geometry data, and slice ranges; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
         'After those prepared flat batches provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
