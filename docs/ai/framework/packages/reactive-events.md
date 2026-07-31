@@ -55,8 +55,12 @@ Provide typed cross-package event communication.
 - `TransactionOwner` exposes only `updateTransactionBatch(...)`.
   `updateTransaction(...)` is a batch-of-one convenience, not a second owner
   implementation. An owner-issued immutable batch keeps one identity through
-  Reactive Events and Factory. Reactive Events isolates every external batch
-  once, including caller-owned frozen containers; the read-only
+  Reactive Events and Factory. A canonical owner that combines already
+  immutable owner events calls `issueDetachedTransactionOwnerBatch(...)` on
+  its new frozen outer container. The declaration checks only the frozen
+  transaction structural roots and records that exact outer identity; it does
+  not walk nested geometry. Reactive Events isolates every unissued external
+  batch once, including caller-owned frozen containers; the read-only
   `isDetachedTransactionValue(...)` owner marker lets Factory trust that
   framework-issued graph in O(1). Direct external Factory input remains
   isolated at the Factory boundary.

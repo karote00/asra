@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   EventTypes,
+  isDetachedTransactionValue,
+  issueDetachedTransactionOwnerBatch,
   runTransaction,
   subscribeToEventBatches,
   subscribeToEvents,
@@ -46,6 +48,43 @@ const createOwner = (
 })
 
 describe('transaction batch publishing', () => {
+  it('issues one frozen owner container without traversing nested geometry', () => {
+    let nestedReadCount = 0
+    const geometry = Object.freeze(
+      Object.defineProperty({}, 'points', {
+        enumerable: true,
+        get: () => {
+          nestedReadCount += 1
+          return Object.freeze([1, 2, 3])
+        }
+      })
+    )
+    const payload = Object.freeze({ geometry })
+    const event = Object.freeze(
+      createTransactionEvent('property.owner-issued', payload)
+    )
+    const ownerBatch = Object.freeze([event])
+
+    const issued = issueDetachedTransactionOwnerBatch(ownerBatch)
+
+    expect(issued).toBe(ownerBatch)
+    expect(isDetachedTransactionValue(issued)).toBe(true)
+    expect(nestedReadCount).toBe(0)
+  })
+
+  it('rejects a shallow-frozen owner declaration with a mutable payload', () => {
+    const event = Object.freeze(
+      createTransactionEvent('property.mutable-payload', {
+        nested: { value: 1 }
+      })
+    )
+
+    expect(() =>
+      issueDetachedTransactionOwnerBatch(Object.freeze([event]))
+    ).toThrow(/frozen event 0 payload/i)
+    expect(isDetachedTransactionValue(Object.freeze([event]))).toBe(false)
+  })
+
   it('hands one ordered isolated immutable batch identity to the owner once', () => {
     const ownerUpdate = vi.fn()
     const disposeOwner = registerTransactionOwner(createOwner(ownerUpdate))

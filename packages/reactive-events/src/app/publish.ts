@@ -129,6 +129,79 @@ export const isDetachedTransactionValue = (value: unknown): boolean =>
   typeof value === 'object' &&
   detachedTransactionValues.has(value)
 
+const assertFrozenTransactionOwnerValue = (
+  value: unknown,
+  label: string
+): void => {
+  if (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    !Object.isFrozen(value)
+  ) {
+    throw new Error(`Detached transaction owner batch requires frozen ${label}`)
+  }
+}
+
+export const issueDetachedTransactionOwnerBatch = <
+  TEvents extends readonly UpdateTransactionEvent[]
+>(
+  events: TEvents
+): TEvents => {
+  if (!Array.isArray(events) || !Object.isFrozen(events)) {
+    throw new Error(
+      'Detached transaction owner batch requires a frozen event array'
+    )
+  }
+
+  events.forEach((event, eventIndex) => {
+    assertFrozenTransactionOwnerValue(event, `event ${eventIndex}`)
+    assertFrozenTransactionOwnerValue(
+      event.payload,
+      `event ${eventIndex} payload`
+    )
+    assertFrozenTransactionOwnerValue(
+      event.options,
+      `event ${eventIndex} options`
+    )
+    const evidence = event.canonicalEvidence
+    if (!evidence) {
+      return
+    }
+    assertFrozenTransactionOwnerValue(
+      evidence,
+      `event ${eventIndex} canonical evidence`
+    )
+    assertFrozenTransactionOwnerValue(
+      evidence.orderedIds,
+      `event ${eventIndex} canonical ordered ids`
+    )
+    if (!evidence.sharedRecords) {
+      return
+    }
+    assertFrozenTransactionOwnerValue(
+      evidence.sharedRecords,
+      `event ${eventIndex} shared records`
+    )
+    evidence.sharedRecords.forEach((record, recordIndex) => {
+      assertFrozenTransactionOwnerValue(
+        record,
+        `event ${eventIndex} shared record ${recordIndex}`
+      )
+      assertFrozenTransactionOwnerValue(
+        record.orderedIds,
+        `event ${eventIndex} shared record ${recordIndex} ordered ids`
+      )
+      assertFrozenTransactionOwnerValue(
+        record.payload,
+        `event ${eventIndex} shared record ${recordIndex} payload`
+      )
+    })
+  })
+
+  detachedTransactionValues.add(events)
+  return events
+}
+
 const deepFreezeTransactionValue = <T>(
   value: T,
   seen = new WeakSet<object>()

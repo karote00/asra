@@ -65,6 +65,10 @@ infrastructure.
 - successful owner apply is trusted after the event is recorded; Factory does
   not run a post-action save, equality comparison, finalize-save,
   full-document snapshot, or evidence-clone pass
+- a canonical owner-issued frozen Props-then-Scene batch retains the exact
+  detached outer identity declared by Reactive Events, so Factory does not
+  clone or recursively scan that already-owned geometry at handoff; unissued
+  external shallow-frozen batches are still isolated before journal recording
 
 2. Undo/redo replay
 

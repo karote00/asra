@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EventTypes,
+  issueDetachedTransactionOwnerBatch,
   TransactionEventTypes,
   type AllEvent,
   type UpdateTransactionEvent
@@ -810,6 +811,53 @@ describe('Factory batch regression contracts', () => {
       ])
     ).not.toThrow()
     expect(() => factory.endTransaction()).not.toThrow()
+  })
+
+  it('reuses nested geometry from an issued canonical owner batch', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const geometry = Object.freeze({
+      points: Object.freeze([
+        Object.freeze({ x: 1, y: 2 }),
+        Object.freeze({ x: 3, y: 4 })
+      ])
+    })
+    const event = Object.freeze({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_PROPERTY,
+      payload: Object.freeze({
+        id: 'owner-issued-element',
+        before: 0,
+        after: 1,
+        geometry
+      }),
+      options: Object.freeze({
+        shared: SharedDataChannelNames.SCENE_TREE
+      }),
+      canonicalEvidence: Object.freeze({
+        orderedIds: Object.freeze(['owner-issued-element'])
+      })
+    }) satisfies UpdateTransactionEvent
+    const ownerBatch = issueDetachedTransactionOwnerBatch(
+      Object.freeze([event])
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(ownerBatch)
+    factory.endTransaction()
+
+    const deliveredPayload = publications[0]?.slices[0]?.batches[0]
+      ?.deliveries[0]?.payload as
+      | { readonly geometry?: typeof geometry }
+      | undefined
+    expect(deliveredPayload?.geometry).toBe(geometry)
   })
 
   it('isolates a shallow-frozen external batch before the journal handoff', () => {

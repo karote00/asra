@@ -41,6 +41,7 @@ import { createDynamicComponent } from '../create-dynamic-component'
 import { initSceneTreeSubscribes } from '../subscribes'
 import {
   EventTypes,
+  isDetachedTransactionValue,
   publishEvent,
   runInTransactionReplayMode,
   runWithTransactionOwner,
@@ -2469,6 +2470,7 @@ describe('SceneTree', () => {
     const propertyRecord =
       deliveredEvents[0]?.canonicalEvidence?.sharedRecords?.[0]
 
+    expect(isDetachedTransactionValue(deliveredEvents)).toBe(true)
     expect({
       individualHandoffCalls: individualHandoff.mock.calls.length,
       batchHandoffCalls: batchHandoff.mock.calls.length,

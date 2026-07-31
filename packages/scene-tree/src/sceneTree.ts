@@ -43,6 +43,7 @@ import {
   EventTypes,
   getTransactionReplayMode,
   getTransactionOwner,
+  issueDetachedTransactionOwnerBatch,
   publishLocalComputedDataEvents,
   runInTransactionReplayMode,
   type UpdateComputedDataBatchEvent,
@@ -5018,16 +5019,16 @@ class SceneTree {
   ): readonly UpdateTransactionEvent[] {
     return this.changes.map((change) => {
       const changeOptions = change.options ?? options
-      const routedOptions: EVENT_OPTIONS = {
+      const routedOptions: EVENT_OPTIONS = Object.freeze({
         ...(changeOptions ?? {}),
         shared: changeOptions?.shared ?? SharedDataChannelNames.SCENE_TREE
-      }
-      return {
+      })
+      return Object.freeze({
         type: EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
-        payload: change,
+        payload: deepFreezeSceneValue(change),
         options: routedOptions
-      } satisfies UpdateTransactionEvent
+      } satisfies UpdateTransactionEvent)
     })
   }
 
@@ -5079,18 +5080,33 @@ class SceneTree {
             '[SceneTree] Canonical element batch requires additive Props evidence'
           )
         }
+        const addPayload = payload as AddRemovePropertyChange
+        Object.freeze(addPayload.data)
+        const ownerPayload = Object.freeze({
+          ...addPayload,
+          data: addPayload.data
+        })
+        const ownerOptions = Object.freeze({ ...eventOptions })
+        const sharedRecords =
+          this.propsManagerOwner.createCanonicalPropertyDeliveryRecords(
+            ownerPayload,
+            propertyOwners
+          )
+        sharedRecords.forEach((record) => {
+          Object.freeze(record.orderedIds)
+          Object.freeze(record.payload.data)
+          Object.freeze(record.payload)
+          Object.freeze(record)
+        })
+        Object.freeze(sharedRecords)
         return Object.freeze({
           type: EventTypes.UPDATE_TRANSACTION,
           eventName,
-          payload,
-          options: eventOptions,
+          payload: ownerPayload,
+          options: ownerOptions,
           canonicalEvidence: Object.freeze({
             orderedIds: propertyOrderedIds,
-            sharedRecords:
-              this.propsManagerOwner.createCanonicalPropertyDeliveryRecords(
-                payload as AddRemovePropertyChange,
-                propertyOwners
-              )
+            sharedRecords
           })
         })
       }
@@ -5117,7 +5133,9 @@ class SceneTree {
       })
     }) satisfies readonly UpdateTransactionEvent[]
 
-    const events = Object.freeze([...propsEvents, ...sceneEvents])
+    const events = issueDetachedTransactionOwnerBatch(
+      Object.freeze([...propsEvents, ...sceneEvents])
+    )
 
     if (transactionOwner) {
       try {
