@@ -12,6 +12,7 @@ Provide typed cross-package event communication.
 - render pointer event contracts (`render.pointer.*`, `render.pointer.capture.*`)
 - public transaction boundary depth and nested rollback-only state
 - synchronous transaction-owner bridge used by the default Factory
+- batch-only transaction owner handoff and ordered observer batch delivery
 - synchronous state-owner apply acknowledgement and transaction replay context
 
 ## Must Not Own
@@ -51,15 +52,20 @@ Provide typed cross-package event communication.
 - End/rollback at depth zero is a no-op and emits no phantom boundary.
 - Owner finalization is synchronous so validation and rollback failures reach
   the caller instead of being swallowed by observer delivery.
+- `TransactionOwner` exposes only `updateTransactionBatch(...)`.
+  `updateTransaction(...)` is a batch-of-one convenience, not a second owner
+  implementation. An owner-issued immutable batch keeps one identity through
+  Reactive Events and Factory; mutable external input is isolated at the
+  Factory boundary.
 - Canonical replay/apply owners use `subscribeToSynchronousEvent(...)`; an apply
   exception reaches Factory synchronously and can become `rollback-failed`.
   Ordinary RxJS subscribers remain observation/diagnostic consumers and are not
   canonical mutation acknowledgements.
-- `SceneTreeEventTypes.UPDATE_COMPUTED_DATA` carries an explicit
-  `owner: 'raw' | 'computed'` replay provenance field. The computed publisher
-  supplies `computed`; canonical subscribers route only by the declared owner
-  and reject missing or invalid provenance instead of inferring it from a key or
-  current state.
+- computed data events are ordinary local, observer-only Render projection.
+  Scalar computed publishers delegate to the same observer batch-of-one route;
+  neither scalar nor batch computed output enters a synchronous canonical owner
+  or shared transaction. Canonical raw element data uses its separate
+  `UPDATE_ELEMENT_DATA` event.
 - A synchronous owner is acknowledged as applied when it returns `void`/`true`;
   it returns `false` when the requested write is a semantic no-op. If it mutates
   canonical state and then must throw, it calls

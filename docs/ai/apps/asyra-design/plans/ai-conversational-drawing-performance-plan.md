@@ -1088,6 +1088,7 @@ shared-data boundaries.
 `@asyra/factory` adds and owns:
 
 - `FactoryMutationBatchArtifact`;
+- `FactoryMutationBatchAppliedResult`;
 - `SharedDeliveryBatch`;
 - `SharedPublication.batches`;
 - `LocalSharedDataChannel.appendBatch(...)`;
@@ -1107,6 +1108,10 @@ returns a Factory delivery/evidence handle. The immutable artifact contains
 ordered canonical changes, IDs, inverses, Factory-owned
 shared-delivery evidence, and ordered publication slice boundaries. Those
 framework fields cannot select App startup, provider, or composition behavior.
+The applied result separately records only delivery IDs that a shared channel
+actually accepted. A failed or unavailable channel never causes the immutable
+artifact to be rebuilt, and only the applied result can make retained History
+evidence eligible for later Undo or Redo publication.
 
 History, Render/UI, and Collaboration consume this one artifact. The canonical
 inverse is derived once and reused for History and compensation. Local

@@ -375,6 +375,7 @@
         'The owner-issued immutable artifact establishes isolation once; Factory and LocalSharedDataChannel perform no recursive frozen scan, and the canonical inverse is derived once.',
         'History, Render/UI, and Collaboration share the same owner-issued immutable artifact without reconstructing or rescanning its canonical records.',
         'The canonical inverse is derived exactly once while that artifact is recorded and is reused by History, rollback compensation, and Redo.',
+        'FactoryMutationBatchAppliedResult records only successfully applied delivery ids beside the one immutable artifact, so channel readiness never rebuilds or mutates canonical evidence.',
         'Local observers receive one local canonical batch, while Collaboration receives ordered transport record ranges over the same artifact; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Retained Undo and Redo evidence preserves the source artifact order and returns to the canonical owner; only an explicitly applied owner result can ready the corresponding publication batch.',
@@ -416,7 +417,9 @@
         'packages/reactive-events/src/types.ts',
         'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
         'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
-        'packages/reactive-events/src/__tests__/transaction-boundary.test.ts'
+        'packages/reactive-events/src/__tests__/transaction-boundary.test.ts',
+        'docs/ai/framework/packages/factory.md',
+        'docs/ai/framework/packages/reactive-events.md'
       ],
       specRefs: [
         '#factory-mutation-batch-artifact',

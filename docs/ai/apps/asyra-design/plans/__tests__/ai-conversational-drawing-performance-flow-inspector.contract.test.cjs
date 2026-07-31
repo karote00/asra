@@ -1299,6 +1299,24 @@ test('Core returns ordered ids while Factory records transaction evidence direct
       'packages/reactive-events/src/__tests__/transaction-boundary.test.ts'
     ]
   )
+  assert.ok(
+    factoryOwner.implementationBoundary.includes(
+      'docs/ai/framework/packages/factory.md'
+    )
+  )
+  assert.ok(
+    factoryOwner.implementationBoundary.includes(
+      'docs/ai/framework/packages/reactive-events.md'
+    )
+  )
+  assert.match(
+    read('docs/ai/framework/packages/factory.md'),
+    /FactoryMutationBatchAppliedResult[\s\S]*one immutable artifact[\s\S]*delivery ids/i
+  )
+  assert.match(
+    read('docs/ai/framework/packages/reactive-events.md'),
+    /batch-only transaction owner[\s\S]*computed[\s\S]*observer-only/i
+  )
   assert.doesNotMatch(
     `${activeCanonicalText}\n${activeFactoryText}`,
     /CanonicalElementBatchResult|canonical-element-batch-result|delivery handle/i

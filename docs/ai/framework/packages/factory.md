@@ -134,6 +134,9 @@ infrastructure.
 - local transaction recording is the default
 - changes append to a shared channel only when `options.shared` names a
   registered channel
+- every shared channel implements one exact `appendBatch(...)` /
+  `observeBatch(...)` contract; scalar conveniences delegate to batch-of-one
+  and do not create a second canonical delivery path
 - `sharedDelivery: 'transaction-end'` buffers delivery until outer commit
 - `sharedDelivery: 'immediate'` completes local shared-channel delivery and
   optional collaboration publication during the active transaction
@@ -157,10 +160,10 @@ infrastructure.
   redo publishes the forward replay; only channels actually delivered by the
   original committed action remain eligible
 - transaction-end shared delivery walks committed journal entries in mutation
-  order; each registered observer receives one delivery per entry, and pending
-  rolled-back or uncommitted entries are never exposed; scalar/batch
-  `raw|computed` owner provenance remains part of the detached immutable payload
-  and is never interpreted or rewritten by Factory
+  order; each registered observer receives one ordered canonical batch, and
+  pending rolled-back or uncommitted entries are never exposed; canonical
+  payload metadata remains detached and is never interpreted or rewritten by
+  Factory
 - if a registered transaction-end channel rejects an append before applying it,
   Factory restores the runtime transaction, reverts its provisional history
   transition, leaves no final undo/history or user-action completion effect,
@@ -187,6 +190,11 @@ infrastructure.
   Core
 - consumers that do not own staged publication use the ordinary committed
   `SharedPublication` path and do not acquire the staged-artifact controller
+- `FactoryMutationBatchAppliedResult` sits beside the one immutable artifact
+  created for a committed action and records the delivery ids that shared
+  channels actually accepted. Delivery readiness never rebuilds or mutates the
+  artifact; History uses the applied result to decide which retained records
+  are eligible for Undo or Redo publication
 
 5. Status contract
 
