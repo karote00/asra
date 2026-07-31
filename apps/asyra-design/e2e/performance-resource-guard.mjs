@@ -19,6 +19,7 @@ import { fileURLToPath, URL } from 'node:url'
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   maximumCpuPercent: 400,
   maximumFrontendCpuPercent: 250,
+  maximumHighDetailCpuPercent: 500,
   busyCpuPercent: 80,
   heartbeatStaleMs: 10_000,
   progressStaleMs: 20_000,
@@ -101,10 +102,12 @@ const mergeConfig = (config = {}) => {
     ? config.requiredProofKind
     : 'endpoint'
   const maximumCpuPercentCeiling =
-    DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+    requiredProofKind === 'endpoint'
+      ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumHighDetailCpuPercent
+      : DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
   const maximumFrontendCpuPercentCeiling =
     requiredProofKind === 'endpoint'
-      ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+      ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumHighDetailCpuPercent
       : DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent
 
   return {
@@ -2620,10 +2623,13 @@ export const buildEndpointPerformancePhases = ({
       baseEnv: sharedEnv,
       guardConfig: {
         guardMode: 'proof',
-        maximumCpuPercent: DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
+        maximumCpuPercent:
+          requiredProofKind === 'endpoint'
+            ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumHighDetailCpuPercent
+            : DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent,
         maximumFrontendCpuPercent:
           requiredProofKind === 'endpoint'
-            ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent
+            ? DEFAULT_RESOURCE_GUARD_CONFIG.maximumHighDetailCpuPercent
             : DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent,
         requiredProofKind,
         requiredProcessRoles: [...TRACKED_PROCESS_ROLES]

@@ -1256,7 +1256,7 @@ test('rejects phase attribution after any process identity churn observed by the
   assert.deepEqual(end.state.phaseCpuTimeSamples, [])
 })
 
-test('stops immediately when the tracked process group exceeds 400% aggregate CPU', () => {
+test('keeps the 400% aggregate ceiling for a small attribution proof', () => {
   const state = createResourceGuardState({ nowMs: 0 })
   const result = evaluateResourceSample(
     state,
@@ -1269,6 +1269,7 @@ test('stops immediately when the tracked process group exceeds 400% aggregate CP
       targetPgid: TARGET_PGID,
       config: {
         maximumCpuPercent: 999,
+        requiredProofKind: 'local-attribution',
         sampleIntervalMs: 1_000
       }
     }
@@ -1317,11 +1318,12 @@ test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
   assert.equal(result.state.overallCpuLimitViolationSample, null)
 })
 
-test('allows the exact endpoint proof to use the 400% high-detail frontend ceiling', () => {
+test('allows the exact endpoint proof to use the 500% high-detail frontend and aggregate ceilings', () => {
   const state = createResourceGuardState({
     nowMs: 0,
     config: {
-      maximumFrontendCpuPercent: 400,
+      maximumCpuPercent: 500,
+      maximumFrontendCpuPercent: 500,
       requiredProofKind: 'endpoint'
     }
   })
@@ -1329,15 +1331,27 @@ test('allows the exact endpoint proof to use the 400% high-detail frontend ceili
     state,
     {
       ...trackedCpuSample({
-        cpuPercent: 300,
+        cpuPercent: 499,
         nowMs: 1_000,
-        processes: [{ cpuTimeMs: 100, pid: 1, role: 'client-browser' }],
-        trackedProcessRoles: ['client-browser']
+        processes: [
+          {
+            cpuTimeMs: 100,
+            pid: 1,
+            role: 'client-browser'
+          },
+          {
+            cpuPercent: 49,
+            cpuTimeMs: 100,
+            pid: 2,
+            role: 'test-harness'
+          }
+        ],
+        trackedProcessRoles: ['client-browser', 'test-harness']
       }),
       roleCpuPercent: {
         appServer: 0,
-        clientBrowser: 300,
-        testHarness: 0,
+        clientBrowser: 450,
+        testHarness: 49,
         unknown: 0,
         websocketServer: 0
       }
@@ -1347,7 +1361,8 @@ test('allows the exact endpoint proof to use the 400% high-detail frontend ceili
 
   assert.equal(result.accepted, true)
   assert.equal(result.decision.stop, false)
-  assert.equal(result.state.config.maximumFrontendCpuPercent, 400)
+  assert.equal(result.state.config.maximumCpuPercent, 500)
+  assert.equal(result.state.config.maximumFrontendCpuPercent, 500)
 })
 
 test('allows every tracked process-group sample at or below 400% aggregate CPU', () => {
@@ -2861,8 +2876,8 @@ test('builds only the guarded Playwright runtime after separate production setup
   )
   assert.deepEqual(phases[0].guardConfig, {
     guardMode: 'proof',
-    maximumCpuPercent: 400,
-    maximumFrontendCpuPercent: 400,
+    maximumCpuPercent: 500,
+    maximumFrontendCpuPercent: 500,
     requiredProofKind: 'endpoint',
     requiredProcessRoles: [
       'test-harness',
