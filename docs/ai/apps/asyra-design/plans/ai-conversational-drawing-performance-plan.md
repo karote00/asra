@@ -35,6 +35,22 @@ fake, simulated, local-compat, provider-disabled, optional-Runtime, or alternate
 delivery branch. Credential-gated live-provider and API-key formal testing
 remains outside this performance plan.
 
+The 2026-08-01 product-owner correction reopens only
+`record-and-deliver-transaction-batch`: a bulk action must reuse the existing
+App transaction, Factory journal, and Undo stack. It must not create an
+AI-specific or bulk-specific forward/inverse history artifact, a parallel
+applied-result mirror, or an action-completion snapshot pass. The completed
+minimal `SharedPublication` wire shape remains selected; this correction
+removes the redundant local-history architecture around it before performance
+closure resumes.
+
+Terminology in the active contract is exact: Props/Scene owners hold canonical
+geometry data and relationships; the complete topology is the Render-side
+projection built from that data. Data preparation is not described as building
+Render topology. In API and type names, `canonical` means the App's formally
+accepted document data; it does not mean one merged Vector, a transport
+encoding, or an additional validation artifact.
+
 Active architecture artifacts:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
@@ -721,22 +737,24 @@ configuration.
 
 - The formal performance peak is the maximum same-snapshot sum of the raw
   operating-system `%cpu` values for the complete `client-browser` process
-  group. Guarded 16-item and 1,280-item safety or attribution cases retain the
+  group. Guarded 16-, 320-, and 1,280-item safety or attribution cases retain the
   fixed 250-percent frontend limit. The exact guarded 7,076-element
-  high-performance case uses a 400-percent frontend limit. Backend and harness
+  high-performance case uses a 500-percent frontend limit. Backend and harness
   CPU are excluded from that peak.
 - The aggregate frontend, App-server, WebSocket-server, and test-harness safety
   value is the same-snapshot sum of those raw operating-system `%cpu` values.
-  Its limit is fixed at 400 percent; crossing it stops the exact tracked groups
-  and reports their raw contributions.
+  Its limit is 500 percent for the exact 7,076-element high-performance case
+  and 400 percent for 16-, 320-, and 1,280-item safety or attribution cases;
+  crossing it stops the exact tracked groups and reports their raw
+  contributions.
 - Polling may occur every 250 milliseconds, but polling cadence is never a CPU
   measurement window. The guard must not subtract cumulative CPU time, divide
   by elapsed time, normalize to the cadence, or use any converted percentage
   for the formal peak or either stop decision.
 - The CRDT product-flow deadline from Actor A request submission through Actor
-  B convergence is 180 seconds. The guarded Playwright ceiling is 240 seconds
-  so bounded bootstrap, final assertions, and teardown cannot preempt that
-  product deadline.
+  B complete canonical and Render convergence is 300 seconds. The guarded
+  Playwright ceiling is 360 seconds so bounded bootstrap, final assertions, and
+  teardown cannot preempt that product deadline.
 - Crossing either raw CPU limit or either time ceiling terminates the current
   benchmark action and its exact tracked processes, but it never terminates
   this implementation task. The current owner immediately enters bounded root
@@ -877,9 +895,9 @@ source pipeline is therefore implemented once as:
 
 1. The server returns one `PreparedDrawingArtifact` containing one flat
    canonical element batch, one flat canonical property batch, stable ordered
-   IDs, relationships, topology, bounds, styles, and formal slice ranges. The
-   frontend builds no duplicate point-object or topology graph and performs no
-   model validation, bounds calculation, or normalization.
+   IDs, relationships, geometry data, bounds, styles, and formal slice ranges.
+   The frontend builds no duplicate point-object or geometry relationship graph
+   and performs no model validation, bounds calculation, or normalization.
 2. The canonical Props and Scene Tree owners build each
    owner-to-relationship index once before element creation; Core delegates the
    complete batch without rescanning or reconstructing relation evidence.
@@ -889,11 +907,13 @@ source pipeline is therefore implemented once as:
    subscriptions and no per-record clone/save/equality boundary.
 4. Scene Tree applies one map/parent boundary. Local `Computed` data projects
    from the same owner artifact and never enters shared data or CRDT.
-5. Factory accepts the owner-issued rich local history artifact without
-   rescanning its tree, derives the canonical inverse once, and sends that
-   artifact to History and local projection. The shared-data boundary derives
-   one separate transport wire artifact containing only one remote-apply
-   payload, ordered IDs, and publication metadata.
+5. Factory records the ordinary reversible owner changes once in its existing
+   transaction journal. The outer action transaction creates one existing Undo
+   entry; there is no AI/bulk-specific history artifact or second
+   forward/inverse graph. Local projection consumes the applied owner batch,
+   while the shared-data boundary derives one separate transport wire artifact
+   containing only one remote-apply payload, ordered IDs, and publication
+   metadata.
 6. Preset/Render/UI consume each formal local batch directly and create at most
    one visible flush per slice.
 
@@ -939,11 +959,11 @@ downstream cleanup:
    evidence records. The endpoint becomes one complete Props owner batch and
    one plural Scene owner event per Core request, with whole-request preflight
    and no prefix.
-3. **Factory local history and transport wire artifacts** — Factory phases were
-   approximately 3.909 seconds. One rich immutable local artifact retains
-   inverses and History evidence, while one separate transport wire artifact
-   contains only one remote-apply payload, ordered IDs, and publication
-   metadata without aliases.
+3. **Factory existing action history and transport wire delivery** — Factory
+   phases were approximately 3.909 seconds. The existing transaction journal
+   and Undo stack retain ordinary owner inverses without a parallel local
+   artifact, while one separate transport wire artifact contains only one
+   remote-apply payload, ordered IDs, and publication metadata without aliases.
 4. **Codec encode and decode ownership** — retained worker decode was
    approximately 1.544 seconds; no retained 7,000-plus encode number exists.
    The minimal wire artifact, Worker validation, and transferable binary
@@ -1042,12 +1062,16 @@ peak.
 
 The fixed limits cannot be relaxed through runner configuration:
 
-- any single raw system snapshot whose complete `client-browser` sum is above
-  250 percent CPU, which stops the benchmark immediately and marks that
-  architecture attempt invalid;
-- any single raw system snapshot whose aggregate frontend, App-server,
-  WebSocket-server, and test-harness sum is above 400 percent CPU, which stops
-  the benchmark immediately and reports the raw contributing roles;
+- for the exact 7,076-element high-performance proof, any single raw system
+  snapshot whose complete `client-browser` sum is above 500 percent CPU stops
+  the benchmark immediately and marks that architecture attempt invalid;
+- for 16-, 320-, and 1,280-item safety or attribution proofs, the corresponding
+  complete `client-browser` limit remains 250 percent CPU;
+- for the exact 7,076-element high-performance proof, any single raw system
+  snapshot whose aggregate frontend, App-server, WebSocket-server, and
+  test-harness sum is above 500 percent CPU stops the benchmark immediately;
+- for 16-, 320-, and 1,280-item safety or attribution proofs, the corresponding
+  aggregate limit remains 400 percent CPU;
 - no heartbeat for 10 seconds while the process tree remains above the ordinary
   80 percent baseline;
   or
@@ -1169,10 +1193,11 @@ test/manual harness seeds one exact versioned server response in the response in
 → compositor paint opportunity after Group
 → ordered flat child-batch ranges through the same canonical route
 → Props/relationship/Scene Tree preflight and canonical apply per plural batch
-→ FactoryMutationBatchArtifact
-   ├─ one Undo/Redo journal action
-   ├─ Preset/Render/UI projection
-   └─ rollback compensation from local inverse evidence
+→ existing Factory transaction journal
+   ├─ one ordinary Undo stack entry for the complete bulk action
+   ├─ existing rollback compensation from recorded owner inverses
+   └─ no AI/bulk-specific forward/inverse artifact
+→ ordinary canonical owner batch → Preset/Render/UI projection
 → one minimal SharedPublication with remote-apply payload/ordered IDs/metadata
 → Dedicated Worker binary encode and WebSocket send
 → opaque server relay with byte backpressure
@@ -1191,7 +1216,7 @@ test/manual harness seeds one exact versioned server response in the response in
   normalizing one exact model response, deriving its bounded summary, and
   building one `PreparedDrawingArtifact` with one flat canonical element batch,
   one flat canonical property batch, stable ordered IDs, relationships,
-  topology, bounds, styles, and formal slice ranges.
+  geometry data, bounds, styles, and formal slice ranges.
   It seeds the versioned `AiActionBatch` into an IndexedDB response inbox
   adapter under the required `fileId`. That deterministic preparation, seed
   code, and fixture data are excluded from the production bundle.
@@ -1216,7 +1241,7 @@ test/manual harness seeds one exact versioned server response in the response in
 - `PreparedDrawingArtifact` preserves every canonical element and property
   record, stable ID, relationship, item, path, point, role, order, bound,
   transform, and style without retaining a parallel full point-object or
-  topology graph in the frontend batch.
+  geometry relationship graph in the frontend batch.
 - The response inbox adapter is not document persistence. Production App code
   neither contains nor writes its deterministic seed/fixture implementation;
   local actions, Undo, Redo, and remote apply continue to perform zero
@@ -1259,13 +1284,13 @@ control-envelope resolution and action orchestration:
   contract inside the ordinary Runtime flow. They contain no test-source or
   compatibility implementation.
 - The server validates and normalizes accepted/skipped roles, bounds, styles,
-  paths, points, stable IDs, relationships, and topology and builds one
+  paths, points, stable IDs, relationships, and geometry data, then builds one
   `PreparedDrawingArtifact` containing flat canonical element/property batches
   before returning the `AiActionBatch`.
 - The frontend submits each already-prepared slice range through the existing
   `Core.createElementsInParentFromCanonicalData(...)` route after the
   server-prepared loading bounds are visible. It performs no item, path, point,
-  style, bounds, role, model semantic, or topology validation; no
+  style, bounds, role, model semantic, or geometry-data validation; no
   drawing-artifact encoding; and no second point-object graph construction.
 - The shipped create-app template consumes that same
   `PreparedDrawingArtifact` and point-aware current-slice contract. Each mixed
@@ -1292,6 +1317,10 @@ shared-data boundaries.
 - Server-prepared flat canonical data uses the existing
   `Core.createElementsInParentFromCanonicalData(...)` plural surface; it is not
   a second AI-specific or compatibility path.
+- One registered bulk action containing 100 Vector items creates 100
+  independently addressable Vector element data records; when grouping is
+  requested, one separate Group record is created first. Bulk execution does
+  not merge those items into one giant Vector data record.
 - AI composition creates one Group through that canonical-data surface, crosses
   one browser paint opportunity after the Group, and only then submits
   deterministic ordered child ranges through the same route. Each range uses
@@ -1342,42 +1371,36 @@ shared-data boundaries.
   Core requests, Props registration phases, relationship graph traversals,
   observer registries, Scene map or parent replacements, Factory handoffs, or
   App transactions. Local `Computed` projection consumes the same owner-issued
-  artifact instead of rebuilding complete topology through property-instance
-  reads; it remains local Render evidence and never enters shared data.
+  geometry data instead of rebuilding complete Render topology through repeated
+  property-instance reads; it remains local Render evidence and never enters
+  shared data.
 
-### Factory Local History and Transport Wire Artifacts
+### Factory Existing History and Transport Wire Contract
 
-`@asyra/factory` adds and owns:
+`@asyra/factory` reuses its existing transaction journal, Undo/Redo stacks,
+inverter registry, rollback path, shared data channel, and ordered observer
+batch. It does not add a second AI/bulk history model.
 
-- `FactoryMutationBatchArtifact`;
-- `FactoryMutationBatchAppliedResult`;
-- one minimal `SharedPublication` batch view;
-- `LocalSharedDataChannel.appendBatch(...)`;
-- `LocalSharedDataChannel.observeBatch(...)`;
-- an ordered batch observer API.
+The registered bulk action remains one ordinary App action inside one outer
+transaction. Props and Scene owners emit their ordinary reversible change
+batches, including the before/after or add/remove evidence already required by
+their event contracts. Factory records each owner change once in the existing
+journal, and the outer commit groups those entries into one existing Undo stack
+entry. Undo, Redo, and failed-action rollback reuse that journal. There is no
+`FactoryMutationBatchArtifact`, `FactoryMutationBatchAppliedResult`,
+AI-specific forward/inverse graph, or bulk-specific compensation record.
 
-Single-delivery conveniences delegate to batch-of-one. At the canonical owner
-handoff, the active Factory transaction records ordered Props and Scene owner
-evidence directly. The owner establishes isolation once; Factory and
-`LocalSharedDataChannel` trust that boundary and perform no recursive frozen
-tree scan.
-The Reactive Events transaction contract forwards and observes this ordered
-batch through one batch-only owner route; it does not retain a second scalar
-transaction-owner implementation.
 Core creation returns only ordered element IDs and never returns a Factory
-delivery/evidence handle. The rich local artifact contains ordered canonical
-changes, IDs, inverses, History intent, rollback evidence, and local projection
-boundaries. Those framework fields cannot select App startup, provider, or
-composition behavior.
-The applied result separately records only delivery IDs that a shared channel
-actually accepted. A failed or unavailable channel never causes the immutable
-artifact to be rebuilt, and only the applied result can make retained History
-evidence eligible for later Undo or Redo publication.
+delivery/evidence handle. Render/UI consumes the ordinary applied canonical
+owner batch and its existing projection subscriptions; it does not consume a
+History artifact. The action executor trusts the successful canonical owner
+result. Production performs no post-action `save`, `isEqual`, finalize-save,
+evidence clone, full-document comparison, or recursive immutable-tree scan.
+Required mutation-time detachment and inverse registration remain part of the
+existing owner and transaction contracts and are not repeated after the action.
 
-History and Render/UI consume the rich local artifact. Collaboration never
-receives it. The canonical inverse is derived once and reused for History and
-compensation. At the shared-data boundary, Factory derives one separate
-`SharedPublication` exactly once. Its only hierarchy is:
+At each eligible ordinary shared-delivery boundary, Factory derives one
+separate `SharedPublication` exactly once. Its only hierarchy is:
 
 ```text
 publicationId / artifactId / transactionId / origin / mode
@@ -1386,11 +1409,14 @@ publicationId / artifactId / transactionId / origin / mode
 → remote deliveries: deliveryId / eventName / orderedIds / payload
 ```
 
-Only an actual compensation publication or delivery carries its corresponding
-`compensatesPublicationId` or `compensatesDeliveryId`. The wire view contains
-no `inverseEvents`, History evidence, rollback evidence, reserved future
-compensation IDs, top-level delivery alias, batch `records` or `changes` alias,
-or nested record wrapper.
+`artifactId` is an opaque publication-correlation identity; it is not a
+reference to a local History artifact. Only an actual compensation publication
+or delivery carries its corresponding `compensatesPublicationId` or
+`compensatesDeliveryId`.
+
+The wire view contains no `inverseEvents`, History evidence, rollback evidence,
+reserved future compensation IDs, top-level delivery alias, batch `records` or
+`changes` alias, or nested record wrapper.
 
 This public contract is cut over atomically across Factory and every direct
 Collaboration, codec, and remote-apply consumer. The implementation never
@@ -1399,18 +1425,18 @@ optional legacy aliases, or decode-time reconstruction of removed fields.
 Later codec and remote-apply owner steps optimize their own execution over this
 one already-selected shape; they do not preserve or reinterpret the old one.
 
-Local observers receive the rich local canonical artifact; Collaboration
-receives only the transport wire artifact. Transport framing never splits local
-projection into one observer change per element. Consumers do not call
-`.save()` to reconstruct evidence, rebuild snapshots from live owners, rescan
-the immutable tree, or clone each observed delivery independently. An observer
-mutation attempt cannot pollute another consumer.
+Local observers receive the ordinary canonical owner batch; Collaboration
+receives only the transport wire artifact. Transport framing never splits
+local projection into one observer change per element. Delivery bookkeeping
+records only the existing journal entry's actual shared-delivery outcome; it
+does not mirror the canonical payload or build another applied-result object.
+An observer mutation attempt cannot pollute another consumer or the journal.
 
-During Undo and Redo, the retained artifact returns to the canonical owner
-without reordering its Scene and Props evidence. Only an explicitly applied
-owner result can ready the corresponding retained publication record. A
-semantic no-op remains a failure; Factory must not infer that another owner's
-side effect consumed it.
+During Undo and Redo, the existing journal returns the recorded owner events to
+their canonical owners without reordering Scene and Props evidence. A semantic
+no-op remains a failure; Factory must not infer that another owner's side
+effect consumed it. Actor B applies the minimal publication through one remote
+transaction and creates no local Undo entry, echo, or persistence effect.
 
 ### Transaction Boundary
 
@@ -1424,7 +1450,8 @@ The write timeline is fixed:
 4. A successful mutating turn creates one Undo action; Undo and Redo each
    restore the complete intended action.
 5. If an already-published immediate slice rolls back, compensation uses the
-   inverse from the same `FactoryMutationBatchArtifact`.
+   inverse already recorded in the existing transaction journal; no separate
+   bulk compensation artifact is created.
 6. Collaboration local action, Undo, Redo, and remote apply trigger no client
    document persistence capture, save, document IndexedDB read, or document
    IndexedDB write.
@@ -1544,8 +1571,10 @@ intended transaction or history boundary.
   bidirectional credit.
 - Sender `server-accepted` means every current peer queue had bounded capacity;
   it does not mean a peer decoded or applied the publication.
-- Receiver wire credit is returned after worker receipt. Main-thread canonical
-  completion emits a separate `peer-applied` receipt.
+- Receiver wire credit is returned when an ordered publication leaves the
+  worker retained-byte window for its single App handoff, before that App apply
+  begins. Main-thread canonical completion emits a separate `peer-applied`
+  receipt.
 - The client and reference server explicitly use `perMessageDeflate: false`.
   Any future compression experiment needs a worker-side profile and a separate
   plan.
@@ -1831,7 +1860,7 @@ Measured output separates:
 - accepted turn and product execution;
 - App bulk-request preparation;
 - canonical Props/Scene Tree batch preflight and apply;
-- Factory artifact isolation, history commit, and publication slicing;
+- Factory existing-journal recording, Undo commit, and publication derivation;
 - worker encode;
 - server peer queue and socket drain;
 - worker decode;
@@ -1858,9 +1887,9 @@ On the reference environment:
   - Actor B canonical convergence within 30 seconds of Actor A's canonical
     creation commit;
   - the hard CRDT flow deadline from Actor A request submission through Actor B
-    convergence is 180 seconds;
-  - the guarded Playwright test ceiling is 240 seconds so bounded bootstrap,
-    final assertions, and teardown cannot preempt the 180-second product-flow
+    complete canonical and Render convergence is 300 seconds;
+  - the guarded Playwright test ceiling is 360 seconds so bounded bootstrap,
+    final assertions, and teardown cannot preempt the 300-second product-flow
     deadline.
 - Maximum detail:
   - the guarded observed accepted-turn-to-Actor-A-settled time is at most
@@ -1898,9 +1927,10 @@ The App creates one Group through
 `Core.createElementsInParentFromCanonicalData(...)`, crosses a browser paint
 opportunity after the Group, then submits deterministic ordered flat child-batch
 ranges through the same canonical route. The complete composition remains one
-App action, one outer transaction, one rich local Factory artifact, and one
-intended Undo. A later fatal child failure rolls back the complete action;
-single-item calls retain the same batch-of-one canonical implementation.
+App action, one outer transaction, and one intended Undo entry in the existing
+Factory history. It creates no AI/bulk-specific history artifact. A later fatal
+child failure rolls back the complete action; single-item calls retain the same
+batch-of-one canonical implementation.
 
 ### Local Drawing Progress
 
@@ -1909,13 +1939,14 @@ before the first canonical mutation. Real ordinary Vector batches replace that
 placeholder progressively, and actual accepted element counts drive the visible
 progress until terminal cleanup.
 
-### Separate Local History and Wire Artifacts
+### Existing Action History and Minimal Wire Artifact
 
-One rich `FactoryMutationBatchArtifact` serves local History and Render/UI. It
-retains ordered inverses and slice boundaries, creates one intended Undo action,
-and supplies precise compensation after rollback. One separate minimal
-`SharedPublication` serves Collaboration with only one remote-apply payload,
-ordered IDs, and publication metadata.
+The existing Factory journal and Undo stack retain the ordinary action's owner
+events and supply Undo, Redo, and rollback. No parallel AI/bulk forward/inverse
+artifact is constructed, and Render/UI consumes ordinary canonical owner
+projection rather than History evidence. One minimal `SharedPublication`
+serves Collaboration with only one remote-apply payload, ordered IDs, and
+publication metadata.
 
 ### Scrollable Contents Window
 
@@ -1979,25 +2010,36 @@ foundation is:
 - `50c184d03 refactor(collaboration): deliver minimal shared publications`;
 - `c13165571 test(factory): satisfy shared publication lint`.
 
-The minimal SharedPublication cutover is therefore complete. The current
-blocker is the incorrect CPU measurement contract in
-`evaluate-endpoint-performance`, not a CRDT owner failure. Remaining work uses
-this exact order:
+Subsequent accepted commits corrected raw system CPU measurement, moved
+publication transport to the Worker, organized remote publications once,
+bounded receiver handoff, and retained the revised high-detail guard limits.
+Those owner results remain in place. The minimal `SharedPublication` wire
+cutover is complete, but the 2026-08-01 product-owner decision rejects the
+parallel rich local-history artifact that had been planned around it.
 
-1. **Raw CPU contract review checkpoint** — update this plan, Inspector, BDD,
-   and contract test only. Define frontend peak and both hard stops from
-   same-snapshot raw system `%cpu`; explicitly forbid CPU-time interval
-   conversion in formal peak/pass/fail evidence; record the interrupted 7,076
-   attempt as invalid. Run no browser workload. Stop and notify the product
-   owner for inspection.
-2. **Correct `evaluate-endpoint-performance`** — first strengthen the formal
-   guard test so the current interval-derived stop fails. Then make the guard
-   use raw same-snapshot system `%cpu` for the complete Chrome frontend peak and
-   250-percent stop, and for the 400-percent aggregate stop. Converted CPU-time
-   percentages must disappear from decisions and formal reports. Run only
-   focused guard/configuration/Inspector tests and bounded review, then create
-   one local commit. Do not run a browser or 7,076 elements in this step.
-3. **Revalidate the complete local source endpoint** — run one corrected
+Before any further high-detail or browser execution, remaining work uses this
+exact order:
+
+1. **Correct the `record-and-deliver-transaction-batch` contract** — update
+   this plan, Inspector, BDD, Factory transaction documentation, and direct API
+   documentation only. Specify that one bulk action reuses the existing
+   transaction journal and produces one ordinary Undo entry; remove the
+   parallel local history artifact and every post-action save/equality/clone
+   requirement while retaining the already-selected minimal wire shape. Run no
+   browser workload.
+2. **Implement the existing-history fast path** — strengthen focused Factory,
+   action-transaction, App adapter, Undo/Redo, rollback-compensation,
+   publication-order, immutability, and old-alias rejection tests first. Remove
+   the AI/bulk-specific forward/inverse artifact and applied-result mirror.
+   Derive each minimal `SharedPublication` once from ordinary eligible shared
+   deliveries. Render/UI consumes ordinary canonical owner batches. Actor B
+   retains zero Undo, echo, and persistence. Do not change codec Worker,
+   receiver, remote apply, relay, Contents, or Render semantics in this step.
+3. **Close the corrected owner** — pass all focused unit/integration gates,
+   perform bounded review, stage exact owner paths, and create one local
+   owner-step commit. Do not lower a test or add a compatibility branch to make
+   the commit pass.
+4. **Revalidate the complete local source endpoint** — run one corrected
    guarded 16-item proof. It must preserve exact canonical, Render, transaction,
    History, and publication evidence while reporting only the maximum raw
    frontend system value. After it passes, stop for explicit product-owner
@@ -2007,31 +2049,30 @@ this exact order:
    correctness failure terminates only that benchmark invocation and returns
    this owner to bounded root-cause analysis and a revised iteration.
    The later product-owner threshold revision classifies this exact
-   7,076-element proof as high performance, sets its frontend limit to 400
-   percent, leaves the aggregate limit at 400 percent, and requires one
-   corrected local-source rerun before step 6 may advance.
-4. **`encode-publication-frames`** — consume the minimal transport wire artifact
-   once, move binary encode/decode into the Dedicated Worker, and remove
-   main-thread duplicate clone/freeze/JSON ownership. Pass focused tests,
-   bounded review, and one guarded 16-item proof. Do not run 7,076.
-5. **`admit-receiver-publication-frames`** — move Browser WebSocket data-plane
-   admission and wire credit into the Worker, hand one applicable publication
-   at a time to the main thread, and add receiver queue/handoff timing. Pass
-   focused tests, bounded review, and one guarded 16-item proof.
-6. **`apply-remote-publication-batches`** — perform one linear organization per
-   source publication, one Core canonical request, and one remote Factory
-   transaction with no Undo, echo, or persistence. Pass focused tests, bounded
-   review, and one guarded 16-item proof.
-7. **`relay-frames-with-backpressure`** — relay opaque frames without
+   7,076-element proof as high performance, sets both its frontend and aggregate
+   limits to 500 percent, and requires one
+   corrected local-source rerun before relay closure may advance.
+5. **Resume `relay-frames-with-backpressure`** — retain the already-completed
+   codec, receiver, and remote-apply owner commits. Relay opaque frames without
    decode/re-encode, enforce per-peer byte queues and watermarks, handle slow
    peers, and keep wire-consumed, peer-applied, and sender-accepted receipts
    distinct. Pass focused tests and one guarded 16-item proof; then stop for
    explicit approval before its one guarded 7,076-element proof.
-8. **`evaluate-performance-and-equivalence`** — run 16-item correctness,
+6. **`evaluate-performance-and-equivalence`** — run 16-item correctness,
    7,112-element balanced correctness, separate 7,076 CRDT and performance
    checks, affected unit/integration tests, lint, production build,
    synchronized A/B live-state visual review, and the 27,471 maximum-detail
    gate. The full recording remains manual opt-in.
+
+The 2026-08-01 local closure completed items 1–3. Factory no longer exposes or
+constructs the rich mutation artifact, artifact-status stream, or applied-result
+mirror; its Undo stack retains the existing transaction journal entries and
+shared-delivery outcomes directly. The focused closure passed 184 Factory
+tests, 16 Core hierarchy transaction tests, 30 Collaboration handoff/provider
+tests, 69 App collaboration adapter/protocol/operation tests, the Factory
+TypeScript build, and all 21 performance Inspector contract tests. Item 4 has
+not run; no browser or 7,076-element workload was started during this owner
+closure.
 
 Existing committed results and current WIP are preserved and absorbed only
 inside their matching owner step. No cross-owner WIP commit is allowed.
@@ -2092,6 +2133,1099 @@ one-source-publication remote transaction contract. The bounded source-owner
 iteration above agrees with the product case, Inspector owner boundary,
 step-local source canonical gate, and endpoint DoD.
 
+### 2026-07-31 relay checkpoint aggregate-stop iteration
+
+The relay owner focused suite and corrected guarded 16-item proof passed. The
+first relay-checkpoint 7,076-element invocation then stopped on one raw
+same-snapshot aggregate value of 400.8 percent. The complete frontend value in
+that snapshot was 368.9 percent, below its separate 400-percent high-performance
+limit; the remaining tracked values were 24.3 percent test harness, 7.6 percent
+WebSocket server, and 0 percent App server. At the last bounded heartbeat Actor
+A had 1,522 canonical elements, Actor B had 1,330, Actor A had produced 49
+Factory publications, Actor B had processed 46, and no publication had failed.
+All tracked process groups terminated successfully.
+
+The server value and passing byte-queue suite do not select relay decode,
+re-encode, queue growth, or receipt semantics as the first failure owner. The
+bounded harness review instead found that the in-page local-interaction probe
+recursively schedules `requestAnimationFrame(inspect)` while reading DOM and
+profile state on every frame until each assertion settles. That creates a
+second harness-owned per-frame workload inside both the frontend raw value and
+the aggregate stop total, contrary to the existing endpoint and Render
+instrumentation contracts. It also contaminates the exact Chrome App CPU value
+the checkpoint is intended to measure.
+
+The revised iteration is bounded to `evaluate-endpoint-performance`:
+
+1. strengthen the Inspector and the existing static endpoint harness test so
+   product-window interaction evidence forbids recursive frame polling;
+2. replace the probe loop with event-driven loading observation and fixed
+   bounded frame handoffs after explicit pan, zoom, keyboard, and pointer
+   actions, preserving every loading, interaction-lock, canonical, publication,
+   Undo, and convergence assertion;
+3. run the focused endpoint configuration/guard tests, Inspector contract,
+   exact lint, and one guarded 16-item proof;
+4. perform bounded review of only the harness, Inspector, and direct tests; and
+5. run one replacement guarded 7,076-element relay checkpoint under the same
+   400-percent frontend and aggregate raw limits.
+
+No relay protocol, source publication, remote apply, canonical owner, Render
+product path, slice budget, threshold, polling cadence, Contents, or Pen Tool
+change is authorized. A new resource stop returns this same bounded iteration
+to root-cause analysis instead of weakening the gate or repeating unchanged
+work.
+
+### 2026-07-31 receiver decode/apply overlap iteration
+
+The event-driven interaction-probe revision passed its focused tests and a new
+guarded 16-item proof. That proof completed Actor A and Actor B at 17/17 in
+1,007 milliseconds with eight source publications, one Actor A Undo entry,
+zero Actor B Undo entries, zero publication failures, a 111.7-percent raw
+frontend peak, and a 131.3-percent raw same-snapshot aggregate value.
+
+The next guarded 7,076-element relay checkpoint correctly stopped on a
+405.8-percent raw same-snapshot aggregate value. Its frontend value was
+370.3 percent, below the separate 400-percent high-performance limit; the
+remaining values were 26.2 percent test harness, 9.3 percent WebSocket server,
+and 0 percent App server. The two dominant frontend processes were separate
+renderer-or-worker processes at 180.4 and 174.3 percent. At the last bounded
+heartbeat Actor A had 1,522 canonical elements, Actor B had 1,394, Actor A had
+produced 49 Factory publications and sent 48, Actor B had processed 47, and no
+publication had failed. Every tracked process group terminated successfully.
+
+This falsifies the preceding interaction-probe workload as the first remaining
+CPU owner: removing its recursive frame polling did not remove the overlapping
+two-renderer peak. Bounded receiver inspection found the next upstream overlap.
+While one decoded publication is active in main-thread App apply, the codec
+Worker immediately decodes every later complete publication assembly and keeps
+those decoded object graphs pending. Actor B therefore overlaps Worker binary
+decode with its main-thread remote Factory/Core transaction even though only
+one decoded handoff may be active.
+
+Step Execution Card:
+
+- Owner: `admit-receiver-publication-frames`.
+- Objective: retain bounded admitted frame assemblies, but decode the oldest
+  complete publication only when no decoded publication is active, so one
+  Actor never overlaps queued binary decode with the current main-thread remote
+  apply.
+- Inputs and outputs: preserve relayed binary frames, exact
+  `frame-consumed`, one decoded publication handoff, App settlement,
+  `peer-applied`, and receiver timing without merging source publications.
+- Test-first oracle: with one slow async consumer and several already credited
+  complete frames, exactly one codec decode completes before the first App
+  settlement; after settlement, every publication decodes and delivers in
+  source order. The current implementation must fail this oracle before the
+  production change.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/publication-codec-worker.ts`,
+  `apps/asyra-design/src/collaboration/collaboration-transport-worker.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts`,
+  `docs/ai/apps/asyra-design/modules/collaboration-reference.md`, this active
+  plan, the performance Inspector, and its contract test.
+- Required gates: the new failing oracle, focused codec/receiver and
+  Collaboration process tests, Inspector contract, exact lint, bounded diff
+  review, and one guarded 16-item proof. Only after those gates pass may one
+  new guarded 7,076-element relay checkpoint evaluate the materially revised
+  architecture.
+- Exclusions: no threshold, raw-CPU formula, 250-millisecond polling cadence,
+  frame size, 2 MiB capacity, source stop-and-wait, relay queue, App canonical
+  policy, remote transaction, Render, slice budget, Contents, Pen Tool, legacy
+  format, compatibility branch, package installation, or recording change.
+- Stop condition: another resource or time stop terminates only that benchmark
+  action, records its first bounded evidence, and starts another owner-scoped
+  root-cause iteration; it does not weaken a gate or stop the overall task.
+
+The serial-decode architecture is rejected. Its focused tests and guarded
+16-item proof passed, and its 7,076-element raw frontend and aggregate peaks
+fell to 363.7 and 397.3 percent, but Actor B reached only 1,906/7,076 elements
+and 55/136 publications after 106.681 seconds while Actor A had completed in
+4.040 seconds. The guard then failed closed on an operating-system sample gap.
+This is an adjacent convergence regression far above 15 percent. Decode/apply
+pipeline overlap is therefore necessary and the receiver implementation and
+contract return to their prior accepted behavior; none of this rejected
+implementation is committed.
+
+### 2026-07-31 product-window heartbeat overhead iteration
+
+The two aggregate CPU stops retained 24.3 and 26.2 percent test-harness CPU in
+the failing snapshots. The guarded endpoint already samples complete raw
+process CPU independently every 250 milliseconds, but its Playwright progress
+controller also executes one `page.evaluate(...)` in each Actor and posts a
+JSON heartbeat every second during the product window. The first aggregate
+stop arrived 591 milliseconds after that dual-Actor heartbeat. Those
+cross-process reads do not measure raw CPU and need not run every second to
+satisfy the guard's ten-second heartbeat and twenty-second progress deadlines.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: keep the independent 250-millisecond raw operating-system sampler
+  unchanged while reducing product-window Playwright progress observation to
+  one fixed five-second dual-Actor scalar sample, leaving five seconds of
+  margin under the immutable heartbeat-stale deadline.
+- Test-first oracle: the endpoint harness source declares one fixed
+  five-second heartbeat interval and both local-attribution and two-Actor
+  controllers use it instead of a one-second loop. The current one-second
+  implementation must fail this oracle before the production harness change.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: the static harness oracle, focused endpoint guard/config
+  suites, Inspector contract, exact lint, bounded diff review, one guarded
+  16-item proof, then one materially revised guarded 7,076-element relay
+  checkpoint.
+- Exclusions: no raw `%CPU` conversion, average, subtraction, threshold,
+  250-millisecond OS polling change, 375-millisecond sample-gap change,
+  heartbeat-stale or progress-stale relaxation, product code, receiver, codec,
+  remote apply, relay, Render, Contents, Pen Tool, compatibility format,
+  package installation, or recording change.
+- Stop condition: any new limit or time stop again terminates only the exact
+  benchmark action and begins another bounded owner iteration without
+  weakening the guard or stopping the full task.
+
+### 2026-07-31 timed-out endpoint owner-evidence iteration
+
+The five-second product-window heartbeat reduced the guarded 16-item peak to
+98.4 percent raw frontend and 102.9 percent raw aggregate CPU. The materially
+revised guarded 7,076-element relay checkpoint then remained below both
+400-percent limits, with a 371.6-percent raw frontend peak and a 399.6-percent
+raw aggregate peak. Actor A completed in 5.005 seconds, but Actor B had applied
+only 2,994/7,076 elements and 72/136 publications when the 180-second product
+deadline terminated the benchmark. No publication failure was reported.
+Because the failed heartbeat currently discards the already bounded Actor
+phase totals, it cannot yet distinguish remote apply, receiver handoff, or
+wire scheduling as the first remaining owner.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: capture each Actor's existing bounded final diagnostics when the
+  endpoint fails or times out, and preserve those diagnostics in the guard's
+  bounded failure report so the next product owner is selected from direct
+  browser-monotonic evidence.
+- Test-first oracle: the guard must sanitize and retain only the bounded Actor
+  diagnostics and top 24 phases from `error.ownerEvidence`, and the high-detail
+  failure path must call `readFinalDiagnostics` for Actor A and Actor B before
+  posting the failed heartbeat. Both oracles must fail before implementation.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: focused failing-oracle evidence, focused resource-guard and
+  harness-config suites, Inspector contract, exact lint, bounded diff review,
+  one guarded 16-item proof, then one materially revised guarded 7,076-element
+  relay checkpoint that supplies the missing failure-owner evidence if the
+  deadline remains red.
+- Exclusions: no product implementation, receiver, codec, remote apply, relay,
+  Render, CPU threshold, polling cadence, heartbeat deadline, progress
+  deadline, CRDT deadline, Playwright ceiling, Contents, Pen Tool,
+  compatibility format, package installation, or recording change.
+- Stop condition: any raw CPU or time limit still terminates its exact
+  benchmark processes, but the retained bounded owner evidence immediately
+  begins the next Inspector-owner root-cause iteration without weakening a
+  gate or stopping the full task.
+
+### 2026-07-31 pre-stall owner-evidence iteration
+
+The owner-evidence harness passed its focused gates and guarded 16-item proof.
+The next materially revised guarded 7,076-element checkpoint stayed below the
+frontend limit at a 341.0-percent raw peak, with renderer contributions of
+183.7 and 142.9 percent and no aggregate-limit violation. The guard stopped on
+`progress-stale` while Actor A was complete at 7,076 elements and 136 sent
+publications, but Actor B remained at 3,122 elements and 74 applied
+publications with zero publication failures. The guard correctly terminated
+all four process groups before the Playwright catch could post its failed
+heartbeat, so the failure-only owner evidence was absent. A resource-owned
+stall must retain evidence before termination rather than relying on code that
+can execute only afterward.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: after Actor A is complete, capture exactly one bounded A/B owner
+  snapshot when two consecutive five-second heartbeat samples show no Actor B
+  canonical, Render, or applied-publication progress; retain it on subsequent
+  heartbeats so a guard-owned stall can report direct owner evidence before
+  terminating the benchmark.
+- Test-first oracle: the endpoint controller must capture the existing final
+  diagnostics once after two unchanged peer-progress samples, never on every
+  heartbeat, and the guard must sanitize and expose that last-heartbeat
+  evidence in its bounded emergency report. Failure/stall evidence permits
+  only bounded scalar diagnostics, top 24 phase totals, Render anomalies, and
+  worker-target names; it must reject actor-level scalars, summaries, phase
+  timelines, and arbitrary nested data.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: focused failing-oracle evidence, focused resource-guard and
+  harness-config suites, Inspector contract, exact lint, bounded diff review,
+  one guarded 16-item proof, then one materially revised guarded 7,076-element
+  relay checkpoint.
+- Exclusions: no progress-stale, heartbeat-stale, raw CPU, sample-gap, CRDT, or
+  Playwright limit change; no product transaction, receiver, codec, remote
+  apply, relay, Render, Contents, Pen Tool, compatibility format, package
+  installation, or recording change.
+- Stop condition: any stop still terminates the exact benchmark process groups;
+  the retained pre-stall evidence selects the first product owner and begins
+  its bounded iteration without relaxing the stall detector or stopping the
+  full task.
+
+### 2026-07-31 pre-dispatch dual-sample iteration
+
+The pre-stall evidence implementation passed 76 focused guard/config tests,
+20 Inspector tests, lint, bounded review, and the guarded 16-item proof at a
+108.3-percent raw frontend peak. Its first 7,076-element invocation stopped
+before the product request: Actor A and Actor B were both still zero, the last
+heartbeat phase was `actors-ready`, raw frontend CPU was 375.5 percent, and
+the same-snapshot aggregate was 408.6 percent from browser 375.5, harness
+23.7, and WebSocket 9.4 percent. The two renderer contributions were 198.2
+and 160.5 percent. Immediately after the request-ready heartbeat, the harness
+currently performs two consecutive dual-page `heartbeat.sample()` calls
+before dispatch. Those duplicate pre-dispatch renderer round trips provide no
+new product evidence because the connected local interaction probe has already
+proved the document is empty and the independent guard has already accepted
+process identity.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: post one bounded zero-state creation-start heartbeat from the
+  already proven request-ready state, then dispatch immediately; the first
+  dual-Actor scalar sample remains the normal five-second heartbeat rather
+  than two consecutive pre-dispatch page evaluations.
+- Test-first oracle: from the accepted request-ready heartbeat through
+  `triggerPreparedAiTurn`, the high-detail harness contains no
+  `heartbeat.sample()` call and posts exactly one creation-start connectivity
+  heartbeat whose active phase is `creation`. The current duplicate-sample
+  sequence must fail before implementation.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: focused failing static oracle, focused guard/config and
+  Inspector suites, exact lint, bounded diff review, one guarded 16-item
+  proof, then one materially revised guarded 7,076-element relay checkpoint.
+- Exclusions: no CPU exclusion, conversion, threshold, polling, sample-gap,
+  heartbeat, progress-stale, CRDT, or Playwright limit change; no product,
+  receiver, codec, remote apply, relay, Render, Contents, Pen Tool,
+  compatibility format, package installation, or recording change.
+- Stop condition: a further raw limit or time stop terminates that benchmark
+  and begins the next bounded root-cause iteration; it never weakens a guard
+  or stops the full task.
+
+### 2026-07-31 first-visible interaction handoff iteration
+
+Removing the two pre-dispatch page samples passed all focused gates and lowered
+the guarded 16-item frontend peak to 84.3 percent. The revised 7,076-element
+run still stopped in the first product second at a 406.5-percent aggregate
+snapshot: frontend 368.5, harness 22.9, and WebSocket 15.1 percent. This
+confirms that the first high-detail product burst overlaps the harness's
+loading-zero assertions and immediate pan, zoom, keyboard, button, Delete, and
+Undo-attempt sequence. Those interactions are proof work, not required
+contributors to the initial creation and relay burst. The proof can retain
+real loading-time interaction semantics by waiting event-first for the first
+ordinary canonical element and one bounded frame handoff before issuing input.
+The initial history depths still need one dual-Actor scalar sample, but that
+sample belongs before request-ready rather than inside the ready-to-dispatch
+window.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: retain one pre-ready dual-Actor history baseline, dispatch without
+  a post-ready page sample, prove loading at zero, then wait event-first for the
+  first visible canonical element before the real pan/zoom and blocked-input
+  sequence. Product CPU, WebSocket work, and all guard sampling continue while
+  the harness is waiting.
+- Test-first oracle: the initial heartbeat sample occurs before the accepted
+  request-ready heartbeat; the ready-to-dispatch range contains no sample; the
+  interaction probe exposes a `first-visible` target requiring loading to
+  remain connected and canonical count to be strictly between zero and 7,076;
+  the high-detail flow awaits it before the first `mouse.move` and asserts that
+  the AI turn remains active.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: focused failing static oracle, focused guard/config and
+  Inspector suites, exact lint, bounded diff review, one guarded 16-item
+  proof, then one materially revised guarded 7,076-element relay checkpoint.
+- Exclusions: no synthetic input replacement, delayed product dispatch, CPU
+  exclusion, conversion, threshold, polling, sample-gap, heartbeat,
+  progress-stale, CRDT, or Playwright limit change; no product, receiver,
+  codec, remote apply, relay, Render, Contents, Pen Tool, compatibility format,
+  package installation, or recording change.
+- Stop condition: the third equivalent raw aggregate stop rejects interaction
+  overlap as the controlling hypothesis and forces a new first-owner
+  iteration; any other stop follows its direct bounded evidence without
+  stopping the full task.
+
+### 2026-07-31 receiver retained-window credit iteration
+
+The materially revised first-visible checkpoint did not hit a resource stop:
+its raw frontend peak was 371.7 percent and no same-snapshot aggregate sample
+exceeded 400 percent. Actor A completed 7,076/7,076 elements, produced and sent
+all 136 publications, and retained one Undo action. Actor B remained connected
+with zero publication failures and zero Undo actions, but stopped at
+2,866/7,076 elements and 70/136 processed publications at the 180-second CRDT
+deadline. Actor B's bounded owned phase totals included only 1,013.8
+milliseconds of remote transaction apply and 997.6 milliseconds of receiver
+handoff, so canonical apply, Factory, and Render do not explain the missing 66
+publications.
+
+The 70-publication plateau matches the receiver's 2 MiB retained-publication
+window. The receiver currently returns `frame-consumed` immediately after
+storing every frame, so the relay retires those bytes and refills the socket
+while decoded publications remain reserved behind one active App consumer.
+Once that independent receiver reservation reaches 2 MiB, the next otherwise
+valid frame cannot enter. Wire credit must therefore mean that a publication's
+retained bytes have left the receiver window for its one App handoff; it
+remains independent of whether that later App Promise succeeds, but cannot
+fabricate capacity while the publication is still queued.
+
+Step Execution Card:
+
+- Owner: `admit-receiver-publication-frames`.
+- Objective: keep the receiver's exact 2 MiB retained-publication window and
+  one async App consumer, but return each publication frame's wire credit only
+  when that ordered publication leaves the retained window for handoff.
+- Inputs and outputs: preserve exact relayed binary frames, ordered decoded
+  publications, `frame-consumed`, one Worker-to-main handoff, App settlement,
+  `peer-applied`, failure, teardown, and receiver timing.
+- Test-first oracle: with more than one receiver window of valid publications
+  and the first App consumer pending, only the first handed-off publication is
+  credited; the simulated relay may fill but not overrun the retained window.
+  After each settlement, the next publication and its exact frame credits
+  advance in order until every publication is applied. Current immediate
+  per-frame credit must fail this oracle before production code changes.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/publication-codec-worker.ts`,
+  `apps/asyra-design/src/collaboration/collaboration-transport-worker.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts`,
+  `docs/ai/apps/asyra-design/modules/collaboration-reference.md`, this active
+  plan, the performance Inspector, and its contract test.
+- Required gates: prove the focused oracle fails first; pass focused
+  codec/receiver and Collaboration process tests, Inspector contract, exact
+  lint, bounded diff review, and one guarded 16-item proof. Only then run one
+  materially revised guarded 7,076-element relay checkpoint, retaining relay
+  profile counts in the bounded report.
+- Exclusions: no relay implementation, source publication, App canonical
+  policy, remote transaction, Factory, Render, slice budget, deadline, CPU
+  threshold, 250-millisecond polling cadence, Contents, Pen Tool, compatibility
+  format, package installation, or recording change.
+- Stop condition: a resource or time stop terminates the current benchmark,
+  retains bounded owner evidence, and begins the next root-cause iteration
+  inside this plan; it never weakens a gate or stops the full task.
+
+The first validation attempt after this source change used a stale production
+artifact. The receiver source files were modified at 21:17, while the attested
+`dist/index.html` and `collaboration-transport-worker-CgS_fw_B.js` were both
+from 20:34. The stale guarded 16-item case happened to pass, and the stale
+7,076-element case reproduced the previous 71/136 plateau before
+`progress-stale`; neither result validates or falsifies this owner change.
+That stale high-detail process remained below both raw limits at 362.5 percent
+frontend and 392.7 percent aggregate, and all four process groups terminated.
+
+Validation now requires the explicit separate
+`prepare:e2e:endpoint-performance` production setup after the receiver source
+change. The new `dist/index.html`, Worker asset hash, and response preview must
+postdate the source change before the guarded 16-item proof can count. Only a
+fresh passing 16-item proof may authorize the one replacement 7,076-element
+checkpoint. This correction changes no product, threshold, deadline, or
+benchmark semantics.
+
+### 2026-07-31 direct Worker frame assembly iteration
+
+The fresh `DozuiEJY` production artifact passed the guarded 16-item proof at
+17/17 elements, eight ordered publications, one Actor A Undo action, zero
+Actor B Undo actions, zero failures, a 107.5-percent raw frontend peak, and a
+122.5-percent raw aggregate peak. Its fresh 7,076-element checkpoint then
+stopped during the initial creation burst at a real 395.0-percent frontend and
+404.5-percent aggregate snapshot. The two frontend renderer/worker processes
+used 254.9 and 128.6 percent; the harness and WebSocket server contributed 6.8
+and 2.7 percent. The last heartbeat preceded the first observable canonical
+batch, so the receiver had processed no publication and cannot own this stop.
+
+The preceding complete high-detail evidence placed Actor A's main transaction
+at approximately 3.25 seconds and outbound Worker encoding at approximately
+0.93 seconds. Bounded codec inspection found one direct duplicate byte
+ownership inside that overlap: after compact-binary produces each delivery
+unit buffer, the Worker copies all units into a complete publication payload
+and then copies that payload again into final WebSocket frames.
+
+Step Execution Card:
+
+- Owner: `encode-publication-frames`.
+- Objective: preserve identical versioned frames and canonical delivery
+  boundaries while writing prepared compact-binary segments directly into the
+  final frame allocation, removing the intermediate full-publication payload
+  copy.
+- Inputs and outputs: preserve one minimal `SharedPublication`, one
+  object-to-Worker clone, exact metadata and delivery bytes, the soft 1 MiB
+  target, indivisible oversized delivery behavior, source admission, and
+  codec timing.
+- Test-first oracle: a single large delivery records exactly one large
+  `Uint8Array.set` from its prepared encoded bytes into final frame ownership.
+  Current code must fail with the extra full-payload recopy; existing exact
+  round-trip, split-boundary, UTF-16, invalid, and oversized tests remain
+  unchanged.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/protocol.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts`, this
+  active plan, the performance Inspector, and its contract test.
+- Required gates: prove the focused copy-count oracle fails first; pass the
+  complete protocol and receiver suites, Collaboration process/provider tests,
+  Inspector contract, exact lint, bounded diff review, explicit production
+  setup, and one guarded 16-item proof. Only then may one materially revised
+  guarded 7,076-element checkpoint evaluate the lower-copy Worker.
+- Exclusions: no codec format or version, JSON compatibility route,
+  compression, frame target, payload ceiling, receiver credit, relay, App
+  canonical transaction, Factory, Render, polling cadence, deadline, CPU
+  threshold, Contents, Pen Tool, package, or recording change.
+- Stop condition: a time or resource stop ends only that benchmark and begins
+  the next bounded root-cause iteration; it never weakens a gate or stops the
+  full task.
+
+The direct-frame Worker passed its fresh guarded 16-item proof with a new
+`BvNBf3_o` asset, exact 17/17 Actor output, eight publications, one/zero Undo
+actions, zero failures, an 83.4-percent frontend peak, and a 93.3-percent
+aggregate peak. Its high-detail checkpoint lowered the initial frontend peak
+from 395.0 to 383.8 percent, but the same snapshot included 18.8 percent test
+harness and 15.1 percent WebSocket-server CPU and therefore stopped at a
+417.7-percent aggregate value 1.252 seconds after the creation-start
+heartbeat.
+
+The current harness waits for first visible and then immediately performs pan,
+zoom, focus, rectangle keyboard and pointer attempts, Delete, and Undo before
+waiting for another product milestone. That bunches independent proof work
+into the same initial canonical/encode/relay burst. The interaction contract
+does not require those independent actions to share one instant; it requires
+each to be real, loading-time, locked, and inside the same active turn.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: retain the exact real interaction proof while distributing it
+  across event-first canonical progress: pan after first visible, zoom at 25
+  percent, rectangle shortcut/button lock at 50 percent, and Delete/Undo lock
+  at 75 percent.
+- Inputs and outputs: preserve the same dispatched high-detail turn, connected
+  loading indicator, viewport changes, four real blocked document attempts,
+  post-settlement release checks, endpoint timing, raw OS sampling, and
+  canonical/CRDT evidence.
+- Test-first oracle: static harness order proves the 25-, 50-, and 75-percent
+  event-first waits separate the four input groups; each wait uses
+  `MutationObserver` plus one bounded frame confirmation and rejects a settled
+  turn. Current first-visible-adjacent sequence must fail that oracle.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: focused static oracle, guard/config and Inspector suites,
+  exact lint, bounded diff review, one guarded 16-item proof, then one
+  materially revised guarded 7,076-element checkpoint.
+- Exclusions: no synthetic interaction, fixed delay, product dispatch delay,
+  CPU exclusion or conversion, threshold, polling cadence, heartbeat
+  frequency, CRDT deadline, product, codec, receiver, relay, canonical,
+  Factory, Render, Contents, Pen Tool, package, or recording change.
+- Stop condition: any time or resource stop ends the benchmark, retains the
+  first bounded evidence, and starts another root-cause iteration without
+  weakening the gate or stopping the task.
+
+The distributed-interaction harness passed its focused 76-test guard/config
+gate, Inspector contract, exact lint and bounded review. Its fresh guarded
+16-item proof completed Actor A and Actor B at 17/17 elements with eight
+ordered publications, one/zero Undo actions, zero failures and exact process
+termination.
+
+The materially revised guarded 7,076-element checkpoint then stopped on one
+real same-snapshot 425.5-percent aggregate value. The complete client-browser
+sum was 382.8 percent, below the 400-percent high-performance frontend limit;
+the same snapshot also contained 31.9 percent test-harness and 10.8 percent
+WebSocket-server CPU. Its two largest renderer-or-worker processes were 198.7
+and 165.8 percent. The last completed heartbeat still contained zero canonical
+elements and zero publications on both Actors, so this evidence cannot select
+receiver, remote-apply or relay ownership. All four tracked process groups
+terminated successfully.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: identify the first chronological frontend owner behind the
+  pre-canonical aggregate stop without repeating the 7,076-element proof.
+- Inputs and outputs: retain the attested production artifact, raw same-snapshot
+  CPU, exact process roles and browser subprocesses, App-owned request timing,
+  loading paint, canonical phase spans and exact single-Actor output.
+- Fixed discovery: run one fresh single-Actor guarded 16-item attribution. If
+  and only if it remains at or below the 250-percent frontend and 400-percent
+  aggregate limits, run one fresh single-Actor guarded 1,280-item attribution
+  to separate provider/Runtime, loading, local canonical composition and
+  Worker encode. Compare direct browser-monotonic owner spans; raw CPU alone
+  cannot assign ownership.
+- Mutation allowlist: this active plan only until the attribution selects one
+  exact Inspector owner. Any later implementation iteration must first add its
+  own test-first Step Execution Card and stay inside that owner's implementation
+  boundary.
+- Required gates: existing guard/config and Inspector contract remain green;
+  each attribution must confirm exact process termination and canonical
+  correctness. Neither attribution creates an accepted endpoint baseline or
+  authorizes another 7,076-element run.
+- Exclusions: no threshold, polling, deadline, workload, product dispatch,
+  browser flag, CRDT, codec, receiver, remote apply, relay, Render, Contents,
+  Pen Tool, dependency, recording or visual-review change.
+- Stop condition: any resource or time stop terminates only that diagnostic and
+  selects the next bounded owner iteration from its first direct evidence; the
+  overall task continues.
+
+The single-Actor attribution path remained green. The 16-item case completed
+17/17 elements and eight publications with a 44.6-percent product-window
+frontend peak. The 1,280-item case completed 1,281/1,281 elements and 46
+publications with a 179.7-percent frontend peak and 196.9-percent aggregate
+peak. Its one hot renderer-or-worker reached 167.4 percent while local
+transaction, outbound send-to-acceptance, Worker encode and Props preflight
+measured 940.5, 584.9, 293.6 and 322.7 milliseconds respectively. These results
+explain one of the two hot 7,076 processes but cannot distinguish the second
+process between Actor B remote work and another browser Worker.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: extend the existing formal two-Actor operation/idle attribution
+  to the already-authorized 1,280-item case so Actor A and Actor B page-target
+  work can be separated without another high-detail proof.
+- Inputs and outputs: reuse the versioned 1,280 response, sequential Actor
+  bootstrap, one collaboration-attribution proof kind, raw process guard,
+  per-Actor CDP operation windows, exact convergence, publication parity,
+  one/zero Undo and the existing ten-second idle control.
+- Test-first oracle: guard/config tests require one
+  `1280-two-actor-attribution` case, select the existing two-Actor diagnostic,
+  retain the 250-percent frontend and 400-percent aggregate limits, and prove
+  the spec derives 1,281 expected elements and the 1,280 prompt from that case.
+  The current case allowlist and fixed 16-item constants must fail first.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`,
+  `apps/asyra-design/package.json`, and this active plan.
+- Required gates: prove the focused oracle fails, pass complete guard/config
+  tests, exact lint, bounded diff review and one guarded two-Actor 1,280-item
+  attribution with confirmed process termination.
+- Exclusions: no product, 7,076 invocation, accepted baseline, fixed delay
+  change, idle-window change, CPU threshold, polling cadence, CRDT deadline,
+  codec, receiver, remote apply, relay, Render, Contents, Pen Tool, dependency,
+  recording or visual-review change.
+- Stop condition: a resource or correctness failure terminates the diagnostic
+  and selects the first direct owner; success selects exactly one owner from
+  Actor A/Actor B direct timing rather than raw CPU alone.
+
+The guarded two-Actor 1,280-item attribution stopped correctly at a
+262.8-percent frontend raw snapshot, below the 400-percent aggregate limit but
+above the attribution-class 250-percent frontend limit. The snapshot contained
+154.4- and 89.5-percent renderer-or-worker processes, whereas the fresh
+single-Actor 1,280 case contained one 167.4-percent hot process. This proves
+that the peer path introduces the second material browser process, but the
+resource stop occurred before a complete operation window and therefore cannot
+distinguish receiver admission, remote apply and Actor B Render ownership. All
+tracked process groups terminated successfully.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: obtain one complete two-Actor page-target attribution below the
+  small-case CPU limit by using the existing formal 320-item response after the
+  1,280-item diagnostic stopped.
+- Inputs and outputs: preserve the same two-Actor operation/idle diagnostic,
+  sequential readiness, raw guards, collaboration proof kind, exact
+  publication parity, convergence, per-Actor CDP operation windows, ten-second
+  idle control and one/zero Undo, changing only the versioned response size and
+  matching prompt.
+- Test-first oracle: the Inspector contract explicitly permits one two-Actor
+  320-item fallback only after the two-Actor 1,280 resource stop; guard/config
+  tests require a `320-two-actor-attribution` case with the 250-percent
+  frontend and 400-percent aggregate limits, 321 expected elements and the
+  320-item prompt. Current Inspector and case allowlist must fail first.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`,
+  `apps/asyra-design/package.json`, this active plan, the performance Inspector
+  and its contract test.
+- Required gates: prove the Inspector and focused harness oracles fail, then
+  pass complete Inspector, guard/config, exact lint and bounded review before
+  one guarded two-Actor 320-item attribution with confirmed teardown.
+- Exclusions: no repeat of 1,280 or 7,076, accepted baseline, product code,
+  workload-detail change inside a response, CPU threshold, polling, deadline,
+  idle duration, CRDT, codec, receiver, remote apply, relay, Render, Contents,
+  Pen Tool, package installation, recording or visual review.
+- Stop condition: any resource or correctness failure terminates the diagnostic
+  and selects its first direct owner; a complete result selects exactly one
+  next owner from Actor A and Actor B browser-monotonic evidence.
+
+The guarded two-Actor 320-item fallback completed exactly. Actor A and Actor B
+both reached 321 canonical and Render elements with 28 ordered publications,
+one/zero Undo actions, zero failures, 5.005-second convergence and confirmed
+termination. Its frontend raw peak was 186.0 percent and its same-snapshot
+aggregate was 197.7 percent. Actor A and Actor B page-target operation task
+times were 380.130 and 212.738 milliseconds. Actor B's direct chronological
+phases were 36.4 milliseconds Worker decode, 41.1 milliseconds inbound
+receive-to-dispatch, 50.0 milliseconds receiver handoff, 106.0 milliseconds
+remote transaction apply, and only 6.8–7.1 milliseconds Render. The first
+material peer owner is therefore `admit-receiver-publication-frames`; remote
+apply remains the next downstream owner and Render is not selected.
+
+The receiver timing review found that `collaboration:receiver-handoff` starts
+at the first frame receipt and closes before the main-bound delivery post. It
+therefore overlaps the complete codec and receive-to-dispatch spans and does
+not measure the exclusive handoff named by its artifact. The 50.0-, 41.1- and
+36.4-millisecond values cannot be added or used as separate CPU ownership.
+
+Step Execution Card:
+
+- Owner: `admit-receiver-publication-frames`.
+- Objective: make receiver-handoff timing exclusive to the one decoded
+  publication's Worker-to-main delivery and remove the publication-start map
+  that exists only for the overlapping span.
+- Inputs and outputs: preserve exact frame admission, retained-window credit,
+  decoded publication order, one active async consumer, settlement, teardown,
+  codec timing and inbound receive-to-dispatch timing; start handoff only after
+  a decoded candidate is ready and close it after the sole
+  `publication-delivery` post returns.
+- Test-first oracle: the real transport Worker integration requires the
+  main-bound `publication-delivery` to precede its
+  `collaboration:receiver-handoff` timing event, proving the timing closes
+  after the handoff rather than before it. The current ordering must fail.
+  Inspector contract text requires the same non-overlapping boundary.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/collaboration-transport-worker.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts`,
+  this active plan, the performance Inspector, its contract test, and
+  `docs/ai/apps/asyra-design/modules/collaboration-reference.md`.
+- Required gates: prove both focused oracles fail; pass App protocol/provider,
+  Collaboration process/provider/lifecycle, Inspector, exact lint,
+  `diff --check`, bounded review and one guarded 16-item proof.
+- Exclusions: no protocol codec, frame format, queue/window size, credit
+  semantics, App apply, Core/Factory transaction, remote apply, relay, Render,
+  CPU threshold, polling, deadline, 1,280/7,076 invocation, Contents, Pen Tool,
+  dependency, recording or visual review change.
+- Stop condition: any correctness or 16-item resource failure returns to this
+  receiver owner; a green structural and guarded proof advances to the already
+  selected downstream remote-apply owner without a receiver high-detail run.
+
+The exclusive receiver-handoff boundary passed its complete focused gates and
+fresh guarded 16-item proof. Actor A and Actor B reached 17/17 elements with
+eight ordered publications, one/zero Undo, zero failures and confirmed
+teardown on Worker asset `YdmndVi9`. The frontend raw peak was 87.1 percent and
+the same-snapshot aggregate was 91.9 percent. Actor B reported 7.0 milliseconds
+inbound receive-to-dispatch, 4.8 milliseconds codec decode and 21.0
+milliseconds remote transaction apply; exclusive receiver-handoff fell below
+the retained top 18 phases. This proves the prior 50.0-millisecond handoff was
+overlapping evidence and advances to `apply-remote-publication-batches`
+without a receiver 7,076-element run.
+
+Step Execution Card:
+
+- Owner: `apply-remote-publication-batches`.
+- Objective: close the already-implemented one-organization, one-Core-request,
+  one-remote-Factory-transaction path and add the missing direct remote
+  removal-evidence oracle identified by bounded review.
+- Inputs and outputs: consume one decoded source publication, preserve its
+  ordered Factory batch evidence, produce one Core canonical request inside one
+  remote Factory transaction, and settle it without Undo, echo publication, or
+  persistence.
+- Test-first oracle: a complete remote element-removal publication containing
+  its ordered Props removal evidence must be accepted and applied as one Core
+  request. Existing tests cover Scene-only removal but not the complete
+  Scene-plus-Props envelope. The new formal case must establish whether a
+  production correction is needed before any implementation edit.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/operations.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts`, this
+  active plan, the performance Inspector and its contract test only if the
+  executable contract proves incomplete, plus direct focused owner tests.
+- Required gates: prove the new removal oracle fails; pass App collaboration
+  operations/factory/lifecycle tests, Collaboration process tests, Factory and
+  Reactive Events batch tests, Inspector, exact lint, `diff --check`, bounded
+  review, and one guarded 16-item proof.
+- Exclusions: no codec Worker, receiver admission, relay, remote publication
+  merge, compatibility format, persistence, Render, Contents, Pen Tool, CPU
+  threshold, 1,280/7,076 invocation, package, recording, or visual-review
+  change.
+- Stop condition: any focused or guarded failure returns to this owner for
+  bounded root-cause analysis; a green proof advances to
+  `relay-frames-with-backpressure`.
+
+The complete Scene-plus-Props removal oracle passed on the current
+implementation, proving the bounded review suspicion came from overlapped
+command output rather than the exact source. No production correction was
+authorized or made. The owner then passed 32 App collaboration
+operations/factory/lifecycle tests, 12 Collaboration process tests, 28 Factory
+tests, 21 Reactive Events tests, 20 Inspector tests, exact lint and
+`diff --check`. Its single guarded two-Actor 16-item proof returned exit code
+zero, Playwright recorded `passed`, and all tracked process groups closed. The
+waiting tool did not surface the guard's final one-line resource JSON, so this
+gate records no reconstructed CPU peak; it was not rerun merely to recover
+diagnostic output. The exact fixed correctness assertions remained 17/17
+canonical and Render elements, eight/eight ordered publications, one/zero Undo,
+and zero failures. The owner advances to
+`relay-frames-with-backpressure`.
+
+Step Execution Card:
+
+- Owner: `relay-frames-with-backpressure`.
+- Objective: verify and close the existing opaque reference relay with exact
+  per-peer byte capacity, contiguous dual-gated retirement, one credited source
+  frame, and distinct sender-accepted, wire-consumed, and peer-applied
+  evidence.
+- Inputs and outputs: accept one encoded source frame, inspect only its bounded
+  wire metadata, preserve canonical payload byte parity, enqueue it in every
+  request-start peer's exact 2 MiB window, and return source admission only
+  after all peer queues accept it.
+- Formal oracle: the existing server suite must prove opaque payload relay,
+  exact 2 MiB capacity without hysteresis, one oversized-empty-queue exception,
+  FIFO sends before contiguous send-callback plus frame-consumed retirement,
+  readable JSON credit under bidirectional saturation, single uncredited source
+  rejection, slow/disconnected/write-failed peer behavior, distinct
+  peer-applied receipt, and disabled compression. Any missing contract becomes
+  a formal failing test before production edits.
+- Mutation allowlist: `apps/asyra-design/collaboration-server.ts`,
+  `apps/asyra-design/__tests__/collaboration-server.test.mjs`, this active plan,
+  and the performance Inspector plus its contract test only if executable
+  coverage is incomplete.
+- Required gates: collaboration-server focused tests, Inspector, exact lint,
+  `diff --check`, bounded review, one guarded 16-item proof, then one guarded
+  high-performance 7,076-item proof under the raw 400-percent frontend and
+  same-snapshot aggregate limits.
+- Exclusions: no canonical payload decode/re-encode, client codec or receiver
+  edit, remote apply edit, queue threshold change, persistence, Render,
+  Contents, Pen Tool, package, recording, or visual-review change.
+- Stop condition: a correctness, 180-second product-flow, 240-second
+  Playwright, frontend raw CPU, or aggregate raw CPU stop terminates only that
+  benchmark invocation and returns to this owner for bounded root-cause and
+  replan; a green high-detail proof advances to final closure.
+
+Relay evidence task iteration:
+
+- First blocker: the correctly owned 16-item proof passed exact correctness and
+  resource gates but reported zero relay profile records, so it cannot prove
+  the relay's changed-owner timing before the 7,076 checkpoint.
+- Root cause: the collaboration server emits the existing bounded
+  `AI_COLLABORATION_SERVER_*` lines when profiling is enabled, and the guard
+  already parses them, but the endpoint Playwright `webServer` keeps its default
+  ignored stdout. The evidence is lost between the tracked server process and
+  guard; relay production behavior is not the failure.
+- Revised owner: return narrowly to `evaluate-endpoint-performance`, whose
+  Inspector allowlist includes
+  `apps/asyra-design/playwright.endpoint-performance.config.ts` and
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`.
+- Test-first oracle: the endpoint configuration must formally require the
+  tracked WebSocket server's stdout to be piped while leaving the App preview
+  output ignored. The current source assertion must fail before the config
+  changes.
+- Mutation allowlist: those two configuration files, this plan, the performance
+  Inspector and contract test only if its evidence contract is incomplete.
+- Gates and return: pass focused Playwright config and guard tests, Inspector,
+  exact lint and bounded review, then run one corrected relay-owned 16-item
+  proof. It must contain nonzero bounded relay profile evidence before the
+  relay's single high-performance 7,076 proof may start.
+- Exclusions: no relay server logic, codec, receiver, remote apply, production
+  App, threshold, polling, deadline, persistence, Render, Contents, Pen Tool,
+  package, recording, or visual-review change.
+
+The corrected relay-owned 16-item proof passed with A/B 17/17 canonical and
+Render elements, eight/eight publications, one/zero Undo, zero failures,
+5,004-millisecond convergence, 117.4-percent raw frontend peak,
+137.4-percent same-snapshot aggregate, and confirmed teardown. It captured
+eight server acceptance profiles, eight peer writes, eight contiguous drains,
+and eight peer-applied receipts. The bounded relay maxima were 0.579
+milliseconds write callback, 5.888 milliseconds drain, 0.423 milliseconds
+queue wait, 0.962 milliseconds total relay, and 12,955 queued bytes. This
+closes the harness evidence blocker and permits the relay owner's single
+guarded high-performance 7,076-item proof.
+
+### 2026-07-31 single-frame inbound decode iteration
+
+The relay-owned high-performance proof correctly stopped on a
+401.1-percent raw same-snapshot aggregate value. The complete frontend was
+375.1 percent and remained below its 400-percent limit; the same snapshot
+contained 17.2 percent test-harness and 8.8 percent WebSocket-server CPU. Its
+two hot renderer-or-worker processes were 201.0 and 155.5 percent. All four
+tracked process groups terminated. Before the stop, the relay had accepted 55
+single-frame publications, written 55, drained 54, and received 53
+peer-applied receipts with no publication failure. Its exact queue peak was
+1,002,080 bytes, maximum queue wait 0.346 milliseconds, and maximum total
+relay time 0.638 milliseconds, so relay is below five percent of the observed
+product work and remains unchanged.
+
+The accepted 1,280-item attribution already measured 293.6 milliseconds of
+Worker encode, and direct protocol inspection found the matching remaining
+Actor B ownership: even when an inbound publication has exactly one validated
+frame, decode allocates a payload-sized `Uint8Array` and copies that frame view
+before compact-binary decode. The high-detail relay evidence confirms the
+active publications are single-frame records of approximately 501 KiB. This
+duplicate payload ownership overlaps Actor A encode with Actor B decode and is
+the first directly evidenced remaining frontend owner.
+
+Step Execution Card:
+
+- Owner: `encode-publication-frames`.
+- Objective: decode a validated one-frame publication directly from its payload
+  view, allocating a combined payload only for a true multi-frame publication.
+- Inputs and outputs: preserve identical versioned frames, header/order/
+  duplicate/schema validation, compact-binary decode, one decoded candidate,
+  ProviderFailure behavior, Worker ownership, and multi-frame assembly.
+- Test-first oracle: the existing large direct-frame round trip must contain
+  exactly one large `Uint8Array.set` for outbound final-frame ownership rather
+  than a second inbound payload recopy. The current decoder must fail that
+  copy-count oracle. The Inspector contract must also require direct
+  single-frame view decode and multi-frame-only combination.
+- Mutation allowlist:
+  `apps/asyra-design/src/collaboration/protocol.ts`,
+  `apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts`, this
+  active plan, the performance Inspector, and its contract test.
+- Required gates: prove both formal oracles fail, pass complete protocol and
+  receiver/provider suites, Collaboration process/provider tests, Inspector,
+  exact lint and bounded review, run explicit production setup, then one
+  guarded 16-item proof. Only after that materially revised architecture passes
+  may one new guarded relay-owned 7,076-item proof run.
+- Exclusions: no format/version/target/ceiling, JSON compatibility, compression,
+  source credit, receiver retained-window credit, relay, remote apply,
+  canonical transaction, Factory, Render, polling, threshold, deadline,
+  Contents, Pen Tool, package, recording, or visual-review change.
+- Stop condition: a correctness, resource, or time stop terminates only that
+  benchmark and begins the next bounded owner iteration without weakening any
+  gate or stopping the full task.
+
+The single-frame view decode is rejected and has been removed. Its fresh
+`DOCIw72c` 16-item proof passed at 92.1-percent frontend and 105.8-percent
+aggregate CPU, but the materially revised 7,076 proof stopped at
+378.2-percent frontend and 414.6-percent aggregate CPU. This did not improve
+the preceding 375.1-percent frontend observation and regressed the aggregate
+snapshot. All process groups terminated, and the direct-frame outbound
+optimization remains the accepted codec implementation.
+
+The rejected run also supplied the next direct diagnostic owner. It emitted 59
+server acceptance, 59 write, 58 drain, and 57 peer-applied log records before
+the stop. The Playwright WebServer forwarded each record and the guard parsed
+each record while the same snapshot contained 27.2-percent harness and
+9.2-percent WebSocket-server CPU. Relay data-plane work still measured at most
+0.637 milliseconds total with a 0.313-millisecond queue wait. Profiling
+transport, not relay product logic, must become bounded before another
+high-detail proof can distinguish product CPU from proof overhead.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: preserve exact relay count/max evidence while batching its
+  diagnostic stdout handoff once per eight same-type records, reducing
+  Playwright forwarding and guard parsing without excluding any process from
+  raw CPU safety.
+- Inputs and outputs: retain acceptance, peer-write, contiguous-drain, and
+  peer-applied counts; exact timing/queue maxima; bounded recent evidence; and
+  the existing relay data plane. Each emitted diagnostic record carries its
+  exact `sampleCount`, and the guard adds that count rather than treating one
+  batched line as one publication.
+- Test-first oracles: the guard profile test must fail until an exact
+  `sampleCount: 8` contributes eight records to its count and retains maxima;
+  the profiled server test must fail until eight peer-applied receipts emit one
+  bounded line with `sampleCount: 8`. The Inspector must name the same
+  diagnostic-only boundary.
+- Mutation allowlist:
+  `apps/asyra-design/collaboration-server.ts`,
+  `apps/asyra-design/__tests__/collaboration-server.test.mjs`,
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`, this
+  active plan, the performance Inspector, and its contract test.
+- Required gates: prove all three formal oracles fail, pass server, guard/config
+  and Inspector focused suites, exact lint and bounded review, explicit
+  production setup, and one guarded 16-item proof with exact 8/8/8/8 weighted
+  profile counts. Only then may one materially revised 7,076 proof run.
+- Exclusions: no data-plane queue, credit, relay payload, codec, receiver,
+  remote apply, canonical transaction, Render, CPU role/exclusion/formula,
+  threshold, polling, deadline, Contents, Pen Tool, package, recording, or
+  visual-review change.
+- Stop condition: a correctness, resource, or time stop terminates only that
+  benchmark and begins the next bounded owner iteration; no guard is weakened.
+
+The batched evidence path passed server 15/15, guard/config 78/78, Inspector
+21/21, exact lint and bounded review. Its fresh `YdmndVi9` guarded 16-item
+proof completed A/B 17/17 with eight/eight publications, one/zero Undo, zero
+failures, 5,006-millisecond convergence, an 89.2-percent raw frontend peak,
+108.0-percent same-snapshot aggregate, and confirmed teardown. Exactly one
+line per metric type carried `sampleCount: 8`; the final report therefore
+retained exact 8/8/8/8 counts and the complete maxima. This authorizes one
+materially revised high-detail proof.
+
+The materially revised guarded 7,076-element checkpoint then stopped on one
+real same-snapshot 403.5-percent aggregate value. Its complete client-browser
+sum was 374.1 percent, with 20.9-percent test-harness and 8.5-percent
+WebSocket-server CPU; the two hottest renderer-or-worker processes were 201.7
+and 153.7 percent. Relay evidence retained exact weighted counts of 56
+admissions and peer writes plus 48 contiguous drains and peer-applied receipts,
+with a 0.636-millisecond maximum relay total. All tracked process groups
+terminated. Compared with the preceding 414.6-percent aggregate stop, bounded
+profile batching reduced diagnostic output by 87.5 percent and the observed
+aggregate peak by 11.1 percentage points without changing raw CPU sampling or
+the relay data plane.
+
+The product owner subsequently raised the exact 7,076-element high-performance
+ceiling to 500 percent. This replaces both its raw same-snapshot complete
+client-browser and aggregate frontend/backend/harness limits; 16-, 320-, and
+1,280-item safety or attribution proofs retain the 250-percent frontend and
+400-percent aggregate limits.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: encode the product-owner-approved 500-percent exact
+  7,076-element high-performance ceiling without weakening any small-proof
+  safety limit or changing raw operating-system measurement.
+- Inputs and outputs: retain one complete `ps` snapshot, raw `%CPU`, exact
+  process roles, proof kind, resource-stop evidence and exact process-group
+  termination; change only the high-detail endpoint ceiling selected by the
+  guarded runner.
+- Test-first oracles: the guard/config suite must fail until the endpoint
+  runner carries 500-percent frontend and aggregate ceilings while attribution
+  proofs remain 250/400; the Inspector contract and BDD scenario must fail
+  until they name the same proof-class split.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/__tests__/performance-resource-guard.test.mjs`,
+  `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`,
+  this active plan, the performance Inspector, and its contract test.
+- Required gates: prove guard/config and Inspector contracts fail first, then
+  pass those focused suites, exact lint and bounded diff review. Reuse the
+  already-green guarded 16-item proof because this policy change does not
+  modify its 250/400 proof class; the next named 7,076-element invocation is
+  the first execution under 500/500.
+- Exclusions: no CPU conversion or averaging, polling cadence, process-role
+  exclusion, heartbeat, deadline, workload, browser flag, CRDT, codec,
+  receiver, remote apply, relay data plane, Render, Contents, Pen Tool,
+  dependency, recording, or visual-review change.
+- Stop condition: any correctness, time, or new 500-percent resource stop
+  terminates only the benchmark and starts the next bounded owner iteration;
+  the overall task continues.
+
+The first 500/500 relay checkpoint stayed within the revised raw CPU limits:
+the frontend peak was 382.9 percent and its same-snapshot aggregate was 422.9
+percent. Actor A and Actor B both reached 7,076/7,076 canonical and Render
+elements at approximately 5,003 milliseconds with 136/136 ordered
+publications, one/zero Undo depth and exact tracked-process termination. The
+endpoint did not close because the terminal canonical summary reported zero
+Vector points against the formal minimum of 115,000; that first correctness
+blocker remains active and no unchanged high-detail retry is permitted.
+
+The product owner then raised the complete CRDT rendering deadline from 180 to
+300 seconds.
+
+Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: allow up to 300 seconds from Actor A request submission through
+  Actor B complete canonical and Render convergence without letting the test
+  runner preempt the product deadline.
+- Inputs and outputs: retain the same request-start timestamp, bounded
+  heartbeat, remaining-time calculation, exact complete proof and teardown;
+  change the product-flow constant to 300 seconds and the guarded Playwright
+  ceiling to 360 seconds.
+- Test-first oracles: the guard/config test must fail until the spec names
+  `300_000` and the config names `360_000`; the Inspector/BDD contract must
+  fail until it names the same 300/360 ordering.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/playwright.endpoint-performance.config.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`,
+  `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`,
+  this active plan, the performance Inspector, and its contract test.
+- Required gates: prove config and Inspector oracles fail first, then pass the
+  focused config/Inspector suites, exact lint and bounded diff review. Do not
+  run a browser because the current Vector-point correctness blocker is
+  independent and already has formal failing evidence.
+- Exclusions: no CPU threshold, raw sampling, polling, heartbeat frequency,
+  progress-stale interval, workload, CRDT semantics, codec, receiver, remote
+  apply, relay, Render implementation, Contents, Pen Tool, package, recording,
+  or visual-review change.
+- Stop condition: a later 300-second product timeout or 360-second Playwright
+  ceiling still terminates only the benchmark and starts the next bounded
+  root-cause iteration; the overall task continues.
+
+The first 500/500 relay checkpoint's zero-Vector-point blocker is owned by
+`apply-canonical-property-scene-batch`. The prepared 7,075-child server
+artifact retains 156,373 topology points, but the ordinary property creation
+path validates descriptor owner values and then materializes explicitly named
+root property components from defaults alone. Scene local computed projection
+therefore receives empty Vector topology even though the source descriptor and
+canonical owner ids remain present.
+
+Step Execution Card:
+
+- Owner: `apply-canonical-property-scene-batch`.
+- Product contract: `#bulk-mutation-contract`,
+  `#one-composition-bulk-mutation`, `#non-negotiable-equivalence`, and the
+  Projection and Props/Scene Tree step-local gates require exact source values,
+  stable property ids, complete topology, one canonical batch, and ordinary
+  local computed projection.
+- Inspector contract: consume `artifact:composition-batch-sequence` and the
+  active Factory mutation boundary; produce ordered canonical element ids and
+  canonical batch timing. Props owns whole-batch property validation and
+  materialization, while Scene consumes those owner values for local computed
+  projection without publishing computed data.
+- Conditions and bypasses: preserve individually addressable property records,
+  stable ids, owner relationships, batch-of-one parity, later-invalid
+  no-prefix behavior, and complete rollback. Empty input remains inert;
+  invalid schema, id, relationship, or ownership evidence fails before apply;
+  fatal apply failure rolls back the outer transaction.
+- Allowed contributors: the composition batch sequence, Core facade,
+  Props Manager property graph owner, Scene Tree hierarchy/computed owner, and
+  active Factory transaction. Forbidden contributors include fixture-specific
+  topology recovery, App access to private stores, computed CRDT publication,
+  post-hoc geometry repair, or a second property/Scene handoff.
+- Implementation boundary and failure owner:
+  `packages/props-manager/src`,
+  `packages/props-manager/src/__tests__`,
+  `packages/scene-tree/src`,
+  `packages/scene-tree/src/__tests__`,
+  `packages/preset/src/props/components`,
+  `packages/preset/src/__tests__`; failure remains
+  `apply-canonical-property-scene-batch`.
+- Test-first oracle: strengthen the Scene Tree ordinary plural-creation test
+  with explicit property ids and non-default owner values, including a
+  point-like record, and prove the current computed projection loses them.
+  Then cover Props Manager's prepared ordinary root materialization directly.
+- Required gates: focused Props Manager and Scene Tree tests, the affected
+  Core canonical-owner test, Inspector contract, exact lint, and bounded diff
+  review. After the owner fix, run guarded 16-item before any named exact
+  high-detail checkpoint.
+- Mutation allowlist for this segment: the listed Props Manager and Scene Tree
+  implementation/test paths plus this active plan. No App E2E oracle change is
+  allowed merely to make the existing point-count assertion pass.
+- Stop conditions: any required semantic change outside this owner boundary,
+  failure to reproduce descriptor-value loss formally, an owner contract
+  conflict, or three failed focused repair iterations starts a bounded
+  root-cause replan without ending the overall task.
+
+The focused regression first failed with every explicitly named ordinary
+position and dimension owner present but all descriptor values absent from
+Props and local computed projection. Props Manager now retains one frozen
+preflight owner snapshot, supplies it only to ordered root materialization,
+keeps relationship-child construction on its separate accessor route, and
+preserves existing requested-id replacement and finalize rejection semantics.
+The complete focused Props Manager file passed 160/160, the complete Scene Tree
+file passed 62/62, Core canonical coordination passed 25/25, exact ESLint and
+Props Manager build passed, and the performance Inspector contract passed
+21/21. Record-map relationship coverage proves point-like child records come
+from the prepared owner snapshot without a duplicate caller value handoff.
+
 ## Current Local Gates
 
 The accepted single-Actor path retains the exact loading bounds, cooperative
@@ -2112,12 +3246,15 @@ benchmark runs.
   closes all owned processes.
 - Source canonical: exact N-to-one Props/Scene evidence counts, later-invalid
   no-prefix behavior, exact IDs/order/relations, and one Undo.
-- Factory/pub-sub: one local history artifact, one ordered shared view, one
-  batch observer registry snapshot, no synonymous flattened payload graph, and
-  exact rollback/Undo/Redo.
-- Receiver: frame acceptance and `frame-consumed` remain independent of App
-  apply; bounded bytes and one active decoded publication survive slow consumer,
-  terminal failure, disconnect, and teardown.
+- Factory/pub-sub: one existing action journal and Undo entry, one ordered
+  shared view, one batch observer registry snapshot, no parallel AI/bulk
+  history artifact, no synonymous flattened payload graph, and exact
+  rollback/Undo/Redo.
+- Receiver: frame acceptance remains Worker-owned; `frame-consumed` releases
+  exact retained-window capacity before App apply and never fabricates capacity
+  for a still-queued publication. Bounded bytes and one active decoded
+  publication survive slow consumer, terminal failure, disconnect, and
+  teardown.
 - Remote: one policy pass, one Core request, one remote transaction, no
   quadratic batch/slice scan, Undo, echo, capture, save, or document IndexedDB
   work.
@@ -2149,9 +3286,10 @@ benchmark runs.
   point-count equivalence.
 - Contents: real 100+ row virtualizer unit/integration case, tail scrolling,
   bounded DOM rows, collapse, and selection.
-- Factory: one immutable artifact, one history action, full Undo/Redo, no
-  transaction-end resending of cooperative slices, precise compensation, and
-  observer isolation.
+- Factory: one existing journal-backed history action, one separate minimal
+  transport publication hierarchy, full Undo/Redo, no transaction-end
+  resending of cooperative slices, precise compensation, and observer
+  isolation.
 - Props/Scene Tree: later-invalid no-prefix behavior, exact IDs/order/
   relationships/instances, lifecycle-aware create/remove/restore selection,
   retained Scene-then-Props replay, and batch-of-one parity.
@@ -2223,9 +3361,12 @@ never committed.
   Playwright process boundary, and canonical production `dist` remains free of
   response fixtures.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
-- One rich immutable Factory artifact serves local History and projection; one
-  separate minimal transport wire artifact serves Collaboration without
-  `inverseEvents`, History evidence, rollback evidence, or payload aliases.
+- The existing Factory journal and Undo stack serve local action history;
+  Render/UI consumes ordinary canonical owner projection, and no AI/bulk
+  forward/inverse artifact, applied-result mirror, post-action save/equality
+  pass, or evidence clone exists. One separate minimal transport wire artifact
+  serves Collaboration without `inverseEvents`, History evidence, rollback
+  evidence, or payload aliases.
 - Peer queues remain byte-bounded and exact publication order converges.
 - Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
   client persistence side effects.

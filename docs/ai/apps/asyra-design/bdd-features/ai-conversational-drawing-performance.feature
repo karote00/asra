@@ -50,7 +50,9 @@ Feature: Conversational AI drawing performance
   Scenario: Local source pipeline preserves shared records without per-record runtime work
     Given the server-prepared drawing artifact contains stable property records and IDs for every point, segment, network, root Vector, and fill
     When Actor A submits each prepared flat batch range through "Core.createElementsInParentFromCanonicalData(...)"
-    Then Core should build one owner-to-relationship index before element creation
+    Then one bulk action containing 100 Vector items should create 100 independently addressable Vector element data records, plus one Group record when grouping is requested
+    And it should not merge those Vector items into one giant Vector data record
+    And Core should build one owner-to-relationship index before element creation
     And Props should materialize the complete slice without a per-record structured clone, save, or equality boundary
     And relationship propagation should use one manager-owned affected-owner batch with no per-edge subscription
     And Scene Tree local Computed projection should consume the same owner artifact and remain outside shared data
@@ -396,31 +398,37 @@ Feature: Conversational AI drawing performance
   Scenario: Factory keeps one transaction semantic
     Given one intended action mutates canonical property and Scene owners
     When Factory records the ordered source evidence
-    Then each Props or Scene owner evidence emission should be accepted exactly once as one immutable ordered batch
+    Then each Props or Scene owner change batch should be recorded exactly once by the existing transaction journal
     And canonical ordered ids and shared records should remain inside their owning transaction event
     And "updateTransactionBatch" should accept no parallel evidence parameter
     And the public single-event transaction convenience should delegate to a batch-of-one
-    And Factory should combine the owner batches into one immutable transaction artifact and one intended History action
+    And the outer action transaction should group the ordinary journal entries into one intended Undo stack entry
+    And Factory should create no AI-specific or bulk-specific forward/inverse history artifact
+    And Factory should create no parallel applied-result mirror of the canonical payload
     And every transaction should use the same record, commit, and rollback semantics
     And observer evidence should publish only after the owner commit as one ordered batch
     But rollback or owner finalization failure should publish no observer prefix
     And progressive local composition may deliver ordinary immediate owner batches inside that transaction
     And progressive visibility should remain an App delivery policy rather than a Factory transaction mode
     And rollback should compensate every already-visible immediate batch from the same journal evidence
-    And optional later publication slicing may observe the ordinary staged artifact status stream
-    And the one active staged-artifact controller should reject ids absent from the current Factory journal
+    And optional later publication slicing may use the ordinary active staged-delivery controller without creating a status artifact
+    And the one active staged-delivery controller should reject ids absent from the current Factory journal
     And Factory should derive each eligible staged slice, committed remainder, or rollback compensation through the same "SharedPublication" route
     And an eligible staged publication should retain stable transaction, publication, slice, and inverse-compensation identity
     And acknowledged staged slices should use the same journal evidence for rollback compensation
     And commit should not republish an acknowledged staged canonical record
     And Undo and Redo should each restore the complete intended action
 
-  Scenario: Factory local history and transport wire artifacts stay separate
-    Given Factory recorded one rich local mutation artifact with canonical evidence, inverseEvents, History intent, and rollback compensation
+  Scenario: Factory reuses existing action history and emits only a minimal wire artifact
+    Given the registered bulk action runs inside one ordinary App transaction
+    And Props and Scene owners emit their ordinary reversible before/after or add/remove change batches
     When the shared-data boundary prepares Collaboration output
-    Then History and local projection should retain the rich local artifact
-    And Collaboration should receive one separate transport wire artifact
+    Then the existing Factory journal and Undo stack should remain the only local action-history owners
+    And local Render and UI should consume the ordinary canonical owner batch rather than History evidence
+    And production should perform no post-action save, equality comparison, finalize-save, full-document comparison, or evidence clone
+    And Collaboration should receive one minimal transport wire artifact
     And that "SharedPublication" should contain publication identity, origin, mode, ordered slices, channel batches, and one remote-apply payload per delivery
+    And its artifactId should be an opaque wire correlation identity rather than a reference to local History
     And each slice, batch, and delivery should expose only its required ids, order, channel, event name, payload, and actual compensation reference
     But it should contain no inverseEvents, History evidence, rollback evidence, reserved compensation ids, top-level delivery alias, batch records or changes alias, or nested record wrapper
     And Factory and every direct consumer should switch to that one shape atomically without an old-shape compatibility conversion
@@ -588,5 +596,5 @@ Feature: Conversational AI drawing performance
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down
     Then recoverable siblings should still commit as one partial result
     And fatal failure should roll back the complete turn
-    And an already-published immediate slice should use the same artifact inverse for compensation
+    And an already-published immediate slice should use the inverse already retained by the existing Factory journal for compensation
     And no performance path should fabricate success, skip an owner, configure collaboration client persistence, or leave an extra history action

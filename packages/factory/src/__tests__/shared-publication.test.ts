@@ -15,7 +15,6 @@ import {
   Factory,
   LocalSharedDataChannel,
   TransactionRollbackError,
-  type FactoryMutationBatchArtifact,
   type SharedDataChannel,
   type SharedDeliveryBatch,
   type SharedPublication
@@ -406,10 +405,6 @@ describe('Factory action-level shared publication', () => {
 
   it('delivers configured progressive slices from one canonical batch without resending at commit', () => {
     const { factory, projectedBatches, publications } = createHarness()
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
 
     factory.startTransaction()
     const handle = factory.updateTransactionBatch([
@@ -448,11 +443,9 @@ describe('Factory action-level shared publication', () => {
 
     expect(projectedBatches).toHaveLength(2)
     expect(publications).toHaveLength(2)
-    expect(artifacts).toHaveLength(1)
-    expect(artifacts[0]?.batches.map(({ sliceId }) => sliceId)).toEqual([
-      'slice-a',
-      'slice-b'
-    ])
+    expect(
+      publications.flatMap(({ slices }) => slices.map(({ sliceId }) => sliceId))
+    ).toEqual(['slice-a', 'slice-b'])
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
@@ -460,10 +453,6 @@ describe('Factory action-level shared publication', () => {
 
   it('projects explicit one-to-many shared records without rerunning the canonical event', () => {
     const { factory, projectedBatches, publications } = createHarness()
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
 
     factory.startTransaction()
     const handle = factory.updateTransactionBatch([
@@ -510,45 +499,26 @@ describe('Factory action-level shared publication', () => {
       [expect.objectContaining({ id: 'element-b', after: 1 })]
     ])
     expect(publications).toHaveLength(2)
-    expect(artifacts).toHaveLength(1)
-    expect(artifacts[0]?.changes).toHaveLength(1)
-    expect(artifacts[0]?.changes[0]?.shared?.records).toHaveLength(3)
-    expect(
-      artifacts[0]?.changes[0]?.shared?.records.map(
-        ({ recordId, occurrence, orderedIds }) => ({
-          recordId,
-          occurrence,
-          orderedIds
-        })
-      )
-    ).toEqual([
-      {
-        recordId: '1:0:record:0',
-        occurrence: 0,
-        orderedIds: ['element-a']
-      },
-      {
-        recordId: '1:0:record:1',
-        occurrence: 1,
-        orderedIds: ['element-a']
-      },
-      {
-        recordId: '1:0:record:2',
-        occurrence: 2,
-        orderedIds: ['element-b']
-      }
-    ])
     const transportDeliveries = publications.flatMap(publicationDeliveries)
-    const localRecords = artifacts[0]?.changes[0]?.shared?.records ?? []
     expect(
       transportDeliveries.map(({ orderedIds, payload }) => ({
         orderedIds,
         payload
       }))
-    ).toEqual(
-      localRecords.map(({ orderedIds, payload }) => ({ orderedIds, payload }))
-    )
-    expect(transportDeliveries[0]?.payload).toBe(localRecords[0]?.payload)
+    ).toEqual([
+      {
+        orderedIds: ['element-a'],
+        payload: expect.objectContaining({ id: 'element-a', after: 1 })
+      },
+      {
+        orderedIds: ['element-a'],
+        payload: expect.objectContaining({ id: 'element-a', after: 2 })
+      },
+      {
+        orderedIds: ['element-b'],
+        payload: expect.objectContaining({ id: 'element-b', after: 1 })
+      }
+    ])
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
@@ -916,7 +886,6 @@ describe('Factory action-level shared publication', () => {
 
   it('blocks all canonical controls during shared evidence notification without poisoning the outer action', () => {
     const { factory } = createHarness()
-    const artifacts: FactoryMutationBatchArtifact[] = []
     const attempts: string[] = []
     let handle: ReturnType<Factory['updateTransactionBatch']> = null
     let attempted = false
@@ -949,10 +918,6 @@ describe('Factory action-level shared publication', () => {
         })
       }
     )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
-
     factory.startTransaction()
     handle = factory.updateTransactionBatch([
       createUpdateEvent(
@@ -990,8 +955,7 @@ describe('Factory action-level shared publication', () => {
         'Factory shared evidence observers cannot mutate canonical transaction controls'
       )
     )
-    expect(artifacts).toHaveLength(1)
-    expect(artifacts[0]?.changes).toHaveLength(1)
+    expect(factory.getUndoHistoryDepth()).toBe(1)
   })
 
   it('preserves reverse progressive slice semantics for rollback compensation', () => {
@@ -1052,19 +1016,11 @@ describe('Factory action-level shared publication', () => {
         .map(({ publicationId }) => publicationId)
         .reverse()
     )
-    expect(
-      phaseNames.filter(
-        (phaseName) => phaseName === 'factory:index-compensation-records'
-      )
-    ).toHaveLength(1)
+    expect(phaseNames).not.toContain('factory:index-compensation-records')
   })
 
-  it('preserves one artifact and history action when ordinary immediate delivery follows progressive slices', async () => {
+  it('preserves one history action when ordinary immediate delivery follows progressive slices', async () => {
     const { factory, publications } = createHarness()
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
       (event) => {
@@ -1110,18 +1066,6 @@ describe('Factory action-level shared publication', () => {
     await Promise.resolve()
     factory.endTransaction()
 
-    expect(artifacts).toHaveLength(1)
-    expect(artifacts[0]?.changes).toHaveLength(3)
-    expect(
-      artifacts[0]?.batches.map(({ sharedDelivery }) => sharedDelivery)
-    ).toEqual(['transaction-end', 'transaction-end', 'immediate'])
-    expect(artifacts[0]?.deliverySequence).toMatchObject({
-      mode: 'progressive',
-      slices: [
-        { orderedIds: ['composition-a'] },
-        { orderedIds: ['composition-b'] }
-      ]
-    })
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toHaveLength(1)
@@ -1149,10 +1093,6 @@ describe('Factory action-level shared publication', () => {
         )
       )
     ).toEqual([['ordinary-immediate'], ['composition-b'], ['composition-a']])
-    expect(
-      artifacts.at(-1)?.batches.map(({ sharedDelivery }) => sharedDelivery)
-    ).toEqual(['immediate', 'transaction-end', 'transaction-end'])
-
     publications.length = 0
     expect(() => factory.redo()).not.toThrow()
     expect(
@@ -1165,15 +1105,10 @@ describe('Factory action-level shared publication', () => {
         )
       )
     ).toEqual([['composition-a'], ['composition-b'], ['ordinary-immediate']])
-    expect(
-      artifacts.at(-1)?.batches.map(({ sharedDelivery }) => sharedDelivery)
-    ).toEqual(['transaction-end', 'transaction-end', 'immediate'])
   })
 
   it('compensates mixed progressive slices and later immediate delivery in reverse publication order', async () => {
     const { factory, publications, deliveryBatches } = createHarness()
-    const artifacts = vi.fn()
-    factory.subscribeToMutationBatchArtifact(artifacts)
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
       () => true
@@ -1257,7 +1192,6 @@ describe('Factory action-level shared publication', () => {
         )
       )
     ).toEqual([['ordinary-immediate'], ['composition-b'], ['composition-a']])
-    expect(artifacts).not.toHaveBeenCalled()
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toEqual([])
@@ -1397,8 +1331,6 @@ describe('Factory action-level shared publication', () => {
 
   it('rejects a late progressive sequence after immediate delivery and rolls the action back', () => {
     const { factory, projectedBatches, publications } = createHarness()
-    const artifacts = vi.fn()
-    factory.subscribeToMutationBatchArtifact(artifacts)
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
       () => true
@@ -1423,7 +1355,6 @@ describe('Factory action-level shared publication', () => {
 
     expect(projectedBatches).toHaveLength(2)
     expect(publications).toEqual([])
-    expect(artifacts).not.toHaveBeenCalled()
   })
 
   it('publishes compensation for an earlier formal slice when a later slice delivery fails', () => {
@@ -2386,16 +2317,12 @@ describe('Factory action-level shared publication', () => {
       new LocalSharedDataChannel()
     )
     const publications: SharedPublication[] = []
-    const artifacts: FactoryMutationBatchArtifact[] = []
     const committedStatuses: {
       transactionId: number
       changeCount: number
     }[] = []
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
-    )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
     )
     factory.subscribeToTransactionStatus((status) => {
       if (status.status === 'committed') {
@@ -2439,9 +2366,8 @@ describe('Factory action-level shared publication', () => {
     expect(publications.map(({ transactionId }) => transactionId)).toEqual([
       1, 2
     ])
-    expect(artifacts.map(({ transactionId }) => transactionId)).toEqual([1, 2])
-    expect(outerHandle?.artifact).toBe(artifacts[0])
-    expect(nestedHandles[0]?.artifact).toBe(artifacts[1])
+    expect(outerHandle).not.toHaveProperty('artifact')
+    expect(nestedHandles[0]).not.toHaveProperty('artifact')
     expect(committedStatuses).toEqual([
       { transactionId: 1, changeCount: 1 },
       { transactionId: 2, changeCount: 1 }
@@ -2454,7 +2380,6 @@ describe('Factory action-level shared publication', () => {
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const artifacts: FactoryMutationBatchArtifact[] = []
     const publications: SharedPublication[] = []
     const committedTransactionIds: number[] = []
     let nestedAttempted = false
@@ -2468,9 +2393,6 @@ describe('Factory action-level shared publication', () => {
         factory.endTransaction()
       }
     )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
     )
@@ -2483,13 +2405,13 @@ describe('Factory action-level shared publication', () => {
     factory.endTransaction()
 
     expect(nestedAttempted).toBe(true)
-    expect(artifacts.map(({ transactionId }) => transactionId)).toEqual([1])
     expect(publications.map(({ transactionId }) => transactionId)).toEqual([1])
     expect(committedTransactionIds).toEqual([1])
     expect(
-      artifacts[0]?.changes.map(
-        ({ event }) =>
-          (event as AllEvent & { payload: { id: string } }).payload.id
+      publications.flatMap((publication) =>
+        publicationDeliveries(publication).map(
+          ({ payload }) => (payload as { id: string }).id
+        )
       )
     ).toEqual(['element-outer'])
   })

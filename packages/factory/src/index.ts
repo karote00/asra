@@ -64,16 +64,8 @@ export const subscribeToSharedPublication = (
   subscriber: Parameters<Factory['subscribeToSharedPublication']>[0]
 ) => factory.subscribeToSharedPublication(subscriber)
 
-export const subscribeToMutationBatchArtifact = (
-  subscriber: Parameters<Factory['subscribeToMutationBatchArtifact']>[0]
-) => factory.subscribeToMutationBatchArtifact(subscriber)
-
-export const subscribeToMutationBatchArtifactStatus = (
-  subscriber: Parameters<Factory['subscribeToMutationBatchArtifactStatus']>[0]
-) => factory.subscribeToMutationBatchArtifactStatus(subscriber)
-
-export const getActiveStagedArtifactController = () =>
-  factory.getActiveStagedArtifactController()
+export const getActiveStagedDeliveryController = () =>
+  factory.getActiveStagedDeliveryController()
 
 export default factory
 export { Factory }

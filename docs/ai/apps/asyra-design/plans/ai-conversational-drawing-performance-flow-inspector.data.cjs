@@ -155,7 +155,7 @@
         'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
         'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
         'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact containing one flat canonical element batch, one flat canonical property batch, ordered IDs, and formal slice boundaries before App readiness; the front end performs none of that model work.',
-        'The front-end composition executor shows the server-prepared loading bounds first and submits slice ranges from those flat batches through the existing Core.createElementsInParentFromCanonicalData(...) route without materializing a second point-object or topology graph.',
+        'The front-end composition executor shows the server-prepared loading bounds first and submits slice ranges from those flat batches through the existing Core.createElementsInParentFromCanonicalData(...) route without materializing a second point-object or geometry relationship graph.',
         'The shipped create-app template consumes that same PreparedDrawingArtifact, point-aware progressive slices, and mixed-type createElementsInParent plural route without retaining a parallel expanded item graph or falling back to per-element creation.',
         'The production App and shipped template each construct one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
         'The server issues stable descriptor IDs and relationships, while the ordinary App common API and plural Core route remain the only canonical commit owners; the PreparedDrawingArtifact never writes canonical, shared-data, Render, history, or CRDT state directly.',
@@ -361,41 +361,43 @@
       id: 'record-and-deliver-transaction-batch',
       order: 1,
       laneId: 'transaction-delivery',
-      title: 'Record and deliver one transaction batch',
+      title: 'Reuse action history and deliver one transaction batch',
       ownerPackage: '@asyra/factory',
       purpose:
-        'Create one rich local history artifact owned immutably by Factory and derive one separate transport wire artifact without exposing local inverse or History evidence to Collaboration.',
+        'Reuse the existing Factory transaction journal and Undo stack for the complete bulk action, then derive one minimal transport wire artifact without creating a parallel AI/bulk history model.',
       inputs: [
-        'ordered canonical Props and Scene owner evidence recorded through the active Factory transaction',
+        'ordinary ordered reversible Props and Scene owner change batches recorded through the active Factory transaction',
         'one outer App transaction identity',
         'fixed immediate shared-delivery intent for the composition action'
       ],
       outputs: [
-        'artifact:factory-mutation-batch-artifact',
         'artifact:transport-publication-batch',
         'artifact:factory-batch-timing'
       ],
       conditions: [
-        'Factory exposes FactoryMutationBatchArtifact, one minimal SharedPublication batch view, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch as one required batch contract.',
-        'The Factory transaction owner records ordered canonical Props and Scene evidence directly; Core does not return a delivery or evidence handoff.',
-        'The owner-issued immutable artifact establishes isolation once; Factory and LocalSharedDataChannel perform no recursive frozen scan, and the canonical inverse is derived once.',
-        'History and Render/UI consume the rich local history artifact without reconstructing or rescanning its canonical records; Collaboration never receives that local artifact.',
+        'The registered bulk action runs inside the existing App transaction; the Factory journal and Undo stack remain the only local action-history owners.',
+        'The Factory transaction owner records ordinary ordered reversible Props and Scene owner changes directly once; Core does not return a delivery or evidence handoff.',
+        'Each owner event supplies the before/after or add/remove evidence already required by its ordinary inverter contract, and the outer transaction groups those journal entries into one existing Undo action.',
+        'Factory creates no AI/bulk-specific forward/inverse artifact, parallel applied-result mirror, action-completion snapshot, or second history representation.',
+        'Render/UI consumes artifact:local-canonical-owner-batch from the canonical owner step and never consumes History or rollback evidence; Collaboration receives only the transport wire artifact.',
         'The shared-data boundary derives one separate SharedPublication exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
+        'SharedPublication artifactId is an opaque transport correlation identity and never references a local History artifact.',
         'Each publication slice contains only sliceId, orderedIds, and ordered batches; each batch contains only batchId, channel, and deliveries; each delivery contains only deliveryId, eventName, orderedIds, payload, and an optional actual compensatesDeliveryId.',
         'SharedPublication contains one remote-apply payload reference per delivery and no inverseEvents, History evidence, rollback evidence, reserved future compensation IDs, top-level delivery aliases, batch records or changes aliases, or nested record wrapper.',
         'The SharedPublication public contract changes atomically across Factory and every direct Collaboration, codec, and remote-apply consumer. Production never contains parallel old and new publication shapes, compatibility conversion, optional legacy aliases, or a decode-time reconstruction of removed fields.',
-        'The canonical inverse is derived exactly once while that artifact is recorded and is reused by History, rollback compensation, and Redo.',
-        'FactoryMutationBatchAppliedResult records only successfully applied delivery ids beside the one immutable artifact, so channel readiness never rebuilds or mutates canonical evidence.',
-        'Local observers receive one local canonical artifact, while Collaboration receives only the one transport wire artifact; transport framing does not split local projection into single-entry changes.',
+        'Undo, Redo, and failed-action rollback reuse the existing Factory journal and inverter contracts; there is no bulk-specific compensation record.',
+        'Shared-delivery bookkeeping records only the existing journal entry delivery outcome and never mirrors canonical payloads into another applied-result object.',
+        'The production fast path performs no post-action save, isEqual, finalize-save, full-document comparison, evidence clone, or recursive immutable-tree scan; required mutation-time detachment is not repeated after owner apply.',
+        'Local observers receive one ordinary canonical owner batch, while Collaboration receives only the one transport wire artifact; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
-        'Retained Undo and Redo evidence preserves the source artifact order and returns to the canonical owner; only an explicitly applied owner result can ready the corresponding publication batch.',
+        'Existing Undo and Redo journal replay preserves owner event order and returns to the canonical owner; only an actually delivered shared change is eligible for the corresponding replay publication.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
-        'Rollback of an already-published immediate slice uses compensation from the same artifact.',
-        'An observer mutation attempt cannot pollute another consumer or the retained artifact.',
+        'Rollback of an already-published immediate slice uses compensation from the inverse already retained by the existing journal.',
+        'An observer mutation attempt cannot pollute another consumer or the retained journal entry.',
         'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
       ],
       bypasses: [
-        'A no-change transaction emits no artifact, history action, or publication.',
+        'A no-change transaction emits no journal entry, history action, or publication.',
         'A fatal transaction failure emits no committed history action.',
         'A transaction-end atomic publication is unavailable before canonical commit.'
       ],
@@ -408,6 +410,8 @@
       forbiddenContributors: [
         'one history action per progressive slice',
         'downstream .save() reconstruction of canonical evidence',
+        'post-action isEqual, finalize-save, full-document comparison, or evidence clone',
+        'AI/bulk-specific forward/inverse artifact or parallel applied-result mirror',
         'per-observer independent delivery cloning',
         'recursive deep-freeze or immutable-tree scans after the canonical owner handoff',
         'splitting one local canonical batch into one local observer change per element',
@@ -464,9 +468,8 @@
         'docs/ai/apps/asyra-design/API_SURFACES.md'
       ],
       specRefs: [
-        '#factory-local-history-and-transport-wire-artifacts',
+        '#factory-existing-history-and-transport-wire-contract',
         '#transaction-boundary',
-        '#one-immutable-transaction-artifact',
         '#step-local-gates'
       ],
       failureOwnerStepId: 'record-and-deliver-transaction-batch'
@@ -481,10 +484,11 @@
         'Preflight and apply creation, retained removal, and retained restore through one Props, relationship, instance, registration, hierarchy, and evidence boundary with no committed prefix on failure.',
       inputs: [
         'artifact:composition-batch-sequence',
-        'artifact:factory-mutation-batch-artifact'
+        'ordinary Factory journal replay event when Undo, Redo, or rollback invokes the canonical owner lifecycle'
       ],
       outputs: [
         'ordered canonical element IDs',
+        'artifact:local-canonical-owner-batch',
         'artifact:canonical-batch-timing'
       ],
       conditions: [
@@ -494,7 +498,7 @@
         'Props Manager performs one owner-indexed relationship traversal that establishes child-first order, forward and reverse relation indexes, and owner ranges for the complete batch.',
         'Props batch materialization uses one type-group schema contract and one immutable owner snapshot with no per-record structured clone, save, or isEqual reconstruction loop.',
         'The manager-owned relationship index publishes one affected-owner batch and uses no per-edge subscriptions or one closure per child relationship.',
-        'Scene Tree local Computed projection consumes the same owner-issued artifact, does not rebuild topology from property instances, and is never shared or included in CRDT publications.',
+        'Scene Tree local Computed projection consumes the same owner-issued geometry data, does not rebuild complete Render topology from repeated property-instance reads, and is never shared or included in CRDT publications.',
         'A later invalid item leaves no committed prefix in Props, relationships, instance registries, Scene Tree maps, parent children, or Factory evidence.',
         'Scene Tree performs one map registration phase, one parent children replacement, and one ordered batch evidence handoff that preserves every canonical entry.',
         'One local creation request hands its complete ordered Props-then-Scene evidence to Factory through one updateTransactionBatch call; applying the prepared Props and Scene owners through separate Factory handoffs is forbidden.',
@@ -562,7 +566,7 @@
       title: 'Stage one local interactive composition',
       ownerPackage: 'Asyra Design AI composition interaction',
       purpose:
-        'Commit one server-prepared PreparedDrawingArtifact containing flat canonical element and property batches through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, stable descriptor IDs, transaction intent, or failure semantics.',
+        'Commit one server-prepared PreparedDrawingArtifact containing flat canonical element and property batches through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted geometry data, stable descriptor IDs, transaction intent, or failure semantics.',
       inputs: [
         'artifact:resolved-ai-action-batch',
         'server-prepared flat canonical element and property batches in one PreparedDrawingArtifact',
@@ -583,7 +587,7 @@
       conditions: [
         'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
         'Contents is fixed as excluded and does not mount in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
-        'Server-prepared flat canonical element and property batches provide exact bounds, stable IDs, relationships, property records, topology, and slice ranges; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
+        'Server-prepared flat canonical element and property batches provide exact bounds, stable IDs, relationships, property records, geometry data, and slice ranges; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
         'After those prepared flat batches provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
@@ -612,7 +616,7 @@
       forbiddenContributors: [
         '7,000 single-item Core calls',
         'front-end replacement of server-issued stable descriptor IDs',
-        'front-end point-object or topology rematerialization',
+        'front-end point-object or geometry-data rematerialization',
         'front-end vector validation, bounds calculation, or normalization',
         'reduced VTracer detail or bitmap replacement',
         'one App transaction per slice',
@@ -664,9 +668,9 @@
       ownerPackage:
         '@asyra/render and @asyra/render-engine-pixi frame ownership',
       purpose:
-        'Schedule rendering only from explicit framework invalidation, prevent the concrete Pixi runtime from bypassing the dirty gate, and consume local and remote Factory batch artifacts through the ordinary Vector route.',
+        'Schedule rendering only from explicit framework invalidation, prevent the concrete Pixi runtime from bypassing the dirty gate, and consume ordinary local and remote canonical owner batches through the Vector route without History evidence.',
       inputs: [
-        'artifact:factory-mutation-batch-artifact',
+        'artifact:local-canonical-owner-batch',
         'artifact:remote-factory-mutation-batch'
       ],
       outputs: [
@@ -680,7 +684,7 @@
         'Each formal local or remote canonical batch performs one batch projection and at most one visible flush.',
         'The fixed progressive composition route performs one projection for each formal slice and never collapses to a final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
-        'The ordinary Vector strategy preserves all 7,076 editable elements, topology, transforms, hierarchy, fills, strokes, and visibility.',
+        'The ordinary Vector strategy preserves all 7,076 editable elements, complete Render topology, transforms, hierarchy, fills, strokes, and visibility.',
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
         'The Pixi Application ticker must not render outside the framework dirty gate; one scheduled frame performs at most one explicit engine flush.',
         'A settled zero-element App has no scheduled frame, no engine flush, and no unbounded performance evidence.',
@@ -694,7 +698,7 @@
         'Detached timing and evidence never enter visible rendering.'
       ],
       allowedContributors: [
-        'artifact:factory-mutation-batch-artifact',
+        'artifact:local-canonical-owner-batch',
         'artifact:remote-factory-mutation-batch',
         '@asyra/core injected-instance batch observer facade',
         '@asyra/preset ordinary Vector strategy',
@@ -765,6 +769,7 @@
         'All shared publication data uses a versioned binary frame and is not pre-serialized as JSON.',
         'The existing codec runs in the Dedicated Worker without a new package.',
         'Outbound encoding performs one object-to-worker structured clone; the Worker encodes the publication and writes each frame directly to the Worker-owned WebSocket.',
+        'Prepared compact-binary metadata and delivery segments write directly into each final frame allocation without an intermediate full-publication payload copy.',
         'Inbound decoding validates version, header, chunk order, duplicate identity, and payload schema exactly once in the worker.',
         'The Worker posts one decoded publication candidate through the sole worker-to-main structured-clone boundary without main-thread JSON pre-serialization, recursive clone, or recursive freeze.',
         'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
@@ -1205,7 +1210,7 @@
         'The 2026-07-31 7,076-element attempt terminated by converted 397.203-percent frontend and 401.175-percent aggregate CPU-time interval values is invalid evidence: its raw same-snapshot frontend and aggregate values were 199.4 and 209.2 percent, it crossed neither user-defined limit, it creates no accepted baseline or architecture-attempt count, and it cannot select a CRDT owner.',
         'After the raw CPU contract and guard implementation pass focused formal tests and bounded review, one corrected guarded 16-item proof must pass; any replacement 7,076-element invocation requires explicit product-owner approval because the invalid attempt already consumed the available high-detail test budget.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
-        'Success preserves exact canonical IDs, order, detail, topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
+        'Success preserves exact canonical IDs, order, geometry data, complete Render topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
         'Effectiveness requires the owned failing budget to become green or the owned structural, span, or queue metric to improve by at least 15 percent without an adjacent critical owner regressing more than 15 percent.',
         'The raw 251.7-percent frontend and 259.0-percent aggregate local-source observation was below both limits then active for that checkpoint, so it is not an accepted stop or endpoint proof; after focused threshold gates, the local-source guarded 7,076-element proof ran once before remote apply advanced.',
         'The first receiver endpoint uses the retained 940/7,076 elements and 11/35 publications at 30 seconds as its pre-refactor comparison and performs no additional 7,076-element seed run; every later endpoint consumes artifact:accepted-endpoint-baseline.',
@@ -1310,7 +1315,7 @@
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
-        'artifact:factory-mutation-batch-artifact',
+        'artifact:local-canonical-owner-batch',
         'artifact:factory-batch-timing',
         'artifact:codec-timing',
         'artifact:server-accepted-receipts',
@@ -1334,7 +1339,7 @@
         'Response inbox seeding, the fileId-selected response preload, navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
         'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated response inbox read only before App readiness.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, the final accepted guarded 7,076-element endpoint proof, and the 27,471-element 295,794-point gate pass.',
-        'Canonical equivalence compares exact IDs, order, point counts, topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
+        'Canonical equivalence compares exact IDs, order, point counts, geometry data, complete Render topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
         'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
       ],
@@ -1536,13 +1541,13 @@
       ]
     },
     {
-      id: 'route-history-artifact-to-canonical-replay',
+      id: 'route-existing-history-replay-to-canonical-owner',
       from: 'record-and-deliver-transaction-batch',
       to: 'apply-canonical-property-scene-batch',
       kind: 'history-replay',
       predicate:
-        'Undo or Redo retains exact forward or inverse canonical evidence that requires lifecycle-aware removal or restore.',
-      producedArtifacts: ['artifact:factory-mutation-batch-artifact']
+        'Undo, Redo, or rollback replays the ordinary reversible owner event already retained by the existing Factory journal.',
+      producedArtifacts: []
     },
     {
       id: 'route-canonical-timing-to-proof',
@@ -1554,12 +1559,21 @@
       producedArtifacts: ['artifact:canonical-batch-timing']
     },
     {
-      id: 'route-local-artifact-to-projection',
-      from: 'record-and-deliver-transaction-batch',
+      id: 'route-local-owner-batch-to-projection',
+      from: 'apply-canonical-property-scene-batch',
       to: 'project-visible-canonical-slices',
       kind: 'projection',
-      predicate: 'A local Factory mutation artifact is available.',
-      producedArtifacts: ['artifact:factory-mutation-batch-artifact']
+      predicate: 'An ordinary applied canonical owner batch is available.',
+      producedArtifacts: ['artifact:local-canonical-owner-batch']
+    },
+    {
+      id: 'route-local-owner-batch-to-proof',
+      from: 'apply-canonical-property-scene-batch',
+      to: 'evaluate-performance-and-equivalence',
+      kind: 'observation',
+      predicate:
+        'The ordinary canonical owner batch emitted bounded equivalence evidence.',
+      producedArtifacts: ['artifact:local-canonical-owner-batch']
     },
     {
       id: 'route-publications-to-codec',
@@ -1574,11 +1588,9 @@
       from: 'record-and-deliver-transaction-batch',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
-      predicate: 'Factory emitted terminal artifact and timing evidence.',
-      producedArtifacts: [
-        'artifact:factory-mutation-batch-artifact',
-        'artifact:factory-batch-timing'
-      ]
+      predicate:
+        'Factory emitted bounded timing and existing journal/Undo scalar evidence.',
+      producedArtifacts: ['artifact:factory-batch-timing']
     },
     {
       id: 'route-encoded-frames-to-relay',
@@ -2024,11 +2036,10 @@
       terminal: false
     },
     {
-      id: 'artifact:factory-mutation-batch-artifact',
-      ownerStepId: 'record-and-deliver-transaction-batch',
-      channel: 'immutable Factory batch evidence',
+      id: 'artifact:local-canonical-owner-batch',
+      ownerStepId: 'apply-canonical-property-scene-batch',
+      channel: 'ordinary applied canonical owner batch',
       consumerStepIds: [
-        'apply-canonical-property-scene-batch',
         'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
       ],
@@ -2293,9 +2304,9 @@
       ]
     },
     {
-      id: 'one-action-one-artifact-one-history-boundary',
+      id: 'one-action-one-existing-history-boundary',
       statement:
-        'One mutating user turn owns one outer transaction, one rich immutable FactoryMutationBatchArtifact for local History and projection, one separate minimal transport wire artifact, and one intended history action regardless of publication slice or wire-frame count.',
+        'One mutating user turn owns one outer transaction and one existing Factory Undo entry, produces no parallel AI/bulk forward-inverse history artifact, projects the ordinary canonical owner batch locally, and derives one separate minimal transport wire artifact regardless of publication slice or wire-frame count.',
       stepIds: [
         'stage-local-interactive-composition',
         'apply-canonical-property-scene-batch',
@@ -2307,7 +2318,7 @@
       ],
       artifactIds: [
         'artifact:composition-batch-sequence',
-        'artifact:factory-mutation-batch-artifact',
+        'artifact:local-canonical-owner-batch',
         'artifact:transport-publication-batch'
       ],
       specRefs: ['#transaction-boundary', '#non-negotiable-equivalence']
@@ -2325,13 +2336,13 @@
         'apply-remote-publication-batches'
       ],
       artifactIds: [
-        'artifact:factory-mutation-batch-artifact',
+        'artifact:local-canonical-owner-batch',
         'artifact:visible-canonical-slices',
         'artifact:encoded-publication-frames',
         'artifact:remote-factory-mutation-batch'
       ],
       specRefs: [
-        '#factory-local-history-and-transport-wire-artifacts',
+        '#factory-existing-history-and-transport-wire-contract',
         '#projection-and-contents-contract'
       ]
     },
@@ -2405,9 +2416,10 @@
       id: 'bulk-and-history-equivalence',
       title: 'Bulk canonical and history equivalence',
       assertions: [
-        'One Group plus ordered progressive plural batches preserves exact IDs, order, topology, properties, relationships, and component ownership.',
+        'One Group plus ordered progressive plural batches preserves exact IDs, order, geometry data, complete Render topology, properties, relationships, and component ownership.',
         'A later invalid item leaves no prefix, and single-item APIs are equivalent batch-of-one conveniences.',
-        'One rich immutable Factory local artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.',
+        'The existing Factory journal and Undo stack record the ordinary owner events once, group the complete bulk action into one intended Undo entry, and provide exact Undo, Redo, and rollback compensation without a parallel AI/bulk history artifact.',
+        'The production fast path performs no post-action save, equality comparison, finalize-save, evidence clone, or full-document snapshot pass.',
         'One separate transport wire artifact carries one remote-apply payload, ordered IDs, and publication metadata without inverseEvents, History evidence, rollback evidence, or payload aliases.'
       ],
       stepIds: [
@@ -2417,7 +2429,7 @@
       ],
       specRefs: [
         '#bulk-mutation-contract',
-        '#factory-local-history-and-transport-wire-artifacts',
+        '#factory-existing-history-and-transport-wire-contract',
         '#non-negotiable-equivalence'
       ]
     },

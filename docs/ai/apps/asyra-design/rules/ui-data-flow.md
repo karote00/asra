@@ -15,10 +15,11 @@
 - When element is selected: show element layout + fills properties.
 - When element is selected: show element layout + fills + strokes properties.
 - When vector point is selected in path-editing context: show point properties.
-- Fill add/remove writes may replace the top-level `fills` list through `changeElementComputedData('fills', ...)`.
-- Stroke add/remove writes may replace the top-level `strokes` list through `changeElementComputedData('strokes', ...)`.
-- Single-fill field edits should update the child `FILL` property directly and commit through the core props bridge (`updatePropertyById` + `commitPropertyChanges`) with owner metadata.
-- Single-stroke field edits should update the child `STROKE` property directly and commit through the core props bridge (`updatePropertyById` + `commitPropertyChanges`) with owner metadata.
+- Fill and stroke add/remove replace the complete canonical field once through
+  plural `core.updateElementProperties(...)`.
+- Fill and stroke field edits replace the affected typed record once through
+  plural `core.patchElementProperties(...)`; callers do not run per-child
+  update/commit loops or write computed data as canonical source.
 - Transaction ownership for fill edits belongs to feature/UI behavior:
   - discrete field commits open/close one transaction in the properties UI
   - color-picker drag sessions open/close one transaction in the picker interaction handlers

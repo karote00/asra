@@ -52,6 +52,10 @@ interface TransactionJournalEntry {
   inverseEvents?: readonly AllEvent[]
   shared?: JournalSharedChange
 }
+interface FactoryHistoryEntry {
+  readonly entries: readonly TransactionJournalEntry[]
+  readonly progressiveDeliverySequence?: FactoryMutationDeliverySequence
+}
 interface JournalSharedRecordRef {
   entry: TransactionJournalEntry
   record: JournalSharedRecord
@@ -109,8 +113,6 @@ interface DataTransactCallbacks {
   ) => boolean | { handled: boolean; applied: boolean }
   onSharedDeliveryBatch?: (batch: SharedDeliveryBatch) => void
   onSharedPublication?: (publication: SharedPublication) => boolean
-  onMutationBatchArtifact?: FactoryMutationBatchArtifactSubscriber
-  onMutationBatchArtifactStatus?: FactoryMutationBatchArtifactStatusSubscriber
 }
 import type {
   AllEvent,
@@ -156,16 +158,9 @@ import type {
 } from './shared-delivery'
 import {
   FactoryMutationBatchAcceptanceError,
-  type FactoryMutationBatchArtifact,
-  type FactoryMutationBatchAppliedResult,
-  type FactoryMutationBatchArtifactStatus,
-  type FactoryMutationBatchArtifactStatusName,
-  type FactoryMutationBatchArtifactStatusSubscriber,
-  type FactoryMutationBatchArtifactSubscriber,
-  type FactoryMutationBatchChange,
   type FactoryMutationBatchDeliveryHandle,
   type FactoryMutationSharedRecordEvidence,
-  type FactoryStagedArtifactController
+  type FactoryStagedDeliveryController
 } from './mutation-batch'
 import {
   cloneAndDeepFreezeValue,
@@ -283,15 +278,15 @@ const toReplayFailure = (cause: unknown): TransactionFailure => ({
 
 class DataTransact {
   private journal: TransactionJournalEntry[] = []
-  private undoStack: FactoryMutationBatchArtifact[] = []
-  private redoStack: FactoryMutationBatchArtifact[] = []
+  private undoStack: FactoryHistoryEntry[] = []
+  private redoStack: FactoryHistoryEntry[] = []
   private isTransacting = 0
   private inUndo = false
   private inRedo = false
   private applyingReplayEvent = false
   private restoringNestedReplay = false
   private nestedReplaySourceEvents: AllEvent[] | null = null
-  private nestedReplaySourceArtifact: FactoryMutationBatchArtifact | null = null
+  private nestedReplaySourceHistory: FactoryHistoryEntry | null = null
   private nestedReplayRestorationBatches: AllEvent[][] = []
   private actionId = 0
   private transactionId = 0
@@ -300,13 +295,6 @@ class DataTransact {
   private activeOrigin: TransactionOrigin = 'action'
   private rollbackOnly = false
   private rollbackFailure: TransactionFailure | undefined
-  private readonly pendingMutationBatchArtifacts: FactoryMutationBatchArtifact[] =
-    []
-  private emittingMutationBatchArtifacts = false
-  private readonly pendingMutationBatchArtifactStatuses: FactoryMutationBatchArtifactStatus[] =
-    []
-  private emittingMutationBatchArtifactStatuses = false
-  private mutationBatchArtifactStatusSequence = 0
   private transactionSettlementDepth = 0
   private readonly pendingSharedPublications: SharedPublication[] = []
   private readonly publicationAcknowledgements = new Map<
@@ -336,11 +324,6 @@ class DataTransact {
     string,
     readonly JournalSharedRecordRef[]
   >()
-  private currentMutationBatchArtifact: FactoryMutationBatchArtifact | undefined
-  private readonly mutationBatchAppliedResults = new WeakMap<
-    FactoryMutationBatchArtifact,
-    FactoryMutationBatchAppliedResult
-  >()
   private historyReplaySharedState: HistoryReplaySharedState | undefined
   private retainingHistoryReplaySharedEvidence = false
   private activeDeliverySequence: FactoryMutationDeliverySequence | undefined
@@ -353,15 +336,11 @@ class DataTransact {
   private readonly activeDeliveryOrderedIdOrder = new Map<string, number>()
   private activeDeliverySequenceValidated = false
   private nextDeliverySliceIndex = 0
-  private activeStagedArtifactController:
-    | FactoryStagedArtifactController
+  private activeStagedDeliveryController:
+    | FactoryStagedDeliveryController
     | undefined
   private activeDeliveryHandle: FactoryMutationBatchDeliveryHandle | undefined
   private activeDeliveryHandleToken: symbol | undefined
-  private readonly deliveryArtifactFinalizers = new Map<
-    string,
-    (artifact: FactoryMutationBatchArtifact) => void
-  >()
   private readonly pendingTransactionStatuses: TransactionStatusPayload[] = []
   private emittingTransactionStatuses = false
   private sharedEvidenceNotificationDepth = 0
@@ -380,8 +359,6 @@ class DataTransact {
   private readonly onSharedPublication?: (
     publication: SharedPublication
   ) => boolean
-  private readonly onMutationBatchArtifact?: FactoryMutationBatchArtifactSubscriber
-  private readonly onMutationBatchArtifactStatus?: FactoryMutationBatchArtifactStatusSubscriber
   private readonly sharedDataChannelRegistry: Pick<
     SharedDataChannelRegistry,
     'pushBatchToSharedChannel'
@@ -404,9 +381,6 @@ class DataTransact {
     this.onReplayEvent = callbacks?.onReplayEvent
     this.onSharedDeliveryBatch = callbacks?.onSharedDeliveryBatch
     this.onSharedPublication = callbacks?.onSharedPublication
-    this.onMutationBatchArtifact = callbacks?.onMutationBatchArtifact
-    this.onMutationBatchArtifactStatus =
-      callbacks?.onMutationBatchArtifactStatus
   }
 
   start(origin?: TransactionOrigin) {
@@ -436,13 +410,11 @@ class DataTransact {
     this.scheduledImmediatePublicationToken = null
     this.publicationSequence = 0
     this.deliveryBatchSequence = 0
-    this.mutationBatchArtifactStatusSequence = 0
     this.currentSharedDeliveryBatches = []
     this.preparedSharedBatchRecords.clear()
     this.transactionEndDeliveryBatches = null
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
-    this.currentMutationBatchArtifact = undefined
     this.historyReplaySharedState = undefined
     this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliverySequence = undefined
@@ -462,10 +434,6 @@ class DataTransact {
     const artifactId = this.currentArtifactId
     const handleToken = Symbol(artifactId)
     this.activeDeliveryHandleToken = handleToken
-    let artifact: FactoryMutationBatchArtifact | null = null
-    this.deliveryArtifactFinalizers.set(artifactId, (committedArtifact) => {
-      artifact = committedArtifact
-    })
     const assertControllerActive = () => {
       if (
         this.isTransacting <= 0 ||
@@ -474,7 +442,7 @@ class DataTransact {
         this.currentArtifactId !== artifactId
       ) {
         throw new Error(
-          'Factory staged artifact controller is no longer active'
+          'Factory staged delivery controller is no longer active'
         )
       }
       this.assertSharedEvidenceCanonicalControlAllowed()
@@ -498,7 +466,7 @@ class DataTransact {
       assertControllerActive()
       this.deliverActiveSlice(sliceId)
     }
-    this.activeStagedArtifactController = Object.freeze({
+    this.activeStagedDeliveryController = Object.freeze({
       artifactId,
       transactionId,
       setDeliverySequence,
@@ -507,16 +475,13 @@ class DataTransact {
     this.activeDeliveryHandle = Object.freeze({
       artifactId,
       transactionId,
-      get artifact() {
-        return artifact
-      },
       setDeliverySequence,
       deliverSlice: stageSlice
     })
   }
 
-  getActiveStagedArtifactController(): FactoryStagedArtifactController | null {
-    return this.activeStagedArtifactController ?? null
+  getActiveStagedDeliveryController(): FactoryStagedDeliveryController | null {
+    return this.activeStagedDeliveryController ?? null
   }
 
   private assertSharedEvidenceCanonicalControlAllowed(): void {
@@ -833,6 +798,7 @@ class DataTransact {
       }
     }
 
+    this.prepareEntryInverses(journalEntry)
     this.journal.push(journalEntry)
 
     return journalEntry
@@ -1585,8 +1551,6 @@ class DataTransact {
         this.createSharedPublicationFromRecords(records)
       )
       this.flushSharedPublications()
-      this.queueStagedMutationBatchArtifactStatus(expectedSlice, batches)
-      this.flushMutationBatchArtifactStatuses()
       this.nextDeliverySliceIndex += 1
     } catch (error) {
       this.rollbackOnly = true
@@ -1877,112 +1841,6 @@ class DataTransact {
     })
   }
 
-  private createMutationBatchArtifact():
-    | FactoryMutationBatchArtifact
-    | undefined {
-    if (
-      this.journal.length === 0 &&
-      this.currentSharedDeliveryBatches.length === 0
-    ) {
-      return
-    }
-    if (this.currentMutationBatchArtifact) {
-      return this.currentMutationBatchArtifact
-    }
-
-    const artifact = measureBrowserDragPhase(
-      'factory:finalize-mutation-batch-artifact',
-      () => {
-        this.journal.forEach((entry) => this.prepareEntryInverses(entry))
-        const changes = deepFreezeValue(
-          this.journal.map((entry): FactoryMutationBatchChange => {
-            return deepFreezeValue({
-              changeId: `${this.currentTransactionId}:change:${entry.index}`,
-              index: entry.index,
-              event: entry.event,
-              orderedIds: entry.orderedIds,
-              inverseEvents: entry.inverseEvents ?? deepFreezeValue([]),
-              options: deepFreezeValue({ ...entry.options }),
-              ...(entry.shared
-                ? {
-                    shared: deepFreezeValue({
-                      channel: entry.shared.name,
-                      payload: entry.shared.change,
-                      inverseEvents:
-                        entry.shared.inverseEvents ?? deepFreezeValue([]),
-                      records: deepFreezeValue(
-                        entry.shared.records.flatMap((record) =>
-                          record.evidence ? [record.evidence] : []
-                        )
-                      )
-                    })
-                  }
-                : {})
-            })
-          })
-        )
-        const batches = deepFreezeValue([...this.currentSharedDeliveryBatches])
-        return deepFreezeValue({
-          artifactId: this.currentArtifactId,
-          transactionId: this.currentTransactionId,
-          origin: this.transactionOrigin(),
-          orderedChangeIds: deepFreezeValue(
-            changes.map((change) => change.changeId)
-          ),
-          changes,
-          inverses: deepFreezeValue(
-            [...changes].reverse().flatMap((change) => change.inverseEvents)
-          ),
-          deliverySequence: this.resolveDeliverySequence(batches),
-          batches
-        })
-      }
-    )
-    this.currentMutationBatchArtifact = artifact
-    return artifact
-  }
-
-  private createMutationBatchAppliedResult(
-    artifact: FactoryMutationBatchArtifact
-  ): FactoryMutationBatchAppliedResult {
-    const existing = this.mutationBatchAppliedResults.get(artifact)
-    if (existing) return existing
-
-    const deliveryIds = new Set<string>()
-    this.journal.forEach((entry) => {
-      entry.shared?.records.forEach((record) => {
-        if (record.delivered && record.delivery) {
-          deliveryIds.add(record.delivery.deliveryId)
-        }
-      })
-    })
-    this.historyReplaySharedState?.batchStates.forEach((state) => {
-      if (!state.delivered) return
-      state.batch.deliveries.forEach((delivery) =>
-        deliveryIds.add(delivery.deliveryId)
-      )
-    })
-    const appliedResult = deepFreezeValue({
-      artifactId: artifact.artifactId,
-      transactionId: artifact.transactionId,
-      deliveryIds: [...deliveryIds]
-    })
-    this.mutationBatchAppliedResults.set(artifact, appliedResult)
-    return appliedResult
-  }
-
-  private getMutationBatchAppliedResult(
-    artifact: FactoryMutationBatchArtifact
-  ): FactoryMutationBatchAppliedResult {
-    const appliedResult = this.mutationBatchAppliedResults.get(artifact)
-    if (!appliedResult) {
-      throw new Error(
-        `Factory mutation batch applied result is unavailable: ${artifact.artifactId}`
-      )
-    }
-    return appliedResult
-  }
-
   private queueImmediatePublicationEntries(
     entries: readonly TransactionJournalEntry[]
   ): void {
@@ -2005,6 +1863,7 @@ class DataTransact {
     this.scheduledImmediatePublicationToken = null
     this.immediatePublicationToken += 1
     const entries = this.pendingImmediatePublicationEntries.splice(0)
+    if (entries.length === 0) return
     this.queueSharedPublication(this.createSharedPublication(entries))
   }
 
@@ -2035,95 +1894,6 @@ class DataTransact {
     const index = this.unacknowledgedSharedPublications.indexOf(publication)
     if (index >= 0) {
       this.unacknowledgedSharedPublications.splice(index, 1)
-    }
-  }
-
-  private queueMutationBatchArtifact(
-    artifact: FactoryMutationBatchArtifact
-  ): void {
-    this.pendingMutationBatchArtifacts.push(artifact)
-  }
-
-  private queueMutationBatchArtifactStatus(
-    status: Exclude<FactoryMutationBatchArtifactStatusName, 'staged'>,
-    artifact: FactoryMutationBatchArtifact
-  ): void {
-    const appliedResult =
-      this.mutationBatchAppliedResults.get(artifact) ??
-      this.createMutationBatchAppliedResult(artifact)
-    this.mutationBatchArtifactStatusSequence += 1
-    this.pendingMutationBatchArtifactStatuses.push(
-      deepFreezeValue({
-        statusId: `${artifact.artifactId}:status:${this.mutationBatchArtifactStatusSequence}`,
-        status,
-        artifactId: artifact.artifactId,
-        transactionId: artifact.transactionId,
-        origin: artifact.origin,
-        artifact,
-        appliedResult
-      })
-    )
-  }
-
-  private queueStagedMutationBatchArtifactStatus(
-    boundary: FactoryMutationDeliverySequence['slices'][number],
-    batches: readonly SharedDeliveryBatch[]
-  ): void {
-    this.mutationBatchArtifactStatusSequence += 1
-    this.pendingMutationBatchArtifactStatuses.push(
-      deepFreezeValue({
-        statusId: `${this.currentArtifactId}:status:${this.mutationBatchArtifactStatusSequence}`,
-        status: 'staged',
-        artifactId: this.currentArtifactId,
-        transactionId: this.currentTransactionId,
-        origin: this.transactionOrigin(),
-        sliceId: boundary.sliceId,
-        orderedIds: boundary.orderedIds,
-        batches
-      })
-    )
-  }
-
-  private flushMutationBatchArtifacts(): void {
-    if (
-      this.emittingMutationBatchArtifacts ||
-      this.transactionSettlementDepth > 1
-    ) {
-      return
-    }
-    this.emittingMutationBatchArtifacts = true
-    try {
-      let artifact: FactoryMutationBatchArtifact | undefined
-      while ((artifact = this.pendingMutationBatchArtifacts.shift())) {
-        this.onMutationBatchArtifact?.(artifact)
-      }
-    } finally {
-      this.emittingMutationBatchArtifacts = false
-    }
-  }
-
-  private flushMutationBatchArtifactStatuses(): void {
-    if (
-      this.emittingMutationBatchArtifactStatuses ||
-      this.transactionSettlementDepth > 1
-    ) {
-      return
-    }
-    this.emittingMutationBatchArtifactStatuses = true
-    try {
-      let status: FactoryMutationBatchArtifactStatus | undefined
-      while ((status = this.pendingMutationBatchArtifactStatuses.shift())) {
-        this.sharedEvidenceNotificationDepth += 1
-        try {
-          this.onMutationBatchArtifactStatus?.(status)
-        } catch {
-          // Artifact status observers cannot alter canonical settlement.
-        } finally {
-          this.sharedEvidenceNotificationDepth -= 1
-        }
-      }
-    } finally {
-      this.emittingMutationBatchArtifactStatuses = false
     }
   }
 
@@ -2560,8 +2330,7 @@ class DataTransact {
   }
 
   private rollbackJournal(
-    source?: TransactionJournalEntry['source'],
-    artifact?: FactoryMutationBatchArtifact
+    source?: TransactionJournalEntry['source']
   ): unknown[] {
     const failures: unknown[] = []
     const rollbackableEntries = this.journal.filter(
@@ -2570,10 +2339,6 @@ class DataTransact {
         (source === undefined || entry.source === source)
     )
     const preparedEntries = rollbackableEntries.filter((entry) => {
-      const artifactChange = artifact?.changes[entry.index]
-      if (artifactChange?.index === entry.index) {
-        return true
-      }
       try {
         this.prepareEntryInverses(entry)
         return true
@@ -2590,10 +2355,7 @@ class DataTransact {
         'rollback',
         undefined,
         undefined,
-        preparedEntries.map(
-          (entry) =>
-            artifact?.changes[entry.index]?.inverseEvents ?? entry.inverseEvents
-        )
+        preparedEntries.map((entry) => entry.inverseEvents)
       )
     ]
   }
@@ -2713,9 +2475,7 @@ class DataTransact {
     return failures
   }
 
-  private compensateImmediateSharedChanges(
-    artifact?: FactoryMutationBatchArtifact
-  ): unknown[] {
+  private compensateImmediateSharedChanges(): unknown[] {
     const failures: unknown[] = [
       ...this.compensateDeliveredHistoryReplayBatches()
     ]
@@ -2724,17 +2484,6 @@ class DataTransact {
       publicationId: string
       compensatesPublicationId: string
     }[] = []
-    const artifactRecordsById = measureBrowserDragPhase(
-      'factory:index-compensation-records',
-      () =>
-        new Map(
-          (artifact?.changes ?? []).flatMap((change) =>
-            (change.shared?.records ?? []).map(
-              (record) => [record.recordId, record] as const
-            )
-          )
-        )
-    )
     const inversePreparedEntries = new Set<TransactionJournalEntry>()
     const groupedRecords = new Map<
       string,
@@ -2769,11 +2518,7 @@ class DataTransact {
             inversePreparedEntries.add(entry)
             this.prepareEntryInverses(entry)
           }
-          const artifactRecord = record.evidence
-            ? artifactRecordsById.get(record.evidence.recordId)
-            : undefined
-          const inverseEvents =
-            artifactRecord?.inverseEvents ?? record.inverseEvents ?? []
+          const inverseEvents = record.inverseEvents ?? []
           return inverseEvents.map((inverseEvent, compensationIndex) => ({
             recordRef,
             inverseEvent,
@@ -2951,22 +2696,22 @@ class DataTransact {
     this.onStatus?.(payload)
   }
 
-  private commitNestedReplayHistory(artifact: FactoryMutationBatchArtifact) {
+  private commitNestedReplayHistory(history: FactoryHistoryEntry) {
     if (this.inUndo) {
-      if (this.undoStack[this.undoStack.length - 1] !== artifact) {
+      if (this.undoStack[this.undoStack.length - 1] !== history) {
         throw new Error('Nested undo source history changed before commit')
       }
       this.undoStack.pop()
-      this.redoStack.push(artifact)
+      this.redoStack.push(history)
       return
     }
 
     if (this.inRedo) {
-      if (this.redoStack[this.redoStack.length - 1] !== artifact) {
+      if (this.redoStack[this.redoStack.length - 1] !== history) {
         throw new Error('Nested redo source history changed before commit')
       }
       this.redoStack.pop()
-      this.undoStack.push(artifact)
+      this.undoStack.push(history)
     }
   }
 
@@ -2983,21 +2728,12 @@ class DataTransact {
     precedingFailures: unknown[] = []
   ) {
     this.discardPendingImmediatePublication()
-    let rollbackArtifact: FactoryMutationBatchArtifact | undefined
-    const artifactFailures: unknown[] = []
-    if (this.journal.length > 0) {
-      try {
-        rollbackArtifact = this.createMutationBatchArtifact()
-      } catch (error) {
-        artifactFailures.push(error)
-      }
-    }
     if (this.nestedReplaySourceEvents) {
       this.restoringNestedReplay = true
       let failures: unknown[]
       try {
         failures = [
-          ...this.rollbackJournal('action', rollbackArtifact),
+          ...this.rollbackJournal('action'),
           ...this.restoreNestedReplay()
         ]
       } finally {
@@ -3005,27 +2741,15 @@ class DataTransact {
       }
       const rollbackFailures = [
         ...precedingFailures,
-        ...artifactFailures,
         ...failures,
-        ...this.compensateImmediateSharedChanges(rollbackArtifact)
+        ...this.compensateImmediateSharedChanges()
       ]
       if (rollbackFailures.length > 0) {
         const rollbackError = new TransactionRollbackError(rollbackFailures)
-        if (rollbackArtifact) {
-          this.queueMutationBatchArtifactStatus(
-            'rollback-failed',
-            rollbackArtifact
-          )
-          this.flushMutationBatchArtifactStatuses()
-        }
         this.emitStatus('rollback-failed', failure, rollbackError)
         throw rollbackError
       }
 
-      if (rollbackArtifact) {
-        this.queueMutationBatchArtifactStatus('rolled-back', rollbackArtifact)
-        this.flushMutationBatchArtifactStatuses()
-      }
       this.emitStatus('rolled-back', failure)
       return
     }
@@ -3037,27 +2761,15 @@ class DataTransact {
 
     const failures = [
       ...precedingFailures,
-      ...artifactFailures,
-      ...this.rollbackJournal(undefined, rollbackArtifact),
-      ...this.compensateImmediateSharedChanges(rollbackArtifact)
+      ...this.rollbackJournal(),
+      ...this.compensateImmediateSharedChanges()
     ]
     if (failures.length > 0) {
       const rollbackError = new TransactionRollbackError(failures)
-      if (rollbackArtifact) {
-        this.queueMutationBatchArtifactStatus(
-          'rollback-failed',
-          rollbackArtifact
-        )
-        this.flushMutationBatchArtifactStatuses()
-      }
       this.emitStatus('rollback-failed', failure, rollbackError)
       throw rollbackError
     }
 
-    if (rollbackArtifact) {
-      this.queueMutationBatchArtifactStatus('rolled-back', rollbackArtifact)
-      this.flushMutationBatchArtifactStatuses()
-    }
     this.emitStatus('rolled-back', failure)
   }
 
@@ -3112,31 +2824,31 @@ class DataTransact {
   }
 
   private prepareHistoryTransition(
-    artifact?: FactoryMutationBatchArtifact
+    history?: FactoryHistoryEntry
   ): PreparedHistoryTransition | null {
-    if (this.nestedReplaySourceArtifact && this.nestedReplaySourceEvents) {
-      const sourceArtifact = this.nestedReplaySourceArtifact
+    if (this.nestedReplaySourceHistory && this.nestedReplaySourceEvents) {
+      const sourceHistory = this.nestedReplaySourceHistory
       const events = this.nestedReplaySourceEvents
-      this.commitNestedReplayHistory(sourceArtifact)
+      this.commitNestedReplayHistory(sourceHistory)
 
       return {
         complete: () => this.emitReplayCommitted(events),
         rollback: () => {
           if (this.inUndo) {
-            if (this.redoStack[this.redoStack.length - 1] !== sourceArtifact) {
+            if (this.redoStack[this.redoStack.length - 1] !== sourceHistory) {
               throw new Error('Undo target history changed before rollback')
             }
             this.redoStack.pop()
-            this.undoStack.push(sourceArtifact)
+            this.undoStack.push(sourceHistory)
             return
           }
 
           if (this.inRedo) {
-            if (this.undoStack[this.undoStack.length - 1] !== sourceArtifact) {
+            if (this.undoStack[this.undoStack.length - 1] !== sourceHistory) {
               throw new Error('Redo target history changed before rollback')
             }
             this.undoStack.pop()
-            this.redoStack.push(sourceArtifact)
+            this.redoStack.push(sourceHistory)
           }
         }
       }
@@ -3146,21 +2858,19 @@ class DataTransact {
       return null
     }
 
-    if (!artifact) {
+    if (!history) {
       throw new Error(
-        'Committed mutation batch artifact is required for local history'
+        'Committed transaction journal is required for local history'
       )
     }
 
-    const committedChanges = artifact.changes.filter(
-      ({ options }) => options.undoable
-    )
+    const committedChanges = this.historyChanges(history)
     if (committedChanges.length === 0) {
       return null
     }
 
     const previousRedoStack = this.redoStack
-    this.undoStack.push(artifact)
+    this.undoStack.push(history)
     this.redoStack = []
 
     return {
@@ -3173,7 +2883,7 @@ class DataTransact {
         })
       },
       rollback: () => {
-        if (this.undoStack[this.undoStack.length - 1] !== artifact) {
+        if (this.undoStack[this.undoStack.length - 1] !== history) {
           throw new Error('Action undo history changed before rollback')
         }
         this.undoStack.pop()
@@ -3196,7 +2906,6 @@ class DataTransact {
     this.isTransacting--
 
     if (this.isTransacting === 0) {
-      const endingArtifactId = this.currentArtifactId
       this.transactionSettlementDepth += 1
       try {
         if (this.rollbackOnly) {
@@ -3230,7 +2939,6 @@ class DataTransact {
             }
           } else {
             let historyTransition: PreparedHistoryTransition | null = null
-            let artifact: FactoryMutationBatchArtifact
             const sharedPublications: SharedPublication[] = []
             try {
               this.queueUnacknowledgedSharedPublications()
@@ -3241,17 +2949,25 @@ class DataTransact {
               const transactionEndEntries = this.journal.filter(
                 (entry) => entry.options.sharedDelivery === 'transaction-end'
               )
-              const preparedArtifact = this.createMutationBatchArtifact()
-              if (!preparedArtifact) {
-                throw new Error(
-                  'Non-empty transaction did not produce a mutation batch artifact'
-                )
+              const history: FactoryHistoryEntry = {
+                entries: this.journal,
+                ...(this.activeDeliverySequence?.mode === 'progressive'
+                  ? {
+                      progressiveDeliverySequence: this.activeDeliverySequence
+                    }
+                  : {})
               }
-              artifact = preparedArtifact
-              historyTransition = this.prepareHistoryTransition(artifact)
+              historyTransition = this.prepareHistoryTransition(history)
               measureBrowserDragPhase('factory:flush-shared-channels', () => {
                 if (this.activeDeliverySequence?.mode === 'progressive') {
-                  this.activeDeliverySequence.slices.forEach(({ sliceId }) => {
+                  const { slices } = this.activeDeliverySequence
+                  for (
+                    let sliceIndex = this.nextDeliverySliceIndex;
+                    sliceIndex < slices.length;
+                    sliceIndex += 1
+                  ) {
+                    const sliceId = slices[sliceIndex]?.sliceId
+                    if (!sliceId) continue
                     const sliceBatches =
                       this.transactionEndBatchesBySlice.get(sliceId) ?? []
                     sliceBatches.forEach((batch) => {
@@ -3265,7 +2981,7 @@ class DataTransact {
                         )
                     this.queueSharedPublication(publication)
                     this.flushSharedPublications()
-                  })
+                  }
                   return
                 }
                 transactionEndBatches.forEach((batch) => {
@@ -3279,12 +2995,6 @@ class DataTransact {
                   : this.createSharedPublication(transactionEndEntries)
                 if (publication) sharedPublications.push(publication)
               })
-              this.createMutationBatchAppliedResult(artifact)
-              if (!artifact) {
-                throw new Error(
-                  'Non-empty transaction did not produce a mutation batch artifact'
-                )
-              }
             } catch (error) {
               this.rollbackFailure = toReplayFailure(error)
               const historyFailures: unknown[] = []
@@ -3299,9 +3009,6 @@ class DataTransact {
             sharedPublications.forEach((publication) =>
               this.queueSharedPublication(publication)
             )
-            this.deliveryArtifactFinalizers.get(artifact.artifactId)?.(artifact)
-            this.queueMutationBatchArtifact(artifact)
-            this.queueMutationBatchArtifactStatus('committed', artifact)
             const committedStatus =
               !this.nestedReplaySourceEvents &&
               !this.isInUndo() &&
@@ -3313,8 +3020,6 @@ class DataTransact {
               this.emitCommitCapture(committedStatus)
             }
             historyTransition?.complete()
-            this.flushMutationBatchArtifacts()
-            this.flushMutationBatchArtifactStatuses()
             this.flushSharedPublications()
             this.flushStatuses()
           }
@@ -3334,29 +3039,25 @@ class DataTransact {
         this.activeDeliveryOrderedIdOrder.clear()
         this.activeDeliverySequenceValidated = false
         this.nextDeliverySliceIndex = 0
-        this.activeStagedArtifactController = undefined
+        this.activeStagedDeliveryController = undefined
         this.activeDeliveryHandle = undefined
         this.activeDeliveryHandleToken = undefined
-        this.deliveryArtifactFinalizers.delete(endingArtifactId)
         this.currentSharedDeliveryBatches = []
         this.preparedSharedBatchRecords.clear()
         this.transactionEndDeliveryBatches = null
         this.transactionEndBatchesBySlice.clear()
         this.transactionEndRecordsBySlice.clear()
-        this.currentMutationBatchArtifact = undefined
         this.historyReplaySharedState = undefined
         this.retainingHistoryReplaySharedEvidence = false
         if (this.nestedReplaySourceEvents) {
           this.nestedReplaySourceEvents = null
-          this.nestedReplaySourceArtifact = null
+          this.nestedReplaySourceHistory = null
           this.nestedReplayRestorationBatches = []
           this.inUndo = false
           this.inRedo = false
         }
         this.transactionSettlementDepth -= 1
         if (this.transactionSettlementDepth === 0) {
-          this.flushMutationBatchArtifacts()
-          this.flushMutationBatchArtifactStatuses()
           this.flushSharedPublications()
           this.flushStatuses()
         }
@@ -3374,8 +3075,34 @@ class DataTransact {
     })
   }
 
-  private historyChanges(artifact: FactoryMutationBatchArtifact) {
-    return artifact.changes.filter(({ options }) => options.undoable)
+  private historyChanges(history: FactoryHistoryEntry) {
+    return history.entries.filter(({ options }) => options.undoable)
+  }
+
+  private deliveredHistoryRecords(
+    history: FactoryHistoryEntry
+  ): readonly JournalSharedRecordRef[] {
+    return this.historyChanges(history).flatMap((entry) =>
+      (entry.shared?.records ?? []).flatMap((record) =>
+        record.delivered && record.delivery && record.batch
+          ? [{ entry, record }]
+          : []
+      )
+    )
+  }
+
+  private historySourceBatches(
+    records: readonly JournalSharedRecordRef[]
+  ): readonly SharedDeliveryBatch[] {
+    const batches: SharedDeliveryBatch[] = []
+    const seenBatchIds = new Set<string>()
+    records.forEach(({ record }) => {
+      const batch = record.batch
+      if (!batch || seenBatchIds.has(batch.batchId)) return
+      seenBatchIds.add(batch.batchId)
+      batches.push(batch)
+    })
+    return batches
   }
 
   private historyReplayReadinessKey(
@@ -3386,20 +3113,21 @@ class DataTransact {
   }
 
   private configureHistoryReplayProgressiveSequence(
-    artifact: FactoryMutationBatchArtifact,
+    history: FactoryHistoryEntry,
     direction: 'forward' | 'inverse',
     deliveredOrderedIds: ReadonlySet<string>
   ): void {
+    const deliverySequence = history.progressiveDeliverySequence
     if (
       this.activeDeliverySequence ||
-      artifact.deliverySequence.mode !== 'progressive' ||
+      !deliverySequence ||
       deliveredOrderedIds.size === 0
     ) {
       return
     }
     const slices =
       direction === 'forward'
-        ? artifact.deliverySequence.slices.flatMap((slice) => {
+        ? deliverySequence.slices.flatMap((slice) => {
             const orderedIds = slice.orderedIds.filter((orderedId) =>
               deliveredOrderedIds.has(orderedId)
             )
@@ -3407,7 +3135,7 @@ class DataTransact {
               ? [{ sliceId: slice.sliceId, orderedIds }]
               : []
           })
-        : [...artifact.deliverySequence.slices].reverse().flatMap((slice) => {
+        : [...deliverySequence.slices].reverse().flatMap((slice) => {
             const orderedIds = [...slice.orderedIds]
               .reverse()
               .filter((orderedId) => deliveredOrderedIds.has(orderedId))
@@ -3432,20 +3160,24 @@ class DataTransact {
   }
 
   private prepareHistoryReplaySharedState(
-    artifact: FactoryMutationBatchArtifact,
+    history: FactoryHistoryEntry,
     direction: 'forward' | 'inverse'
   ): void {
     if (this.historyReplaySharedState) {
       throw new Error('Factory history replay shared state already exists')
     }
-    const historyChanges = this.historyChanges(artifact)
+    const historyChanges = this.historyChanges(history)
+    const deliveredRecords = this.deliveredHistoryRecords(history)
     const deliveredSourceIds = new Set(
-      this.getMutationBatchAppliedResult(artifact).deliveryIds
+      deliveredRecords.flatMap(({ record }) =>
+        record.delivery ? [record.delivery.deliveryId] : []
+      )
     )
+    const committedSourceBatches = this.historySourceBatches(deliveredRecords)
     const sourceBatches =
       direction === 'forward'
-        ? artifact.batches
-        : [...artifact.batches].reverse()
+        ? committedSourceBatches
+        : [...committedSourceBatches].reverse()
     const batchStates: HistoryReplaySharedBatchState[] = []
     const batchStatesByReadinessKey = new Map<
       string,
@@ -3598,7 +3330,7 @@ class DataTransact {
     })
 
     this.configureHistoryReplayProgressiveSequence(
-      artifact,
+      history,
       direction,
       deliveredOrderedIds
     )
@@ -3684,24 +3416,21 @@ class DataTransact {
   }
 
   private historySharedReplay(
-    artifact: FactoryMutationBatchArtifact,
+    history: FactoryHistoryEntry,
     direction: 'forward' | 'inverse'
   ): readonly (HistorySharedReplayOutputs | undefined)[] {
-    const historyChanges = this.historyChanges(artifact)
-    const deliveredIds = new Set(
-      this.getMutationBatchAppliedResult(artifact).deliveryIds
-    )
+    const historyChanges = this.historyChanges(history)
     const deliveredRecordsByChange = historyChanges.map((change) => {
       if (!change.shared) return []
-      return change.shared.records.filter((record) =>
-        deliveredIds.has(record.deliveryId)
+      return change.shared.records.filter(
+        (record) => record.delivered && record.delivery && record.evidence
       )
     })
     return historyChanges.map((change, changeIndex) => {
       if (!change.shared) return
       const deliveredRecords = deliveredRecordsByChange[changeIndex] ?? []
       const outputCount =
-        direction === 'forward' ? 1 : change.inverseEvents.length
+        direction === 'forward' ? 1 : (change.inverseEvents?.length ?? 0)
       if (deliveredRecords.length === 0) {
         return deepFreezeValue(
           Array.from(
@@ -3718,7 +3447,7 @@ class DataTransact {
         Array.from({ length: outputCount }, (_, outputIndex) => {
           const records = sourceRecords.map((record) => ({
             readinessKey: this.historyReplayReadinessKey(
-              record.recordId,
+              record.evidence?.recordId ?? '',
               outputIndex
             ),
             orderedIds:
@@ -3727,9 +3456,9 @@ class DataTransact {
                 : [...record.orderedIds].reverse(),
             payload:
               direction === 'forward'
-                ? (record.payload as TransactionPayload)
+                ? record.change
                 : (
-                    record.inverseEvents[outputIndex] as AllEvent & {
+                    record.inverseEvents?.[outputIndex] as AllEvent & {
                       payload: TransactionPayload
                     }
                   ).payload
@@ -3744,7 +3473,7 @@ class DataTransact {
             })
           )
           return {
-            name: change.shared?.channel ?? '',
+            name: change.shared?.name ?? '',
             sharedDelivery: change.options.sharedDelivery,
             orderedIds: deepFreezeValue(orderedIds),
             records: deepFreezeValue(records)
@@ -3770,9 +3499,9 @@ class DataTransact {
       throw new Error('Undo cannot join a non-empty transaction journal')
     }
 
-    const sourceArtifact = this.undoStack[this.undoStack.length - 1]
-    if (!sourceArtifact) return
-    const sourceChanges = this.historyChanges(sourceArtifact)
+    const sourceHistory = this.undoStack[this.undoStack.length - 1]
+    if (!sourceHistory) return
+    const sourceChanges = this.historyChanges(sourceHistory)
     const lastChanges = sourceChanges.map(({ event }) => event)
     let openedBoundary = false
     this.inUndo = true
@@ -3786,15 +3515,15 @@ class DataTransact {
       this.ensureReplayTransactionId()
 
       this.nestedReplaySourceEvents = lastChanges
-      this.nestedReplaySourceArtifact = sourceArtifact
+      this.nestedReplaySourceHistory = sourceHistory
       this.nestedReplayRestorationBatches = []
-      this.prepareHistoryReplaySharedState(sourceArtifact, 'inverse')
+      this.prepareHistoryReplaySharedState(sourceHistory, 'inverse')
       const failures = this.replay(
         lastChanges,
         'inverse',
         'undo',
         this.nestedReplayRestorationBatches,
-        this.historySharedReplay(sourceArtifact, 'inverse'),
+        this.historySharedReplay(sourceHistory, 'inverse'),
         sourceChanges.map(({ inverseEvents }) => inverseEvents)
       )
       if (failures.length > 0) {
@@ -3840,9 +3569,9 @@ class DataTransact {
       throw new Error('Redo cannot join a non-empty transaction journal')
     }
 
-    const sourceArtifact = this.redoStack[this.redoStack.length - 1]
-    if (!sourceArtifact) return
-    const sourceChanges = this.historyChanges(sourceArtifact)
+    const sourceHistory = this.redoStack[this.redoStack.length - 1]
+    if (!sourceHistory) return
+    const sourceChanges = this.historyChanges(sourceHistory)
     const lastChanges = sourceChanges.map(({ event }) => event)
     let openedBoundary = false
     this.inRedo = true
@@ -3856,15 +3585,15 @@ class DataTransact {
       this.ensureReplayTransactionId()
 
       this.nestedReplaySourceEvents = lastChanges
-      this.nestedReplaySourceArtifact = sourceArtifact
+      this.nestedReplaySourceHistory = sourceHistory
       this.nestedReplayRestorationBatches = []
-      this.prepareHistoryReplaySharedState(sourceArtifact, 'forward')
+      this.prepareHistoryReplaySharedState(sourceHistory, 'forward')
       const failures = this.replay(
         lastChanges,
         'forward',
         'redo',
         this.nestedReplayRestorationBatches,
-        this.historySharedReplay(sourceArtifact, 'forward')
+        this.historySharedReplay(sourceHistory, 'forward')
       )
       if (failures.length > 0) {
         throw new TransactionRollbackError(failures)
@@ -3907,16 +3636,11 @@ class DataTransact {
 
   dispose() {
     this.discardPendingImmediatePublication()
-    this.pendingMutationBatchArtifacts.length = 0
-    this.pendingMutationBatchArtifactStatuses.length = 0
     this.pendingSharedPublications.length = 0
     this.unacknowledgedSharedPublications.length = 0
     this.publicationAcknowledgements.clear()
-    this.emittingMutationBatchArtifacts = false
-    this.emittingMutationBatchArtifactStatuses = false
     this.transactionSettlementDepth = 0
     this.publicationSequence = 0
-    this.mutationBatchArtifactStatusSequence = 0
     this.journal = []
     this.undoStack = []
     this.redoStack = []
@@ -3926,7 +3650,7 @@ class DataTransact {
     this.applyingReplayEvent = false
     this.restoringNestedReplay = false
     this.nestedReplaySourceEvents = null
-    this.nestedReplaySourceArtifact = null
+    this.nestedReplaySourceHistory = null
     this.nestedReplayRestorationBatches = []
     this.actionId = 0
     this.transactionId = 0
@@ -3939,7 +3663,6 @@ class DataTransact {
     this.transactionEndDeliveryBatches = null
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
-    this.currentMutationBatchArtifact = undefined
     this.historyReplaySharedState = undefined
     this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliverySequence = undefined
@@ -3949,10 +3672,9 @@ class DataTransact {
     this.activeDeliveryOrderedIdOrder.clear()
     this.activeDeliverySequenceValidated = false
     this.nextDeliverySliceIndex = 0
-    this.activeStagedArtifactController = undefined
+    this.activeStagedDeliveryController = undefined
     this.activeDeliveryHandle = undefined
     this.activeDeliveryHandleToken = undefined
-    this.deliveryArtifactFinalizers.clear()
     this.sharedEvidenceNotificationDepth = 0
     this.rollbackOnly = false
     this.rollbackFailure = undefined

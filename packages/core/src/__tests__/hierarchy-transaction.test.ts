@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Factory,
   LocalSharedDataChannel,
-  type FactoryMutationBatchArtifact,
   type SharedPublication
 } from '@asyra/factory'
 import propsManager, {
@@ -507,13 +506,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
   it('leaves no cross-owner prefix when a later element-property target is invalid', () => {
     const factory = new Factory()
-    const artifacts: FactoryMutationBatchArtifact[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.PROPS,
       new LocalSharedDataChannel()
-    )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
     )
     const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
@@ -547,7 +542,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(propsManager.save()).toEqual(beforeProps)
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
-    expect(artifacts).toEqual([])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
 
     applySpy.mockRestore()
     factory.transact.reset()
@@ -565,9 +560,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
     )
     const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
@@ -596,18 +591,19 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
 
         expect(result).toEqual(childIds)
         expect(Object.isFrozen(result)).toBe(true)
-        expect(artifacts).toEqual([])
+        expect(publications).toEqual([])
       })
     })
 
-    expect(artifacts).toHaveLength(1)
+    expect(publications).toHaveLength(1)
     expect(
-      artifacts[0]?.changes.flatMap(
-        (change) =>
-          change.shared?.records.map((record) => ({
-            channel: change.shared?.channel,
-            orderedIds: record.orderedIds
-          })) ?? []
+      publications[0]?.slices.flatMap(({ batches }) =>
+        batches.flatMap((batch) =>
+          batch.deliveries.map((delivery) => ({
+            channel: batch.channel,
+            orderedIds: delivery.orderedIds
+          }))
+        )
       )
     ).toEqual([
       {
@@ -673,11 +669,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const artifacts: FactoryMutationBatchArtifact[] = []
     const statuses: TransactionStatusPayload[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
     factory.subscribeToTransactionStatus((status) => statuses.push(status))
     const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
@@ -718,7 +710,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(propsManager.save()).toEqual({})
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
-    expect(artifacts).toEqual([])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
     expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
     expect(statuses.some(({ status }) => status === 'rollback-failed')).toBe(
       false
@@ -732,10 +724,6 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
-    )
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
     )
     const core = createCoreFacade(factory)
     const root = sceneTree.currentWorkspace as GroupInstanceTypes
@@ -767,12 +755,12 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(childrenOf(sceneTree.workspace)).toEqual([])
     expect(sceneTree.getElementById('valid-prefix-candidate')).toBeUndefined()
     expect(sceneTree.getElementById('invalid-later-item')).toBeUndefined()
-    expect(artifacts).toEqual([])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
 
     factory.undo()
 
     expect(childrenOf(sceneTree.workspace)).toEqual([])
-    expect(artifacts).toEqual([])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
     factory.transact.reset()
   })
 

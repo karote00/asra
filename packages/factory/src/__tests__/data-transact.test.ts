@@ -659,7 +659,6 @@ describe('DataTransact user action completion', () => {
 
   it('marks an immediate delivery failure rollback-only even when the caller catches it', () => {
     const deliveryFailure = new Error('caught immediate append failed')
-    const artifacts = vi.fn()
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(
       {
@@ -668,7 +667,6 @@ describe('DataTransact user action completion', () => {
         }
       },
       {
-        onMutationBatchArtifact: artifacts,
         onStatus: (status) => statuses.push(status),
         onReplayEvent: () => true
       }
@@ -685,7 +683,6 @@ describe('DataTransact user action completion', () => {
     ).toThrow(deliveryFailure)
 
     expect(() => transact.end()).not.toThrow()
-    expect(artifacts).not.toHaveBeenCalled()
     expect(statuses.at(-1)).toMatchObject({
       status: 'rolled-back',
       failure: { kind: 'explicit', cause: deliveryFailure }
@@ -696,11 +693,9 @@ describe('DataTransact user action completion', () => {
   })
 
   it('rejects an unaccepted batch without removing earlier outer journal entries', () => {
-    const artifacts = vi.fn()
     const statuses: TransactionStatusPayload[] = []
     const replayed: AllEvent[] = []
     const transact = new DataTransact(undefined, {
-      onMutationBatchArtifact: artifacts,
       onStatus: (status) => statuses.push(status),
       onReplayEvent: (event) => {
         replayed.push(event)
@@ -758,7 +753,6 @@ describe('DataTransact user action completion', () => {
         payload: expect.objectContaining({ before: 1, after: 0 })
       })
     ])
-    expect(artifacts).not.toHaveBeenCalled()
     expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
     expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
       []
@@ -792,11 +786,7 @@ describe('DataTransact user action completion', () => {
     'rejects local-only %s before recording or delivering a valid canonical prefix',
     (eventName, payload) => {
       const pushBatchToSharedChannel = vi.fn(() => true)
-      const artifacts = vi.fn()
-      const transact = new DataTransact(
-        { pushBatchToSharedChannel },
-        { onMutationBatchArtifact: artifacts }
-      )
+      const transact = new DataTransact({ pushBatchToSharedChannel })
       const nonCanonicalOptions = {
         undoable: false,
         rollbackable: false,
@@ -840,7 +830,6 @@ describe('DataTransact user action completion', () => {
       expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
 
       expect(() => transact.end()).not.toThrow()
-      expect(artifacts).not.toHaveBeenCalled()
       expect(
         (transact as unknown as { undoStack: readonly unknown[] }).undoStack
       ).toEqual([])
@@ -2445,7 +2434,7 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
-  it('continues rollback after an inverter failure and surfaces one rollback error', () => {
+  it('rejects an invalid inverter result before history and rolls back an earlier entry', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
       onStatus: (status) => statuses.push(status)
@@ -2463,28 +2452,30 @@ describe('DataTransact user action completion', () => {
 
     transact.start()
     transact.update(createUpdateEvent())
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'broken.change',
-      payload: { id: 'broken' }
-    })
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'broken.change',
+        payload: { id: 'broken' }
+      })
+    ).toThrow('broken inverter')
 
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
-    )
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
     expect(observed).toHaveLength(1)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rolled-back'
+    })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
     expect(
       (transact as unknown as { isTransacting: number }).isTransacting
     ).toBe(0)
-    expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
-    })
 
     subscription.unsubscribe()
   })
 
-  it('continues rollback after a custom inverter returns an invalid event', () => {
+  it('rejects an invalid custom inverse before history and rolls back an earlier entry', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
       onStatus: (status) => statuses.push(status)
@@ -2503,22 +2494,22 @@ describe('DataTransact user action completion', () => {
 
     transact.start()
     transact.update(createUpdateEvent())
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.invalid-output',
-      payload: { id: 'invalid-output' }
-    })
-
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.invalid-output',
+        payload: { id: 'invalid-output' }
+      })
+    ).toThrow(
+      'Transaction inverter custom.invalid-output produced an invalid replay event'
     )
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
     expect(observed).toHaveLength(1)
     expect(
       (transact as unknown as { isTransacting: number }).isTransacting
     ).toBe(0)
     expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
+      status: 'rolled-back'
     })
 
     subscription.unsubscribe()
@@ -2709,18 +2700,19 @@ describe('DataTransact user action completion', () => {
     transact.registerInverter('custom.empty', () => [])
 
     transact.start()
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.empty',
-      payload: { id: 'custom.empty' }
-    })
-
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.empty',
+        payload: { id: 'custom.empty' }
+      })
+    ).toThrow('Transaction inverter custom.empty produced no replay event')
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
     )
     expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
+      status: 'discarded'
     })
   })
 
@@ -3001,17 +2993,16 @@ describe('DataTransact user action completion', () => {
   })
 
   it('keeps transaction local when shared channel is unknown', () => {
-    let artifactDuringDelivery: unknown
-    let transact: DataTransact
+    let historyDuringDelivery: unknown
     const pushBatchToSharedChannel = vi.fn(() => {
-      artifactDuringDelivery = (
+      historyDuringDelivery = (
         transact as unknown as {
           undoStack: readonly unknown[]
         }
       ).undoStack.at(-1)
       return false
     })
-    transact = new DataTransact({ pushBatchToSharedChannel })
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const subscriber = vi.fn()
     const subscription = subscribeToUserActionCompleted(subscriber)
     subscriber.mockClear()
@@ -3025,7 +3016,7 @@ describe('DataTransact user action completion', () => {
       orderedBatchOf({ id: 'test.change' })
     )
     expect(subscriber).toHaveBeenCalledTimes(1)
-    expect(artifactDuringDelivery).toBe(
+    expect(historyDuringDelivery).toBe(
       (
         transact as unknown as {
           undoStack: readonly unknown[]

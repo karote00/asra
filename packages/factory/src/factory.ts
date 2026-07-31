@@ -29,13 +29,7 @@ import {
   type SharedPublication,
   type SharedPublicationSubscriber
 } from './shared-delivery'
-import type {
-  FactoryMutationBatchArtifact,
-  FactoryMutationBatchArtifactStatus,
-  FactoryMutationBatchArtifactStatusSubscriber,
-  FactoryMutationBatchArtifactSubscriber,
-  FactoryMutationBatchDeliveryHandle
-} from './mutation-batch'
+import type { FactoryMutationBatchDeliveryHandle } from './mutation-batch'
 import type {
   CanonicalEventApply,
   TransactionInverter,
@@ -74,10 +68,6 @@ class Factory {
     new Set<SharedDeliveryBatchSubscriber>()
   private readonly sharedPublicationSubscribers =
     new Set<SharedPublicationSubscriber>()
-  private readonly mutationBatchArtifactSubscribers =
-    new Set<FactoryMutationBatchArtifactSubscriber>()
-  private readonly mutationBatchArtifactStatusSubscribers =
-    new Set<FactoryMutationBatchArtifactStatusSubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -95,11 +85,7 @@ class Factory {
       onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
       onSharedDeliveryBatch: (batch) => this.emitSharedDeliveryBatch(batch),
       onSharedPublication: (publication) =>
-        this.emitSharedPublication(publication),
-      onMutationBatchArtifact: (artifact) =>
-        this.emitMutationBatchArtifact(artifact),
-      onMutationBatchArtifactStatus: (status) =>
-        this.emitMutationBatchArtifactStatus(status)
+        this.emitSharedPublication(publication)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -143,30 +129,6 @@ class Factory {
         }
       })
       return handedOff
-    })
-  }
-
-  private emitMutationBatchArtifact(
-    artifact: FactoryMutationBatchArtifact
-  ): void {
-    ;[...this.mutationBatchArtifactSubscribers].forEach((subscriber) => {
-      try {
-        subscriber(artifact)
-      } catch {
-        // Artifact observers cannot alter canonical settlement.
-      }
-    })
-  }
-
-  private emitMutationBatchArtifactStatus(
-    status: FactoryMutationBatchArtifactStatus
-  ): void {
-    ;[...this.mutationBatchArtifactStatusSubscribers].forEach((subscriber) => {
-      try {
-        subscriber(status)
-      } catch {
-        // Artifact status observers cannot alter canonical settlement.
-      }
     })
   }
 
@@ -269,8 +231,8 @@ class Factory {
     return this.transactionOwner
   }
 
-  getActiveStagedArtifactController() {
-    return this.transact.getActiveStagedArtifactController()
+  getActiveStagedDeliveryController() {
+    return this.transact.getActiveStagedDeliveryController()
   }
 
   getUndoHistoryDepth(): number {
@@ -420,24 +382,6 @@ class Factory {
     this.sharedPublicationSubscribers.add(subscriber)
     return () => {
       this.sharedPublicationSubscribers.delete(subscriber)
-    }
-  }
-
-  subscribeToMutationBatchArtifact(
-    subscriber: FactoryMutationBatchArtifactSubscriber
-  ): () => void {
-    this.mutationBatchArtifactSubscribers.add(subscriber)
-    return () => {
-      this.mutationBatchArtifactSubscribers.delete(subscriber)
-    }
-  }
-
-  subscribeToMutationBatchArtifactStatus(
-    subscriber: FactoryMutationBatchArtifactStatusSubscriber
-  ): () => void {
-    this.mutationBatchArtifactStatusSubscribers.add(subscriber)
-    return () => {
-      this.mutationBatchArtifactStatusSubscribers.delete(subscriber)
     }
   }
 }

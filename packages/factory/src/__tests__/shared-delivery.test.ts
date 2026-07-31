@@ -407,10 +407,8 @@ describe('Factory local shared delivery contract', () => {
     const failure = new Error('remote action failed after immediate projection')
     const deliveryBatch = vi.fn()
     const publication = vi.fn()
-    const artifact = vi.fn()
     factory.subscribeToSharedDeliveryBatch(deliveryBatch)
     factory.subscribeToSharedPublication(publication)
-    factory.subscribeToMutationBatchArtifact(artifact)
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
       () => true
@@ -429,7 +427,6 @@ describe('Factory local shared delivery contract', () => {
     ])
     expect(deliveryBatch).not.toHaveBeenCalled()
     expect(publication).not.toHaveBeenCalled()
-    expect(artifact).not.toHaveBeenCalled()
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toEqual([])

@@ -126,6 +126,15 @@ This file is the app-level API contract map.
   cancellation rejects the action so ordinary transaction rollback removes the
   complete composition; already-visible immediate evidence uses Factory's
   ordinary compensation path
+- the registered bulk action reuses the existing Factory transaction journal
+  and Undo stack. Props and Scene owners emit their ordinary reversible
+  before/after or add/remove changes once; no AI/bulk-specific forward/inverse
+  history artifact or parallel applied-result mirror is created
+- after successful canonical owner apply, the production action path performs
+  no `save`, `isEqual`, finalize-save, full-document comparison, or evidence
+  clone. Render/UI observes the ordinary canonical owner batch, while
+  Collaboration receives only the minimal `SharedPublication`; its
+  `artifactId` is wire correlation rather than a History reference
 - the App AI transaction runner acquires one document-interaction lock before
   opening that outer transaction and releases it only after commit or rollback
   plus history correlation. While locked, wheel input on the marked viewport
@@ -299,6 +308,12 @@ Import boundary:
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
+- `discardTransientVectorPreviews(elementIds: readonly string[]): void`
+  - preflights the complete ordered vector batch, clears only App-owned
+    transient topology/computed caches, then asks Core once to reproject the
+    affected canonical Props into local computed data
+  - this is forced-rollback cleanup, not a canonical mutation: it creates no
+    Undo, shared publication, CRDT, or persistence evidence
 - `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: AppendVectorAnchorPointOptions): { point: VectorAnchorPoint; index: number } | null`
   - `AppendVectorAnchorPointOptions` combines subpath/continuation/structural
     intent inputs with ordinary `EVENT_OPTIONS`
@@ -346,7 +361,9 @@ Import boundary:
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
+- `updateElementProperties(elementIds: readonly string[], values: Readonly<Record<string, DataTypes>>, options?: EVENT_OPTIONS): void`
+  - projects any Group geometry-dependent property updates, then submits one
+    plural canonical Core property replacement inside one transaction
   - `vectorGeometry` helper (exported from `src/common-apis/element`):
     - `validate(topology, label?)`
     - `addPoint(...)`, `movePoint(...)`, `splitSegment(...)`, `updatePoint(...)`, `removePoint(...)`, `connectEndpoints(...)`, `connectAnchors(...)`
@@ -514,9 +531,10 @@ Import boundary:
 
 `controllers/scene-tree.ts`
 
-- `changeElementComputedData(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
+- `updateSelectedElementProperties(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
   - numeric keys (`x`, `y`, `width`, `height`, `rotation`) reject non-finite values
-  - structured keys (for example `fills`) route as-is to runtime schema validation
+  - structured keys (for example `fills`) route through the same plural
+    canonical property replacement and runtime schema validation
 
 ## Input and Feature Trigger Map
 
@@ -613,6 +631,9 @@ Feature registry (`src/features/index.ts`):
 - `pen-tool`
 
   - `elementApis` vector APIs
+  - `elementApis.discardTransientVectorPreviews` only from forced-rollback
+    `onCancel`; ordinary `commit-current` interruption finalizes through
+    `onEnd`
   - `selectionApis.selectVectorPoint` / `selectVectorSegment` and channel readers
   - `systemContextApis` path-editing, hover point, and compatibility point-state APIs
   - `cursorApis` for hover cursor feedback

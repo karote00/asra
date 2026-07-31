@@ -9,8 +9,6 @@ import { SharedDataChannelNames } from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
-  type FactoryMutationBatchAppliedResult,
-  type FactoryMutationBatchArtifact,
   type FactoryMutationDeliverySequence,
   type SharedDeliveryBatch,
   type SharedPublication
@@ -64,12 +62,8 @@ describe('Factory batch regression contracts', () => {
         )
     )
     const publications: SharedPublication[] = []
-    const artifacts: FactoryMutationBatchArtifact[] = []
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
-    )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
     )
 
     factory.startTransaction()
@@ -127,26 +121,13 @@ describe('Factory batch regression contracts', () => {
         `slice-b:${SharedDataChannelNames.SCENE_TREE}`
       ]
     ])
-    expect(
-      artifacts[0]?.batches.map((batch) => `${batch.sliceId}:${batch.channel}`)
-    ).toEqual([
-      `slice-a:${SharedDataChannelNames.PROPS}`,
-      `slice-a:${SharedDataChannelNames.SCENE_TREE}`,
-      `slice-b:${SharedDataChannelNames.PROPS}`,
-      `slice-b:${SharedDataChannelNames.SCENE_TREE}`
-    ])
     const publicationBatches = publications.flatMap(({ slices }) =>
       slices.flatMap(({ batches }) => batches)
     )
-    expect(publicationBatches.map(({ batchId }) => batchId)).toEqual(
-      artifacts[0]?.batches.map(({ batchId }) => batchId)
+    expect(new Set(publicationBatches.map(({ batchId }) => batchId)).size).toBe(
+      publicationBatches.length
     )
-    publicationBatches.forEach((batch, index) => {
-      expect(batch).not.toBe(artifacts[0]?.batches[index])
-      expect(batch.deliveries[0]?.payload).toBe(
-        artifacts[0]?.batches[index]?.deliveries[0]?.payload
-      )
-    })
+    expect(factory.getUndoHistoryDepth()).toBe(1)
   })
 
   it('links history replay only to records that were actually delivered', () => {
@@ -177,15 +158,9 @@ describe('Factory batch regression contracts', () => {
         return true
       }
     )
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    let appliedResult: FactoryMutationBatchAppliedResult | undefined
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
-    )
-    factory.subscribeToMutationBatchArtifactStatus((status) => {
-      if (status.status === 'committed') {
-        appliedResult = status.appliedResult
-      }
+    const actionPublications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) => {
+      if (publication.origin === 'action') actionPublications.push(publication)
     })
 
     factory.startTransaction()
@@ -210,18 +185,15 @@ describe('Factory batch regression contracts', () => {
     handle?.deliverSlice('slice-a')
     factory.endTransaction()
 
-    const forwardArtifact = artifacts[0]
-    const records = forwardArtifact?.changes[0]?.shared?.records ?? []
-    const recordDeliveryIds = records.map(
-      (record) =>
-        (
-          record as typeof record & {
-            deliveryId?: string
-          }
-        ).deliveryId
-    )
-    expect(recordDeliveryIds.every(Boolean)).toBe(true)
-    expect(appliedResult?.deliveryIds).toEqual([recordDeliveryIds[0]])
+    expect(
+      actionPublications.flatMap((publication) =>
+        publication.slices.flatMap(({ batches }) =>
+          batches.flatMap(({ deliveries }) =>
+            deliveries.flatMap(({ orderedIds }) => orderedIds)
+          )
+        )
+      )
+    ).toEqual(['element-a'])
 
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -333,12 +305,8 @@ describe('Factory batch regression contracts', () => {
       }
     )
     const publications: SharedPublication[] = []
-    const artifacts: FactoryMutationBatchArtifact[] = []
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
-    )
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
     )
 
     factory.startTransaction()
@@ -465,11 +433,6 @@ describe('Factory batch regression contracts', () => {
         }
       ]
     })
-    expect(artifacts.at(-1)?.batches.map(({ batchId }) => batchId)).toEqual(
-      publications[0]?.slices.flatMap(({ batches }) =>
-        batches.map(({ batchId }) => batchId)
-      )
-    )
     expectAtomicBatchIntegrity(publications[0])
 
     publications.length = 0
@@ -501,11 +464,6 @@ describe('Factory batch regression contracts', () => {
         }
       ]
     })
-    expect(artifacts.at(-1)?.batches.map(({ batchId }) => batchId)).toEqual(
-      publications[0]?.slices.flatMap(({ batches }) =>
-        batches.map(({ batchId }) => batchId)
-      )
-    )
     expectAtomicBatchIntegrity(publications[0])
   })
 
@@ -534,11 +492,6 @@ describe('Factory batch regression contracts', () => {
       } else {
         factory.subscribeToSharedPublication(attemptEnd)
       }
-      const artifacts: FactoryMutationBatchArtifact[] = []
-      factory.subscribeToMutationBatchArtifact((artifact) =>
-        artifacts.push(artifact)
-      )
-
       factory.startTransaction()
       const handle = factory.updateTransactionBatch([
         createUpdateEvent(
@@ -563,8 +516,7 @@ describe('Factory batch regression contracts', () => {
       expect(attempts).toEqual([
         'Factory shared evidence observers cannot mutate canonical transaction controls'
       ])
-      expect(artifacts).toHaveLength(1)
-      expect(artifacts[0]?.changes).toHaveLength(1)
+      expect(factory.getUndoHistoryDepth()).toBe(1)
     }
   )
 
@@ -660,21 +612,22 @@ describe('Factory batch regression contracts', () => {
     )
 
     factory.startTransaction()
-    factory.updateTransactionBatch([
-      createUpdateEvent(
-        'canonical-mismatch',
-        SharedDataChannelNames.SCENE_TREE,
-        'custom.mismatched-outputs',
-        {
-          orderedIds: ['element-a'],
-          sharedRecords: [createRecord('element-a')]
-        }
-      )
-    ])
-
-    expect(() => factory.endTransaction()).toThrow(
+    expect(() =>
+      factory.updateTransactionBatch([
+        createUpdateEvent(
+          'canonical-mismatch',
+          SharedDataChannelNames.SCENE_TREE,
+          'custom.mismatched-outputs',
+          {
+            orderedIds: ['element-a'],
+            sharedRecords: [createRecord('element-a')]
+          }
+        )
+      ])
+    ).toThrow(
       /shared record inverse output count must match canonical inverse output count/
     )
+    expect(() => factory.endTransaction()).not.toThrow()
     expect(
       (factory.transact as unknown as { undoStack: unknown[] }).undoStack
     ).toEqual([])
@@ -744,7 +697,12 @@ describe('Factory batch regression contracts', () => {
         (phaseName) =>
           phaseName === 'factory:select-delivery-sequence-boundaries'
       )
-    ).toHaveLength(17)
+    ).toHaveLength(16)
+    expect(
+      phaseNames.filter(
+        (phaseName) => phaseName === 'factory:create-shared-publication'
+      )
+    ).toHaveLength(16)
   })
 
   it('delivers 7112 canonical records through one ordered batch callback', () => {
@@ -860,9 +818,9 @@ describe('Factory batch regression contracts', () => {
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
-    const artifacts: FactoryMutationBatchArtifact[] = []
-    factory.subscribeToMutationBatchArtifact((artifact) =>
-      artifacts.push(artifact)
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
     )
     const event = createUpdateEvent(
       'element-a',
@@ -886,12 +844,10 @@ describe('Factory batch regression contracts', () => {
     factory.endTransaction()
 
     expect(
-      (
-        artifacts[0]?.changes[0]?.event as
-          | (AllEvent & { payload?: { id?: string } })
-          | undefined
-      )?.payload?.id
-    ).toBe('element-a')
-    expect(artifacts[0]?.changes[0]?.orderedIds).toEqual(['element-a'])
+      publications[0]?.slices[0]?.batches[0]?.deliveries[0]?.payload
+    ).toMatchObject({ id: 'element-a' })
+    expect(
+      publications[0]?.slices[0]?.batches[0]?.deliveries[0]?.orderedIds
+    ).toEqual(['element-a'])
   })
 })

@@ -558,26 +558,39 @@ test('nonvisual system state and workspace identity queries avoid full Canvas wo
   )
 })
 
-test('Factory separates rich local history evidence from the transport wire artifact', () => {
+test('Factory reuses existing action history and exposes only the minimal wire artifact', () => {
   const factoryOwner = step('record-and-deliver-transaction-batch')
+  const canonicalOwner = step('apply-canonical-property-scene-batch')
+  const projectionOwner = step('project-visible-canonical-slices')
   const codecOwner = step('encode-publication-frames')
   const receiverOwner = step('admit-receiver-publication-frames')
   const remoteOwner = step('apply-remote-publication-batches')
   const factoryText = contractText(factoryOwner)
+  const canonicalText = contractText(canonicalOwner)
+  const projectionText = contractText(projectionOwner)
   const codecText = contractText(codecOwner)
   const plan = read(data.authority.specPath)
   const feature = read(
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
-  const localArtifact = data.artifacts.find(
-    ({ id }) => id === 'artifact:factory-mutation-batch-artifact'
+  const localOwnerBatch = data.artifacts.find(
+    ({ id }) => id === 'artifact:local-canonical-owner-batch'
   )
   const wireArtifact = data.artifacts.find(
     ({ id }) => id === 'artifact:transport-publication-batch'
   )
 
-  assert.deepEqual(localArtifact?.consumerStepIds, [
-    'apply-canonical-property-scene-batch',
+  assert.equal(
+    data.artifacts.some(
+      ({ id }) => id === 'artifact:factory-mutation-batch-artifact'
+    ),
+    false
+  )
+  assert.equal(
+    localOwnerBatch?.ownerStepId,
+    'apply-canonical-property-scene-batch'
+  )
+  assert.deepEqual(localOwnerBatch?.consumerStepIds, [
     'project-visible-canonical-slices',
     'evaluate-performance-and-equivalence'
   ])
@@ -594,7 +607,19 @@ test('Factory separates rich local history evidence from the transport wire arti
   )
   assert.match(
     factoryText,
-    /rich local history artifact.*separate transport wire artifact/i
+    /existing Factory transaction journal.*Undo stack.*minimal transport wire artifact.*without creating a parallel AI\/bulk history model/i
+  )
+  assert.match(
+    factoryText,
+    /no AI\/bulk-specific forward\/inverse artifact.*parallel applied-result mirror.*action-completion snapshot/i
+  )
+  assert.match(
+    factoryText,
+    /no post-action save.*isEqual.*finalize-save.*full-document comparison.*evidence clone/i
+  )
+  assert.match(
+    `${canonicalText} ${projectionText}`,
+    /local-canonical-owner-batch.*ordinary local and remote canonical owner batches.*without History evidence/i
   )
   assert.match(
     `${factoryText} ${codecText}`,
@@ -618,11 +643,11 @@ test('Factory separates rich local history evidence from the transport wire arti
   )
   assert.match(
     plan,
-    /Factory Local History and Transport Wire Artifacts[\s\S]*one remote-apply payload[\s\S]*ordered IDs[\s\S]*metadata[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias/i
+    /Factory Existing History and Transport Wire Contract[\s\S]*existing transaction journal[\s\S]*no\s+`FactoryMutationBatchArtifact`[\s\S]*post-action `save`[\s\S]*one remote-apply payload[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias/i
   )
   assert.match(
     feature,
-    /Scenario: Factory local history and transport wire artifacts stay separate[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias[\s\S]*atomically[\s\S]*compatibility conversion/i
+    /Scenario: Factory reuses existing action history and emits only a minimal wire artifact[\s\S]*only local action-history owners[\s\S]*post-action save[\s\S]*inverseEvents[\s\S]*History[\s\S]*atomically[\s\S]*compatibility conversion/i
   )
   ;[
     'packages/factory/src/mutation-batch.ts',
@@ -758,7 +783,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
 
   assert.match(
     plan,
-    /Demand-driven render frame ownership[\s\S]*Canonical Props, Scene Tree, and Core source mutation[\s\S]*Factory local history and transport wire artifacts[\s\S]*Codec encode and decode ownership[\s\S]*Receiver provider and worker handoff[\s\S]*Remote apply and main-thread organization[\s\S]*Relay and byte backpressure[\s\S]*Visible canonical and UI projection/i
+    /Demand-driven render frame ownership[\s\S]*Canonical Props, Scene Tree, and Core source mutation[\s\S]*Factory existing action history and transport wire delivery[\s\S]*Codec encode and decode ownership[\s\S]*Receiver provider and worker handoff[\s\S]*Remote apply and main-thread organization[\s\S]*Relay and byte backpressure[\s\S]*Visible canonical and UI projection/i
   )
   assert.match(
     plan,
@@ -1265,6 +1290,10 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
     /Worker encodes.*writes.*directly.*Worker-owned WebSocket/i
   )
   assert.doesNotMatch(codecText, /returns a transferable ArrayBuffer/i)
+  assert.match(
+    codecText,
+    /Prepared compact-binary metadata and delivery segments.*directly.*final frame allocation.*without.*intermediate full-publication payload copy/i
+  )
   assert.doesNotMatch(
     text,
     /Provider keeps.*outbound publication frame.*sends the next frame/i
@@ -1585,7 +1614,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     canonicalText,
-    /local Computed projection.*same owner-issued artifact.*does not rebuild topology from property instances.*never shared/i
+    /local Computed projection.*owner-issued geometry data.*does not rebuild complete Render topology.*repeated property-instance reads.*never shared/i
   )
   assert.match(
     canonicalText,
@@ -1593,11 +1622,11 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     factoryText,
-    /owner-issued immutable artifact.*no recursive frozen scan.*canonical inverse.*once/i
+    /existing Factory journal.*inverter contracts.*no bulk-specific compensation record/i
   )
   assert.match(
     `${factoryText} ${projectionText}`,
-    /local canonical artifact.*transport wire artifact.*does not split local projection into single-entry changes/i
+    /ordinary canonical owner batch.*transport wire artifact.*does not split local projection into single-entry changes/i
   )
   assert.match(
     proofText,
@@ -1606,6 +1635,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
   assert.match(
     feature,
     /Scenario: Local source pipeline preserves shared records without per-record runtime work[\s\S]*stable property records and IDs[\s\S]*no per-edge subscription[\s\S]*local Computed[\s\S]*one local canonical batch/i
+  )
+  assert.match(
+    feature,
+    /100 Vector items[\s\S]*100 independently addressable Vector element data records[\s\S]*not merge.*one giant Vector data record/i
   )
 })
 
@@ -1638,7 +1671,7 @@ test('canonical lifecycle uses one origin-neutral prepared mutation route', () =
   )
   assert.doesNotMatch(
     plan.match(
-      /### Bulk Mutation Contract\n([\s\S]*?)\n### Factory Local History and Transport Wire Artifacts/
+      /### Bulk Mutation Contract\n([\s\S]*?)\n### Factory Existing History and Transport Wire Contract/
     )?.[1] ?? '',
     /UsingActiveProperties|\bplan(?:s|ned|ning)?\b|Plan\b/
   )
@@ -1674,7 +1707,7 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
   assert.match(
     activeFactoryText,
-    /Factory transaction owner records.*canonical Props and Scene evidence directly/i
+    /Factory transaction owner records.*ordinary ordered reversible Props and Scene owner changes directly/i
   )
   assert.deepEqual(
     factoryOwner.implementationBoundary.filter((entry) =>
@@ -1705,7 +1738,11 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
   assert.match(
     read('docs/ai/framework/packages/factory.md'),
-    /FactoryMutationBatchAppliedResult[\s\S]*one immutable artifact[\s\S]*delivery ids/i
+    /bulk action uses this same journal[\s\S]*does not create an AI-specific or bulk-specific forward\/inverse history\s+artifact/i
+  )
+  assert.match(
+    read('docs/ai/framework/packages/factory.md'),
+    /does not copy canonical payloads into a parallel applied-result object/i
   )
   assert.match(
     read('docs/ai/framework/packages/reactive-events.md'),

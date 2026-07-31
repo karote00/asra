@@ -59,6 +59,12 @@ infrastructure.
   index after placement or before removal, respectively; their internal
   initialization and hierarchy setter changes are not separate reversible
   journal entries
+- a registered bulk action uses this same journal and committed undo stack; it
+  does not create an AI-specific or bulk-specific forward/inverse history
+  artifact beside the ordinary owner events
+- successful owner apply is trusted after the event is recorded; Factory does
+  not run a post-action save, equality comparison, finalize-save,
+  full-document snapshot, or evidence-clone pass
 
 2. Undo/redo replay
 
@@ -183,25 +189,24 @@ infrastructure.
   deliveries
 - the transport publication contains no inverse events, local history or
   rollback evidence, duplicated top-level delivery list, record/change alias,
-  or nested record wrapper. Those remain on the Factory-owned rich local
-  artifact; only actual compensation publications carry publication and
-  delivery correlation ids
-- `FactoryMutationDeliverySequence` is the immutable, already-decided
-  publication order for one mutation artifact. It carries `atomic` or
-  `progressive` mode plus ordered slice boundaries; it is execution evidence,
-  not a planning API
-- `getActiveStagedArtifactController()` exposes only
+  or nested record wrapper. Reversible evidence remains only in the existing
+  transaction journal and inverter contracts; Factory exposes no parallel
+  local History artifact. Only actual compensation publications carry
+  publication and delivery correlation ids
+- `FactoryMutationDeliverySequence` is the already-decided publication order
+  for the active transaction's eligible ordinary shared changes. It carries
+  `atomic` or `progressive` mode plus ordered slice boundaries; it is delivery
+  execution evidence, not History evidence or a planning API
+- `getActiveStagedDeliveryController()` exposes only
   `setDeliverySequence(...)` and `stageSlice(...)` for a consumer that
   explicitly owns optional staged publication. The sequence does not create a
   second transaction, change canonical order, or pass delivery policy into
   Core
 - consumers that do not own staged publication use the ordinary committed
-  `SharedPublication` path and do not acquire the staged-artifact controller
-- `FactoryMutationBatchAppliedResult` sits beside the one immutable artifact
-  created for a committed action and records the delivery ids that shared
-  channels actually accepted. Delivery readiness never rebuilds or mutates the
-  artifact; History uses the applied result to decide which retained records
-  are eligible for Undo or Redo publication
+  `SharedPublication` path and do not acquire the staged-delivery controller
+- actual shared-delivery outcomes are recorded on the existing journal entries
+  solely to decide whether Undo or Redo emits a replay publication. Factory
+  does not copy canonical payloads into a parallel applied-result object
 
 5. Status contract
 

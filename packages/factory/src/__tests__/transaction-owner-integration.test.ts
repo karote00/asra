@@ -11,10 +11,8 @@ import {
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
 import { Factory } from '../factory'
-import {
-  TransactionRollbackError,
-  TransactionValidationError
-} from '../transaction'
+import { FactoryMutationBatchAcceptanceError } from '../mutation-batch'
+import { TransactionValidationError } from '../transaction'
 
 const registerFactoryAsOwner = (factory: Factory) =>
   registerTransactionOwner({
@@ -70,13 +68,9 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('retains one Reactive-issued batch identity through the Factory artifact boundary', () => {
+  it('records one Reactive-issued batch as one existing Factory history action', () => {
     const factory = new Factory()
-    const artifacts: unknown[] = []
     let issuedBatch: readonly UpdateTransactionEvent[] | undefined
-    const disposeArtifact = factory.subscribeToMutationBatchArtifact(
-      (artifact) => artifacts.push(artifact)
-    )
     const disposeOwner = registerTransactionOwner({
       startTransaction: () => factory.startTransaction(),
       updateTransactionBatch: (events) => {
@@ -103,19 +97,11 @@ describe('Factory transaction owner integration', () => {
         ])
       })
 
-      const artifact = artifacts[0] as
-        | {
-            changes?: readonly {
-              event?: UpdateTransactionEvent
-            }[]
-          }
-        | undefined
-      expect(artifact?.changes?.[0]?.event?.payload).toBe(
-        issuedBatch?.[0]?.payload
-      )
+      expect(issuedBatch).toHaveLength(1)
+      expect(issuedBatch?.[0]?.payload).toMatchObject({ id: 'element-1' })
+      expect(factory.getUndoHistoryDepth()).toBe(1)
     } finally {
       disposeOwner()
-      disposeArtifact()
     }
   })
 
@@ -156,7 +142,7 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('surfaces rollback failure through runTransaction and closes the owner', () => {
+  it('surfaces inverse rejection through runTransaction and closes the owner', () => {
     const factory = new Factory()
     const statuses: TransactionStatusPayload[] = []
     const disposeStatus = factory.subscribeToTransactionStatus((status) => {
@@ -177,10 +163,9 @@ describe('Factory transaction owner integration', () => {
           })
           throw new Error('handler failed')
         })
-      ).toThrow(TransactionRollbackError)
+      ).toThrow(FactoryMutationBatchAcceptanceError)
       expect(statuses[statuses.length - 1]).toMatchObject({
-        status: 'rollback-failed',
-        error: expect.any(TransactionRollbackError)
+        status: 'discarded'
       })
       expect(() => factory.endTransaction()).not.toThrow()
     } finally {
@@ -189,7 +174,7 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('rejects commit and closes its owned boundary when artifact inverse capture fails', () => {
+  it('rejects the journal entry and closes its owned boundary when inverse capture fails', () => {
     const factory = new Factory()
     const disposeOwner = registerFactoryAsOwner(factory)
     factory.registerTransactionInverter('custom.broken-undo', () => {
@@ -205,7 +190,7 @@ describe('Factory transaction owner integration', () => {
             payload: { id: 'custom' }
           })
         })
-      ).toThrow(TransactionRollbackError)
+      ).toThrow(FactoryMutationBatchAcceptanceError)
       expect(
         (
           factory.transact as unknown as {
