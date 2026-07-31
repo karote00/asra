@@ -103,22 +103,18 @@ This file is the app-level API contract map.
   only transform and opacity; it has no JavaScript per-frame loop. The state is
   not canonical, persistent, shared, Render-owned, or an AI-only renderer and
   clears on success, failure, cancellation, or teardown
-- composition insertion creates one canonical Group. Atomic mode sends one
-  all-children `Core.createElementsInParent(...)` request; progressive mode
-  sends deterministic ordered plural requests bounded by both point count and
-  element count. Each successful batch completes ordinary projection and actual
-  progress, then the single serialized action loop awaits a later browser task
-  before the next batch. Child
-  create options carry the known parent workspace origin so ordinary Vector
-  topology points remain in workspace coordinates while computed `x/y` are
-  written directly in Group-local coordinates; no post-hoc full-composition
-  move or geometry rewrite is part of the AI action
-- progressive composition point budgets begin at 2,048, grow to 4,096, and
-  reach at most 8,192 per later batch. The independent 64-element budget keeps
-  zero-point primitives cooperative, while one indivisible element may exceed
-  only the point soft target. No range is independently scheduled with a timer,
-  and a pure microtask is not a cooperative host yield. Every batch uses the
-  same plural Core surface;
+- composition insertion consumes one server-prepared Group descriptor followed
+  by deterministic ordered server-prepared descriptor slices through the same
+  plural `Core.createElementsInParent(...)` route. The App does not rebuild,
+  validate, normalize, clone, or freeze a second geometry graph. Each successful
+  slice completes ordinary projection and actual progress, then the single
+  serialized action loop crosses a browser paint before the next slice. Vector
+  topology remains in the server-issued coordinate space; no post-hoc
+  full-composition move or geometry rewrite is part of the AI action
+- every prepared slice uses a fixed 2,048-point budget and at most 32 elements.
+  One indivisible element may exceed only the point budget. No range is
+  independently scheduled with a timer, and a pure microtask is not a
+  cooperative host yield. Every slice uses the same plural Core surface;
   Core, Props Manager, and Scene Tree receive no AI mode, loading, progress,
   slice-size, or host-yield parameter
 - the Group and every child batch remain inside one outer App transaction and

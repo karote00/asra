@@ -2,19 +2,21 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AsyraDesignAiActionNames,
   createAsyraDesignAiActions,
-  type AsyraDesignAiActionApis,
-  type ServerPreparedInsertVectorCompositionArgs
+  type AsyraDesignAiActionApis
 } from '../actions'
+import type { PreparedDrawingArtifact } from '../prepared-drawing-artifact'
+import type { PreparedElementDescriptor } from '../../common-apis'
 import { createDeferred } from './deferred'
 
 const actionApis = (): AsyraDesignAiActionApis => ({
   changeElementGeometry: vi.fn(),
-  createCompositionElement: vi.fn(),
   createCompositionElements: vi.fn(
-    (items: readonly { readonly role: string }[]) =>
-      items.map(({ role }) => `${role}-id`)
+    (descriptors: readonly PreparedElementDescriptor[]) =>
+      descriptors.map(({ id }) => id)
   ),
-  createCompositionGroup: vi.fn(() => 'cat-group-id'),
+  createCompositionGroup: vi.fn(
+    (descriptor: PreparedElementDescriptor) => descriptor.id
+  ),
   getElementBounds: vi.fn(),
   getElementFillColor: vi.fn(),
   getElementStrokeColor: vi.fn(),
@@ -30,64 +32,80 @@ const actionApis = (): AsyraDesignAiActionApis => ({
   updateElementStrokeColors: vi.fn(() => [])
 })
 
-const compactVectorArtifact = (): ServerPreparedInsertVectorCompositionArgs => {
-  const pointCounts = [2048, 2048, 1] as const
-  const coordinates = new Float64Array(
-    pointCounts.reduce((total, count) => total + count * 2, 0)
-  )
-  const paths: {
-    closed: boolean
-    coordinateOffset: number
-    pointCount: number
-  }[] = []
-  let coordinateOffset = 0
-  pointCounts.forEach((pointCount, itemIndex) => {
-    paths.push({
-      closed: false,
-      coordinateOffset,
-      pointCount
-    })
-    for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
-      coordinates[coordinateOffset + pointIndex * 2] =
-        itemIndex * 100 + pointIndex
-      coordinates[coordinateOffset + pointIndex * 2 + 1] = itemIndex * 10
-    }
-    coordinateOffset += pointCount * 2
+const createOvalDescriptor = (
+  id: string,
+  name: string,
+  x: number
+): PreparedElementDescriptor =>
+  Object.freeze({
+    fills: [],
+    height: 20,
+    id,
+    lock: false,
+    name,
+    props: Object.freeze({
+      dimension: `${id}-dimension`,
+      position: `${id}-position`
+    }),
+    strokes: [],
+    type: 'oval',
+    visible: true,
+    width: 20,
+    x,
+    y: 0
   })
 
-  return {
+const preparedDrawingArtifact = (): PreparedDrawingArtifact => {
+  const firstDescriptor = createOvalDescriptor('oval-server-1', 'Detail 1', 0)
+  const secondDescriptor = createOvalDescriptor('oval-server-2', 'Detail 2', 20)
+  return Object.freeze({
     artifactVersion: 1,
     compositionRole: 'cat-face',
-    coordinates: coordinates.buffer,
-    groupBounds: {
-      height: 100,
-      width: 300,
+    elementCount: 2,
+    groupBounds: Object.freeze({
+      height: 20,
+      width: 40,
       x: 0,
       y: 0
-    },
-    items: pointCounts.map((pointCount, index) => ({
-      bounds: {
-        height: 100,
-        width: 100,
-        x: index * 100,
-        y: 0
-      },
-      pathCount: 1,
-      pathStart: index,
-      pointCount,
-      primitive: 'vector' as const,
-      role: `detail-${index}`,
-      style: {
-        strokeColor: '#000000',
-        strokeWidth: 1
-      },
-      vectorEncoding: 'points' as const
-    })),
+    }),
+    groupDescriptor: Object.freeze({
+      children: [],
+      fills: [],
+      height: 20,
+      id: 'group-server-1',
+      lock: false,
+      name: 'Cat face',
+      props: Object.freeze({
+        dimension: 'group-server-1-dimension',
+        position: 'group-server-1-position'
+      }),
+      strokes: [],
+      type: 'group',
+      visible: true,
+      width: 40,
+      x: 0,
+      y: 0
+    }),
     parent: 'workspace',
-    paths,
-    pointCount: pointCounts.reduce((total, count) => total + count, 0),
-    skipped: []
-  }
+    pointCount: 4096,
+    roleToElementIds: Object.freeze({
+      'detail-1': Object.freeze([firstDescriptor.id]),
+      'detail-2': Object.freeze([secondDescriptor.id])
+    }),
+    skipped: Object.freeze([]),
+    slices: Object.freeze([
+      Object.freeze({
+        descriptors: Object.freeze([firstDescriptor]),
+        pointCount: 2048,
+        roles: Object.freeze(['detail-1'])
+      }),
+      Object.freeze({
+        descriptors: Object.freeze([secondDescriptor]),
+        pointCount: 2048,
+        roles: Object.freeze(['detail-2'])
+      })
+    ])
+  })
 }
 
 describe('server-prepared Asyra Design action consumers', () => {
@@ -107,12 +125,13 @@ describe('server-prepared Asyra Design action consumers', () => {
     })
   })
 
-  it('materializes only the next compact progressive slice after loading paint', async () => {
+  it('submits prepared descriptor slices after loading paint without frontend rematerialization', async () => {
+    const artifact = preparedDrawingArtifact()
     const apis = actionApis()
     const loadingPaint = createDeferred<undefined>()
     const firstSlicePaint = createDeferred<undefined>()
-    const finalPaint = createDeferred<undefined>()
-    const paintBoundaries = [loadingPaint, firstSlicePaint, finalPaint]
+    const secondSlicePaint = createDeferred<undefined>()
+    const paintBoundaries = [loadingPaint, firstSlicePaint, secondSlicePaint]
     const waitForPaint = vi.fn(() => {
       const next = paintBoundaries.shift()
       if (!next) {
@@ -120,8 +139,10 @@ describe('server-prepared Asyra Design action consumers', () => {
       }
       return next.promise
     })
+    const yieldToHost = vi.fn(async () => undefined)
     const insert = createAsyraDesignAiActions(apis, {
-      waitForPaint
+      waitForPaint,
+      yieldToHost
     }).find(
       ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
     )
@@ -129,49 +150,47 @@ describe('server-prepared Asyra Design action consumers', () => {
       throw new Error('Missing insert composition action')
     }
 
-    const execution = insert.execute(compactVectorArtifact(), {
+    const execution = insert.execute(artifact, {
       signal: new AbortController().signal
     })
 
     await Promise.resolve()
     expect(apis.createCompositionGroup).not.toHaveBeenCalled()
-    expect(apis.createCompositionElements).not.toHaveBeenCalled()
 
     loadingPaint.resolve(undefined)
     await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     )
-    expect(waitForPaint).toHaveBeenCalledTimes(2)
-    expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
-    expect(
-      vi
-        .mocked(apis.createCompositionElements)
-        .mock.calls[0]?.[0].map(({ role }) => role)
-    ).toEqual(['detail-0'])
-    expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
+    expect(apis.createCompositionGroup).toHaveBeenCalledWith(
+      artifact.groupDescriptor,
+      expect.any(Object)
+    )
+    expect(apis.createCompositionElements).toHaveBeenNthCalledWith(
+      1,
+      artifact.slices[0].descriptors,
+      expect.objectContaining({ id: 'group-server-1' }),
+      expect.any(Object)
+    )
 
     firstSlicePaint.resolve(undefined)
     await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(2)
     )
-    expect(
-      vi
-        .mocked(apis.createCompositionElements)
-        .mock.calls[1]?.[0].map(({ role }) => role)
-    ).toEqual(['detail-1', 'detail-2'])
+    expect(apis.createCompositionElements).toHaveBeenNthCalledWith(
+      2,
+      artifact.slices[1].descriptors,
+      expect.objectContaining({ id: 'group-server-1' }),
+      expect.any(Object)
+    )
 
-    finalPaint.resolve(undefined)
+    secondSlicePaint.resolve(undefined)
     await expect(execution).resolves.toMatchObject({
-      appliedElementIds: ['detail-0-id', 'detail-1-id', 'detail-2-id'],
-      compositionId: 'cat-group-id',
+      appliedElementIds: ['oval-server-1', 'oval-server-2'],
+      compositionId: 'group-server-1',
+      roleToElementIds: artifact.roleToElementIds,
       status: 'complete'
     })
-    expect(apis.createCompositionGroup).toHaveBeenCalledWith(
-      expect.any(Object),
-      {
-        sharedDelivery: 'immediate',
-        undoable: true
-      }
-    )
+    expect(waitForPaint).toHaveBeenCalledTimes(3)
+    expect(yieldToHost).not.toHaveBeenCalled()
   })
 })

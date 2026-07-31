@@ -10,6 +10,10 @@ import {
 } from '../../e2e/server-response-inbox'
 
 describe('Asyra Design server response harness', () => {
+  it('caps one prepared progressive work unit at 32 elements', () => {
+    expect(PREPARED_DRAWING_SLICE_ELEMENT_BUDGET).toBe(32)
+  })
+
   it('creates one exact versioned 16-item action batch with directly consumable canonical slices', async () => {
     const record = await createAsyraDesignServerResponseRecord(
       'file-fast-16',

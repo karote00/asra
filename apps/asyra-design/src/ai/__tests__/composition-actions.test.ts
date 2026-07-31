@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET,
-  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
-  ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET,
   AsyraDesignAiActionError,
   AsyraDesignAiActionNames,
   createAsyraDesignAiActions,
   type AsyraDesignAiColorUpdate,
-  type AsyraDesignAiCompositionItem,
-  type ServerPreparedCompositionItem,
-  type ServerPreparedCompositionPath,
-  type ServerPreparedInsertVectorCompositionArgs
+  type AsyraDesignAiCompositionItem
 } from '../actions'
+import type { PreparedElementDescriptor } from '../../common-apis'
+import {
+  PREPARED_DRAWING_SLICE_ELEMENT_BUDGET,
+  PREPARED_DRAWING_SLICE_POINT_BUDGET,
+  type PreparedDrawingArtifact
+} from '../prepared-drawing-artifact'
 import { createDeferred } from './deferred'
 
 const mutationOptions = {
@@ -69,14 +69,17 @@ const vectorItemWithPointCount = (pointCount: number, role: string) => ({
 
 const actionApis = () => ({
   changeElementGeometry: vi.fn(),
-  createCompositionElement: vi.fn(),
-  createCompositionElements: vi.fn(),
-  createCompositionGroup: vi.fn(() => 'cat-group-id'),
+  createCompositionElements: vi.fn(
+    (descriptors: readonly PreparedElementDescriptor[]) =>
+      canonicalElementIds(descriptors.map(({ id }) => id))
+  ),
+  createCompositionGroup: vi.fn(
+    (descriptor: PreparedElementDescriptor) => descriptor.id
+  ),
   getElementBounds: vi.fn(),
   getElementFillColor: vi.fn(),
   getElementStrokeColor: vi.fn(),
   getElementType: vi.fn(),
-  groupElements: vi.fn(),
   removeSubtree: vi.fn(),
   scaleVectorElementGeometry: vi.fn(() => true),
   selectElements: vi.fn(),
@@ -121,11 +124,9 @@ interface TestCompositionDescriptor {
 
 const createServerPreparedCompositionArtifact = (
   value: unknown
-): ServerPreparedInsertVectorCompositionArgs => {
+): PreparedDrawingArtifact => {
   const descriptor = value as TestCompositionDescriptor
-  const coordinates: number[] = []
-  const items: ServerPreparedCompositionItem[] = []
-  const paths: ServerPreparedCompositionPath[] = []
+  const acceptedItems: AsyraDesignAiCompositionItem[] = []
   const skipped: {
     reason: 'duplicate-role'
     role: string
@@ -140,51 +141,10 @@ const createServerPreparedCompositionArtifact = (
       continue
     }
     seenRoles.add(item.role)
-
-    const pathStart = paths.length
-    const sourcePaths =
-      item.primitive === 'vector'
-        ? (item.paths ?? [
-            {
-              closed: item.closed === true,
-              points: item.points ?? []
-            }
-          ])
-        : []
-    let pointCount = 0
-    for (const path of sourcePaths) {
-      const coordinateOffset = coordinates.length
-      for (const point of path.points) {
-        coordinates.push(point.x, point.y)
-      }
-      pointCount += path.points.length
-      paths.push({
-        closed: path.closed,
-        coordinateOffset,
-        pointCount: path.points.length
-      })
-    }
-
-    items.push({
-      bounds: item.bounds,
-      pathCount: sourcePaths.length,
-      pathStart,
-      pointCount,
-      primitive: item.primitive,
-      role: item.role,
-      style: item.style,
-      ...(item.primitive === 'vector'
-        ? {
-            vectorEncoding:
-              item.paths === undefined
-                ? ('points' as const)
-                : ('paths' as const)
-          }
-        : {})
-    })
+    acceptedItems.push(item)
   }
 
-  const groupBounds = items.reduce((bounds, item) => {
+  const groupBounds = acceptedItems.reduce((bounds, item) => {
     const x = Math.min(bounds.x, item.bounds.x)
     const y = Math.min(bounds.y, item.bounds.y)
     return {
@@ -197,21 +157,151 @@ const createServerPreparedCompositionArtifact = (
       x,
       y
     }
-  }, items[0].bounds)
+  }, acceptedItems[0].bounds)
+
+  const pointCountForItem = (item: AsyraDesignAiCompositionItem): number =>
+    item.primitive === 'vector'
+      ? (item.paths ?? [{ points: item.points ?? [] }]).reduce(
+          (total, path) => total + path.points.length,
+          0
+        )
+      : 0
+  const preparedDescriptors = acceptedItems.map(
+    (item): PreparedElementDescriptor => {
+      const elementId = `${item.role}-id`
+      const propertyId = (propertyName: string) =>
+        `${elementId}-${propertyName}`
+      const common = {
+        fills: [],
+        height: item.bounds.height,
+        id: elementId,
+        lock: false,
+        name: item.role,
+        props: Object.freeze({
+          dimension: propertyId('dimension'),
+          fills: propertyId('fills'),
+          position: propertyId('position'),
+          strokes: propertyId('strokes')
+        }),
+        strokes: [],
+        type: item.primitive,
+        visible: true,
+        width: item.bounds.width,
+        x: item.bounds.x - groupBounds.x,
+        y: item.bounds.y - groupBounds.y
+      } as const
+      if (item.primitive === 'oval') {
+        return Object.freeze(common)
+      }
+      return Object.freeze({
+        ...common,
+        closed: item.closed === true,
+        networks: {},
+        pointCoordinateSpace: 'workspace',
+        points: {},
+        props: Object.freeze({
+          ...common.props,
+          closed: propertyId('closed'),
+          fillRule: propertyId('fillRule'),
+          networks: propertyId('networks'),
+          pointCoordinateSpace: propertyId('pointCoordinateSpace'),
+          points: propertyId('points'),
+          segments: propertyId('segments')
+        }),
+        segments: {}
+      })
+    }
+  )
+  const roleToElementIds: Record<string, readonly string[]> = {}
+  const pupilIds: string[] = []
+  const whiskerIds: string[] = []
+  acceptedItems.forEach((item, index) => {
+    const elementId = preparedDescriptors[index].id
+    roleToElementIds[item.role] = Object.freeze([elementId])
+    if (item.role.includes('pupil')) pupilIds.push(elementId)
+    if (item.role.includes('whisker')) whiskerIds.push(elementId)
+  })
+  if (pupilIds.length > 0) {
+    roleToElementIds.pupils = Object.freeze(pupilIds)
+  }
+  if (whiskerIds.length > 0) {
+    roleToElementIds.whiskers = Object.freeze(whiskerIds)
+  }
+
+  const slices: {
+    descriptors: PreparedElementDescriptor[]
+    pointCount: number
+    roles: string[]
+  }[] = []
+  let currentDescriptors: PreparedElementDescriptor[] = []
+  let currentPointCount = 0
+  let currentRoles: string[] = []
+  const flushSlice = () => {
+    if (currentDescriptors.length === 0) return
+    slices.push({
+      descriptors: currentDescriptors,
+      pointCount: currentPointCount,
+      roles: currentRoles
+    })
+    currentDescriptors = []
+    currentPointCount = 0
+    currentRoles = []
+  }
+  acceptedItems.forEach((item, index) => {
+    const itemPointCount = pointCountForItem(item)
+    if (
+      currentDescriptors.length > 0 &&
+      (currentDescriptors.length >= PREPARED_DRAWING_SLICE_ELEMENT_BUDGET ||
+        currentPointCount + itemPointCount >
+          PREPARED_DRAWING_SLICE_POINT_BUDGET)
+    ) {
+      flushSlice()
+    }
+    currentDescriptors.push(preparedDescriptors[index])
+    currentPointCount += itemPointCount
+    currentRoles.push(item.role)
+  })
+  flushSlice()
 
   return {
     artifactVersion: 1,
     compositionRole: descriptor.compositionRole,
-    coordinates: new Float64Array(coordinates).buffer,
+    elementCount: preparedDescriptors.length,
     groupBounds,
-    items,
+    groupDescriptor: Object.freeze({
+      children: [],
+      fills: [],
+      height: groupBounds.height,
+      id: 'cat-group-id',
+      lock: false,
+      name: descriptor.compositionRole,
+      props: Object.freeze({
+        dimension: 'cat-group-id-dimension',
+        fills: 'cat-group-id-fills',
+        position: 'cat-group-id-position',
+        strokes: 'cat-group-id-strokes'
+      }),
+      strokes: [],
+      type: 'group',
+      visible: true,
+      width: groupBounds.width,
+      x: groupBounds.x,
+      y: groupBounds.y
+    }),
     parent: descriptor.parent,
-    paths,
-    pointCount: items.reduce(
-      (totalPointCount, item) => totalPointCount + item.pointCount,
+    pointCount: acceptedItems.reduce(
+      (totalPointCount, item) => totalPointCount + pointCountForItem(item),
       0
     ),
-    skipped
+    roleToElementIds: Object.freeze(roleToElementIds),
+    skipped,
+    slices: slices.map((slice) =>
+      Object.freeze({
+        descriptors: Object.freeze(slice.descriptors),
+        pointCount: slice.pointCount,
+        roles: Object.freeze(slice.roles)
+      })
+    )
   }
 }
 
@@ -248,9 +338,6 @@ describe('Asyra Design AI composition action execution', () => {
       __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
     }
     const apis = actionApis()
-    apis.createCompositionElements.mockReturnValue(
-      canonicalElementIds(['eye-left-id', 'whisker-left-id'])
-    )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
@@ -273,8 +360,7 @@ describe('Asyra Design AI composition action execution', () => {
     expect(phaseNames).toEqual(
       expect.arrayContaining([
         'ai-app:create-composition-group',
-        'ai-app:create-composition-batch',
-        'ai-app:record-created-elements'
+        'ai-app:create-composition-batch'
       ])
     )
     expect(phaseNames).not.toContain('ai-app:prepare-composition')
@@ -283,9 +369,6 @@ describe('Asyra Design AI composition action execution', () => {
   it('creates one canonical Group for one valid vectorized item', async () => {
     const apis = actionApis()
     const item = vectorItem('reference-vector-000001')
-    apis.createCompositionElements.mockReturnValue(
-      canonicalElementIds(['reference-vector-id'])
-    )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
@@ -299,19 +382,16 @@ describe('Asyra Design AI composition action execution', () => {
     await expect(
       executePrepared(action, argumentsValue, executionContext())
     ).resolves.toMatchObject({
-      appliedElementIds: ['reference-vector-id'],
+      appliedElementIds: ['reference-vector-000001-id'],
       compositionId: 'cat-group-id',
       status: 'complete'
     })
+    const prepared = createServerPreparedCompositionArtifact(argumentsValue)
     expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
     expect(apis.createCompositionElements).toHaveBeenCalledWith(
-      [item],
+      prepared.slices[0].descriptors,
       {
-        id: 'cat-group-id',
-        workspaceOrigin: {
-          x: 472,
-          y: 372
-        }
+        id: 'cat-group-id'
       },
       mutationOptions
     )
@@ -344,19 +424,18 @@ describe('Asyra Design AI composition action execution', () => {
       status: 'complete'
     })
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
-    expect(apis.createCompositionElements).toHaveBeenCalledWith(
+    const prepared = createServerPreparedCompositionArtifact({
+      compositionRole: 'cat-face',
       items,
+      parent: 'workspace'
+    })
+    expect(apis.createCompositionElements).toHaveBeenCalledWith(
+      prepared.slices[0].descriptors,
       {
-        id: 'cat-group-id',
-        workspaceOrigin: {
-          x: 472,
-          y: 372
-        }
+        id: 'cat-group-id'
       },
       mutationOptions
     )
-    expect(apis.createCompositionElement).not.toHaveBeenCalled()
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
   it('submits one large accepted composition as ordered progressive batches', async () => {
@@ -366,8 +445,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
     const orderedElementIds = items.map(({ role }) => `${role}-id`)
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -389,12 +468,14 @@ describe('Asyra Design AI composition action execution', () => {
       compositionId: 'cat-group-id',
       status: 'complete'
     })
-    expect(apis.createCompositionElements).toHaveBeenCalledTimes(9)
+    expect(apis.createCompositionElements).toHaveBeenCalledTimes(
+      Math.ceil(items.length / PREPARED_DRAWING_SLICE_ELEMENT_BUDGET)
+    )
     expect(
       apis.createCompositionElements.mock.calls.flatMap(([batch]) =>
-        batch.map(({ role }) => role)
+        batch.map(({ id }) => id)
       )
-    ).toEqual(items.map(({ role }) => role))
+    ).toEqual(orderedElementIds)
     expect(
       apis.createCompositionElements.mock.calls.every(
         ([, parent, options]) =>
@@ -404,7 +485,6 @@ describe('Asyra Design AI composition action execution', () => {
       )
     ).toBe(true)
     expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
   it('paints exact accepted bounds before the first canonical mutation and clears terminal state', async () => {
@@ -435,9 +515,9 @@ describe('Asyra Design AI composition action execution', () => {
       calls.push('canonical:group')
       return 'cat-group-id'
     })
-    apis.createCompositionElements.mockImplementation(() => {
+    apis.createCompositionElements.mockImplementation((descriptors) => {
       calls.push('canonical:children')
-      return canonicalElementIds(['left-eye-id', 'left-whisker-id'])
+      return canonicalElementIds(descriptors.map(({ id }) => id))
     })
     const yieldToHost = vi.fn(async () => {
       calls.push('paint')
@@ -475,8 +555,8 @@ describe('Asyra Design AI composition action execution', () => {
       ovalItem(`detail-${index}`)
     )
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const yieldToHost = vi.fn(async () => undefined)
     const action = actionByName(
@@ -499,22 +579,31 @@ describe('Asyra Design AI composition action execution', () => {
 
     expect(
       apis.createCompositionElements.mock.calls.map(([batch]) => batch.length)
-    ).toEqual([...Array.from({ length: 8 }, () => 64), 1])
+    ).toEqual([
+      ...Array.from(
+        { length: 16 },
+        () => PREPARED_DRAWING_SLICE_ELEMENT_BUDGET
+      ),
+      1
+    ])
     expect(
       apis.setDrawingProgress.mock.calls
         .map(([state]) => state)
         .filter((state) => state?.phase === 'drawing')
         .map(({ completedElements }) => completedElements)
     ).toEqual([
-      ...Array.from({ length: 8 }, (_, index) => (index + 1) * 64),
+      ...Array.from(
+        { length: 16 },
+        (_, index) => (index + 1) * PREPARED_DRAWING_SLICE_ELEMENT_BUDGET
+      ),
       513
     ])
     expect(apis.createCompositionGroup).toHaveBeenCalledWith(
       expect.any(Object),
       mutationOptions
     )
-    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET).toBe(64)
-    expect(yieldToHost).toHaveBeenCalledTimes(10)
+    expect(PREPARED_DRAWING_SLICE_ELEMENT_BUDGET).toBe(32)
+    expect(yieldToHost).toHaveBeenCalledTimes(18)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -532,8 +621,8 @@ describe('Asyra Design AI composition action execution', () => {
       ovalItem(`detail-${index}`)
     )
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -559,12 +648,15 @@ describe('Asyra Design AI composition action execution', () => {
       ).toEqual([
         ['ai-drawing:loading-frame-visible', 1],
         ...Array.from(
-          { length: 8 },
+          { length: 16 },
           (_, index) =>
-            ['ai-drawing:visible-element-count', (index + 1) * 64] as const
+            [
+              'ai-drawing:visible-element-count',
+              (index + 1) * PREPARED_DRAWING_SLICE_ELEMENT_BUDGET
+            ] as const
         ),
         ['ai-drawing:visible-element-count', 513],
-        ['ai-drawing:cooperative-yield-count', 9]
+        ['ai-drawing:cooperative-yield-count', 17]
       ])
     } finally {
       runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
@@ -577,10 +669,11 @@ describe('Asyra Design AI composition action execution', () => {
       ovalItem(`detail-${index}`)
     )
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const boundaries = [
+      createDeferred<undefined>(),
       createDeferred<undefined>(),
       createDeferred<undefined>(),
       createDeferred<undefined>()
@@ -628,9 +721,13 @@ describe('Asyra Design AI composition action execution', () => {
     )
     expect(
       apis.createCompositionElements.mock.calls[0]?.[0].map(
-        ({ role }: { readonly role: string }) => role
+        ({ id }: PreparedElementDescriptor) => id
       )
-    ).toEqual(items.slice(0, 64).map(({ role }) => role))
+    ).toEqual(
+      items
+        .slice(0, PREPARED_DRAWING_SLICE_ELEMENT_BUDGET)
+        .map(({ role }) => `${role}-id`)
+    )
     expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     expect(inFlight).toBe(1)
 
@@ -640,22 +737,43 @@ describe('Asyra Design AI composition action execution', () => {
     )
     expect(
       apis.createCompositionElements.mock.calls[1]?.[0].map(
-        ({ role }: { readonly role: string }) => role
+        ({ id }: PreparedElementDescriptor) => id
       )
-    ).toEqual(items.slice(64).map(({ role }) => role))
+    ).toEqual(
+      items
+        .slice(
+          PREPARED_DRAWING_SLICE_ELEMENT_BUDGET,
+          PREPARED_DRAWING_SLICE_ELEMENT_BUDGET * 2
+        )
+        .map(({ role }) => `${role}-id`)
+    )
 
     boundaries[2].resolve(undefined)
+    await vi.waitFor(() =>
+      expect(apis.createCompositionElements).toHaveBeenCalledTimes(3)
+    )
+    expect(
+      apis.createCompositionElements.mock.calls[2]?.[0].map(
+        ({ id }: PreparedElementDescriptor) => id
+      )
+    ).toEqual(
+      items
+        .slice(PREPARED_DRAWING_SLICE_ELEMENT_BUDGET * 2)
+        .map(({ role }) => `${role}-id`)
+    )
+
+    boundaries[3].resolve(undefined)
     await expect(execution).resolves.toMatchObject({
       appliedElementIds: items.map(({ role }) => `${role}-id`),
       status: 'complete'
     })
     expect(maxInFlight).toBe(1)
     expect(inFlight).toBe(0)
-    expect(yieldToHost).toHaveBeenCalledTimes(3)
+    expect(yieldToHost).toHaveBeenCalledTimes(4)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
-  it('ramps point-aware plural batch boundaries and preserves exact order', async () => {
+  it('uses fixed point-aware plural batch boundaries and preserves exact order', async () => {
     const apis = actionApis()
     const items = Array.from({ length: 31 }, (_, index) =>
       vectorItemWithPointCount(1024, `detail-${index}`)
@@ -663,8 +781,8 @@ describe('Asyra Design AI composition action execution', () => {
     const orderedElementIds = items.map(({ role }) => `${role}-id`)
     const yieldToHost = vi.fn(async () => undefined)
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -686,13 +804,13 @@ describe('Asyra Design AI composition action execution', () => {
 
     expect(
       apis.createCompositionElements.mock.calls.map(([batch]) => batch.length)
-    ).toEqual([2, 4, 8, 8, 8, 1])
+    ).toEqual([...Array.from({ length: 15 }, () => 2), 1])
     expect(
       apis.createCompositionElements.mock.calls.flatMap(([batch]) =>
-        batch.map(({ role }: { readonly role: string }) => `${role}-id`)
+        batch.map(({ id }: PreparedElementDescriptor) => id)
       )
     ).toEqual(orderedElementIds)
-    expect(yieldToHost).toHaveBeenCalledTimes(7)
+    expect(yieldToHost).toHaveBeenCalledTimes(17)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -706,8 +824,8 @@ describe('Asyra Design AI composition action execution', () => {
     const orderedElementIds = items.map(({ role }) => `${role}-id`)
     const progressiveApis = actionApis()
     progressiveApis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const progressive = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -729,11 +847,14 @@ describe('Asyra Design AI composition action execution', () => {
 
     expect(
       progressiveApis.createCompositionElements.mock.calls.map(([batch]) =>
-        batch.map(({ role }: { readonly role: string }) => `${role}-id`)
+        batch.map(({ id }: PreparedElementDescriptor) => id)
       )
-    ).toEqual([[orderedElementIds[0]], orderedElementIds.slice(1)])
-    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET).toBe(2048)
-    expect(ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET).toBe(8192)
+    ).toEqual([
+      [orderedElementIds[0]],
+      [orderedElementIds[1]],
+      orderedElementIds.slice(2)
+    ])
+    expect(PREPARED_DRAWING_SLICE_POINT_BUDGET).toBe(2048)
   })
 
   it('creates the canonical Group before ordered child slices without post-hoc regrouping', async () => {
@@ -743,8 +864,8 @@ describe('Asyra Design AI composition action execution', () => {
     )
     apis.createCompositionGroup.mockReturnValue('cat-group-id')
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
@@ -762,87 +883,71 @@ describe('Asyra Design AI composition action execution', () => {
     )
 
     expect(apis.createCompositionGroup).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         height: 22,
+        id: 'cat-group-id',
+        type: 'group',
         width: 158,
         x: 472,
         y: 372
-      },
+      }),
       mutationOptions
     )
     expect(
       apis.createCompositionGroup.mock.invocationCallOrder[0]
     ).toBeLessThan(apis.createCompositionElements.mock.invocationCallOrder[0])
-    expect(apis.createCompositionElements).toHaveBeenCalledTimes(9)
+    expect(apis.createCompositionElements).toHaveBeenCalledTimes(
+      Math.ceil(items.length / PREPARED_DRAWING_SLICE_ELEMENT_BUDGET)
+    )
     expect(
       apis.createCompositionElements.mock.calls.flatMap(([batch]) =>
-        batch.map(({ role }) => role)
+        batch.map(({ id }) => id)
       )
-    ).toEqual(items.map(({ role }) => role))
+    ).toEqual(items.map(({ role }) => `${role}-id`))
     expect(
       apis.createCompositionElements.mock.calls.every(
         ([, parent, options]) =>
           parent.id === 'cat-group-id' &&
-          parent.workspaceOrigin.x === 472 &&
-          parent.workspaceOrigin.y === 372 &&
           options.sharedDelivery === 'immediate' &&
           options.undoable === true
       )
     ).toBe(true)
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
   it('creates ordinary grouped elements and returns detached role/id hints', async () => {
     const apis = actionApis()
-    apis.createCompositionElements.mockReturnValue(
-      canonicalElementIds(['eye-left-id', 'whisker-left-id'])
-    )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
     )
+    const input = {
+      compositionRole: 'cat-face',
+      items: [ovalItem(), vectorItem()],
+      parent: 'workspace'
+    } as const
+    const prepared = createServerPreparedCompositionArtifact(input)
 
-    await expect(
-      executePrepared(
-        action,
-        {
-          compositionRole: 'cat-face',
-          items: [ovalItem(), vectorItem()],
-          parent: 'workspace'
-        },
-        executionContext()
-      )
-    ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      appliedElementIds: ['eye-left-id', 'whisker-left-id'],
-      compositionId: 'cat-group-id',
-      roleToElementIds: {
-        'left-eye': ['eye-left-id'],
-        'left-whisker-1': ['whisker-left-id'],
-        whiskers: ['whisker-left-id']
-      },
-      skipped: [],
-      status: 'complete'
-    })
-    expect(apis.createCompositionElements).toHaveBeenCalledWith(
-      [ovalItem(), vectorItem()],
+    await expect(action.execute(prepared, executionContext())).resolves.toEqual(
       {
-        id: 'cat-group-id',
-        workspaceOrigin: {
-          x: 472,
-          y: 300
-        }
+        action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+        appliedElementIds: ['left-eye-id', 'left-whisker-1-id'],
+        compositionId: 'cat-group-id',
+        roleToElementIds: prepared.roleToElementIds,
+        skipped: [],
+        status: 'complete'
+      }
+    )
+    expect(apis.createCompositionElements).toHaveBeenCalledWith(
+      prepared.slices[0].descriptors,
+      {
+        id: 'cat-group-id'
       },
       mutationOptions
     )
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
   it('aggregates canonical pupil ids without replacing their formal roles', async () => {
     const apis = actionApis()
-    apis.createCompositionElements.mockReturnValue(
-      canonicalElementIds(['pupil-left-id', 'pupil-right-id'])
-    )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
@@ -860,9 +965,9 @@ describe('Asyra Design AI composition action execution', () => {
       )
     ).resolves.toMatchObject({
       roleToElementIds: {
-        'left-pupil': ['pupil-left-id'],
-        'right-pupil': ['pupil-right-id'],
-        pupils: ['pupil-left-id', 'pupil-right-id']
+        'left-pupil': ['left-pupil-id'],
+        'right-pupil': ['right-pupil-id'],
+        pupils: ['left-pupil-id', 'right-pupil-id']
       },
       status: 'complete'
     })
@@ -870,9 +975,6 @@ describe('Asyra Design AI composition action execution', () => {
 
   it('skips a duplicate semantic role before mutation and resolves partial evidence', async () => {
     const apis = actionApis()
-    apis.createCompositionElements.mockReturnValue(
-      canonicalElementIds(['face-id', 'whisker-id'])
-    )
     const action = actionByName(
       AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
       apis
@@ -895,8 +997,13 @@ describe('Asyra Design AI composition action execution', () => {
         x: 472,
         y: 300
       },
-      items: [{ pointCount: 0 }, { pointCount: 2 }],
       pointCount: 2,
+      roleToElementIds: {
+        face: ['face-id'],
+        'right-whisker-2': ['right-whisker-2-id'],
+        whiskers: ['right-whisker-2-id']
+      },
+      slices: [{ pointCount: 2, roles: ['face', 'right-whisker-2'] }],
       skipped: [
         {
           reason: 'duplicate-role',
@@ -907,7 +1014,7 @@ describe('Asyra Design AI composition action execution', () => {
     await expect(
       action.execute(prepared, executionContext())
     ).resolves.toMatchObject({
-      appliedElementIds: ['face-id', 'whisker-id'],
+      appliedElementIds: ['face-id', 'right-whisker-2-id'],
       skipped: [
         {
           reason: 'duplicate-role',
@@ -918,13 +1025,9 @@ describe('Asyra Design AI composition action execution', () => {
     })
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(apis.createCompositionElements).toHaveBeenCalledWith(
-      [ovalItem('face'), vectorItem('right-whisker-2')],
+      prepared.slices[0].descriptors,
       {
-        id: 'cat-group-id',
-        workspaceOrigin: {
-          x: 472,
-          y: 300
-        }
+        id: 'cat-group-id'
       },
       mutationOptions
     )
@@ -1322,10 +1425,8 @@ describe('Asyra Design AI composition action execution', () => {
       mutationOptions
     )
     expect(apis.changeElementGeometry).not.toHaveBeenCalled()
-    expect(apis.createCompositionElement).not.toHaveBeenCalled()
     expect(apis.createCompositionElements).not.toHaveBeenCalled()
     expect(apis.removeSubtree).not.toHaveBeenCalled()
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 
   it('updates only existing pupil fills through the canonical fill boundary', async () => {
@@ -1379,7 +1480,6 @@ describe('Asyra Design AI composition action execution', () => {
       mutationOptions
     )
     expect(apis.updateElementFillColor).not.toHaveBeenCalled()
-    expect(apis.createCompositionElement).not.toHaveBeenCalled()
     expect(apis.createCompositionElements).not.toHaveBeenCalled()
     expect(apis.removeSubtree).not.toHaveBeenCalled()
   })
@@ -1542,7 +1642,9 @@ describe('Asyra Design AI composition action execution', () => {
         },
         executionContext()
       )
-    ).rejects.toThrow('AI composition canonical batch failed.')
+    ).rejects.toThrow(
+      'AI composition batch did not preserve its ordered canonical ids.'
+    )
     expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
@@ -1569,7 +1671,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).rejects.toThrow(
-      'AI composition creation did not preserve the server-prepared item count.'
+      'AI composition batch did not preserve its ordered canonical ids.'
     )
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
@@ -1581,8 +1683,8 @@ describe('Asyra Design AI composition action execution', () => {
       vectorItemWithPointCount(1024, `detail-${index}`)
     )
     apis.createCompositionElements
-      .mockImplementationOnce((batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      .mockImplementationOnce((batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
       )
       .mockReturnValueOnce(null)
     const action = actionByName(
@@ -1603,7 +1705,9 @@ describe('Asyra Design AI composition action execution', () => {
         },
         executionContext()
       )
-    ).rejects.toThrow('AI composition canonical batch failed.')
+    ).rejects.toThrow(
+      'AI composition batch did not preserve its ordered canonical ids.'
+    )
 
     expect(apis.createCompositionElements).toHaveBeenCalledTimes(2)
     expect(
@@ -1621,8 +1725,8 @@ describe('Asyra Design AI composition action execution', () => {
       vectorItemWithPointCount(1024, `detail-${index}`)
     )
     apis.createCompositionElements.mockImplementation(
-      (batch: readonly { readonly role: string }[]) =>
-        canonicalElementIds(batch.map(({ role }) => `${role}-id`))
+      (batch: readonly PreparedElementDescriptor[]) =>
+        canonicalElementIds(batch.map(({ id }) => id))
     )
     const controller = new AbortController()
     let yieldCount = 0
@@ -1654,9 +1758,9 @@ describe('Asyra Design AI composition action execution', () => {
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(
       apis.createCompositionElements.mock.calls[0]?.[0].map(
-        ({ role }: { readonly role: string }) => role
+        ({ id }: PreparedElementDescriptor) => id
       )
-    ).toEqual(['detail-0', 'detail-1'])
+    ).toEqual(['detail-0-id', 'detail-1-id'])
     expect(yieldToHost).toHaveBeenCalledTimes(2)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
@@ -1683,6 +1787,5 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).rejects.toBe(failure)
-    expect(apis.groupElements).not.toHaveBeenCalled()
   })
 })
