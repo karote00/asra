@@ -118,6 +118,7 @@ const guardedWebServers = [
       ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort)
     },
     url: collaborationHealthURL,
+    stdout: 'pipe',
     reuseExistingServer: false,
     timeout: 120_000
   },

@@ -296,6 +296,15 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     configSource,
     /trackedServerCommand\(\s*['"]websocket-server['"]/
   )
+  const websocketServerSource = configSource.slice(
+    configSource.indexOf("trackedServerCommand(\n      'websocket-server'"),
+    configSource.indexOf("trackedServerCommand(\n      'app-server'")
+  )
+  const appServerSource = configSource.slice(
+    configSource.indexOf("trackedServerCommand(\n      'app-server'")
+  )
+  assert.match(websocketServerSource, /stdout:\s*['"]pipe['"]/)
+  assert.doesNotMatch(appServerSource, /stdout:\s*['"]pipe['"]/)
   assert.doesNotMatch(configSource, /endpointLocalOnly|ENDPOINT_LOCAL_ONLY/)
   assert.match(configSource, /yarn collaboration:server:start/)
   assert.match(configSource, /ASYRA_DESIGN_APP_URL:\s*appURL/)
