@@ -44,6 +44,9 @@
       conditions: [
         'This step is selected because guarded evidence identified request-time fixture import, full-source parsing, and materialization before the requested prefix as test-harness contamination at the server response boundary.',
         'Deterministic preparation, seed data, and fixtures belong only to the test or manual harness and are never imported into the production bundle. The harness prepares one exact versioned server response before product App navigation.',
+        'The harness generates each compressed server response preview overlay after the production build and before the runtime guard; Playwright receives no prepared response payload and never serializes that payload across its process boundary.',
+        'A same-origin blank seed page fetches the exact compressed response, uses the browser decompressor to decode it, and writes it to the response-inbox IndexedDB store while reporting bounded fetch, decompress, parse, and write timing.',
+        'The generated response overlay is ignored test output layered over an attested production build. Canonical production dist contains no response fixture and the overlay is never a production deployment artifact.',
         'The required fileId selects exactly one prepared 16-, 320-, 1,280-, or 7,075-child response, and selecting a smaller response never reads or constructs a larger response.',
         'The response inbox adapter read completes before App and Agent readiness and before the stable performance baseline. IndexedDB is only an implementation detail of that response inbox adapter and is never presented as an App product mode.',
         'The response inbox is separate from canonical document persistence; the canonical document still loads empty and local or remote document actions perform zero persistence-provider or document-IndexedDB read and write.',
@@ -103,7 +106,10 @@
         'apps/asyra-design/src/app/ai-conversation-panel.tsx',
         'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
         'apps/asyra-design/test-data/ai-drawing',
+        'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
+        'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
         'apps/asyra-design/e2e/server-response-inbox.ts',
+        'apps/asyra-design/__tests__/prepared-server-response-artifacts.test.mjs',
         'apps/asyra-design/e2e/test-utils.ts',
         'apps/asyra-design/e2e/conversational-ai.spec.ts',
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
@@ -148,8 +154,8 @@
         'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
         'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
         'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
-        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact of canonical descriptors before App readiness; the front end performs none of that model work.',
-        'The front-end composition executor shows the server-prepared loading bounds first and cooperatively submits each already-prepared canonical descriptor slice without materializing a second point-object or topology graph.',
+        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact containing one flat canonical element batch, one flat canonical property batch, ordered IDs, and formal slice boundaries before App readiness; the front end performs none of that model work.',
+        'The front-end composition executor shows the server-prepared loading bounds first and submits slice ranges from those flat batches through the existing Core.createElementsInParentFromCanonicalData(...) route without materializing a second point-object or topology graph.',
         'The shipped create-app template consumes that same PreparedDrawingArtifact, point-aware progressive slices, and mixed-type createElementsInParent plural route without retaining a parallel expanded item graph or falling back to per-element creation.',
         'The production App and shipped template each construct one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
         'The server issues stable descriptor IDs and relationships, while the ordinary App common API and plural Core route remain the only canonical commit owners; the PreparedDrawingArtifact never writes canonical, shared-data, Render, history, or CRDT state directly.',
@@ -358,7 +364,7 @@
       title: 'Record and deliver one transaction batch',
       ownerPackage: '@asyra/factory',
       purpose:
-        'Create one immutable Factory-owned mutation artifact that carries canonical changes, inverses, history intent, shared-delivery mode, and publication slices to every downstream consumer.',
+        'Create one rich local history artifact owned immutably by Factory and derive one separate transport wire artifact without exposing local inverse or History evidence to Collaboration.',
       inputs: [
         'ordered canonical Props and Scene owner evidence recorded through the active Factory transaction',
         'one outer App transaction identity',
@@ -366,17 +372,21 @@
       ],
       outputs: [
         'artifact:factory-mutation-batch-artifact',
-        'artifact:shared-publication-batches',
+        'artifact:transport-publication-batch',
         'artifact:factory-batch-timing'
       ],
       conditions: [
-        'Factory exposes FactoryMutationBatchArtifact, SharedDeliveryBatch, SharedPublication.batches, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch.',
+        'Factory exposes FactoryMutationBatchArtifact, one minimal SharedPublication batch view, LocalSharedDataChannel.appendBatch, and LocalSharedDataChannel.observeBatch as one required batch contract.',
         'The Factory transaction owner records ordered canonical Props and Scene evidence directly; Core does not return a delivery or evidence handoff.',
         'The owner-issued immutable artifact establishes isolation once; Factory and LocalSharedDataChannel perform no recursive frozen scan, and the canonical inverse is derived once.',
-        'History, Render/UI, and Collaboration share the same owner-issued immutable artifact without reconstructing or rescanning its canonical records.',
+        'History and Render/UI consume the rich local history artifact without reconstructing or rescanning its canonical records; Collaboration never receives that local artifact.',
+        'The shared-data boundary derives one separate SharedPublication exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
+        'Each publication slice contains only sliceId, orderedIds, and ordered batches; each batch contains only batchId, channel, and deliveries; each delivery contains only deliveryId, eventName, orderedIds, payload, and an optional actual compensatesDeliveryId.',
+        'SharedPublication contains one remote-apply payload reference per delivery and no inverseEvents, History evidence, rollback evidence, reserved future compensation IDs, top-level delivery aliases, batch records or changes aliases, or nested record wrapper.',
+        'The SharedPublication public contract changes atomically across Factory and every direct Collaboration, codec, and remote-apply consumer. Production never contains parallel old and new publication shapes, compatibility conversion, optional legacy aliases, or a decode-time reconstruction of removed fields.',
         'The canonical inverse is derived exactly once while that artifact is recorded and is reused by History, rollback compensation, and Redo.',
         'FactoryMutationBatchAppliedResult records only successfully applied delivery ids beside the one immutable artifact, so channel readiness never rebuilds or mutates canonical evidence.',
-        'Local observers receive one local canonical batch, while Collaboration receives ordered transport record ranges over the same artifact; transport framing does not split local projection into single-entry changes.',
+        'Local observers receive one local canonical artifact, while Collaboration receives only the one transport wire artifact; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Retained Undo and Redo evidence preserves the source artifact order and returns to the canonical owner; only an explicitly applied owner result can ready the corresponding publication batch.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
@@ -401,6 +411,8 @@
         'per-observer independent delivery cloning',
         'recursive deep-freeze or immutable-tree scans after the canonical owner handoff',
         'splitting one local canonical batch into one local observer change per element',
+        'inverseEvents, History evidence, rollback evidence, or synonymous payload aliases in the transport wire artifact',
+        'parallel old and new SharedPublication types, compatibility conversion, or optional legacy aliases',
         'AI-specific history or compensation',
         'dropped or reordered canonical changes'
       ],
@@ -408,6 +420,9 @@
       implementationBoundary: [
         'packages/factory/src',
         'packages/factory/src/__tests__',
+        'packages/factory/src/mutation-batch.ts',
+        'packages/factory/src/shared-delivery.ts',
+        'packages/factory/src/shared-data-channel.ts',
         'packages/reactive-events/src/app/events.ts',
         'packages/reactive-events/src/app/publish.ts',
         'packages/reactive-events/src/scene-tree/events.ts',
@@ -418,11 +433,38 @@
         'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
         'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
         'packages/reactive-events/src/__tests__/transaction-boundary.test.ts',
+        'packages/collaboration/src/provider.ts',
+        'packages/collaboration/src/composition.ts',
+        'packages/collaboration/src/process.ts',
+        'packages/collaboration/src/cloning.ts',
+        'packages/collaboration/src/providers/memory/hub.ts',
+        'packages/collaboration/src/providers/memory/provider.ts',
+        'packages/collaboration/src/__tests__/shared-publication-fixture.ts',
+        'packages/collaboration/src/__tests__',
+        'packages/core/src/__tests__/hierarchy-transaction.test.ts',
+        'apps/asyra-design/src/collaboration/factory-adapter.ts',
+        'apps/asyra-design/src/collaboration/protocol.ts',
+        'apps/asyra-design/src/collaboration/operations.ts',
+        'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
+        'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts',
+        'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/collaboration/lifecycle.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-factory.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
+        'apps/asyra-design/e2e/collaboration.spec.ts',
+        'apps/asyra-design/e2e/collaboration-ai-agent-video.spec.ts',
+        'create-app/asyra-design/template/src/collaboration',
+        'create-app/asyra-design/template/src/init/__tests__',
         'docs/ai/framework/packages/factory.md',
-        'docs/ai/framework/packages/reactive-events.md'
+        'docs/ai/framework/packages/reactive-events.md',
+        'docs/ai/framework/packages/collaboration.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md'
       ],
       specRefs: [
-        '#factory-mutation-batch-artifact',
+        '#factory-local-history-and-transport-wire-artifacts',
         '#transaction-boundary',
         '#one-immutable-transaction-artifact',
         '#step-local-gates'
@@ -457,6 +499,7 @@
         'Scene Tree performs one map registration phase, one parent children replacement, and one ordered batch evidence handoff that preserves every canonical entry.',
         'Required property and element instances remain one per canonical ID, but construction uses fixed batch materializers and creates no per-record API, transaction, relationship-graph, observer-registry, clone, save, or equality boundary.',
         'Core.createElementsInParent returns only ordered canonical element IDs; Factory records canonical owner evidence independently through its active transaction.',
+        'The Core workspace id query is a constant-time identity read and never calls save, serializes the complete Scene Tree, or reconstructs document state.',
         'Single-item APIs are exactly equivalent batch-of-one conveniences.',
         'One origin-neutral canonical lifecycle selects prepared evidence by data lifecycle: ordinary descriptors provide source creation data, detached canonical data provides exact identity and relations, and retained property evidence keeps its separate Props cleanup or restore batch.',
         'Scene Tree always produces one PreparedElementMutation for the selected lifecycle; Core coordinates any separate Props cleanup or restore evidence without introducing caller-origin policy.',
@@ -518,10 +561,10 @@
       title: 'Stage one local interactive composition',
       ownerPackage: 'Asyra Design AI composition interaction',
       purpose:
-        'Commit one server-prepared PreparedDrawingArtifact through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, stable descriptor IDs, transaction intent, or failure semantics.',
+        'Commit one server-prepared PreparedDrawingArtifact containing flat canonical element and property batches through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted topology, stable descriptor IDs, transaction intent, or failure semantics.',
       inputs: [
         'artifact:resolved-ai-action-batch',
-        'server-prepared canonical descriptors in one PreparedDrawingArtifact',
+        'server-prepared flat canonical element and property batches in one PreparedDrawingArtifact',
         'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
         'single production Conversational AI runtime with fixed cooperative progressive delivery',
@@ -539,11 +582,11 @@
       conditions: [
         'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
         'Contents is fixed as excluded and does not mount in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
-        'Server-prepared canonical descriptors provide exact bounds, stable IDs, relationships, property records, and topology; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
-        'After those prepared descriptors provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
+        'Server-prepared flat canonical element and property batches provide exact bounds, stable IDs, relationships, property records, topology, and slice ranges; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
+        'After those prepared flat batches provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
         'The App acquires one runtime-only document interaction lock before opening the outer App transaction; the lock allows ordinary viewport pan and zoom to repaint the live loading frame and Vector output while it blocks every other document interaction, document mutation, and canonical mutation.',
         'Viewport navigation while locked continues through ordinary Feature execution and may cross its existing transaction wrapper, but produces no canonical mutation or history and does not alter the AI action transaction evidence or accepted composition bounds; AI cancellation remains available.',
-        'The single composition route creates one Group and submits multiple deterministic progressive plural Core batches.',
+        'The single composition route uses the existing Core.createElementsInParentFromCanonicalData(...) canonical route to create one Group, crosses one browser paint opportunity after that Group and before the first child batch, and only then submits multiple deterministic progressive plural Core child batches through the same route.',
         'Progressive batch boundaries use one fixed 2,048-point budget and an element-count budget capped at 64 elements per work unit; one indivisible element may exceed only the point budget.',
         'Every successful canonical slice completes its ordinary Factory, Preset, Render, and UI projection, commits actual element progress, awaits one browser paint opportunity, and then continues through the single serialized action loop with a fixed point budget of 2,048 and at most 64 elements after rechecking the Feature-owned AbortSignal.',
         'The exact-bounds overlay is App-owned transient DOM projection above the ordinary canvas; its CSS activity animates only transform and opacity on the compositor while every completed element continues through the ordinary editable Vector route.',
@@ -640,7 +683,7 @@
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
         'The Pixi Application ticker must not render outside the framework dirty gate; one scheduled frame performs at most one explicit engine flush.',
         'A settled zero-element App has no scheduled frame, no engine flush, and no unbounded performance evidence.',
-        'Pan, zoom, canonical change, computed change, and system property change each schedule at most one frame; a future local animation schedules subsequent frames through its ordinary computed updates rather than a permanent idle loop.',
+        'Pan, zoom, canonical change, computed change, and render-affecting system property change each schedule at most one Canvas frame; a nonvisual system property such as AI progress or interaction-lock state causes no Canvas invalidation.',
         'Performance instrumentation records bounded evidence only for demanded frame work and cannot create a second per-frame workload.',
         'No Render-engine bulk command is added; batch composition remains above the existing strategy surface.'
       ],
@@ -707,7 +750,7 @@
       purpose:
         'Encode outbound shared publication batches and decode inbound opaque frames as versioned binary data in a worker while retaining JSON control frames and existing ProviderFailure semantics.',
       inputs: [
-        'artifact:shared-publication-batches',
+        'artifact:transport-publication-batch',
         'artifact:relayed-publication-frames'
       ],
       outputs: [
@@ -716,6 +759,7 @@
         'artifact:codec-timing'
       ],
       conditions: [
+        'The outbound input is exactly one transport wire artifact containing one remote-apply payload, ordered IDs, and publication metadata; it contains no inverseEvents, History evidence, rollback evidence, or synonymous payload aliases.',
         'Hello, ack, failure, awareness, and credit control frames remain JSON.',
         'All shared publication data uses a versioned binary frame and is not pre-serialized as JSON.',
         'The existing codec runs in the Dedicated Worker without a new package.',
@@ -731,7 +775,7 @@
         'Worker teardown rejects pending work and never fabricates delivery.'
       ],
       allowedContributors: [
-        'artifact:shared-publication-batches',
+        'artifact:transport-publication-batch',
         'artifact:relayed-publication-frames',
         '@asyra/collaboration public publication schema',
         'existing repository codec',
@@ -838,7 +882,7 @@
     },
     {
       id: 'relay-frames-with-backpressure',
-      order: 3,
+      order: 4,
       laneId: 'wire-transport',
       title: 'Relay frames with byte backpressure',
       ownerPackage: 'Asyra Design reference WebSocket server',
@@ -907,7 +951,7 @@
     },
     {
       id: 'apply-remote-publication-batches',
-      order: 4,
+      order: 3,
       laneId: 'wire-transport',
       title: 'Apply remote publication batches',
       ownerPackage: 'Asyra Design Collaboration adapter',
@@ -1073,7 +1117,7 @@
       title: 'Evaluate one refactored endpoint safely',
       ownerPackage: 'Asyra Design guarded endpoint performance E2E',
       purpose:
-        'Run exactly one production two-Actor 7,076-element creation proof immediately after each completed endpoint refactor, compare only its owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
+        'Run one guarded 16-item safety proof before exactly one production two-Actor 7,076-element creation proof after each completed endpoint refactor, compare only owned evidence with the preceding accepted baseline, and stop all owned work before host overload can continue.',
       inputs: [
         'artifact:response-inbox-bootstrap-timing',
         'artifact:provider-response-handoff-timing',
@@ -1099,6 +1143,8 @@
         'artifact:resource-guard-stop-proof'
       ],
       conditions: [
+        'The current exact 16-item source contains 12,919 vector points in eight prepared slices. Runtime pre-execute resolution is less than 1 millisecond, so Runtime control-envelope work is non-material and cannot own the current renderer CPU spike.',
+        'After an owner refactor, its guarded 16-item case must pass below the 200-percent host limit with exact canonical, Render, transaction, and history evidence before the guarded 7,076-element endpoint proof is permitted.',
         'The complete local source pipeline—PreparedDrawingArtifact submission, Core indexing, Props and Scene batch application, Factory artifact delivery, and local projection—receives one guarded 7,076-element proof after all of those internal owners are complete, not after each internal owner.',
         'One collaboration endpoint proof uses exactly one production two-Actor 7,076-element progressive creation with no follow-up mutation, Undo or Redo execution, persistence, media, trace, CPU profile, warm-up, or repeat.',
         'That same guarded two-Actor creation is the only automated high-detail run: Actor A proves connected exact-bounds loading, ordinary Vector milestones, responsive viewport pan and zoom during a cooperative yield, blocked document mutation and history while locked, terminal lock release, one intended Undo action, and one terminal exact canonical summary; no additional single-Actor 7,000-plus run is started.',
@@ -1108,6 +1154,8 @@
         'The guard authenticates one ready heartbeat and confirms process ownership and CPU sampling before the 7,076-element request may start.',
         'Both Actor contexts are created first; Actor A completes navigation and reaches collaboration ready before Actor B navigation, Actor B then reaches collaboration ready before the guard-ready heartbeat, and every staged harness bootstrap phase stays outside product timing.',
         'Production build commands are a separate setup outside the runtime guard and product timing; artifact attestation must succeed before Playwright starts, runtime safety begins with the production App processes, and operation timing begins only at Actor A request submission.',
+        'Production artifact attestation is separate from response overlay attestation and both complete before Playwright starts; the guard rejects either stale or mismatched artifact.',
+        'The preview overlay copies the attested production dist and adds only generated compressed server response artifacts and their manifest; canonical production dist contains no server response and the preview overlay can never be used for production deployment.',
         'A fixed tracked process registry contains only test-harness, client-browser, app-server, and websocket-server; exactly one production preview and one WebSocket server are test-owned, HMR is absent, and no pre-existing listener participates.',
         'Two stable cumulative CPU-time samples with an identical process identity set establish each 250-millisecond interval CPU measurement; one interval above 200 percent is an immediate hard stop, while the macOS decayed ps signal remains a diagnostic after baseline and the bounded report retains separate role CPU without turning either signal into product-owner evidence.',
         'Periodic and phase-boundary sampling share one serialized OS sample and state-consumption queue, so no overlapping ps command or out-of-order state update can corrupt the interval.',
@@ -1146,6 +1194,7 @@
       ],
       bypasses: [
         'The creation-only endpoint proof never runs the complete two-window recording, a follow-up turn, or an additional high-detail local run.',
+        'A guarded 16-item resource stop blocks the 7,076-element proof and returns to the selected owner without consuming a high-detail architecture attempt.',
         'The first receiver endpoint does not require artifact:accepted-endpoint-baseline because the retained pre-refactor evidence is its fixed seed.',
         'The bounded 16-item and 1,280-item attribution cases locate the first chronological owner after a pre-canonical resource stop; they do not replace the exact 7,076-element endpoint proof.',
         'The two-Actor 16-item operation-versus-idle diagnostic compares active and settled work only; it does not replace or create artifact:accepted-endpoint-baseline.',
@@ -1190,6 +1239,8 @@
       implementationBoundary: [
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
         'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts',
+        'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
+        'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
         'apps/asyra-design/src/index.tsx',
         'apps/asyra-design/e2e/performance-resource-guard.mjs',
         'apps/asyra-design/playwright.endpoint-performance.config.ts',
@@ -1493,7 +1544,7 @@
       to: 'encode-publication-frames',
       kind: 'publication',
       predicate: 'Collaboration is connected and a publication batch exists.',
-      producedArtifacts: ['artifact:shared-publication-batches']
+      producedArtifacts: ['artifact:transport-publication-batch']
     },
     {
       id: 'route-factory-evidence-to-proof',
@@ -1961,9 +2012,9 @@
       terminal: false
     },
     {
-      id: 'artifact:shared-publication-batches',
+      id: 'artifact:transport-publication-batch',
       ownerStepId: 'record-and-deliver-transaction-batch',
-      channel: 'Factory shared-data channel',
+      channel: 'minimal transport wire artifact',
       consumerStepIds: ['encode-publication-frames'],
       terminal: false
     },
@@ -2221,7 +2272,7 @@
     {
       id: 'one-action-one-artifact-one-history-boundary',
       statement:
-        'One mutating user turn owns one outer transaction, one immutable FactoryMutationBatchArtifact, and one intended history action regardless of publication slice or wire-frame count.',
+        'One mutating user turn owns one outer transaction, one rich immutable FactoryMutationBatchArtifact for local History and projection, one separate minimal transport wire artifact, and one intended history action regardless of publication slice or wire-frame count.',
       stepIds: [
         'stage-local-interactive-composition',
         'apply-canonical-property-scene-batch',
@@ -2234,7 +2285,7 @@
       artifactIds: [
         'artifact:composition-batch-sequence',
         'artifact:factory-mutation-batch-artifact',
-        'artifact:shared-publication-batches'
+        'artifact:transport-publication-batch'
       ],
       specRefs: ['#transaction-boundary', '#non-negotiable-equivalence']
     },
@@ -2257,7 +2308,7 @@
         'artifact:remote-factory-mutation-batch'
       ],
       specRefs: [
-        '#factory-mutation-batch-artifact',
+        '#factory-local-history-and-transport-wire-artifacts',
         '#projection-and-contents-contract'
       ]
     },
@@ -2272,6 +2323,7 @@
         'apply-remote-publication-batches'
       ],
       artifactIds: [
+        'artifact:transport-publication-batch',
         'artifact:encoded-publication-frames',
         'artifact:relayed-publication-frames',
         'artifact:decoded-publication-candidates',
@@ -2314,7 +2366,7 @@
         'App and Agent readiness wait for the bounded read, while the canonical document remains empty and nonshared until Actor A sends the ordinary conversation request.',
         'requestActionBatch() returns exactly one server-prepared AiActionBatch with one batchId. Production has one provider path, no artificial delay, phrase fixture fallback, failure simulation, fixture I/O, model validation, normalization, parse, materialization, deep-freeze, or lazy fallback.',
         'resolveAiActionBatch() produces one ResolvedAiActionBatch, permission receives one PermissionReadyAiActionBatch, and confirmation receives one AiActionBatchPreview without a plan API alias or compatibility wrapper.',
-        'The 16-, 320-, 1,280-, and 7,075-child responses preserve exact full detail, while Actor B obtains the resulting drawing only through canonical CRDT publications.'
+        'The 16-, 320-, 1,280-, and 7,075-child responses preserve exact full detail as flat canonical element and property batches, while Actor B obtains the resulting drawing only through canonical CRDT publications.'
       ],
       stepIds: [
         'preload-file-scoped-server-response',
@@ -2332,7 +2384,8 @@
       assertions: [
         'One Group plus ordered progressive plural batches preserves exact IDs, order, topology, properties, relationships, and component ownership.',
         'A later invalid item leaves no prefix, and single-item APIs are equivalent batch-of-one conveniences.',
-        'One immutable Factory artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.'
+        'One rich immutable Factory local artifact produces one intended Undo action and exact Undo, Redo, and rollback compensation.',
+        'One separate transport wire artifact carries one remote-apply payload, ordered IDs, and publication metadata without inverseEvents, History evidence, rollback evidence, or payload aliases.'
       ],
       stepIds: [
         'stage-local-interactive-composition',
@@ -2341,7 +2394,7 @@
       ],
       specRefs: [
         '#bulk-mutation-contract',
-        '#factory-mutation-batch-artifact',
+        '#factory-local-history-and-transport-wire-artifacts',
         '#non-negotiable-equivalence'
       ]
     },
@@ -2399,8 +2452,8 @@
       id: 'endpoint-ordered-performance-closure',
       title: 'Each material endpoint proves effectiveness safely',
       assertions: [
-        'Receiver admission, canonical source mutation, Factory pub/sub, remote apply, relay, codec, and material Render/UI owners advance in evidence-ranked order.',
-        'Every completed owner receives one creation-only 7,076-element proof before another owner starts, with exact A/B completion and owner timing evidence.',
+        'Codec encode, receiver admission, remote apply, relay, and material Render/UI owners advance in the fixed evidence-ranked order.',
+        'Every completed owner first passes one guarded 16-item safety proof before one creation-only 7,076-element proof, with exact A/B completion and owner timing evidence.',
         'The process-tree guard terminates tracked test work on any sampled CPU above 200 percent, stale heartbeat, or stalled progress and reports the last phase plus Actor A/B element counts; a CPU-limit stop invalidates that architecture attempt.',
         'An ineffective endpoint returns to its first incorrect owner for at most five materially revised attempts; the same focused failure three times stops earlier.'
       ],
@@ -2444,7 +2497,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One file-scoped preloaded server response, one resolved AiActionBatch, one canonical composition batch, one immutable Factory artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
+        'One file-scoped preloaded server response, one resolved AiActionBatch, flat canonical element and property batches, one rich local Factory history artifact, one separate transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

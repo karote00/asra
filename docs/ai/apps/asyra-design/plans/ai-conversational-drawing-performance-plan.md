@@ -7,8 +7,8 @@ the existing
 `codex/asyra-design-ai-conversational-drawing-performance` branch remains the
 implementation base. Production implementation and formal validation continue
 one Inspector owner step at a time, and every completed performance endpoint is
-followed immediately by one guarded high-detail proof before another endpoint
-may advance.
+followed first by one guarded 16-item safety proof and then by one guarded
+high-detail proof before another endpoint may advance.
 
 This plan, its Inspector data, contract test, and BDD are the active app-level
 implementation authority. Framework package contracts remain authoritative
@@ -22,6 +22,9 @@ evidence directly with `Prepared…`, `Resolved…`, `…Batch`, `…Artifact`, 
 `…Sequence`; it never calls executable data a plan. The conversational AI
 boundary uses `AiActionBatch`, `batchId`, `requestActionBatch()`, and
 `resolveAiActionBatch()`.
+Production identifiers name the action batch, drawing artifact, canonical batch,
+and wire artifact directly; they never use plan, Mock, fake, or simulated
+vocabulary.
 
 The active product contract uses one always-on server-backed Runtime route, one
 formal provider, one server-prepared `AiActionBatch` payload, and one fixed
@@ -564,6 +567,50 @@ separate external-backend/transport-adapter timing rather than frontend product
 execution. Response inbox seed, read, structured clone, and handoff do
 not count against App, Runtime, Render, or CRDT budgets.
 
+### 2026-07-30 pre-navigation payload correction
+
+The first guarded 7,076-element proof after the local projection refactor
+stopped before product execution. Actor A and Actor B both remained at zero
+elements and no publication was emitted. The stop was
+`cpu-sample-gap-exceeded`: one sample arrived after 448 milliseconds instead
+of the fixed 375-millisecond ceiling. Aggregate CPU remained below the
+200-percent hard ceiling, but the test-harness role reached approximately
+145 percent while the browser remained approximately 27 percent.
+
+The failure belonged to server-response preparation, not canonical mutation,
+Render, WebSocket, or remote apply. The guarded Playwright worker dynamically
+read and parsed the complete high-detail SVG, materialized 7,075 child
+descriptors and approximately 397,000 canonical property records, then passed
+an approximately 65 MB JavaScript record through `page.evaluate(...)` before
+IndexedDB could receive it. This duplicated backend preparation and
+cross-process serialization inside the runtime test.
+
+The corrected boundary is:
+
+1. The production build completes and is attested independently.
+2. After the production build and before the runtime guard or Playwright
+   starts, the harness prepares the exact file-scoped 16-, 320-, 1,280-, and
+   7,075-child responses once, writes compressed artifacts plus a hash manifest
+   into an ignored preview overlay, and never modifies canonical production
+   `dist`.
+3. The guard separately attests the response overlay and refuses a stale,
+   mismatched, or production-deployable artifact.
+4. A same-origin blank seed page receives only bounded file identity and URL
+   strings, fetches the exact compressed response, decompresses and parses it
+   in the browser, and writes it directly to the response-inbox IndexedDB
+   store. Playwright never transports the prepared response object.
+5. Browser fetch, decompression, parse, and IndexedDB write stay under the
+   runtime host safety guard and are reported separately as external
+   backend/transport adapter timing. They remain excluded from frontend
+   product execution.
+6. Actor A consumes the resident response through the ordinary provider route;
+   Actor B receives only Actor A's canonical collaboration publications.
+
+The overlay is generated, ignored evidence only. It is neither production App
+source nor a deployment artifact, and no new Worker, codec, package, product
+mode, compatibility path, or runtime fixture API is introduced by this
+correction.
+
 ### 2026-07-30 corrected request boundary and selected Runtime owner
 
 The first corrected single-Actor 16-item run used the resident response, one
@@ -608,9 +655,39 @@ provider returns the resident `AiActionBatch` through `requestActionBatch()`.
 Runtime resolves only the small batch/action control envelope through
 `resolveAiActionBatch()` and passes the original arguments identity to
 permission and execution. The App then submits each already-prepared
-progressive canonical descriptor slice to ordinary canonical creation.
+flat canonical element/property slice through the distinct canonical Core
+creation route.
 No additional browser proof is permitted until this complete boundary and its
 focused formal gates are finished.
+
+### 2026-07-31 guarded 16-item source evidence
+
+The corrected resident-response 16-item case contains exactly 12,919 points and
+is divided into eight prepared slices. Provider handoff, Runtime resolution,
+permission handoff, and the complete Runtime pre-execute interval remained less
+than 1 millisecond. Runtime control-envelope work is therefore non-material and
+is not the owner of the current renderer CPU spike.
+
+The source audit instead found two unconditional full-work boundaries before
+high-detail execution can resume:
+
+- generic Core system-property publication invalidates Canvas even when the
+  changed value is nonvisual App state such as AI progress or the interaction
+  lock; and
+- the workspace identity query calls the Scene Tree save path, serializing the
+  complete hierarchy to read one stable ID.
+
+The prepared drawing handoff is also still too descriptor-shaped. The corrected
+server artifact contains one flat canonical element batch and one flat
+canonical property batch with ordered IDs, relationships, exact bounds, and
+slice ranges. The App does not build another graph. It uses the existing
+`Core.createElementsInParentFromCanonicalData(...)` route, creates the Group,
+crosses a browser paint opportunity after the Group, and only then submits the
+prepared child ranges.
+
+The next browser proof is the same guarded 16-item case. It must complete below
+the fixed 200-percent host limit with exact canonical, Render, transaction, and
+History evidence before any guarded 7,076-element proof is permitted.
 
 ### 2026-07-30 guarded local source pipeline replan
 
@@ -639,11 +716,11 @@ components, shared elements, relationships, stable canonical IDs, full vector
 detail, and one complete Undo action remain non-negotiable. The corrected local
 source pipeline is therefore implemented once as:
 
-1. The server returns one `PreparedDrawingArtifact` containing exact ordered
-   canonical descriptors, stable IDs, relationships, topology, bounds, styles,
-   and formal slice boundaries. The frontend builds no duplicate point-object
-   or topology graph and performs no model validation, bounds calculation, or
-   normalization.
+1. The server returns one `PreparedDrawingArtifact` containing one flat
+   canonical element batch, one flat canonical property batch, stable ordered
+   IDs, relationships, topology, bounds, styles, and formal slice ranges. The
+   frontend builds no duplicate point-object or topology graph and performs no
+   model validation, bounds calculation, or normalization.
 2. Core builds one owner-to-relationship index before element creation.
 3. Props performs one owner-indexed relationship traversal, one fixed batch
    materialization boundary, and one manager-owned affected-owner
@@ -651,9 +728,11 @@ source pipeline is therefore implemented once as:
    subscriptions and no per-record clone/save/equality boundary.
 4. Scene Tree applies one map/parent boundary. Local `Computed` data projects
    from the same owner artifact and never enters shared data or CRDT.
-5. Factory accepts the owner-issued immutable artifact without rescanning its
-   tree, derives the canonical inverse once, sends one canonical batch to local
-   consumers, and exposes ordered record ranges only to transport.
+5. Factory accepts the owner-issued rich local history artifact without
+   rescanning its tree, derives the canonical inverse once, and sends that
+   artifact to History and local projection. The shared-data boundary derives
+   one separate transport wire artifact containing only one remote-apply
+   payload, ordered IDs, and publication metadata.
 6. Preset/Render/UI consume each formal local batch directly and create at most
    one visible flush per slice.
 
@@ -676,8 +755,9 @@ as a result, and the final relay contract explicitly uses
 This 2026-07-30 replan replaces the former pattern of deferring all high-detail
 performance proof until every owner was changed. One shared creation-only
 benchmark is first made trustworthy and resource-bounded. Every endpoint then
-performs one complete endpoint refactor, its focused correctness gates, and one
-guarded 7,000-plus production proof before the next endpoint starts.
+performs one complete endpoint refactor, its focused correctness gates, one
+guarded 16-item safety proof, and only then one guarded 7,000-plus production
+proof before the next endpoint starts.
 
 The severity order uses the most recent retained owner evidence, while keeping
 the first incorrect upstream multiplier and host-safety owner ahead of
@@ -689,42 +769,39 @@ downstream cleanup:
    dirty gate. The engine owns a scheduler independent of Pixi auto-render,
    one invalidation schedules at most one frame, one flush renders at most
    once, and idle performance evidence remains bounded. Pan, zoom, canonical
-   changes, local computed changes, and system property changes remain ordinary
-   frame requests.
-2. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
-   elements and 11/35 publications at 30 seconds while `frame-consumed`
-   intervals grew to approximately 2–3.3 seconds. Existing bounded ingress work
-   is retained as partial evidence, but this endpoint is not complete until the
-   Worker owns the WebSocket data plane, main-thread recursive freeze and
-   duplicate header ownership are removed, and receiver handoff timing exists.
-   Only then does it receive the first post-change proof.
-3. **Canonical Props, Scene Tree, and Core source mutation** — local canonical
+   changes and local computed changes remain ordinary frame requests.
+   System-property changes request Canvas work only when their values are
+   render-affecting.
+2. **Canonical Props, Scene Tree, and Core source mutation** — local canonical
    batch work was approximately 7.991 seconds, and the current first upstream
    multiplier still represents one plural Scene creation as N scalar Scene
    evidence records. The endpoint becomes one complete Props owner batch and
    one plural Scene owner event per Core request, with whole-request preflight
    and no prefix.
-4. **Factory transaction and pub/sub artifact** — Factory phases were
-   approximately 3.909 seconds. One immutable local history artifact remains
-   complete, while its shared view carries one ordered batch representation
-   instead of parallel synonymous batches, deliveries, records, and changes.
-   Required shared-channel internals use batch input and output; public scalar
-   conveniences are batch-of-one only.
-5. **Remote apply and main-thread organization** — retained remote apply ranged
+3. **Factory local history and transport wire artifacts** — Factory phases were
+   approximately 3.909 seconds. One rich immutable local artifact retains
+   inverses and History evidence, while one separate transport wire artifact
+   contains only one remote-apply payload, ordered IDs, and publication
+   metadata without aliases.
+4. **Codec encode and decode ownership** — retained worker decode was
+   approximately 1.544 seconds; no retained 7,000-plus encode number exists.
+   The minimal wire artifact, Worker validation, and transferable binary
+   ownership become the only payload codec boundary.
+5. **Receiver provider and worker handoff** — Actor B reached only 940/7,076
+   elements and 11/35 publications at 30 seconds while `frame-consumed`
+   intervals grew to approximately 2–3.3 seconds. The Worker owns the
+   WebSocket data plane, main-thread recursive freeze and duplicate header
+   ownership are removed, and receiver handoff timing exists.
+6. **Remote apply and main-thread organization** — retained remote apply ranged
    from approximately 2.358 to 5.894 seconds and earlier inbound dispatch was
    approximately 1.979 seconds. The App consumes each worker-valid batch once
    through one linear policy/organization pass, one Core canonical request, and
    one remote Factory transaction without rebuilding a snapshot.
-6. **Relay and byte backpressure** — the newer server socket callbacks remained
+7. **Relay and byte backpressure** — the newer server socket callbacks remained
    below 2 milliseconds, but source queue wait and relay request duration grew
    with receiver credit. The relay is changed only after the receiver and
    source multipliers are removed, then must keep opaque byte parity, bounded
    peer capacity, and independent acceptance, consumption, and apply receipts.
-7. **Codec encode and decode ownership** — retained worker decode was
-   approximately 1.544 seconds; no retained 7,000-plus encode number exists.
-   Worker validation and transferable binary ownership become the only payload
-   codec boundary, and the Provider must not recursively clone or freeze the
-   complete publication on the main thread.
 8. **Visible canonical and UI projection** — retained canonical projection
    Render work was approximately 0.425 seconds locally and 0.682 seconds
    remotely, so no speculative Render-engine bulk command is added. The
@@ -911,17 +988,18 @@ test/manual harness seeds one exact versioned server response in the response in
 → ResolvedAiActionBatch
 → permission resolution produces PermissionReadyAiActionBatch
 → confirmation and terminal presentation consume AiActionBatchPreview
-→ consume one server-prepared PreparedDrawingArtifact with exact canonical descriptors
+→ consume one PreparedDrawingArtifact with flat canonical element/property batches
 → runtime-only App DOM loading frame
 → compositor paint opportunity
-→ create Group
-→ ordered point-and-element-count plural Core batches with cooperative browser-task yields
+→ create Group through Core.createElementsInParentFromCanonicalData(...)
+→ compositor paint opportunity after Group
+→ ordered flat child-batch ranges through the same canonical route
 → Props/relationship/Scene Tree preflight and canonical apply per plural batch
 → FactoryMutationBatchArtifact
    ├─ one Undo/Redo journal action
-   ├─ ordered publication slices from the same canonical transaction
    ├─ Preset/Render/UI projection
-   └─ no collaboration client persistence
+   └─ rollback compensation from local inverse evidence
+→ one minimal SharedPublication with remote-apply payload/ordered IDs/metadata
 → Dedicated Worker binary encode and WebSocket send
 → opaque server relay with byte backpressure
 → peer Dedicated Worker WebSocket receive and binary decode
@@ -937,8 +1015,9 @@ test/manual harness seeds one exact versioned server response in the response in
   phrases, or local compatibility.
 - The test/manual harness alone may stand in for the backend by validating and
   normalizing one exact model response, deriving its bounded summary, and
-  building one `PreparedDrawingArtifact` with canonical descriptors, stable
-  IDs, relationships, topology, bounds, styles, and formal slice boundaries.
+  building one `PreparedDrawingArtifact` with one flat canonical element batch,
+  one flat canonical property batch, stable ordered IDs, relationships,
+  topology, bounds, styles, and formal slice ranges.
   It seeds the versioned `AiActionBatch` into an IndexedDB response inbox
   adapter under the required `fileId`. That deterministic preparation, seed
   code, and fixture data are excluded from the production bundle.
@@ -960,10 +1039,10 @@ test/manual harness seeds one exact versioned server response in the response in
   `Core.load(...)` still receives only the empty document, Actor A and Actor B
   remain at zero canonical elements before the conversation request, and Actor
   B receives the drawing only through ordinary canonical CRDT publications.
-- `PreparedDrawingArtifact` preserves every canonical descriptor, stable ID,
-  relationship, item, path, point, role, order, bound, transform, and style
-  without retaining a parallel full point-object or topology graph in the
-  frontend batch.
+- `PreparedDrawingArtifact` preserves every canonical element and property
+  record, stable ID, relationship, item, path, point, role, order, bound,
+  transform, and style without retaining a parallel full point-object or
+  topology graph in the frontend batch.
 - The response inbox adapter is not document persistence. Production App code
   neither contains nor writes its deterministic seed/fixture implementation;
   local actions, Undo, Redo, and remote apply continue to perform zero
@@ -1007,14 +1086,17 @@ control-envelope resolution and action orchestration:
   compatibility implementation.
 - The server validates and normalizes accepted/skipped roles, bounds, styles,
   paths, points, stable IDs, relationships, and topology and builds one
-  `PreparedDrawingArtifact` before returning the `AiActionBatch`.
-- The frontend submits each already-prepared cooperative descriptor slice after
-  the server-prepared loading bounds are visible. It performs no item, path,
-  point, style, bounds, role, model semantic, or topology validation; no
+  `PreparedDrawingArtifact` containing flat canonical element/property batches
+  before returning the `AiActionBatch`.
+- The frontend submits each already-prepared slice range through the existing
+  `Core.createElementsInParentFromCanonicalData(...)` route after the
+  server-prepared loading bounds are visible. It performs no item, path, point,
+  style, bounds, role, model semantic, or topology validation; no
   drawing-artifact encoding; and no second point-object graph construction.
 - The shipped create-app template consumes that same
   `PreparedDrawingArtifact` and point-aware current-slice contract. Each mixed
-  oval/vector slice enters one `createElementsInParent(...)` call; the template
+  oval/vector slice enters one
+  `Core.createElementsInParentFromCanonicalData(...)` call; the template
   accepts no full-item compatibility input, `itemPointCounts`, or per-element
   fallback.
 - The server issues stable descriptor IDs and relationships, while the ordinary
@@ -1033,8 +1115,12 @@ shared-data boundaries.
   returns ordered canonical element IDs. A single-element convenience delegates
   to this batch-of-one path; Core exposes no AI loading, progress, slice,
   delivery-controller, or timing parameter.
-- AI composition creates one Group, then submits deterministic ordered plural
-  Core batches from the server-prepared canonical descriptors. Each batch uses
+- Server-prepared flat canonical data uses the existing
+  `Core.createElementsInParentFromCanonicalData(...)` plural surface; it is not
+  a second AI-specific or compatibility path.
+- AI composition creates one Group through that canonical-data surface, crosses
+  one browser paint opportunity after the Group, and only then submits
+  deterministic ordered child ranges through the same route. Each range uses
   one fixed 2,048-point budget and a 64-element work-unit cap so thousands of
   zero-point primitives cannot collapse into one blocking call. One indivisible
   element may exceed only the point budget.
@@ -1083,14 +1169,13 @@ shared-data boundaries.
   artifact instead of rebuilding complete topology through property-instance
   reads; it remains local Render evidence and never enters shared data.
 
-### Factory Mutation Batch Artifact
+### Factory Local History and Transport Wire Artifacts
 
 `@asyra/factory` adds and owns:
 
 - `FactoryMutationBatchArtifact`;
 - `FactoryMutationBatchAppliedResult`;
-- `SharedDeliveryBatch`;
-- `SharedPublication.batches`;
+- one minimal `SharedPublication` batch view;
 - `LocalSharedDataChannel.appendBatch(...)`;
 - `LocalSharedDataChannel.observeBatch(...)`;
 - an ordered batch observer API.
@@ -1103,21 +1188,44 @@ tree scan.
 The Reactive Events transaction contract forwards and observes this ordered
 batch through one batch-only owner route; it does not retain a second scalar
 transaction-owner implementation.
-`Core.createElementsInParent(...)` returns only ordered element IDs and never
-returns a Factory delivery/evidence handle. The immutable artifact contains
-ordered canonical changes, IDs, inverses, Factory-owned
-shared-delivery evidence, and ordered publication slice boundaries. Those
-framework fields cannot select App startup, provider, or composition behavior.
+Core creation returns only ordered element IDs and never returns a Factory
+delivery/evidence handle. The rich local artifact contains ordered canonical
+changes, IDs, inverses, History intent, rollback evidence, and local projection
+boundaries. Those framework fields cannot select App startup, provider, or
+composition behavior.
 The applied result separately records only delivery IDs that a shared channel
 actually accepted. A failed or unavailable channel never causes the immutable
 artifact to be rebuilt, and only the applied result can make retained History
 evidence eligible for later Undo or Redo publication.
 
-History, Render/UI, and Collaboration consume this one artifact. The canonical
-inverse is derived once and reused for History and compensation. Local
-observers receive one canonical batch; Collaboration receives ordered
-transport record ranges over the same artifact. Transport framing never splits
-local projection into one observer change per element. Consumers do not call
+History and Render/UI consume the rich local artifact. Collaboration never
+receives it. The canonical inverse is derived once and reused for History and
+compensation. At the shared-data boundary, Factory derives one separate
+`SharedPublication` exactly once. Its only hierarchy is:
+
+```text
+publicationId / artifactId / transactionId / origin / mode
+→ ordered slices: sliceId / orderedIds
+→ ordered channel batches: batchId / channel
+→ remote deliveries: deliveryId / eventName / orderedIds / payload
+```
+
+Only an actual compensation publication or delivery carries its corresponding
+`compensatesPublicationId` or `compensatesDeliveryId`. The wire view contains
+no `inverseEvents`, History evidence, rollback evidence, reserved future
+compensation IDs, top-level delivery alias, batch `records` or `changes` alias,
+or nested record wrapper.
+
+This public contract is cut over atomically across Factory and every direct
+Collaboration, codec, and remote-apply consumer. The implementation never
+contains parallel old and new publication shapes, a compatibility converter,
+optional legacy aliases, or decode-time reconstruction of removed fields.
+Later codec and remote-apply owner steps optimize their own execution over this
+one already-selected shape; they do not preserve or reinterpret the old one.
+
+Local observers receive the rich local canonical artifact; Collaboration
+receives only the transport wire artifact. Transport framing never splits local
+projection into one observer change per element. Consumers do not call
 `.save()` to reconstruct evidence, rebuild snapshots from live owners, rescan
 the immutable tree, or clone each observed delivery independently. An observer
 mutation attempt cannot pollute another consumer.
@@ -1148,6 +1256,15 @@ The write timeline is fixed:
 No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
 
+### System Property and Workspace Query Boundary
+
+- Only a render-affecting system property may schedule Canvas invalidation.
+  Nonvisual App state, including AI progress and the document interaction lock,
+  updates its own DOM/UI consumers and causes no Canvas invalidation.
+- The Core workspace ID query is a constant-time identity read. It never calls
+  Scene Tree `save`, serializes the complete Scene Tree, builds a document
+  snapshot, or reconstructs canonical data to return one ID.
+
 ### Projection and Contents Contract
 
 - Preset consumes the batch observer directly. Each canonical publication batch
@@ -1160,8 +1277,9 @@ intended transaction or history boundary.
   cannot bypass the Render dirty gate. A scheduled frame performs at most one
   explicit engine flush; after the App settles with no pending invalidation,
   zero elements produce no frame and no engine flush.
-- Pan, zoom, canonical changes, local computed changes, and system property
-  changes schedule the same ordinary frame path. A future local animation
+- Pan, zoom, canonical changes, local computed changes, and render-affecting
+  system property changes schedule the same ordinary frame path. Nonvisual
+  system property changes schedule no Canvas frame. A future local animation
   publishes its computed updates, which request subsequent frames; Render does
   not run a permanent idle loop in anticipation of animation.
 - When detached performance evidence is explicitly collected, it stores bounded
@@ -1402,6 +1520,13 @@ Undo/Redo execution, media, trace, CPU profile, or full-state polling.
 WebSocket-server CPU is reported as a separate role rather than attributed to
 the browser product owner.
 
+Before Playwright starts, the guard requires two independent attestations:
+one for the canonical production build and one for the generated response
+overlay manifest and hashes. The preview server may serve the ignored overlay
+copy of the production build, but canonical production `dist` must contain no
+prepared response fixture and the overlay must never be deployable as
+production output.
+
 The report must name:
 
 - accepted request to connected exact-bounds DOM loading state;
@@ -1590,11 +1715,13 @@ Every optimized route preserves:
 
 ### One Interactive Composition Action
 
-The App creates one Group, then submits deterministic ordered plural Core
-batches between browser paint boundaries. The complete composition remains one
-App action, one outer transaction, one Factory artifact, and one intended Undo.
-A later fatal child failure rolls back the complete action; single-item calls
-retain the same batch-of-one canonical implementation.
+The App creates one Group through
+`Core.createElementsInParentFromCanonicalData(...)`, crosses a browser paint
+opportunity after the Group, then submits deterministic ordered flat child-batch
+ranges through the same canonical route. The complete composition remains one
+App action, one outer transaction, one rich local Factory artifact, and one
+intended Undo. A later fatal child failure rolls back the complete action;
+single-item calls retain the same batch-of-one canonical implementation.
 
 ### Local Drawing Progress
 
@@ -1603,11 +1730,13 @@ before the first canonical mutation. Real ordinary Vector batches replace that
 placeholder progressively, and actual accepted element counts drive the visible
 progress until terminal cleanup.
 
-### One Immutable Transaction Artifact
+### Separate Local History and Wire Artifacts
 
-One `FactoryMutationBatchArtifact` serves History, Render/UI, and Collaboration.
-It retains ordered inverses and slice boundaries, creates one intended Undo
-action, and supplies precise compensation after rollback.
+One rich `FactoryMutationBatchArtifact` serves local History and Render/UI. It
+retains ordered inverses and slice boundaries, creates one intended Undo action,
+and supplies precise compensation after rollback. One separate minimal
+`SharedPublication` serves Collaboration with only one remote-apply payload,
+ordered IDs, and publication metadata.
 
 ### Scrollable Contents Window
 
@@ -1688,33 +1817,36 @@ internal owner:
    `PreparedDrawingArtifact` by required `fileId`, then keep Runtime limited to
    its small action-batch control envelope and bounded preview.
 5. Complete the local source endpoint in this fixed owner order:
-   - `stage-local-interactive-composition`: submit already-prepared canonical
-     descriptor slices with a fixed 2,048-point and 64-element boundary and a
-     browser paint opportunity after every successful slice.
+   - `stage-local-interactive-composition`: create the Group, cross one browser
+     paint opportunity, then submit already-prepared flat child-batch ranges
+     through `Core.createElementsInParentFromCanonicalData(...)` with a fixed
+     2,048-point and 64-element boundary.
    - `apply-canonical-property-scene-batch`: add Core owner indexes, Props fixed
      batch materialization and manager-owned relation propagation, and Scene
      local Computed projection from the same owner artifact.
-   - `record-and-deliver-transaction-batch`: retain one immutable artifact and
-     inverse, one local canonical batch, and transport-only record ranges.
+   - `record-and-deliver-transaction-batch`: retain one rich local history
+     artifact and inverse, then derive one separate minimal transport wire
+     artifact.
    - `project-visible-canonical-slices`: consume the local batch directly and
      keep at most one ordinary Vector projection/flush per slice.
    Each owner gets focused tests and bounded review. Then
-   `evaluate-endpoint-performance` runs one guarded 7,076-element proof for the
-   complete local source endpoint, not one proof per internal owner.
-6. `admit-receiver-publication-frames`: retain valid committed ingress work,
+   `evaluate-endpoint-performance` runs one guarded 16-item proof. Only after it
+   passes may one guarded 7,076-element proof run for the complete local source
+   endpoint, not one proof per internal owner.
+6. `encode-publication-frames`: consume only the minimal transport wire
+   artifact, remove redundant main-thread payload ownership, and retain one
+   worker binary encode/decode boundary. Its guarded 16-item proof must pass
+   before any later receiver, remote, relay, or high-detail proof.
+7. `admit-receiver-publication-frames`: retain valid committed ingress work,
    move the browser WebSocket data plane and wire credit into the Dedicated
    Worker, remove main-thread clone/freeze and duplicate header ownership, add
-   receiver timing, then run the guarded 7,076 endpoint proof. If ineffective,
-   replan only this owner before a second attempt.
-7. `apply-remote-publication-batches`: consume worker-valid evidence once and
-   apply one linear Core request in one remote transaction, then run the guarded
-   endpoint proof.
-8. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
+   receiver timing, then pass its guarded 16-item proof.
+8. `apply-remote-publication-batches`: consume worker-valid evidence once and
+   apply one linear Core request in one remote transaction, then pass its
+   guarded 16-item proof.
+9. `relay-frames-with-backpressure`: prove or correct receiver-driven relay
    admission, peer byte capacity, and independent receipts, then run the guarded
-   endpoint proof.
-9. `encode-publication-frames`: remove redundant main-thread payload ownership
-    and retain one worker binary encode/decode boundary, then run the guarded
-    endpoint proof.
+   16-item proof followed by the single guarded 7,076-element endpoint proof.
 10. `evaluate-performance-and-equivalence`: after every endpoint is effective
     or formally non-material, run the final formal correctness, performance,
     and synchronized visual closure.
@@ -1840,9 +1972,14 @@ never committed.
   request-time fixture I/O or materialization; response inbox reads remain
   separately reported harness overhead and the deterministic harness code is
   absent from the production bundle.
+- The production build and ignored response overlay pass independent
+  pre-Playwright attestations; no prepared response object crosses the
+  Playwright process boundary, and canonical production `dist` remains free of
+  response fixtures.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
-- One immutable Factory artifact is shared across History, projection, and
-  Collaboration without downstream semantic reconstruction.
+- One rich immutable Factory artifact serves local History and projection; one
+  separate minimal transport wire artifact serves Collaboration without
+  `inverseEvents`, History evidence, rollback evidence, or payload aliases.
 - Peer queues remain byte-bounded and exact publication order converges.
 - Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
   client persistence side effects.

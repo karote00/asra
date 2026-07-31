@@ -6,6 +6,7 @@ Feature: Conversational AI drawing performance
   Background:
     Given the committed 1672 by 941 tabby reference image
     And every production App session has one required fileId and starts one formal server-backed Agent runtime and provider
+    And production identifiers name the action batch, drawing artifact, canonical batch, and wire artifact, not plan, Mock, fake, or simulated data
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And the final high-detail reference gate reuses one guarded creation-only endpoint run without warm-up or repeat
 
@@ -24,7 +25,8 @@ Feature: Conversational AI drawing performance
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
     And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
-    And the server-prepared action should contain one PreparedDrawingArtifact and one bounded redaction-ready summary rather than a parallel point-object graph
+    And the server-prepared action should contain one PreparedDrawingArtifact with one flat canonical element batch, one flat canonical property batch, ordered ids, and slice boundaries
+    And it should contain one bounded redaction-ready summary rather than a parallel point-object graph
     And permission resolution should return one "PermissionReadyAiActionBatch"
     And permission and execution should receive the same action arguments identity from the resolved batch
     And confirmation and terminal presentation should consume one "AiActionBatchPreview" containing bounded summaries without items, paths, points, or complete geometry
@@ -32,14 +34,22 @@ Feature: Conversational AI drawing performance
     And production should expose only the AiActionBatch API without a compatibility conversion, Mock, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or drawing-artifact encoding
-    And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive slice after the server-prepared loading bounds are visible
-    And the shipped create-app template should consume the same PreparedDrawingArtifact and submit each mixed oval/vector slice through one createElementsInParent call without full-item compatibility input
+    And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive slice through "Core.createElementsInParentFromCanonicalData(...)" after the server-prepared loading bounds are visible
+    And the shipped create-app template should consume the same PreparedDrawingArtifact and submit each mixed oval/vector slice through one "Core.createElementsInParentFromCanonicalData(...)" call without full-item compatibility input
     But the ordinary App common API and plural Core route should remain the only canonical commit owners
     And the resolved batch should remain local, noncanonical, and nonshared
 
+  Scenario: Guarded flat-batch source proof precedes high-detail execution
+    Given the exact 16-item response contains 12919 points in eight prepared slices
+    And Runtime pre-execute remains less than 1 millisecond
+    When the App consumes the flat canonical element and property batches
+    Then it should create the Group through "Core.createElementsInParentFromCanonicalData(...)"
+    And it should cross one browser paint opportunity after the Group before submitting children
+    And the guarded 16-item proof should pass below the fixed host limit before the guarded 7076-element proof may start
+
   Scenario: Local source pipeline preserves shared records without per-record runtime work
     Given the server-prepared drawing artifact contains stable property records and IDs for every point, segment, network, root Vector, and fill
-    When Actor A submits each prepared canonical descriptor slice through the plural Core route
+    When Actor A submits each prepared flat batch range through "Core.createElementsInParentFromCanonicalData(...)"
     Then Core should build one owner-to-relationship index before element creation
     And Props should materialize the complete slice without a per-record structured clone, save, or equality boundary
     And relationship propagation should use one manager-owned affected-owner batch with no per-edge subscription
@@ -50,6 +60,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: Each endpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
+    And its guarded 16-item safety proof completed below the fixed host limit
     And the shared benchmark contains one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
     And production build commands completed as separate setup outside the runtime guard and product timing
     And artifact attestation succeeded before Playwright started
@@ -141,6 +152,7 @@ Feature: Conversational AI drawing performance
     And the overlay should be pointer-events none and never become canonical, persistent, shared, Render-owned, or an AI-only renderer
     And its CSS activity should animate only transform and opacity through the compositor
     And the App should cross a browser paint opportunity after DOM commit and before canonical mutation
+    And the App should create the Group through "Core.createElementsInParentFromCanonicalData(...)" and cross another browser paint opportunity before the first child batch
     And the first completed drawing batch should use the ordinary Vector route
     And success, failure, cancellation, and teardown should clear the drawing progress
 
@@ -320,13 +332,21 @@ Feature: Conversational AI drawing performance
     Given the production App has settled with zero elements and no pending invalidation
     Then the Pixi Application ticker should not bypass the Render dirty gate
     And no frame, engine flush, or unbounded performance evidence should continue while idle
-    When pan, zoom, canonical, computed, or system property data changes
+    When pan, zoom, canonical, computed, or render-affecting system property data changes
     Then the ordinary Render path should schedule at most one frame and perform at most one explicit engine flush
     And a future local animation should request later frames through its computed updates instead of a permanent idle loop
 
+  Scenario: Nonvisual system state and workspace identity queries stay bounded
+    Given AI progress and the document interaction lock are nonvisual system property values
+    When either nonvisual system property changes
+    Then it should cause no Canvas invalidation
+    When Core reads the workspace id
+    Then the query should remain constant-time
+    And it should never call Scene Tree save or serialize the complete hierarchy
+
   Scenario: Raw element data and computed projection use distinct evidence
     Given one action changes a canonical raw element field and another changes local computed projection
-    When Scene Tree prepares the raw mutation plan and separately projects computed state
+    When Scene Tree prepares the raw mutation and separately projects computed state
     Then raw name, visibility, and lock should use canonical "UPDATE_ELEMENT_DATA" evidence
     And local computed values should use ordinary "UPDATE_COMPUTED_DATA" projection events
     And Factory should record the raw evidence
@@ -371,6 +391,16 @@ Feature: Conversational AI drawing performance
     And commit should not republish an acknowledged staged canonical record
     And Undo and Redo should each restore the complete intended action
 
+  Scenario: Factory local history and transport wire artifacts stay separate
+    Given Factory recorded one rich local mutation artifact with canonical evidence, inverseEvents, History intent, and rollback compensation
+    When the shared-data boundary prepares Collaboration output
+    Then History and local projection should retain the rich local artifact
+    And Collaboration should receive one separate transport wire artifact
+    And that "SharedPublication" should contain publication identity, origin, mode, ordered slices, channel batches, and one remote-apply payload per delivery
+    And each slice, batch, and delivery should expose only its required ids, order, channel, event name, payload, and actual compensation reference
+    But it should contain no inverseEvents, History evidence, rollback evidence, reserved compensation ids, top-level delivery alias, batch records or changes alias, or nested record wrapper
+    And Factory and every direct consumer should switch to that one shape atomically without an old-shape compatibility conversion
+
   Scenario: Collaboration Provider has one publication path
     Given Factory emits one ordered "SharedPublication" transaction batch
     When Collaboration sends or receives that publication
@@ -401,6 +431,14 @@ Feature: Conversational AI drawing performance
     And "server-accepted", "frame-consumed", and "peer-applied" should remain distinct receipts
     And those receipts should remain diagnostic status rather than alternate "sendPublication" completion modes
     And client and server WebSockets should use "perMessageDeflate: false"
+
+  Scenario: Wire owners advance from codec through guarded small proof
+    Given the transport wire artifact contains only the remote-apply payload, ordered ids, and publication metadata
+    When codec encode completes its focused gates
+    Then one guarded 16-item proof should pass before receiver admission changes
+    And receiver admission should complete before remote apply
+    And remote apply should complete before relay backpressure
+    And relay should pass the guarded 7076-element endpoint proof only after those owners
 
   Scenario: Remote property follow-ups derive computed state locally
     Given Actor B receives one valid property-only source publication
@@ -456,8 +494,15 @@ Feature: Conversational AI drawing performance
 
   Scenario: Required fileId preloads one server response inbox record before App readiness
     Given the test or manual harness validates, normalizes, summarizes, and builds one PreparedDrawingArtifact from one exact model response outside the production bundle
-    And it wrote that versioned server-prepared "AiActionBatch" to the IndexedDB response inbox adapter before App navigation
+    And the production build passed its own artifact attestation
+    And the harness generated the exact compressed response and hash manifest into an ignored preview overlay before the runtime guard
+    And the response overlay passed a separate attestation before Playwright started
+    And canonical production dist contains no prepared response fixture and the overlay is never a production deployment artifact
     And the required fileId selects that response independently from the empty canonical document
+    When a same-origin blank seed page fetches and decompresses the selected response before App navigation
+    Then it should write that versioned server-prepared "AiActionBatch" directly to the IndexedDB response inbox adapter
+    And Playwright should receive only bounded file identity and URL strings, never the prepared response object
+    And fetch, decompress, parse, and IndexedDB write timing should be reported separately from frontend product execution
     When App bootstrap begins
     Then it should read only the exact 16, 320, 1280, or 7075-child response selected by fileId
     And the selected response should be resident before App readiness, Agent readiness, and the stable performance baseline
@@ -485,6 +530,7 @@ Feature: Conversational AI drawing performance
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
     And the 200-percent resource guard owns the production App, browser, harness, and WebSocket server processes
+    And the independently attested response preview overlay is served instead of modifying canonical production dist
     And Contents, request-time response inbox access, document IndexedDB, HMR, media, warm-up, and repeat are absent
     When Actor A creates the server-prepared 7076-element high-detail composition once
     Then Actor A should show connected exact-bounds loading and ordinary Vector milestones while pan and zoom remain responsive

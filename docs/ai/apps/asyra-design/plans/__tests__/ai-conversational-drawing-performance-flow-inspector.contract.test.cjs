@@ -181,7 +181,10 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/app/ai-conversation-panel.tsx',
     'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
     'apps/asyra-design/test-data/ai-drawing',
+    'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
+    'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
     'apps/asyra-design/e2e/server-response-inbox.ts',
+    'apps/asyra-design/__tests__/prepared-server-response-artifacts.test.mjs',
     'apps/asyra-design/e2e/test-utils.ts',
     'apps/asyra-design/e2e/conversational-ai.spec.ts'
   ].forEach((boundary) =>
@@ -234,6 +237,14 @@ test('file-scoped server response is prepared before request timing', () => {
   assert.match(
     text,
     /test or manual harness.*prepares.*versioned server response.*before.*App navigation/i
+  )
+  assert.match(
+    text,
+    /compressed.*server response.*preview overlay.*before.*runtime guard.*Playwright.*payload/i
+  )
+  assert.match(
+    text,
+    /seed page.*fetch.*decompress.*IndexedDB.*bounded.*timing/i
   )
   assert.match(
     text,
@@ -367,7 +378,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*before App readiness.*front.?end.*submits.*prepared canonical descriptor slice/i
+    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*flat canonical element batch.*flat canonical property batch.*before App readiness.*front.?end.*submits.*createElementsInParentFromCanonicalData/i
   )
   assert.match(
     text,
@@ -484,6 +495,219 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
 })
 
+test('latest guarded source evidence requires flat canonical batches before high detail', () => {
+  const runtimeOwner = step('resolve-server-prepared-action-batch')
+  const stageOwner = step('stage-local-interactive-composition')
+  const proofOwner = step('evaluate-endpoint-performance')
+  const runtimeText = contractText(runtimeOwner)
+  const stageText = contractText(stageOwner)
+  const proofText = contractText(proofOwner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    plan,
+    /16-item[\s\S]*12,919 points[\s\S]*eight prepared slices[\s\S]*Runtime pre-execute[\s\S]*less\s+than\s+1 millisecond/i
+  )
+  assert.match(
+    runtimeText,
+    /flat canonical element batch.*flat canonical property batch.*ordered ids.*slice boundaries/i
+  )
+  assert.match(
+    stageText,
+    /existing.*Core\.createElementsInParentFromCanonicalData.*Group.*paint opportunity.*before.*child batch/i
+  )
+  assert.match(
+    proofText,
+    /guarded 16-item.*must pass.*before.*7,076-element/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Guarded flat-batch source proof precedes high-detail execution[\s\S]*12919 points[\s\S]*eight prepared slices[\s\S]*Runtime pre-execute[\s\S]*less than 1 millisecond[\s\S]*Group[\s\S]*paint opportunity[\s\S]*children[\s\S]*guarded 7076/i
+  )
+})
+
+test('nonvisual system state and workspace identity queries avoid full Canvas work', () => {
+  const canonicalOwner = step('apply-canonical-property-scene-batch')
+  const projectionOwner = step('project-visible-canonical-slices')
+  const canonicalText = contractText(canonicalOwner)
+  const projectionText = contractText(projectionOwner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.match(
+    projectionText,
+    /render-affecting system property.*schedule.*Canvas.*nonvisual system property.*no Canvas invalidation/i
+  )
+  assert.match(
+    canonicalText,
+    /workspace id query.*constant-time.*never.*save.*serialize.*Scene Tree/i
+  )
+  assert.match(
+    plan,
+    /System Property and Workspace Query Boundary[\s\S]*render-affecting[\s\S]*nonvisual[\s\S]*Canvas invalidation[\s\S]*workspace id[\s\S]*constant-time[\s\S]*Scene Tree.*save/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Nonvisual system state and workspace identity queries stay bounded[\s\S]*nonvisual system property[\s\S]*no Canvas invalidation[\s\S]*workspace id[\s\S]*Scene Tree.*save/i
+  )
+})
+
+test('Factory separates rich local history evidence from the transport wire artifact', () => {
+  const factoryOwner = step('record-and-deliver-transaction-batch')
+  const codecOwner = step('encode-publication-frames')
+  const receiverOwner = step('admit-receiver-publication-frames')
+  const remoteOwner = step('apply-remote-publication-batches')
+  const factoryText = contractText(factoryOwner)
+  const codecText = contractText(codecOwner)
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+  const localArtifact = data.artifacts.find(
+    ({ id }) => id === 'artifact:factory-mutation-batch-artifact'
+  )
+  const wireArtifact = data.artifacts.find(
+    ({ id }) => id === 'artifact:transport-publication-batch'
+  )
+
+  assert.deepEqual(localArtifact?.consumerStepIds, [
+    'apply-canonical-property-scene-batch',
+    'project-visible-canonical-slices',
+    'evaluate-performance-and-equivalence'
+  ])
+  assert.equal(wireArtifact?.ownerStepId, 'record-and-deliver-transaction-batch')
+  assert.deepEqual(wireArtifact?.consumerStepIds, [
+    'encode-publication-frames'
+  ])
+  assert.equal(
+    data.artifacts.some(
+      ({ id }) => id === 'artifact:shared-publication-batches'
+    ),
+    false
+  )
+  assert.match(
+    factoryText,
+    /rich local history artifact.*separate transport wire artifact/i
+  )
+  assert.match(
+    `${factoryText} ${codecText}`,
+    /one remote-apply payload.*ordered ids.*publication metadata.*no inverseEvents.*history.*alias/i
+  )
+  assert.match(
+    factoryText,
+    /SharedPublication.*publicationId.*artifactId.*transactionId.*origin.*mode.*ordered slices.*channel batches.*remote-apply deliveries/i
+  )
+  assert.match(
+    factoryText,
+    /sliceId.*orderedIds.*batchId.*channel.*deliveryId.*eventName.*payload.*compensatesDeliveryId/i
+  )
+  assert.match(
+    factoryText,
+    /changes atomically.*never contains parallel old and new publication shapes.*compatibility conversion.*optional legacy aliases/i
+  )
+  assert.match(
+    plan,
+    /Factory Local History and Transport Wire Artifacts[\s\S]*one remote-apply payload[\s\S]*ordered IDs[\s\S]*metadata[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Factory local history and transport wire artifacts stay separate[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias[\s\S]*atomically[\s\S]*compatibility conversion/i
+  )
+  ;[
+    'packages/factory/src/mutation-batch.ts',
+    'packages/factory/src/shared-delivery.ts',
+    'packages/factory/src/shared-data-channel.ts',
+    'packages/collaboration/src/cloning.ts',
+    'packages/collaboration/src/providers/memory/hub.ts',
+    'packages/collaboration/src/providers/memory/provider.ts',
+    'apps/asyra-design/src/collaboration/factory-adapter.ts',
+    'apps/asyra-design/src/collaboration/protocol.ts',
+    'apps/asyra-design/src/collaboration/operations.ts',
+    'create-app/asyra-design/template/src/collaboration'
+  ].forEach((boundary) =>
+    assert.ok(factoryOwner.implementationBoundary.includes(boundary), boundary)
+  )
+  ;[
+    'apps/asyra-design/src/collaboration/protocol.ts',
+    'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
+    'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts'
+  ].forEach((boundary) =>
+    assert.ok(codecOwner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.ok(
+    receiverOwner.implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration/websocket-provider.ts'
+    )
+  )
+  ;[
+    'apps/asyra-design/src/collaboration/factory-adapter.ts',
+    'apps/asyra-design/src/collaboration/operations.ts'
+  ].forEach((boundary) =>
+    assert.ok(remoteOwner.implementationBoundary.includes(boundary), boundary)
+  )
+})
+
+test('codec refactor and guarded 16-item proof precede receiver, remote, relay, and 7076', () => {
+  const wireOrder = new Map(
+    data.steps
+      .filter(({ laneId }) => laneId === 'wire-transport')
+      .map(({ id, order }) => [id, order])
+  )
+  const proofText = contractText(step('evaluate-endpoint-performance'))
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.equal(wireOrder.get('encode-publication-frames'), 1)
+  assert.equal(wireOrder.get('admit-receiver-publication-frames'), 2)
+  assert.equal(wireOrder.get('apply-remote-publication-batches'), 3)
+  assert.equal(wireOrder.get('relay-frames-with-backpressure'), 4)
+  assert.match(
+    proofText,
+    /guarded 16-item.*before.*guarded 7,076-element/i
+  )
+  assert.match(
+    plan,
+    /encode-publication-frames[\s\S]*guarded 16-item[\s\S]*admit-receiver-publication-frames[\s\S]*apply-remote-publication-batches[\s\S]*relay-frames-with-backpressure[\s\S]*guarded 7,076/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Wire owners advance from codec through guarded small proof[\s\S]*encode[\s\S]*guarded 16-item[\s\S]*receiver[\s\S]*remote apply[\s\S]*relay[\s\S]*guarded 7076/i
+  )
+})
+
+test('production contract identifiers avoid governance and test-source vocabulary', () => {
+  const productionIdentifiers = [
+    data.target.id,
+    ...data.steps.flatMap(({ id, title, outputs }) => [id, title, ...outputs]),
+    ...data.routes.map(({ id }) => id),
+    ...data.artifacts.flatMap(({ id, channel }) => [id, channel])
+  ].join(' ')
+  const plan = read(data.authority.specPath)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
+  )
+
+  assert.doesNotMatch(
+    productionIdentifiers,
+    /\bplan(?:s|ned|ning)?\b|\bmock\b|\bfake\b|\bsimulat(?:e|ed|ion|or)\b/i
+  )
+  assert.match(
+    plan,
+    /production identifiers[\s\S]*action batch[\s\S]*drawing artifact[\s\S]*canonical batch[\s\S]*wire artifact[\s\S]*never[\s\S]*plan[\s\S]*Mock[\s\S]*fake[\s\S]*simulated/i
+  )
+  assert.match(
+    feature,
+    /production identifiers.*action batch.*drawing artifact.*canonical batch.*wire artifact.*not.*plan.*Mock.*fake.*simulated/i
+  )
+})
+
 test('render projection owns demand-driven frames without an idle Pixi bypass', () => {
   const owner = step('project-visible-canonical-slices')
   const text = contractText(owner)
@@ -499,7 +723,7 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
   )
   assert.match(
     text,
-    /pan.*zoom.*canonical.*computed.*system property.*schedule.*one frame.*animation/i
+    /pan.*zoom.*canonical.*computed.*render-affecting system property.*schedule.*Canvas.*nonvisual system property.*no Canvas invalidation/i
   )
   ;[
     'packages/core/src/core.ts',
@@ -517,7 +741,7 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
   )
   assert.match(
     feature,
-    /Scenario: Settled canvas schedules only demanded frames[\s\S]*zero elements[\s\S]*Pixi Application ticker[\s\S]*pan, zoom, canonical, computed, or system property[\s\S]*animation/i
+    /Scenario: Settled canvas schedules only demanded frames[\s\S]*zero elements[\s\S]*Pixi Application ticker[\s\S]*pan, zoom, canonical, computed, or render-affecting system property[\s\S]*animation/i
   )
 })
 
@@ -531,7 +755,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
 
   assert.match(
     plan,
-    /Demand-driven render frame ownership[\s\S]*receiver provider and worker handoff[\s\S]*canonical Props, Scene Tree, and Core[\s\S]*Factory transaction and pub\/sub[\s\S]*remote apply[\s\S]*relay[\s\S]*codec[\s\S]*Visible canonical and UI projection/i
+    /Demand-driven render frame ownership[\s\S]*Canonical Props, Scene Tree, and Core source mutation[\s\S]*Factory local history and transport wire artifacts[\s\S]*Codec encode and decode ownership[\s\S]*Receiver provider and worker handoff[\s\S]*Remote apply and main-thread organization[\s\S]*Relay and byte backpressure[\s\S]*Visible canonical and UI projection/i
   )
   assert.match(
     plan,
@@ -539,7 +763,7 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   )
   assert.match(
     text,
-    /exactly one production two-Actor 7,076-element.*immediately after.*endpoint/i
+    /guarded 16-item.*before exactly one production two-Actor 7,076-element.*after each completed endpoint/i
   )
   assert.match(
     text,
@@ -552,6 +776,14 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
   assert.match(
     text,
     /production build commands.*separate setup.*outside.*runtime guard.*product timing.*artifact attestation.*before.*Playwright/i
+  )
+  assert.match(
+    text,
+    /production artifact attestation.*separate.*response overlay attestation.*before.*Playwright/i
+  )
+  assert.match(
+    text,
+    /preview overlay.*production dist.*server response.*production deployment/i
   )
   assert.match(
     text,
@@ -838,6 +1070,8 @@ test('each ranked endpoint closes through one guarded high-detail proof', () => 
     )
   )
   ;[
+    'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
+    'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
     'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
     'apps/asyra-design/src/init/__tests__/ai-drawing-performance-profile.test.ts',
     'apps/asyra-design/src/init/init-app.ts',
@@ -924,13 +1158,13 @@ test('local progressive drawing paints exact bounds before cooperative canonical
 
   assert.match(
     text,
-    /server-prepared canonical descriptors.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
+    /server-prepared flat canonical element and property batches.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
   )
   assert.match(text, /point.*element-count.*budget/i)
   assert.match(text, /element-count budget capped at 64 elements per work unit/i)
   assert.match(
     text,
-    /multiple deterministic progressive plural Core batches.*one outer App transaction.*one intended history action/i
+    /multiple deterministic progressive plural Core child batches.*one outer App transaction.*one intended history action/i
   )
   assert.match(
     text,
@@ -939,7 +1173,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(text, /CSS.*transform.*opacity.*compositor/i)
   assert.match(
     text,
-    /single.*progressive.*multiple deterministic progressive plural Core batches/i
+    /single.*progressive.*multiple deterministic progressive plural Core child batches/i
   )
   assert.match(
     text,
@@ -1171,7 +1405,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     stageText,
-    /server-prepared canonical descriptors.*no intermediate point-object graph.*no repeated vector validation, bounds, or normalization/i
+    /server-prepared flat canonical element and property batches.*no intermediate point-object graph.*no repeated vector validation, bounds, or normalization/i
   )
   assert.match(
     stageText,
@@ -1203,7 +1437,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     `${factoryText} ${projectionText}`,
-    /local canonical batch.*transport record ranges.*does not split local projection into single-entry changes/i
+    /local canonical artifact.*transport wire artifact.*does not split local projection into single-entry changes/i
   )
   assert.match(
     proofText,
@@ -1244,7 +1478,7 @@ test('canonical lifecycle uses one origin-neutral prepared mutation route', () =
   )
   assert.doesNotMatch(
     plan.match(
-      /### Bulk Mutation Contract\n([\s\S]*?)\n### Factory Mutation Batch Artifact/
+      /### Bulk Mutation Contract\n([\s\S]*?)\n### Factory Local History and Transport Wire Artifacts/
     )?.[1] ?? '',
     /UsingActiveProperties|\bplan(?:s|ned|ning)?\b|Plan\b/
   )
