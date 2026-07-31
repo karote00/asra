@@ -3,6 +3,7 @@
 import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PreparedDrawingArtifact } from '../prepared-drawing-artifact'
 import {
   ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
   ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
@@ -12,38 +13,84 @@ import {
   type AsyraDesignServerResponseRecord
 } from '../server-response-inbox'
 
-const createInline16ItemBatch = (): AiActionBatch => ({
-  actions: [
-    {
-      arguments: {
-        artifactVersion: 1,
-        compositionRole: 'cat-face',
-        coordinates: new ArrayBuffer(0),
-        groupBounds: { height: 40, width: 160, x: 0, y: 0 },
-        items: Array.from({ length: 16 }, (_, index) => ({
-          bounds: { height: 10, width: 10, x: index * 10, y: 0 },
-          pathCount: 0,
-          pathStart: 0,
-          pointCount: 0,
-          primitive: 'oval',
-          role: `item-${index}`,
-          style: {}
-        })),
-        parent: 'workspace',
-        paths: [],
-        pointCount: 0,
-        skipped: []
+const createInline16ItemBatch = (): AiActionBatch => {
+  const descriptors = Array.from({ length: 16 }, (_, index) => {
+    const elementId = `oval-inline-${index}`
+    return {
+      fills: [],
+      height: 10,
+      id: elementId,
+      lock: false,
+      name: `Item ${index}`,
+      props: {
+        dimension: `${elementId}-dimension`,
+        fills: `${elementId}-fills`,
+        position: `${elementId}-position`,
+        strokes: `${elementId}-strokes`
       },
-      id: 'insert-16',
-      name: 'insert_vector_composition',
-      summary: {
-        affectedCount: 16,
-        skippedCount: 0
-      }
+      strokes: [],
+      type: 'oval' as const,
+      visible: true,
+      width: 10,
+      x: index * 10,
+      y: 0
     }
-  ],
-  batchId: 'batch-16'
-})
+  })
+  const artifact: PreparedDrawingArtifact = {
+    artifactVersion: 1,
+    compositionRole: 'cat-face',
+    elementCount: descriptors.length,
+    groupBounds: { height: 40, width: 160, x: 0, y: 0 },
+    groupDescriptor: {
+      children: [],
+      fills: [],
+      height: 40,
+      id: 'group-inline',
+      lock: false,
+      name: 'Cat face',
+      props: {
+        dimension: 'group-inline-dimension',
+        fills: 'group-inline-fills',
+        position: 'group-inline-position',
+        strokes: 'group-inline-strokes'
+      },
+      strokes: [],
+      type: 'group',
+      visible: true,
+      width: 160,
+      x: 0,
+      y: 0
+    },
+    parent: 'workspace',
+    pointCount: 0,
+    roleToElementIds: Object.fromEntries(
+      descriptors.map(({ id }, index) => [`item-${index}`, [id]])
+    ),
+    skipped: [],
+    slices: [
+      {
+        descriptors,
+        pointCount: 0,
+        roles: descriptors.map((_, index) => `item-${index}`)
+      }
+    ]
+  }
+
+  return {
+    actions: [
+      {
+        arguments: artifact,
+        id: 'insert-16',
+        name: 'insert_vector_composition',
+        summary: {
+          affectedCount: 16,
+          skippedCount: 0
+        }
+      }
+    ],
+    batchId: 'batch-16'
+  }
+}
 
 const seedResponse = (
   factory: IDBFactory,

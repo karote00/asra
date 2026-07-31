@@ -1,7 +1,19 @@
+import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
+import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import type { BrowserContext, Route } from '@playwright/test'
+import { createDefaultFill, createDefaultStroke } from '@asyra/utils'
 import { AsyraDesignAiActionNames } from '../src/constants/ai-actions'
+import type { PreparedElementDescriptor } from '../src/common-apis'
+import {
+  PREPARED_DRAWING_ARTIFACT_VERSION,
+  PREPARED_DRAWING_SLICE_ELEMENT_BUDGET,
+  PREPARED_DRAWING_SLICE_POINT_BUDGET,
+  type PreparedDrawingArtifact,
+  type PreparedDrawingBounds,
+  type PreparedDrawingSlice
+} from '../src/ai/prepared-drawing-artifact'
 import {
   createCatOnlyWhiteBackgroundItemsAtSource,
   type DetailedTabbyCompositionItem,
@@ -30,13 +42,7 @@ interface ServerResponseMetadata {
   readonly explanation: string
 }
 
-interface ServerCompositionBounds {
-  readonly [key: string]: number
-  readonly height: number
-  readonly width: number
-  readonly x: number
-  readonly y: number
-}
+type ServerCompositionBounds = PreparedDrawingBounds
 
 interface ServerCompositionStyle {
   readonly fillColor?: string
@@ -44,36 +50,19 @@ interface ServerCompositionStyle {
   readonly strokeWidth?: number
 }
 
-interface ServerCompositionItem {
+interface PreparedSourceItem {
   readonly bounds: ServerCompositionBounds
-  readonly pathCount: number
-  readonly pathStart: number
+  readonly paths: readonly DetailedTabbyPath[]
   readonly pointCount: number
   readonly primitive: 'oval' | 'vector'
   readonly role: string
   readonly style: ServerCompositionStyle
-  readonly vectorEncoding?: 'paths' | 'points'
 }
 
-interface ServerCompositionPath {
-  readonly closed: boolean
-  readonly coordinateOffset: number
-  readonly pointCount: number
-}
-
-interface ServerCompositionArtifact {
-  readonly artifactVersion: 1
+interface CreatePreparedDrawingArtifactOptions {
+  readonly batchId: string
   readonly compositionRole: string
-  readonly coordinates: ArrayBuffer
-  readonly groupBounds: ServerCompositionBounds
-  readonly items: readonly ServerCompositionItem[]
-  readonly parent: 'workspace'
-  readonly paths: readonly ServerCompositionPath[]
-  readonly pointCount: number
-  readonly skipped: readonly {
-    readonly reason: 'duplicate-role'
-    readonly role: string
-  }[]
+  readonly fileId: string
 }
 
 interface ServerResponseSeedPayload {
@@ -86,36 +75,15 @@ interface ServerResponseSeedPayload {
 
 const WORKSPACE_LIMIT = 2048
 
-class CoordinateWriter {
-  private coordinates = new Float64Array(4096)
-  private coordinateLength = 0
+class StableCanonicalIdWriter {
+  private readonly counters = new Map<string, number>()
 
-  get length(): number {
-    return this.coordinateLength
-  }
+  constructor(private readonly namespace: string) {}
 
-  append(x: number, y: number): void {
-    this.ensureCapacity(this.coordinateLength + 2)
-    this.coordinates[this.coordinateLength] = x
-    this.coordinates[this.coordinateLength + 1] = y
-    this.coordinateLength += 2
-  }
-
-  finish(): ArrayBuffer {
-    return this.coordinates.slice(0, this.coordinateLength).buffer
-  }
-
-  truncate(length: number): void {
-    this.coordinateLength = length
-  }
-
-  private ensureCapacity(required: number): void {
-    if (required <= this.coordinates.length) return
-    let capacity = this.coordinates.length
-    while (capacity < required) capacity *= 2
-    const grown = new Float64Array(capacity)
-    grown.set(this.coordinates.subarray(0, this.coordinateLength))
-    this.coordinates = grown
+  next(prefix: string): string {
+    const sequence = (this.counters.get(prefix) ?? 0) + 1
+    this.counters.set(prefix, sequence)
+    return `${prefix}-${this.namespace}-${sequence}`
   }
 }
 
@@ -186,12 +154,10 @@ const prepareStyle = (
   }
 }
 
-const appendPath = (
+const validatePath = (
   path: DetailedTabbyPath,
   bounds: ServerCompositionBounds,
-  itemIndex: number,
-  coordinates: CoordinateWriter,
-  paths: ServerCompositionPath[]
+  itemIndex: number
 ): number => {
   if (
     typeof path.closed !== 'boolean' ||
@@ -201,7 +167,6 @@ const appendPath = (
   ) {
     return invalidResponseComposition(`item ${itemIndex} has an invalid path`)
   }
-  const coordinateOffset = coordinates.length
   for (const point of path.points) {
     if (
       !finiteNumber(point.x) ||
@@ -211,27 +176,18 @@ const appendPath = (
       point.y < bounds.y ||
       point.y > bounds.y + bounds.height
     ) {
-      coordinates.truncate(coordinateOffset)
       return invalidResponseComposition(
         `item ${itemIndex} has an out-of-bounds point`
       )
     }
-    coordinates.append(point.x, point.y)
   }
-  paths.push({
-    closed: path.closed,
-    coordinateOffset,
-    pointCount: path.points.length
-  })
   return path.points.length
 }
 
-const appendItem = (
+const prepareSourceItem = (
   item: DetailedTabbyCompositionItem,
-  itemIndex: number,
-  coordinates: CoordinateWriter,
-  paths: ServerCompositionPath[]
-): ServerCompositionItem => {
+  itemIndex: number
+): PreparedSourceItem => {
   if (
     (item.primitive !== 'oval' && item.primitive !== 'vector') ||
     typeof item.role !== 'string' ||
@@ -253,8 +209,7 @@ const appendItem = (
     }
     return {
       bounds,
-      pathCount: 0,
-      pathStart: paths.length,
+      paths: [],
       pointCount: 0,
       primitive: 'oval',
       role: item.role,
@@ -262,7 +217,7 @@ const appendItem = (
     }
   }
 
-  const pathStart = paths.length
+  let paths: readonly DetailedTabbyPath[]
   let pointCount = 0
   if (item.paths !== undefined) {
     if (
@@ -275,58 +230,248 @@ const appendItem = (
         `vector item ${itemIndex} has ambiguous geometry`
       )
     }
-    for (const path of item.paths) {
-      pointCount += appendPath(path, bounds, itemIndex, coordinates, paths)
+    paths = item.paths
+  } else {
+    if (item.points === undefined || typeof item.closed !== 'boolean') {
+      return invalidResponseComposition(
+        `vector item ${itemIndex} is missing geometry`
+      )
     }
-    return {
-      bounds,
-      pathCount: paths.length - pathStart,
-      pathStart,
-      pointCount,
-      primitive: 'vector',
-      role: item.role,
-      style,
-      vectorEncoding: 'paths'
-    }
+    paths = [{ closed: item.closed, points: item.points }]
   }
-  if (item.points === undefined || typeof item.closed !== 'boolean') {
-    return invalidResponseComposition(
-      `vector item ${itemIndex} is missing geometry`
-    )
+  for (const path of paths) {
+    pointCount += validatePath(path, bounds, itemIndex)
   }
-  pointCount = appendPath(
-    { closed: item.closed, points: item.points },
-    bounds,
-    itemIndex,
-    coordinates,
-    paths
-  )
   return {
     bounds,
-    pathCount: 1,
-    pathStart,
+    paths,
     pointCount,
     primitive: 'vector',
     role: item.role,
-    style,
-    vectorEncoding: 'points'
+    style
   }
 }
 
-export const createAsyraDesignServerCompositionArtifact = (
+const createArtifactNamespace = (fileId: string, batchId: string): string =>
+  createHash('sha256')
+    .update(fileId)
+    .update('\0')
+    .update(batchId)
+    .digest('hex')
+    .slice(0, 16)
+
+const createRootPropertyIds = (
+  idWriter: StableCanonicalIdWriter,
+  names: readonly string[]
+): PreparedElementDescriptor['props'] =>
+  Object.fromEntries(
+    names.map((name) => [name, idWriter.next('pp')])
+  ) as PreparedElementDescriptor['props']
+
+const createStyleDescriptors = (
+  style: ServerCompositionStyle,
+  idWriter: StableCanonicalIdWriter
+) => ({
+  fills:
+    style.fillColor === undefined
+      ? []
+      : [
+          createDefaultFill({
+            color: style.fillColor,
+            id: idWriter.next('fill')
+          })
+        ],
+  strokes:
+    style.strokeColor === undefined
+      ? []
+      : [
+          createDefaultStroke({
+            capType: 'round',
+            color: style.strokeColor,
+            id: idWriter.next('stroke'),
+            joinType: 'round',
+            width: style.strokeWidth ?? 1
+          })
+        ]
+})
+
+const createGroupDescriptor = (
+  compositionRole: string,
+  bounds: ServerCompositionBounds,
+  idWriter: StableCanonicalIdWriter
+): PreparedElementDescriptor => ({
+  children: [],
+  fills: [],
+  height: bounds.height,
+  id: idWriter.next('grp'),
+  lock: false,
+  name: compositionRole,
+  props: createRootPropertyIds(idWriter, [
+    'position',
+    'dimension',
+    'fills',
+    'strokes'
+  ]),
+  strokes: [],
+  type: 'group',
+  visible: true,
+  width: bounds.width,
+  x: bounds.x,
+  y: bounds.y
+})
+
+const createVectorDescriptor = (
+  item: PreparedSourceItem,
+  groupBounds: ServerCompositionBounds,
+  idWriter: StableCanonicalIdWriter
+): PreparedElementDescriptor => {
+  const points: Record<string, VectorPointNode> = {}
+  const segments: Record<string, VectorSegment> = {}
+  const networks: Record<string, VectorNetwork> = {}
+
+  for (const path of item.paths) {
+    const pointIds = path.points.map(({ x, y }) => {
+      const pointId = idWriter.next('tp')
+      points[pointId] = {
+        anchorType: 'sharp',
+        handleMode: 'none',
+        id: pointId,
+        kind: 'anchor',
+        x,
+        y
+      }
+      return pointId
+    })
+    const segmentIds: string[] = []
+    const segmentCount = path.closed ? pointIds.length : pointIds.length - 1
+    for (let index = 0; index < segmentCount; index += 1) {
+      const segmentId = idWriter.next('ts')
+      segments[segmentId] = {
+        endId: pointIds[(index + 1) % pointIds.length],
+        id: segmentId,
+        inControlId: null,
+        outControlId: null,
+        startId: pointIds[index]
+      }
+      segmentIds.push(segmentId)
+    }
+    const networkId = idWriter.next('tn')
+    networks[networkId] = {
+      closed: path.closed,
+      id: networkId,
+      pointIds,
+      segmentIds
+    }
+  }
+
+  const elementId = idWriter.next('vector')
+  return {
+    closed: item.paths.some(({ closed }) => closed),
+    fillRule: 'nonzero',
+    height: item.bounds.height,
+    id: elementId,
+    lock: false,
+    name: item.role,
+    networks,
+    pointCoordinateSpace: 'workspace',
+    points,
+    props: createRootPropertyIds(idWriter, [
+      'position',
+      'dimension',
+      'points',
+      'segments',
+      'networks',
+      'closed',
+      'pointCoordinateSpace',
+      'fillRule',
+      'fills',
+      'strokes'
+    ]),
+    segments,
+    ...createStyleDescriptors(item.style, idWriter),
+    type: 'vector',
+    visible: true,
+    width: item.bounds.width,
+    x: item.bounds.x - groupBounds.x,
+    y: item.bounds.y - groupBounds.y
+  }
+}
+
+const createOvalDescriptor = (
+  item: PreparedSourceItem,
+  groupBounds: ServerCompositionBounds,
+  idWriter: StableCanonicalIdWriter
+): PreparedElementDescriptor => ({
+  height: item.bounds.height,
+  id: idWriter.next('oval'),
+  lock: false,
+  name: item.role,
+  props: createRootPropertyIds(idWriter, [
+    'position',
+    'dimension',
+    'fills',
+    'strokes'
+  ]),
+  ...createStyleDescriptors(item.style, idWriter),
+  type: 'oval',
+  visible: true,
+  width: item.bounds.width,
+  x: item.bounds.x - groupBounds.x,
+  y: item.bounds.y - groupBounds.y
+})
+
+const createPreparedDrawingSlices = (
+  items: readonly PreparedSourceItem[],
+  descriptors: readonly PreparedElementDescriptor[]
+): readonly PreparedDrawingSlice[] => {
+  const slices: PreparedDrawingSlice[] = []
+  let currentDescriptors: PreparedElementDescriptor[] = []
+  let currentPointCount = 0
+  let currentRoles: string[] = []
+  const flush = () => {
+    if (currentDescriptors.length === 0) return
+    slices.push({
+      descriptors: currentDescriptors,
+      pointCount: currentPointCount,
+      roles: currentRoles
+    })
+    currentDescriptors = []
+    currentPointCount = 0
+    currentRoles = []
+  }
+
+  items.forEach((item, index) => {
+    if (
+      currentDescriptors.length > 0 &&
+      (currentDescriptors.length >= PREPARED_DRAWING_SLICE_ELEMENT_BUDGET ||
+        currentPointCount + item.pointCount >
+          PREPARED_DRAWING_SLICE_POINT_BUDGET)
+    ) {
+      flush()
+    }
+    currentDescriptors.push(descriptors[index])
+    currentPointCount += item.pointCount
+    currentRoles.push(item.role)
+  })
+  flush()
+  return slices
+}
+
+export const createPreparedDrawingArtifact = (
   items: readonly DetailedTabbyCompositionItem[],
-  compositionRole: string
-): ServerCompositionArtifact => {
+  { batchId, compositionRole, fileId }: CreatePreparedDrawingArtifactOptions
+): PreparedDrawingArtifact => {
   if (
     items.length === 0 ||
+    batchId.trim().length === 0 ||
+    fileId.trim().length === 0 ||
     !/^[a-z0-9][a-z0-9-]{0,79}$/i.test(compositionRole)
   ) {
     return invalidResponseComposition('the composition envelope is invalid')
   }
 
-  const coordinates = new CoordinateWriter()
-  const preparedItems: ServerCompositionItem[] = []
-  const paths: ServerCompositionPath[] = []
+  const sourceItems = items.map(prepareSourceItem)
+  const acceptedItems: PreparedSourceItem[] = []
   const skipped: {
     readonly reason: 'duplicate-role'
     readonly role: string
@@ -338,45 +483,75 @@ export const createAsyraDesignServerCompositionArtifact = (
   let maxY = Number.NEGATIVE_INFINITY
   let pointCount = 0
 
-  items.forEach((item, index) => {
-    const pathStart = paths.length
-    const coordinateStart = coordinates.length
-    const prepared = appendItem(item, index, coordinates, paths)
-    if (roles.has(prepared.role)) {
-      paths.length = pathStart
-      coordinates.truncate(coordinateStart)
-      skipped.push({ reason: 'duplicate-role', role: prepared.role })
+  sourceItems.forEach((item) => {
+    if (roles.has(item.role)) {
+      skipped.push({ reason: 'duplicate-role', role: item.role })
       return
     }
-    roles.add(prepared.role)
-    preparedItems.push(prepared)
-    pointCount += prepared.pointCount
-    minX = Math.min(minX, prepared.bounds.x)
-    minY = Math.min(minY, prepared.bounds.y)
-    maxX = Math.max(maxX, prepared.bounds.x + prepared.bounds.width)
-    maxY = Math.max(maxY, prepared.bounds.y + prepared.bounds.height)
+    roles.add(item.role)
+    acceptedItems.push(item)
+    pointCount += item.pointCount
+    minX = Math.min(minX, item.bounds.x)
+    minY = Math.min(minY, item.bounds.y)
+    maxX = Math.max(maxX, item.bounds.x + item.bounds.width)
+    maxY = Math.max(maxY, item.bounds.y + item.bounds.height)
   })
 
-  if (preparedItems.length === 0) {
+  if (acceptedItems.length === 0) {
     return invalidResponseComposition(
       'the composition contains no accepted item'
     )
   }
-  return {
-    artifactVersion: 1,
+  const groupBounds = {
+    height: maxY - minY,
+    width: maxX - minX,
+    x: minX,
+    y: minY
+  }
+  const idWriter = new StableCanonicalIdWriter(
+    createArtifactNamespace(fileId, batchId)
+  )
+  const groupDescriptor = createGroupDescriptor(
     compositionRole,
-    coordinates: coordinates.finish(),
-    groupBounds: {
-      height: maxY - minY,
-      width: maxX - minX,
-      x: minX,
-      y: minY
-    },
-    items: preparedItems,
+    groupBounds,
+    idWriter
+  )
+  const descriptors = acceptedItems.map((item) =>
+    item.primitive === 'vector'
+      ? createVectorDescriptor(item, groupBounds, idWriter)
+      : createOvalDescriptor(item, groupBounds, idWriter)
+  )
+  const roleToElementIds: Record<string, readonly string[]> = {}
+  const pupilIds: string[] = []
+  const whiskerIds: string[] = []
+  acceptedItems.forEach((item, index) => {
+    const elementId = descriptors[index].id
+    roleToElementIds[item.role] = [elementId]
+    if (item.role.includes('pupil')) {
+      pupilIds.push(elementId)
+    }
+    if (item.role.includes('whisker')) {
+      whiskerIds.push(elementId)
+    }
+  })
+  if (pupilIds.length > 0) {
+    roleToElementIds.pupils = pupilIds
+  }
+  if (whiskerIds.length > 0) {
+    roleToElementIds.whiskers = whiskerIds
+  }
+
+  return {
+    artifactVersion: PREPARED_DRAWING_ARTIFACT_VERSION,
+    compositionRole,
+    elementCount: descriptors.length,
+    groupBounds,
+    groupDescriptor,
     parent: 'workspace',
-    paths,
     pointCount,
-    skipped
+    roleToElementIds,
+    skipped,
+    slices: createPreparedDrawingSlices(acceptedItems, descriptors)
   }
 }
 
@@ -475,10 +650,11 @@ export const createAsyraDesignServerResponseRecord = async (
     )
   }
   const metadata = metadataForItemCount(itemCount)
-  const artifact = createAsyraDesignServerCompositionArtifact(
-    items,
-    metadata.compositionRole
-  )
+  const artifact = createPreparedDrawingArtifact(items, {
+    batchId: metadata.batchId,
+    compositionRole: metadata.compositionRole,
+    fileId
+  })
 
   return {
     batch: {
@@ -488,7 +664,7 @@ export const createAsyraDesignServerResponseRecord = async (
           id: metadata.actionId,
           name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
           summary: {
-            affectedCount: artifact.items.length,
+            affectedCount: artifact.elementCount,
             bounds: artifact.groupBounds,
             pointCount: artifact.pointCount,
             skippedCount: artifact.skipped.length
@@ -509,30 +685,17 @@ export const seedAsyraDesignServerResponse = async (
 ): Promise<AsyraDesignServerResponseRecord> => {
   const record = await createAsyraDesignServerResponseRecord(fileId, itemCount)
   const action = record.batch.actions[0]
-  const artifact = action?.arguments as ServerCompositionArtifact | undefined
+  const artifact = action?.arguments as PreparedDrawingArtifact | undefined
   if (
     record.batch.actions.length !== 1 ||
     !artifact ||
-    !(artifact.coordinates instanceof ArrayBuffer)
+    artifact.artifactVersion !== PREPARED_DRAWING_ARTIFACT_VERSION ||
+    !artifact.groupDescriptor ||
+    !Array.isArray(artifact.slices)
   ) {
     throw new Error(
-      'Server response seed requires one compact composition action.'
+      'Server response seed requires one prepared drawing artifact action.'
     )
-  }
-  const browserTransferResponse = {
-    ...record,
-    batch: {
-      ...record.batch,
-      actions: [
-        {
-          ...action,
-          arguments: {
-            ...artifact,
-            coordinates: new Float64Array(artifact.coordinates)
-          }
-        }
-      ]
-    }
   }
   const seedPage = await context.newPage()
   const routePattern = '**/*'
@@ -555,43 +718,6 @@ export const seedAsyraDesignServerResponse = async (
         storeName
       }: ServerResponseSeedPayload): Promise<void> =>
         new Promise((resolve, reject) => {
-          const responseRecord = response as {
-            readonly batch: {
-              readonly actions: readonly {
-                readonly arguments: {
-                  readonly coordinates: unknown
-                }
-              }[]
-            }
-          }
-          const transferredCoordinates =
-            responseRecord.batch.actions[0]?.arguments.coordinates
-          if (!(transferredCoordinates instanceof Float64Array)) {
-            reject(
-              new Error(
-                'Server response seed did not receive binary coordinates.'
-              )
-            )
-            return
-          }
-          const residentResponse = {
-            ...responseRecord,
-            batch: {
-              ...responseRecord.batch,
-              actions: responseRecord.batch.actions.map((action, index) =>
-                index === 0
-                  ? {
-                      ...action,
-                      arguments: {
-                        ...action.arguments,
-                        coordinates: new Float64Array(transferredCoordinates)
-                          .buffer
-                      }
-                    }
-                  : action
-              )
-            }
-          }
           const openRequest = indexedDB.open(databaseName, databaseVersion)
           openRequest.onblocked = () =>
             reject(new Error('Server response inbox seed open was blocked.'))
@@ -629,9 +755,7 @@ export const seedAsyraDesignServerResponse = async (
                 database.close()
                 resolve()
               }
-              transaction
-                .objectStore(storeName)
-                .put(residentResponse, responseFileId)
+              transaction.objectStore(storeName).put(response, responseFileId)
             } catch (error) {
               database.close()
               reject(error)
@@ -641,7 +765,7 @@ export const seedAsyraDesignServerResponse = async (
       {
         databaseName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
         databaseVersion: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-        response: browserTransferResponse,
+        response: record,
         responseFileId: record.fileId,
         storeName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
       }
