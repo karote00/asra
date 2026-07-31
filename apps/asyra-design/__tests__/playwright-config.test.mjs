@@ -569,6 +569,12 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)') >
       creationMarkIndex
   )
+  assert.ok(
+    highDetailSource.indexOf(
+      "waitForLocalInteractionProbe(actorA, 'loading-at-zero')"
+    ) < highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)'),
+    'the loading-at-zero observer must be armed before the prepared request is dispatched'
+  )
   const stagedBootstrapSource = specSource.slice(
     specSource.indexOf('const prepareEndpointActorsSequentially = async ('),
     specSource.indexOf("test('empty-document two-Actor endpoint connectivity'")

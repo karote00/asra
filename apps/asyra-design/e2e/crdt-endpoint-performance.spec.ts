@@ -2593,10 +2593,11 @@ test('creation-only high-detail endpoint proof', async ({
     const creationStartedAtMs = Date.now()
     heartbeat.markCreationStarted(creationStartedAtMs)
     heartbeat.begin()
-    await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
-    const loadingState = await heartbeat.assertGuarded(
+    const loadingAtZeroPromise = heartbeat.assertGuarded(
       waitForLocalInteractionProbe(actorA, 'loading-at-zero')
     )
+    await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
+    const loadingState = await loadingAtZeroPromise
     const loadingAtZero = loadingState.loadingAtZero
     if (!loadingAtZero) {
       throw new Error('Connected loading evidence at zero elements is missing')

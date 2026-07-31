@@ -819,6 +819,10 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
+    /valid terminal complete heartbeat.*product proof window is closed.*Chrome teardown process-identity changes cannot create a resource stop or invalidate the accepted proof.*process-group termination.*confirmed/i
+  )
+  assert.match(
+    text,
     /bootstrap before ready.*safety-only.*complete raw system snapshot.*local-request.*maximum raw frontend system value/i
   )
   assert.match(
@@ -851,7 +855,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /observed process identity change across samples.*attribution invalid.*raw OS CPU.*never.*sole owner-attribution/i
+    /observed process identity change before an accepted terminal heartbeat.*attribution invalid.*raw OS CPU.*never.*sole owner-attribution/i
   )
   assert.match(
     text,

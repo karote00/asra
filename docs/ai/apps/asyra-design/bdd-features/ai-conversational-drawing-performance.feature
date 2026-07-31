@@ -99,7 +99,7 @@ Feature: Conversational AI drawing performance
     And each guard safety sample should retain its own sample time and heartbeat age instead of presenting the values as co-temporal
     And each attribution invocation may retain one request-wide cumulative process CPU-time boundary as direct non-percentage milliseconds per role
     And ordered browser-monotonic owner spans should distinguish provider request and batch handoff, Runtime resolution, loading, Group, and plural batch work without treating the OS sample as a nested JavaScript timer
-    And every boundary sample should pass the same active proof-class raw same-snapshot frontend and fixed 400-percent aggregate safety evaluations and require exact PID-set equality while any observed process identity change across samples should make attribution invalid
+    And every boundary sample should pass the same active proof-class raw same-snapshot frontend and fixed 400-percent aggregate safety evaluations and require exact PID-set equality while any observed process identity change before an accepted terminal heartbeat should make attribution invalid
     And raw operating-system CPU should never become the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
@@ -108,6 +108,7 @@ Feature: Conversational AI drawing performance
     And the 250-millisecond polling cadence should be armed before the immediate first raw system sample
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
+    And after a valid terminal complete heartbeat closes the product proof window, later Chrome teardown process-identity changes should not create a resource stop or invalidate the accepted proof while exact process-group termination remains required
     And a local-attribution complete heartbeat should use a distinct proof kind, validate Actor A only, carry no Actor B report, and never create an accepted endpoint baseline
     And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
     And one raw same-snapshot complete client-browser sum above 400 percent or one raw same-snapshot aggregate frontend, backend, and harness sum above 400 percent should stop the 7076-element benchmark immediately and mark the active endpoint as an invalid architecture attempt

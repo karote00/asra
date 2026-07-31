@@ -1572,6 +1572,19 @@ export const evaluateResourceSample = (
       decision
     }
   }
+  if (state.finished) {
+    return {
+      accepted: true,
+      reason: null,
+      state: {
+        ...state,
+        acceptedProcessSamples: state.acceptedProcessSamples + 1,
+        lastProcessSampleMonotonicMs: currentProcessCpuSnapshot.monotonicMs,
+        previousProcessSnapshot: currentProcessCpuSnapshot
+      },
+      decision: state.stopDecision ?? noStopDecision
+    }
+  }
   const missingProcessRoles = normalizeRequiredProcessRoles(
     sample.missingProcessRoles
   )

@@ -1503,6 +1503,48 @@ test('stops on stalled A/B progress, but disables progress stall after both acto
   assert.equal(afterComplete.decision.stop, false)
 })
 
+test('does not invalidate an accepted proof when Chrome process identity changes during teardown', () => {
+  const ready = record(arm(createResourceGuardState({ nowMs: 0 })), 'ready', 0)
+  const complete = record(
+    ready.state,
+    'complete',
+    1_000,
+    heartbeat({
+      actorAElements: 7076,
+      actorBElements: 7076,
+      actorAComplete: true,
+      actorBComplete: true,
+      phase: 'complete',
+      extra: {
+        report: {
+          actorA: {},
+          actorB: {},
+          owner: OWNER,
+          proofKind: 'endpoint',
+          status: 'complete'
+        }
+      }
+    })
+  )
+  const teardownSample = evaluateResourceSample(
+    complete.state,
+    trackedCpuSample({
+      cpuPercent: 0,
+      nowMs: 1_250,
+      processes: [
+        { cpuTimeMs: 0, pid: TARGET_PGID, role: 'test-harness' },
+        { cpuTimeMs: 0, pid: 5001, role: 'client-browser' }
+      ],
+      trackedProcessRoles: ['test-harness', 'client-browser']
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(teardownSample.decision.stop, false)
+  assert.equal(teardownSample.state.stopDecision, null)
+  assert.equal(teardownSample.state.attributionInvalidReason, null)
+})
+
 test('does not mistake stale activity for a host emergency at low CPU', () => {
   const initial = createResourceGuardState({ nowMs: 0 })
   const ready = record(arm(initial), 'ready', 0)

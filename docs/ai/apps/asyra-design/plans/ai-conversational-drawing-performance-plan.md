@@ -819,6 +819,17 @@ proof must run once under the corrected limits. A real 400-percent frontend or
 aggregate stop still terminates only that benchmark action and returns the
 active owner to bounded root-cause analysis and a revised iteration.
 
+The first corrected invocation exposed two harness/guard races rather than a
+product CPU stop. The `loading-at-zero` observer was armed after dispatch and
+could miss the valid initial loading state; it must be armed before dispatch.
+The subsequent 16-item safety proof reached an accepted terminal complete
+heartbeat, but normal Chrome teardown identity churn was still evaluated as
+active-proof evidence. A terminal complete heartbeat closes the product proof
+window: later teardown samples cannot invalidate the accepted result, although
+exact tracked process-group termination remains mandatory. Both corrections
+require focused formal tests and a passing guarded 16-item proof before the
+corrected 7,076-element run resumes.
+
 ### 2026-07-30 guarded local source pipeline replan
 
 The corrected guarded runs prove that the local creation source pipeline must
