@@ -1,7 +1,7 @@
 import { PROPS_ACTIONS } from '../constants'
 import { PropertyComponentRawData } from '../propsManager'
 import { DataTypes } from './constants'
-import type { ElementPropertyOwnerRelation } from './scene-tree'
+import type { ElementPropertyRelation } from './scene-tree'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
@@ -22,8 +22,6 @@ export interface UpdatePropertyChange {
   key: string
   before: DataTypes
   after: DataTypes
-  ownerElementId?: string
-  ownerPropertyName?: string
   options?: MutationOptions
 }
 
@@ -35,15 +33,15 @@ export interface PropsRestoreSnapshot {
   readonly components: readonly PropertyComponentRawData[]
 }
 
-export interface PropsRestorePlanEntry {
+export interface PreparedPropsRestoreEntry {
   readonly componentId: string
   readonly strategy: PropsRestoreStrategy
 }
 
-export interface PropsRestorePlan {
-  readonly kind: 'props-restore-plan'
-  readonly entries: readonly PropsRestorePlanEntry[]
-  readonly ownerRelations: readonly ElementPropertyOwnerRelation[]
+export interface PreparedPropsRestore {
+  readonly kind: 'prepared-props-restore'
+  readonly entries: readonly PreparedPropsRestoreEntry[]
+  readonly ownerRelations: readonly ElementPropertyRelation[]
 }
 
 export interface PropsYjsChange extends YjsChange<PropsChange> {}

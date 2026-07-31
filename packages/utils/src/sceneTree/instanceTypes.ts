@@ -37,7 +37,7 @@ export interface IProps {
 }
 
 export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {
-  set<K extends keyof T>(key: K, data: T[K], options?: EvnetOptions): void
+  set<K extends keyof T>(key: K, data: T[K]): void
 }
 
 export interface IElement<T extends ElementAttrs = ElementAttrs>
@@ -50,8 +50,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   getAllComputedData(): ComputedAttrs | {}
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K],
-    options?: EvnetOptions
+    data: ComputedAttrs[K]
   ): void
 }
 
