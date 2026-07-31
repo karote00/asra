@@ -65,6 +65,19 @@ const createHarness = () => {
     getElementById: vi.fn((elementId: string) =>
       elementId === 'workspace-1' ? parent : undefined
     ),
+    addNewElements: vi.fn(
+      (
+        data: readonly { readonly id?: string }[],
+        _parent: unknown,
+        _index: number,
+        _options: unknown
+      ) => {
+        sequence.push('scene-combined-apply')
+        return Object.freeze(
+          data.map(({ id }: { readonly id?: string }) => id ?? '')
+        )
+      }
+    ),
     prepareElementInsertion: vi.fn(() => {
       sequence.push('scene-prepare')
       return Object.freeze({
@@ -268,69 +281,52 @@ describe('Core canonical owner coordination', () => {
     componentRegistry.unregister(COMPONENT_TYPE)
   })
 
-  it('prepares both ordinary creation owners before applying Props then Scene', () => {
-    const { apis, props, sceneTree, sequence } = createHarness()
+  it('delegates ordinary creation to one Scene-owned Props-then-Scene boundary', () => {
+    const { apis, parent, props, sceneTree, sequence } = createHarness()
     const options = { sharedDelivery: 'immediate' as const }
+    const descriptors = [
+      {
+        id: 'ordinary-element',
+        name: 'Ordinary Element',
+        type: COMPONENT_TYPE,
+        x: 0,
+        y: 0,
+        value: 42
+      }
+    ]
 
     const result = apis.createElementsInParent(
-      [
-        {
-          id: 'ordinary-element',
-          name: 'Ordinary Element',
-          type: COMPONENT_TYPE,
-          x: 0,
-          y: 0,
-          value: 42
-        }
-      ],
+      descriptors,
       'workspace-1',
       0,
       options
     )
 
-    expect(sequence).toEqual([
-      'props-prepare',
-      'scene-prepare',
-      'props-apply',
-      'scene-apply'
+    expect(sequence).toEqual(['scene-combined-apply'])
+    expect(sceneTree.addNewElements).toHaveBeenCalledOnce()
+    const [
+      forwardedDescriptors,
+      forwardedParent,
+      forwardedIndex,
+      forwardedOptions
+    ] = sceneTree.addNewElements.mock.calls[0] ?? []
+    expect(forwardedDescriptors).toEqual([
+      {
+        ...descriptors[0],
+        lock: false,
+        visible: true
+      }
     ])
-    expect(props.preparePropertyMutationBatch).toHaveBeenCalledWith({
-      operations: [
-        {
-          kind: 'create-owner-properties',
-          ownerElementId: 'ordinary-element',
-          ownerElementType: COMPONENT_TYPE,
-          definitions: [{ name: 'value', type: PROPERTY_TYPE }],
-          data: expect.objectContaining({
-            id: 'ordinary-element',
-            value: 42
-          })
-        }
-      ],
-      options
-    })
-    expect(sceneTree.prepareElementInsertion).toHaveBeenCalledWith({
-      parentId: 'workspace-1',
-      index: 0,
-      elements: [
-        {
-          id: 'ordinary-element',
-          name: 'Ordinary Element',
-          type: COMPONENT_TYPE,
-          parentId: 'workspace-1',
-          visible: true,
-          lock: false,
-          props: { value: 'ordinary-property' }
-        }
-      ],
-      ownerRelations:
-        props.preparePropertyMutationBatch.mock.results[0]?.value.ownerRelations
-    })
+    expect(forwardedParent).toBe(parent)
+    expect(forwardedIndex).toBe(0)
+    expect(forwardedOptions).toBe(options)
+    expect(props.preparePropertyMutationBatch).not.toHaveBeenCalled()
+    expect(sceneTree.prepareElementInsertion).not.toHaveBeenCalled()
     expect(result).toEqual(['ordinary-element'])
     expect(Object.isFrozen(result)).toBe(true)
   })
 
-  it('indexes one ordinary owner-relation batch without rescanning it for every element', () => {
+  it('forwards one ordinary descriptor batch without a Core relation rescan', () => {
     const { apis, props, sceneTree } = createHarness()
     const descriptors = Array.from({ length: 64 }, (_, index) => ({
       id: `ordinary-indexed-element-${index}`,
@@ -340,36 +336,13 @@ describe('Core canonical owner coordination', () => {
       y: 0,
       value: index
     }))
-    let ownerRelationReads = 0
-    const ownerRelations = Object.freeze(
-      descriptors.map(({ id }, index) =>
-        Object.freeze({
-          get ownerElementId() {
-            ownerRelationReads += 1
-            return id
-          },
-          ownerElementType: COMPONENT_TYPE,
-          ownerPropertyName: 'value',
-          componentId: `ordinary-indexed-property-${index}`
-        })
-      )
-    )
-    props.preparePropertyMutationBatch.mockReturnValue(
-      preparedProperties(ownerRelations)
-    )
-    sceneTree.prepareElementInsertion.mockImplementation(((request: {
-      readonly elements: readonly ElementRawData[]
-    }) =>
-      Object.freeze({
-        kind: 'prepared-element-insertion',
-        orderedElementIds: Object.freeze(request.elements.map(({ id }) => id)),
-        evidence: Object.freeze([])
-      } as PreparedElementInsertion)) as never)
 
     expect(apis.createElementsInParent(descriptors, 'workspace-1')).toEqual(
       descriptors.map(({ id }) => id)
     )
-    expect(ownerRelationReads).toBe(ownerRelations.length)
+    expect(sceneTree.addNewElements).toHaveBeenCalledOnce()
+    expect(props.preparePropertyMutationBatch).not.toHaveBeenCalled()
+    expect(sceneTree.prepareElementInsertion).not.toHaveBeenCalled()
   })
 
   it('passes Scene-issued canonical owner relations unchanged into Props', () => {

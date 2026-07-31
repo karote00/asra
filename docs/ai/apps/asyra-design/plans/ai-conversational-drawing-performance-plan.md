@@ -880,7 +880,9 @@ source pipeline is therefore implemented once as:
    IDs, relationships, topology, bounds, styles, and formal slice ranges. The
    frontend builds no duplicate point-object or topology graph and performs no
    model validation, bounds calculation, or normalization.
-2. Core builds one owner-to-relationship index before element creation.
+2. The canonical Props and Scene Tree owners build each
+   owner-to-relationship index once before element creation; Core delegates the
+   complete batch without rescanning or reconstructing relation evidence.
 3. Props performs one owner-indexed relationship traversal, one fixed batch
    materialization boundary, and one manager-owned affected-owner
    notification. It retains every property instance but creates no per-edge
@@ -1322,8 +1324,10 @@ shared-data boundaries.
   parent-list, history-readiness, or publication prefix.
 - Every independently addressable property record and stable ID remains
   canonical so shared props, shared components, and shared elements retain
-  their framework semantics. Core first builds one owner-to-relationship index
-  instead of filtering the complete relation set for every element.
+  their framework semantics. The canonical Props and Scene Tree owners build
+  each owner-to-relationship index once instead of filtering the complete
+  relation set for every element; Core delegates the complete batch without
+  rescanning or reconstructing relation evidence.
 - Props Manager performs one whole-batch schema, ID, and relationship preflight,
   one owner-indexed traversal for child-first order, forward/reverse indexes,
   and owner ranges, then one fixed batch materialization and `registerMany`.
@@ -2034,6 +2038,59 @@ inside their matching owner step. No cross-owner WIP commit is allowed.
 Every resource or time stop terminates only the active benchmark invocation.
 The task remains active and returns to the same Inspector owner for root-cause
 analysis, bounded replan, test-first correction, and a new validated iteration.
+
+### 2026-07-31 local-source convergence failure iteration
+
+The authorized corrected guarded 7,076-element endpoint invocation stayed
+within the current raw CPU limits. Actor A completed 7,076 of 7,076 requested
+elements in 9,251 milliseconds and Factory produced 136 publications. The raw
+frontend peak was 308.7 percent and the aggregate at that same snapshot was
+314.2 percent. Actor B applied zero publications and the invocation reached the
+180-second product-flow deadline; the guard then terminated and confirmed all
+tracked process groups.
+
+The bounded two-Actor 16-item diagnostic reproduced the first failure without
+another high-detail run. Actor B rejected publication
+`1:publication:1` because it contained only the Props `ADD_PROPERTY` owner
+batch. This is not a valid reason to merge different source publications or to
+add a remote compatibility path. Scene Tree already prepares the Props and
+Scene evidence for one creation request, but the current Core coordination
+applies the prepared Props mutation and prepared Scene mutation through two
+separate Factory owner handoffs. The first unresolved owner is therefore
+`apply-canonical-property-scene-batch`, before
+`apply-remote-publication-batches`.
+
+The revised iteration is bounded to:
+
+1. strengthen the Inspector contract and its formal test so one local
+   creation request must hand the complete ordered Props-then-Scene evidence
+   to Factory in one `updateTransactionBatch(...)` call;
+2. add a formal Core/Scene regression that fails while the prepared Props and
+   Scene owners hand off separately, including later-invalid no-prefix
+   evidence;
+3. coordinate the already-prepared Props and Scene artifacts through that one
+   owner handoff without adding an App delivery mode, a second mutation path,
+   a remote source-publication merge, or a compatibility format;
+4. run only the affected Core, Props Manager, Scene Tree, Factory publication,
+   App collaboration-processing, Inspector, and lint gates, then bounded
+   review and one guarded two-Actor 16-item proof; and
+5. return to `apply-remote-publication-batches` only after Actor B accepts the
+   complete source creation publications with one remote transaction per
+   publication and no Undo, echo, or persistence.
+
+Implementation discovery is fixed to the existing Core creation coordinator,
+Props Manager prepared-batch handoff, Scene Tree prepared-element handoff,
+Factory batch-publication regression tests, and their direct App collaboration
+consumer. App AI composition, codec Worker, receiver admission, relay,
+Contents, Pen Tool, and performance tuning remain excluded. No replacement
+7,076-element run occurs in this iteration.
+
+Self-review found and rejected two downstream patches: accepting an orphan
+Props creation as a complete remote element creation and merging it with the
+next Scene publication. Both would violate canonical preflight and the
+one-source-publication remote transaction contract. The bounded source-owner
+iteration above agrees with the product case, Inspector owner boundary,
+step-local source canonical gate, and endpoint DoD.
 
 ## Current Local Gates
 

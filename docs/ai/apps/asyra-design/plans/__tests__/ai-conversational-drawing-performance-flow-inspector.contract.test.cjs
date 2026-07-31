@@ -1520,6 +1520,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
     /local Computed projection.*same owner-issued artifact.*does not rebuild topology from property instances.*never shared/i
   )
   assert.match(
+    canonicalText,
+    /one local creation request.*Props-then-Scene evidence.*one updateTransactionBatch call.*separate Factory handoffs is forbidden/i
+  )
+  assert.match(
     factoryText,
     /owner-issued immutable artifact.*no recursive frozen scan.*canonical inverse.*once/i
   )

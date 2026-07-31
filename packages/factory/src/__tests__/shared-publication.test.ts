@@ -1833,6 +1833,51 @@ describe('Factory action-level shared publication', () => {
     }
   })
 
+  it('keeps one immediate canonical owner handoff in one publication slice', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      {
+        ...createUpdateEvent(
+          'props-group',
+          1,
+          { sharedDelivery: 'immediate' },
+          { orderedIds: ['group'] }
+        ),
+        options: {
+          shared: SharedDataChannelNames.PROPS,
+          sharedDelivery: 'immediate'
+        }
+      },
+      createUpdateEvent(
+        'scene-group',
+        2,
+        { sharedDelivery: 'immediate' },
+        { orderedIds: ['group'] }
+      )
+    ])
+    await Promise.resolve()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.slices).toHaveLength(1)
+    expect(
+      publications[0]?.slices[0]?.batches.map(({ channel }) => channel)
+    ).toEqual([SharedDataChannelNames.PROPS, SharedDataChannelNames.SCENE_TREE])
+    expect(
+      publications[0]?.slices[0]?.batches.flatMap(({ deliveries }) =>
+        deliveries.map(({ deliveryId }) => deliveryId)
+      )
+    ).toEqual(['1:0:forward', '1:1:forward'])
+
+    factory.endTransaction()
+    factory.transact.reset()
+  })
+
   it('compensates every flushed progressive publication in global reverse order when the action rolls back', async () => {
     const { factory, projected, publications } = createHarness()
 

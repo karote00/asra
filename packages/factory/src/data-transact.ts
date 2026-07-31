@@ -644,7 +644,12 @@ class DataTransact {
               (entry) =>
                 entry.shared && entry.options.sharedDelivery === 'immediate'
             )
-      this.deliverSharedEntries(immediateEntries)
+      this.deliverSharedEntries(
+        immediateEntries,
+        immediateEntries.length > 0
+          ? `${this.currentArtifactId}:owner-batch:${journalStart}`
+          : undefined
+      )
       this.queueImmediatePublicationEntries(
         immediateEntries.filter((entry) =>
           entry.shared?.records.some((record) => record.delivered)
@@ -1285,7 +1290,8 @@ class DataTransact {
 
   private prepareSharedDeliveryBatches(
     entries: readonly TransactionJournalEntry[],
-    orderedRecords?: readonly JournalSharedRecordRef[]
+    orderedRecords?: readonly JournalSharedRecordRef[],
+    deliverySliceIdOverride?: string
   ): SharedDeliveryBatch[] {
     const records = orderedRecords ?? this.sharedRecordRefs(entries)
     const preparedBatches: SharedDeliveryBatch[] = []
@@ -1294,6 +1300,7 @@ class DataTransact {
     records.forEach((recordRef) => {
       const sliceId =
         recordRef.record.batch?.sliceId ??
+        deliverySliceIdOverride ??
         this.deliverySliceIdForRecord(recordRef)
       if (!sliceId) return
       if (
@@ -1438,11 +1445,14 @@ class DataTransact {
   }
 
   private deliverSharedEntries(
-    entries: readonly TransactionJournalEntry[]
+    entries: readonly TransactionJournalEntry[],
+    deliverySliceIdOverride?: string
   ): void {
-    this.prepareSharedDeliveryBatches(entries).forEach((batch) =>
-      this.deliverPreparedSharedBatch(batch)
-    )
+    this.prepareSharedDeliveryBatches(
+      entries,
+      undefined,
+      deliverySliceIdOverride
+    ).forEach((batch) => this.deliverPreparedSharedBatch(batch))
   }
 
   private prepareTransactionEndDeliveryIndex(): readonly SharedDeliveryBatch[] {

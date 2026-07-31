@@ -140,6 +140,13 @@ const createCoreFacade = (factory: Factory): Core =>
     systemContext: {} as never
   })
 
+const publicationDeliveriesWithChannel = (publication: SharedPublication) =>
+  publication.slices.flatMap(({ batches }) =>
+    batches.flatMap(({ channel, deliveries }) =>
+      deliveries.map((delivery) => ({ channel, ...delivery }))
+    )
+  )
+
 describe('Factory and Scene Tree hierarchy transaction integration', () => {
   beforeEach(() => {
     sceneTree.reset()
@@ -194,7 +201,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(childrenOf('target')).toEqual(['moved'])
     expect(propsManager.save()).toEqual(originalProps)
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(2)
+    expect(publicationDeliveriesWithChannel(publications[0])).toHaveLength(2)
 
     factory.undo()
 
@@ -274,7 +281,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       'batch-history-3'
     ])
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(3)
+    expect(publicationDeliveriesWithChannel(publications[0])).toHaveLength(3)
 
     factory.undo()
 
@@ -326,7 +333,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(sceneTree.getElementById('tombstone-replayed')).toBeUndefined()
     expect(sceneTree._deletedMap.get('tombstone-replayed')).toBe(removed)
     expect(publications).toHaveLength(1)
-    expect(publications[0]?.deliveries).toHaveLength(1)
+    expect(publicationDeliveriesWithChannel(publications[0])).toHaveLength(1)
 
     factory.undo()
 
@@ -826,8 +833,9 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     })
 
     expect(publications).toHaveLength(1)
+    const deliveries = publicationDeliveriesWithChannel(publications[0])
     expect(
-      publications[0]?.deliveries.map(({ channel, eventName, payload }) => ({
+      deliveries.map(({ channel, eventName, payload }) => ({
         channel,
         eventName,
         action: (payload as { action?: string }).action
@@ -846,13 +854,13 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     ])
     expect(
       (
-        publications[0]?.deliveries[0]?.payload as {
+        deliveries[0]?.payload as {
           data: readonly PropertyComponentRawData[]
         }
       ).data
     ).toEqual(properties)
     expect(
-      publications[0]?.deliveries.slice(1).map(({ payload }) =>
+      deliveries.slice(1).map(({ payload }) =>
         (
           payload as {
             entries: readonly {
@@ -887,6 +895,61 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       'redo'
     ])
 
+    factory.transact.reset()
+  })
+
+  it('hands one immediate local creation to Factory as one Props-then-Scene publication slice', async () => {
+    const factory = new Factory()
+    const core = createCoreFacade(factory)
+    const publications: SharedPublication[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const updateTransactionBatch = vi.spyOn(factory, 'updateTransactionBatch')
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        expect(
+          core.createElementsInParent(
+            [
+              {
+                id: 'immediate-canonical-source',
+                name: 'Immediate Canonical Source',
+                type: CANONICAL_LEAF_TYPE,
+                value: 17,
+                x: 0,
+                y: 0
+              }
+            ],
+            root.get('id'),
+            undefined,
+            {
+              sharedDelivery: 'immediate',
+              undoable: true
+            }
+          )
+        ).toEqual(['immediate-canonical-source'])
+      })
+    })
+    await Promise.resolve()
+
+    expect(updateTransactionBatch).toHaveBeenCalledOnce()
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.slices).toHaveLength(1)
+    expect(
+      publications[0]?.slices[0]?.batches.map(({ channel }) => channel)
+    ).toEqual([SharedDataChannelNames.PROPS, SharedDataChannelNames.SCENE_TREE])
+
+    updateTransactionBatch.mockRestore()
     factory.transact.reset()
   })
 

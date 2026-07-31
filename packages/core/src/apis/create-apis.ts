@@ -12,7 +12,6 @@ import {
   createMeshProjection
 } from '@asyra/render'
 import type {
-  PropertyMutation,
   PreparedPropertyMutationBatch,
   PropsManager
 } from '@asyra/props-manager'
@@ -23,11 +22,7 @@ import {
   type MoveHierarchyRequest,
   type GroupInstanceTypes,
   type PropsComponentRawData,
-  type CreateElementData,
-  type ElementPropertyRelation,
-  type ElementRawData,
-  EntityTypes,
-  name
+  EntityTypes
 } from '@asyra/utils'
 
 import { createPropsAPIs, type PropsRequests } from './props'
@@ -83,84 +78,6 @@ export const createAPIs = (
         `[Core] ${owner} returned canonical ids that do not match the requested order`
       )
     }
-  }
-
-  const getDescriptorRegistration = (descriptor: CreateElementData) => {
-    const descriptorType = descriptor.type
-    const registration =
-      typeof descriptorType === 'string'
-        ? componentRegistry.get(descriptorType)
-        : undefined
-    if (!registration) {
-      throw new Error(
-        `[Core] Cannot create element with unregistered type "${String(
-          descriptorType ?? ''
-        )}"`
-      )
-    }
-    return registration
-  }
-
-  const getDescriptorDefinitions = (
-    registration: ReturnType<typeof getDescriptorRegistration>
-  ) => {
-    const constructorDefinitions = (
-      registration.constructor as typeof registration.constructor & {
-        ordinaryPropertyDefinitions?: typeof registration.properties
-      }
-    ).ordinaryPropertyDefinitions
-    return registration.properties.length > 0
-      ? registration.properties
-      : (constructorDefinitions ?? [])
-  }
-
-  const buildOrdinaryElementData = (
-    descriptor: CreateElementData,
-    parentId: string,
-    ownerPropertyIds: Readonly<Record<string, string>> | undefined
-  ): ElementRawData => {
-    const registration = getDescriptorRegistration(descriptor)
-    const elementId = descriptor.id
-    if (typeof elementId !== 'string' || elementId.length === 0) {
-      throw new Error('[Core] Prepared element descriptor requires an id')
-    }
-    return {
-      id: elementId,
-      type: registration.type as ElementRawData['type'],
-      name:
-        typeof descriptor.name === 'string' && descriptor.name.length > 0
-          ? descriptor.name
-          : name(registration.namePrefix),
-      parentId,
-      visible:
-        typeof descriptor.visible === 'boolean' ? descriptor.visible : true,
-      lock: typeof descriptor.lock === 'boolean' ? descriptor.lock : false,
-      props: { ...ownerPropertyIds },
-      ...(registration.isContainer ? { children: [] } : {})
-    } as ElementRawData
-  }
-
-  const indexOwnerPropertyIds = (
-    ownerRelations: readonly ElementPropertyRelation[]
-  ): ReadonlyMap<string, Readonly<Record<string, string>>> => {
-    const ownerPropertyIds = new Map<string, Record<string, string>>()
-    ownerRelations.forEach(
-      ({
-        ownerElementId,
-        ownerPropertyName,
-        componentId
-      }: ElementPropertyRelation) => {
-        const current = ownerPropertyIds.get(ownerElementId)
-        if (current) {
-          current[ownerPropertyName] = componentId
-          return
-        }
-        ownerPropertyIds.set(ownerElementId, {
-          [ownerPropertyName]: componentId
-        })
-      }
-    )
-    return ownerPropertyIds
   }
 
   const prepareOrphanPropertyMutation = (
@@ -275,57 +192,10 @@ export const createAPIs = (
     applyRestoreSubtree: (preparedRestore, options) =>
       sceneTree.applyRestoreSubtree(preparedRestore, options),
     createElementsInParent: (data, parentId, index, options) => {
-      requireContainerParent(parentId)
-      const operations: PropertyMutation[] = data.flatMap((descriptor) => {
-        const registration = getDescriptorRegistration(descriptor)
-        const elementId = descriptor.id
-        if (typeof elementId !== 'string' || elementId.length === 0) {
-          throw new Error('[Core] Prepared element descriptor requires an id')
-        }
-        const definitions = getDescriptorDefinitions(registration)
-        return definitions.length === 0
-          ? []
-          : [
-              {
-                kind: 'create-owner-properties',
-                ownerElementId: elementId,
-                ownerElementType: registration.type,
-                definitions,
-                data: descriptor,
-                ...(descriptor.props
-                  ? {
-                      propertyIds: descriptor.props
-                    }
-                  : {})
-              }
-            ]
-      })
-      const preparedProperties = props.preparePropertyMutationBatch({
-        operations,
-        options
-      })
-      const ownerPropertyIds = indexOwnerPropertyIds(
-        preparedProperties.ownerRelations
+      const parent = requireContainerParent(parentId)
+      return freezeOrderedElementIds(
+        sceneTree.addNewElements(data, parent, index ?? -1, options)
       )
-      const elements = data.map((descriptor) =>
-        buildOrdinaryElementData(
-          descriptor,
-          parentId,
-          ownerPropertyIds.get(descriptor.id ?? '')
-        )
-      )
-      const preparedSceneInsertion = sceneTree.prepareElementInsertion({
-        parentId,
-        index,
-        elements,
-        ownerRelations: preparedProperties.ownerRelations
-      })
-      props.applyPreparedPropertyMutationBatch(preparedProperties)
-      const sceneResult = sceneTree.applyPreparedElementMutation(
-        preparedSceneInsertion,
-        options
-      )
-      return freezeOrderedElementIds(sceneResult.orderedElementIds)
     },
     createElementsInParentFromCanonicalData: (
       elements,
