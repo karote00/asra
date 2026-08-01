@@ -148,6 +148,7 @@ export default defineConfig({
   },
   use: {
     baseURL: appURL,
+    headless: true,
     trace: 'off',
     screenshot: 'off',
     video: 'off'

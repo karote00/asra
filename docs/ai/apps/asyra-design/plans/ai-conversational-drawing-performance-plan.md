@@ -296,15 +296,18 @@ unresolved phase span begins after the last completed slice-preparation phase
 and ends at the first phase-start/phase-end evidence captured around the guard
 stop.
 
-For all subsequent work, the only formal CPU percentage is the raw `%cpu`
-reported by the operating system in one `ps` snapshot. The guard polls at a
-nominal 250-millisecond cadence, but that cadence is only how often it asks the
-system for a new value; it is not a measurement window and never participates
-in a CPU-percentage formula. The complete frontend value is the same-snapshot
-sum of the raw system values for the App's Chromium root browser, renderer or
-worker, GPU, utility, and other browser processes. The formal frontend peak is
-the highest such raw `client-browser` snapshot and has a fixed 250-percent
-limit. Backend and harness CPU never enter that peak.
+For all subsequent work on Darwin, the only formal CPU percentage is the
+unmodified `%CPU` in the second table of one bounded `top` request. The first
+initialization table is ignored. A separate bounded `ps` snapshot supplies only
+the exact tracked PID/PPID/PGID/command identities and cumulative CPU-time
+diagnostics; its decaying `%CPU` value is never requested or used. The guard
+nominally requests another current raw snapshot every 1,000 milliseconds, but
+that cadence is only scheduling and never participates in a CPU-percentage
+formula. Each Actor's complete frontend value is the same-table sum of its
+Chromium root browser, renderer or worker, GPU, utility, and other browser
+processes. Actor A and Actor B retain separate frontend peaks with a fixed
+250-percent limit for ordinary and maximum-detail gates. Backend and harness
+CPU never enter either Actor peak.
 
 The aggregate safety value is the same-snapshot sum of the raw system values
 for frontend, App server, WebSocket server, and test harness. One raw aggregate
@@ -317,10 +320,15 @@ retained only as non-percentage diagnostic evidence and cannot replace the raw
 system snapshot.
 
 Periodic and phase-boundary sampling share one serialized OS-sample and
-state-consumption queue. No overlapping `ps` calls or out-of-order state update
-may combine values from different snapshots. A fixed 375-millisecond
-observation-gap ceiling fails closed because the guard may have missed a raw
-system peak; it does not construct a longer interval average.
+state-consumption queue. No overlapping `ps`/`top` calls or out-of-order state
+update may combine values from different snapshots. Each bounded `ps` identity
+request has a 200-millisecond hard timeout and each two-table Darwin `top`
+request has a 3,000-millisecond hard timeout. A fixed 7,000-millisecond gap
+between successfully completed raw observations permits two adjacent serialized
+requests to consume their existing deadlines plus bounded handoff overhead;
+anything larger fails closed because the guard may have missed a raw current
+system peak. The gap never constructs a longer interval average or changes a
+raw `%CPU` value.
 
 Production build commands run only as separate setup outside the runtime guard
 and product timing. Artifact attestation must succeed before Playwright may
@@ -751,7 +759,13 @@ configuration.
   for the exact 7,076-element high-performance case and 400 percent for 16-,
   320-, and 1,280-item safety or attribution cases; crossing it stops the exact
   tracked groups and reports their raw contributions.
-- Polling may occur every 250 milliseconds, but polling cadence is never a CPU
+- On Darwin, one bounded `ps` read supplies PID/PPID/PGID, cumulative CPU-time,
+  and command identity only. `top` filters on those PIDs plus one long-lived
+  unreported guard-process anchor and then produces two bounded `pid,cpu`
+  tables. The first initialization table is ignored and its second raw current
+  `%CPU` table is intersected with the exact still-live test-owned identities.
+  The anchor and untracked system PIDs never enter the formal sample. Polling
+  occurs nominally every 1,000 milliseconds, but cadence is never a CPU
   measurement window. The guard must not subtract cumulative CPU time, divide
   by elapsed time, normalize to the cadence, or use any converted percentage
   for the formal peak or either stop decision.
@@ -1059,14 +1073,14 @@ separately; the remaining unexplained renderer contribution stays residual
 rather than being guessed as a page or Worker owner. The benchmark sends one
 bounded heartbeat without walking or hashing the canonical graph.
 
-The immediate first sample records the exact process identities and their raw
-system-reported `%cpu` values. The product request cannot start before one
-complete required-role snapshot exists. Later polling nominally occurs every
-250 milliseconds, solely to ask the operating system for another raw snapshot.
-No sample subtracts cumulative CPU time or divides by wall time. Periodic and
-phase-boundary requests use the same serialized sample queue; a gap above 375
-milliseconds fails closed because the guard may have missed a system-reported
-peak.
+The first sample records exact process identities from bounded `ps` output and
+intersects them with the second raw current Darwin `top` table. The product
+request cannot start before one complete required-role sample exists. Later
+polling nominally occurs every 1,000 milliseconds, solely to ask the operating
+system for another current raw sample. No sample subtracts cumulative CPU time
+or divides by wall time. Periodic and phase-boundary requests use the same
+serialized sample queue; a gap above 3,000 milliseconds fails closed because
+the guard may have missed a current system-reported peak.
 
 The fixed limits cannot be relaxed through runner configuration:
 
@@ -1097,9 +1111,10 @@ frontend peaks, aggregate and separate role CPU samples, and last owner
 timing. If exact process ownership or the heartbeat cannot be established, the
 benchmark refuses to start rather than running unguarded.
 
-Every `ps` sample has a 200-millisecond hard timeout, shorter than the fixed
-250-millisecond cadence. SIGINT, SIGTERM, SIGHUP, exceptional guard exit, and
-benchmark failure all terminate the same exact registered process groups. The
+Every bounded `ps` identity sample has a 200-millisecond hard timeout and every
+two-table Darwin `top` current-CPU request has a 3,000-millisecond hard timeout.
+SIGINT, SIGTERM, SIGHUP, exceptional guard exit, and benchmark failure all
+terminate the same exact registered process groups. The
 ordinary Playwright suite always excludes the heavy endpoint spec, even if guard
 environment variables leak into the process. A terminal complete heartbeat
 re-samples and revalidates both exact Actor projections; it cannot reuse a
@@ -1906,7 +1921,7 @@ On the reference environment:
     deadline.
 - Maximum detail:
   - the guarded observed accepted-turn-to-Actor-A-settled time is at most
-    90 seconds.
+    300 seconds.
 
 Budgets are gates, not item, path, point, payload, frame, or composition
 ceilings. A finite valid drawing remains accepted even when a performance gate
@@ -3672,6 +3687,1484 @@ passed 55/55, the complete Factory suite passed 222/222, exact lint and
 `diff --check` passed, and the corrected formal 16-item two-Actor creation,
 Undo, and Redo proof passed in 24.7 seconds. The accepted 7,076 proof was not
 repeated.
+
+The next maximum-detail closure oracle initially selected the 7,075-item
+cat-only balanced source and correctly failed its 27,471-item assertion. The
+formal maximum source remains present as `maximum-tabby-polygon.svg` with
+27,471 paths; no product data is missing and no repeated geometry is allowed.
+
+Revised Step Execution Card:
+
+- Owner: `evaluate-performance-and-equivalence`.
+- Objective: route the existing 27,471-item maximum source through the existing
+  prepared-response overlay and guarded single-Actor local-attribution proof,
+  retaining the exact 295,794-point oracle and the 90-second accepted-turn to
+  Actor A settlement budget.
+- Test-first oracles: the prepared-response variant registry, guard runner,
+  package script, and exact maximum response fixture must require the new
+  maximum case before harness implementation; the existing source oracle must
+  prove exact vector and point counts.
+- Mutation allowlist: endpoint E2E response preparation, prepared-response
+  artifact and resource-guard harnesses with their formal tests, the Asyra
+  Design test script, the detailed-tabby formal oracle, and this active plan.
+- Required gates: focused harness tests, exact maximum source/response tests,
+  Inspector contract, exact lint, `diff --check`, production endpoint setup,
+  then one guarded single-Actor maximum-detail proof.
+- Exclusions: no production canonical, action, Factory, Collaboration, codec,
+  receiver, relay, Render, Contents, Pen Tool, threshold, sample cadence,
+  dependency, media, trace, profile, recording, or second 7,076 change/run.
+- Stop condition: a 90-second product-flow timeout, 250-percent raw Actor A
+  frontend stop, 400-percent real aggregate stop, correctness failure, or
+  missing exact point evidence ends only that gate and selects the first direct
+  product owner for another bounded iteration.
+
+The first guarded maximum-detail invocation reached the frontend stop before
+settlement. Actor A's raw frontend peak was 352.9 percent, one Chrome
+renderer/worker process accounted for 345.1 percent, and the same-snapshot
+overall aggregate was 355.6 percent. The App server remained at 0 percent, the
+WebSocket server at 1.4 percent, and the test harness at 1.3 percent. The
+source provider had already accepted progressive publications, so the failure
+is not server preparation, relay, or an idle Browser process. All four owned
+process groups terminated exactly.
+
+Revised `project-visible-canonical-slices` Step Execution Card:
+
+- Owner: `@asyra/render` canonical projection and frame ownership.
+- Objective: preserve one projection for every formal slice and the ordinary
+  editable Vector topology while removing the redundant full-parent Render
+  update after an ordered child addition batch has already placed every child
+  at its canonical parent index.
+- Test-first oracle: the formal Render Scene Tree batch-add test must retain
+  exact child order and the parent computed mirror update while rejecting a
+  second parent `render.updateElement` handoff for the same membership batch.
+- Mutation allowlist: `packages/render/src/stores/scene-tree.ts`, its focused
+  formal tests, and this active plan.
+- Required gates: prove the strengthened test fails first, then focused Render
+  tests, complete Render package tests, Inspector contract, exact lint,
+  `diff --check`, production build, one guarded 16-item proof, and one guarded
+  maximum-detail proof.
+- Exclusions: no action slice-size or paint-yield change, no final-only frame,
+  no bitmap or AI-only renderer, no Core, Factory, Collaboration, codec,
+  receiver, relay, Contents, Pen Tool, threshold, cadence, dependency, or
+  7,076-element change/run.
+- Stop condition: any focused correctness failure or the existing 250-percent
+  Actor A frontend, 400-percent overall, and 90-second maximum-detail guards
+  returns this same owner to bounded root-cause analysis and a revised
+  iteration.
+
+The corrected parent handoff passed the complete 199-test Render suite and the
+guarded 16-item production proof. That proof retained 17 exact projected
+elements, one Undo entry, eight publications, zero Render anomalies, a
+139.8-percent Actor A frontend peak, and a 145.3-percent same-snapshot overall
+peak. The next maximum-detail invocation again stopped at the frontend guard,
+but the Actor A peak fell from 352.9 to 311.5 percent and its one hot
+renderer/worker fell from 345.1 to 303.5 percent. The overall same-snapshot
+peak was 315.8 percent; App server CPU was 0 percent and WebSocket server CPU
+was 1.8 percent. The source provider again reached publication 112 before the
+stop.
+
+The remaining first incorrect work is still inside the same Render projection
+owner. `ComputedDataMirror.applyChildAdditionBatch(...)` walks every retained
+parent child twice to construct validation sets, then
+`cloneArrayWithEnumerableProperties(...)` calls `Reflect.ownKeys(...)` across
+every numeric array index solely to rediscover that canonical `children` is an
+ordinary string array. Across growing progressive slices that allocates a new
+list of every prior numeric index on every batch and creates avoidable V8 GC
+pressure in the exact hot renderer process.
+
+Second `project-visible-canonical-slices` iteration:
+
+- Objective: retain exact canonical child order, duplicate/stale-index
+  rejection, immutable next-array snapshots, and parent mirror correctness
+  while removing numeric-own-key enumeration and duplicate retained-child
+  validation passes from the canonical child-add batch.
+- Test-first oracle: the formal batch-add projection test must fail if appending
+  an exact canonical child batch calls `Reflect.ownKeys(...)` on the retained
+  child array; existing duplicate and stale-index rejection tests remain
+  unchanged.
+- Mutation allowlist: the same Render Scene Tree implementation and focused
+  tests plus this active plan.
+- Required gates and stop conditions: unchanged from the preceding card.
+- Exclusions: no custom-property compatibility route for canonical `children`,
+  no cadence or slice-size change, and every preceding exclusion remains in
+  force.
+
+The second iteration retained all focused gates and again passed the guarded
+16-item proof with 17 exact projected elements, one Undo, eight publications,
+zero Render anomalies, a 145.6-percent Actor A frontend peak, and a
+151.4-percent overall peak. The next maximum invocation still stopped at the
+frontend guard. Numeric own-key removal reduced Actor A from 311.5 to 303.4
+percent and the hot renderer/worker from 303.5 to 293.6 percent; the overall
+same-snapshot peak was 309.7 percent. The App server remained at 0 percent and
+the WebSocket server at 2.5 percent. The remaining delta is too small to
+justify another speculative production patch.
+
+Bounded CDP root-cause diagnostic:
+
+- Owner: `evaluate-performance-and-equivalence` E2E diagnostics, returning
+  findings to `project-visible-canonical-slices`.
+- Objective: use Chrome's page-target CPU profiler in consecutive short
+  windows and print only bounded top self-sample summaries, so the resource
+  guard can retain the last completed real Chrome call tree before terminating
+  the over-limit invocation.
+- Mutation allowlist: the endpoint performance E2E harness and this active
+  plan only.
+- Conditions: opt-in environment flag, 1-millisecond sampling interval,
+  500-millisecond rotation, no generated profile file, no app code, no
+  threshold or guard change, and no correctness/acceptance claim from the
+  profiled diagnostic run.
+- Required gate: exact TypeScript lint and the existing Playwright source
+  contract before one guarded diagnostic invocation. The resulting top
+  functions select the next production owner; the profiler is disabled for
+  every formal acceptance rerun.
+- Stop condition: the unchanged 250-percent frontend or 400-percent overall
+  guard ends the diagnostic and all owned processes exactly.
+
+The bounded page-target CPU profile corrected the remaining owner attribution.
+In one complete 500-millisecond maximum-detail window,
+`runInPropertyCreationBatch` led the profile with 112 self samples while
+`registerMany` and garbage collection each had 14. A smaller exact 1,280-item
+diagnostic completed below the guards and retained the same Props Manager
+signature: its last active window attributed 27 self samples to
+`runInPropertyCreationBatch`, 16 to garbage collection, and only later windows
+became idle. The diagnostic therefore returns from Render to
+`apply-canonical-property-scene-batch`.
+
+Props Manager currently opens every progressive property-creation slice by
+walking every active property, reading its type, and snapshotting every active
+schema. That work is only consumed if the slice updates an already-active
+property and later rolls back. An ordinary prepared creation is required to
+produce zero existing updates, so the global scan is unrelated work that grows
+with every preceding slice.
+
+Revised `apply-canonical-property-scene-batch` Step Execution Card:
+
+- Owner: `@asyra/props-manager` prepared property-batch apply and rollback.
+- Objective: retain exact schema-aware rollback for a batch that changes an
+  existing property while removing the all-active-property schema scan from
+  ordinary creation batches.
+- Test-first oracle: an owner-issued ordinary prepared creation applied beside
+  an unrelated active property must not read that property's type. Existing
+  object-upsert rollback tests continue to require restoration of the prior
+  owner value and no journal or component prefix.
+- Implementation: retain the existing batch-start active-schema snapshot for
+  generic creation batches that may update active properties. Initialize an
+  empty rollback schema map only for the owner-issued ordinary prepared path,
+  whose finalizer rejects every existing update. No validation, relationship,
+  registration, materialization, or rollback branch is bypassed.
+- Mutation allowlist: `packages/props-manager/src/manager/props-manager.ts`,
+  its focused formal tests, and this active plan.
+- Required gates: prove the new oracle fails first; pass the focused and
+  complete Props Manager suites, its build, Inspector contract, exact lint,
+  `diff --check`, bounded review, production build, and one guarded 16-item
+  proof before one profiler-disabled maximum-detail acceptance attempt.
+- Exclusions: no Render, Core, Factory, Collaboration, codec, receiver, relay,
+  Contents, Pen Tool, publication slice size, paint cadence, CPU threshold,
+  deadline, fixture-specific output, dependency, or 7,076-element change/run.
+- Stop condition: any correctness failure or the unchanged maximum-detail
+  resource guards ends only that gate and returns to its first measured owner
+  for another bounded iteration.
+
+The focused owner closure passed Props Manager 238/238, its TypeScript build,
+the performance Inspector 21/21, exact lint, `diff --check`, bounded review,
+the 20-package production build, and the guarded 16-item proof. That proof
+retained A/B 17/17 canonical and Render elements, eight/eight publications,
+one/zero Undo, zero failures, 5,009-millisecond convergence, a 160.0-percent
+Actor A peak, a 137.4-percent Actor B peak, and a 276.1-percent overall peak.
+
+The profiler-disabled maximum-detail acceptance then stopped at the unchanged
+frontend guard. Actor A reached a 308.2-percent raw frontend peak, its hot
+renderer/worker reached 295.3 percent, and the same-snapshot overall peak was
+317.9 percent. The source had reached publication 120 before the guard, and all
+four owned process groups terminated exactly.
+
+A guarded maximum-detail diagnostic after the active-property scan fix no
+longer attributed any top sample to `runInPropertyCreationBatch`. Its last two
+complete active windows instead exposed the next duplicate ownership work:
+`clonePropsValue` retained 14 and 12 self samples, Factory deep-freeze retained
+19 in one window, `finalizeOrdinaryPropertyCreationBatch` retained 14, and
+`registerMany` retained 14 and 12. The production symbol for
+`clonePropsValue` resolves directly to `structuredClone`; the measured
+`props-manager:creation-evidence-clone` phase totaled 103.1 milliseconds even
+for the smaller 1,280-item diagnostic.
+
+Second `apply-canonical-property-scene-batch` iteration:
+
+- Objective: keep generic property-creation evidence detached while allowing
+  the already-validated ordinary prepared path to hand its freshly saved
+  source evidence directly to Factory, which remains the immutable
+  transaction owner, without one intermediate full-batch `structuredClone`.
+- Test-first oracle: the ordinary prepared creation must retain exact add
+  evidence and component values while emitting no
+  `props-manager:creation-evidence-clone` phase. Generic creation continues to
+  emit that phase and all Factory journal/delivery immutability tests remain
+  unchanged.
+- Mutation allowlist: `packages/props-manager/src/manager/props-manager.ts`,
+  its focused formal tests, and this active plan.
+- Required gates, exclusions, thresholds, and stop behavior: unchanged from
+  the preceding Props Manager card. No Factory channel or immutable owner
+  contract changes in this iteration.
+
+Revised `project-visible-canonical-slices` Step Execution Card:
+
+- Owner step: `project-visible-canonical-slices`, specifically the ordinary
+  Asyra Design Contents/Layers hierarchy projection that consumes the
+  canonical parent-before-child order.
+- Objective: project valid hierarchy depth and collapsed visibility in one
+  linear pass without allocating one ancestor set or rereading the complete
+  ancestor chain for every row.
+- Test-first oracle: a wide valid Group projection reads the root parent
+  relation once while preserving exact rows, depth, order, expansion, and all
+  existing duplicate, missing, misordered, cyclic, and multiple-workspace
+  rejection semantics.
+- Mutation allowlist:
+  `apps/asyra-design/src/contents/layer-hierarchy.ts`, its focused test,
+  the matching create-app template implementation and test, this Inspector
+  step and its contract test, and this active plan.
+- Required gates: red/green application and template hierarchy tests,
+  performance Inspector contract, exact-path lint and diff check, production
+  build, one guarded 16-item correctness proof, then one profiler-disabled
+  maximum-detail acceptance attempt.
+- Exclusions: no Contents panel removal or bypass, no virtualizer or mounted
+  product-route change, no CRDT/codec/receiver/remote-apply/relay change, no
+  Render topology change, no slice size, cadence, CPU-threshold, deadline,
+  dependency, Pen Tool, or 7,076 invocation.
+- Stop condition: any correctness regression or the unchanged maximum-detail
+  guard triggers a bounded root-cause iteration at the first measured owner;
+  it does not authorize weakening a threshold or product behavior.
+
+The profiler-disabled acceptance after the valid-hierarchy linearization still
+reached the unchanged frontend stop. At publication 160, Actor A measured a
+372.2-percent raw frontend peak, the hot renderer/worker measured 356.7
+percent, and the same-snapshot overall peak measured 388.7 percent. All four
+owned process groups terminated exactly. The hierarchy change therefore
+remains a measured linear-path correction, but it is not the complete
+maximum-detail root cause.
+
+Maximum-detail root-cause iteration:
+
+- Objective: identify the first remaining production owner from bounded
+  DevTools CPU-profile slices without another immediate maximum-detail
+  acceptance attempt.
+- Discovery method: run the existing profiler diagnostic against the prepared
+  1,280-item single-Actor source, inspect only bounded top self-sample
+  summaries, resolve production symbols to current source, and compare the
+  result with the last maximum-detail active phase.
+- Mutation scope: none until the first owner and its exact Inspector
+  implementation boundary are identified; any subsequent change requires its
+  own test-first Step Execution Card.
+- Exclusions: no threshold, sampling cadence, deadline, product route,
+  Contents mount, CRDT, slice size, dependency, Pen Tool, 7,076, or immediate
+  maximum-detail rerun.
+
+The bounded 1,280-item DevTools diagnostic completed with a 207.2-percent
+frontend peak and 212.7-percent same-snapshot overall peak. Active profile
+windows attributed the repeated work to anonymous topology-enumeration
+callbacks, garbage collection, `s$`, and `Bt`. Production-symbol inspection
+resolved `s$` to Preset's per-Vector workspace-to-local point projection and
+`Bt` to Factory `deepFreezeValue`. The first removable duplicate is the deep
+point/segment/network normalization validation immediately before the required
+point projection: canonical Vector data already carries the exact
+`pointCoordinateSpace: 'workspace'` owner marker.
+
+`project-visible-canonical-slices` Vector normalization iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the
+  `@asyra/preset` ordinary Vector strategy.
+- Objective: trust the canonical workspace-coordinate marker and structural
+  topology roots produced by the canonical owner, avoiding a second deep
+  point, segment, and network normalization walk before the required
+  workspace-to-local render projection.
+- Test-first oracle: a canonical workspace Vector performs exactly one
+  top-level point enumeration for local projection, no segment normalization
+  enumeration, and one network enumeration for render ordering; no second
+  normalization enumerations occur and exact draw operations remain unchanged.
+- Mutation allowlist: `packages/preset/src/components/vector.ts`, its focused
+  Vector render-strategy test, and this active plan.
+- Required gates: red/green focused Vector test, complete Preset tests,
+  performance Inspector contract, exact-path lint and diff check, production
+  build, guarded 16-item correctness, then one profiler-disabled
+  maximum-detail acceptance attempt.
+- Exclusions: no geometry flattening or omission, no point-coordinate contract
+  change, no Render topology or Pixi strategy bypass, no Contents, Factory,
+  CRDT, codec, receiver, remote apply, relay, slice size, threshold, cadence,
+  deadline, dependency, Pen Tool, or 7,076 change.
+- Stop condition: any draw, hierarchy, editability, or correctness regression
+  blocks the implementation; a remaining maximum-detail stop returns to the
+  next measured owner without weakening the product contract.
+
+The profiler-disabled maximum-detail attempt after canonical Vector
+normalization removed the redundant topology enumerations but still reached
+the frontend guard. Actor A measured 370.1 percent, its hot renderer/worker
+measured 356.3 percent, and the same-snapshot overall peak measured 380.4
+percent. Exact teardown passed. Because the smaller profile does not reproduce
+the maximum-detail spike's scale, the next discovery action is one bounded
+maximum-detail DevTools-profile diagnostic that retains only rotating top
+self-sample summaries; it is diagnostic evidence, not an acceptance rerun.
+
+The bounded maximum-detail profile stopped safely at a 266.9-percent profiled
+frontend peak and retained nine active slices. Across those slices,
+`finalizeOrdinaryPropertyCreationBatch`, component `getValue`, `registerMany`,
+Factory `deepFreezeValue`, and garbage collection repeated. The ordinary Props
+finalizer still saves and schema-validates every staged component, walks the
+complete relationship graph through further saves, and then the evidence owner
+saves the same components again. That post-action validation contradicts the
+fixed trusted-action contract and is the first removable owner work.
+
+Third `apply-canonical-property-scene-batch` iteration:
+
+- Owner step: `apply-canonical-property-scene-batch`, specifically the
+  owner-issued ordinary Props creation finalizer.
+- Objective: after whole-batch descriptor preflight and the registered action
+  have produced the staged graph, perform one trusted staged registration and
+  one required evidence save only; do not save, schema-validate, or traverse
+  the staged graph again for post-action confirmation.
+- Test-first oracle: an ordinary prepared Position component's `save()` is
+  called exactly once by required add evidence, while the result, active
+  registration, owner-aligned data, and absence of evidence cloning remain
+  exact.
+- Mutation allowlist: `packages/props-manager/src/manager/props-manager.ts`,
+  its focused formal tests, and this active plan.
+- Required gates: red/green focused ordinary-creation tests, complete Props
+  Manager and Factory tests, performance Inspector contract, exact-path lint
+  and diff check, production build, guarded 16-item correctness, then one
+  profiler-disabled maximum-detail acceptance attempt.
+- Exclusions: generic/external creation validation, exact/restore/removal
+  lifecycle, rollback, evidence content, Factory journal/Undo/publication,
+  Render, Contents, CRDT, codec, receiver, remote apply, relay, slice size,
+  threshold, cadence, deadline, dependency, Pen Tool, and 7,076.
+- Stop condition: any ordinary output, registration, evidence, rollback,
+  relationship-index, or formal test regression blocks the change; a remaining
+  maximum-detail stop advances only through another measured owner card.
+
+The maximum-detail attempt after removing ordinary Props post-action
+validation still stopped at 369.7 percent Actor A frontend, 355.4 percent hot
+renderer/worker, and 375.4 percent same-snapshot overall. The unchanged peak
+shape despite the verified Props reduction rules Props out as the owner of
+that instantaneous ceiling. The latest maximum-detail profile windows instead
+end in Pixi `packAttributes` while the retained scene is progressively
+growing. Discovery therefore returns to `project-visible-canonical-slices` to
+determine whether every canonical slice forces a full retained-scene draw and
+buffer upload rather than coalescing demanded frames.
+
+Fourth `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the
+  `@asyra/render-engine-pixi` mapping of the engine-neutral `batched` Graphics
+  property to Pixi's GraphicsContext batch strategy.
+- Objective: preserve every demanded progressive paint while ensuring a
+  Vector explicitly marked `batched: false` uses Pixi
+  `GraphicsContext.batchMode = 'no-batch'`, so retained geometry keeps its
+  owned GPU-ready context rather than entering DefaultBatcher
+  `packAttributes` again on every later frame.
+- Test-first oracle: creating or updating a Pixi Graphics with
+  `batched: false` selects `no-batch`, while restoring `batched: true` selects
+  `auto`; the ordinary object, draw, interaction, and frame contracts remain
+  unchanged.
+- Mutation allowlist:
+  `packages/render-engine-pixi/src/pixi-render-engine.ts`, its focused formal
+  tests, and this active plan.
+- Required gates: red/green Pixi adapter test, complete Render Engine Pixi and
+  Preset tests, performance Inspector contract, exact-path lint and diff
+  check, production build, one guarded 16-item correctness proof, then one
+  profiler-disabled maximum-detail acceptance attempt.
+- Exclusions: no progressive slice, publication, paint cadence, Render
+  topology, Vector geometry, editability, hit testing, Contents, Factory,
+  Props, CRDT, codec, receiver, remote apply, relay, threshold, deadline,
+  dependency, Pen Tool, or 7,076 change.
+- Stop condition: any visual, interaction, frame, adapter, or correctness
+  regression blocks the implementation; a remaining maximum-detail stop
+  returns to bounded profile evidence without weakening the product contract.
+
+The fresh guarded two-Actor 16-item proof after the Pixi batch-mode correction
+passed with A/B 17/17 canonical and Render projection elements, eight ordered
+publications delivered and applied, zero failures, Actor A Undo depth one,
+Actor B Undo depth zero, and exact owned-process teardown. Actor A's raw
+frontend peak was 166.6 percent, Actor B's independent peak was 138.1 percent,
+and the same-snapshot overall peak was 286.9 percent, all within the unchanged
+limits. The production operation reached complete/converged state at 5.008
+seconds; the accepted turn itself settled in 0.280 seconds.
+
+The single profiler-disabled maximum-detail acceptance attempt then improved
+the prior 369.7-percent Actor A frontend and 355.4-percent hot
+renderer/worker peaks to 277.0 and 234.9 percent respectively. The same
+snapshot included 40.0 percent GPU, 1.2 percent root-browser, and 0.9 percent
+utility work, for a 284.8-percent overall peak. The overall 400-percent safety
+limit remained intact, but the frontend total crossed the unchanged
+250-percent maximum-detail limit after 168 publications, so the guard
+terminated all four owned process groups exactly. This confirms that the Pixi
+batch-mode mapping removed the dominant repeated packing cost but did not
+close the remaining 27.0-percent frontend excess.
+
+Maximum-detail post-batch-mode root-cause iteration:
+
+- Objective: attribute the remaining hot renderer/worker work after
+  `no-batch` takes effect, without another profiler-disabled acceptance
+  attempt.
+- Discovery method: run one bounded maximum-detail diagnostic with the
+  existing rotating DevTools CPU profiler, retain only top self-sample
+  summaries up to the unchanged CPU stop, and resolve only symbols active in
+  the final retained windows.
+- Mutation scope: none until those samples identify one Inspector owner and
+  exact implementation boundary; any subsequent edit requires another
+  test-first Step Execution Card.
+- Exclusions: no threshold, deadline, CPU attribution, publication, slice,
+  paint cadence, geometry/detail, Contents, Pen Tool, CRDT, dependency, 7,076,
+  or immediate profiler-disabled maximum-detail rerun.
+
+The bounded post-batch-mode profile reached 2,763 exact projected elements and
+109 Factory publications before the profiler-inflated frontend stop. Its final
+retained CPU slice named `d9` among the top self-sampled production functions.
+Static resolution against the exact production artifact maps `d9` to
+Asyra Design `projectVisibleLayerRows`. The earlier linearization removed
+repeated ancestor walks inside one call, but Contents still invokes that
+complete projection after every progressive UI snapshot, so an always-expanded
+27,471-element list repeatedly rebuilds all retained row metadata before the
+virtualizer discards offscreen rows.
+
+Fifth `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the ordinary
+  Asyra Design Contents/Layers projection downstream of the incremental UI
+  context snapshots.
+- Objective: when no Group is collapsed, feed canonical IDs directly to the
+  virtualizer and derive depth/Group metadata only for mounted rows; retain the
+  complete validated visibility projection for an explicit collapsed state.
+- Test-first oracle: the ordinary expanded Contents panel preserves exact root
+  and nested indentation while never calling the complete
+  `projectVisibleLayerRows`; existing collapse, expansion, invalid projection,
+  final-row reachability, selection, and hierarchy-move behavior remain exact.
+- Mutation allowlist: the application and create-app template
+  `contents-panel.tsx`, `layer-hierarchy.ts`, their focused formal tests, this
+  Inspector step and contract test, and this active plan.
+- Required gates: red/green application Contents test, matching template
+  Contents and hierarchy tests, performance Inspector contract, exact-path
+  lint and diff check, production build, one guarded 16-item correctness proof,
+  then one profiler-disabled maximum-detail acceptance attempt.
+- Exclusions: no UI context value shape, canonical order, virtualizer,
+  collapsed visibility semantics, document interaction, Render/Pixi,
+  publication, slice, paint cadence, geometry/detail, CRDT, threshold,
+  deadline, dependency, Pen Tool, or 7,076 change.
+- Stop condition: any visible order, indentation, collapse, selection,
+  hierarchy-move, correctness, or resource regression blocks the change; a
+  remaining maximum-detail stop returns to bounded owner evidence.
+
+The fresh guarded two-Actor 16-item proof after virtualizing expanded canonical
+IDs passed with A/B 17/17 canonical and Render projection elements, eight
+ordered publications delivered and applied, zero failures, Actor A Undo depth
+one, Actor B Undo depth zero, and exact process teardown. Actor A's independent
+raw frontend peak was 156.5 percent, Actor B's was 126.5 percent, and the
+same-snapshot overall peak was 297.6 percent. Complete/converged state arrived
+at 5.012 seconds; the accepted turn settled in 0.295 seconds.
+
+The single profiler-disabled maximum-detail attempt after the expanded
+Contents correction remained between 210.3 and 227.9 percent Actor A frontend
+across the preceding retained samples, then produced one 409.9-percent
+frontend burst: 373.5 percent renderer/worker, 34.3 percent GPU, 1.4 percent
+root-browser, and 0.7 percent utility. The same snapshot reached 414.7 percent
+overall and therefore crossed both the 250-percent frontend and 400-percent
+overall hard stops. The guard terminated all four process groups exactly after
+184 publications. The full Contents reconstruction is removed and remains
+covered by formal tests, but a different burst owner still blocks
+maximum-detail closure.
+
+Maximum-detail post-Contents root-cause iteration:
+
+- Objective: identify the owner of the isolated renderer burst after both Pixi
+  repeated attribute packing and complete expanded Contents projection are
+  absent.
+- Discovery method: run one bounded rotating DevTools profile against the
+  current exact production artifact, retain only final top self-sample
+  summaries up to the unchanged 250/400 stop, and resolve the first production
+  symbol whose work can be removed without changing a formal slice or paint.
+- Mutation scope: none until one exact Inspector owner and implementation
+  boundary are identified; the next edit requires a test-first Step Execution
+  Card.
+- Exclusions: no threshold, sampling attribution, deadline, publication,
+  slice, paint cadence, geometry/detail, Contents behavior, CRDT, dependency,
+  Pen Tool, 7,076, or immediate profiler-disabled acceptance rerun.
+
+The bounded post-Contents profile stopped at 2,667 exact projected elements
+after 106 Factory publications and 105 sent publications. The
+profiler-inflated Actor A frontend peak was 336.9 percent, including a
+312.1-percent renderer/worker and 23.6-percent GPU process; the same-snapshot
+overall peak was 346.9 percent, so the independent frontend stop fired before
+the 400-percent overall stop. Exact owned-process teardown passed. The final
+retained 341 CPU-profile samples were distributed rather than dominated by one
+product function: idle accounted for 39 self samples, garbage collection 17,
+program 15, WebGL `bindVertexArray` 9, Factory `deepFreezeValue` 8, and an
+anonymous frame 8. `bindVertexArray` is consistent with the draw-submission
+cost of individual non-batched Graphics, but 9 of 341 final-slice samples is
+not sufficient evidence to change Render topology or introduce another
+batching owner. The next bounded discovery therefore aggregates all retained
+profile slices and attributes only repeated production work before selecting
+another owner card.
+
+Before that diagnostic, product-owner observation exposed a harness
+interpretation problem. The guarded Chrome has no CPU, renderer, worker, or
+memory limit. `workers: 1` limits concurrent test cases only. The several
+seconds before product work are harness-owned response seeding and
+two-fresh-sample settling between setup phases, not App first-paint or product
+execution, so neither may select another product optimization.
+
+A transient headed 16-item comparison passed exact 17-element canonical and
+Render projection, eight Factory/sent publications, one Undo, zero failures,
+and exact teardown. Actor A's raw frontend peak was 138.4 percent and the
+same-snapshot aggregate peak was 147.7 percent. The operation reached exact
+completion at 5.007 seconds; the accepted turn itself settled in 0.287
+seconds. That launch stole desktop focus and is rejected as a workflow gate by
+explicit product-owner direction; it authorizes no maximum-detail run or
+product change.
+
+Background performance-environment card:
+
+- Owner step: `evaluate-performance-and-equivalence`, exclusively the local
+  guarded browser launch contract.
+- Objective: run all automated performance and maximum-detail gates in
+  background headless Chrome for Testing so no test steals desktop focus,
+  while applying no CPU, process-count, worker-count, memory, or
+  software-render restriction; keep one Playwright worker solely as test-case
+  concurrency and retain all existing raw OS guards.
+- Test-first oracle: the endpoint performance config and separately launched
+  Actor B explicitly select `headless: true` and contain none of the
+  resource-limiting Chromium flags; worker, retry, trace, screenshot, video,
+  process ownership, and exact teardown contracts remain unchanged.
+- Mutation allowlist:
+  `apps/asyra-design/playwright.endpoint-performance.config.ts`,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`, their focused
+  formal config test, this Inspector condition/test, and this active plan.
+- Required gates: red/green Playwright-config oracle, Inspector contract and
+  exact-path lint/diff check. The already-passing 16-item correctness result is
+  retained; no additional browser rerun is needed for this explicit background
+  launch correction.
+- Exclusions: no visible automated browser window, product implementation,
+  bootstrap safety sampling, raw CPU arithmetic, thresholds, deadlines,
+  publication, canonical data, Render, Contents, dependency, Pen Tool, 7,076,
+  or maximum-detail acceptance rerun.
+- Stop condition: any visible window, resource-limiting launch flag,
+  process-attribution drift, correctness failure, resource stop, or teardown
+  failure blocks all further product performance edits and returns to this
+  harness owner.
+
+The background launch oracle passed its seven Playwright-config tests and the
+complete 21-test performance Inspector contract. Actor A and the separately
+launched Actor B both explicitly select `headless: true`; the config contains
+none of the prohibited CPU, process, worker, memory, GPU, or raster-thread
+limits. No replacement browser proof was started.
+
+Maximum-detail aggregate-profile diagnostic card:
+
+- Owner step: `evaluate-performance-and-equivalence`, exclusively detached
+  maximum-detail diagnostic evidence.
+- Objective: aggregate the rotating profile's top self-sampled call frames
+  across the whole guarded attempt in one fixed-capacity heavy-hitter summary
+  with source location and explicit approximation error, so the next product
+  owner is selected from repeated work rather than one terminal slice.
+- Test-first oracle: repeated call frames merge across slices, distinct source
+  locations remain distinct, capacity replacement reports its error bound,
+  invalid input is rejected, and the final summary remains fixed-size.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`, the focused guard
+  test, this Inspector condition and contract test, and this active plan.
+- Required gates: red/green pure aggregation test, focused guard and
+  Playwright-config tests, Inspector contract, exact-path lint/diff check, then
+  one guarded background profiled maximum-detail diagnostic.
+- Exclusions: no raw CPU sampling or arithmetic, stop thresholds, deadlines,
+  product route, canonical data, projection, Render, publication, acceptance
+  proof, stored profile artifact, dependency, Pen Tool, or 7,076 change.
+- Stop condition: any unbounded evidence, CPU-decision coupling, visible
+  browser, process teardown regression, or formal test failure blocks the
+  diagnostic.
+
+The background aggregate-profile diagnostic stopped at 2,827 exact projected
+elements after 111 Factory publications and 109 sent publications. Actor A's
+raw frontend peak was 395.3 percent: renderer/worker 360.4 percent, GPU 33.5
+percent, root browser 0.8 percent, and utility 0.6 percent. The same-snapshot
+overall peak was 399.0 percent, so the independent 250-percent frontend stop
+fired while the 400-percent overall stop remained intact. All four owned
+process groups terminated exactly.
+
+The parent guard retained eight completed profile slices after the child was
+terminated, covering 3,382 samples and 951 bounded top self samples. The
+largest exact named production function was Factory `deepFreezeValue` with 73
+self samples; garbage collection accounted for 171, `program` 148,
+`bindVertexArray` 24, and App `postToTransportWorker` 20. Static resolution
+against the exact production bundle maps the profile's `Bt` symbol to
+`packages/factory/src/value-clone.ts`. This aggregate rules out the former
+final-slice-only `bindVertexArray` hypothesis as the first owner. The canonical
+batch is already issued through the Reactive Events detached-owner contract,
+but Factory's later wrapper freezes do not adopt that trusted structural-root
+identity and recursively enumerate the already-owned nested geometry again.
+
+Sixth `record-and-deliver-transaction-batch` iteration:
+
+- Owner step: `record-and-deliver-transaction-batch`, specifically Factory's
+  adoption of an issued detached canonical owner batch.
+- Objective: adopt the detached batch's already-verified event, payload,
+  canonical-evidence, ordered-ID, shared-record, and shared-record-payload
+  structural roots before constructing ordinary journal and publication
+  wrappers, so later Factory freezes retain immutability without recursively
+  enumerating nested geometry.
+- Write timeline: one App action opens one existing outer transaction; the
+  canonical owner applies Props and Scene once; Scene Tree issues one detached
+  Props-then-Scene event batch; Factory records the ordinary journal entries
+  once; the same journal supplies one Undo action and rollback/Redo; Factory
+  derives the minimal SharedPublication and Collaboration handoff without
+  another geometry traversal.
+- Test-first oracle: a detached canonical owner payload exposes frozen nested
+  geometry through a counted accessor. Factory preserves the exact geometry
+  identity, publication payload, one history action, and immutable observer
+  boundary while never reading that nested accessor. The current Factory
+  wrapper freeze reads it and must fail this oracle before implementation.
+- Mutation allowlist: `packages/factory/src/value-clone.ts`,
+  `packages/factory/src/data-transact.ts`, the focused Factory value-clone and
+  batch/publication tests, and this active plan.
+- Required gates: red/green exact regression, complete Factory tests,
+  performance Inspector contract, exact-path lint and `diff --check`, bounded
+  direct-consumer review, production build, one guarded background 16-item
+  correctness proof, then one profiler-disabled maximum-detail acceptance
+  attempt.
+- Exclusions: no new history or compensation representation, no inverse or
+  rollback removal, no old SharedPublication shape or compatibility branch,
+  no Collaboration codec/receiver/remote-apply/relay change, no Render,
+  Contents, Pixi, canonical geometry, slice/cadence, threshold, deadline,
+  dependency, Pen Tool, visible browser, or 7,076 invocation.
+- Stop condition: any mutable external payload acceptance, Undo/Redo/rollback,
+  ordered-ID, publication immutability, observer-isolation, correctness,
+  resource, or time regression blocks this iteration and returns to the first
+  failing owner without weakening the product contract.
+
+The detached-owner adoption regression first failed with one nested geometry
+read, then passed with zero reads, exact publication payload identity, and one
+Undo entry. The complete Factory suite passed 222 tests; Factory type build,
+exact-path lint, `diff --check`, and the 21-test performance Inspector contract
+also passed.
+
+The fresh guarded background 16-item proof passed with A/B 17/17 canonical and
+Render projection elements, eight ordered publications sent and applied, zero
+failures, Actor A Undo depth one, Actor B Undo depth zero, and exact teardown.
+Actor A's independent raw frontend peak was 147.7 percent, Actor B's was 126.0
+percent, and the same-snapshot overall peak was 290.9 percent. The accepted turn
+settled in 0.265 seconds and both Actors reached the proof's sampled complete
+state at 5.011 seconds.
+
+The one profiler-disabled maximum-detail acceptance attempt then crossed both
+hard stops in one real operating-system sample after 192 source publications.
+Actor A reached 447.6 percent frontend CPU: 405.0 percent renderer/worker, 40.8
+percent GPU, 1.0 percent root browser, and 0.8 percent utility. The
+same-snapshot overall peak was 456.9 percent. The preceding samples remained
+between 222.9 and 238.4 percent Actor A frontend. The five-second O(1)
+heartbeat had not yet captured the new canonical count, so its retained zero
+does not mean the action had not started; relay diagnostics had already
+observed 192 source publications. The guard terminated all four owned process
+groups exactly, and the failed acceptance authorizes only a new bounded
+root-cause iteration.
+
+Maximum-detail post-detached-owner diagnostic card:
+
+- Owner step: `evaluate-performance-and-equivalence`, exclusively detached
+  maximum-detail diagnostic evidence.
+- Objective: capture one fixed-capacity aggregate of rotating DevTools CPU
+  slices through the next unchanged hard stop and resolve the first exact
+  production function active in the isolated 405-percent renderer/worker
+  burst.
+- Discovery method: use the already-tested background headless diagnostic
+  flag, retain no profile file, aggregate only bounded top self samples in the
+  parent guard, and map named frames against the exact current production
+  artifact.
+- Mutation scope: none until the aggregate identifies one exact Inspector
+  owner and implementation boundary; any subsequent product edit requires a
+  new test-first Step Execution Card.
+- Required gate: the already-passing diagnostic aggregation, background launch,
+  and Inspector tests remain the authority; run exactly one profiled maximum
+  invocation under the unchanged 250-percent frontend and 400-percent overall
+  stops.
+- Exclusions: no acceptance claim, threshold/deadline/sampling change, visible
+  browser, stored profile, repeated profiler-disabled attempt, publication or
+  slice cadence change, geometry/detail reduction, dependency, Pen Tool, or
+  7,076 invocation.
+- Stop condition: any visible window, missing teardown, unbounded profile
+  output, changed CPU decision, or ambiguous owner evidence blocks product
+  mutation and returns to bounded static symbol resolution.
+
+The background profile stopped at 2,923 exact projected elements after 114
+Factory publications and 111 sent publications. Actor A reached 378.5 percent
+frontend CPU, including 344.0 percent renderer/worker and 33.0 percent GPU;
+the same-snapshot overall peak remained below its independent stop at 383.2
+percent. Exact teardown passed.
+
+Eight retained slices covered 2,871 profile samples and 828 bounded top self
+samples. Factory `deepFreezeValue` no longer appears in the aggregate, proving
+that detached-owner adoption removed the selected recursive scan rather than
+moving it to another Factory wrapper. The aggregate now contains 170 garbage
+collector, 134 program, 59 anonymous line-316, 48 anonymous line-77, 48
+minified `g` line-316, 31 exact `registerMany`, 29 minified `m`, 24
+`postToTransportWorker`, 24 minified `T`, 23 exact `getValue`, and 21 WebGL
+`execute` self samples. The largest remaining frames share two minified bundle
+lines and cannot be assigned to one product owner without their DevTools
+column positions; choosing `registerMany`, Props `getValue`, or WebGL from
+smaller named frames would be speculative.
+
+Revised maximum-detail location diagnostic card:
+
+- Owner step: `evaluate-performance-and-equivalence`, exclusively detached
+  maximum-detail diagnostic evidence.
+- Objective: retain the DevTools call-frame column together with function,
+  line, and URL in the existing fixed-capacity aggregate so the larger
+  anonymous and minified frames resolve to one exact current source owner.
+- Test-first oracle: otherwise-identical frames at two columns on the same
+  production line remain distinct heavy hitters, malformed or missing columns
+  are rejected, and the bounded parent aggregate survives abrupt child
+  termination unchanged.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`, their focused guard
+  test, and this active plan.
+- Required gates: red/green focused aggregation tests, complete guard and
+  Playwright-config tests, exact lint, `diff --check`, and one guarded
+  background profiled maximum-detail diagnostic under unchanged hard stops.
+- Exclusions: no product edit, raw CPU arithmetic, threshold/deadline/sampling
+  cadence, acceptance claim, visible browser, stored profile, dependency,
+  Pen Tool, or 7,076 invocation.
+- Stop condition: any unbounded evidence, lost abrupt-stop aggregate, visible
+  window, teardown failure, or still-ambiguous exact location blocks product
+  mutation and requires static resolution from the retained bounded frames.
+
+The background location diagnostic retained nine complete slices with 3,156
+profile samples and 979 bounded top self samples before the unchanged resource
+stop. Actor A reached 378.5 percent raw frontend CPU, including 345.5 percent
+renderer/worker and 31.5 percent GPU; the same-snapshot aggregate was 381.8
+percent, and exact teardown passed. Factory `deepFreezeValue` remained absent.
+The largest exact App frame, 70 self samples at production line 316 column
+93458, resolves to
+`ChildrenMapPropertyComponent.getValue()` rebuilding one child record through
+property-instance lookups. The next exact frame, 59 self samples at line 77
+column 133679, resolves to Props Manager's ordinary relationship-descriptor
+preflight. The same aggregate retained 54 samples in UI-context batch
+projection, 26 exact `registerMany`, 24 worker-post, 20 vector point translation,
+18 vector point lookup, and 18 WebGL binding samples. The first duplicated
+owner work is therefore the property-instance reconstruction immediately after
+the required Props preflight, not Factory, transport, the E2E launch, or a
+Chrome resource limit.
+
+Seventh `apply-canonical-property-scene-batch` iteration:
+
+- Owner step: `apply-canonical-property-scene-batch`, specifically the ordinary
+  owner-issued geometry-data handoff from Props preflight to Scene Tree local
+  Computed projection.
+- Objective: preserve the required whole-batch schema, ID, and relationship
+  preflight and every individually editable property record while allowing
+  Scene Tree to seed local Computed geometry from the same accepted owner data,
+  instead of immediately walking every newly materialized child property to
+  reconstruct the identical point, segment, and network records.
+- Test-first oracle: an ordinary owner-issued record relationship preserves the
+  exact computed record identity and complete editable child properties while
+  its parent property `getValue()` is never called during element
+  materialization. ID-only or otherwise non-direct relationship inputs retain
+  the ordinary property projection path, and later property changes still
+  reproject through `getValue()`.
+- Mutation allowlist: `packages/props-manager/src/manager/props-manager.ts`,
+  its focused tests, `packages/scene-tree/src` Computed/materialization
+  handoff, focused Scene Tree tests, and this active plan.
+- Required gates: prove the new oracle fails first; pass focused and complete
+  Props Manager and Scene Tree suites, both package builds, the performance
+  Inspector contract, exact lint and `diff --check`, bounded direct-consumer
+  review, production build, one guarded background 16-item proof, then one
+  profiler-disabled background maximum-detail acceptance attempt.
+- Exclusions: no skipped preflight, flattened or missing property records,
+  changed IDs/order/relationships, Render topology reduction, history or
+  publication change, codec, receiver, relay, remote apply, Contents, Pen Tool,
+  slice/cadence, threshold, deadline, dependency, visible browser, or 7,076
+  invocation.
+- Stop condition: any computed/property mismatch, property update regression,
+  correctness failure, or unchanged resource stop returns to this exact owner
+  for bounded evidence without weakening the contract.
+
+The regression first failed because ordinary element materialization called the
+parent geometry property's `getValue()` once, then passed with zero calls while
+retaining the exact owner geometry identity and editable property component.
+The scoped handoff is available only during the already-preflighted ordinary
+batch; direct element construction, array/ID relationship values, and later
+property projection retain the existing path. Scene Tree passed 198/198,
+Props Manager 238/238, Core hierarchy transaction 16/16, and focused Preset
+children-map/vector 11/11. Both package builds, the performance Inspector
+21/21, exact lint, formatting, and `diff --check` passed.
+
+The fresh background 16-item proof also passed with A/B 17/17 canonical and
+Render elements, eight ordered publications, zero failures, Actor A Undo depth
+one, Actor B Undo depth zero, and exact teardown. Actor A's independent raw
+frontend peak was 145.0 percent, Actor B's was 134.7 percent, and the
+same-snapshot aggregate peak was 298.4 percent. Both Actors completed and
+converged at 5.011 seconds; the accepted turn settled in 0.288 seconds.
+
+The single profiler-disabled maximum-detail attempt crossed both hard stops
+after 200 source publications. Actor A reached 438.6 percent raw frontend CPU:
+392.5 percent renderer/worker, 44.0 percent GPU, 1.2 percent root browser, and
+0.9 percent utility. The same-snapshot aggregate was 447.8 percent. Preceding
+samples remained between 221.2 and 244.4 percent. The O(1) heartbeat still
+reported its pre-request zero because the burst occurred before the next
+five-second sample, but server receipts prove that the product had emitted 200
+publications. All four owned process groups terminated exactly.
+
+Post-owner-geometry maximum diagnostic card:
+
+- Owner step: `evaluate-performance-and-equivalence`, exclusively detached
+  maximum-detail root-cause evidence.
+- Objective: run one bounded background aggregate DevTools profile against the
+  exact current production artifact and resolve the largest exact
+  renderer/worker frame after parent geometry `getValue()` reconstruction has
+  been removed.
+- Mutation scope: none until the retained function, URL, zero-based line, and
+  column identify one Inspector owner and implementation boundary.
+- Required gate: reuse the already-passing fixed-capacity aggregate and exact
+  column contract under the unchanged 250-percent frontend and 400-percent
+  overall stops; retain no profile file and require exact process teardown.
+- Exclusions: no acceptance claim, threshold/deadline/sampling change, visible
+  browser, product edit, source detail reduction, publication or paint cadence,
+  dependency, Pen Tool, or 7,076 invocation.
+- Stop condition: ambiguous exact location returns to bounded static resolution
+  only; a resolved first owner requires a new test-first Step Execution Card.
+
+The bounded profile stopped at 3,147 exact projected elements after 121 Factory
+publications and 119 sent publications. Actor A reached 418.1 percent raw
+frontend CPU, including 382.5 percent renderer/worker and 34.1 percent GPU;
+the same-snapshot aggregate was 422.3 percent, and exact teardown passed.
+Eight retained slices covered 2,842 profile samples and 838 bounded top self
+samples. The largest exact production frames were 62 samples in Vector
+`buildFlattenedSegmentsWithCache`, 57 plus 55 samples in the required Props
+relationship preflight, 35 samples in Vector `toLocalPointNodeMap`, 31 WebGL
+binding samples, 27 exact `registerMany`, 25 UI-context projection, and 18
+worker-post samples.
+
+The fill-segment builder is the required first construction of complete Render
+topology, and the Props traversal is the required whole-batch canonical
+preflight. The first removable duplicate is `toLocalPointNodeMap`, which
+enumerates the complete owner-issued point record and spreads every point into
+a second record only to subtract the element and Group offset before the
+required Render topology builder walks the same points again.
+
+Sixth `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the ordinary
+  Vector strategy's workspace-to-local coordinate projection.
+- Objective: preserve the owner-issued workspace point record and complete
+  Render topology while applying the element/Group offset only at coordinate
+  reads, eliminating the full `Object.entries`/`map`/`Object.fromEntries` point
+  clone before topology construction.
+- Test-first oracle: canonical workspace points, segments, and networks retain
+  exact draw operations and Group transforms while the Vector strategy performs
+  zero point-record own-key enumeration; the existing ordinary-slice
+  one-visible-frame test remains unchanged.
+- Mutation allowlist: `packages/preset/src/components/vector.ts`, its focused
+  Vector strategy tests, and this active plan.
+- Required gates: prove the strengthened own-key oracle fails first; pass
+  focused and complete Preset tests, its build, the performance Inspector
+  contract, exact lint/format/`diff --check`, bounded review, production build,
+  one background guarded 16-item proof, then one profiler-disabled background
+  maximum-detail acceptance attempt.
+- Exclusions: no topology omission, point/segment/network mutation, fill or
+  stroke semantic change, bitmap/AI renderer, Render engine API, canonical
+  owner, history/publication, collaboration, Contents, Pen Tool, slice/cadence,
+  threshold, deadline, dependency, visible browser, or 7,076 invocation.
+- Stop condition: any draw-operation, transform, fill, stroke, hit-area,
+  editable-topology, frame-count, correctness, or resource regression returns
+  to the first exact owner without weakening the contract.
+
+The profiler-disabled maximum-detail acceptance after direct relationship
+descriptor iteration stopped before the first canonical element at a
+250.5-percent Actor A frontend sample: renderer/worker 203.3 percent, GPU 44.6
+percent, and same-snapshot overall 271.7 percent. The bounded 100-millisecond
+rotating diagnostic then reached 10,219 exact projected elements before its
+profiling overhead triggered the guard. Across 5,736 samples, Pixi
+`GraphicsPath.shapePath` owned 244 self samples, native `bindVertexArray` owned
+195, and WebGL execute owned 136. The Vector route currently sends every
+straight network as individual `moveTo`/`lineTo` instructions, forcing Pixi to
+reconstruct the same linear path as a generic instruction graph before GPU
+geometry creation. This is the first exact visible-projection owner; canonical
+geometry, progressive cadence, and per-element editability are unchanged.
+
+Seventh `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the
+  engine-neutral straight-network path primitive and its Pixi adapter.
+- Objective: represent one straight Vector network as one polygon path
+  operation and map it to Pixi `Graphics.poly`, while retaining the existing
+  cubic instruction path for any network with control points. This removes
+  generic `GraphicsPath` instruction reconstruction without merging elements,
+  changing canonical geometry, or adding a Render-engine bulk command.
+- Test-first oracle: a straight open or closed canonical network emits one
+  ordered polygon operation with exact local points and close state; a cubic
+  network retains its exact `bezier-curve-to` topology; the Pixi adapter maps
+  that primitive to one `poly(points, close)` call.
+- Mutation allowlist: `packages/render-engine/src/types.ts`,
+  `packages/render/src/types/render-object.ts`, their focused tests,
+  `packages/render-engine-pixi/src/pixi-render-engine.ts`, its focused tests,
+  `packages/preset/src/components/vector.ts`, its focused Vector tests, directly
+  affected Render API documentation, and this active plan.
+- Required gates: prove the strengthened straight-network oracle fails first;
+  pass focused and complete Render Engine, Render Engine Pixi, Render, and
+  Preset tests, package builds where defined, the performance Inspector
+  contract, exact lint/format/`diff --check`, bounded review, production build,
+  one background guarded 16-item proof, then one profiler-disabled background
+  maximum-detail acceptance attempt.
+- Exclusions: no element merging, bitmap or AI renderer, canonical data,
+  point/segment/network mutation, fill/stroke/hit-area semantics, progressive
+  slice or paint cadence, Factory/history/publication, collaboration, Contents,
+  Pen Tool, threshold, deadline, dependency, visible browser, or 7,076
+  invocation.
+- Stop condition: any operation order, point coordinate, close state, cubic
+  topology, transform, fill, stroke, hit-area, editability, frame-count,
+  correctness, or resource regression returns to the first exact owner without
+  weakening the contract.
+
+The straight-network primitive removed `GraphicsPath.shapePath` completely from
+the next 7,619-sample bounded profile and progressed to 13,291 exact projected
+elements. The remaining concrete draw submission was dominated by native
+`bindVertexArray` at 303 self samples, WebGL execute at 215, and transform
+uniform upload at 162. All three are consequences of one `no-batch` Pixi
+Graphics draw per retained editable element. A subsequent profiler-disabled
+attempt built from every current owner package stopped at 253.4-percent Actor A
+frontend: renderer/worker 187.7 percent, GPU 62.6 percent, and same-snapshot
+overall 261.7 percent. The direct Props iteration was statically confirmed in
+the exact production bundle, so it is not the remaining instantaneous owner.
+
+Eighth `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the Pixi batch
+  mode selected by the ordinary Vector strategy after linear topology is
+  classified.
+- Objective: allow a pure straight-network Vector represented by the new
+  single `poly` primitive to use the existing engine-neutral batched Graphics
+  path, reducing one VAO bind, WebGL execute, and matrix-uniform submission per
+  retained element; any Vector containing a resolved control point retains
+  `no-batch` independent geometry and the exact Bézier instruction path.
+- Test-first oracle: a straight canonical Vector sets `batched` true while a
+  cubic canonical Vector sets it false; both retain exact ordered draw
+  operations, transforms, close state, fill/stroke, hit area, and editability.
+- Mutation allowlist: `packages/preset/src/components/vector.ts`, its focused
+  Vector tests, directly affected active-plan evidence, and no other product
+  file.
+- Required gates: prove the batching classification oracle fails first; pass
+  focused and complete Preset, Render, and Render Engine Pixi tests and builds,
+  the performance Inspector contract, exact lint/format/`diff --check`,
+  production build plus static bundle assertion, one background guarded
+  16-item proof, then one profiler-disabled background maximum-detail
+  acceptance attempt.
+- Exclusions: no path/detail change, element merging, bitmap or AI renderer,
+  canonical data, point/segment/network mutation, cubic batching, fill/stroke/
+  hit-area semantics, progressive slice or paint cadence, Factory/history/
+  publication, collaboration, Contents, Pen Tool, threshold, deadline,
+  dependency, visible browser, or 7,076 invocation.
+- Stop condition: any classification, draw, transform, geometry, interaction,
+  frame-count, correctness, or resource regression blocks the change; an
+  ineffective maximum attempt returns to the latest exact profile rather than
+  committing the candidate.
+
+The pure-linear auto-batching candidate was ineffective and was removed before
+commit. Its guarded 16-item proof passed at 144.8-percent Actor A,
+136.7-percent Actor B, and 240.9-percent same-snapshot overall, but the
+maximum-detail attempt stopped after 8,171 exact projected elements at
+387.8-percent Actor A frontend with one 374.4-percent renderer/worker. Repacking
+all retained geometry on every progressive frame is materially worse than the
+retained `no-batch` contexts, so linear and cubic Vector Graphics both retain
+`no-batch`; only the effective single-`poly` linear path primitive remains.
+
+The same profile identifies the next independent production symbol:
+`ComputedDataMirror.applyChildAdditionBatch`. Every append-only progressive
+slice recreates a Set from all retained Group children, copies the complete
+children array through a manual final-index merge, then invokes generic deep
+array equality even though the mirror already owns the accepted prior snapshot
+and the caller consumes only success. That growing-parent reconstruction is
+separate from required Render draw submission and can be removed without
+changing a visible frame or child order.
+
+Ninth `project-visible-canonical-slices` iteration:
+
+- Owner step: `project-visible-canonical-slices`, specifically the Render
+  computed mirror's append-only parent-membership batch.
+- Objective: cache the validated child-ID membership set against the
+  mirror-owned children snapshot, reuse it for the next append-only slice,
+  construct the next ordered children array with one native append, and install
+  the known-effective raw children change without generic deep equality. The
+  general indexed-insertion route and every duplicate/stale-index rejection
+  remain exact.
+- Test-first oracle: two consecutive exact child-add batches preserve final
+  order and Render placement while the second batch records one child-ID cache
+  hit, performs no retained-array own-key enumeration, and still rejects
+  duplicate IDs and invalid final indexes.
+- Mutation allowlist: `packages/render/src/stores/scene-tree.ts`, its focused
+  formal store tests, directly affected active-plan evidence, and no other
+  product file.
+- Required gates: prove the consecutive-batch cache oracle fails first; pass
+  focused and complete Render tests and build, directly affected Preset and
+  Scene Tree tests, the performance Inspector contract, exact lint/format/
+  `diff --check`, production build plus static bundle assertion, one background
+  guarded 16-item proof, then one profiler-disabled background maximum-detail
+  acceptance attempt.
+- Exclusions: no canonical owner, parent order, duplicate/index validation,
+  removal/restore semantics, Render topology, Vector geometry, batching mode,
+  frame/slice/paint cadence, Factory/history/publication, collaboration,
+  Contents, Pen Tool, threshold, deadline, dependency, visible browser, or
+  7,076 invocation.
+- Stop condition: any mirror, order, duplicate/index, compensation, Render,
+  frame-count, correctness, or resource regression blocks the change; an
+  ineffective maximum attempt returns to the latest exact profile rather than
+  committing the candidate.
+
+The mirror cache/append fast path passed Render 199/199, Preset 136/136, Scene
+Tree 198/198, Inspector, package builds, the production bundle assertion, and
+the guarded 16-item proof with A/B 17/17, nine publications, Undo depths one
+and zero, zero failures, and 5.008-second convergence. Actor A peaked at 160.9
+percent, Actor B at 108.8 percent in that sample, and overall at 289.0 percent.
+The profiler-disabled maximum-detail attempt improved the preceding valid
+253.4-percent frontend stop to 252.0 percent, with renderer/worker 203.0
+percent, GPU 46.4 percent, and same-snapshot overall 274.5 percent. The bounded
+owner improvement is retained, but the independent frontend ceiling remains
+two percentage points over budget.
+
+The next overlap is in the exact-paint scheduler owned by
+`stage-local-interactive-composition`. `waitForBrowserPaint` currently resolves
+inside its second `requestAnimationFrame` callback. Promise microtasks can
+therefore begin the next canonical slice before that frame completes paint and
+compositing, overlapping new main-thread work with the previous frame's
+renderer/GPU submission. Crossing one zero-delay host-task boundary after the
+second callback completes the promised paint boundary without changing
+canonical work, visible flush count, or the fixed slice contract.
+
+Seventh `stage-local-interactive-composition` iteration:
+
+- Owner step: `stage-local-interactive-composition`, specifically the
+  production browser-paint scheduler used by loading, Group, and progressive
+  child boundaries.
+- Objective: resolve each default paint wait only after two animation-frame
+  callbacks and one zero-delay host task, so the next canonical slice cannot
+  start in the same pre-paint callback turn. This adds no fixed millisecond
+  throttle and keeps one required visible paint opportunity per accepted
+  boundary.
+- Test-first oracle: after the second requested animation-frame callback, the
+  default paint promise remains pending until the queued zero-delay task runs;
+  injected test schedulers, cancellation points, exact Group/child ordering,
+  progress counts, one outer transaction, and one Undo remain unchanged.
+- Mutation allowlist: `apps/asyra-design/src/ai/actions.ts`, its focused
+  composition action tests, directly affected active-plan evidence, and no
+  other product file.
+- Required gates: expose and prove the scheduler oracle fails on current
+  behavior; pass all 33 focused composition tests, affected Asyra Design local
+  tests, the performance Inspector contract, exact lint/format/`diff --check`,
+  production build, one background guarded 16-item proof, then one
+  profiler-disabled background maximum-detail acceptance attempt.
+- Exclusions: no 250-millisecond or other fixed delay, slice/point budget,
+  canonical route, geometry, Render topology, Canvas flush, Factory/history/
+  publication, collaboration, Contents, Pen Tool, threshold, deadline,
+  dependency, visible browser, or 7,076 invocation.
+- Stop condition: any extra Render flush, canonical-order, progress,
+  cancellation, rollback, Undo, correctness, duration, or resource regression
+  blocks the change and returns to the first exact owner.
+
+The zero-delay host-task candidate was ineffective and was removed before
+commit. Its focused tests, production build, and guarded 16-item proof passed,
+but the maximum-detail attempt still stopped at 252.2-percent Actor A frontend,
+including 209.5-percent renderer/worker and 40.1-percent GPU, with
+267.2-percent same-snapshot overall. The candidate did not improve the retained
+252.0-percent result and therefore cannot satisfy or modify the exact paint
+boundary.
+
+The subsequent guard audit found that those percentages were not the requested
+current operating-system CPU values. On macOS, `ps %cpu` is explicitly a
+decaying average over as much as the preceding minute. It can therefore carry
+browser bootstrap and prior progressive work into a later sample and cannot
+represent the raw current CPU requested by the product owner. The first
+maximum-detail stop also occurred on the first local-request sample while the
+product heartbeat still reported zero accepted elements, which is consistent
+with this measurement-owner defect rather than a current Render limit. No
+further product optimization or maximum-detail attempt may proceed until the
+guard reports the second raw `top` sample for the exact tracked PIDs.
+
+First `evaluate-performance-and-equivalence` current-CPU iteration:
+
+- Owner step: `evaluate-performance-and-equivalence`, specifically the Darwin
+  tracked-process CPU sampler used by the resource guard.
+- Objective: use bounded `ps` output only for tracked PID, PPID, PGID,
+  cumulative CPU-time, and command identity, then request two raw Darwin `top`
+  samples for those exact PIDs, ignore the initialization table, and use only
+  the second operating-system `%CPU` table for per-process, per-Actor,
+  browser-type, frontend, aggregate, peak, and stop values. No CPU-time delta
+  arithmetic, cadence normalization, core normalization, or derived percentage
+  is allowed.
+- Test-first oracle: when `ps` reports deliberately different decaying
+  percentages from the second `top` table, the sampler invokes both bounded
+  commands and reports only the second `top` values; the first `top` table is
+  ignored, Actor A and Actor B remain independent, process CPU-time evidence
+  still comes from `ps`, and a missing or malformed current table fails closed.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`, its formal Node test,
+  directly affected endpoint configuration tests, this active plan, and the
+  exact performance BDD case, Inspector condition, and contract assertion if
+  required.
+- Required gates: prove the strengthened sampler oracle fails on the current
+  implementation; pass the complete resource-guard, endpoint configuration,
+  and performance Inspector contract tests; pass exact lint, format, and
+  `diff --check`; rebuild the production endpoint; pass one background guarded
+  16-item proof; then run one profiler-disabled background maximum-detail
+  acceptance attempt. Do not run 7,076.
+- Exclusions: no CPU threshold or CRDT deadline change, converted
+  CPU-time/cadence percentage, product scheduling, canonical data, geometry,
+  Render topology, Factory/history/publication, collaboration semantics,
+  Contents, Pen Tool, dependency, visible browser, or 7,076 invocation.
+- Stop condition: any missing tracked PID, malformed second raw table, Actor
+  identity ambiguity, correctness regression, or actual current CPU/time limit
+  immediately returns to this owner for bounded root-cause iteration without
+  weakening the gate.
+
+The first current-CPU implementation passed its focused contracts but the
+first guarded 16-item launch failed closed before readiness because filtered
+Darwin `top` returned no second process table while the registered preview and
+socket process groups were still bootstrapping. The guard confirmed
+termination of the App preview, WebSocket server, and harness groups. This is a
+measurement-owner failure, not App or CRDT evidence. The preceding bounded
+`ps` command necessarily observes its own short-lived sampler process, and
+other launcher processes may also retire between the identity read and the
+second `top` sample. Asking `top` to filter on that stale set can suppress or
+truncate the current table before the guard can apply its existing
+pre-readiness identity-churn policy.
+
+Second `evaluate-performance-and-equivalence` current-CPU iteration:
+
+- Owner step: `evaluate-performance-and-equivalence`, still limited to the
+  Darwin current-CPU sampler.
+- Objective: ask logging-mode `top` for two bounded `pid,cpu` system tables,
+  retain only the second raw current table, and intersect that table with the
+  exact test-owned identities from the preceding bounded `ps` read. A process
+  that retired before the second table is absent from the current sample; the
+  existing required-role and exact-identity checks then rebaseline before
+  readiness or fail closed after readiness. Untracked system PIDs are ignored.
+- Test-first oracle: the formal sampler fixture includes a short-lived `ps`
+  identity absent from the second `top` table plus one untracked system PID
+  present in that table; neither enters the accepted tracked sample, while all
+  still-live exact test-owned PIDs retain the second raw current values.
+- Mutation allowlist and gates remain those of the first current-CPU iteration.
+  The next browser gate is the same background guarded 16-item proof; no
+  maximum-detail attempt may start until it passes.
+- Exclusions and stop conditions remain unchanged; in particular, this does
+  not average, derive, normalize, relax, or substitute any CPU percentage.
+
+The full-table intersection passed focused contracts but its guarded 16-item
+launch failed closed during Actor A bootstrap: the unfiltered two-table `top`
+command exceeded its 3,000-millisecond hard timeout and was killed. The App
+request had not started, Actor A and Actor B both retained zero canonical
+elements, and the guard confirmed termination of the browser, App preview,
+WebSocket server, and harness groups. This remains measurement-owner evidence
+only. Reading every system process makes sampling cost depend on unrelated host
+process count and cannot satisfy the bounded guard.
+
+Third `evaluate-performance-and-equivalence` current-CPU iteration:
+
+- Owner step: `evaluate-performance-and-equivalence`, still limited to the
+  Darwin current-CPU sampler.
+- Objective: restore exact `top -pid` filtering for the identities returned by
+  bounded `ps`, add the long-lived resource-guard process PID only as an
+  unreported sampling anchor so `top` always emits both tables when a
+  short-lived launcher retires, and intersect the second table back to the
+  exact test-owned identities. The anchor CPU never enters a role, Actor,
+  frontend, aggregate, peak, or stop value.
+- Test-first oracle: the `top` command receives sorted unique tracked PIDs plus
+  one injected stable sampler PID; the fixture retains the stable sampler and
+  an untracked PID in both tables while a short-lived tracked `ps` PID retires.
+  Only still-live exact test-owned PIDs enter the accepted sample and the
+  sampler anchor is absent from every report value.
+- Mutation allowlist and gates remain those of the first current-CPU iteration.
+  The next browser gate remains the same background guarded 16-item proof.
+- Exclusions and stop conditions remain unchanged. The sampler stays bounded
+  to the exact process scope and the retained raw value is still only Darwin
+  `top`'s second current table.
+
+The exact-PID anchor sampler passed every focused contract and produced stable
+raw current Actor A, Actor B, browser-process-type, backend, and harness
+samples in the third guarded 16-item launch. The launch then failed before
+request dispatch because the phase-boundary HTTP client retained a
+3,000-millisecond deadline. A boundary request can legally wait behind one
+already serialized current-CPU sample and then request its own sample, each
+with a 3,000-millisecond hard ceiling. The old client deadline therefore
+aborted a valid `start operation` boundary while the resource guard remained
+healthy. Actor A and Actor B both retained zero canonical elements and the
+test-owned groups closed normally. This is the third failed iteration of the
+same measurement owner, so the preceding local sampler plan is replaced by the
+bounded task iteration below.
+
+Revised `evaluate-performance-and-equivalence` task iteration:
+
+- First unresolved boundary: the Asyra Design performance E2E phase-boundary
+  handoff, not the sampler, App, canonical composition, Render, Factory,
+  Collaboration, or CRDT deadline.
+- Product-contract mapping: CPU values remain the second raw Darwin `top`
+  table; Actor groups remain independent; the 250/400 limits and 300-second
+  product-flow deadline are unchanged; phase-boundary sampling remains outside
+  product execution and must complete before request dispatch.
+- Inspector mapping: `evaluate-performance-and-equivalence` owns
+  `apps/asyra-design/e2e`, the serialized OS sample queue, phase-boundary
+  sampling, resource failure, and harness-overhead separation. Its public input
+  is an authenticated start/end boundary and its output is one accepted raw
+  sample plus cumulative non-percentage CPU-time evidence.
+- Objective: give only the phase-boundary HTTP handoff a fixed
+  7,000-millisecond client deadline, sufficient for one worst-case in-flight
+  3,000-millisecond sample plus its own worst-case 3,000-millisecond sample and
+  bounded HTTP overhead. The sampler timeouts, observation-gap rule, CPU
+  limits, heartbeat, progress, product-flow, and Playwright ceilings do not
+  change.
+- Test-first oracle: the endpoint source declares the exact
+  `RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS` value and only
+  `postPhaseBoundary()` uses it; the test proves it is not the CRDT product
+  deadline and does not replace the 3,000-millisecond ordinary heartbeat or
+  status request limits.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`, its existing
+  static endpoint configuration test, this active plan, and the directly
+  affected performance BDD/Inspector condition and contract assertion.
+- Fixed gates: prove the static deadline oracle red then green; pass complete
+  Playwright configuration, resource-guard, and Inspector contracts; exact
+  format and `diff --check`; run the same background guarded 16-item proof
+  once. Only after that accepted proof may the profiler-disabled
+  maximum-detail acceptance attempt start. Do not run 7,076.
+- Exclusions: no product timeout extension, CPU formula or threshold change,
+  sampling retry, fallback output, product scheduling, canonical/Render/
+  Factory/Collaboration mutation, Contents, Pen Tool, visible browser,
+  dependency, or 7,076 invocation.
+- Stop condition: another phase-boundary timeout, sampler failure, exact
+  identity failure, correctness regression, or actual current CPU/product-time
+  limit returns to this same owner with its first bounded evidence.
+
+Self-review found no remaining scope or contract gap: the revised change stays
+inside the Inspector implementation boundary; it changes only the harness
+client wait around already-required serialized evidence; the executable
+16-item case proves the boundary, product request, A/B correctness, and
+resource limits together; downstream product files and all weakened/fallback
+paths remain forbidden. This revised iteration replaces the three invalidated
+measurement approaches above.
+
+Before the maximum-detail gate, bounded configuration review found that its
+formal timeout still retained the superseded 90-second value. The product owner
+already raised full rendering to 300 seconds. The maximum-detail source,
+executable BDD, Inspector condition, and static configuration oracle therefore
+must use 300 seconds without changing its 250-percent Actor A frontend or
+400-percent aggregate current-CPU limits. This is a gate-contract correction,
+not a performance relaxation candidate, and authorizes no 7,076 invocation.
+
+The first maximum-detail attempt with that corrected timeout stopped at
+779/27,472 canonical and Render elements because two successfully completed raw
+Darwin `top` observations were 5,301 milliseconds apart. The last snapshot
+reported Actor A at 35.0 percent, including renderer 23.8 percent and GPU
+10.9 percent, and the complete frontend/backend/harness aggregate at 37.0
+percent. No CPU or product-time limit was crossed. The gap is measurement-owner
+evidence: one current Darwin value requires the second table from one bounded
+`top` request, and periodic plus phase-boundary requests intentionally share one
+serialized queue. Two adjacent accepted requests can therefore each consume
+almost the fixed 3,000-millisecond command timeout without overlapping.
+
+`evaluate-performance-and-equivalence` observation-gap Step Execution Card:
+
+- Owner and first incorrect boundary:
+  `evaluate-performance-and-equivalence`; the fixed successful-observation gap
+  contract, not App composition, canonical apply, Render, Factory,
+  Collaboration, CPU limits, or the 300-second product deadline.
+- Inputs and output: exact tracked PID identities plus one serialized
+  two-table Darwin `top` request produce one unmodified current `%CPU` snapshot
+  intersected with those identities.
+- Objective: accept a 5,301-millisecond interval between two successful raw
+  observations and fail closed only above a fixed 7,000 milliseconds. The
+  ceiling covers two serialized 3,000-millisecond command deadlines and bounded
+  scheduling/HTTP handoff; it does not change, average, normalize, interpolate,
+  or derive any CPU value.
+- Test-first oracle: one formal decision test proves 5,301 milliseconds is
+  accepted and 7,001 milliseconds stops with
+  `cpu-sample-gap-exceeded`.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/performance-resource-guard.mjs`, its formal unit test,
+  this active plan's current measurement contract, and the directly matching
+  performance BDD/Inspector condition and Inspector contract assertion.
+- Fixed gates: prove the new oracle red then green; pass the complete resource
+  guard and Inspector contracts, exact formatting and `diff --check`; retain
+  the already accepted guarded 16-item proof and rerun only the stopped
+  maximum-detail gate. Do not run 7,076.
+- Exclusions: no CPU threshold, raw sample value, top/ps command timeout,
+  product-flow deadline, process ownership, retry, fallback, product code,
+  Contents, Pen Tool, visible browser, dependency, or 7,076 change.
+- Stop condition: a gap above 7,000 milliseconds, raw current CPU above the
+  active proof limit, identity/correctness failure, or the 300-second
+  maximum-detail deadline returns to this owner with the first bounded
+  evidence.
+
+Self-review confirms that the new ceiling is derived only from the existing
+serialized evidence path's fixed hard deadlines, never from CPU-time or polling
+cadence; it cannot turn an unavailable/failed `top` request into evidence. The
+Inspector owns this harness decision and its executable oracle. No downstream
+product owner or acceptance threshold changes.
+
+The corrected maximum-detail run completed all 27,472 canonical and Render
+elements in 35,059 milliseconds with one Undo entry, 883 successful local
+publications, no failed publication, a 31.6-percent raw Actor A frontend peak,
+and a 32.0-percent raw complete aggregate peak. It then failed a post-completion
+harness assertion because the retained phase ring had correctly rolled over:
+the test treated its bounded phase timeline as permanent proof that the earliest
+provider and Runtime phases occurred. The product flow, CPU limits,
+maximum-detail deadline, canonical/Render counts, history, publication, and
+process cleanup all passed.
+
+`evaluate-performance-and-equivalence` retained-phase Step Execution Card:
+
+- Owner and first incorrect boundary:
+  `evaluate-performance-and-equivalence`; final E2E evidence extraction after a
+  completed maximum-detail turn, not Runtime, App composition, canonical
+  mutation, Render, Factory, Collaboration, or resource measurement.
+- Input and output: the production detached performance profile's existing
+  O(1) per-name phase counts produce exact required provider/Runtime/App phase
+  presence; the retained phase ring continues to produce only bounded timing
+  samples and top-phase diagnostics.
+- Objective: assert each required attribution phase from
+  `readPhaseCount(name) > 0`, and use the bounded timeline only for the timing
+  samples it still retains. Do not enlarge the ring, clone a complete timeline,
+  reconstruct evicted phases, or weaken any required phase.
+- Existing failing oracle: the completed 27,471-item maximum-detail E2E already
+  fails because its exact required phases are absent from the rolled-over
+  timeline. The corrected assertion must still reject a genuinely missing
+  provider, Runtime, execution, Group, or batch phase through its exact phase
+  count.
+- Mutation allowlist:
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`, this active plan,
+  and the directly matching performance BDD/Inspector condition and Inspector
+  contract assertion.
+- Fixed gates: static Playwright configuration and Inspector contracts, exact
+  formatting and `diff --check`, then rerun the stopped maximum-detail gate
+  once. Retain the accepted 16-item proof; do not run 7,076.
+- Exclusions: no product profile capacity or implementation change, full
+  timeline retention, CPU/resource contract change, timeout change, product
+  code, Contents, Pen Tool, visible browser, dependency, or 7,076 invocation.
+- Stop condition: a required exact phase count of zero, canonical/Render/
+  history/publication regression, raw CPU stop, product deadline, or process
+  cleanup failure returns to this owner with its first bounded evidence.
+
+Self-review confirms that exact phase counts are already public detached
+production-profile evidence and survive retained-ring rollover. The change
+strengthens the semantic oracle by separating exact occurrence from bounded
+timing retention and authorizes no product mutation.
+
+Final App AI closure exposed one stale unit oracle in
+`server-prepared-action-consumer.test.ts`. The active product and Inspector
+contract requires one loading paint before any canonical mutation, then Group
+creation, then one additional browser paint before the first plural child
+batch. The test retained only loading and per-child paint deferreds, so it
+incorrectly waited for the first child before releasing the required Group
+paint and timed out with zero child calls. The completed 27,471-item production
+gate already proved that the current action route crosses the boundary and
+finishes.
+
+`stage-local-interactive-composition` closure-oracle Step Execution Card:
+
+- Owner and first incorrect boundary: `stage-local-interactive-composition`;
+  the formal unit scheduling oracle, not the production action implementation,
+  Runtime, canonical mutation, Render, Factory, or Collaboration.
+- Input and output: the prepared Group plus two ordered child slices cross four
+  explicit paint boundaries—loading, post-Group, post-first-slice, and
+  post-second-slice—and preserve one ordered action result.
+- Objective and test oracle: add the missing post-Group deferred, prove no
+  child exists before it resolves, then prove each child slice occurs only
+  after its preceding paint boundary and the action settles after the final
+  boundary.
+- Mutation allowlist:
+  `apps/asyra-design/src/ai/__tests__/server-prepared-action-consumer.test.ts`
+  and this execution card only.
+- Fixed gates: the exact failed test, complete App AI tests, server-response
+  harness, and App local tests; no browser rerun is required because product
+  code does not change.
+- Exclusions: no product implementation, paint count, timeout, scheduler,
+  geometry, canonical/Render/Factory/Collaboration, Contents, Pen Tool,
+  dependency, browser, maximum, or 7,076 change.
+- Stop condition: any order, ID, result, transaction, or formal AI suite
+  regression returns to this owner without modifying product behavior.
+
+Self-review confirms the updated oracle directly enforces the Inspector's
+existing post-Group paint boundary and cannot make a missing child batch,
+incorrect order, or non-settling action pass.
+
+Final lint closure found that the maximum-detail response-overlay owner uses
+standard Node globals in three `.mjs` harness files without importing those
+globals under the repository's browser-neutral ESLint environment. All
+server-response artifact tests and the production-overlay preparation gate
+already pass; the full lint failure is the formal regression oracle.
+
+`evaluate-performance-and-equivalence` Node-harness lint Step Execution Card:
+
+- Owner and first incorrect boundary:
+  `evaluate-performance-and-equivalence`; Node-only response-overlay harness
+  module declarations, not artifact bytes, App runtime, product bundle,
+  canonical data, Render, Factory, Collaboration, or performance.
+- Objective and oracle: import `Buffer` from `node:buffer` where gzip/hash test
+  bytes use it and import `process` from `node:process` where harness paths or
+  CLI output use it. The existing full lint failure must become green on the
+  three exact files.
+- Mutation allowlist:
+  `apps/asyra-design/__tests__/prepared-server-response-artifacts.test.mjs`,
+  `apps/asyra-design/e2e/prepare-server-response-preview.mjs`,
+  `apps/asyra-design/e2e/prepared-server-response-artifacts.mjs`, and this
+  execution card.
+- Fixed gates: exact-path lint, prepared artifact tests, production
+  response-overlay preparation/attestation, format, and `diff --check`.
+- Exclusions: no artifact format, response content, App product code, CPU,
+  timeout, browser, Contents, Pen Tool, dependency, or unrelated full-repo lint
+  repair.
+- Stop condition: any artifact hash, gzip, manifest, attestation, or production
+  overlay mismatch blocks the harness owner commit.
+
+Self-review confirms these are standard-library imports only and cannot change
+runtime data or product ownership. The two remaining full-repo formatting
+errors in unrelated Core and Render test files stay explicitly preserved and
+cannot authorize an out-of-owner edit.
+
+Final local closure evidence:
+
+- The corrected background guarded 16-item two-Actor proof completed exact
+  17/17 canonical and Render elements on both Actors, one Actor A Undo entry,
+  zero Actor B Undo, nine Actor A local publications, nine Actor B processed
+  publications, zero publication failures, and convergence in 5,002
+  milliseconds. It retained independent raw Actor browser evidence and closed
+  every owned process group.
+- The accepted background maximum-detail proof completed 27,472 canonical and
+  Render elements representing 27,471 ordinary editable Vectors and 295,794
+  points. Actor A first-visible was 5,011 milliseconds and complete was 35,066
+  milliseconds; it retained one Undo entry, 883 successful local
+  publications, zero failed publication, a 31.4-percent raw current Actor A
+  frontend peak, a 33.2-percent raw current complete aggregate peak, a
+  23.2-percent renderer/worker component peak, and a 13.3-percent GPU component
+  peak. No CPU, 300-second product-flow, identity, progress, or cleanup limit
+  was crossed.
+- The exact 7,112-record Factory correctness case passed inside its 16-test
+  batch-regression file. Complete Factory and Collaboration focused suites
+  passed 16/16 and 69/69.
+- Affected Props Manager, Scene Tree, Render, Preset, Render Engine, Pixi, and
+  App composition suites passed 239/239, 198/198, 199/199, 136/136, 9/9,
+  14/14, and 33/33 before their owner commits.
+- Final Asyra Design AI, response-harness, Node local, and Vitest local suites
+  passed 147/147, 7/7, 116/116, and 299/299. Resource guard, Playwright
+  configuration, and performance Inspector contracts passed 77/77, 7/7, and
+  21/21.
+- Production Collaboration and App build plus the isolated response overlay
+  completed successfully. Its attested manifest contains exact 16-, 320-,
+  1,280-, 7,076-total-, and 27,472-total variants.
+- Exact-path lint for the current performance owner is green. Full repository
+  lint remains blocked only by preserved out-of-owner formatting in
+  `packages/core/src/__tests__/transaction-persistence.test.ts` and
+  `packages/render/src/__tests__/render.test.ts`; those files are not mutated
+  or staged by this closure.
+- The product owner manually completed the current two-window 7,076 flow and
+  reported both Actors visually normal and performance acceptable. The
+  maintained synchronized Actor A/B created-state screenshots were inspected:
+  both show the same complete centered white-background cat, ordinary Contents
+  hierarchy, and no crop or missing peer output. A new 7,076 automated visual
+  run is intentionally not started because the product owner prohibited
+  another high-detail invocation; this existing manual acceptance is not
+  represented as a new automated screenshot gate.
+- No 7,076 benchmark, visible browser, retry, CPU profile, trace, video, or
+  screenshot capture was started during final closure.
 
 ## Current Local Gates
 

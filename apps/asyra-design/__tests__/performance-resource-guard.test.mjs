@@ -9,6 +9,7 @@ import {
   buildBoundedResourceReport,
   buildEndpointPerformancePhases,
   buildRunnerSpawnOptions,
+  createCpuProfileDiagnosticAggregate,
   createSerializedResourceSampler,
   createResourceGuardState,
   deriveProcessCpuTimeDelta,
@@ -18,6 +19,7 @@ import {
   parseCpuTimeToMilliseconds,
   parseRunnerArguments,
   recordGuardedResourcePhaseBoundary,
+  recordCpuProfileDiagnosticSlice,
   recordProfileOutput,
   recordResourcePhaseBoundary,
   recordResourceHeartbeat,
@@ -28,6 +30,7 @@ import {
   runResourceGuardCli,
   runTrackedProcessLauncher,
   sampleTrackedProcessGroupsCpu,
+  summarizeCpuProfileDiagnosticAggregate,
   summarizeRendererPerformanceWindow,
   terminateTrackedProcessGroups,
   terminateTrackedProcessGroup,
@@ -37,6 +40,137 @@ import {
 const TARGET_PGID = 4242
 const TOKEN = 'test-resource-guard-token'
 const OWNER = 'admit-receiver-publication-frames'
+
+test('aggregates rotating CPU profile call frames with fixed capacity and error bounds', () => {
+  const aggregate = createCpuProfileDiagnosticAggregate({
+    entryLimit: 2,
+    outputLimit: 2
+  })
+
+  recordCpuProfileDiagnosticSlice(aggregate, {
+    samples: 20,
+    top: [
+      {
+        columnNumber: 100,
+        functionName: 'projectVisibleLayerRows',
+        lineNumber: 10,
+        samples: 4,
+        url: 'app.js'
+      },
+      {
+        columnNumber: 200,
+        functionName: 'projectVisibleLayerRows',
+        lineNumber: 10,
+        samples: 3,
+        url: 'app.js'
+      }
+    ]
+  })
+  recordCpuProfileDiagnosticSlice(aggregate, {
+    samples: 10,
+    top: [
+      {
+        columnNumber: 100,
+        functionName: 'projectVisibleLayerRows',
+        lineNumber: 10,
+        samples: 2,
+        url: 'app.js'
+      }
+    ]
+  })
+  recordCpuProfileDiagnosticSlice(aggregate, {
+    samples: 12,
+    top: [
+      {
+        columnNumber: 300,
+        functionName: 'bindVertexArray',
+        lineNumber: 30,
+        samples: 8,
+        url: 'pixi.js'
+      }
+    ]
+  })
+
+  assert.deepEqual(summarizeCpuProfileDiagnosticAggregate(aggregate), {
+    capturedTopSelfSamples: 17,
+    profileSamples: 42,
+    sliceCount: 3,
+    top: [
+      {
+        columnNumber: 300,
+        errorSamples: 3,
+        functionName: 'bindVertexArray',
+        lineNumber: 30,
+        samples: 11,
+        url: 'pixi.js'
+      },
+      {
+        columnNumber: 100,
+        errorSamples: 0,
+        functionName: 'projectVisibleLayerRows',
+        lineNumber: 10,
+        samples: 6,
+        url: 'app.js'
+      }
+    ]
+  })
+  assert.throws(
+    () =>
+      recordCpuProfileDiagnosticSlice(aggregate, {
+        samples: 1,
+        top: [
+          {
+            columnNumber: 1,
+            functionName: 'invalid',
+            lineNumber: -2,
+            samples: 1,
+            url: 'app.js'
+          }
+        ]
+      }),
+    /CPU profile diagnostic slice/i
+  )
+})
+
+test('retains the bounded CPU profile aggregate when a guarded child stops abruptly', () => {
+  let state = createResourceGuardState({ nowMs: 0 })
+  state = recordProfileOutput(
+    state,
+    [
+      'ASYRA_CPU_PROFILE_SLICE {"samples":20,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":4,"url":"app.js"}]}',
+      'ASYRA_CPU_PROFILE_SLICE {"samples":30,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":6,"url":"app.js"},{"columnNumber":-1,"functionName":"bindVertexArray","lineNumber":-1,"samples":3,"url":""}]}',
+      ''
+    ].join('\n')
+  )
+
+  const report = buildBoundedResourceReport(state, {
+    owner: OWNER,
+    targetPgid: TARGET_PGID
+  })
+  assert.deepEqual(report.cpuProfileDiagnostic, {
+    capturedTopSelfSamples: 13,
+    profileSamples: 50,
+    sliceCount: 2,
+    top: [
+      {
+        columnNumber: 100,
+        errorSamples: 0,
+        functionName: 'render',
+        lineNumber: 10,
+        samples: 10,
+        url: 'app.js'
+      },
+      {
+        columnNumber: -1,
+        errorSamples: 0,
+        functionName: 'bindVertexArray',
+        lineNumber: -1,
+        samples: 3,
+        url: ''
+      }
+    ]
+  })
+})
 
 test('parses cumulative process CPU time without treating it as decayed percent', () => {
   assert.equal(parseCpuTimeToMilliseconds('0:00.01'), 10)
@@ -568,7 +702,7 @@ test('retains each App renderer raw percent-CPU contribution independently', () 
   )
 })
 
-test('rejects an interval whose sampling gap exceeds the fixed safety window', () => {
+test('accepts serialized raw samples within the fixed observation window and rejects a larger gap', () => {
   const first = evaluateResourceSample(
     createResourceGuardState({ nowMs: 0 }),
     trackedCpuSample({
@@ -580,19 +714,30 @@ test('rejects an interval whose sampling gap exceeds the fixed safety window', (
   const baseline = evaluateResourceSample(
     first.state,
     trackedCpuSample({
-      nowMs: 250,
+      nowMs: 1_000,
       processes: [{ cpuTimeMs: 25, pid: 1, role: 'test-harness' }]
     }),
     { targetPgid: TARGET_PGID }
   )
-  const ready = record(baseline.state, 'ready', 250)
+  const ready = record(baseline.state, 'ready', 1_000)
   assert.equal(ready.accepted, true)
 
-  const delayed = evaluateResourceSample(
+  const serialized = evaluateResourceSample(
     ready.state,
     trackedCpuSample({
-      nowMs: 626,
+      nowMs: 6_301,
       processes: [{ cpuTimeMs: 50, pid: 1, role: 'test-harness' }]
+    }),
+    { targetPgid: TARGET_PGID }
+  )
+
+  assert.equal(serialized.decision.stop, false)
+
+  const delayed = evaluateResourceSample(
+    serialized.state,
+    trackedCpuSample({
+      nowMs: 13_302,
+      processes: [{ cpuTimeMs: 75, pid: 1, role: 'test-harness' }]
     }),
     { targetPgid: TARGET_PGID }
   )
@@ -1289,10 +1434,10 @@ test('keeps the 400% aggregate ceiling for a small attribution proof', () => {
   assert.equal(result.decision.reason, 'cpu-limit-exceeded')
   assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumCpuPercent, 400)
   assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.maximumFrontendCpuPercent, 250)
-  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs, 250)
+  assert.equal(DEFAULT_RESOURCE_GUARD_CONFIG.sampleIntervalMs, 1_000)
   assert.equal(result.state.config.maximumCpuPercent, 400)
   assert.equal(result.state.config.maximumFrontendCpuPercent, 250)
-  assert.equal(result.state.config.sampleIntervalMs, 250)
+  assert.equal(result.state.config.sampleIntervalMs, 1_000)
 })
 
 test('stops immediately when bootstrap frontend CPU exceeds 250%', () => {
@@ -2177,7 +2322,7 @@ test('takes the first tracked CPU sample before waiting for the sampling interva
   )
 
   assert.equal(samples, 1)
-  assert.deepEqual(cadenceEvents, ['interval:250', 'sample'])
+  assert.deepEqual(cadenceEvents, ['interval:1000', 'sample'])
   assert.deepEqual(cleanedProcessGroups, [TARGET_PGID])
   assert.equal(result.report.termination.confirmed, true)
   assert.equal(result.exitCode, 0)
@@ -2541,9 +2686,8 @@ test('never attributes raw CPU safety samples to diagnostic phases', () => {
   assert.equal(report.phaseCpuTimeSamples.length, 0)
 })
 
-test('samples every registered process group from one bounded OS snapshot', async () => {
-  let receivedArguments
-  let receivedOptions
+test('uses the second raw Darwin top sample instead of ps decaying CPU averages', async () => {
+  const receivedCalls = []
   let snapshotCount = 0
   const processGroups = [
     { pgid: TARGET_PGID, role: 'test-harness' },
@@ -2552,41 +2696,105 @@ test('samples every registered process group from one bounded OS snapshot', asyn
     { pgid: 5003, role: 'websocket-server' }
   ]
   const result = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
-    execFileImpl: (_file, arguments_, options, callback) => {
+    execFileImpl: (file, arguments_, options, callback) => {
       snapshotCount += 1
-      receivedArguments = arguments_
-      receivedOptions = options
+      receivedCalls.push({ arguments_, file, options })
+      if (file === 'top') {
+        callback(
+          null,
+          [
+            'PID %CPU',
+            `${TARGET_PGID} 500.0`,
+            '5001 500.0',
+            '5002 500.0',
+            '5003 500.0',
+            '5004 500.0',
+            '5005 500.0',
+            '5006 500.0',
+            '5007 500.0',
+            '7777 500.0',
+            'PID %CPU',
+            `${TARGET_PGID} 12.0`,
+            '5001 10.0',
+            '5002 4.0',
+            '5003 18.0',
+            '5004 40.0',
+            '5005 20.0',
+            '5006 15.0',
+            '5007 6.0',
+            '6000 999.0',
+            '7777 999.0'
+          ].join('\n')
+        )
+        return
+      }
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 0:00.10 node /repo/.yarn/releases/yarn-4.9.2.cjs playwright --guard-token=TOP-SECRET`,
-          `5001 ${TARGET_PGID} 5001 10.0 0:00.10 /Applications/chrome-headless-shell`,
-          `5004 5001 5001 40.0 0:00.60 /Applications/chrome-headless-shell --type=renderer`,
-          `5005 5001 5001 20.0 0:00.25 /Applications/chrome-headless-shell --type=gpu-process`,
-          `5006 5001 5001 15.0 0:00.20 /Applications/chrome-headless-shell --type=utility`,
-          `5007 5001 5001 6.0 0:00.10 /Applications/chrome-headless-shell --type=zygote`,
-          `5002 ${TARGET_PGID} 5002 4.0 0:00.05 node node_modules/vite/bin/vite.js preview`,
-          `5003 ${TARGET_PGID} 5003 18.0 0:00.20 node dist/collaboration-server/collaboration-server.js`,
-          `6000 ${TARGET_PGID} 6000 999.0 0:30.00 node untracked.js`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 0:00.10 node /repo/.yarn/releases/yarn-4.9.2.cjs playwright --guard-token=TOP-SECRET`,
+          `5001 ${TARGET_PGID} 5001 0:00.10 /Applications/chrome-headless-shell`,
+          `5004 5001 5001 0:00.60 /Applications/chrome-headless-shell --type=renderer`,
+          `5005 5001 5001 0:00.25 /Applications/chrome-headless-shell --type=gpu-process`,
+          `5006 5001 5001 0:00.20 /Applications/chrome-headless-shell --type=utility`,
+          `5007 5001 5001 0:00.10 /Applications/chrome-headless-shell --type=zygote`,
+          `5002 ${TARGET_PGID} 5002 0:00.05 node node_modules/vite/bin/vite.js preview`,
+          `5003 ${TARGET_PGID} 5003 0:00.20 node dist/collaboration-server/collaboration-server.js`,
+          `6000 ${TARGET_PGID} 6000 0:30.00 node untracked.js`,
+          `6001 ${TARGET_PGID} ${TARGET_PGID} 0:00.01 /bin/ps -g ${TARGET_PGID}`
         ].join('\n')
       )
     },
     monotonicMs: 900,
     nowMs: 1_000,
     platform: 'darwin',
-    processGroups
+    processGroups,
+    samplerPid: 7777
   })
 
-  assert.equal(snapshotCount, 1)
-  assert.deepEqual(receivedArguments, [
+  assert.equal(snapshotCount, 2)
+  assert.deepEqual(receivedCalls[0].arguments_, [
     '-g',
     `${TARGET_PGID},5001,5002,5003`,
     '-o',
-    'pid=,ppid=,pgid=,%cpu=,time=,command='
+    'pid=,ppid=,pgid=,time=,command='
   ])
-  assert.equal(receivedOptions.timeout, 200)
-  assert.equal(receivedOptions.killSignal, 'SIGKILL')
-  assert.equal(receivedOptions.maxBuffer, 256 * 1024)
+  assert.equal(receivedCalls[0].file, 'ps')
+  assert.equal(receivedCalls[0].options.timeout, 200)
+  assert.equal(receivedCalls[0].options.killSignal, 'SIGKILL')
+  assert.equal(receivedCalls[0].options.maxBuffer, 256 * 1024)
+  assert.deepEqual(receivedCalls[1].arguments_, [
+    '-F',
+    '-l',
+    '2',
+    '-s',
+    '0',
+    '-pid',
+    String(TARGET_PGID),
+    '-pid',
+    '5001',
+    '-pid',
+    '5002',
+    '-pid',
+    '5003',
+    '-pid',
+    '5004',
+    '-pid',
+    '5005',
+    '-pid',
+    '5006',
+    '-pid',
+    '5007',
+    '-pid',
+    '6001',
+    '-pid',
+    '7777',
+    '-stats',
+    'pid,cpu'
+  ])
+  assert.equal(receivedCalls[1].file, 'top')
+  assert.equal(receivedCalls[1].options.timeout, 3_000)
+  assert.equal(receivedCalls[1].options.killSignal, 'SIGKILL')
+  assert.equal(receivedCalls[1].options.maxBuffer, 256 * 1024)
   assert.deepEqual(result, {
     browserProcessTypeCpuPercent: {
       gpuProcess: 20,
@@ -2749,15 +2957,35 @@ test('attributes two Chromium process groups to Actor A and Actor B from one OS 
     { pgid: 5004, role: 'websocket-server' }
   ]
   const result = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
-    execFileImpl: (_file, _arguments, _options, callback) => {
+    execFileImpl: (file, _arguments, _options, callback) => {
+      if (file === 'top') {
+        callback(
+          null,
+          [
+            'PID %CPU',
+            `${TARGET_PGID} 900.0`,
+            '5001 900.0',
+            '5002 900.0',
+            '5003 900.0',
+            '5004 900.0',
+            'PID %CPU',
+            `${TARGET_PGID} 2.0`,
+            '5001 138.0',
+            '5002 130.3',
+            '5003 1.0',
+            '5004 0.5'
+          ].join('\n')
+        )
+        return
+      }
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 2.0 0:00.10 yarn playwright`,
-          `5001 ${TARGET_PGID} 5001 138.0 0:00.40 chrome-headless-shell --type=renderer`,
-          `5002 ${TARGET_PGID} 5002 130.3 0:00.35 chrome-headless-shell --type=renderer`,
-          `5003 ${TARGET_PGID} 5003 1.0 0:00.05 node vite preview`,
-          `5004 ${TARGET_PGID} 5004 0.5 0:00.02 node collaboration-server.js`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 0:00.10 yarn playwright`,
+          `5001 ${TARGET_PGID} 5001 0:00.40 chrome-headless-shell --type=renderer`,
+          `5002 ${TARGET_PGID} 5002 0:00.35 chrome-headless-shell --type=renderer`,
+          `5003 ${TARGET_PGID} 5003 0:00.05 node vite preview`,
+          `5004 ${TARGET_PGID} 5004 0:00.02 node collaboration-server.js`
         ].join('\n')
       )
     },
@@ -2777,6 +3005,25 @@ test('attributes two Chromium process groups to Actor A and Actor B from one OS 
     'app-server',
     'websocket-server'
   ])
+})
+
+test('fails closed when Darwin top omits the second current CPU table', async () => {
+  await assert.rejects(
+    sampleTrackedProcessGroupsCpu(TARGET_PGID, {
+      execFileImpl: (file, _arguments, _options, callback) => {
+        callback(
+          null,
+          file === 'top'
+            ? `PID %CPU\n${TARGET_PGID} 12.0`
+            : `${TARGET_PGID} 1 ${TARGET_PGID} 0:00.10 yarn playwright`
+        )
+      },
+      nowMs: 1_000,
+      platform: 'darwin',
+      processGroups: [{ pgid: TARGET_PGID, role: 'test-harness' }]
+    }),
+    /missing its second raw table/
+  )
 })
 
 test('fails closed when the bounded OS snapshot command fails', async () => {
@@ -3087,7 +3334,12 @@ test('builds only the guarded Playwright runtime after separate production setup
 })
 
 test('builds each single-Actor attribution with the always-on WebSocket service', () => {
-  for (const attributionCase of ['16', '16-reduced-motion', '1280']) {
+  for (const attributionCase of [
+    '16',
+    '16-reduced-motion',
+    '1280',
+    '27471-maximum'
+  ]) {
     const phases = buildEndpointPerformancePhases({
       owner: OWNER,
       baseEnv: {
@@ -3334,8 +3586,8 @@ test('requires one authenticated descendant process group for every proof role b
   const stopping = evaluateResourceSample(
     ready.state,
     trackedCpuSample({
-      cpuPercent: 0,
-      nowMs: 503,
+      cpuPercent: 401,
+      nowMs: 3_004,
       processes: [
         { cpuTimeMs: 1_102.5, pid: TARGET_PGID, role: 'test-harness' },
         { cpuTimeMs: 100, pid: 5001, role: 'client-a-browser' },
@@ -3375,13 +3627,29 @@ test('stops when a registered process role disappears before proof completion', 
     { pgid: 5003, role: 'websocket-server' }
   ]
   const sampled = await sampleTrackedProcessGroupsCpu(TARGET_PGID, {
-    execFileImpl: (_file, _arguments, _options, callback) => {
+    execFileImpl: (file, _arguments, _options, callback) => {
+      if (file === 'top') {
+        callback(
+          null,
+          [
+            'PID %CPU',
+            `${TARGET_PGID} 900.0`,
+            '5001 900.0',
+            '5002 900.0',
+            'PID %CPU',
+            `${TARGET_PGID} 12.0`,
+            '5001 40.0',
+            '5002 4.0'
+          ].join('\n')
+        )
+        return
+      }
       callback(
         null,
         [
-          `${TARGET_PGID} 1 ${TARGET_PGID} 12.0 0:00.10 yarn playwright`,
-          `5001 ${TARGET_PGID} 5001 40.0 0:00.40 chrome-headless-shell`,
-          `5002 ${TARGET_PGID} 5002 4.0 0:00.05 node vite preview`
+          `${TARGET_PGID} 1 ${TARGET_PGID} 0:00.10 yarn playwright`,
+          `5001 ${TARGET_PGID} 5001 0:00.40 chrome-headless-shell`,
+          `5002 ${TARGET_PGID} 5002 0:00.05 node vite preview`
         ].join('\n')
       )
     },

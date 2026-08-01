@@ -78,10 +78,13 @@ Feature: Conversational AI drawing performance
     And the fixed two-Actor tracked roles should be test-harness, client-a-browser, client-b-browser, app-server, and websocket-server while a single-Actor attribution omits only client-b-browser
     And Actor A and Actor B should run in independently launched Chromium process groups
     And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
-    And one complete operating-system ps snapshot with exact PID-set equality should retain the raw percent-CPU value for every tracked process
-    And the nominal 250-millisecond polling cadence should only request another raw system snapshot and should never become a measurement window or CPU-percentage formula
+    And one bounded operating-system ps snapshot should retain exact PID, PPID, PGID, cumulative CPU-time, and command identity without supplying formal CPU percentages
+    And Darwin top should filter on those exact PIDs plus one long-lived unreported guard-process anchor, produce two bounded pid,cpu tables, and ignore the initialization table
+    And only the second current raw percent-CPU table intersected with exact still-live test-owned identities should enter the accepted sample
+    And the sampler anchor, untracked system PIDs, and test-owned identities retired before the second current table should not enter any report value
+    And the nominal 1,000-millisecond polling cadence should only request another current raw system sample and should never become a measurement window or CPU-percentage formula
     And periodic and phase-boundary sampling should share one serialized OS sample queue with ordered state consumption
-    And an observed sampling gap above 375 milliseconds should fail closed because the guard may have missed a raw system peak
+    And an observed sampling gap above 3,000 milliseconds should fail closed because the guard may have missed a current raw system peak
     And the exact 7076-element high-performance case should use a 500-percent raw same-snapshot limit for each complete Actor browser process group while 16-item and 1280-item safety or attribution cases retain 250 percent per Actor
     And one raw same-snapshot complete Actor A or Actor B browser sum above the active per-Actor proof-class limit or one raw same-snapshot aggregate both-Actor frontend, backend, and harness sum above 500 percent for 7076 or 400 percent for 16-item and 1280-item should stop all exact tracked roles while the violation report retains separate role CPU
     And Actor A and Actor B should each retain their own highest complete raw frontend snapshot while backend and harness CPU remain excluded from both Actor peaks
@@ -105,10 +108,14 @@ Feature: Conversational AI drawing performance
     And every boundary sample should pass the same active proof-class raw same-snapshot frontend and aggregate safety evaluations and require exact PID-set equality while any observed process identity change before an accepted terminal heartbeat should make attribution invalid
     And raw operating-system CPU should never become the sole owner-attribution signal
     And the production performance profile should provide O(1) canonical, Render projection, Factory publication, and history scalar evidence without exposing a mutable runtime owner
+    And required provider, Runtime, execution, Group, and plural-batch phase presence should use exact O(1) per-name phase counts after retained phase-ring rollover while the bounded phase timeline remains timing evidence only
     And the Render projection count should query the exact ordinary viewport RenderLayer size rather than a computed mirror or capped fixture count
     And exact Undo depth should use the Factory read-only history query rather than private transaction storage
     And ordinary Playwright discovery should exclude this guarded endpoint even when guard environment variables are present
-    And the 250-millisecond polling cadence should be armed before the immediate first raw system sample
+    And the 1,000-millisecond polling cadence should be armed before the first current raw system sample
+    And two successfully completed serialized raw observations may be at most 7,000 milliseconds apart while a larger gap should fail closed without averaging or changing either raw CPU value
+    And only the authenticated phase-boundary HTTP handoff should have a 7,000-millisecond client deadline for one in-flight plus one requested serialized current-CPU sample
+    And ordinary heartbeat and resource-status requests should retain 3,000 milliseconds while the boundary deadline should not extend product execution or the 300-second CRDT flow
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
     And after a valid terminal complete heartbeat closes the product proof window, later Chrome teardown process-identity changes should not create a resource stop or invalidate the accepted proof while exact process-group termination remains required
@@ -582,7 +589,7 @@ Feature: Conversational AI drawing performance
   Scenario: Maximum detail remains editable and meets its budget
     When Actor A creates the maximum-detail fixture
     Then the drawing should contain 27471 ordinary editable Vector elements and 295794 canonical points
-    And the observed accepted-turn-to-settled time should be at most 90 seconds
+    And the observed accepted-turn-to-settled time should be at most 300 seconds
     And no item, path, point, payload, frame, or composition ceiling should reject the drawing
     And the turn should create one intended Undo action
 

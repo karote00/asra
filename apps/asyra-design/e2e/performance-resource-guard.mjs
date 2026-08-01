@@ -23,9 +23,10 @@ export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   busyCpuPercent: 80,
   heartbeatStaleMs: 10_000,
   progressStaleMs: 20_000,
-  sampleIntervalMs: 250,
-  maximumSampleGapMs: 375,
+  sampleIntervalMs: 1_000,
+  maximumSampleGapMs: 7_000,
   sampleTimeoutMs: 200,
+  currentCpuSampleTimeoutMs: 3_000,
   terminationGraceMs: 3_000,
   historyLimit: 8,
   requestBodyLimitBytes: 64 * 1024
@@ -165,6 +166,8 @@ const mergeConfig = (config = {}) => {
         config.sampleTimeoutMs ?? DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs
       )
     ),
+    currentCpuSampleTimeoutMs:
+      DEFAULT_RESOURCE_GUARD_CONFIG.currentCpuSampleTimeoutMs,
     terminationGraceMs: Math.min(
       DEFAULT_RESOURCE_GUARD_CONFIG.terminationGraceMs,
       Math.max(0, config.terminationGraceMs ?? 3_000)
@@ -1102,6 +1105,7 @@ export const createResourceGuardState = ({
     phaseCpuTimeSamples: [],
     sampleFailure: null,
     profileRemainder: '',
+    cpuProfileDiagnosticAggregate: createCpuProfileDiagnosticAggregate(),
     profileMetrics: {
       counts: {
         profile: 0,
@@ -2038,6 +2042,205 @@ const PROFILE_PREFIXES = Object.freeze([
 const maximum = (current, candidate) =>
   isFiniteNonNegativeNumber(candidate) ? Math.max(current, candidate) : current
 
+const DEFAULT_CPU_PROFILE_DIAGNOSTIC_ENTRY_LIMIT = 32
+const DEFAULT_CPU_PROFILE_DIAGNOSTIC_OUTPUT_LIMIT = 12
+
+const normalizeCpuProfileDiagnosticLimit = (value, fallback, maximum, name) => {
+  const candidate = value ?? fallback
+  if (
+    !Number.isSafeInteger(candidate) ||
+    candidate < 1 ||
+    candidate > maximum
+  ) {
+    throw new TypeError(`${name} must be an integer from 1 through ${maximum}`)
+  }
+  return candidate
+}
+
+export const createCpuProfileDiagnosticAggregate = (options = {}) => {
+  const entryLimit = normalizeCpuProfileDiagnosticLimit(
+    options.entryLimit,
+    DEFAULT_CPU_PROFILE_DIAGNOSTIC_ENTRY_LIMIT,
+    64,
+    'CPU profile diagnostic entry limit'
+  )
+  const outputLimit = normalizeCpuProfileDiagnosticLimit(
+    options.outputLimit,
+    DEFAULT_CPU_PROFILE_DIAGNOSTIC_OUTPUT_LIMIT,
+    entryLimit,
+    'CPU profile diagnostic output limit'
+  )
+  return {
+    capturedTopSelfSamples: 0,
+    entries: [],
+    entryLimit,
+    outputLimit,
+    profileSamples: 0,
+    sliceCount: 0
+  }
+}
+
+const normalizeCpuProfileDiagnosticFrame = (frame) => {
+  if (
+    !frame ||
+    typeof frame !== 'object' ||
+    Array.isArray(frame) ||
+    !isNonEmptyBoundedString(frame.functionName) ||
+    frame.functionName.length > 200 ||
+    typeof frame.url !== 'string' ||
+    frame.url.length > 500 ||
+    !Number.isSafeInteger(frame.columnNumber) ||
+    frame.columnNumber < -1 ||
+    !Number.isSafeInteger(frame.lineNumber) ||
+    frame.lineNumber < -1 ||
+    !Number.isSafeInteger(frame.samples) ||
+    frame.samples < 1
+  ) {
+    throw new TypeError('Invalid CPU profile diagnostic slice call frame')
+  }
+  return {
+    columnNumber: frame.columnNumber,
+    functionName: frame.functionName,
+    lineNumber: frame.lineNumber,
+    samples: frame.samples,
+    url: frame.url
+  }
+}
+
+const cpuProfileDiagnosticFrameKey = ({
+  columnNumber,
+  functionName,
+  lineNumber,
+  url
+}) => JSON.stringify([functionName, url, lineNumber, columnNumber])
+
+export const recordCpuProfileDiagnosticSlice = (aggregate, slice) => {
+  if (
+    !aggregate ||
+    typeof aggregate !== 'object' ||
+    !Array.isArray(aggregate.entries) ||
+    !Number.isSafeInteger(aggregate.entryLimit) ||
+    !Number.isSafeInteger(aggregate.outputLimit) ||
+    !slice ||
+    typeof slice !== 'object' ||
+    !Number.isSafeInteger(slice.samples) ||
+    slice.samples < 0 ||
+    !Array.isArray(slice.top) ||
+    slice.top.length > 6
+  ) {
+    throw new TypeError('Invalid CPU profile diagnostic slice')
+  }
+
+  const frames = slice.top.map(normalizeCpuProfileDiagnosticFrame)
+  const capturedSamples = frames.reduce(
+    (total, frame) => total + frame.samples,
+    0
+  )
+  if (capturedSamples > slice.samples) {
+    throw new TypeError('Invalid CPU profile diagnostic slice sample count')
+  }
+
+  aggregate.sliceCount += 1
+  aggregate.profileSamples += slice.samples
+  aggregate.capturedTopSelfSamples += capturedSamples
+
+  for (const frame of frames) {
+    const key = cpuProfileDiagnosticFrameKey(frame)
+    const existing = aggregate.entries.find((entry) => entry.key === key)
+    if (existing) {
+      existing.samples += frame.samples
+      continue
+    }
+    if (aggregate.entries.length < aggregate.entryLimit) {
+      aggregate.entries.push({
+        ...frame,
+        errorSamples: 0,
+        key
+      })
+      continue
+    }
+    let minimum = aggregate.entries[0]
+    for (let index = 1; index < aggregate.entries.length; index += 1) {
+      const candidate = aggregate.entries[index]
+      if (
+        candidate.samples < minimum.samples ||
+        (candidate.samples === minimum.samples && candidate.key < minimum.key)
+      ) {
+        minimum = candidate
+      }
+    }
+    const replacedSamples = minimum.samples
+    Object.assign(minimum, {
+      ...frame,
+      errorSamples: replacedSamples,
+      key,
+      samples: replacedSamples + frame.samples
+    })
+  }
+  return aggregate
+}
+
+export const summarizeCpuProfileDiagnosticAggregate = (aggregate) => {
+  if (
+    !aggregate ||
+    typeof aggregate !== 'object' ||
+    !Array.isArray(aggregate.entries) ||
+    !Number.isSafeInteger(aggregate.outputLimit)
+  ) {
+    throw new TypeError('Invalid CPU profile diagnostic aggregate')
+  }
+  return {
+    capturedTopSelfSamples: aggregate.capturedTopSelfSamples,
+    profileSamples: aggregate.profileSamples,
+    sliceCount: aggregate.sliceCount,
+    top: [...aggregate.entries]
+      .sort(
+        (left, right) =>
+          right.samples - left.samples ||
+          left.errorSamples - right.errorSamples ||
+          left.key.localeCompare(right.key)
+      )
+      .slice(0, aggregate.outputLimit)
+      .map(
+        ({
+          columnNumber,
+          errorSamples,
+          functionName,
+          lineNumber,
+          samples,
+          url
+        }) => ({
+          columnNumber,
+          errorSamples,
+          functionName,
+          lineNumber,
+          samples,
+          url
+        })
+      )
+  }
+}
+
+const CPU_PROFILE_SLICE_PREFIX = 'ASYRA_CPU_PROFILE_SLICE '
+
+const parseCpuProfileDiagnosticLine = (line) => {
+  const prefixIndex = line.indexOf(CPU_PROFILE_SLICE_PREFIX)
+  if (prefixIndex < 0) {
+    return null
+  }
+  try {
+    const parsed = JSON.parse(
+      line.slice(prefixIndex + CPU_PROFILE_SLICE_PREFIX.length).trim()
+    )
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 const parseProfileLine = (line) => {
   for (const candidate of PROFILE_PREFIXES) {
     const prefixIndex = line.indexOf(candidate.prefix)
@@ -2072,7 +2275,20 @@ export const recordProfileOutput = (state, chunk, { flush = false } = {}) => {
 
   const config = state.config ?? mergeConfig()
   let profileMetrics = state.profileMetrics
+  const cpuProfileDiagnosticAggregate =
+    state.cpuProfileDiagnosticAggregate ?? createCpuProfileDiagnosticAggregate()
   for (const line of lines) {
+    const cpuProfileDiagnosticSlice = parseCpuProfileDiagnosticLine(line)
+    if (cpuProfileDiagnosticSlice) {
+      try {
+        recordCpuProfileDiagnosticSlice(
+          cpuProfileDiagnosticAggregate,
+          cpuProfileDiagnosticSlice
+        )
+      } catch {
+        // Untrusted child diagnostics never change guard safety or liveness.
+      }
+    }
     const metric = parseProfileLine(line)
     if (!metric) {
       continue
@@ -2122,6 +2338,7 @@ export const recordProfileOutput = (state, chunk, { flush = false } = {}) => {
 
   return {
     ...state,
+    cpuProfileDiagnosticAggregate,
     profileRemainder: remainder.slice(-1_024),
     profileMetrics
   }
@@ -2206,6 +2423,10 @@ export const buildBoundedResourceReport = (
     phaseCpuTimeSamples: keepLast(state.phaseCpuTimeSamples, historyLimit),
     sampleFailure: state.sampleFailure,
     processGroups: sanitizeTrackedProcessGroups(state.processGroups),
+    cpuProfileDiagnostic: summarizeCpuProfileDiagnosticAggregate(
+      state.cpuProfileDiagnosticAggregate ??
+        createCpuProfileDiagnosticAggregate()
+    ),
     profileMetrics: state.profileMetrics,
     endpointReport: state.endpointReport,
     failure: state.failure,
@@ -2657,13 +2878,14 @@ export const buildEndpointPerformancePhases = ({
     '16',
     '16-reduced-motion',
     '1280',
+    '27471-maximum',
     '16-two-actor-activity',
     '1280-two-actor-attribution',
     '320-two-actor-attribution'
   ])
   if (attributionCase && !validAttributionCases.has(attributionCase)) {
     throw new Error(
-      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, 16-two-actor-activity, 1280-two-actor-attribution, or 320-two-actor-attribution'
+      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, 27471-maximum, 16-two-actor-activity, 1280-two-actor-attribution, or 320-two-actor-attribution'
     )
   }
   const twoActorActivityAttribution = [
@@ -2748,6 +2970,27 @@ const execFilePromise = (implementation, file, args, options) =>
     })
   })
 
+const parseDarwinCurrentCpuByPid = (stdout) => {
+  const tables = []
+  let currentTable = null
+  for (const line of stdout.split(/\r?\n/u)) {
+    const trimmed = line.trim()
+    if (/^PID\s+%CPU$/u.test(trimmed)) {
+      currentTable = new Map()
+      tables.push(currentTable)
+      continue
+    }
+    if (!currentTable) continue
+    const match = trimmed.match(/^(\d+)\s+(\d+(?:\.\d+)?)$/u)
+    if (!match) continue
+    currentTable.set(Number(match[1]), Number(match[2]))
+  }
+  if (tables.length < 2) {
+    throw new Error('Darwin current CPU sample is missing its second raw table')
+  }
+  return tables.at(-1)
+}
+
 export const sampleTrackedProcessGroupsCpu = async (
   rootPgid,
   {
@@ -2757,7 +3000,8 @@ export const sampleTrackedProcessGroupsCpu = async (
     now = Date.now,
     monotonicMs,
     monotonicNow = () => Number(process.hrtime.bigint()) / 1_000_000,
-    platform = process.platform
+    platform = process.platform,
+    samplerPid = process.pid
   } = {}
 ) => {
   if (!Number.isSafeInteger(rootPgid) || rootPgid <= 0) {
@@ -2775,7 +3019,7 @@ export const sampleTrackedProcessGroupsCpu = async (
   const processGroupList = groups.map(({ pgid }) => pgid).join(',')
   const processArguments =
     platform === 'darwin'
-      ? ['-g', processGroupList, '-o', 'pid=,ppid=,pgid=,%cpu=,time=,command=']
+      ? ['-g', processGroupList, '-o', 'pid=,ppid=,pgid=,time=,command=']
       : ['-Ao', 'pid=,ppid=,pgid=,%cpu=,time=,command=']
   const stdout = await execFilePromise(execFileImpl, 'ps', processArguments, {
     encoding: 'utf8',
@@ -2783,6 +3027,68 @@ export const sampleTrackedProcessGroupsCpu = async (
     timeout: DEFAULT_RESOURCE_GUARD_CONFIG.sampleTimeoutMs,
     maxBuffer: 256 * 1024
   })
+  const trackedProcesses = []
+  for (const line of stdout.split(/\r?\n/u)) {
+    const match =
+      platform === 'darwin'
+        ? line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\S+)(?:\s+(.*))?$/u)
+        : line
+            .trim()
+            .match(
+              /^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\S+)(?:\s+(.*))?$/u
+            )
+    if (!match) continue
+    const pgid = Number(match[3])
+    const group = groupByPgid.get(pgid)
+    if (!group) continue
+    trackedProcesses.push({
+      command: match[platform === 'darwin' ? 5 : 6]?.trim() ?? '',
+      cpuPercent: platform === 'darwin' ? null : Number(match[4]),
+      cpuTimeMs: parseCpuTimeToMilliseconds(
+        match[platform === 'darwin' ? 4 : 5]
+      ),
+      group,
+      parentPid: Number(match[2]),
+      pgid,
+      pid: Number(match[1])
+    })
+  }
+  if (trackedProcesses.length > MAX_PROCESS_CPU_TIME_ENTRIES) {
+    throw new Error(
+      `Tracked process sample exceeded ${MAX_PROCESS_CPU_TIME_ENTRIES} entries`
+    )
+  }
+  let darwinCurrentCpuByPid = null
+  if (platform === 'darwin') {
+    if (!Number.isSafeInteger(samplerPid) || samplerPid <= 0) {
+      throw new TypeError(
+        'A positive current-CPU sampler process ID is required'
+      )
+    }
+    const currentCpuArguments = ['-F', '-l', '2', '-s', '0']
+    const currentCpuPids = [
+      ...new Set([...trackedProcesses.map(({ pid }) => pid), samplerPid])
+    ].sort((left, right) => left - right)
+    for (const pid of currentCpuPids) {
+      currentCpuArguments.push('-pid', String(pid))
+    }
+    currentCpuArguments.push('-stats', 'pid,cpu')
+    const currentCpuStdout = await execFilePromise(
+      execFileImpl,
+      'top',
+      currentCpuArguments,
+      {
+        encoding: 'utf8',
+        killSignal: 'SIGKILL',
+        timeout: DEFAULT_RESOURCE_GUARD_CONFIG.currentCpuSampleTimeoutMs,
+        maxBuffer: 256 * 1024
+      }
+    )
+    darwinCurrentCpuByPid = parseDarwinCurrentCpuByPid(currentCpuStdout)
+  }
+  const currentTrackedProcesses = darwinCurrentCpuByPid
+    ? trackedProcesses.filter(({ pid }) => darwinCurrentCpuByPid.has(pid))
+    : trackedProcesses
   const roleCpuPercent = createEmptyRoleCpuPercent()
   const roleCpuTimeMs = createEmptyRoleCpuTimeMs()
   const browserProcessTypeCpuPercent = createEmptyBrowserProcessTypeCpuPercent()
@@ -2792,18 +3098,18 @@ export const sampleTrackedProcessGroupsCpu = async (
   const sampledPgids = new Set()
   let cpuPercent = 0
   let cpuTimeMs = 0
-  for (const line of stdout.split(/\r?\n/u)) {
-    const match = line
-      .trim()
-      .match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\S+)(?:\s+(.*))?$/u)
-    if (!match) continue
-    const pgid = Number(match[3])
-    const group = groupByPgid.get(pgid)
-    if (!group) continue
+  for (const trackedProcess of currentTrackedProcesses) {
+    const {
+      command,
+      cpuTimeMs: processCpuTimeMs,
+      group,
+      parentPid,
+      pgid,
+      pid
+    } = trackedProcess
     sampledPgids.add(pgid)
-    const processCpuPercent = Number(match[4])
-    const processCpuTimeMs = parseCpuTimeToMilliseconds(match[5])
-    const command = match[6]?.trim() ?? ''
+    const processCpuPercent =
+      darwinCurrentCpuByPid?.get(pid) ?? trackedProcess.cpuPercent
     const classification =
       command.length > 0 ? classifyProcessCommand(command) : null
     const browserProcessType = CLIENT_BROWSER_PROCESS_ROLES.has(group.role)
@@ -2822,7 +3128,7 @@ export const sampleTrackedProcessGroupsCpu = async (
     processCpuTimes.push({
       ...(browserProcessType ? { browserProcessType } : {}),
       cpuTimeMs: processCpuTimeMs,
-      pid: Number(match[1]),
+      pid,
       role: group.role
     })
     if (classification) {
@@ -2830,9 +3136,9 @@ export const sampleTrackedProcessGroupsCpu = async (
         ...(browserProcessType ? { browserProcessType } : {}),
         cpuPercent: processCpuPercent,
         executable: classification.executable,
-        parentPid: Number(match[2]),
+        parentPid,
         pgid,
-        pid: Number(match[1]),
+        pid,
         role: group.role
       })
     }
@@ -2843,11 +3149,6 @@ export const sampleTrackedProcessGroupsCpu = async (
   const missingProcessRoles = TRACKED_PROCESS_ROLES.filter((role) =>
     groups.some((group) => group.role === role && !sampledPgids.has(group.pgid))
   )
-  if (processCpuTimes.length > MAX_PROCESS_CPU_TIME_ENTRIES) {
-    throw new Error(
-      `Tracked process sample exceeded ${MAX_PROCESS_CPU_TIME_ENTRIES} entries`
-    )
-  }
   return {
     browserProcessTypeCpuPercent,
     browserProcessTypeCpuTimeMs,

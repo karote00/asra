@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import sourceSvg from '../../../test-data/ai-drawing/detailed-tabby-cat-only-white-background.svg?raw'
+import maximumSourceSvg from '../../../test-data/ai-drawing/maximum-tabby-polygon.svg?raw'
 import {
   createCatOnlyWhiteBackgroundItemsAtSource,
   type DetailedTabbyCompositionItem
@@ -48,5 +49,21 @@ describe('detailed-tabby bounded fixture owner', () => {
     expect(countPoints(fastItems)).toBe(12_919)
     expect(countPoints(mediumItems)).toBe(51_768)
     expect(countPoints(largeItems)).toBe(86_474)
+  })
+
+  it('preserves the complete 27,471-item, 295,794-point maximum-detail source', () => {
+    const items = createCatOnlyWhiteBackgroundItemsAtSource(maximumSourceSvg, {
+      height: 941,
+      width: 1672
+    })
+
+    expect(items).toHaveLength(27_471)
+    expect(countPoints(items)).toBe(295_794)
+    expect(items.every(({ primitive }) => primitive === 'vector')).toBe(true)
+    expect(new Set(items.map(({ role }) => role)).size).toBe(items.length)
+    expect(items[0]).toMatchObject({
+      role: 'portrait-background',
+      style: { fillColor: '#FFFFFF' }
+    })
   })
 })

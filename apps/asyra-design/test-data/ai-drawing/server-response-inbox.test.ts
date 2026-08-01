@@ -235,6 +235,42 @@ describe('Asyra Design server response harness', () => {
     expect(secondRecord).toEqual(record)
   })
 
+  it('creates the exact maximum-detail response from 27,471 vectors and 295,794 points', async () => {
+    const record = await createAsyraDesignServerResponseRecord(
+      'file-maximum-27471',
+      27_471
+    )
+    const action = record.batch.actions[0]
+    const artifact = action.arguments as PreparedDrawingArtifact
+
+    expect(action.summary).toMatchObject({
+      affectedCount: 27_471,
+      pointCount: 295_794,
+      skippedCount: 0
+    })
+    expect(artifact).toMatchObject({
+      elementCount: 27_471,
+      pointCount: 295_794
+    })
+    expect(
+      artifact.slices.reduce(
+        (count, { descriptors }) => count + descriptors.length,
+        0
+      )
+    ).toBe(27_471)
+    expect(
+      artifact.slices.reduce((count, { pointCount }) => count + pointCount, 0)
+    ).toBe(295_794)
+    expect(
+      artifact.slices.every(
+        ({ descriptors, pointCount }) =>
+          descriptors.length <= PREPARED_DRAWING_SLICE_ELEMENT_BUDGET &&
+          (pointCount <= PREPARED_DRAWING_SLICE_POINT_BUDGET ||
+            descriptors.length === 1)
+      )
+    ).toBe(true)
+  })
+
   it('rejects a later invalid item before producing a prepared drawing artifact', () => {
     expect(() =>
       createPreparedDrawingArtifact(

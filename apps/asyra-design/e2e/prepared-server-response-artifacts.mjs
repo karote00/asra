@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
 import {
   cp,
@@ -12,6 +13,7 @@ import {
   writeFile
 } from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync, gzipSync } from 'node:zlib'
 
@@ -27,7 +29,7 @@ const manifestFilename = 'manifest.json'
 export const PREPARED_SERVER_RESPONSE_MANIFEST_VERSION = 1
 
 export const PREPARED_SERVER_RESPONSE_VARIANTS = Object.freeze(
-  [16, 320, 1280, 7075].map((itemCount) =>
+  [16, 320, 1280, 7075, 27471].map((itemCount) =>
     Object.freeze({
       fileId: `endpoint-performance-response-${itemCount}`,
       gzipFilename: `server-response-${itemCount}.json.gzip`,

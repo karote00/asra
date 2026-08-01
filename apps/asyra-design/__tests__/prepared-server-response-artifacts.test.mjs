@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
 import {
   lstat,
@@ -73,22 +74,22 @@ const createSmallRecord = async (fileId, itemCount) => ({
 test('defines one fixed file-scoped artifact for every supported response size', () => {
   assert.deepEqual(
     PREPARED_SERVER_RESPONSE_VARIANTS.map((variant) => variant.itemCount),
-    [16, 320, 1280, 7075]
+    [16, 320, 1280, 7075, 27471]
   )
-  assert.equal(new Set(PREPARED_SERVER_RESPONSE_VARIANTS).size, 4)
+  assert.equal(new Set(PREPARED_SERVER_RESPONSE_VARIANTS).size, 5)
   assert.equal(
     new Set(PREPARED_SERVER_RESPONSE_VARIANTS.map((variant) => variant.fileId))
       .size,
-    4
+    5
   )
   assert.equal(
     new Set(
       PREPARED_SERVER_RESPONSE_VARIANTS.map((variant) => variant.publicPath)
     ).size,
-    4
+    5
   )
 
-  for (const itemCount of [16, 320, 1280, 7075]) {
+  for (const itemCount of [16, 320, 1280, 7075, 27471]) {
     assert.deepEqual(getPreparedServerResponseVariant(itemCount), {
       fileId: `endpoint-performance-response-${itemCount}`,
       gzipFilename: `server-response-${itemCount}.json.gzip`,
@@ -133,9 +134,9 @@ test('creates deterministic gzip-6 records and a complete bounded manifest', asy
   assert.deepEqual(first.manifest, second.manifest)
   assert.deepEqual(
     calls.map(({ itemCount }) => itemCount),
-    [16, 320, 1280, 7075, 16, 320, 1280, 7075]
+    [16, 320, 1280, 7075, 27471, 16, 320, 1280, 7075, 27471]
   )
-  assert.equal(first.artifacts.length, 4)
+  assert.equal(first.artifacts.length, 5)
 
   first.artifacts.forEach((artifact, index) => {
     const repeated = second.artifacts[index]

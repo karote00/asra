@@ -4,6 +4,7 @@ import {
   test,
   type Browser,
   type BrowserContext,
+  type CDPSession,
   type Page
 } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
@@ -26,11 +27,22 @@ const expectedFixture = Object.freeze({
   vectorCount: 7075
 })
 const CRDT_FLOW_TIMEOUT_MS = 300_000
+const MAXIMUM_DETAIL_TIMEOUT_MS = 300_000
 const ENDPOINT_HEARTBEAT_INTERVAL_MS = 5_000
+const RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS = 7_000
 const remainingCrdtFlowTimeoutMs = (startedAtMs: number): number =>
   Math.max(1, startedAtMs + CRDT_FLOW_TIMEOUT_MS - Date.now())
 const exactCatOnlyPrompt =
   'Draw only the cat from the reference image. Exclude the original background and place the cat on a pure white background canvas with exactly the same width and height as the uploaded photo.'
+const requiredAttributionPhaseNames = [
+  'ai-provider:server-response-handoff',
+  'ai-runtime:provider',
+  'ai-runtime:resolution',
+  'ai-runtime:permission',
+  'ai-runtime:execution',
+  'ai-app:create-composition-group',
+  'ai-app:create-composition-batch'
+] as const
 const referenceImageName = 'research-02-original-tabby-source.png'
 const referenceImagePath = fileURLToPath(
   new URL(
@@ -61,9 +73,15 @@ const endpointConnectivityOnly =
   process.env.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY === '1'
 const endpointAttributionCase =
   process.env.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
-const endpointLocalAttribution = ['16', '16-reduced-motion', '1280'].includes(
-  endpointAttributionCase
-)
+const endpointCpuProfileDiagnostic =
+  process.env.ASYRA_DESIGN_ENDPOINT_CPU_PROFILE_DIAGNOSTIC === '1'
+const CPU_PROFILE_ROTATION_MS = 100
+const endpointLocalAttribution = [
+  '16',
+  '16-reduced-motion',
+  '1280',
+  '27471-maximum'
+].includes(endpointAttributionCase)
 const endpointTwoActorActivityAttribution = [
   '16-two-actor-activity',
   '1280-two-actor-attribution',
@@ -72,6 +90,94 @@ const endpointTwoActorActivityAttribution = [
 const endpointOwner = endpointGuardEnabled
   ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_OWNER')
   : 'guarded-endpoint-disabled'
+
+interface CpuProfileNode {
+  readonly callFrame: {
+    readonly columnNumber: number
+    readonly functionName: string
+    readonly lineNumber: number
+    readonly url: string
+  }
+  readonly id: number
+}
+
+interface CpuProfile {
+  readonly nodes: readonly CpuProfileNode[]
+  readonly samples?: readonly number[]
+}
+
+const summarizeCpuProfile = (profile: CpuProfile) => {
+  const nodes = new Map(profile.nodes.map((node) => [node.id, node]))
+  const selfSamples = new Map<number, number>()
+  profile.samples?.forEach((nodeId) => {
+    selfSamples.set(nodeId, (selfSamples.get(nodeId) ?? 0) + 1)
+  })
+  return [...selfSamples]
+    .map(([nodeId, samples]) => {
+      const node = nodes.get(nodeId)
+      return {
+        columnNumber: node?.callFrame.columnNumber ?? -1,
+        functionName: node?.callFrame.functionName || '(anonymous)',
+        lineNumber: node?.callFrame.lineNumber ?? -1,
+        url: node?.callFrame.url ?? '',
+        samples
+      }
+    })
+    .sort((left, right) => right.samples - left.samples)
+    .slice(0, 6)
+}
+
+const startRotatingCpuProfileDiagnostic = async (
+  session: CDPSession
+): Promise<() => Promise<void>> => {
+  if (!endpointCpuProfileDiagnostic) {
+    return async () => undefined
+  }
+
+  await session.send('Profiler.enable')
+  await session.send('Profiler.setSamplingInterval', { interval: 1_000 })
+  await session.send('Profiler.start')
+  let active = true
+  let profileActive = true
+  const rotation = (async () => {
+    while (active) {
+      await delay(CPU_PROFILE_ROTATION_MS)
+      if (!active) {
+        break
+      }
+      const { profile } = (await session.send('Profiler.stop')) as {
+        profile: CpuProfile
+      }
+      profileActive = false
+      const summary = {
+        samples: profile.samples?.length ?? 0,
+        top: summarizeCpuProfile(profile)
+      }
+      // Diagnostic output is intentionally bounded and no profile file exists.
+      // eslint-disable-next-line no-console
+      console.log(`ASYRA_CPU_PROFILE_SLICE ${JSON.stringify(summary)}`)
+      if (!active) {
+        break
+      }
+      await session.send('Profiler.start')
+      profileActive = true
+    }
+  })()
+
+  let disposed = false
+  return async () => {
+    if (disposed) {
+      return
+    }
+    disposed = true
+    active = false
+    await rotation.catch(() => undefined)
+    if (profileActive) {
+      await session.send('Profiler.stop').catch(() => undefined)
+    }
+    await session.send('Profiler.disable').catch(() => undefined)
+  }
+}
 const guardURL = endpointGuardEnabled
   ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_GUARD_URL').replace(/\/+$/, '')
   : 'http://127.0.0.1'
@@ -386,6 +492,9 @@ interface TwoActorActivitySummary extends LocalAttributionSummary {
 }
 
 interface FinalActorDiagnostics {
+  readonly attributionPhaseCounts: Readonly<
+    Record<(typeof requiredAttributionPhaseNames)[number], number>
+  >
   readonly drawingProgress: {
     readonly canonicalWorkUnitCount: number
     readonly cooperativeYieldCount: number
@@ -574,7 +683,7 @@ const postPhaseBoundary = async (
       'content-type': 'application/json'
     },
     method: 'POST',
-    signal: AbortSignal.timeout(3_000)
+    signal: AbortSignal.timeout(RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS)
   })
   const result = (await response.json().catch(() => ({}))) as {
     accepted?: boolean
@@ -1423,135 +1532,148 @@ const readFinalDiagnostics = async (
   page: Page,
   expectedDrawingElements: number | null = null
 ): Promise<FinalActorDiagnostics> => {
-  const diagnostics = await page.evaluate((expectedElements) => {
-    const profile = window.__AsyraAiDrawingPerformance__
-    if (!profile) {
-      throw new Error('AI drawing performance profile is unavailable')
-    }
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
-    }
-    const endpointDiagnostics = scope.__AsyraEndpointDiagnostics__
-    if (!endpointDiagnostics) {
-      throw new Error('Endpoint performance diagnostics are unavailable')
-    }
-    const snapshot = profile.snapshot()
-    const phaseTotals = new Map<string, number>()
-    const firstPhaseByName = new Map<
-      string,
-      { atMs: number; durationMs: number; name: string }
-    >()
-    const canonicalWorkUnitDurations: number[] = []
-    for (const phase of snapshot.phases) {
-      phaseTotals.set(
-        phase.name,
-        (phaseTotals.get(phase.name) ?? 0) + phase.durationMs
+  const diagnostics = await page.evaluate(
+    ({ expectedElements, requiredPhaseNames }) => {
+      const profile = window.__AsyraAiDrawingPerformance__
+      if (!profile) {
+        throw new Error('AI drawing performance profile is unavailable')
+      }
+      const scope = globalThis as typeof globalThis & {
+        __AsyraEndpointDiagnostics__?: EndpointDiagnostics
+      }
+      const endpointDiagnostics = scope.__AsyraEndpointDiagnostics__
+      if (!endpointDiagnostics) {
+        throw new Error('Endpoint performance diagnostics are unavailable')
+      }
+      const snapshot = profile.snapshot()
+      const phaseTotals = new Map<string, number>()
+      const firstPhaseByName = new Map<
+        string,
+        { atMs: number; durationMs: number; name: string }
+      >()
+      const canonicalWorkUnitDurations: number[] = []
+      for (const phase of snapshot.phases) {
+        phaseTotals.set(
+          phase.name,
+          (phaseTotals.get(phase.name) ?? 0) + phase.durationMs
+        )
+        if (
+          /^(?:ai-app|ai-provider|ai-runtime|ai-server-response-inbox|ai-turn):/u.test(
+            phase.name
+          ) &&
+          !firstPhaseByName.has(phase.name)
+        ) {
+          firstPhaseByName.set(phase.name, {
+            atMs: Math.round(phase.atMs * 1000) / 1000,
+            durationMs: Math.round(phase.durationMs * 1000) / 1000,
+            name: phase.name
+          })
+        }
+        if (phase.name === 'ai-app:create-composition-batch') {
+          canonicalWorkUnitDurations.push(phase.durationMs)
+        }
+      }
+      const drawingCounters = snapshot.counters.filter(({ name }) =>
+        name.startsWith('ai-drawing:')
       )
-      if (
-        /^(?:ai-app|ai-provider|ai-runtime|ai-server-response-inbox|ai-turn):/u.test(
-          phase.name
-        ) &&
-        !firstPhaseByName.has(phase.name)
-      ) {
-        firstPhaseByName.set(phase.name, {
-          atMs: Math.round(phase.atMs * 1000) / 1000,
-          durationMs: Math.round(phase.durationMs * 1000) / 1000,
-          name: phase.name
-        })
+      const visibleElementSamples = drawingCounters.filter(
+        ({ name }) => name === 'ai-drawing:visible-element-count'
+      )
+      const targetElements =
+        expectedElements === null
+          ? []
+          : [
+              1,
+              Math.ceil(expectedElements * 0.25),
+              Math.ceil(expectedElements * 0.5),
+              Math.ceil(expectedElements * 0.75),
+              expectedElements
+            ]
+      let minimumSampleIndex = 0
+      const milestones = targetElements.flatMap((target) => {
+        const relativeIndex = visibleElementSamples
+          .slice(minimumSampleIndex)
+          .findIndex(({ value }) => value >= target)
+        if (relativeIndex < 0) return []
+        const sampleIndex = minimumSampleIndex + relativeIndex
+        const sample = visibleElementSamples[sampleIndex]
+        minimumSampleIndex = sampleIndex + 1
+        return sample
+          ? [
+              {
+                atMs: Math.round(sample.atMs * 1000) / 1000,
+                completedElements: sample.value,
+                sampleIndex,
+                targetElements: target
+              }
+            ]
+          : []
+      })
+      const cooperativeYieldSamples = drawingCounters.filter(
+        ({ name }) => name === 'ai-drawing:cooperative-yield-count'
+      )
+      const persistencePhaseCount = snapshot.phases.filter(
+        ({ name }) =>
+          name === 'core:persistence-capture' ||
+          name === 'core:persistence-save' ||
+          name === 'persistence:indexeddb-put'
+      ).length
+      return {
+        attributionPhaseCounts: Object.fromEntries(
+          requiredPhaseNames.map((name) => [name, profile.readPhaseCount(name)])
+        ),
+        drawingProgress: {
+          canonicalWorkUnitCount: profile.readPhaseCount(
+            'ai-app:create-composition-batch'
+          ),
+          cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
+          cooperativeYieldSampleCount: cooperativeYieldSamples.length,
+          loadingFrameVisibleCount: profile.readCounterTotal(
+            'ai-drawing:loading-frame-visible'
+          ),
+          longestCanonicalWorkUnitMs:
+            canonicalWorkUnitDurations.length === 0
+              ? 0
+              : Math.max(...canonicalWorkUnitDurations),
+          milestones,
+          strictlyIncreasing: visibleElementSamples.every(
+            ({ value }, index) =>
+              index === 0 ||
+              value > (visibleElementSamples[index - 1]?.value ?? -1)
+          ),
+          visibleElementLastCount: visibleElementSamples.at(-1)?.value ?? 0,
+          visibleElementSampleCount: visibleElementSamples.length
+        },
+        factoryPublicationCount: profile.readFactoryPublicationCount(),
+        historyDepth: profile.readHistoryDepth(),
+        localSentCount: endpointDiagnostics.localSent,
+        phaseTimeline: [...firstPhaseByName.values()],
+        persistencePhaseCount,
+        remoteProcessedCount: endpointDiagnostics.remoteProcessed,
+        renderProjectionAnomalies: {
+          failed: profile.readCounterTotal('render-projection-outcome-failed'),
+          missing: profile.readCounterTotal(
+            'render-projection-outcome-missing'
+          ),
+          resynced: profile.readCounterTotal(
+            'render-projection-outcome-resynced'
+          )
+        },
+        runtime: snapshot.runtime,
+        topPhases: [...phaseTotals.entries()]
+          .sort((left, right) => right[1] - left[1])
+          .slice(0, 24)
+          .map(([name, durationMs]) => ({
+            durationMs: Math.round(durationMs * 1000) / 1000,
+            name
+          }))
       }
-      if (phase.name === 'ai-app:create-composition-batch') {
-        canonicalWorkUnitDurations.push(phase.durationMs)
-      }
+    },
+    {
+      expectedElements: expectedDrawingElements,
+      requiredPhaseNames: requiredAttributionPhaseNames
     }
-    const drawingCounters = snapshot.counters.filter(({ name }) =>
-      name.startsWith('ai-drawing:')
-    )
-    const visibleElementSamples = drawingCounters.filter(
-      ({ name }) => name === 'ai-drawing:visible-element-count'
-    )
-    const targetElements =
-      expectedElements === null
-        ? []
-        : [
-            1,
-            Math.ceil(expectedElements * 0.25),
-            Math.ceil(expectedElements * 0.5),
-            Math.ceil(expectedElements * 0.75),
-            expectedElements
-          ]
-    let minimumSampleIndex = 0
-    const milestones = targetElements.flatMap((target) => {
-      const relativeIndex = visibleElementSamples
-        .slice(minimumSampleIndex)
-        .findIndex(({ value }) => value >= target)
-      if (relativeIndex < 0) return []
-      const sampleIndex = minimumSampleIndex + relativeIndex
-      const sample = visibleElementSamples[sampleIndex]
-      minimumSampleIndex = sampleIndex + 1
-      return sample
-        ? [
-            {
-              atMs: Math.round(sample.atMs * 1000) / 1000,
-              completedElements: sample.value,
-              sampleIndex,
-              targetElements: target
-            }
-          ]
-        : []
-    })
-    const cooperativeYieldSamples = drawingCounters.filter(
-      ({ name }) => name === 'ai-drawing:cooperative-yield-count'
-    )
-    const persistencePhaseCount = snapshot.phases.filter(
-      ({ name }) =>
-        name === 'core:persistence-capture' ||
-        name === 'core:persistence-save' ||
-        name === 'persistence:indexeddb-put'
-    ).length
-    return {
-      drawingProgress: {
-        canonicalWorkUnitCount: profile.readPhaseCount(
-          'ai-app:create-composition-batch'
-        ),
-        cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
-        cooperativeYieldSampleCount: cooperativeYieldSamples.length,
-        loadingFrameVisibleCount: profile.readCounterTotal(
-          'ai-drawing:loading-frame-visible'
-        ),
-        longestCanonicalWorkUnitMs:
-          canonicalWorkUnitDurations.length === 0
-            ? 0
-            : Math.max(...canonicalWorkUnitDurations),
-        milestones,
-        strictlyIncreasing: visibleElementSamples.every(
-          ({ value }, index) =>
-            index === 0 ||
-            value > (visibleElementSamples[index - 1]?.value ?? -1)
-        ),
-        visibleElementLastCount: visibleElementSamples.at(-1)?.value ?? 0,
-        visibleElementSampleCount: visibleElementSamples.length
-      },
-      factoryPublicationCount: profile.readFactoryPublicationCount(),
-      historyDepth: profile.readHistoryDepth(),
-      localSentCount: endpointDiagnostics.localSent,
-      phaseTimeline: [...firstPhaseByName.values()],
-      persistencePhaseCount,
-      remoteProcessedCount: endpointDiagnostics.remoteProcessed,
-      renderProjectionAnomalies: {
-        failed: profile.readCounterTotal('render-projection-outcome-failed'),
-        missing: profile.readCounterTotal('render-projection-outcome-missing'),
-        resynced: profile.readCounterTotal('render-projection-outcome-resynced')
-      },
-      runtime: snapshot.runtime,
-      topPhases: [...phaseTotals.entries()]
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, 24)
-        .map(([name, durationMs]) => ({
-          durationMs: Math.round(durationMs * 1000) / 1000,
-          name
-        }))
-    }
-  }, expectedDrawingElements)
+  )
   return {
     ...diagnostics,
     visibleWorkerTargets: visibleWorkerTargets(page)
@@ -2250,6 +2372,7 @@ const launchTrackedActorBBrowser = async (): Promise<Browser> => {
       ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
       ASYRA_DESIGN_TRACKED_ROLE: 'client-b-browser'
     },
+    headless: true,
     executablePath: guardLauncherPath
   })
 }
@@ -2492,14 +2615,21 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   if (!baseURL) {
     throw new Error('Endpoint performance App URL is unavailable')
   }
-  const requestedItems = endpointAttributionCase === '1280' ? 1280 : 16
+  let requestedItems: AsyraDesignServerResponseItemCount = 16
+  if (endpointAttributionCase === '27471-maximum') {
+    requestedItems = 27_471
+  } else if (endpointAttributionCase === '1280') {
+    requestedItems = 1280
+  }
   const preparedResponse = getPreparedServerResponseVariant(requestedItems)
   const expectedTotal = requestedItems + 1
   const fileId = preparedResponse.fileId
-  const prompt =
-    requestedItems === 1280
-      ? 'create the 1280-item CRDT performance fixture'
-      : 'create the fast CRDT performance fixture'
+  let prompt = 'create the fast CRDT performance fixture'
+  if (requestedItems === 27_471) {
+    prompt = 'create the maximum-detail performance fixture'
+  } else if (requestedItems === 1280) {
+    prompt = 'create the 1280-item CRDT performance fixture'
+  }
   const actor = await createActor(browser, baseURL, {
     reducedMotion:
       endpointAttributionCase === '16-reduced-motion'
@@ -2511,6 +2641,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     expectedTotal
   )
   const actorSession = await actor.context.newCDPSession(actor.page)
+  let stopCpuProfileDiagnostic = async () => undefined
   const testStartedAtMs = Date.now()
   const startGuardPhase = async (phase: string): Promise<void> => {
     heartbeat.startPhase(phase)
@@ -2575,6 +2706,8 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     expect(initialHeartbeat.actorA.renderProjectionElements).toBe(0)
     await postHeartbeat('progress', initialHeartbeat)
 
+    stopCpuProfileDiagnostic =
+      await startRotatingCpuProfileDiagnostic(actorSession)
     const operationStart = await actorSession.send('Performance.getMetrics')
     const creationStartedAtMs = Date.now()
     heartbeat.markCreationStarted(creationStartedAtMs)
@@ -2582,7 +2715,11 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     await startGuardPhase('local-request')
     await heartbeat.assertGuarded(triggerPreparedAiTurn(preparedTurn))
     const completed = await heartbeat.assertGuarded(
-      heartbeat.waitForComplete(CRDT_FLOW_TIMEOUT_MS)
+      heartbeat.waitForComplete(
+        requestedItems === 27_471
+          ? MAXIMUM_DETAIL_TIMEOUT_MS
+          : CRDT_FLOW_TIMEOUT_MS
+      )
     )
     const operationEnd = await actorSession.send('Performance.getMetrics')
     const mainThreadOperation = summarizeRendererPerformanceWindow(
@@ -2590,6 +2727,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       operationEnd
     ) as RendererPerformanceWindow
     await endGuardPhase('local-request')
+    await stopCpuProfileDiagnostic()
     await heartbeat.stop()
     await assertPreparedAiTurnSettled(preparedTurn)
 
@@ -2618,20 +2756,9 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       missing: 0,
       resynced: 0
     })
-    const attributionPhaseNames = actorADiagnostics.phaseTimeline.map(
-      ({ name }) => name
-    )
-    expect(attributionPhaseNames).toEqual(
-      expect.arrayContaining([
-        'ai-provider:server-response-handoff',
-        'ai-runtime:provider',
-        'ai-runtime:resolution',
-        'ai-runtime:permission',
-        'ai-runtime:execution',
-        'ai-app:create-composition-group',
-        'ai-app:create-composition-batch'
-      ])
-    )
+    for (const name of requiredAttributionPhaseNames) {
+      expect(actorADiagnostics.attributionPhaseCounts[name]).toBeGreaterThan(0)
+    }
     expect(responseInboxPreload).toMatchObject({
       name: 'ai-server-response-inbox:preload-file-response'
     })
@@ -2700,6 +2827,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     }).catch(() => undefined)
     throw error
   } finally {
+    await stopCpuProfileDiagnostic()
     await Promise.allSettled([actorSession.detach(), actor.context.close()])
   }
 })

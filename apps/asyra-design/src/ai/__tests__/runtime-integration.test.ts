@@ -54,48 +54,82 @@ const serverResponse = (
   schemaVersion: 1
 })
 
-const compact16ItemBatch = (): AiActionBatch => ({
-  actions: [
-    {
-      arguments: {
-        artifactVersion: 1,
-        compositionRole: 'runtime-integration-16',
-        coordinates: new ArrayBuffer(0),
-        groupBounds: {
-          height: 40,
-          width: 160,
-          x: 0,
-          y: 0
-        },
-        items: Array.from({ length: 16 }, (_, index) => ({
-          bounds: {
-            height: 10,
-            width: 10,
-            x: index * 10,
+const compact16ItemBatch = (): AiActionBatch => {
+  const descriptors = Array.from({ length: 16 }, (_, index) => ({
+    fills: [],
+    height: 10,
+    id: `element-${index}`,
+    lock: false,
+    name: `Item ${index}`,
+    props: {
+      dimension: `element-${index}-dimension`,
+      position: `element-${index}-position`
+    },
+    strokes: [],
+    type: 'oval',
+    visible: true,
+    width: 10,
+    x: index * 10,
+    y: 0
+  }))
+  const roles = descriptors.map((_, index) => `item-${index}`)
+
+  return {
+    actions: [
+      {
+        arguments: {
+          artifactVersion: 1,
+          compositionRole: 'runtime-integration-16',
+          elementCount: descriptors.length,
+          groupBounds: {
+            height: 40,
+            width: 160,
+            x: 0,
             y: 0
           },
-          pathCount: 0,
-          pathStart: 0,
+          groupDescriptor: {
+            children: [],
+            fills: [],
+            height: 40,
+            id: 'cat-group',
+            lock: false,
+            name: 'Runtime integration group',
+            props: {
+              dimension: 'cat-group-dimension',
+              position: 'cat-group-position'
+            },
+            strokes: [],
+            type: 'group',
+            visible: true,
+            width: 160,
+            x: 0,
+            y: 0
+          },
+          parent: 'workspace',
           pointCount: 0,
-          primitive: 'oval',
-          role: `item-${index}`,
-          style: {}
-        })),
-        parent: 'workspace',
-        paths: [],
-        pointCount: 0,
-        skipped: []
-      },
-      id: 'insert-16',
-      name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      summary: {
-        affectedCount: 16,
-        skippedCount: 0
+          roleToElementIds: Object.fromEntries(
+            roles.map((role, index) => [role, [`element-${index}`]])
+          ),
+          skipped: [],
+          slices: [
+            {
+              descriptors,
+              pointCount: 0,
+              roles
+            }
+          ]
+        },
+        id: 'insert-16',
+        name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+        summary: {
+          affectedCount: 16,
+          skippedCount: 0
+        }
       }
-    }
-  ],
-  batchId: 'composition-batch-16'
-})
+    ],
+    batchId: 'composition-batch-16'
+  }
+}
 
 const prepareCommonApis = () => {
   vi.spyOn(selectionApis, 'getSelectedIds').mockReturnValue(['shape-1'])
@@ -243,9 +277,8 @@ describe('Asyra Design server action-batch runtime integration', () => {
   })
 
   it('creates the inline 16-item server response in one Group and one outer transaction', async () => {
-    vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-group')
     vi.spyOn(elementApis, 'createElementsInParent').mockImplementation(
-      (options) => options.map((_option, index) => `element-${index}`)
+      (descriptors) => descriptors.map(({ id }) => id)
     )
 
     await expect(executeBatch(compact16ItemBatch())).resolves.toMatchObject({
@@ -267,11 +300,19 @@ describe('Asyra Design server action-batch runtime integration', () => {
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElement).toHaveBeenCalledOnce()
-    expect(elementApis.createElementsInParent).toHaveBeenCalledOnce()
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(2)
     expect(
       vi.mocked(elementApis.createElementsInParent).mock.calls[0]?.[0]
+    ).toEqual([expect.objectContaining({ id: 'cat-group', type: 'group' })])
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[0]?.[1]
+    ).toBe('workspace-1')
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[1]?.[0]
     ).toHaveLength(16)
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[1]?.[1]
+    ).toBe('cat-group')
   })
 
   it('keeps the runtime available without a resident response and fails only on request', async () => {

@@ -102,6 +102,15 @@ test('formal performance evidence uses production detached queries and named har
     text,
     /navigation.*App readiness.*collaboration readiness.*Conversational AI readiness.*reference attachment.*runtime evidence.*history baselines.*harness spans/i
   )
+  assert.match(
+    text,
+    /background headless Chrome for Testing.*never steals.*desktop focus.*no CPU quota.*worker-count limit.*memory ceiling/i
+  )
+  assert.match(text, /workers: 1.*concurrent test cases.*never limits/i)
+  assert.match(
+    text,
+    /maximum-detail-only rotating DevTools diagnostic.*fixed-capacity.*source locations.*approximation error/i
+  )
   assert.doesNotMatch(text, /persistence baseline/i)
   ;[
     'apps/asyra-design/e2e',
@@ -759,13 +768,25 @@ test('render projection owns demand-driven frames without an idle Pixi bypass', 
     text,
     /pan.*zoom.*canonical.*computed.*render-affecting system property.*schedule.*Canvas.*nonvisual system property.*no Canvas invalidation/i
   )
+  assert.match(
+    text,
+    /every Group expanded.*virtualizes.*canonical id order.*only mounted rows.*ancestor path.*collapsed Group.*complete visibility projection/i
+  )
   ;[
     'packages/core/src/core.ts',
     'packages/core/src/__tests__',
     'packages/render-engine/src',
     'packages/render-engine/src/__tests__',
     'packages/render-engine-pixi/src',
-    'packages/render-engine-pixi/src/__tests__'
+    'packages/render-engine-pixi/src/__tests__',
+    'apps/asyra-design/src/contents/layer-hierarchy.ts',
+    'apps/asyra-design/src/contents/__tests__/layer-hierarchy.test.ts',
+    'apps/asyra-design/src/contents/contents-panel.tsx',
+    'apps/asyra-design/src/contents/__tests__/contents-panel.test.tsx',
+    'create-app/asyra-design/template/src/contents/layer-hierarchy.ts',
+    'create-app/asyra-design/template/src/contents/__tests__/layer-hierarchy.test.ts',
+    'create-app/asyra-design/template/src/contents/contents-panel.tsx',
+    'create-app/asyra-design/template/src/contents/__tests__/contents-panel.test.tsx'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
@@ -809,7 +830,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /one complete operating-system ps snapshot.*raw percent-CPU.*250 milliseconds.*not a measurement window.*never.*CPU-percentage formula.*raw same-snapshot.*500 percent.*7,076-element.*250 percent.*16-item.*1,280-item.*aggregate.*500 percent.*7,076-element.*400 percent.*16-item.*1,280-item/i
+    /bounded operating-system ps snapshot.*PID, PPID, PGID.*without supplying formal CPU percentages.*Darwin top.*exact PIDs.*long-lived unreported guard-process anchor.*two bounded pid,cpu tables.*initialization table is ignored.*second current percent-CPU table.*exact still-live test-owned identities.*anchor plus untracked system PIDs are ignored.*1,000 milliseconds.*not a measurement window.*never.*CPU-percentage formula.*raw same-snapshot.*500 percent.*7,076-element.*250 percent.*16-item.*1,280-item.*aggregate.*500 percent.*7,076-element.*400 percent.*16-item.*1,280-item/i
   )
   assert.match(
     text,
@@ -839,7 +860,10 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
     text,
     /periodic.*phase-boundary.*one serialized.*OS sample.*no overlapping.*out-of-order/i
   )
-  assert.match(text, /375-millisecond.*observation-gap.*fail.*closed/i)
+  assert.match(
+    text,
+    /7,000-millisecond gap.*successfully completed raw observations.*two adjacent serialized requests.*3,000-millisecond command deadlines.*fail.*closed.*never constructs.*average.*changes.*raw percent-CPU/i
+  )
   assert.match(
     text,
     /single-Actor attribution invocation.*fresh client-a-browser process group.*required fileId URL.*Collaboration session.*WebSocket server.*no Actor B or client-b-browser/i
@@ -866,7 +890,11 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /Playwright progress observation.*one O\(1\) scalar sample.*each Actor.*five seconds[\s\S]*250-millisecond raw operating-system sampler.*ten-second heartbeat.*twenty-second progress.*unchanged/i
+    /Playwright progress observation.*one O\(1\) scalar sample.*each Actor.*five seconds[\s\S]*1,000-millisecond current raw operating-system sampler.*ten-second heartbeat.*twenty-second progress.*unchanged/i
+  )
+  assert.match(
+    text,
+    /phase-boundary HTTP handoff.*7,000-millisecond client deadline.*one serialized 3,000-millisecond current-CPU sample.*own 3,000-millisecond sample.*heartbeat and resource-status.*3,000 milliseconds.*never extends product execution.*300-second CRDT flow/i
   )
   assert.match(
     text,
@@ -982,6 +1010,10 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
     /hard CRDT product-flow deadline.*300 seconds.*Playwright ceiling.*360 seconds.*cannot preempt/i
   )
   assert.match(
+    text,
+    /maximum-detail 27,471-element 295,794-point gate.*300 seconds.*250-percent single-Actor frontend.*400-percent aggregate current-CPU limits/i
+  )
+  assert.match(
     feature,
     /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
   )
@@ -999,7 +1031,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /fixed two-Actor tracked roles.*test-harness.*client-a-browser.*client-b-browser.*app-server.*websocket-server[\s\S]*independently launched Chromium process groups[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*complete operating-system ps snapshot[\s\S]*raw percent-CPU[\s\S]*250-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent per Actor[\s\S]*aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*separate role CPU/i
+    /fixed two-Actor tracked roles.*test-harness.*client-a-browser.*client-b-browser.*app-server.*websocket-server[\s\S]*independently launched Chromium process groups[\s\S]*one production preview.*one WebSocket server[\s\S]*HMR.*absent[\s\S]*bounded operating-system ps snapshot[\s\S]*Darwin top[\s\S]*unreported guard-process anchor[\s\S]*second current raw percent-CPU table.*exact still-live test-owned identities[\s\S]*1,000-millisecond polling cadence[\s\S]*never become a measurement window[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent per Actor[\s\S]*aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*separate role CPU/i
   )
   assert.match(
     feature,
@@ -1007,7 +1039,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /periodic and phase-boundary sampling[\s\S]*one serialized OS sample queue[\s\S]*375 milliseconds[\s\S]*fail closed/i
+    /periodic and phase-boundary sampling[\s\S]*one serialized OS sample queue[\s\S]*3,000 milliseconds[\s\S]*fail closed/i
   )
   assert.match(
     feature,
@@ -1669,6 +1701,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
   assert.match(
     proofText,
     /exact canonical work-unit phase count.*exact Actor A local-sent publication count.*bounded retained phase and counter sample lengths.*never exact totals/i
+  )
+  assert.match(
+    proofText,
+    /required provider.*Runtime.*execution.*Group.*plural-batch phase presence.*O\(1\) per-name phase-count query.*exact after retained phase-ring rollover.*bounded phase timeline.*timing evidence.*never.*permanent occurrence evidence/i
   )
   assert.match(
     feature,

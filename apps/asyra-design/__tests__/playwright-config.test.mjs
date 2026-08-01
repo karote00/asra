@@ -112,6 +112,8 @@ test('ordinary AI profiling stays low-load while high detail remains guarded', a
   assert.match(endpointSource, /ai-drawing-progress-indicator/)
   assert.match(endpointSource, /'pan-changed'/)
   assert.match(endpointSource, /'zoom-changed'/)
+  assert.match(endpointSource, /const CPU_PROFILE_ROTATION_MS = 100/)
+  assert.match(endpointSource, /await delay\(CPU_PROFILE_ROTATION_MS\)/)
   assert.match(
     specSource,
     /createTestDocumentIdentity\(['"]aiPerformance=profile['"]\)/
@@ -370,6 +372,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /trace:\s*['"]off['"]/)
   assert.match(configSource, /screenshot:\s*['"]off['"]/)
   assert.match(configSource, /video:\s*['"]off['"]/)
+  assert.match(configSource, /headless:\s*true/)
+  assert.doesNotMatch(
+    configSource,
+    /renderer-process-limit|single-process|disable-gpu|disable-software-rasterizer|max-old-space|memory-pressure|num-raster-threads/
+  )
   assert.match(configSource, /reuseExistingServer:\s*false/g)
   assert.match(
     configSource,
@@ -416,6 +423,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(
     specSource,
     /chromium\.launch\([\s\S]{0,500}executablePath:\s*guardLauncherPath/
+  )
+  assert.match(
+    specSource,
+    /chromium\.launch\(\{[\s\S]{0,500}headless:\s*true[\s\S]{0,500}executablePath:\s*guardLauncherPath/
   )
   assert.match(specSource, /postPhaseBoundary/)
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
@@ -898,6 +909,19 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     guardSource,
     /request\.url === PHASE_BOUNDARY_PATH[\s\S]{0,5000}recordResourceSampleFailure[\s\S]{0,1000}phase-boundary-sample-failed/
   )
+  assert.match(
+    specSource,
+    /const RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS\s*=\s*7_000/
+  )
+  const phaseBoundarySource = specSource.slice(
+    specSource.indexOf('const postPhaseBoundary'),
+    specSource.indexOf('const waitForGuardReady')
+  )
+  assert.match(
+    phaseBoundarySource,
+    /AbortSignal\.timeout\(RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS\)/
+  )
+  assert.doesNotMatch(phaseBoundarySource, /CRDT_FLOW_TIMEOUT_MS/)
   const initialHeartbeatIndex = highDetailSource.indexOf(
     'const initialHeartbeat = await heartbeat.sample()'
   )
@@ -988,6 +1012,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     ['test:e2e:ai-attribution:16', '16'],
     ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],
     ['test:e2e:ai-attribution:1280', '1280'],
+    ['test:e2e:ai-attribution:maximum', '27471-maximum'],
     ['test:e2e:ai-crdt-activity:16', '16-two-actor-activity'],
     ['test:e2e:ai-crdt-attribution:1280', '1280-two-actor-attribution'],
     ['test:e2e:ai-crdt-attribution:320', '320-two-actor-attribution']
@@ -998,6 +1023,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     )
     assert.match(manifest.scripts[script], /performance-resource-guard\.mjs/)
   })
+  assert.match(specSource, /MAXIMUM_DETAIL_TIMEOUT_MS\s*=\s*300_000/)
+  assert.match(
+    specSource,
+    /endpointAttributionCase\s*===\s*['"]27471-maximum['"][\s\S]{0,80}requestedItems\s*=\s*27_471/
+  )
   assert.match(
     manifest.scripts['test:local'],
     /performance-resource-guard\.test\.mjs/

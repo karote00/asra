@@ -26,7 +26,7 @@ import {
   type AsyraDesignServerResponseRecord
 } from '../src/ai/server-response-inbox'
 
-export type AsyraDesignServerResponseItemCount = 16 | 320 | 1280 | 7075
+export type AsyraDesignServerResponseItemCount = 16 | 320 | 1280 | 7075 | 27471
 
 export interface SeedAsyraDesignServerResponseOptions {
   readonly appUrl: string
@@ -596,6 +596,10 @@ const DETAILED_TABBY_SOURCE_URL = new URL(
   '../test-data/ai-drawing/detailed-tabby-cat-only-white-background.svg',
   import.meta.url
 )
+const MAXIMUM_TABBY_SOURCE_URL = new URL(
+  '../test-data/ai-drawing/maximum-tabby-polygon.svg',
+  import.meta.url
+)
 
 const metadataForItemCount = (
   itemCount: AsyraDesignServerResponseItemCount
@@ -633,13 +637,23 @@ const metadataForItemCount = (
         explanation:
           'Create only the reference cat on a same-size pure white editable vector canvas'
       }
+    case 27471:
+      return {
+        actionId: 'create-maximum-detail-response',
+        batchId: 'create-maximum-detail-response',
+        compositionRole: 'maximum-detail-response',
+        explanation:
+          'Create the deterministic maximum-detail response as ordinary editable vector elements'
+      }
   }
 }
 
 const readDetailedTabbyPathPrefix = async (
   itemCount: AsyraDesignServerResponseItemCount
 ): Promise<string> => {
-  const input = createReadStream(DETAILED_TABBY_SOURCE_URL, {
+  const sourceUrl =
+    itemCount === 27_471 ? MAXIMUM_TABBY_SOURCE_URL : DETAILED_TABBY_SOURCE_URL
+  const input = createReadStream(sourceUrl, {
     encoding: 'utf8'
   })
   const lines = createInterface({
