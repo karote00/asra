@@ -12,13 +12,14 @@ class Computed<T extends ComputedAttrs>
     elementId: string,
     props: IProps,
     propertyNames: string[],
-    private readonly propsManagerOwner: PropsManager = propsManager
+    private readonly propsManagerOwner: PropsManager = propsManager,
+    initialOwnerValues?: Readonly<Record<string, unknown>>
   ) {
     super(() => undefined)
 
     this._init()
     this.data.id = elementId
-    this.setup(props, propertyNames)
+    this.setup(props, propertyNames, initialOwnerValues)
   }
 
   _init() {
@@ -35,8 +36,24 @@ class Computed<T extends ComputedAttrs>
     ;(this.data as unknown as Record<string, unknown>)[key] = undefined
   }
 
-  setup(props: IProps, propertyNames: string[]): void {
+  setup(
+    props: IProps,
+    propertyNames: string[],
+    initialOwnerValues?: Readonly<Record<string, unknown>>
+  ): void {
     propertyNames.forEach((propName) => {
+      const initialOwnerValue = initialOwnerValues?.[propName]
+      if (
+        initialOwnerValues &&
+        Object.prototype.hasOwnProperty.call(initialOwnerValues, propName) &&
+        initialOwnerValue !== undefined &&
+        !Array.isArray(initialOwnerValue)
+      ) {
+        ;(this.data as unknown as Record<string, unknown>)[propName] =
+          initialOwnerValue
+        return
+      }
+
       const propId = props.getPropId(propName)
       if (!propId) return
 

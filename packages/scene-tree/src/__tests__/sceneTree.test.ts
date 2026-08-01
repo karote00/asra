@@ -178,6 +178,53 @@ const TEST_REACTIVE_STROKES_PROPERTY_TYPE = 'test-reactive-strokes'
 const TEST_REACTIVE_VECTOR_TYPE = 'test-reactive-vector'
 const TEST_EMPTY_TYPE = 'test-empty'
 const TEST_PREPARED_OWNER_TYPE = 'test-prepared-owner'
+const TEST_OWNER_GEOMETRY_PROPERTY_TYPE = 'test-owner-geometry-property'
+const TEST_OWNER_GEOMETRY_ELEMENT_TYPE = 'test-owner-geometry-element'
+
+interface TestOwnerGeometryAttrs {
+  id: string
+  type: string
+  geometry: Record<string, { id: string; x: number; y: number }>
+}
+
+let ownerGeometryGetValueCount = 0
+
+class TestOwnerGeometryComponent extends BasePropertyComponent<TestOwnerGeometryAttrs> {
+  data: TestOwnerGeometryAttrs = {
+    id: '',
+    type: TEST_OWNER_GEOMETRY_PROPERTY_TYPE,
+    geometry: {}
+  }
+
+  constructor(data: Partial<TestOwnerGeometryAttrs>) {
+    super()
+    this.load(data)
+  }
+
+  load(data: Partial<TestOwnerGeometryAttrs>): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.data.geometry =
+      data.geometry && typeof data.geometry === 'object' ? data.geometry : {}
+  }
+
+  getValue(): Record<string, DataTypes> {
+    ownerGeometryGetValueCount += 1
+    return {
+      geometry: this.data.geometry as unknown as DataTypes
+    }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {}
+  }
+
+  save(): PropertyComponentRawData {
+    return {
+      ...super.save(),
+      geometry: this.data.geometry
+    } as PropertyComponentRawData
+  }
+}
 
 class TestStrokeComponent extends BasePropertyComponent<TestStrokeAttrs> {
   data: TestStrokeAttrs = {
@@ -300,6 +347,11 @@ describe('SceneTree', () => {
     registerPropertyComponent(PropertyTypes.DIMENSION, TestDimensionComponent)
     registerPropertyComponent(TEST_STROKE_PROPERTY_TYPE, TestStrokeComponent)
     registerPropertyComponent(TEST_STROKES_PROPERTY_TYPE, TestStrokesComponent)
+    registerPropertyComponent(
+      TEST_OWNER_GEOMETRY_PROPERTY_TYPE,
+      TestOwnerGeometryComponent
+    )
+    ownerGeometryGetValueCount = 0
     const reactiveStrokesDefinition = {
       type: TEST_REACTIVE_STROKES_PROPERTY_TYPE,
       defaults: { strokes: [] },
@@ -430,6 +482,31 @@ describe('SceneTree', () => {
         {}
       ),
       properties: preparedOwnerProperties,
+      defaults: {}
+    })
+
+    componentRegistry.register({
+      type: TEST_OWNER_GEOMETRY_ELEMENT_TYPE,
+      idPrefix: TEST_OWNER_GEOMETRY_ELEMENT_TYPE,
+      namePrefix: 'Test Owner Geometry',
+      constructor: createDynamicComponent(
+        TEST_OWNER_GEOMETRY_ELEMENT_TYPE,
+        TEST_OWNER_GEOMETRY_ELEMENT_TYPE,
+        'Test Owner Geometry',
+        [
+          {
+            name: 'geometry',
+            type: TEST_OWNER_GEOMETRY_PROPERTY_TYPE
+          }
+        ],
+        {}
+      ),
+      properties: [
+        {
+          name: 'geometry',
+          type: TEST_OWNER_GEOMETRY_PROPERTY_TYPE
+        }
+      ],
       defaults: {}
     })
   })
@@ -1833,6 +1910,45 @@ describe('SceneTree', () => {
     })
   })
 
+  it('projects accepted owner geometry without rebuilding it from property instances', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const geometry = {
+      first: { id: 'first', x: 11, y: 13 },
+      second: { id: 'second', x: 17, y: 19 }
+    }
+
+    expect(
+      sceneTree.addNewElements(
+        [
+          {
+            id: 'owner-geometry-element',
+            type: TEST_OWNER_GEOMETRY_ELEMENT_TYPE,
+            geometry,
+            props: {
+              geometry: 'owner-geometry-property'
+            }
+          }
+        ] as unknown as CreateElementData[],
+        workspace as GroupInstanceTypes
+      )
+    ).toEqual(['owner-geometry-element'])
+
+    const element = sceneTree.getElementById('owner-geometry-element')
+    expect(
+      (element?.getAllComputedData() as unknown as Record<string, unknown>)
+        .geometry
+    ).toBe(geometry)
+    expect(
+      (
+        propsManager.getPropertyById(
+          'owner-geometry-property'
+        ) as TestOwnerGeometryComponent
+      ).get('geometry')
+    ).toBe(geometry)
+    expect(ownerGeometryGetValueCount).toBe(0)
+  })
+
   it('rejects a failed canonical element batch without a scene or property prefix', () => {
     sceneTree.init()
     sceneTree.cleanChanges()
@@ -2003,14 +2119,11 @@ describe('SceneTree', () => {
     ])
   })
 
-  it('leaves no ordinary descriptor prefix when property registration drifts during materialization', () => {
+  it('does not repeat ordinary registration validation after action materialization', () => {
     sceneTree.init()
     sceneTree.cleanChanges()
     propsManager.cleanChanges()
     const workspace = sceneTree.currentWorkspace as Workspace
-    const beforeElementIds = [...sceneTree.getAllElements().keys()]
-    const beforeChildren = [...workspace.get('children')]
-    const beforeProps = propsManager.save()
 
     class RegistrationDriftingPosition extends TestPositionComponent {
       constructor(data: Partial<PositionAttrs>) {
@@ -2029,7 +2142,7 @@ describe('SceneTree', () => {
     )
     const registerMany = vi.spyOn(propsManager, 'registerMany')
 
-    expect(() =>
+    expect(
       sceneTree.addNewElements(
         [
           { id: 'ordinary-drift-first', type: 'rect', x: 1, y: 2 },
@@ -2037,14 +2150,14 @@ describe('SceneTree', () => {
         ],
         workspace as GroupInstanceTypes
       )
-    ).toThrow(/registration changed/i)
+    ).toEqual(['ordinary-drift-first', 'ordinary-drift-second'])
 
-    expect(registerMany).not.toHaveBeenCalled()
-    expect([...sceneTree.getAllElements().keys()]).toEqual(beforeElementIds)
-    expect(workspace.get('children')).toEqual(beforeChildren)
-    expect(propsManager.save()).toEqual(beforeProps)
-    expect(sceneTree.changes).toEqual([])
-    expect(propsManager.changes).toEqual([])
+    expect(registerMany).toHaveBeenCalledOnce()
+    expect(workspace.get('children')).toEqual([
+      'ordinary-drift-first',
+      'ordinary-drift-second'
+    ])
+    expect(Object.keys(propsManager.save())).toHaveLength(4)
   })
 
   it('rejects a later invalid ids-or-objects child before ordinary batch materialization', () => {

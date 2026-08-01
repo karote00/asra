@@ -52,7 +52,10 @@ export function createDynamicComponent(
       })
     }
 
-    setupProps(propsData?: Partial<PropsRawData>) {
+    setupProps(
+      propsData?: Partial<PropsRawData>,
+      initialOwnerValues?: Readonly<Record<string, unknown>>
+    ) {
       const elementId = this.get('id')
       if (this.data.type !== 'workspace') {
         this.computedPropertyNames = properties.map((p) => p.name)
@@ -75,7 +78,8 @@ export function createDynamicComponent(
           elementId,
           this.props,
           properties.map((p) => p.name),
-          this.propsManagerOwner
+          this.propsManagerOwner,
+          initialOwnerValues
         )
       }
     }

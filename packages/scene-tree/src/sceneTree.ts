@@ -79,6 +79,7 @@ import type {
   PreparedElementRemoval,
   PreparedSubtreeRemoval
 } from './element-mutation'
+import { runWithSceneTreeInitialOwnerValues } from './props-manager-context'
 
 type SceneTreeDataType = SceneTreeRawData
 
@@ -4598,7 +4599,9 @@ class SceneTree {
         () => {
           elementData.forEach((source) => {
             const constructorData = { ...source }
-            const element = this.createElement(constructorData, false)
+            const element = runWithSceneTreeInitialOwnerValues(source, () =>
+              this.createElement(constructorData, false)
+            )
             if (!element) {
               throw new Error(
                 '[SceneTree] Canonical batch element creation failed'

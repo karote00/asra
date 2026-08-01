@@ -23,7 +23,10 @@ import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
 import type { PropertyDefinition, PropsManager } from '@asyra/props-manager'
-import { getSceneTreePropsManager } from '../props-manager-context'
+import {
+  getSceneTreeInitialOwnerValues,
+  getSceneTreePropsManager
+} from '../props-manager-context'
 
 const elementChangeHandler = new ElementChangeHandler()
 
@@ -76,7 +79,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
       this.load(data)
     }
 
-    this.setupProps(data?.props)
+    this.setupProps(data?.props, getSceneTreeInitialOwnerValues())
   }
 
   _init(): void {
@@ -164,7 +167,10 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
   }
 
-  setupProps(propsData?: Partial<PropsRawData>) {
+  setupProps(
+    propsData?: Partial<PropsRawData>,
+    initialOwnerValues?: Readonly<Record<string, unknown>>
+  ) {
     const elementId = this.get('id') as string
     if (this.data.type !== EntityTypes.WORKSPACE) {
       if (propsData) {
@@ -177,7 +183,8 @@ class Element<T extends ElementAttrs = ElementAttrs>
         elementId,
         this.props,
         this.computedPropertyNames,
-        this.propsManagerOwner
+        this.propsManagerOwner,
+        initialOwnerValues
       )
     }
   }
