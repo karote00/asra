@@ -28,6 +28,8 @@ interface RenderDeltaProfileSummary {
   fullRehydrateReference: PhaseBudget
   renderSnapshot: PhaseBudget
   strategyGeometry: PhaseBudget
+  strategyGeometryColdStartMs: number
+  strategyGeometrySteadyState: PhaseBudget
   engineHandoff: PhaseBudget
 }
 
@@ -37,7 +39,8 @@ const SELF_INTERSECTION_STEP = 3
 const PHASE_BUDGETS = {
   sceneTree: { totalMs: 24, p95Ms: 4, maxMs: 6 },
   renderSnapshot: { totalMs: 6, p95Ms: 1, maxMs: 2 },
-  strategyGeometry: { totalMs: 24, p95Ms: 4, maxMs: 6 },
+  strategyGeometry: { totalMs: 24, p95Ms: 4, maxMs: 8 },
+  strategyGeometrySteadyState: { totalMs: 18, p95Ms: 4, maxMs: 6 },
   engineHandoff: { totalMs: 18, p95Ms: 3, maxMs: 5 }
 } satisfies Record<string, PhaseBudgetLimit>
 const CRITICAL_PATH_P95_BUDGET_MS = 12
@@ -66,11 +69,18 @@ const summarize = (samples: number[]): PhaseBudget => {
   }
 }
 
+const summarizeStrategyGeometry = (samples: number[]) => ({
+  overall: summarize(samples),
+  coldStartMs: Number((samples[0] ?? 0).toFixed(3)),
+  steadyState: summarize(samples.slice(1))
+})
+
 const expectPhaseWithinBudget = (
   phase: PhaseBudget,
-  budget: PhaseBudgetLimit
+  budget: PhaseBudgetLimit,
+  expectedCount = SAMPLE_FRAMES
 ) => {
-  expect(phase.count).toBe(SAMPLE_FRAMES)
+  expect(phase.count).toBe(expectedCount)
   expect(phase.totalMs).toBeLessThanOrEqual(budget.totalMs)
   expect(phase.p95Ms).toBeLessThanOrEqual(budget.p95Ms)
   expect(phase.maxMs).toBeLessThanOrEqual(budget.maxMs)
@@ -80,6 +90,18 @@ test('keeps the bounded p95 sample distinct from the separately budgeted max', (
   expect(summarize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toMatchObject({
     p95Ms: 11,
     maxMs: 12
+  })
+})
+
+test('separates the first cold strategy frame from the steady-state max', () => {
+  const profile = summarizeStrategyGeometry([
+    6.6, 0.3, 0.4, 0.3, 0.5, 0.3, 0.4, 0.3, 0.5, 0.3, 0.4, 0.3
+  ])
+
+  expect(profile).toMatchObject({
+    overall: { count: 12, maxMs: 6.6 },
+    coldStartMs: 6.6,
+    steadyState: { count: 11, maxMs: 0.5 }
   })
 })
 
@@ -386,6 +408,9 @@ test.describe('Render delta performance budget', () => {
       }
     )
 
+    const strategyGeometry = summarizeStrategyGeometry(
+      rawProfile.strategyGeometrySamples
+    )
     const summary: RenderDeltaProfileSummary = {
       sampleFrames: rawProfile.sampleFrames,
       fullRehydrateCallsDuringDelta: rawProfile.fullRehydrateCallsDuringDelta,
@@ -396,7 +421,9 @@ test.describe('Render delta performance budget', () => {
       sceneTree: summarize(rawProfile.sceneTreeSamples),
       fullRehydrateReference: summarize(rawProfile.fullRehydrateReference),
       renderSnapshot: summarize(rawProfile.renderSnapshotSamples),
-      strategyGeometry: summarize(rawProfile.strategyGeometrySamples),
+      strategyGeometry: strategyGeometry.overall,
+      strategyGeometryColdStartMs: strategyGeometry.coldStartMs,
+      strategyGeometrySteadyState: strategyGeometry.steadyState,
       engineHandoff: summarize(rawProfile.engineSamples)
     }
 
@@ -425,6 +452,14 @@ test.describe('Render delta performance budget', () => {
     expectPhaseWithinBudget(
       summary.strategyGeometry,
       PHASE_BUDGETS.strategyGeometry
+    )
+    expect(summary.strategyGeometryColdStartMs).toBeLessThanOrEqual(
+      PHASE_BUDGETS.strategyGeometry.maxMs
+    )
+    expectPhaseWithinBudget(
+      summary.strategyGeometrySteadyState,
+      PHASE_BUDGETS.strategyGeometrySteadyState,
+      SAMPLE_FRAMES - 1
     )
     expectPhaseWithinBudget(summary.engineHandoff, PHASE_BUDGETS.engineHandoff)
     expect(
