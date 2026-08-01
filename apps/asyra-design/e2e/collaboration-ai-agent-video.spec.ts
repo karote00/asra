@@ -1,12 +1,13 @@
 import {
+  chromium,
   expect,
   test,
   type BrowserContext,
   type Page,
-  type TestInfo,
-  type Video
+  type TestInfo
 } from '@playwright/test'
 import { Buffer } from 'node:buffer'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
@@ -185,6 +186,11 @@ const RUN_HIGH_DETAIL_CRDT =
   process.env.ASYRA_DESIGN_RUN_HIGH_DETAIL_AI_CRDT === '1'
 const CAPTURE_HIGH_DETAIL_CRDT_VISUAL_REVIEW =
   process.env.ASYRA_DESIGN_CAPTURE_AI_CRDT_VISUAL_REVIEW === '1'
+const recordingWindowWidth = 1280
+const recordingWindowHeight = 500
+const recordingWindowLeft = 224
+const recordingWindowTop = 33
+const recordingOperationDeadlineMs = 300_000
 
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
@@ -1862,17 +1868,11 @@ const dropReferenceImage = async (page: Page) => {
 const submitTurn = async (
   page: Page,
   intent: string,
-  expectedSettledCount: number,
-  options: {
-    readonly beforeSendDelayMs?: number
-  } = {}
+  expectedSettledCount: number
 ) => {
   const input = page.getByLabel('Message Agent')
   await expect(input).toBeEnabled()
   await input.fill(intent)
-  if (options.beforeSendDelayMs) {
-    await page.waitForTimeout(options.beforeSendDelayMs)
-  }
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('Working on your request')).toBeVisible()
 
@@ -1959,109 +1959,175 @@ const captureCheckpoint = async (
   return Object.freeze({ actorAPath, actorBPath })
 }
 
-const createSideBySideRecorder = async (
-  context: BrowserContext,
+interface NativeRecordingBounds {
+  readonly height: number
+  readonly left: number
+  readonly top: number
+  readonly width: number
+}
+
+const launchIndependentActor = async (
+  baseURL: string,
+  profilePath: string,
+  { height, left, top, width }: NativeRecordingBounds
+): Promise<{ readonly context: BrowserContext; readonly page: Page }> => {
+  const context = await chromium.launchPersistentContext(profilePath, {
+    args: [
+      '--app=about:blank',
+      '--disable-session-crashed-bubble',
+      '--no-default-browser-check',
+      '--no-first-run',
+      `--window-position=${left},${top}`,
+      `--window-size=${width},${height}`
+    ],
+    baseURL,
+    deviceScaleFactor: undefined,
+    headless: false,
+    viewport: null
+  })
+  const page = context.pages()[0] ?? (await context.newPage())
+  const session = await context.newCDPSession(page)
+  try {
+    const { windowId } = await session.send('Browser.getWindowForTarget')
+    await session.send('Browser.setWindowBounds', {
+      bounds: {
+        height,
+        left,
+        top,
+        width,
+        windowState: 'normal'
+      },
+      windowId
+    })
+  } finally {
+    await session.detach()
+  }
+  return { context, page }
+}
+
+const readNativeWindowBounds = (page: Page): Promise<NativeRecordingBounds> =>
+  page.evaluate(() => ({
+    height: outerHeight,
+    left: screenX,
+    top: screenY,
+    width: outerWidth
+  }))
+
+const resolveStackedCaptureBounds = async (
   actorA: Page,
   actorB: Page
-) => {
-  const page = await context.newPage()
-  await page.setContent(`
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          * { box-sizing: border-box; }
-          html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #111827; }
-          main { display: grid; grid-template-rows: 1fr 1fr; width: 100%; height: 100%; gap: 2px; }
-          section { position: relative; min-width: 0; background: #0f172a; }
-          img { display: block; width: 100%; height: 100%; object-fit: fill; }
-          .actor {
-            position: absolute; left: 16px; top: 16px; z-index: 2;
-            padding: 7px 11px; border-radius: 999px;
-            color: #fff; background: rgba(15, 23, 42, .88);
-            font: 600 14px/1.2 ui-sans-serif, system-ui, sans-serif;
-          }
-          #status {
-            position: fixed; z-index: 3; left: 50%; bottom: 18px; transform: translateX(-50%);
-            min-width: 420px; padding: 10px 16px; border-radius: 10px;
-            color: #fff; background: rgba(15, 23, 42, .92); text-align: center;
-            font: 600 15px/1.3 ui-sans-serif, system-ui, sans-serif;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
-          }
-        </style>
-      </head>
-      <body>
-        <main>
-          <section><div class="actor">Actor A · Agent operator</div><img id="actor-a" /></section>
-          <section><div class="actor">Actor B · CRDT peer</div><img id="actor-b" /></section>
-        </main>
-        <div id="status">Opening both Asyra Design clients…</div>
-      </body>
-    </html>
-  `)
-
-  let active = true
-  let currentStep = 'Opening both Asyra Design clients…'
-  const startedAt = Date.now()
-  const refresh = async () => {
-    while (active) {
-      try {
-        const [left, right] = await Promise.all([
-          actorA.screenshot({ type: 'jpeg', quality: 68 }),
-          actorB.screenshot({ type: 'jpeg', quality: 68 })
-        ])
-        await page.evaluate(
-          ({ elapsedSeconds, leftSource, rightSource, step }) => {
-            const leftImage =
-              document.querySelector<HTMLImageElement>('#actor-a')
-            const rightImage =
-              document.querySelector<HTMLImageElement>('#actor-b')
-            const status = document.querySelector<HTMLDivElement>('#status')
-            if (leftImage) leftImage.src = leftSource
-            if (rightImage) rightImage.src = rightSource
-            if (status) {
-              status.textContent = `${step} · ${elapsedSeconds.toFixed(1)}s`
-            }
-          },
-          {
-            elapsedSeconds: (Date.now() - startedAt) / 1000,
-            leftSource: `data:image/jpeg;base64,${left.toString('base64')}`,
-            rightSource: `data:image/jpeg;base64,${right.toString('base64')}`,
-            step: currentStep
-          }
-        )
-      } catch {
-        // Navigation can briefly make a source page unavailable for capture.
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
+): Promise<NativeRecordingBounds> => {
+  const [actorAWindow, actorBWindow] = await Promise.all([
+    readNativeWindowBounds(actorA),
+    readNativeWindowBounds(actorB)
+  ])
+  const horizontalDifference = Math.abs(actorAWindow.left - actorBWindow.left)
+  const verticalDifference = Math.abs(
+    actorBWindow.top - (actorAWindow.top + actorAWindow.height)
+  )
+  if (
+    horizontalDifference > 4 ||
+    verticalDifference > 4 ||
+    actorAWindow.width !== actorBWindow.width
+  ) {
+    throw new Error(
+      `The independent Actor windows are not stacked: ${JSON.stringify({
+        actorAWindow,
+        actorBWindow
+      })}`
+    )
   }
-  const refreshPromise = refresh()
-
+  const left = Math.min(actorAWindow.left, actorBWindow.left)
+  const top = Math.min(actorAWindow.top, actorBWindow.top)
+  const right = Math.max(
+    actorAWindow.left + actorAWindow.width,
+    actorBWindow.left + actorBWindow.width
+  )
+  const bottom = Math.max(
+    actorAWindow.top + actorAWindow.height,
+    actorBWindow.top + actorBWindow.height
+  )
   return {
-    page,
-    setStep: (step: string) => {
-      currentStep = step
-    },
+    height: bottom - top,
+    left,
+    top,
+    width: right - left
+  }
+}
+
+const waitForNativeCommand = (
+  child: ChildProcessWithoutNullStreams,
+  label: string
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let stderr = ''
+    child.stderr.setEncoding('utf8')
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', reject)
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(
+        new Error(
+          `${label} failed (${code ?? signal ?? 'unknown'}): ${stderr.trim()}`
+        )
+      )
+    })
+  })
+
+const startNativeScreenRecording = async (
+  { height, left, top, width }: NativeRecordingBounds,
+  outputPath: string
+) => {
+  const captureProcess = spawn('/usr/sbin/screencapture', [
+    '-x',
+    '-v',
+    '-T0',
+    `-R${left},${top},${width},${height}`,
+    outputPath
+  ])
+  const completion = waitForNativeCommand(
+    captureProcess,
+    'macOS screen recording'
+  )
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  if (captureProcess.exitCode !== null) {
+    await completion
+    throw new Error('macOS screen recording stopped before Agent interaction')
+  }
+  return {
     stop: async () => {
-      active = false
-      await refreshPromise
-      await page.waitForTimeout(750)
+      if (!captureProcess.kill('SIGINT')) {
+        throw new Error('macOS screen recording could not be stopped')
+      }
+      await completion
     }
   }
 }
 
-const saveVideo = async (
-  context: BrowserContext,
-  video: Video | null,
-  destination: string
+const convertNativeRecording = async (
+  sourcePath: string,
+  destinationPath: string
 ) => {
-  await context.close()
-  if (!video) {
-    throw new Error('The side-by-side recorder did not expose a video')
-  }
-  await video.saveAs(destination)
+  const conversion = spawn('/usr/bin/avconvert', [
+    '--source',
+    sourcePath,
+    '--preset',
+    'PresetHighestQuality',
+    '--output',
+    destinationPath,
+    '--replace'
+  ])
+  await waitForNativeCommand(conversion, 'MP4 conversion')
+}
+
+const reportRecordingStage = (stage: string) => {
+  // eslint-disable-next-line no-console
+  console.log(`AI_CRDT_RECORDING_STAGE ${stage}`)
 }
 
 test('proves the high-detail progressive CRDT correctness flow without generating media', async ({
@@ -2908,33 +2974,68 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   }
 })
 
-test('records two live CRDT clients while Agent creates the same cat', async ({
-  browser
-}, testInfo) => {
+// eslint-disable-next-line no-empty-pattern
+test('records two live CRDT clients while Agent creates the same cat', async ({}, testInfo) => {
   test.skip(
     process.env.ASYRA_DESIGN_RUN_AI_CRDT_VIDEO !== '1',
     'The dual-client AI recording is an explicit resource-aware visual gate.'
   )
+  test.skip(
+    process.platform !== 'darwin',
+    'The dual-client live-window recorder uses the macOS compositor.'
+  )
   test.setTimeout(900_000)
 
-  const actorAContext = await browser.newContext({
-    deviceScaleFactor: 1,
-    viewport: { height: 720, width: 1280 }
-  })
-  const actorBContext = await browser.newContext({
-    deviceScaleFactor: 1,
-    viewport: { height: 720, width: 1280 }
-  })
-  const actorA = await actorAContext.newPage()
-  const actorB = await actorBContext.newPage()
-  let recorderContext: BrowserContext | null = null
-  let recorder: Awaited<ReturnType<typeof createSideBySideRecorder>> | null =
-    null
-  let video: Video | null = null
-  const videoPath = testInfo.outputPath(
-    'ai-cat-crdt-progressive-side-by-side.webm'
+  const baseURL = testInfo.project.use.baseURL
+  if (typeof baseURL !== 'string') {
+    throw new Error('The AI CRDT recording requires an App base URL')
+  }
+  let actorAContext: BrowserContext | null = null
+  let actorBContext: BrowserContext | null = null
+  let actorA: Page | null = null
+  let actorB: Page | null = null
+  let nativeRecording: Awaited<
+    ReturnType<typeof startNativeScreenRecording>
+  > | null = null
+  let recordingCompleted = false
+  const sourceVideoPath = testInfo.outputPath(
+    'ai-cat-crdt-progressive-side-by-side.mov'
   )
+  const videoPath = testInfo.outputPath(
+    'ai-cat-crdt-progressive-side-by-side.mp4'
+  )
+  let timingEvidence:
+    | {
+        readonly actorACompletedMs: number
+        readonly actorBRenderedMs: number
+      }
+    | undefined
   try {
+    const actorAResult = await launchIndependentActor(
+      baseURL,
+      testInfo.outputPath('actor-a-profile'),
+      {
+        height: recordingWindowHeight,
+        left: recordingWindowLeft,
+        top: recordingWindowTop,
+        width: recordingWindowWidth
+      }
+    )
+    actorAContext = actorAResult.context
+    actorA = actorAResult.page
+    const actorBResult = await launchIndependentActor(
+      baseURL,
+      testInfo.outputPath('actor-b-profile'),
+      {
+        height: recordingWindowHeight,
+        left: recordingWindowLeft,
+        top: recordingWindowTop + recordingWindowHeight,
+        width: recordingWindowWidth
+      }
+    )
+    actorBContext = actorBResult.context
+    actorB = actorBResult.page
+
     const fileId = `ai-crdt-video-${Date.now()}`
     await seedAsyraDesignServerResponse(actorAContext, {
       appUrl: collaborationUrl(fileId),
@@ -2965,34 +3066,59 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
     expect(actorBFrame.scale).toBeGreaterThan(0)
     expect(actorBFrame.scale).toBeLessThan(1)
 
-    recorderContext = await browser.newContext({
-      deviceScaleFactor: 1,
-      recordVideo: {
-        dir: testInfo.outputPath('side-by-side-video'),
-        size: { height: 1440, width: 1280 }
-      },
-      viewport: { height: 1440, width: 1280 }
-    })
-    recorder = await createSideBySideRecorder(recorderContext, actorA, actorB)
-    video = recorder.page.video()
-    recorder.setStep('Opening the Agent panel on Actor A')
+    await actorA.bringToFront()
+    await actorB.bringToFront()
+    await actorB.waitForTimeout(250)
+    const captureBounds = await resolveStackedCaptureBounds(actorA, actorB)
+    nativeRecording = await startNativeScreenRecording(
+      captureBounds,
+      sourceVideoPath
+    )
+    reportRecordingStage('capture-started')
     await openAgent(actorA)
-    recorder.setStep('Dragging the local tabby reference into the Agent panel')
     await dropReferenceImage(actorA)
 
     const actorABefore = await getUndoHistoryDepth(actorA)
     const actorBBefore = await getUndoHistoryDepth(actorB)
-    recorder.setStep(
-      'Drawing only the cat on a same-size pure white background'
+    const operationStartedAt = Date.now()
+    reportRecordingStage('send')
+    const createdTurnPromise = submitTurn(actorA, exactCatOnlyPrompt, 1).then(
+      (turn) => ({
+        actorACompletedAt: Date.now(),
+        turn
+      })
     )
-    const createdTurnPromise = submitTurn(actorA, exactCatOnlyPrompt, 1, {
-      beforeSendDelayMs: 1_000
-    })
-    recorder.setStep(
-      'Actor A is drawing; Actor B is receiving live CRDT updates'
+    const { actorACompletedAt, turn: createdTurn } = await createdTurnPromise
+    reportRecordingStage('actor-a-complete')
+    const remainingConvergenceMs = Math.max(
+      1,
+      recordingOperationDeadlineMs - (Date.now() - operationStartedAt)
     )
-    const createdTurn = await createdTurnPromise
-    const created = await expectPeerSnapshot(actorA, actorB, 600_000)
+    const created = await expectPeerSnapshot(
+      actorA,
+      actorB,
+      remainingConvergenceMs
+    )
+    await actorB.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        })
+    )
+    const actorBRenderedAt = Date.now()
+    reportRecordingStage('actor-b-rendered')
+    timingEvidence = {
+      actorACompletedMs: actorACompletedAt - operationStartedAt,
+      actorBRenderedMs: actorBRenderedAt - operationStartedAt
+    }
+    expect(timingEvidence.actorBRenderedMs).toBeLessThanOrEqual(
+      recordingOperationDeadlineMs
+    )
+    await actorB.waitForTimeout(1000)
+    await nativeRecording.stop()
+    nativeRecording = null
+    recordingCompleted = true
+
     expect(created).toMatchObject({
       groupCount: 1,
       totalCount: 7076,
@@ -3009,19 +3135,26 @@ test('records two live CRDT clients while Agent creates the same cat', async ({
     expect(await getUndoHistoryDepth(actorA)).toBe(actorABefore + 1)
     expect(await getUndoHistoryDepth(actorB)).toBe(actorBBefore)
     await expect(createdTurn.getByText(/^Elapsed \d/)).toBeVisible()
-    recorder.setStep('Creation converged on both CRDT actors · final frame')
     await captureCheckpoint(actorA, actorB, testInfo, 'progressive-01-created')
-    await actorB.waitForTimeout(1000)
   } finally {
-    if (recorder && recorderContext) {
-      await recorder.stop()
-      await saveVideo(recorderContext, video, videoPath)
+    if (nativeRecording) {
+      await nativeRecording.stop()
     }
-    await Promise.all([actorAContext.close(), actorBContext.close()])
+    await Promise.all([actorAContext?.close(), actorBContext?.close()])
   }
 
+  if (!recordingCompleted || !timingEvidence) {
+    throw new Error('The dual-client live-window recording did not complete')
+  }
+  await convertNativeRecording(sourceVideoPath, videoPath)
+  // eslint-disable-next-line no-console
+  console.log(`AI_CRDT_RECORDING_TIMING ${JSON.stringify(timingEvidence)}`)
+  await testInfo.attach('ai-cat-crdt-recording-timing.json', {
+    body: JSON.stringify(timingEvidence, null, 2),
+    contentType: 'application/json'
+  })
   await testInfo.attach('ai-cat-crdt-progressive-side-by-side', {
-    contentType: 'video/webm',
+    contentType: 'video/mp4',
     path: videoPath
   })
 })

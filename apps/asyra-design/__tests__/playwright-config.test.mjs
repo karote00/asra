@@ -189,33 +189,62 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
       "test('records two live CRDT clients while Agent creates"
     )
   )
-  assert.match(recordingSource, /grid-template-rows:\s*1fr 1fr/)
-  assert.doesNotMatch(recordingSource, /grid-template-columns:\s*1fr 1fr/)
   assert.match(
     recordingSource,
-    /size:\s*{\s*height:\s*1440,\s*width:\s*1280\s*}/
+    /chromium\.launchPersistentContext\([\s\S]*--window-position=\$\{left\},\$\{top\}[\s\S]*--window-size=\$\{width\},\$\{height\}/
+  )
+  assert.match(
+    recordingSource,
+    /deviceScaleFactor:\s*undefined,[\s\S]*viewport:\s*null/
   )
   assert.match(
     recordingCase,
-    /prepareCompleteCatViewport\(actorA\)[\s\S]*prepareCompleteCatViewport\(actorB\)[\s\S]*submitTurn\(actorA,\s*exactCatOnlyPrompt,\s*1,\s*{\s*beforeSendDelayMs:\s*1_000\s*}\)/
+    /launchIndependentActor\([\s\S]*actor-a-profile[\s\S]*launchIndependentActor\([\s\S]*actor-b-profile/
+  )
+  assert.match(
+    recordingSource,
+    /spawn\('\/usr\/sbin\/screencapture',[\s\S]*-R\$\{left\},\$\{top\},\$\{width\},\$\{height\}/
+  )
+  assert.match(recordingSource, /captureProcess\.kill\('SIGINT'\)/)
+  assert.doesNotMatch(recordingSource, /captureProcess\.stdin\.(?:write|end)/)
+  assert.match(
+    recordingSource,
+    /'\/usr\/bin\/avconvert'[\s\S]*PresetHighestQuality/
+  )
+  assert.match(
+    recordingCase,
+    /prepareCompleteCatViewport\(actorA\)[\s\S]*prepareCompleteCatViewport\(actorB\)[\s\S]*startNativeScreenRecording\([\s\S]*await openAgent\(actorA\)[\s\S]*submitTurn\(\s*actorA,\s*exactCatOnlyPrompt,\s*1\s*\)/
+  )
+  assert.match(
+    recordingCase,
+    /await actorA\.bringToFront\(\)[\s\S]*await actorB\.bringToFront\(\)[\s\S]*startNativeScreenRecording\(/
+  )
+  assert.match(recordingSource, /const recordingOperationDeadlineMs = 300_000/)
+  assert.match(
+    recordingCase,
+    /recordingOperationDeadlineMs - \(Date\.now\(\) - operationStartedAt\)[\s\S]*expectPeerSnapshot\(\s*actorA,\s*actorB,\s*remainingConvergenceMs\s*\)/
   )
   assert.ok(
     recordingCase.indexOf('prepareCompleteCatViewport(actorB)') <
-      recordingCase.indexOf(
-        'recorderContext = await browser.newContext'
-      ),
+      recordingCase.indexOf('startNativeScreenRecording('),
     'recording must begin only after both live clients are framed'
   )
   assert.ok(
-    recordingCase.indexOf(
-      'recorderContext = await browser.newContext'
-    ) < recordingCase.indexOf('await openAgent(actorA)'),
+    recordingCase.indexOf('startNativeScreenRecording(') <
+      recordingCase.indexOf('await openAgent(actorA)'),
     'recording must still include the complete Agent interaction'
   )
   assert.match(
     recordingCase,
-    /expectPeerSnapshot\(actorA,\s*actorB,\s*600_000\)[\s\S]*actorB\.waitForTimeout\(1000\)/
+    /reportRecordingStage\('actor-b-rendered'\)[\s\S]*actorB\.waitForTimeout\(1000\)[\s\S]*nativeRecording\.stop\(\)/
   )
+  assert.match(recordingCase, /ai-cat-crdt-progressive-side-by-side\.mp4/)
+  assert.match(recordingCase, /contentType:\s*'video\/mp4'/)
+  assert.doesNotMatch(
+    recordingSource,
+    /createSideBySideRecorder|recordVideo:|type:\s*'jpeg'|left\.toString\('base64'\)|right\.toString\('base64'\)/
+  )
+  assert.doesNotMatch(recordingCase, /beforeSendDelayMs/)
   assert.doesNotMatch(
     recordingCase,
     /make the whiskers blue|make the pupils red|observeProgressiveCreation/
