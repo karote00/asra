@@ -3,11 +3,11 @@ import {
   PREPARED_DRAWING_SLICE_ELEMENT_BUDGET,
   PREPARED_DRAWING_SLICE_POINT_BUDGET,
   type PreparedDrawingArtifact
-} from '../../src/ai/prepared-drawing-artifact'
+} from '../../../src/ai/prepared-drawing-artifact'
 import {
   createPreparedDrawingArtifact,
   createAsyraDesignServerResponseRecord
-} from '../../e2e/server-response-inbox'
+} from '../../../e2e/server-response-inbox'
 
 describe('Asyra Design server response harness', () => {
   it('caps one prepared progressive work unit at 32 elements', () => {

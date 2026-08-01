@@ -134,18 +134,20 @@ test('Asyra Design keeps frontend and collaboration server startup separate', ()
   assert.doesNotMatch(appReadme, /browser-local demo database uses IndexedDB/i)
 })
 
-test('clean, CI, E2E, and Vercel include the collaboration integration gates', () => {
+test('CI, E2E, and release validation own their bounded integration gates', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const vercel = readJSON('vercel.json')
   const ci = readText('.github/workflows/main.yml')
   const e2e = readText('.github/workflows/e2e.yml')
+  const releaseValidation = readText('scripts/release-validate.js')
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
   assert.equal(vercel.buildCommand, 'turbo run react:build')
   assert.match(ci, /yarn gen:turbo:check/)
   assert.match(ci, /yarn deps:validate/)
-  assert.match(ci, /yarn release:app:check --prod=asyra-design/)
+  assert.doesNotMatch(ci, /yarn release:app:check/)
   assert.match(e2e, /test:e2e:collaboration/)
+  assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
 test('E2E automation cancels superseded runs and installs only Chromium', () => {
@@ -166,10 +168,41 @@ test('E2E automation cancels superseded runs and installs only Chromium', () => 
 
 test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace build', () => {
   const runner = readText('scripts/run-e2e.sh')
+  const collaborationBuild = runner.indexOf('build:collaboration-server')
+  const collaborationStart = runner.indexOf('collaboration:server:start')
+  const collaborationReady = runner.indexOf(
+    'npx wait-on "http-get://${ASYRA_E2E_COLLABORATION_HEALTH_URL#http://}"'
+  )
+  const appStart = runner.indexOf(
+    'yarn workspace @asyra/asyra-design react:start'
+  )
 
   assert.match(runner, /yarn react:build/)
   assert.match(runner, /yarn workspace @asyra\/asyra-design react:start/)
   assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
+  assert.ok(
+    collaborationBuild >= 0,
+    'ordinary E2E must build its collaboration server'
+  )
+  assert.ok(
+    collaborationStart > collaborationBuild,
+    'ordinary E2E must start collaboration after its server build'
+  )
+  assert.ok(
+    collaborationReady > collaborationStart,
+    'ordinary E2E must wait for collaboration before App startup'
+  )
+  assert.match(
+    runner,
+    /npx wait-on "http-get:\/\/\$\{ASYRA_E2E_COLLABORATION_HEALTH_URL#http:\/\/\}"/,
+    'Collaboration readiness must use the server GET-only health contract'
+  )
+  assert.ok(
+    appStart > collaborationReady,
+    'ordinary E2E must start the App only after collaboration is ready'
+  )
+  assert.match(runner, /ASYRA_E2E_COLLABORATION_SERVER_PID/)
+  assert.match(runner, /kill "\$ASYRA_E2E_COLLABORATION_SERVER_PID"/)
 })
 
 test('CI isolates the render performance budget before parallel functional E2E', () => {

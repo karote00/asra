@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -57,14 +58,27 @@ test('release validation covers build, tests, dependencies, collaboration, and g
   ])
 })
 
-test('release template supports a non-mutating synchronization check', () => {
-  const result = spawnSync(
-    'yarn',
-    ['release:app:check', '--prod=asyra-design'],
-    { cwd: repositoryRoot, encoding: 'utf8' }
+test('release template exposes a non-mutating synchronization check', () => {
+  const manifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const releaseTemplate = readFileSync(
+    path.join(repositoryRoot, 'scripts/release-template.js'),
+    'utf8'
   )
 
-  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.equal(
+    manifest.scripts['release:app:check'],
+    'node scripts/release-template.js --check'
+  )
+  assert.match(
+    releaseTemplate,
+    /const DEST_DIR = CHECK \? CHECK_DIRECTORY : CONFIGURED_DEST_DIR/
+  )
+  assert.match(
+    releaseTemplate,
+    /if \(CHECK\) \{\s+process\.on\('exit', \(\) => \{\s+fse\.removeSync\(CHECK_DIRECTORY\)/
+  )
 })
 
 test('release validation copies only repository source into an isolated workspace', async () => {

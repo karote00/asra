@@ -46,7 +46,7 @@ Turbo workspace command; every package that emits `dist` must provide `clean`.
 - the committed Turbo graph against workspace manifests;
 - root/CI/deployment command wiring;
 - release command ordering and restoration behavior;
-- non-mutating generated-template synchronization;
+- the non-mutating generated-template synchronization command contract;
 - monorepo unit, integration, and contract test placement through
   `scripts/__tests__/test-file-placement.test.mjs`.
 
@@ -74,8 +74,11 @@ second generates into project-local `tmp/`, compares it with the committed
 template, removes the temporary output, and never changes the committed
 template. The third builds the framework dependency graph, compiles that
 generated template against those local builds, and removes its temporary build
-output. `release:validate` reuses its immediately preceding clean framework
-build for the same template compilation.
+output. General feature/refactor PR CI does not require current template parity;
+that would expand ordinary source work into generated output contrary to the
+generated-artifact rule. `release:validate` owns the synchronization check and
+reuses its immediately preceding clean framework build for the same template
+compilation.
 
 ## Release Validation and Publication Boundary
 

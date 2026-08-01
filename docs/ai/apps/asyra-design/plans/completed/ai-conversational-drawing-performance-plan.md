@@ -3532,7 +3532,7 @@ Revised Step Execution Card:
   ordered progressive `SharedPublication` records, and exact remote apply.
 - Mutation allowlist:
   `apps/asyra-design/src/ai/prepared-drawing-artifact.ts`,
-  `apps/asyra-design/test-data/ai-drawing/server-response-inbox.test.ts`,
+  `apps/asyra-design/test-data/ai-drawing/__tests__/server-response-inbox.test.ts`,
   this active plan, the performance Inspector and its contract test, the
   performance BDD, and `docs/ai/apps/asyra-design/API_SURFACES.md`.
 - Required gates: prove the focused harness and Inspector oracles fail first;
