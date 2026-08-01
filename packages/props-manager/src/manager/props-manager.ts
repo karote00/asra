@@ -1131,38 +1131,11 @@ class PropsManager {
           if (!childRelation) {
             return
           }
-          let descriptorEntries:
-            | {
-                item: unknown
-                label: string
-                keyedChildId: string | undefined
-              }[]
-            | null = null
-          if (Array.isArray(value)) {
-            descriptorEntries = value.map((item, index) => ({
-              item,
-              label: `${ownerLabel}[${index}]`,
-              keyedChildId: undefined
-            }))
-          } else if (
-            childRelation.collection === 'array-or-record' &&
-            isRecord(value)
-          ) {
-            descriptorEntries = Object.entries(value).map(
-              ([childId, item]) => ({
-                item,
-                label: `${ownerLabel}.${childId}`,
-                keyedChildId: childId
-              })
-            )
-          }
-          if (!descriptorEntries) {
-            throw new Error(
-              `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${ownerLabel}"`
-            )
-          }
-
-          descriptorEntries.forEach(({ item, label, keyedChildId }) => {
+          const preflightDescriptorEntry = (
+            item: unknown,
+            label: string,
+            keyedChildId: string | undefined
+          ): void => {
             if (typeof item === 'string' && keyedChildId === undefined) {
               const activeChild = this._components.get(item)
               const preparedChildType =
@@ -1301,7 +1274,34 @@ class PropsManager {
                 label
               )
             }
-          })
+          }
+
+          if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+              preflightDescriptorEntry(
+                item,
+                `${ownerLabel}[${index}]`,
+                undefined
+              )
+            })
+            return
+          }
+          if (
+            childRelation.collection === 'array-or-record' &&
+            isRecord(value)
+          ) {
+            Object.keys(value).forEach((childId) => {
+              preflightDescriptorEntry(
+                value[childId],
+                `${ownerLabel}.${childId}`,
+                childId
+              )
+            })
+            return
+          }
+          throw new Error(
+            `[PropsManager] Ordinary property creation has an invalid relationship descriptor for "${ownerLabel}"`
+          )
         }
 
         sourceOwners.forEach((sourceOwner, ownerIndex) => {
@@ -2415,16 +2415,18 @@ class PropsManager {
   }
 
   private addChangeForAddProperties(
-    properties: readonly PropertyComponentInstanceTypes[]
+    properties: readonly PropertyComponentInstanceTypes[],
+    detachSnapshots = true
   ) {
     const snapshots = measurePropertyBatchPhase(
       'props-manager:creation-evidence-save',
       () => properties.map((property) => property.save())
     )
-    const data = measurePropertyBatchPhase(
-      'props-manager:creation-evidence-clone',
-      () => clonePropsValue(snapshots)
-    )
+    const data = detachSnapshots
+      ? measurePropertyBatchPhase('props-manager:creation-evidence-clone', () =>
+          clonePropsValue(snapshots)
+        )
+      : snapshots
     this.addChange({
       eventName: EventTypes.ADD_PROPERTY,
       data,
@@ -2752,25 +2754,39 @@ class PropsManager {
     return Object.freeze([...components])
   }
 
-  registerMany(components: readonly PropertyComponentInstanceTypes[]): void {
+  registerMany(
+    components: readonly PropertyComponentInstanceTypes[],
+    trustedStagedBatch?: PropertyCreationBatchState
+  ): void {
     const batch = this.propertyCreationBatch
-    const observedIds = new Set<string>()
-    components.forEach((component) => {
-      const propertyId = component.get('id')
-      if (
-        typeof propertyId !== 'string' ||
-        propertyId.length === 0 ||
-        observedIds.has(propertyId) ||
-        (batch !== null && batch.stagedById.get(propertyId) !== component) ||
-        this._components.has(propertyId) ||
-        this._deletedMap.has(propertyId)
-      ) {
-        throw new Error(
-          `[PropsManager] Canonical property creation batch cannot register property "${propertyId}"`
-        )
-      }
-      observedIds.add(propertyId)
-    })
+    const trustsStagedOwner =
+      trustedStagedBatch !== undefined &&
+      trustedStagedBatch === batch &&
+      components === batch.components
+    if (trustedStagedBatch !== undefined && !trustsStagedOwner) {
+      throw new Error(
+        '[PropsManager] Trusted property registration requires the active staged owner batch'
+      )
+    }
+    if (!trustsStagedOwner) {
+      const observedIds = new Set<string>()
+      components.forEach((component) => {
+        const propertyId = component.get('id')
+        if (
+          typeof propertyId !== 'string' ||
+          propertyId.length === 0 ||
+          observedIds.has(propertyId) ||
+          (batch !== null && batch.stagedById.get(propertyId) !== component) ||
+          this._components.has(propertyId) ||
+          this._deletedMap.has(propertyId)
+        ) {
+          throw new Error(
+            `[PropsManager] Canonical property creation batch cannot register property "${propertyId}"`
+          )
+        }
+        observedIds.add(propertyId)
+      })
+    }
     const relationshipEntries = components.map((component) =>
       this.prepareRelationshipIndexEntry(component)
     )
@@ -2783,168 +2799,10 @@ class PropsManager {
   }
 
   private finalizeOrdinaryPropertyCreationBatch(
-    batch: PropertyCreationBatchState,
-    artifact: {
-      roots: readonly PreparedOrdinaryPropertyRoot[]
-      registrationContracts: readonly PropertyCreationTypeContract[]
-    }
+    batch: PropertyCreationBatchState
   ): void {
-    this.assertPropertyCreationRegistrationReadiness(
-      artifact.registrationContracts,
-      new Set()
-    )
-    if (
-      batch.existingUpdates.length > 0 ||
-      batch.ordinaryRootCreationIndex !== batch.ordinaryRootCreations.length ||
-      batch.rootComponents.length !==
-        artifact.roots.filter(({ activeComponent }) => !activeComponent).length
-    ) {
-      throw new Error(
-        '[PropsManager] Ordinary property creation produced an inexact owner graph'
-      )
-    }
-
-    const registrationContractByType = new Map(
-      artifact.registrationContracts.map(
-        (registrationContract) =>
-          [registrationContract.type, registrationContract] as const
-      )
-    )
-    let stagedRootIndex = 0
-    artifact.roots.forEach((root) => {
-      const component =
-        root.activeComponent ?? batch.rootComponents[stagedRootIndex++]
-      const explicitCreationId = component
-        ? batch.explicitCreationIdByComponent.get(component)
-        : undefined
-      const requestedIdOwner = root.requestedId
-        ? batch.stagedById.get(root.requestedId)
-        : undefined
-      let requestedIdChanged = false
-      if (root.requestedId !== undefined) {
-        if (root.activeComponent) {
-          requestedIdChanged =
-            component?.get('id') !== root.requestedId ||
-            this._components.get(root.requestedId) !== component
-        } else if (explicitCreationId !== undefined) {
-          requestedIdChanged =
-            explicitCreationId !== root.requestedId ||
-            component?.get('id') !== root.requestedId ||
-            requestedIdOwner !== component
-        } else {
-          requestedIdChanged =
-            requestedIdOwner !== undefined && requestedIdOwner !== component
-        }
-      }
-      if (
-        !component ||
-        component.get('type') !== root.type ||
-        requestedIdChanged
-      ) {
-        throw new Error(
-          `[PropsManager] Ordinary property creation changed owner property "${root.name}"`
-        )
-      }
-    })
-
-    batch.components.forEach((component) => {
-      const componentId = component.get('id')
-      const type = component.get('type')
-      const registrationContract =
-        typeof type === 'string'
-          ? registrationContractByType.get(type)
-          : undefined
-      if (
-        typeof componentId !== 'string' ||
-        componentId.length === 0 ||
-        !registrationContract ||
-        !(component instanceof registrationContract.constructor) ||
-        batch.stagedById.get(componentId) !== component ||
-        this._components.has(componentId) ||
-        this._deletedMap.has(componentId)
-      ) {
-        throw new Error(
-          `[PropsManager] Ordinary property creation has an invalid staged property "${String(componentId ?? '')}"`
-        )
-      }
-      assertRuntimePropertyFields(
-        component.save() as Readonly<Record<string, unknown>>,
-        registrationContract.schema,
-        componentId
-      )
-    })
-
-    const visiting = new Set<string>()
-    const reachable = new Set<string>()
-    const visit = (component: PropertyComponentInstanceTypes): void => {
-      const componentId = component.get('id')
-      if (reachable.has(componentId)) {
-        return
-      }
-      if (visiting.has(componentId)) {
-        throw new Error(
-          `[PropsManager] Ordinary property creation has a relationship cycle at "${componentId}"`
-        )
-      }
-      const type = component.get('type')
-      const childRelation =
-        typeof type === 'string'
-          ? registrationContractByType.get(type)?.childRelation
-          : undefined
-      visiting.add(componentId)
-      if (childRelation) {
-        const childIds = (
-          component.save() as unknown as Readonly<Record<string, unknown>>
-        )[childRelation.key]
-        if (
-          !Array.isArray(childIds) ||
-          childIds.some((childId) => typeof childId !== 'string') ||
-          new Set(childIds).size !== childIds.length
-        ) {
-          throw new Error(
-            `[PropsManager] Ordinary property creation has a malformed child relation for "${componentId}"`
-          )
-        }
-        childIds.forEach((childId) => {
-          const child =
-            batch.stagedById.get(childId) ?? this._components.get(childId)
-          if (!child || child.get('type') !== childRelation.childType) {
-            throw new Error(
-              `[PropsManager] Ordinary property creation has an invalid relationship child "${childId}"`
-            )
-          }
-          if (batch.stagedById.has(childId)) {
-            visit(child)
-          }
-        })
-      }
-      visiting.delete(componentId)
-      reachable.add(componentId)
-    }
-    batch.rootComponents.forEach(visit)
-    const retainedComponents: PropertyComponentInstanceTypes[] = []
-    batch.components.forEach((component) => {
-      const componentId = component.get('id')
-      if (reachable.has(componentId)) {
-        retainedComponents.push(component)
-        return
-      }
-      batch.componentIds.delete(componentId)
-      batch.stagedById.delete(componentId)
-      ;(component as unknown as { dispose?: () => void }).dispose?.()
-    })
-    batch.components.length = 0
-    retainedComponents.forEach((component) => {
-      batch.components.push(component)
-    })
-    if (reachable.size !== batch.components.length) {
-      throw new Error(
-        '[PropsManager] Ordinary property creation contains an unowned staged property'
-      )
-    }
-
     if (batch.components.length > 0) {
-      this.registerMany(batch.components)
+      this.registerMany(batch.components, batch)
     }
   }
 
@@ -3093,15 +2951,17 @@ class PropsManager {
     }
 
     const activeSchemaByType = new Map<string, PropertySchema | undefined>()
-    this._components.forEach((component) => {
-      const type = component.get('type')
-      if (typeof type === 'string' && !activeSchemaByType.has(type)) {
-        activeSchemaByType.set(
-          type,
-          snapshotPropertySchema(getRegisteredPropertySchema(type))
-        )
-      }
-    })
+    if (!ordinaryArtifact) {
+      this._components.forEach((component) => {
+        const type = component.get('type')
+        if (typeof type === 'string' && !activeSchemaByType.has(type)) {
+          activeSchemaByType.set(
+            type,
+            snapshotPropertySchema(getRegisteredPropertySchema(type))
+          )
+        }
+      })
+    }
     const batch: PropertyCreationBatchState = {
       changeStart: this.changes.length,
       components: [],
@@ -3138,7 +2998,7 @@ class PropsManager {
           )
         }
         if (ordinaryArtifact) {
-          this.finalizeOrdinaryPropertyCreationBatch(batch, ordinaryArtifact)
+          this.finalizeOrdinaryPropertyCreationBatch(batch)
         } else {
           const stagedComponents = batch.components.filter(
             (component) =>
@@ -3159,7 +3019,7 @@ class PropsManager {
       })
       if (batch.components.length > 0) {
         measurePropertyBatchPhase('props-manager:creation-evidence', () => {
-          this.addChangeForAddProperties(batch.components)
+          this.addChangeForAddProperties(batch.components, !ordinaryArtifact)
         })
       }
       let active = true

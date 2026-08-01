@@ -636,6 +636,75 @@ describe('PropsManager', () => {
     ])
   })
 
+  it('does not scan unrelated active properties while applying an ordinary creation batch', () => {
+    const unrelated = propsManager.createProperty({
+      id: 'unrelated-active-property',
+      type: PropertyTypes.POSITION,
+      x: 1,
+      y: 2
+    })
+    propsManager.addProperty([unrelated])
+    propsManager.cleanChanges()
+    const prepared = propsManager.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          {
+            name: PropertyTypes.POSITION,
+            type: PropertyTypes.POSITION
+          }
+        ],
+        data: { x: 12, y: 24 },
+        propertyIds: {
+          [PropertyTypes.POSITION]: 'ordinary-created-property'
+        }
+      }
+    ])
+    const get = vi.spyOn(unrelated, 'get')
+    let createdSaveCount = 0
+    const phaseNames: string[] = []
+    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
+    const previousSink = runtime.__asyraBrowserDragPhaseSink
+    runtime.__asyraBrowserDragPhaseSink = (name) => {
+      if (name.startsWith('props-manager:')) {
+        phaseNames.push(name)
+      }
+    }
+
+    try {
+      propsManager.runInPropertyCreationBatch(() => {
+        const property = propsManager.createProperty({
+          id: 'ordinary-created-property',
+          type: PropertyTypes.POSITION,
+          x: 12,
+          y: 24
+        })
+        const save = property.save.bind(property)
+        property.save = () => {
+          createdSaveCount += 1
+          return save()
+        }
+        propsManager.addProperty([property])
+      }, prepared)
+    } finally {
+      if (previousSink) {
+        runtime.__asyraBrowserDragPhaseSink = previousSink
+      } else {
+        delete runtime.__asyraBrowserDragPhaseSink
+      }
+    }
+
+    expect(get).not.toHaveBeenCalledWith('type')
+    expect(createdSaveCount).toBe(1)
+    expect(phaseNames).not.toContain('props-manager:creation-evidence-clone')
+    expect(
+      propsManager.getPropertyById('ordinary-created-property')?.save()
+    ).toMatchObject({
+      id: 'ordinary-created-property',
+      x: 12,
+      y: 24
+    })
+  })
+
   it('registers one canonical property batch through one registerMany owner boundary', () => {
     const source = [
       new PositionComponent({
@@ -1023,6 +1092,53 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([])
   })
 
+  it('preflights relationship entries without materializing a mapped descriptor array', () => {
+    const parentType = 'ordinary-direct-descriptor-parent'
+    const parentDefinition = {
+      type: parentType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType: PropertyTypes.POSITION,
+        mode: 'ids' as const
+      }
+    }
+    const ParentComponent = createPropertyComponentFromConfig(parentDefinition)
+    registerPropertyComponent(
+      parentType,
+      ParentComponent,
+      undefined,
+      parentDefinition
+    )
+    let mapReads = 0
+    const children = new Proxy(['ordinary-direct-descriptor-child'], {
+      get: (target, property, receiver) => {
+        if (property === 'map') {
+          mapReads += 1
+        }
+        return Reflect.get(target, property, receiver)
+      }
+    })
+
+    propsManager.preflightOrdinaryPropertyCreationBatch([
+      {
+        definitions: [
+          { name: 'standalone', type: PropertyTypes.POSITION },
+          { name: 'children', type: parentType, defaultValue: [] }
+        ],
+        data: { children },
+        propertyIds: {
+          standalone: 'ordinary-direct-descriptor-child',
+          children: 'ordinary-direct-descriptor-parent'
+        }
+      }
+    ])
+
+    expect(mapReads).toBe(0)
+  })
+
   it('allows an ordinary relationship string to reference a same-batch requested root with the required type', () => {
     const parentType = 'ordinary-prepared-root-parent'
     const parentDefinition = {
@@ -1140,7 +1256,7 @@ describe('PropsManager', () => {
     expect(propsManager.changes).toEqual([])
   })
 
-  it('preserves and validates a new ordinary requested root id through finalize', () => {
+  it('preserves the action-issued ordinary requested root id without post-action verification', () => {
     const owners = [
       {
         definitions: [
@@ -1155,25 +1271,7 @@ describe('PropsManager', () => {
         }
       }
     ]
-    const mismatchedPrepared =
-      propsManager.preflightOrdinaryPropertyCreationBatch(owners)
     const registerMany = vi.spyOn(propsManager, 'registerMany')
-
-    expect(() =>
-      propsManager.runInPropertyCreationBatch(() => {
-        const property = propsManager.createProperty({
-          id: 'ordinary-unrequested-position',
-          type: PropertyTypes.POSITION,
-          x: 10,
-          y: 20
-        })
-        propsManager.addProperty([property])
-      }, mismatchedPrepared)
-    ).toThrow(/changed owner property/i)
-
-    expect(registerMany).not.toHaveBeenCalled()
-    expect(propsManager.save()).toEqual({})
-    expect(propsManager.changes).toEqual([])
 
     const matchingPrepared =
       propsManager.preflightOrdinaryPropertyCreationBatch(owners)
@@ -1237,7 +1335,7 @@ describe('PropsManager', () => {
     receipt.complete()
   })
 
-  it('rolls back an ordinary property graph when a relationship contract drifts during materialization', () => {
+  it('does not repeat ordinary registration readiness after action materialization', () => {
     const relationshipType = 'ordinary-relationship-target'
     const mutatorType = 'ordinary-registration-mutator'
     const relationshipDefinition = {
@@ -1301,24 +1399,32 @@ describe('PropsManager', () => {
     ])
     const registerMany = vi.spyOn(propsManager, 'registerMany')
 
-    expect(() =>
-      ordinaryBatchOwner.runInPropertyCreationBatch(() => {
-        const mutator = propsManager.createProperty({
-          id: 'ordinary-mutator',
-          type: mutatorType
-        })
-        const relationship = propsManager.createProperty({
-          id: 'ordinary-relationship',
-          type: relationshipType,
-          children: []
-        })
-        propsManager.addProperty([mutator, relationship])
-      }, prepared)
-    ).toThrow(/registration changed/i)
+    const receipt = ordinaryBatchOwner.runInPropertyCreationBatch(() => {
+      const mutator = propsManager.createProperty({
+        id: 'ordinary-mutator',
+        type: mutatorType
+      })
+      const relationship = propsManager.createProperty({
+        id: 'ordinary-relationship',
+        type: relationshipType,
+        children: []
+      })
+      propsManager.addProperty([mutator, relationship])
+    }, prepared)
 
-    expect(registerMany).not.toHaveBeenCalled()
-    expect(propsManager.save()).toEqual({})
-    expect(propsManager.changes).toEqual([])
+    expect(registerMany).toHaveBeenCalledOnce()
+    expect(propsManager.save()).toMatchObject({
+      'ordinary-mutator': {
+        id: 'ordinary-mutator',
+        type: mutatorType
+      },
+      'ordinary-relationship': {
+        id: 'ordinary-relationship',
+        type: relationshipType,
+        children: []
+      }
+    })
+    receipt.complete()
   })
 
   it('rejects an active ordinary owner override before materialization can mutate it', () => {
