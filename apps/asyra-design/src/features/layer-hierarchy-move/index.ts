@@ -7,10 +7,10 @@ import type {
   ValidLayerDropIntent
 } from '../../controllers/layer-drop-intent'
 import type { LayerHierarchyMoveDetail } from '../../controllers/layer-move-session'
-import type { LayerMoveSourcePlan } from '../../controllers/layer-move-source'
+import type { ResolvedLayerMoveSource } from '../../controllers/layer-move-source'
 
 export interface LayerHierarchyMoveState extends Record<string, unknown> {
-  source: LayerMoveSourcePlan
+  source: ResolvedLayerMoveSource
 }
 
 const getDetail = (

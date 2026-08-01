@@ -3,7 +3,7 @@ import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
 import { systemContextApis } from '../common-apis'
 import { InputSystemEvents } from '../constants'
 import type { LayerDropIntent } from './layer-drop-intent'
-import type { LayerMoveSourcePlan } from './layer-move-source'
+import type { ResolvedLayerMoveSource } from './layer-move-source'
 import type {
   LayerPointerCancellationReason,
   LayerPointerSession
@@ -13,7 +13,7 @@ export type LayerHierarchyMoveDetail =
   | {
       phase: 'start'
       pointerSession: LayerPointerSession
-      source: LayerMoveSourcePlan
+      source: ResolvedLayerMoveSource
     }
   | {
       phase: 'update' | 'end'
@@ -30,7 +30,7 @@ const createSnapshot = (
 
 export const startLayerHierarchyMoveSession = (
   pointerSession: LayerPointerSession,
-  source: LayerMoveSourcePlan
+  source: ResolvedLayerMoveSource
 ): Promise<boolean> =>
   getSessionManager().handleStart(
     InputSystemEvents.INPUT_LAYER_HIERARCHY_MOVE,

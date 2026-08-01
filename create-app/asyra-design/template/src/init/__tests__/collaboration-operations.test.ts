@@ -7,8 +7,8 @@ import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
-  type PropsRestorePlan,
-  type SceneTreeRestorePlan
+  type PreparedPropsRestore,
+  type PreparedSceneTreeRestore
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
@@ -180,8 +180,8 @@ const restoreDeliveries = (): readonly TestPublicationDelivery[] => [
 ]
 
 const createRestoreOwners = () => {
-  const scenePlan = Object.freeze({
-    kind: 'scene-tree-restore-plan',
+  const preparedSceneRestore = Object.freeze({
+    kind: 'prepared-scene-tree-restore',
     elementId: 'group-a',
     entries: Object.freeze([
       Object.freeze({
@@ -197,24 +197,24 @@ const createRestoreOwners = () => {
         componentId: 'position-group-a'
       })
     ])
-  }) satisfies SceneTreeRestorePlan
-  const propsPlan = Object.freeze({
-    kind: 'props-restore-plan',
+  }) satisfies PreparedSceneTreeRestore
+  const preparedPropsRestore = Object.freeze({
+    kind: 'prepared-props-restore',
     entries: Object.freeze([
       Object.freeze({
         componentId: 'position-group-a',
         strategy: 'materialize' as const
       })
     ]),
-    ownerRelations: scenePlan.propertyOwnerRelations
-  }) satisfies PropsRestorePlan
+    ownerRelations: preparedSceneRestore.propertyOwnerRelations
+  }) satisfies PreparedPropsRestore
 
   return {
-    scenePlan,
-    propsPlan,
+    preparedSceneRestore,
+    preparedPropsRestore,
     owners: {
-      preflightRestoreSubtree: vi.fn(() => scenePlan),
-      preflightRestoreProperties: vi.fn(() => propsPlan),
+      preflightRestoreSubtree: vi.fn(() => preparedSceneRestore),
+      preflightRestoreProperties: vi.fn(() => preparedPropsRestore),
       applyRestoreProperties: vi.fn(() => Object.freeze(['position-group-a'])),
       applyRestoreSubtree: vi.fn()
     }
@@ -229,7 +229,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
       mutate()
     })
     const process = vi.fn()
-    const { scenePlan, propsPlan, owners } = createRestoreOwners()
+    const { preparedSceneRestore, preparedPropsRestore, owners } =
+      createRestoreOwners()
     owners.preflightRestoreSubtree.mockImplementation((snapshot) => {
       callOrder.push('preflight-scene')
       expect(snapshot).toEqual(
@@ -238,7 +239,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
           rootParentChildrenAfter: []
         })
       )
-      return scenePlan
+      return preparedSceneRestore
     })
     owners.preflightRestoreProperties.mockImplementation(
       (snapshot, ownerRelations) => {
@@ -253,8 +254,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
             }
           ]
         })
-        expect(ownerRelations).toBe(scenePlan.propertyOwnerRelations)
-        return propsPlan
+        expect(ownerRelations).toBe(preparedSceneRestore.propertyOwnerRelations)
+        return preparedPropsRestore
       }
     )
     owners.applyRestoreProperties.mockImplementation(() => {
@@ -285,8 +286,12 @@ describe('Asyra Design app-owned collaboration processing', () => {
       'apply-props',
       'apply-scene'
     ])
-    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(propsPlan)
-    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(scenePlan)
+    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(
+      preparedPropsRestore
+    )
+    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(
+      preparedSceneRestore
+    )
     expect(process).not.toHaveBeenCalled()
   })
 

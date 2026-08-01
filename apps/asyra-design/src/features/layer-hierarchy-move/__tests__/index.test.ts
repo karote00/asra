@@ -34,14 +34,14 @@ vi.mock('../../../common-apis', () => ({
 
 import { FeatureNames, InputSystemEvents } from '../../../constants'
 import type { LayerPointerSession } from '../../../controllers/layer-pointer-session'
-import type { LayerMoveSourcePlan } from '../../../controllers/layer-move-source'
+import type { ResolvedLayerMoveSource } from '../../../controllers/layer-move-source'
 import type { ValidLayerDropIntent } from '../../../controllers/layer-drop-intent'
 import {
   layerHierarchyMoveFeatureDefinition,
   layerHierarchyMoveSession
 } from '..'
 
-const source: LayerMoveSourcePlan = {
+const source: ResolvedLayerMoveSource = {
   elementIds: ['b', 'a'],
   sourceParentId: 'workspace',
   preSessionSelection: ['other'],

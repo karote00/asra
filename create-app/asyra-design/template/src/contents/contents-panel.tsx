@@ -32,7 +32,7 @@ import {
 } from '../controllers/layer-move-session'
 import {
   deriveLayerMoveSource,
-  type LayerMoveSourcePlan
+  type ResolvedLayerMoveSource
 } from '../controllers/layer-move-source'
 import {
   cancelLayerPointerSession,
@@ -59,7 +59,7 @@ const Contents: React.FC = () => {
   const lastSelectedId = useRef<string | null>(null)
   const activeLayerMove = useRef<{
     pointerSession: LayerPointerSession
-    source: LayerMoveSourcePlan
+    source: ResolvedLayerMoveSource
   } | null>(null)
   const suppressNextClick = useRef(false)
   const clickSuppressionGeneration = useRef(0)
@@ -218,10 +218,10 @@ const Contents: React.FC = () => {
       })
       activeLayerMove.current = {
         pointerSession,
-        source: sourceResult.plan
+        source: sourceResult.source
       }
       setDropIntent(null)
-      void startLayerHierarchyMoveSession(pointerSession, sourceResult.plan)
+      void startLayerHierarchyMoveSession(pointerSession, sourceResult.source)
         .then((started) => {
           if (
             !started &&

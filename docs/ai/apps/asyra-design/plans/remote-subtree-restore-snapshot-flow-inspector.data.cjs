@@ -325,11 +325,11 @@
       purpose:
         'Validate the complete hierarchy snapshot and prepare exact tombstone reuse or known-data materialization without canonical mutation.',
       inputs: ['artifact:accepted-restore-publication'],
-      outputs: ['artifact:scene-tree-restore-plan'],
+      outputs: ['artifact:prepared-scene-tree-restore'],
       conditions: [
         'Preflight rejects active id collision, duplicate id, incompatible tombstone, missing or invalid parent, invalid root index, stale post-delete root-parent order evidence, cycle, and inconsistent child order.',
         'Every entry has exact registered element data, parent membership, root index, and one coherent descendant hierarchy.',
-        'A compatible tombstone is selected for reuse; otherwise the plan selects exact known-data materialization with the same stable id.'
+        'A compatible tombstone is selected for reuse; otherwise the prepared restore selects exact known-data materialization with the same stable id.'
       ],
       bypasses: [
         'A failed preflight produces no canonical hierarchy mutation and blocks the complete publication.',
@@ -373,21 +373,21 @@
         'Validate the complete property-component snapshot and prepare exact tombstone reuse or known-data materialization without canonical mutation.',
       inputs: [
         'artifact:accepted-restore-publication',
-        'artifact:scene-tree-restore-plan'
+        'artifact:prepared-scene-tree-restore'
       ],
-      outputs: ['artifact:props-restore-plan'],
+      outputs: ['artifact:prepared-props-restore'],
       conditions: [
         'Preflight rejects invalid registration, malformed relation, duplicate id, active id collision, incompatible tombstone, and missing owner data.',
         'Every direct element/property relation and registered child-component relation resolves to exact snapshot or compatible current owner data.',
-        'A compatible tombstone is selected for reuse; otherwise the plan selects exact known-data materialization with the same component id and data.'
+        'A compatible tombstone is selected for reuse; otherwise the prepared restore selects exact known-data materialization with the same component id and data.'
       ],
       bypasses: [
-        'An explicitly property-free subtree produces a valid empty Props plan.',
+        'An explicitly property-free subtree produces a valid empty prepared Props restore.',
         'A failed preflight produces no canonical property mutation and blocks the complete publication.'
       ],
       allowedContributors: [
         'artifact:accepted-restore-publication',
-        'artifact:scene-tree-restore-plan',
+        'artifact:prepared-scene-tree-restore',
         'canonical active and deleted Props maps',
         'registered property component and relation definitions'
       ],
@@ -421,11 +421,11 @@
       title: 'Settle one remote restore transaction',
       ownerPackage: '@asyra/factory',
       purpose:
-        'Open and settle one rollbackable, non-undoable, no-echo remote transaction around the accepted owner plans; Factory does not interpret hierarchy or property meaning.',
+        'Open and settle one rollbackable, non-undoable, no-echo remote transaction around the accepted owner preparations; Factory does not interpret hierarchy or property meaning.',
       inputs: [
         'artifact:accepted-restore-publication',
-        'artifact:scene-tree-restore-plan',
-        'artifact:props-restore-plan',
+        'artifact:prepared-scene-tree-restore',
+        'artifact:prepared-props-restore',
         'artifact:props-restored-state',
         'artifact:scene-tree-restored-state'
       ],
@@ -446,8 +446,8 @@
       ],
       allowedContributors: [
         'Factory runRemoteTransaction boundary',
-        'artifact:scene-tree-restore-plan',
-        'artifact:props-restore-plan',
+        'artifact:prepared-scene-tree-restore',
+        'artifact:prepared-props-restore',
         'owner-recorded exact inverse journal entries'
       ],
       forbiddenContributors: [
@@ -478,9 +478,9 @@
       title: 'Materialize exact Props state',
       ownerPackage: '@asyra/props-manager',
       purpose:
-        'Apply the prepared property plan in exact delivery order by reusing compatible tombstones or creating isolated runtime components from known data.',
+        'Apply the prepared property restore in exact delivery order by reusing compatible tombstones or creating isolated runtime components from known data.',
       inputs: [
-        'artifact:props-restore-plan',
+        'artifact:prepared-props-restore',
         'artifact:remote-restore-transaction-scope'
       ],
       outputs: ['artifact:props-restored-state'],
@@ -491,11 +491,11 @@
         'Materialized components retain the issuing Props Manager accessor for later child relation and value projection.'
       ],
       bypasses: [
-        'An empty valid Props plan performs no component mutation and still permits the Scene Tree owner step.',
+        'An empty valid prepared Props restore performs no component mutation and still permits the Scene Tree owner step.',
         'An apply failure throws into Factory settlement and cannot be downgraded.'
       ],
       allowedContributors: [
-        'artifact:props-restore-plan',
+        'artifact:prepared-props-restore',
         'artifact:remote-restore-transaction-scope',
         'canonical Props Manager add/relation path',
         'owner-recorded inverse evidence'
@@ -530,9 +530,9 @@
       title: 'Materialize exact Scene Tree state',
       ownerPackage: '@asyra/scene-tree',
       purpose:
-        'Apply the prepared hierarchy plan by reusing compatible tombstones or creating isolated runtime elements from exact known data.',
+        'Apply the prepared hierarchy restore by reusing compatible tombstones or creating isolated runtime elements from exact known data.',
       inputs: [
-        'artifact:scene-tree-restore-plan',
+        'artifact:prepared-scene-tree-restore',
         'artifact:props-restored-state',
         'artifact:remote-restore-transaction-scope'
       ],
@@ -548,7 +548,7 @@
         'An empty Group has no descendant materialization but keeps exact raw Group data and root placement.'
       ],
       allowedContributors: [
-        'artifact:scene-tree-restore-plan',
+        'artifact:prepared-scene-tree-restore',
         'artifact:props-restored-state',
         'artifact:remote-restore-transaction-scope',
         'canonical Scene Tree hierarchy mutation path'
@@ -806,47 +806,47 @@
       producedArtifacts: ['artifact:accepted-restore-publication']
     },
     {
-      id: 'scene-plan-informs-props-relations',
+      id: 'prepared-scene-restore-informs-props-relations',
       from: 'preflight-scene-tree-restore',
       to: 'preflight-props-restore',
       kind: 'handoff',
       predicate:
         'Scene Tree has validated exact element/property relation evidence.',
-      producedArtifacts: ['artifact:scene-tree-restore-plan']
+      producedArtifacts: ['artifact:prepared-scene-tree-restore']
     },
     {
-      id: 'scene-plan-ready-to-settle',
+      id: 'prepared-scene-restore-ready-to-settle',
       from: 'preflight-scene-tree-restore',
       to: 'settle-remote-restore-transaction',
       kind: 'handoff',
       predicate: 'Scene Tree preflight succeeds without mutation.',
-      producedArtifacts: ['artifact:scene-tree-restore-plan']
+      producedArtifacts: ['artifact:prepared-scene-tree-restore']
     },
     {
-      id: 'scene-plan-ready-to-materialize',
+      id: 'prepared-scene-restore-ready-to-materialize',
       from: 'preflight-scene-tree-restore',
       to: 'materialize-scene-tree-restore',
       kind: 'handoff',
       predicate:
-        'Scene Tree materialization consumes only its validated one-shot plan.',
-      producedArtifacts: ['artifact:scene-tree-restore-plan']
+        'Scene Tree materialization consumes only its validated one-shot prepared restore.',
+      producedArtifacts: ['artifact:prepared-scene-tree-restore']
     },
     {
-      id: 'props-plan-ready-to-settle',
+      id: 'prepared-props-restore-ready-to-settle',
       from: 'preflight-props-restore',
       to: 'settle-remote-restore-transaction',
       kind: 'handoff',
       predicate: 'Props preflight succeeds without mutation.',
-      producedArtifacts: ['artifact:props-restore-plan']
+      producedArtifacts: ['artifact:prepared-props-restore']
     },
     {
-      id: 'props-plan-ready-to-materialize',
+      id: 'prepared-props-restore-ready-to-materialize',
       from: 'preflight-props-restore',
       to: 'materialize-props-restore',
       kind: 'handoff',
       predicate:
-        'Props materialization consumes only its validated one-shot plan.',
-      producedArtifacts: ['artifact:props-restore-plan']
+        'Props materialization consumes only its validated one-shot prepared restore.',
+      producedArtifacts: ['artifact:prepared-props-restore']
     },
     {
       id: 'begin-owner-materialization',
@@ -1013,7 +1013,7 @@
       terminal: true
     },
     {
-      id: 'artifact:scene-tree-restore-plan',
+      id: 'artifact:prepared-scene-tree-restore',
       ownerStepId: 'preflight-scene-tree-restore',
       channel: 'owner-issued one-shot preflight artifact',
       consumerStepIds: [
@@ -1024,7 +1024,7 @@
       terminal: false
     },
     {
-      id: 'artifact:props-restore-plan',
+      id: 'artifact:prepared-props-restore',
       ownerStepId: 'preflight-props-restore',
       channel: 'owner-issued one-shot preflight artifact',
       consumerStepIds: [
@@ -1146,8 +1146,8 @@
         'materialize-scene-tree-restore'
       ],
       artifactIds: [
-        'artifact:scene-tree-restore-plan',
-        'artifact:props-restore-plan',
+        'artifact:prepared-scene-tree-restore',
+        'artifact:prepared-props-restore',
         'artifact:props-restored-state',
         'artifact:scene-tree-restored-state'
       ],

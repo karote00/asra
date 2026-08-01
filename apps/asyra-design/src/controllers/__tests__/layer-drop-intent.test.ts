@@ -4,7 +4,7 @@ import {
   type GroupRawData
 } from '@asyra/utils'
 import { describe, expect, it } from 'vitest'
-import type { LayerMoveSourcePlan } from '../layer-move-source'
+import type { ResolvedLayerMoveSource } from '../layer-move-source'
 import { projectLayerDropIntent } from '../layer-drop-intent'
 
 type ProjectedElement = Partial<ElementRawData & GroupRawData>
@@ -64,7 +64,7 @@ const flattenedIds = [
 const source = (
   elementIds: string[],
   sourceParentId = 'workspace'
-): LayerMoveSourcePlan => ({
+): ResolvedLayerMoveSource => ({
   elementIds,
   sourceParentId,
   preSessionSelection: [...elementIds],

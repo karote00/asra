@@ -7,10 +7,10 @@ import {
   type ElementPropertyOwnerRelation,
   type EVENT_OPTIONS,
   PROPS_ACTIONS,
-  type PropsRestorePlan,
+  type PreparedPropsRestore,
   type PropsRestoreSnapshot,
   SCENE_TREE_ACTIONS,
-  type SceneTreeRestorePlan,
+  type PreparedSceneTreeRestore,
   type SceneTreeRestoreSnapshot,
   SharedDataChannelNames,
   isRecord
@@ -25,17 +25,17 @@ export type DecideRemotePublication = (
 export interface RemoteRestoreOwnerFacades {
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
+  ) => PreparedSceneTreeRestore
   preflightRestoreProperties: (
     snapshot: PropsRestoreSnapshot,
     ownerRelations: readonly ElementPropertyOwnerRelation[]
-  ) => PropsRestorePlan
+  ) => PreparedPropsRestore
   applyRestoreProperties: (
-    plan: PropsRestorePlan,
+    prepared: PreparedPropsRestore,
     options?: EVENT_OPTIONS
   ) => readonly string[]
   applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+    prepared: PreparedSceneTreeRestore,
     options?: EVENT_OPTIONS
   ) => unknown
 }
@@ -394,16 +394,16 @@ export const createAsyraDesignPublicationProcessor =
           '[asyra-design collaboration] subtree restore owner facades are required'
         )
       }
-      const scenePlan = restoreOwners.preflightRestoreSubtree(
+      const preparedSceneRestore = restoreOwners.preflightRestoreSubtree(
         acceptedRestore.sceneSnapshot
       )
-      const propsPlan = restoreOwners.preflightRestoreProperties(
+      const preparedPropsRestore = restoreOwners.preflightRestoreProperties(
         acceptedRestore.propsSnapshot,
-        scenePlan.propertyOwnerRelations
+        preparedSceneRestore.propertyOwnerRelations
       )
       runRemoteTransaction(() => {
-        restoreOwners.applyRestoreProperties(propsPlan)
-        restoreOwners.applyRestoreSubtree(scenePlan)
+        restoreOwners.applyRestoreProperties(preparedPropsRestore)
+        restoreOwners.applyRestoreSubtree(preparedSceneRestore)
       })
       return
     }

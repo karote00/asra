@@ -2,7 +2,7 @@ import { EntityTypes, type ElementRawData } from '@asyra/utils'
 
 export type LayerMoveElementDataMap = Record<string, Partial<ElementRawData>>
 
-export interface LayerMoveSourcePlan {
+export interface ResolvedLayerMoveSource {
   elementIds: string[]
   sourceParentId: string
   preSessionSelection: string[]
@@ -21,7 +21,7 @@ export type LayerMoveSourceRejection =
 export type LayerMoveSourceResult =
   | {
       ok: true
-      plan: LayerMoveSourcePlan
+      source: ResolvedLayerMoveSource
     }
   | {
       ok: false
@@ -85,7 +85,7 @@ export const deriveLayerMoveSource = ({
 
   return {
     ok: true,
-    plan: {
+    source: {
       elementIds: candidateIds,
       sourceParentId,
       preSessionSelection: [...selectedIds],
