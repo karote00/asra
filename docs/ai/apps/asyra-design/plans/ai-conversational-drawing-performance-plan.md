@@ -3656,6 +3656,23 @@ named 7,076 proof's 500-percent raw limit. The guard did not stop, all five
 tracked process groups terminated exactly, and the Playwright invocation
 reported one passing test in 26.1 seconds.
 
+The final 16-item correctness closure then exposed one Factory replay boundary
+regression: the original immediate canonical owner batch coalesced its Props
+and Scene channel batches into one source publication, while Undo and Redo
+published those retained channel batches separately as they became ready.
+That left Actor B with a standalone property lifecycle publication even though
+the source action had never created that remote-apply boundary. A formal
+Factory regression first reproduced two replay publications from one
+multi-channel owner batch. Factory replay now waits for every retained channel
+batch sharing that owner-batch slice, delivers them in retained order, and
+derives one replay publication without adding history evidence or merging
+different owner-batch slices. The temporary App-side detached-property bypass
+was removed. The focused regression and complete SharedPublication suite
+passed 55/55, the complete Factory suite passed 222/222, exact lint and
+`diff --check` passed, and the corrected formal 16-item two-Actor creation,
+Undo, and Redo proof passed in 24.7 seconds. The accepted 7,076 proof was not
+repeated.
+
 ## Current Local Gates
 
 The accepted single-Actor path retains the exact loading bounds, cooperative

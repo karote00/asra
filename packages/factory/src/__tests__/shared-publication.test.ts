@@ -2145,6 +2145,63 @@ describe('Factory action-level shared publication', () => {
     ])
   })
 
+  it('replays one immediate multi-channel owner batch as one publication', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch([
+      createUpdateEvent('element-a', 1, { sharedDelivery: 'immediate' }),
+      {
+        ...createUpdateEvent('property-a', 1, {
+          sharedDelivery: 'immediate'
+        }),
+        options: {
+          shared: SharedDataChannelNames.PROPS,
+          sharedDelivery: 'immediate'
+        }
+      }
+    ])
+    await Promise.resolve()
+    factory.endTransaction()
+
+    expect(publications).toHaveLength(1)
+    expect(
+      publicationBatches(requiredAt(publications, 0)).map(
+        ({ channel }) => channel
+      )
+    ).toEqual([SharedDataChannelNames.SCENE_TREE, SharedDataChannelNames.PROPS])
+
+    publications.length = 0
+    factory.undo()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'undo' }))
+    expect(
+      publicationBatches(requiredAt(publications, 0)).map(
+        ({ channel }) => channel
+      )
+    ).toEqual([SharedDataChannelNames.PROPS, SharedDataChannelNames.SCENE_TREE])
+
+    publications.length = 0
+    factory.redo()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'redo' }))
+    expect(
+      publicationBatches(requiredAt(publications, 0)).map(
+        ({ channel }) => channel
+      )
+    ).toEqual([SharedDataChannelNames.SCENE_TREE, SharedDataChannelNames.PROPS])
+  })
+
   it('preserves replay order when undo crosses transaction-end and immediate deliveries', async () => {
     const { factory, publications } = createHarness()
     factory.registerTransactionReplayHandler(

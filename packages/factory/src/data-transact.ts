@@ -3366,10 +3366,17 @@ class DataTransact {
         state.readyReadinessKeys.size === state.requiredReadinessKeys.size
     )
     if (firstReadyImmediateIndex < 0) return
-    const prefix = sharedState.batchStates.slice(
-      0,
-      firstReadyImmediateIndex + 1
-    )
+    const readyImmediateSliceId =
+      sharedState.batchStates[firstReadyImmediateIndex]?.batch.sliceId
+    let publishablePrefixEnd = firstReadyImmediateIndex
+    while (
+      readyImmediateSliceId !== undefined &&
+      sharedState.batchStates[publishablePrefixEnd + 1]?.batch.sliceId ===
+        readyImmediateSliceId
+    ) {
+      publishablePrefixEnd += 1
+    }
+    const prefix = sharedState.batchStates.slice(0, publishablePrefixEnd + 1)
     if (
       prefix.some(
         (state) =>
@@ -3379,15 +3386,27 @@ class DataTransact {
     ) {
       return
     }
-    prefix.forEach((state) => {
-      if (!state.delivered && !this.deliverPreparedSharedBatch(state.batch)) {
-        throw new Error(
-          `Factory history replay batch could not be delivered: ${state.batch.batchId}`
-        )
+    const publishableStates = prefix.filter((state) => !state.delivered)
+    const publicationGroups: HistoryReplaySharedBatchState[][] = []
+    publishableStates.forEach((state) => {
+      const currentGroup = publicationGroups[publicationGroups.length - 1]
+      if (currentGroup?.[0]?.batch.sliceId === state.batch.sliceId) {
+        currentGroup.push(state)
+        return
       }
-      const publication = this.createHistoryReplaySharedPublication([
-        state.batch
-      ])
+      publicationGroups.push([state])
+    })
+    publicationGroups.forEach((states) => {
+      states.forEach((state) => {
+        if (!this.deliverPreparedSharedBatch(state.batch)) {
+          throw new Error(
+            `Factory history replay batch could not be delivered: ${state.batch.batchId}`
+          )
+        }
+      })
+      const publication = this.createHistoryReplaySharedPublication(
+        states.map(({ batch }) => batch)
+      )
       this.queueSharedPublication(publication)
       this.flushSharedPublications()
     })
