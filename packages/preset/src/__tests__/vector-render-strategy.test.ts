@@ -5,7 +5,7 @@ import {
   renderStrategyRegistry
 } from '@asyra/render'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
-import { createDefaultStroke } from '@asyra/utils'
+import { createDefaultFill, createDefaultStroke } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
   VECTOR_COMPONENT_DEFINITION,
@@ -76,8 +76,14 @@ describe('vector render strategy', () => {
 
     expect(graphic.getDrawOperations()).toEqual([
       { type: 'clear' },
-      { type: 'move-to', x: 0, y: 0 },
-      { type: 'line-to', x: 80, y: 40 },
+      {
+        type: 'poly',
+        points: [
+          { x: 0, y: 0 },
+          { x: 80, y: 40 }
+        ],
+        close: false
+      },
       {
         type: 'stroke',
         paint: { color: 0xcccccc, alpha: 1 },
@@ -173,12 +179,218 @@ describe('vector render strategy', () => {
 
     expect(graphic.getDrawOperations()).toEqual(
       expect.arrayContaining([
-        { type: 'move-to', x: 0, y: 74 },
-        { type: 'line-to', x: 46, y: 0 },
-        { type: 'line-to', x: 94, y: 74 }
+        {
+          type: 'poly',
+          points: [
+            { x: 0, y: 74 },
+            { x: 46, y: 0 },
+            { x: 94, y: 74 },
+            { x: 0, y: 74 }
+          ],
+          close: true
+        }
       ])
     )
     expect(graphic.toGlobal({ x: 0, y: 74 })).toEqual({ x: 232, y: 232 })
+  })
+
+  it('does not renormalize canonical workspace topology before local projection', () => {
+    const ownKeyReads = {
+      points: 0,
+      segments: 0,
+      networks: 0
+    }
+    const trackOwnKeys = <T extends object>(
+      value: T,
+      key: keyof typeof ownKeyReads
+    ): T =>
+      new Proxy(value, {
+        ownKeys: (target) => {
+          ownKeyReads[key] += 1
+          return Reflect.ownKeys(target)
+        }
+      })
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'canonical-workspace-vector',
+      type: 'vector',
+      name: 'Canonical Workspace Vector',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 20,
+      y: 30,
+      width: 80,
+      height: 40,
+      rotation: 0,
+      closed: false,
+      pointCoordinateSpace: 'workspace',
+      fillRule: 'nonzero',
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          color: '#cccccc',
+          visible: true,
+          width: 1
+        })
+      ],
+      points: trackOwnKeys(
+        {
+          start: {
+            id: 'start',
+            kind: 'anchor',
+            x: 20,
+            y: 30,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          },
+          end: {
+            id: 'end',
+            kind: 'anchor',
+            x: 100,
+            y: 70,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          }
+        },
+        'points'
+      ),
+      segments: trackOwnKeys(
+        {
+          segment: {
+            id: 'segment',
+            startId: 'start',
+            endId: 'end'
+          }
+        },
+        'segments'
+      ),
+      networks: trackOwnKeys(
+        {
+          network: {
+            id: 'network',
+            pointIds: ['start', 'end'],
+            segmentIds: ['segment'],
+            closed: false
+          }
+        },
+        'networks'
+      )
+    })
+
+    expect(ownKeyReads).toEqual({
+      points: 0,
+      segments: 0,
+      networks: 1
+    })
+    expect(graphic.getDrawOperations()).toEqual([
+      { type: 'clear' },
+      {
+        type: 'poly',
+        points: [
+          { x: 0, y: 0 },
+          { x: 80, y: 40 }
+        ],
+        close: false
+      },
+      {
+        type: 'stroke',
+        paint: { color: 0xcccccc, alpha: 1 },
+        width: 1
+      }
+    ])
+  })
+
+  it('preserves cubic topology when applying a nonzero fill', () => {
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'filled-cubic',
+      type: 'vector',
+      name: 'Filled cubic',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 80,
+      rotation: 0,
+      closed: true,
+      pointCoordinateSpace: 'workspace',
+      fillRule: 'nonzero',
+      fills: [createDefaultFill({ color: '#336699' })],
+      strokes: [],
+      points: {
+        start: {
+          id: 'start',
+          kind: 'anchor',
+          x: 10,
+          y: 20,
+          anchorType: 'smooth',
+          handleMode: 'mirrored'
+        },
+        end: {
+          id: 'end',
+          kind: 'anchor',
+          x: 110,
+          y: 100,
+          anchorType: 'smooth',
+          handleMode: 'mirrored'
+        },
+        out: {
+          id: 'out',
+          kind: 'control',
+          x: 35,
+          y: 20,
+          controlForId: 'start',
+          controlRole: 'out'
+        },
+        incoming: {
+          id: 'incoming',
+          kind: 'control',
+          x: 85,
+          y: 100,
+          controlForId: 'end',
+          controlRole: 'in'
+        }
+      },
+      segments: {
+        curve: {
+          id: 'curve',
+          startId: 'start',
+          endId: 'end',
+          outControlId: 'out',
+          inControlId: 'incoming'
+        },
+        return: {
+          id: 'return',
+          startId: 'end',
+          endId: 'start'
+        }
+      },
+      networks: {
+        network: {
+          id: 'network',
+          pointIds: ['start', 'end'],
+          segmentIds: ['curve', 'return'],
+          closed: true
+        }
+      }
+    })
+
+    const operations = graphic.getDrawOperations()
+    const firstFillIndex = operations.findIndex(
+      (operation) => operation.type === 'fill'
+    )
+    expect(firstFillIndex).toBeGreaterThan(0)
+    expect(operations.slice(0, firstFillIndex)).toContainEqual({
+      type: 'bezier-curve-to',
+      controlPoint1: { x: 25, y: 0 },
+      controlPoint2: { x: 75, y: 80 },
+      destination: { x: 100, y: 80 }
+    })
   })
 
   it('projects each ordinary Vector slice through at most one visible frame', async () => {

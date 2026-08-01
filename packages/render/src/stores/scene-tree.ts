@@ -207,6 +207,7 @@ const isDataEqual = (
 
 class ComputedDataMirror {
   private entries = new Map<string, ComputedDataMirrorEntry>()
+  private childIdsBySnapshot = new WeakMap<unknown[], Set<string>>()
 
   clear() {
     const clearedEntryCount = this.entries.size
@@ -220,6 +221,25 @@ class ComputedDataMirror {
 
   get elementIds() {
     return [...this.entries.keys()]
+  }
+
+  private getChildIdSet(children: unknown[]): Set<string> | null {
+    const cached = this.childIdsBySnapshot.get(children)
+    if (cached) {
+      emitDiagnosticCounter('computed-mirror-child-id-cache-hit')
+      return cached
+    }
+
+    const childIds = new Set<string>()
+    for (const candidate of children) {
+      if (typeof candidate !== 'string' || childIds.has(candidate)) {
+        return null
+      }
+      childIds.add(candidate)
+    }
+    this.childIdsBySnapshot.set(children, childIds)
+    emitDiagnosticCounter('computed-mirror-child-id-cache-miss')
+    return childIds
   }
 
   delete(elementId: string) {
@@ -599,21 +619,19 @@ class ComputedDataMirror {
   ): TopLevelApplyResult | null {
     const entry = this.get(elementId)
     const currentChildren = entry?.rawDataSnapshot.children
-    if (
-      !entry ||
-      !Array.isArray(currentChildren) ||
-      additions.length === 0 ||
-      currentChildren.some((candidate) => typeof candidate !== 'string') ||
-      new Set(currentChildren).size !== currentChildren.length
-    ) {
+    if (!entry || !Array.isArray(currentChildren) || additions.length === 0) {
       return null
     }
 
-    const currentChildIds = currentChildren as string[]
-    const currentChildIdSet = new Set(currentChildIds)
+    const currentChildIdSet = this.getChildIdSet(currentChildren)
+    if (!currentChildIdSet) {
+      return null
+    }
     const insertedIds = new Set<string>()
     const insertionByFinalIndex = new Map<number, string>()
-    const finalLength = currentChildIds.length + additions.length
+    const finalLength = currentChildren.length + additions.length
+    const appendIds = new Array<string>(additions.length)
+    let appendCount = 0
     for (const { data, index } of additions) {
       const childId = data.id
       if (
@@ -630,42 +648,66 @@ class ComputedDataMirror {
       }
       insertedIds.add(childId)
       insertionByFinalIndex.set(index, childId)
+      const appendIndex = index - currentChildren.length
+      if (appendIndex >= 0 && appendIndex < additions.length) {
+        appendIds[appendIndex] = childId
+        appendCount += 1
+      }
     }
 
-    let currentIndex = 0
-    const finalChildren: string[] = []
-    for (let index = 0; index < finalLength; index += 1) {
-      const insertedId = insertionByFinalIndex.get(index)
-      if (insertedId) {
-        finalChildren.push(insertedId)
-        continue
+    let finalChildren: string[]
+    if (appendCount === additions.length) {
+      finalChildren = currentChildren.concat(appendIds) as string[]
+      emitDiagnosticCounter('computed-mirror-child-add-batch-append')
+    } else {
+      let currentIndex = 0
+      finalChildren = []
+      for (let index = 0; index < finalLength; index += 1) {
+        const insertedId = insertionByFinalIndex.get(index)
+        if (insertedId) {
+          finalChildren.push(insertedId)
+          continue
+        }
+        const retainedId = currentChildren[currentIndex]
+        if (retainedId === undefined) {
+          return null
+        }
+        finalChildren.push(retainedId)
+        currentIndex += 1
       }
-      const retainedId = currentChildIds[currentIndex]
-      if (retainedId === undefined) {
+      if (currentIndex !== currentChildren.length) {
         return null
       }
-      finalChildren.push(retainedId)
-      currentIndex += 1
     }
-    if (currentIndex !== currentChildIds.length) {
+
+    const rawDataSnapshot = { ...entry.rawDataSnapshot }
+    setOwn(rawDataSnapshot, 'children', finalChildren)
+    if (
+      !this.installSnapshot(
+        elementId,
+        rawDataSnapshot,
+        entry.computedDataSnapshot
+      )
+    ) {
       return null
     }
 
-    const nextChildren = cloneArrayWithEnumerableProperties(
-      currentChildren,
-      finalChildren
-    )
-    const applyResult = this.applyTopLevelChange(
-      elementId,
-      'raw',
-      'children',
-      currentChildren,
-      nextChildren
-    )
-    if (applyResult) {
-      emitDiagnosticCounter('computed-mirror-child-add-batch-apply')
+    this.childIdsBySnapshot.delete(currentChildren)
+    insertedIds.forEach((childId) => currentChildIdSet.add(childId))
+    this.childIdsBySnapshot.set(finalChildren, currentChildIdSet)
+    emitDiagnosticCounter('computed-mirror-staged-change-count')
+    emitDiagnosticCounter('computed-mirror-child-add-batch-apply')
+    return {
+      effectiveChanges: hasOwn(entry.computedDataSnapshot, 'children')
+        ? []
+        : [
+            {
+              key: 'children',
+              before: currentChildren,
+              after: finalChildren
+            }
+          ]
     }
-    return applyResult
   }
 
   applyChildRemovalBatch(
@@ -961,9 +1003,7 @@ class RenderSceneTree {
     }
   }
 
-  private failProjectedAddition(
-    elementId: string
-  ): RenderProjectionOutcome {
+  private failProjectedAddition(elementId: string): RenderProjectionOutcome {
     this.pendingElementUpdates.delete(elementId)
     this.releaseProjectedElement(elementId)
     this.computedDataMirror.delete(elementId)
@@ -1209,23 +1249,16 @@ class RenderSceneTree {
     } catch (error) {
       for (const applied of [...appliedParentRemovals].reverse()) {
         if (
-          !this.compensateParentRemovalBatch(
-            applied.parentId,
-            applied.entries
-          )
+          !this.compensateParentRemovalBatch(applied.parentId, applied.entries)
         ) {
           throw new Error(
             `Render failed to compensate parent ${applied.parentId}`
           )
         }
       }
-      const restoreEntriesByParent = new Map<
-        string,
-        AddRemoveElementEntry[]
-      >()
+      const restoreEntriesByParent = new Map<string, AddRemoveElementEntry[]>()
       visuallyRemovedEntries.forEach((entry) => {
-        const parentEntries =
-          restoreEntriesByParent.get(entry.parentId) ?? []
+        const parentEntries = restoreEntriesByParent.get(entry.parentId) ?? []
         parentEntries.push(entry)
         restoreEntriesByParent.set(entry.parentId, parentEntries)
       })
@@ -1250,9 +1283,7 @@ class RenderSceneTree {
       this.projectedElementIds.delete(data.id)
       this.computedDataMirror.delete(data.id)
     })
-    return entries.map(({ data }) =>
-      this.projectionOutcome(data.id, 'removed')
-    )
+    return entries.map(({ data }) => this.projectionOutcome(data.id, 'removed'))
   }
 
   moveElements(moves: readonly HierarchyMove[]): RenderProjectionOutcome {
@@ -1485,14 +1516,6 @@ class RenderSceneTree {
     if (!applyResult) {
       return this.projectionOutcome(parentId, 'failed')
     }
-
-    this.recordDirtyChange(
-      parentId,
-      additions.length,
-      this.pendingElementUpdates.has(parentId)
-    )
-    this.pendingElementUpdates.add(parentId)
-    this.scheduleFlush()
     return this.projectionOutcome(parentId, 'applied')
   }
 

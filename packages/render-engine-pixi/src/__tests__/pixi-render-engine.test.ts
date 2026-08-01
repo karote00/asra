@@ -35,6 +35,7 @@ interface MockTickerRecord {
 }
 
 interface MockGraphicsRecord {
+  context: { batchMode: 'auto' | 'batch' | 'no-batch' }
   drawOperations: { type: string; args: unknown[] }[]
   scale: { set: MockFunction }
   x: number
@@ -187,6 +188,9 @@ vi.mock('pixi.js', () => {
   }
 
   class MockGraphics extends MockContainer {
+    readonly context = {
+      batchMode: 'auto' as 'auto' | 'batch' | 'no-batch'
+    }
     readonly drawOperations: { type: string; args: unknown[] }[] = []
 
     constructor() {
@@ -213,6 +217,10 @@ vi.mock('pixi.js', () => {
 
     circle(...args: unknown[]) {
       return this.record('circle', ...args)
+    }
+
+    poly(...args: unknown[]) {
+      return this.record('poly', ...args)
     }
 
     moveTo(...args: unknown[]) {
@@ -567,6 +575,14 @@ describe('PixiRenderEngine', () => {
       operations: [
         { type: 'clear' },
         { type: 'rect', x: 1, y: 2, width: 20, height: 10 },
+        {
+          type: 'poly',
+          points: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 }
+          ],
+          close: true
+        },
         { type: 'move-to', x: 1, y: 2 },
         { type: 'line-to', x: 3, y: 4 },
         {
@@ -597,6 +613,7 @@ describe('PixiRenderEngine', () => {
     expect(graphic.drawOperations.map((item) => item.type)).toEqual([
       'clear',
       'rect',
+      'poly',
       'move-to',
       'line-to',
       'bezier-curve-to',
@@ -689,6 +706,30 @@ describe('PixiRenderEngine', () => {
       alpha: 0.5,
       width: 2
     })
+  })
+
+  it('maps the engine-neutral Graphics batching property to Pixi batch mode', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const graphics = await engine.execute({
+      type: 'create-object',
+      requestId: 'non-batched-graphics',
+      objectType: 'graphics',
+      properties: { batched: false }
+    })
+    if (!graphics.object) {
+      throw new Error('Expected Pixi graphics handle')
+    }
+
+    expect(pixiState.graphics[0].context.batchMode).toBe('no-batch')
+
+    await engine.execute({
+      type: 'update-object',
+      object: graphics.object,
+      properties: { batched: true }
+    })
+
+    expect(pixiState.graphics[0].context.batchMode).toBe('auto')
   })
 
   it('normalizes Pixi pointer events to opaque handles', async () => {

@@ -62,6 +62,12 @@ export type RenderEngineCircleOperation = Readonly<{
   radius: number
 }>
 
+export type RenderEnginePolyOperation = Readonly<{
+  type: 'poly'
+  points: readonly RenderEnginePoint[]
+  close: boolean
+}>
+
 export type RenderEngineMoveToOperation = Readonly<{
   type: 'move-to'
   x: number
@@ -99,6 +105,7 @@ export type RenderEngineDrawOperation =
   | RenderEngineRectOperation
   | RenderEngineEllipseOperation
   | RenderEngineCircleOperation
+  | RenderEnginePolyOperation
   | RenderEngineMoveToOperation
   | RenderEngineLineToOperation
   | RenderEngineBezierCurveToOperation

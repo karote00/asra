@@ -46,7 +46,16 @@ package-resolution path.
    without exposing Pixi objects.
 4. Pixi pointer events are normalized to `RenderEngineInteractionEvent` and
    returned with an opaque target handle.
-5. `destroy()` stops the frame loop, releases all owned objects/resources
+5. Framework frame scheduling uses one engine-owned standalone Pixi `Ticker`
+   for the engine lifetime. It never registers with or starts
+   `Application.ticker`, so Pixi auto-render cannot bypass Render's dirty gate.
+   A frame callback only returns its timestamp; only the explicit abstract
+   `flush` command invokes `Application.render()`.
+6. `requestFrame(...)` owns one one-shot scheduling slot. It consumes and
+   removes the active callback before invocation; `cancelFrame()` removes a
+   pending callback and stops the owned ticker without reallocating it between
+   demanded frames. `destroy()` then destroys the ticker, releases all owned
+   objects/resources
    (including engine-created mesh geometry while preserving shared textures),
    destroys the application, and returns deterministic cleanup counts.
 
@@ -66,4 +75,5 @@ surface output or a successful ready result.
   `PixiRenderEngine`;
 - package-boundary tests reject `@asyra/render` imports;
 - Pixi-specific tests cover lifecycle, commands, interactions, mesh/property
-  updates, resource translation, and deterministic cleanup.
+  updates, resource translation, application-ticker isolation, explicit
+  single-flush rendering, and deterministic cleanup.

@@ -298,7 +298,7 @@ describe('Preset Selection Subscriptions', () => {
       expect(renderPatch).toHaveBeenCalledOnce()
       expect(
         uiSet.mock.calls.filter(([property]) => property === 'elementDataMap')
-      ).toHaveLength(1)
+      ).toHaveLength(0)
       expect(uiContext.get('elementDataMap')).toEqual({
         'vector-1': {
           id: 'vector-1',
@@ -913,7 +913,6 @@ describe('Preset Selection Subscriptions', () => {
 
       expect(addBatch).toHaveBeenCalledTimes(2)
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap',
         'flattenedElementIds'
       ])
       expect(uiContext.get('flattenedElementIds')).toEqual([
@@ -970,9 +969,7 @@ describe('Preset Selection Subscriptions', () => {
         }
       ])
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap',
         'flattenedElementIds',
-        'elementDataMap',
         'flattenedElementIds'
       ])
       expect(getAllElements).not.toHaveBeenCalled()
@@ -1005,9 +1002,7 @@ describe('Preset Selection Subscriptions', () => {
         uiContext.get<Record<string, Record<string, unknown>>>(
           'elementDataMap'
         ) ?? {}
-      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap'
-      ])
+      expect(uiSet.mock.calls.map(([property]) => property)).toEqual([])
       expect(uiContext.get('flattenedElementIds')).toBe(beforePropertyHierarchy)
       expect(afterPropertyMap['group-1']).toBe(beforePropertyMap['group-1'])
       expect(afterPropertyMap['child-a']).toEqual({
@@ -1119,7 +1114,6 @@ describe('Preset Selection Subscriptions', () => {
         ) ?? {})['group-1']?.children
       ).toEqual(['child-b'])
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap',
         'flattenedElementIds'
       ])
       expect(getAllElements).not.toHaveBeenCalled()
@@ -1141,8 +1135,7 @@ describe('Preset Selection Subscriptions', () => {
       registerDataChannelObserver: (
         registration: TestDataChannelObserver & { name: string }
       ) => observers.set(registration.name, registration),
-      unregisterDataChannelObserver: (name: string) =>
-        observers.delete(name)
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
     } as unknown as PresetCoreAPIs
     const runtimeGlobal = globalThis as typeof globalThis & {
       __asyraDiagnosticCounterSink?: (name: string, value: number) => void
@@ -1171,32 +1164,29 @@ describe('Preset Selection Subscriptions', () => {
 
     try {
       uiSet.mockClear()
-      deliverObserverChanges(
-        observers.get('preset.uiContext.sceneTree'),
-        [
-          {
-            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-            data: {
-              children: [],
-              id: 'group-1',
-              parentId: 'workspace-1',
-              type: EntityTypes.GROUP
-            },
+      deliverObserverChanges(observers.get('preset.uiContext.sceneTree'), [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: {
+            children: [],
+            id: 'group-1',
             parentId: 'workspace-1',
-            index: 0
+            type: EntityTypes.GROUP
           },
-          ...children.map((elementId, index) => ({
-            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-            data: {
-              id: elementId,
-              parentId: 'group-1',
-              type: VECTOR_TYPE
-            },
+          parentId: 'workspace-1',
+          index: 0
+        },
+        ...children.map((elementId, index) => ({
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: {
+            id: elementId,
             parentId: 'group-1',
-            index
-          }))
-        ]
-      )
+            type: VECTOR_TYPE
+          },
+          parentId: 'group-1',
+          index
+        }))
+      ])
 
       expect(counters.get('ui-context-membership-add-batch')).toBe(1)
       expect(counters.get('ui-context-membership-add-batch-entry')).toBe(
@@ -1213,7 +1203,6 @@ describe('Preset Selection Subscriptions', () => {
         ...children
       ])
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap',
         'flattenedElementIds'
       ])
     } finally {
@@ -1225,6 +1214,79 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
+  it('projects additions without enumerating the existing UI element map', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const existingElement = {
+      id: 'existing',
+      parentId: 'workspace-1',
+      type: VECTOR_TYPE
+    }
+    let enumerationCount = 0
+    const existingMap = new Proxy(
+      { existing: existingElement },
+      {
+        ownKeys: (target) => {
+          enumerationCount += 1
+          return Reflect.ownKeys(target)
+        }
+      }
+    )
+
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+    uiContext.set('flattenedElementIds', ['existing'])
+    uiContext.set('elementDataMap', existingMap)
+    enumerationCount = 0
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { uiContext: true }
+    )
+
+    try {
+      deliverObserverChanges(observers.get('preset.uiContext.sceneTree'), [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+          data: {
+            id: 'added',
+            parentId: 'workspace-1',
+            type: VECTOR_TYPE
+          },
+          parentId: 'workspace-1',
+          index: 1
+        }
+      ])
+
+      const projected =
+        uiContext.get<Record<string, Record<string, unknown>>>(
+          'elementDataMap'
+        ) ?? {}
+      expect(enumerationCount).toBe(0)
+      expect(projected.existing).toBe(existingElement)
+      expect(projected.added).toEqual({
+        id: 'added',
+        parentId: 'workspace-1',
+        type: VECTOR_TYPE
+      })
+      expect(uiContext.get('flattenedElementIds')).toEqual([
+        'existing',
+        'added'
+      ])
+    } finally {
+      dispose()
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+    }
+  })
+
   it('projects one ordered plural Vector addition batch without scanning canonical state', () => {
     const observers = new Map<string, TestDataChannelObserver>()
     const core = {
@@ -1232,8 +1294,7 @@ describe('Preset Selection Subscriptions', () => {
       registerDataChannelObserver: (
         registration: TestDataChannelObserver & { name: string }
       ) => observers.set(registration.name, registration),
-      unregisterDataChannelObserver: (name: string) =>
-        observers.delete(name)
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
     } as unknown as PresetCoreAPIs
     const dependencies = createDeps()
     const getAllElements = vi.fn(() => {
@@ -1256,10 +1317,7 @@ describe('Preset Selection Subscriptions', () => {
     }
     const vectorCount = 128
     const vectors = Array.from({ length: vectorCount }, (_unused, index) => ({
-      componentIds: [
-        `vector-geometry-${index}`,
-        `vector-appearance-${index}`
-      ],
+      componentIds: [`vector-geometry-${index}`, `vector-appearance-${index}`],
       id: `vector-${index}`,
       name: `Vector ${index}`,
       parentId: 'group-1',
@@ -1282,22 +1340,19 @@ describe('Preset Selection Subscriptions', () => {
 
     try {
       uiSet.mockClear()
-      deliverObserverChanges(
-        observers.get('preset.uiContext.sceneTree'),
-        [
-          {
-            action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
-            eventName: EventTypes.ADD_ELEMENTS,
-            undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
-            undoType: EventTypes.REMOVE_ELEMENTS,
-            entries: vectors.map((data, index) => ({
-              data,
-              parentId: 'group-1',
-              index
-            }))
-          }
-        ]
-      )
+      deliverObserverChanges(observers.get('preset.uiContext.sceneTree'), [
+        {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          eventName: EventTypes.ADD_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          undoType: EventTypes.REMOVE_ELEMENTS,
+          entries: vectors.map((data, index) => ({
+            data,
+            parentId: 'group-1',
+            index
+          }))
+        }
+      ])
 
       const projectedMap =
         uiContext.get<Record<string, Record<string, unknown>>>(
@@ -1319,7 +1374,6 @@ describe('Preset Selection Subscriptions', () => {
       )
       expect(counters.get('ui-context-membership-add-scalar') ?? 0).toBe(0)
       expect(uiSet.mock.calls.map(([property]) => property)).toEqual([
-        'elementDataMap',
         'flattenedElementIds'
       ])
       expect(getAllElements).not.toHaveBeenCalled()

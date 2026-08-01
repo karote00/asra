@@ -451,8 +451,16 @@ export class PixiRenderEngine implements RenderEngine {
       object.cursor = properties.cursor as typeof object.cursor
     }
     if (typeof properties.batched === 'boolean') {
-      ;(object as PixiObject & { batched?: boolean }).batched =
-        properties.batched
+      if (object instanceof Graphics) {
+        const batchMode = properties.batched ? 'auto' : 'no-batch'
+        if (object.context.batchMode !== batchMode) {
+          object.context.batchMode = batchMode
+          object.context.dirty = true
+        }
+      } else {
+        ;(object as PixiObject & { batched?: boolean }).batched =
+          properties.batched
+      }
     }
 
     const width = toFiniteNumber(properties.width)
@@ -513,6 +521,12 @@ export class PixiRenderEngine implements RenderEngine {
         break
       case 'circle':
         graphics.circle(operation.x, operation.y, operation.radius)
+        break
+      case 'poly':
+        graphics.poly(
+          operation.points as { x: number; y: number }[],
+          operation.close
+        )
         break
       case 'move-to':
         graphics.moveTo(operation.x, operation.y)

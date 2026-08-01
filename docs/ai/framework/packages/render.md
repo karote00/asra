@@ -68,6 +68,22 @@ drawing; Render adds no inferred mapping or fallback geometry.
 
 - consume scene/system state
 - update visual layers based on state deltas
+- `start()` performs the initial dirty flush, then Render remains idle until
+  `requestRender()` receives a state invalidation; there is no permanent
+  framework frame loop
+- repeated invalidations before the next frame coalesce into one scheduled
+  engine callback and at most one explicit engine `flush`; the callback is
+  consumed once, while a direct `flushFrame()` cancels the redundant pending
+  callback
+- an invalidation raised while a layer is being evaluated belongs to that
+  current frame; one raised later during the same flush schedules the next
+  frame. `stop()` and teardown cancel any pending frame
+- a failed frame reports the failure and retains dirty state for an explicit
+  later invalidation, but it never schedules an automatic failure loop
+- a settled document performs no layer evaluation or engine flush. Local
+  computed changes and Core-managed system-property updates request ordinary
+  Render invalidation, so viewport navigation, overlays, and future local
+  animation keep using the same demand-driven route
 - `prepareEvenOddShape(...)` owns the engine-neutral line/cubic preparation and
   intersection semantics shared by even-odd rasterization and downstream
   strategy hit testing; consumers may cache the prepared shape but must not

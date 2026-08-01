@@ -757,24 +757,50 @@ describe('RenderSceneTree computed data mirror', () => {
         elementId: 'group-1'
       })
       parentRaw.children = [...childIds]
-      expect(
-        store.addElements(
-          childIds.map((elementId, index) => ({
-            data: {
-              id: elementId,
-              type: 'rectangle',
+      const ownKeys = vi.spyOn(Reflect, 'ownKeys')
+      let ownKeyEnumerationCount = 0
+      try {
+        expect(
+          store.addElements(
+            childIds.slice(0, 2).map((elementId, index) => ({
+              data: {
+                id: elementId,
+                type: 'rectangle',
+                parentId: 'group-1'
+              },
+              index,
               parentId: 'group-1'
-            },
-            index,
-            parentId: 'group-1'
+            }))
+          )
+        ).toEqual(
+          childIds.slice(0, 2).map((elementId) => ({
+            status: 'applied',
+            elementId
           }))
         )
-      ).toEqual(
-        childIds.map((elementId) => ({
-          status: 'applied',
-          elementId
-        }))
-      )
+        expect(
+          store.addElements([
+            {
+              data: {
+                id: childIds[2],
+                type: 'rectangle',
+                parentId: 'group-1'
+              },
+              index: 2,
+              parentId: 'group-1'
+            }
+          ])
+        ).toEqual([
+          {
+            status: 'applied',
+            elementId: childIds[2]
+          }
+        ])
+        ownKeyEnumerationCount = ownKeys.mock.calls.length
+      } finally {
+        ownKeys.mockRestore()
+      }
+      expect(ownKeyEnumerationCount).toBe(0)
       await flushScheduledFrame()
     } finally {
       runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
@@ -791,20 +817,12 @@ describe('RenderSceneTree computed data mirror', () => {
       ['child-b', 1],
       ['child-c', 2]
     ])
-    expect(counters.get('computed-mirror-staged-change-count') ?? 0).toBe(1)
+    expect(counters.get('computed-mirror-staged-change-count') ?? 0).toBe(2)
     expect(counters.get('computed-mirror-projection-mismatch') ?? 0).toBe(0)
     expect(counters.get('computed-mirror-seed-resync') ?? 0).toBe(0)
-    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'group-1',
-      'computed',
-      undefined,
-      undefined,
-      expect.objectContaining({
-        id: 'group-1',
-        children: childIds
-      })
-    )
+    expect(counters.get('computed-mirror-child-add-batch-apply') ?? 0).toBe(2)
+    expect(counters.get('computed-mirror-child-id-cache-hit') ?? 0).toBe(1)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 
   it('projects exact addition and removal batches without reading future raw snapshots', async () => {
@@ -822,11 +840,7 @@ describe('RenderSceneTree computed data mirror', () => {
       visible: true
     }
     const group = createElement('group-1', groupRaw, {})
-    const child = createElement(
-      'child-a',
-      childRaw,
-      { height: 10, width: 10 }
-    )
+    const child = createElement('child-a', childRaw, { height: 10, width: 10 })
     const elements = new Map([
       ['group-1', group],
       ['child-a', child]
@@ -858,17 +872,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(group.save).not.toHaveBeenCalled()
     expect(child.save).not.toHaveBeenCalled()
-    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
-    expect(renderMock.updateElement).toHaveBeenLastCalledWith(
-      'group-1',
-      'computed',
-      undefined,
-      undefined,
-      expect.objectContaining({
-        id: 'group-1',
-        children: ['child-a']
-      })
-    )
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
 
     renderMock.updateElement.mockClear()
     group.save.mockClear()
@@ -939,11 +943,7 @@ describe('RenderSceneTree computed data mirror', () => {
       visible: true
     }
     const group = createElement('group-1', groupRaw, {})
-    const child = createElement(
-      'child-a',
-      childRaw,
-      { height: 10, width: 10 }
-    )
+    const child = createElement('child-a', childRaw, { height: 10, width: 10 })
     sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
       new Map([
         ['group-1', group],

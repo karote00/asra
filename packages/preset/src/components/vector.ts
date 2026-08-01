@@ -309,21 +309,6 @@ const isNormalizedVectorNetworkMap = (
   })
 }
 
-const toLocalPointNodeMap = (
-  points: Record<string, VectorPointNode>,
-  offset: { x: number; y: number }
-): Record<string, VectorPointNode> =>
-  Object.fromEntries(
-    Object.entries(points).map(([pointId, point]) => [
-      pointId,
-      {
-        ...point,
-        x: point.x - offset.x,
-        y: point.y - offset.y
-      }
-    ])
-  )
-
 const getGroupAncestorOffset = (
   graphic: Parameters<EngineNeutralRenderStrategy>[0]
 ): PositionData => {
@@ -384,14 +369,18 @@ const isNormalizedVectorRenderDataInput = (
   }
 
   const points = data.points
+  const segments = data.segments
+  const networks = data.networks
+  if (data.pointCoordinateSpace === 'workspace') {
+    return isRecord(points) && isRecord(segments) && isRecord(networks)
+  }
   if (!isNormalizedVectorPointNodeMap(points)) {
     return false
   }
-  const segments = data.segments
   if (!isNormalizedVectorSegmentMap(segments, points)) {
     return false
   }
-  return isNormalizedVectorNetworkMap(data.networks, points, segments)
+  return isNormalizedVectorNetworkMap(networks, points, segments)
 }
 
 const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
@@ -451,6 +440,8 @@ interface EvenOddFillCache {
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
+  pointOffsetX?: number
+  pointOffsetY?: number
 }
 
 const getAnchorNode = (
@@ -797,7 +788,8 @@ const buildFlattenedSegmentsWithCache = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
   segments: Record<string, VectorSegment>,
-  cache?: Pick<FillFaceCache, 'segmentKeyMap' | 'segmentLinesMap'>
+  cache: Pick<FillFaceCache, 'segmentKeyMap' | 'segmentLinesMap'> | undefined,
+  pointOffset: PositionData
 ) => {
   const prevKeyMap = cache?.segmentKeyMap ?? {}
   const prevLinesMap = cache?.segmentLinesMap ?? {}
@@ -820,12 +812,26 @@ const buildFlattenedSegmentsWithCache = (
 
       const outControl = getControlNode(points, segment.outControlId)
       const inControl = getControlNode(points, segment.inControlId)
-      const startPos = { x: start.x, y: start.y }
-      const endPos = { x: end.x, y: end.y }
+      const startPos = {
+        x: start.x - pointOffset.x,
+        y: start.y - pointOffset.y
+      }
+      const endPos = {
+        x: end.x - pointOffset.x,
+        y: end.y - pointOffset.y
+      }
       const outControlPos = outControl
-        ? { x: outControl.x, y: outControl.y }
+        ? {
+            x: outControl.x - pointOffset.x,
+            y: outControl.y - pointOffset.y
+          }
         : null
-      const inControlPos = inControl ? { x: inControl.x, y: inControl.y } : null
+      const inControlPos = inControl
+        ? {
+            x: inControl.x - pointOffset.x,
+            y: inControl.y - pointOffset.y
+          }
+        : null
       const key = buildSegmentKey(startPos, endPos, outControlPos, inControlPos)
 
       let lines = prevLinesMap[segmentId]
@@ -864,12 +870,7 @@ const buildFlattenedSegmentsWithCache = (
     })
   })
 
-  const directedSegments: DirectedSegment[] = flattenedSegments.map(
-    (segment) => ({
-      start: segment.start,
-      end: segment.end
-    })
-  )
+  const directedSegments: DirectedSegment[] = flattenedSegments
 
   return {
     flattenedSegments,
@@ -1068,7 +1069,8 @@ const buildFillFaces = (
 const buildEvenOddShape = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  segments: Record<string, VectorSegment>,
+  pointOffset: PositionData
 ): EvenOddShape => {
   const shape: EvenOddShape = { paths: [] }
   orderedNetworks.forEach((network) => {
@@ -1091,20 +1093,25 @@ const buildEvenOddShape = (
       if (!outControl && !inControl) {
         segmentsList.push({
           type: 'line',
-          points: [start.x, start.y, end.x, end.y]
+          points: [
+            start.x - pointOffset.x,
+            start.y - pointOffset.y,
+            end.x - pointOffset.x,
+            end.y - pointOffset.y
+          ]
         })
       } else {
         segmentsList.push({
           type: 'cubicBezier',
           points: [
-            start.x,
-            start.y,
-            outControl?.x ?? start.x,
-            outControl?.y ?? start.y,
-            inControl?.x ?? end.x,
-            inControl?.y ?? end.y,
-            end.x,
-            end.y
+            start.x - pointOffset.x,
+            start.y - pointOffset.y,
+            (outControl?.x ?? start.x) - pointOffset.x,
+            (outControl?.y ?? start.y) - pointOffset.y,
+            (inControl?.x ?? end.x) - pointOffset.x,
+            (inControl?.y ?? end.y) - pointOffset.y,
+            end.x - pointOffset.x,
+            end.y - pointOffset.y
           ]
         })
       }
@@ -1122,14 +1129,45 @@ const drawVectorNetworkPath = (
   graphic: Parameters<EngineNeutralRenderStrategy>[0],
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  segments: Record<string, VectorSegment>,
+  pointOffset: PositionData
 ) => {
   const first = getAnchorNode(points, network.pointIds[0])
   if (!first) {
     return
   }
 
-  graphic.moveTo(first.x, first.y)
+  const linearPoints = [
+    { x: first.x - pointOffset.x, y: first.y - pointOffset.y }
+  ]
+  let isLinear = true
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+    const start = getAnchorNode(points, segment.startId)
+    const end = getAnchorNode(points, segment.endId)
+    if (!start || !end) {
+      return
+    }
+    const outControl = getControlNode(points, segment.outControlId)
+    const inControl = getControlNode(points, segment.inControlId)
+    if (outControl || inControl) {
+      isLinear = false
+      return
+    }
+    linearPoints.push({
+      x: end.x - pointOffset.x,
+      y: end.y - pointOffset.y
+    })
+  })
+  if (isLinear && linearPoints.length > 1) {
+    graphic.poly(linearPoints, network.closed)
+    return
+  }
+
+  graphic.moveTo(first.x - pointOffset.x, first.y - pointOffset.y)
 
   network.segmentIds.forEach((segmentId) => {
     const segment = segments[segmentId]
@@ -1147,17 +1185,17 @@ const drawVectorNetworkPath = (
     const inControl = getControlNode(points, segment.inControlId)
 
     if (!outControl && !inControl) {
-      graphic.lineTo(end.x, end.y)
+      graphic.lineTo(end.x - pointOffset.x, end.y - pointOffset.y)
       return
     }
 
     graphic.bezierCurveTo(
-      outControl?.x ?? start.x,
-      outControl?.y ?? start.y,
-      inControl?.x ?? end.x,
-      inControl?.y ?? end.y,
-      end.x,
-      end.y
+      (outControl?.x ?? start.x) - pointOffset.x,
+      (outControl?.y ?? start.y) - pointOffset.y,
+      (inControl?.x ?? end.x) - pointOffset.x,
+      (inControl?.y ?? end.y) - pointOffset.y,
+      end.x - pointOffset.x,
+      end.y - pointOffset.y
     )
   })
 
@@ -1170,10 +1208,11 @@ const drawVectorPath = (
   graphic: Parameters<EngineNeutralRenderStrategy>[0],
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  segments: Record<string, VectorSegment>,
+  pointOffset: PositionData
 ) => {
   orderedNetworks.forEach((network) =>
-    drawVectorNetworkPath(graphic, network, points, segments)
+    drawVectorNetworkPath(graphic, network, points, segments, pointOffset)
   )
 }
 
@@ -1227,6 +1266,8 @@ interface VectorFillHitCache {
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
+  pointOffsetX: number
+  pointOffsetY: number
   hasVisibleFill: boolean
   hitArea: { contains: (x: number, y: number) => boolean }
 }
@@ -1267,10 +1308,11 @@ const renderVectorGraphic = (
     networks
   } = renderData
   const ancestorOffset = getGroupAncestorOffset(graphic)
-  const points = toLocalPointNodeMap(workspacePoints, {
+  const pointOffset = {
     x: x + ancestorOffset.x,
     y: y + ancestorOffset.y
-  })
+  }
+  const points = workspacePoints
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
 
   graphic.x = x
@@ -1291,7 +1333,12 @@ const renderVectorGraphic = (
     orderedNetworks.some(
       (network) => network.closed && network.pointIds.length > 2
     )
-  const shape = buildEvenOddShape(orderedNetworks, points, segments)
+  const shape = buildEvenOddShape(
+    orderedNetworks,
+    points,
+    segments,
+    pointOffset
+  )
 
   if (hasRenderableFill) {
     const preparedFillShape = prepareEvenOddShape(shape)
@@ -1300,6 +1347,8 @@ const renderVectorGraphic = (
       hitCache?.points === points &&
       hitCache.segments === segments &&
       hitCache.networks === networks &&
+      hitCache.pointOffsetX === pointOffset.x &&
+      hitCache.pointOffsetY === pointOffset.y &&
       hitCache.hasVisibleFill === true
     const hitArea = reuseHitArea
       ? hitCache.hitArea
@@ -1315,6 +1364,8 @@ const renderVectorGraphic = (
       points,
       segments,
       networks,
+      pointOffsetX: pointOffset.x,
+      pointOffsetY: pointOffset.y,
       hasVisibleFill: true,
       hitArea
     }
@@ -1329,7 +1380,7 @@ const renderVectorGraphic = (
       cache.__asyraEvenOddFillCache = undefined
     }
     applyBaseVectorStroke(graphic, renderData.strokes ?? [], () =>
-      drawVectorPath(graphic, orderedNetworks, points, segments)
+      drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
     )
     return
   }
@@ -1345,7 +1396,9 @@ const renderVectorGraphic = (
       evenOddCache.fillPayload === fillPayload &&
       evenOddCache.points === points &&
       evenOddCache.segments === segments &&
-      evenOddCache.networks === networks
+      evenOddCache.networks === networks &&
+      evenOddCache.pointOffsetX === pointOffset.x &&
+      evenOddCache.pointOffsetY === pointOffset.y
 
     if (!reuseEvenOddFill) {
       evenOddCache.fill?.dispose()
@@ -1363,6 +1416,8 @@ const renderVectorGraphic = (
       evenOddCache.points = points
       evenOddCache.segments = segments
       evenOddCache.networks = networks
+      evenOddCache.pointOffsetX = pointOffset.x
+      evenOddCache.pointOffsetY = pointOffset.y
     }
     cache.__asyraEvenOddFillCache = evenOddCache
 
@@ -1377,43 +1432,59 @@ const renderVectorGraphic = (
   } else {
     cache.__asyraEvenOddFillCache?.fill?.dispose()
     cache.__asyraEvenOddFillCache = undefined
-    const fillCache = cache.__asyraVectorFillCache ?? { faces: [] }
-    const {
-      flattenedSegments,
-      directedSegments,
-      segmentKeyMap,
-      segmentLinesMap
-    } = buildFlattenedSegmentsWithCache(
-      orderedNetworks,
-      points,
-      segments,
-      fillCache
-    )
-    const fillFaces = buildFillFaces(flattenedSegments, directedSegments)
-    fillCache.faces = fillFaces
-    fillCache.segmentKeyMap = segmentKeyMap
-    fillCache.segmentLinesMap = segmentLinesMap
-    cache.__asyraVectorFillCache = fillCache
-
-    if (fillFaces.length > 0) {
-      drawFillFaces(graphic, fillFaces)
+    if (renderData.fillRule === 'nonzero' && hasClosedNetwork) {
+      cache.__asyraVectorFillCache = undefined
+      drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
       applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
-        replayPath: () => drawFillFaces(graphic, fillFaces)
+        replayPath: () =>
+          drawVectorPath(
+            graphic,
+            orderedNetworks,
+            points,
+            segments,
+            pointOffset
+          )
       })
-    } else if (hasClosedNetwork) {
-      previewFill = true
+    } else {
+      const fillCache = cache.__asyraVectorFillCache ?? { faces: [] }
+      const {
+        flattenedSegments,
+        directedSegments,
+        segmentKeyMap,
+        segmentLinesMap
+      } = buildFlattenedSegmentsWithCache(
+        orderedNetworks,
+        points,
+        segments,
+        fillCache,
+        pointOffset
+      )
+      const fillFaces = buildFillFaces(flattenedSegments, directedSegments)
+      fillCache.faces = fillFaces
+      fillCache.segmentKeyMap = segmentKeyMap
+      fillCache.segmentLinesMap = segmentLinesMap
+      cache.__asyraVectorFillCache = fillCache
+
+      if (fillFaces.length > 0) {
+        drawFillFaces(graphic, fillFaces)
+        applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
+          replayPath: () => drawFillFaces(graphic, fillFaces)
+        })
+      } else if (hasClosedNetwork) {
+        previewFill = true
+      }
     }
   }
 
   if (previewFill) {
     applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
       replayPath: () =>
-        drawVectorPath(graphic, orderedNetworks, points, segments)
+        drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
     })
   }
 
   applyBaseVectorStroke(graphic, renderData.strokes ?? [], () =>
-    drawVectorPath(graphic, orderedNetworks, points, segments)
+    drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
   )
 }
 

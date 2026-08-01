@@ -561,6 +561,216 @@ const syncElementDataMap = (deps: PresetDependencies): void => {
 type ProjectedElementData = Record<string, unknown>
 type ProjectedElementDataMap = Record<string, ProjectedElementData>
 
+const PROJECTED_ELEMENT_MAP_BUCKET_COUNT = 256
+const PROJECTED_ELEMENT_DELETED = Symbol('projected-element-deleted')
+
+type ProjectedElementBucketValue =
+  | ProjectedElementData
+  | typeof PROJECTED_ELEMENT_DELETED
+
+interface ProjectedElementDataMapBacking {
+  readonly base: ProjectedElementDataMap
+  readonly buckets: readonly (
+    | ReadonlyMap<string, ProjectedElementBucketValue>
+    | undefined
+  )[]
+  readonly orderedKeys: readonly string[]
+}
+
+interface ProjectedElementDataMapMutation {
+  readonly value: ProjectedElementDataMap
+  commit(orderedKeys: readonly string[]): ProjectedElementDataMap
+}
+
+const projectedElementDataMapBackingByView = new WeakMap<
+  ProjectedElementDataMap,
+  ProjectedElementDataMapBacking
+>()
+
+const getProjectedElementBucketIndex = (elementId: string): number => {
+  let hash = 0
+  for (let index = 0; index < elementId.length; index += 1) {
+    hash = (hash * 31 + elementId.charCodeAt(index)) >>> 0
+  }
+  return hash % PROJECTED_ELEMENT_MAP_BUCKET_COUNT
+}
+
+const getProjectedElementFromBacking = (
+  backing: ProjectedElementDataMapBacking,
+  elementId: string
+): ProjectedElementData | undefined => {
+  const bucket = backing.buckets[getProjectedElementBucketIndex(elementId)]
+  if (bucket?.has(elementId)) {
+    const value = bucket.get(elementId)
+    return value === PROJECTED_ELEMENT_DELETED ? undefined : value
+  }
+  return backing.base[elementId]
+}
+
+const listProjectedElementBackingKeys = (
+  backing: ProjectedElementDataMapBacking,
+  staged?: ReadonlyMap<string, ProjectedElementBucketValue>
+): string[] => {
+  const keys = new Set<string>()
+  backing.orderedKeys.forEach((elementId) => {
+    if (getProjectedElementFromBacking(backing, elementId) !== undefined) {
+      keys.add(elementId)
+    }
+  })
+  Object.keys(backing.base).forEach((elementId) => {
+    if (getProjectedElementFromBacking(backing, elementId) !== undefined) {
+      keys.add(elementId)
+    }
+  })
+  backing.buckets.forEach((bucket) => {
+    bucket?.forEach((value, elementId) => {
+      if (value === PROJECTED_ELEMENT_DELETED) {
+        keys.delete(elementId)
+      } else {
+        keys.add(elementId)
+      }
+    })
+  })
+  staged?.forEach((value, elementId) => {
+    if (value === PROJECTED_ELEMENT_DELETED) {
+      keys.delete(elementId)
+    } else {
+      keys.add(elementId)
+    }
+  })
+  return [...keys]
+}
+
+const createProjectedElementDataMapView = (
+  backing: ProjectedElementDataMapBacking
+): ProjectedElementDataMap => {
+  const target: ProjectedElementDataMap = {}
+  const view = new Proxy(target, {
+    get: (_target, property, receiver) => {
+      if (typeof property === 'string') {
+        const value = getProjectedElementFromBacking(backing, property)
+        if (value !== undefined) {
+          return value
+        }
+      }
+      return Reflect.get(target, property, receiver)
+    },
+    has: (_target, property) =>
+      typeof property === 'string'
+        ? getProjectedElementFromBacking(backing, property) !== undefined
+        : Reflect.has(target, property),
+    ownKeys: () => listProjectedElementBackingKeys(backing),
+    getOwnPropertyDescriptor: (_target, property) => {
+      if (typeof property !== 'string') {
+        return Reflect.getOwnPropertyDescriptor(target, property)
+      }
+      const value = getProjectedElementFromBacking(backing, property)
+      return value === undefined
+        ? undefined
+        : {
+            configurable: true,
+            enumerable: true,
+            value,
+            writable: false
+          }
+    },
+    set: () => false,
+    deleteProperty: () => false
+  })
+  projectedElementDataMapBackingByView.set(view, backing)
+  return view
+}
+
+const createProjectedElementDataMapMutation = (
+  current: ProjectedElementDataMap,
+  currentOrderedKeys: readonly string[]
+): ProjectedElementDataMapMutation => {
+  const backing = projectedElementDataMapBackingByView.get(current) ?? {
+    base: current,
+    buckets: new Array(PROJECTED_ELEMENT_MAP_BUCKET_COUNT),
+    orderedKeys: currentOrderedKeys
+  }
+  const staged = new Map<string, ProjectedElementBucketValue>()
+  const read = (elementId: string): ProjectedElementData | undefined => {
+    if (staged.has(elementId)) {
+      const value = staged.get(elementId)
+      return value === PROJECTED_ELEMENT_DELETED ? undefined : value
+    }
+    return getProjectedElementFromBacking(backing, elementId)
+  }
+  const target: ProjectedElementDataMap = {}
+  const value = new Proxy(target, {
+    get: (_target, property, receiver) => {
+      if (typeof property === 'string') {
+        const projected = read(property)
+        if (projected !== undefined) {
+          return projected
+        }
+      }
+      return Reflect.get(target, property, receiver)
+    },
+    set: (_target, property, nextValue) => {
+      if (typeof property !== 'string') {
+        return false
+      }
+      staged.set(property, nextValue as ProjectedElementData)
+      return true
+    },
+    deleteProperty: (_target, property) => {
+      if (typeof property !== 'string') {
+        return false
+      }
+      staged.set(property, PROJECTED_ELEMENT_DELETED)
+      return true
+    },
+    has: (_target, property) =>
+      typeof property === 'string'
+        ? read(property) !== undefined
+        : Reflect.has(target, property),
+    ownKeys: () => listProjectedElementBackingKeys(backing, staged),
+    getOwnPropertyDescriptor: (_target, property) => {
+      if (typeof property !== 'string') {
+        return Reflect.getOwnPropertyDescriptor(target, property)
+      }
+      const projected = read(property)
+      return projected === undefined
+        ? undefined
+        : {
+            configurable: true,
+            enumerable: true,
+            value: projected,
+            writable: true
+          }
+    }
+  })
+
+  return {
+    value,
+    commit: (orderedKeys) => {
+      const buckets = [...backing.buckets]
+      const mutableBuckets = new Map<
+        number,
+        Map<string, ProjectedElementBucketValue>
+      >()
+      staged.forEach((stagedValue, elementId) => {
+        const bucketIndex = getProjectedElementBucketIndex(elementId)
+        let bucket = mutableBuckets.get(bucketIndex)
+        if (!bucket) {
+          bucket = new Map(buckets[bucketIndex])
+          mutableBuckets.set(bucketIndex, bucket)
+          buckets[bucketIndex] = bucket
+        }
+        bucket.set(elementId, stagedValue)
+      })
+      return createProjectedElementDataMapView({
+        base: backing.base,
+        buckets,
+        orderedKeys
+      })
+    }
+  }
+}
+
 const cloneProjectedElementData = (
   value: unknown
 ): ProjectedElementData | null => {
@@ -624,19 +834,19 @@ const projectUIContextSceneTreeBatch = (
     )
     const current =
       uiContext.get<ProjectedElementDataMap>('elementDataMap') ?? {}
-    const currentFlattenedIds = updatesHierarchy
-      ? (uiContext.get<string[]>('flattenedElementIds') ?? [])
-      : []
-    let next = current
+    const currentFlattenedIds =
+      uiContext.get<string[]>('flattenedElementIds') ?? []
+    const mutation = createProjectedElementDataMapMutation(
+      current,
+      currentFlattenedIds
+    )
+    const next = mutation.value
     let mapChanged = false
     const childrenByParent = new Map<string, string[]>()
     const dirtyParentIds = new Set<string>()
     const changedElementIds = new Set<string>()
 
     const ensureMutableMap = (): ProjectedElementDataMap => {
-      if (next === current) {
-        next = { ...current }
-      }
       mapChanged = true
       return next
     }
@@ -1050,19 +1260,12 @@ const projectUIContextSceneTreeBatch = (
       changedElementIds.add(parentId)
     })
 
-    if (mapChanged) {
-      emitDiagnosticCounter(
-        'ui-context-sync-element-data-map-entry',
-        changedElementIds.size
-      )
-      uiContext.set('elementDataMap', next)
-    }
-
+    let nextFlattenedIds = currentFlattenedIds
     if (updatesHierarchy) {
       const currentFlattenedIdSet = new Set(currentFlattenedIds)
       const orderedCandidates = [
         ...currentFlattenedIds,
-        ...Object.keys(next).filter(
+        ...[...changedElementIds].filter(
           (elementId) => !currentFlattenedIdSet.has(elementId)
         )
       ]
@@ -1092,7 +1295,26 @@ const projectUIContextSceneTreeBatch = (
       })
 
       emitDiagnosticCounter('ui-context-sync-flattened-ids')
-      uiContext.set('flattenedElementIds', flattenedElementIds)
+      nextFlattenedIds = flattenedElementIds
+    }
+
+    if (mapChanged) {
+      emitDiagnosticCounter(
+        'ui-context-sync-element-data-map-entry',
+        changedElementIds.size
+      )
+      const subject =
+        uiContext.getSubject<ProjectedElementDataMap>('elementDataMap')
+      const projected = mutation.commit(nextFlattenedIds)
+      if (subject) {
+        subject.next(projected)
+      } else {
+        uiContext.set('elementDataMap', projected)
+      }
+    }
+
+    if (updatesHierarchy) {
+      uiContext.set('flattenedElementIds', nextFlattenedIds)
     }
   })
 }
