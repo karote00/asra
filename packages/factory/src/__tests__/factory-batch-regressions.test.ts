@@ -823,12 +823,20 @@ describe('Factory batch regression contracts', () => {
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
     )
-    const geometry = Object.freeze({
-      points: Object.freeze([
-        Object.freeze({ x: 1, y: 2 }),
-        Object.freeze({ x: 3, y: 4 })
-      ])
-    })
+    const points = Object.freeze([
+      Object.freeze({ x: 1, y: 2 }),
+      Object.freeze({ x: 3, y: 4 })
+    ])
+    let nestedGeometryReads = 0
+    const geometry = Object.freeze(
+      Object.defineProperty({}, 'points', {
+        enumerable: true,
+        get: () => {
+          nestedGeometryReads += 1
+          return points
+        }
+      })
+    ) as { readonly points: typeof points }
     const event = Object.freeze({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
       eventName: EventTypes.UPDATE_PROPERTY,
@@ -858,6 +866,8 @@ describe('Factory batch regression contracts', () => {
       | { readonly geometry?: typeof geometry }
       | undefined
     expect(deliveredPayload?.geometry).toBe(geometry)
+    expect(factory.getUndoHistoryDepth()).toBe(1)
+    expect(nestedGeometryReads).toBe(0)
   })
 
   it('isolates a shallow-frozen external batch before the journal handoff', () => {

@@ -44,6 +44,26 @@ export const cloneValue = <T>(
 
 const deeplyFrozenValues = new WeakSet<object>()
 
+export const adoptDeeplyFrozenValue = <T>(value: T): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+  if (!Object.isFrozen(value)) {
+    throw new Error('Factory can only adopt an already-frozen owner value')
+  }
+  deeplyFrozenValues.add(value as object)
+  return value
+}
+
+export const freezeTrustedValue = <T>(value: T): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+  Object.freeze(value)
+  deeplyFrozenValues.add(value as object)
+  return value
+}
+
 export const isDeeplyFrozenValue = (value: unknown): boolean =>
   value === null ||
   typeof value !== 'object' ||

@@ -49,6 +49,7 @@ interface TransactionJournalEntry {
   orderedIds: readonly string[]
   options: EffectiveMutationOptions
   source: 'action' | 'replay'
+  trustedOwnerValues: boolean
   inverseEvents?: readonly AllEvent[]
   shared?: JournalSharedChange
 }
@@ -125,6 +126,7 @@ import {
   acknowledgeTransactionReplayApplied,
   EventTypes,
   endTransaction,
+  isDetachedTransactionValue,
   isTransactionReplayApplied,
   publishEvent,
   publishEventToObservers,
@@ -163,9 +165,11 @@ import {
   type FactoryStagedDeliveryController
 } from './mutation-batch'
 import {
+  adoptDeeplyFrozenValue,
   cloneAndDeepFreezeValue,
   cloneValue,
   deepFreezeValue,
+  freezeTrustedValue,
   isDeeplyFrozenValue
 } from './value-clone'
 
@@ -253,6 +257,59 @@ const toSharedChannelPayload = (
       ...payloadOptions
     }
   } as TransactionPayload
+}
+
+const freezeTrustedTransactionPayload = (
+  payload: TransactionPayload
+): TransactionPayload => {
+  if (payload.options) {
+    freezeTrustedValue(payload.options)
+  }
+  return freezeTrustedValue(payload)
+}
+
+const freezeSharedChannelPayload = (
+  payload: TransactionPayload,
+  options: UpdateTransactionEvent['options'],
+  trustedOwnerValues: boolean
+): TransactionPayload => {
+  const sharedPayload = toSharedChannelPayload(payload, options)
+  return trustedOwnerValues
+    ? freezeTrustedTransactionPayload(sharedPayload)
+    : deepFreezeValue(sharedPayload)
+}
+
+const freezeReplayEvents = (
+  events: AllEvent[],
+  trustedOwnerValues: boolean
+): readonly AllEvent[] => {
+  if (!trustedOwnerValues) {
+    return deepFreezeValue(events)
+  }
+
+  events.forEach((event) => {
+    const payload = (event as AllEvent & { payload?: unknown }).payload
+    if (payload && typeof payload === 'object') {
+      ;(['changes', 'moves'] as const).forEach((key) => {
+        if (!(key in payload)) return
+        const values = (payload as Record<string, unknown>)[key]
+        if (!Array.isArray(values)) return
+        values.forEach((value) => {
+          if (value && typeof value === 'object') {
+            freezeTrustedValue(value)
+          }
+        })
+        freezeTrustedValue(values)
+      })
+      const options = (payload as { options?: unknown }).options
+      if (options && typeof options === 'object') {
+        freezeTrustedValue(options)
+      }
+      freezeTrustedValue(payload)
+    }
+    freezeTrustedValue(event)
+  })
+  return freezeTrustedValue(events)
 }
 
 const cloneEvent = (event: AllEvent): AllEvent => cloneValue(event)
@@ -545,6 +602,7 @@ class DataTransact {
 
     const deliveryHandle = this.activeDeliveryHandle ?? null
     const journalStart = this.journal.length
+    const trustedOwnerValues = isDetachedTransactionValue(events)
     let batchAccepted = false
     try {
       const ownerHandoff = measureBrowserDragPhase(
@@ -591,7 +649,7 @@ class DataTransact {
         )
       }
       const recordedEntries = detachedEvents.map((event) =>
-        this.recordJournalEntry(event)
+        this.recordJournalEntry(event, trustedOwnerValues)
       )
       batchAccepted = true
       if (
@@ -633,8 +691,16 @@ class DataTransact {
 
   private validateEventDeliveryEvidence(
     evidence: TransactionCanonicalEvidence,
-    eventIndex: number
+    eventIndex: number,
+    trustedOwnerValues: boolean
   ): void {
+    if (trustedOwnerValues) {
+      adoptDeeplyFrozenValue(evidence)
+      adoptDeeplyFrozenValue(evidence.orderedIds)
+      if (evidence.sharedRecords) {
+        adoptDeeplyFrozenValue(evidence.sharedRecords)
+      }
+    }
     if (evidence.orderedIds.length === 0) {
       throw new Error(
         `Factory mutation delivery evidence ${eventIndex} requires at least one canonical ordered id`
@@ -667,6 +733,11 @@ class DataTransact {
     const firstOccurrences: string[] = []
     const seenOccurrences = new Set<string>()
     evidence.sharedRecords.forEach((record, recordIndex) => {
+      if (trustedOwnerValues) {
+        adoptDeeplyFrozenValue(record)
+        adoptDeeplyFrozenValue(record.orderedIds)
+        adoptDeeplyFrozenValue(record.payload)
+      }
       if (record.orderedIds.length === 0) {
         throw new Error(
           `Factory mutation shared record ${eventIndex}:${recordIndex} requires at least one ordered id`
@@ -713,13 +784,21 @@ class DataTransact {
   }
 
   private recordJournalEntry(
-    event: UpdateTransactionEvent
+    event: UpdateTransactionEvent,
+    trustedOwnerValues: boolean
   ): TransactionJournalEntry {
     const deliveryEvidence = event.canonicalEvidence
     const newPayload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
+    if (trustedOwnerValues) {
+      adoptDeeplyFrozenValue(newPayload)
+    }
     if (deliveryEvidence) {
-      this.validateEventDeliveryEvidence(deliveryEvidence, this.journal.length)
+      this.validateEventDeliveryEvidence(
+        deliveryEvidence,
+        this.journal.length,
+        trustedOwnerValues
+      )
       if (deliveryEvidence.sharedRecords && !event.options?.shared) {
         throw new Error(
           `Factory mutation shared record evidence ${this.journal.length} requires a shared canonical event`
@@ -757,7 +836,8 @@ class DataTransact {
       orderedIds:
         deliveryEvidence?.orderedIds ?? deepFreezeValue<readonly string[]>([]),
       options,
-      source: this.applyingReplayEvent ? 'replay' : 'action'
+      source: this.applyingReplayEvent ? 'replay' : 'action',
+      trustedOwnerValues
     }
 
     const sharedChannelName = event.options?.shared
@@ -768,7 +848,12 @@ class DataTransact {
           : event.options
       const sharedChange = measureBrowserDragPhase(
         'factory:shared-payload-normalize',
-        () => deepFreezeValue(toSharedChannelPayload(newPayload, sharedOptions))
+        () =>
+          freezeSharedChannelPayload(
+            newPayload,
+            sharedOptions,
+            trustedOwnerValues
+          )
       )
       const recordInputs = deliveryEvidence?.sharedRecords ?? [
         {
@@ -787,11 +872,10 @@ class DataTransact {
           change:
             record.payload === newPayload
               ? sharedChange
-              : deepFreezeValue(
-                  toSharedChannelPayload(
-                    record.payload as TransactionPayload,
-                    sharedOptions
-                  )
+              : freezeSharedChannelPayload(
+                  record.payload as TransactionPayload,
+                  sharedOptions,
+                  trustedOwnerValues
                 ),
           delivered: false
         }))
@@ -805,22 +889,25 @@ class DataTransact {
   }
 
   private prepareEntryInverses(entry: TransactionJournalEntry): void {
+    const trustedBuiltInReplayValues =
+      entry.trustedOwnerValues && !this.inverters.has(entry.event.type)
     if (!entry.inverseEvents) {
-      entry.inverseEvents = deepFreezeValue(
+      entry.inverseEvents = freezeReplayEvents(
         entry.options.rollbackable || entry.options.undoable
           ? this.createReplayEvents(
               entry.event,
               'inverse',
               'factory-owned-journal'
             )
-          : []
+          : [],
+        trustedBuiltInReplayValues
       )
     }
     if (entry.shared && !entry.shared.inverseEvents) {
       const sharedPayloadOptions = toDefinedMutationOptions(
         entry.shared.change.options
       )
-      entry.shared.inverseEvents = deepFreezeValue(
+      const sharedInverseEvents =
         entry.options.rollbackable || entry.options.undoable
           ? (entry.inverseEvents ?? []).map((inverseEvent) => {
               const inversePayload = (
@@ -830,17 +917,23 @@ class DataTransact {
               ).payload
               const { options: _canonicalOptions, ...payloadWithoutOptions } =
                 inversePayload
-              return deepFreezeValue({
+              const payload = {
+                ...payloadWithoutOptions,
+                ...(sharedPayloadOptions
+                  ? { options: sharedPayloadOptions }
+                  : {})
+              } as TransactionPayload
+              return {
                 type: inverseEvent.type,
-                payload: deepFreezeValue({
-                  ...payloadWithoutOptions,
-                  ...(sharedPayloadOptions
-                    ? { options: sharedPayloadOptions }
-                    : {})
-                })
-              } as AllEvent)
+                payload: entry.trustedOwnerValues
+                  ? freezeTrustedTransactionPayload(payload)
+                  : deepFreezeValue(payload)
+              } as AllEvent
             })
           : []
+      entry.shared.inverseEvents = freezeReplayEvents(
+        sharedInverseEvents,
+        entry.trustedOwnerValues
       )
     }
     if (entry.shared && !entry.shared.recordInversesPrepared) {
@@ -861,18 +954,23 @@ class DataTransact {
             if (recordInverseEvents) {
               record.inverseEvents = recordInverseEvents
             } else {
-              const recordEvent = deepFreezeValue({
+              const recordEvent = (
+                trustedBuiltInReplayValues
+                  ? freezeTrustedValue
+                  : deepFreezeValue
+              )({
                 type: entry.event.type,
                 payload: record.change
               } as AllEvent)
-              record.inverseEvents = deepFreezeValue(
+              record.inverseEvents = freezeReplayEvents(
                 entry.options.rollbackable || entry.options.undoable
                   ? this.createReplayEvents(
                       recordEvent,
                       'inverse',
                       'factory-owned-journal'
                     )
-                  : []
+                  : [],
+                trustedBuiltInReplayValues
               )
             }
           }
@@ -988,15 +1086,18 @@ class DataTransact {
     }
     if (!projectedCollection) return
 
-    return deepFreezeValue([
-      {
-        ...inverseEvent,
-        payload: {
-          ...inversePayload,
-          [projectedCollection.key]: projectedCollection.value
-        }
-      } as AllEvent
-    ])
+    return freezeReplayEvents(
+      [
+        {
+          ...inverseEvent,
+          payload: {
+            ...inversePayload,
+            [projectedCollection.key]: projectedCollection.value
+          }
+        } as AllEvent
+      ],
+      entry.trustedOwnerValues
+    )
   }
 
   private sharedRecordId(
