@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   Factory,
-  TransactionRollbackError,
+  FactoryMutationBatchAcceptanceError,
   TransactionValidationError
 } from '@asyra/factory'
 import {
@@ -132,14 +132,14 @@ describe('Core transaction persistence acknowledgement', () => {
       throw new Error('inverse failed')
     })
     factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.rollback-failed',
-      payload: { id: 'rollback-failed', before: 0, after: 1 }
-    })
-    expect(() => factory.endTransaction({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
-    )
+    expect(() =>
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.rollback-failed',
+        payload: { id: 'rollback-failed', before: 0, after: 1 }
+      })
+    ).toThrow(FactoryMutationBatchAcceptanceError)
+    expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
 
     await Promise.resolve()
     await Promise.resolve()
