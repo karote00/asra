@@ -31,6 +31,14 @@ describe('network collaboration documentation example', () => {
       roomId: 'room-a',
       actorId: 'actor-b'
     })
+    const firstOutcomes = []
+    const secondOutcomes = []
+    first.collaboration.observePublicationOutcomes((outcome) =>
+      firstOutcomes.push(outcome)
+    )
+    second.collaboration.observePublicationOutcomes((outcome) =>
+      secondOutcomes.push(outcome)
+    )
 
     first.setValue(7)
     await first.collaboration.whenIdle()
@@ -39,6 +47,12 @@ describe('network collaboration documentation example', () => {
     await second.collaboration.whenIdle()
 
     expect(second.getValue()).toBe(7)
+    expect(firstOutcomes).toEqual([
+      expect.objectContaining({ direction: 'local', status: 'sent' })
+    ])
+    expect(secondOutcomes).toEqual([
+      expect.objectContaining({ direction: 'remote', status: 'processed' })
+    ])
     expect(second.remotePresence.get('actor-a')).toEqual(
       expect.objectContaining({ tool: 'select' })
     )
