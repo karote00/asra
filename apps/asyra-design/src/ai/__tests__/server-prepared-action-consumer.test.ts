@@ -129,9 +129,15 @@ describe('server-prepared Asyra Design action consumers', () => {
     const artifact = preparedDrawingArtifact()
     const apis = actionApis()
     const loadingPaint = createDeferred<undefined>()
+    const groupPaint = createDeferred<undefined>()
     const firstSlicePaint = createDeferred<undefined>()
     const secondSlicePaint = createDeferred<undefined>()
-    const paintBoundaries = [loadingPaint, firstSlicePaint, secondSlicePaint]
+    const paintBoundaries = [
+      loadingPaint,
+      groupPaint,
+      firstSlicePaint,
+      secondSlicePaint
+    ]
     const waitForPaint = vi.fn(() => {
       const next = paintBoundaries.shift()
       if (!next) {
@@ -159,11 +165,17 @@ describe('server-prepared Asyra Design action consumers', () => {
 
     loadingPaint.resolve(undefined)
     await vi.waitFor(() =>
-      expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
+      expect(apis.createCompositionGroup).toHaveBeenCalledTimes(1)
     )
+    expect(apis.createCompositionElements).not.toHaveBeenCalled()
     expect(apis.createCompositionGroup).toHaveBeenCalledWith(
       artifact.groupDescriptor,
       expect.any(Object)
+    )
+
+    groupPaint.resolve(undefined)
+    await vi.waitFor(() =>
+      expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     )
     expect(apis.createCompositionElements).toHaveBeenNthCalledWith(
       1,
@@ -190,7 +202,7 @@ describe('server-prepared Asyra Design action consumers', () => {
       roleToElementIds: artifact.roleToElementIds,
       status: 'complete'
     })
-    expect(waitForPaint).toHaveBeenCalledTimes(3)
+    expect(waitForPaint).toHaveBeenCalledTimes(4)
     expect(yieldToHost).not.toHaveBeenCalled()
   })
 })

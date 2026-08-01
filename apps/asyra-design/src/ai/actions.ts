@@ -376,6 +376,8 @@ const createCompositionActions = (
             'AI composition grouping did not preserve its canonical id.'
           )
         }
+        await paintYield()
+        assertNotAborted(context)
         const parent = Object.freeze({ id: groupId })
 
         for (const slice of slices) {

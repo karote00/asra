@@ -542,6 +542,7 @@ describe('Asyra Design AI composition action execution', () => {
       'progress:preparing:0/2:472,300,180,94',
       'paint',
       'canonical:group',
+      'paint',
       'canonical:children',
       'progress:drawing:2/2:472,300,180,94',
       'paint',
@@ -603,7 +604,7 @@ describe('Asyra Design AI composition action execution', () => {
       mutationOptions
     )
     expect(PREPARED_DRAWING_SLICE_ELEMENT_BUDGET).toBe(32)
-    expect(yieldToHost).toHaveBeenCalledTimes(18)
+    expect(yieldToHost).toHaveBeenCalledTimes(19)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -676,6 +677,7 @@ describe('Asyra Design AI composition action execution', () => {
       createDeferred<undefined>(),
       createDeferred<undefined>(),
       createDeferred<undefined>(),
+      createDeferred<undefined>(),
       createDeferred<undefined>()
     ]
     let boundaryIndex = 0
@@ -717,6 +719,12 @@ describe('Asyra Design AI composition action execution', () => {
 
     boundaries[0].resolve(undefined)
     await vi.waitFor(() =>
+      expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
+    )
+    expect(apis.createCompositionElements).not.toHaveBeenCalled()
+
+    boundaries[1].resolve(undefined)
+    await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     )
     expect(
@@ -731,7 +739,7 @@ describe('Asyra Design AI composition action execution', () => {
     expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
     expect(inFlight).toBe(1)
 
-    boundaries[1].resolve(undefined)
+    boundaries[2].resolve(undefined)
     await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(2)
     )
@@ -748,7 +756,7 @@ describe('Asyra Design AI composition action execution', () => {
         .map(({ role }) => `${role}-id`)
     )
 
-    boundaries[2].resolve(undefined)
+    boundaries[3].resolve(undefined)
     await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(3)
     )
@@ -762,14 +770,14 @@ describe('Asyra Design AI composition action execution', () => {
         .map(({ role }) => `${role}-id`)
     )
 
-    boundaries[3].resolve(undefined)
+    boundaries[4].resolve(undefined)
     await expect(execution).resolves.toMatchObject({
       appliedElementIds: items.map(({ role }) => `${role}-id`),
       status: 'complete'
     })
     expect(maxInFlight).toBe(1)
     expect(inFlight).toBe(0)
-    expect(yieldToHost).toHaveBeenCalledTimes(4)
+    expect(yieldToHost).toHaveBeenCalledTimes(5)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -810,7 +818,7 @@ describe('Asyra Design AI composition action execution', () => {
         batch.map(({ id }: PreparedElementDescriptor) => id)
       )
     ).toEqual(orderedElementIds)
-    expect(yieldToHost).toHaveBeenCalledTimes(17)
+    expect(yieldToHost).toHaveBeenCalledTimes(18)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
@@ -1732,7 +1740,7 @@ describe('Asyra Design AI composition action execution', () => {
     let yieldCount = 0
     const yieldToHost = vi.fn(async () => {
       yieldCount += 1
-      if (yieldCount === 2) {
+      if (yieldCount === 3) {
         controller.abort()
       }
     })
@@ -1761,7 +1769,7 @@ describe('Asyra Design AI composition action execution', () => {
         ({ id }: PreparedElementDescriptor) => id
       )
     ).toEqual(['detail-0-id', 'detail-1-id'])
-    expect(yieldToHost).toHaveBeenCalledTimes(2)
+    expect(yieldToHost).toHaveBeenCalledTimes(3)
     expect(apis.setDrawingProgress).toHaveBeenLastCalledWith(null)
   })
 
