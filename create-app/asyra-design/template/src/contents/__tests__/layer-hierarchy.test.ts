@@ -85,6 +85,40 @@ describe('canonical Layers hierarchy projection', () => {
     })
   })
 
+  it('derives a wide valid hierarchy without rereading each ancestor per child', () => {
+    let rootParentReadCount = 0
+    const root = element('root', 'workspace', EntityTypes.GROUP)
+    Object.defineProperty(root, 'parentId', {
+      enumerable: true,
+      get: () => {
+        rootParentReadCount += 1
+        return 'workspace'
+      }
+    })
+    const children = Array.from({ length: 64 }, (_, index) =>
+      element(`child-${index}`, 'root')
+    )
+    const wideElementDataMap: Record<string, Partial<ElementRawData>> = {
+      root,
+      ...Object.fromEntries(children.map((child) => [child.id, child]))
+    }
+    const wideFlattenedIds = [
+      'root',
+      ...children.map((child) => child.id as string)
+    ]
+
+    expect(
+      projectVisibleLayerRows(wideFlattenedIds, wideElementDataMap, new Set())
+    ).toMatchObject({
+      rows: expect.arrayContaining([
+        { id: 'root', depth: 0, isGroup: true, isExpanded: true },
+        { id: 'child-63', depth: 1, isGroup: false, isExpanded: false }
+      ]),
+      error: null
+    })
+    expect(rootParentReadCount).toBe(1)
+  })
+
   it('rejects duplicate, missing, misordered, and cyclic projections', () => {
     expect(
       projectVisibleLayerRows(['root', 'root'], elementDataMap, new Set())

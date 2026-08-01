@@ -148,7 +148,16 @@ vi.mock('@asyra/design-system', async (importOriginal) => {
   }
 })
 
+vi.mock('../layer-hierarchy', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../layer-hierarchy')>()
+  return {
+    ...actual,
+    projectVisibleLayerRows: vi.fn(actual.projectVisibleLayerRows)
+  }
+})
+
 import Contents from '../contents-panel'
+import { projectVisibleLayerRows } from '../layer-hierarchy'
 
 const resetLayerFixture = () => {
   mocks.flattenedIds = [...mocks.baseFlattenedIds]
@@ -218,6 +227,17 @@ describe('Layers pointer hierarchy presentation', () => {
         className.startsWith('gap-')
       )
     ).toBe(false)
+  })
+
+  it('virtualizes expanded canonical ids before deriving mounted row metadata', () => {
+    render(<Contents />)
+
+    expect(projectVisibleLayerRows).not.toHaveBeenCalled()
+    expect(
+      screen
+        .getByTestId('element-item-child')
+        .style.getPropertyValue('--content-row-indent')
+    ).toBe('24px')
   })
 
   it('shows one inside indicator, commits once, clears preview, and reveals a collapsed Group', async () => {
