@@ -693,13 +693,13 @@
       {
         id: 'mock-drawing-inspector',
         kind: 'prerequisite',
-        label: 'Active Mock drawing behavior authority',
+        label: 'Completed Mock drawing behavior authority',
         href: './ai-conversational-drawing-flow-inspector.html'
       },
       {
         id: 'performance-inspector',
         kind: 'prerequisite',
-        label: 'First queued performance successor',
+        label: 'Completed performance and collaboration authority',
         href: './ai-conversational-drawing-performance-flow-inspector.html'
       },
       {

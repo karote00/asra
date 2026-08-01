@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs'
 
@@ -2544,7 +2544,7 @@
         id: 'performance-plan',
         kind: 'authority',
         label: 'Performance product contract',
-        href: './ai-conversational-drawing-performance-plan.md'
+        href: './completed/ai-conversational-drawing-performance-plan.md'
       },
       {
         id: 'drawing-inspector',

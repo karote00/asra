@@ -98,7 +98,7 @@ const feature = () => read(featurePath)
 const appApiSurface = () => read(appApiSurfacePath)
 const stateContracts = () => read(stateContractsPath)
 
-test('realignment Inspector and current planning authorities resolve', () => {
+test('realignment Inspector and completed planning authorities resolve', () => {
   assert.equal(
     data.target.id,
     'canonical-projection-and-collaboration-contract-realignment'
@@ -138,7 +138,7 @@ test('realignment Inspector and current planning authorities resolve', () => {
   const performancePlan = read(
     path.resolve(
       repoRoot,
-      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
+      'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
     )
   )
 
@@ -147,16 +147,16 @@ test('realignment Inspector and current planning authorities resolve', () => {
     frameworkPlans,
     /canonical-projection-and-collaboration-contract-realignment-plan\.md/
   )
-  assert.match(
-    appPlans,
-    /Active app plan:[\s\S]*ai-conversational-drawing-performance-plan\.md/
-  )
+  assert.match(appPlans, /Active app plan:\s+none\./)
   assert.match(
     appPlans,
     /completed\/canonical-projection-and-collaboration-contract-realignment-plan\.md/
   )
-  assert.match(performancePlan, /Active Level 3 .*app performance closure/)
-  assert.match(performancePlan, /Active architecture artifacts/)
+  assert.match(
+    performancePlan,
+    /Completed on 2026-08-02 after product-owner acceptance/
+  )
+  assert.match(performancePlan, /Retained architecture artifacts/)
 })
 
 test('Inspector exposes eleven exact single-owner runtime steps', () => {

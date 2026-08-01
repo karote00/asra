@@ -2,19 +2,20 @@
 
 ## Status
 
-Queued credential-gated second successor to the active Conversational AI Mock
-Drawing plan. The profiling-first performance plan remains the first queued
-successor unless the product owner explicitly reorders the queue.
+Queued credential-gated successor to the completed Conversational AI Mock
+Drawing and drawing-performance plans. It remains inactive until the product
+owner explicitly starts it and the credential-owner requirements below are
+satisfied.
 
-This plan does not close, replace, or weaken the active Mock plan. In
+This plan does not close, replace, or weaken the completed Mock plan. In
 particular, exact `ai=mock` remains deterministic, network-free, and usable
 without an API key.
 
 Implementation may begin only after:
 
-- the product owner validates the active Mock drawing experience;
-- the performance successor completes or the product owner explicitly waives
-  or reorders that dependency;
+- the product owner has validated the completed Mock drawing experience;
+- the completed performance successor remains the retained deterministic
+  collaboration and performance authority;
 - a provider account owner approves one live-test vendor/model, budget, and
   credential owner; and
 - the matching Inspector, bounded Gherkin cases, and security gates agree.
@@ -417,7 +418,7 @@ pass.
 - target-specific Inspector contract test;
 - shared Flow Inspector structural/viewer test;
 - exact plan/Inspector/BDD authority, queue order, paths, and anchors;
-- active Mock and performance plan routing remains consistent; and
+- completed Mock and performance plan routing remains consistent; and
 - no contradiction with Framework provider/secret boundaries.
 
 ### Keyless implementation gates

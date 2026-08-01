@@ -12,7 +12,7 @@ performance plan resumed for its remaining performance-equivalence closure.
 
 This plan completed the release-blocking prerequisite for:
 
-- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`;
+- `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`;
 - Framework Release Gate 5.
 
 Architecture authority:

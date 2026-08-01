@@ -7054,3 +7054,32 @@ join` constrained dashed product path across:
   - `90a1b2e0e` (`feat(asyra-design): vectorize arbitrary image attachments`)
   - `c43f614f6` (`fix(asyra-design): accept single-item vector traces`)
   - `a6aa55b9a` (`chore(create-app): sync VTracer image workflow`)
+
+## 2026-08-02 - Complete app-level CRDT conversational drawing performance
+
+- Context:
+  - The endpoint-ordered work completed local plural canonical creation,
+    minimal Factory publication, Worker-owned collaboration framing and
+    admission, linear remote apply, relay backpressure, and ordinary Render/UI
+    projection without client persistence.
+  - Focused package and App suites, guarded 16-item correctness, balanced
+    7,112-record correctness, maximum-detail coverage, builds, Inspector
+    contracts, and retained synchronized visual evidence passed.
+  - The product owner manually accepted the two-window 7,076 flow and confirmed
+    the follow-up immediate property-editing behavior is correct.
+- Decision:
+  - Close the Asyra Design app-level CRDT performance plan and retain its
+    Inspector as architecture authority for the completed flow.
+  - Preserve the existing Factory journal and Undo stack as the only local
+    action-history owner; keep `SharedPublication` minimal and transport-only.
+  - Keep create-app template output parity and credential-gated live-provider
+    testing outside this completed plan.
+- Consequences:
+  - Asyra Design has no active app plan after this closeout.
+  - The live-provider formal test plan remains proposed and inactive until the
+    product owner explicitly starts it and a credential owner satisfies its
+    security, budget, and key-ownership prerequisites.
+  - No browser, 7,076-element rerun, dependency change, push, merge, or release
+    is authorized by this closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`

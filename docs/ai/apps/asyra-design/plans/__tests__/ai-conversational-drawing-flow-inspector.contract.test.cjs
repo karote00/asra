@@ -93,10 +93,7 @@ test('Conversational AI Inspector authorities and completed-plan routing resolve
     path.resolve(repoRoot, 'docs/ai/apps/asyra-design/PLANS.md'),
     'utf8'
   )
-  assert.match(
-    plansIndex,
-    /Active app plan:[\s\S]*ai-conversational-drawing-performance-plan\.md/
-  )
+  assert.match(plansIndex, /Active app plan:\s+none\./)
   assert.doesNotMatch(
     plansIndex,
     /Current active plan:\s+`plans\/ai-conversational-drawing-plan\.md`/
@@ -104,6 +101,10 @@ test('Conversational AI Inspector authorities and completed-plan routing resolve
   assert.match(
     plansIndex,
     /plans\/completed\/ai-conversational-drawing-plan\.md/
+  )
+  assert.match(
+    plansIndex,
+    /plans\/completed\/ai-conversational-drawing-performance-plan\.md/
   )
   assert.match(
     plansIndex,

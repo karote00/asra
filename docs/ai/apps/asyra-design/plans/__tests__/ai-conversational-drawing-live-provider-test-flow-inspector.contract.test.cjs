@@ -61,7 +61,7 @@ const contractText = (owner) =>
     ...owner.implementationBoundary
   ].join(' ')
 
-test('live-provider Inspector authorities and second-successor routing resolve', () => {
+test('live-provider Inspector authorities and queued-successor routing resolve', () => {
   assert.equal(
     data.target.title,
     'Asyra Design Conversational AI Live Provider Formal Test Inspector'
@@ -91,13 +91,10 @@ test('live-provider Inspector authorities and second-successor routing resolve',
     path.resolve(repoRoot, 'docs/ai/apps/asyra-design/PLANS.md'),
     'utf8'
   )
+  assert.match(plansIndex, /Active app plan:\s+none\./)
   assert.match(
     plansIndex,
-    /Current active plan:\s+`plans\/ai-conversational-drawing-plan\.md`/
-  )
-  assert.match(
-    plansIndex,
-    /Ordered proposed next implementation plans:\s*\n\s*1\.\s+`plans\/ai-conversational-drawing-performance-plan\.md`\s*\n\s*2\.\s+`plans\/ai-conversational-drawing-live-provider-test-plan\.md`/
+    /Proposed next implementation plan, inactive until explicitly started:\s*\n\s*`plans\/ai-conversational-drawing-live-provider-test-plan\.md`/
   )
 })
 

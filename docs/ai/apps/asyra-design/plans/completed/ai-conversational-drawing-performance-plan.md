@@ -2,20 +2,20 @@
 
 ## Status
 
-Active Level 3 endpoint-ordered app performance closure. PR #101 is merged and
-the existing
-`codex/asyra-design-ai-conversational-drawing-performance` branch remains the
-implementation base. Production implementation and formal validation continue
-one Inspector owner step at a time. Every completed performance endpoint is
-followed by one guarded 16-item safety proof before another endpoint may
-advance. A guarded 7,076-element proof runs only at the named local-source,
-relay, and final checkpoints and requires explicit product-owner approval after
-the invalid 2026-07-31 attempt.
+Completed on 2026-08-02 after product-owner acceptance. The canonical completed
+record is
+`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
+The final result preserves one server-prepared `AiActionBatch`, cooperative
+plural canonical batches, the existing Factory journal and Undo stack, one
+minimal `SharedPublication` transport artifact, Worker-owned binary transport
+and admission, linear remote apply, byte-bounded relay backpressure, ordinary
+Render/UI projection, and zero client persistence for the demo document.
 
-This plan, its Inspector data, contract test, and BDD are the active app-level
-implementation authority. Framework package contracts remain authoritative
-inside their existing owner boundaries; this checkpoint does not declare any
-unstaged framework plan or framework Inspector complete.
+The retained Inspector data, contract tests, BDD, and final closure evidence in
+this record remain the app-level architecture and acceptance authority.
+Framework package contracts remain authoritative inside their existing owner
+boundaries. Create-app template output parity remains a separate deferred
+follow-up and is not part of this completion claim.
 
 `Plan` in this title and file names only this implementation-governance
 document. It is not a product artifact, Runtime phase, provider response, API,
@@ -28,30 +28,30 @@ Production identifiers name the action batch, drawing artifact, canonical batch,
 and wire artifact directly; they never use plan, Mock, fake, or simulated
 vocabulary.
 
-The active product contract uses one always-on server-backed Runtime route, one
-formal provider, one server-prepared `AiActionBatch` payload, and one fixed
+The completed product contract uses one always-on server-backed Runtime route,
+one formal provider, one server-prepared `AiActionBatch` payload, and one fixed
 cooperative progressive plural-batch composition. Production contains no Mock,
-fake, simulated, local-compat, provider-disabled, optional-Runtime, or alternate
-delivery branch. Credential-gated live-provider and API-key formal testing
-remains outside this performance plan.
+fake, simulated, local-compat, provider-disabled, optional-Runtime, or
+alternate delivery branch. Credential-gated live-provider and API-key formal
+testing remains outside this performance plan.
 
-The 2026-08-01 product-owner correction reopens only
-`record-and-deliver-transaction-batch`: a bulk action must reuse the existing
+The final 2026-08-01 product-owner correction closed
+`record-and-deliver-transaction-batch`: a bulk action reuses the existing
 App transaction, Factory journal, and Undo stack. It must not create an
 AI-specific or bulk-specific forward/inverse history artifact, a parallel
 applied-result mirror, or an action-completion snapshot pass. The completed
 minimal `SharedPublication` wire shape remains selected; this correction
-removes the redundant local-history architecture around it before performance
-closure resumes.
+removed the redundant local-history architecture around it before performance
+closure.
 
-Terminology in the active contract is exact: Props/Scene owners hold canonical
-geometry data and relationships; the complete topology is the Render-side
-projection built from that data. Data preparation is not described as building
-Render topology. In API and type names, `canonical` means the App's formally
-accepted document data; it does not mean one merged Vector, a transport
-encoding, or an additional validation artifact.
+Terminology in the completed contract is exact: Props/Scene owners hold
+canonical geometry data and relationships; the complete topology is the
+Render-side projection built from that data. Data preparation is not described
+as building Render topology. In API and type names, `canonical` means the App's
+formally accepted document data; it does not mean one merged Vector, a
+transport encoding, or an additional validation artifact.
 
-Active architecture artifacts:
+Retained architecture artifacts:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html`
@@ -5310,6 +5310,7 @@ never committed.
   canonical, history, cooperative visibility, or publication semantics.
 - The synchronized visual review passes from the same measured live App state.
 - The plan remains active until the product owner explicitly accepts closure.
+  Satisfied on 2026-08-02.
 
 ## Assumptions and Exclusions
 
@@ -5325,10 +5326,9 @@ never committed.
 
 ## WIP Disposition
 
-Preserve valid committed work and current WIP until its matching owner step,
-then review, test, and commit only that owner slice. Remove the failed
-compression candidate in `relay-frames-with-backpressure`; do not remove valid
-batch or profiling evidence merely because it predates this replan.
+No in-scope CRDT app-layer WIP remains. Valid owner-step commits and retained
+profiling evidence remain part of the completed record. Create-app template
+output parity remains deferred to a separate future task.
 
 ## Stop Conditions
 

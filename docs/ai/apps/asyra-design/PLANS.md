@@ -4,26 +4,22 @@ Never record completed plans here.
 
 ## Current Status
 
-- Active app plan:
-  `plans/ai-conversational-drawing-performance-plan.md`
-- Active architecture authority:
+- Active app plan: none.
+- Proposed next implementation plan, inactive until explicitly started:
+  `plans/ai-conversational-drawing-live-provider-test-plan.md`
+- Retained architecture authority for the completed app-level CRDT closure:
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+- The canonical completed record is
+  `plans/completed/ai-conversational-drawing-performance-plan.md`.
 - The framework canonical projection and collaboration prerequisite completed
   on 2026-07-29. Its canonical record is
   `../../framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`.
-- Ordered proposed next implementation plans:
-  1. `plans/ai-conversational-drawing-live-provider-test-plan.md`
 - Conversational AI Mock Drawing completed on 2026-07-26. Its canonical record
   is `plans/completed/ai-conversational-drawing-plan.md`.
 - Its retained architecture authority is
   `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
-- The active successor remains profiling-first performance remediation for
-  local canonical creation, progressive collaboration, Render projection, and
-  E2E measurement. It does not reopen or weaken the completed plan. Its current
-  Inspector is implementation authority:
-  `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`.
-- The second proposed successor is a credential-gated, explicitly opt-in formal
-  test against one real provider. A human owner must request a dedicated
+- The remaining proposed successor is a credential-gated, explicitly opt-in
+  formal test against one real provider. A human owner must request a dedicated
   server-only API key; exact Mock mode stays keyless and deterministic. The
   successor is not ordinary CI or production provider launch authority; its
   architecture authority is

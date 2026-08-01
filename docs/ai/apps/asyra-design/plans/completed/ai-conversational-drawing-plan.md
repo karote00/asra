@@ -34,14 +34,14 @@ Framework prerequisite:
 - `docs/ai/framework/plans/completed/ai-agent-runtime-plan.md`
 - `docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs`
 
-Queued performance successor:
+Completed performance successor:
 
-- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
+- `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 
-The successor profiles and reduces local creation, shared publication, remote
-apply, Render projection, and E2E overhead. It does not reopen this completed plan
-or authorize reduced drawing detail, changed canonical identity, split
+The successor profiled and reduced local creation, shared publication, remote
+apply, Render projection, and E2E overhead. It does not reopen this completed
+plan or authorize reduced drawing detail, changed canonical identity, split
 history, an AI-only renderer, or a collaboration bypass.
 
 Queued credential-gated formal-test successor after performance:

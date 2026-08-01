@@ -36,7 +36,7 @@ test('performance Inspector authorities resolve and stay immutable', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))
