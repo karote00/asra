@@ -650,6 +650,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     specSource,
     /loadingFrameVisibleCount:\s*profile\.readCounterTotal\(\s*['"]ai-drawing:loading-frame-visible['"]\s*\)/
   )
+  assert.match(
+    specSource,
+    /canonicalWorkUnitCount:\s*profile\.readPhaseCount\(\s*['"]ai-app:create-composition-batch['"]\s*\)/
+  )
   const localInteractionProbeSource = specSource.slice(
     specSource.indexOf('const installLocalInteractionProbe'),
     specSource.indexOf('const waitForLocalInteractionProbe')
@@ -732,6 +736,14 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.doesNotMatch(
     highDetailSource,
     /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
+  assert.match(
+    highDetailSource,
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
   )
   assert.match(
     highDetailSource,

@@ -1667,6 +1667,10 @@ test('local source endpoint keeps canonical records while removing repeated sing
     /retained counter ring rollover.*exact accumulated loading-frame total/i
   )
   assert.match(
+    proofText,
+    /exact canonical work-unit phase count.*exact Actor A local-sent publication count.*bounded retained phase and counter sample lengths.*never exact totals/i
+  )
+  assert.match(
     feature,
     /Scenario: Local source pipeline preserves shared records without per-record runtime work[\s\S]*stable property records and IDs[\s\S]*no per-edge subscription[\s\S]*local Computed[\s\S]*one local canonical batch/i
   )

@@ -3601,6 +3601,61 @@ Undo depth, zero failures, 5,070-millisecond operation time, and
 135.2 percent, the real overall peak was 267.3 percent, and exact teardown
 completed. One 32-element 7,076 proof is now permitted.
 
+The first setup-attested 32-element proof stayed below every 500-percent raw
+limit and completed Actor A and Actor B at 7,076/7,076 canonical and Render
+elements with 239/239 ordered publications, one/zero Undo depth, zero
+publication failures, 5,026-millisecond first visibility, and
+10,036-millisecond completion. Actor A's independent browser peak was 287.5
+percent, Actor B's was 286.5 percent, and the real overall peak was 436.3
+percent. The proof was not accepted because one post-product assertion compared
+97 retained canonical phase samples with 139 retained visible-element counter
+samples. Both are bounded-ring contents rather than exact totals, so their
+lengths may diverge after unrelated Render and transport samples roll over the
+two rings.
+
+Root-cause Step Execution Card:
+
+- Owner: `evaluate-endpoint-performance`.
+- Objective: retain an O(1) exact phase count for
+  `ai-app:create-composition-batch`, compare it with the exact Actor A
+  local-sent publication count, and keep retained phase/counter arrays only for
+  bounded timing and milestone evidence.
+- Inputs and outputs: preserve the existing phase sink, bounded snapshots,
+  exact publication count, longest retained canonical work-unit duration, and
+  endpoint report; add no product event, canonical traversal, CPU conversion,
+  or unbounded evidence.
+- Test-first oracles: the performance-profile rollover test requires the exact
+  phase count after its named sample has left the retained phase ring; the
+  Playwright config test requires the endpoint to use that query and forbids
+  canonical-work-unit equality with retained visible-sample length. Both
+  oracles failed on the current implementation before production changes.
+- Mutation allowlist:
+  `apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts`,
+  its focused test,
+  `apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts`,
+  `apps/asyra-design/__tests__/playwright-config.test.mjs`, this active plan,
+  the performance Inspector, and its contract test.
+- Required gates: pass both focused oracles, Inspector contract, exact lint,
+  `diff --check`, bounded review, explicit production setup, and one guarded
+  16-item proof before one root-cause replacement 7,076 proof.
+- Exclusions: no action, geometry, slice, publication, codec, receiver, remote
+  apply, relay, Render, Contents, Pen Tool, CPU limit/formula/cadence, deadline,
+  dependency, media, trace, profile capture, or recording change.
+- Stop condition: any focused, correctness, resource, or time failure remains
+  owned here and starts another bounded iteration without weakening a gate.
+
+The root-cause replacement proof passed after the exact-count change. Actor A
+and Actor B each reached 7,076/7,076 canonical and Render elements with
+239/239 ordered publications, one/zero Undo depth, and zero publication
+failures. Both Actors became first-visible at 5,017 milliseconds and completed
+and converged at 10,026 milliseconds; the complete endpoint report took 14,277
+milliseconds. The exact canonical work-unit count and Actor A local-sent count
+were both 239. Actor A's independent browser peak was 296.4 percent, Actor B's
+was 308.5 percent, and the real aggregate peak was 458.4 percent, below the
+named 7,076 proof's 500-percent raw limit. The guard did not stop, all five
+tracked process groups terminated exactly, and the Playwright invocation
+reported one passing test in 26.1 seconds.
+
 ## Current Local Gates
 
 The accepted single-Actor path retains the exact loading bounds, cooperative

@@ -127,6 +127,10 @@ describe('AI drawing performance profile', () => {
       'ai-turn:accepted-to-settled',
       12
     )
+    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
+      'ai-app:create-composition-batch',
+      3
+    )
     runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
 
     for (let index = 0; index < evidenceCapacity; index += 1) {
@@ -158,11 +162,18 @@ describe('AI drawing performance profile', () => {
     expect(
       snapshot.phases.some(({ name }) => name === 'ai-turn:accepted-to-settled')
     ).toBe(false)
+    expect(
+      snapshot.phases.some(
+        ({ name }) => name === 'ai-app:create-composition-batch'
+      )
+    ).toBe(false)
     expect(profile.readCounterTotal('ai-turn:accepted')).toBe(1)
     expect(profile.readCounterTotal('ai-turn:outcome:success')).toBe(1)
     expect(profile.readCounterTotal('render-frame-count')).toBe(
       evidenceCapacity
     )
+    expect(profile.readPhaseCount('ai-app:create-composition-batch')).toBe(1)
+    expect(profile.readPhaseCount('missing-phase')).toBe(0)
     expect(profile.readLatestPhaseSample()).toEqual({
       atMs: 0,
       durationMs: evidenceCapacity - 1,
@@ -177,6 +188,7 @@ describe('AI drawing performance profile', () => {
       releaseEvidenceEligible: false
     })
     expect(profile.readCounterTotal('render-frame-count')).toBe(0)
+    expect(profile.readPhaseCount('ai-app:create-composition-batch')).toBe(0)
     expect(profile.readLatestPhaseSample()).toBeNull()
 
     profile.dispose()
@@ -780,9 +792,7 @@ describe('AI drawing performance profile', () => {
     expect(evidence.factoryPublications).toHaveLength(capacity)
     expect(evidence.factoryStatuses[0]?.transactionId).toBe(3)
     expect(evidence.factoryCommits[0]?.transactionId).toBe(3)
-    expect(evidence.factoryPublications[0]?.publicationId).toBe(
-      'publication-3'
-    )
+    expect(evidence.factoryPublications[0]?.publicationId).toBe('publication-3')
     expect(profile.readLatestFactoryTransactionStatus()?.transactionId).toBe(
       capacity + 2
     )

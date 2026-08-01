@@ -118,6 +118,7 @@ export interface AiDrawingPerformanceProfile {
   getRuntimeEvidence(): AiDrawingPerformanceRuntimeEvidence
   readConversationSnapshot(): AsyraDesignAiConversationSnapshot | null
   readCounterTotal(name: string): number
+  readPhaseCount(name: string): number
   readCanonicalElementCount(): number
   readCanonicalElements(): readonly AiDrawingPerformanceCanonicalElement[]
   readCanonicalOwnerSnapshot(): AiDrawingPerformanceCanonicalOwnerSnapshot
@@ -400,6 +401,7 @@ export const installAiDrawingPerformanceProfile = ({
     new BoundedEvidenceBuffer<AiDrawingPerformanceFactoryTransactionStatusEvidence>(
       RETAINED_EVIDENCE_CAPACITY
     )
+  const phaseCounts = new Map<string, number>()
   const phases = new BoundedEvidenceBuffer<AiDrawingPerformancePhaseSample>(
     RETAINED_EVIDENCE_CAPACITY
   )
@@ -438,6 +440,12 @@ export const installAiDrawingPerformanceProfile = ({
         name
       })
     )
+    if (
+      phaseCounts.has(name) ||
+      phaseCounts.size < RETAINED_COUNTER_KEY_CAPACITY
+    ) {
+      phaseCounts.set(name, (phaseCounts.get(name) ?? 0) + 1)
+    }
     if (name === 'ai-turn:accepted-to-settled') {
       hasAcceptedToSettledEvidence = true
     }
@@ -680,6 +688,7 @@ export const installAiDrawingPerformanceProfile = ({
         ? structuredClone(previousConversationSnapshot)
         : null,
     readCounterTotal: (name: string) => counterTotals.get(name) ?? 0,
+    readPhaseCount: (name: string) => phaseCounts.get(name) ?? 0,
     readCanonicalElementCount: () => {
       if (!runtimeEvidenceSource || disposed) {
         throw new Error(
@@ -786,6 +795,7 @@ export const installAiDrawingPerformanceProfile = ({
       factoryCommits.clear()
       factoryPublications.clear()
       factoryStatuses.clear()
+      phaseCounts.clear()
       phases.clear()
       observedRuntimeProgressCount = 0
       runtimeProgressClock = null

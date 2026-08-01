@@ -1510,7 +1510,9 @@ const readFinalDiagnostics = async (
     ).length
     return {
       drawingProgress: {
-        canonicalWorkUnitCount: canonicalWorkUnitDurations.length,
+        canonicalWorkUnitCount: profile.readPhaseCount(
+          'ai-app:create-composition-batch'
+        ),
         cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
         cooperativeYieldSampleCount: cooperativeYieldSamples.length,
         loadingFrameVisibleCount: profile.readCounterTotal(
@@ -3330,7 +3332,7 @@ test('creation-only high-detail endpoint proof', async ({
       completed.publications.actorALocalSent
     )
     expect(drawingProgress.canonicalWorkUnitCount).toBe(
-      drawingProgress.visibleElementSampleCount
+      completed.publications.actorALocalSent
     )
     expect(drawingProgress.longestCanonicalWorkUnitMs).toBeGreaterThan(0)
     expect(actorBDiagnostics.historyDepth - initialBUndoDepth).toBe(0)
