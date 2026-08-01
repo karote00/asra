@@ -84,6 +84,7 @@ test('release template exposes a non-mutating synchronization check', () => {
 test('release validation copies only repository source into an isolated workspace', async () => {
   const { createReleaseValidationWorkspace, removeReleaseValidationWorkspace } =
     await import('../release-validation-workspace.js')
+  mkdirSync(path.join(repositoryRoot, 'tmp'), { recursive: true })
   const testRoot = mkdtempSync(
     path.join(repositoryRoot, 'tmp', 'release-validation-test-')
   )
