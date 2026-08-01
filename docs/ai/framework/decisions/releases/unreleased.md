@@ -2058,3 +2058,32 @@ unregister -> app migration -> core.start()` as the public app route.
   - `2715faf32` (`feat(ai-runtime): add single plan transaction boundary`)
   - `4721938da` (`feat(ai-runtime): add detached audit output`)
   - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)
+
+## 2026-07-29 - Close canonical projection and collaboration contract realignment
+
+- Context:
+  - Canonical property/structural evidence and local-only computed projection
+    previously overlapped, while shared data, Provider, Core, Scene Tree, and
+    Factory exposed conflicting batch or compatibility paths.
+  - The synchronized Inspector, executable BDD, affected framework package
+    gates, production build, default 16-item two-actor CRDT gate, and
+    high-detail two-actor correctness flow passed.
+- Decision:
+  - Keep one origin-neutral canonical owner flow with separate Props and Scene
+    missions, one plural Core creation path, required batch shared-data and
+    Provider contracts, the existing Factory journal and Undo boundary, and
+    one separate minimal `SharedPublication`.
+  - Keep computed projection local-only and keep remote transactions free of
+    local Undo, echo, and client persistence.
+  - Close the prerequisite and resume the Asyra Design performance plan for
+    its remaining performance-equivalence gates.
+- Consequences:
+  - The dedicated framework Inspector remains architecture authority and now
+    points to the completed contract record.
+  - The Asyra Design performance plan and its Inspector remain the authority
+    for any explicitly retained app performance or visual closure.
+  - No live provider, backend database checkpoint, package installation,
+    runtime upgrade, push, PR, merge, or release is implied by this closeout.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`
+  - `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html`

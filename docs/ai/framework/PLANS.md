@@ -4,22 +4,9 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
-## Active Pre-Release Blocker
+## Active Pre-Release Blockers
 
-Canonical Projection and Collaboration Contract Realignment
-
-- Replace duplicated shared computed evidence, optional batch/provider modes,
-  Core delivery leaks, Scene Tree mutation variants, and Factory coordination
-  surface with one pre-release canonical architecture.
-- This cross-cutting plan is the current contract authority and blocks both
-  Framework Release Gate 5 and the paused Asyra Design Conversational AI
-  Drawing Performance plan.
-- Production implementation is authorized and advances only through the active
-  Inspector owner flow after contract readiness.
-- Reference:
-  `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-realignment-plan.md`
-- Inspector:
-  `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs`
+None.
 
 ## Framework Release Gates
 

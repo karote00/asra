@@ -2,11 +2,15 @@
 
 ## Status
 
-Active Level 3 pre-release architecture plan and current cross-cutting contract
-authority. Production implementation was explicitly authorized on 2026-07-28
-and proceeds one Inspector owner step at a time.
+Completed on 2026-07-29.
 
-This plan is a release-blocking prerequisite for:
+The framework now has one origin-neutral canonical owner flow, local-only
+computed projection, required batch shared-data and Provider contracts,
+one existing Factory journal and Undo boundary, one separate minimal
+`SharedPublication`, and remote side-effect isolation. The Asyra Design
+performance plan resumed for its remaining performance-equivalence closure.
+
+This plan completed the release-blocking prerequisite for:
 
 - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`;
 - Framework Release Gate 5.
@@ -21,11 +25,10 @@ Executable product cases:
 
 - `docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature`
 
-The Asyra Design performance plan retains its profiling evidence, product
-budgets, fixtures, and visual-equivalence requirements. Its affected
-architecture routes are paused until this plan has replaced the conflicting
-contracts and the app plan, Inspector, contract test, and BDD have been
-resynchronized.
+The Asyra Design performance plan retained its profiling evidence, product
+budgets, fixtures, and visual-equivalence requirements while its affected
+architecture routes were paused. This completed record, Inspector, contract
+test, and BDD now contain the resynchronized contracts.
 
 ## Goal
 
@@ -53,8 +56,9 @@ compatibility.
    from Core.
 6. Scene Tree lifecycle-specific preparation APIs feed one atomic apply owner.
    Origin checks and `UsingActiveProperties` variants are removed.
-7. Factory exposes transaction, history/rollback, and immutable artifact/status
-   contracts. Replay, staged delivery, and compensation remain internal owners.
+7. Factory reuses its existing transaction journal, history, rollback, and
+   inverter contracts and derives one separate minimal `SharedPublication`.
+   It exposes no parallel mutation artifact/status or applied-result API.
 8. Profiling is observational evidence, not a reason to change product API
    return types.
 9. `Core.changeComputedData(...)` and `changeComputedDataPatch(...)` are deleted:
@@ -62,6 +66,10 @@ compatibility.
    events imply local computed projection. Canonical callers migrate to
    plural element-property APIs; direct local computed APIs have a separate
    name, shape, and event path.
+10. `Core.applyCanonicalChanges(...)` is one origin-neutral coordinator for an
+    already validated ordered canonical request. It accepts no transport,
+    remote/local, suppression, publication, or compatibility options. The
+    caller owns the one enclosing Factory transaction.
 
 ## Evidence and First Incorrect Owner
 
@@ -99,7 +107,7 @@ order is therefore fixed:
 2. Scene Tree exposes read-only element-to-property target resolution.
 3. The App composition path migrates from the Core batch result and delivery
    handle to the existing plural `createElementsInParent(...)` result plus the
-   Factory-owned staged-artifact controller.
+   Factory-owned shared-delivery handle.
 4. Core then deletes the legacy creation surface, completes plural canonical
    element-property coordination, and migrates every canonical direct caller.
    The transient vector preview remains an explicit local-only dependency for
@@ -182,14 +190,14 @@ diff, and its frozen gates.
 local canonical action
 → one Factory transaction
 → Core plural creation or element-property request
-→ Props + Scene Tree preflight plan
+→ prepared Props + Scene Tree mutations
 → one atomic canonical apply
-→ one immutable Factory transaction artifact
+→ ordinary canonical owner batch → local computed projection → Render/UI
+→ existing Factory transaction journal
    ├─ one Undo/Redo action
-   ├─ canonical SharedDataChannel batch
-   ├─ local persistence trigger
-   └─ Factory-owned progressive delivery status
-→ one SharedPublication
+   ├─ one local persistence trigger
+   └─ exact rollback/compensation evidence
+→ one separate minimal SharedPublication
 → Provider-owned binary framing, queueing, and backpressure
 → peer one-publication/one-remote-transaction apply
 → peer local computed projection
@@ -199,10 +207,10 @@ local canonical action
 ```text
 local typed element-property request
 → Core.updateElementProperties or Core.patchElementProperties
-→ Scene Tree read-only element-to-property target plan
+→ Scene Tree read-only resolved element-to-property targets
 → Props whole-batch preflight and apply
 → UPDATE_PROPERTY canonical evidence
-→ Factory transaction artifact
+→ existing Factory journal entry
 ```
 
 ```text
@@ -297,27 +305,31 @@ pre-assigning future shared-element product semantics:
 - Props Manager separately owns property-to-child-property graph relations.
   The Scene reverse relation index and Props child graph are different relation
   domains and must not be merged or duplicated as competing canonical state;
+- Props Manager exposes a read-only ordered self-and-ancestor closure for
+  changed property IDs. It traverses only the Props-owned child graph, mutates
+  no registry or evidence, and knows nothing about Scene hierarchy;
 - `UPDATE_PROPERTY` is source-only property evidence. It contains no computed
   projection and an initiating element is not the fanout authority;
-- local computed projection collects the changed property IDs, resolves every
-  affected element through the Scene reverse relation index, and emits one
-  ordered computed batch. One shared property update therefore changes its
-  canonical source once while every current element relation projects locally;
+- local computed projection asks Props for that property ancestor closure,
+  then Scene maps only the resulting property roots through its own reverse
+  relation index and emits one ordered computed batch. Scene never copies the
+  Props child graph. One shared child update therefore changes its canonical
+  source once while every element related to an affected root projects locally;
 - Scene element-property target resolution groups the complete request by
   `propertyId`. Equivalent field or record mutations become one property
   mutation; conflicting writes to the same canonical field or record are
   rejected atomically before Props preflight;
-- a Scene removal plan records released and retained relations, deduplicated
+- a prepared Scene removal records released and retained relations, deduplicated
   orphan root property IDs, the complete set of root property IDs retained by
-  planned remaining element relations, and the exact relation-set read needed
+  prepared remaining element relations, and the exact relation-set read needed
   to reject a stale apply;
 - Props exact orphan property graph removal accepts only those orphan and
   retained root property ID sets, traverses its own property-child graph from
   orphan roots, stops at every retained Scene root, and removes a descendant
   only when no remaining canonical property relation retains it;
 - a direct Scene removal applies only Scene state and retains Props. Core owns
-  the full element lifecycle that coordinates the Scene release plan with the
-  Props orphan graph plan inside one outer Factory transaction;
+  the full element lifecycle that coordinates the prepared Scene release with
+  the prepared Props orphan graph mutation inside one outer Factory transaction;
 - removing one relation never deletes a shared root retained by another
   relation. Removing the final relation deletes that root graph once;
 - Factory records the exact Props source and Scene relation evidence so Undo,
@@ -447,9 +459,9 @@ createElementsInParent(
   object, publication receipt, or transport state.
 - The AI composition path creates its Group and sends all accepted children
   through one plural Core request inside the same outer Factory transaction.
-- The App obtains the one active staged-artifact controller directly from the
-  Factory that owns that outer transaction. Core never receives, stores, or
-  returns the controller.
+- The App obtains one active shared-delivery handle directly from the Factory
+  that owns that outer transaction. Core never receives, stores, or returns
+  the handle.
 - The old fixed-size loop that repeatedly invokes Core is removed. Point-aware
   progressive slicing is downstream delivery policy, not repeated canonical
   mutation.
@@ -457,6 +469,30 @@ createElementsInParent(
 Core owns orchestration of canonical package APIs. It does not own history
 artifact construction, progressive delivery, transport scheduling, or
 profiling output.
+
+## Core Canonical Apply Contract
+
+Core exposes one typed coordination boundary for a caller that already owns
+canonical source evidence:
+
+```ts
+applyCanonicalChanges(changes: readonly CanonicalChange[]): void
+```
+
+`CanonicalChange` is a closed union of property-component updates, raw element
+data updates, hierarchy moves, subtree removal, subtree restore, canonical
+element creation, and canonical element removal.
+
+- The request preserves change order and each owner batch's internal order.
+- Core invokes the existing origin-neutral Props and Scene Tree facades for
+  each change; it does not parse `SharedPublication` or own App policy.
+- The caller opens the one Factory transaction. Core neither opens another
+  transaction nor accepts an origin or transaction-mode parameter.
+- An owner rejection throws through the caller-owned transaction. Factory
+  rollback restores prior canonical state and releases no ordinary observer
+  prefix.
+- The API returns no publication, receipt, delivery handle, profiling data, or
+  compatibility result.
 
 ## Canonical Element Property Update Contract
 
@@ -483,12 +519,12 @@ patchElementProperties(
   by this patch path.
 - Both return ordered affected element IDs only. They expose no computed
   payload, Factory handle, timing, delivery mode, or origin mode.
-- Core requests one read-only Scene Tree element-to-property target plan before
+- Core requests one read-only Scene Tree element-to-property target resolution before
   asking Props Manager to preflight or apply the canonical mutation.
 - Scene Tree resolves aliases such as `x`/`y` to position and
   `width`/`height` to dimension, verifies element ownership, and returns
   explicit property IDs and owner relations. It does not mutate Props.
-- The complete Scene target plan groups requests by `propertyId`. Equivalent
+- The complete resolved Scene targets group requests by `propertyId`. Equivalent
   changes from multiple elements that share one component produce one Props
   mutation; conflicting changes to the same field or record reject atomically
   before Props preflight.
@@ -516,18 +552,29 @@ Props Manager owns property schema validation, property instance
 materialization, relationship rebind, relationship registration, and ordered
 property evidence.
 
-It exposes a whole-batch preflight plan and one whole-batch apply boundary for
+It exposes one prepared whole-batch mutation and one whole-batch apply boundary for
 both creation/lifecycle property work and active property value or record
 patch mutations:
 
 - all schemas, IDs, property values, Props-owned component registry/type/
   lifecycle validity, instances, and relationships are validated before any
   property mutation;
+- Props normalizes a relation-backed creation descriptor with a missing
+  placeholder ID before detached materialization and generates its canonical
+  ID, while every explicit non-empty child ID is preserved unchanged and an
+  empty canonical ID remains invalid;
 - each active mutation item is an explicit typed field replacement or record
   patch against a resolved property ID and owner relation;
+- a relation-backed property definition used by record set/remove explicitly
+  declares `array-or-record`; this capability is opt-in and leaves generic
+  array relation behavior unchanged;
 - apply materializes required property instances, performs relationship
   rebind/registration where required, applies active values/record patches,
   and records ordered property evidence once;
+- an inactive Props-owned tombstone is reactivated only when its exact ID,
+  type, canonical data, and property instance identity match; this rule is
+  origin-neutral and applies equally to ordinary, Undo/Redo, and remote
+  canonical work;
 - a later invalid item leaves no property, instance, relationship, registry, or
   evidence prefix;
 - `UPDATE_PROPERTY` remains property-source evidence and does not treat one
@@ -538,8 +585,8 @@ patch mutations:
 Props exposes two public owner capabilities with independent missions:
 
 - `preparePropertyMutationBatch(...)` is read-only and returns a complete
-  owner-issued property mutation plan.
-- `applyPropertyMutationBatch(...)` applies only such an owner-issued plan and
+  owner-issued prepared property mutation batch.
+- `applyPreparedPropertyMutationBatch(...)` applies only such an owner-issued prepared batch and
   emits its one ordered evidence batch.
 
 Core uses those public capabilities for cross-owner coordination; it never
@@ -557,7 +604,7 @@ loops over scalar `updateTransaction(...)`, preserves no older pending scalar
 evidence, and cannot leave an accepted Factory journal prefix.
 The Inspector's canonical-apply authorization is Core orchestration evidence,
 not a public token, caller-origin check, or mode parameter; Props validates its
-own owner-issued plan, while documentation tells callers when to use direct
+own owner-issued preparation, while documentation tells callers when to use direct
 property-ID mutation versus Core element-based coordination.
 
 For relation-backed record properties, Props is also the child property-graph
@@ -577,7 +624,7 @@ lifecycle owner:
 For element-root property lifecycle, Props has a fixed exact orphan graph
 removal operation. It accepts only deduplicated orphan root IDs and the complete
 deduplicated retained Scene root ID set from a Core-coordinated Scene
-relation-release plan, validates the affected active property graph before
+prepared relation release, validates the affected active property graph before
 mutation, stops traversal at every retained Scene root, and removes each root
 or descendant only when no remaining canonical relation in its own property
 graph retains it. Props does not discover Scene owners, scan Scene snapshots,
@@ -587,7 +634,7 @@ or decide whether an element relation survives.
 
 Scene Tree exposes lifecycle-specific preparation because ordinary creation,
 canonical insertion/replay, ordinary removal, and canonical removal do not have
-the same inputs. It exposes one mutation owner because all prepared plans must
+the same inputs. It exposes one mutation owner because all prepared mutations must
 cross the same atomic state boundary.
 
 Target responsibilities:
@@ -601,7 +648,7 @@ Target responsibilities:
   IDs, parent, index, and order.
 - `prepareCanonicalElementInsertion(...)` validates canonical Scene snapshots,
   element IDs, parent, index, order, and exact element-slot relations. Its
-  `CanonicalElementInsertionPlan` exposes those frozen `ownerRelations` so Core
+  `PreparedCanonicalElementInsertion` exposes those frozen `ownerRelations` so Core
   can pass them unchanged to the Props `create-exact-property-graph`
   operation; Core does not reconstruct Scene registry semantics.
 - `prepareElementRemoval(...)` prepares ordinary Scene removal.
@@ -609,12 +656,18 @@ Target responsibilities:
   evidence.
 - `prepareSubtreeRemoval(elementId)` accepts one non-workspace root, derives the
   complete canonical child-first post-order closure, and produces one typed
-  subtree removal plan with one `CHANGE_SUBTREE` evidence record. It is not an
+  prepared subtree removal with one `CHANGE_SUBTREE` evidence record. It is not an
   option or hidden expansion mode of `prepareElementRemoval(...)`.
-- subtree restore uses a typed canonical restore plan rather than a boolean
+- subtree restore uses typed prepared canonical restore evidence rather than a boolean
   option.
-- `applyElementMutationPlan(...)` is the only Scene map, raw element state,
+- `applyPreparedElementMutation(...)` is the only Scene map, raw element state,
   parent-list, hierarchy order, and ordered Scene evidence mutation boundary.
+
+An `ADD_ELEMENTS` or `REMOVE_ELEMENTS` apply emits one plural Scene transaction
+event and one ordered shared record per element. Factory publication slices may
+group complete records, but cannot split one semantic record or create another
+Scene mutation or history action. This keeps the Scene owner boundary plural
+while preserving exact record-sized progressive delivery.
 
 Scene also exposes one read-only load relation preflight:
 
@@ -630,45 +683,45 @@ property-slot contract to validate exact component IDs, property types, and
 registration stability against detached Props validated data before any owner
 applies. It accepts compatible many-to-one shared relations, performs no
 materialization or active Props read, consumes no load artifact, and creates no
-second load plan. Core passes the original validation result and Props
+second load preparation. Core passes the original validation result and Props
 validated data unchanged; Core never rewrites Scene slot/type rules.
 
 Scene Tree also owns one derived reverse relation index from `componentId` to
 ordered `ElementPropertyRelation` entries. Load, insertion, removal, restore,
 rollback, Undo, and Redo keep that index equivalent to canonical element raw
-`props`. Property target plans group equivalent mutations by `propertyId` and
+`props`. Resolved property targets group equivalent mutations by `propertyId` and
 atomically reject conflicting shared writes before Props preflight. Removal
-plans include released relations, retained relations, deduplicated orphan root
+prepared removals include released relations, retained relations, deduplicated orphan root
 property IDs, the complete deduplicated root property ID set retained by all
-planned remaining element relations, and an exact relation-set staleness read;
-a relation-set change between prepare and apply rejects the plan before
+prepared remaining element relations, and an exact relation-set staleness read;
+a relation-set change between prepare and apply rejects the prepared mutation before
 mutation.
 
-The exact plan types must make their required evidence explicit. They must not
+The exact prepared mutation types must make their required evidence explicit. They must not
 encode caller identity or use an `isRemote`, `isLocal`, `usingActiveProperties`,
 or similarly overloaded mode flag.
 
-Single-item conveniences may prepare a one-item plan and use the same apply
+Single-item conveniences may prepare a one-item mutation and use the same apply
 owner. A later invalid item leaves no Scene map, parent-list, hierarchy order,
 tombstone, or Scene evidence prefix.
 
 Property target resolution and Scene lifecycle mutation are different outputs
 of the same Scene ownership boundary: the former is read-only relationship
-resolution, while the latter is a typed Scene mutation plan. Neither output
+resolution, while the latter is a typed prepared Scene mutation. Neither output
 may apply Props state.
 
-A direct caller of a Scene removal planner receives and applies only the Scene
+A direct caller preparing a Scene removal receives and applies only the Scene
 mission, so active Props are retained. The Core full element lifecycle passes
 the Scene-issued orphan and complete retained root ID sets unchanged to the
-matching Props exact orphan graph plan; Core does not inspect the property
+matching prepared Props exact orphan graph mutation; Core does not inspect the property
 graph. It completes both preflights and only then applies the required owner
-plans inside the caller-owned Factory transaction.
+mutations inside the caller-owned Factory transaction.
 
-Core obtains every complete owner plan required by a request before any
-affected owner applies. A property-only request requires the read-only target
-plan plus the Props mutation plan and does not fabricate a Scene mutation
-plan. A cross-owner lifecycle request obtains both complete Props Manager and
-Scene Tree mutation plans. Core invokes the required apply boundaries in
+Core obtains every complete owner preparation required by a request before any
+affected owner applies. A property-only request requires the read-only resolved
+targets plus the prepared Props mutation and does not fabricate a Scene
+mutation. A cross-owner lifecycle request obtains both complete prepared Props
+Manager and Scene Tree mutations. Core invokes the required apply boundaries in
 canonical evidence order inside one Factory outer transaction. Props Manager
 and Scene Tree retain their independent missions; Factory rollback supplies
 cross-owner atomicity if an unexpected apply failure occurs after all required
@@ -676,21 +729,22 @@ preflights pass.
 
 The existing `*UsingActiveProperties` APIs and parallel mutation
 implementations are deleted after direct consumers migrate. Documentation
-teaches which lifecycle planner to choose; the framework does not block a
+teaches which lifecycle preparation to choose; the framework does not block a
 caller based on origin.
 
 ## Factory Ownership Contract
 
 Factory's public mission is limited to:
 
-- transaction execution, its one active staged-artifact controller, and status;
-- journal, Undo, Redo, and rollback;
-- immutable committed artifact observation;
-- staged artifact/status observation from the same transaction journal.
+- transaction execution and one active shared-delivery handle;
+- the existing journal, Undo, Redo, rollback, and inverter contracts;
+- one required batch shared-data boundary and its minimal
+  `SharedPublication`;
+- ordinary transaction and batch observation.
 
-Internal owners may be split into journal, artifact builder, replay, staged
-delivery, compensation, and local projection modules. Those modules are not
-new public workflows.
+Internal owners may be split into journal, replay, delivery bookkeeping,
+compensation, and publication modules. Those modules do not create a second
+local-history representation or public workflow.
 
 Required behavior:
 
@@ -708,40 +762,51 @@ Required behavior:
   `SharedPublication`; Factory never reconstructs those relations from an
   initiating element.
 - A cross-owner action may submit one Props evidence batch and one Scene
-  evidence batch inside the same outer transaction. Factory combines those
-  owner batches into one transaction artifact and one History action; Core
-  never flattens owner missions into a synthetic cross-owner batch.
+  evidence batch inside the same outer transaction. Factory records both owner
+  batches once in the existing journal and groups them into one History action;
+  Core never flattens owner missions into a synthetic cross-owner batch.
 - One intended action opens one outer Factory transaction and creates at most
   one history action.
+- Ordinary transaction observers receive canonical evidence only after the
+  transaction owner commits successfully. Multiple owner evidence batches are
+  released as one ordered observer batch.
+- Rollback or transaction-owner finalization failure discards pending ordinary
+  observer evidence, so no consumer can observe a canonical prefix that did
+  not commit.
 - Every Factory transaction has the same canonical record, commit, and rollback
   semantics. It accepts no atomic/progressive mode and has no second
   transaction route.
 - Factory records canonical source evidence only.
-- The immutable transaction artifact is detached once and reused by History,
-  persistence, and Collaboration.
+- The existing Factory journal and Undo stack are the only local action-history
+  owners. Factory creates no AI/bulk-specific forward/inverse artifact,
+  parallel applied-result mirror, action-completion snapshot, or second
+  history representation.
+- Render and UI consume ordinary canonical owner batches and local computed
+  projection directly; they never consume History, rollback, or inverse
+  evidence.
 - Factory is the only owner that may derive `SharedPublication` evidence. An
   eligible staged canonical slice, committed remainder, or rollback
-  compensation all leave Factory through the same `SharedPublication` artifact
-  route; Collaboration never infers a publication from generic staged status.
-- The independent staged-artifact owner observes the in-progress journal and
-  emits the same artifact/status stream for every transaction. A downstream
-  Render consumer may ignore staged status and use only commit, or consume
-  staged status for progressive visibility; neither choice alters transaction
-  execution.
-- The App may request the next planned stage only through the active
-  staged-artifact controller owned by the current Factory transaction. The
-  controller validates every requested ordered ID against canonical evidence
-  already present in that journal; it is not a transaction mode, is never
-  returned by Core, and becomes stale when the outer transaction settles.
-- A staged slice becomes publication-eligible only after Factory assigns stable
-  transaction, publication, slice, and inverse-compensation identity from the
-  existing journal. A committed remainder must not republish an already
-  acknowledged staged record.
-- The staged-artifact owner records acknowledged externally visible slice
-  tokens. On rollback, Factory derives compensation for only those tokens from
-  the same journal evidence and emits it through the ordinary
+  compensation all leave Factory through the same minimal
   `SharedPublication` route.
-- Core never returns or transports the staged-delivery capability.
+- The App may request the next prepared stage only through the active
+  shared-delivery handle owned by the current Factory transaction. The handle
+  validates every requested ordered ID against canonical evidence already
+  present in that journal; it is not a transaction mode, is never returned by
+  Core, and becomes stale when the outer transaction settles.
+- A staged slice becomes publication-eligible only after Factory assigns stable
+  transaction, publication, and slice identity from the existing journal.
+  Actual compensation identity is added only when compensation exists. A
+  committed remainder must not republish an already acknowledged staged
+  record.
+- Shared-delivery bookkeeping records acknowledged externally visible slice
+  tokens only. On rollback, Factory derives compensation for only those tokens
+  from the same journal evidence and emits it through the ordinary
+  `SharedPublication` route; it never mirrors the canonical payload into an
+  applied-result object.
+- The production fast path performs no post-action `save`, equality
+  comparison, finalize-save, full-document comparison, evidence clone, or
+  recursive immutable-tree scan.
+- Core never returns or transports the shared-delivery handle.
 - Transport framing, encoding, queueing, watermarks, and peer receipts never
   enter Factory.
 - Remote transactions create no local Undo action, echo publication, or client
@@ -754,12 +819,12 @@ transaction or publication semantics.
 
 Product APIs return product results only.
 
-Profiling uses existing marks, spans, artifact/status observers, or a dedicated
-diagnostic observer. It must separately measure:
+Profiling uses existing marks, spans, journal/publication observers, or a
+dedicated diagnostic observer. It must separately measure:
 
 - local canonical action;
 - Props and Scene Tree preflight/apply;
-- Factory artifact and journal;
+- Factory journal and publication derivation;
 - local computed projection;
 - publication encode;
 - provider queue and wire drain;
@@ -835,39 +900,40 @@ consumers named by its contract.
      UI-context projection handlers without registering them on the existing
      `UPDATE_COMPUTED_DATA` event. Existing Render delivery remains unchanged
      and there is no second active Render consumer.
-2. `record-canonical-transaction-artifact`
+2. `record-and-deliver-transaction-batch`
    - Establish the required `TransactionOwner.updateTransactionBatch(...)`
      owner-only SPI and make the public scalar convenience delegate to
      batch-of-one first, then consolidate the required SharedDataChannel batch
-     SPI, one transaction/artifact/history semantic, Factory-owned staged
-     publication identity, and compensation. Factory records
+     SPI, one existing journal/history semantic, Factory-owned publication
+     identity, and compensation without a parallel artifact/status stream.
+     Factory records
      `UPDATE_ELEMENT_DATA` but no computed projection evidence.
 3. `prepare-and-apply-property-batch`
    - Give Props Manager one whole-batch preflight and one apply boundary for
      active property value/record patches as well as schema, instances,
      relationships, registration, exact orphan property-graph removal, and
      ordered property evidence.
-4. `prepare-and-apply-scene-plan`
+4. `prepare-and-apply-scene-mutation`
    - Add read-only element-to-property target resolution and typed raw
      `UPDATE_ELEMENT_DATA` mutation, then replace parallel
      `UsingActiveProperties` mutations with typed lifecycle preparation and one
      Scene-only apply owner. Establish the derived reverse element-property
      relation index, shared-target aggregation, and relation-aware removal
-     plan. Update the exact Factory/Preset consumers of the renamed raw evidence
+     prepared mutation. Update the exact Factory/Preset consumers of the renamed raw evidence
      in the same owner handoff.
 5. `prepare-one-composition-request`
    - Migrate the App composition caller to one Group plus one all-children Core
-     request. Obtain the one active staged-artifact controller directly from
+     request. Obtain the one active shared-delivery handle directly from
      Factory rather than through Core, and use it only for downstream slice
      requests. The App batch-result and delivery-handle migration completes
      before Core deletes `createElementsInParentBatch`; this is dependency
      ordering, not a compatibility contract. Complete the canonical
      descriptor-to-Props creation handoff before computed becomes local-only so
      element creation no longer depends on a mixed computed/property write.
-6. `coordinate-canonical-owner-plans`
+6. `coordinate-canonical-owner-preparations`
    - Make `createElementsInParent` the only plural creation implementation;
      add plural `updateElementProperties` and `patchElementProperties`;
-     coordinate every Props/Scene plan required by each request without
+     coordinate every prepared Props/Scene mutation required by each request without
      inventing an unused owner mutation; migrate all direct canonical callers,
      including focused E2E fixtures; and remove Factory delivery/timing from
      Core. The transient vector preview is intentionally left as a local-only
@@ -883,23 +949,41 @@ consumers named by its contract.
      stop routing computed evidence through Factory/shared Render observation.
      Asyra Design continuation and vector-icon derived-state consumers normalize
      scalar, ordered batch, and patch projection events without duplicate work.
-     Local property projection fans changed property IDs to every current
-     relation through the Scene reverse index before emitting one computed batch. Local
-     computed APIs accept no `EVENT_OPTIONS`. Preset moves its existing
+     Props expands changed property IDs through its read-only ordered ancestor
+     closure, then Scene maps only the resulting property roots through its own
+     element-slot reverse relation index before emitting one computed batch.
+     Neither owner duplicates the other's relation graph. Local computed APIs
+     accept no `EVENT_OPTIONS`. Preset moves its existing
      `@asyra/reactive-events` workspace entry from development-only metadata to
      a runtime dependency because production now imports that event subscriber;
-     this adds no package or installation.
+     this adds no package or installation. A forced-rollback Pen Tool cancel
+     clears the vector transient caches and reprojects current canonical Props
+     through the same local computed route; ordinary commit-current interruption
+     continues to finalize through `onEnd`.
 8. `publish-shared-publication`
    - Replace optional Provider modes with one required publication path and one
-     exclusive async inbound consumer; migrate the memory provider.
+     exclusive async inbound consumer. Generic Collaboration forwards the
+     Factory-owned minimal `SharedPublication` unchanged through one serial FIFO, calls
+     `sendPublication` once per publication, and invalidates not-yet-handed-off
+     entries across disconnect generations without replay. Inbound delivery is
+     the direct `SharedPublication`; its callback remains pending until App
+     apply settles, reports `process-failed` before rejecting the same error,
+     and has no generic sender-context envelope. The memory reference transport
+     creates one detached snapshot per peer, owns one bounded peer slot, does
+     not make the current sender acceptance wait for peer apply, and uses the
+     connection token to release stale capacity waiters without replay after
+     reconnect. Remove batch, lease, max-capability, clone/rebuild, and runtime
+     compatibility branches from the public package.
 9. `transport-publication-bytes`
    - Migrate the Asyra Design provider, worker, and reference server while
      preserving versioned binary data, opaque relay, byte backpressure, and
      distinct receipts.
 10. `apply-remote-publication`
-    - Reuse the Core canonical owner flow for one remote publication, settle
-      the required async consumer, derive computed state locally, and create no
-      Undo, echo, or persistence.
+    - Validate and classify one remote publication into one ordered
+      `CanonicalChange` request, then invoke `Core.applyCanonicalChanges(...)`
+      exactly once inside one remote Factory transaction. Settle the required
+      async consumer, derive computed state locally, and create no Undo, echo,
+      or persistence.
 11. `persist-local-commit`
     - Prove local action, Undo, and Redo each capture one FIFO snapshot while a
       remote transaction captures and writes none; change production only if
@@ -979,8 +1063,11 @@ intermediate test pass.
 
 ### Scene Tree and Core
 
+- One accepted remote publication produces one ordered `CanonicalChange`
+  request and exactly one `Core.applyCanonicalChanges(...)` call inside its
+  caller-owned Factory transaction; different publications are never merged.
 - A later invalid element-to-property resolution leaves no Props or Scene
-  mutation and returns no partial target plan.
+  mutation and returns no partial resolved target set.
 - Alias resolution and owner relations are exact and read-only.
 - `ElementPropertyRelation` identity is
   `(ownerElementId, ownerPropertyName)` and compatible `componentId` values may
@@ -995,7 +1082,7 @@ intermediate test pass.
   tombstone, or Scene evidence prefix.
 - IDs, order, parent children, hierarchy, and Scene evidence remain exact.
 - Each lifecycle planner accepts only its required evidence.
-- One typed Scene plan crosses one Scene-only apply boundary.
+- One typed prepared Scene mutation crosses one Scene-only apply boundary.
 - Single creation is equivalent to plural creation with one item.
 - Single element-property convenience is equivalent to the matching plural
   batch-of-one.
@@ -1003,19 +1090,19 @@ intermediate test pass.
   callers use canonical Core property APIs before computed becomes local-only.
 - No `createElementsInParentBatch`, delivery handle, or timing result remains
   in Core exports or direct consumers.
-- Both Props and Scene plans complete preflight before Core asks either owner to
+- Both prepared Props and Scene mutations complete preflight before Core asks either owner to
   apply when the request mutates both owners; a property-only request requires
-  no Scene mutation plan.
+  no prepared Scene mutation.
 - Direct Scene removal retains active Props; Core full lifecycle removal
   coordinates exact orphan graph cleanup.
 - Detached canonical creation takes the frozen `ownerRelations` from the
-  owner-issued `CanonicalElementInsertionPlan` and passes them unchanged into
+  owner-issued `PreparedCanonicalElementInsertion` and passes them unchanged into
   Props `create-exact-property-graph`; Core never reconstructs Scene slots.
 - Remote exact flat removal uses one origin-neutral canonical-data Core API.
   Collaboration consumes the resulting Scene and optional Props owner batches
   once; no `UsingActiveProperties` alias or local/remote mode remains.
 - One-root subtree removal uses `prepareSubtreeRemoval(...)` and the same
-  `applyElementMutationPlan(...)`; its relation release, orphan, retained root,
+  `applyPreparedElementMutation(...)`; its relation release, orphan, retained root,
   rollback, Undo, and Redo evidence covers the complete child-first closure.
 - Core load calls `preflightLoadPropertyRelations(...)` with detached validated
   Props data before any owner apply, version update, or file-load-complete
@@ -1023,11 +1110,16 @@ intermediate test pass.
 
 ### Factory
 
-- One action produces one immutable artifact and one history action.
+- One action records its ordinary owner batches once in the existing journal
+  and produces one history action.
+- Committed owner batches reach ordinary observers once as one ordered batch
+  only after owner finalization succeeds.
+- Rollback or owner-finalization failure publishes no ordinary observer prefix.
 - Undo, Redo, rollback, and progressive compensation are exact.
 - Shared relation source evidence retains canonical component IDs and relation
   tuples through Undo, Redo, rollback, `SharedPublication`, and remote apply.
-- Computed projection evidence is absent from the artifact.
+- Computed projection evidence is absent from the journal and
+  `SharedPublication`.
 - Remote apply creates no Undo, echo, or local persistence.
 - Observer mutation cannot alter another consumer's evidence.
 
@@ -1055,8 +1147,8 @@ Final handoff to the app performance plan requires:
 3. initial high-detail cat-face creation on Actor A;
 4. Actor B full completion, not only first visible state;
 5. blue-whisker and red-pupil follow-up convergence;
-6. separated A product, artifact, encode, queue/drain, decode, B apply,
-   computed projection, Render/UI, and harness timings;
+6. separated A product, Factory journal/publication, encode, queue/drain,
+   decode, B apply, computed projection, Render/UI, and harness timings;
 7. no loss of detail, canonical IDs, hierarchy, history, or one-action Undo;
 8. shared-root update fanout, non-final relation removal, final orphan cleanup,
    Undo, Redo, and remote CRDT apply preserve exact relation tuples and
@@ -1079,7 +1171,7 @@ Stop the current owner step and report the first incorrect owner when:
 - a Provider requires multiple framework semantic modes rather than internal
   transport scheduling;
 - a custom implementation can work only through compatibility probing;
-- one atomic Scene/Props plan would leave a committed prefix;
+- one atomic prepared Scene/Props mutation would leave a committed prefix;
 - a shared component update cannot project to every active relation from one
   exact Scene-owned derived index;
 - root cleanup cannot distinguish a released relation from the final orphan
@@ -1100,6 +1192,9 @@ No local patch or fallback may be added after a stop condition.
 - Provider has one required publication flow without capability branching.
 - Core exposes one plural creation implementation with no Factory delivery or
   timing details.
+- Core exposes one origin-neutral ordered canonical-change coordinator with no
+  transport, origin, suppression, receipt, or compatibility modes; the caller
+  owns its one Factory transaction.
 - Scene Tree uses typed lifecycle preparation, one atomic apply owner, and one
   exact derived reverse element-property relation index.
 - A compatible property component may serve many relation tuples; source-only
@@ -1108,6 +1203,8 @@ No local patch or fallback may be added after a stop condition.
 - Shared relation Undo, Redo, rollback, publication, remote apply, and load
   preserve canonical component IDs and relation tuples.
 - Factory's public facade and internal ownership match this plan.
+- Factory publishes ordinary canonical observer evidence only after owner
+  commit and publishes none after rollback or owner-finalization failure.
 - Obsolete pre-release APIs, compatibility branches, and compatibility-only
   tests are deleted.
 - Focused formal gates pass and the property follow-up CRDT case converges.
