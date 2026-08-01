@@ -25,7 +25,7 @@ Feature: Conversational AI drawing performance
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
     And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
-    And the server-prepared action should contain one PreparedDrawingArtifact with one flat canonical element batch, one flat canonical property batch, ordered ids, and slice boundaries
+    And the server-prepared action should contain one PreparedDrawingArtifact with one prepared Group descriptor and ordered child descriptor slices containing complete source creation data, stable ids, relationships, point counts, and roles
     And it should contain one bounded redaction-ready summary rather than a parallel point-object graph
     And permission resolution should return one "PermissionReadyAiActionBatch"
     And permission and execution should receive the same action arguments identity from the resolved batch
@@ -34,22 +34,22 @@ Feature: Conversational AI drawing performance
     And production should expose only the AiActionBatch API without a compatibility conversion, Mock, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or drawing-artifact encoding
-    And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive slice through "Core.createElementsInParentFromCanonicalData(...)" after the server-prepared loading bounds are visible
-    And the shipped create-app template should consume the same PreparedDrawingArtifact and submit each mixed oval/vector slice through one "Core.createElementsInParentFromCanonicalData(...)" call without full-item compatibility input
+    And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive descriptor slice through "Core.createElementsInParent(...)" after the server-prepared loading bounds are visible
+    And create-app template output parity should remain deferred to a separate follow-up outside this CRDT closure
     But the ordinary App common API and plural Core route should remain the only canonical commit owners
     And the resolved batch should remain local, noncanonical, and nonshared
 
-  Scenario: Guarded flat-batch source proof precedes high-detail execution
+  Scenario: Guarded prepared-descriptor source proof precedes high-detail execution
     Given the exact 16-item response contains 12919 points in eight prepared slices
     And Runtime pre-execute remains less than 1 millisecond
-    When the App consumes the flat canonical element and property batches
-    Then it should create the Group through "Core.createElementsInParentFromCanonicalData(...)"
+    When the App consumes the prepared Group and child descriptors
+    Then it should create the Group through "Core.createElementsInParent(...)"
     And it should cross one browser paint opportunity after the Group before submitting children
     And the guarded 16-item proof should pass below the fixed host limit before the guarded 7076-element proof may start
 
   Scenario: Local source pipeline preserves shared records without per-record runtime work
     Given the server-prepared drawing artifact contains stable property records and IDs for every point, segment, network, root Vector, and fill
-    When Actor A submits each prepared flat batch range through "Core.createElementsInParentFromCanonicalData(...)"
+    When Actor A submits each prepared descriptor slice through "Core.createElementsInParent(...)"
     Then one bulk action containing 100 Vector items should create 100 independently addressable Vector element data records, plus one Group record when grouping is requested
     And it should not merge those Vector items into one giant Vector data record
     And Core should build one owner-to-relationship index before element creation
@@ -186,7 +186,7 @@ Feature: Conversational AI drawing performance
     And the overlay should be pointer-events none and never become canonical, persistent, shared, Render-owned, or an AI-only renderer
     And its CSS activity should animate only transform and opacity through the compositor
     And the App should cross a browser paint opportunity after DOM commit and before canonical mutation
-    And the App should create the Group through "Core.createElementsInParentFromCanonicalData(...)" and cross another browser paint opportunity before the first child batch
+    And the App should create the Group through "Core.createElementsInParent(...)" and cross another browser paint opportunity before the first child batch
     And the first completed drawing batch should use the ordinary Vector route
     And success, failure, cancellation, and teardown should clear the drawing progress
 
@@ -406,10 +406,11 @@ Feature: Conversational AI drawing performance
   Scenario: Factory keeps one transaction semantic
     Given one intended action mutates canonical property and Scene owners
     When Factory records the ordered source evidence
-    Then each Props or Scene owner change batch should be recorded exactly once by the existing transaction journal
+    Then each Props or Scene owner evidence emission should be recorded exactly once by the existing transaction journal as one immutable ordered batch
     And canonical ordered ids and shared records should remain inside their owning transaction event
     And "updateTransactionBatch" should accept no parallel evidence parameter
     And the public single-event transaction convenience should delegate to a batch-of-one
+    And the existing Factory journal should group those owner batches into one intended History action
     And the outer action transaction should group the ordinary journal entries into one intended Undo stack entry
     And Factory should create no AI-specific or bulk-specific forward/inverse history artifact
     And Factory should create no parallel applied-result mirror of the canonical payload

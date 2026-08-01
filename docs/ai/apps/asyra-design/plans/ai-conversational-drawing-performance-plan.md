@@ -703,8 +703,7 @@ provider returns the resident `AiActionBatch` through `requestActionBatch()`.
 Runtime resolves only the small batch/action control envelope through
 `resolveAiActionBatch()` and passes the original arguments identity to
 permission and execution. The App then submits each already-prepared
-flat canonical element/property slice through the distinct canonical Core
-creation route.
+descriptor slice through the ordinary plural Core creation route.
 No additional browser proof is permitted until this complete boundary and its
 focused formal gates are finished.
 
@@ -725,13 +724,12 @@ high-detail execution can resume:
 - the workspace identity query calls the Scene Tree save path, serializing the
   complete hierarchy to read one stable ID.
 
-The prepared drawing handoff is also still too descriptor-shaped. The corrected
-server artifact contains one flat canonical element batch and one flat
-canonical property batch with ordered IDs, relationships, exact bounds, and
-slice ranges. The App does not build another graph. It uses the existing
-`Core.createElementsInParentFromCanonicalData(...)` route, creates the Group,
-crosses a browser paint opportunity after the Group, and only then submits the
-prepared child ranges.
+The corrected server artifact contains one prepared Group descriptor and
+ordered child descriptor slices with stable IDs, complete source creation
+data, relationships, exact bounds, point counts, and roles. The App does not
+build another graph. It uses the existing `Core.createElementsInParent(...)`
+route, creates the Group, crosses a browser paint opportunity after the Group,
+and only then submits the prepared child slices.
 
 The next browser proof is the same guarded 16-item case. It must complete at or
 below the fixed 250-percent frontend limit and the 400-percent aggregate safety
@@ -911,11 +909,12 @@ components, shared elements, relationships, stable canonical IDs, full vector
 detail, and one complete Undo action remain non-negotiable. The corrected local
 source pipeline is therefore implemented once as:
 
-1. The server returns one `PreparedDrawingArtifact` containing one flat
-   canonical element batch, one flat canonical property batch, stable ordered
-   IDs, relationships, geometry data, bounds, styles, and formal slice ranges.
-   The frontend builds no duplicate point-object or geometry relationship graph
-   and performs no model validation, bounds calculation, or normalization.
+1. The server returns one `PreparedDrawingArtifact` containing one prepared
+   Group descriptor and ordered child descriptor slices with stable IDs,
+   complete source creation data, relationships, geometry data, bounds, styles,
+   point counts, and roles. The frontend builds no duplicate point-object or
+   geometry relationship graph and performs no model validation, bounds
+   calculation, or normalization.
 2. The canonical Props and Scene Tree owners build each
    owner-to-relationship index once before element creation; Core delegates the
    complete batch without rescanning or reconstructing relation evidence.
@@ -1210,12 +1209,12 @@ test/manual harness seeds one exact versioned server response in the response in
 → ResolvedAiActionBatch
 → permission resolution produces PermissionReadyAiActionBatch
 → confirmation and terminal presentation consume AiActionBatchPreview
-→ consume one PreparedDrawingArtifact with flat canonical element/property batches
+→ consume one PreparedDrawingArtifact with one Group descriptor and ordered child descriptor slices
 → runtime-only App DOM loading frame
 → compositor paint opportunity
-→ create Group through Core.createElementsInParentFromCanonicalData(...)
+→ create Group through Core.createElementsInParent(...)
 → compositor paint opportunity after Group
-→ ordered flat child-batch ranges through the same canonical route
+→ ordered child descriptor slices through the same plural route
 → Props/relationship/Scene Tree preflight and canonical apply per plural batch
 → existing Factory transaction journal
    ├─ one ordinary Undo stack entry for the complete bulk action
@@ -1238,9 +1237,9 @@ test/manual harness seeds one exact versioned server response in the response in
   phrases, or local compatibility.
 - The test/manual harness alone may stand in for the backend by validating and
   normalizing one exact model response, deriving its bounded summary, and
-  building one `PreparedDrawingArtifact` with one flat canonical element batch,
-  one flat canonical property batch, stable ordered IDs, relationships,
-  geometry data, bounds, styles, and formal slice ranges.
+  building one `PreparedDrawingArtifact` with one prepared Group descriptor,
+  ordered child descriptor slices, stable ordered IDs, complete source creation
+  data, relationships, geometry data, bounds, styles, point counts, and roles.
   It seeds the versioned `AiActionBatch` into an IndexedDB response inbox
   adapter under the required `fileId`. That deterministic preparation, seed
   code, and fixture data are excluded from the production bundle.
@@ -1303,25 +1302,22 @@ control-envelope resolution and action orchestration:
   delivery, scheduling, loading, or collaboration control. An app that wants a
   stronger trust policy implements it on the server before
   `requestActionBatch()` returns rather than adding another Runtime path.
-- The shipped create-app Asyra Design template, framework golden path, and
-  executable documentation example use this same single action-definition
-  contract inside the ordinary Runtime flow. They contain no test-source or
-  compatibility implementation.
+- The production Asyra Design App, framework golden path, and executable
+  documentation example use this same single action-definition contract inside
+  the ordinary Runtime flow. They contain no test-source or compatibility
+  implementation.
 - The server validates and normalizes accepted/skipped roles, bounds, styles,
   paths, points, stable IDs, relationships, and geometry data, then builds one
-  `PreparedDrawingArtifact` containing flat canonical element/property batches
-  before returning the `AiActionBatch`.
+  `PreparedDrawingArtifact` containing one prepared Group descriptor and
+  ordered child descriptor slices before returning the `AiActionBatch`.
 - The frontend submits each already-prepared slice range through the existing
-  `Core.createElementsInParentFromCanonicalData(...)` route after the
+  `Core.createElementsInParent(...)` route after the
   server-prepared loading bounds are visible. It performs no item, path, point,
   style, bounds, role, model semantic, or geometry-data validation; no
   drawing-artifact encoding; and no second point-object graph construction.
-- The shipped create-app template consumes that same
-  `PreparedDrawingArtifact` and point-aware current-slice contract. Each mixed
-  oval/vector slice enters one
-  `Core.createElementsInParentFromCanonicalData(...)` call; the template
-  accepts no full-item compatibility input, `itemPointCounts`, or per-element
-  fallback.
+- Create-app template output parity is explicitly deferred to a separate
+  follow-up. This CRDT closure does not modify, validate, or claim parity for
+  `create-app/asyra-design/template`.
 - The server issues stable descriptor IDs and relationships, while the ordinary
   App common API and plural Core route remain the only canonical commit owners.
   The prepared artifact never writes canonical, Render, history, shared-data,
@@ -1338,9 +1334,9 @@ shared-data boundaries.
   returns ordered canonical element IDs. A single-element convenience delegates
   to this batch-of-one path; Core exposes no AI loading, progress, slice,
   delivery-controller, or timing parameter.
-- Server-prepared flat canonical data uses the existing
-  `Core.createElementsInParentFromCanonicalData(...)` plural surface; it is not
-  a second AI-specific or compatibility path.
+- Server-prepared descriptors use the existing
+  `Core.createElementsInParent(...)` plural surface; they do not create a
+  second AI-specific, canonical-data, or compatibility path.
 - One registered bulk action containing 100 Vector items creates 100
   independently addressable Vector element data records; when grouping is
   requested, one separate Group record is created first. Bulk execution does
@@ -1952,9 +1948,9 @@ Every optimized route preserves:
 ### One Interactive Composition Action
 
 The App creates one Group through
-`Core.createElementsInParentFromCanonicalData(...)`, crosses a browser paint
+`Core.createElementsInParent(...)`, crosses a browser paint
 opportunity after the Group, then submits deterministic ordered flat child-batch
-ranges through the same canonical route. The complete composition remains one
+ranges through the same plural route. The complete composition remains one
 App action, one outer transaction, and one intended Undo entry in the existing
 Factory history. It creates no AI/bulk-specific history artifact. A later fatal
 child failure rolls back the complete action; single-item calls retain the same
@@ -3531,7 +3527,7 @@ Revised Step Execution Card:
   must require exactly 32 elements at most per prepared work unit. The current
   64-element constant and Inspector conditions must fail first.
 - Inputs and outputs: preserve the same server-prepared
-  `PreparedDrawingArtifact`, flat canonical descriptors, exact IDs/order/
+  `PreparedDrawingArtifact`, prepared descriptors, exact IDs/order/
   geometry, one serialized paint-yield loop, one outer transaction, one Undo,
   ordered progressive `SharedPublication` records, and exact remote apply.
 - Mutation allowlist:

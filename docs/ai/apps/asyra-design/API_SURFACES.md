@@ -63,13 +63,13 @@ This file is the app-level API contract map.
   returned action arguments and exposes no client model-prepare or
   model-validation path
 - the server validates and normalizes accepted/skipped roles, bounds, styles,
-  paths, and points, then builds the compact composition artifact before
-  returning the `AiActionBatch`
-- `insert_vector_composition` receives server-prepared metadata, one coordinate
-  `ArrayBuffer`, exact loading bounds, item/path counts, styles, roles, and
-  skipped evidence. The frontend creates one `Float64Array` view and
-  materializes only the current progressive slice before passing ordinary
-  oval/vector descriptors to the App common API and plural Core route
+  paths, and points, then builds one `PreparedDrawingArtifact` before returning
+  the `AiActionBatch`
+- `insert_vector_composition` receives one server-prepared Group descriptor and
+  ordered child descriptor slices with complete source creation data, exact
+  loading bounds, stable ids, relationships, point counts, roles, and skipped
+  evidence. The frontend passes those prepared descriptor identities directly
+  to the App common API and plural Core route
 - canonical topology and IDs remain owned by the ordinary App common API and
   plural Core route. The server-prepared artifact creates no canonical,
   Render, history, shared-data, or CRDT state directly
@@ -111,12 +111,12 @@ This file is the app-level API contract map.
   serialized action loop crosses a browser paint before the next slice. Vector
   topology remains in the server-issued coordinate space; no post-hoc
   full-composition move or geometry rewrite is part of the AI action
-- every prepared slice uses a fixed 2,048-point budget and at most 32 elements.
-  One indivisible element may exceed only the point budget. No range is
-  independently scheduled with a timer, and a pure microtask is not a
-  cooperative host yield. Every slice uses the same plural Core surface;
-  Core, Props Manager, and Scene Tree receive no AI mode, loading, progress,
-  slice-size, or host-yield parameter
+- in this progressive mode, each prepared slice uses a point count limit of
+  2,048 and an element count limit of 32. One indivisible element may exceed
+  only the point-count limit. No range is independently scheduled with a timer,
+  and a pure microtask is not a cooperative host yield. Every slice uses the
+  same plural Core surface; Core, Props Manager, and Scene Tree receive no AI
+  mode, loading, progress, slice-size, or host-yield parameter
 - the Group and every child batch remain inside one outer App transaction and
   create one intended Undo action. A fatal failure or Feature-owned
   cancellation rejects the action so ordinary transaction rollback removes the

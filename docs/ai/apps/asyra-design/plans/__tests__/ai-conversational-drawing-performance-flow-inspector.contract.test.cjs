@@ -387,11 +387,15 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*flat canonical element batch.*flat canonical property batch.*before App readiness.*front.?end.*submits.*createElementsInParentFromCanonicalData/i
+    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*before App readiness.*front.?end.*submits.*createElementsInParent/i
   )
   assert.match(
     text,
-    /production App and shipped template.*one required.*server-backed.*runtime.*startup.*never nullable or optional/i
+    /production App.*one required.*server-backed.*runtime.*startup.*never nullable or optional/i
+  )
+  assert.match(
+    text,
+    /create-app template output parity.*deferred.*separate follow-up.*not an implementation boundary/i
   )
   assert.doesNotMatch(
     text,
@@ -420,37 +424,17 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'apps/asyra-design/src/app/__tests__',
     'apps/asyra-design/src/toolbar/index.tsx',
     'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
-    'create-app/asyra-design/template/package.json',
-    'create-app/asyra-design/template/src/index.tsx',
-    'create-app/asyra-design/template/src/startup.ts',
-    'create-app/asyra-design/template/src/init/index.ts',
-    'create-app/asyra-design/template/src/init/init-app.ts',
-    'create-app/asyra-design/template/src/init/__tests__/init-app.test.ts',
-    'create-app/asyra-design/template/src/init/foundation/init-features.ts',
-    'create-app/asyra-design/template/src/init/foundation/__tests__/init-features.test.ts',
-    'create-app/asyra-design/template/src/features/ai-agent/index.ts',
-    'create-app/asyra-design/template/src/features/ai-agent/__tests__/index.test.ts',
-    'create-app/asyra-design/template/src/ai',
-    'create-app/asyra-design/template/src/ai/runtime-input.ts',
-    'create-app/asyra-design/template/src/ai/startup.ts',
-    'create-app/asyra-design/template/src/ai/conversation.ts',
-    'create-app/asyra-design/template/src/ai/presentation.ts',
-    'create-app/asyra-design/template/src/ai/__tests__/server-prepared-action-consumer.test.ts',
-    'create-app/asyra-design/template/src/common-apis/element/apis.ts',
-    'create-app/asyra-design/template/src/common-apis/element/vector-apis.ts',
-    'create-app/asyra-design/template/src/common-apis/element/__tests__/create-element.test.ts',
-    'create-app/asyra-design/template/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
-    'create-app/asyra-design/template/src/app/ai-conversation-panel.tsx',
-    'create-app/asyra-design/template/src/app/__tests__/ai-conversation-panel.test.tsx',
-    'create-app/asyra-design/template/src/toolbar/index.tsx',
-    'create-app/asyra-design/template/src/toolbar/__tests__/ai-control.test.tsx',
-    'create-app/asyra-design/template/src/render-app/collaboration-mode.ts',
-    'create-app/asyra-design/template/src/render-app/__tests__/collaboration-mode.test.ts',
     'docs/ai/framework/packages/ai-agent-runtime.md',
     'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
     'docs/examples/ai-agent-runtime.mjs'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.equal(
+    owner.implementationBoundary.some((boundary) =>
+      boundary.startsWith('create-app/asyra-design/template')
+    ),
+    false
   )
   ;[
     'apps/asyra-design/src/ai/composition.ts',
@@ -493,7 +477,10 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     feature,
     /front end should perform no item, path, or point validation or drawing-artifact encoding/i
   )
-  assert.match(feature, /submitting only the next prepared progressive slice/i)
+  assert.match(
+    feature,
+    /submitting only the next prepared progressive descriptor slice/i
+  )
   assert.match(plan, /converted 252\.599-millisecond interval report/i)
   assert.match(plan, /221\.695 percent aggregate CPU/i)
   assert.match(plan, /201\.901 percent to one renderer PID/i)
@@ -508,7 +495,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
 })
 
-test('latest guarded source evidence requires flat canonical batches before high detail', () => {
+test('latest guarded source evidence requires prepared descriptors before high detail', () => {
   const runtimeOwner = step('resolve-server-prepared-action-batch')
   const stageOwner = step('stage-local-interactive-composition')
   const proofOwner = step('evaluate-endpoint-performance')
@@ -526,16 +513,16 @@ test('latest guarded source evidence requires flat canonical batches before high
   )
   assert.match(
     runtimeText,
-    /flat canonical element batch.*flat canonical property batch.*ordered ids.*slice boundaries/i
+    /Group descriptor.*child descriptor slices.*complete source creation data/i
   )
   assert.match(
     stageText,
-    /existing.*Core\.createElementsInParentFromCanonicalData.*Group.*paint opportunity.*before.*child batch/i
+    /existing.*Core\.createElementsInParent.*Group.*paint opportunity.*before.*child batch/i
   )
   assert.match(proofText, /guarded 16-item.*must pass.*before.*7,076-element/i)
   assert.match(
     feature,
-    /Scenario: Guarded flat-batch source proof precedes high-detail execution[\s\S]*12919 points[\s\S]*eight prepared slices[\s\S]*Runtime pre-execute[\s\S]*less than 1 millisecond[\s\S]*Group[\s\S]*paint opportunity[\s\S]*children[\s\S]*guarded 7076/i
+    /Scenario: Guarded prepared-descriptor source proof precedes high-detail execution[\s\S]*12919 points[\s\S]*eight prepared slices[\s\S]*Runtime pre-execute[\s\S]*less than 1 millisecond[\s\S]*Group[\s\S]*paint opportunity[\s\S]*children[\s\S]*guarded 7076/i
   )
 })
 
@@ -1367,7 +1354,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
 
   assert.match(
     text,
-    /server-prepared flat canonical element and property batches.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
+    /server-prepared Group and child descriptors.*exact bounds[\s\S]*runtime-only.*loading.*DOM.*paint opportunity.*before.*canonical mutation/i
   )
   assert.match(text, /point.*element-count.*budget/i)
   assert.match(
@@ -1648,7 +1635,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     stageText,
-    /server-prepared flat canonical element and property batches.*no intermediate point-object graph.*no repeated vector validation, bounds, or normalization/i
+    /server-prepared Group and child descriptors.*no intermediate point-object graph.*no repeated vector validation, bounds, or normalization/i
   )
   assert.match(
     stageText,
