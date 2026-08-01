@@ -145,11 +145,11 @@
       ],
       "dependsOn": [
         "@asyra/core#build:core",
+        "@asyra/reactive-events#build:reactive-events",
         "@asyra/render-engine#build:render-engine",
         "@asyra/render-engine-pixi#build:render-engine-pixi",
         "@asyra/ui-context#build:ui-context",
         "@asyra/utils#build:utils",
-        "@asyra/reactive-events#build:reactive-events",
         "@asyra/render#build:render"
       ]
     },
