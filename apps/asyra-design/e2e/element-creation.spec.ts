@@ -168,18 +168,29 @@ test.describe('Element Creation', () => {
         )
         expect(previewPublications).toContainEqual(
           expect.objectContaining({
-            deliveries: expect.arrayContaining(
-              ['x', 'y', 'width', 'height'].map((key) =>
-                expect.objectContaining({
-                  channel: 'sceneTree',
-                  sharedDelivery: 'immediate',
-                  payload: expect.objectContaining({
-                    action: 'updateElementComputedData',
-                    key
+            slices: expect.arrayContaining([
+              expect.objectContaining({
+                batches: expect.arrayContaining([
+                  expect.objectContaining({
+                    channel: 'props',
+                    deliveries: expect.arrayContaining(
+                      ['x', 'y', 'width', 'height'].map((key) =>
+                        expect.objectContaining({
+                          eventName: 'updateProperty',
+                          payload: expect.objectContaining({
+                            action: 'updateProperty',
+                            key,
+                            options: expect.objectContaining({
+                              sharedDelivery: 'immediate'
+                            })
+                          })
+                        })
+                      )
+                    )
                   })
-                })
-              )
-            )
+                ])
+              })
+            ])
           })
         )
         await page.screenshot({

@@ -5620,6 +5620,108 @@ describe('PropsManager', () => {
     expect(propsManager.getPropertyById(child.get('id'))).toBe(child)
   })
 
+  it('reactivates an exact inactive record during transaction replay', () => {
+    const childType = 'replay-record-child'
+    const parentType = 'replay-record-parent'
+    const ChildComponent = createPropertyComponentFromConfig({
+      type: childType,
+      defaults: { value: 0 },
+      persistKeys: ['value'],
+      valueKeys: ['value']
+    })
+    const parentDefinition = {
+      type: parentType,
+      defaults: { children: [] as string[] },
+      persistKeys: ['children'],
+      valueKeys: ['children'],
+      children: {
+        key: 'children',
+        childType,
+        mode: 'ids-or-objects' as const,
+        collection: 'array-or-record' as const
+      }
+    }
+    registerPropertyComponent(childType, ChildComponent)
+    registerPropertyComponent(
+      parentType,
+      createPropertyComponentFromConfig(parentDefinition),
+      undefined,
+      parentDefinition
+    )
+    registerPropertySchema({
+      type: childType,
+      fields: [
+        {
+          key: 'value',
+          kind: 'number',
+          validate: isFiniteNumber,
+          defaultValue: 0
+        }
+      ]
+    })
+    registerPropertySchema({
+      type: parentType,
+      fields: [
+        {
+          key: 'children',
+          kind: 'array',
+          defaultValue: []
+        }
+      ]
+    })
+    const child = createProperty({
+      id: 'replay-record-child-id',
+      type: childType,
+      value: 7
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    const parent = createProperty({
+      id: 'replay-record-parent-id',
+      type: parentType,
+      children: [child.get('id')]
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    ;[child, parent].forEach((component) => propsManager.addToMap(component))
+    propsManager.cleanChanges()
+    propsManager.updateProperties({
+      operations: [
+        {
+          kind: 'records',
+          propertyId: parent.get('id'),
+          key: 'children',
+          remove: [child.get('id')]
+        }
+      ]
+    })
+    propsManager.cleanChanges()
+
+    expect(propsManager.getPropertyById(child.get('id'))).toBeUndefined()
+    expect(propsManager.getRestoreComponentById(child.get('id'))).toBe(child)
+
+    const result = ReactiveEventsModule.runInTransactionReplayMode('redo', () =>
+      propsManager.updateProperties({
+        operations: [
+          {
+            kind: 'records',
+            propertyId: parent.get('id'),
+            key: 'children',
+            set: {
+              [child.get('id')]: child.save() as unknown as Record<
+                string,
+                unknown
+              >
+            }
+          }
+        ]
+      })
+    )
+
+    expect(result.orderedPropertyIds).toEqual([parent.get('id')])
+    expect(propsManager.getPropertyById(child.get('id'))).toBe(child)
+    expect(
+      propsManager.getRestoreComponentById(child.get('id'))
+    ).toBeUndefined()
+    expect(parent.save()).toMatchObject({ children: [child.get('id')] })
+  })
+
   it('keeps pre-prepared creation roots valid when each adds an edge to the same active child', () => {
     const childType = 'detached-created-edge-child'
     const parentType = 'detached-created-edge-parent'

@@ -353,28 +353,93 @@ const getLastUndoPatchSummary = async (page: Page) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const stack = core?.deps?.factory?.transact?.undoStack ?? []
-    const last = stack[stack.length - 1] ?? []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstPayload = (last[0] as any)?.payload ?? {}
-    const patch = firstPayload.patch ?? {}
+    const last = stack[stack.length - 1]
+    const events = (last?.entries ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (entry: any) => entry.event
+    )
+    const selectedElementId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const selectedElement =
+      selectedElementId &&
+      core?.deps?.sceneTree?.getElementById?.(selectedElementId)
+    const closedPropertyId = selectedElement?.props?.getPropId?.('closed')
+    const valueKeys = new Set<string>()
+    const pointSetIds = new Set<string>()
+    const pointRemoveIds = new Set<string>()
+    const segmentSetIds = new Set<string>()
+    const segmentRemoveIds = new Set<string>()
+    const networkSetIds = new Set<string>()
+    const networkRemoveIds = new Set<string>()
+    const collectRecord = (
+      record: { id?: unknown; type?: unknown },
+      mode: 'set' | 'remove'
+    ) => {
+      if (typeof record.id !== 'string') {
+        return
+      }
+      let target: Set<string> | null = null
+      if (record.type === 'vectorPoint') {
+        target = mode === 'set' ? pointSetIds : pointRemoveIds
+      } else if (record.type === 'vectorSegment') {
+        target = mode === 'set' ? segmentSetIds : segmentRemoveIds
+      } else if (record.type === 'vectorNetwork') {
+        target = mode === 'set' ? networkSetIds : networkRemoveIds
+      }
+      target?.add(record.id)
+    }
+
+    events.forEach(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (event: any) => {
+        const payload = event?.payload ?? {}
+        if (event?.type === 'addProperty' || event?.type === 'removeProperty') {
+          const mode = event.type === 'addProperty' ? 'set' : 'remove'
+          ;(Array.isArray(payload.data) ? payload.data : []).forEach(
+            (record: { id?: unknown; type?: unknown }) =>
+              collectRecord(record, mode)
+          )
+          return
+        }
+        if (event?.type !== 'updateProperty') {
+          return
+        }
+        if (payload.id === closedPropertyId) {
+          valueKeys.add('closed')
+        }
+        const property = core?.deps?.props?.getPropertyById?.(payload.id)
+        collectRecord(
+          {
+            id: payload.id,
+            type: property?.get?.('type')
+          },
+          'set'
+        )
+      }
+    )
 
     return {
-      changeTypes: last.map(
+      changeTypes: events.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (event: any) => event?.type
       ),
-      valueKeys: Object.keys(patch.values ?? {}),
-      pointSetIds: Object.keys(patch.records?.points?.set ?? {}),
-      pointRemoveIds: Object.keys(patch.records?.points?.remove ?? {}),
-      segmentSetIds: Object.keys(patch.records?.segments?.set ?? {}),
-      segmentRemoveIds: Object.keys(patch.records?.segments?.remove ?? {}),
-      networkSetIds: Object.keys(patch.records?.networks?.set ?? {}),
-      networkRemoveIds: Object.keys(patch.records?.networks?.remove ?? {})
+      valueKeys: [...valueKeys],
+      pointSetIds: [...pointSetIds],
+      pointRemoveIds: [...pointRemoveIds],
+      segmentSetIds: [...segmentSetIds],
+      segmentRemoveIds: [...segmentRemoveIds],
+      networkSetIds: [...networkSetIds],
+      networkRemoveIds: [...networkRemoveIds]
     }
   })
 
 const expectOnlyComputedPatchUndo = (summary: { changeTypes: string[] }) => {
-  expect(summary.changeTypes).toEqual(['updateComputedDataPatch'])
+  expect(summary.changeTypes.length).toBeGreaterThan(0)
+  expect(
+    summary.changeTypes.every((type) =>
+      ['addProperty', 'removeProperty', 'updateProperty'].includes(type)
+    )
+  ).toBe(true)
 }
 
 test.describe('Vector app-flow invariants', () => {

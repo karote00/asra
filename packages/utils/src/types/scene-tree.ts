@@ -43,6 +43,10 @@ export interface RemoveSubtreeResult {
 
 export type SceneTreeRestoreStrategy = 'reuse' | 'materialize'
 
+export interface SceneTreeRestorePreflightOptions {
+  readonly propertyState?: 'active' | 'pending-restore'
+}
+
 export interface PreparedSceneTreeRestoreEntry {
   readonly elementId: string
   readonly strategy: SceneTreeRestoreStrategy

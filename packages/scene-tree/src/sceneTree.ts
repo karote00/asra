@@ -14,6 +14,7 @@ import type {
   MoveHierarchyResult,
   RemoveSubtreeResult,
   PreparedSceneTreeRestore,
+  SceneTreeRestorePreflightOptions,
   SceneTreeRestoreSnapshot,
   SceneTreeRestoreStrategy,
   SceneTreeChange,
@@ -3785,7 +3786,10 @@ class SceneTree {
     })
   }
 
-  preflightRestoreSubtree(snapshot: unknown): PreparedSceneTreeRestore {
+  preflightRestoreSubtree(
+    snapshot: unknown,
+    options?: SceneTreeRestorePreflightOptions
+  ): PreparedSceneTreeRestore {
     this.validateCanonicalHierarchy()
     if (!isRecord(snapshot)) {
       throw new Error(
@@ -3980,7 +3984,9 @@ class SceneTree {
     const propertyContract = this.captureElementPropertyContract(
       entries.map(({ data }) => data)
     )
-    this.assertElementPropertyContractActive(propertyContract)
+    if (options?.propertyState !== 'pending-restore') {
+      this.assertElementPropertyContractActive(propertyContract)
+    }
     const preparedEntries = entries.map((entry) => {
       const tombstone = this._deletedMap.get(entry.elementId)
       let strategy: SceneTreeRestoreStrategy = 'materialize'

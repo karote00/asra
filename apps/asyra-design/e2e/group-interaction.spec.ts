@@ -3,10 +3,10 @@ import {
   createTestDocumentURL,
   createRectangle,
   getCanvasPosition,
+  getClientPersistenceEvidence,
   getContentsPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
-  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -615,12 +615,13 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(normalized.outer.height).toBeCloseTo(normalized.inner.height)
   })
 
-  test('groups, nests, projects, restores, reloads, and ungroups through product commands', async ({
+  test('groups, nests, projects, restores, and ungroups through memory-only product commands', async ({
     page
   }) => {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
+    const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.25, 0.3)
     await createRectangle(page, 0.5, 0.45)
@@ -744,37 +745,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect.poll(() => getSelectedIds(page)).toEqual([nestedGroupId])
     await expect(layerRow(page, nestedGroupId)).toBeVisible()
 
-    const beforeReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
-    await expect
-      .poll(async () =>
-        JSON.stringify(await readPersistedDocument(page)).includes(
-          nestedGroupId
-        )
-      )
-      .toBe(true)
-
-    await page.reload()
-    await waitForAppReady(page)
-    const afterReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
-    expect(afterReload).toEqual(beforeReload)
-    await expect(layerRow(page, nestedGroupId)).toBeVisible()
-    await expect(layerRow(page, initialIds[0])).toHaveAttribute(
-      'data-layer-depth',
-      '2'
-    )
-
     await layerRow(page, nestedGroupId).click()
     await pressGroupCommandShortcut(page, 'ungroup')
     await expect
       .poll(() => getSelectedIds(page))
       .toEqual([firstGroupId, initialIds[2]])
-    const reloadedUngroupProjection = await page.evaluate((removedGroupId) => {
+    const ungroupedProjection = await page.evaluate((removedGroupId) => {
       const core = window.__Core__
       return {
         canonicalExists: Boolean(
@@ -783,8 +759,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
         flattenedIds: core.getUIProperty<string[]>('flattenedElementIds') ?? []
       }
     }, nestedGroupId)
-    expect(reloadedUngroupProjection.canonicalExists).toBe(false)
-    expect(reloadedUngroupProjection.flattenedIds).not.toContain(nestedGroupId)
+    expect(ungroupedProjection.canonicalExists).toBe(false)
+    expect(ungroupedProjection.flattenedIds).not.toContain(nestedGroupId)
     await expect(layerRow(page, nestedGroupId)).toHaveCount(0)
 
     await page.keyboard.up('Shift')
@@ -796,6 +772,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
       .toEqual(initialIds.slice(0, 2))
     await expect(layerRow(page, firstGroupId)).toHaveCount(0)
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
+    expect(await getClientPersistenceEvidence(page)).toEqual(
+      persistenceBaseline
+    )
 
     await page.evaluate(() => {
       delete (
@@ -804,5 +783,19 @@ test.describe('Asyra Design Group interaction MVP', () => {
         }
       ).__GroupInteractionIdentity
     })
+
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getLayerIds(page)).toEqual([])
+    expect(await getSelectedIds(page)).toEqual([])
+    expect(
+      await page.evaluate(
+        (ids) =>
+          ids.some((id) =>
+            Boolean(window.__Core__.deps.sceneTree.getElementById(id))
+          ),
+        [...initialIds, firstGroupId, nestedGroupId]
+      )
+    ).toBe(false)
   })
 })

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { EventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
+import { isSharedPublication } from '../../collaboration/protocol'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 
 const createPublication = (
@@ -173,6 +174,98 @@ describe('Asyra Design collaboration composition', () => {
     )
     expect('runRemoteTransaction' in filtered).toBe(false)
     expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
+  })
+
+  it('keeps one valid atomic document slice after removing a local selection slice', () => {
+    let publicationSubscriber:
+      | ((publication: SharedPublication) => void)
+      | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+    const selectionDelivery = createDelivery(
+      'selection-delivery',
+      'updateSelection',
+      []
+    )
+    const sceneDelivery = createDelivery(
+      'scene-delivery',
+      EventTypes.CHANGE_SUBTREE,
+      ['element-a']
+    )
+    const propsDelivery = createDelivery(
+      'props-delivery',
+      EventTypes.REMOVE_PROPERTY,
+      ['property-a']
+    )
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.(
+      createPublication('atomic-delete', [
+        {
+          sliceId: 'selection-slice',
+          orderedIds: ['selection-delivery'],
+          batches: [
+            {
+              batchId: 'selection-batch',
+              channel: 'selection',
+              deliveries: [selectionDelivery]
+            }
+          ]
+        },
+        {
+          sliceId: 'scene-slice',
+          orderedIds: ['scene-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            }
+          ]
+        },
+        {
+          sliceId: 'props-slice',
+          orderedIds: ['props-delivery'],
+          batches: [
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
+
+    expect(received).toHaveBeenCalledOnce()
+    const publication = received.mock.calls[0]?.[0]
+    expect(isSharedPublication(publication)).toBe(true)
+    expect(publication).toEqual(
+      createPublication('atomic-delete', [
+        {
+          sliceId: 'scene-slice',
+          orderedIds: ['scene-delivery', 'props-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            },
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
   })
 
   it('records profiling evidence from retained Factory batches without affecting transport', () => {

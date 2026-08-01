@@ -521,6 +521,129 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
+  it('preserves exact property record additions before updates in one Core request', () => {
+    const harness = createHarness()
+    const propertyBatchId = 'batch-vector-topology'
+    const pointAddition = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.ADD_PROPERTY,
+        {
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [{ id: 'point-b', type: 'vectorPoint', x: 20, y: 30 }]
+        },
+        'add-point-b'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['points-root']
+    }
+    const pointRootUpdate = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.UPDATE_PROPERTY,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          id: 'points-root',
+          key: 'points',
+          before: ['point-a'],
+          after: ['point-a', 'point-b']
+        },
+        'update-points-root'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['points-root']
+    }
+
+    expect(
+      harness.processPublication(
+        publication([pointAddition, pointRootUpdate], 'remote-vector-topology')
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        records: [
+          {
+            propertyId: 'points-root',
+            key: 'points',
+            set: {
+              'point-b': {
+                id: 'point-b',
+                type: 'vectorPoint',
+                x: 20,
+                y: 30
+              }
+            }
+          }
+        ],
+        updates: []
+      }
+    ])
+  })
+
+  it('preserves exact property record removals before updates in one Core request', () => {
+    const harness = createHarness()
+    const propertyBatchId = 'batch-vector-topology-removal'
+    const pointRemoval = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.REMOVE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.REMOVE_PROPERTY,
+          eventName: EventTypes.REMOVE_PROPERTY,
+          data: [{ id: 'point-b', type: 'vectorPoint', x: 20, y: 30 }]
+        },
+        'remove-point-b'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['points-root']
+    }
+    const pointRootUpdate = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.UPDATE_PROPERTY,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          id: 'points-root',
+          key: 'points',
+          before: ['point-a', 'point-b'],
+          after: ['point-a']
+        },
+        'update-points-root-after-removal'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['points-root']
+    }
+
+    expect(
+      harness.processPublication(
+        publication(
+          [pointRootUpdate, pointRemoval],
+          'remote-vector-topology-removal'
+        )
+      )
+    ).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        records: [
+          {
+            propertyId: 'points-root',
+            key: 'points',
+            remove: ['point-b']
+          }
+        ],
+        updates: []
+      }
+    ])
+  })
+
   it('preserves mixed canonical batch order in one Core request', () => {
     const harness = createHarness()
     const hierarchy = delivery(
@@ -572,6 +695,125 @@ describe('Asyra Design app-owned collaboration processing', () => {
       index: 0,
       elements: [{ id: 'rect-a' }, { id: 'rect-b' }]
     })
+  })
+
+  it('accepts hierarchy moves whose Factory delivery has no canonical ordered IDs', () => {
+    const harness = createHarness()
+    const hierarchy = {
+      ...delivery(
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.MOVE_ELEMENTS,
+        {
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+          eventName: EventTypes.MOVE_ELEMENTS,
+          moves: [
+            {
+              elementId: 'rect-a',
+              before: { parentId: 'workspace-a', index: 0 },
+              after: { parentId: 'group-a', index: 0 }
+            }
+          ]
+        },
+        'move-rect-a-without-ordered-ids'
+      ),
+      orderedIds: []
+    }
+
+    expect(
+      harness.processPublication(
+        publication([hierarchy], 'hierarchy-without-ordered-ids')
+      )
+    ).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'hierarchy-moves',
+        moves: [
+          {
+            elementId: 'rect-a',
+            before: { parentId: 'workspace-a', index: 0 },
+            after: { parentId: 'group-a', index: 0 }
+          }
+        ]
+      }
+    ])
+  })
+
+  it('preserves creation before hierarchy moves recorded in the same Scene batch', () => {
+    const harness = createHarness()
+    const groupCreation = canonicalContainerCreationDeliveries('group-a')
+    const sceneCreation = groupCreation[1]
+    if (!sceneCreation) throw new Error('Expected Group Scene creation')
+    const hierarchy = {
+      ...delivery(
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.MOVE_ELEMENTS,
+        {
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+          eventName: EventTypes.MOVE_ELEMENTS,
+          moves: [
+            {
+              elementId: 'rect-a',
+              before: { parentId: 'workspace-a', index: 0 },
+              after: { parentId: 'group-a', index: 0 }
+            }
+          ]
+        },
+        'move-rect-a-into-created-group'
+      ),
+      batchId: sceneCreation.batchId,
+      orderedIds: []
+    }
+
+    expect(
+      harness.processPublication(
+        publication(
+          [...groupCreation, hierarchy],
+          'group-creation-with-hierarchy-move'
+        )
+      )
+    ).toBe(true)
+    expect(
+      harness.applyCanonicalChanges.mock.calls[0]?.[0].map(({ kind }) => kind)
+    ).toEqual(['element-creation', 'hierarchy-moves'])
+  })
+
+  it('preserves hierarchy moves before removal recorded in the same Scene batch', () => {
+    const harness = createHarness()
+    const removal = canonicalRemovalDeliveries(['group-a'], true)
+    const sceneRemoval = removal[0]
+    if (!sceneRemoval) throw new Error('Expected Group Scene removal')
+    const hierarchy = {
+      ...delivery(
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.MOVE_ELEMENTS,
+        {
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+          eventName: EventTypes.MOVE_ELEMENTS,
+          moves: [
+            {
+              elementId: 'rect-a',
+              before: { parentId: 'group-a', index: 0 },
+              after: { parentId: 'workspace-a', index: 0 }
+            }
+          ]
+        },
+        'move-rect-a-out-of-removed-group'
+      ),
+      batchId: sceneRemoval.batchId,
+      orderedIds: []
+    }
+
+    expect(
+      harness.processPublication(
+        publication(
+          [hierarchy, ...removal],
+          'hierarchy-move-before-group-removal'
+        )
+      )
+    ).toBe(true)
+    expect(
+      harness.applyCanonicalChanges.mock.calls[0]?.[0].map(({ kind }) => kind)
+    ).toEqual(['hierarchy-moves', 'element-removal'])
   })
 
   it('organizes each source publication topology exactly once', () => {
@@ -692,6 +934,41 @@ describe('Asyra Design app-owned collaboration processing', () => {
         change: expect.objectContaining({ elementId: 'group-a' })
       })
     ])
+  })
+
+  it('keeps replay mutation options out of canonical subtree evidence', () => {
+    const harness = createHarness()
+    const removal = subtreeRemovalDelivery()
+
+    expect(
+      harness.processPublication(
+        publication(
+          [
+            {
+              ...removal,
+              payload: {
+                ...(removal.payload as Record<string, unknown>),
+                options: {
+                  undoable: false,
+                  rollbackable: true,
+                  sharedDelivery: 'transaction-end'
+                }
+              }
+            }
+          ],
+          'replayed-subtree-removal'
+        )
+      )
+    ).toBe(true)
+
+    const canonicalChange = harness.applyCanonicalChanges.mock.calls[0]?.[0][0]
+    expect(canonicalChange).toMatchObject({
+      kind: 'subtree-removal',
+      change: expect.objectContaining({ elementId: 'group-a' })
+    })
+    expect(
+      (canonicalChange as { change?: Record<string, unknown> }).change
+    ).not.toHaveProperty('options')
   })
 
   it('classifies the retained Group plus 16-item removal fixture once', () => {

@@ -52,9 +52,8 @@ describe('Render', () => {
     await render.init(100, 100, 0)
     const requestFrame = vi.spyOn(engine, 'requestFrame')
     const flushCount = () =>
-      engine
-        .getOperations()
-        .filter((operation) => operation.type === 'flush').length
+      engine.getOperations().filter((operation) => operation.type === 'flush')
+        .length
     vi.spyOn(render.viewport, 'panTo').mockImplementation(() => undefined)
     vi.spyOn(render.viewport, 'zoomTo').mockImplementation(() => undefined)
     vi.spyOn(render.viewport, 'updateElement').mockImplementation(

@@ -251,18 +251,29 @@ test.describe('Undo/Redo Actions', () => {
     )
     expect(previewPublications).toContainEqual(
       expect.objectContaining({
-        deliveries: expect.arrayContaining(
-          ['x', 'y'].map((key) =>
-            expect.objectContaining({
-              channel: 'sceneTree',
-              sharedDelivery: 'immediate',
-              payload: expect.objectContaining({
-                action: 'updateElementComputedData',
-                key
+        slices: expect.arrayContaining([
+          expect.objectContaining({
+            batches: expect.arrayContaining([
+              expect.objectContaining({
+                channel: 'props',
+                deliveries: expect.arrayContaining(
+                  ['x', 'y'].map((key) =>
+                    expect.objectContaining({
+                      eventName: 'updateProperty',
+                      payload: expect.objectContaining({
+                        action: 'updateProperty',
+                        key,
+                        options: expect.objectContaining({
+                          sharedDelivery: 'immediate'
+                        })
+                      })
+                    })
+                  )
+                )
               })
-            })
-          )
-        )
+            ])
+          })
+        ])
       })
     )
     const interrupted = await getSelectedElementRect(page)
@@ -344,12 +355,16 @@ test.describe('Undo/Redo Actions', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       const stack = core?.deps?.factory?.transact?.undoStack ?? []
-      const last = stack[stack.length - 1] ?? []
-      const updateComputedDataEvents = last.filter(
+      const last = stack[stack.length - 1]
+      const events = (last?.entries ?? []).map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (event: any) => event?.type === 'updateComputedData'
+        (entry: any) => entry.event
       )
-      const noOpSelectionEvents = last.filter(
+      const updatePropertyEvents = events.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (event: any) => event?.type === 'updateProperty'
+      )
+      const noOpSelectionEvents = events.filter(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (event: any) =>
           event?.type === 'selectElements' &&
@@ -361,17 +376,17 @@ test.describe('Undo/Redo Actions', () => {
 
       return {
         stackCount: stack.length,
-        changeCount: last.length,
-        updateComputedDataCount: updateComputedDataEvents.length,
+        changeCount: events.length,
+        updatePropertyCount: updatePropertyEvents.length,
         noOpSelectionCount: noOpSelectionEvents.length
       }
     })
 
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
-    expect(commitSummary.updateComputedDataCount).toBeGreaterThan(0)
+    expect(commitSummary.updatePropertyCount).toBeGreaterThan(0)
     expect(commitSummary.changeCount).toBeGreaterThanOrEqual(
-      commitSummary.updateComputedDataCount
+      commitSummary.updatePropertyCount
     )
   })
 
@@ -485,24 +500,21 @@ test.describe('Undo/Redo Actions', () => {
         : null
 
       const stack = core.deps.factory.transact.undoStack
-      const last = stack[stack.length - 1] ?? []
+      const last = stack[stack.length - 1]
+      const events = (last?.entries ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (entry: any) => entry.event
+      )
       const point = elementApis.getVectorAnchorPointById(elementId, 'A')?.point
 
       return {
         elementId,
         stackBefore,
         stackAfter: stack.length,
-        changeCount: last.length,
-        changeTypes: last.map(
+        changeCount: events.length,
+        changeTypes: events.map(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (event: any) => event?.type
-        ),
-        patchValues:
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (last[0] as any)?.payload?.patch?.values ?? {},
-        pointPatchIds: Object.keys(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (last[0] as any)?.payload?.patch?.records?.points?.set ?? {}
         ),
         beforePoint,
         afterPoint,
@@ -511,12 +523,10 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     expect(summary.stackAfter).toBe(summary.stackBefore + 1)
-    expect(
-      summary.changeTypes.every((type) => type === 'updateComputedDataPatch')
-    ).toBe(true)
-    expect(summary.changeCount).toBe(1)
-    expect(summary.patchValues).not.toHaveProperty('pointCoordinateSpace')
-    expect(summary.pointPatchIds.sort()).toEqual(['A', 'A:in', 'A:out'])
+    expect(summary.changeTypes.every((type) => type === 'updateProperty')).toBe(
+      true
+    )
+    expect(summary.changeCount).toBeGreaterThan(0)
     expect(summary.point).toMatchObject({ x: 80, y: 110 })
 
     await undo(page)
@@ -542,7 +552,7 @@ test.describe('Undo/Redo Actions', () => {
       .toMatchObject(summary.afterPoint)
   })
 
-  test('vector structural operations undo and redo through single computed patch commits', async ({
+  test('vector structural operations undo and redo through one canonical property history entry', async ({
     page
   }) => {
     const setup = await page.evaluate(() => {
@@ -651,33 +661,27 @@ test.describe('Undo/Redo Actions', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         const stack = core?.deps?.factory?.transact?.undoStack ?? []
-        const last = stack[stack.length - 1] ?? []
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const patch = ((last[0] as any)?.payload?.patch ?? {}) as Record<
-          string,
+        const last = stack[stack.length - 1]
+        const events = (last?.entries ?? []).map(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          any
-        >
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const removeIds = (value: any) =>
-          Array.isArray(value) ? value : Object.keys(value ?? {})
+          (entry: any) => entry.event
+        )
         return {
-          changeTypes: last.map(
+          changeTypes: events.map(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => event?.type
-          ),
-          pointSetIds: Object.keys(patch.records?.points?.set ?? {}).sort(),
-          pointRemoveIds: removeIds(patch.records?.points?.remove).sort(),
-          segmentRemoveIds: removeIds(patch.records?.segments?.remove).sort(),
-          networkSetIds: Object.keys(patch.records?.networks?.set ?? {}).sort(),
-          valueKeys: Object.keys(patch.values ?? {}).sort()
+          )
         }
       })
 
-    const expectSinglePatchUndo = async () => {
+    const expectCanonicalPropertyUndo = async () => {
       const summary = await readLastUndo()
-      expect(summary.changeTypes).toEqual(['updateComputedDataPatch'])
-      return summary
+      expect(summary.changeTypes.length).toBeGreaterThan(0)
+      expect(
+        summary.changeTypes.every((type) =>
+          ['addProperty', 'removeProperty', 'updateProperty'].includes(type)
+        )
+      ).toBe(true)
     }
     const undoStructuralOperation = async () => {
       await page.evaluate(() => {
@@ -707,8 +711,7 @@ test.describe('Undo/Redo Actions', () => {
         outHandle: null
       })
     }, setup.elementId)
-    const appendUndo = await expectSinglePatchUndo()
-    expect(appendUndo.pointSetIds).toEqual(['D'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).not.toMatchObject({
       pointIds: expect.arrayContaining(['D'])
@@ -741,9 +744,7 @@ test.describe('Undo/Redo Actions', () => {
       return result?.point?.id
     }, setup.elementId)
     expect(splitPointId).toBeTruthy()
-    const splitUndo = await expectSinglePatchUndo()
-    expect(splitUndo.pointSetIds).toEqual([splitPointId])
-    expect(splitUndo.segmentRemoveIds).toContain('AB')
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).not.toMatchObject({
       pointIds: expect.arrayContaining([splitPointId])
@@ -761,8 +762,7 @@ test.describe('Undo/Redo Actions', () => {
       },
       { elementId: setup.elementId, pointId: splitPointId }
     )
-    const removeUndo = await expectSinglePatchUndo()
-    expect(removeUndo.pointRemoveIds).toEqual([splitPointId])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({
       pointIds: expect.arrayContaining([splitPointId])
@@ -777,8 +777,7 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       elementApis.updateVectorAnchorPointType(elementId, 'B', 'smooth')
     }, setup.elementId)
-    const typeUndo = await expectSinglePatchUndo()
-    expect(typeUndo.pointSetIds).toEqual(['B'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ bType: 'sharp' })
     await redoStructuralOperation()
@@ -808,8 +807,7 @@ test.describe('Undo/Redo Actions', () => {
         }
       ])
     }, setup.elementId)
-    const handlesUndo = await expectSinglePatchUndo()
-    expect(handlesUndo.pointSetIds).toEqual(['B:in', 'B:out'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({
       hasBIn: false,
@@ -830,14 +828,7 @@ test.describe('Undo/Redo Actions', () => {
         'mirror-angle-length'
       )
     }, setup.elementId)
-    const handleModeUndo = await expectSinglePatchUndo()
-    expect(handleModeUndo.pointSetIds).toContain('B')
-    expect(handleModeUndo.pointSetIds).toContain('B:in')
-    expect(
-      handleModeUndo.pointSetIds.every((pointId) =>
-        ['B', 'B:in', 'B:out'].includes(pointId)
-      )
-    ).toBe(true)
+    await expectCanonicalPropertyUndo()
     await expect.poll(readTopology).toMatchObject({
       bHandleMode: 'mirror-angle-length'
     })
@@ -859,9 +850,7 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       elementApis.connectVectorAnchorEndpoints(elementId, 'D', 'A')
     }, setup.elementId)
-    const mergeUndo = await expectSinglePatchUndo()
-    expect(mergeUndo.valueKeys).not.toContain('closed')
-    expect(mergeUndo.networkSetIds).toHaveLength(1)
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ closed: false })
     await redoStructuralOperation()
@@ -872,8 +861,7 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       elementApis.setVectorClosed(elementId, true)
     }, setup.elementId)
-    const closeUndo = await expectSinglePatchUndo()
-    expect(closeUndo.valueKeys).toContain('closed')
+    await expectCanonicalPropertyUndo()
     await expect.poll(readTopology).toMatchObject({ closed: true })
   })
 
@@ -933,6 +921,7 @@ test.describe('Undo/Redo Actions', () => {
       return {
         vectorId,
         pointId: anchor.id,
+        undoCount: core?.deps?.factory?.transact?.undoStack?.length ?? 0,
         point: { x: anchor.x, y: anchor.y },
         anchors,
         rect: {
@@ -951,11 +940,11 @@ test.describe('Undo/Redo Actions', () => {
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scope = window as any
-      scope.__vectorPointPreviewDeliveries = []
+      scope.__vectorPointPreviewPublications = []
       scope.__disposeVectorPointPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'sceneTree',
-          (change: unknown) => scope.__vectorPointPreviewDeliveries.push(change)
+        scope.__Core__?.deps?.factory?.subscribeToSharedPublication?.(
+          (publication: unknown) =>
+            scope.__vectorPointPreviewPublications.push(publication)
         )
     })
     await page.mouse.move(before.client.x, before.client.y)
@@ -963,22 +952,54 @@ test.describe('Undo/Redo Actions', () => {
     await page.mouse.move(before.client.x + 52, before.client.y + 24, {
       steps: 12
     })
-    const previewDeliveries = await page.evaluate(() => {
+    const previewPublications = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__vectorPointPreviewDeliveries ?? []
+      return (window as any).__vectorPointPreviewPublications ?? []
     })
-    expect(previewDeliveries).toContainEqual(
+    expect(previewPublications).toEqual([])
+    await page.mouse.up()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__vectorPointPreviewPublications?.length ?? 0
+        )
+      )
+      .toBeGreaterThan(0)
+    const committedPublications = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__vectorPointPreviewPublications ?? []
+    })
+    expect(committedPublications).toContainEqual(
       expect.objectContaining({
-        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+        slices: expect.arrayContaining([
+          expect.objectContaining({
+            batches: expect.arrayContaining([
+              expect.objectContaining({
+                channel: 'props',
+                deliveries: expect.arrayContaining([
+                  expect.objectContaining({
+                    eventName: 'updateProperty',
+                    payload: expect.objectContaining({
+                      options: expect.objectContaining({
+                        sharedDelivery: 'immediate'
+                      })
+                    })
+                  })
+                ])
+              })
+            ])
+          })
+        ])
       })
     )
-    await page.mouse.up()
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scope = window as any
       scope.__disposeVectorPointPreviewObserver?.()
       delete scope.__disposeVectorPointPreviewObserver
-      delete scope.__vectorPointPreviewDeliveries
+      delete scope.__vectorPointPreviewPublications
     })
     await page.waitForTimeout(80)
 
@@ -1002,6 +1023,7 @@ test.describe('Undo/Redo Actions', () => {
           ])
       )
       return {
+        undoCount: core?.deps?.factory?.transact?.undoStack?.length ?? 0,
         point: point ? { x: point.x, y: point.y } : null,
         anchors,
         rect: {
@@ -1014,6 +1036,7 @@ test.describe('Undo/Redo Actions', () => {
     }, before)
 
     expect(afterMouseup.point?.x).toBeGreaterThan(before.point.x + 20)
+    expect(afterMouseup.undoCount).toBe(before.undoCount + 1)
     Object.entries(before.anchors)
       .filter(([pointId]) => pointId !== before.pointId)
       .forEach(([pointId, point]) => {

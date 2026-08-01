@@ -283,8 +283,13 @@ System orchestrator and lifecycle coordinator.
   ordered `CanonicalChange[]` through `applyCanonicalChanges(...)`. The closed
   union covers property components, raw element data, hierarchy moves,
   subtree removal/restore, and canonical element creation/removal. Core
-  preserves order and delegates to the existing owner APIs; it does not parse
-  `SharedPublication`, choose App policy, or open a second transaction.
+  preserves order and delegates to the existing owner APIs. One
+  `property-components` change may combine ordered structural records and
+  value updates in one Props-owned mutation batch. For `subtree-restore`, Core
+  first requests Scene Tree's `pending-restore` preflight, then preflights and
+  restores Props before Scene Tree applies and revalidates active property
+  relations. Core does not parse `SharedPublication`, choose App policy, or
+  open a second transaction.
 - Core/Scene bridge rule: Scene recomputes local computed projection from
   committed source-property evidence; app handlers do not duplicate that
   projection or publish computed state as canonical data.

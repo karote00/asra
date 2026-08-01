@@ -26,6 +26,7 @@ import type {
 import {
   acknowledgeTransactionReplayApplied,
   EventTypes,
+  getTransactionReplayMode,
   TransactionEventTypes,
   updateTransaction,
   updateTransactionBatch,
@@ -4597,7 +4598,11 @@ class PropsManager {
             }
           }
         } else {
-          if (this._deletedMap.has(childId) || createdComponents.has(childId)) {
+          const inactiveChild = this._deletedMap.get(childId)
+          if (
+            createdComponents.has(childId) ||
+            (inactiveChild && getTransactionReplayMode() === null)
+          ) {
             throw new Error(
               `[PropsManager] Property mutation record "${childId}" conflicts with an existing canonical id`
             )
@@ -4629,6 +4634,25 @@ class PropsManager {
             childContract.schema,
             childId
           )
+          if (inactiveChild) {
+            const inactiveSnapshot = clonePropsValue(inactiveChild.save())
+            if (
+              inactiveChild.get('type') !== relation.childType ||
+              !(inactiveChild instanceof childContract.constructor) ||
+              !isEqual(inactiveSnapshot, created)
+            ) {
+              throw new Error(
+                `[PropsManager] Property mutation record "${childId}" has incompatible inactive data`
+              )
+            }
+            reactivatedComponents.set(
+              childId,
+              Object.freeze({
+                instance: inactiveChild,
+                before: deepFreezePropertyContract(inactiveSnapshot)
+              })
+            )
+          }
           createdComponents.set(childId, created)
         }
         if (!nextChildIdSet.has(childId)) {

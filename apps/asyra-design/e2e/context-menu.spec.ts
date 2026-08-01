@@ -1,5 +1,11 @@
 import { writeFile } from 'node:fs/promises'
-import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type TestInfo
+} from '@playwright/test'
 import {
   createTestDocumentURL,
   createRectangle,
@@ -12,6 +18,7 @@ import {
 interface PlatformFixture {
   id: 'macos' | 'windows-linux'
   navigatorPlatform: string
+  agentLabel: string
   groupLabel: string
   ungroupLabel: string
   groupShortcut: string
@@ -73,6 +80,7 @@ const platformFixtures: readonly PlatformFixture[] = [
   {
     id: 'macos',
     navigatorPlatform: 'MacIntel',
+    agentLabel: '⌘I',
     groupLabel: '⌘G',
     ungroupLabel: '⇧⌘G',
     groupShortcut: 'Meta+G',
@@ -82,6 +90,7 @@ const platformFixtures: readonly PlatformFixture[] = [
   {
     id: 'windows-linux',
     navigatorPlatform: 'Win32',
+    agentLabel: 'Ctrl+I',
     groupLabel: 'Ctrl+G',
     ungroupLabel: 'Ctrl+Shift+G',
     groupShortcut: 'Control+G',
@@ -170,13 +179,20 @@ const openContextMenu = async (
   return menu
 }
 
-const expectFixedRows = async (page: Page, fixture: PlatformFixture) => {
+const expectFixedRows = async (
+  page: Page,
+  menu: Locator,
+  fixture: PlatformFixture
+) => {
   await expect(page.getByTestId('layers-group-button')).toHaveCount(0)
   await expect(page.getByTestId('layers-ungroup-button')).toHaveCount(0)
-  const rows = page.getByRole('menuitem')
-  await expect(rows).toHaveCount(2)
-  await expect(rows.nth(0)).toHaveText(`Group${fixture.groupLabel}`)
-  await expect(rows.nth(1)).toHaveText(`Ungroup${fixture.ungroupLabel}`)
+  const rows = menu.getByRole('menuitem')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0)).toHaveText(
+    `Toggle Agent Panel${fixture.agentLabel}`
+  )
+  await expect(rows.nth(1)).toHaveText(`Group${fixture.groupLabel}`)
+  await expect(rows.nth(2)).toHaveText(`Ungroup${fixture.ungroupLabel}`)
 }
 
 const captureRuleOverlay = async ({
@@ -398,12 +414,21 @@ const captureRuleOverlay = async ({
         snapshot.menu.bottom <= snapshot.viewport.height &&
         drift.x <= 1 &&
         drift.y <= 1
+      const expectedShortcuts =
+        snapshot.platform === 'macos'
+          ? ['⌘I', '⌘G', '⇧⌘G']
+          : ['Ctrl+I', 'Ctrl+G', 'Ctrl+Shift+G']
       const statePass =
-        snapshot.rows.length === 2 &&
-        snapshot.rows[0]?.label === 'Group' &&
-        snapshot.rows[1]?.label === 'Ungroup' &&
+        snapshot.rows.length === 3 &&
+        snapshot.rows[0]?.label === 'Toggle Agent Panel' &&
+        snapshot.rows[1]?.label === 'Group' &&
+        snapshot.rows[2]?.label === 'Ungroup' &&
+        snapshot.rows.every(
+          (row, index) => row.shortcut === expectedShortcuts[index]
+        ) &&
         snapshot.rows[0]?.disabled === false &&
-        snapshot.rows[1]?.disabled === true &&
+        snapshot.rows[1]?.disabled === false &&
+        snapshot.rows[2]?.disabled === true &&
         snapshot.focusedRowIndex === 0 &&
         snapshot.rows.every(
           (row) => row.labelRect.right < row.shortcutRect.left
@@ -568,7 +593,7 @@ const captureRuleOverlay = async ({
         ruleInventory: {
           positive: [
             'one app-owned menu is visible',
-            'Group then Ungroup rows and platform shortcuts are visible',
+            'Agent, Group, then Ungroup rows and platform shortcuts are visible',
             'each row has independent pixel coverage'
           ],
           negative: [
@@ -583,7 +608,9 @@ const captureRuleOverlay = async ({
           provenance: [
             'runtime menu DOM, selected ids, canonical layer ids, and canonical hash come from the captured app frame'
           ],
-          state: ['Group enabled, Ungroup disabled, first enabled row focused'],
+          state: [
+            'Agent and Group enabled, Ungroup disabled, first enabled row focused'
+          ],
           edgeCases: [
             `${fixture.visualPosition} pointer placement`,
             `${fixture.id} platform presentation`
@@ -664,7 +691,7 @@ for (const fixture of platformFixtures) {
 
       const center = await getCanvasPosition(page, 0.5, 0.5)
       const menu = await openContextMenu(page, center)
-      await expectFixedRows(page, fixture)
+      await expectFixedRows(page, menu, fixture)
       const menuBounds = await menu.boundingBox()
       expect(menuBounds).not.toBeNull()
       expect(Math.abs((menuBounds?.x ?? 0) - center.x)).toBeLessThanOrEqual(1)
@@ -737,8 +764,8 @@ for (const fixture of platformFixtures) {
         fixture.visualPosition === 'center'
           ? await getCanvasPosition(page, 0.5, 0.5)
           : await getCanvasPosition(page, 0.98, 0.98)
-      await openContextMenu(page, requested)
-      await expectFixedRows(page, fixture)
+      const menu = await openContextMenu(page, requested)
+      await expectFixedRows(page, menu, fixture)
 
       const result = await captureRuleOverlay({
         page,

@@ -162,6 +162,7 @@ type VectorTopologyOperation =
 
 interface VectorOperationIntentOptions {
   structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
+  transientPreview?: boolean
 }
 
 type VectorPointMutationOptions = EVENT_OPTIONS &
@@ -225,6 +226,7 @@ const toVectorEventOptions = (
     skipResult: _skipResult,
     closed: _closed,
     structuralOperationIntent: _structuralOperationIntent,
+    transientPreview: _transientPreview,
     ...eventOptions
   } = options
   return eventOptions
@@ -583,8 +585,8 @@ const createRecordComputedPatch = <T extends Record<string, unknown>>(
   return recordPatch
 }
 
-const isTransientVectorPointDragUpdate = (options?: EVENT_OPTIONS) => {
-  if (options?.undoable !== false) {
+const isTransientVectorPointDragUpdate = (options?: VectorOperationOptions) => {
+  if (options?.transientPreview !== true || options.undoable !== false) {
     return false
   }
 
@@ -1980,7 +1982,18 @@ export const vectorApis = {
         structuralOperationIntent: options?.structuralOperationIntent
       }
     )
-    return vectorApis.getVectorAnchorPointById(elementId, splitResult.pointId)
+    const anchorPoints = vectorTopologyToAnchorPoints(splitResult.topology)
+    const insertedPointIndex = anchorPoints.findIndex(
+      (point) => point.id === splitResult.pointId
+    )
+    if (insertedPointIndex === -1) {
+      return null
+    }
+
+    return {
+      point: anchorPoints[insertedPointIndex],
+      index: insertedPointIndex
+    }
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {

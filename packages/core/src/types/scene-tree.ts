@@ -11,6 +11,7 @@ import {
   RemoveSubtreeResult,
   PropertyComponentRawData,
   PreparedSceneTreeRestore,
+  SceneTreeRestorePreflightOptions,
   SceneTreeRestoreSnapshot,
   SubtreeChange,
   UpdateElementDataChange
@@ -78,7 +79,8 @@ export interface SceneTreeRawAPIs {
     options?: EVENT_OPTIONS
   ) => readonly string[]
   preflightRestoreSubtree: (
-    snapshot: SceneTreeRestoreSnapshot
+    snapshot: SceneTreeRestoreSnapshot,
+    options?: SceneTreeRestorePreflightOptions
   ) => PreparedSceneTreeRestore
   applyRestoreSubtree: (
     preparedRestore: PreparedSceneTreeRestore,

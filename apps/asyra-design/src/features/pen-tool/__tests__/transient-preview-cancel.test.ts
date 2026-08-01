@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 interface CapturedSessionDefinition {
   readonly session?: {
+    readonly onUpdate?: (
+      snapshot: unknown,
+      state: Record<string, unknown>
+    ) => unknown
+    readonly onEnd?: (
+      snapshot: unknown,
+      state: Record<string, unknown>
+    ) => unknown
     readonly onCancel?: (
       snapshot: unknown,
       state: Record<string, unknown>
@@ -12,6 +20,20 @@ interface CapturedSessionDefinition {
 const mocks = vi.hoisted(() => ({
   definitions: new Map<string, CapturedSessionDefinition>(),
   discardTransientVectorPreviews: vi.fn(),
+  getMousePosInWorkspace: vi.fn(
+    (position: { x: number; y: number }) => position
+  ),
+  getVectorAnchorPointById: vi.fn(() => ({
+    index: 0,
+    point: {
+      id: 'point-a',
+      kind: 'anchor',
+      x: 10,
+      y: 20
+    }
+  })),
+  getVectorAnchorPointHandleMode: vi.fn(() => 'none'),
+  hasMovedBeyondThreshold: vi.fn(() => true),
   resetCanvasCursor: vi.fn(),
   setPathEditingVectorId: vi.fn(),
   setPathEditingStartNewSubpath: vi.fn(),
@@ -20,7 +42,8 @@ const mocks = vi.hoisted(() => ({
   setSelectedVectorSegment: vi.fn(),
   setHoveredVectorPoint: vi.fn(),
   setHoveredVectorSegment: vi.fn(),
-  setHoveredVectorSegmentInsertPoint: vi.fn()
+  setHoveredVectorSegmentInsertPoint: vi.fn(),
+  updateVectorAnchorPointPosition: vi.fn(() => true)
 }))
 
 vi.mock('@asyra/core', async (importOriginal) => ({
@@ -40,7 +63,12 @@ vi.mock('../../../common-apis', () => ({
     resetCanvasCursor: mocks.resetCanvasCursor
   },
   elementApis: {
-    discardTransientVectorPreviews: mocks.discardTransientVectorPreviews
+    discardTransientVectorPreviews: mocks.discardTransientVectorPreviews,
+    getMousePosInWorkspace: mocks.getMousePosInWorkspace,
+    getVectorAnchorPointById: mocks.getVectorAnchorPointById,
+    getVectorAnchorPointHandleMode: mocks.getVectorAnchorPointHandleMode,
+    hasMovedBeyondThreshold: mocks.hasMovedBeyondThreshold,
+    updateVectorAnchorPointPosition: mocks.updateVectorAnchorPointPosition
   },
   selectionApis: {},
   systemContextApis: {
@@ -120,5 +148,87 @@ describe('Pen Tool transient preview cancellation', () => {
     expect(
       mocks.discardTransientVectorPreviews.mock.invocationCallOrder[0]
     ).toBeLessThan(mocks.resetCanvasCursor.mock.invocationCallOrder[0])
+  })
+
+  it('commits an existing vector point drag through immediate shared delivery on pointer-up', () => {
+    const session = mocks.definitions.get(
+      FeatureNames.SELECT_VECTOR_POINT
+    )?.session
+
+    session?.onEnd?.(
+      {
+        mouseDragStart: { x: 20, y: 30 },
+        mousePosition: { x: 50, y: 60 }
+      },
+      {
+        dragTarget: {
+          elementId: 'selected-vector',
+          pointId: 'point-a',
+          index: 0,
+          target: 'anchor',
+          dragStartWorkspacePos: { x: 20, y: 30 },
+          initialTargetPos: { x: 10, y: 20 },
+          hasMoved: true
+        },
+        runtimeBefore
+      }
+    )
+
+    expect(mocks.updateVectorAnchorPointPosition).toHaveBeenLastCalledWith(
+      'selected-vector',
+      'point-a',
+      { x: 40, y: 50 },
+      {
+        undoable: true,
+        sharedDelivery: 'immediate',
+        skipResult: true
+      }
+    )
+    expect(mocks.discardTransientVectorPreviews).toHaveBeenCalledWith([
+      'selected-vector'
+    ])
+    expect(
+      mocks.discardTransientVectorPreviews.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      mocks.updateVectorAnchorPointPosition.mock.invocationCallOrder.at(-1) ??
+        Number.POSITIVE_INFINITY
+    )
+  })
+
+  it('keeps existing vector point drag updates in the local transient preview', () => {
+    const session = mocks.definitions.get(
+      FeatureNames.SELECT_VECTOR_POINT
+    )?.session
+
+    session?.onUpdate?.(
+      {
+        mouseDragStart: { x: 20, y: 30 },
+        mousePosition: { x: 50, y: 60 },
+        mouseDragging: true
+      },
+      {
+        dragTarget: {
+          elementId: 'selected-vector',
+          pointId: 'point-a',
+          index: 0,
+          target: 'anchor',
+          dragStartWorkspacePos: { x: 20, y: 30 },
+          initialTargetPos: { x: 10, y: 20 },
+          hasMoved: false
+        },
+        runtimeBefore
+      }
+    )
+
+    expect(mocks.updateVectorAnchorPointPosition).toHaveBeenLastCalledWith(
+      'selected-vector',
+      'point-a',
+      { x: 40, y: 50 },
+      {
+        undoable: false,
+        transientPreview: true,
+        skipResult: true
+      }
+    )
   })
 })

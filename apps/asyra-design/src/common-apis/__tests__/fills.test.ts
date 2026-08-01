@@ -50,6 +50,54 @@ describe('fill common API primary-color boundary', () => {
     })
   })
 
+  it('adds and removes one repeatable fill through canonical record patches', () => {
+    const fillId = fillApis.addFill('pupil-left', { undoable: true })
+
+    expect(fillId).toEqual(expect.any(String))
+    expect(fillId).not.toBe('')
+    expect(mocks.patchElementProperties).toHaveBeenNthCalledWith(
+      1,
+      [
+        {
+          elementId: 'pupil-left',
+          records: [
+            {
+              key: 'fills',
+              set: {
+                [fillId as string]: expect.objectContaining({
+                  color: '#cccccc',
+                  kind: 'solid',
+                  visible: true
+                })
+              }
+            }
+          ]
+        }
+      ],
+      { undoable: true }
+    )
+
+    expect(
+      fillApis.removeFill('pupil-left', 'fill-1', { undoable: true })
+    ).toBe(true)
+    expect(mocks.patchElementProperties).toHaveBeenNthCalledWith(
+      2,
+      [
+        {
+          elementId: 'pupil-left',
+          records: [
+            {
+              key: 'fills',
+              remove: ['fill-1']
+            }
+          ]
+        }
+      ],
+      { undoable: true }
+    )
+    expect(mocks.runTransaction).toHaveBeenCalledTimes(2)
+  })
+
   it('reads and patches the first canonical fill through one Core record batch', () => {
     expect(fillApis.getPrimaryFillColor('pupil-left')).toBe('#050504')
 

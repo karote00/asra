@@ -192,6 +192,18 @@ export async function readPersistedDocument<T = unknown>(
   )
 }
 
+export const getClientPersistenceEvidence = (page: Page) =>
+  page.evaluate(() => {
+    const phases = window.__AsyraAiDrawingPerformance__?.snapshot().phases ?? []
+    const count = (name: string) =>
+      phases.filter((phase) => phase.name === name).length
+    return {
+      captureCount: count('core:persistence-capture'),
+      indexedDbPutCount: count('persistence:indexeddb-put'),
+      saveCount: count('core:persistence-save')
+    }
+  })
+
 interface DocumentDigest {
   byteLength: number
   sha256: string

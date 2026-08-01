@@ -5,11 +5,11 @@ import {
   createRectangle,
   createVectorPath,
   getCanvasPosition,
+  getClientPersistenceEvidence,
   getElementCount,
   getSelectedElementClientCenter,
   hasSelectedElement,
   pressGroupCommandShortcut,
-  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -44,11 +44,12 @@ test.describe('Delete Selected Element', () => {
       .toBe(0)
   })
 
-  test('Delete removes a complete Group subtree, keeps canvas selection usable, and persists', async ({
+  test('Delete removes a complete Group subtree, keeps canvas selection usable, and stays memory-only', async ({
     page
   }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(String(error)))
+    const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.42, 0.42)
     const subtree = await page.evaluate(() => {
@@ -210,15 +211,9 @@ test.describe('Delete Selected Element', () => {
       )
       .toEqual([survivingId])
 
-    await expect
-      .poll(async () => {
-        const saved = await readPersistedDocument<{
-          sceneTree?: { elements?: Record<string, unknown> }
-        }>(page)
-        const elements = saved?.sceneTree?.elements ?? {}
-        return !elements[groupId] && !elements[subtree.childId]
-      })
-      .toBe(true)
+    expect(await getClientPersistenceEvidence(page)).toEqual(
+      persistenceBaseline
+    )
 
     await page.reload()
     await waitForAppReady(page)
@@ -245,7 +240,7 @@ test.describe('Delete Selected Element', () => {
     expect(afterReload).toEqual({
       childExists: false,
       groupExists: false,
-      survivorExists: true
+      survivorExists: false
     })
     expect(pageErrors).toEqual([])
   })

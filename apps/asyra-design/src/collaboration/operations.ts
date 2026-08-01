@@ -602,7 +602,6 @@ const organizeRemotePublication = (
           deliveryIds.has(delivery.deliveryId) ||
           !isNonBlankString(delivery.deliveryId) ||
           !isNonBlankString(delivery.eventName) ||
-          delivery.orderedIds.length === 0 ||
           delivery.orderedIds.some((orderedId) => !isNonBlankString(orderedId))
         ) {
           throw new Error(
@@ -685,7 +684,15 @@ const orderCanonicalElementEntries = (
 
 const classifyPropertyComponentBatch = (
   batch: SharedPublicationBatch
-): readonly PropertyComponentValuesUpdate[] | null => {
+): Readonly<{
+  records: readonly Readonly<{
+    propertyId: string
+    key: string
+    set?: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+    remove?: readonly string[]
+  }>[]
+  updates: readonly PropertyComponentValuesUpdate[]
+}> | null => {
   if (
     !batch.deliveries.some(
       ({ eventName }) => eventName === EventTypes.UPDATE_PROPERTY
@@ -693,24 +700,122 @@ const classifyPropertyComponentBatch = (
   ) {
     return null
   }
-  if (
-    batch.channel !== SharedDataChannelNames.PROPS ||
-    !batch.deliveries.every(
-      (delivery) =>
-        delivery.eventName === EventTypes.UPDATE_PROPERTY &&
-        isUpdateProperty(delivery.payload)
-    )
-  ) {
+  if (batch.channel !== SharedDataChannelNames.PROPS) {
     throw new Error(
       '[asyra-design collaboration] invalid property-component batch evidence'
     )
   }
+  const structuralDeliveries: {
+    kind: 'add' | 'remove'
+    ownerPropertyId: string
+    components: readonly PropertyComponentRawData[]
+  }[] = []
+  const updateDeliveries: {
+    delivery: SharedPublicationDelivery
+    payload: Record<string, unknown>
+  }[] = []
   const updatesByPropertyId = new Map<
     string,
     { propertyId: string; values: Record<string, unknown> }
   >()
-  batch.deliveries.forEach(({ payload }) => {
-    const change = payload as Record<string, unknown>
+  let reachedUpdates = false
+  batch.deliveries.forEach((delivery) => {
+    const isAddition = isAddPropertyDelivery(delivery)
+    const isRemoval = isRemovePropertyDelivery(delivery)
+    if (isAddition || isRemoval) {
+      if ((isAddition && reachedUpdates) || delivery.orderedIds.length !== 1) {
+        throw new Error(
+          '[asyra-design collaboration] invalid property-component batch evidence'
+        )
+      }
+      structuralDeliveries.push({
+        kind: isAddition ? 'add' : 'remove',
+        ownerPropertyId: delivery.orderedIds[0] as string,
+        components: Object.freeze([...delivery.payload.data])
+      })
+      return
+    }
+    if (
+      delivery.eventName !== EventTypes.UPDATE_PROPERTY ||
+      !isUpdateProperty(delivery.payload)
+    ) {
+      throw new Error(
+        '[asyra-design collaboration] invalid property-component batch evidence'
+      )
+    }
+    reachedUpdates = true
+    updateDeliveries.push({
+      delivery,
+      payload: delivery.payload
+    })
+  })
+
+  const consumedUpdates = new Set<SharedPublicationDelivery>()
+  const records = structuralDeliveries.map(
+    ({ kind, ownerPropertyId, components }) => {
+      const relationshipUpdate = updateDeliveries.find(
+        ({ delivery, payload }) =>
+          !consumedUpdates.has(delivery) && payload.id === ownerPropertyId
+      )
+      if (!relationshipUpdate) {
+        throw new Error(
+          '[asyra-design collaboration] invalid property-component batch evidence'
+        )
+      }
+      const { delivery, payload } = relationshipUpdate
+      const before = payload.before
+      const after = payload.after
+      const componentIds = components.map(({ id }) => id)
+      const validRelationship =
+        Array.isArray(before) &&
+        before.every(isNonBlankString) &&
+        Array.isArray(after) &&
+        after.every(isNonBlankString) &&
+        new Set(componentIds).size === componentIds.length &&
+        (kind === 'add'
+          ? sameOrderedIds(after as string[], [
+              ...(before as string[]),
+              ...componentIds
+            ])
+          : componentIds.every((componentId) =>
+              (before as string[]).includes(componentId)
+            ) &&
+            sameOrderedIds(
+              after as string[],
+              (before as string[]).filter(
+                (propertyId) => !componentIds.includes(propertyId)
+              )
+            ))
+      if (!validRelationship) {
+        throw new Error(
+          '[asyra-design collaboration] invalid property-component batch evidence'
+        )
+      }
+      consumedUpdates.add(delivery)
+      return Object.freeze({
+        propertyId: ownerPropertyId,
+        key: payload.key as string,
+        ...(kind === 'add'
+          ? {
+              set: Object.freeze(
+                Object.fromEntries(
+                  components.map((component) => [
+                    component.id,
+                    Object.freeze({ ...component })
+                  ])
+                )
+              )
+            }
+          : { remove: Object.freeze(componentIds) })
+      })
+    }
+  )
+
+  updateDeliveries.forEach(({ delivery, payload }) => {
+    if (consumedUpdates.has(delivery)) {
+      return
+    }
+    const change = payload
     const propertyId = change.id as string
     const update = updatesByPropertyId.get(propertyId) ?? {
       propertyId,
@@ -719,14 +824,17 @@ const classifyPropertyComponentBatch = (
     update.values[change.key as string] = change.after
     updatesByPropertyId.set(propertyId, update)
   })
-  return Object.freeze(
-    [...updatesByPropertyId.values()].map(({ propertyId, values }) =>
-      Object.freeze({
-        propertyId,
-        values: Object.freeze({ ...values })
-      })
+  return Object.freeze({
+    records: Object.freeze(records),
+    updates: Object.freeze(
+      [...updatesByPropertyId.values()].map(({ propertyId, values }) =>
+        Object.freeze({
+          propertyId,
+          values: Object.freeze({ ...values })
+        })
+      )
     )
-  )
+  })
 }
 
 const classifyElementDataBatch = (
@@ -827,8 +935,16 @@ const classifySubtreeRemovalBatch = (
     }
     consumedBatchCount += 1
   }
+  const payload = sceneDelivery.payload
   return Object.freeze({
-    change: sceneDelivery.payload,
+    change: Object.freeze({
+      action: payload.action,
+      undoAction: payload.undoAction,
+      eventName: payload.eventName,
+      elementId: payload.elementId,
+      removed: payload.removed,
+      rootParentChildrenAfter: payload.rootParentChildrenAfter
+    }),
     consumedBatchCount
   })
 }
@@ -837,7 +953,7 @@ const classifyCanonicalCreationBatch = (
   organization: OrganizedRemotePublication,
   startBatchIndex: number
 ): Readonly<{
-  change: Extract<CanonicalChange, { kind: 'element-creation' }>
+  changes: readonly CanonicalChange[]
   consumedBatchCount: number
 }> | null => {
   const { batches, sliceByBatch } = organization
@@ -864,11 +980,24 @@ const classifyCanonicalCreationBatch = (
   let insertionIndex: number | undefined
   let observedPropertyOwnerCount = 0
   const sourceEntries: AddRemoveElementEntry[] = []
+  const hierarchyMoves: HierarchyMove[] = []
+  let hierarchyMoveObserved = false
 
   for (const delivery of sceneBatch.deliveries) {
     const entries = canonicalElementEntriesFromDelivery(delivery, 'add')
-    if (!entries) return null
-    sourceEntries.push(...entries)
+    if (entries) {
+      if (hierarchyMoveObserved) return null
+      sourceEntries.push(...entries)
+      continue
+    }
+    if (
+      delivery.eventName !== EventTypes.MOVE_ELEMENTS ||
+      !isMoveElements(delivery.payload)
+    ) {
+      return null
+    }
+    hierarchyMoveObserved = true
+    hierarchyMoves.push(...delivery.payload.moves)
   }
   const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
   const orderedEntries = orderCanonicalElementEntries(
@@ -914,14 +1043,25 @@ const classifyCanonicalCreationBatch = (
     return null
   }
 
-  return Object.freeze({
-    change: Object.freeze({
+  const changes: CanonicalChange[] = [
+    Object.freeze({
       kind: 'element-creation',
       elements: Object.freeze(elements),
       properties: Object.freeze(properties),
       parentId,
       index: insertionIndex
-    }),
+    })
+  ]
+  if (hierarchyMoves.length > 0) {
+    changes.push(
+      Object.freeze({
+        kind: 'hierarchy-moves',
+        moves: Object.freeze(hierarchyMoves)
+      })
+    )
+  }
+  return Object.freeze({
+    changes: Object.freeze(changes),
     consumedBatchCount: 2
   })
 }
@@ -930,7 +1070,7 @@ const classifyCanonicalRemovalBatch = (
   organization: OrganizedRemotePublication,
   startBatchIndex: number
 ): Readonly<{
-  removals: readonly RemoteCanonicalElementRemoval[]
+  changes: readonly CanonicalChange[]
   consumedBatchCount: number
 }> | null => {
   const { batches, sliceByBatch } = organization
@@ -941,10 +1081,23 @@ const classifyCanonicalRemovalBatch = (
 
   const removals: RemoteCanonicalElementRemoval[] = []
   const sourceEntries: AddRemoveElementEntry[] = []
+  const hierarchyMoves: HierarchyMove[] = []
+  let removalObserved = false
   for (const delivery of sceneBatch.deliveries) {
     const entries = canonicalElementEntriesFromDelivery(delivery, 'remove')
-    if (!entries) return null
-    sourceEntries.push(...entries)
+    if (entries) {
+      removalObserved = true
+      sourceEntries.push(...entries)
+      continue
+    }
+    if (
+      removalObserved ||
+      delivery.eventName !== EventTypes.MOVE_ELEMENTS ||
+      !isMoveElements(delivery.payload)
+    ) {
+      return null
+    }
+    hierarchyMoves.push(...delivery.payload.moves)
   }
   const sceneOrderedIds = orderedIdsFromBatch(sceneBatch)
   const orderedEntries = orderCanonicalElementEntries(
@@ -992,8 +1145,23 @@ const classifyCanonicalRemovalBatch = (
     )
   }
 
+  const changes: CanonicalChange[] = []
+  if (hierarchyMoves.length > 0) {
+    changes.push(
+      Object.freeze({
+        kind: 'hierarchy-moves',
+        moves: Object.freeze(hierarchyMoves)
+      })
+    )
+  }
+  changes.push(
+    Object.freeze({
+      kind: 'element-removal',
+      removals: Object.freeze(removals)
+    })
+  )
   return Object.freeze({
-    removals: Object.freeze(removals),
+    changes: Object.freeze(changes),
     consumedBatchCount: propertyBatch ? 2 : 1
   })
 }
@@ -1007,28 +1175,26 @@ const createRemoteApplySteps = (
   while (batchIndex < batches.length) {
     const creation = classifyCanonicalCreationBatch(organization, batchIndex)
     if (creation) {
-      changes.push(creation.change)
+      changes.push(...creation.changes)
       batchIndex += creation.consumedBatchCount
       continue
     }
     const removal = classifyCanonicalRemovalBatch(organization, batchIndex)
     if (removal) {
-      changes.push(
-        Object.freeze({
-          kind: 'element-removal',
-          removals: removal.removals
-        })
-      )
+      changes.push(...removal.changes)
       batchIndex += removal.consumedBatchCount
       continue
     }
     const batch = batches[batchIndex] as SharedPublicationBatch
-    const propertyUpdates = classifyPropertyComponentBatch(batch)
-    if (propertyUpdates) {
+    const propertyComponents = classifyPropertyComponentBatch(batch)
+    if (propertyComponents) {
       changes.push(
         Object.freeze({
           kind: 'property-components',
-          updates: propertyUpdates
+          ...(propertyComponents.records.length > 0
+            ? { records: propertyComponents.records }
+            : {}),
+          updates: propertyComponents.updates
         })
       )
       batchIndex += 1

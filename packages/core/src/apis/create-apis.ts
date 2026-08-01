@@ -13,6 +13,7 @@ import {
 } from '@asyra/render'
 import type {
   PreparedPropertyMutationBatch,
+  PropertyMutation,
   PropsManager
 } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
@@ -187,8 +188,10 @@ export const createAPIs = (
       )
       return applyFullRemoval(preparedSceneRemoval, preparedProperties, options)
     },
-    preflightRestoreSubtree: (snapshot) =>
-      sceneTree.preflightRestoreSubtree(snapshot),
+    preflightRestoreSubtree: (snapshot, options) =>
+      options === undefined
+        ? sceneTree.preflightRestoreSubtree(snapshot)
+        : sceneTree.preflightRestoreSubtree(snapshot, options),
     applyRestoreSubtree: (preparedRestore, options) =>
       sceneTree.applyRestoreSubtree(preparedRestore, options),
     createElementsInParent: (data, parentId, index, options) => {
@@ -304,11 +307,53 @@ export const createAPIs = (
     for (const change of changes) {
       switch (change.kind) {
         case 'property-components': {
-          const propertyIds = propsAPIs.updatePropertyComponents(change.updates)
+          const records = change.records ?? []
+          if (records.length === 0) {
+            const propertyIds = propsAPIs.updatePropertyComponents(
+              change.updates
+            )
+            requireOrderedIds(
+              'property-component owner',
+              propertyIds,
+              change.updates.map(({ propertyId }) => propertyId)
+            )
+            break
+          }
+          const orderedPropertyIds: string[] = []
+          const seenPropertyIds = new Set<string>()
+          const operations: PropertyMutation[] = []
+          records.forEach(({ propertyId, key, set, remove }) => {
+            if (!seenPropertyIds.has(propertyId)) {
+              seenPropertyIds.add(propertyId)
+              orderedPropertyIds.push(propertyId)
+            }
+            operations.push({
+              kind: 'records',
+              propertyId,
+              key,
+              ...(set === undefined ? {} : { set }),
+              ...(remove === undefined ? {} : { remove })
+            })
+          })
+          change.updates.forEach(({ propertyId, values }) => {
+            if (!seenPropertyIds.has(propertyId)) {
+              seenPropertyIds.add(propertyId)
+              orderedPropertyIds.push(propertyId)
+            }
+            operations.push({
+              kind: 'values',
+              propertyId,
+              values
+            })
+          })
+          const preparedBatch = props.preparePropertyMutationBatch({
+            operations
+          })
+          const result = props.applyPreparedPropertyMutationBatch(preparedBatch)
           requireOrderedIds(
             'property-component owner',
-            propertyIds,
-            change.updates.map(({ propertyId }) => propertyId)
+            result.orderedPropertyIds,
+            orderedPropertyIds
           )
           break
         }
@@ -347,7 +392,8 @@ export const createAPIs = (
         }
         case 'subtree-restore': {
           const preparedSceneRestore = sceneTreeAPIs.preflightRestoreSubtree(
-            change.sceneSnapshot
+            change.sceneSnapshot,
+            { propertyState: 'pending-restore' }
           )
           const preparedPropsRestore = propsAPIs.preflightRestoreProperties(
             change.propsSnapshot,

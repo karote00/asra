@@ -51,6 +51,22 @@ export const createDocumentCollaborationFactory = (
         batches.flatMap(({ deliveries: batchDeliveries }) => batchDeliveries)
       )
       if (deliveries.length === 0) return
+      const firstSlice = slices[0]
+      if (!firstSlice) return
+      const requiresAtomicCollapse =
+        publication.mode === 'atomic' && slices.length > 1
+      const transportSlices: readonly SharedPublicationSlice[] =
+        requiresAtomicCollapse
+          ? Object.freeze([
+              Object.freeze({
+                sliceId: firstSlice.sliceId,
+                orderedIds: Object.freeze(
+                  slices.flatMap(({ orderedIds }) => orderedIds)
+                ),
+                batches: Object.freeze(slices.flatMap(({ batches }) => batches))
+              })
+            ])
+          : Object.freeze(slices)
       if (
         deliveries.some(
           ({ eventName }) =>
@@ -74,11 +90,11 @@ export const createDocumentCollaborationFactory = (
         }
       }
       subscriber(
-        publicationIsDocumentOnly
+        publicationIsDocumentOnly && !requiresAtomicCollapse
           ? publication
           : Object.freeze({
               ...publication,
-              slices: Object.freeze(slices)
+              slices: transportSlices
             })
       )
     })

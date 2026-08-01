@@ -188,6 +188,11 @@ mutation, reparent/reorder, and subtree lifecycle behavior.
 - `removeSubtree(...)`, `restoreSubtree(...)`, and replay through
   `applySubtreeChange(...)` retain exact identity, parent, index, child order,
   and raw Group data. Stale replay evidence fails instead of partially applying.
+- Core may call `preflightRestoreSubtree(..., { propertyState:
+  'pending-restore' })` while coordinating an atomic Props + Scene restore.
+  This mode defers only the active-property assertion; all hierarchy and
+  relation evidence is still validated, and `applyRestoreSubtree(...)` always
+  revalidates the ordinary active-property contract before mutation.
 - Preset owns only official Group defaults and basic coordinate/bounds adapters;
   app interaction and UI policy remain outside Scene Tree.
 

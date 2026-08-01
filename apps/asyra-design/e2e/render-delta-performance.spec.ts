@@ -239,16 +239,13 @@ test.describe('Render delta performance budget', () => {
         }
 
         const sceneTreeSamples: number[] = []
-        const renderSnapshotSamples: number[] = []
         const engineSamples: number[] = []
         const engineFrameSamples: number[] = []
         let elementSaveCallsDuringDelta = 0
         let computedSnapshotCallsDuringDelta = 0
 
-        const originalPatchComputedDataForElements =
-          sceneTree.patchComputedDataForElements.bind(sceneTree)
-        const originalCommitSceneTreeTransaction =
-          sceneTree.commitSceneTreeTransaction.bind(sceneTree)
+        const originalPatchLocalComputedData =
+          sceneTree.patchLocalComputedData.bind(sceneTree)
         const originalEngineExecute = engine.execute.bind(engine)
         const originalElementSave = element.save.bind(element)
         const originalGetAllComputedData =
@@ -258,20 +255,12 @@ test.describe('Render delta performance budget', () => {
         core.setSystemProperty('mouseDown', true)
         core.setSystemProperty('mouseDragging', true)
 
-        sceneTree.patchComputedDataForElements = (...args: unknown[]) => {
+        sceneTree.patchLocalComputedData = (...args: unknown[]) => {
           const start = performance.now()
           try {
-            return originalPatchComputedDataForElements(...args)
+            return originalPatchLocalComputedData(...args)
           } finally {
             sceneTreeSamples.push(performance.now() - start)
-          }
-        }
-        sceneTree.commitSceneTreeTransaction = (...args: unknown[]) => {
-          const start = performance.now()
-          try {
-            return originalCommitSceneTreeTransaction(...args)
-          } finally {
-            renderSnapshotSamples.push(performance.now() - start)
           }
         }
         engine.execute = (...args: unknown[]) => {
@@ -297,6 +286,8 @@ test.describe('Render delta performance budget', () => {
           for (let index = 0; index < sampleFrames; index += 1) {
             const angle = (Math.PI * 2 * index) / sampleFrames
             const engineSampleStart = engineSamples.length
+            const strategySampleStart =
+              phaseSamples.get('render-layer:strategy:vector')?.length ?? 0
             elementApis.updateVectorAnchorPointPosition(
               elementId,
               movingPointId,
@@ -304,11 +295,34 @@ test.describe('Render delta performance budget', () => {
                 x: movingPoint.x + Math.cos(angle) * 8,
                 y: movingPoint.y + Math.sin(angle) * 8
               },
-              { undoable: false, skipResult: true }
+              {
+                undoable: false,
+                skipResult: true,
+                transientPreview: true
+              }
             )
-            await new Promise<void>((resolve) =>
-              requestAnimationFrame(() => resolve())
-            )
+            await new Promise<void>((resolve, reject) => {
+              let remainingFrames = 4
+              const waitForStrategy = () => {
+                const strategySampleCount =
+                  phaseSamples.get('render-layer:strategy:vector')?.length ?? 0
+                if (strategySampleCount > strategySampleStart) {
+                  resolve()
+                  return
+                }
+                remainingFrames -= 1
+                if (remainingFrames === 0) {
+                  reject(
+                    new Error(
+                      `Render strategy did not consume delta sample ${index + 1}`
+                    )
+                  )
+                  return
+                }
+                requestAnimationFrame(waitForStrategy)
+              }
+              requestAnimationFrame(waitForStrategy)
+            })
             engineFrameSamples.push(
               engineSamples
                 .slice(engineSampleStart)
@@ -319,10 +333,7 @@ test.describe('Render delta performance budget', () => {
             requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
           )
         } finally {
-          sceneTree.patchComputedDataForElements =
-            originalPatchComputedDataForElements
-          sceneTree.commitSceneTreeTransaction =
-            originalCommitSceneTreeTransaction
+          sceneTree.patchLocalComputedData = originalPatchLocalComputedData
           engine.execute = originalEngineExecute
           element.save = originalElementSave
           element.getAllComputedData = originalGetAllComputedData
@@ -335,10 +346,19 @@ test.describe('Render delta performance budget', () => {
 
         const fullRehydrateReference: number[] = []
         for (let index = 0; index < sampleFrames; index += 1) {
+          const referenceIterations = 32
           const start = performance.now()
-          originalElementSave()
-          originalGetAllComputedData()
-          fullRehydrateReference.push(performance.now() - start)
+          for (
+            let referenceIndex = 0;
+            referenceIndex < referenceIterations;
+            referenceIndex += 1
+          ) {
+            originalElementSave()
+            originalGetAllComputedData()
+          }
+          fullRehydrateReference.push(
+            (performance.now() - start) / referenceIterations
+          )
         }
 
         return {
@@ -352,7 +372,8 @@ test.describe('Render delta performance budget', () => {
           computedSnapshotCallsDuringDelta,
           sceneTreeSamples,
           fullRehydrateReference,
-          renderSnapshotSamples,
+          renderSnapshotSamples:
+            phaseSamples.get('render-scene-tree:apply-computed-patch') ?? [],
           strategyGeometrySamples:
             phaseSamples.get('render-layer:strategy:vector') ?? [],
           engineSamples: engineFrameSamples

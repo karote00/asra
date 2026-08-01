@@ -214,6 +214,11 @@ This file is the app-level API contract map.
   publication → slices → channel batches → deliveries hierarchy; decode does
   not reconstruct Factory records, inverse/history evidence, or removed
   top-level aliases
+- remote Factory replay metadata remains transaction-control evidence only.
+  Before Core canonical apply, the App reconstructs subtree-removal evidence
+  from the exact canonical fields and does not forward replay mutation options
+  into Scene Tree's exact-evidence comparison; there is no legacy payload
+  branch or alias fallback
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
 - The current startup requires `fileId`, finishes the separate read-only server
@@ -356,6 +361,10 @@ Import boundary:
     rather than leaving descendants attached to a missing parent
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
+  - writes one continuous-gesture position sample without rebasing official
+    Group origins; `move-elements` asks Preset to normalize every affected
+    Group deepest-first exactly once after the final sample and before the
+    outer gesture transaction commits
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `updateElementProperties(elementIds: readonly string[], values: Readonly<Record<string, DataTypes>>, options?: EVENT_OPTIONS): void`
   - projects any Group geometry-dependent property updates, then submits one
@@ -591,6 +600,8 @@ Feature registry (`src/features/index.ts`):
   - `resolveCanvasHierarchyTargetAtClientPos`
   - `elementApis.getMousePosInWorkspace` / `isElementLocked`
   - `elementApis.getElementPosition` / `setElementPositions` / `hasMovedBeyondThreshold`
+  - `elementApis.normalizeGroupGeometryForElements` once at gesture
+    finalization
 
 - `delete-element`
 

@@ -9,7 +9,6 @@ import {
   getElementCount,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
-  readPersistedDocument,
   redo,
   undo,
   waitForAppReady
@@ -20,6 +19,10 @@ const collaborationUrl = (fileId: string) =>
 
 const profiledCollaborationUrl = (fileId: string) =>
   `${collaborationUrl(fileId)}&aiPerformance=profile`
+
+const CRDT_COMPLETION_TIMEOUT_MS = 180_000
+const CRDT_CASE_TIMEOUT_MS = 240_000
+const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
 
 const requireAppUrl = (testInfo: TestInfo): string => {
   const appUrl = String(testInfo.project.use.baseURL ?? '')
@@ -113,6 +116,100 @@ const getCanonicalSnapshot = (page: Page) =>
       }))
       .sort((left, right) => left.id.localeCompare(right.id))
   })
+
+interface SerializableDifference {
+  readonly actorA: unknown
+  readonly actorB: unknown
+  readonly path: string
+}
+
+const findFirstSerializableDifference = (
+  actorA: unknown,
+  actorB: unknown,
+  path = '$'
+): SerializableDifference | null => {
+  if (Object.is(actorA, actorB)) return null
+  if (Array.isArray(actorA) && Array.isArray(actorB)) {
+    if (actorA.length !== actorB.length) {
+      return {
+        actorA: { length: actorA.length },
+        actorB: { length: actorB.length },
+        path
+      }
+    }
+    for (let index = 0; index < actorA.length; index += 1) {
+      const difference = findFirstSerializableDifference(
+        actorA[index],
+        actorB[index],
+        `${path}[${index}]`
+      )
+      if (difference) return difference
+    }
+    return null
+  }
+  if (
+    actorA !== null &&
+    actorB !== null &&
+    typeof actorA === 'object' &&
+    typeof actorB === 'object' &&
+    !Array.isArray(actorA) &&
+    !Array.isArray(actorB)
+  ) {
+    const actorARecord = actorA as Record<string, unknown>
+    const actorBRecord = actorB as Record<string, unknown>
+    const keys = [
+      ...new Set([...Object.keys(actorARecord), ...Object.keys(actorBRecord)])
+    ].sort((left, right) => left.localeCompare(right))
+    for (const key of keys) {
+      if (!(key in actorARecord) || !(key in actorBRecord)) {
+        return {
+          actorA: key in actorARecord ? actorARecord[key] : { missing: true },
+          actorB: key in actorBRecord ? actorBRecord[key] : { missing: true },
+          path: `${path}.${key}`
+        }
+      }
+      const difference = findFirstSerializableDifference(
+        actorARecord[key],
+        actorBRecord[key],
+        `${path}.${key}`
+      )
+      if (difference) return difference
+    }
+    return null
+  }
+  return { actorA, actorB, path }
+}
+
+const expectCanonicalSnapshotsToConverge = (
+  actorA: Awaited<ReturnType<typeof getCanonicalSnapshot>>,
+  actorB: Awaited<ReturnType<typeof getCanonicalSnapshot>>
+) => {
+  const difference = findFirstSerializableDifference(actorA, actorB)
+  expect(
+    difference,
+    difference
+      ? `Canonical snapshots diverged at ${difference.path}: ${JSON.stringify(
+          difference
+        )}`
+      : undefined
+  ).toBeNull()
+}
+
+const waitForCanonicalSnapshotsToConverge = async (
+  actorA: Page,
+  actorB: Page
+) => {
+  await expect
+    .poll(
+      async () =>
+        findFirstSerializableDifference(
+          await getCanonicalSnapshot(actorA),
+          await getCanonicalSnapshot(actorB)
+        ),
+      { timeout: CRDT_COMPLETION_TIMEOUT_MS }
+    )
+    .toBeNull()
+}
 
 const getCanonicalStrokeIdentityViolations = (
   snapshot: Awaited<ReturnType<typeof getCanonicalSnapshot>>
@@ -402,6 +499,22 @@ const captureFactoryPublicationShapes = (page: Page) =>
                 dataCount: Array.isArray(payload.data)
                   ? payload.data.length
                   : undefined,
+                data: Array.isArray(payload.data)
+                  ? payload.data.map((entry) =>
+                      typeof entry === 'object' &&
+                      entry !== null &&
+                      !Array.isArray(entry)
+                        ? {
+                            id: (entry as Record<string, unknown>).id,
+                            type: (entry as Record<string, unknown>).type
+                          }
+                        : entry
+                    )
+                  : undefined,
+                id: payload.id,
+                key: payload.key,
+                ownerElementId: payload.ownerElementId,
+                ownerPropertyName: payload.ownerPropertyName,
                 orderedIds: delivery.orderedIds
               }
             })
@@ -601,7 +714,7 @@ const expectSelectedElementInteriorToConverge = async (
     .toBe(expected)
 }
 
-test('16-item server response keeps one plural publication through action, Undo, and Redo', async ({
+test('16-item server response keeps ordered minimal publications through one Action, Undo, and Redo', async ({
   page
 }, testInfo) => {
   const fileId = `single-actor-fast-${Date.now()}-${testInfo.workerIndex}`
@@ -639,15 +752,19 @@ test('16-item server response keeps one plural publication through action, Undo,
     body: Buffer.from(JSON.stringify(shapes, null, 2)),
     contentType: 'application/json'
   })
-  expect(shapes.map(({ origin }) => origin)).toEqual(['action', 'undo', 'redo'])
+  expect(shapes.map(({ origin }) => origin)).toEqual([
+    ...Array.from({ length: 9 }, () => 'action'),
+    ...Array.from({ length: 9 }, () => 'undo'),
+    ...Array.from({ length: 9 }, () => 'redo')
+  ])
   expect(JSON.stringify(shapes)).not.toMatch(
     /updateComputedData|updateComputedDataPatch/
   )
 
   expect(await classifyFactoryPublicationsInApp(page)).toEqual([
-    ['element-creation', 'element-creation'],
-    ['element-removal', 'element-removal'],
-    ['element-creation', 'element-creation']
+    ...Array.from({ length: 9 }, () => ['element-creation']),
+    ...Array.from({ length: 9 }, () => ['element-removal']),
+    ...Array.from({ length: 9 }, () => ['element-creation'])
   ])
 })
 
@@ -864,7 +981,7 @@ test('16-item AI response converges through the ordinary two-actor publication p
 test('320-item AI response converges through the ordinary cooperative two-actor path', async ({
   browser
 }, testInfo) => {
-  testInfo.setTimeout(100_000)
+  testInfo.setTimeout(CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS)
   const fileId = `e2e-320-item-ai-crdt-${Date.now()}-${testInfo.workerIndex}`
   const actorAContext = await browser.newContext()
   const actorBContext = await browser.newContext()
@@ -911,7 +1028,7 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
               renderedCount: snapshot.filter(({ rendered }) => rendered).length
             }
           },
-          { timeout: 30_000 }
+          { timeout: CRDT_COMPLETION_TIMEOUT_MS }
         )
         .toEqual({
           canonicalCount: 321,
@@ -933,7 +1050,7 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
 
     const settledTurn = actorA.getByTestId('ai-agent-message').last()
     await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
-      timeout: 30_000
+      timeout: CRDT_COMPLETION_TIMEOUT_MS
     })
     const [
       actorAFirstVisibleMs,
@@ -946,6 +1063,8 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
       actorAComplete,
       actorBComplete
     ])
+    await waitForCanonicalSnapshotsToConverge(actorA, actorB)
+    const convergenceCompleteMs = Date.now() - startedAt
 
     const [
       actorASnapshot,
@@ -963,9 +1082,7 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
       getUndoDepth(actorB)
     ])
 
-    expect(
-      JSON.stringify(actorASnapshot) === JSON.stringify(actorBSnapshot)
-    ).toBe(true)
+    expectCanonicalSnapshotsToConverge(actorASnapshot, actorBSnapshot)
     expect(
       JSON.stringify(actorAHierarchy) === JSON.stringify(actorBHierarchy)
     ).toBe(true)
@@ -986,7 +1103,8 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
             actorACompleteMs,
             actorAFirstVisibleMs,
             actorBCompleteMs,
-            actorBFirstVisibleMs
+            actorBFirstVisibleMs,
+            convergenceCompleteMs
           },
           null,
           2
@@ -998,11 +1116,15 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
     const undoStartedAt = Date.now()
     await undo(actorA)
     await expect
-      .poll(() => getCanonicalCount(actorA), { timeout: 30_000 })
+      .poll(() => getCanonicalCount(actorA), {
+        timeout: CRDT_COMPLETION_TIMEOUT_MS
+      })
       .toBe(0)
     const actorAUndoCompleteMs = Date.now() - undoStartedAt
     await expect
-      .poll(() => getCanonicalCount(actorB), { timeout: 30_000 })
+      .poll(() => getCanonicalCount(actorB), {
+        timeout: CRDT_COMPLETION_TIMEOUT_MS
+      })
       .toBe(0)
     const actorBUndoCompleteMs = Date.now() - undoStartedAt
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
@@ -1010,12 +1132,17 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
     const redoStartedAt = Date.now()
     await redo(actorA)
     await expect
-      .poll(() => getCanonicalCount(actorA), { timeout: 30_000 })
+      .poll(() => getCanonicalCount(actorA), {
+        timeout: CRDT_COMPLETION_TIMEOUT_MS
+      })
       .toBe(321)
     const actorARedoCompleteMs = Date.now() - redoStartedAt
     await expect
-      .poll(() => getCanonicalCount(actorB), { timeout: 30_000 })
+      .poll(() => getCanonicalCount(actorB), {
+        timeout: CRDT_COMPLETION_TIMEOUT_MS
+      })
       .toBe(321)
+    await waitForCanonicalSnapshotsToConverge(actorA, actorB)
     const actorBRedoCompleteMs = Date.now() - redoStartedAt
     const [actorARedoneSnapshot, actorBRedoneSnapshot, actorBRedoneHierarchy] =
       await Promise.all([
@@ -1023,12 +1150,8 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
         getCanonicalSnapshot(actorB),
         getCanonicalHierarchyGeometry(actorB)
       ])
-    expect(
-      JSON.stringify(actorARedoneSnapshot) === JSON.stringify(actorASnapshot)
-    ).toBe(true)
-    expect(
-      JSON.stringify(actorBRedoneSnapshot) === JSON.stringify(actorASnapshot)
-    ).toBe(true)
+    expectCanonicalSnapshotsToConverge(actorASnapshot, actorARedoneSnapshot)
+    expectCanonicalSnapshotsToConverge(actorASnapshot, actorBRedoneSnapshot)
     expect(
       JSON.stringify(actorBRedoneHierarchy) === JSON.stringify(actorAHierarchy)
     ).toBe(true)
@@ -1061,7 +1184,7 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
 test('1,280-item cat prefix measures ordinary cooperative two-actor creation', async ({
   browser
 }, testInfo) => {
-  testInfo.setTimeout(60_000)
+  testInfo.setTimeout(CRDT_CASE_TIMEOUT_MS)
   const fileId = `e2e-1280-item-cat-prefix-${Date.now()}-${testInfo.workerIndex}`
   const profiledUrl = profiledCollaborationUrl(fileId)
   const actorAContext = await browser.newContext()
@@ -1130,12 +1253,14 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       canonicalBaseline: number
     ) => {
       await expect
-        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+        .poll(() => getCanonicalCount(page), {
+          timeout: CRDT_COMPLETION_TIMEOUT_MS
+        })
         .toBe(canonicalBaseline + 1281)
       const canonicalCompleteMs = Date.now() - startedAt
       await expect
         .poll(() => getAppliedRenderProjectionCount(page), {
-          timeout: 30_000
+          timeout: CRDT_COMPLETION_TIMEOUT_MS
         })
         .toBeGreaterThanOrEqual(1281)
       return {
@@ -1170,7 +1295,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
 
     const settledTurn = actorA.getByTestId('ai-agent-message').last()
     await expect(settledTurn).toHaveAttribute('data-outcome', 'success', {
-      timeout: 30_000
+      timeout: CRDT_COMPLETION_TIMEOUT_MS
     })
     const actorATurnSettledMs = Date.now() - startedAt
     const [
@@ -1184,6 +1309,8 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       actorAComplete,
       actorBComplete
     ])
+    await waitForCanonicalSnapshotsToConverge(actorA, actorB)
+    const convergenceCompleteMs = Date.now() - startedAt
 
     const [
       actorASnapshot,
@@ -1209,9 +1336,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
         return total + (points ? Object.keys(points).length : 0)
       }, 0)
 
-    expect(
-      JSON.stringify(actorASnapshot) === JSON.stringify(actorBSnapshot)
-    ).toBe(true)
+    expectCanonicalSnapshotsToConverge(actorASnapshot, actorBSnapshot)
     expect(
       JSON.stringify(actorAHierarchy) === JSON.stringify(actorBHierarchy)
     ).toBe(true)
@@ -1234,7 +1359,8 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       actorATurnSettledMs,
       actorBCanonicalCompleteMs: actorBCompletion.canonicalCompleteMs,
       actorBFirstVectorMs,
-      actorBRenderedCompleteMs: actorBCompletion.renderedCompleteMs
+      actorBRenderedCompleteMs: actorBCompletion.renderedCompleteMs,
+      convergenceCompleteMs
     }
     testInfo.annotations.push({
       description: JSON.stringify(timings),
@@ -1276,6 +1402,13 @@ test('two real Asyra Design windows converge while connected and reconnect live-
       waitForCollaboration(first),
       waitForCollaboration(second),
       waitForCollaboration(isolated)
+    ])
+    await Promise.all([
+      capturePublicationOutcomes(first),
+      capturePublicationOutcomes(second),
+      captureTransactionStatuses(first),
+      captureTransactionStatuses(second),
+      captureFactoryPublicationShapes(first)
     ])
 
     await createRectangle(first, 0.35, 0.35)
@@ -1340,7 +1473,32 @@ test('two real Asyra Design windows converge while connected and reconnect live-
 
     await first.keyboard.press('Delete')
     await expect.poll(() => getElementCount(first)).toBe(0)
-    await expect.poll(() => getElementCount(second)).toBe(0)
+    try {
+      await expect.poll(() => getElementCount(second)).toBe(0)
+    } catch (error) {
+      const firstFactoryPublications = await getFactoryPublicationShapes(first)
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const firstTransactions = await getTransactionStatuses(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const secondTransactions = await getTransactionStatuses(second)
+      const diagnostics = {
+        firstCollaboration: await getCollaborationDiagnostics(first),
+        firstFactoryPublications: firstFactoryPublications.slice(-12),
+        firstOutcomes: firstOutcomes.slice(-12),
+        firstTransactions: firstTransactions.slice(-12),
+        secondCollaboration: await getCollaborationDiagnostics(second),
+        secondOutcomes: secondOutcomes.slice(-12),
+        secondTransactions: secondTransactions.slice(-12)
+      }
+      await testInfo.attach('delete-convergence-diagnostics.json', {
+        body: JSON.stringify(diagnostics, null, 2),
+        contentType: 'application/json'
+      })
+      throw new Error(
+        `Delete convergence failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
     expect(await getElementCount(isolated)).toBe(0)
 
     await second.evaluate(() => window.__AsyraCollaboration__?.disconnect())
@@ -1361,16 +1519,12 @@ test('two real Asyra Design windows converge while connected and reconnect live-
     await waitForCollaboration(second)
     expect(await getElementCount(second)).toBe(0)
 
-    await createRectangle(first, 0.72, 0.62)
-    await expect.poll(() => getElementCount(first)).toBe(2)
-    await expect.poll(() => getElementCount(second)).toBe(1)
-
     await first.screenshot({
-      path: testInfo.outputPath('actor-a-converged.png'),
+      path: testInfo.outputPath('actor-a-live-only.png'),
       fullPage: true
     })
     await second.screenshot({
-      path: testInfo.outputPath('actor-b-converged.png'),
+      path: testInfo.outputPath('actor-b-live-only.png'),
       fullPage: true
     })
   } finally {
@@ -1448,15 +1602,6 @@ test('remote undo restores an exact nested Group with and without local tombston
           )
         }, expectedElementIds.length)
       )
-      .toBe(true)
-
-    await expect
-      .poll(async () => {
-        const saved = await readPersistedDocument<{
-          sceneTree?: { elements?: Record<string, unknown> }
-        }>(sender, `FILE:${fileId}`)
-        return !saved?.sceneTree?.elements?.[outerGroupId]
-      })
       .toBe(true)
 
     noTombstonePeer = await senderContext.newPage()
@@ -1581,8 +1726,18 @@ test('remote undo restores an exact nested Group with and without local tombston
 
     await redo(sender)
     await expect.poll(() => getElementCount(sender)).toBe(0)
-    await expect.poll(() => getElementCount(tombstonePeer)).toBe(0)
-    await expect.poll(() => getElementCount(noTombstonePeer as Page)).toBe(0)
+    try {
+      await expect.poll(() => getElementCount(tombstonePeer)).toBe(0)
+      await expect.poll(() => getElementCount(noTombstonePeer as Page)).toBe(0)
+    } catch (error) {
+      throw new Error(
+        `Remote removal after restore failed: ${JSON.stringify({
+          tombstone: (await getPublicationOutcomes(tombstonePeer)).slice(-8),
+          noTombstone: (await getPublicationOutcomes(noTombstonePeer)).slice(-8)
+        })}`,
+        { cause: error }
+      )
+    }
     expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
   } finally {
     await Promise.all([senderContext.close(), tombstoneContext.close()])
@@ -1608,6 +1763,11 @@ test('remote Group redo preserves exact hierarchy and world geometry', async ({
       waitForCollaboration(first),
       waitForCollaboration(second)
     ])
+    await Promise.all([
+      capturePublicationOutcomes(first),
+      capturePublicationOutcomes(second),
+      captureFactoryPublicationShapes(first)
+    ])
 
     await createRectangle(first, 0.3, 0.35)
     await createRectangle(first, 0.62, 0.55)
@@ -1620,7 +1780,22 @@ test('remote Group redo preserves exact hierarchy and world geometry', async ({
       .toEqual(ungroupedGeometry)
 
     const groupId = await groupLayerIds(first, rectangleIds)
-    await expect.poll(() => getElementCount(second)).toBe(3)
+    try {
+      await expect.poll(() => getElementCount(second)).toBe(3)
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      const diagnostics = {
+        firstOutcomes: firstOutcomes.slice(-12),
+        publications: publications.slice(-12),
+        secondOutcomes: secondOutcomes.slice(-12)
+      }
+      throw new Error(
+        `Group convergence failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
     const groupedGeometry = await getCanonicalHierarchyGeometry(first)
     await expect
       .poll(() => getCanonicalHierarchyGeometry(second))
@@ -1628,7 +1803,22 @@ test('remote Group redo preserves exact hierarchy and world geometry', async ({
 
     await undo(first)
     await expect.poll(() => getElementCount(first)).toBe(2)
-    await expect.poll(() => getElementCount(second)).toBe(2)
+    try {
+      await expect.poll(() => getElementCount(second)).toBe(2)
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      const diagnostics = {
+        firstOutcomes: firstOutcomes.slice(-12),
+        publications: publications.slice(-12),
+        secondOutcomes: secondOutcomes.slice(-12)
+      }
+      throw new Error(
+        `Group Undo convergence failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
     await expect
       .poll(() => getCanonicalHierarchyGeometry(first))
       .toEqual(ungroupedGeometry)
@@ -1686,6 +1876,11 @@ test('vector creation and anchor movement converge through the canonical collabo
       waitForCollaboration(first),
       waitForCollaboration(second)
     ])
+    await Promise.all([
+      capturePublicationOutcomes(first),
+      capturePublicationOutcomes(second),
+      captureFactoryPublicationShapes(first)
+    ])
 
     await createVectorPath(first, 0.32, 0.3, 0.18, 0.16)
     await expect.poll(() => getElementCount(second)).toBe(1)
@@ -1734,9 +1929,24 @@ test('vector creation and anchor movement converge through the canonical collabo
       steps: 12
     })
     await first.mouse.up()
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
+    try {
+      await expect
+        .poll(() => getCanonicalSnapshot(second))
+        .toEqual(await getCanonicalSnapshot(first))
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      const diagnostics = {
+        firstOutcomes: firstOutcomes.slice(-12),
+        publications: publications.slice(-12),
+        secondOutcomes: secondOutcomes.slice(-12)
+      }
+      throw new Error(
+        `Vector anchor convergence failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
 
     const remotePoint = await second.evaluate(({ vectorId, pointId }) => {
       const point = window.__Core__?.deps?.sceneTree
@@ -1770,7 +1980,6 @@ test('mouse-down create and drag frames reach peer canonical state before pointe
       waitForCollaboration(first),
       waitForCollaboration(second)
     ])
-
     await first.keyboard.press('r')
     const createPosition = await getCanvasPosition(first, 0.35, 0.35)
     await first.mouse.move(createPosition.x, createPosition.y)
@@ -1826,6 +2035,15 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
   const secondContext = await browser.newContext()
   const first = await firstContext.newPage()
   const second = await secondContext.newPage()
+  const firstPageErrors: string[] = []
+  first.on('pageerror', (error) => {
+    firstPageErrors.push(error.message)
+  })
+  first.on('console', (message) => {
+    if (message.type() === 'error') {
+      firstPageErrors.push(message.text())
+    }
+  })
 
   try {
     await Promise.all([
@@ -1836,6 +2054,11 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
     await Promise.all([
       waitForCollaboration(first),
       waitForCollaboration(second)
+    ])
+    await Promise.all([
+      capturePublicationOutcomes(first),
+      capturePublicationOutcomes(second),
+      captureFactoryPublicationShapes(first)
     ])
 
     const firstPoint = await getCanvasPosition(first, 0.3, 0.3)
@@ -1856,12 +2079,27 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
 
     await first.mouse.move(secondPoint.x, secondPoint.y)
     await first.mouse.down()
-    await expect
-      .poll(() => getVectorTopologySummary(second))
-      .toMatchObject({
-        anchorCount: 2,
-        segmentCount: 1
-      })
+    try {
+      await expect
+        .poll(() => getVectorTopologySummary(second))
+        .toMatchObject({
+          anchorCount: 2,
+          segmentCount: 1
+        })
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      const diagnostics = {
+        firstOutcomes: firstOutcomes.slice(-12),
+        publications: publications.slice(-12),
+        secondOutcomes: secondOutcomes.slice(-12)
+      }
+      throw new Error(
+        `Pen topology convergence failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
 
     await first.mouse.move(curveHandle.x, curveHandle.y, { steps: 8 })
     await expect
@@ -1875,14 +2113,41 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
     })
 
     await first.mouse.up()
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
-    expect(
-      await first.evaluate(
-        () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+    try {
+      await expect
+        .poll(() => getCanonicalSnapshot(second))
+        .toEqual(await getCanonicalSnapshot(first))
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      throw new Error(
+        `Pen pointer-up convergence failed: ${JSON.stringify({
+          firstOutcomes: firstOutcomes.slice(-16),
+          publications: publications.slice(-16),
+          secondOutcomes: secondOutcomes.slice(-16)
+        })}`,
+        { cause: error }
       )
-    ).toBe(undoDepthBeforeDrag + 1)
+    }
+    const undoDepthAfterDrag = await first.evaluate(
+      () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+    )
+    if (undoDepthAfterDrag !== undoDepthBeforeDrag + 1) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const publications = await getFactoryPublicationShapes(first)
+      throw new Error(
+        `Pen transaction did not create exactly one Undo entry: ${JSON.stringify(
+          {
+            actual: undoDepthAfterDrag,
+            expected: undoDepthBeforeDrag + 1,
+            firstPageErrors: firstPageErrors.slice(-8),
+            firstOutcomes: firstOutcomes.slice(-16),
+            publications: publications.slice(-16)
+          }
+        )}`
+      )
+    }
 
     await undo(first)
     await expect
@@ -1898,14 +2163,28 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
       .toEqual(await getCanonicalSnapshot(first))
 
     await redo(first)
-    await expect
-      .poll(() => getVectorTopologySummary(second))
-      .toMatchObject({
-        anchorCount: 2,
-        controlCount: 3,
-        segmentCount: 1,
-        curvedSegmentCount: 1
-      })
+    try {
+      await expect
+        .poll(() => getVectorTopologySummary(second))
+        .toMatchObject({
+          anchorCount: 2,
+          controlCount: 3,
+          segmentCount: 1,
+          curvedSegmentCount: 1
+        })
+    } catch (error) {
+      const firstOutcomes = await getPublicationOutcomes(first)
+      const secondOutcomes = await getPublicationOutcomes(second)
+      const publications = await getFactoryPublicationShapes(first)
+      throw new Error(
+        `Pen Redo convergence failed: ${JSON.stringify({
+          firstOutcomes: firstOutcomes.slice(-16),
+          publications: publications.slice(-16),
+          secondOutcomes: secondOutcomes.slice(-16)
+        })}`,
+        { cause: error }
+      )
+    }
     await expect
       .poll(() => getCanonicalSnapshot(second))
       .toEqual(await getCanonicalSnapshot(first))

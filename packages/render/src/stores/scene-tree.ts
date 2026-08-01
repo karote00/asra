@@ -1691,9 +1691,9 @@ class RenderSceneTree {
       })
     }
 
-    const didStage = this.computedDataMirror.applyComputedPatch(
-      elementId,
-      patch
+    const didStage = measureBrowserDragPhase(
+      'render-scene-tree:apply-computed-patch',
+      () => this.computedDataMirror.applyComputedPatch(elementId, patch)
     )
     if (!didStage) {
       return this.resyncElement(elementId)

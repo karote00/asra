@@ -480,7 +480,7 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.runTransaction).toHaveBeenCalledOnce()
   })
 
-  it('coordinates all accepted non-vector positions through one property batch', () => {
+  it('defers Group normalization while applying one non-vector gesture sample', () => {
     mocks.getElementById.mockImplementation((elementId: string) => {
       const positions: Record<string, { x: number; y: number }> = {
         'rect-1': { x: 0, y: 0 },
@@ -499,21 +499,6 @@ describe('create-element explicit parent and coordinates', () => {
         })
       }
     })
-    mocks.projectGroupGeometryPropertyUpdates.mockReturnValue([
-      {
-        elementId: 'rect-1',
-        values: { x: 0, y: 0 }
-      },
-      {
-        elementId: 'rect-2',
-        values: { x: 20, y: 20 }
-      },
-      {
-        elementId: 'group-2',
-        values: { x: 30, y: 40, width: 120, height: 100 }
-      }
-    ])
-
     elementApis.setElementPositions(
       {
         'rect-1': { x: 30, y: 40 },
@@ -523,8 +508,8 @@ describe('create-element explicit parent and coordinates', () => {
     )
 
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
-    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
+    expect(mocks.updateElementProperties).toHaveBeenCalledWith(
       [
         {
           elementId: 'rect-1',
@@ -533,22 +518,6 @@ describe('create-element explicit parent and coordinates', () => {
         {
           elementId: 'rect-2',
           values: { x: 50, y: 60 }
-        }
-      ]
-    )
-    expect(mocks.updateElementProperties).toHaveBeenCalledWith(
-      [
-        {
-          elementId: 'rect-1',
-          values: { x: 0, y: 0 }
-        },
-        {
-          elementId: 'rect-2',
-          values: { x: 20, y: 20 }
-        },
-        {
-          elementId: 'group-2',
-          values: { x: 30, y: 40, width: 120, height: 100 }
         }
       ],
       { sharedDelivery: 'immediate' }
@@ -738,16 +707,7 @@ describe('create-element explicit parent and coordinates', () => {
       options
     )
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
-    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledOnce()
-    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledWith(
-      expect.anything(),
-      [
-        {
-          elementId: 'rect-1',
-          values: { x: 7, y: 8 }
-        }
-      ]
-    )
+    expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
     expect(mocks.updateElementProperties).toHaveBeenCalledWith(
       [
         {

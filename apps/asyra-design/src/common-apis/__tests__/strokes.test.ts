@@ -63,6 +63,57 @@ describe('stroke common API primary-color boundary', () => {
     })
   })
 
+  it('adds and removes one repeatable stroke through canonical record patches', () => {
+    const strokeId = strokeApis.addStroke('whisker-1', { undoable: true })
+
+    expect(strokeId).toEqual(expect.any(String))
+    expect(strokeId).not.toBe('')
+    expect(mocks.patchElementProperties).toHaveBeenNthCalledWith(
+      1,
+      [
+        {
+          elementId: 'whisker-1',
+          records: [
+            {
+              key: 'strokes',
+              set: {
+                [strokeId as string]: expect.objectContaining({
+                  fill: expect.objectContaining({
+                    id: strokeId,
+                    type: 'fill'
+                  }),
+                  style: 'solid',
+                  width: 1
+                })
+              }
+            }
+          ]
+        }
+      ],
+      { undoable: true }
+    )
+
+    expect(
+      strokeApis.removeStroke('whisker-1', 'stroke-1', { undoable: true })
+    ).toBe(true)
+    expect(mocks.patchElementProperties).toHaveBeenNthCalledWith(
+      2,
+      [
+        {
+          elementId: 'whisker-1',
+          records: [
+            {
+              key: 'strokes',
+              remove: ['stroke-1']
+            }
+          ]
+        }
+      ],
+      { undoable: true }
+    )
+    expect(mocks.runTransaction).toHaveBeenCalledTimes(2)
+  })
+
   it('reads and patches the first canonical stroke through one Core record batch', () => {
     expect(strokeApis.getPrimaryStrokeColor('whisker-1')).toBe('#5B3A29')
 

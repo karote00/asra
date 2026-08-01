@@ -207,6 +207,13 @@ Scene/model bridge:
   - `CanonicalChange` is a closed union of `property-components`,
     `element-data`, `hierarchy-moves`, `subtree-removal`, `subtree-restore`,
     `element-creation`, and `element-removal`
+  - one `property-components` change may carry ordered structural record
+    mutations together with value updates; Core prepares and applies them as
+    one Props-owned mutation batch
+  - `subtree-restore` first asks Scene Tree to preflight hierarchy and relation
+    evidence with the referenced properties in `pending-restore` state, then
+    preflights and restores Props before Scene Tree applies and revalidates the
+    ordinary active-property contract
   - the caller owns the one enclosing Factory transaction; Core does not parse
     `SharedPublication`, start another transaction, or accept transport,
     local/remote, suppression, publication, receipt, profiling, or

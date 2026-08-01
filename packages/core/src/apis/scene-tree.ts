@@ -14,6 +14,7 @@ import {
   MoveHierarchyResult,
   RemoveSubtreeResult,
   PreparedSceneTreeRestore,
+  SceneTreeRestorePreflightOptions,
   SceneTreeRestoreSnapshot,
   SubtreeChange,
   UpdateElementDataChange
@@ -65,7 +66,8 @@ export interface SceneTreeRequests {
     options?: EVENT_OPTIONS
   ) => readonly string[]
   preflightRestoreSubtree: (
-    snapshot: SceneTreeRestoreSnapshot
+    snapshot: SceneTreeRestoreSnapshot,
+    options?: SceneTreeRestorePreflightOptions
   ) => PreparedSceneTreeRestore
   applyRestoreSubtree: (
     preparedRestore: PreparedSceneTreeRestore,
@@ -249,8 +251,13 @@ export const createSceneTreeAPIs = (
         sceneTreeRequests.removeElementsFromCanonicalData(removals, options)
       )
     },
-    preflightRestoreSubtree(snapshot: SceneTreeRestoreSnapshot) {
-      return sceneTreeRequests.preflightRestoreSubtree(snapshot)
+    preflightRestoreSubtree(
+      snapshot: SceneTreeRestoreSnapshot,
+      options?: SceneTreeRestorePreflightOptions
+    ) {
+      return options === undefined
+        ? sceneTreeRequests.preflightRestoreSubtree(snapshot)
+        : sceneTreeRequests.preflightRestoreSubtree(snapshot, options)
     },
     applyRestoreSubtree(
       preparedRestore: PreparedSceneTreeRestore,

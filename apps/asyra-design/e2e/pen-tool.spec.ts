@@ -926,27 +926,34 @@ test.describe('Pen Tool - Editing Flow', () => {
           const primaryNetwork = networks[0]
           const selectedPointId = selectedPoint?.pointId ?? null
           const segmentIds = primaryNetwork?.segmentIds ?? []
+          const pointIds = primaryNetwork?.pointIds ?? []
           const segments = computed.segments ?? {}
-          const selectedPointSegmentDegree = segmentIds.filter((segmentId) => {
-            const segment = segments[segmentId] as
-              | { startId?: string; endId?: string }
-              | undefined
-            return (
-              !!selectedPointId &&
-              (segment?.startId === selectedPointId ||
-                segment?.endId === selectedPointId)
-            )
-          }).length
+          const getSegmentDegree = (pointId: string | null) =>
+            segmentIds.filter((segmentId) => {
+              const segment = segments[segmentId] as
+                | { startId?: string; endId?: string }
+                | undefined
+              return (
+                !!pointId &&
+                (segment?.startId === pointId || segment?.endId === pointId)
+              )
+            }).length
+          const selectedPointSegmentDegree = getSegmentDegree(selectedPointId)
 
           return {
             selectedPointTarget: selectedPoint?.target ?? null,
+            selectedPointMatchesInsertedTopologyPoint:
+              selectedPointId !== null && selectedPointId === pointIds[1],
             selectedSegmentId: selectedSegment?.segmentId ?? null,
             pathEditingVectorId,
             startNewSubpath:
               core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
             networkCount: networks.length,
-            pointCount: (primaryNetwork?.pointIds ?? []).length,
+            pointCount: pointIds.length,
             segmentCount: segmentIds.length,
+            pointSegmentDegrees: pointIds.map((pointId) =>
+              getSegmentDegree(pointId)
+            ),
             selectedPointSegmentDegree,
             isSelectedSegmentOnEditingVector:
               !!selectedSegment?.segmentId &&
@@ -963,6 +970,8 @@ test.describe('Pen Tool - Editing Flow', () => {
         networkCount: 1,
         pointCount: 3,
         segmentCount: 2,
+        pointSegmentDegrees: [1, 2, 1],
+        selectedPointMatchesInsertedTopologyPoint: true,
         selectedPointSegmentDegree: 2
       })
   })
@@ -1876,7 +1885,7 @@ test.describe('Pen Tool - Editing Flow', () => {
     })
   })
 
-  test('refresh keeps one render object per vector element id', async ({
+  test('keeps one render object per vector id in-session without client reload restoration', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -1935,43 +1944,31 @@ test.describe('Pen Tool - Editing Flow', () => {
     expect(beforeReload).toMatchObject({
       renderItemCount: 1
     })
+    if (!beforeReload) {
+      return
+    }
 
     await page.reload()
     await waitForAppReady(page)
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
+        return page.evaluate((previousVectorId) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const elements = core?.deps?.sceneTree?.getAllElements?.()
-          let vectorId: string | null = null
-          elements?.forEach?.(
-            (
-              element: { get?: (key: string) => unknown } | undefined,
-              id: string
-            ) => {
-              if (element?.get?.('type') === 'vector') {
-                vectorId = id
-              }
-            }
-          )
-
           const root = core?.deps?.render?.viewport?.view as
             | { label?: string; children?: unknown[] }
             | undefined
-          if (!vectorId || !root) {
-            return null
-          }
-
           let renderItemCount = 0
-          const stack: { label?: string; children?: unknown[] }[] = [root]
+          const stack: { label?: string; children?: unknown[] }[] = root
+            ? [root]
+            : []
           while (stack.length > 0) {
             const current = stack.pop()
             if (!current) {
               continue
             }
-            if (current.label === vectorId) {
+            if (current.label === previousVectorId) {
               renderItemCount += 1
             }
             const children = current.children ?? []
@@ -1981,12 +1978,16 @@ test.describe('Pen Tool - Editing Flow', () => {
           }
 
           return {
+            previousVectorExists: Boolean(
+              core?.deps?.sceneTree?.getElementById?.(previousVectorId)
+            ),
             renderItemCount
           }
-        })
+        }, beforeReload.vectorId)
       })
       .toMatchObject({
-        renderItemCount: 1
+        previousVectorExists: false,
+        renderItemCount: 0
       })
   })
 })

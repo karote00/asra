@@ -13,6 +13,12 @@ import type { PropertyComponentValuesUpdate } from './props'
 export type CanonicalChange =
   | Readonly<{
       kind: 'property-components'
+      records?: readonly Readonly<{
+        propertyId: string
+        key: string
+        set?: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+        remove?: readonly string[]
+      }>[]
       updates: readonly PropertyComponentValuesUpdate[]
     }>
   | Readonly<{

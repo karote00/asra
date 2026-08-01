@@ -42,6 +42,20 @@ test.describe('Property Management', () => {
       return computed.fills[0].color ?? null
     })
 
+  const getSelectedFillCount = async (page: Page) =>
+    page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return 0
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      return Array.isArray(computed.fills) ? computed.fills.length : 0
+    })
+
   const getSelectedGradientStopColor = async (page: Page, stopIndex: number) =>
     page.evaluate((targetStopIndex) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -308,6 +322,26 @@ test.describe('Property Management', () => {
     ).toBeVisible()
   })
 
+  test('should add and remove repeatable fills from properties panel', async ({
+    page
+  }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel.getByTestId('prop-fill-add').click()
+    await expect.poll(() => getSelectedFillCount(page)).toBe(2)
+    expect(pageErrors).toEqual([])
+    await expect(
+      propertiesPanel.getByTestId('prop-fill-color-picker-1')
+    ).toBeVisible()
+
+    await propertiesPanel.getByTestId('prop-fill-remove-1').click()
+    await expect.poll(() => getSelectedFillCount(page)).toBe(1)
+    expect(pageErrors).toEqual([])
+  })
+
   test('should show strokes section for selected element', async ({ page }) => {
     await createRectangle(page, 0.3, 0.3)
 
@@ -324,15 +358,39 @@ test.describe('Property Management', () => {
   test('should add and remove repeatable strokes from properties panel', async ({
     page
   }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
     await createRectangle(page, 0.3, 0.3)
 
     const propertiesPanel = getPropertiesPanel(page)
     await propertiesPanel.getByTestId('prop-stroke-add').click()
-    await page.waitForTimeout(120)
+    await page.waitForTimeout(100)
+    expect(pageErrors).toEqual([])
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const selectedId =
+            core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+          const element =
+            selectedId && core?.deps?.sceneTree?.getElementById?.(selectedId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const uiStrokes = core?.getUIProperty?.('strokes')
+          return {
+            computedStrokeCount: Array.isArray(computed.strokes)
+              ? computed.strokes.length
+              : -1,
+            uiStrokeCount: Array.isArray(uiStrokes) ? uiStrokes.length : -1
+          }
+        })
+      })
+      .toEqual({
+        computedStrokeCount: 1,
+        uiStrokeCount: 1
+      })
     await propertiesPanel.getByTestId('prop-stroke-add').click()
-    await page.waitForTimeout(120)
-
-    expect(await getSelectedStrokeCount(page)).toBe(2)
+    await expect.poll(() => getSelectedStrokeCount(page)).toBe(2)
     await expect(
       propertiesPanel.getByTestId('prop-stroke-color-picker-0')
     ).toBeVisible()
@@ -356,8 +414,7 @@ test.describe('Property Management', () => {
     }
 
     await propertiesPanel.getByTestId('prop-stroke-remove-0').click()
-    await page.waitForTimeout(120)
-    expect(await getSelectedStrokeCount(page)).toBe(1)
+    await expect.poll(() => getSelectedStrokeCount(page)).toBe(1)
   })
 
   test('stroke color picker drag projects immediately and commits once', async ({

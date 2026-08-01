@@ -2,6 +2,8 @@ import type { ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   FillGradientTypes,
   PropertyTypes,
+  createDefaultFill,
+  id,
   type EVENT_OPTIONS,
   type FillAttrs,
   type FillGradientData,
@@ -249,6 +251,59 @@ const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
 }
 
 export const fillApis = {
+  addFill: (elementId: string, options?: EVENT_OPTIONS): string | null => {
+    if (!sceneTree.getElementById(elementId)) {
+      return null
+    }
+    const fill = createDefaultFill({ id: id() })
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [createFillRecordPatch(elementId, fill.id, fill)],
+        options
+      )
+    })
+    return fill.id
+  },
+
+  removeFill: (
+    elementId: string,
+    fillId: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const element = sceneTree.getElementById(elementId)
+    const fills = element?.getAllComputedData?.()?.fills
+    if (
+      !fillId ||
+      !Array.isArray(fills) ||
+      !fills.some(
+        (candidate) =>
+          candidate &&
+          typeof candidate === 'object' &&
+          (candidate as { id?: unknown }).id === fillId
+      )
+    ) {
+      return false
+    }
+
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: PropertyTypes.FILLS,
+                remove: [fillId]
+              }
+            ]
+          }
+        ],
+        options
+      )
+    })
+    return true
+  },
+
   getCanvasBounds: (): DOMRect | null => {
     return render.app?.canvas?.getBoundingClientRect() ?? null
   },

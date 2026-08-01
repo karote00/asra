@@ -239,6 +239,7 @@ describe('Vector canonical property commit', () => {
         { x: 25, y: 15 },
         {
           skipResult: true,
+          transientPreview: true,
           undoable: false
         }
       )
@@ -276,6 +277,7 @@ describe('Vector canonical property commit', () => {
           outHandle: null
         },
         {
+          transientPreview: true,
           undoable: false
         }
       )
@@ -302,6 +304,29 @@ describe('Vector canonical property commit', () => {
     ])
     expect(mocks.patchElementProperties).not.toHaveBeenCalled()
     expect(mocks.runTransaction).not.toHaveBeenCalled()
+  })
+
+  it('keeps immediate non-undoable drag delivery on the canonical route', () => {
+    mocks.getSystemProperty.mockImplementation((key: string) =>
+      ['pathEditingMode', 'mouseDragging'].includes(key)
+    )
+
+    expect(
+      vectorApis.updateVectorAnchorPointPosition(
+        'vector-1',
+        'pointB',
+        { x: 25, y: 15 },
+        {
+          sharedDelivery: 'immediate',
+          skipResult: true,
+          undoable: false
+        }
+      )
+    ).toBe(true)
+
+    expect(mocks.patchLocalComputedData).not.toHaveBeenCalled()
+    expect(mocks.patchElementProperties).toHaveBeenCalledOnce()
+    expect(mocks.runTransaction).toHaveBeenCalledOnce()
   })
 
   it('commits a final point move through canonical properties', () => {

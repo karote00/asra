@@ -187,6 +187,9 @@ const createHarness = () => {
       })
     }),
     resolveElementPropertyTargets: vi.fn(),
+    getElementPropertyRelations: vi.fn(() =>
+      Object.freeze([] as ElementPropertyRelation[])
+    ),
     save: vi.fn(() => ({
       workspace: 'workspace-1',
       workspaceList: ['workspace-1'],
@@ -221,6 +224,15 @@ const createHarness = () => {
               mutation.kind === 'values' ? [mutation.propertyId] : []
             )
           )
+        }
+        if (operation?.kind === 'records') {
+          const orderedPropertyIds = request.operations.flatMap((mutation) => {
+            if (mutation.kind === 'records' || mutation.kind === 'values') {
+              return [mutation.propertyId]
+            }
+            return []
+          })
+          return preparedProperties([], [...new Set(orderedPropertyIds)])
         }
         return preparedProperties()
       }
@@ -653,8 +665,59 @@ describe('Core canonical owner coordination', () => {
     ])
   })
 
+  it('creates exact property records before applying updates in one owner batch', () => {
+    const { apis, props } = createHarness()
+    apis.applyCanonicalChanges([
+      {
+        kind: 'property-components',
+        records: [
+          {
+            propertyId: 'points-root',
+            key: 'points',
+            set: {
+              'point-b': {
+                id: 'point-b',
+                type: PROPERTY_TYPE,
+                value: 20
+              }
+            }
+          }
+        ],
+        updates: [
+          {
+            propertyId: 'points-root',
+            values: { value: 2 }
+          }
+        ]
+      }
+    ])
+
+    expect(props.preparePropertyMutationBatch).toHaveBeenCalledWith({
+      operations: [
+        {
+          kind: 'records',
+          propertyId: 'points-root',
+          key: 'points',
+          set: {
+            'point-b': {
+              id: 'point-b',
+              type: PROPERTY_TYPE,
+              value: 20
+            }
+          }
+        },
+        {
+          kind: 'values',
+          propertyId: 'points-root',
+          values: { value: 2 }
+        }
+      ]
+    })
+    expect(props.applyPreparedPropertyMutationBatch).toHaveBeenCalledOnce()
+  })
+
   it('coordinates every remaining canonical lifecycle kind without a second apply path', () => {
-    const { apis, sequence } = createHarness()
+    const { apis, sceneTree, sequence } = createHarness()
     const subtreeChange = {
       action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
       undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
@@ -755,5 +818,9 @@ describe('Core canonical owner coordination', () => {
       'scene-apply',
       'props-apply'
     ])
+    expect(sceneTree.preflightRestoreSubtree).toHaveBeenCalledWith(
+      expect.objectContaining({ elementId: 'subtree-root' }),
+      { propertyState: 'pending-restore' }
+    )
   })
 })

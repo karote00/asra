@@ -1,6 +1,8 @@
 import {
   type DataTypes,
   PropertyTypes,
+  createDefaultStroke,
+  id,
   isFiniteNumber,
   isRecord,
   type EVENT_OPTIONS,
@@ -131,6 +133,59 @@ const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
 }
 
 export const strokeApis = {
+  addStroke: (elementId: string, options?: EVENT_OPTIONS): string | null => {
+    if (!core.deps.sceneTree.getElementById(elementId)) {
+      return null
+    }
+    const stroke = createDefaultStroke({ id: id() })
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [createStrokeRecordPatch(elementId, stroke.id, stroke)],
+        options
+      )
+    })
+    return stroke.id
+  },
+
+  removeStroke: (
+    elementId: string,
+    strokeId: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const element = core.deps.sceneTree.getElementById(elementId)
+    const strokes = element?.getAllComputedData?.()?.strokes
+    if (
+      !strokeId ||
+      !Array.isArray(strokes) ||
+      !strokes.some(
+        (candidate) =>
+          candidate &&
+          typeof candidate === 'object' &&
+          (candidate as { id?: unknown }).id === strokeId
+      )
+    ) {
+      return false
+    }
+
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: PropertyTypes.STROKES,
+                remove: [strokeId]
+              }
+            ]
+          }
+        ],
+        options
+      )
+    })
+    return true
+  },
+
   getPrimaryStrokeColor: (elementId: string): string | null => {
     const stroke = getPrimaryStroke(elementId)
     return typeof stroke?.fill?.color === 'string' ? stroke.fill.color : null

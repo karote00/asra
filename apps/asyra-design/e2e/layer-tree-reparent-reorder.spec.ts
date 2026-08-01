@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   createTestDocumentURL,
   createRectangle,
+  getClientPersistenceEvidence,
   getContentsPanel,
   pressGroupCommandShortcut,
-  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -133,6 +133,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
+    const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.25, 0.3)
     await createRectangle(page, 0.5, 0.45)
@@ -283,25 +284,9 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       'idle'
     )
 
-    const beforeReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
-    await expect
-      .poll(async () =>
-        JSON.stringify(await readPersistedDocument(page)).includes(groupId)
-      )
-      .toBe(true)
-    await page.reload()
-    await waitForAppReady(page)
-    const afterReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
-    expect(afterReload).toEqual(beforeReload)
-    expect(await getChildren(page, groupId)).toEqual(orderBeforeCancel)
-    expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
-
+    expect(await getClientPersistenceEvidence(page)).toEqual(
+      persistenceBaseline
+    )
     await page.evaluate(() => {
       delete (
         window as typeof window & {
@@ -309,5 +294,19 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
         }
       ).__LayerMoveIdentity
     })
+
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getVisibleLayerIds(page)).toEqual([])
+    expect(await getSelectedIds(page)).toEqual([])
+    expect(
+      await page.evaluate(
+        (ids) =>
+          ids.some((id) =>
+            Boolean(window.__Core__.deps.sceneTree.getElementById(id))
+          ),
+        [...initialIds, groupId]
+      )
+    ).toBe(false)
   })
 })

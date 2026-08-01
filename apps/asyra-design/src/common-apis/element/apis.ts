@@ -701,17 +701,12 @@ export const elementApis = {
         })
       })
 
-      const projectedPropertyUpdates =
-        propertyUpdates.length === 0
-          ? []
-          : projectGroupGeometryPropertyUpdates(core, propertyUpdates)
-
       if (vectorPositionUpdates.length > 0) {
         vectorApis.setVectorElementPositions(vectorPositionUpdates, options)
       }
 
-      if (projectedPropertyUpdates.length > 0) {
-        core.updateElementProperties(projectedPropertyUpdates, options)
+      if (propertyUpdates.length > 0) {
+        core.updateElementProperties(propertyUpdates, options)
       }
     })
   },
