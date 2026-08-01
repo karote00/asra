@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   createRectangle,
@@ -25,7 +26,7 @@ import {
 
 test.describe('Element Selection', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

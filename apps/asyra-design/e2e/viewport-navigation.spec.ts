@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   getCanvasPosition,
   getZoomLevel,
@@ -13,7 +14,7 @@ import {
 
 test.describe('Viewport Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
   })
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
   getCanvasPosition,
   getTransactionSnapshot,
@@ -16,7 +17,7 @@ import {
 
 test.describe('Gradient Fill Handles', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import {
+  createTestDocumentURL,
   getContentsPanel,
   getPropertiesPanel,
   resetCanvas,
@@ -19,7 +20,7 @@ test.describe('Group hierarchy product projection', () => {
   test('preserves live geometry and identity across an official Group reparent', async ({
     page
   }, testInfo) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 

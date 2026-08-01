@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
   resetCanvas,
   setSelectedGradient,
@@ -112,7 +113,7 @@ const DEFAULT_TEST_GRADIENT = {
 
 test.describe('Gradient Fill Render', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

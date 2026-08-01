@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   clickCanvas,
@@ -34,7 +35,7 @@ test.describe('Undo/Redo Actions', () => {
       }
     })
 
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

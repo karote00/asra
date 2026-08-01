@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
   getCanvasPosition,
   getContentsPanel,
@@ -94,7 +95,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('undoes and redoes a basic two-rectangle Group without losing either rectangle', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -260,7 +261,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('creates in the hierarchy-target Group or explicit workspace root from mouse down', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -385,7 +386,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('resolves canvas hover and click from selection parent scope or Meta leaf access', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -451,7 +452,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('prioritizes the projected multi-selection box over Group canvas targeting', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -527,7 +528,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('writes nested Group bounds after a child pointer move without a visible jump', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -617,7 +618,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
   test('groups, nests, projects, restores, reloads, and ungroups through product commands', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 

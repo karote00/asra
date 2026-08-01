@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import {
   captureBrowserErrors,
+  createTestDocumentURL,
   getCapturedBrowserErrors,
   resetCanvas,
   waitForAppReady
@@ -86,7 +87,7 @@ test.describe('Render delta performance budget', () => {
   test.beforeEach(async ({ page }) => {
     captureBrowserErrors(page)
 
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -180,20 +181,28 @@ test.describe('Render delta performance budget', () => {
         if (!elementId) {
           throw new Error('Failed to create dense vector profiling fixture')
         }
-        elementApis.changeComputedData(
-          [elementId],
-          {
-            fills: [
-              {
-                id: 'dense-vector-fill',
-                kind: 'solid',
-                fillType: 'color',
-                color: '#64748b',
-                opacity: 1,
-                visible: true
-              }
-            ]
-          },
+        elementApis.patchElementProperties(
+          [
+            {
+              elementId,
+              records: [
+                {
+                  key: 'fills',
+                  set: {
+                    'dense-vector-fill': {
+                      kind: 'solid',
+                      defaultColorFormat: 'hex',
+                      colorFormat: 'hex',
+                      color: '#64748b',
+                      opacity: 1,
+                      visible: true,
+                      gradient: null
+                    }
+                  }
+                }
+              ]
+            }
+          ],
           { undoable: false }
         )
 
@@ -651,13 +660,20 @@ test.describe('Render delta performance budget', () => {
         }
       }
 
-      const actionPoints = {
-        ...initialPoints,
-        A: { ...initialPoints.A, x: 140 }
-      }
-      elementApis.changeComputedData(
-        [elementId],
-        { points: actionPoints },
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'points',
+                set: {
+                  A: { x: 140 }
+                }
+              }
+            ]
+          }
+        ],
         { undoable: true }
       )
       await waitForStableFrame()
@@ -672,14 +688,20 @@ test.describe('Render delta performance budget', () => {
       const redo = capture('redo')
       const persisted = await core.save()
 
-      elementApis.changeComputedData(
-        [elementId],
-        {
-          points: {
-            ...actionPoints,
-            A: { ...actionPoints.A, x: 180 }
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'points',
+                set: {
+                  A: { x: 180 }
+                }
+              }
+            ]
           }
-        },
+        ],
         { undoable: false }
       )
       await waitForStableFrame()

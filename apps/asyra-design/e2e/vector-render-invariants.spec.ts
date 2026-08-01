@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import {
   captureBrowserErrors,
+  createTestDocumentURL,
   getCapturedBrowserErrors,
   resetCanvas,
   waitForAppReady
@@ -87,31 +88,38 @@ const setSelectedVectorStrokeData = async (page: Page) => {
       throw new Error('Missing selected vector for stroke styling')
     }
 
-    elementApis.changeComputedData(
-      [selectedId],
-      {
-        strokes: [
-          {
-            id: 'vector-invariant-stroke',
-            kind: 'solid',
-            style: 'solid',
-            position: 'center',
-            width: 12,
-            dash: 0,
-            gap: 0,
-            fill: null,
-            defaultColorFormat: 'hex',
-            colorFormat: 'hex',
-            color: '#df0606',
-            opacity: 0.75,
-            visible: true,
-            gradient: null,
-            joinType: 'miter',
-            capType: 'butt',
-            miterAngle: 28.96
-          }
-        ]
-      },
+    elementApis.patchElementProperties(
+      [
+        {
+          elementId: selectedId,
+          records: [
+            {
+              key: 'strokes',
+              set: {
+                'vector-invariant-stroke': {
+                  style: 'solid',
+                  position: 'center',
+                  width: 12,
+                  dash: 20,
+                  gap: 20,
+                  fill: {
+                    kind: 'solid',
+                    defaultColorFormat: 'hex',
+                    colorFormat: 'hex',
+                    color: '#df0606',
+                    opacity: 0.75,
+                    visible: true,
+                    gradient: null
+                  },
+                  joinType: 'miter',
+                  capType: 'butt',
+                  miterAngle: 28.96
+                }
+              }
+            }
+          ]
+        }
+      ],
       { undoable: false }
     )
   })
@@ -373,7 +381,7 @@ test.describe('Vector app-flow invariants', () => {
   test.beforeEach(async ({ page }) => {
     captureBrowserErrors(page)
 
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -408,41 +416,52 @@ test.describe('Vector app-flow invariants', () => {
         throw new Error('Failed to create vector star')
       }
 
-      elementApis.changeComputedData(
-        [createdId],
-        {
-          fills: [
-            {
-              id: 'vector-invariant-fill',
-              kind: 'solid',
-              fillType: 'color',
-              color: '#d5d5d5',
-              opacity: 1,
-              visible: true
-            }
-          ],
-          strokes: [
-            {
-              id: 'vector-invariant-stroke',
-              kind: 'solid',
-              style: 'solid',
-              position: 'center',
-              width: 12,
-              dash: 0,
-              gap: 0,
-              fill: null,
-              defaultColorFormat: 'hex',
-              colorFormat: 'hex',
-              color: '#df0606',
-              opacity: 0.75,
-              visible: true,
-              gradient: null,
-              joinType: 'miter',
-              capType: 'butt',
-              miterAngle: 28.96
-            }
-          ]
-        },
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId: createdId,
+            records: [
+              {
+                key: 'fills',
+                set: {
+                  'vector-invariant-fill': {
+                    kind: 'solid',
+                    defaultColorFormat: 'hex',
+                    colorFormat: 'hex',
+                    color: '#d5d5d5',
+                    opacity: 1,
+                    visible: true,
+                    gradient: null
+                  }
+                }
+              },
+              {
+                key: 'strokes',
+                set: {
+                  'vector-invariant-stroke': {
+                    style: 'solid',
+                    position: 'center',
+                    width: 12,
+                    dash: 20,
+                    gap: 20,
+                    fill: {
+                      kind: 'solid',
+                      defaultColorFormat: 'hex',
+                      colorFormat: 'hex',
+                      color: '#df0606',
+                      opacity: 0.75,
+                      visible: true,
+                      gradient: null
+                    },
+                    joinType: 'miter',
+                    capType: 'butt',
+                    miterAngle: 28.96
+                  }
+                }
+              }
+            ]
+          }
+        ],
         { undoable: false }
       )
       core.selectElements?.([createdId], { undoable: false })

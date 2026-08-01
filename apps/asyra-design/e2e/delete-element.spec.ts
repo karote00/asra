@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   clickCanvas,
+  createTestDocumentURL,
   createRectangle,
   createVectorPath,
   getCanvasPosition,
@@ -17,7 +18,7 @@ import {
 
 test.describe('Delete Selected Element', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

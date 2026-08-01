@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
   getContentsPanel,
   pressGroupCommandShortcut,
@@ -129,7 +130,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
   test('moves canonical identities through Layers pointer interactions without canvas jump', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 

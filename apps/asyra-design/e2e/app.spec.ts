@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   getToolbar,
   getContentsPanel,
@@ -12,7 +13,7 @@ import {
 
 test.describe('Asyra Design Tool', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
   })
 
   test('should load the application', async ({ page }) => {

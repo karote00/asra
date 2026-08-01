@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   createRectangle,
@@ -112,31 +113,26 @@ test.describe('Property Management', () => {
         }
 
         const stroke = computed.strokes[strokeIndex]
-        if (stroke?.id && typeof core?.updatePropertyById === 'function') {
-          Object.entries(strokePatch).forEach(([key, value]) => {
-            core.updatePropertyById(
-              stroke.id,
-              key,
-              value,
-              {
-                ownerElementId: selectedId,
-                ownerPropertyName: 'strokes'
-              },
-              { undoable: false }
-            )
-          })
-          core.commitPropertyChanges?.({ undoable: false })
-          return
+        if (!stroke?.id) {
+          throw new Error(`Stroke row at index ${strokeIndex} has no id`)
         }
-
-        core?.changeComputedData?.(
-          [selectedId],
-          {
-            strokes: computed.strokes.map(
-              (stroke: Record<string, unknown>, index: number) =>
-                index === strokeIndex ? { ...stroke, ...strokePatch } : stroke
-            )
-          },
+        if (typeof core?.patchElementProperties !== 'function') {
+          throw new Error('Typed element-property patch API is unavailable')
+        }
+        core.patchElementProperties(
+          [
+            {
+              elementId: selectedId,
+              records: [
+                {
+                  key: 'strokes',
+                  set: {
+                    [stroke.id]: { ...stroke, ...strokePatch }
+                  }
+                }
+              ]
+            }
+          ],
           { undoable: false }
         )
       },
@@ -144,7 +140,7 @@ test.describe('Property Management', () => {
     )
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })

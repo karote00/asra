@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
   getCanvasPosition,
   getContentsPanel,
@@ -631,7 +632,7 @@ for (const fixture of platformFixtures) {
   test.describe(`Group Context Menu (${fixture.id})`, () => {
     test.beforeEach(async ({ page }) => {
       await installPlatformFixture(page, fixture)
-      await page.goto('/')
+      await page.goto(createTestDocumentURL())
       await waitForAppReady(page)
       await resetCanvas(page)
     })
