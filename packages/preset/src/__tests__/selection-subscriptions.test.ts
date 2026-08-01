@@ -8,7 +8,9 @@ import {
 } from '@asyra/core'
 import {
   EntityTypes,
+  PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
+  type PropsChange,
   type SelectionChange
 } from '@asyra/utils'
 import {
@@ -72,6 +74,78 @@ const createDeps = (): PresetDependencies =>
 const VECTOR_TYPE = VECTOR_COMPONENT_DEFINITION.type
 
 describe('Preset Selection Subscriptions', () => {
+  it('projects one immediate canonical Props batch through the Scene Tree owner', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const projectLocalComputedDataFromPropertyIds = vi.fn()
+    const deps = {
+      ...createDeps(),
+      sceneTree: {
+        ...createDeps().sceneTree,
+        projectLocalComputedDataFromPropertyIds
+      }
+    } as unknown as PresetDependencies
+    const changes: PropsChange[] = [
+      {
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        id: 'fill-1',
+        key: 'color',
+        before: '#cccccc',
+        after: '#ff0000',
+        options: {
+          undoable: false,
+          sharedDelivery: 'immediate'
+        }
+      },
+      {
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        id: 'fill-1',
+        key: 'opacity',
+        before: 1,
+        after: 0.8,
+        options: {
+          undoable: false,
+          sharedDelivery: 'immediate'
+        }
+      },
+      {
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        id: 'gradient-stop-1',
+        key: 'color',
+        before: '#000000',
+        after: '#00ff00',
+        options: {
+          undoable: false,
+          sharedDelivery: 'immediate'
+        }
+      }
+    ]
+
+    const dispose = registerDefaultDataChannelObservers(core, deps, undefined, {
+      propertyProjection: true
+    })
+
+    expect(observers.get('preset.sceneTree.props')).toBeDefined()
+    deliverObserverChanges(observers.get('preset.sceneTree.props'), changes)
+    expect(projectLocalComputedDataFromPropertyIds).toHaveBeenCalledOnce()
+    expect(projectLocalComputedDataFromPropertyIds).toHaveBeenCalledWith([
+      'fill-1',
+      'gradient-stop-1'
+    ])
+
+    dispose()
+    expect(observers.has('preset.sceneTree.props')).toBe(false)
+  })
+
   it('projects local computed scalar, batch, and patch events without accepting raw owners', () => {
     const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
     const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')

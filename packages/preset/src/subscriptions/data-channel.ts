@@ -23,6 +23,7 @@ import {
   type ComputedAttrs,
   type GroupRawData,
   type MoveElementsChange,
+  type PropsChange,
   emitDiagnosticCounter,
   measureBrowserDragPhase,
   type SceneTreeChange,
@@ -1515,6 +1516,7 @@ interface RuntimeSubscription {
 }
 
 export interface PresetDataChannelObserverOptions {
+  readonly propertyProjection?: boolean
   readonly renderScene?: boolean
   readonly selection?: boolean
   readonly vectorEditing?: boolean
@@ -1527,12 +1529,14 @@ export const registerDefaultDataChannelObservers = (
   deps: PresetDependencies,
   onCleanupReady?: (dispose: () => void) => void,
   options: PresetDataChannelObserverOptions = {
+    propertyProjection: true,
     renderScene: true,
     selection: true,
     vectorEditing: true,
     uiContext: true
   }
 ): (() => void) => {
+  const propertyProjectionEnabled = options.propertyProjection === true
   const renderSceneEnabled = options.renderScene === true
   const selectionEnabled = options.selection === true
   const vectorEditingEnabled = options.vectorEditing === true
@@ -1586,6 +1590,37 @@ export const registerDefaultDataChannelObservers = (
     registeredObserverNames.push(registration.name)
     cleanupReporter.report()
   }
+
+  const canonicalPropertyDataChannelObserver = defineDataChannelObserver({
+    name: 'preset.sceneTree.props',
+    channel: SharedDataChannelNames.PROPS,
+    onBatch: (changes: readonly PropsChange[]) => {
+      if (disposed) {
+        return
+      }
+      const propertyIds: string[] = []
+      const seenPropertyIds = new Set<string>()
+      const appendPropertyId = (propertyId: string): void => {
+        if (seenPropertyIds.has(propertyId)) {
+          return
+        }
+        seenPropertyIds.add(propertyId)
+        propertyIds.push(propertyId)
+      }
+
+      changes.forEach((change) => {
+        if ('id' in change) {
+          appendPropertyId(change.id)
+          return
+        }
+        change.data.forEach(({ id }) => appendPropertyId(id))
+      })
+
+      if (propertyIds.length > 0) {
+        deps.sceneTree.projectLocalComputedDataFromPropertyIds(propertyIds)
+      }
+    }
+  })
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.uiContext.sceneTree',
@@ -1642,6 +1677,10 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
+    if (propertyProjectionEnabled) {
+      registerObserver(canonicalPropertyDataChannelObserver)
+    }
+
     if (renderSceneEnabled || uiContextEnabled) {
       eventSubscriptions.push(
         subscribeToEventBatches((events) => {

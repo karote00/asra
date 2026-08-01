@@ -73,6 +73,21 @@ export const acquireVectorProperties = (
   })
 }
 
+const acquireCanonicalPropertyProjection = (
+  context: PresetDefaultInstallContext
+): void => {
+  context.privatePrerequisites.acquire(
+    'observers:canonical-property-projection',
+    () =>
+      registerDefaultDataChannelObservers(
+        context.core,
+        context.dependencies,
+        undefined,
+        { propertyProjection: true }
+      )
+  )
+}
+
 export const acquireRenderSceneProjection = (
   context: PresetDefaultInstallContext
 ): void => {
@@ -82,6 +97,7 @@ export const acquireRenderSceneProjection = (
       SharedDataChannelNames.PROPS
     ])
   )
+  acquireCanonicalPropertyProjection(context)
   context.privatePrerequisites.acquire('observers:render-scene', () =>
     registerDefaultDataChannelObservers(
       context.core,
@@ -138,6 +154,7 @@ export const acquireUIContextProjection = (
       SharedDataChannelNames.PROPS
     ])
   )
+  acquireCanonicalPropertyProjection(context)
   context.privatePrerequisites.acquire('observers:ui-context', () =>
     registerDefaultDataChannelObservers(
       context.core,
