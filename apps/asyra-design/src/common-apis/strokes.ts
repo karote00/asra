@@ -38,7 +38,13 @@ const createStrokeRecordPatch = (
   if (fields.id !== strokeId) {
     throw new Error(`Stroke record key "${strokeId}" does not match its id`)
   }
-  const { id: _strokeId, type: _strokeType, ...recordFields } = fields
+  const recordFields: Record<string, unknown> = {}
+  for (const key of STROKE_PATCH_KEYS) {
+    const value = fields[key]
+    if (value !== undefined) {
+      recordFields[key] = value
+    }
+  }
 
   return {
     elementId,

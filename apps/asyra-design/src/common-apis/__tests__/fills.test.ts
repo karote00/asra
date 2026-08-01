@@ -232,15 +232,16 @@ describe('fill common API primary-color boundary', () => {
     expect(mocks.runTransaction).not.toHaveBeenCalled()
   })
 
-  it('preserves the complete fill while applying multiple changed fields in one record patch', () => {
+  it('preserves canonical fill fields without forwarding UI aggregation metadata', () => {
     const currentFill = {
       color: '#050504',
       colorFormat: 'hex',
       id: 'fill-1',
+      ids: ['fill-1'],
       opacity: 1,
       type: 'fill',
       visible: true
-    } as FillAttrs
+    } as FillAttrs & { ids: string[] }
     const options = {
       sharedDelivery: 'transaction-end',
       undoable: true

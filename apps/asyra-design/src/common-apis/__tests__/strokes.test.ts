@@ -288,9 +288,11 @@ describe('stroke common API primary-color boundary', () => {
     expect(mocks.runTransaction).not.toHaveBeenCalled()
   })
 
-  it('patches one changed stroke field as one record operation', () => {
-    const currentStroke = mocks.getElementById('whisker-1').getAllComputedData()
-      .strokes[0]
+  it('patches canonical stroke fields without forwarding UI aggregation metadata', () => {
+    const currentStroke = {
+      ...mocks.getElementById('whisker-1').getAllComputedData().strokes[0],
+      ids: ['stroke-1']
+    }
 
     strokeApis.updateStrokeField(
       'whisker-1',

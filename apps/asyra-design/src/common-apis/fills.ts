@@ -27,7 +27,13 @@ const createFillRecordPatch = (
   if (fill.id !== fillId) {
     throw new Error(`Fill record key "${fillId}" does not match its id`)
   }
-  const { id: _fillId, type: _fillType, ...fields } = fill
+  const fields: Record<string, unknown> = {}
+  for (const key of FILL_PATCH_KEYS) {
+    const value = fill[key]
+    if (value !== undefined) {
+      fields[key] = value
+    }
+  }
 
   return {
     elementId,
