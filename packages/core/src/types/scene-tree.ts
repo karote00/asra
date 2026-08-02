@@ -1,17 +1,26 @@
 import {
   Bounds,
-  ComputedDataPatch,
   CreateElementData,
+  ElementRawData,
   GroupInstanceTypes,
+  HierarchyMove,
   SceneTreeRawData,
-  DataTypes,
   EVENT_OPTIONS,
   MoveHierarchyRequest,
   MoveHierarchyResult,
   RemoveSubtreeResult,
-  SceneTreeRestorePlan,
-  SceneTreeRestoreSnapshot
+  PropertyComponentRawData,
+  PreparedSceneTreeRestore,
+  SceneTreeRestorePreflightOptions,
+  SceneTreeRestoreSnapshot,
+  SubtreeChange,
+  UpdateElementDataChange
 } from '@asyra/utils'
+import type {
+  CanonicalElementRemoval,
+  LocalComputedDataPatchUpdate,
+  LocalComputedDataUpdate
+} from '@asyra/scene-tree'
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
@@ -35,6 +44,13 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => readonly string[]
+  createElementsInParentFromCanonicalData: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
@@ -42,31 +58,40 @@ export interface SceneTreeRawAPIs {
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS
   ) => MoveHierarchyResult
+  applyHierarchyMoves: (
+    moves: readonly HierarchyMove[],
+    options?: EVENT_OPTIONS
+  ) => boolean
+  applyElementDataChanges: (
+    changes: readonly UpdateElementDataChange[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   removeSubtree: (
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  preflightRestoreSubtree: (
-    snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
-  applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+  removeSubtreeFromCanonicalData: (
+    change: SubtreeChange,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
-  changeComputedData: (
-    elementIds: string[],
-    data: Record<string, DataTypes>,
+  removeElementsFromCanonicalData: (
+    removals: readonly CanonicalElementRemoval[],
     options?: EVENT_OPTIONS
+  ) => readonly string[]
+  preflightRestoreSubtree: (
+    snapshot: SceneTreeRestoreSnapshot,
+    options?: SceneTreeRestorePreflightOptions
+  ) => PreparedSceneTreeRestore
+  applyRestoreSubtree: (
+    preparedRestore: PreparedSceneTreeRestore,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  updateLocalComputedData: (updates: readonly LocalComputedDataUpdate[]) => void
+  patchLocalComputedData: (
+    updates: readonly LocalComputedDataPatchUpdate[]
   ) => void
-  changeComputedDataPatch: (
-    elementIds: string[],
-    patch: ComputedDataPatch,
-    options?: EVENT_OPTIONS
-  ) => void
-  refreshComputedDataFromProperty: (
-    elementId: string,
-    propertyName: string,
-    options?: EVENT_OPTIONS
+  projectLocalComputedDataFromPropertyIds: (
+    propertyIds: readonly string[]
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean

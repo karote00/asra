@@ -1,32 +1,26 @@
-import type {
-  AsyraDesignAiConversationOutcome,
-  AsyraDesignAiSettledTurn
-} from './conversation'
-import {
-  AsyraDesignAiActionNames,
-  AsyraDesignAiDrawingDetailOptionIds
-} from '../constants'
+import type { AiConversationOutcome, AiSettledTurn } from './conversation'
+import { AiActionNames, AiDrawingDetailOptionIds } from '../constants'
 
-export interface AsyraDesignAiTurnSummary {
+export interface AiTurnSummary {
   readonly durationLabel: string
   readonly message: string
-  readonly outcome: AsyraDesignAiConversationOutcome
+  readonly outcome: AiConversationOutcome
 }
 
-export type AsyraDesignAiDrawingDetailOptionId =
-  (typeof AsyraDesignAiDrawingDetailOptionIds)[keyof typeof AsyraDesignAiDrawingDetailOptionIds]
+export type AiDrawingDetailOptionId =
+  (typeof AiDrawingDetailOptionIds)[keyof typeof AiDrawingDetailOptionIds]
 
-export interface AsyraDesignAiDrawingDetailChoice {
+export interface AiDrawingDetailChoice {
   readonly description: string
   readonly elementCount: number
-  readonly id: AsyraDesignAiDrawingDetailOptionId
+  readonly id: AiDrawingDetailOptionId
   readonly label: string
   readonly pointCountLabel: string
   readonly resourceWarning: string | null
 }
 
-export interface AsyraDesignAiDrawingDetailChoiceProjection {
-  readonly choices: readonly AsyraDesignAiDrawingDetailChoice[]
+export interface AiDrawingDetailChoiceProjection {
+  readonly choices: readonly AiDrawingDetailChoice[]
   readonly kind: 'drawing-detail'
 }
 
@@ -38,13 +32,13 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null
 }
 
-const DRAWING_DETAIL_CHOICE_PROJECTION: AsyraDesignAiDrawingDetailChoiceProjection =
+const DRAWING_DETAIL_CHOICE_PROJECTION: AiDrawingDetailChoiceProjection =
   Object.freeze({
     choices: Object.freeze([
       Object.freeze({
         description: 'Faster and lighter for editing.',
         elementCount: 7_111,
-        id: AsyraDesignAiDrawingDetailOptionIds.BALANCED,
+        id: AiDrawingDetailOptionIds.BALANCED,
         label: 'Balanced detail',
         pointCountLabel: 'At least 115,000 points',
         resourceWarning: null
@@ -52,7 +46,7 @@ const DRAWING_DETAIL_CHOICE_PROJECTION: AsyraDesignAiDrawingDetailChoiceProjecti
       Object.freeze({
         description: 'Uses the highest live-validated vector detail.',
         elementCount: 27_471,
-        id: AsyraDesignAiDrawingDetailOptionIds.MAXIMUM,
+        id: AiDrawingDetailOptionIds.MAXIMUM,
         label: 'Maximum detail',
         pointCountLabel: '295,794 points',
         resourceWarning:
@@ -62,9 +56,9 @@ const DRAWING_DETAIL_CHOICE_PROJECTION: AsyraDesignAiDrawingDetailChoiceProjecti
     kind: 'drawing-detail'
   })
 
-export const projectAsyraDesignAiDrawingDetailChoice = (
-  turn: AsyraDesignAiSettledTurn
-): AsyraDesignAiDrawingDetailChoiceProjection | null => {
+export const projectAiDrawingDetailChoice = (
+  turn: AiSettledTurn
+): AiDrawingDetailChoiceProjection | null => {
   if (
     turn.outcome !== 'no-change' ||
     !isPlainObject(turn.result) ||
@@ -77,24 +71,21 @@ export const projectAsyraDesignAiDrawingDetailChoice = (
   const actionResult = turn.result.actionResults[0]
   if (
     !isPlainObject(actionResult) ||
-    actionResult.actionName !==
-      AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE ||
+    actionResult.actionName !== AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE ||
     !isPlainObject(actionResult.result)
   ) {
     return null
   }
   const result = actionResult.result
   if (
-    result.action !== AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE ||
+    result.action !== AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE ||
     result.status !== 'no-change' ||
     !isPlainObject(result.clarification) ||
     result.clarification.kind !== 'drawing-detail' ||
     !Array.isArray(result.clarification.optionIds) ||
     result.clarification.optionIds.length !== 2 ||
-    result.clarification.optionIds[0] !==
-      AsyraDesignAiDrawingDetailOptionIds.BALANCED ||
-    result.clarification.optionIds[1] !==
-      AsyraDesignAiDrawingDetailOptionIds.MAXIMUM
+    result.clarification.optionIds[0] !== AiDrawingDetailOptionIds.BALANCED ||
+    result.clarification.optionIds[1] !== AiDrawingDetailOptionIds.MAXIMUM
   ) {
     return null
   }
@@ -159,11 +150,9 @@ const formatElapsedTime = (durationMs: number): string => {
   return `Elapsed ${hours}h ${minutes % 60}m ${remainingSeconds}s`
 }
 
-export const summarizeAsyraDesignAiTurn = (
-  turn: AsyraDesignAiSettledTurn
-): AsyraDesignAiTurnSummary => {
+export const summarizeAiTurn = (turn: AiSettledTurn): AiTurnSummary => {
   let message = 'The request failed without applying changes.'
-  if (projectAsyraDesignAiDrawingDetailChoice(turn)) {
+  if (projectAiDrawingDetailChoice(turn)) {
     message = 'Choose a drawing detail level.'
   } else if (turn.outcome === 'success') {
     message = 'Drawing updated successfully.'
@@ -174,8 +163,6 @@ export const summarizeAsyraDesignAiTurn = (
     message = 'No canvas changes were needed.'
   } else if (turn.outcome === 'cancelled') {
     message = 'The request was cancelled.'
-  } else if (turn.outcome === 'unavailable') {
-    message = 'The agent is unavailable.'
   }
   return Object.freeze({
     durationLabel: formatElapsedTime(turn.durationMs),

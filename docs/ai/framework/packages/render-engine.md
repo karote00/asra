@@ -7,7 +7,7 @@ custom engine implementations.
 
 ## Owns
 
-- engine/surface lifecycle and frame-loop contracts;
+- engine/surface lifecycle and one-shot frame-scheduling contracts;
 - semantic create, update, hierarchy, draw, resource, viewport, resize, and
   flush commands;
 - engine-neutral queries for bounds, coordinate conversion, and hit testing;
@@ -46,6 +46,19 @@ custom engine implementations.
 command results and cleanup. `RenderEngineInitializeResult.runtime` is
 `unknown`: adapters may forward its identity through an existing compatibility
 API, but may not branch on its concrete type.
+
+`requestFrame(callback)` owns one pending one-shot scheduling slot. A concrete
+engine consumes that callback before invoking it, so it cannot become a
+permanent loop; `cancelFrame()` prevents the pending callback. Scheduling never
+draws by itself. Concrete output occurs only when Render submits the explicit
+`flush` command.
+
+The engine-neutral Graphics operations include a `poly` path primitive with
+ordered points and an explicit close flag. It represents one linear path inside
+one Graphics object; it does not merge canonical elements or introduce a
+multi-object Render command. Concrete engines may translate it to their native
+single-path primitive while curved topology continues to use the ordered
+move/line/Bézier operations.
 
 ## Capabilities
 

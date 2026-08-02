@@ -1,7 +1,5 @@
 import type {
   AiActionDefinition,
-  AiActionSchemaIssue,
-  AiActionSchemaResult,
   AiExecutionContext
 } from '@asyra/ai-agent-runtime'
 import {
@@ -22,7 +20,6 @@ import {
   id,
   type EVENT_OPTIONS
 } from '@asyra/utils'
-import { deriveGroupBounds } from '@asyra/preset'
 import {
   elementApis,
   fillApis,
@@ -40,33 +37,55 @@ export { AsyraDesignAiActionNames } from '../constants'
 
 export const ASYRA_DESIGN_AI_SELECTION_LIMIT = 100
 export const ASYRA_DESIGN_AI_WORKSPACE_LIMIT = 2048
-export const ASYRA_DESIGN_AI_SCALE_MIN = 0.5
-export const ASYRA_DESIGN_AI_SCALE_MAX = 2
-export const ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
 export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET = 2048
-
-export type AsyraDesignAiDeliveryMode = 'atomic' | 'progressive'
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET = 8192
+export const ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET = 64
 
 export interface CreateAsyraDesignAiActionsOptions {
-  readonly deliveryMode?: AsyraDesignAiDeliveryMode
   readonly yieldToHost?: () => Promise<void>
 }
 
-export const hasAsyraDesignAiCompositionMinimumItemCount = (
-  count: number
-): boolean => Number.isInteger(count) && count >= 1
+const AI_MUTATION_OPTIONS: EVENT_OPTIONS = Object.freeze({
+  sharedDelivery: 'immediate',
+  undoable: true
+})
 
-const createAiMutationOptions = (
-  deliveryMode: AsyraDesignAiDeliveryMode
-): EVENT_OPTIONS =>
-  Object.freeze({
-    sharedDelivery:
-      deliveryMode === 'progressive' ? 'immediate' : 'transaction-end',
-    undoable: true
-  })
+interface CooperativeTaskScheduler {
+  yield?: () => Promise<void>
+}
 
-const yieldToHost = (): Promise<void> =>
-  new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+const yieldToHost = (): Promise<void> => {
+  const scheduler = (
+    globalThis as typeof globalThis & {
+      scheduler?: CooperativeTaskScheduler
+    }
+  ).scheduler
+  if (typeof scheduler?.yield === 'function') {
+    return scheduler.yield()
+  }
+
+  if (typeof globalThis.MessageChannel === 'function') {
+    return new Promise((resolve) => {
+      const channel = new globalThis.MessageChannel()
+      channel.port1.onmessage = () => {
+        channel.port1.close()
+        channel.port2.close()
+        resolve()
+      }
+      channel.port2.postMessage(undefined)
+    })
+  }
+
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    return new Promise((resolve) => {
+      globalThis.requestAnimationFrame(() => resolve())
+    })
+  }
+
+  return Promise.reject(
+    new Error('This environment does not support cooperative host scheduling.')
+  )
+}
 
 export interface SetElementVisibilityArgs {
   readonly elementId: string
@@ -112,10 +131,36 @@ export interface AsyraDesignAiCompositionItem {
   readonly style: AsyraDesignAiCompositionStyle
 }
 
-export interface InsertVectorCompositionArgs {
+export interface ServerPreparedCompositionItem {
+  readonly bounds: AsyraDesignAiCompositionBounds
+  readonly pathCount: number
+  readonly pathStart: number
+  readonly pointCount: number
+  readonly primitive: 'oval' | 'vector'
+  readonly role: string
+  readonly style: AsyraDesignAiCompositionStyle
+  readonly vectorEncoding?: 'paths' | 'points'
+}
+
+export interface ServerPreparedCompositionPath {
+  readonly closed: boolean
+  readonly coordinateOffset: number
+  readonly pointCount: number
+}
+
+export interface ServerPreparedInsertVectorCompositionArgs {
+  readonly artifactVersion: 1
   readonly compositionRole: string
-  readonly items: readonly AsyraDesignAiCompositionItem[]
+  readonly coordinates: ArrayBuffer
+  readonly groupBounds: AsyraDesignAiCompositionBounds
+  readonly items: readonly ServerPreparedCompositionItem[]
   readonly parent: 'workspace'
+  readonly paths: readonly ServerPreparedCompositionPath[]
+  readonly pointCount: number
+  readonly skipped: readonly {
+    readonly reason: 'duplicate-role'
+    readonly role: string
+  }[]
 }
 
 export interface UpdateCompositionGeometry {
@@ -166,7 +211,7 @@ export interface AsyraDesignAiActionApis {
       readonly workspaceOrigin: AsyraDesignAiCompositionPoint
     },
     options?: EVENT_OPTIONS
-  ): readonly (string | null)[]
+  ): readonly string[] | null
   createCompositionGroup(
     bounds: AsyraDesignAiCompositionBounds,
     options?: EVENT_OPTIONS
@@ -369,9 +414,10 @@ const createCompositionElements = (
     readonly workspaceOrigin: AsyraDesignAiCompositionPoint
   },
   options?: EVENT_OPTIONS
-): readonly (string | null)[] =>
-  elementApis.createElements(
+): readonly string[] | null =>
+  elementApis.createElementsInParent(
     items.map((item) => createCompositionElementOptions(item, parent)),
+    parent.id,
     options
   )
 
@@ -415,499 +461,6 @@ const defaultApis: AsyraDesignAiActionApis = {
     strokeApis.updatePrimaryStrokeColor(elementId, color, options)
 }
 
-const invalidArguments = (
-  code: string,
-  path: readonly (number | string)[]
-): AiActionSchemaResult<never> => {
-  const issue: AiActionSchemaIssue = Object.freeze({
-    code,
-    message: 'Action arguments do not match the registered schema.',
-    path: Object.freeze([...path])
-  })
-  return Object.freeze({
-    success: false,
-    issues: Object.freeze([issue])
-  })
-}
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false
-  }
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
-
-const readExactObject = (
-  value: unknown,
-  keys: readonly string[]
-): Record<string, unknown> | null => {
-  if (!isPlainObject(value)) {
-    return null
-  }
-
-  const ownKeys = Reflect.ownKeys(value)
-  if (
-    ownKeys.length !== keys.length ||
-    ownKeys.some((key) => typeof key !== 'string' || !keys.includes(key))
-  ) {
-    return null
-  }
-
-  const result: Record<string, unknown> = {}
-  for (const key of keys) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (!descriptor?.enumerable || !('value' in descriptor)) {
-      return null
-    }
-    Object.defineProperty(result, key, {
-      configurable: true,
-      enumerable: true,
-      value: descriptor.value,
-      writable: true
-    })
-  }
-  return result
-}
-
-const readArray = (value: unknown): unknown[] | null => {
-  if (!Array.isArray(value)) {
-    return null
-  }
-  const result: unknown[] = []
-  for (let index = 0; index < value.length; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
-    if (!descriptor?.enumerable || !('value' in descriptor)) {
-      return null
-    }
-    result.push(descriptor.value)
-  }
-  return result
-}
-
-const semanticRole = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  value.length > 0 &&
-  value.length <= 80 &&
-  /^[a-z0-9][a-z0-9-]*$/i.test(value)
-
-const canonicalElementId = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0 && value.length <= 256
-
-const hexColor = (value: unknown): value is string =>
-  typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
-
-const finiteInRange = (value: unknown, minimum: number, maximum: number) =>
-  typeof value === 'number' &&
-  Number.isFinite(value) &&
-  value >= minimum &&
-  value <= maximum
-
-const parseBounds = (value: unknown): AsyraDesignAiCompositionBounds | null => {
-  const object = readExactObject(value, ['height', 'width', 'x', 'y'])
-  if (
-    !object ||
-    !finiteInRange(object.x, 0, ASYRA_DESIGN_AI_WORKSPACE_LIMIT) ||
-    !finiteInRange(object.y, 0, ASYRA_DESIGN_AI_WORKSPACE_LIMIT) ||
-    !finiteInRange(object.width, 1, ASYRA_DESIGN_AI_WORKSPACE_LIMIT) ||
-    !finiteInRange(object.height, 1, ASYRA_DESIGN_AI_WORKSPACE_LIMIT)
-  ) {
-    return null
-  }
-  const x = object.x as number
-  const y = object.y as number
-  const width = object.width as number
-  const height = object.height as number
-  if (
-    x + width > ASYRA_DESIGN_AI_WORKSPACE_LIMIT ||
-    y + height > ASYRA_DESIGN_AI_WORKSPACE_LIMIT
-  ) {
-    return null
-  }
-  return Object.freeze({ height, width, x, y })
-}
-
-const parseStyle = (value: unknown): AsyraDesignAiCompositionStyle | null => {
-  if (!isPlainObject(value)) {
-    return null
-  }
-  const keys = Reflect.ownKeys(value)
-  const allowed = ['fillColor', 'strokeColor', 'strokeWidth']
-  if (
-    keys.length === 0 ||
-    keys.some((key) => typeof key !== 'string' || !allowed.includes(key))
-  ) {
-    return null
-  }
-  const object = readExactObject(value, keys as string[])
-  if (
-    !object ||
-    (object.fillColor !== undefined && !hexColor(object.fillColor)) ||
-    (object.strokeColor !== undefined && !hexColor(object.strokeColor)) ||
-    (object.strokeWidth !== undefined &&
-      !finiteInRange(object.strokeWidth, 1, 20)) ||
-    (object.strokeWidth !== undefined && object.strokeColor === undefined)
-  ) {
-    return null
-  }
-  return Object.freeze({
-    ...(object.fillColor === undefined
-      ? {}
-      : { fillColor: object.fillColor as string }),
-    ...(object.strokeColor === undefined
-      ? {}
-      : { strokeColor: object.strokeColor as string }),
-    ...(object.strokeWidth === undefined
-      ? {}
-      : { strokeWidth: object.strokeWidth as number })
-  })
-}
-
-const parsePoints = (
-  value: unknown,
-  bounds: AsyraDesignAiCompositionBounds
-): readonly AsyraDesignAiCompositionPoint[] | null => {
-  const source = readArray(value)
-  if (!source || source.length < 2) {
-    return null
-  }
-  const points: AsyraDesignAiCompositionPoint[] = []
-  for (const entry of source) {
-    const object = readExactObject(entry, ['x', 'y'])
-    if (
-      !object ||
-      !finiteInRange(object.x, bounds.x, bounds.x + bounds.width) ||
-      !finiteInRange(object.y, bounds.y, bounds.y + bounds.height)
-    ) {
-      return null
-    }
-    points.push(
-      Object.freeze({
-        x: object.x as number,
-        y: object.y as number
-      })
-    )
-  }
-  return Object.freeze(points)
-}
-
-const parsePaths = (
-  value: unknown,
-  bounds: AsyraDesignAiCompositionBounds
-): readonly AsyraDesignAiCompositionPath[] | null => {
-  const source = readArray(value)
-  if (!source || source.length === 0) {
-    return null
-  }
-  const paths: AsyraDesignAiCompositionPath[] = []
-  for (const entry of source) {
-    const object = readExactObject(entry, ['closed', 'points'])
-    if (!object || typeof object.closed !== 'boolean') {
-      return null
-    }
-    const points = parsePoints(object.points, bounds)
-    if (!points || (object.closed && points.length < 3)) {
-      return null
-    }
-    paths.push(
-      Object.freeze({
-        closed: object.closed,
-        points
-      })
-    )
-  }
-  return Object.freeze(paths)
-}
-
-const parseCompositionItem = (
-  value: unknown
-): AsyraDesignAiCompositionItem | null => {
-  if (!isPlainObject(value)) {
-    return null
-  }
-  const primitiveDescriptor = Object.getOwnPropertyDescriptor(
-    value,
-    'primitive'
-  )
-  if (!primitiveDescriptor?.enumerable || !('value' in primitiveDescriptor)) {
-    return null
-  }
-  const primitive = primitiveDescriptor.value
-  const pathsDescriptor = Object.getOwnPropertyDescriptor(value, 'paths')
-  const hasPaths = pathsDescriptor?.enumerable === true
-  let keys = ['bounds', 'primitive', 'role', 'style']
-  if (primitive === 'vector') {
-    keys = hasPaths
-      ? ['bounds', 'paths', 'primitive', 'role', 'style']
-      : ['bounds', 'closed', 'points', 'primitive', 'role', 'style']
-  }
-  const object = readExactObject(value, keys)
-  const bounds = parseBounds(object?.bounds)
-  const style = parseStyle(object?.style)
-  if (
-    !object ||
-    (primitive !== 'oval' && primitive !== 'vector') ||
-    !semanticRole(object.role) ||
-    !bounds ||
-    !style
-  ) {
-    return null
-  }
-  if (primitive === 'oval') {
-    return Object.freeze({
-      bounds,
-      primitive,
-      role: object.role,
-      style
-    })
-  }
-  if (hasPaths) {
-    const paths = parsePaths(object.paths, bounds)
-    if (!paths) {
-      return null
-    }
-    return Object.freeze({
-      bounds,
-      paths,
-      primitive,
-      role: object.role,
-      style
-    })
-  }
-  if (typeof object.closed !== 'boolean') {
-    return null
-  }
-  const points = parsePoints(object.points, bounds)
-  if (!points || (object.closed && points.length < 3)) {
-    return null
-  }
-  return Object.freeze({
-    bounds,
-    closed: object.closed,
-    points,
-    primitive,
-    role: object.role,
-    style
-  })
-}
-
-const parseInsertComposition = (
-  value: unknown
-): AiActionSchemaResult<InsertVectorCompositionArgs> => {
-  const object = readExactObject(value, ['compositionRole', 'items', 'parent'])
-  const sourceItems = readArray(object?.items)
-  if (
-    !object ||
-    !semanticRole(object.compositionRole) ||
-    object.parent !== 'workspace' ||
-    !sourceItems ||
-    !hasAsyraDesignAiCompositionMinimumItemCount(sourceItems.length)
-  ) {
-    return invalidArguments('invalid_composition_arguments', [])
-  }
-  const items: AsyraDesignAiCompositionItem[] = []
-  for (const source of sourceItems) {
-    const item = parseCompositionItem(source)
-    if (!item) {
-      return invalidArguments('invalid_composition_item', ['items'])
-    }
-    items.push(item)
-  }
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({
-      compositionRole: object.compositionRole,
-      items: Object.freeze(items),
-      parent: 'workspace'
-    })
-  })
-}
-
-const parseUpdateComposition = (
-  value: unknown
-): AiActionSchemaResult<UpdateCompositionElementsArgs> => {
-  const object = readExactObject(value, ['updates'])
-  const sourceUpdates = readArray(object?.updates)
-  if (!object || !sourceUpdates || sourceUpdates.length === 0) {
-    return invalidArguments('invalid_composition_updates', ['updates'])
-  }
-  const updates: UpdateCompositionItem[] = []
-  for (let index = 0; index < sourceUpdates.length; index += 1) {
-    const source = sourceUpdates[index]
-    if (!isPlainObject(source)) {
-      return invalidArguments('invalid_composition_update', ['updates', index])
-    }
-    const keys = Reflect.ownKeys(source)
-    const hasGeometry = keys.includes('geometry')
-    const hasStyle = keys.includes('style')
-    if (hasGeometry === hasStyle) {
-      return invalidArguments('invalid_composition_update', ['updates', index])
-    }
-    const update = readExactObject(source, [
-      'elementId',
-      hasGeometry ? 'geometry' : 'style'
-    ])
-    if (!update || !canonicalElementId(update.elementId)) {
-      return invalidArguments('invalid_composition_target', ['updates', index])
-    }
-    if (hasGeometry) {
-      const geometry = readExactObject(update.geometry, ['scaleX', 'scaleY'])
-      if (
-        !geometry ||
-        !finiteInRange(
-          geometry.scaleX,
-          ASYRA_DESIGN_AI_SCALE_MIN,
-          ASYRA_DESIGN_AI_SCALE_MAX
-        ) ||
-        !finiteInRange(
-          geometry.scaleY,
-          ASYRA_DESIGN_AI_SCALE_MIN,
-          ASYRA_DESIGN_AI_SCALE_MAX
-        ) ||
-        (geometry.scaleX === 1 && geometry.scaleY === 1)
-      ) {
-        return invalidArguments('invalid_composition_geometry', [
-          'updates',
-          index
-        ])
-      }
-      updates.push(
-        Object.freeze({
-          elementId: update.elementId,
-          geometry: Object.freeze({
-            scaleX: geometry.scaleX as number,
-            scaleY: geometry.scaleY as number
-          })
-        })
-      )
-      continue
-    }
-    if (!isPlainObject(update.style)) {
-      return invalidArguments('invalid_composition_style', ['updates', index])
-    }
-    const styleKeys = Reflect.ownKeys(update.style)
-    if (
-      styleKeys.length !== 1 ||
-      (styleKeys[0] !== 'fillColor' && styleKeys[0] !== 'strokeColor')
-    ) {
-      return invalidArguments('invalid_composition_style', ['updates', index])
-    }
-    const styleKey = styleKeys[0]
-    const style = readExactObject(update.style, [styleKey])
-    if (!style || !hexColor(style[styleKey])) {
-      return invalidArguments('invalid_composition_style', ['updates', index])
-    }
-    updates.push(
-      Object.freeze({
-        elementId: update.elementId,
-        style: Object.freeze(
-          styleKey === 'fillColor'
-            ? { fillColor: style.fillColor as string }
-            : { strokeColor: style.strokeColor as string }
-        )
-      })
-    )
-  }
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({
-      updates: Object.freeze(updates)
-    })
-  })
-}
-
-const parseRemoveComposition = (
-  value: unknown
-): AiActionSchemaResult<RemoveAiCompositionArgs> => {
-  const object = readExactObject(value, ['compositionId'])
-  if (!object || !canonicalElementId(object.compositionId)) {
-    return invalidArguments('invalid_composition_removal', [])
-  }
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({
-      compositionId: object.compositionId
-    })
-  })
-}
-
-const parseDrawingDetailChoice = (
-  value: unknown
-): AiActionSchemaResult<RequestDrawingDetailChoiceArgs> => {
-  if (!readExactObject(value, [])) {
-    return invalidArguments('invalid_drawing_detail_choice', [])
-  }
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({})
-  })
-}
-
-const parseVisibility = (
-  value: unknown
-): AiActionSchemaResult<SetElementVisibilityArgs> => {
-  const object = readExactObject(value, ['elementId', 'visible'])
-  if (
-    !object ||
-    typeof object.elementId !== 'string' ||
-    object.elementId.trim().length === 0 ||
-    typeof object.visible !== 'boolean'
-  ) {
-    return invalidArguments('invalid_visibility_arguments', [])
-  }
-
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({
-      elementId: object.elementId,
-      visible: object.visible
-    })
-  })
-}
-
-const parseSelection = (
-  value: unknown
-): AiActionSchemaResult<SelectElementsArgs> => {
-  const object = readExactObject(value, ['elementIds'])
-  if (!object || !Array.isArray(object.elementIds)) {
-    return invalidArguments('invalid_selection_arguments', ['elementIds'])
-  }
-
-  const elementIds: string[] = []
-  const seen = new Set<string>()
-  if (
-    object.elementIds.length === 0 ||
-    object.elementIds.length > ASYRA_DESIGN_AI_SELECTION_LIMIT
-  ) {
-    return invalidArguments('invalid_selection_size', ['elementIds'])
-  }
-
-  for (let index = 0; index < object.elementIds.length; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      object.elementIds,
-      String(index)
-    )
-    if (
-      !descriptor?.enumerable ||
-      !('value' in descriptor) ||
-      typeof descriptor.value !== 'string' ||
-      descriptor.value.trim().length === 0 ||
-      seen.has(descriptor.value)
-    ) {
-      return invalidArguments('invalid_selection_id', ['elementIds', index])
-    }
-    seen.add(descriptor.value)
-    elementIds.push(descriptor.value)
-  }
-
-  return Object.freeze({
-    success: true,
-    value: Object.freeze({
-      elementIds: Object.freeze(elementIds)
-    })
-  })
-}
-
 const assertNotAborted = (context: AiExecutionContext): void => {
   if (context.signal.aborted) {
     throw new AsyraDesignAiActionError()
@@ -924,77 +477,119 @@ const statusForMutation = (
   return skippedCount > 0 ? 'partial' : 'complete'
 }
 
-const getCompositionItemPointCount = (
-  item: AsyraDesignAiCompositionItem
-): number =>
-  item.paths
-    ? item.paths.reduce((count, path) => count + path.points.length, 0)
-    : (item.points?.length ?? 0)
+interface ProgressiveCompositionSliceRange {
+  readonly end: number
+  readonly start: number
+}
 
-const getProgressiveCompositionBatchEnd = (
-  items: readonly AsyraDesignAiCompositionItem[],
-  start: number
-): number => {
-  let batchPointCount = 0
+const materializeServerPreparedPath = (
+  path: ServerPreparedCompositionPath,
+  coordinates: Float64Array
+): AsyraDesignAiCompositionPath => {
+  const points: AsyraDesignAiCompositionPoint[] = []
+  for (let index = 0; index < path.pointCount; index += 1) {
+    const coordinateIndex = path.coordinateOffset + index * 2
+    points.push({
+      x: coordinates[coordinateIndex],
+      y: coordinates[coordinateIndex + 1]
+    })
+  }
+  return {
+    closed: path.closed,
+    points
+  }
+}
+
+const materializeServerPreparedCompositionSlice = (
+  artifact: ServerPreparedInsertVectorCompositionArgs,
+  coordinates: Float64Array,
+  start: number,
+  end: number
+): readonly AsyraDesignAiCompositionItem[] => {
+  const items: AsyraDesignAiCompositionItem[] = []
+  for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
+    const item = artifact.items[itemIndex]
+    if (item.primitive === 'oval') {
+      items.push({
+        bounds: item.bounds,
+        primitive: item.primitive,
+        role: item.role,
+        style: item.style
+      })
+      continue
+    }
+
+    const paths: AsyraDesignAiCompositionPath[] = []
+    const pathEnd = item.pathStart + item.pathCount
+    for (let pathIndex = item.pathStart; pathIndex < pathEnd; pathIndex += 1) {
+      paths.push(
+        materializeServerPreparedPath(artifact.paths[pathIndex], coordinates)
+      )
+    }
+    if (item.vectorEncoding === 'points') {
+      const path = paths[0]
+      items.push({
+        bounds: item.bounds,
+        closed: path.closed,
+        points: path.points,
+        primitive: item.primitive,
+        role: item.role,
+        style: item.style
+      })
+      continue
+    }
+    items.push({
+      bounds: item.bounds,
+      paths,
+      primitive: item.primitive,
+      role: item.role,
+      style: item.style
+    })
+  }
+  return items
+}
+
+const getNextProgressiveCompositionSliceRange = (
+  items: readonly ServerPreparedCompositionItem[],
+  start: number,
+  pointBudget: number
+): ProgressiveCompositionSliceRange => {
+  let pointCount = 0
   let end = start
   while (
     end < items.length &&
-    end - start < ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE
+    end - start < ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_ELEMENT_BUDGET
   ) {
-    const itemPointCount = getCompositionItemPointCount(items[end])
-    if (
-      end > start &&
-      batchPointCount + itemPointCount >
-        ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
-    ) {
+    const itemPointCount = items[end].pointCount
+    if (end > start && pointCount + itemPointCount > pointBudget) {
       break
     }
-    batchPointCount += itemPointCount
+    pointCount += itemPointCount
     end += 1
   }
-  return end
+  return { end, start }
 }
 
 const createCompositionActions = (
   apis: AsyraDesignAiActionApis,
   mutationOptions: EVENT_OPTIONS,
-  deliveryMode: AsyraDesignAiDeliveryMode,
-  progressiveYield: (() => Promise<void>) | null
+  cooperativeYield: () => Promise<void>
 ): readonly AiActionDefinition[] => {
-  const insert: AiActionDefinition<InsertVectorCompositionArgs> = Object.freeze(
-    {
+  const insert: AiActionDefinition<ServerPreparedInsertVectorCompositionArgs> =
+    Object.freeze({
       description:
-        'Insert validated editable oval or vector elements as one grouped composition.',
-      execute: async (args, context) => {
-        const accepted: AsyraDesignAiCompositionItem[] = []
-        const skipped: { reason: string; role: string }[] = []
-        const roles = new Set<string>()
-        args.items.forEach((item) => {
-          if (roles.has(item.role)) {
-            skipped.push(
-              Object.freeze({
-                reason: 'duplicate-role',
-                role: item.role
-              })
-            )
-            return
-          }
-          roles.add(item.role)
-          accepted.push(item)
-        })
-        if (!hasAsyraDesignAiCompositionMinimumItemCount(accepted.length)) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition cannot preserve grouping after item validation.'
-          )
-        }
-
+        'Insert one server-prepared compact editable composition through the ordinary grouped element route.',
+      execute: async (
+        args: ServerPreparedInsertVectorCompositionArgs,
+        context: AiExecutionContext
+      ) => {
+        assertNotAborted(context)
+        const { groupBounds, items, skipped } = args
+        const itemCount = items.length
         const appliedElementIds: string[] = []
         const roleToElementIds: Record<string, readonly string[]> = {}
         const pupils: string[] = []
         const whiskers: string[] = []
-        const groupBounds = deriveGroupBounds(
-          accepted.map((item) => item.bounds)
-        )
         const groupId = apis.createCompositionGroup(
           groupBounds,
           mutationOptions
@@ -1011,25 +606,41 @@ const createCompositionActions = (
             y: groupBounds.y
           })
         })
-        let offset = 0
-        while (offset < accepted.length) {
+        const coordinates = new Float64Array(args.coordinates)
+        let sliceStart = 0
+        let pointBudget = ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_POINT_BUDGET
+
+        while (sliceStart < itemCount) {
           assertNotAborted(context)
-          const batchEnd =
-            deliveryMode === 'progressive'
-              ? getProgressiveCompositionBatchEnd(accepted, offset)
-              : Math.min(
-                  offset + ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
-                  accepted.length
-                )
-          const batch = accepted.slice(offset, batchEnd)
+          const { end, start } = getNextProgressiveCompositionSliceRange(
+            items,
+            sliceStart,
+            pointBudget
+          )
+          const batchItems = materializeServerPreparedCompositionSlice(
+            args,
+            coordinates,
+            start,
+            end
+          )
           const createdElementIds = apis.createCompositionElements(
-            batch,
+            batchItems,
             parent,
             mutationOptions
           )
-          for (let index = 0; index < batch.length; index += 1) {
+          if (!createdElementIds) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition canonical batch failed.'
+            )
+          }
+          if (createdElementIds.length !== batchItems.length) {
+            throw new AsyraDesignAiCompositionError(
+              'AI composition creation did not preserve the server-prepared item count.'
+            )
+          }
+          for (let index = 0; index < batchItems.length; index += 1) {
             assertNotAborted(context)
-            const item = batch[index]
+            const item = batchItems[index]
             const elementId = createdElementIds[index]
             if (!elementId) {
               throw new AsyraDesignAiCompositionError(
@@ -1045,14 +656,12 @@ const createCompositionActions = (
               whiskers.push(elementId)
             }
           }
-          offset = batchEnd
-          await progressiveYield?.()
-        }
-
-        if (appliedElementIds.length !== accepted.length) {
-          throw new AsyraDesignAiCompositionError(
-            'AI composition creation did not preserve the validated item count.'
+          sliceStart = end
+          pointBudget = Math.min(
+            ASYRA_DESIGN_AI_PROGRESSIVE_CREATE_MAX_POINT_BUDGET,
+            pointBudget * 2
           )
+          await cooperativeYield()
         }
 
         assertNotAborted(context)
@@ -1067,38 +676,56 @@ const createCompositionActions = (
           appliedElementIds: Object.freeze(appliedElementIds),
           compositionId: groupId,
           roleToElementIds: Object.freeze(roleToElementIds),
-          skipped: Object.freeze(skipped),
+          skipped,
           status: statusForMutation(appliedElementIds.length, skipped.length)
         })
       },
       name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      schema: Object.freeze({
-        parse: parseInsertComposition,
-        providerSchema: Object.freeze({
-          additionalProperties: false,
-          properties: Object.freeze({
-            compositionRole: Object.freeze({ type: 'string' }),
-            items: Object.freeze({
-              minItems: 2,
-              type: 'array'
-            }),
-            parent: Object.freeze({
-              const: 'workspace',
-              type: 'string'
-            })
+      inputSchema: Object.freeze({
+        additionalProperties: false,
+        properties: Object.freeze({
+          artifactVersion: Object.freeze({ const: 1, type: 'number' }),
+          compositionRole: Object.freeze({ type: 'string' }),
+          coordinates: Object.freeze({
+            asyraEncoding: 'float64-array-buffer',
+            type: 'object'
           }),
-          required: Object.freeze(['compositionRole', 'items', 'parent']),
-          type: 'object'
-        })
+          groupBounds: Object.freeze({ type: 'object' }),
+          items: Object.freeze({
+            minItems: 1,
+            type: 'array'
+          }),
+          parent: Object.freeze({
+            const: 'workspace',
+            type: 'string'
+          }),
+          paths: Object.freeze({ type: 'array' }),
+          pointCount: Object.freeze({ minimum: 0, type: 'number' }),
+          skipped: Object.freeze({ type: 'array' })
+        }),
+        required: Object.freeze([
+          'artifactVersion',
+          'compositionRole',
+          'coordinates',
+          'groupBounds',
+          'items',
+          'parent',
+          'paths',
+          'pointCount',
+          'skipped'
+        ]),
+        type: 'object'
       })
-    }
-  )
+    })
 
   const update: AiActionDefinition<UpdateCompositionElementsArgs> =
     Object.freeze({
       description:
         'Apply bounded geometry, fill-color, or stroke-color updates to existing context-exposed composition elements.',
-      execute: async (args, context) => {
+      execute: async (
+        args: UpdateCompositionElementsArgs,
+        context: AiExecutionContext
+      ) => {
         const prepared: {
           readonly elementId: string
           readonly fillColor?: string
@@ -1218,7 +845,7 @@ const createCompositionActions = (
               mutationOptions
             )
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
             continue
           }
           if (operation.vectorScale) {
@@ -1230,7 +857,7 @@ const createCompositionActions = (
               )
             ) {
               appliedElementIds.push(operation.elementId)
-              await progressiveYield?.()
+              await cooperativeYield()
             } else {
               skipped.push(
                 Object.freeze({
@@ -1250,7 +877,7 @@ const createCompositionActions = (
             )
           ) {
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
           } else if (
             operation.strokeColor !== undefined &&
             apis.updateElementStrokeColor(
@@ -1260,7 +887,7 @@ const createCompositionActions = (
             )
           ) {
             appliedElementIds.push(operation.elementId)
-            await progressiveYield?.()
+            await cooperativeYield()
           } else {
             skipped.push(
               Object.freeze({
@@ -1279,26 +906,26 @@ const createCompositionActions = (
         })
       },
       name: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      schema: Object.freeze({
-        parse: parseUpdateComposition,
-        providerSchema: Object.freeze({
-          additionalProperties: false,
-          properties: Object.freeze({
-            updates: Object.freeze({
-              minItems: 1,
-              type: 'array'
-            })
-          }),
-          required: Object.freeze(['updates']),
-          type: 'object'
-        })
+      inputSchema: Object.freeze({
+        additionalProperties: false,
+        properties: Object.freeze({
+          updates: Object.freeze({
+            minItems: 1,
+            type: 'array'
+          })
+        }),
+        required: Object.freeze(['updates']),
+        type: 'object'
       })
     })
 
   const remove: AiActionDefinition<RemoveAiCompositionArgs> = Object.freeze({
     description:
       'Remove the current AI composition Group through the ordinary subtree boundary.',
-    execute: async (args, context) => {
+    execute: async (
+      args: RemoveAiCompositionArgs,
+      context: AiExecutionContext
+    ) => {
       assertNotAborted(context)
       const targetType = apis.getElementType(args.compositionId)
       if (targetType !== 'group') {
@@ -1340,19 +967,16 @@ const createCompositionActions = (
       })
     },
     name: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
-    schema: Object.freeze({
-      parse: parseRemoveComposition,
-      providerSchema: Object.freeze({
-        additionalProperties: false,
-        properties: Object.freeze({
-          compositionId: Object.freeze({
-            minLength: 1,
-            type: 'string'
-          })
-        }),
-        required: Object.freeze(['compositionId']),
-        type: 'object'
-      })
+    inputSchema: Object.freeze({
+      additionalProperties: false,
+      properties: Object.freeze({
+        compositionId: Object.freeze({
+          minLength: 1,
+          type: 'string'
+        })
+      }),
+      required: Object.freeze(['compositionId']),
+      type: 'object'
     })
   })
 
@@ -1363,22 +987,17 @@ export const createAsyraDesignAiActions = (
   apis: AsyraDesignAiActionApis = defaultApis,
   options: CreateAsyraDesignAiActionsOptions = {}
 ): readonly AiActionDefinition[] => {
-  const deliveryMode = options.deliveryMode ?? 'atomic'
-  const mutationOptions = createAiMutationOptions(deliveryMode)
-  const progressiveYield =
-    deliveryMode === 'progressive' ? (options.yieldToHost ?? yieldToHost) : null
+  const mutationOptions = AI_MUTATION_OPTIONS
+  const cooperativeYield = options.yieldToHost ?? yieldToHost
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
       name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       description:
         'Request an App-owned choice between supported drawing detail levels without mutating the document.',
-      schema: Object.freeze({
-        providerSchema: Object.freeze({
-          additionalProperties: false,
-          properties: Object.freeze({}),
-          type: 'object'
-        }),
-        parse: parseDrawingDetailChoice
+      inputSchema: Object.freeze({
+        additionalProperties: false,
+        properties: Object.freeze({}),
+        type: 'object'
       }),
       execute: async (
         _args: RequestDrawingDetailChoiceArgs,
@@ -1402,22 +1021,19 @@ export const createAsyraDesignAiActions = (
     Object.freeze({
       name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
       description: 'Set whether one existing element is visible.',
-      schema: Object.freeze({
-        providerSchema: Object.freeze({
-          type: 'object',
-          additionalProperties: false,
-          required: Object.freeze(['elementId', 'visible']),
-          properties: Object.freeze({
-            elementId: Object.freeze({
-              type: 'string',
-              minLength: 1
-            }),
-            visible: Object.freeze({
-              type: 'boolean'
-            })
+      inputSchema: Object.freeze({
+        type: 'object',
+        additionalProperties: false,
+        required: Object.freeze(['elementId', 'visible']),
+        properties: Object.freeze({
+          elementId: Object.freeze({
+            type: 'string',
+            minLength: 1
+          }),
+          visible: Object.freeze({
+            type: 'boolean'
           })
-        }),
-        parse: parseVisibility
+        })
       }),
       execute: async (
         args: SetElementVisibilityArgs,
@@ -1440,25 +1056,22 @@ export const createAsyraDesignAiActions = (
   const selection: AiActionDefinition<SelectElementsArgs> = Object.freeze({
     name: AsyraDesignAiActionNames.SELECT_ELEMENTS,
     description: `Select from 1 to ${ASYRA_DESIGN_AI_SELECTION_LIMIT} existing elements.`,
-    schema: Object.freeze({
-      providerSchema: Object.freeze({
-        type: 'object',
-        additionalProperties: false,
-        required: Object.freeze(['elementIds']),
-        properties: Object.freeze({
-          elementIds: Object.freeze({
-            type: 'array',
-            minItems: 1,
-            maxItems: ASYRA_DESIGN_AI_SELECTION_LIMIT,
-            uniqueItems: true,
-            items: Object.freeze({
-              type: 'string',
-              minLength: 1
-            })
+    inputSchema: Object.freeze({
+      type: 'object',
+      additionalProperties: false,
+      required: Object.freeze(['elementIds']),
+      properties: Object.freeze({
+        elementIds: Object.freeze({
+          type: 'array',
+          minItems: 1,
+          maxItems: ASYRA_DESIGN_AI_SELECTION_LIMIT,
+          uniqueItems: true,
+          items: Object.freeze({
+            type: 'string',
+            minLength: 1
           })
         })
-      }),
-      parse: parseSelection
+      })
     }),
     execute: async (args: SelectElementsArgs, context: AiExecutionContext) => {
       assertNotAborted(context)
@@ -1472,12 +1085,7 @@ export const createAsyraDesignAiActions = (
 
   return Object.freeze([
     drawingDetailChoice,
-    ...createCompositionActions(
-      apis,
-      mutationOptions,
-      deliveryMode,
-      progressiveYield
-    ),
+    ...createCompositionActions(apis, mutationOptions, cooperativeYield),
     visibility,
     selection
   ])

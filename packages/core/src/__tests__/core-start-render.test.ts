@@ -7,6 +7,7 @@ import {
 } from '@asyra/render'
 import defaultCore, { Core } from '../core'
 import {
+  defineDataChannelObserver,
   registerDataChannelObserver,
   unregisterDataChannelObserver
 } from '../data-channel-observer'
@@ -19,6 +20,7 @@ const createCoreForTest = (
     inputSystem: {} as never,
     factory: {
       registerTransactionReplayHandler: vi.fn(() => () => undefined),
+      subscribeToCommitCapture: vi.fn(() => () => undefined),
       subscribeToTransactionStatus: vi.fn(() => () => undefined),
       reportPersistenceStatus: vi.fn(),
       ...factoryOverrides
@@ -308,6 +310,66 @@ describe('Core render startup', () => {
       'shared-channel-name',
       registration.onChange
     )
+  })
+
+  it('requires exactly one single or batch data-channel handler at runtime', () => {
+    const defineRuntimeObserver = defineDataChannelObserver as unknown as (
+      registration: Record<string, unknown>
+    ) => unknown
+
+    expect(() =>
+      defineRuntimeObserver({
+        name: 'missing-handler',
+        channel: 'scene-tree'
+      })
+    ).toThrow('requires exactly one onChange or onBatch handler')
+    expect(() =>
+      defineRuntimeObserver({
+        name: 'ambiguous-handler',
+        channel: 'scene-tree',
+        onChange: vi.fn(),
+        onBatch: vi.fn()
+      })
+    ).toThrow('requires exactly one onChange or onBatch handler')
+  })
+
+  it('preserves one injected Factory batch as one Core observer callback', async () => {
+    const observeSingle = vi.fn(() => vi.fn())
+    let notifyBatch: ((changes: readonly unknown[]) => void) | undefined
+    const observeBatch = vi.fn(
+      (_channel: string, handler: (changes: readonly unknown[]) => void) => {
+        notifyBatch = handler
+        return vi.fn()
+      }
+    )
+    const core = createCoreForTest({
+      observeSharedDataChannel: observeSingle,
+      observeSharedDataChannelBatch: observeBatch
+    })
+    const onBatch = vi.fn()
+    core.registerDataChannelObserver({
+      name: 'exact-batch-observer',
+      channel: 'scene-tree',
+      onBatch
+    })
+    core.setRenderer(
+      createRenderer(
+        vi.fn(async () => ({
+          canvas: document.createElement('canvas'),
+          instance: {}
+        }))
+      )
+    )
+
+    await core.start(document.createElement('div'), { width: 1, height: 1 })
+
+    const changes = Object.freeze([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+    notifyBatch?.(changes)
+
+    expect(observeBatch).toHaveBeenCalledWith('scene-tree', onBatch)
+    expect(observeSingle).not.toHaveBeenCalled()
+    expect(onBatch).toHaveBeenCalledOnce()
+    expect(onBatch).toHaveBeenCalledWith(changes)
   })
 
   it('keeps standalone observer helpers compatible with the default Core', async () => {

@@ -6,39 +6,36 @@ import DataContexts from './contexts/data-change'
 
 import App from './app'
 import reportWebVitals from './reportWebVitals'
-import { initApp } from './init'
-import {
-  resolveAsyraDesignAiDeliveryMode,
-  resolveAsyraDesignAiMode
-} from './ai/mode'
+import { startAsyraDesignApp } from './startup'
 
-const initialization = initApp({
-  aiDeliveryMode: resolveAsyraDesignAiDeliveryMode(window.location.search),
-  aiMode: resolveAsyraDesignAiMode(window.location.search)
-})
-
-const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
-root.render(
-  <React.StrictMode>
-    <DataContexts />
-    <App
-      ai={
-        initialization.aiMode === 'mock' &&
-        initialization.aiConversation &&
-        initialization.aiConfirmation &&
-        initialization.aiHistory
-          ? {
+const startApp = async (): Promise<void> => {
+  await startAsyraDesignApp({
+    render: (initialization) => {
+      const root = ReactDOM.createRoot(
+        document.getElementById('root') as HTMLElement
+      )
+      root.render(
+        <React.StrictMode>
+          <DataContexts />
+          <App
+            ai={{
               confirmation: initialization.aiConfirmation,
               conversation: initialization.aiConversation,
               history: initialization.aiHistory
-            }
-          : undefined
-      }
-    />
-  </React.StrictMode>
-)
+            }}
+          />
+        </React.StrictMode>
+      )
+    }
+  })
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send it to an analytics endpoint. Learn more here: https://bit.ly/CRA-vitals
-reportWebVitals()
+  // If you want to start measuring performance in your app, pass a function
+  // to log results (for example: reportWebVitals(console.log))
+  // or send it to an analytics endpoint. Learn more here: https://bit.ly/CRA-vitals
+  reportWebVitals()
+}
+
+void startApp().catch((error: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error('[Asyra Design] App startup failed:', error)
+})

@@ -1,70 +1,28 @@
 import {
   EventTypes,
   getTransactionReplayMode,
+  subscribeToEventBatches,
   subscribeToSynchronousEvent,
-  subscribeToChangeComputedData,
-  subscribeToChangeComputedDataBatch,
-  subscribeToChangeComputedDataPatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
-  subscribeToUpdateTransaction,
   sceneTreeLoadComplete,
   type AddElementEvent,
+  type AddElementsEvent,
   type ChangeSubtreeEvent,
   type RemoveElementEvent,
+  type RemoveElementsEvent,
   type MoveElementsEvent,
-  type UpdateComputedDataBatchEvent,
-  type UpdateComputedDataEvent,
-  type UpdateComputedDataPatchEvent
+  type UpdateElementDataEvent,
+  type UpdateTransactionEvent
 } from '@asyra/reactive-events'
-import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
-  setOwnEnumerableValue,
-  type DataTypes,
-  type ComputedDataPatch,
-  type ComputedDataPatchChange,
-  type ComputedAttrs,
+  SCENE_TREE_ACTIONS,
+  type ElementRawData,
   type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
 import { isGroupEntity } from './entity-data'
-
-const toAppliedComputedDataPatch = (
-  patch: ComputedDataPatchChange
-): ComputedDataPatch => {
-  const applied: ComputedDataPatch = {}
-
-  Object.entries(patch.values ?? {}).forEach(([key, change]) => {
-    applied.values ??= {}
-    setOwnEnumerableValue(applied.values, key, change.after)
-  })
-
-  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
-    const nextRecordPatch: NonNullable<ComputedDataPatch['records']>[string] =
-      {}
-
-    Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
-      nextRecordPatch.set ??= {}
-      setOwnEnumerableValue(nextRecordPatch.set, recordId, change.after)
-    })
-
-    const removeIds = Object.keys(recordPatch.remove ?? {})
-    if (removeIds.length > 0) {
-      nextRecordPatch.remove = removeIds
-    }
-
-    if (
-      Object.keys(nextRecordPatch.set ?? {}).length > 0 ||
-      (nextRecordPatch.remove?.length ?? 0) > 0
-    ) {
-      applied.records ??= {}
-      setOwnEnumerableValue(applied.records, key, nextRecordPatch)
-    }
-  })
-
-  return applied
-}
 
 const isUpdatePropertyChange = (
   payload: unknown
@@ -114,14 +72,32 @@ export const initSceneTreeSubscribes = () => {
       }
       const resolvedParent =
         parent ?? (recordedParent as GroupInstanceTypes | undefined)
+      if (getTransactionReplayMode() !== null) {
+        if (
+          typeof parentId !== 'string' ||
+          !Number.isInteger(index) ||
+          Number(index) < 0
+        ) {
+          throw new Error(
+            `Cannot restore element ${data.id ?? ''}: exact parent-index evidence is required`
+          )
+        }
+        const preparedMutation = sceneTree.prepareCanonicalElementInsertion({
+          entries: [
+            {
+              data: data as ElementRawData,
+              parentId,
+              index: Number(index)
+            }
+          ]
+        })
+        return (
+          sceneTree.applyPreparedElementMutation(preparedMutation, options)
+            .orderedElementIds.length === 1
+        )
+      }
       return (
-        sceneTree.addNewElement(
-          data,
-          resolvedParent,
-          index,
-          getTransactionReplayMode() !== null,
-          options
-        ) !== ''
+        sceneTree.addNewElement(data, resolvedParent, index, options) !== ''
       )
     }
   )
@@ -129,8 +105,66 @@ export const initSceneTreeSubscribes = () => {
   subscribeToSynchronousEvent<RemoveElementEvent>(
     EventTypes.REMOVE_ELEMENT,
     ({ payload, options }) => {
-      const { data, parent } = payload
+      const { data, parent, parentId, index } = payload as typeof payload & {
+        parentId?: string
+        index?: number
+      }
+      if (
+        getTransactionReplayMode() !== null &&
+        typeof data.id === 'string' &&
+        typeof parentId === 'string' &&
+        Number.isInteger(index) &&
+        Number(index) >= 0
+      ) {
+        const preparedMutation = sceneTree.prepareCanonicalElementRemoval([
+          {
+            data: data as ElementRawData,
+            parentId,
+            index: Number(index)
+          }
+        ])
+        return (
+          sceneTree.applyPreparedElementMutation(preparedMutation, options)
+            .orderedElementIds.length === 1
+        )
+      }
       return sceneTree.removeElement(data, parent, options)
+    }
+  )
+
+  subscribeToSynchronousEvent<AddElementsEvent>(
+    EventTypes.ADD_ELEMENTS,
+    ({ payload, options }) => {
+      if (payload.action !== SCENE_TREE_ACTIONS.ADD_ELEMENTS) {
+        return false
+      }
+      const preparedMutation = sceneTree.prepareCanonicalElementInsertion({
+        entries: payload.entries
+      })
+      return (
+        sceneTree.applyPreparedElementMutation(preparedMutation, options)
+          .orderedElementIds.length === payload.entries.length
+      )
+    }
+  )
+
+  subscribeToSynchronousEvent<RemoveElementsEvent>(
+    EventTypes.REMOVE_ELEMENTS,
+    ({ payload, options }) => {
+      if (payload.action !== SCENE_TREE_ACTIONS.REMOVE_ELEMENTS) {
+        return false
+      }
+      const preparedMutation = sceneTree.prepareCanonicalElementRemoval(
+        payload.entries.map(({ data, parentId, index }) => ({
+          data,
+          parentId,
+          index
+        }))
+      )
+      return (
+        sceneTree.applyPreparedElementMutation(preparedMutation, options)
+          .orderedElementIds.length === payload.entries.length
+      )
     }
   )
 
@@ -149,150 +183,94 @@ export const initSceneTreeSubscribes = () => {
     ({ payload, options }) => sceneTree.applySubtreeChange(payload, options)
   )
 
-  subscribeToChangeComputedData(async ({ payload, options }) => {
-    const { elementIds, key, data } = payload
+  subscribeToSynchronousEvent<UpdateElementDataEvent>(
+    EventTypes.UPDATE_ELEMENT_DATA,
+    ({ payload }) => {
+      const { id, changes } = payload
+      const element = sceneTree.getElementById(id)
+      if (!element || changes.length === 0) {
+        return false
+      }
 
-    elementIds.forEach((elementId) => {
-      type KEY = keyof ComputedAttrs
-      sceneTree.updateComputedData(
-        elementId,
-        key as KEY,
-        data as ComputedAttrs[KEY],
-        options
-      )
-    })
-    propsManager.commitChanges(options)
-    sceneTree.commitSceneTreeTransaction(options)
-  })
-
-  subscribeToChangeComputedDataBatch(async ({ payload, options }) => {
-    const { elementIds, data } = payload
-    const entries = Object.entries(data)
-
-    elementIds.forEach((elementId) => {
-      type KEY = keyof ComputedAttrs
-      entries.forEach(([key, value]) => {
-        sceneTree.updateComputedData(
-          elementId,
-          key as KEY,
-          value as ComputedAttrs[KEY],
-          options
+      const valid = changes.every(({ key, before, after }) => {
+        if (key === 'name') {
+          return (
+            typeof before === 'string' &&
+            typeof after === 'string' &&
+            element.get(key) === before
+          )
+        }
+        return (
+          (key === 'visible' || key === 'lock') &&
+          typeof before === 'boolean' &&
+          typeof after === 'boolean' &&
+          element.get(key) === before
         )
       })
-    })
-    propsManager.commitChanges(options)
-    sceneTree.commitSceneTreeTransaction(options)
-  })
-
-  subscribeToChangeComputedDataPatch(async ({ payload, options }) => {
-    const { elementIds, patch } = payload
-
-    sceneTree.patchComputedDataForElements(elementIds, patch, options)
-    propsManager.cleanChanges()
-    sceneTree.commitSceneTreeTransaction(options)
-  })
-
-  subscribeToSynchronousEvent<
-    UpdateComputedDataEvent | UpdateComputedDataBatchEvent
-  >(EventTypes.UPDATE_COMPUTED_DATA, ({ payload }) => {
-    const { id } = payload
-    const options = undefined
-    const previousSceneChangeCount = sceneTree.changes.length
-    const previousPropsChangeCount = propsManager.changes.length
-    const element = sceneTree.getElementById(id)
-    if (!element) {
-      return false
-    }
-    const changes = 'changes' in payload ? payload.changes : [payload]
-    if (
-      changes.length === 0 ||
-      changes.some(
-        ({ key, owner }) =>
-          typeof key !== 'string' || (owner !== 'raw' && owner !== 'computed')
-      )
-    ) {
-      return false
-    }
-    const elementOwner = element as unknown as {
-      set: (key: string, value: DataTypes) => void
-    }
-
-    changes.forEach(({ key, after, owner }) => {
-      if (owner === 'raw') {
-        elementOwner.set(key, after)
-        return
+      if (!valid) {
+        return false
       }
-      sceneTree.updateComputedData(
-        id,
-        key as keyof ComputedAttrs,
-        after as ComputedAttrs[keyof ComputedAttrs],
-        options
-      )
-    })
-    const applied =
-      sceneTree.changes.length > previousSceneChangeCount ||
-      propsManager.changes.length > previousPropsChangeCount
-    propsManager.commitChanges(options)
-    sceneTree.commitSceneTreeTransaction(options)
-    return applied
-  })
 
-  subscribeToSynchronousEvent<UpdateComputedDataPatchEvent>(
-    EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-    ({ payload }) => {
-      const { id, patch } = payload
-      const options = undefined
-      const previousSceneChangeCount = sceneTree.changes.length
-      const previousPropsChangeCount = propsManager.changes.length
-
-      sceneTree.patchComputedData(
-        id,
-        toAppliedComputedDataPatch(patch),
-        options
-      )
-      const applied =
-        sceneTree.changes.length > previousSceneChangeCount ||
-        propsManager.changes.length > previousPropsChangeCount
-      propsManager.cleanChanges()
-      sceneTree.commitSceneTreeTransaction(options)
-      return applied
+      const values: {
+        name?: string
+        visible?: boolean
+        lock?: boolean
+      } = {}
+      changes.forEach(({ key, after }) => {
+        if (key === 'name') {
+          values.name = after as string
+        } else if (key === 'visible') {
+          values.visible = after as boolean
+        } else {
+          values.lock = after as boolean
+        }
+      })
+      const preparedMutation = sceneTree.prepareElementDataMutation([
+        {
+          elementId: id,
+          values
+        }
+      ])
+      sceneTree.applyPreparedElementMutation(preparedMutation)
+      return true
     }
   )
 
-  subscribeToUpdateTransaction(({ payload, options }) => {
-    if (!isUpdatePropertyChange(payload)) {
-      return
+  subscribeToEventBatches((events) => {
+    const sourcePropertyIds: string[] = []
+    const seenPropertyIds = new Set<string>()
+    const appendPropertyId = (propertyId: string): void => {
+      if (!seenPropertyIds.has(propertyId)) {
+        seenPropertyIds.add(propertyId)
+        sourcePropertyIds.push(propertyId)
+      }
     }
 
-    const sceneTreeOptions =
-      options?.shared === undefined
-        ? options
-        : {
-            ...options,
-            shared: undefined
-          }
+    events.forEach((event) => {
+      if (
+        event.type === EventTypes.UPDATE_TRANSACTION &&
+        'eventName' in event &&
+        event.eventName === EventTypes.UPDATE_PROPERTY &&
+        isUpdatePropertyChange(event.payload)
+      ) {
+        const propertyPayload = event.payload
+        const transactionEvent = event as UpdateTransactionEvent
+        const orderedPropertyIds = transactionEvent.canonicalEvidence
+          ?.orderedIds ?? [propertyPayload.id]
+        orderedPropertyIds.forEach(appendPropertyId)
+        return
+      }
+      if (
+        event.type === EventTypes.UPDATE_PROPERTY &&
+        'payload' in event &&
+        isUpdatePropertyChange(event.payload)
+      ) {
+        appendPropertyId(event.payload.id)
+      }
+    })
 
-    const ownerElementId =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (payload as any).ownerElementId === 'string'
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload as any).ownerElementId
-        : ''
-    const ownerPropertyName =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (payload as any).ownerPropertyName === 'string'
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload as any).ownerPropertyName
-        : ''
-
-    if (ownerElementId && ownerPropertyName) {
-      sceneTree.refreshComputedDataFromProperty(
-        ownerElementId,
-        ownerPropertyName,
-        sceneTreeOptions
-      )
+    if (sourcePropertyIds.length > 0) {
+      sceneTree.projectLocalComputedDataFromPropertyIds(sourcePropertyIds)
     }
-
-    sceneTree.commitSceneTreeTransaction(sceneTreeOptions)
   })
 }

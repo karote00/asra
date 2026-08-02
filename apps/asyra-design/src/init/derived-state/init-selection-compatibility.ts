@@ -1,5 +1,10 @@
 import core from '../../contexts'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
+import {
+  EventTypes,
+  subscribeToEventBatches,
+  type AllEvent
+} from '@asyra/reactive-events'
 import { elementApis } from '../../common-apis/element'
 import {
   type VectorPointSelectionRef,
@@ -13,6 +18,51 @@ let hasInit = false
 
 type SelectedVectorSegmentState = VectorSegmentSelectionRef &
   Record<string, unknown>
+
+const computedEventUpdatesVectorPoints = (
+  event: AllEvent,
+  vectorId: string
+): boolean => {
+  if (
+    (event.type !== EventTypes.UPDATE_COMPUTED_DATA &&
+      event.type !== EventTypes.UPDATE_COMPUTED_DATA_PATCH) ||
+    !('payload' in event) ||
+    typeof event.payload !== 'object' ||
+    event.payload === null ||
+    !('id' in event.payload) ||
+    event.payload.id !== vectorId
+  ) {
+    return false
+  }
+  const payload = event.payload as unknown as Record<string, unknown>
+  if (payload.key === 'points') {
+    return true
+  }
+  if (
+    Array.isArray(payload.changes) &&
+    payload.changes.some(
+      (change) =>
+        typeof change === 'object' &&
+        change !== null &&
+        'key' in change &&
+        change.key === 'points'
+    )
+  ) {
+    return true
+  }
+  const patch =
+    typeof payload.patch === 'object' && payload.patch !== null
+      ? (payload.patch as Record<string, unknown>)
+      : undefined
+  return (
+    (typeof patch?.values === 'object' &&
+      patch.values !== null &&
+      Object.prototype.hasOwnProperty.call(patch.values, 'points')) ||
+    (typeof patch?.records === 'object' &&
+      patch.records !== null &&
+      Object.prototype.hasOwnProperty.call(patch.records, 'points'))
+  )
+}
 
 const toSelectedVectorPointState = (
   selectionIds: Set<string>,
@@ -132,6 +182,21 @@ export const initSelectionCompatibility = () => {
   >(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
   pathEditingVectorObservable?.subscribe(() => {
     syncDerivedVectorSelectionProperties()
+  })
+
+  subscribeToEventBatches((events) => {
+    const pathEditingVectorId =
+      core.getSystemProperty<string | null>(
+        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+      ) ?? null
+    if (
+      pathEditingVectorId &&
+      events.some((event) =>
+        computedEventUpdatesVectorPoints(event, pathEditingVectorId)
+      )
+    ) {
+      syncDerivedVectorSelectionProperties()
+    }
   })
 
   syncDerivedVectorSelectionProperties()

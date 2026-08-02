@@ -9,14 +9,8 @@ import {
 // Import all features - they auto-register via defineFeature()
 import '../../features'
 
-export interface InitAiAgentFeatureOptions {
-  readonly enabled: boolean
-  readonly providerEnabled: boolean
-  readonly runtime?: AiAgentFeatureRuntime
-}
-
 export interface InitFeaturesOptions {
-  readonly ai?: InitAiAgentFeatureOptions
+  readonly aiRuntime: AiAgentFeatureRuntime
 }
 
 export interface InitializedAiAgentFeature {
@@ -25,30 +19,18 @@ export interface InitializedAiAgentFeature {
 }
 
 export interface InitializedFeatures {
-  readonly ai: InitializedAiAgentFeature | null
+  readonly ai: InitializedAiAgentFeature
 }
 
 export const initFeatures = (
-  options: InitFeaturesOptions = {}
+  options: InitFeaturesOptions
 ): InitializedFeatures => {
-  try {
-    core.initFeatureSystem({
-      inputSystem,
-      systemContext
-    })
-    if (options.ai?.enabled) {
-      const registration = registerAiAgentFeature({
-        providerEnabled: options.ai.providerEnabled,
-        runtime: options.ai.runtime
-      })
-      return Object.freeze({
-        ai: registration
-      })
-    }
-  } catch (error) {
-    console.error('[initFeatures] Error:', error)
-  }
+  core.initFeatureSystem({
+    inputSystem,
+    systemContext
+  })
+  const registration = registerAiAgentFeature(options.aiRuntime)
   return Object.freeze({
-    ai: null
+    ai: registration
   })
 }

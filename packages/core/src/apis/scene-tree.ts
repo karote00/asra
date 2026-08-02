@@ -1,39 +1,43 @@
-import {
-  addElement,
-  addElementByParentId,
-  changeComputedData,
-  changeComputedDataBatch,
-  changeComputedDataPatch,
-  sceneTreeInit,
-  sceneTreeLoadData
-} from '@asyra/reactive-events'
+import { sceneTreeInit, sceneTreeLoadData } from '@asyra/reactive-events'
 import {
   Bounds,
-  ComputedDataPatch,
   CreateElementData,
-  DataTypes,
+  ElementRawData,
   EVENT_OPTIONS,
   GroupInstanceTypes,
+  HierarchyMove,
+  PropertyComponentRawData,
   SceneTreeRawData,
   EntityTypes,
   id,
   MoveHierarchyRequest,
   MoveHierarchyResult,
   RemoveSubtreeResult,
-  SceneTreeRestorePlan,
-  SceneTreeRestoreSnapshot
+  PreparedSceneTreeRestore,
+  SceneTreeRestorePreflightOptions,
+  SceneTreeRestoreSnapshot,
+  SubtreeChange,
+  UpdateElementDataChange
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
+import type {
+  CanonicalElementRemoval,
+  LocalComputedDataPatchUpdate,
+  LocalComputedDataUpdate
+} from '@asyra/scene-tree'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
+  getCurrentWorkspaceId: () => string
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
-  refreshComputedDataFromProperty: (
-    elementId: string,
-    propertyName: string,
-    options?: EVENT_OPTIONS
+  updateLocalComputedData: (updates: readonly LocalComputedDataUpdate[]) => void
+  patchLocalComputedData: (
+    updates: readonly LocalComputedDataPatchUpdate[]
+  ) => void
+  projectLocalComputedDataFromPropertyIds: (
+    propertyIds: readonly string[]
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean
@@ -41,19 +45,43 @@ export interface SceneTreeRequests {
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS
   ) => MoveHierarchyResult
+  applyHierarchyMoves: (
+    moves: readonly HierarchyMove[],
+    options?: EVENT_OPTIONS
+  ) => boolean
+  applyElementDataChanges: (
+    changes: readonly UpdateElementDataChange[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   removeSubtree: (
     elementId: string,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
+  removeSubtreeFromCanonicalData: (
+    change: SubtreeChange,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
+  removeElementsFromCanonicalData: (
+    removals: readonly CanonicalElementRemoval[],
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
   preflightRestoreSubtree: (
-    snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
+    snapshot: SceneTreeRestoreSnapshot,
+    options?: SceneTreeRestorePreflightOptions
+  ) => PreparedSceneTreeRestore
   applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+    preparedRestore: PreparedSceneTreeRestore,
     options?: EVENT_OPTIONS
   ) => RemoveSubtreeResult
   createElementsInParent: (
     data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
+  createElementsInParentFromCanonicalData: (
+    elements: readonly ElementRawData[],
+    properties: readonly PropertyComponentRawData[],
     parentId: string,
     index?: number,
     options?: EVENT_OPTIONS
@@ -78,6 +106,40 @@ export const createSceneTreeAPIs = (
     }
   }
 
+  const freezeOrderedElementIds = (
+    elementIds: readonly string[]
+  ): readonly string[] => Object.freeze([...elementIds])
+
+  const requireSingleElementId = (elementIds: readonly string[]): string => {
+    if (elementIds.length !== 1) {
+      throw new Error(
+        '[Core] Canonical batch-of-one requires exactly one ordered element id'
+      )
+    }
+    const [elementId] = elementIds
+    return elementId
+  }
+
+  const createElementsInParent = (
+    data: readonly CreateElementData[],
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ): readonly string[] => {
+    if (data.length === 0) {
+      return Object.freeze([])
+    }
+    const prepared = data.map(prepareElementData)
+    return freezeOrderedElementIds(
+      sceneTreeRequests.createElementsInParent(
+        prepared.map(({ data: elementData }) => elementData),
+        parentId,
+        index,
+        options
+      )
+    )
+  }
+
   return {
     createElement(
       data: CreateElementData,
@@ -85,11 +147,11 @@ export const createSceneTreeAPIs = (
       index?: number,
       options?: EVENT_OPTIONS
     ) {
-      const prepared = prepareElementData(data)
-
-      addElement(prepared.data, index, parent, options)
-
-      return prepared.elementId
+      const parentId =
+        parent?.get('id') ?? sceneTreeRequests.getCurrentWorkspaceId()
+      return requireSingleElementId(
+        createElementsInParent([data], parentId, index, options)
+      )
     },
     createElementInParent(
       data: CreateElementData,
@@ -97,27 +159,34 @@ export const createSceneTreeAPIs = (
       index?: number,
       options?: EVENT_OPTIONS
     ) {
-      const prepared = prepareElementData(data)
-
-      addElementByParentId(prepared.data, parentId, index, options)
-
-      return prepared.elementId
+      return requireSingleElementId(
+        createElementsInParent([data], parentId, index, options)
+      )
     },
-    createElementsInParent(
-      data: readonly CreateElementData[],
+    createElementsInParent,
+    createElementsInParentFromCanonicalData(
+      elements: readonly ElementRawData[],
+      properties: readonly PropertyComponentRawData[],
       parentId: string,
       index?: number,
       options?: EVENT_OPTIONS
     ) {
-      if (data.length === 0) {
-        return []
+      if (elements.length === 0) {
+        if (properties.length > 0) {
+          throw new Error(
+            '[Core] Canonical element batch cannot contain orphan properties'
+          )
+        }
+        return freezeOrderedElementIds([])
       }
-      const prepared = data.map(prepareElementData)
-      return sceneTreeRequests.createElementsInParent(
-        prepared.map(({ data: elementData }) => elementData),
-        parentId,
-        index,
-        options
+      return freezeOrderedElementIds(
+        sceneTreeRequests.createElementsInParentFromCanonicalData(
+          elements,
+          properties,
+          parentId,
+          index,
+          options
+        )
       )
     },
     getElementComputedData(elementId: string) {
@@ -142,64 +211,80 @@ export const createSceneTreeAPIs = (
     moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.moveElements(request, options)
     },
+    applyHierarchyMoves(
+      moves: readonly HierarchyMove[],
+      options?: EVENT_OPTIONS
+    ) {
+      if (moves.length === 0) {
+        return false
+      }
+      return sceneTreeRequests.applyHierarchyMoves(moves, options)
+    },
+    applyElementDataChanges(
+      changes: readonly UpdateElementDataChange[],
+      options?: EVENT_OPTIONS
+    ) {
+      if (changes.length === 0) {
+        return freezeOrderedElementIds([])
+      }
+      return freezeOrderedElementIds(
+        sceneTreeRequests.applyElementDataChanges(changes, options)
+      )
+    },
     removeSubtree(elementId: string, options?: EVENT_OPTIONS) {
       return sceneTreeRequests.removeSubtree(elementId, options)
     },
-    preflightRestoreSubtree(snapshot: SceneTreeRestoreSnapshot) {
-      return sceneTreeRequests.preflightRestoreSubtree(snapshot)
+    removeSubtreeFromCanonicalData(
+      change: SubtreeChange,
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.removeSubtreeFromCanonicalData(change, options)
     },
-    applyRestoreSubtree(plan: SceneTreeRestorePlan, options?: EVENT_OPTIONS) {
-      return sceneTreeRequests.applyRestoreSubtree(plan, options)
+    removeElementsFromCanonicalData(
+      removals: readonly CanonicalElementRemoval[],
+      options?: EVENT_OPTIONS
+    ) {
+      if (removals.length === 0) {
+        return Object.freeze([])
+      }
+      return freezeOrderedElementIds(
+        sceneTreeRequests.removeElementsFromCanonicalData(removals, options)
+      )
+    },
+    preflightRestoreSubtree(
+      snapshot: SceneTreeRestoreSnapshot,
+      options?: SceneTreeRestorePreflightOptions
+    ) {
+      return options === undefined
+        ? sceneTreeRequests.preflightRestoreSubtree(snapshot)
+        : sceneTreeRequests.preflightRestoreSubtree(snapshot, options)
+    },
+    applyRestoreSubtree(
+      preparedRestore: PreparedSceneTreeRestore,
+      options?: EVENT_OPTIONS
+    ) {
+      return sceneTreeRequests.applyRestoreSubtree(preparedRestore, options)
     },
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()
     },
-    changeComputedData(
-      elementIds: string[],
-      data: Record<string, DataTypes>,
-      options?: EVENT_OPTIONS
-    ) {
-      const entries = Object.entries(data ?? {})
-      if (entries.length === 0) {
+    updateLocalComputedData(updates: readonly LocalComputedDataUpdate[]) {
+      if (updates.length === 0) {
         return
       }
-
-      if (options?.undoable === false && entries.length > 1) {
-        changeComputedDataBatch(elementIds, data, options)
-        return
-      }
-
-      entries.forEach(([key, value]) => {
-        changeComputedData(elementIds, key, value, options)
-      })
+      sceneTreeRequests.updateLocalComputedData(updates)
     },
-    changeComputedDataPatch(
-      elementIds: string[],
-      patch: ComputedDataPatch,
-      options?: EVENT_OPTIONS
-    ) {
-      const hasValues = Object.keys(patch.values ?? {}).length > 0
-      const hasRecords = Object.values(patch.records ?? {}).some(
-        (recordPatch) =>
-          Object.keys(recordPatch.set ?? {}).length > 0 ||
-          (recordPatch.remove?.length ?? 0) > 0
-      )
-      if (!hasValues && !hasRecords) {
+    patchLocalComputedData(updates: readonly LocalComputedDataPatchUpdate[]) {
+      if (updates.length === 0) {
         return
       }
-
-      changeComputedDataPatch(elementIds, patch, options)
+      sceneTreeRequests.patchLocalComputedData(updates)
     },
-    refreshComputedDataFromProperty(
-      elementId: string,
-      propertyName: string,
-      options?: EVENT_OPTIONS
-    ) {
-      sceneTreeRequests.refreshComputedDataFromProperty(
-        elementId,
-        propertyName,
-        options
-      )
+    projectLocalComputedDataFromPropertyIds(propertyIds: readonly string[]) {
+      if (propertyIds.length === 0) {
+        return
+      }
+      sceneTreeRequests.projectLocalComputedDataFromPropertyIds(propertyIds)
     },
     isContainerType(type: string) {
       return sceneTreeRequests.isContainerType(type)

@@ -174,8 +174,6 @@ export const summarizeAsyraDesignAiTurn = (
     message = 'No canvas changes were needed.'
   } else if (turn.outcome === 'cancelled') {
     message = 'The request was cancelled.'
-  } else if (turn.outcome === 'unavailable') {
-    message = 'The agent is unavailable.'
   }
   return Object.freeze({
     durationLabel: formatElapsedTime(turn.durationMs),

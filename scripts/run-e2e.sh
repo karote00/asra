@@ -1,30 +1,42 @@
 #!/bin/bash
 set -euo pipefail
 
-read -r ASYRA_E2E_HOST ASYRA_E2E_PORT ASYRA_E2E_APP_URL <<< "$(
+read -r ASYRA_E2E_HOST ASYRA_E2E_PORT ASYRA_E2E_APP_URL \
+  ASYRA_E2E_COLLABORATION_HEALTH_URL <<< "$(
   node --input-type=module -e "
     import {
-      loadAsyraDesignEnvironment,
-      resolveAsyraDesignEnvironment
+      loadEnvironment,
+      resolveEnvironment
     } from './apps/asyra-design/app-environment.mjs'
-    const config = resolveAsyraDesignEnvironment(
-      loadAsyraDesignEnvironment()
+    const config = resolveEnvironment(
+      loadEnvironment()
     )
     process.stdout.write(
-      [config.viteHost, config.vitePort, config.appURL].join(' ')
+      [
+        config.viteHost,
+        config.vitePort,
+        config.appURL,
+        config.collaborationHealthURL
+      ].join(' ')
     )
   "
 )"
 
-ASYRA_E2E_SERVER_PID=''
+ASYRA_E2E_APP_SERVER_PID=''
+ASYRA_E2E_COLLABORATION_SERVER_PID=''
 
-# Cleanup function to kill the background server process
+# Cleanup function to kill the separately-owned background server processes.
 cleanup() {
   ASYRA_E2E_EXIT_CODE=$?
-  if [ -n "$ASYRA_E2E_SERVER_PID" ]; then
-    echo "Stopping server (PID: $ASYRA_E2E_SERVER_PID)..."
-    kill "$ASYRA_E2E_SERVER_PID" 2>/dev/null || true
-    wait "$ASYRA_E2E_SERVER_PID" 2>/dev/null || true
+  if [ -n "$ASYRA_E2E_APP_SERVER_PID" ]; then
+    echo "Stopping App server (PID: $ASYRA_E2E_APP_SERVER_PID)..."
+    kill "$ASYRA_E2E_APP_SERVER_PID" 2>/dev/null || true
+    wait "$ASYRA_E2E_APP_SERVER_PID" 2>/dev/null || true
+  fi
+  if [ -n "$ASYRA_E2E_COLLABORATION_SERVER_PID" ]; then
+    echo "Stopping Collaboration server (PID: $ASYRA_E2E_COLLABORATION_SERVER_PID)..."
+    kill "$ASYRA_E2E_COLLABORATION_SERVER_PID" 2>/dev/null || true
+    wait "$ASYRA_E2E_COLLABORATION_SERVER_PID" 2>/dev/null || true
   fi
   trap - EXIT INT TERM
   exit "$ASYRA_E2E_EXIT_CODE"
@@ -37,28 +49,41 @@ trap cleanup EXIT INT TERM
 echo "Step 1: Building project..."
 yarn react:build
 
-# 2. Start the diagnostic-enabled app runtime used by the ordinary E2E suite.
+# 2. Build and start the Collaboration server as a dedicated CI dependency.
+# This remains separate from the frontend-only dev:all command.
+echo "Step 2: Building Collaboration server..."
+yarn workspace @asyra/asyra-design build:collaboration-server
+
+echo "Step 3: Starting Collaboration server..."
+yarn workspace @asyra/asyra-design collaboration:server:start &
+ASYRA_E2E_COLLABORATION_SERVER_PID=$!
+
+echo "Step 4: Waiting for Collaboration server to be ready..."
+npx wait-on "http-get://${ASYRA_E2E_COLLABORATION_HEALTH_URL#http://}" --timeout 60000
+
+# 5. Start the diagnostic-enabled app runtime used by the ordinary E2E suite.
 # Production bundle/exclusion behavior is covered by the build and package gates.
-echo "Step 2: Starting E2E server at $ASYRA_E2E_APP_URL..."
-yarn workspace @asyra/asyra-design react:start \
+echo "Step 5: Starting E2E App server at $ASYRA_E2E_APP_URL..."
+E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 \
+  yarn workspace @asyra/asyra-design react:start \
   --port "$ASYRA_E2E_PORT" \
   --host "$ASYRA_E2E_HOST" \
   --strictPort &
-ASYRA_E2E_SERVER_PID=$!
+ASYRA_E2E_APP_SERVER_PID=$!
 
-# 3. Wait for server ready
-echo "Step 3: Waiting for server to be ready..."
+# 6. Wait for App server ready
+echo "Step 6: Waiting for App server to be ready..."
 # Using wait-on to ensure port is listening
 npx wait-on "$ASYRA_E2E_APP_URL" --timeout 60000
 
-# 4. Keep the formal timing budget free from another browser worker's CPU load,
+# 7. Keep the formal timing budget free from another browser worker's CPU load,
 # then parallelize the remaining functional suite.
 if [ "${CI:-}" = "true" ]; then
-  echo "Step 4: Running isolated render performance gate..."
+  echo "Step 7: Running isolated render performance gate..."
   yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1
-  echo "Step 5: Running functional Playwright tests..."
+  echo "Step 8: Running functional Playwright tests..."
   ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e
 else
-  echo "Step 4: Running Playwright tests..."
+  echo "Step 7: Running Playwright tests..."
   yarn test:e2e
 fi

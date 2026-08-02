@@ -6539,7 +6539,7 @@ join` constrained dashed product path across:
   - Retain the dynamically loaded collaboration composition in production
     builds; any URL with a valid `fileId` may activate it, while ordinary URLs
     remain collaboration-free.
-  - Use `ASYRA_DESIGN_APP_URL` as the single app origin for Vite, ordinary
+  - Use `APP_URL` as the single app origin for Vite, ordinary
     Playwright, visual review, collaboration E2E, and WebSocket Origin checks.
   - Keep the WebSocket service endpoint separately configurable because it is a
     distinct service.
@@ -6962,34 +6962,6 @@ join` constrained dashed product path across:
   - `4bcbcb53c` (`feat(ai-runtime): execute bounded app actions`)
   - `87ff206b0` (`feat(ai-runtime): orchestrate complete agent invocations`)
 
-## 2026-07-25 - Plan explicit conversational Mock AI drawing
-
-- Context:
-  - Completed Gate 4 provides provider-replaceable orchestration but no
-    user-facing Asyra Design AI experience or live API key.
-  - Product review chose one user turn per undo action, app-owned recoverable
-    partial-item results, app-presented confirmation waits, and incremental
-    follow-up edits to existing canonical elements.
-- Decision:
-  - Keep Gate 4 closed and create a new active cross-cutting App plan.
-  - Enable the experience only through exact `ai=mock`, with deterministic
-    abortable delays and visibly labelled mock fixtures.
-  - Show operational runtime status and concise explanations, never raw or
-    fabricated private chain-of-thought.
-  - Add bounded App drawing/update/removal actions, one-turn transaction and
-    Message Bar history behavior, visible App confirmation, and in-memory
-    semantic target hints revalidated against current canonical state.
-  - Treat resolved recoverable item evidence as partial success and reserve
-    executor rejection for fatal consistency failure and rollback.
-- Consequences:
-  - The complete UI/runtime/action/history flow can be exercised without a
-    network endpoint or API key.
-  - Follow-up turns modify existing ids instead of regenerating the original
-    composition.
-  - Production and generated-app startup remain AI-disabled by default.
-- Related Plan:
-  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
-
 ## 2026-07-26 - Move browser document durability from localStorage to IndexedDB
 
 - Context:
@@ -7013,44 +6985,146 @@ join` constrained dashed product path across:
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
 
-## 2026-07-26 - Complete Conversational AI Mock Drawing
+## 2026-08-02 - Complete app-level CRDT conversational drawing performance
 
 - Context:
-  - The explicit Mock experience now covers non-modal conversation, safe
-    operational progress, local attachments, resource-aware detail choice,
-    ordinary editable drawing, canonical-id follow-ups, partial results,
-    App-presented confirmation, cancellation/failure, elapsed time, and
-    current-action Undo/Redo.
-  - App-owned prompt analysis and registered-tool policy now route explicit
-    whole-image PNG/JPEG/WebP requests through the installed same-origin
-    VTracer tool; arbitrary results remain ordinary canonical Vectors.
-  - Browser-local IndexedDB durability, official generated-template parity,
-    ordinary and Maximum-detail E2E, full builds, and synchronized live-app
-    screenshot review have passed.
+  - The endpoint-ordered work completed local plural canonical creation,
+    minimal Factory publication, Worker-owned collaboration framing and
+    admission, linear remote apply, relay backpressure, and ordinary Render/UI
+    projection without client persistence.
+  - Focused package and App suites, guarded 16-item correctness, balanced
+    7,112-record correctness, maximum-detail coverage, builds, Inspector
+    contracts, and retained synchronized visual evidence passed.
+  - The product owner manually accepted the two-window 7,076 flow and confirmed
+    the follow-up immediate property-editing behavior is correct.
 - Decision:
-  - Close the Conversational AI Mock Drawing plan without enabling AI by
-    default or adding a live provider, browser API key, external upload,
-    private chain-of-thought, alternate canonical path, or second transaction/
-    history owner.
-  - Keep exact `ai=mock` deterministic and keyless; retain App ownership of
-    prompt/tool policy, VTracer validation, confirmation presentation,
-    recoverable partial classification, canonical target hints, and Message
-    Bar projection.
-  - Leave performance remediation and credential-gated live-provider formal
-    testing as separate proposed successor plans requiring explicit start and,
-    for the latter, a dedicated server-only API key.
+  - Close the Asyra Design app-level CRDT performance plan and retain its
+    Inspector as architecture authority for the completed flow.
+  - Preserve the existing Factory journal and Undo stack as the only local
+    action-history owner; keep `SharedPublication` minimal and transport-only.
+  - Keep create-app template output parity and credential-gated live-provider
+    testing outside this completed plan.
 - Consequences:
-  - Asyra Design can now demonstrate the complete Agent product flow and
-    arbitrary local whole-image vectorization without a real model provider.
-  - Every mutating turn remains one intended Undo action, follow-ups revalidate
-    existing canonical IDs, and fatal consistency failures retain ordinary
-    rollback.
-  - Browser IndexedDB and the bundled same-origin VTracer endpoint remain demo
-    infrastructure; production derivatives must supply their own server
-    database and deployment-grade tool/provider boundary.
+  - Asyra Design has no active app plan after this closeout.
+  - The live-provider formal test plan remains proposed and inactive until the
+    product owner explicitly starts it and a credential owner satisfies its
+    security, budget, and key-ownership prerequisites.
+  - No browser, 7,076-element rerun, dependency change, push, merge, or release
+    is authorized by this closeout.
 - Related Plan:
-  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
+
+## 2026-08-02 - Reopen CRDT closure for App contract corrections
+
+- Context:
+  - Product review found stale Property projection after canonical changes,
+    disabled reload durability, redundant App-name prefixes, automation
+    consumers of human DevTools handles, and obsolete provider-mode documents.
+- Decision:
+  - Reopen the performance plan without reopening codec, receiver, relay,
+    backpressure, or high-detail optimization.
+  - Keep computed property data local and repair the ordinary
+    canonical-to-computed projection so normal and Vector point fields share
+    one transaction, Render, Collaboration, Undo, and Redo route.
+  - Configure one `fileId`-scoped browser IndexedDB provider before Core starts;
+    persist manual actions, Agent actions, Undo, Redo, accepted remote apply,
+    and Reset through one serialized queue.
+  - Retain only the server-prepared `AiActionBatch` production route. Remove
+    obsolete provider-mode Inspector, BDD, and proposed live-provider records;
+    the old completed prototype record is historical, not current authority.
+  - Reserve `window.__Core__`, `window.__Collaboration__`,
+    `window.__CanvasPipelineDebugger__`, and
+    `window.__AiDrawingPerformance__` for human DevTools use. Product code,
+    tests, E2E, and scripts use imported owners or the fixed document
+    diagnostic service.
+- Consequences:
+  - Reload restores the latest accepted work for that browser and file while a
+    derived production app still owns its real server database.
+  - Property edits after manual or Agent creation remain immediately visible,
+    collaborative, and reversible without a field-specific refresh patch.
+  - Human action-authoring, preflight, Awareness, debugging, CPU, test, and
+    non-goal guidance remains available in
+    `modules/ai-development-and-debugging.md`.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
+
+## 2026-08-02 - Close the reopened App/CRDT and request-time Agent corrections
+
+- Context:
+  - The reopened work restored ordinary property projection and Undo/Redo,
+    file-scoped persistence, App-local naming and diagnostic boundaries, and
+    the formal request-time Agent provider.
+  - The checked-in `crdt-7076` sample now keeps its exact image, instruction,
+    and prior 7,075-vector conversion together. After Send, its backend matches
+    the request and reads that conversion without invoking VTracer; Actor B
+    receives the resulting canonical state only through CRDT.
+  - Focused App/backend tests, Inspector contracts, production bundle and build
+    checks, and the headless 16-item two-Actor CRDT case passed. The product
+    owner confirmed the completed functionality and requested closeout.
+- Decision:
+  - Close the reopened conversational drawing performance plan and move its
+    canonical record back to `plans/completed/`.
+  - Keep the retained performance Inspector as architecture authority for the
+    completed CRDT and Agent flow.
+  - Treat the newly mentioned serious Vector issue as a separate future task.
+    Its behavior, owner, and mutation scope remain undefined until the product
+    owner describes it; this closeout does not claim the broader Vector
+    subsystem is defect-free.
+  - Supersede the immediately preceding reopen state without deleting that
+    append-only history.
+- Consequences:
+  - Asyra Design has no active app plan after this closeout.
+  - The only production Agent route requests one backend `AiActionBatch` after
+    Send; URL/file identity never selects or preloads an action payload.
+  - The completed record preserves create-app template parity, a production
+    database backend, and the deferred Vector issue as separate future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
 - Related Commit(s):
-  - `90a1b2e0e` (`feat(asyra-design): vectorize arbitrary image attachments`)
-  - `c43f614f6` (`fix(asyra-design): accept single-item vector traces`)
-  - `a6aa55b9a` (`chore(create-app): sync VTracer image workflow`)
+  - `d1f8d2faa` (`fix(app): realign persistent collaboration boundaries`)
+  - `cd423b3a2` (`docs(app): realign Agent and collaboration contracts`)
+  - `354fa5619` (`fix(app): restore request-time Agent sample flow`)
+
+## 2026-08-03 - Finalize formal database and disconnect-safe App/CRDT closure
+
+- Context:
+  - Final review corrected the prior browser-storage and receiver-persistence
+    assumptions: the reference App must attempt its formal same-origin document
+    database even when that service is unavailable, and a collaboration
+    receiver must never persist another client's operation.
+  - A request-start relay peer could disconnect before enqueue and incorrectly
+    prevent the sender and remaining healthy peers from progressing.
+- Decision:
+  - Keep one formal file-scoped HTTP document-database client. Database failure
+    remains visible but nonfatal; the App continues with the file-specific
+    initial document and never claims fake, IndexedDB, or localStorage
+    persistence success.
+  - Persist local actions, Agent actions, Undo, Redo, and Reset only from the
+    client that originated them. Accepted remote publications perform canonical
+    apply and projection with zero persistence, Undo, or echo, and
+    `peer-applied` acknowledges canonical apply rather than durability.
+  - Drop a peer that disconnects or leaves `OPEN` before relay admission while
+    allowing the source and all remaining healthy peers to continue.
+  - Retain the completed plan and Inspector as the architecture authority; a
+    forked production App supplies the matching database server without
+    changing the frontend persistence composition.
+- Consequences:
+  - The deployed 7,076 route remains a standalone, non-CRDT demo: it attempts
+    the formal database request, reports unavailability without crashing, and
+    loads the checked-in canonical sample.
+  - Full CRDT and durable persistence remain explicit local/integrator
+    compositions requiring the separately started WebSocket service and an
+    implementation of the documented database endpoint.
+  - Playwright server commands alone enable an E2E-only in-memory
+    implementation of that same endpoint. It verifies formal HTTP save/reload
+    without adding a demo, ordinary-development, or production fallback.
+  - This decision supersedes the 2026-08-02 IndexedDB and receiver-persistence
+    selections without deleting their append-only history.
+  - Asyra Design has no active App plan. The separately reported Vector issue
+    remains outside this completed scope.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
+- Related Commit(s):
+  - `382605f03` (`fix(collaboration): drop disconnected relay peers`)
+  - `3a88f1dde` (`fix(app): use formal document database persistence`)
+  - `cda8b10f0` (`style(app): format service availability boundaries`)

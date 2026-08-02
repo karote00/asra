@@ -23,15 +23,15 @@ export enum SceneTreeEventTypes {
 // Element
 export enum ElementEventTypes {
   ADD_ELEMENT = 'addElement',
+  ADD_ELEMENTS = 'addElements',
   FINISH_ADD_ELEMENT = 'finishAddElement',
   REMOVE_ELEMENT = 'removeElement',
+  REMOVE_ELEMENTS = 'removeElements',
   MOVE_ELEMENTS = 'moveElements',
   CHANGE_SUBTREE = 'changeSubtree',
+  UPDATE_ELEMENT_DATA = 'updateElementData',
   UPDATE_COMPUTED_DATA = 'updateComputedData',
-  UPDATE_COMPUTED_DATA_PATCH = 'updateComputedDataPatch',
-  CHANGE_COMPUTED_DATA = 'changeComputedData',
-  CHANGE_COMPUTED_DATA_BATCH = 'changeComputedDataBatch',
-  CHANGE_COMPUTED_DATA_PATCH = 'changeComputedDataPatch'
+  UPDATE_COMPUTED_DATA_PATCH = 'updateComputedDataPatch'
 }
 
 // Selection

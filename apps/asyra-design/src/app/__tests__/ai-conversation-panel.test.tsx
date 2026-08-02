@@ -8,9 +8,14 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiConversationPanel } from '../ai-conversation-panel'
-import { createAsyraDesignAiConversationController } from '../../ai/conversation'
-import { createAsyraDesignAiConfirmationBroker } from '../../ai/confirmation'
+import { createAiConversationController } from '../../ai/conversation'
+import { createAiConfirmationBroker } from '../../ai/confirmation'
 import { createDeferred } from '../../ai/__tests__/deferred'
+import {
+  AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
+  AiDocumentInteractionTargets
+} from '../../constants'
+import { documentInteractionLock } from '../../ai/document-interaction-lock'
 
 const createPanelHarness = () => {
   const pending = createDeferred<Record<string, unknown>>()
@@ -18,8 +23,8 @@ const createPanelHarness = () => {
     cancel: vi.fn(() => true),
     execute: vi.fn(() => pending.promise)
   }
-  const confirmation = createAsyraDesignAiConfirmationBroker()
-  const conversation = createAsyraDesignAiConversationController({
+  const confirmation = createAiConfirmationBroker()
+  const conversation = createAiConversationController({
     confirmation,
     createConversationId: () => 'panel-conversation',
     feature,
@@ -33,7 +38,7 @@ const createPanelHarness = () => {
   }
 }
 
-describe('Mock AI conversation panel intent boundary', () => {
+describe('AI Agent conversation panel intent boundary', () => {
   afterEach(() => {
     cleanup()
   })
@@ -49,7 +54,9 @@ describe('Mock AI conversation panel intent boundary', () => {
       />
     )
 
-    expect(screen.queryByText('Mock AI')).toBeNull()
+    expect(screen.getByTestId('ai-agent-panel')).toBeTruthy()
+    expect(screen.queryByTestId('ai-agent-message')).toBeNull()
+    expect(screen.getByText('Agent ready')).toBeTruthy()
     expect(screen.getByRole('complementary').getAttribute('aria-modal')).toBe(
       'false'
     )
@@ -73,7 +80,12 @@ describe('Mock AI conversation panel intent boundary', () => {
     )
     expect((input as HTMLTextAreaElement).value).toBe('')
     expect((send as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: 'Cancel request' })).toBeTruthy()
+    const cancelRequest = screen.getByRole('button', {
+      name: 'Cancel request'
+    })
+    expect(
+      cancelRequest.getAttribute(AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE)
+    ).toBe(AiDocumentInteractionTargets.AGENT_CANCEL)
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Agent panel' }))
     expect(harness.feature.cancel).toHaveBeenCalledWith('panel-closed')
@@ -102,6 +114,61 @@ describe('Mock AI conversation panel intent boundary', () => {
     fireEvent.change(input, { target: { value: 'second' } })
     expect((send as HTMLButtonElement).disabled).toBe(true)
     expect(harness.feature.execute).toHaveBeenCalledOnce()
+  })
+
+  it('keeps mouse, touch, and keyboard cancellation inside the Agent control while the document is locked', () => {
+    const harness = createPanelHarness()
+    render(
+      <AiConversationPanel
+        confirmation={harness.confirmation}
+        conversation={harness.conversation}
+        onClose={vi.fn()}
+      />
+    )
+    fireEvent.change(screen.getByLabelText('Message Agent'), {
+      target: { value: 'draw progressively' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    const cancelRequest = screen.getByRole('button', {
+      name: 'Cancel request'
+    })
+    const escapedDocumentInteraction = vi.fn()
+    const eventTypes = [
+      'click',
+      'keydown',
+      'keyup',
+      'mousedown',
+      'mouseup',
+      'pointerdown',
+      'pointerup',
+      'touchend',
+      'touchstart'
+    ] as const
+    for (const eventType of eventTypes) {
+      window.addEventListener(eventType, escapedDocumentInteraction)
+    }
+    const release = documentInteractionLock.acquire()
+
+    try {
+      fireEvent.keyDown(cancelRequest, { code: 'Enter', key: 'Enter' })
+      fireEvent.keyUp(cancelRequest, { code: 'Enter', key: 'Enter' })
+      fireEvent.mouseDown(cancelRequest)
+      fireEvent.mouseUp(cancelRequest)
+      fireEvent.pointerDown(cancelRequest)
+      fireEvent.pointerUp(cancelRequest)
+      fireEvent.touchStart(cancelRequest)
+      fireEvent.touchEnd(cancelRequest)
+      fireEvent.click(cancelRequest)
+    } finally {
+      release()
+      for (const eventType of eventTypes) {
+        window.removeEventListener(eventType, escapedDocumentInteraction)
+      }
+    }
+
+    expect(escapedDocumentInteraction).not.toHaveBeenCalled()
+    expect(harness.feature.cancel).toHaveBeenCalledOnce()
+    expect(harness.feature.cancel).toHaveBeenCalledWith('user-cancelled')
   })
 
   it('adds the same removable image draft through file selection and drag-and-drop, then preserves it in the submitted turn', async () => {
@@ -267,15 +334,15 @@ describe('Mock AI conversation panel intent boundary', () => {
           {
             actions: [
               {
-                arguments: {
-                  compositionId: 'secret-group-id'
+                summary: {
+                  affectedCount: 1
                 },
                 id: 'remove-1',
                 name: 'remove_ai_composition',
                 permission: 'confirm'
               }
             ],
-            planId: 'remove-plan'
+            batchId: 'remove-batch'
           },
           {
             signal: new AbortController().signal
@@ -287,6 +354,9 @@ describe('Mock AI conversation panel intent boundary', () => {
       expect(screen.getByText('Destructive')).toBeTruthy()
       expect(screen.getByText('Undoable')).toBeTruthy()
       expect(screen.queryByText(/secret-group-id/)).toBeNull()
+      expect(JSON.stringify(harness.confirmation.getSnapshot())).not.toMatch(
+        /arguments|compositionId/
+      )
       fireEvent.click(screen.getByRole('button', { name: decision }))
 
       await expect(settlement).resolves.toBe(expected)
@@ -295,8 +365,8 @@ describe('Mock AI conversation panel intent boundary', () => {
 
   it('projects ordered settled progress and a safe result without raw action evidence', async () => {
     let now = 2_000
-    const confirmation = createAsyraDesignAiConfirmationBroker()
-    const conversation = createAsyraDesignAiConversationController({
+    const confirmation = createAiConfirmationBroker()
+    const conversation = createAiConversationController({
       confirmation,
       createConversationId: () => 'panel-progress',
       feature: {
@@ -351,12 +421,14 @@ describe('Mock AI conversation panel intent boundary', () => {
     expect(
       await screen.findByText('Drawing updated successfully.')
     ).toBeTruthy()
+    const settledMessage = screen.getByTestId('ai-agent-message')
+    expect(settledMessage.tagName).toBe('ARTICLE')
+    expect(settledMessage.getAttribute('data-outcome')).toBe('success')
     expect(screen.getByText('畫一個貓臉')).toBeTruthy()
     expect(screen.getByText('Understanding the request')).toBeTruthy()
     expect(screen.getByText('Applying changes')).toBeTruthy()
     expect(screen.getByText('Elapsed 1.3s')).toBeTruthy()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
     expect(screen.queryByText(/secret-action-id/)).toBeNull()
     expect(screen.queryByText(/secret-canonical-id/)).toBeNull()
   })
@@ -415,7 +487,6 @@ describe('Mock AI conversation panel intent boundary', () => {
     ).toBeTruthy()
     expect(screen.queryByText(/provider-choice/)).toBeNull()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
   })
 
   it.each([
@@ -456,8 +527,8 @@ describe('Mock AI conversation panel intent boundary', () => {
             status: 'executed'
           })
       }
-      const confirmation = createAsyraDesignAiConfirmationBroker()
-      const conversation = createAsyraDesignAiConversationController({
+      const confirmation = createAiConfirmationBroker()
+      const conversation = createAiConversationController({
         confirmation,
         createConversationId: () => `panel-${label}`,
         feature,

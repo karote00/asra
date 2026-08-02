@@ -2,14 +2,14 @@ import type { SharedPublication } from '@asyra/factory'
 import {
   createProviderIdentitySnapshot,
   ProviderFailure,
-  type InboundPublication,
   type Provider,
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
   type ProviderIdentity,
   type ProviderStatus
 } from '../../provider'
-import { cloneAwareness, clonePublication } from '../../cloning'
+import { cloneAwareness } from '../../cloning'
+import { deepFreeze } from '../../deep-freeze'
 import { MemoryHub, type MemoryPeer } from './hub'
 
 export class MemoryProvider implements Provider, MemoryPeer {
@@ -23,9 +23,10 @@ export class MemoryProvider implements Provider, MemoryPeer {
   private readonly statusSubscribers = new Set<
     (status: ProviderStatus) => void
   >()
-  private readonly publicationSubscribers = new Set<
-    (publication: InboundPublication) => void
-  >()
+  private publicationConsumer?: (
+    publication: SharedPublication
+  ) => Promise<void>
+  private inboundPublicationTail: Promise<void> = Promise.resolve()
   private readonly awarenessSubscribers = new Set<
     (message: ProviderAwarenessMessage) => void
   >()
@@ -180,7 +181,7 @@ export class MemoryProvider implements Provider, MemoryPeer {
       new ProviderFailure('disposed', '[collaboration] provider is disposed')
     )
     this.statusSubscribers.clear()
-    this.publicationSubscribers.clear()
+    this.publicationConsumer = undefined
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -197,16 +198,30 @@ export class MemoryProvider implements Provider, MemoryPeer {
   async sendPublication(publication: SharedPublication): Promise<void> {
     this.requireConnected()
     try {
-      await this.hub.receivePublication(this, clonePublication(publication))
+      await this.hub.receivePublication(this, publication)
     } catch (error) {
       this.failTransport(error)
     }
   }
 
   onPublication(
-    subscriber: (publication: InboundPublication) => void
+    subscriber: (publication: SharedPublication) => Promise<void>
   ): () => void {
-    return this.subscribe(this.publicationSubscribers, subscriber)
+    this.requireUsable()
+    if (this.publicationConsumer) {
+      throw new Error(
+        '[collaboration] an inbound publication consumer is already registered'
+      )
+    }
+    this.publicationConsumer = subscriber
+    let subscribed = true
+    return () => {
+      if (!subscribed) return
+      subscribed = false
+      if (this.publicationConsumer === subscriber) {
+        this.publicationConsumer = undefined
+      }
+    }
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -242,20 +257,21 @@ export class MemoryProvider implements Provider, MemoryPeer {
     return this.subscribe(this.failureSubscribers, subscriber)
   }
 
-  receivePublication(inbound: InboundPublication): void {
-    if (this.status !== 'connected') return
-    ;[...this.publicationSubscribers].forEach((subscriber) => {
-      try {
-        subscriber(
-          Object.freeze({
-            publication: clonePublication(inbound.publication),
-            ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
-          })
-        )
-      } catch {
-        // Provider observers cannot alter transport settlement.
+  receivePublication(publication: SharedPublication): Promise<void> {
+    if (this.status !== 'connected') return Promise.resolve()
+    const generation = this.connectionGeneration
+    const snapshot = deepFreeze(publication)
+    const delivery = this.inboundPublicationTail.then(async () => {
+      if (
+        this.status !== 'connected' ||
+        generation !== this.connectionGeneration
+      ) {
+        return
       }
+      await this.publicationConsumer?.(snapshot)
     })
+    this.inboundPublicationTail = delivery.catch(() => undefined)
+    return delivery
   }
 
   receiveAwareness(message: ProviderAwarenessMessage): void {

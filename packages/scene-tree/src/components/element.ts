@@ -5,8 +5,7 @@ import type {
   IElement,
   IProps,
   PropsRawData,
-  ComputedAttrs,
-  PropertyComponentInstanceDataTypes
+  ComputedAttrs
 } from '@asyra/utils'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import {
@@ -14,6 +13,7 @@ import {
   IDTypes,
   NameTypes,
   EntityTypes,
+  PropertyTypes,
   id,
   loadId,
   name,
@@ -22,10 +22,13 @@ import {
 import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
-import type { PropsManager } from '@asyra/props-manager'
-import { getSceneTreePropsManager } from '../props-manager-context'
+import type { PropertyDefinition, PropsManager } from '@asyra/props-manager'
+import {
+  getSceneTreeInitialOwnerValues,
+  getSceneTreePropsManager
+} from '../props-manager-context'
 
-const elementChangeHandler = new ElementChangeHandler('raw')
+const elementChangeHandler = new ElementChangeHandler()
 
 type ElementDataType = Partial<ElementRawData>
 
@@ -41,6 +44,18 @@ class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
   implements IElement<T>
 {
+  static readonly ordinaryPropertyDefinitions: readonly PropertyDefinition[] =
+    Object.freeze([
+      Object.freeze({
+        name: PropertyTypes.POSITION,
+        type: PropertyTypes.POSITION
+      }),
+      Object.freeze({
+        name: PropertyTypes.DIMENSION,
+        type: PropertyTypes.DIMENSION
+      })
+    ])
+
   _idType: string = ''
   _nameType: string = ''
   protected computedPropertyNames: string[] = ['position', 'dimension', 'fills']
@@ -64,7 +79,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
       this.load(data)
     }
 
-    this.setupProps(data?.props)
+    this.setupProps(data?.props, getSceneTreeInitialOwnerValues())
   }
 
   _init(): void {
@@ -130,7 +145,32 @@ class Element<T extends ElementAttrs = ElementAttrs>
     return data
   }
 
-  setupProps(propsData?: Partial<PropsRawData>) {
+  assignCanonicalParentId(parentId: string): void {
+    this.data.parentId = parentId
+  }
+
+  /**
+   * Scene Tree canonical owner write. The matching immutable
+   * UPDATE_ELEMENT_DATA evidence is prepared and delivered by SceneTree.
+   */
+  assignCanonicalElementData(
+    values: Readonly<Partial<Pick<ElementRawData, 'name' | 'visible' | 'lock'>>>
+  ): void {
+    if (values.name !== undefined) {
+      this.data.name = values.name as T['name']
+    }
+    if (values.visible !== undefined) {
+      this.data.visible = values.visible as T['visible']
+    }
+    if (values.lock !== undefined) {
+      this.data.lock = values.lock as T['lock']
+    }
+  }
+
+  setupProps(
+    propsData?: Partial<PropsRawData>,
+    initialOwnerValues?: Readonly<Record<string, unknown>>
+  ) {
     const elementId = this.get('id') as string
     if (this.data.type !== EntityTypes.WORKSPACE) {
       if (propsData) {
@@ -143,32 +183,23 @@ class Element<T extends ElementAttrs = ElementAttrs>
         elementId,
         this.props,
         this.computedPropertyNames,
-        this.propsManagerOwner
+        this.propsManagerOwner,
+        initialOwnerValues
       )
     }
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K],
-    options?: EvnetOptions
+    data: ComputedAttrs[K]
   ) {
     if (key in this.computed.data || !(key in this.data)) {
-      this.computed.set(key, data, options)
-
-      // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
-      type KEY = keyof PropertyComponentInstanceDataTypes
-      this.props.updateData(
-        key as KEY,
-        data as PropertyComponentInstanceDataTypes[KEY],
-        options
-      )
+      this.computed.set(key, data)
     }
   }
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
-      this.computed.setup(this.props, this.computedPropertyNames)
       return this.computed.save()
     }
 

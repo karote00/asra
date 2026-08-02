@@ -66,6 +66,27 @@ test('Remote Restore Inspector and product authorities resolve', () => {
   assert.ok(data.steps.every(Object.isFrozen))
 })
 
+test('runtime preflight handoffs use prepared artifacts rather than plan vocabulary', () => {
+  const artifactIds = new Set(data.artifacts.map((item) => item.id))
+  const routeIds = new Set(data.routes.map((item) => item.id))
+  const runtimeContract = JSON.stringify({
+    steps: data.steps,
+    routes: data.routes,
+    artifacts: data.artifacts
+  })
+
+  assert.ok(artifactIds.has('artifact:prepared-scene-tree-restore'))
+  assert.ok(artifactIds.has('artifact:prepared-props-restore'))
+  assert.ok(
+    routeIds.has('prepared-scene-restore-informs-props-relations')
+  )
+  assert.ok(routeIds.has('prepared-scene-restore-ready-to-settle'))
+  assert.ok(routeIds.has('prepared-scene-restore-ready-to-materialize'))
+  assert.ok(routeIds.has('prepared-props-restore-ready-to-settle'))
+  assert.ok(routeIds.has('prepared-props-restore-ready-to-materialize'))
+  assert.doesNotMatch(runtimeContract, /\bplan\b/i)
+})
+
 test('every owner step has exact readiness fields and a product-case/DoD contract', () => {
   const requiredFields = [
     'id',

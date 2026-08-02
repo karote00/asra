@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Factory, TransactionRollbackError } from '@asyra/factory'
-import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
+import {
+  Factory,
+  FactoryMutationBatchAcceptanceError,
+  TransactionValidationError
+} from '@asyra/factory'
+import {
+  EventTypes,
+  TransactionEventTypes,
+  subscribeToUserActionCompleted
+} from '@asyra/reactive-events'
 import type { IPersistenceProvider } from '@asyra/persistence'
+import { subscribeToBrowserDragPhases } from '@asyra/utils'
 import type {
   GroupRawData,
   SceneTreeRawData,
@@ -9,8 +18,7 @@ import type {
 } from '@asyra/utils'
 import { Core } from '../core'
 
-const createHarness = () => {
-  const factory = new Factory()
+const createHarness = (factory = new Factory()) => {
   const props = {
     save: vi.fn(() => ({})),
     load: vi.fn(),
@@ -53,7 +61,7 @@ const createHarness = () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id, before: 0, after: 1 }
     })
     factory.endTransaction()
@@ -68,25 +76,47 @@ const createHarness = () => {
     clear: vi.fn(async () => undefined)
   })
 
-  return { core, factory, commit, provider, sceneTree }
+  return {
+    core,
+    factory,
+    commit,
+    props,
+    provider,
+    sceneTree,
+    systemContext
+  }
 }
 
 describe('Core transaction persistence acknowledgement', () => {
-  it('persists committed action, undo, and redo in order', async () => {
-    const { core, factory, commit, provider } = createHarness()
+  it('persists exact committed action, undo, and redo snapshots in FIFO order', async () => {
+    const { core, factory, commit, provider, sceneTree } = createHarness()
     const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    let workspace = 'action-state'
+    sceneTree.save.mockImplementation(() => ({
+      workspace,
+      workspaceList: [workspace],
+      elements: {}
+    }))
     core.setPersistence(provider(save))
 
     commit('first')
-    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    workspace = 'undo-state'
     factory.undo()
-    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    workspace = 'redo-state'
     factory.redo()
+
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3))
+    expect(
+      save.mock.calls.map(
+        ([data]) => (data.sceneTree as { workspace: string }).workspace
+      )
+    ).toEqual(['action-state', 'undo-state', 'redo-state'])
+    expect(sceneTree.save).toHaveBeenCalledTimes(3)
   })
 
   it('never saves discarded, rolled-back, or rollback-failed outcomes', async () => {
-    const { core, factory, provider } = createHarness()
+    const { core, factory, props, provider, sceneTree, systemContext } =
+      createHarness()
     const save = vi.fn(async () => undefined)
     core.setPersistence(provider(save))
 
@@ -95,7 +125,7 @@ describe('Core transaction persistence acknowledgement', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: { id: 'rollback', before: 0, after: 1 }
     })
     factory.endTransaction({ outcome: 'rollback' })
@@ -103,22 +133,25 @@ describe('Core transaction persistence acknowledgement', () => {
       throw new Error('inverse failed')
     })
     factory.startTransaction()
-    factory.updateTransaction({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.rollback-failed',
-      payload: { id: 'rollback-failed', before: 0, after: 1 }
-    })
-    expect(() => factory.endTransaction({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
-    )
+    expect(() =>
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.rollback-failed',
+        payload: { id: 'rollback-failed', before: 0, after: 1 }
+      })
+    ).toThrow(FactoryMutationBatchAcceptanceError)
+    expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
 
     await Promise.resolve()
     await Promise.resolve()
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
     expect(save).not.toHaveBeenCalled()
   })
 
   it('reports persistence-skipped when no provider is configured', async () => {
-    const { factory, commit } = createHarness()
+    const { factory, commit, props, sceneTree, systemContext } = createHarness()
     const statuses: TransactionStatusPayload[] = []
     const dispose = factory.subscribeToTransactionStatus((status) => {
       statuses.push(status)
@@ -131,7 +164,79 @@ describe('Core transaction persistence acknowledgement', () => {
         statuses.some((status) => status.status === 'persistence-skipped')
       ).toBe(true)
     )
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
     dispose()
+  })
+
+  it('does not capture or persist a remote committed transaction', async () => {
+    const { core, factory, props, provider, sceneTree, systemContext } =
+      createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const saveHook = vi.fn((data) => data)
+    const statuses: TransactionStatusPayload[] = []
+    core.registerSaveHook(saveHook)
+    core.setPersistence(provider(save))
+    const dispose = factory.subscribeToTransactionStatus((status) => {
+      statuses.push(status)
+    })
+
+    factory.runRemoteTransaction(() => {
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: { id: 'remote', before: 0, after: 1 }
+      })
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(statuses).toContainEqual(
+      expect.objectContaining({ origin: 'remote', status: 'committed' })
+    )
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
+    expect(saveHook).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(
+      statuses.some(
+        ({ origin, status }) =>
+          origin === 'remote' &&
+          ['persisted', 'persistence-failed', 'persistence-skipped'].includes(
+            status
+          )
+      )
+    ).toBe(false)
+
+    dispose()
+  })
+
+  it('does not capture or persist a validation-rejected transaction', async () => {
+    const { core, factory, commit, props, provider, sceneTree, systemContext } =
+      createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const saveHook = vi.fn((data) => data)
+    core.registerSaveHook(saveHook)
+    core.setPersistence(provider(save))
+    factory.registerTransactionValidator('reject-persistence', () => ({
+      valid: false,
+      code: 'invalid-persistence-state',
+      message: 'Reject persistence capture'
+    }))
+
+    expect(() => commit('validation-rejected')).toThrow(
+      TransactionValidationError
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(sceneTree.save).not.toHaveBeenCalled()
+    expect(props.save).not.toHaveBeenCalled()
+    expect(systemContext.saveManagedProperties).not.toHaveBeenCalled()
+    expect(saveHook).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('serializes saves and continues after a persistence failure', async () => {
@@ -199,6 +304,69 @@ describe('Core transaction persistence acknowledgement', () => {
     ).toEqual(['first', 'second'])
   })
 
+  it('captures each local commit before a completion observer commits reentrantly', async () => {
+    const factory = new Factory({ bridgeToReactiveEvents: true })
+    const { core, commit, provider, sceneTree } = createHarness(factory)
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    let workspace = 'outer'
+    let nested = false
+    sceneTree.save.mockImplementation(() => ({
+      workspace,
+      workspaceList: [workspace],
+      elements: {}
+    }))
+    core.setPersistence(provider(save))
+    const completionSubscription = subscribeToUserActionCompleted(() => {
+      if (nested) return
+      nested = true
+      workspace = 'nested'
+      commit('nested')
+    })
+
+    try {
+      commit('outer')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+      expect(
+        save.mock.calls.map(
+          ([data]) => (data.sceneTree as { workspace: string }).workspace
+        )
+      ).toEqual(['outer', 'nested'])
+    } finally {
+      completionSubscription.unsubscribe()
+    }
+  })
+
+  it('attributes snapshot capture separately from the provider save boundary', async () => {
+    const { core, commit, provider } = createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const phases: string[] = []
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
+    core.setPersistence(provider(save))
+
+    try {
+      commit('persistence-attribution')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() =>
+        expect(phases).toEqual(
+          expect.arrayContaining([
+            'core:persistence-capture:system-context',
+            'core:persistence-capture:scene-tree',
+            'core:persistence-capture:props',
+            'core:persistence-capture:detach',
+            'core:persistence-capture',
+            'core:persistence-save'
+          ])
+        )
+      )
+    } finally {
+      unsubscribe()
+    }
+  })
+
   it('deeply detaches a queued snapshot from later nested runtime mutations', async () => {
     const { core, commit, provider, sceneTree } = createHarness()
     const children = ['child-before-commit']
@@ -226,6 +394,78 @@ describe('Core transaction persistence acknowledgement', () => {
     const snapshot = save.mock.calls[0][0]
     const workspace = snapshot.sceneTree.elements.workspace as GroupRawData
     expect(workspace.children).toEqual(['child-before-commit'])
+  })
+
+  it('captures one full detached snapshot when no save hooks are registered', async () => {
+    const { core, commit, provider } = createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const structuredCloneSpy = vi.spyOn(globalThis, 'structuredClone')
+    core.setPersistence(provider(save))
+
+    try {
+      commit('single-snapshot')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+      expect(structuredCloneSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      structuredCloneSpy.mockRestore()
+    }
+  })
+
+  it('keeps save hooks isolated by detached snapshots on both boundaries', async () => {
+    const { core, commit, provider, sceneTree } = createHarness()
+    const runtimeChildren = ['child-before-commit']
+    let hookChildren: string[] | undefined
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    const structuredCloneSpy = vi.spyOn(globalThis, 'structuredClone')
+    const phases: string[] = []
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
+    sceneTree.save.mockImplementation(() => ({
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {
+        workspace: {
+          id: 'workspace',
+          name: 'Workspace',
+          type: 'workspace',
+          visible: true,
+          lock: false,
+          children: runtimeChildren
+        }
+      }
+    }))
+    core.registerSaveHook((data) => {
+      const workspace = data.sceneTree.elements.workspace as GroupRawData
+      hookChildren = workspace.children
+      hookChildren.push('child-added-by-hook')
+      return data
+    })
+    core.setPersistence(provider(save))
+
+    try {
+      commit('hook-snapshots')
+      runtimeChildren.push('child-added-after-commit')
+      hookChildren?.push('child-added-after-hook')
+
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+      const snapshot = save.mock.calls[0][0]
+      const workspace = snapshot.sceneTree.elements.workspace as GroupRawData
+      expect(workspace.children).toEqual([
+        'child-before-commit',
+        'child-added-by-hook'
+      ])
+      expect(runtimeChildren).toEqual([
+        'child-before-commit',
+        'child-added-after-commit'
+      ])
+      expect(structuredCloneSpy).toHaveBeenCalledTimes(2)
+      expect(phases).toContain('core:persistence-capture:save-hooks')
+    } finally {
+      structuredCloneSpy.mockRestore()
+      unsubscribe()
+    }
   })
 
   it('keeps custom Core persistence bound to its injected Factory', async () => {

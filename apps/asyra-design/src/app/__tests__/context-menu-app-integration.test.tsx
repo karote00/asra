@@ -22,14 +22,14 @@ vi.mock('../../render-app', () => ({
 }))
 vi.mock('../../toolbar', () => ({
   default: (props: {
-    aiOpen?: boolean
-    onAiToggle?: (invoker: HTMLButtonElement) => void
+    aiOpen: boolean
+    onAiToggle: (invoker: HTMLButtonElement) => void
   }) => {
     toolbarProps(props)
     return props.onAiToggle ? (
       <button
-        aria-label="Mock toolbar AI"
-        onClick={(event) => props.onAiToggle?.(event.currentTarget)}
+        aria-label="Agent toolbar"
+        onClick={(event) => props.onAiToggle(event.currentTarget)}
         type="button"
       />
     ) : null
@@ -40,14 +40,14 @@ vi.mock('../../properties', () => ({ default: () => null }))
 vi.mock('../../animation', () => ({ default: () => null }))
 vi.mock('../ai-conversation-panel', () => ({
   AiConversationPanel: ({ onClose }: { onClose: () => void }) => (
-    <aside aria-label="Mock AI conversation">
+    <aside aria-label="Agent conversation">
       <textarea
-        aria-label="Message Mock AI"
+        aria-label="Message Agent"
         autoFocus
         data-ai-agent-prompt="true"
       />
       <button onClick={onClose} type="button">
-        Close Mock AI
+        Close Agent
       </button>
     </aside>
   )
@@ -127,7 +127,7 @@ describe('App context-menu composition', () => {
   })
 
   it('routes accepted Render canvas invocations into the app-local session', () => {
-    render(<App />)
+    render(<App ai={createAi()} />)
 
     expect(renderAppProps).toHaveBeenCalled()
     const props = renderAppProps.mock.lastCall?.[0] as {
@@ -163,7 +163,7 @@ describe('App context-menu composition', () => {
   })
 
   it('presents fixed rows and closes before one enabled descriptor execution', async () => {
-    render(<App />)
+    render(<App ai={createAi()} />)
     const canvasHost = document.createElement('div')
     canvasHost.tabIndex = -1
     document.body.append(canvasHost)
@@ -185,12 +185,13 @@ describe('App context-menu composition', () => {
 
     const rows = screen.getAllByRole('menuitem')
     expect(rows.map((row) => row.textContent)).toEqual([
+      'Toggle Agent Panel⌘I',
       'Group⌘G',
       'Ungroup⇧⌘G'
     ])
-    expect(rows[1]?.getAttribute('aria-disabled')).toBe('true')
+    expect(rows[2]?.getAttribute('aria-disabled')).toBe('true')
 
-    fireEvent.click(rows[1] as HTMLElement)
+    fireEvent.click(rows[2] as HTMLElement)
     expect(descriptorMocks.executeUngroup).not.toHaveBeenCalled()
     expect(screen.getByRole('menu')).toBeTruthy()
 
@@ -198,7 +199,7 @@ describe('App context-menu composition', () => {
       expect(screen.queryByRole('menu')).toBeNull()
       return null
     })
-    fireEvent.click(rows[0] as HTMLElement)
+    fireEvent.click(rows[1] as HTMLElement)
 
     expect(descriptorMocks.executeGroup).toHaveBeenCalledTimes(1)
     await act(async () => Promise.resolve())
@@ -206,7 +207,9 @@ describe('App context-menu composition', () => {
   })
 
   it('isolates open state, position, focus, platform labels, and teardown across app roots', async () => {
-    const firstRoot = render(<App groupCommandPlatform="macos" />)
+    const firstRoot = render(
+      <App ai={createAi()} groupCommandPlatform="macos" />
+    )
     const firstRequest = (
       renderAppProps.mock.lastCall?.[0] as {
         onContextMenuRequest: (invocation: {
@@ -216,7 +219,9 @@ describe('App context-menu composition', () => {
         }) => void
       }
     ).onContextMenuRequest
-    const secondRoot = render(<App groupCommandPlatform="windows-linux" />)
+    const secondRoot = render(
+      <App ai={createAi()} groupCommandPlatform="windows-linux" />
+    )
     const secondRequest = (
       renderAppProps.mock.lastCall?.[0] as {
         onContextMenuRequest: (invocation: {
@@ -253,13 +258,22 @@ describe('App context-menu composition', () => {
     ])
     expect(
       screen.getAllByRole('menuitem').map((row) => row.textContent)
-    ).toEqual(['Group⌘G', 'Ungroup⇧⌘G', 'GroupCtrl+G', 'UngroupCtrl+Shift+G'])
+    ).toEqual([
+      'Toggle Agent Panel⌘I',
+      'Group⌘G',
+      'Ungroup⇧⌘G',
+      'Toggle Agent PanelCtrl+I',
+      'GroupCtrl+G',
+      'UngroupCtrl+Shift+G'
+    ])
 
     fireEvent.keyDown(menus[0] as HTMLElement, { key: 'Escape' })
     await act(async () => Promise.resolve())
     menus = screen.getAllByRole('menu')
     expect(menus).toHaveLength(1)
-    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe(
+      'Toggle Agent PanelCtrl+I'
+    )
     expect(document.activeElement).toBe(firstCanvas)
 
     act(() => {
@@ -273,7 +287,9 @@ describe('App context-menu composition', () => {
 
     firstRoot.unmount()
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe('GroupCtrl+G')
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toBe(
+      'Toggle Agent PanelCtrl+I'
+    )
 
     secondRoot.unmount()
     expect(screen.queryByRole('menu')).toBeNull()
@@ -306,21 +322,19 @@ describe('App context-menu composition', () => {
 
     fireEvent.click(rows[0] as HTMLElement)
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
-    expect(document.activeElement).toBe(
-      screen.getByLabelText('Message Mock AI')
-    )
+    expect(screen.getByLabelText('Agent conversation')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByLabelText('Message Agent'))
 
-    fireEvent.keyDown(screen.getByLabelText('Message Mock AI'), {
+    fireEvent.keyDown(screen.getByLabelText('Message Agent'), {
       key: 'i',
       metaKey: true
     })
-    expect(screen.queryByLabelText('Mock AI conversation')).toBeNull()
+    expect(screen.queryByLabelText('Agent conversation')).toBeNull()
     await act(async () => Promise.resolve())
     expect(document.activeElement).toBe(canvasHost)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mock toolbar AI' }))
-    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Agent toolbar' }))
+    expect(screen.getByLabelText('Agent conversation')).toBeTruthy()
   })
 
   it('keeps the shortcut app-root-local and bypasses unrelated editable fields', () => {
@@ -329,20 +343,20 @@ describe('App context-menu composition', () => {
     document.body.append(outsideInput)
 
     fireEvent.keyDown(outsideInput, { key: 'i', metaKey: true })
-    expect(screen.queryByLabelText('Mock AI conversation')).toBeNull()
+    expect(screen.queryByLabelText('Agent conversation')).toBeNull()
 
     fireEvent.keyDown(screen.getByTestId('render-app'), {
       key: 'i',
       metaKey: true
     })
-    expect(screen.getByLabelText('Mock AI conversation')).toBeTruthy()
+    expect(screen.getByLabelText('Agent conversation')).toBeTruthy()
   })
 
   it('cancels an active turn when an external toggle closes the panel', () => {
     aiMocks.activeTurn = { intent: '畫一個貓臉' }
     render(<App ai={createAi()} groupCommandPlatform="macos" />)
     const toolbarButton = screen.getByRole('button', {
-      name: 'Mock toolbar AI'
+      name: 'Agent toolbar'
     })
 
     fireEvent.click(toolbarButton)

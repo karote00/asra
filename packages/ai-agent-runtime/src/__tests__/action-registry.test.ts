@@ -2,64 +2,36 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AiActionRegistryError,
   createAiActionRegistry,
-  type AiActionDefinition,
-  type AiActionSchema
+  type AiActionDefinition
 } from '..'
 
 interface ResizeArgs {
   width: number
 }
 
-const resizeSchema = (): AiActionSchema<ResizeArgs> => ({
-  providerSchema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['width'],
-    properties: {
-      width: {
-        type: 'number'
-      }
+const inputSchema = () => ({
+  additionalProperties: false,
+  properties: {
+    width: {
+      type: 'number'
     }
   },
-  parse(value) {
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      typeof (value as { width?: unknown }).width === 'number'
-    ) {
-      return {
-        success: true,
-        value: {
-          width: (value as { width: number }).width
-        }
-      }
-    }
-
-    return {
-      success: false,
-      issues: [
-        {
-          code: 'invalid_width',
-          message: 'width must be a number',
-          path: ['width']
-        }
-      ]
-    }
-  }
+  required: ['width'],
+  type: 'object'
 })
 
 const action = (
   name: string,
-  schema: AiActionSchema<ResizeArgs> = resizeSchema()
+  schema: unknown = inputSchema()
 ): AiActionDefinition<ResizeArgs, { resized: true }> => ({
-  name,
   description: `Execute ${name}`,
-  schema,
   execute: vi.fn(
     async (): Promise<{ resized: true }> => ({
       resized: true
     })
-  )
+  ),
+  inputSchema: schema,
+  name
 })
 
 const expectRegistryError = (
@@ -74,46 +46,37 @@ const expectRegistryError = (
 }
 
 describe('AI action registry', () => {
-  it('lists detached immutable provider-safe descriptions in registration order', () => {
-    const providerSchema = {
-      type: 'object',
-      properties: {
-        width: {
-          type: 'number'
-        }
-      }
-    }
-    const schema: AiActionSchema<ResizeArgs> = {
-      ...resizeSchema(),
-      providerSchema
-    }
+  it('lists detached immutable backend-facing input schemas in registration order', () => {
+    const schema = inputSchema()
     const first = action('resize', schema)
     const registry = createAiActionRegistry()
 
     registry.register(first)
     registry.register(action('rotate'))
-    providerSchema.properties.width.type = 'string'
+    schema.properties.width.type = 'string'
     first.description = 'mutated after registration'
 
     const descriptions = registry.list()
 
     expect(descriptions).toEqual([
       {
-        name: 'resize',
         description: 'Execute resize',
         inputSchema: {
-          type: 'object',
+          additionalProperties: false,
           properties: {
             width: {
               type: 'number'
             }
-          }
-        }
+          },
+          required: ['width'],
+          type: 'object'
+        },
+        name: 'resize'
       },
       {
-        name: 'rotate',
         description: 'Execute rotate',
-        inputSchema: resizeSchema().providerSchema
+        inputSchema: inputSchema(),
+        name: 'rotate'
       }
     ])
     expect('execute' in descriptions[0]).toBe(false)
@@ -121,6 +84,24 @@ describe('AI action registry', () => {
     expect(Object.isFrozen(descriptions)).toBe(true)
     expect(Object.isFrozen(descriptions[0])).toBe(true)
     expect(Object.isFrozen(descriptions[0].inputSchema)).toBe(true)
+  })
+
+  it('registers only the input schema and executor without a client schema surface', () => {
+    const registry = createAiActionRegistry()
+    const resize = action('resize')
+
+    registry.register(resize)
+
+    const registered = registry.get('resize')
+    expect(registered).toEqual({
+      description: 'Execute resize',
+      execute: resize.execute,
+      inputSchema: inputSchema(),
+      name: 'resize'
+    })
+    expect(registered).not.toHaveProperty('schema')
+    expect(registered).not.toHaveProperty('parse')
+    expect(registered).not.toHaveProperty('prepare')
   })
 
   it('rejects duplicate names without replacing the original action', () => {
@@ -156,40 +137,10 @@ describe('AI action registry', () => {
       'AI_ACTION_INVALID_DESCRIPTION'
     )
     expectRegistryError(
-      () =>
-        registry.register(
-          action('cyclic-schema', {
-            ...resizeSchema(),
-            providerSchema: cyclicSchema
-          })
-        ),
-      'AI_ACTION_INVALID_SCHEMA'
+      () => registry.register(action('cyclic-schema', cyclicSchema)),
+      'AI_ACTION_INVALID_INPUT_SCHEMA'
     )
     expectRegistryError(() => registry.list(), 'AI_ACTION_REGISTRY_EMPTY')
-  })
-
-  it('keeps schema parsing strict and executor resolution inside the registry', () => {
-    const registry = createAiActionRegistry()
-
-    registry.register(action('resize'))
-
-    expect(registry.get('resize')?.schema.parse({ width: 20 })).toEqual({
-      success: true,
-      value: {
-        width: 20
-      }
-    })
-    expect(registry.get('resize')?.schema.parse({ width: '20' })).toEqual({
-      success: false,
-      issues: [
-        {
-          code: 'invalid_width',
-          message: 'width must be a number',
-          path: ['width']
-        }
-      ]
-    })
-    expect(registry.get('unknown')).toBeUndefined()
   })
 
   it('isolates registrations and disposal between registry instances', () => {

@@ -5,7 +5,7 @@ import {
   type MoveHierarchyRequest
 } from '@asyra/utils'
 import type { LayerDropZone, LayerPointerTarget } from './layer-pointer-session'
-import type { LayerMoveSourcePlan } from './layer-move-source'
+import type { ResolvedLayerMoveSource } from './layer-move-source'
 
 type ProjectedElement = Partial<ElementRawData & GroupRawData>
 type LayerDropElementDataMap = Record<string, ProjectedElement>
@@ -41,7 +41,7 @@ export type LayerDropIntent = ValidLayerDropIntent | InvalidLayerDropIntent
 
 interface ProjectLayerDropIntentInput {
   target: LayerPointerTarget
-  source: LayerMoveSourcePlan
+  source: ResolvedLayerMoveSource
   flattenedIds: readonly string[]
   elementDataMap: LayerDropElementDataMap
   collapsedGroupIds: ReadonlySet<string>
@@ -118,7 +118,7 @@ const valid = ({
   targetElementId: string | null
   targetParentId: string
   targetIndex: number
-  source: LayerMoveSourcePlan
+  source: ResolvedLayerMoveSource
   expandGroupId?: string | null
 }): LayerDropIntent => {
   if (!Number.isInteger(targetIndex) || targetIndex < 0) {

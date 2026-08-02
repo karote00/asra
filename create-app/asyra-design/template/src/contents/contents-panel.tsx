@@ -8,7 +8,10 @@ import React, {
 } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import Element from './Element'
-import { projectVisibleLayerRows } from './layer-hierarchy'
+import {
+  projectExpandedLayerRow,
+  projectVisibleLayerRows
+} from './layer-hierarchy'
 import { getVisibleRangeSelection } from './layer-selection'
 import { COLUMN_WIDTH, ROW_HEIGHT } from '../constants'
 import {
@@ -29,7 +32,7 @@ import {
 } from '../controllers/layer-move-session'
 import {
   deriveLayerMoveSource,
-  type LayerMoveSourcePlan
+  type ResolvedLayerMoveSource
 } from '../controllers/layer-move-source'
 import {
   cancelLayerPointerSession,
@@ -56,7 +59,7 @@ const Contents: React.FC = () => {
   const lastSelectedId = useRef<string | null>(null)
   const activeLayerMove = useRef<{
     pointerSession: LayerPointerSession
-    source: LayerMoveSourcePlan
+    source: ResolvedLayerMoveSource
   } | null>(null)
   const suppressNextClick = useRef(false)
   const clickSuppressionGeneration = useRef(0)
@@ -66,17 +69,23 @@ const Contents: React.FC = () => {
   )
   const layerProjection = useMemo(
     () =>
-      projectVisibleLayerRows(flattenedIds, elementDataMap, collapsedGroupIds),
+      collapsedGroupIds.size === 0
+        ? null
+        : projectVisibleLayerRows(
+            flattenedIds,
+            elementDataMap,
+            collapsedGroupIds
+          ),
     [collapsedGroupIds, elementDataMap, flattenedIds]
   )
-  const visibleRows = layerProjection.rows
+  const visibleRows = layerProjection?.rows ?? null
   const visibleIds = useMemo(
-    () => visibleRows.map((row) => row.id),
-    [visibleRows]
+    () => (visibleRows ? visibleRows.map((row) => row.id) : flattenedIds),
+    [flattenedIds, visibleRows]
   )
   const rowVirtualizer = useVirtualizer({
-    count: visibleRows.length,
-    getItemKey: (index) => visibleRows[index]?.id ?? index,
+    count: visibleIds.length,
+    getItemKey: (index) => visibleIds[index] ?? index,
     getScrollElement: () => parentRef.current,
     estimateSize: () => (ROW_HEIGHT + 2) * 4, // padding is 2
     overscan: 5
@@ -209,10 +218,10 @@ const Contents: React.FC = () => {
       })
       activeLayerMove.current = {
         pointerSession,
-        source: sourceResult.plan
+        source: sourceResult.source
       }
       setDropIntent(null)
-      void startLayerHierarchyMoveSession(pointerSession, sourceResult.plan)
+      void startLayerHierarchyMoveSession(pointerSession, sourceResult.source)
         .then((started) => {
           if (
             !started &&
@@ -445,7 +454,7 @@ const Contents: React.FC = () => {
             : undefined
         }
       >
-        {layerProjection.error ? (
+        {layerProjection?.error ? (
           <div
             role="alert"
             className="px-3 py-2 text-[10px] text-[#f28b82]"
@@ -461,8 +470,16 @@ const Contents: React.FC = () => {
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
-            const row = visibleRows[virtualRow.index]
-            const elementId = row.id
+            const elementId = visibleIds[virtualRow.index]
+            if (!elementId) {
+              return null
+            }
+            const row =
+              visibleRows?.[virtualRow.index] ??
+              projectExpandedLayerRow(elementId, elementDataMap)
+            if (!row) {
+              return null
+            }
 
             return (
               <div

@@ -1,6 +1,7 @@
 import factory, { Factory } from './factory'
 import { initFactorySubscribe } from './subscribes'
 import type {
+  SharedDataChannelBatchChangeHandler,
   SharedDataChannelChangeHandler,
   SharedDataChannelName
 } from './shared-data-channel'
@@ -32,6 +33,15 @@ export const observeSharedDataChannel = <TChange = unknown>(
   handler: SharedDataChannelChangeHandler<TChange>
 ) => factory.observeSharedDataChannel<TChange>(name, handler)
 
+export const observeSharedDataChannelBatch = <TChange = unknown>(
+  name: SharedDataChannelName,
+  handler: SharedDataChannelBatchChangeHandler<TChange>
+) => factory.observeSharedDataChannelBatch<TChange>(name, handler)
+
+export const updateTransactionBatch = (
+  events: Parameters<Factory['updateTransactionBatch']>[0]
+) => factory.updateTransactionBatch(events)
+
 export const registerTransactionInverter = (
   eventName: string,
   inverter: Parameters<Factory['registerTransactionInverter']>[1]
@@ -46,16 +56,28 @@ export const subscribeToTransactionStatus = (
   subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
 ) => factory.subscribeToTransactionStatus(subscriber)
 
-export const subscribeToSharedDelivery = (
-  subscriber: Parameters<Factory['subscribeToSharedDelivery']>[0]
-) => factory.subscribeToSharedDelivery(subscriber)
+export const subscribeToSharedDeliveryBatch = (
+  subscriber: Parameters<Factory['subscribeToSharedDeliveryBatch']>[0]
+) => factory.subscribeToSharedDeliveryBatch(subscriber)
 
 export const subscribeToSharedPublication = (
   subscriber: Parameters<Factory['subscribeToSharedPublication']>[0]
 ) => factory.subscribeToSharedPublication(subscriber)
 
+export const getActiveStagedDeliveryController = () =>
+  factory.getActiveStagedDeliveryController()
+
 export default factory
 export { Factory }
-export * from './shared-data-channel'
+export type { FactoryTransactionOwner } from './factory'
+export {
+  LocalSharedDataChannel,
+  SharedDataChannelRegistry,
+  type SharedDataChannel,
+  type SharedDataChannelBatchChangeHandler,
+  type SharedDataChannelChangeHandler,
+  type SharedDataChannelName
+} from './shared-data-channel'
 export * from './shared-delivery'
+export * from './mutation-batch'
 export * from './transaction'

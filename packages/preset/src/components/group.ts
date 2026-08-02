@@ -1,6 +1,7 @@
 import {
   runTransaction,
   type ComponentDefinition,
+  type ElementPropertyValuesUpdate,
   type RenderStrategy
 } from '@asyra/core'
 import {
@@ -27,7 +28,7 @@ export const GROUP_COMPONENT_DEFINITION: ComponentDefinition = {
     {
       name: PropertyTypes.POSITION,
       type: PropertyTypes.POSITION,
-      alias: ['x', 'y']
+      alias: ['x', 'y', 'rotation']
     },
     {
       name: PropertyTypes.DIMENSION,
@@ -54,14 +55,17 @@ export const GROUP_RENDER_STRATEGY: RenderStrategy = (graphic, data) => {
   graphic.y = data.y
 }
 
-export interface GroupPlanningCore {
+export interface GroupHierarchyReadCore {
   sceneTreeSaveData: () => SceneTreeRawData
 }
 
-export interface GroupOperationCore extends GroupPlanningCore {
+export interface GroupGeometryProjectionCore extends GroupHierarchyReadCore {
   getElementComputedData: (
     elementId: string
   ) => Record<string, unknown> | undefined
+}
+
+export interface GroupOperationCore extends GroupGeometryProjectionCore {
   createElementInParent: (
     data: {
       type: string
@@ -78,11 +82,10 @@ export interface GroupOperationCore extends GroupPlanningCore {
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS
   ) => MoveHierarchyResult
-  changeComputedData: (
-    elementIds: string[],
-    data: Record<string, number>,
+  updateElementProperties: (
+    updates: readonly ElementPropertyValuesUpdate[],
     options?: EVENT_OPTIONS
-  ) => void
+  ) => readonly string[]
   removeSubtree: (
     elementId: string,
     options?: EVENT_OPTIONS
@@ -136,7 +139,23 @@ interface ElementRectangle {
   readonly height: number
 }
 
-const failGroupPlan = (message: string): never => {
+interface GroupGeometryProjection {
+  readonly core: GroupGeometryProjectionCore
+  readonly projectedValues: Map<string, Record<string, unknown>>
+  readonly updatesByElementId: Map<string, Record<string, unknown>>
+  readonly orderedElementIds: string[]
+}
+
+const createGroupGeometryProjection = (
+  core: GroupGeometryProjectionCore
+): GroupGeometryProjection => ({
+  core,
+  projectedValues: new Map(),
+  updatesByElementId: new Map(),
+  orderedElementIds: []
+})
+
+const failGroupPreparation = (message: string): never => {
   throw new Error(
     `[Preset] Cannot prepare official Group operation: ${message}`
   )
@@ -148,16 +167,17 @@ const getContainerChildren = (
 ): readonly string[] => {
   const parent = data.elements[parentId] as GroupRawData | undefined
   if (!parent || !Array.isArray(parent.children)) {
-    return failGroupPlan(`parent "${parentId}" is not a canonical container`)
+    return failGroupPreparation(
+      `parent "${parentId}" is not a canonical container`
+    )
   }
   return parent.children
 }
 
 const normalizeGroupBoundsInTransaction = (
-  core: GroupOperationCore,
+  projection: GroupGeometryProjection,
   data: SceneTreeRawData,
-  groupId: string,
-  options?: EVENT_OPTIONS
+  groupId: string
 ): NormalizedGroupBounds => {
   const group = data.elements[groupId] as GroupRawData | undefined
   if (
@@ -165,12 +185,12 @@ const normalizeGroupBoundsInTransaction = (
     group.type !== EntityTypes.GROUP ||
     !Array.isArray(group.children)
   ) {
-    return failGroupPlan(`"${groupId}" is not an official Group`)
+    return failGroupPreparation(`"${groupId}" is not an official Group`)
   }
 
-  const groupRectangle = readRectangle(core, groupId)
+  const groupRectangle = readRectangle(projection, groupId)
   const childRectangles = group.children.map((elementId) =>
-    readRectangle(core, elementId)
+    readRectangle(projection, elementId)
   )
   const childBounds = deriveGroupBounds(childRectangles)
   const nextBounds =
@@ -188,17 +208,13 @@ const normalizeGroupBoundsInTransaction = (
           height: childBounds.height
         })
 
-  core.changeComputedData([groupId], { ...nextBounds }, options)
+  stageGeometryValues(projection, groupId, nextBounds)
   if (childRectangles.length > 0) {
     childRectangles.forEach(({ id: elementId, x, y }) => {
-      core.changeComputedData(
-        [elementId],
-        {
-          x: x - childBounds.x,
-          y: y - childBounds.y
-        },
-        options
-      )
+      stageGeometryValues(projection, elementId, {
+        x: x - childBounds.x,
+        y: y - childBounds.y
+      })
     })
   }
 
@@ -227,21 +243,75 @@ const readFiniteNumber = (
 }
 
 const getComputedData = (
-  core: GroupOperationCore,
+  projection: GroupGeometryProjection,
   elementId: string
 ): Record<string, unknown> => {
-  const data = core.getElementComputedData(elementId)
+  const projectedValues = projection.projectedValues.get(elementId)
+  if (projectedValues) {
+    return projectedValues
+  }
+
+  const data = projection.core.getElementComputedData(elementId)
   if (!data) {
     return failGroupGeometry(`element "${elementId}" has no computed data`)
   }
-  return data
+  const values = { ...data }
+  projection.projectedValues.set(elementId, values)
+  return values
+}
+
+const stageGeometryValues = (
+  projection: GroupGeometryProjection,
+  elementId: string,
+  values: Readonly<Record<string, number>>
+): void => {
+  const projectedValues = getComputedData(projection, elementId)
+  projection.projectedValues.set(elementId, {
+    ...projectedValues,
+    ...values
+  })
+
+  const existingUpdate = projection.updatesByElementId.get(elementId)
+  if (!existingUpdate) {
+    projection.orderedElementIds.push(elementId)
+  }
+  projection.updatesByElementId.set(elementId, {
+    ...existingUpdate,
+    ...values
+  })
+}
+
+const getProjectedPropertyUpdates = (
+  projection: GroupGeometryProjection
+): readonly ElementPropertyValuesUpdate[] =>
+  Object.freeze(
+    projection.orderedElementIds.map((elementId) =>
+      Object.freeze({
+        elementId,
+        values: Object.freeze({
+          ...projection.updatesByElementId.get(elementId)
+        })
+      })
+    )
+  )
+
+const applyGeometryProjection = (
+  core: Pick<GroupOperationCore, 'updateElementProperties'>,
+  projection: GroupGeometryProjection,
+  options?: EVENT_OPTIONS
+): void => {
+  if (projection.orderedElementIds.length === 0) {
+    return
+  }
+
+  core.updateElementProperties(getProjectedPropertyUpdates(projection), options)
 }
 
 const readRectangle = (
-  core: GroupOperationCore,
+  projection: GroupGeometryProjection,
   elementId: string
 ): ElementRectangle => {
-  const data = getComputedData(core, elementId)
+  const data = getComputedData(projection, elementId)
   return Object.freeze({
     id: elementId,
     x: readFiniteNumber(data, 'x', elementId),
@@ -252,10 +322,10 @@ const readRectangle = (
 }
 
 const readPosition = (
-  core: GroupOperationCore,
+  projection: GroupGeometryProjection,
   elementId: string
 ): Readonly<{ x: number; y: number }> => {
-  const data = getComputedData(core, elementId)
+  const data = getComputedData(projection, elementId)
   return Object.freeze({
     x: readFiniteNumber(data, 'x', elementId),
     y: readFiniteNumber(data, 'y', elementId)
@@ -263,7 +333,7 @@ const readPosition = (
 }
 
 const getElementWorldPosition = (
-  core: GroupOperationCore,
+  projection: GroupGeometryProjection,
   data: SceneTreeRawData,
   elementId: string
 ): Readonly<{ x: number; y: number }> => {
@@ -284,7 +354,7 @@ const getElementWorldPosition = (
     if (element.type === EntityTypes.WORKSPACE) {
       break
     }
-    const position = readPosition(core, currentId)
+    const position = readPosition(projection, currentId)
     x += position.x
     y += position.y
     currentId = element.parentId ?? ''
@@ -304,6 +374,119 @@ const getHierarchyDepth = (
     element = data.elements[element.parentId]
   }
   return depth
+}
+
+const getAffectedGroupIds = (
+  data: SceneTreeRawData,
+  elementIds: readonly string[]
+): readonly string[] => {
+  const groupIds = new Set<string>()
+
+  elementIds.forEach((elementId) => {
+    let element = data.elements[elementId]
+    if (!element) {
+      return failGroupPreparation(`element "${elementId}" is missing`)
+    }
+    if (element.type === EntityTypes.GROUP) {
+      groupIds.add(element.id)
+    }
+
+    while (element.parentId) {
+      const parent = data.elements[element.parentId]
+      if (!parent) {
+        return failGroupPreparation(
+          `parent "${element.parentId}" of "${element.id}" is missing`
+        )
+      }
+      if (parent.type === EntityTypes.GROUP) {
+        groupIds.add(parent.id)
+      }
+      element = parent
+    }
+  })
+
+  return [...groupIds].sort(
+    (first, second) =>
+      getHierarchyDepth(data, second) - getHierarchyDepth(data, first)
+  )
+}
+
+const GROUP_GEOMETRY_PROPERTY_KEYS = new Set(['x', 'y', 'width', 'height'])
+
+const stageInitialPropertyUpdates = (
+  projection: GroupGeometryProjection,
+  updates: readonly ElementPropertyValuesUpdate[]
+): readonly string[] => {
+  const requestedElementIds = new Set<string>()
+  const geometryElementIds: string[] = []
+
+  updates.forEach((update) => {
+    if (
+      !update ||
+      typeof update !== 'object' ||
+      typeof update.elementId !== 'string' ||
+      update.elementId.length === 0 ||
+      requestedElementIds.has(update.elementId) ||
+      !update.values ||
+      typeof update.values !== 'object' ||
+      Array.isArray(update.values)
+    ) {
+      return failGroupPreparation(
+        'property updates require unique element ids and value records'
+      )
+    }
+
+    requestedElementIds.add(update.elementId)
+    projection.orderedElementIds.push(update.elementId)
+    projection.updatesByElementId.set(update.elementId, {
+      ...update.values
+    })
+
+    const stagedGeometryValues = Object.fromEntries(
+      Object.entries(update.values).filter(([key]) =>
+        GROUP_GEOMETRY_PROPERTY_KEYS.has(key)
+      )
+    )
+    if (Object.keys(stagedGeometryValues).length === 0) {
+      return
+    }
+
+    const currentValues = getComputedData(projection, update.elementId)
+    projection.projectedValues.set(update.elementId, {
+      ...currentValues,
+      ...stagedGeometryValues
+    })
+    geometryElementIds.push(update.elementId)
+  })
+
+  return Object.freeze(geometryElementIds)
+}
+
+export const projectGroupGeometryPropertyUpdates = (
+  core: GroupGeometryProjectionCore,
+  initialUpdates: readonly ElementPropertyValuesUpdate[]
+): readonly ElementPropertyValuesUpdate[] => {
+  if (!Array.isArray(initialUpdates)) {
+    return failGroupPreparation('property updates must be an array')
+  }
+  if (initialUpdates.length === 0) {
+    return Object.freeze([])
+  }
+
+  const projection = createGroupGeometryProjection(core)
+  const geometryElementIds = stageInitialPropertyUpdates(
+    projection,
+    initialUpdates
+  )
+  if (geometryElementIds.length === 0) {
+    return getProjectedPropertyUpdates(projection)
+  }
+
+  const data = core.sceneTreeSaveData()
+  getAffectedGroupIds(data, geometryElementIds).forEach((groupId) => {
+    normalizeGroupBoundsInTransaction(projection, data, groupId)
+  })
+  return getProjectedPropertyUpdates(projection)
 }
 
 export const deriveGroupBounds = (
@@ -338,7 +521,7 @@ export const deriveGroupBounds = (
 }
 
 export const prepareGroupOperation = (
-  core: GroupPlanningCore,
+  core: GroupHierarchyReadCore,
   elementIds: readonly string[]
 ): PreparedGroupOperation => {
   if (
@@ -348,17 +531,17 @@ export const prepareGroupOperation = (
       (elementId) => typeof elementId !== 'string' || elementId.length === 0
     )
   ) {
-    return failGroupPlan('element ids must be a non-empty string list')
+    return failGroupPreparation('element ids must be a non-empty string list')
   }
   if (new Set(elementIds).size !== elementIds.length) {
-    return failGroupPlan('element ids must be unique')
+    return failGroupPreparation('element ids must be unique')
   }
 
   const data = core.sceneTreeSaveData()
   const elements = elementIds.map((elementId) => {
     const element = data.elements[elementId]
     if (!element) {
-      return failGroupPlan(`element "${elementId}" is missing`)
+      return failGroupPreparation(`element "${elementId}" is missing`)
     }
     return element
   })
@@ -367,14 +550,16 @@ export const prepareGroupOperation = (
     parentId.length === 0 ||
     elements.some((element) => element.parentId !== parentId)
   ) {
-    return failGroupPlan('element ids must resolve to one canonical parent')
+    return failGroupPreparation(
+      'element ids must resolve to one canonical parent'
+    )
   }
 
   const selectedIds = new Set(elementIds)
   const children = getContainerChildren(data, parentId)
   const canonicalIds = children.filter((childId) => selectedIds.has(childId))
   if (canonicalIds.length !== elementIds.length) {
-    return failGroupPlan(
+    return failGroupPreparation(
       'element ids must each have one canonical parent membership'
     )
   }
@@ -388,7 +573,7 @@ export const prepareGroupOperation = (
 }
 
 export const prepareUngroupOperation = (
-  core: GroupPlanningCore,
+  core: GroupHierarchyReadCore,
   groupId: string
 ): PreparedUngroupOperation => {
   const data = core.sceneTreeSaveData()
@@ -407,7 +592,7 @@ export const prepareUngroupOperation = (
   const siblings = getContainerChildren(data, parentId)
   const groupIndex = siblings.indexOf(groupId)
   if (groupIndex < 0 || siblings.lastIndexOf(groupId) !== groupIndex) {
-    return failGroupPlan(
+    return failGroupPreparation(
       `Group "${groupId}" must have one canonical parent membership`
     )
   }
@@ -426,9 +611,10 @@ export const groupElements = (
   elementIds: readonly string[],
   options?: EVENT_OPTIONS
 ): GroupOperationResult => {
-  const plan = prepareGroupOperation(core, elementIds)
-  const rectangles = plan.elementIds.map((elementId) =>
-    readRectangle(core, elementId)
+  const preparedGroup = prepareGroupOperation(core, elementIds)
+  const geometryProjection = createGroupGeometryProjection(core)
+  const rectangles = preparedGroup.elementIds.map((elementId) =>
+    readRectangle(geometryProjection, elementId)
   )
   const bounds = deriveGroupBounds(rectangles)
 
@@ -438,8 +624,8 @@ export const groupElements = (
         type: EntityTypes.GROUP,
         ...bounds
       },
-      plan.parentId,
-      plan.groupIndex,
+      preparedGroup.parentId,
+      preparedGroup.groupIndex,
       options
     )
     if (!createdGroupId) {
@@ -448,29 +634,26 @@ export const groupElements = (
 
     core.moveElements(
       {
-        elementIds: [...plan.elementIds],
+        elementIds: [...preparedGroup.elementIds],
         targetParentId: createdGroupId,
         targetIndex: 0
       },
       options
     )
     rectangles.forEach(({ id: elementId, x, y }) => {
-      core.changeComputedData(
-        [elementId],
-        {
-          x: x - bounds.x,
-          y: y - bounds.y
-        },
-        options
-      )
+      stageGeometryValues(geometryProjection, elementId, {
+        x: x - bounds.x,
+        y: y - bounds.y
+      })
     })
+    applyGeometryProjection(core, geometryProjection, options)
 
     return createdGroupId
   })
 
   return Object.freeze({
     groupId,
-    elementIds: Object.freeze([...plan.elementIds]),
+    elementIds: Object.freeze([...preparedGroup.elementIds]),
     bounds
   })
 }
@@ -480,34 +663,34 @@ export const ungroupElement = (
   groupId: string,
   options?: EVENT_OPTIONS
 ): UngroupOperationResult => {
-  const plan = prepareUngroupOperation(core, groupId)
+  const preparedUngroup = prepareUngroupOperation(core, groupId)
+  const geometryProjection = createGroupGeometryProjection(core)
   const groupPosition =
-    plan.elementIds.length > 0 ? readPosition(core, groupId) : undefined
-  const childPositions = plan.elementIds.map((elementId) => ({
+    preparedUngroup.elementIds.length > 0
+      ? readPosition(geometryProjection, groupId)
+      : undefined
+  const childPositions = preparedUngroup.elementIds.map((elementId) => ({
     elementId,
-    ...readPosition(core, elementId)
+    ...readPosition(geometryProjection, elementId)
   }))
 
   runTransaction(() => {
     if (childPositions.length > 0 && groupPosition) {
       core.moveElements(
         {
-          elementIds: [...plan.elementIds],
-          targetParentId: plan.parentId,
-          targetIndex: plan.groupIndex
+          elementIds: [...preparedUngroup.elementIds],
+          targetParentId: preparedUngroup.parentId,
+          targetIndex: preparedUngroup.groupIndex
         },
         options
       )
       childPositions.forEach(({ elementId, x, y }) => {
-        core.changeComputedData(
-          [elementId],
-          {
-            x: x + groupPosition.x,
-            y: y + groupPosition.y
-          },
-          options
-        )
+        stageGeometryValues(geometryProjection, elementId, {
+          x: x + groupPosition.x,
+          y: y + groupPosition.y
+        })
       })
+      applyGeometryProjection(core, geometryProjection, options)
     }
 
     core.removeSubtree(groupId, options)
@@ -515,7 +698,7 @@ export const ungroupElement = (
 
   return Object.freeze({
     groupId,
-    elementIds: Object.freeze([...plan.elementIds]),
+    elementIds: Object.freeze([...preparedUngroup.elementIds]),
     removed: true
   })
 }
@@ -526,43 +709,16 @@ export const normalizeGroupsForElements = (
   options?: EVENT_OPTIONS
 ): readonly NormalizedGroupBounds[] => {
   const data = core.sceneTreeSaveData()
-  const groupIds = new Set<string>()
+  const geometryProjection = createGroupGeometryProjection(core)
+  const deepestFirstGroupIds = getAffectedGroupIds(data, elementIds)
 
-  elementIds.forEach((elementId) => {
-    let element = data.elements[elementId]
-    if (!element) {
-      return failGroupPlan(`element "${elementId}" is missing`)
-    }
-    if (element.type === EntityTypes.GROUP) {
-      groupIds.add(element.id)
-    }
-
-    while (element.parentId) {
-      const parent = data.elements[element.parentId]
-      if (!parent) {
-        return failGroupPlan(
-          `parent "${element.parentId}" of "${element.id}" is missing`
-        )
-      }
-      if (parent.type === EntityTypes.GROUP) {
-        groupIds.add(parent.id)
-      }
-      element = parent
-    }
-  })
-
-  const deepestFirstGroupIds = [...groupIds].sort(
-    (first, second) =>
-      getHierarchyDepth(data, second) - getHierarchyDepth(data, first)
-  )
-
-  return runTransaction(() =>
-    Object.freeze(
-      deepestFirstGroupIds.map((groupId) =>
-        normalizeGroupBoundsInTransaction(core, data, groupId, options)
-      )
+  return runTransaction(() => {
+    const results = deepestFirstGroupIds.map((groupId) =>
+      normalizeGroupBoundsInTransaction(geometryProjection, data, groupId)
     )
-  )
+    applyGeometryProjection(core, geometryProjection, options)
+    return Object.freeze(results)
+  })
 }
 
 export const moveElementsWithGroupGeometry = (
@@ -571,6 +727,7 @@ export const moveElementsWithGroupGeometry = (
   options?: EVENT_OPTIONS
 ): MoveHierarchyResult => {
   const beforeData = core.sceneTreeSaveData()
+  const geometryProjection = createGroupGeometryProjection(core)
 
   return runTransaction(() => {
     const result = core.moveElements(request, options)
@@ -591,22 +748,18 @@ export const moveElementsWithGroupGeometry = (
 
     const worldPositions = result.elementIds.map((elementId) => ({
       elementId,
-      ...getElementWorldPosition(core, beforeData, elementId)
+      ...getElementWorldPosition(geometryProjection, beforeData, elementId)
     }))
     const targetOrigin =
       afterData.elements[targetParentId]?.type === EntityTypes.WORKSPACE
         ? { x: 0, y: 0 }
-        : getElementWorldPosition(core, afterData, targetParentId)
+        : getElementWorldPosition(geometryProjection, afterData, targetParentId)
 
     worldPositions.forEach(({ elementId, x, y }) => {
-      core.changeComputedData(
-        [elementId],
-        {
-          x: x - targetOrigin.x,
-          y: y - targetOrigin.y
-        },
-        options
-      )
+      stageGeometryValues(geometryProjection, elementId, {
+        x: x - targetOrigin.x,
+        y: y - targetOrigin.y
+      })
     })
 
     const groupIds = new Set<string>()
@@ -629,8 +782,9 @@ export const moveElementsWithGroupGeometry = (
         getHierarchyDepth(afterData, first)
     )
     deepestFirstGroupIds.forEach((groupId) => {
-      normalizeGroupBoundsInTransaction(core, afterData, groupId, options)
+      normalizeGroupBoundsInTransaction(geometryProjection, afterData, groupId)
     })
+    applyGeometryProjection(core, geometryProjection, options)
 
     return result
   })

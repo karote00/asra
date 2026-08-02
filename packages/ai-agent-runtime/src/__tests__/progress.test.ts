@@ -18,7 +18,7 @@ const deferred = <T>() => {
   return { promise, reject, resolve }
 }
 
-const candidatePlan = () => ({
+const candidateActionBatch = () => ({
   actions: [
     {
       arguments: {
@@ -27,11 +27,15 @@ const candidatePlan = () => ({
         visible: false
       },
       id: 'action-1',
-      name: 'set_element_visibility'
+      name: 'set_element_visibility',
+      summary: {
+        affectedCount: 1,
+        actionKind: 'visibility'
+      }
     }
   ],
   explanation: 'Create a visible result without private reasoning.',
-  planId: 'plan-1'
+  batchId: 'batch-1'
 })
 
 const visibilityAction = (
@@ -46,50 +50,17 @@ const visibilityAction = (
 }> => ({
   description: 'Set element visibility.',
   execute,
-  name: 'set_element_visibility',
-  schema: {
-    parse: (value) => {
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        'elementId' in value &&
-        typeof value.elementId === 'string' &&
-        'secretToken' in value &&
-        typeof value.secretToken === 'string' &&
-        'visible' in value &&
-        typeof value.visible === 'boolean'
-      ) {
-        return {
-          success: true,
-          value: {
-            elementId: value.elementId,
-            secretToken: value.secretToken,
-            visible: value.visible
-          }
-        }
-      }
-      return {
-        issues: [
-          {
-            code: 'invalid_arguments',
-            message: 'Invalid visibility arguments.',
-            path: []
-          }
-        ],
-        success: false
-      }
+  inputSchema: {
+    additionalProperties: false,
+    properties: {
+      elementId: { type: 'string' },
+      secretToken: { type: 'string' },
+      visible: { type: 'boolean' }
     },
-    providerSchema: {
-      additionalProperties: false,
-      properties: {
-        elementId: { type: 'string' },
-        secretToken: { type: 'string' },
-        visible: { type: 'boolean' }
-      },
-      required: ['elementId', 'secretToken', 'visible'],
-      type: 'object'
-    }
-  }
+    required: ['elementId', 'secretToken', 'visible'],
+    type: 'object'
+  },
+  name: 'set_element_visibility'
 })
 
 const runtimeInput = (
@@ -109,7 +80,7 @@ const runtimeInput = (
     evaluate: vi.fn(async () => 'allow' as const)
   },
   provider: {
-    generateActionPlan: vi.fn(async () => candidatePlan())
+    requestActionBatch: vi.fn(async () => candidateActionBatch())
   },
   transactionRunner: {
     run: async <T>(_label: string, execute: () => Promise<T>) => execute()
@@ -137,8 +108,8 @@ describe('AI runtime operational progress', () => {
     expect(result.status).toBe('executed')
     expect(phases(updates)).toEqual([
       'context',
-      'planning',
-      'validation',
+      'provider',
+      'resolution',
       'permission',
       'execution',
       'settled'
@@ -151,28 +122,26 @@ describe('AI runtime operational progress', () => {
       },
       {
         attempt: 1,
-        phase: 'planning',
-        summary: 'Preparing an action plan'
+        phase: 'provider',
+        summary: 'Requesting an action batch'
       },
       {
-        actionCount: 1,
         attempt: 1,
-        phase: 'validation',
-        planId: 'plan-1',
-        summary: 'Validating app actions'
+        phase: 'resolution',
+        summary: 'Resolving app actions'
       },
       {
         actionCount: 1,
         attempt: 1,
         phase: 'permission',
-        planId: 'plan-1',
+        batchId: 'batch-1',
         summary: 'Checking action permissions'
       },
       {
         actionCount: 1,
         attempt: 1,
         phase: 'execution',
-        planId: 'plan-1',
+        batchId: 'batch-1',
         summary: 'Applying changes'
       },
       {
@@ -180,7 +149,7 @@ describe('AI runtime operational progress', () => {
         attempt: 1,
         outcome: 'executed',
         phase: 'settled',
-        planId: 'plan-1',
+        batchId: 'batch-1',
         summary: 'Completed'
       }
     ])
@@ -195,7 +164,7 @@ describe('AI runtime operational progress', () => {
     expect(serialized).not.toContain('chain-of-thought')
   })
 
-  it('emits confirmation only while a confirmation-required plan waits', async () => {
+  it('emits confirmation only while a confirmation-required batch waits', async () => {
     const updates: AiRuntimeProgressUpdate[] = []
     const confirmation = deferred<boolean>()
     const runtime = createAiAgentRuntime(
@@ -222,7 +191,7 @@ describe('AI runtime operational progress', () => {
       actionCount: 1,
       attempt: 1,
       phase: 'confirmation',
-      planId: 'plan-1',
+      batchId: 'batch-1',
       summary: 'Waiting for confirmation'
     })
 
@@ -232,8 +201,8 @@ describe('AI runtime operational progress', () => {
     })
     expect(phases(updates)).toEqual([
       'context',
-      'planning',
-      'validation',
+      'provider',
+      'resolution',
       'permission',
       'confirmation',
       'execution',
@@ -241,14 +210,14 @@ describe('AI runtime operational progress', () => {
     ])
   })
 
-  it('redacts a secret-shaped provider plan identity before observation', async () => {
+  it('redacts a secret-shaped provider batch identity before observation', async () => {
     const updates: AiRuntimeProgressUpdate[] = []
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(async () => ({
-            ...candidatePlan(),
-            planId: 'Bearer provider-plan-secret'
+          requestActionBatch: vi.fn(async () => ({
+            ...candidateActionBatch(),
+            batchId: 'Bearer provider-batch-secret'
           }))
         }
       })
@@ -262,10 +231,10 @@ describe('AI runtime operational progress', () => {
 
     expect(
       updates
-        .filter((update) => update.planId !== undefined)
-        .every((update) => update.planId === AI_REDACTED_VALUE)
+        .filter((update) => update.batchId !== undefined)
+        .every((update) => update.batchId === AI_REDACTED_VALUE)
     ).toBe(true)
-    expect(JSON.stringify(updates)).not.toContain('provider-plan-secret')
+    expect(JSON.stringify(updates)).not.toContain('provider-batch-secret')
   })
 
   it('contains observer exceptions without changing execution or terminal output', async () => {
@@ -301,7 +270,7 @@ describe('AI runtime operational progress', () => {
           }
         },
         provider: {
-          generateActionPlan: vi.fn(async () => {
+          requestActionBatch: vi.fn(async () => {
             throw new AiProviderError({
               code: 'AI_PROVIDER_TRANSPORT_FAILED',
               message: 'Bearer provider-secret',
@@ -324,8 +293,8 @@ describe('AI runtime operational progress', () => {
     })
     expect(phases(updates)).toEqual([
       'context',
-      'planning',
-      'planning',
+      'provider',
+      'provider',
       'settled'
     ])
     expect(updates.at(-1)).toEqual({
@@ -339,23 +308,23 @@ describe('AI runtime operational progress', () => {
 
   it('stops progress after caller abort while provider work is pending', async () => {
     const updates: AiRuntimeProgressUpdate[] = []
-    const provider = deferred<ReturnType<typeof candidatePlan>>()
+    const provider = deferred<ReturnType<typeof candidateActionBatch>>()
     const controller = new AbortController()
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(() => provider.promise)
+          requestActionBatch: vi.fn(() => provider.promise)
         }
       })
     )
 
     const settlement = runtime.run({
-      intent: 'wait for planning',
+      intent: 'wait for provider',
       progressObserver: (update) => updates.push(update),
       signal: controller.signal
     })
     await vi.waitFor(() => {
-      expect(phases(updates)).toEqual(['context', 'planning'])
+      expect(phases(updates)).toEqual(['context', 'provider'])
     })
 
     controller.abort('cancelled by user')
@@ -365,7 +334,7 @@ describe('AI runtime operational progress', () => {
     })
     const countAfterAbort = updates.length
 
-    provider.resolve(candidatePlan())
+    provider.resolve(candidateActionBatch())
     await Promise.resolve()
     expect(updates).toHaveLength(countAfterAbort)
     expect(phases(updates)).not.toContain('settled')
@@ -373,11 +342,11 @@ describe('AI runtime operational progress', () => {
 
   it('stops progress after runtime disposal and awaits the cancelled invocation', async () => {
     const updates: AiRuntimeProgressUpdate[] = []
-    const provider = deferred<ReturnType<typeof candidatePlan>>()
+    const provider = deferred<ReturnType<typeof candidateActionBatch>>()
     const runtime = createAiAgentRuntime(
       runtimeInput({
         provider: {
-          generateActionPlan: vi.fn(() => provider.promise)
+          requestActionBatch: vi.fn(() => provider.promise)
         }
       })
     )
@@ -388,7 +357,7 @@ describe('AI runtime operational progress', () => {
       signal: new AbortController().signal
     })
     await vi.waitFor(() => {
-      expect(phases(updates)).toEqual(['context', 'planning'])
+      expect(phases(updates)).toEqual(['context', 'provider'])
     })
 
     await runtime.dispose()
@@ -398,7 +367,7 @@ describe('AI runtime operational progress', () => {
     })
     const countAfterDispose = updates.length
 
-    provider.resolve(candidatePlan())
+    provider.resolve(candidateActionBatch())
     await Promise.resolve()
     expect(updates).toHaveLength(countAfterDispose)
   })

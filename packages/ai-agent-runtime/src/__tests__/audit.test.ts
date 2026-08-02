@@ -35,12 +35,12 @@ describe('AI runtime audit output', () => {
       actionResults: batch.actionResults,
       explanation: 'Apply the requested changes.',
       outcome: 'executed',
-      planId: 'plan-1',
+      batchId: 'batch-1',
       retryCount: 1
     })
 
     expect(audit).toEqual({
-      planId: 'plan-1',
+      batchId: 'batch-1',
       outcome: 'executed',
       retryCount: 1,
       explanation: 'Apply the requested changes.',
@@ -84,7 +84,7 @@ describe('AI runtime audit output', () => {
         ],
         explanation: 'Bearer provider-secret',
         outcome: 'failed',
-        planId: 'plan-1',
+        batchId: 'batch-1',
         retryCount: 2
       },
       {

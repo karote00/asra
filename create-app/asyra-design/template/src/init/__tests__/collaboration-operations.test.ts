@@ -1,42 +1,60 @@
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
+import type {
+  SharedPublication,
+  SharedPublicationDelivery
+} from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
-  type PropsRestorePlan,
-  type SceneTreeRestorePlan
+  type PreparedPropsRestore,
+  type PreparedSceneTreeRestore
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
+
+type TestPublicationDelivery = SharedPublicationDelivery & {
+  readonly batchId: string
+  readonly channel: string
+}
 
 const delivery = (
   channel: string,
   eventName: string,
   payload: unknown,
   deliveryId = eventName
-): SharedDelivery => ({
+): TestPublicationDelivery => ({
   deliveryId,
-  transactionId: 1,
-  origin: 'action',
-  kind: 'forward',
+  batchId: `batch-${deliveryId}`,
   channel,
   eventName,
-  payload,
-  sharedDelivery: 'immediate'
+  orderedIds: [deliveryId],
+  payload
 })
 
 const publication = (
-  deliveries: readonly SharedDelivery[],
+  deliveries: readonly TestPublicationDelivery[],
   publicationId = 'publication-a'
 ): SharedPublication => ({
   publicationId,
+  artifactId: `artifact-${publicationId}`,
   transactionId: 1,
   origin: 'action',
-  deliveries
+  mode: 'atomic',
+  slices: [
+    {
+      sliceId: `slice-${publicationId}`,
+      orderedIds: deliveries.map(({ deliveryId }) => deliveryId),
+      batches: deliveries.map(({ batchId, channel, ...item }) => ({
+        batchId,
+        channel,
+        deliveries: [item]
+      }))
+    }
+  ]
 })
 
-const validDeliveries = (): readonly SharedDelivery[] => [
+const validDeliveries = (): readonly TestPublicationDelivery[] => [
   delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.ADD_ELEMENT, {
     action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
     eventName: EventTypes.ADD_ELEMENT,
@@ -123,7 +141,7 @@ const validDeliveries = (): readonly SharedDelivery[] => [
   })
 ]
 
-const restoreDeliveries = (): readonly SharedDelivery[] => [
+const restoreDeliveries = (): readonly TestPublicationDelivery[] => [
   delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
     action: PROPS_ACTIONS.ADD_PROPERTY,
     undoType: EventTypes.REMOVE_PROPERTY,
@@ -162,8 +180,8 @@ const restoreDeliveries = (): readonly SharedDelivery[] => [
 ]
 
 const createRestoreOwners = () => {
-  const scenePlan = Object.freeze({
-    kind: 'scene-tree-restore-plan',
+  const preparedSceneRestore = Object.freeze({
+    kind: 'prepared-scene-tree-restore',
     elementId: 'group-a',
     entries: Object.freeze([
       Object.freeze({
@@ -179,24 +197,24 @@ const createRestoreOwners = () => {
         componentId: 'position-group-a'
       })
     ])
-  }) satisfies SceneTreeRestorePlan
-  const propsPlan = Object.freeze({
-    kind: 'props-restore-plan',
+  }) satisfies PreparedSceneTreeRestore
+  const preparedPropsRestore = Object.freeze({
+    kind: 'prepared-props-restore',
     entries: Object.freeze([
       Object.freeze({
         componentId: 'position-group-a',
         strategy: 'materialize' as const
       })
     ]),
-    ownerRelations: scenePlan.propertyOwnerRelations
-  }) satisfies PropsRestorePlan
+    ownerRelations: preparedSceneRestore.propertyOwnerRelations
+  }) satisfies PreparedPropsRestore
 
   return {
-    scenePlan,
-    propsPlan,
+    preparedSceneRestore,
+    preparedPropsRestore,
     owners: {
-      preflightRestoreSubtree: vi.fn(() => scenePlan),
-      preflightRestoreProperties: vi.fn(() => propsPlan),
+      preflightRestoreSubtree: vi.fn(() => preparedSceneRestore),
+      preflightRestoreProperties: vi.fn(() => preparedPropsRestore),
       applyRestoreProperties: vi.fn(() => Object.freeze(['position-group-a'])),
       applyRestoreSubtree: vi.fn()
     }
@@ -211,7 +229,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
       mutate()
     })
     const process = vi.fn()
-    const { scenePlan, propsPlan, owners } = createRestoreOwners()
+    const { preparedSceneRestore, preparedPropsRestore, owners } =
+      createRestoreOwners()
     owners.preflightRestoreSubtree.mockImplementation((snapshot) => {
       callOrder.push('preflight-scene')
       expect(snapshot).toEqual(
@@ -220,7 +239,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
           rootParentChildrenAfter: []
         })
       )
-      return scenePlan
+      return preparedSceneRestore
     })
     owners.preflightRestoreProperties.mockImplementation(
       (snapshot, ownerRelations) => {
@@ -235,8 +254,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
             }
           ]
         })
-        expect(ownerRelations).toBe(scenePlan.propertyOwnerRelations)
-        return propsPlan
+        expect(ownerRelations).toBe(preparedSceneRestore.propertyOwnerRelations)
+        return preparedPropsRestore
       }
     )
     owners.applyRestoreProperties.mockImplementation(() => {
@@ -267,16 +286,20 @@ describe('Asyra Design app-owned collaboration processing', () => {
       'apply-props',
       'apply-scene'
     ])
-    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(propsPlan)
-    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(scenePlan)
+    expect(owners.applyRestoreProperties).toHaveBeenCalledWith(
+      preparedPropsRestore
+    )
+    expect(owners.applyRestoreSubtree).toHaveBeenCalledWith(
+      preparedSceneRestore
+    )
     expect(process).not.toHaveBeenCalled()
   })
 
   it('rejects mixed or out-of-order restore deliveries before owner preflight', () => {
     const cases = [
       [
-        ...(restoreDeliveries() as SharedDelivery[]),
-        validDeliveries()[0] as SharedDelivery
+        ...(restoreDeliveries() as TestPublicationDelivery[]),
+        validDeliveries()[0] as TestPublicationDelivery
       ],
       [...restoreDeliveries()].reverse()
     ]
@@ -309,7 +332,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
       payload: {
         ...(sceneDelivery?.payload as Record<string, unknown>)
       }
-    } as SharedDelivery
+    } as TestPublicationDelivery
     delete (malformedScene.payload as Record<string, unknown>)
       .rootParentChildrenAfter
     const decide = vi.fn((item: SharedPublication) => item)
@@ -325,7 +348,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
     expect(() =>
       processPublication(
         publication(
-          [propsDelivery as SharedDelivery, malformedScene],
+          [propsDelivery as TestPublicationDelivery, malformedScene],
           'malformed-root-order'
         )
       )
@@ -401,7 +424,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
       process
     )
     const deliveries = [
-      validDeliveries()[0] as SharedDelivery,
+      validDeliveries()[0] as TestPublicationDelivery,
       delivery('unknown-channel', 'unknown-event', { value: 1 })
     ]
 
@@ -419,7 +442,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
       runRemoteTransaction,
       process
     )
-    const repeated = validDeliveries()[2] as SharedDelivery
+    const repeated = validDeliveries()[2] as TestPublicationDelivery
 
     processPublication(
       publication([
@@ -502,7 +525,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
   it('revalidates an app-transformed conflict decision before canonical apply', () => {
     const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
     const process = vi.fn()
-    const replacement = validDeliveries()[4] as SharedDelivery
+    const replacement = validDeliveries()[4] as TestPublicationDelivery
     const processPublication = createAsyraDesignPublicationProcessor(
       runRemoteTransaction,
       process,
@@ -510,7 +533,10 @@ describe('Asyra Design app-owned collaboration processing', () => {
     )
 
     processPublication(
-      publication([validDeliveries()[5] as SharedDelivery], 'conflicting')
+      publication(
+        [validDeliveries()[5] as TestPublicationDelivery],
+        'conflicting'
+      )
     )
 
     expect(runRemoteTransaction).toHaveBeenCalledOnce()

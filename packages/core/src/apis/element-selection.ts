@@ -46,11 +46,12 @@ const publishSelectionChange = (
 ) => {
   const mutate = () =>
     runTransaction(() => {
-      updateTransaction(
-        change.eventName,
-        change,
-        toSharedSelectionOptions(options)
-      )
+      updateTransaction({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: toSharedSelectionOptions(options)
+      })
       selectionState.select(change.after, options)
       selectionState.cleanChanges()
     })

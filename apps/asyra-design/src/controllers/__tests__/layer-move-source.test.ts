@@ -37,7 +37,7 @@ describe('Layers hierarchy move source intent', () => {
       })
     ).toEqual({
       ok: true,
-      plan: {
+      source: {
         elementIds: ['b'],
         sourceParentId: 'workspace',
         preSessionSelection: ['a'],
@@ -57,7 +57,7 @@ describe('Layers hierarchy move source intent', () => {
       })
     ).toEqual({
       ok: true,
-      plan: {
+      source: {
         elementIds: ['b', 'a'],
         sourceParentId: 'workspace',
         preSessionSelection: ['b', 'a'],
@@ -107,7 +107,7 @@ describe('Layers hierarchy move source intent', () => {
     })
 
     expect(result).toEqual({ ok: false, reason: scenario.reason })
-    expect('plan' in result).toBe(false)
+    expect('source' in result).toBe(false)
   })
 
   it('rejects a stale projection even when element data remains present', () => {

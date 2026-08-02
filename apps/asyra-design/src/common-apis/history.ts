@@ -23,18 +23,18 @@ export const historyApis = {
   redo
 }
 
-export interface AsyraDesignAiHistoryControl {
+export interface AiHistoryControl {
   readonly actionId: number
   readonly direction: 'redo' | 'undo'
   readonly turnId: string
 }
 
-export interface AsyraDesignAiHistorySnapshot {
-  readonly control: AsyraDesignAiHistoryControl | null
+export interface AiHistorySnapshot {
+  readonly control: AiHistoryControl | null
   readonly disposed: boolean
 }
 
-interface AsyraDesignAiHistoryProjectionDependencies {
+interface AiHistoryProjectionDependencies {
   readonly redo: () => void
   readonly subscribeToActions: (
     observer: (actionId: number) => void
@@ -44,36 +44,35 @@ interface AsyraDesignAiHistoryProjectionDependencies {
   readonly undo: () => void
 }
 
-const defaultAiHistoryDependencies: AsyraDesignAiHistoryProjectionDependencies =
-  {
-    redo: historyApis.redo,
-    subscribeToActions: (observer) => {
-      const subscription = subscribeToUserActionCompleted((event) => {
-        observer(event.payload.actionId)
-      })
-      return () => subscription.unsubscribe()
-    },
-    subscribeToRedo: (observer) => {
-      const subscription = subscribeToRedo(observer)
-      return () => subscription.unsubscribe()
-    },
-    subscribeToUndo: (observer) => {
-      const subscription = subscribeToUndo(observer)
-      return () => subscription.unsubscribe()
-    },
-    undo: historyApis.undo
-  }
+const defaultAiHistoryDependencies: AiHistoryProjectionDependencies = {
+  redo: historyApis.redo,
+  subscribeToActions: (observer) => {
+    const subscription = subscribeToUserActionCompleted((event) => {
+      observer(event.payload.actionId)
+    })
+    return () => subscription.unsubscribe()
+  },
+  subscribeToRedo: (observer) => {
+    const subscription = subscribeToRedo(observer)
+    return () => subscription.unsubscribe()
+  },
+  subscribeToUndo: (observer) => {
+    const subscription = subscribeToUndo(observer)
+    return () => subscription.unsubscribe()
+  },
+  undo: historyApis.undo
+}
 
-export const createAsyraDesignAiHistoryProjection = (
-  dependencies: AsyraDesignAiHistoryProjectionDependencies = defaultAiHistoryDependencies
+export const createAiHistoryProjection = (
+  dependencies: AiHistoryProjectionDependencies = defaultAiHistoryDependencies
 ) => {
-  const observers = new Set<(snapshot: AsyraDesignAiHistorySnapshot) => void>()
+  const observers = new Set<(snapshot: AiHistorySnapshot) => void>()
   let activeTurnId: string | null = null
-  let control: AsyraDesignAiHistoryControl | null = null
+  let control: AiHistoryControl | null = null
   let currentActionId: number | null = null
   let disposed = false
 
-  const getSnapshot = (): AsyraDesignAiHistorySnapshot =>
+  const getSnapshot = (): AiHistorySnapshot =>
     Object.freeze({
       control,
       disposed
@@ -90,7 +89,7 @@ export const createAsyraDesignAiHistoryProjection = (
     })
   }
 
-  const setControl = (next: AsyraDesignAiHistoryControl | null) => {
+  const setControl = (next: AiHistoryControl | null) => {
     control = next ? Object.freeze({ ...next }) : null
     notify()
   }
@@ -169,7 +168,7 @@ export const createAsyraDesignAiHistoryProjection = (
       return true
     },
     subscribe: (
-      observer: (snapshot: AsyraDesignAiHistorySnapshot) => void
+      observer: (snapshot: AiHistorySnapshot) => void
     ): (() => void) => {
       if (disposed) {
         return () => undefined
@@ -194,6 +193,4 @@ export const createAsyraDesignAiHistoryProjection = (
   })
 }
 
-export type AsyraDesignAiHistoryProjection = ReturnType<
-  typeof createAsyraDesignAiHistoryProjection
->
+export type AiHistoryProjection = ReturnType<typeof createAiHistoryProjection>

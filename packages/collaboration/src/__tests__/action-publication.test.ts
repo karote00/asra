@@ -6,9 +6,15 @@ import {
 } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import { createCollaboration, MemoryHub, MemoryProvider } from '..'
+import { createSharedPublicationFixture } from './shared-publication-fixture'
 
 const CHANNEL = 'document'
 const SET_VALUE = 'set-value'
+
+const deliveriesOf = (publication: SharedPublication) =>
+  publication.slices.flatMap((slice) =>
+    slice.batches.flatMap((batch) => batch.deliveries)
+  )
 
 interface SetValuePayload {
   id: string
@@ -30,6 +36,7 @@ const createFactoryHarness = () => {
       }
     } as typeof event
   })
+  factory.registerTransactionReplayHandler(SET_VALUE, () => true)
   const provider = new MemoryProvider(new MemoryHub(), {
     documentId: 'document-a',
     roomId: 'room-a',
@@ -46,7 +53,14 @@ const createFactoryHarness = () => {
     processRemotePublication,
     resourceOwnership: { provider: 'owned' }
   })
-  const update = (id: string, after: number, rollbackable = false) => {
+  const update = (
+    id: string,
+    after: number,
+    options: {
+      rollbackable?: boolean
+      undoable?: boolean
+    } = {}
+  ) => {
     factory.updateTransaction({
       type: 'updateTransaction' as Parameters<
         Factory['updateTransaction']
@@ -54,8 +68,8 @@ const createFactoryHarness = () => {
       eventName: SET_VALUE,
       payload: { id, before: after - 1, after },
       options: {
-        undoable: false,
-        rollbackable,
+        undoable: options.undoable ?? false,
+        rollbackable: options.rollbackable ?? false,
         shared: CHANNEL,
         sharedDelivery: 'immediate'
       }
@@ -64,23 +78,19 @@ const createFactoryHarness = () => {
   return { factory, instance, provider, sendPublication, update }
 }
 
-const publication = (): SharedPublication => ({
-  publicationId: 'publication-a',
-  transactionId: 1,
-  origin: 'action',
-  deliveries: [
-    {
+const publication = (): SharedPublication =>
+  createSharedPublicationFixture({
+    mode: 'progressive',
+    publicationId: 'publication-a',
+    transactionId: 1,
+    delivery: {
       deliveryId: 'delivery-a',
-      transactionId: 1,
-      origin: 'action',
-      kind: 'forward',
       channel: CHANNEL,
       eventName: SET_VALUE,
-      payload: { id: 'element-a', before: 0, after: 1 },
-      sharedDelivery: 'immediate'
+      orderedIds: ['element-a'],
+      payload: { id: 'element-a', before: 0, after: 1 }
     }
-  ]
-})
+  })
 
 describe('Collaboration publication handoff', () => {
   it('sends one intact ordered publication for one immediate Factory action', async () => {
@@ -94,16 +104,16 @@ describe('Collaboration publication handoff', () => {
     await instance.whenIdle()
 
     expect(sendPublication).toHaveBeenCalledTimes(1)
-    expect(sendPublication.mock.calls[0]?.[0]).toMatchObject({
-      deliveries: [
-        expect.objectContaining({
-          payload: expect.objectContaining({ id: 'element-a', after: 1 })
-        }),
-        expect.objectContaining({
-          payload: expect.objectContaining({ id: 'element-b', after: 2 })
-        })
-      ]
-    })
+    const sent = sendPublication.mock.calls[0]?.[0]
+    expect(sent?.mode).toBe('progressive')
+    expect(deliveriesOf(sent as SharedPublication)).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({ id: 'element-a', after: 1 })
+      }),
+      expect.objectContaining({
+        payload: expect.objectContaining({ id: 'element-b', after: 2 })
+      })
+    ])
     expect('yDoc' in instance).toBe(false)
 
     factory.endTransaction()
@@ -119,26 +129,29 @@ describe('Collaboration publication handoff', () => {
     await instance.start()
 
     factory.startTransaction()
-    update('element-a', 1, true)
+    update('element-a', 1, { rollbackable: true })
     await instance.whenIdle()
     factory.endTransaction({ outcome: 'rollback' })
     await instance.whenIdle()
 
     expect(sendPublication).toHaveBeenCalledTimes(2)
-    expect(sendPublication.mock.calls[1]?.[0]).toMatchObject({
+    const forward = sendPublication.mock.calls[0]?.[0]
+    const compensation = sendPublication.mock.calls[1]?.[0]
+    expect(compensation).toMatchObject({
       origin: 'rollback-compensation',
-      deliveries: [
-        expect.objectContaining({
-          kind: 'compensation',
-          origin: 'rollback-compensation',
-          payload: expect.objectContaining({
-            id: 'element-a',
-            before: 1,
-            after: 0
-          })
-        })
-      ]
+      compensatesPublicationId: forward?.publicationId
     })
+    expect(deliveriesOf(compensation as SharedPublication)).toEqual([
+      expect.objectContaining({
+        compensatesDeliveryId: deliveriesOf(forward as SharedPublication)[0]
+          ?.deliveryId,
+        payload: expect.objectContaining({
+          id: 'element-a',
+          before: 1,
+          after: 0
+        })
+      })
+    ])
 
     await instance.dispose()
   })
@@ -175,57 +188,35 @@ describe('Collaboration publication handoff', () => {
     await instance.whenIdle()
 
     expect(sendPublication).toHaveBeenCalledTimes(2)
-    expect(sendPublication.mock.calls.map(([sent]) => sent)).toEqual([
-      repeated,
-      repeated
-    ])
+    expect(
+      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
+    ).toEqual(['publication-a', 'publication-a'])
 
     await instance.dispose()
   })
 
-  it('does not hand off a later publication before the current send settles', async () => {
-    let subscriber: SharedPublicationSubscriber | undefined
-    let acknowledgeFirst: (() => void) | undefined
-    const firstAcknowledgement = new Promise<void>((resolve) => {
-      acknowledgeFirst = resolve
-    })
-    const hub = new MemoryHub({
-      acknowledgePublication: (received) =>
-        received.publicationId === 'publication-1'
-          ? firstAcknowledgement.then(() => true)
-          : true
-    })
-    const provider = new MemoryProvider(hub, {
-      documentId: 'document-a',
-      roomId: 'room-a',
-      actorId: 'actor-a'
-    })
-    const sendPublication = vi.spyOn(provider, 'sendPublication')
-    const instance = createCollaboration({
-      documentId: 'document-a',
-      roomId: 'room-a',
-      actorId: 'actor-a',
-      factory: {
-        subscribeToSharedPublication: (next) => {
-          subscriber = next
-          return () => undefined
-        }
-      },
-      provider,
-      processRemotePublication: vi.fn()
-    })
+  it('hands action, Undo, and Redo to the Provider as three separate publications', async () => {
+    const { factory, instance, sendPublication, update } =
+      createFactoryHarness()
     await instance.start()
 
-    subscriber?.({ ...publication(), publicationId: 'publication-1' })
-    subscriber?.({ ...publication(), publicationId: 'publication-2' })
-    await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledOnce())
-
-    acknowledgeFirst?.()
+    factory.startTransaction()
+    update('element-a', 1, { undoable: true })
+    factory.endTransaction()
     await instance.whenIdle()
 
-    expect(
-      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
-    ).toEqual(['publication-1', 'publication-2'])
+    factory.undo()
+    await instance.whenIdle()
+
+    factory.redo()
+    await instance.whenIdle()
+
+    expect(sendPublication.mock.calls.map(([sent]) => sent.origin)).toEqual([
+      'action',
+      'undo',
+      'redo'
+    ])
+    expect(sendPublication).toHaveBeenCalledTimes(3)
 
     await instance.dispose()
   })

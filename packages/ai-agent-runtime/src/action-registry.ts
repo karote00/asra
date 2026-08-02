@@ -4,7 +4,6 @@ import type {
   AiActionRegistry,
   AiActionRegistryErrorCode,
   AiActionResult,
-  AiActionSchema,
   AiJsonValue
 } from './types'
 
@@ -40,8 +39,8 @@ const detachJsonValue = (
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
       return registryError(
-        'AI_ACTION_INVALID_SCHEMA',
-        'Action provider schema must contain only finite JSON numbers.'
+        'AI_ACTION_INVALID_INPUT_SCHEMA',
+        'Action input schema must contain only finite JSON numbers.'
       )
     }
 
@@ -50,15 +49,15 @@ const detachJsonValue = (
 
   if (typeof value !== 'object') {
     return registryError(
-      'AI_ACTION_INVALID_SCHEMA',
-      'Action provider schema must be JSON-compatible.'
+      'AI_ACTION_INVALID_INPUT_SCHEMA',
+      'Action input schema must be JSON-compatible.'
     )
   }
 
   if (ancestors.has(value)) {
     return registryError(
-      'AI_ACTION_INVALID_SCHEMA',
-      'Action provider schema must not contain cycles.'
+      'AI_ACTION_INVALID_INPUT_SCHEMA',
+      'Action input schema must not contain cycles.'
     )
   }
 
@@ -71,8 +70,8 @@ const detachJsonValue = (
       for (let index = 0; index < value.length; index += 1) {
         if (!(index in value)) {
           return registryError(
-            'AI_ACTION_INVALID_SCHEMA',
-            'Action provider schema must not contain sparse arrays.'
+            'AI_ACTION_INVALID_INPUT_SCHEMA',
+            'Action input schema must not contain sparse arrays.'
           )
         }
 
@@ -85,8 +84,8 @@ const detachJsonValue = (
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) {
       return registryError(
-        'AI_ACTION_INVALID_SCHEMA',
-        'Action provider schema must contain only plain JSON objects.'
+        'AI_ACTION_INVALID_INPUT_SCHEMA',
+        'Action input schema must contain only plain JSON objects.'
       )
     }
 
@@ -134,17 +133,6 @@ class DefaultAiActionRegistry implements AiActionRegistry {
       )
     }
 
-    if (
-      typeof action.schema !== 'object' ||
-      action.schema === null ||
-      typeof action.schema.parse !== 'function'
-    ) {
-      return registryError(
-        'AI_ACTION_INVALID_SCHEMA',
-        'Action schema must provide a parse function and provider schema.'
-      )
-    }
-
     if (typeof action.execute !== 'function') {
       return registryError(
         'AI_ACTION_INVALID_EXECUTOR',
@@ -159,21 +147,17 @@ class DefaultAiActionRegistry implements AiActionRegistry {
       )
     }
 
-    const providerSchema = detachJsonValue(action.schema.providerSchema)
-    const schema: AiActionSchema<unknown> = Object.freeze({
-      parse: action.schema.parse,
-      providerSchema
-    })
+    const inputSchema = detachJsonValue(action.inputSchema)
     const registeredAction: AiActionDefinition<unknown, AiActionResult> =
       Object.freeze({
         description: action.description,
         execute: action.execute,
-        name: action.name,
-        schema
+        inputSchema,
+        name: action.name
       })
     const description: AiActionDescription = Object.freeze({
       description: action.description,
-      inputSchema: providerSchema,
+      inputSchema,
       name: action.name
     })
 
@@ -193,7 +177,7 @@ class DefaultAiActionRegistry implements AiActionRegistry {
     if (this.descriptions.size === 0) {
       return registryError(
         'AI_ACTION_REGISTRY_EMPTY',
-        'At least one action must be registered before provider planning.'
+        'At least one action must be registered before a provider request.'
       )
     }
 

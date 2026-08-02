@@ -8,7 +8,6 @@ import {
   subscribeToEvents,
   subscribeToUserActionCompleted,
   type AllEvent,
-  type UpdateComputedDataEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 import {
@@ -19,6 +18,7 @@ import {
   type TransactionStatusPayload
 } from '@asyra/utils'
 import DataTransact from '../data-transact'
+import { SharedDataChannelRegistry } from '../shared-data-channel'
 import {
   TransactionRollbackError,
   TransactionValidationError
@@ -29,11 +29,20 @@ interface ObservedPayloadEvent {
   payload: unknown
 }
 
+interface TestCanonicalUpdateEvent {
+  type: EventTypes
+  payload: {
+    id: string
+    before: unknown
+    after: unknown
+  }
+}
+
 const createUpdateEvent = (
   options?: UpdateTransactionEvent['options']
 ): UpdateTransactionEvent => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,
-  eventName: EventTypes.UPDATE_COMPUTED_DATA,
+  eventName: EventTypes.UPDATE_PROPERTY,
   payload: {
     id: 'test.change',
     before: 0,
@@ -42,6 +51,10 @@ const createUpdateEvent = (
   options
 })
 
+const orderedBatchOf = (
+  ...changes: readonly Record<string, unknown>[]
+): unknown[] => changes.map((change) => expect.objectContaining(change))
+
 const runWithOwnedTransact = <T>(
   transact: DataTransact,
   callback: () => T
@@ -49,13 +62,102 @@ const runWithOwnedTransact = <T>(
   runWithTransactionOwner(
     {
       startTransaction: () => transact.start(),
-      updateTransaction: (event) => transact.update(event),
+      updateTransactionBatch: (events) => transact.updateBatch(events),
       endTransaction: (options) => transact.end(options),
       undo: () => transact.undo(),
       redo: () => transact.redo()
     },
     callback
   )
+
+interface MutatingSharedSinkFixture {
+  sink: Pick<SharedDataChannelRegistry, 'pushBatchToSharedChannel'>
+  received: (readonly unknown[])[]
+  restore?: () => void
+}
+
+const createMutatingSharedPush =
+  (
+    received: (readonly unknown[])[]
+  ): SharedDataChannelRegistry['pushBatchToSharedChannel'] =>
+  (_name, changes) => {
+    received.push(changes)
+    Reflect.set((changes[0] as { after: { value: number } }).after, 'value', 99)
+    return true
+  }
+
+const mutatingSharedSinkFixtures: readonly [
+  string,
+  () => MutatingSharedSinkFixture
+][] = [
+  [
+    'prototype override',
+    () => {
+      const received: (readonly unknown[])[] = []
+      const sink = new SharedDataChannelRegistry()
+      const originalPush =
+        SharedDataChannelRegistry.prototype.pushBatchToSharedChannel
+      SharedDataChannelRegistry.prototype.pushBatchToSharedChannel =
+        createMutatingSharedPush(received)
+      return {
+        sink,
+        received,
+        restore: () => {
+          SharedDataChannelRegistry.prototype.pushBatchToSharedChannel =
+            originalPush
+        }
+      }
+    }
+  ],
+  [
+    'instance override',
+    () => {
+      const received: (readonly unknown[])[] = []
+      const sink = new SharedDataChannelRegistry()
+      sink.pushBatchToSharedChannel = createMutatingSharedPush(received)
+      return { sink, received }
+    }
+  ],
+  [
+    'registry subclass',
+    () => {
+      const received: (readonly unknown[])[] = []
+      const push = createMutatingSharedPush(received)
+      class MutatingSharedDataChannelRegistry extends SharedDataChannelRegistry {
+        override pushBatchToSharedChannel(
+          name: string,
+          changes: readonly unknown[]
+        ): boolean {
+          return Reflect.apply(push, this, [name, changes])
+        }
+      }
+      return {
+        sink: new MutatingSharedDataChannelRegistry(),
+        received
+      }
+    }
+  ],
+  [
+    'registry Proxy',
+    () => {
+      const received: (readonly unknown[])[] = []
+      const push = createMutatingSharedPush(received)
+      const target = new SharedDataChannelRegistry()
+      return {
+        sink: new Proxy(target, {
+          get: (registry, property, receiver) =>
+            property === 'pushBatchToSharedChannel'
+              ? push
+              : Reflect.get(registry, property, receiver),
+          getPrototypeOf: () => {
+            throw new Error('prototype inspection blocked')
+          }
+        }),
+        received
+      }
+    }
+  ]
+]
 
 describe('DataTransact hierarchy replay', () => {
   it('keeps move and subtree evidence in one undo unit with exact inverse and forward replay', () => {
@@ -192,9 +294,9 @@ describe('DataTransact user action completion', () => {
 
   it('reports committed transaction counts after local shared settlement', () => {
     const statuses: TransactionStatusPayload[] = []
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       { onStatus: (status) => statuses.push(status) }
     )
 
@@ -204,7 +306,7 @@ describe('DataTransact user action completion', () => {
     transact.update(createUpdateEvent({ rollbackable: false }))
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
     expect(statuses[statuses.length - 1]).toMatchObject({
       status: 'committed',
       origin: 'action',
@@ -217,9 +319,9 @@ describe('DataTransact user action completion', () => {
 
   it('discards pending shared changes and compensates immediate delivery exactly once on rollback', () => {
     const statuses: TransactionStatusPayload[] = []
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       { onStatus: (status) => statuses.push(status) }
     )
 
@@ -236,11 +338,11 @@ describe('DataTransact user action completion', () => {
       failure: { kind: 'cancelled', message: 'escape' }
     })
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(2)
-    expect(pushToSharedChannel.mock.calls).toEqual([
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(2)
+    expect(pushBatchToSharedChannel.mock.calls).toEqual([
       [
         'sceneTree',
-        expect.objectContaining({
+        orderedBatchOf({
           before: 0,
           after: 1,
           options: { sharedDelivery: 'immediate' }
@@ -248,7 +350,7 @@ describe('DataTransact user action completion', () => {
       ],
       [
         'sceneTree',
-        expect.objectContaining({
+        orderedBatchOf({
           before: 1,
           after: 0,
           options: { sharedDelivery: 'immediate' }
@@ -262,8 +364,8 @@ describe('DataTransact user action completion', () => {
   })
 
   it('flushes the mutation-time shared snapshot after caller payload mutation', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const payload = {
       id: 'test.shared-snapshot',
       before: { value: 0 },
@@ -273,7 +375,7 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: payload as unknown as UpdateTransactionEvent['payload'],
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     })
@@ -281,15 +383,15 @@ describe('DataTransact user action completion', () => {
     payload.after.value = 41
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       SharedDataChannelNames.SCENE_TREE,
-      expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+      orderedBatchOf({ before: { value: 0 }, after: { value: 1 } })
     )
   })
 
   it('materializes accessor payloads in the mutation-time shared snapshot', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     let before = 0
     let after = 1
     const payload = {
@@ -305,7 +407,7 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: payload as unknown as UpdateTransactionEvent['payload'],
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     })
@@ -313,9 +415,9 @@ describe('DataTransact user action completion', () => {
     after = 41
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       SharedDataChannelNames.SCENE_TREE,
-      expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+      orderedBatchOf({ before: { value: 0 }, after: { value: 1 } })
     )
   })
 
@@ -323,7 +425,7 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const observed: unknown[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push((event as AllEvent & { payload: unknown }).payload)
       }
     })
@@ -337,7 +439,7 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_PROPERTY,
       payload: payload as unknown as UpdateTransactionEvent['payload']
     })
 
@@ -350,43 +452,169 @@ describe('DataTransact user action completion', () => {
   })
 
   it('compensates the mutation-time immediate snapshot after caller payload mutation', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
+    const rolledBack: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => rolledBack.push(event.payload)
+    )
     const payload = {
       id: 'test.immediate-shared-snapshot',
       before: { value: 0 },
       after: { value: 1 }
     }
 
-    transact.start()
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      payload: payload as unknown as UpdateTransactionEvent['payload'],
-      options: {
-        shared: SharedDataChannelNames.SCENE_TREE,
-        sharedDelivery: 'immediate'
-      }
-    })
-    payload.before.value = 40
-    payload.after.value = 41
-    transact.end({ outcome: 'rollback' })
+    try {
+      transact.start()
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: payload as unknown as UpdateTransactionEvent['payload'],
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+      payload.before.value = 40
+      payload.after.value = 41
+      transact.end({ outcome: 'rollback' })
+    } finally {
+      subscription.unsubscribe()
+    }
 
-    expect(pushToSharedChannel.mock.calls).toEqual([
+    expect(pushBatchToSharedChannel.mock.calls).toEqual([
       [
         SharedDataChannelNames.SCENE_TREE,
-        expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+        orderedBatchOf({ before: { value: 0 }, after: { value: 1 } })
       ],
       [
         SharedDataChannelNames.SCENE_TREE,
-        expect.objectContaining({ before: { value: 1 }, after: { value: 0 } })
+        orderedBatchOf({ before: { value: 1 }, after: { value: 0 } })
       ]
+    ])
+    expect(rolledBack).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
+    ])
+    expect(Object.prototype.hasOwnProperty.call(rolledBack[0], 'options')).toBe(
+      false
+    )
+  })
+
+  it('keeps the owned journal and delivered batch immutable against structural sink mutation', () => {
+    const pushBatchToSharedChannel = vi.fn(
+      (_name: string, changes: readonly unknown[]) => {
+        const payload = changes[0] as {
+          after: { value: number }
+        }
+        Reflect.set(payload.after, 'value', 99)
+        return true
+      }
+    )
+    const transact = new DataTransact({ pushBatchToSharedChannel })
+    const rolledBack: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => rolledBack.push(event.payload)
+    )
+
+    try {
+      transact.start()
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        payload: {
+          id: 'structural-sink-mutation',
+          before: { value: 0 },
+          after: { value: 1 }
+        } as unknown as UpdateTransactionEvent['payload'],
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+      transact.end({ outcome: 'rollback' })
+    } finally {
+      subscription.unsubscribe()
+    }
+
+    const deliveredBatch = pushBatchToSharedChannel.mock.calls[0]?.[1] as
+      | readonly unknown[]
+      | undefined
+    expect(deliveredBatch).toHaveLength(1)
+    expect(Object.isFrozen(deliveredBatch)).toBe(true)
+    expect(
+      (
+        deliveredBatch?.[0] as {
+          after: { value: number }
+        }
+      ).after.value
+    ).toBe(1)
+    expect(rolledBack).toEqual([
+      expect.objectContaining({
+        before: { value: 1 },
+        after: { value: 0 }
+      })
     ])
   })
 
+  it.each(mutatingSharedSinkFixtures)(
+    'keeps the owned journal and delivered batch immutable through a shared sink %s',
+    (_name, createFixture) => {
+      const { sink, received, restore } = createFixture()
+      const transact = new DataTransact(sink)
+      const rolledBack: unknown[] = []
+      const subscription =
+        subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+          EventTypes.UPDATE_PROPERTY,
+          (event) => rolledBack.push(event.payload)
+        )
+
+      try {
+        transact.start()
+        transact.update({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          payload: {
+            id: 'untrusted-shared-sink-mutation',
+            before: { value: 0 },
+            after: { value: 1 }
+          } as unknown as UpdateTransactionEvent['payload'],
+          options: {
+            shared: SharedDataChannelNames.SCENE_TREE,
+            sharedDelivery: 'immediate'
+          }
+        })
+        transact.end({ outcome: 'rollback' })
+      } finally {
+        subscription.unsubscribe()
+        restore?.()
+      }
+
+      expect(received).not.toHaveLength(0)
+      expect(Object.isFrozen(received[0])).toBe(true)
+      expect(
+        (
+          received[0]?.[0] as {
+            after: { value: number }
+          }
+        ).after.value
+      ).toBe(1)
+      expect(rolledBack).toEqual([
+        expect.objectContaining({
+          before: { value: 1 },
+          after: { value: 0 }
+        })
+      ])
+    }
+  )
+
   it('does not compensate an immediate change that was not delivered', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(false)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(false)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(
@@ -397,18 +625,18 @@ describe('DataTransact user action completion', () => {
     )
     transact.end({ outcome: 'rollback' })
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
   })
 
   it('retains the canonical journal when immediate shared delivery fails before append', () => {
     const deliveryFailure = new Error('shared append failed')
-    const pushToSharedChannel = vi.fn(() => {
+    const pushBatchToSharedChannel = vi.fn(() => {
       throw deliveryFailure
     })
-    const transact = new DataTransact({ pushToSharedChannel })
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const observed: unknown[] = []
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => observed.push(event.payload)
     )
 
@@ -424,16 +652,268 @@ describe('DataTransact user action completion', () => {
     expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
 
     expect(observed).toEqual([expect.objectContaining({ before: 1, after: 0 })])
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
 
     subscription.unsubscribe()
+  })
+
+  it('marks an immediate delivery failure rollback-only even when the caller catches it', () => {
+    const deliveryFailure = new Error('caught immediate append failed')
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(
+      {
+        pushBatchToSharedChannel: () => {
+          throw deliveryFailure
+        }
+      },
+      {
+        onStatus: (status) => statuses.push(status),
+        onReplayEvent: () => true
+      }
+    )
+
+    transact.start()
+    expect(() =>
+      transact.update(
+        createUpdateEvent({
+          shared: 'sceneTree',
+          sharedDelivery: 'immediate'
+        })
+      )
+    ).toThrow(deliveryFailure)
+
+    expect(() => transact.end()).not.toThrow()
+    expect(statuses.at(-1)).toMatchObject({
+      status: 'rolled-back',
+      failure: { kind: 'explicit', cause: deliveryFailure }
+    })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
+  })
+
+  it('rejects an unaccepted batch without removing earlier outer journal entries', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status),
+      onReplayEvent: (event) => {
+        replayed.push(event)
+        return true
+      }
+    })
+
+    transact.start()
+    transact.update({
+      ...createUpdateEvent(),
+      payload: {
+        id: 'outer.accepted-before-batch',
+        before: 0,
+        after: 1
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+    let batchFailure: unknown
+    try {
+      transact.updateBatch([
+        {
+          ...createUpdateEvent(),
+          payload: {
+            id: 'batch.valid-prefix',
+            before: 10,
+            after: 20
+          } as unknown as UpdateTransactionEvent['payload']
+        },
+        {
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: 'missing.batch.inverter',
+          payload: { id: 'invalid-later-item' }
+        }
+      ])
+    } catch (error) {
+      batchFailure = error
+    }
+
+    expect(batchFailure).toMatchObject({
+      batchAccepted: false,
+      message:
+        'Reversible transaction event missing.batch.inverter requires an inverter'
+    })
+    expect(
+      (
+        transact as unknown as {
+          journal: readonly { event: AllEvent & { payload: { id?: string } } }[]
+        }
+      ).journal.map(({ event }) => event.payload.id)
+    ).toEqual(['outer.accepted-before-batch'])
+
+    expect(() => transact.end()).not.toThrow()
+    expect(replayed).toEqual([
+      expect.objectContaining({
+        type: EventTypes.UPDATE_PROPERTY,
+        payload: expect.objectContaining({ before: 1, after: 0 })
+      })
+    ])
+    expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
+  })
+
+  it.each([
+    [
+      EventTypes.UPDATE_COMPUTED_DATA,
+      {
+        id: 'computed.full',
+        before: { x: 0 },
+        after: { x: 1 }
+      }
+    ],
+    [
+      EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      {
+        id: 'computed.patch',
+        patch: {
+          values: {
+            x: {
+              before: 0,
+              after: 1
+            }
+          }
+        }
+      }
+    ]
+  ])(
+    'rejects local-only %s before recording or delivering a valid canonical prefix',
+    (eventName, payload) => {
+      const pushBatchToSharedChannel = vi.fn(() => true)
+      const transact = new DataTransact({ pushBatchToSharedChannel })
+      const nonCanonicalOptions = {
+        undoable: false,
+        rollbackable: false,
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate' as const
+      }
+
+      transact.start()
+      let batchFailure: unknown
+      try {
+        transact.updateBatch([
+          {
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_PROPERTY,
+            payload: {
+              id: 'canonical.valid-prefix',
+              key: 'x',
+              before: 0,
+              after: 1
+            },
+            options: nonCanonicalOptions
+          },
+          {
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName,
+            payload: payload as UpdateTransactionEvent['payload'],
+            options: nonCanonicalOptions
+          }
+        ])
+      } catch (error) {
+        batchFailure = error
+      }
+
+      expect(batchFailure).toMatchObject({
+        batchAccepted: false,
+        message: `Factory canonical mutation batch cannot contain local-only computed event: ${eventName}`
+      })
+      expect(
+        (transact as unknown as { journal: readonly unknown[] }).journal
+      ).toEqual([])
+      expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
+
+      expect(() => transact.end()).not.toThrow()
+      expect(
+        (transact as unknown as { undoStack: readonly unknown[] }).undoStack
+      ).toEqual([])
+    }
+  )
+
+  it('marks a fully accepted immediate batch failure and retains every entry for outer rollback', () => {
+    const deliveryFailure = new Error('immediate batch append failed')
+    const pushBatchToSharedChannel = vi.fn(() => {
+      throw deliveryFailure
+    })
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(
+      { pushBatchToSharedChannel },
+      {
+        onReplayEvent: (event) => {
+          replayed.push(event)
+          return true
+        }
+      }
+    )
+    const createImmediateEvent = (
+      id: string,
+      before: number,
+      after: number
+    ) => ({
+      ...createUpdateEvent({
+        shared: 'sceneTree',
+        sharedDelivery: 'immediate' as const
+      }),
+      payload: {
+        id,
+        before,
+        after
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    transact.start()
+    let batchFailure: unknown
+    try {
+      transact.updateBatch([
+        createImmediateEvent('batch.first', 0, 1),
+        createImmediateEvent('batch.second', 10, 20)
+      ])
+    } catch (error) {
+      batchFailure = error
+    }
+
+    expect(batchFailure).toMatchObject({
+      batchAccepted: true,
+      message: deliveryFailure.message
+    })
+    expect(
+      (
+        transact as unknown as {
+          journal: readonly { event: AllEvent & { payload: { id?: string } } }[]
+        }
+      ).journal.map(({ event }) => event.payload.id)
+    ).toEqual(['batch.first', 'batch.second'])
+
+    expect(() => transact.end()).not.toThrow()
+    expect(
+      replayed.map(
+        (event) => (event as AllEvent & { payload: { id?: string } }).payload.id
+      )
+    ).toEqual(['batch.second', 'batch.first'])
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
+      'sceneTree',
+      orderedBatchOf(
+        { id: 'batch.first', before: 0, after: 1 },
+        { id: 'batch.second', before: 10, after: 20 }
+      )
+    )
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
   })
 
   it('rolls back a commit and compensates earlier transaction-end delivery when a later append fails', () => {
     const deliveryFailure = new Error('transaction-end append failed')
     const undoStackLengths: number[] = []
     const harness: { transact?: DataTransact } = {}
-    const pushToSharedChannel = vi
+    const pushBatchToSharedChannel = vi
       .fn()
       .mockImplementationOnce(() => {
         undoStackLengths.push(
@@ -452,7 +932,7 @@ describe('DataTransact user action completion', () => {
     const statuses: TransactionStatusPayload[] = []
     const completion = vi.fn()
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       {
         onStatus: (status) => statuses.push(status),
         onUserActionCompleted: completion
@@ -460,8 +940,8 @@ describe('DataTransact user action completion', () => {
     )
     harness.transact = transact
     const observed: unknown[] = []
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => observed.push(event.payload)
     )
 
@@ -482,10 +962,10 @@ describe('DataTransact user action completion', () => {
       expect.objectContaining({ before: 20, after: 10 }),
       expect.objectContaining({ before: 1, after: 0 })
     ])
-    expect(pushToSharedChannel.mock.calls).toEqual([
-      ['sceneTree', expect.objectContaining({ before: 0, after: 1 })],
-      ['props', expect.objectContaining({ before: 10, after: 20 })],
-      ['sceneTree', expect.objectContaining({ before: 1, after: 0 })]
+    expect(pushBatchToSharedChannel.mock.calls).toEqual([
+      ['sceneTree', orderedBatchOf({ before: 0, after: 1 })],
+      ['props', orderedBatchOf({ before: 10, after: 20 })],
+      ['sceneTree', orderedBatchOf({ before: 1, after: 0 })]
     ])
     expect(completion).not.toHaveBeenCalled()
     expect(undoStackLengths).toEqual([1])
@@ -504,25 +984,100 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
+  it('delivers adjacent same-channel transaction-end changes in one ordered batch', () => {
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
+
+    transact.start()
+    transact.update(createUpdateEvent({ shared: 'sceneTree' }))
+    transact.update({
+      ...createUpdateEvent({ shared: 'sceneTree' }),
+      payload: {
+        id: 'test.second-change',
+        before: 10,
+        after: 20
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end()).not.toThrow()
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
+      'sceneTree',
+      orderedBatchOf(
+        { id: 'test.change', before: 0, after: 1 },
+        { id: 'test.second-change', before: 10, after: 20 }
+      )
+    )
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+  })
+
+  it('rolls back every accepted same-channel entry when its single batch append fails', () => {
+    const deliveryFailure = new Error('same-channel batch append failed')
+    const pushBatchToSharedChannel = vi.fn(() => {
+      throw deliveryFailure
+    })
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(
+      { pushBatchToSharedChannel },
+      {
+        onReplayEvent: (event) => {
+          replayed.push(event)
+          return true
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent({ shared: 'sceneTree' }))
+    transact.update({
+      ...createUpdateEvent({ shared: 'sceneTree' }),
+      payload: {
+        id: 'test.second-change',
+        before: 10,
+        after: 20
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end()).toThrow(deliveryFailure)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
+      'sceneTree',
+      orderedBatchOf(
+        { id: 'test.change', before: 0, after: 1 },
+        { id: 'test.second-change', before: 10, after: 20 }
+      )
+    )
+    expect(
+      replayed.map(
+        (event) => (event as AllEvent & { payload: { id?: string } }).payload.id
+      )
+    ).toEqual(['test.second-change', 'test.change'])
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(0)
+  })
+
   it('restores runtime and preserves undo history when transaction-end delivery fails during undo', () => {
     const deliveryFailure = new Error('undo append failed')
-    const pushToSharedChannel = vi.fn(() => {
+    const pushBatchToSharedChannel = vi.fn(() => {
       throw deliveryFailure
     })
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       { onStatus: (status) => statuses.push(status) }
     )
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
         if (transact.isInUndo() || transact.isInRedo()) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload,
             options: { shared: SharedDataChannelNames.SCENE_TREE }
           })
@@ -557,21 +1112,21 @@ describe('DataTransact user action completion', () => {
 
   it('restores runtime and preserves redo history when transaction-end delivery fails during redo', () => {
     const deliveryFailure = new Error('redo append failed')
-    const pushToSharedChannel = vi.fn().mockReturnValueOnce(true)
+    const pushBatchToSharedChannel = vi.fn().mockReturnValueOnce(true)
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       { onStatus: (status) => statuses.push(status) }
     )
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
         if (transact.isInUndo() || transact.isInRedo()) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload,
             options: { shared: SharedDataChannelNames.SCENE_TREE }
           })
@@ -584,7 +1139,7 @@ describe('DataTransact user action completion', () => {
     transact.end()
     runWithOwnedTransact(transact, () => transact.undo())
     expect(value).toBe(0)
-    pushToSharedChannel.mockImplementation(() => {
+    pushBatchToSharedChannel.mockImplementation(() => {
       throw deliveryFailure
     })
     statuses.length = 0
@@ -633,11 +1188,11 @@ describe('DataTransact user action completion', () => {
   })
 
   it('rolls back a failed validation before history, shared delivery, or completion', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const observed: ObservedPayloadEvent[] = []
     const eventSubscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push(event as unknown as ObservedPayloadEvent)
       }
     })
@@ -657,7 +1212,7 @@ describe('DataTransact user action completion', () => {
 
     expect(() => transact.end()).toThrow(TransactionValidationError)
     expect(observed).toHaveLength(1)
-    expect(pushToSharedChannel).not.toHaveBeenCalled()
+    expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
     expect(completionSubscriber).not.toHaveBeenCalled()
     expect(
       (transact as unknown as { undoStack: unknown[] }).undoStack
@@ -671,7 +1226,7 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const observed: ObservedPayloadEvent[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push(event as unknown as ObservedPayloadEvent)
       }
     })
@@ -727,7 +1282,7 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const observed: ObservedPayloadEvent[] = []
     const eventSubscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push(event as unknown as ObservedPayloadEvent)
       }
     })
@@ -768,7 +1323,7 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const observed: unknown[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_ELEMENT_DATA) {
         observed.push((event as AllEvent & { payload: unknown }).payload)
       }
     })
@@ -777,12 +1332,14 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
       payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
           { key: 'x', before: 0, after: 10, owner: 'raw' },
-          { key: 'y', before: 5, after: 20, owner: 'computed' }
+          { key: 'y', before: 5, after: 20, owner: 'scene-tree' }
         ]
       }
     })
@@ -790,13 +1347,15 @@ describe('DataTransact user action completion', () => {
 
     expect(observed).toEqual([
       {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
           {
             key: 'y',
             before: 20,
             after: 5,
-            owner: 'computed'
+            owner: 'scene-tree'
           },
           { key: 'x', before: 10, after: 0, owner: 'raw' }
         ]
@@ -807,11 +1366,11 @@ describe('DataTransact user action completion', () => {
   })
 
   it('preserves batch metadata for rollback and immediate shared compensation', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const observed: unknown[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_ELEMENT_DATA) {
         observed.push((event as AllEvent & { payload: unknown }).payload)
       }
     })
@@ -820,13 +1379,14 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
       payload: {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
           { key: 'x', before: 0, after: 10, owner: 'raw' },
-          { key: 'y', before: 5, after: 20, owner: 'computed' }
+          { key: 'y', before: 5, after: 20, owner: 'scene-tree' }
         ]
       },
       options: {
@@ -839,26 +1399,29 @@ describe('DataTransact user action completion', () => {
 
     expect(observed).toEqual([
       expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         changes: [
-          { key: 'y', before: 20, after: 5, owner: 'computed' },
+          { key: 'y', before: 20, after: 5, owner: 'scene-tree' },
           { key: 'x', before: 10, after: 0, owner: 'raw' }
         ]
       })
     ])
-    expect(pushToSharedChannel.mock.calls).toEqual([
+    expect(pushBatchToSharedChannel.mock.calls).toEqual([
       [
         SharedDataChannelNames.SCENE_TREE,
-        expect.objectContaining({
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH
+        orderedBatchOf({
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+          eventName: EventTypes.UPDATE_ELEMENT_DATA
         })
       ],
       [
         SharedDataChannelNames.SCENE_TREE,
-        expect.objectContaining({
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        orderedBatchOf({
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+          eventName: EventTypes.UPDATE_ELEMENT_DATA,
           changes: [
-            { key: 'y', before: 20, after: 5, owner: 'computed' },
+            { key: 'y', before: 20, after: 5, owner: 'scene-tree' },
             { key: 'x', before: 10, after: 0, owner: 'raw' }
           ]
         })
@@ -872,7 +1435,7 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const observed: unknown[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_ELEMENT_DATA) {
         observed.push((event as AllEvent & { payload: unknown }).payload)
       }
     })
@@ -881,12 +1444,14 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
       payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
           { key: 'x', before: 0, after: 10, owner: 'raw' },
-          { key: 'y', before: 5, after: 20, owner: 'computed' }
+          { key: 'y', before: 5, after: 20, owner: 'scene-tree' }
         ]
       }
     })
@@ -898,17 +1463,21 @@ describe('DataTransact user action completion', () => {
 
     expect(observed).toEqual([
       {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
-          { key: 'y', before: 20, after: 5, owner: 'computed' },
+          { key: 'y', before: 20, after: 5, owner: 'scene-tree' },
           { key: 'x', before: 10, after: 0, owner: 'raw' }
         ]
       },
       {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
         id: 'element-1',
         changes: [
           { key: 'x', before: 0, after: 10, owner: 'raw' },
-          { key: 'y', before: 5, after: 20, owner: 'computed' }
+          { key: 'y', before: 5, after: 20, owner: 'scene-tree' }
         ]
       }
     ])
@@ -916,23 +1485,197 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
+  it('keeps UPDATE_ELEMENT_DATA canonical through Undo and Redo', () => {
+    const transact = new DataTransact()
+    const observed: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<{
+      type: EventTypes
+      payload: unknown
+    }>(EventTypes.UPDATE_ELEMENT_DATA, (event) => {
+      observed.push(event.payload)
+      acknowledgeTransactionReplayApplied()
+      return true
+    })
+    observed.length = 0
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
+        id: 'element-raw',
+        changes: [
+          {
+            key: 'name',
+            before: 'Before',
+            after: 'After'
+          },
+          {
+            key: 'visible',
+            before: true,
+            after: false
+          }
+        ]
+      }
+    })
+    transact.end()
+    observed.length = 0
+
+    runWithOwnedTransact(transact, () => transact.undo())
+    runWithOwnedTransact(transact, () => transact.redo())
+
+    expect(observed).toEqual([
+      {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
+        id: 'element-raw',
+        changes: [
+          {
+            key: 'visible',
+            before: false,
+            after: true
+          },
+          {
+            key: 'name',
+            before: 'After',
+            after: 'Before'
+          }
+        ]
+      },
+      {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
+        id: 'element-raw',
+        changes: [
+          {
+            key: 'name',
+            before: 'Before',
+            after: 'After'
+          },
+          {
+            key: 'visible',
+            before: true,
+            after: false
+          }
+        ]
+      }
+    ])
+
+    subscription.unsubscribe()
+  })
+
+  it('keeps one ordered element batch through Undo and Redo', () => {
+    const transact = new DataTransact()
+    const observed: { type: string; payload: unknown }[] = []
+    const addSubscription = subscribeToSynchronousEvent<{
+      type: EventTypes
+      payload: unknown
+    }>(EventTypes.ADD_ELEMENTS, (event) => {
+      observed.push({ type: event.type, payload: event.payload })
+      acknowledgeTransactionReplayApplied()
+      return true
+    })
+    const removeSubscription = subscribeToSynchronousEvent<{
+      type: EventTypes
+      payload: unknown
+    }>(EventTypes.REMOVE_ELEMENTS, (event) => {
+      observed.push({ type: event.type, payload: event.payload })
+      acknowledgeTransactionReplayApplied()
+      return true
+    })
+    const entries = [
+      {
+        data: {
+          id: 'element-batch-1',
+          type: 'vector',
+          name: 'Vector 1',
+          parentId: 'group-1',
+          visible: true,
+          lock: false,
+          props: {}
+        },
+        parentId: 'group-1',
+        index: 0
+      },
+      {
+        data: {
+          id: 'element-batch-2',
+          type: 'vector',
+          name: 'Vector 2',
+          parentId: 'group-1',
+          visible: true,
+          lock: false,
+          props: {}
+        },
+        parentId: 'group-1',
+        index: 1
+      }
+    ]
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.ADD_ELEMENTS,
+      payload: {
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+        eventName: EventTypes.ADD_ELEMENTS,
+        undoType: EventTypes.REMOVE_ELEMENTS,
+        undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+        entries
+      }
+    })
+    transact.end()
+    observed.length = 0
+
+    runWithOwnedTransact(transact, () => transact.undo())
+    runWithOwnedTransact(transact, () => transact.redo())
+
+    expect(observed).toEqual([
+      {
+        type: EventTypes.REMOVE_ELEMENTS,
+        payload: {
+          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          eventName: EventTypes.REMOVE_ELEMENTS,
+          undoType: EventTypes.ADD_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          entries
+        }
+      },
+      {
+        type: EventTypes.ADD_ELEMENTS,
+        payload: {
+          action: SCENE_TREE_ACTIONS.ADD_ELEMENTS,
+          eventName: EventTypes.ADD_ELEMENTS,
+          undoType: EventTypes.REMOVE_ELEMENTS,
+          undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
+          entries
+        }
+      }
+    ])
+
+    addSubscription.unsubscribe()
+    removeSubscription.unsubscribe()
+  })
+
   it('retains undo and redo replay journals until an existing outer boundary closes', () => {
     const statuses: TransactionStatusPayload[] = []
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
     const transact = new DataTransact(
-      { pushToSharedChannel },
+      { pushBatchToSharedChannel },
       { onStatus: (status) => statuses.push(status) }
     )
     const subscription = subscribeToEvents((event) => {
       if (
-        event.type !== EventTypes.UPDATE_COMPUTED_DATA ||
+        event.type !== EventTypes.UPDATE_PROPERTY ||
         (!transact.isInUndo() && !transact.isInRedo())
       ) {
         return
       }
       transact.update({
         type: TransactionEventTypes.UPDATE_TRANSACTION,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        eventName: EventTypes.UPDATE_PROPERTY,
         payload: (event as AllEvent & { payload: unknown }).payload,
         options: { shared: SharedDataChannelNames.SCENE_TREE }
       })
@@ -941,7 +1684,7 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.update(createUpdateEvent())
     transact.end()
-    pushToSharedChannel.mockClear()
+    pushBatchToSharedChannel.mockClear()
     statuses.length = 0
 
     transact.start()
@@ -949,19 +1692,19 @@ describe('DataTransact user action completion', () => {
     expect(
       (transact as unknown as { journal: unknown[] }).journal
     ).toHaveLength(1)
-    expect(pushToSharedChannel).not.toHaveBeenCalled()
+    expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenLastCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenLastCalledWith(
       SharedDataChannelNames.SCENE_TREE,
-      expect.objectContaining({ before: 1, after: 0 })
+      orderedBatchOf({ before: 1, after: 0 })
     )
     expect(statuses[statuses.length - 1]).toMatchObject({
       status: 'committed',
       origin: 'undo'
     })
 
-    pushToSharedChannel.mockClear()
+    pushBatchToSharedChannel.mockClear()
     statuses.length = 0
     transact.start()
     transact.redo()
@@ -970,9 +1713,9 @@ describe('DataTransact user action completion', () => {
     ).toHaveLength(1)
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenLastCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenLastCalledWith(
       SharedDataChannelNames.SCENE_TREE,
-      expect.objectContaining({ before: 0, after: 1 })
+      orderedBatchOf({ before: 0, after: 1 })
     )
     expect(statuses[statuses.length - 1]).toMatchObject({
       status: 'committed',
@@ -985,14 +1728,14 @@ describe('DataTransact user action completion', () => {
   it('keeps nested undo history available when the outer boundary rolls back', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
         if (transact.isInUndo() || transact.isInRedo()) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1020,8 +1763,8 @@ describe('DataTransact user action completion', () => {
   it('restores nested undo runtime on outer rollback without a replay journal', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
       }
@@ -1051,8 +1794,8 @@ describe('DataTransact user action completion', () => {
   it('does not restore a successful no-op nested undo on outer rollback', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         const nextValue = event.payload.after as number
         if (Object.is(value, nextValue)) {
@@ -1096,8 +1839,8 @@ describe('DataTransact user action completion', () => {
       ...createUpdateEvent(),
       payload: { id, before, after }
     })
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         values[event.payload.id] = event.payload.after as number
         if (
@@ -1106,7 +1849,7 @@ describe('DataTransact user action completion', () => {
         ) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1146,8 +1889,8 @@ describe('DataTransact user action completion', () => {
       ...createUpdateEvent(),
       payload: { id, before: 0, after: 1 }
     })
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         values[event.payload.id] = event.payload.after as number
         if (
@@ -1156,7 +1899,7 @@ describe('DataTransact user action completion', () => {
         ) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1193,8 +1936,8 @@ describe('DataTransact user action completion', () => {
       ...createUpdateEvent(),
       payload: { id, before: 0, after: 1 }
     })
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         if (
           event.payload.id === 'failing' &&
@@ -1212,7 +1955,7 @@ describe('DataTransact user action completion', () => {
         ) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1253,8 +1996,8 @@ describe('DataTransact user action completion', () => {
       ...createUpdateEvent(),
       payload: { id, before: 0, after: 1 }
     })
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         if (
           event.payload.id === 'failing' &&
@@ -1272,7 +2015,7 @@ describe('DataTransact user action completion', () => {
         ) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1353,11 +2096,11 @@ describe('DataTransact user action completion', () => {
           values.second = 1
           return true
         }
-        if (event.type !== EventTypes.UPDATE_COMPUTED_DATA) {
+        if (event.type !== EventTypes.UPDATE_PROPERTY) {
           return false
         }
 
-        const payload = (event as UpdateComputedDataEvent).payload
+        const payload = (event as TestCanonicalUpdateEvent).payload
         values[payload.id] = payload.after as number
         acknowledgeTransactionReplayApplied()
         if (
@@ -1373,11 +2116,11 @@ describe('DataTransact user action completion', () => {
     })
     transact.registerInverter('custom.multi', () => [
       {
-        type: EventTypes.UPDATE_COMPUTED_DATA,
+        type: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'first', key: 'value', before: 1, after: 0 }
       },
       {
-        type: EventTypes.UPDATE_COMPUTED_DATA,
+        type: EventTypes.UPDATE_PROPERTY,
         payload: { id: 'second', key: 'value', before: 1, after: 0 }
       }
     ])
@@ -1433,7 +2176,7 @@ describe('DataTransact user action completion', () => {
     transact.end()
   })
 
-  it('reports rollback-failed when a nested replay restoration plan cannot apply', () => {
+  it('reports rollback-failed when a nested prepared replay restoration cannot apply', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
       onStatus: (status) => statuses.push(status),
@@ -1549,14 +2292,14 @@ describe('DataTransact user action completion', () => {
   it('keeps nested redo history available when the outer boundary rolls back', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
         if (transact.isInUndo() || transact.isInRedo()) {
           transact.update({
             type: TransactionEventTypes.UPDATE_TRANSACTION,
-            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            eventName: EventTypes.UPDATE_PROPERTY,
             payload: event.payload
           })
         }
@@ -1589,8 +2332,8 @@ describe('DataTransact user action completion', () => {
   it('restores nested redo runtime on outer rollback without a replay journal', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         value = event.payload.after as number
       }
@@ -1624,8 +2367,8 @@ describe('DataTransact user action completion', () => {
   it('does not restore a successful no-op nested redo on outer rollback', () => {
     const transact = new DataTransact()
     let value = 1
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       (event) => {
         const nextValue = event.payload.after as number
         if (Object.is(value, nextValue)) {
@@ -1691,14 +2434,14 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
-  it('continues rollback after an inverter failure and surfaces one rollback error', () => {
+  it('rejects an invalid inverter result before history and rolls back an earlier entry', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
       onStatus: (status) => statuses.push(status)
     })
     const observed: ObservedPayloadEvent[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push(event as unknown as ObservedPayloadEvent)
       }
     })
@@ -1709,35 +2452,37 @@ describe('DataTransact user action completion', () => {
 
     transact.start()
     transact.update(createUpdateEvent())
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'broken.change',
-      payload: { id: 'broken' }
-    })
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'broken.change',
+        payload: { id: 'broken' }
+      })
+    ).toThrow('broken inverter')
 
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
-    )
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
     expect(observed).toHaveLength(1)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rolled-back'
+    })
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
+    )
     expect(
       (transact as unknown as { isTransacting: number }).isTransacting
     ).toBe(0)
-    expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
-    })
 
     subscription.unsubscribe()
   })
 
-  it('continues rollback after a custom inverter returns an invalid event', () => {
+  it('rejects an invalid custom inverse before history and rolls back an earlier entry', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
       onStatus: (status) => statuses.push(status)
     })
     const observed: ObservedPayloadEvent[] = []
     const subscription = subscribeToEvents((event) => {
-      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+      if (event.type === EventTypes.UPDATE_PROPERTY) {
         observed.push(event as unknown as ObservedPayloadEvent)
       }
     })
@@ -1749,22 +2494,22 @@ describe('DataTransact user action completion', () => {
 
     transact.start()
     transact.update(createUpdateEvent())
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.invalid-output',
-      payload: { id: 'invalid-output' }
-    })
-
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.invalid-output',
+        payload: { id: 'invalid-output' }
+      })
+    ).toThrow(
+      'Transaction inverter custom.invalid-output produced an invalid replay event'
     )
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
     expect(observed).toHaveLength(1)
     expect(
       (transact as unknown as { isTransacting: number }).isTransacting
     ).toBe(0)
     expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
+      status: 'rolled-back'
     })
 
     subscription.unsubscribe()
@@ -1776,8 +2521,8 @@ describe('DataTransact user action completion', () => {
       onStatus: (status) => statuses.push(status)
     })
     const applyFailure = new Error('state owner apply failed')
-    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-      EventTypes.UPDATE_COMPUTED_DATA,
+    const subscription = subscribeToSynchronousEvent<TestCanonicalUpdateEvent>(
+      EventTypes.UPDATE_PROPERTY,
       () => {
         throw applyFailure
       }
@@ -1955,18 +2700,19 @@ describe('DataTransact user action completion', () => {
     transact.registerInverter('custom.empty', () => [])
 
     transact.start()
-    transact.update({
-      type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'custom.empty',
-      payload: { id: 'custom.empty' }
-    })
-
-    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
-      TransactionRollbackError
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.empty',
+        payload: { id: 'custom.empty' }
+      })
+    ).toThrow('Transaction inverter custom.empty produced no replay event')
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
+    expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
+      []
     )
     expect(statuses[statuses.length - 1]).toMatchObject({
-      status: 'rollback-failed',
-      error: expect.any(TransactionRollbackError)
+      status: 'discarded'
     })
   })
 
@@ -2080,8 +2826,8 @@ describe('DataTransact user action completion', () => {
   })
 
   it('records shared delivery state in mutation order', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(
@@ -2095,14 +2841,23 @@ describe('DataTransact user action completion', () => {
     const journal = (
       transact as unknown as {
         journal: {
-          shared?: { name: string; delivered: boolean }
+          shared?: {
+            name: string
+            records: { delivered: boolean }[]
+          }
         }[]
       }
     ).journal
 
     expect(journal.map((entry) => entry.shared)).toEqual([
-      expect.objectContaining({ name: 'sceneTree', delivered: true }),
-      expect.objectContaining({ name: 'props', delivered: false })
+      expect.objectContaining({
+        name: 'sceneTree',
+        records: [expect.objectContaining({ delivered: true })]
+      }),
+      expect.objectContaining({
+        name: 'props',
+        records: [expect.objectContaining({ delivered: false })]
+      })
     ])
 
     transact.end()
@@ -2143,35 +2898,35 @@ describe('DataTransact user action completion', () => {
   })
 
   it('routes changes to shared channel when options.shared is set', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(createUpdateEvent({ shared: 'sceneTree' }))
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       'sceneTree',
-      expect.objectContaining({ id: 'test.change' })
+      orderedBatchOf({ id: 'test.change' })
     )
   })
 
   it('defers a non-undoable shared change unless immediate delivery is explicit', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(createUpdateEvent({ undoable: false, shared: 'sceneTree' }))
 
-    expect(pushToSharedChannel).not.toHaveBeenCalled()
+    expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
     transact.end()
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
   })
 
   it('projects an explicitly immediate undoable shared change before commit without publishing it twice', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const subscriber = vi.fn()
     const subscription = subscribeToUserActionCompleted(subscriber)
     subscriber.mockClear()
@@ -2184,10 +2939,10 @@ describe('DataTransact user action completion', () => {
       })
     )
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       'sceneTree',
-      expect.objectContaining({
+      orderedBatchOf({
         id: 'test.change',
         options: { sharedDelivery: 'immediate' }
       })
@@ -2196,7 +2951,7 @@ describe('DataTransact user action completion', () => {
 
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushBatchToSharedChannel).toHaveBeenCalledTimes(1)
     expect(subscriber).toHaveBeenCalledTimes(1)
     expect(subscriber.mock.calls[0][0].payload).toMatchObject({
       changeCount: 1
@@ -2206,39 +2961,48 @@ describe('DataTransact user action completion', () => {
   })
 
   it('forwards effective mutation options to shared channel payloads', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(true)
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(createUpdateEvent({ undoable: false, shared: 'sceneTree' }))
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       'sceneTree',
-      expect.objectContaining({
+      orderedBatchOf({
         id: 'test.change',
         options: { undoable: false }
       })
     )
-    expect(pushToSharedChannel.mock.calls[0][1].options).not.toHaveProperty(
-      'shared'
-    )
+    const [deliveredChange] = pushBatchToSharedChannel.mock.calls[0][1]
+    expect(
+      (deliveredChange as { options: Record<string, unknown> }).options
+    ).not.toHaveProperty('shared')
   })
 
   it('keeps transaction local when options.shared is omitted', () => {
-    const pushToSharedChannel = vi.fn()
-    const transact = new DataTransact({ pushToSharedChannel })
+    const pushBatchToSharedChannel = vi.fn()
+    const transact = new DataTransact({ pushBatchToSharedChannel })
 
     transact.start()
     transact.update(createUpdateEvent())
     transact.end()
 
-    expect(pushToSharedChannel).not.toHaveBeenCalled()
+    expect(pushBatchToSharedChannel).not.toHaveBeenCalled()
   })
 
   it('keeps transaction local when shared channel is unknown', () => {
-    const pushToSharedChannel = vi.fn().mockReturnValue(false)
-    const transact = new DataTransact({ pushToSharedChannel })
+    let historyDuringDelivery: unknown
+    const pushBatchToSharedChannel = vi.fn(() => {
+      historyDuringDelivery = (
+        transact as unknown as {
+          undoStack: readonly unknown[]
+        }
+      ).undoStack.at(-1)
+      return false
+    })
+    const transact = new DataTransact({ pushBatchToSharedChannel })
     const subscriber = vi.fn()
     const subscription = subscribeToUserActionCompleted(subscriber)
     subscriber.mockClear()
@@ -2247,11 +3011,18 @@ describe('DataTransact user action completion', () => {
     transact.update(createUpdateEvent({ shared: 'unknown-channel' }))
     transact.end()
 
-    expect(pushToSharedChannel).toHaveBeenCalledWith(
+    expect(pushBatchToSharedChannel).toHaveBeenCalledWith(
       'unknown-channel',
-      expect.objectContaining({ id: 'test.change' })
+      orderedBatchOf({ id: 'test.change' })
     )
     expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(historyDuringDelivery).toBe(
+      (
+        transact as unknown as {
+          undoStack: readonly unknown[]
+        }
+      ).undoStack.at(-1)
+    )
 
     subscription.unsubscribe()
   })

@@ -1,7 +1,7 @@
 import { Input, PropertyControl } from '@asyra/design-system'
 import { useHeight, useWidth } from '../providers'
 import { useCallback } from 'react'
-import { changeElementComputedData } from '../controllers/scene-tree'
+import { updateSelectedElementProperties } from '../controllers/scene-tree'
 import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const Dimension = () => {
@@ -15,10 +15,10 @@ const Dimension = () => {
         return false
       }
 
-      changeElementComputedData('width', nextValue)
+      updateSelectedElementProperties('width', nextValue)
       return true
     },
-    [changeElementComputedData]
+    [updateSelectedElementProperties]
   )
 
   const handleChangeHeight = useCallback(
@@ -28,10 +28,10 @@ const Dimension = () => {
         return false
       }
 
-      changeElementComputedData('height', nextValue)
+      updateSelectedElementProperties('height', nextValue)
       return true
     },
-    [changeElementComputedData]
+    [updateSelectedElementProperties]
   )
 
   return (

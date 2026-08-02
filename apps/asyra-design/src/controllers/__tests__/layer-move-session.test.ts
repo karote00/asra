@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InputSystemEvents } from '../../constants'
 import type { ValidLayerDropIntent } from '../layer-drop-intent'
-import type { LayerMoveSourcePlan } from '../layer-move-source'
+import type { ResolvedLayerMoveSource } from '../layer-move-source'
 import type { LayerPointerSession } from '../layer-pointer-session'
 
 const mocks = vi.hoisted(() => ({
@@ -46,7 +46,7 @@ const pointerSession: LayerPointerSession = {
   dragActive: false,
   target: null
 }
-const source: LayerMoveSourcePlan = {
+const source: ResolvedLayerMoveSource = {
   elementIds: ['a'],
   sourceParentId: 'workspace',
   preSessionSelection: [],

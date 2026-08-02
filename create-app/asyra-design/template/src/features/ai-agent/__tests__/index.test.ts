@@ -4,14 +4,55 @@ import {
   unregisterFeature,
   type FeatureTaskActiveError
 } from '@asyra/feature-system'
-import { describe, expect, it, vi } from 'vitest'
+import type { AiRuntimeResult } from '@asyra/ai-agent-runtime'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { FeatureNames } from '../../../constants'
-import { AI_AGENT_FEATURE_PRIORITY, registerAiAgentFeature } from '..'
+import {
+  AI_AGENT_FEATURE_PRIORITY,
+  registerAiAgentFeature,
+  type AiAgentFeatureResult,
+  type AiAgentFeatureTerminalResult
+} from '..'
+
+const executedResult: AiRuntimeResult = Object.freeze({
+  actionResults: Object.freeze([]),
+  audit: Object.freeze({
+    actions: Object.freeze([]),
+    batchId: 'batch-1',
+    outcome: 'executed',
+    retryCount: 0
+  }),
+  batchId: 'batch-1',
+  preview: Object.freeze({
+    actions: Object.freeze([]),
+    batchId: 'batch-1'
+  }),
+  status: 'executed',
+  transaction: Object.freeze({
+    status: 'committed'
+  })
+})
+
+const cancelledResult: AiRuntimeResult = Object.freeze({
+  audit: Object.freeze({
+    actions: Object.freeze([]),
+    outcome: 'cancelled',
+    retryCount: 0
+  }),
+  reason: 'aborted',
+  status: 'cancelled'
+})
 
 describe.sequential('AI agent Feature lifecycle', () => {
+  it('exposes only Runtime and explicit Feature terminal results', () => {
+    expectTypeOf<AiAgentFeatureResult>().toEqualTypeOf<
+      AiRuntimeResult | AiAgentFeatureTerminalResult
+    >()
+  })
+
   it('registers one explicit exclusive programmatic task Feature', () => {
     registerAiAgentFeature({
-      providerEnabled: false
+      run: vi.fn(async () => executedResult)
     })
 
     expect(FeatureNames.AI_AGENT).toBe('aiAgent')
@@ -26,74 +67,44 @@ describe.sequential('AI agent Feature lifecycle', () => {
     expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
   })
 
-  it('returns unavailable before runtime work when the provider is disabled', async () => {
-    const run = vi.fn()
-    registerAiAgentFeature({
-      providerEnabled: false,
-      runtime: { run }
-    })
-
-    const api = getFeature(FeatureNames.AI_AGENT) as {
-      execute(intent: string): Promise<unknown>
-    }
-
-    await expect(api.execute('create a rectangle')).resolves.toEqual({
-      status: 'unavailable',
-      reason: 'provider-disabled'
-    })
-    expect(run).not.toHaveBeenCalled()
-    expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
-  })
-
   it('passes normalized intent and the Feature-owned signal to the runtime', async () => {
     const externalController = new AbortController()
-    const run = vi.fn(async ({ intent, signal }) => ({
-      status: 'executed',
-      intent,
-      signal
-    }))
-    registerAiAgentFeature({
-      providerEnabled: true,
-      runtime: { run }
-    })
+    const run = vi.fn(async () => executedResult)
+    registerAiAgentFeature({ run })
 
     const api = getFeature(FeatureNames.AI_AGENT) as {
       execute(
         intent: string,
         options?: { signal?: AbortSignal }
-      ): Promise<Record<string, unknown>>
+      ): Promise<AiAgentFeatureResult>
     }
     const result = await api.execute('  create a rectangle  ', {
       signal: externalController.signal
     })
 
-    expect(result).toMatchObject({
-      status: 'executed',
-      intent: 'create a rectangle'
-    })
-    expect(result.signal).toBeInstanceOf(AbortSignal)
-    expect(result.signal).not.toBe(externalController.signal)
+    expect(result).toBe(executedResult)
     expect(run).toHaveBeenCalledOnce()
+    expect(run).toHaveBeenCalledWith({
+      intent: 'create a rectangle',
+      signal: expect.any(AbortSignal)
+    })
+    const runtimeSignal = run.mock.calls[0]?.[0].signal
+    expect(runtimeSignal).toBeInstanceOf(AbortSignal)
+    expect(runtimeSignal).not.toBe(externalController.signal)
     expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
   })
 
   it('forwards detached turn metadata and progress while retaining Feature-owned cancellation', async () => {
     const progressObserver = vi.fn()
-    const run = vi.fn(async (request) => ({
-      metadata: request.metadata,
-      status: 'executed'
-    }))
-    registerAiAgentFeature({
-      providerEnabled: true,
-      runtime: { run }
-    })
+    const run = vi.fn(async () => executedResult)
+    registerAiAgentFeature({ run })
 
     const api = getFeature(FeatureNames.AI_AGENT) as {
       execute(request: {
         intent: string
         metadata: Record<string, unknown>
         progressObserver: typeof progressObserver
-      }): Promise<Record<string, unknown>>
+      }): Promise<AiAgentFeatureResult>
     }
     await api.execute({
       intent: '  畫一個貓臉  ',
@@ -117,11 +128,8 @@ describe.sequential('AI agent Feature lifecycle', () => {
   })
 
   it('rejects empty intent without starting a Feature task', async () => {
-    const run = vi.fn()
-    registerAiAgentFeature({
-      providerEnabled: true,
-      runtime: { run }
-    })
+    const run = vi.fn(async () => executedResult)
+    registerAiAgentFeature({ run })
 
     const api = getFeature(FeatureNames.AI_AGENT) as {
       execute(intent: string): Promise<unknown>
@@ -142,22 +150,15 @@ describe.sequential('AI agent Feature lifecycle', () => {
       markStarted = resolve
     })
     const run = vi.fn(
-      async ({ intent, signal }: { intent: string; signal: AbortSignal }) => {
+      async ({ signal }: { intent: string; signal: AbortSignal }) => {
         markStarted?.()
         await new Promise<void>((resolve) => {
           signal.addEventListener('abort', () => resolve(), { once: true })
         })
-        return {
-          status: 'cancelled',
-          reason: signal.aborted ? 'aborted' : 'active',
-          intent
-        }
+        return cancelledResult
       }
     )
-    registerAiAgentFeature({
-      providerEnabled: true,
-      runtime: { run }
-    })
+    registerAiAgentFeature({ run })
 
     const api = getFeature(FeatureNames.AI_AGENT) as {
       execute(intent: string): Promise<unknown>
@@ -173,11 +174,7 @@ describe.sequential('AI agent Feature lifecycle', () => {
       })
     )
     expect(api.cancel('user-cancelled')).toBe(true)
-    await expect(first).resolves.toEqual({
-      status: 'cancelled',
-      reason: 'aborted',
-      intent: 'first'
-    })
+    await expect(first).resolves.toBe(cancelledResult)
     expect(run).toHaveBeenCalledOnce()
     expect(unregisterFeature(FeatureNames.AI_AGENT)).toBe(true)
   })

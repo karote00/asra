@@ -2,22 +2,22 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AI_REDACTED_VALUE,
   AiConfirmationError,
-  confirmAiPlan,
+  confirmAiActionBatch,
   type AiConfirmationHandler,
-  type AiPermissionReadyPlan
+  type PermissionReadyAiActionBatch
 } from '..'
 
-const permissionReadyPlan = (
+const permissionReadyActionBatch = (
   confirmationRequired: boolean
 ): {
   readonly execute: ReturnType<typeof vi.fn>
-  readonly plan: AiPermissionReadyPlan
+  readonly batch: PermissionReadyAiActionBatch
 } => {
   const execute = vi.fn(async () => null)
   return {
     execute,
-    plan: Object.freeze({
-      planId: 'plan-1',
+    batch: Object.freeze({
+      batchId: 'batch-1',
       explanation: 'Bearer explanation-secret',
       confirmationRequired,
       actions: Object.freeze([
@@ -29,20 +29,25 @@ const permissionReadyPlan = (
             width: 120
           }),
           execute,
-          permission: confirmationRequired ? 'confirm' : 'allow'
+          permission: confirmationRequired ? 'confirm' : 'allow',
+          summary: Object.freeze({
+            affectedCount: 1,
+            authorization: 'Bearer summary-secret',
+            actionKind: 'resize'
+          })
         })
       ])
     })
   }
 }
 
-describe('AI complete-plan confirmation', () => {
+describe('AI complete action-batch confirmation', () => {
   it('uses the explicit allow-only bypass without invoking the handler', async () => {
-    const { execute, plan } = permissionReadyPlan(false)
+    const { execute, batch } = permissionReadyActionBatch(false)
     const confirm = vi.fn(async () => true)
 
-    const confirmed = await confirmAiPlan(
-      plan,
+    const confirmed = await confirmAiActionBatch(
+      batch,
       {
         confirm
       },
@@ -56,14 +61,14 @@ describe('AI complete-plan confirmation', () => {
   })
 
   it('calls the handler once with one immutable redacted complete preview', async () => {
-    const { execute, plan } = permissionReadyPlan(true)
+    const { execute, batch } = permissionReadyActionBatch(true)
     const controller = new AbortController()
     const confirm = vi
       .fn<AiConfirmationHandler['confirm']>()
       .mockResolvedValue(true)
 
-    const confirmed = await confirmAiPlan(
-      plan,
+    const confirmed = await confirmAiActionBatch(
+      batch,
       {
         confirm
       },
@@ -74,35 +79,37 @@ describe('AI complete-plan confirmation', () => {
     const [preview, options] = confirm.mock.calls[0]
     expect(options.signal).toBe(controller.signal)
     expect(preview).toEqual({
-      planId: 'plan-1',
+      batchId: 'batch-1',
       explanation: AI_REDACTED_VALUE,
       actions: [
         {
           id: 'action-1',
           name: 'resize',
-          arguments: {
+          permission: 'confirm',
+          summary: {
+            affectedCount: 1,
             authorization: AI_REDACTED_VALUE,
-            width: 120
-          },
-          permission: 'confirm'
+            actionKind: 'resize'
+          }
         }
       ]
     })
     expect('execute' in preview.actions[0]).toBe(false)
+    expect('arguments' in preview.actions[0]).toBe(false)
     expect(Object.isFrozen(preview)).toBe(true)
     expect(Object.isFrozen(preview.actions)).toBe(true)
-    expect(Object.isFrozen(preview.actions[0].arguments)).toBe(true)
+    expect(Object.isFrozen(preview.actions[0].summary)).toBe(true)
     expect(confirmed.confirmation).toBe('accepted')
     expect(confirmed.preview).toBe(preview)
     expect(execute).not.toHaveBeenCalled()
   })
 
   it('returns stable cancellation without exposing an executable prefix', async () => {
-    const { execute, plan } = permissionReadyPlan(true)
+    const { execute, batch } = permissionReadyActionBatch(true)
 
     await expect(
-      confirmAiPlan(
-        plan,
+      confirmAiActionBatch(
+        batch,
         {
           confirm: vi.fn(async () => false)
         },
@@ -118,14 +125,14 @@ describe('AI complete-plan confirmation', () => {
   })
 
   it('bypasses the handler on pre-abort and settles an in-flight abort', async () => {
-    const { plan } = permissionReadyPlan(true)
+    const { batch } = permissionReadyActionBatch(true)
     const preAborted = new AbortController()
     preAborted.abort()
     const confirm = vi.fn(async () => true)
 
     await expect(
-      confirmAiPlan(
-        plan,
+      confirmAiActionBatch(
+        batch,
         {
           confirm
         },
@@ -140,8 +147,8 @@ describe('AI complete-plan confirmation', () => {
 
     const controller = new AbortController()
     const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
-    const pending = confirmAiPlan(
-      plan,
+    const pending = confirmAiActionBatch(
+      batch,
       {
         confirm: vi.fn(async () => new Promise<boolean>(() => undefined))
       },
@@ -160,12 +167,12 @@ describe('AI complete-plan confirmation', () => {
   })
 
   it('contains throwing or malformed handler output without raw errors', async () => {
-    const { plan } = permissionReadyPlan(true)
+    const { batch } = permissionReadyActionBatch(true)
     let failure: AiConfirmationError | undefined
 
     try {
-      await confirmAiPlan(
-        plan,
+      await confirmAiActionBatch(
+        batch,
         {
           confirm: vi.fn(async () => {
             throw new Error('Bearer confirmation-secret')
@@ -184,8 +191,8 @@ describe('AI complete-plan confirmation', () => {
     expect(JSON.stringify(failure)).not.toContain('confirmation-secret')
 
     await expect(
-      confirmAiPlan(
-        plan,
+      confirmAiActionBatch(
+        batch,
         {
           confirm: vi.fn(async () => 'accepted' as unknown as boolean)
         },

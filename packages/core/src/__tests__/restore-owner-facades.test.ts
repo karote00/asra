@@ -1,28 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
 import type {
-  ElementPropertyOwnerRelation,
-  PropsRestorePlan,
+  ElementPropertyRelation,
+  PreparedPropsRestore,
   PropsRestoreSnapshot,
-  SceneTreeRestorePlan,
+  PreparedSceneTreeRestore,
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
 import { createSceneTreeAPIs } from '../apis/scene-tree'
 import { createPropsAPIs } from '../apis/props'
 
 describe('remote restore owner facades', () => {
-  it('delegates Scene Tree plans only to the supplied owner requests', () => {
+  it('delegates prepared Scene Tree restores only to the supplied owner requests', () => {
     const snapshot = {
       elementId: 'group-1',
       removed: [],
       rootParentChildrenAfter: []
     } as unknown as SceneTreeRestoreSnapshot
-    const plan = Object.freeze({
-      kind: 'scene-tree-restore-plan',
+    const prepared = Object.freeze({
+      kind: 'prepared-scene-tree-restore',
       elementId: 'group-1',
       entries: Object.freeze([]),
       propertyOwnerRelations: Object.freeze([])
-    }) as SceneTreeRestorePlan
-    const firstPreflight = vi.fn(() => plan)
+    }) as PreparedSceneTreeRestore
+    const firstPreflight = vi.fn(() => prepared)
     const firstApply = vi.fn(() => ({
       elementId: 'group-1',
       removed: [],
@@ -51,39 +51,37 @@ describe('remote restore owner facades', () => {
     const first = createSceneTreeAPIs(requests as never) as unknown as {
       preflightRestoreSubtree: (
         input: SceneTreeRestoreSnapshot
-      ) => SceneTreeRestorePlan
-      applyRestoreSubtree: (input: SceneTreeRestorePlan) => unknown
+      ) => PreparedSceneTreeRestore
+      applyRestoreSubtree: (input: PreparedSceneTreeRestore) => unknown
     }
     createSceneTreeAPIs({
       ...requests,
       preflightRestoreSubtree: secondPreflight
     } as never)
 
-    expect(first.preflightRestoreSubtree(snapshot)).toBe(plan)
-    expect(first.applyRestoreSubtree(plan)).toEqual({
+    expect(first.preflightRestoreSubtree(snapshot)).toBe(prepared)
+    expect(first.applyRestoreSubtree(prepared)).toEqual({
       elementId: 'group-1',
       removed: [],
       rootParentChildrenAfter: []
     })
     expect(firstPreflight).toHaveBeenCalledWith(snapshot)
-    expect(firstApply).toHaveBeenCalledWith(plan, undefined)
+    expect(firstApply).toHaveBeenCalledWith(prepared, undefined)
     expect(secondPreflight).not.toHaveBeenCalled()
   })
 
-  it('delegates Props plans only to the supplied owner requests', () => {
+  it('delegates prepared Props restores only to the supplied owner requests', () => {
     const snapshot: PropsRestoreSnapshot = { components: [] }
-    const relations: readonly ElementPropertyOwnerRelation[] = []
-    const plan = Object.freeze({
-      kind: 'props-restore-plan',
+    const relations: readonly ElementPropertyRelation[] = []
+    const prepared = Object.freeze({
+      kind: 'prepared-props-restore',
       entries: Object.freeze([]),
       ownerRelations: Object.freeze([])
-    }) as PropsRestorePlan
-    const firstPreflight = vi.fn(() => plan)
+    }) as PreparedPropsRestore
+    const firstPreflight = vi.fn(() => prepared)
     const firstApply = vi.fn(() => Object.freeze([] as string[]))
     const secondPreflight = vi.fn()
     const requests = {
-      updatePropertyById: () => undefined,
-      commitPropertyChanges: () => undefined,
       propsLoadData: () => undefined,
       propsSaveData: () => ({}),
       preflightRestoreProperties: firstPreflight,
@@ -92,19 +90,19 @@ describe('remote restore owner facades', () => {
     const first = createPropsAPIs(requests as never) as unknown as {
       preflightRestoreProperties: (
         input: PropsRestoreSnapshot,
-        ownerRelations: readonly ElementPropertyOwnerRelation[]
-      ) => PropsRestorePlan
-      applyRestoreProperties: (input: PropsRestorePlan) => readonly string[]
+        ownerRelations: readonly ElementPropertyRelation[]
+      ) => PreparedPropsRestore
+      applyRestoreProperties: (input: PreparedPropsRestore) => readonly string[]
     }
     createPropsAPIs({
       ...requests,
       preflightRestoreProperties: secondPreflight
     } as never)
 
-    expect(first.preflightRestoreProperties(snapshot, relations)).toBe(plan)
-    expect(first.applyRestoreProperties(plan)).toEqual([])
+    expect(first.preflightRestoreProperties(snapshot, relations)).toBe(prepared)
+    expect(first.applyRestoreProperties(prepared)).toEqual([])
     expect(firstPreflight).toHaveBeenCalledWith(snapshot, relations)
-    expect(firstApply).toHaveBeenCalledWith(plan, undefined)
+    expect(firstApply).toHaveBeenCalledWith(prepared, undefined)
     expect(secondPreflight).not.toHaveBeenCalled()
   })
 })

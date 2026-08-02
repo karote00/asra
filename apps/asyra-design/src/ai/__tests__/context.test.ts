@@ -2,17 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AI_CONTEXT_SELECTED_ELEMENT_LIMIT,
   AiContextCollectionError,
-  createAsyraDesignAiContextProvider,
-  type AsyraDesignAiContextQueries
+  createAiContextProvider,
+  type AiContextQueries
 } from '../context'
-import {
-  ASYRA_DESIGN_AI_APP_PROMPT,
-  ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG
-} from '../app-prompt'
+import { AI_APP_PROMPT, AI_IMAGE_TOOL_CATALOG } from '../app-prompt'
 
 const createQueries = (
-  overrides: Partial<AsyraDesignAiContextQueries> = {}
-): AsyraDesignAiContextQueries => ({
+  overrides: Partial<AiContextQueries> = {}
+): AiContextQueries => ({
   getSelectedElementIds: vi.fn(() => ['selected-2', 'selected-1']),
   getWorkspaceId: vi.fn(() => 'workspace-1'),
   getElementCount: vi.fn(() => 3),
@@ -37,16 +34,15 @@ const createQueries = (
 describe('Asyra Design AI context disclosure', () => {
   it('returns a detached immutable whitelist without raw props or secrets', async () => {
     const queries = createQueries()
-    const provider = createAsyraDesignAiContextProvider(queries)
+    const provider = createAiContextProvider(queries)
     const result = await provider.getContext({
       intent: 'create a rectangle',
       signal: new AbortController().signal
     })
 
     expect(result).toEqual({
-      app: 'asyra-design',
-      appPrompt: ASYRA_DESIGN_AI_APP_PROMPT,
-      imageTools: ASYRA_DESIGN_AI_MOCK_IMAGE_TOOL_CATALOG,
+      appPrompt: AI_APP_PROMPT,
+      imageTools: AI_IMAGE_TOOL_CATALOG,
       workspaceId: 'workspace-1',
       primaryTool: 'rectangle',
       systemMode: 'editing',
@@ -99,12 +95,10 @@ describe('Asyra Design AI context disclosure', () => {
       }))
     })
 
-    const result = await createAsyraDesignAiContextProvider(queries).getContext(
-      {
-        intent: 'align the selection',
-        signal: new AbortController().signal
-      }
-    )
+    const result = await createAiContextProvider(queries).getContext({
+      intent: 'align the selection',
+      signal: new AbortController().signal
+    })
 
     expect(result.selectedElementCount).toBe(selectedIds.length)
     expect(result.selectedElements).toHaveLength(
@@ -121,7 +115,7 @@ describe('Asyra Design AI context disclosure', () => {
     controller.abort()
 
     await expect(
-      createAsyraDesignAiContextProvider(queries).getContext({
+      createAiContextProvider(queries).getContext({
         intent: 'create a rectangle',
         signal: controller.signal
       })
@@ -155,7 +149,7 @@ describe('Asyra Design AI context disclosure', () => {
       })
     })
     const controller = new AbortController()
-    const context = createAsyraDesignAiContextProvider(queries).getContext({
+    const context = createAiContextProvider(queries).getContext({
       intent: 'move the selection',
       signal: controller.signal
     })
@@ -175,7 +169,7 @@ describe('Asyra Design AI context disclosure', () => {
     const queries = createQueries()
 
     await expect(
-      createAsyraDesignAiContextProvider(queries).getContext({
+      createAiContextProvider(queries).getContext({
         intent: '   ',
         signal: new AbortController().signal
       })

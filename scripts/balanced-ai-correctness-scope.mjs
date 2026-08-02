@@ -7,7 +7,7 @@ const EXACT_PATHS = new Set([
   '.github/workflows/e2e.yml',
   'apps/asyra-design/app-environment.mjs',
   'apps/asyra-design/collaboration-server.ts',
-  'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
+  'apps/asyra-design/e2e/conversational-ai.spec.ts',
   'apps/asyra-design/e2e/test-utils.ts',
   'apps/asyra-design/package.json',
   'apps/asyra-design/playwright.config.ts',

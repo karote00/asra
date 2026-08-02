@@ -118,12 +118,12 @@ export class RecordingRenderEngine implements RenderEngine {
     }
   }
 
-  startFrameLoop(callback: RenderEngineFrameCallback): void {
+  requestFrame(callback: RenderEngineFrameCallback): void {
     this.assertReady()
     this.frameCallback = callback
   }
 
-  stopFrameLoop(): void {
+  cancelFrame(): void {
     this.frameCallback = null
   }
 
@@ -136,7 +136,9 @@ export class RecordingRenderEngine implements RenderEngine {
 
   emitFrame(timestamp: number): void {
     this.assertReady()
-    this.frameCallback?.(timestamp)
+    const callback = this.frameCallback
+    this.frameCallback = null
+    callback?.(timestamp)
   }
 
   destroy(): RenderEngineDestroyResult {

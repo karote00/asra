@@ -1,147 +1,187 @@
-import {
-  IndexedDbPersistence,
-  type IPersistenceProvider
-} from '@asyra/reactive-events'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CoreRawData } from '@asyra/utils'
-import { indexedDB } from 'fake-indexeddb'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  clearDocumentPersistence,
+  DOCUMENT_DATABASE_ENDPOINT,
+  activateDocumentPersistence,
   createDocumentPersistence,
-  getDocumentStorageKey,
-  initializeDocumentPersistence
+  resetPersistedDocument
 } from '../../document-persistence'
 
-const EMPTY_DOCUMENT = {
-  version: '1.0.0',
-  sceneTree: { workspace: '', workspaceList: [], elements: {} },
-  props: {}
-} as const satisfies CoreRawData
-
-const EXISTING_DOCUMENT = {
+const createDocument = (workspace: string): CoreRawData => ({
   version: '1.0.0',
   sceneTree: {
-    workspace: 'workspace-existing',
-    workspaceList: ['workspace-existing'],
+    workspace,
+    workspaceList: workspace ? [workspace] : [],
     elements: {}
   },
   props: {}
-} satisfies CoreRawData
+})
 
-const CURRENT_DOCUMENT = {
-  version: '1.0.0',
-  sceneTree: {
-    workspace: 'workspace-current',
-    workspaceList: ['workspace-current'],
-    elements: {}
-  },
-  props: {}
-} satisfies CoreRawData
-
-const documentKeys = ['FILE', 'FILE:file-1']
-
-const createTestPersistence = (fileId?: string) =>
-  new IndexedDbPersistence(getDocumentStorageKey(fileId), {
-    factory: indexedDB
+describe('file-scoped document persistence', () => {
+  beforeEach(() => {
+    activateDocumentPersistence(null)
   })
 
-describe('Asyra Design document persistence', () => {
-  beforeEach(async () => {
-    vi.stubGlobal('indexedDB', indexedDB)
-    localStorage.clear()
-    await Promise.all(
-      documentKeys.map((key) =>
-        new IndexedDbPersistence(key, { factory: indexedDB }).clear()
-      )
-    )
+  it('loads, saves, and clears one file through the formal document database endpoint', async () => {
+    const stored = createDocument('workspace-a')
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({ document: stored }),
+        ok: true,
+        status: 200
+      })
+      .mockResolvedValueOnce({
+        json: async () => undefined,
+        ok: true,
+        status: 204
+      })
+      .mockResolvedValueOnce({
+        json: async () => undefined,
+        ok: true,
+        status: 204
+      })
+    const persistence = createDocumentPersistence('file/a', {
+      fetch,
+      createInitialDocument: () => createDocument('')
+    })
+
+    await expect(persistence.provider.load()).resolves.toEqual(stored)
+    await persistence.provider.save(stored)
+    await persistence.provider.clear()
+
+    const endpoint = `${DOCUMENT_DATABASE_ENDPOINT}/file%2Fa`
+    expect(fetch).toHaveBeenNthCalledWith(1, endpoint, {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      method: 'GET'
+    })
+    expect(fetch).toHaveBeenNthCalledWith(2, endpoint, {
+      body: JSON.stringify({ document: stored }),
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json'
+      },
+      method: 'PUT'
+    })
+    expect(fetch).toHaveBeenNthCalledWith(3, endpoint, {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      method: 'DELETE'
+    })
   })
 
-  afterEach(async () => {
-    await Promise.all(
-      documentKeys.map((key) =>
-        new IndexedDbPersistence(key, { factory: indexedDB }).clear()
-      )
-    )
-    localStorage.clear()
-    vi.unstubAllGlobals()
-  })
-
-  it('selects IndexedDB for ordinary and collaboration document identities', () => {
-    expect(createDocumentPersistence().name).toBe('IndexedDB')
-    expect(createDocumentPersistence('file-1').name).toBe('IndexedDB')
-  })
-
-  it('initializes an absent document in IndexedDB without writing localStorage', async () => {
-    const persistence = createTestPersistence()
-
-    await initializeDocumentPersistence(persistence, EMPTY_DOCUMENT)
-
-    await expect(persistence.load()).resolves.toEqual(EMPTY_DOCUMENT)
-    expect(localStorage.getItem('FILE')).toBeNull()
-  })
-
-  it('migrates a valid legacy snapshot only when IndexedDB is empty', async () => {
-    localStorage.setItem('FILE:file-1', JSON.stringify(EXISTING_DOCUMENT))
-    const persistence = createTestPersistence('file-1')
-
-    await initializeDocumentPersistence(persistence, EMPTY_DOCUMENT, 'file-1')
-
-    await expect(persistence.load()).resolves.toEqual(EXISTING_DOCUMENT)
-    expect(localStorage.getItem('FILE:file-1')).toBeNull()
-  })
-
-  it('keeps an existing IndexedDB document authoritative', async () => {
-    const persistence = createTestPersistence('file-1')
-    await persistence.save(CURRENT_DOCUMENT)
-    localStorage.setItem('FILE:file-1', JSON.stringify(EXISTING_DOCUMENT))
-
-    await initializeDocumentPersistence(persistence, EMPTY_DOCUMENT, 'file-1')
-
-    await expect(persistence.load()).resolves.toEqual(CURRENT_DOCUMENT)
-    expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
-      EXISTING_DOCUMENT
-    )
-  })
-
-  it('preserves the legacy snapshot when its durable migration write fails', async () => {
-    localStorage.setItem('FILE', JSON.stringify(EXISTING_DOCUMENT))
-    const migrationFailure = new Error('IndexedDB quota unavailable')
-    const persistence = {
-      name: 'failing-indexed-db',
-      load: vi.fn(async () => null),
-      save: vi.fn(async () => {
-        throw migrationFailure
+  it('continues with the initial document and reports an unavailable database when load fails', async () => {
+    const statuses: unknown[] = []
+    const persistence = createDocumentPersistence('file-unavailable', {
+      fetch: vi.fn(async () => {
+        throw new Error('database offline')
       }),
-      clear: vi.fn(async () => undefined)
-    } satisfies IPersistenceProvider
+      createInitialDocument: () => createDocument('initial-workspace'),
+      onStatusChange: (status) => statuses.push(status)
+    })
+
+    await expect(persistence.provider.load()).resolves.toEqual(
+      createDocument('initial-workspace')
+    )
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        operation: 'load',
+        status: 'unavailable'
+      })
+    ])
+  })
+
+  it('reports a failed local save, keeps the runtime commit, and recovers the serial queue', async () => {
+    const statuses: unknown[] = []
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('database offline'))
+      .mockResolvedValueOnce({
+        json: async () => undefined,
+        ok: true,
+        status: 204
+      })
+    const persistence = createDocumentPersistence('file-save', {
+      fetch,
+      createInitialDocument: () => createDocument(''),
+      onStatusChange: (status) => statuses.push(status)
+    })
 
     await expect(
-      initializeDocumentPersistence(persistence, EMPTY_DOCUMENT)
-    ).rejects.toBe(migrationFailure)
-
-    expect(JSON.parse(localStorage.getItem('FILE') ?? '')).toEqual(
-      EXISTING_DOCUMENT
-    )
+      persistence.provider.save(createDocument('workspace-1'))
+    ).rejects.toThrow('Document database save failed')
+    await expect(
+      persistence.provider.save(createDocument('workspace-2'))
+    ).resolves.toBeUndefined()
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        operation: 'save',
+        status: 'unavailable'
+      }),
+      { status: 'available' }
+    ])
   })
 
-  it('does not delete an ineligible legacy snapshot', async () => {
-    localStorage.setItem('FILE', JSON.stringify({ version: 42 }))
-    const persistence = createTestPersistence()
+  it('serializes local saves through one provider queue', async () => {
+    const order: string[] = []
+    let finishFirstSave: (() => void) | undefined
+    const firstSave = new Promise<void>((resolve) => {
+      finishFirstSave = resolve
+    })
+    const provider = {
+      name: 'test-provider',
+      load: vi.fn(async () => null),
+      clear: vi.fn(async () => undefined),
+      save: vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          order.push('save-1:start')
+          await firstSave
+          order.push('save-1:end')
+        })
+        .mockImplementationOnce(async () => {
+          order.push('save-2')
+        })
+    }
+    const persistence = createDocumentPersistence('file-serial', {
+      provider,
+      createInitialDocument: () => createDocument('')
+    })
 
-    await initializeDocumentPersistence(persistence, EMPTY_DOCUMENT)
+    const first = persistence.provider.save(createDocument('workspace-1'))
+    const second = persistence.provider.save(createDocument('workspace-2'))
+    await Promise.resolve()
+    expect(order).toEqual(['save-1:start'])
 
-    await expect(persistence.load()).resolves.toEqual(EMPTY_DOCUMENT)
-    expect(localStorage.getItem('FILE')).toBe(JSON.stringify({ version: 42 }))
+    finishFirstSave?.()
+    await Promise.all([first, second])
+    expect(order).toEqual(['save-1:start', 'save-1:end', 'save-2'])
   })
 
-  it('clears both durable and unmigrated legacy values for reset', async () => {
-    const persistence = createTestPersistence('file-1')
-    await persistence.save(EXISTING_DOCUMENT)
-    localStorage.setItem('FILE:file-1', JSON.stringify(CURRENT_DOCUMENT))
+  it('persists a local reset through the active operation owner', async () => {
+    const saves: CoreRawData[] = []
+    const persistence = createDocumentPersistence('file-active', {
+      provider: {
+        name: 'test-provider',
+        load: vi.fn(async () => null),
+        clear: vi.fn(async () => undefined),
+        save: vi.fn(async (data: CoreRawData) => {
+          saves.push(data)
+        })
+      },
+      createInitialDocument: () => createDocument('')
+    })
+    activateDocumentPersistence(persistence)
 
-    await clearDocumentPersistence('file-1')
+    const load = vi.fn()
+    const save = vi.fn().mockResolvedValueOnce(createDocument(''))
 
-    await expect(persistence.load()).resolves.toBeNull()
-    expect(localStorage.getItem('FILE:file-1')).toBeNull()
+    await resetPersistedDocument({ load, save })
+
+    expect(load).toHaveBeenCalledOnce()
+    expect(load).toHaveBeenCalledWith(createDocument(''))
+    expect(saves).toEqual([createDocument('')])
   })
 })

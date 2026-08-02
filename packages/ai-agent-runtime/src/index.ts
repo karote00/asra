@@ -4,29 +4,29 @@ export {
 } from './action-registry'
 export { AiAuditError, createAiRuntimeAudit } from './audit'
 export {
-  AiPlanNormalizationError,
-  AiPlanValidationError,
+  AiActionBatchContractError,
+  AiActionBatchResolutionError
+} from './action-batch'
+export {
   AiRetryPolicyError,
   MAX_AI_PROVIDER_ATTEMPTS,
-  normalizeAiProviderOutput,
   shouldRetryAiProviderFailure,
-  toAiPlanningFailure,
-  validateAiPlan
-} from './plan'
+  toAiProviderRequestFailure
+} from './provider-retry'
 export { AiProviderError } from './provider'
 export { createGenericHttpAiProvider } from './providers/generic-http'
 export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
 export {
-  AI_PLAN_TRANSACTION_LABEL,
+  AI_ACTION_BATCH_TRANSACTION_LABEL,
   AiConfirmationError,
   AiExecutionError,
   AiPermissionError,
   AiTransactionError,
-  confirmAiPlan,
+  confirmAiActionBatch,
   createAiAgentRuntime,
-  evaluateAiPlanPermissions,
+  evaluateAiActionBatchPermissions,
   executeAiActions,
-  runAiPlanTransaction
+  runAiActionBatchTransaction
 } from './runtime'
 export type {
   AiAuditActionSummary,
@@ -35,17 +35,19 @@ export type {
   CreateAiRuntimeAuditInput
 } from './audit'
 export type {
-  AiPlan,
-  AiPlanValidationErrorCode,
-  AiPlannedAction,
-  AiPreparedAction,
-  AiPreparedPlan,
-  AiPlanningFailure,
-  AiProviderRetryContext,
-  AiRetryPolicy,
-  AiValidationIssue
-} from './plan'
+  AiActionBatchContractErrorCode,
+  AiActionBatchResolutionErrorCode,
+  ResolvedAiAction,
+  ResolvedAiActionBatch
+} from './action-batch'
 export type {
+  AiProviderRequestFailure,
+  AiProviderRetryContext,
+  AiRetryPolicy
+} from './provider-retry'
+export type {
+  AiActionBatch,
+  AiActionBatchAction,
   AiProvider,
   AiProviderErrorCode,
   AiProviderErrorOptions,
@@ -61,20 +63,20 @@ export type {
 export type { AiRedactionOptions } from './redaction'
 export type {
   AiAgentRuntime,
+  AiActionBatchPreview,
+  AiActionBatchPreviewAction,
   AiActionExecutionBatch,
   AiActionExecutionResult,
   AiConfirmationErrorCode,
   AiConfirmationHandler,
-  AiConfirmedPlan,
+  ConfirmedAiActionBatch,
   AiContextProvider,
   AiPermissionAction,
   AiPermissionDecision,
   AiPermissionErrorCode,
   AiPermissionPolicy,
   AiPermissionReadyAction,
-  AiPermissionReadyPlan,
-  AiPlanPreview,
-  AiPlanPreviewAction,
+  PermissionReadyAiActionBatch,
   AiRunRequest,
   AiRuntimeCancelledResult,
   AiRuntimeExecutedResult,
@@ -97,9 +99,6 @@ export type {
   AiActionRegistry,
   AiActionRegistryErrorCode,
   AiActionResult,
-  AiActionSchema,
-  AiActionSchemaIssue,
-  AiActionSchemaResult,
   AiExecutionContext,
   AiJsonPrimitive,
   AiJsonValue

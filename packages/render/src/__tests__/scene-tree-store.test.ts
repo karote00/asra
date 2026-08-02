@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EntityTypes, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import {
+  EntityTypes,
+  SCENE_TREE_ACTIONS,
+  subscribeToDiagnosticCounters
+} from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import render from '../render'
 
@@ -635,6 +639,421 @@ describe('RenderSceneTree computed data mirror', () => {
         children: ['child-a', 'child-c']
       })
     )
+  })
+
+  it('projects delayed child add envelopes against an already-final parent mirror without resync', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const counters = new Map<string, number>()
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
+      counters.set(name, (counters.get(name) ?? 0) + value)
+    })
+    const parentRaw = {
+      type: 'group',
+      parentId: 'workspace-1',
+      visible: true,
+      children: ['child-a', 'child-b', 'child-c']
+    }
+    const elements = new Map([
+      ['group-1', createElement('group-1', parentRaw, {})],
+      [
+        'child-a',
+        createElement(
+          'child-a',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ],
+      [
+        'child-b',
+        createElement(
+          'child-b',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ],
+      [
+        'child-c',
+        createElement(
+          'child-c',
+          { type: 'rectangle', parentId: 'group-1' },
+          { height: 10, width: 10 }
+        )
+      ]
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    try {
+      expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+        status: 'applied',
+        elementId: 'group-1'
+      })
+      for (const [index, elementId] of parentRaw.children.entries()) {
+        expect(store.addElementById(elementId, 'group-1', index)).toEqual({
+          status: 'applied',
+          elementId
+        })
+      }
+    } finally {
+      unsubscribe()
+    }
+
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['group-1', 0],
+      ['child-a', 0],
+      ['child-b', 1],
+      ['child-c', 2]
+    ])
+    expect(counters.get('computed-mirror-projection-mismatch') ?? 0).toBe(0)
+    expect(counters.get('computed-mirror-seed-resync') ?? 0).toBe(0)
+  })
+
+  it('applies one canonical parent relationship batch while projecting every child', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const counters = new Map<string, number>()
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
+      counters.set(name, (counters.get(name) ?? 0) + value)
+    })
+    const parentRaw = {
+      type: 'group',
+      parentId: 'workspace-1',
+      visible: true,
+      children: [] as string[]
+    }
+    const childIds = ['child-a', 'child-b', 'child-c']
+    const elements = new Map([
+      ['group-1', createElement('group-1', parentRaw, {})],
+      ...childIds.map(
+        (elementId) =>
+          [
+            elementId,
+            createElement(
+              elementId,
+              { type: 'rectangle', parentId: 'group-1' },
+              { height: 10, width: 10 }
+            )
+          ] as const
+      )
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    try {
+      expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+        status: 'applied',
+        elementId: 'group-1'
+      })
+      parentRaw.children = [...childIds]
+      const ownKeys = vi.spyOn(Reflect, 'ownKeys')
+      let ownKeyEnumerationCount = 0
+      try {
+        expect(
+          store.addElements(
+            childIds.slice(0, 2).map((elementId, index) => ({
+              data: {
+                id: elementId,
+                type: 'rectangle',
+                parentId: 'group-1'
+              },
+              index,
+              parentId: 'group-1'
+            }))
+          )
+        ).toEqual(
+          childIds.slice(0, 2).map((elementId) => ({
+            status: 'applied',
+            elementId
+          }))
+        )
+        expect(
+          store.addElements([
+            {
+              data: {
+                id: childIds[2],
+                type: 'rectangle',
+                parentId: 'group-1'
+              },
+              index: 2,
+              parentId: 'group-1'
+            }
+          ])
+        ).toEqual([
+          {
+            status: 'applied',
+            elementId: childIds[2]
+          }
+        ])
+        ownKeyEnumerationCount = ownKeys.mock.calls.length
+      } finally {
+        ownKeys.mockRestore()
+      }
+      expect(ownKeyEnumerationCount).toBe(0)
+      await flushScheduledFrame()
+    } finally {
+      unsubscribe()
+    }
+
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['group-1', 0],
+      ['child-a', 0],
+      ['child-b', 1],
+      ['child-c', 2]
+    ])
+    expect(counters.get('computed-mirror-staged-change-count') ?? 0).toBe(2)
+    expect(counters.get('computed-mirror-projection-mismatch') ?? 0).toBe(0)
+    expect(counters.get('computed-mirror-seed-resync') ?? 0).toBe(0)
+    expect(counters.get('computed-mirror-child-add-batch-apply') ?? 0).toBe(2)
+    expect(counters.get('computed-mirror-child-id-cache-hit') ?? 0).toBe(1)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
+  it('projects exact addition and removal batches without reading future raw snapshots', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const groupRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      visible: true,
+      children: [] as string[]
+    }
+    const childRaw = {
+      id: 'child-a',
+      type: 'rectangle',
+      parentId: 'group-1',
+      visible: true
+    }
+    const group = createElement('group-1', groupRaw, {})
+    const child = createElement('child-a', childRaw, { height: 10, width: 10 })
+    const elements = new Map([
+      ['group-1', group],
+      ['child-a', child]
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+      status: 'applied',
+      elementId: 'group-1'
+    })
+    group.save.mockClear()
+    child.save.mockClear()
+    renderMock.updateElement.mockClear()
+
+    groupRaw.children = ['child-a', 'child-b']
+    expect(
+      store.addElements([
+        {
+          data: childRaw,
+          parentId: 'group-1',
+          index: 0
+        }
+      ])
+    ).toEqual([{ status: 'applied', elementId: 'child-a' }])
+    await flushScheduledFrame()
+
+    expect(group.save).not.toHaveBeenCalled()
+    expect(child.save).not.toHaveBeenCalled()
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+
+    renderMock.updateElement.mockClear()
+    group.save.mockClear()
+    expect(
+      store.removeElements([
+        {
+          data: childRaw,
+          parentId: 'group-1',
+          index: 0
+        }
+      ])
+    ).toEqual([{ status: 'removed', elementId: 'child-a' }])
+    await flushScheduledFrame()
+
+    expect(group.save).not.toHaveBeenCalled()
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenLastCalledWith(
+      'group-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        id: 'group-1',
+        children: []
+      })
+    )
+  })
+
+  it('rejects missing parents and stale batch indexes without canonical resync', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const missingParentChildRaw = {
+      id: 'missing-parent-child',
+      type: 'rectangle',
+      parentId: 'missing-parent',
+      visible: true
+    }
+    const missingParentChild = createElement(
+      'missing-parent-child',
+      missingParentChildRaw,
+      { height: 10, width: 10 }
+    )
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elementId === 'missing-parent-child' ? missingParentChild : undefined
+    )
+    const store = new RenderSceneTree()
+
+    expect(
+      store.addElements([
+        {
+          data: missingParentChildRaw,
+          parentId: 'missing-parent',
+          index: 0
+        }
+      ])
+    ).toEqual([{ status: 'failed', elementId: 'missing-parent-child' }])
+    expect(renderMock.addElement).not.toHaveBeenCalled()
+
+    const groupRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      visible: true,
+      children: [] as string[]
+    }
+    const childRaw = {
+      id: 'child-a',
+      type: 'rectangle',
+      parentId: 'group-1',
+      visible: true
+    }
+    const group = createElement('group-1', groupRaw, {})
+    const child = createElement('child-a', childRaw, { height: 10, width: 10 })
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      new Map([
+        ['group-1', group],
+        ['child-a', child]
+      ]).get(elementId)
+    )
+    expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+      status: 'applied',
+      elementId: 'group-1'
+    })
+    group.save.mockClear()
+    renderMock.addElement.mockClear()
+
+    groupRaw.children = ['child-a']
+    expect(
+      store.addElements([
+        {
+          data: childRaw,
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
+    ).toEqual([{ status: 'failed', elementId: 'child-a' }])
+    expect(group.save).not.toHaveBeenCalled()
+
+    groupRaw.children = []
+    expect(
+      store.removeElements([
+        {
+          data: childRaw,
+          parentId: 'group-1',
+          index: 1
+        }
+      ])
+    ).toEqual([{ status: 'failed', elementId: 'child-a' }])
+    expect(group.save).not.toHaveBeenCalled()
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('child-a')
+  })
+
+  it('compensates a failed visual batch removal so the same evidence can retry', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const groupRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      visible: true,
+      children: [] as string[]
+    }
+    const childEntries = ['child-a', 'child-b'].map((elementId, index) => ({
+      data: {
+        id: elementId,
+        type: 'rectangle',
+        parentId: 'group-1',
+        visible: true
+      },
+      parentId: 'group-1',
+      index
+    }))
+    const group = createElement('group-1', groupRaw, {})
+    const elements = new Map([
+      ['group-1', group],
+      ...childEntries.map(
+        ({ data }) =>
+          [
+            data.id,
+            createElement(data.id, data, { height: 10, width: 10 })
+          ] as const
+      )
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+      status: 'applied',
+      elementId: 'group-1'
+    })
+    groupRaw.children = childEntries.map(({ data }) => data.id)
+    expect(store.addElements(childEntries)).toEqual([
+      { status: 'applied', elementId: 'child-a' },
+      { status: 'applied', elementId: 'child-b' }
+    ])
+    await flushScheduledFrame()
+    group.save.mockClear()
+    renderMock.addElement.mockClear()
+    renderMock.removeElement.mockClear()
+
+    groupRaw.children = []
+    const releaseFailure = new Error('batch visual release failed')
+    renderMock.removeElement
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw releaseFailure
+      })
+
+    expect(() => store.removeElements(childEntries)).toThrow(releaseFailure)
+    expect(store.getProjectionSnapshotCount()).toBe(3)
+    expect(group.save).not.toHaveBeenCalled()
+    expect(renderMock.addElement).toHaveBeenCalledOnce()
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'child-a' }),
+      0
+    )
+
+    renderMock.addElement.mockClear()
+    renderMock.removeElement.mockReset()
+    renderMock.removeElement.mockReturnValue(undefined)
+    expect(store.removeElements(childEntries)).toEqual([
+      { status: 'removed', elementId: 'child-a' },
+      { status: 'removed', elementId: 'child-b' }
+    ])
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expect(group.save).not.toHaveBeenCalled()
   })
 
   it('should run: fail closed for invalid explicit add snapshots', async () => {

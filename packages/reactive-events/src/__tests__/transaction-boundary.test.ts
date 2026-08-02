@@ -9,6 +9,7 @@ import {
 } from '../app'
 import { updateTransaction } from '../app'
 import { registerTransactionOwner } from '../transaction-owner'
+import { EventTypes } from '../types'
 
 describe('transaction boundary publishing', () => {
   it('publishes boundary events only for the outermost transaction', () => {
@@ -202,7 +203,7 @@ describe('transaction boundary publishing', () => {
     endSubscriber.mockClear()
     const disposeOwner = registerTransactionOwner({
       startTransaction: vi.fn(),
-      updateTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(),
       endTransaction: () => {
         throw finalizationFailure
       },
@@ -213,7 +214,11 @@ describe('transaction boundary publishing', () => {
     try {
       expect(() =>
         runTransaction(() => {
-          updateTransaction('test.change', { before: 0, after: 1 })
+          updateTransaction({
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: 'test.change',
+            payload: { before: 0, after: 1 }
+          })
         })
       ).toThrow(finalizationFailure)
       expect(endSubscriber).toHaveBeenCalledWith(
@@ -231,7 +236,7 @@ describe('transaction boundary publishing', () => {
     endSubscriber.mockClear()
     const disposeOwner = registerTransactionOwner({
       startTransaction: vi.fn(),
-      updateTransaction: vi.fn(),
+      updateTransactionBatch: vi.fn(),
       endTransaction: () => {
         throw undefined
       },
@@ -243,7 +248,11 @@ describe('transaction boundary publishing', () => {
     let thrownValue: unknown = 'not-captured'
     try {
       runTransaction(() => {
-        updateTransaction('test.change', { before: 0, after: 1 })
+        updateTransaction({
+          type: EventTypes.UPDATE_TRANSACTION,
+          eventName: 'test.change',
+          payload: { before: 0, after: 1 }
+        })
       })
     } catch (error) {
       threw = true

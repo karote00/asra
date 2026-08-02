@@ -3,7 +3,7 @@ import { createAiAgentRuntime, type CreateAiAgentRuntimeInput } from '..'
 
 const createInput = (): CreateAiAgentRuntimeInput => ({
   provider: {
-    generateActionPlan: vi.fn()
+    requestActionBatch: vi.fn()
   },
   actionDefinitions: [],
   contextProvider: {
@@ -29,12 +29,12 @@ describe('optional AI agent runtime composition', () => {
     const second = createAiAgentRuntime(secondInput)
 
     expect(first).not.toBe(second)
-    expect(firstInput.provider.generateActionPlan).not.toHaveBeenCalled()
+    expect(firstInput.provider.requestActionBatch).not.toHaveBeenCalled()
     expect(firstInput.contextProvider.getContext).not.toHaveBeenCalled()
     expect(firstInput.permissionPolicy.evaluate).not.toHaveBeenCalled()
     expect(firstInput.confirmationHandler.confirm).not.toHaveBeenCalled()
     expect(firstInput.transactionRunner.run).not.toHaveBeenCalled()
-    expect(secondInput.provider.generateActionPlan).not.toHaveBeenCalled()
+    expect(secondInput.provider.requestActionBatch).not.toHaveBeenCalled()
   })
 
   it('disposes only explicitly owned resources and does so once', async () => {

@@ -1,14 +1,14 @@
 import type {
-  AiConfirmationHandler,
-  AiPlanPreview
+  AiActionBatchPreview,
+  AiConfirmationHandler
 } from '@asyra/ai-agent-runtime'
 
-export type AsyraDesignAiConfirmationRequest = (
-  preview: AiPlanPreview,
+export type AiConfirmationRequest = (
+  preview: AiActionBatchPreview,
   options: { signal: AbortSignal }
 ) => Promise<boolean>
 
-export type AsyraDesignAiConfirmationActionKind =
+export type AiConfirmationActionKind =
   | 'create'
   | 'delete'
   | 'mixed'
@@ -16,8 +16,8 @@ export type AsyraDesignAiConfirmationActionKind =
   | 'selection'
   | 'visibility'
 
-export interface AsyraDesignAiConfirmationSummary {
-  readonly actionKind: AsyraDesignAiConfirmationActionKind
+export interface AiConfirmationSummary {
+  readonly actionKind: AiConfirmationActionKind
   readonly affectedCount: number | null
   readonly destructive: boolean
   readonly externalImpact: false
@@ -25,34 +25,36 @@ export interface AsyraDesignAiConfirmationSummary {
   readonly undoable: true
 }
 
-export interface AsyraDesignAiPendingConfirmation {
+export interface AiPendingConfirmation {
+  readonly batchId: string
   readonly confirmationId: string
-  readonly planId: string
-  readonly summary: AsyraDesignAiConfirmationSummary
+  readonly summary: AiConfirmationSummary
   readonly turnId: string
 }
 
-export interface AsyraDesignAiConfirmationSnapshot {
+export interface AiConfirmationSnapshot {
   readonly activeTurnId: string | null
   readonly disposed: boolean
-  readonly pending: AsyraDesignAiPendingConfirmation | null
+  readonly pending: AiPendingConfirmation | null
 }
 
 interface PendingConfirmation {
   readonly abort: () => void
-  readonly publicValue: AsyraDesignAiPendingConfirmation
+  readonly publicValue: AiPendingConfirmation
   readonly resolve: (accepted: boolean) => void
   readonly signal: AbortSignal
 }
 
-const cancelByDefault: AsyraDesignAiConfirmationRequest = async () => false
+const cancelByDefault: AiConfirmationRequest = async () => false
 
-export const createAsyraDesignAiConfirmationHandler = (
-  requestConfirmation: AsyraDesignAiConfirmationRequest = cancelByDefault
+export const createAiConfirmationHandler = (
+  requestConfirmation: AiConfirmationRequest = cancelByDefault
 ): AiConfirmationHandler =>
   Object.freeze({
-    confirm: (preview: AiPlanPreview, options: { signal: AbortSignal }) =>
-      requestConfirmation(preview, options)
+    confirm: (
+      preview: AiActionBatchPreview,
+      options: { signal: AbortSignal }
+    ) => requestConfirmation(preview, options)
   })
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
@@ -63,16 +65,29 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null
 }
 
-const countArray = (value: unknown, key: string): number | null => {
-  if (!isPlainObject(value) || !Array.isArray(value[key])) {
+const countForAction = (summary: unknown): number | null => {
+  if (!isPlainObject(summary)) {
     return null
   }
-  return value[key].length
+  const affectedCount = Object.getOwnPropertyDescriptor(
+    summary,
+    'affectedCount'
+  )
+  if (
+    !affectedCount?.enumerable ||
+    !('value' in affectedCount) ||
+    typeof affectedCount.value !== 'number' ||
+    !Number.isSafeInteger(affectedCount.value) ||
+    affectedCount.value < 0
+  ) {
+    return null
+  }
+  return affectedCount.value
 }
 
 const kindForAction = (
   actionName: string
-): Exclude<AsyraDesignAiConfirmationActionKind, 'mixed'> => {
+): Exclude<AiConfirmationActionKind, 'mixed'> => {
   switch (actionName) {
     case 'insert_vector_composition':
       return 'create'
@@ -88,24 +103,8 @@ const kindForAction = (
   }
 }
 
-const countForAction = (
-  actionName: string,
-  actionArguments: unknown
-): number | null => {
-  switch (actionName) {
-    case 'insert_vector_composition':
-      return countArray(actionArguments, 'items')
-    case 'select_elements':
-      return countArray(actionArguments, 'elementIds')
-    case 'update_composition_elements':
-      return countArray(actionArguments, 'updates')
-    default:
-      return 1
-  }
-}
-
 const messageForSummary = (
-  actionKind: AsyraDesignAiConfirmationActionKind,
+  actionKind: AiConfirmationActionKind,
   affectedCount: number | null
 ): string => {
   const count = affectedCount ?? 'the selected'
@@ -130,15 +129,13 @@ const messageForSummary = (
   }
 }
 
-export const createAsyraDesignAiConfirmationSummary = (
-  preview: AiPlanPreview
-): AsyraDesignAiConfirmationSummary => {
+export const createAiConfirmationSummary = (
+  preview: AiActionBatchPreview
+): AiConfirmationSummary => {
   const kinds = new Set(
     preview.actions.map((action) => kindForAction(action.name))
   )
-  const counts = preview.actions.map((action) =>
-    countForAction(action.name, action.arguments)
-  )
+  const counts = preview.actions.map((action) => countForAction(action.summary))
   const affectedCount = counts.every((count): count is number => count !== null)
     ? counts.reduce((total, count) => total + count, 0)
     : null
@@ -154,15 +151,13 @@ export const createAsyraDesignAiConfirmationSummary = (
   })
 }
 
-export const createAsyraDesignAiConfirmationBroker = () => {
-  const observers = new Set<
-    (snapshot: AsyraDesignAiConfirmationSnapshot) => void
-  >()
+export const createAiConfirmationBroker = () => {
+  const observers = new Set<(snapshot: AiConfirmationSnapshot) => void>()
   let activeTurnId: string | null = null
   let disposed = false
   let pending: PendingConfirmation | null = null
 
-  const getSnapshot = (): AsyraDesignAiConfirmationSnapshot =>
+  const getSnapshot = (): AiConfirmationSnapshot =>
     Object.freeze({
       activeTurnId,
       disposed,
@@ -170,8 +165,8 @@ export const createAsyraDesignAiConfirmationBroker = () => {
     })
 
   const observeSafely = (
-    observer: (snapshot: AsyraDesignAiConfirmationSnapshot) => void,
-    snapshot: AsyraDesignAiConfirmationSnapshot
+    observer: (snapshot: AiConfirmationSnapshot) => void,
+    snapshot: AiConfirmationSnapshot
   ) => {
     try {
       observer(snapshot)
@@ -216,7 +211,7 @@ export const createAsyraDesignAiConfirmationBroker = () => {
     },
     getSnapshot,
     requestConfirmation: (
-      preview: AiPlanPreview,
+      preview: AiActionBatchPreview,
       options: { signal: AbortSignal }
     ): Promise<boolean> => {
       if (
@@ -235,9 +230,9 @@ export const createAsyraDesignAiConfirmationBroker = () => {
         pending = {
           abort,
           publicValue: Object.freeze({
+            batchId: preview.batchId,
             confirmationId: `${activeTurnId}:confirmation`,
-            planId: preview.planId,
-            summary: createAsyraDesignAiConfirmationSummary(preview),
+            summary: createAiConfirmationSummary(preview),
             turnId: activeTurnId as string
           }),
           resolve,
@@ -249,7 +244,7 @@ export const createAsyraDesignAiConfirmationBroker = () => {
     },
     resolve: (accepted: boolean): boolean => settle(accepted),
     subscribe: (
-      observer: (snapshot: AsyraDesignAiConfirmationSnapshot) => void
+      observer: (snapshot: AiConfirmationSnapshot) => void
     ): (() => void) => {
       if (disposed) {
         return () => undefined
@@ -277,6 +272,4 @@ export const createAsyraDesignAiConfirmationBroker = () => {
   return Object.freeze(broker)
 }
 
-export type AsyraDesignAiConfirmationBroker = ReturnType<
-  typeof createAsyraDesignAiConfirmationBroker
->
+export type AiConfirmationBroker = ReturnType<typeof createAiConfirmationBroker>

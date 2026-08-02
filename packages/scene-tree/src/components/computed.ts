@@ -1,17 +1,5 @@
 import propsManager, { type PropsManager } from '@asyra/props-manager'
-import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
-import {
-  ComputedAttrs,
-  DataTypes,
-  IComputed,
-  IProps,
-  PropertyComponentInstanceTypes,
-  Setter,
-  type EvnetOptions
-} from '@asyra/utils'
-import ElementChangeHandler from './element-change-handler'
-
-const elementChangeHandler = new ElementChangeHandler('computed')
+import { ComputedAttrs, IComputed, IProps, Setter } from '@asyra/utils'
 
 class Computed<T extends ComputedAttrs>
   extends Setter<T>
@@ -19,19 +7,19 @@ class Computed<T extends ComputedAttrs>
 {
   _idType!: string
   _nameType!: string
-  private subscriptions = new Map<string, () => void>()
 
   constructor(
     elementId: string,
     props: IProps,
     propertyNames: string[],
-    private readonly propsManagerOwner: PropsManager = propsManager
+    private readonly propsManagerOwner: PropsManager = propsManager,
+    initialOwnerValues?: Readonly<Record<string, unknown>>
   ) {
-    super(elementChangeHandler.addChange, acknowledgeTransactionReplayApplied)
+    super(() => undefined)
 
     this._init()
     this.data.id = elementId
-    this.setup(props, propertyNames)
+    this.setup(props, propertyNames, initialOwnerValues)
   }
 
   _init() {
@@ -48,46 +36,24 @@ class Computed<T extends ComputedAttrs>
     ;(this.data as unknown as Record<string, unknown>)[key] = undefined
   }
 
-  private applyPropertyValues(
-    values: Record<string, DataTypes>,
-    options?: EvnetOptions
-  ) {
-    const computedOptions =
-      options?.shared === undefined
-        ? options
-        : {
-            ...options,
-            shared: undefined
-          }
-    Object.entries(values).forEach(([key, value]) => {
-      if (value === undefined) {
+  setup(
+    props: IProps,
+    propertyNames: string[],
+    initialOwnerValues?: Readonly<Record<string, unknown>>
+  ): void {
+    propertyNames.forEach((propName) => {
+      const initialOwnerValue = initialOwnerValues?.[propName]
+      if (
+        initialOwnerValues &&
+        Object.prototype.hasOwnProperty.call(initialOwnerValues, propName) &&
+        initialOwnerValue !== undefined &&
+        !Array.isArray(initialOwnerValue)
+      ) {
+        ;(this.data as unknown as Record<string, unknown>)[propName] =
+          initialOwnerValue
         return
       }
 
-      this.ensureKey(key)
-      this.set(key as keyof T, value as T[keyof T], computedOptions)
-    })
-  }
-
-  private subscribeToProperty(propComponent: PropertyComponentInstanceTypes) {
-    const propId = propComponent.get('id')
-    if (typeof propId !== 'string' || propId.length === 0) {
-      return
-    }
-
-    if (this.subscriptions.has(propId)) {
-      return
-    }
-
-    const unsubscribe = propComponent.on((change) => {
-      const values = propComponent.getValue()
-      this.applyPropertyValues(values, change.options)
-    })
-    this.subscriptions.set(propId, unsubscribe)
-  }
-
-  setup(props: IProps, propertyNames: string[]): void {
-    propertyNames.forEach((propName) => {
       const propId = props.getPropId(propName)
       if (!propId) return
 
@@ -97,19 +63,17 @@ class Computed<T extends ComputedAttrs>
       }
 
       const values = propComponent.getValue()
-      // Merge all values into computed data
       Object.assign(this.data, values)
-      this.subscribeToProperty(propComponent)
     })
   }
 
-  set<K extends keyof T>(key: K, data: T[K], options?: EvnetOptions) {
-    super.set(key, data, options)
+  set<K extends keyof T>(key: K, data: T[K]) {
+    this.ensureKey(key as string)
+    super.set(key, data)
   }
 
   dispose() {
-    this.subscriptions.forEach((unsubscribe) => unsubscribe())
-    this.subscriptions.clear()
+    // Computed owns no subscriptions; Element cleanup retains this lifecycle hook.
   }
 
   save() {

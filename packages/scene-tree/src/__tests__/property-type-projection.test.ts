@@ -54,7 +54,7 @@ describe('Scene Tree canonical property projection', () => {
     registerPropertyComponent(CUSTOM_TYPE, CustomPropertyComponent)
   })
 
-  it('projects only complete getValue output during setup and subscriptions', () => {
+  it('projects only complete getValue output during setup without a per-instance subscription', () => {
     const Props = createDynamicPropsClass([
       {
         name: 'style',
@@ -80,7 +80,7 @@ describe('Scene Tree canonical property projection', () => {
     ) as CustomPropertyComponent
     property.set('customCount', 7)
 
-    expect(computed.get('customCount')).toBe(7)
+    expect(computed.get('customCount')).toBe(1)
     expect(computed.save()).not.toHaveProperty('internalLabel')
     expect(computed.save()).not.toHaveProperty('removedField')
   })

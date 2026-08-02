@@ -4,82 +4,78 @@ import type {
   AiRuntimeProgressUpdate
 } from '@asyra/ai-agent-runtime'
 
-export type AsyraDesignAiConversationOutcome =
+export type AiConversationOutcome =
   | 'cancelled'
   | 'failed'
   | 'no-change'
   | 'partial'
   | 'success'
-  | 'unavailable'
 
-export interface AsyraDesignAiTargetHints {
+export interface AiTargetHints {
   readonly compositionId: string | null
   readonly roleToElementIds: Readonly<Record<string, readonly string[]>>
 }
 
-export type AsyraDesignAiImageMediaType =
-  | 'image/jpeg'
-  | 'image/png'
-  | 'image/webp'
+export type AiImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp'
 
-export interface AsyraDesignAiImageAttachment {
+export interface AiImageAttachment {
   readonly dataUrl: string
-  readonly mediaType: AsyraDesignAiImageMediaType
+  readonly mediaType: AiImageMediaType
   readonly name: string
   readonly size: number
 }
 
-export interface AsyraDesignAiConversationSubmission {
-  readonly attachments?: readonly AsyraDesignAiImageAttachment[]
+export interface AiConversationSubmission {
+  readonly attachments?: readonly AiImageAttachment[]
   readonly intent: string
 }
 
-export interface AsyraDesignAiConversationFeatureRequest {
+export interface AiConversationFeatureRequest {
   readonly intent: string
   readonly metadata: AiJsonValue
   readonly progressObserver: AiRuntimeProgressObserver
 }
 
-export interface AsyraDesignAiConversationFeature {
-  execute(request: AsyraDesignAiConversationFeatureRequest): Promise<unknown>
+export interface AiConversationFeature {
+  execute(request: AiConversationFeatureRequest): Promise<unknown>
   cancel(reason?: unknown): boolean
 }
 
-export interface AsyraDesignAiActiveTurn {
-  readonly attachments: readonly AsyraDesignAiImageAttachment[]
+export interface AiActiveTurn {
+  readonly attachments: readonly AiImageAttachment[]
   readonly conversationId: string
   readonly intent: string
   readonly progress: readonly AiRuntimeProgressUpdate[]
   readonly turnId: string
 }
 
-export interface AsyraDesignAiSettledTurn {
-  readonly attachments: readonly AsyraDesignAiImageAttachment[]
+export interface AiSettledTurn {
+  readonly attachments: readonly AiImageAttachment[]
   readonly conversationId: string
   readonly durationMs: number
   readonly intent: string
-  readonly outcome: AsyraDesignAiConversationOutcome
+  readonly outcome: AiConversationOutcome
   readonly progress: readonly AiRuntimeProgressUpdate[]
   readonly result: unknown
   readonly turnId: string
 }
 
-export interface AsyraDesignAiConversationSnapshot {
-  readonly activeTurn: AsyraDesignAiActiveTurn | null
+export interface AiConversationSnapshot {
+  readonly activeTurn: AiActiveTurn | null
   readonly conversationId: string
   readonly disposed: boolean
-  readonly settledTurns: readonly AsyraDesignAiSettledTurn[]
-  readonly targetHints: AsyraDesignAiTargetHints
+  readonly settledTurns: readonly AiSettledTurn[]
+  readonly targetHints: AiTargetHints
 }
 
-export interface CreateAsyraDesignAiConversationControllerOptions {
+export interface CreateAiConversationControllerOptions {
   readonly confirmation?: {
     beginTurn(turnId: string): void
     cancel(reason?: unknown): boolean
     endTurn(turnId: string): void
   }
   readonly createConversationId?: () => string
-  readonly feature: AsyraDesignAiConversationFeature
+  readonly feature: AiConversationFeature
   readonly getElementType: (elementId: string) => string | undefined
   readonly history?: {
     beginTurn(turnId: string): void
@@ -88,16 +84,16 @@ export interface CreateAsyraDesignAiConversationControllerOptions {
   readonly now?: () => number
 }
 
-export type AsyraDesignAiConversationErrorCode =
+export type AiConversationErrorCode =
   | 'AI_CONVERSATION_DISPOSED'
   | 'AI_CONVERSATION_INVALID_ATTACHMENT'
   | 'AI_CONVERSATION_INVALID_INTENT'
   | 'AI_CONVERSATION_TURN_ACTIVE'
 
-export class AsyraDesignAiConversationError extends Error {
-  readonly code: AsyraDesignAiConversationErrorCode
+export class AiConversationError extends Error {
+  readonly code: AiConversationErrorCode
 
-  constructor(code: AsyraDesignAiConversationErrorCode) {
+  constructor(code: AiConversationErrorCode) {
     let message = 'AI conversation already has an active turn.'
     if (code === 'AI_CONVERSATION_DISPOSED') {
       message = 'AI conversation controller is disposed.'
@@ -107,13 +103,13 @@ export class AsyraDesignAiConversationError extends Error {
       message = 'AI conversation intent must be non-empty.'
     }
     super(message)
-    this.name = 'AsyraDesignAiConversationError'
+    this.name = 'AiConversationError'
     this.code = code
   }
 }
 
 interface MutableActiveTurn {
-  readonly attachments: readonly AsyraDesignAiImageAttachment[]
+  readonly attachments: readonly AiImageAttachment[]
   cancelled: boolean
   readonly conversationId: string
   readonly intent: string
@@ -122,15 +118,14 @@ interface MutableActiveTurn {
   readonly turnId: string
 }
 
-const EMPTY_TARGET_HINTS: AsyraDesignAiTargetHints = Object.freeze({
+const EMPTY_TARGET_HINTS: AiTargetHints = Object.freeze({
   compositionId: null,
   roleToElementIds: Object.freeze({})
 })
 
-const EMPTY_IMAGE_ATTACHMENTS: readonly AsyraDesignAiImageAttachment[] =
-  Object.freeze([])
+const EMPTY_IMAGE_ATTACHMENTS: readonly AiImageAttachment[] = Object.freeze([])
 
-const ACCEPTED_IMAGE_MEDIA_TYPES = new Set<AsyraDesignAiImageMediaType>([
+const ACCEPTED_IMAGE_MEDIA_TYPES = new Set<AiImageMediaType>([
   'image/jpeg',
   'image/png',
   'image/webp'
@@ -149,28 +144,22 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 
 const normalizeImageAttachments = (
   value: unknown
-): readonly AsyraDesignAiImageAttachment[] => {
+): readonly AiImageAttachment[] => {
   if (value === undefined) {
     return EMPTY_IMAGE_ATTACHMENTS
   }
   if (!Array.isArray(value)) {
-    throw new AsyraDesignAiConversationError(
-      'AI_CONVERSATION_INVALID_ATTACHMENT'
-    )
+    throw new AiConversationError('AI_CONVERSATION_INVALID_ATTACHMENT')
   }
   return Object.freeze(
     value.map((attachment) => {
       if (!isPlainObject(attachment)) {
-        throw new AsyraDesignAiConversationError(
-          'AI_CONVERSATION_INVALID_ATTACHMENT'
-        )
+        throw new AiConversationError('AI_CONVERSATION_INVALID_ATTACHMENT')
       }
       const { dataUrl, mediaType, name, size } = attachment
       if (
         typeof mediaType !== 'string' ||
-        !ACCEPTED_IMAGE_MEDIA_TYPES.has(
-          mediaType as AsyraDesignAiImageMediaType
-        ) ||
+        !ACCEPTED_IMAGE_MEDIA_TYPES.has(mediaType as AiImageMediaType) ||
         typeof dataUrl !== 'string' ||
         !dataUrl.startsWith(`data:${mediaType};base64,`) ||
         dataUrl.length <= `data:${mediaType};base64,`.length ||
@@ -180,13 +169,11 @@ const normalizeImageAttachments = (
         !Number.isSafeInteger(size) ||
         size <= 0
       ) {
-        throw new AsyraDesignAiConversationError(
-          'AI_CONVERSATION_INVALID_ATTACHMENT'
-        )
+        throw new AiConversationError('AI_CONVERSATION_INVALID_ATTACHMENT')
       }
       return Object.freeze({
         dataUrl,
-        mediaType: mediaType as AsyraDesignAiImageMediaType,
+        mediaType: mediaType as AiImageMediaType,
         name: name.trim(),
         size
       })
@@ -195,9 +182,9 @@ const normalizeImageAttachments = (
 }
 
 const normalizeSubmission = (
-  source: string | AsyraDesignAiConversationSubmission
+  source: string | AiConversationSubmission
 ): {
-  readonly attachments: readonly AsyraDesignAiImageAttachment[]
+  readonly attachments: readonly AiImageAttachment[]
   readonly intent: string
 } => {
   if (typeof source === 'string') {
@@ -207,7 +194,7 @@ const normalizeSubmission = (
     }
   }
   if (!isPlainObject(source) || typeof source.intent !== 'string') {
-    throw new AsyraDesignAiConversationError('AI_CONVERSATION_INVALID_INTENT')
+    throw new AiConversationError('AI_CONVERSATION_INVALID_INTENT')
   }
   return {
     attachments: normalizeImageAttachments(source.attachments),
@@ -218,7 +205,7 @@ const normalizeSubmission = (
 const freezeTargetHints = (
   compositionId: string | null,
   source: Readonly<Record<string, readonly string[]>>
-): AsyraDesignAiTargetHints => {
+): AiTargetHints => {
   const roles: Record<string, readonly string[]> = {}
   Object.entries(source).forEach(([role, elementIds]) => {
     roles[role] = Object.freeze([...elementIds])
@@ -254,15 +241,12 @@ const readActionResults = (
 const outcomeForResult = (
   result: unknown,
   cancelled: boolean
-): AsyraDesignAiConversationOutcome => {
+): AiConversationOutcome => {
   if (cancelled) {
     return 'cancelled'
   }
   if (!isPlainObject(result)) {
     return 'failed'
-  }
-  if (result.status === 'unavailable') {
-    return 'unavailable'
   }
   if (result.status === 'cancelled') {
     return 'cancelled'
@@ -310,20 +294,18 @@ const roleMappingsFromResult = (
   return Object.freeze(result)
 }
 
-export const createAsyraDesignAiConversationController = (
-  options: CreateAsyraDesignAiConversationControllerOptions
+export const createAiConversationController = (
+  options: CreateAiConversationControllerOptions
 ) => {
   const conversationId = (
     options.createConversationId ?? createDefaultConversationId
   )()
   if (!conversationId.trim()) {
-    throw new AsyraDesignAiConversationError('AI_CONVERSATION_INVALID_INTENT')
+    throw new AiConversationError('AI_CONVERSATION_INVALID_INTENT')
   }
 
-  const settledTurns: AsyraDesignAiSettledTurn[] = []
-  const observers = new Set<
-    (snapshot: AsyraDesignAiConversationSnapshot) => void
-  >()
+  const settledTurns: AiSettledTurn[] = []
+  const observers = new Set<(snapshot: AiConversationSnapshot) => void>()
   let activeTurn: MutableActiveTurn | null = null
   let activeSettlement: Promise<unknown> | null = null
   let disposed = false
@@ -331,7 +313,7 @@ export const createAsyraDesignAiConversationController = (
   let turnIndex = 0
   const now = options.now ?? (() => globalThis.performance.now())
 
-  const revalidateTargetHints = (): AsyraDesignAiTargetHints => {
+  const revalidateTargetHints = (): AiTargetHints => {
     const compositionId =
       targetHints.compositionId &&
       options.getElementType(targetHints.compositionId) === 'group'
@@ -353,7 +335,7 @@ export const createAsyraDesignAiConversationController = (
     return targetHints
   }
 
-  const getSnapshot = (): AsyraDesignAiConversationSnapshot =>
+  const getSnapshot = (): AiConversationSnapshot =>
     Object.freeze({
       activeTurn:
         activeTurn === null
@@ -372,8 +354,8 @@ export const createAsyraDesignAiConversationController = (
     })
 
   const observeSafely = (
-    observer: (snapshot: AsyraDesignAiConversationSnapshot) => void,
-    snapshot: AsyraDesignAiConversationSnapshot
+    observer: (snapshot: AiConversationSnapshot) => void,
+    snapshot: AiConversationSnapshot
   ) => {
     try {
       observer(snapshot)
@@ -422,19 +404,17 @@ export const createAsyraDesignAiConversationController = (
 
   const controller = {
     submit: async (
-      source: string | AsyraDesignAiConversationSubmission
-    ): Promise<AsyraDesignAiSettledTurn> => {
+      source: string | AiConversationSubmission
+    ): Promise<AiSettledTurn> => {
       if (disposed) {
-        throw new AsyraDesignAiConversationError('AI_CONVERSATION_DISPOSED')
+        throw new AiConversationError('AI_CONVERSATION_DISPOSED')
       }
       const { attachments, intent } = normalizeSubmission(source)
       if (!intent) {
-        throw new AsyraDesignAiConversationError(
-          'AI_CONVERSATION_INVALID_INTENT'
-        )
+        throw new AiConversationError('AI_CONVERSATION_INVALID_INTENT')
       }
       if (activeTurn) {
-        throw new AsyraDesignAiConversationError('AI_CONVERSATION_TURN_ACTIVE')
+        throw new AiConversationError('AI_CONVERSATION_TURN_ACTIVE')
       }
 
       const startedAtMs = now()
@@ -529,7 +509,7 @@ export const createAsyraDesignAiConversationController = (
     },
     getSnapshot,
     subscribe: (
-      observer: (snapshot: AsyraDesignAiConversationSnapshot) => void
+      observer: (snapshot: AiConversationSnapshot) => void
     ): (() => void) => {
       if (disposed) {
         return () => undefined
@@ -565,6 +545,6 @@ export const createAsyraDesignAiConversationController = (
   return Object.freeze(controller)
 }
 
-export type AsyraDesignAiConversationController = ReturnType<
-  typeof createAsyraDesignAiConversationController
+export type AiConversationController = ReturnType<
+  typeof createAiConversationController
 >

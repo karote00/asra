@@ -10,7 +10,7 @@ transaction engine, permission authority, or collaboration transport.
 Importing the package is inert. An app opts in by creating one runtime with:
 
 - one `AiProvider`;
-- app-owned context, schema-backed actions, permission, confirmation, and
+- app-owned context, action definitions, permission, confirmation, and
   transaction adapters;
 - optional bounded retry and redaction options;
 - only the resources that this runtime composition explicitly owns.
@@ -30,10 +30,13 @@ disposes only resources listed in `ownedResources`.
 app Feature intent + AbortSignal
 -> app context provider
 -> deterministic provider-safe action catalog
--> replaceable provider candidate output
--> normalize and validate the complete plan
+-> provider.requestActionBatch()
+-> server-prepared AiActionBatch
+-> Runtime.resolveAiActionBatch()
+   -> preflight the small control envelope
+   -> bind ordered actions to registered executors
 -> app permission for every action
--> optional complete-plan confirmation
+-> optional complete-batch confirmation through AiActionBatchPreview
 -> one app transaction runner
 -> registered app executors in order
 -> app common/public APIs and canonical owners
@@ -41,14 +44,28 @@ app Feature intent + AbortSignal
 -> detached redacted terminal result
 ```
 
-Provider planning and optional retry complete before the transaction opens.
-Validation, permission denial, and confirmation cancellation apply no canonical
-prefix. Once execution begins, provider retry is forbidden. Executor failure
-means a rejected/throwing executor or fatal canonical consistency failure; it
-propagates through the one app transaction runner so its ordinary rollback
-contract owns reversal. An app may instead resolve an executor with detached
-recoverable partial-item evidence, allowing successful sibling mutations to
-commit in the same intended undo unit.
+The provider request and optional retry complete before the transaction opens.
+`AiProvider.requestActionBatch()` is the only provider request contract. It
+returns one server-prepared `AiActionBatch` with one `batchId`, optional
+explanation, and ordered actions containing execution arguments plus a bounded
+redaction-ready summary. A live backend provider and a test transport return
+that same contract; the response source cannot select a different resolution,
+permission, confirmation, execution, or canonical mutation path.
+
+`runtime.resolveAiActionBatch()` checks only the small control envelope:
+required data properties, a non-empty `batchId`, the non-empty actions rule,
+duplicate action ids, and registered action names. It does not traverse,
+validate, normalize, clone, or freeze nested arguments. The resulting
+`ResolvedAiActionBatch`, permission policy, and executor preserve the exact
+server-prepared arguments identity. `PermissionReadyAiActionBatch` adds only
+permission decisions; `AiActionBatchPreview` redacts and retains only bounded
+summaries. Invalid control envelopes, permission denial, and confirmation
+cancellation apply no canonical prefix. Once execution begins, provider retry
+is forbidden. Executor failure means a rejected/throwing executor or fatal
+canonical consistency failure; it propagates through the one app transaction
+runner so its ordinary rollback contract owns reversal. An app may instead
+resolve an executor with detached recoverable partial-item evidence, allowing
+successful sibling mutations to commit in the same intended undo unit.
 
 ## Public Surface
 
@@ -64,17 +81,21 @@ Composition and execution:
 - `AiRuntimeProgressObserver`, `AiRuntimeProgressUpdate`,
   `AiRuntimeProgressPhase`, and `AiRuntimeProgressOutcome`
 
-Actions and planning:
+Actions and action batches:
 
 - `createAiActionRegistry()`
 - `AiActionDefinition`
-- `AiActionSchema` and strict success/failure result types
+- `AiActionDefinition.inputSchema` is the JSON-compatible backend-facing action
+  description; `AiActionDefinition.execute` is the app-owned executor
 - `AiActionDescription`
-- `AiPlan`, `AiPreparedPlan`, validation errors, and retry policy types
+- `AiActionBatch`, `AiActionBatchAction`, `ResolvedAiActionBatch`,
+  `PermissionReadyAiActionBatch`, and `AiActionBatchPreview`
+- action-batch resolution failures and retry policy types
 
 Provider boundary:
 
 - `AiProvider` and `AiProviderInput`
+- `AiProvider.requestActionBatch(input, { signal })`
 - `createGenericHttpAiProvider(options)`
 - generic HTTP fetch, response, and configuration types
 - `AiProviderError`
@@ -86,14 +107,15 @@ Policy and evidence:
 - `createAiRuntimeAudit(...)`
 - detached preview, execution summary, and audit types
 
-Low-level orchestration functions are public for focused adapters and tests:
-normalization, validation, permission evaluation, confirmation, action
-execution, and transaction wrapping. Apps should normally use
-`createAiAgentRuntime(...)` for the complete ordering contract.
+Permission evaluation, confirmation, action execution, and transaction
+wrapping remain focused orchestration surfaces. The runtime instance exposes
+`resolveAiActionBatch(batch, { signal })`; there is no top-level resolution
+helper, client payload preparation API, compatibility wrapper, or alternate
+payload mode. Apps use `runtime.run()` for the complete ordering contract.
 
 ## Terminal Results
 
-- `executed`: plan id, complete redacted preview, ordered detached action
+- `executed`: batch id, bounded summary-only preview, ordered detached action
   results, committed transaction outcome, and audit.
 - `cancelled`: stable `aborted` or `confirmation-cancelled` reason plus a
   detached audit and preview when available.
@@ -101,13 +123,15 @@ execution, and transaction wrapping. Apps should normally use
   audit.
 
 No result grants mutation authority or contains canonical scene state.
-`AiPlanPreview` is safe handler/audit input; the runtime does not require an app
-to render its low-level actions or provide a visual preview to the user.
+`AiActionBatchPreview` contains only redacted server-prepared summaries. It
+never retains complete item, path, point, geometry, or other action-argument
+graphs. The runtime does not require an app to render its low-level actions or
+provide a visual preview to the user.
 
 An invocation-local progress observer receives ordered frozen updates for
-context, planning attempts, validation, permission, confirmation wait when
+context, provider attempts, resolution, permission, confirmation wait when
 required, execution, and non-abort settlement. Updates contain only stable
-operational summaries plus safe attempt, plan id, action count, and terminal
+operational summaries plus safe attempt, batch id, action count, and terminal
 outcome fields. They never contain provider bodies, action arguments, app
 context, canonical state, secrets, or model chain-of-thought. Observer
 exceptions are contained. Caller abort or runtime disposal prevents later
@@ -131,17 +155,25 @@ See `../SECURITY.md`.
 
 ## Reference App
 
-Asyra Design composes the runtime only after explicit enablement. Its bounded
+Asyra Design composes one formal provider during App startup. Its bounded
 reference catalog contains only:
 
+- `request_drawing_detail_choice`
+- `insert_vector_composition`
+- `update_composition_elements`
+- `remove_ai_composition`
 - `set_element_visibility`
 - `select_elements`
 
-Both executors use app common APIs with `undoable: true` and
-`sharedDelivery: 'transaction-end'`. Factory, canonical state owners, Render,
-and optional Collaboration therefore receive the same route as ordinary app
-actions. The reference permission map is explicit and default-deny;
-confirmation defaults to cancellation.
+The backend prepares the insert action's compact transferable geometry and
+bounded summary before the provider returns its `AiActionBatch`; Runtime does
+not redo that model work. The executor materializes only the current ordered
+progressive slice on the main thread. Executors use app common APIs with
+`undoable: true`; their declared transaction-end or progressive shared
+delivery remains inside one outer App transaction. Factory, canonical state
+owners, Render, and optional Collaboration therefore receive the same route as
+ordinary app actions. The reference permission map is explicit and
+default-deny; confirmation defaults to cancellation.
 
 ## Validation
 

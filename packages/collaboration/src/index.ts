@@ -23,7 +23,6 @@ export {
   isProviderFailureCode
 } from './provider'
 export type {
-  InboundPublication,
   Provider,
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage,

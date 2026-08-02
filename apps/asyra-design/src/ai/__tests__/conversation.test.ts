@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  AsyraDesignAiConversationError,
-  createAsyraDesignAiConversationController,
-  type AsyraDesignAiConversationFeature
+  AiConversationError,
+  createAiConversationController,
+  type AiConversationFeature
 } from '../conversation'
 import { createDeferred } from './deferred'
 
@@ -21,8 +21,8 @@ const executed = (
 })
 
 const createFeature = (
-  execute: AsyraDesignAiConversationFeature['execute']
-): AsyraDesignAiConversationFeature => ({
+  execute: AiConversationFeature['execute']
+): AiConversationFeature => ({
   cancel: vi.fn(() => true),
   execute: vi.fn(execute)
 })
@@ -51,7 +51,7 @@ describe('Asyra Design AI conversation controller', () => {
         status: 'complete'
       })
     })
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-progress',
       feature,
       getElementType: vi.fn(),
@@ -91,7 +91,7 @@ describe('Asyra Design AI conversation controller', () => {
         status: 'complete'
       })
     )
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-a',
       feature,
       getElementType: vi.fn(() => 'oval')
@@ -128,7 +128,7 @@ describe('Asyra Design AI conversation controller', () => {
   it('carries immutable detached image attachments through the active turn, Feature metadata, and settlement', async () => {
     const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-attachment',
       feature,
       getElementType: vi.fn()
@@ -195,7 +195,7 @@ describe('Asyra Design AI conversation controller', () => {
     const feature = createFeature(async () => ({
       status: 'failed'
     }))
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-invalid-attachment',
       feature,
       getElementType: vi.fn()
@@ -244,7 +244,7 @@ describe('Asyra Design AI conversation controller', () => {
         status: 'complete'
       })
     })
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-duration',
       feature,
       getElementType: vi.fn(),
@@ -271,7 +271,7 @@ describe('Asyra Design AI conversation controller', () => {
         status: 'no-change'
       })
     )
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-observer',
       feature,
       getElementType: vi.fn()
@@ -291,7 +291,7 @@ describe('Asyra Design AI conversation controller', () => {
   it('rejects whitespace and overlap without creating another task queue', async () => {
     const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-b',
       feature,
       getElementType: vi.fn()
@@ -302,7 +302,7 @@ describe('Asyra Design AI conversation controller', () => {
     })
     const first = controller.submit('畫一個貓臉')
     await expect(controller.submit('第二個回合')).rejects.toEqual(
-      expect.objectContaining<Partial<AsyraDesignAiConversationError>>({
+      expect.objectContaining<Partial<AiConversationError>>({
         code: 'AI_CONVERSATION_TURN_ACTIVE'
       })
     )
@@ -310,7 +310,7 @@ describe('Asyra Design AI conversation controller', () => {
 
     pending.resolve({
       code: 'AI_PROVIDER_TRANSPORT_FAILED',
-      stage: 'planning',
+      stage: 'provider',
       status: 'failed'
     })
     await first
@@ -354,7 +354,7 @@ describe('Asyra Design AI conversation controller', () => {
         'update_composition_elements'
       )
     })
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-c',
       feature,
       getElementType
@@ -399,7 +399,7 @@ describe('Asyra Design AI conversation controller', () => {
         status: 'no-change'
       })
     })
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-d',
       feature,
       getElementType: vi.fn()
@@ -435,7 +435,7 @@ describe('Asyra Design AI conversation controller', () => {
         'remove_ai_composition'
       )
     })
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-e',
       feature,
       getElementType: vi.fn((elementId) =>
@@ -455,7 +455,7 @@ describe('Asyra Design AI conversation controller', () => {
   it('routes cancellation through Feature System and contains late settlement after disposal', async () => {
     const pending = createDeferred<Record<string, unknown>>()
     const feature = createFeature(() => pending.promise)
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-f',
       feature,
       getElementType: vi.fn()
@@ -499,7 +499,7 @@ describe('Asyra Design AI conversation controller', () => {
       cancel: vi.fn(() => true),
       endTurn: vi.fn()
     }
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       confirmation,
       createConversationId: () => 'conversation-confirmation',
       feature,
@@ -524,18 +524,17 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it.each([
-    [{ reason: 'provider-disabled', status: 'unavailable' }, 'unavailable'],
     [{ reason: 'aborted', status: 'cancelled' }, 'cancelled'],
     [
       {
         code: 'AI_PROVIDER_TRANSPORT_FAILED',
-        stage: 'planning',
+        stage: 'provider',
         status: 'failed'
       },
       'failed'
     ]
   ] as const)('maps terminal result %j to %s', async (result, outcome) => {
-    const controller = createAsyraDesignAiConversationController({
+    const controller = createAiConversationController({
       createConversationId: () => 'conversation-g',
       feature: createFeature(async () => result),
       getElementType: vi.fn()

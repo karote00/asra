@@ -4,26 +4,107 @@ import {
   EventTypes,
   registerTransactionOwner,
   runTransaction,
-  undo,
-  updateTransaction
+  subscribeToEventBatches,
+  type UpdateTransactionEvent,
+  updateTransaction,
+  updateTransactionBatch
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
 import { Factory } from '../factory'
-import {
-  TransactionRollbackError,
-  TransactionValidationError
-} from '../transaction'
+import { FactoryMutationBatchAcceptanceError } from '../mutation-batch'
+import { TransactionValidationError } from '../transaction'
 
 const registerFactoryAsOwner = (factory: Factory) =>
   registerTransactionOwner({
     startTransaction: () => factory.startTransaction(),
-    updateTransaction: (event) => factory.updateTransaction(event),
+    updateTransactionBatch: (events) => {
+      factory.updateTransactionBatch(events)
+    },
     endTransaction: (options) => factory.endTransaction(options),
     undo: () => factory.undo(),
     redo: () => factory.redo()
   })
 
 describe('Factory transaction owner integration', () => {
+  it('publishes no canonical observer prefix when Factory rejects finalization', () => {
+    const factory = new Factory()
+    const canonicalObserverBatches: string[][] = []
+    const disposeOwner = registerFactoryAsOwner(factory)
+    const observerSubscription = subscribeToEventBatches((events) => {
+      const eventNames = events
+        .filter(
+          (event): event is UpdateTransactionEvent =>
+            event.type === EventTypes.UPDATE_TRANSACTION
+        )
+        .map(({ eventName }) => eventName)
+      if (eventNames.length > 0) {
+        canonicalObserverBatches.push(eventNames)
+      }
+    })
+    factory.registerTransactionValidator('cross-store', () => ({
+      valid: false,
+      code: 'invalid-state',
+      message: 'State validation failed'
+    }))
+
+    try {
+      expect(() =>
+        runTransaction(() => {
+          updateTransaction({
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_PROPERTY,
+            payload: {
+              id: 'element-1',
+              before: 0,
+              after: 1
+            }
+          })
+        })
+      ).toThrow(TransactionValidationError)
+      expect(canonicalObserverBatches).toEqual([])
+    } finally {
+      observerSubscription.unsubscribe()
+      disposeOwner()
+    }
+  })
+
+  it('records one Reactive-issued batch as one existing Factory history action', () => {
+    const factory = new Factory()
+    let issuedBatch: readonly UpdateTransactionEvent[] | undefined
+    const disposeOwner = registerTransactionOwner({
+      startTransaction: () => factory.startTransaction(),
+      updateTransactionBatch: (events) => {
+        issuedBatch = events
+        factory.updateTransactionBatch(events)
+      },
+      endTransaction: (options) => factory.endTransaction(options),
+      undo: () => factory.undo(),
+      redo: () => factory.redo()
+    })
+
+    try {
+      runTransaction(() => {
+        updateTransactionBatch([
+          {
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_PROPERTY,
+            payload: {
+              id: 'element-1',
+              before: 0,
+              after: 1
+            }
+          }
+        ])
+      })
+
+      expect(issuedBatch).toHaveLength(1)
+      expect(issuedBatch?.[0]?.payload).toMatchObject({ id: 'element-1' })
+      expect(factory.getUndoHistoryDepth()).toBe(1)
+    } finally {
+      disposeOwner()
+    }
+  })
+
   it('surfaces validation failure through runTransaction after rolling back', () => {
     const factory = new Factory()
     const statuses: TransactionStatusPayload[] = []
@@ -40,10 +121,14 @@ describe('Factory transaction owner integration', () => {
     try {
       expect(() =>
         runTransaction(() => {
-          updateTransaction(EventTypes.UPDATE_COMPUTED_DATA, {
-            id: 'element-1',
-            before: 0,
-            after: 1
+          updateTransaction({
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_PROPERTY,
+            payload: {
+              id: 'element-1',
+              before: 0,
+              after: 1
+            }
           })
         })
       ).toThrow(TransactionValidationError)
@@ -57,7 +142,7 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('surfaces rollback failure through runTransaction and closes the owner', () => {
+  it('surfaces inverse rejection through runTransaction and closes the owner', () => {
     const factory = new Factory()
     const statuses: TransactionStatusPayload[] = []
     const disposeStatus = factory.subscribeToTransactionStatus((status) => {
@@ -71,13 +156,16 @@ describe('Factory transaction owner integration', () => {
     try {
       expect(() =>
         runTransaction(() => {
-          updateTransaction('custom.broken', { id: 'custom' })
+          updateTransaction({
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: 'custom.broken',
+            payload: { id: 'custom' }
+          })
           throw new Error('handler failed')
         })
-      ).toThrow(TransactionRollbackError)
+      ).toThrow(FactoryMutationBatchAcceptanceError)
       expect(statuses[statuses.length - 1]).toMatchObject({
-        status: 'rollback-failed',
-        error: expect.any(TransactionRollbackError)
+        status: 'discarded'
       })
       expect(() => factory.endTransaction()).not.toThrow()
     } finally {
@@ -86,7 +174,7 @@ describe('Factory transaction owner integration', () => {
     }
   })
 
-  it('restores undo history and closes its owned boundary when inverse replay fails', () => {
+  it('rejects the journal entry and closes its owned boundary when inverse capture fails', () => {
     const factory = new Factory()
     const disposeOwner = registerFactoryAsOwner(factory)
     factory.registerTransactionInverter('custom.broken-undo', () => {
@@ -94,11 +182,15 @@ describe('Factory transaction owner integration', () => {
     })
 
     try {
-      runTransaction(() => {
-        updateTransaction('custom.broken-undo', { id: 'custom' })
-      })
-
-      expect(() => undo()).toThrow(TransactionRollbackError)
+      expect(() =>
+        runTransaction(() => {
+          updateTransaction({
+            type: EventTypes.UPDATE_TRANSACTION,
+            eventName: 'custom.broken-undo',
+            payload: { id: 'custom' }
+          })
+        })
+      ).toThrow(FactoryMutationBatchAcceptanceError)
       expect(
         (
           factory.transact as unknown as {
@@ -113,7 +205,7 @@ describe('Factory transaction owner integration', () => {
             undoStack: unknown[]
           }
         ).undoStack
-      ).toHaveLength(1)
+      ).toHaveLength(0)
       expect(factory.isInUndoRedo()).toBe(false)
     } finally {
       endTransaction({ outcome: 'rollback' })

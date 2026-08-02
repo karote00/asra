@@ -10,13 +10,14 @@ export const fillsPropertyComponentDefinition: PropertyComponentDefinition = {
     key: 'fills',
     childType: PropertyTypes.FILL,
     mode: 'ids-or-objects',
-    toChildData: (item) => {
+    collection: 'array-or-record',
+    toChildData: (item, childId) => {
       if (typeof item !== 'object' || item === null || Array.isArray(item)) {
         return null
       }
 
       return {
-        ...createDefaultFill(),
+        ...createDefaultFill({ id: childId ?? '' }),
         ...item
       }
     },

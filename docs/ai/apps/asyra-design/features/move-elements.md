@@ -22,7 +22,8 @@
 - drag start inside current selection bounds (even on empty space) moves the
   existing selection without replacing it
 - if drag starts on an unselected unlocked element, selects that element as drag target first (undoable; rolls back on drag undo)
-- snapshots unlocked selected element start positions in workspace coordinates
+- snapshots unlocked selected element start positions in their canonical
+  parent-local coordinates
 
 2. Update
 
@@ -32,6 +33,9 @@
   explicit `sharedDelivery: 'immediate'`; all selected-element changes produced
   by one synchronous update are one ordered canonical publication without
   closing the outer transaction
+- defers official Group origin and bounds normalization across intermediate
+  pointer samples so drag-start-local coordinates cannot accumulate against
+  repeatedly rebased ancestors
 
 3. End
 
@@ -40,6 +44,8 @@
   if pointer-up contains a newer final position, applies all final positions
   once with `sharedDelivery: 'immediate'`
 - keeps final drag position on canvas while preserving one-session undo/redo
+- invokes Preset Group normalization deepest-first exactly once after the final
+  position write and before the gesture transaction commits
 - if a drag crossed the movement threshold but returns exactly to its initial
   positions, the return update remains a real canonical delivery action
 - if no movement occurred after starting inside selection bounds, selects the

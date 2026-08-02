@@ -4,6 +4,10 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
+## Active Pre-Release Blockers
+
+None.
+
 ## Framework Release Gates
 
 Complete and close these plans in order before the first public Asyra Framework

@@ -1,16 +1,9 @@
-import type {
-  ChangeHandler,
-  DataTypes,
-  EvnetOptions,
-  SceneTreeDataOwner
-} from '@asyra/utils'
+import type { ChangeHandler, DataTypes, EvnetOptions } from '@asyra/utils'
 import { SCENE_TREE_ACTIONS } from '@asyra/utils'
 import { EventTypes } from '@asyra/reactive-events'
 import sceneTree from '../sceneTree'
 
 export default class ElementChangeHandler implements ChangeHandler {
-  constructor(private readonly owner: SceneTreeDataOwner) {}
-
   addChange = (data: {
     id: string
     key: string
@@ -18,11 +11,21 @@ export default class ElementChangeHandler implements ChangeHandler {
     after: DataTypes
     options?: EvnetOptions
   }): void => {
+    if (data.key !== 'name' && data.key !== 'visible' && data.key !== 'lock') {
+      return
+    }
     sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      owner: this.owner,
-      ...data
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
+      id: data.id,
+      changes: [
+        {
+          key: data.key,
+          before: data.before as string | boolean,
+          after: data.after as string | boolean
+        }
+      ],
+      options: data.options
     })
   }
 }

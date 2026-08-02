@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getCollaborationMode } from '../collaboration-mode'
+import { getCollaborationMode, getRequiredFileId } from '../collaboration-mode'
 
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
-const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
 
 describe('collaboration public file identity', () => {
   afterEach(() => {
@@ -11,8 +11,8 @@ describe('collaboration public file identity', () => {
     vi.restoreAllMocks()
   })
 
-  it('activates from one public fileId and generates the page actor', () => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+  it('requires one public fileId and always prepares the page collaboration identity', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=public-crdt-file')
 
@@ -27,17 +27,37 @@ describe('collaboration public file identity', () => {
     expect(mode).not.toHaveProperty('accessToken')
   })
 
-  it('does not activate from legacy document, room, or actor parameters', () => {
+  it('uses fileId as document identity rather than a collaboration toggle', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState(
       {},
       '',
-      '/?collaboration=1&document=legacy&room=legacy&actor=legacy-a'
+      '/?fileId=public-crdt-file&collaboration=0&document=legacy&room=legacy&actor=legacy-a'
     )
 
-    expect(getCollaborationMode()).toBeUndefined()
+    expect(getCollaborationMode()).toMatchObject({
+      fileId: 'public-crdt-file',
+      actorId: `actor-${ACTOR_UUID}`,
+      endpoint: COLLABORATION_ENDPOINT
+    })
   })
 
-  it('keeps an ordinary URL collaboration-free', () => {
-    expect(getCollaborationMode()).toBeUndefined()
+  it('rejects a URL that cannot identify the document', () => {
+    expect(() => getRequiredFileId()).toThrow(
+      '[collaboration] missing required fileId'
+    )
+    window.history.replaceState({}, '', '/?fileId=%20%20')
+    expect(() => getRequiredFileId()).toThrow(
+      '[collaboration] missing required fileId'
+    )
+  })
+
+  it('keeps the document available without composing CRDT when no socket endpoint is configured', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
+
+    expect(getRequiredFileId()).toBe('crdt-7076-sample')
+    expect(getCollaborationMode()).toBeNull()
   })
 })

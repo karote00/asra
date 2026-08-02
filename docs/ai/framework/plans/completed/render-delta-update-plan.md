@@ -327,12 +327,12 @@ must never receive a handle created by an earlier engine.
 
 Three repeated Chromium runs of the formal fixture produced these observed ranges:
 
-| Phase                                          | Count/run | Observed p95 | Formal total / p95 / max budget |
-| ---------------------------------------------- | --------: | -----------: | ------------------------------: |
-| Scene Tree canonical patch                     |        12 |   1.0–1.4 ms |                   24 / 4 / 6 ms |
-| transaction publish + Render snapshot delivery |        12 |       0.1 ms |                    6 / 1 / 2 ms |
-| vector strategy geometry                       |        12 |   1.5–1.8 ms |                   24 / 4 / 6 ms |
-| engine handoff per frame                       |        12 |   0.9–1.0 ms |                   18 / 3 / 5 ms |
+| Phase                                          | Count/run | Observed p95 |         Formal total / p95 / max budget |
+| ---------------------------------------------- | --------: | -----------: | --------------------------------------: |
+| Scene Tree canonical patch                     |        12 |   1.0–1.4 ms |                           24 / 4 / 6 ms |
+| transaction publish + Render snapshot delivery |        12 |       0.1 ms |                            6 / 1 / 2 ms |
+| vector strategy geometry                       |        12 |   1.5–1.8 ms | 24 / 4 / 8 ms cold max; 6 ms steady max |
+| engine handoff per frame                       |        12 |   0.9–1.0 ms |                           18 / 3 / 5 ms |
 
 The combined phase p95 budget is 12 ms. Render delta apply count must be 12 and
 Render full rehydrate count must be 0. Across all canonical/UI consumers,
@@ -345,8 +345,10 @@ profiling.
 
 For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
 `floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit
-oracle, so the p95 and max budgets remain independent without changing any
-threshold above.
+oracle, so the p95 and max budgets remain independent. The first vector
+strategy invocation on a clean browser process is reported as the cold strategy
+frame with an 8 ms max; the remaining 11 steady-state frames retain the original
+6 ms max.
 
 ## Owner Slices
 

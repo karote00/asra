@@ -1,4 +1,4 @@
-export const AsyraDesignAiActionNames = Object.freeze({
+export const AiActionNames = Object.freeze({
   INSERT_VECTOR_COMPOSITION: 'insert_vector_composition',
   REMOVE_AI_COMPOSITION: 'remove_ai_composition',
   REQUEST_DRAWING_DETAIL_CHOICE: 'request_drawing_detail_choice',
@@ -7,12 +7,12 @@ export const AsyraDesignAiActionNames = Object.freeze({
   UPDATE_COMPOSITION_ELEMENTS: 'update_composition_elements'
 } as const)
 
-export const AsyraDesignAiDrawingDetailOptionIds = Object.freeze({
+export const AiDrawingDetailOptionIds = Object.freeze({
   BALANCED: 'balanced',
   MAXIMUM: 'maximum'
 } as const)
 
-export const AsyraDesignAiDrawingDetailSelectionIntents = Object.freeze({
+export const AiDrawingDetailSelectionIntents = Object.freeze({
   BALANCED_EN: 'draw this image with balanced detail',
   BALANCED_ZH: '以平衡細節繪製這張圖',
   MAXIMUM_EN: 'draw this image with maximum detail',

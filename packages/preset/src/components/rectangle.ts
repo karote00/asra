@@ -18,7 +18,7 @@ export const RECTANGLE_COMPONENT_DEFINITION: ComponentDefinition = {
     {
       name: PropertyTypes.POSITION,
       type: PropertyTypes.POSITION,
-      alias: ['x', 'y']
+      alias: ['x', 'y', 'rotation']
     },
     {
       name: PropertyTypes.DIMENSION,

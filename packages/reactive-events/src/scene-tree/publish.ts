@@ -1,16 +1,33 @@
 import type {
+  AddElementsChange,
   CreateElementData,
-  ComputedDataPatch,
   ComputedDataPatchChange,
   DataTypes,
+  ElementDataFieldChange,
   EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   MoveHierarchyRequest,
+  RemoveElementsChange,
   SceneTreeRawData
 } from '@asyra/utils'
-import { publishEvent } from '../event-bus'
+import { publishEvent, publishEventsToObservers } from '../event-bus'
 import { EventTypes } from '../types'
+import type {
+  UpdateComputedDataBatchEvent,
+  UpdateComputedDataEvent,
+  UpdateComputedDataPatchEvent
+} from './events'
+
+export const publishLocalComputedDataEvents = (
+  events: readonly (
+    | UpdateComputedDataEvent
+    | UpdateComputedDataBatchEvent
+    | UpdateComputedDataPatchEvent
+  )[]
+): void => {
+  publishEventsToObservers(events)
+}
 
 export const sceneTreeInit = () => {
   publishEvent({
@@ -82,6 +99,28 @@ export const removeElement = (
   })
 }
 
+export const addElements = (
+  change: AddElementsChange,
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.ADD_ELEMENTS,
+    payload: change,
+    options
+  })
+}
+
+export const removeElements = (
+  change: RemoveElementsChange,
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.REMOVE_ELEMENTS,
+    payload: change,
+    options
+  })
+}
+
 export const moveElements = (
   request: MoveHierarchyRequest,
   options?: EVENT_OPTIONS
@@ -101,14 +140,29 @@ export const updateComputedData = (
   before: DataTypes,
   after: DataTypes
 ) => {
+  publishLocalComputedDataEvents([
+    {
+      type: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id,
+        key,
+        before,
+        after,
+        owner: 'computed'
+      }
+    }
+  ])
+}
+
+export const updateElementData = (
+  id: string,
+  changes: readonly ElementDataFieldChange[]
+) => {
   publishEvent({
-    type: EventTypes.UPDATE_COMPUTED_DATA,
+    type: EventTypes.UPDATE_ELEMENT_DATA,
     payload: {
       id,
-      key,
-      before,
-      after,
-      owner: 'computed'
+      changes
     }
   })
 }
@@ -117,58 +171,13 @@ export const updateComputedDataPatch = (
   id: string,
   patch: ComputedDataPatchChange
 ) => {
-  publishEvent({
-    type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-    payload: {
-      id,
-      patch
+  publishLocalComputedDataEvents([
+    {
+      type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload: {
+        id,
+        patch
+      }
     }
-  })
-}
-
-export const changeComputedData = (
-  elementIds: string[],
-  key: string,
-  data: DataTypes,
-  options: EVENT_OPTIONS = { undoable: true }
-) => {
-  publishEvent({
-    type: EventTypes.CHANGE_COMPUTED_DATA,
-    payload: {
-      key,
-      data,
-      elementIds
-    },
-    options
-  })
-}
-
-export const changeComputedDataPatch = (
-  elementIds: string[],
-  patch: ComputedDataPatch,
-  options: EVENT_OPTIONS = { undoable: true }
-) => {
-  publishEvent({
-    type: EventTypes.CHANGE_COMPUTED_DATA_PATCH,
-    payload: {
-      patch,
-      elementIds
-    },
-    options
-  })
-}
-
-export const changeComputedDataBatch = (
-  elementIds: string[],
-  data: Record<string, DataTypes>,
-  options: EVENT_OPTIONS = { undoable: true }
-) => {
-  publishEvent({
-    type: EventTypes.CHANGE_COMPUTED_DATA_BATCH,
-    payload: {
-      data,
-      elementIds
-    },
-    options
-  })
+  ])
 }

@@ -1,23 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   emitDiagnosticCounter,
+  subscribeToDiagnosticCounters,
   type DiagnosticCounterSink
 } from '../diagnostic-counter'
 
-const runtimeGlobal = globalThis as typeof globalThis & {
-  __asyraDiagnosticCounterSink?: DiagnosticCounterSink
-}
-
-const previousSink = runtimeGlobal.__asyraDiagnosticCounterSink
+const disposers: (() => void)[] = []
 
 afterEach(() => {
-  runtimeGlobal.__asyraDiagnosticCounterSink = previousSink
+  disposers.splice(0).forEach((dispose) => dispose())
 })
 
 describe('emitDiagnosticCounter', () => {
   it('forwards explicit and default counter increments', () => {
     const sink = vi.fn<DiagnosticCounterSink>()
-    runtimeGlobal.__asyraDiagnosticCounterSink = sink
+    disposers.push(subscribeToDiagnosticCounters(sink))
 
     emitDiagnosticCounter('default')
     emitDiagnosticCounter('explicit', 3)
@@ -27,9 +24,11 @@ describe('emitDiagnosticCounter', () => {
   })
 
   it('isolates diagnostic sink failures from product behavior', () => {
-    runtimeGlobal.__asyraDiagnosticCounterSink = () => {
-      throw new Error('diagnostic sink failed')
-    }
+    disposers.push(
+      subscribeToDiagnosticCounters(() => {
+        throw new Error('diagnostic sink failed')
+      })
+    )
 
     expect(() => emitDiagnosticCounter('isolated')).not.toThrow()
   })

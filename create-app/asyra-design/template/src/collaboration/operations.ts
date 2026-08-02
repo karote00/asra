@@ -1,13 +1,16 @@
-import type { SharedDelivery, SharedPublication } from '@asyra/factory'
+import type {
+  SharedPublication,
+  SharedPublicationDelivery
+} from '@asyra/factory'
 import { EventTypes, type AllEvent } from '@asyra/reactive-events'
 import {
   type ElementPropertyOwnerRelation,
   type EVENT_OPTIONS,
   PROPS_ACTIONS,
-  type PropsRestorePlan,
+  type PreparedPropsRestore,
   type PropsRestoreSnapshot,
   SCENE_TREE_ACTIONS,
-  type SceneTreeRestorePlan,
+  type PreparedSceneTreeRestore,
   type SceneTreeRestoreSnapshot,
   SharedDataChannelNames,
   isRecord
@@ -22,17 +25,17 @@ export type DecideRemotePublication = (
 export interface RemoteRestoreOwnerFacades {
   preflightRestoreSubtree: (
     snapshot: SceneTreeRestoreSnapshot
-  ) => SceneTreeRestorePlan
+  ) => PreparedSceneTreeRestore
   preflightRestoreProperties: (
     snapshot: PropsRestoreSnapshot,
     ownerRelations: readonly ElementPropertyOwnerRelation[]
-  ) => PropsRestorePlan
+  ) => PreparedPropsRestore
   applyRestoreProperties: (
-    plan: PropsRestorePlan,
+    prepared: PreparedPropsRestore,
     options?: EVENT_OPTIONS
   ) => readonly string[]
   applyRestoreSubtree: (
-    plan: SceneTreeRestorePlan,
+    prepared: PreparedSceneTreeRestore,
     options?: EVENT_OPTIONS
   ) => unknown
 }
@@ -44,6 +47,20 @@ interface ClassifiedRemoteRestore {
 
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
+
+interface PublicationDeliveryWithChannel {
+  readonly channel: string
+  readonly delivery: SharedPublicationDelivery
+}
+
+const publicationDeliveries = (
+  publication: SharedPublication
+): readonly PublicationDeliveryWithChannel[] =>
+  publication.slices.flatMap(({ batches }) =>
+    batches.flatMap(({ channel, deliveries }) =>
+      deliveries.map((delivery) => ({ channel, delivery }))
+    )
+  )
 
 const isTypedData = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) && isNonBlankString(value.id) && isNonBlankString(value.type)
@@ -221,8 +238,11 @@ const isUpdateProperty = (value: unknown): value is Record<string, unknown> =>
   (value.ownerPropertyName === undefined ||
     isNonBlankString(value.ownerPropertyName))
 
-const isSupportedPayload = (delivery: SharedDelivery): boolean => {
-  if (delivery.channel === SharedDataChannelNames.SCENE_TREE) {
+const isSupportedPayload = (
+  channel: string,
+  delivery: SharedPublicationDelivery
+): boolean => {
+  if (channel === SharedDataChannelNames.SCENE_TREE) {
     switch (delivery.eventName) {
       case EventTypes.ADD_ELEMENT:
         return isAddRemoveElement(
@@ -249,7 +269,7 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
         return isSubtreeChange(delivery.payload)
     }
   }
-  if (delivery.channel === SharedDataChannelNames.PROPS) {
+  if (channel === SharedDataChannelNames.PROPS) {
     switch (delivery.eventName) {
       case EventTypes.ADD_PROPERTY:
         return isAddRemoveProperties(
@@ -273,9 +293,10 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
 const classifyRemoteRestore = (
   publication: SharedPublication
 ): ClassifiedRemoteRestore | undefined => {
-  const restoreDeliveries = publication.deliveries.filter(
-    (delivery) =>
-      delivery.channel === SharedDataChannelNames.SCENE_TREE &&
+  const deliveries = publicationDeliveries(publication)
+  const restoreDeliveries = deliveries.filter(
+    ({ channel, delivery }) =>
+      channel === SharedDataChannelNames.SCENE_TREE &&
       delivery.eventName === EventTypes.CHANGE_SUBTREE &&
       isRecord(delivery.payload) &&
       delivery.payload.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE
@@ -283,15 +304,17 @@ const classifyRemoteRestore = (
   if (restoreDeliveries.length === 0) {
     return
   }
-  const restoreDelivery = restoreDeliveries[0] as SharedDelivery
-  const restoreIndex = publication.deliveries.indexOf(restoreDelivery)
-  const propertyDeliveries = publication.deliveries.slice(0, restoreIndex)
+  const restoreDelivery = restoreDeliveries[0]?.delivery
+  const restoreIndex = deliveries.findIndex(
+    ({ delivery }) => delivery === restoreDelivery
+  )
+  const propertyDeliveries = deliveries.slice(0, restoreIndex)
   const validRestoreEnvelope =
     restoreDeliveries.length === 1 &&
-    restoreIndex === publication.deliveries.length - 1 &&
+    restoreIndex === deliveries.length - 1 &&
     propertyDeliveries.every(
-      (delivery) =>
-        delivery.channel === SharedDataChannelNames.PROPS &&
+      ({ channel, delivery }) =>
+        channel === SharedDataChannelNames.PROPS &&
         delivery.eventName === EventTypes.ADD_PROPERTY &&
         isAddRemoveProperties(
           delivery.payload,
@@ -299,7 +322,11 @@ const classifyRemoteRestore = (
           EventTypes.ADD_PROPERTY
         )
     )
-  if (!validRestoreEnvelope || !isSubtreeChange(restoreDelivery.payload)) {
+  if (
+    !restoreDelivery ||
+    !validRestoreEnvelope ||
+    !isSubtreeChange(restoreDelivery.payload)
+  ) {
     throw new Error(
       '[asyra-design collaboration] invalid subtree restore publication'
     )
@@ -315,7 +342,7 @@ const classifyRemoteRestore = (
     },
     propsSnapshot: {
       components: propertyDeliveries.flatMap(
-        (delivery) =>
+        ({ delivery }) =>
           (delivery.payload as { data: PropsRestoreSnapshot['components'] })
             .data
       )
@@ -323,10 +350,13 @@ const classifyRemoteRestore = (
   }
 }
 
-const toEvent = (delivery: SharedDelivery): AllEvent => {
-  if (!isSupportedPayload(delivery)) {
+const toEvent = (
+  channel: string,
+  delivery: SharedPublicationDelivery
+): AllEvent => {
+  if (!isSupportedPayload(channel, delivery)) {
     throw new Error(
-      `[asyra-design collaboration] unsupported collaboration delivery ${delivery.channel}/${delivery.eventName}`
+      `[asyra-design collaboration] unsupported collaboration delivery ${channel}/${delivery.eventName}`
     )
   }
   return { type: delivery.eventName, payload: delivery.payload } as AllEvent
@@ -341,13 +371,17 @@ export const createAsyraDesignPublicationProcessor =
     restoreOwners?: RemoteRestoreOwnerFacades
   ): ((publication: SharedPublication) => void) =>
   (publication) => {
-    publication.deliveries.forEach(toEvent)
+    publicationDeliveries(publication).forEach(({ channel, delivery }) =>
+      toEvent(channel, delivery)
+    )
     const inboundRestore = classifyRemoteRestore(publication)
     const acceptedPublication = decideRemotePublication(publication)
     if (acceptedPublication === false) {
       return
     }
-    const events = acceptedPublication.deliveries.map(toEvent)
+    const events = publicationDeliveries(acceptedPublication).map(
+      ({ channel, delivery }) => toEvent(channel, delivery)
+    )
     const acceptedRestore = classifyRemoteRestore(acceptedPublication)
     if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
       throw new Error(
@@ -360,16 +394,16 @@ export const createAsyraDesignPublicationProcessor =
           '[asyra-design collaboration] subtree restore owner facades are required'
         )
       }
-      const scenePlan = restoreOwners.preflightRestoreSubtree(
+      const preparedSceneRestore = restoreOwners.preflightRestoreSubtree(
         acceptedRestore.sceneSnapshot
       )
-      const propsPlan = restoreOwners.preflightRestoreProperties(
+      const preparedPropsRestore = restoreOwners.preflightRestoreProperties(
         acceptedRestore.propsSnapshot,
-        scenePlan.propertyOwnerRelations
+        preparedSceneRestore.propertyOwnerRelations
       )
       runRemoteTransaction(() => {
-        restoreOwners.applyRestoreProperties(propsPlan)
-        restoreOwners.applyRestoreSubtree(scenePlan)
+        restoreOwners.applyRestoreProperties(preparedPropsRestore)
+        restoreOwners.applyRestoreSubtree(preparedSceneRestore)
       })
       return
     }

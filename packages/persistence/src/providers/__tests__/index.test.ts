@@ -1,4 +1,4 @@
-import type { CoreRawData } from '@asyra/utils'
+import { subscribeToBrowserDragPhases, type CoreRawData } from '@asyra/utils'
 import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IndexedDbPersistence, LocalStoragePersistence } from '..'
@@ -65,6 +65,30 @@ describe('LocalStoragePersistence', () => {
 })
 
 describe('IndexedDbPersistence', () => {
+  it('attributes open, structured-clone put, and transaction acknowledgement separately', async () => {
+    const persistence = new IndexedDbPersistence('FILE', {
+      databaseName: 'asyra-persistence-attribution-test',
+      factory: indexedDB
+    })
+    const phases: string[] = []
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
+
+    try {
+      await persistence.save(DOCUMENT_A)
+
+      expect(phases).toEqual([
+        'persistence:indexeddb-open',
+        'persistence:indexeddb-put',
+        'persistence:indexeddb-transaction'
+      ])
+      await expect(persistence.load()).resolves.toEqual(DOCUMENT_A)
+    } finally {
+      unsubscribe()
+    }
+  })
+
   it('persists a document larger than localStorage quota without using localStorage', async () => {
     const localStorageSetItem = vi.fn(() => {
       throw new DOMException('Storage quota exceeded', 'QuotaExceededError')

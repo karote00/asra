@@ -1306,7 +1306,7 @@ const createVectorElementAtWorkspacePos = (
   )
 }
 
-const prepareVectorElementData = (
+export const prepareVectorElementData = (
   createOptions: CreateElementOptions
 ): CreateElementData | null => {
   if (!isVectorTopology(createOptions)) {
@@ -2103,22 +2103,6 @@ export const vectorApis = {
       data,
       options
     )
-  },
-
-  createVectorElementsInParent: (
-    createOptions: readonly CreateElementOptions[],
-    parentId: string,
-    options?: EVENT_OPTIONS
-  ): readonly string[] | null => {
-    const data: CreateElementData[] = []
-    for (const elementOptions of createOptions) {
-      const prepared = prepareVectorElementData(elementOptions)
-      if (!prepared) {
-        return null
-      }
-      data.push(prepared)
-    }
-    return core.createElementsInParent(data, parentId, undefined, options)
   },
 
   createVectorElementFromSinglePoint: (

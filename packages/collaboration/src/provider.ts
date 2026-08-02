@@ -30,11 +30,6 @@ export const createProviderIdentitySnapshot = (
       : {})
   })
 
-export interface InboundPublication {
-  readonly publication: SharedPublication
-  readonly fromActorId?: string
-}
-
 export interface ProviderAwarenessMessage {
   readonly actorId: string
   readonly clock: number
@@ -93,7 +88,7 @@ export interface Provider {
   onStatusChange(subscriber: (status: ProviderStatus) => void): () => void
   sendPublication(publication: SharedPublication): Promise<void>
   onPublication(
-    subscriber: (publication: InboundPublication) => void
+    consume: (publication: SharedPublication) => Promise<void>
   ): () => void
   sendAwareness(message: ProviderAwarenessMessage): Promise<void>
   onAwareness(

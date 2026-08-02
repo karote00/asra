@@ -21,6 +21,7 @@ import {
 export interface PropertyComponentConstructorDefinition {
   type: string
   constructor: PropertyComponentConstructor
+  canonicalChildren?: PropertyChildRelationDefinition
   options?: PropertyRegistrationOptions
   registration?: RegistrationDefinitionMetadata
 }
@@ -271,7 +272,10 @@ export function definePropertyComponent(
     definition.options,
     hasConstructor
       ? undefined
-      : (definition as PropertyComponentConfigDefinition)
+      : (definition as PropertyComponentConfigDefinition),
+    hasConstructor
+      ? (definition as PropertyComponentConstructorDefinition).canonicalChildren
+      : undefined
   )
 
   return constructor

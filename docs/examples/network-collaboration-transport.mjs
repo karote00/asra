@@ -90,12 +90,19 @@ export const createCollaboratingCounter = async ({
     factory,
     provider,
     processRemotePublication: (publication) => {
-      const deliveries = publication.deliveries
+      const deliveryEntries = publication.slices.flatMap((slice) =>
+        slice.batches.flatMap((batch) =>
+          batch.deliveries.map((delivery) => ({
+            channel: batch.channel,
+            delivery
+          }))
+        )
+      )
       if (
-        deliveries.length === 0 ||
-        deliveries.some(
-          (delivery) =>
-            delivery.channel !== CHANNEL ||
+        deliveryEntries.length === 0 ||
+        deliveryEntries.some(
+          ({ channel, delivery }) =>
+            channel !== CHANNEL ||
             delivery.eventName !== SET_VALUE ||
             !isSetValuePayload(delivery.payload)
         )
@@ -103,7 +110,9 @@ export const createCollaboratingCounter = async ({
         throw new Error('Unsupported counter publication')
       }
       factory.runRemoteTransaction(() => {
-        deliveries.forEach((delivery) => recordAndApply(delivery.payload))
+        deliveryEntries.forEach(({ delivery }) =>
+          recordAndApply(delivery.payload)
+        )
       })
     },
     resourceOwnership: { provider: 'owned' }

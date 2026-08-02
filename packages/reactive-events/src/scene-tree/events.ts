@@ -1,13 +1,15 @@
 import type {
+  AddElementsChange,
   CreateElementData,
-  ComputedDataPatch,
   ComputedDataPatchChange,
   DataTypes,
+  ElementDataFieldChange,
   EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   HierarchyMove,
   MoveHierarchyRequest,
+  RemoveElementsChange,
   SceneTreeDataOwner,
   SceneTreeRawData,
   SubtreeChange,
@@ -50,6 +52,18 @@ export interface RemoveElementEvent {
   options?: EVENT_OPTIONS
 }
 
+export interface AddElementsEvent {
+  type: EventTypes
+  payload: AddElementsChange
+  options?: EVENT_OPTIONS
+}
+
+export interface RemoveElementsEvent {
+  type: EventTypes
+  payload: RemoveElementsChange
+  options?: EVENT_OPTIONS
+}
+
 export interface MoveElementsEvent {
   type: EventTypes
   payload:
@@ -79,6 +93,14 @@ export interface UpdateComputedDataEvent {
   }
 }
 
+export interface UpdateElementDataEvent {
+  type: EventTypes
+  payload: {
+    id: string
+    changes: readonly ElementDataFieldChange[]
+  }
+}
+
 export interface UpdateComputedDataBatchEvent {
   type: EventTypes
   payload: Pick<
@@ -95,45 +117,17 @@ export interface UpdateComputedDataPatchEvent {
   }
 }
 
-export interface ChangeComputedDataEvent {
-  type: EventTypes
-  payload: {
-    elementIds: string[]
-    key: string
-    data: DataTypes
-  }
-  options: EVENT_OPTIONS
-}
-
-export interface ChangeComputedDataBatchEvent {
-  type: EventTypes
-  payload: {
-    elementIds: string[]
-    data: Record<string, DataTypes>
-  }
-  options: EVENT_OPTIONS
-}
-
-export interface ChangeComputedDataPatchEvent {
-  type: EventTypes
-  payload: {
-    elementIds: string[]
-    patch: ComputedDataPatch
-  }
-  options: EVENT_OPTIONS
-}
-
 export type SceneTreeEvents =
   | SceneTreeInitEvent
   | SceneTreeLoadDataEvent
   | SceneTreeLoadCompleteEvent
   | AddElementEvent
   | RemoveElementEvent
+  | AddElementsEvent
+  | RemoveElementsEvent
   | MoveElementsEvent
   | ChangeSubtreeEvent
+  | UpdateElementDataEvent
   | UpdateComputedDataEvent
   | UpdateComputedDataBatchEvent
   | UpdateComputedDataPatchEvent
-  | ChangeComputedDataEvent
-  | ChangeComputedDataBatchEvent
-  | ChangeComputedDataPatchEvent

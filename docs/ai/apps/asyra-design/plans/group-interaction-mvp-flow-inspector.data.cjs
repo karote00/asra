@@ -160,7 +160,7 @@
         'direct hierarchy or selection mutation in React handlers',
         'ad-hoc document keydown listener outside InputSystem',
         'fixture-only command path',
-        'window.__AsyraE2E__ product execution'
+        'browser-global debug handle product execution'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -533,7 +533,7 @@
         'Render-owned hierarchy mutation',
         'Layers-owned document hierarchy',
         'patch or fallback projection',
-        'window.__AsyraE2E__ as the Group product command path'
+        'browser-global debug handle as the Group product command path'
       ],
       cacheDimensions: [],
       implementationBoundary: [

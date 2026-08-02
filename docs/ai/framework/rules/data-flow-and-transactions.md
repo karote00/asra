@@ -27,6 +27,14 @@
 - APIs that mutate model data should be transaction-bounded.
 - Group logically-related mutations in one transaction.
 - One intended user action should create one intended undo commit.
+- A bulk action uses the same transaction journal and undo stack as any other
+  action. State-owner before/after or add/remove events are the reversible
+  evidence; do not create an AI-specific, bulk-specific, or parallel
+  forward/inverse history artifact for the same action.
+- Successful state-owner apply must not trigger a second full-document
+  save/equality/finalize/evidence-clone pass merely to reconstruct action
+  History. Required mutation-time detachment and inverse registration remain
+  owned by the ordinary state-owner and transaction contracts.
 - Use `runTransaction(...)` for finite synchronous or asynchronous work so
   success commits and thrown/rejected work rolls back automatically.
 - Use manual `startTransaction()` / `endTransaction(...)` boundaries only when
@@ -149,6 +157,9 @@
   synchronous immediate delivery action or transaction-end batch becomes one
   transport publication and at most one Provider send; already-published
   immediate entries are not replayed at the outer transaction end.
+- Transport publication identity is correlation metadata, not a pointer to a
+  second local History artifact. Local reversible evidence remains in the
+  existing transaction journal and is omitted from the wire payload.
 - Observer exceptions do not redefine an already-delivered local publication
   as undelivered; delivery accounting still permits exactly one compensation.
 - The Factory guarantee ends at registered local shared channels and the

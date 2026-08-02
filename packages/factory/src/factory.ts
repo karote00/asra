@@ -13,22 +13,23 @@ import type {
   TransactionStatus,
   TransactionStatusPayload
 } from '@asyra/utils'
+import { measureBrowserDragPhase } from '@asyra/utils'
 import DataTransact from './data-transact'
 import {
   LocalSharedDataChannel,
   SharedDataChannelRegistry,
   type SharedDataChannel,
+  type SharedDataChannelBatchChangeHandler,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
 import {
-  cloneSharedDelivery,
-  cloneSharedPublication,
-  type SharedDelivery,
-  type SharedDeliverySubscriber,
+  type SharedDeliveryBatch,
+  type SharedDeliveryBatchSubscriber,
   type SharedPublication,
   type SharedPublicationSubscriber
 } from './shared-delivery'
+import type { FactoryMutationBatchDeliveryHandle } from './mutation-batch'
 import type {
   CanonicalEventApply,
   TransactionInverter,
@@ -38,6 +39,12 @@ import type {
 
 export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean
+}
+
+export interface FactoryTransactionOwner extends TransactionOwner {
+  updateTransactionBatch(
+    events: readonly UpdateTransactionEvent[]
+  ): FactoryMutationBatchDeliveryHandle | null
 }
 
 class RemoteAsyncHandlerError extends Error {
@@ -50,12 +57,15 @@ class RemoteAsyncHandlerError extends Error {
 class Factory {
   private readonly sharedDataChannels = new SharedDataChannelRegistry()
   private readonly bridgeToReactiveEvents: boolean
-  private readonly transactionOwner: TransactionOwner
+  private readonly transactionOwner: FactoryTransactionOwner
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
-  private readonly sharedDeliverySubscribers =
-    new Set<SharedDeliverySubscriber>()
+  private readonly commitCaptureSubscribers = new Set<
+    (payload: TransactionStatusPayload) => void
+  >()
+  private readonly sharedDeliveryBatchSubscribers =
+    new Set<SharedDeliveryBatchSubscriber>()
   private readonly sharedPublicationSubscribers =
     new Set<SharedPublicationSubscriber>()
   private readonly transactionReplayHandlers = new Map<
@@ -67,41 +77,58 @@ class Factory {
   constructor(options: FactoryOptions = {}) {
     this.bridgeToReactiveEvents = options.bridgeToReactiveEvents === true
     this.transact = new DataTransact(this.sharedDataChannels, {
+      onCommitCapture: (payload) => this.emitCommitCapture(payload),
       onStatus: (payload) => this.emitTransactionStatus(payload),
       onUserActionCompleted: this.bridgeToReactiveEvents
         ? userActionCompleted
         : undefined,
       onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
-      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery),
+      onSharedDeliveryBatch: (batch) => this.emitSharedDeliveryBatch(batch),
       onSharedPublication: (publication) =>
         this.emitSharedPublication(publication)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
-      updateTransaction: (event) => this.updateTransaction(event),
+      updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: (endOptions) => this.endTransaction(endOptions),
       undo: () => this.undo(),
       redo: () => this.redo()
     }
   }
 
-  private emitSharedDelivery(delivery: SharedDelivery): void {
-    ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
+  private emitCommitCapture(payload: TransactionStatusPayload): void {
+    ;[...this.commitCaptureSubscribers].forEach((subscriber) => {
       try {
-        subscriber(cloneSharedDelivery(delivery))
+        subscriber(Object.freeze({ ...payload }))
+      } catch {
+        // Persistence capture observers cannot alter canonical settlement.
+      }
+    })
+  }
+
+  private emitSharedDeliveryBatch(batch: SharedDeliveryBatch): void {
+    ;[...this.sharedDeliveryBatchSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(batch)
       } catch {
         // Collaboration observers cannot alter local canonical settlement.
       }
     })
   }
 
-  private emitSharedPublication(publication: SharedPublication): void {
-    ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
-      try {
-        subscriber(cloneSharedPublication(publication))
-      } catch {
-        // Collaboration observers cannot alter local canonical settlement.
-      }
+  private emitSharedPublication(publication: SharedPublication): boolean {
+    return measureBrowserDragPhase('factory:notify-shared-publication', () => {
+      const subscribers = [...this.sharedPublicationSubscribers]
+      let handedOff = false
+      subscribers.forEach((subscriber) => {
+        try {
+          subscriber(publication)
+          handedOff = true
+        } catch {
+          // Collaboration observers cannot alter local canonical settlement.
+        }
+      })
+      return handedOff
     })
   }
 
@@ -127,7 +154,11 @@ class Factory {
   }
 
   updateTransaction(event: UpdateTransactionEvent) {
-    this.transact.update(event)
+    return this.updateTransactionBatch([event])
+  }
+
+  updateTransactionBatch(events: readonly UpdateTransactionEvent[]) {
+    return this.transact.updateBatch(events)
   }
 
   endTransaction(options?: EndTransactionOptions) {
@@ -136,9 +167,9 @@ class Factory {
 
   runRemoteTransaction<T>(mutate: () => T): T {
     this.transact.start('remote')
-    const reactiveBoundaryOwner: TransactionOwner = {
+    const reactiveBoundaryOwner: FactoryTransactionOwner = {
       startTransaction: () => undefined,
-      updateTransaction: (event) => this.updateTransaction(event),
+      updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: () => undefined,
       undo: () => this.undo(),
       redo: () => this.redo()
@@ -196,8 +227,16 @@ class Factory {
     )
   }
 
-  getTransactionOwner(): TransactionOwner {
+  getTransactionOwner(): FactoryTransactionOwner {
     return this.transactionOwner
+  }
+
+  getActiveStagedDeliveryController() {
+    return this.transact.getActiveStagedDeliveryController()
+  }
+
+  getUndoHistoryDepth(): number {
+    return this.transact.getUndoHistoryDepth()
   }
 
   isInUndoRedo() {
@@ -250,6 +289,15 @@ class Factory {
     this.transactionStatusSubscribers.add(subscriber)
     return () => {
       this.transactionStatusSubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToCommitCapture(
+    subscriber: (payload: TransactionStatusPayload) => void
+  ): () => void {
+    this.commitCaptureSubscribers.add(subscriber)
+    return () => {
+      this.commitCaptureSubscribers.delete(subscriber)
     }
   }
 
@@ -312,10 +360,19 @@ class Factory {
     return this.sharedDataChannels.observe(name, handler)
   }
 
-  subscribeToSharedDelivery(subscriber: SharedDeliverySubscriber): () => void {
-    this.sharedDeliverySubscribers.add(subscriber)
+  observeSharedDataChannelBatch<TChange = unknown>(
+    name: SharedDataChannelName,
+    handler: SharedDataChannelBatchChangeHandler<TChange>
+  ): () => void {
+    return this.sharedDataChannels.observeBatch(name, handler)
+  }
+
+  subscribeToSharedDeliveryBatch(
+    subscriber: SharedDeliveryBatchSubscriber
+  ): () => void {
+    this.sharedDeliveryBatchSubscribers.add(subscriber)
     return () => {
-      this.sharedDeliverySubscribers.delete(subscriber)
+      this.sharedDeliveryBatchSubscribers.delete(subscriber)
     }
   }
 

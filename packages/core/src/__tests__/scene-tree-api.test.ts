@@ -1,93 +1,294 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  EventTypes,
-  subscribeToAddElement,
-  subscribeToChangeComputedData,
-  subscribeToChangeComputedDataBatch
-} from '@asyra/reactive-events'
+import type { CanonicalElementRemoval } from '@asyra/scene-tree'
+import { subscribeToAddElement } from '@asyra/reactive-events'
+import type {
+  ComputedDataPatch,
+  CreateElementData,
+  DataTypes,
+  ElementRawData,
+  PropertyComponentRawData
+} from '@asyra/utils'
 import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
-const createRequests = (): SceneTreeRequests => ({
-  sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
-  getElementComputedData: vi.fn(() => undefined),
-  moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
-  removeSubtree: vi.fn((elementId: string) => ({
-    elementId,
-    removed: [],
-    rootParentChildrenAfter: []
-  })),
-  preflightRestoreSubtree: vi.fn(),
-  applyRestoreSubtree: vi.fn(),
-  createElementsInParent: vi.fn((data: readonly { id?: string }[]) =>
-    data.map(({ id }, index) => id ?? `element-${index}`)
-  ),
-  refreshComputedDataFromProperty: () => undefined,
-  getAllElementsBounds: () => null,
-  isContainerType: () => false
-})
+interface LocalComputedDataEntry {
+  readonly elementId: string
+  readonly values: Readonly<Record<string, DataTypes>>
+}
+
+interface LocalComputedDataPatchEntry {
+  readonly elementId: string
+  readonly patch: ComputedDataPatch
+}
+
+const createRequests = () =>
+  ({
+    sceneTreeSaveData: () => ({
+      workspace: '',
+      workspaceList: [],
+      elements: {}
+    }),
+    getCurrentWorkspaceId: vi.fn(() => 'workspace-1'),
+    getElementComputedData: vi.fn<SceneTreeRequests['getElementComputedData']>(
+      () => undefined
+    ),
+    updateLocalComputedData:
+      vi.fn<SceneTreeRequests['updateLocalComputedData']>(),
+    patchLocalComputedData:
+      vi.fn<SceneTreeRequests['patchLocalComputedData']>(),
+    projectLocalComputedDataFromPropertyIds:
+      vi.fn<SceneTreeRequests['projectLocalComputedDataFromPropertyIds']>(),
+    moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
+    applyHierarchyMoves: vi.fn(() => true),
+    applyElementDataChanges: vi.fn<
+      SceneTreeRequests['applyElementDataChanges']
+    >((changes) => Object.freeze(changes.map(({ id }) => id))),
+    removeSubtree: vi.fn((elementId: string) => ({
+      elementId,
+      removed: [],
+      rootParentChildrenAfter: []
+    })),
+    removeSubtreeFromCanonicalData: vi.fn((change) => ({
+      elementId: change.elementId,
+      removed: change.removed,
+      rootParentChildrenAfter: change.rootParentChildrenAfter
+    })),
+    removeElementsFromCanonicalData: vi.fn(
+      (removals: readonly CanonicalElementRemoval[]) =>
+        Object.freeze(removals.map(({ data }) => data.id))
+    ),
+    preflightRestoreSubtree: vi.fn(),
+    applyRestoreSubtree: vi.fn(),
+    createElementsInParent: vi.fn((data: readonly CreateElementData[]) =>
+      Object.freeze(data.map(({ id }, index) => id ?? `element-${index}`))
+    ),
+    createElementsInParentFromCanonicalData: vi.fn(
+      (data: readonly ElementRawData[]) =>
+        Object.freeze(data.map(({ id }) => id))
+    ),
+    getAllElementsBounds: () => null,
+    isContainerType: () => false
+  }) satisfies SceneTreeRequests
 
 describe('createSceneTreeAPIs hierarchy facade', () => {
-  it('publishes ID-based element creation with the exact parent slot and options', () => {
-    const apis = createSceneTreeAPIs(createRequests())
-    const subscriber = vi.fn()
-    const subscription = subscribeToAddElement(subscriber)
+  it('delegates one and many descriptors through the only plural owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const addSubscriber = vi.fn()
+    const subscription = subscribeToAddElement(addSubscriber)
+    addSubscriber.mockClear()
+    const options = { sharedDelivery: 'immediate' as const }
 
-    subscriber.mockClear()
-    const elementId = apis.createElementInParent(
-      {
-        id: 'group-1',
-        type: 'group',
-        x: 10,
-        y: 20
-      },
+    expect(
+      apis.createElementInParent(
+        { id: 'single-element', type: 'rect', x: 1, y: 2 },
+        'workspace-1',
+        2,
+        options
+      )
+    ).toBe('single-element')
+    expect(
+      apis.createElementsInParent(
+        [
+          { id: 'many-a', type: 'rect', x: 3, y: 4 },
+          { id: 'many-b', type: 'rect', x: 5, y: 6 }
+        ],
+        'workspace-1',
+        3,
+        options
+      )
+    ).toEqual(['many-a', 'many-b'])
+
+    expect(requests.createElementsInParent).toHaveBeenCalledTimes(2)
+    expect(requests.createElementsInParent).toHaveBeenNthCalledWith(
+      1,
+      [expect.objectContaining({ id: 'single-element', type: 'rect' })],
       'workspace-1',
       2,
-      { shared: 'sceneTree' }
+      options
     )
-
-    expect(elementId).toBe('group-1')
-    expect(subscriber).toHaveBeenCalledTimes(1)
-    expect(subscriber).toHaveBeenCalledWith({
-      type: EventTypes.ADD_ELEMENT,
-      payload: {
-        data: expect.objectContaining({
-          id: 'group-1',
-          type: 'group',
-          x: 10,
-          y: 20
-        }),
-        parentId: 'workspace-1',
-        index: 2
-      },
-      options: { shared: 'sceneTree' }
-    })
-
+    expect(requests.createElementsInParent).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({ id: 'many-a', type: 'rect' }),
+        expect.objectContaining({ id: 'many-b', type: 'rect' })
+      ],
+      'workspace-1',
+      3,
+      options
+    )
+    expect(addSubscriber).not.toHaveBeenCalled()
     subscription.unsubscribe()
   })
 
-  it('delegates one ordered canonical batch-add request and returns every prepared id', () => {
+  it('uses the current workspace for the parent-optional scalar convenience', () => {
     const requests = createRequests()
-    const batchApis = createSceneTreeAPIs(requests)
-    const elementIds = batchApis.createElementsInParent(
-      [
-        { id: 'vector-1', type: 'vector', x: 10, y: 20 },
-        { id: 'vector-2', type: 'vector', x: 30, y: 40 }
-      ],
+    const apis = createSceneTreeAPIs(requests)
+
+    expect(
+      apis.createElement(
+        { id: 'workspace-child', type: 'rect', x: 1, y: 2 },
+        undefined,
+        undefined,
+        { undoable: false }
+      )
+    ).toBe('workspace-child')
+
+    expect(requests.getCurrentWorkspaceId).toHaveBeenCalledOnce()
+    expect(requests.createElementsInParent).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: 'workspace-child' })],
       'workspace-1',
-      3,
-      { shared: 'sceneTree' }
+      undefined,
+      { undoable: false }
+    )
+  })
+
+  it('rejects a scalar owner result that is not exactly one id', () => {
+    const requests = createRequests()
+    vi.mocked(requests.createElementsInParent).mockReturnValueOnce(
+      Object.freeze([])
+    )
+    const apis = createSceneTreeAPIs(requests)
+
+    expect(() =>
+      apis.createElementInParent(
+        { id: 'missing-result', type: 'rect', x: 0, y: 0 },
+        'workspace-1'
+      )
+    ).toThrow(/exactly one ordered element id/i)
+  })
+
+  it('returns an isolated frozen ordered-id array and keeps empty plural input inert', () => {
+    const requests = createRequests()
+    const ownerResult = ['first', 'second']
+    vi.mocked(requests.createElementsInParent).mockReturnValueOnce(ownerResult)
+    const apis = createSceneTreeAPIs(requests)
+
+    const result = apis.createElementsInParent(
+      [
+        { id: 'first', type: 'rect', x: 0, y: 0 },
+        { id: 'second', type: 'rect', x: 0, y: 0 }
+      ],
+      'workspace-1'
+    )
+    ownerResult[0] = 'mutated'
+
+    expect(result).toEqual(['first', 'second'])
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(apis.createElementsInParent([], 'missing-parent')).toEqual([])
+    expect(requests.createElementsInParent).toHaveBeenCalledOnce()
+  })
+
+  it('delegates detached canonical creation without an active-property variant', () => {
+    const elements = [
+      {
+        id: 'canonical-rect',
+        type: 'rect',
+        name: 'Canonical Rectangle',
+        parentId: 'workspace-1',
+        visible: true,
+        lock: false,
+        props: {
+          position: 'canonical-position',
+          dimension: 'canonical-dimension'
+        }
+      }
+    ] satisfies readonly ElementRawData[]
+    const properties = [
+      {
+        id: 'canonical-position',
+        type: 'position',
+        x: 10,
+        y: 20,
+        xUnit: 'px',
+        yUnit: 'px'
+      },
+      {
+        id: 'canonical-dimension',
+        type: 'dimension',
+        width: 30,
+        height: 40,
+        widthUnit: 'px',
+        heightUnit: 'px'
+      }
+    ] as unknown as readonly PropertyComponentRawData[]
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+
+    const result = apis.createElementsInParentFromCanonicalData(
+      elements,
+      properties,
+      'workspace-1',
+      4,
+      { sharedDelivery: 'immediate' }
     )
 
-    expect(elementIds).toEqual(['vector-1', 'vector-2'])
-    expect(requests.createElementsInParent).toHaveBeenCalledOnce()
-    expect(requests.createElementsInParent).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({ id: 'vector-1', type: 'vector' }),
-        expect.objectContaining({ id: 'vector-2', type: 'vector' })
-      ],
-      'workspace-1',
-      3,
-      { shared: 'sceneTree' }
+    expect(result).toEqual(['canonical-rect'])
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(
+      requests.createElementsInParentFromCanonicalData
+    ).toHaveBeenCalledWith(elements, properties, 'workspace-1', 4, {
+      sharedDelivery: 'immediate'
+    })
+  })
+
+  it('keeps empty detached creation inert and rejects orphan properties', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const orphanProperty = {
+      id: 'orphan-position',
+      type: 'position'
+    } as PropertyComponentRawData
+    const emptyResult = apis.createElementsInParentFromCanonicalData(
+      [],
+      [],
+      'missing-parent'
+    )
+
+    expect(emptyResult).toEqual([])
+    expect(Object.isFrozen(emptyResult)).toBe(true)
+    expect(
+      requests.createElementsInParentFromCanonicalData
+    ).not.toHaveBeenCalled()
+    expect(() =>
+      apis.createElementsInParentFromCanonicalData(
+        [],
+        [orphanProperty],
+        'missing-parent'
+      )
+    ).toThrow(/orphan propert/i)
+  })
+
+  it('delegates origin-neutral exact removal and returns frozen ordered ids', () => {
+    const removals = [
+      {
+        data: {
+          id: 'element-1',
+          type: 'rect',
+          name: 'Element 1',
+          parentId: 'group-1',
+          visible: true,
+          lock: false,
+          props: {
+            position: 'element-1-position',
+            dimension: 'element-1-dimension'
+          }
+        },
+        parentId: 'group-1',
+        index: 0
+      }
+    ] satisfies readonly CanonicalElementRemoval[]
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+
+    const result = apis.removeElementsFromCanonicalData(removals, {
+      rollbackable: false
+    })
+
+    expect(result).toEqual(['element-1'])
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(requests.removeElementsFromCanonicalData).toHaveBeenCalledWith(
+      removals,
+      { rollbackable: false }
     )
   })
 
@@ -109,145 +310,94 @@ describe('createSceneTreeAPIs hierarchy facade', () => {
     expect(snapshot?.fills).not.toBe(source.fills)
   })
 
-  it('delegates ID-based move requests and options to the supplied Scene Tree owner', () => {
+  it('reprojects one ordered property-id batch and keeps empty input inert', () => {
     const requests = createRequests()
     const apis = createSceneTreeAPIs(requests)
-    const request = {
+
+    apis.projectLocalComputedDataFromPropertyIds([
+      'vector-root-b',
+      'vector-root-a'
+    ])
+    apis.projectLocalComputedDataFromPropertyIds([])
+
+    expect(
+      requests.projectLocalComputedDataFromPropertyIds
+    ).toHaveBeenCalledOnce()
+    expect(
+      requests.projectLocalComputedDataFromPropertyIds
+    ).toHaveBeenCalledWith(['vector-root-b', 'vector-root-a'])
+  })
+
+  it('delegates hierarchy move and full subtree removal options unchanged', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const move = {
       elementIds: ['element-2', 'element-1'],
       targetParentId: 'group-1',
       targetIndex: 0
     }
-    const options = { undoable: false as const }
 
-    apis.moveElements(request, options)
-
-    expect(requests.moveElements).toHaveBeenCalledWith(request, options)
-  })
-
-  it('delegates subtree removal by id to the supplied Scene Tree owner', () => {
-    const requests = createRequests()
-    const apis = createSceneTreeAPIs(requests)
-
+    apis.moveElements(move, { undoable: false })
     apis.removeSubtree('group-1', { rollbackable: false })
 
+    expect(requests.moveElements).toHaveBeenCalledWith(move, {
+      undoable: false
+    })
     expect(requests.removeSubtree).toHaveBeenCalledWith('group-1', {
       rollbackable: false
     })
   })
 })
 
-describe('createSceneTreeAPIs.changeComputedData', () => {
-  it('does nothing when data is empty', () => {
-    const apis = createSceneTreeAPIs(createRequests())
-    const subscriber = vi.fn()
-    const subscription = subscribeToChangeComputedData(subscriber)
+describe('createSceneTreeAPIs local computed facade', () => {
+  it('delegates ordered value and patch batches directly to Scene requests', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const updates = Object.freeze([
+      Object.freeze({
+        elementId: 'element-1',
+        values: Object.freeze({ x: 120, y: 240 })
+      }),
+      Object.freeze({
+        elementId: 'element-2',
+        values: Object.freeze({ width: 320 })
+      })
+    ]) satisfies readonly LocalComputedDataEntry[]
+    const patches = Object.freeze([
+      Object.freeze({
+        elementId: 'element-1',
+        patch: Object.freeze({
+          values: Object.freeze({ x: 160 }),
+          records: Object.freeze({
+            points: Object.freeze({
+              set: Object.freeze({
+                'point-1': Object.freeze({ x: 160, y: 240 })
+              })
+            })
+          })
+        })
+      })
+    ]) satisfies readonly LocalComputedDataPatchEntry[]
 
-    subscriber.mockClear()
-    apis.changeComputedData(['element-1'], {})
+    apis.updateLocalComputedData(updates)
+    apis.patchLocalComputedData(patches)
 
-    expect(subscriber).not.toHaveBeenCalled()
-    subscription.unsubscribe()
+    expect(requests.updateLocalComputedData).toHaveBeenCalledOnce()
+    expect(requests.updateLocalComputedData.mock.calls[0]).toEqual([updates])
+    expect(requests.updateLocalComputedData.mock.calls[0]?.[0]).toBe(updates)
+    expect(requests.patchLocalComputedData).toHaveBeenCalledOnce()
+    expect(requests.patchLocalComputedData.mock.calls[0]).toEqual([patches])
+    expect(requests.patchLocalComputedData.mock.calls[0]?.[0]).toBe(patches)
   })
 
-  it('batches transient computed data changes with undoable=false', () => {
-    const apis = createSceneTreeAPIs(createRequests())
-    const singleSubscriber = vi.fn()
-    const batchSubscriber = vi.fn()
-    const singleSubscription = subscribeToChangeComputedData(singleSubscriber)
-    const batchSubscription =
-      subscribeToChangeComputedDataBatch(batchSubscriber)
+  it('keeps empty local computed batches inert', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
 
-    singleSubscriber.mockClear()
-    batchSubscriber.mockClear()
-    apis.changeComputedData(
-      ['element-1'],
-      {
-        x: 120,
-        y: 240
-      },
-      { undoable: false }
-    )
+    apis.updateLocalComputedData([])
+    apis.patchLocalComputedData([])
 
-    expect(singleSubscriber).not.toHaveBeenCalled()
-    expect(batchSubscriber).toHaveBeenCalledTimes(1)
-    expect(batchSubscriber).toHaveBeenCalledWith({
-      type: EventTypes.CHANGE_COMPUTED_DATA_BATCH,
-      payload: {
-        elementIds: ['element-1'],
-        data: {
-          x: 120,
-          y: 240
-        }
-      },
-      options: {
-        undoable: false
-      }
-    })
-
-    singleSubscription.unsubscribe()
-    batchSubscription.unsubscribe()
-  })
-
-  it('keeps default undoable=true behavior when options are omitted', () => {
-    const apis = createSceneTreeAPIs(createRequests())
-    const subscriber = vi.fn()
-    const subscription = subscribeToChangeComputedData(subscriber)
-
-    subscriber.mockClear()
-    apis.changeComputedData(['element-1'], { width: 320 })
-
-    expect(subscriber).toHaveBeenCalledTimes(1)
-    expect(subscriber).toHaveBeenCalledWith({
-      type: EventTypes.CHANGE_COMPUTED_DATA,
-      payload: {
-        elementIds: ['element-1'],
-        key: 'width',
-        data: 320
-      },
-      options: {
-        undoable: true
-      }
-    })
-
-    subscription.unsubscribe()
-  })
-})
-
-describe('createSceneTreeAPIs.createElement', () => {
-  it('propagates options to addElement events', () => {
-    const apis = createSceneTreeAPIs(createRequests())
-    const subscriber = vi.fn()
-    const subscription = subscribeToAddElement(subscriber)
-
-    subscriber.mockClear()
-    apis.createElement(
-      {
-        id: 'element-1',
-        type: 'rect',
-        x: 10,
-        y: 20
-      },
-      undefined,
-      undefined,
-      { undoable: false }
-    )
-
-    expect(subscriber).toHaveBeenCalledTimes(1)
-    expect(subscriber).toHaveBeenCalledWith({
-      type: EventTypes.ADD_ELEMENT,
-      payload: {
-        data: expect.objectContaining({
-          id: 'element-1',
-          type: 'rect',
-          x: 10,
-          y: 20
-        }),
-        parent: undefined,
-        index: undefined
-      },
-      options: { undoable: false }
-    })
-
-    subscription.unsubscribe()
+    expect(requests.updateLocalComputedData).not.toHaveBeenCalled()
+    expect(requests.patchLocalComputedData).not.toHaveBeenCalled()
   })
 })

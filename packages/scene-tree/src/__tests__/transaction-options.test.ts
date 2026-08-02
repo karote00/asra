@@ -1,43 +1,99 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import * as ReactiveEventsModule from '@asyra/reactive-events'
-import type { UpdateTransactionEvent } from '@asyra/reactive-events'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  EventTypes,
+  subscribeToEventBatches,
+  subscribeToEvents,
+  type AllEvent,
+  type UpdateTransactionEvent
+} from '@asyra/reactive-events'
 import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   type ComputedDataPatch,
-  type SceneTreeChange,
   type ElementInstanceTypes,
-  type UpdateElementPatchChange
+  type ElementRawData,
+  type SceneTreeChange
 } from '@asyra/utils'
 import { SceneTree } from '../sceneTree'
 
-const captureUpdateTransactionEvents = () => {
-  const events: UpdateTransactionEvent[] = []
-  const subscription = ReactiveEventsModule.subscribeToEvents((event) => {
-    if (event.type === ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION) {
-      events.push(event as UpdateTransactionEvent)
-    }
-  })
-  // ReplaySubject replays last event on subscribe; reset to current test scope.
-  events.length = 0
-
-  return { events, subscription }
+interface TestSubscription {
+  unsubscribe(): void
 }
 
-const createUpdateChange = (
-  overrides: Partial<SceneTreeChange> = {}
-): SceneTreeChange =>
-  ({
-    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-    eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
-    id: 'element-1',
-    key: 'x',
-    before: 0,
-    after: 10,
-    ...overrides
-  }) as SceneTreeChange
+const subscriptions: TestSubscription[] = []
 
-describe('SceneTree transaction options', () => {
+const addElementFixture = (
+  sceneTree: SceneTree,
+  id: string,
+  computedSnapshot: Record<string, unknown>,
+  updateComputedData = vi.fn()
+): {
+  element: ElementInstanceTypes
+  updateComputedData: ReturnType<typeof vi.fn>
+} => {
+  const element = {
+    get: vi.fn((key: string) => {
+      if (key === 'id') {
+        return id
+      }
+      if (key === 'type') {
+        return 'transaction-options-test'
+      }
+      return undefined
+    }),
+    getAllComputedData: vi.fn(() => computedSnapshot),
+    updateComputedData,
+    save: vi.fn(
+      () =>
+        ({
+          id,
+          type: 'transaction-options-test',
+          name: id,
+          parentId: '',
+          visible: true,
+          lock: false,
+          props: {}
+        }) as ElementRawData
+    )
+  } as unknown as ElementInstanceTypes
+  sceneTree.addToMap(element)
+  return { element, updateComputedData }
+}
+
+const captureProjectionEvidence = () => {
+  const computedBatches: AllEvent[][] = []
+  const transactionEvents: UpdateTransactionEvent[] = []
+  subscriptions.push(
+    subscribeToEventBatches((events) => {
+      const computedEvents = events.filter(
+        ({ type }) =>
+          type === EventTypes.UPDATE_COMPUTED_DATA ||
+          type === EventTypes.UPDATE_COMPUTED_DATA_PATCH
+      )
+      if (computedEvents.length > 0) {
+        computedBatches.push(computedEvents)
+      }
+    }),
+    subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        transactionEvents.push(event as UpdateTransactionEvent)
+      }
+    })
+  )
+  // The event bus replays its last event to new scalar subscribers.
+  transactionEvents.length = 0
+  return { computedBatches, transactionEvents }
+}
+
+const expectLocalOnly = (
+  sceneTree: SceneTree,
+  transactionEvents: readonly UpdateTransactionEvent[]
+): void => {
+  expect(sceneTree.changes).toEqual([])
+  expect(transactionEvents).toEqual([])
+}
+
+describe('SceneTree canonical transactions and local computed projection', () => {
   let sceneTree: SceneTree
 
   beforeEach(() => {
@@ -45,446 +101,521 @@ describe('SceneTree transaction options', () => {
     sceneTree = new SceneTree()
   })
 
-  it('batches transient computed changes before updateTransaction', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    const change = createUpdateChange({ options: { undoable: false } })
-    const secondChange = createUpdateChange({
-      key: 'y',
-      before: 1,
-      after: 20,
-      options: { undoable: false }
+  afterEach(() => {
+    subscriptions.splice(0).forEach((subscription) => {
+      subscription.unsubscribe()
     })
-    sceneTree.addChange(change)
-    sceneTree.addChange(secondChange)
-
-    sceneTree.commitSceneTreeTransaction()
-
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
-        eventName: change.eventName,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
-          id: 'element-1',
-          changes: [
-            {
-              key: 'x',
-              before: 0,
-              after: 10
-            },
-            {
-              key: 'y',
-              before: 1,
-              after: 20
-            }
-          ]
-        },
-        options: {
-          undoable: false,
-          shared: SharedDataChannelNames.SCENE_TREE
-        }
-      })
-    ])
-    subscription.unsubscribe()
   })
 
-  it('preserves each canonical owner in a mixed transient batch', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    sceneTree.addChange({
-      ...createUpdateChange({
-        key: 'visible',
-        before: true,
-        after: false,
-        options: { undoable: false }
-      }),
-      owner: 'raw'
-    } as SceneTreeChange)
-    sceneTree.addChange({
-      ...createUpdateChange({
-        key: 'visible',
-        before: true,
-        after: false,
-        options: { undoable: false }
-      }),
-      owner: 'computed'
-    } as SceneTreeChange)
-
-    sceneTree.commitSceneTreeTransaction()
-
-    expect(events).toHaveLength(1)
-    expect(events[0].payload).toMatchObject({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+  it('commits canonical raw element evidence through the shared Scene channel', () => {
+    const { transactionEvents } = captureProjectionEvidence()
+    const change = {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
+      id: 'element-1',
       changes: [
         {
-          owner: 'raw',
-          key: 'visible',
-          before: true,
-          after: false
-        },
-        {
-          owner: 'computed',
           key: 'visible',
           before: true,
           after: false
         }
       ]
-    })
-    subscription.unsubscribe()
-  })
-
-  it('uses commit fallback options when batching transient computed changes', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    const change = createUpdateChange()
+    } satisfies SceneTreeChange
     sceneTree.addChange(change)
 
-    sceneTree.commitSceneTreeTransaction({ undoable: false })
+    sceneTree.commitSceneTreeTransaction()
 
-    expect(events).toEqual([
+    expect(transactionEvents).toEqual([
       expect.objectContaining({
-        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
-        eventName: change.eventName,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
-          id: 'element-1',
-          changes: [
-            {
-              key: 'x',
-              before: 0,
-              after: 10
-            }
-          ]
-        },
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_ELEMENT_DATA,
+        payload: change,
         options: {
-          undoable: false,
           shared: SharedDataChannelNames.SCENE_TREE
         }
       })
     ])
-    subscription.unsubscribe()
+    expect(sceneTree.changes).toEqual([])
   })
 
-  it('partitions transient batches and preserves effective delivery options', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    sceneTree.addChange(
-      createUpdateChange({
-        options: {
-          undoable: false,
-          rollbackable: false,
-          shared: 'custom-scene',
-          sharedDelivery: 'transaction-end'
-        }
-      })
-    )
-    sceneTree.addChange(
-      createUpdateChange({
-        key: 'y',
-        before: 1,
-        after: 20,
-        options: {
-          undoable: false,
-          rollbackable: true,
-          shared: SharedDataChannelNames.SCENE_TREE,
-          sharedDelivery: 'immediate'
-        }
-      })
-    )
+  it('publishes one ordered ordinary values batch without a shared transaction', () => {
+    const first = addElementFixture(sceneTree, 'element-first', {
+      x: 0,
+      y: 0
+    })
+    const second = addElementFixture(sceneTree, 'element-second', {
+      x: 10,
+      y: 10
+    })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
 
-    sceneTree.commitSceneTreeTransaction()
-
-    expect(events).toHaveLength(2)
-    expect(events[0]).toMatchObject({
-      payload: {
-        id: 'element-1',
-        changes: [{ key: 'x', before: 0, after: 10 }]
+    sceneTree.updateLocalComputedData([
+      {
+        elementId: 'element-second',
+        values: { y: 20 }
       },
-      options: {
-        undoable: false,
-        rollbackable: false,
-        shared: 'custom-scene',
-        sharedDelivery: 'transaction-end'
+      {
+        elementId: 'element-first',
+        values: { x: 5, y: 7 }
       }
-    })
-    expect(events[1]).toMatchObject({
-      payload: {
-        id: 'element-1',
-        changes: [{ key: 'y', before: 1, after: 20 }]
-      },
-      options: {
-        undoable: false,
-        rollbackable: true,
-        shared: SharedDataChannelNames.SCENE_TREE,
-        sharedDelivery: 'immediate'
-      }
-    })
-
-    subscription.unsubscribe()
-  })
-
-  it('preserves write order when a transient update precedes an ordinary update', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    sceneTree.addChange(
-      createUpdateChange({
-        before: 0,
-        after: 10,
-        options: { undoable: false }
-      })
-    )
-    sceneTree.addChange(
-      createUpdateChange({
-        before: 10,
-        after: 20
-      })
-    )
-
-    sceneTree.commitSceneTreeTransaction()
-
-    const state: Record<string, unknown> = { x: 20 }
-    ;[...events].reverse().forEach((event) => {
-      const payload = event.payload as {
-        key?: string
-        before?: unknown
-        changes?: { key: string; before: unknown }[]
-      }
-      if (payload.changes) {
-        ;[...payload.changes].reverse().forEach((change) => {
-          state[change.key] = change.before
-        })
-        return
-      }
-      if (payload.key) {
-        state[payload.key] = payload.before
-      }
-    })
-
-    expect(events.map((event) => event.payload)).toEqual([
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-        changes: [{ key: 'x', before: 0, after: 10 }]
-      }),
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        key: 'x',
-        before: 10,
-        after: 20
-      })
     ])
-    expect(state.x).toBe(0)
 
-    subscription.unsubscribe()
+    expect(second.updateComputedData).toHaveBeenCalledWith('y', 20)
+    expect(first.updateComputedData.mock.calls).toEqual([
+      ['x', 5],
+      ['y', 7]
+    ])
+    expect(computedBatches).toEqual([
+      [
+        expect.objectContaining({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: expect.objectContaining({
+            id: 'element-second',
+            changes: [
+              {
+                owner: 'computed',
+                key: 'y',
+                before: 10,
+                after: 20
+              }
+            ]
+          })
+        }),
+        expect.objectContaining({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: expect.objectContaining({
+            id: 'element-first',
+            changes: [
+              {
+                owner: 'computed',
+                key: 'x',
+                before: 0,
+                after: 5
+              },
+              {
+                owner: 'computed',
+                key: 'y',
+                before: 0,
+                after: 7
+              }
+            ]
+          })
+        })
+      ]
+    ])
+    expectLocalOnly(sceneTree, transactionEvents)
   })
 
-  it('routes computed patch changes as one shared transaction payload', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-      eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-      id: 'element-1',
-      patch: {
-        values: {
-          x: {
-            before: 0,
-            after: 10
-          }
+  it('preflights the complete patch batch before applying any prefix', () => {
+    const first = addElementFixture(sceneTree, 'element-first', { x: 0 })
+    const invalidSecond = addElementFixture(sceneTree, 'element-second', {})
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-first',
+          patch: { values: { x: 1 } }
         },
-        records: {
-          points: {
-            set: {
-              A: {
-                before: { id: 'A', x: 0, y: 0 },
-                after: { id: 'A', x: 10, y: 10 }
-              }
-            }
-          }
+        {
+          elementId: 'element-second',
+          patch: { values: { x: 2 } }
         }
-      }
-    } as SceneTreeChange)
+      ])
+    ).toThrow('Computed data patch value base "x" must already exist')
 
-    sceneTree.commitSceneTreeTransaction({ undoable: true })
+    expect(first.updateComputedData).not.toHaveBeenCalled()
+    expect(invalidSecond.updateComputedData).not.toHaveBeenCalled()
+    expect(computedBatches).toEqual([])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
 
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
-        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-          id: 'element-1',
+  it('rejects duplicate batch targets before applying any mutation', () => {
+    const fixture = addElementFixture(sceneTree, 'element-duplicate', { x: 0 })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-duplicate',
+          patch: { values: { x: 1 } }
+        },
+        {
+          elementId: 'element-duplicate',
+          patch: { values: { x: 2 } }
+        }
+      ])
+    ).toThrow('Local computed patches require unique active element batches')
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expect(computedBatches).toEqual([])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('rejects overlapping value and record keys before mutation', () => {
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      points: { A: { id: 'A', x: 0, y: 0 } }
+    })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-1',
           patch: {
             values: {
-              x: {
-                before: 0,
-                after: 10
-              }
+              points: { Z: { id: 'Z', x: 9, y: 9 } }
             },
             records: {
               points: {
-                set: {
-                  A: {
-                    before: { id: 'A', x: 0, y: 0 },
-                    after: { id: 'A', x: 10, y: 10 }
-                  }
-                }
+                set: { B: { id: 'B', x: 1, y: 1 } }
               }
             }
           }
-        },
-        options: {
-          undoable: true,
-          shared: SharedDataChannelNames.SCENE_TREE
         }
-      })
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('rejects overlapping value and record patch keys before mutation', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({
-        points: { A: { id: 'A', x: 0, y: 0 } }
-      })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    expect(() =>
-      sceneTree.patchComputedData('element-1', {
-        values: {
-          points: { Z: { id: 'Z', x: 9, y: 9 } }
-        },
-        records: {
-          points: {
-            set: { B: { id: 'B', x: 1, y: 1 } }
-          }
-        }
-      })
+      ])
     ).toThrow(
       'Computed data patch key "points" cannot be both value and record'
     )
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expect(computedBatches).toEqual([])
+    expectLocalOnly(sceneTree, transactionEvents)
   })
 
   it('rejects an empty-string value and record overlap before mutation', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({ '': {} })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
+    const fixture = addElementFixture(sceneTree, 'element-1', { '': {} })
+    const { transactionEvents } = captureProjectionEvidence()
 
     expect(() =>
-      sceneTree.patchComputedData('element-1', {
-        values: { '': 'replacement' },
-        records: { '': { set: { child: 'value' } } }
-      })
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-1',
+          patch: {
+            values: { '': 'replacement' },
+            records: { '': { set: { child: 'value' } } }
+          }
+        }
+      ])
     ).toThrow('Computed data patch key "" cannot be both value and record')
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expectLocalOnly(sceneTree, transactionEvents)
   })
 
   it.each([
     ['missing', {}],
     ['scalar', { mode: 'plain' }],
     ['array', { mode: [] }]
-  ])(
-    'rejects a %s record base before canonical mutation',
-    (_case, snapshot) => {
-      const element = {
-        get: vi.fn(() => 'element-1'),
-        getAllComputedData: vi.fn(() => snapshot),
-        updateComputedData: vi.fn()
-      } as unknown as ElementInstanceTypes
-      sceneTree.addToMap(element)
-
-      expect(() =>
-        sceneTree.patchComputedData('element-1', {
-          records: { mode: { set: { child: 'value' } } }
-        })
-      ).toThrow(
-        'Computed data patch record base "mode" must already be a record'
-      )
-      expect(element.updateComputedData).not.toHaveBeenCalled()
-      expect(sceneTree.changes).toEqual([])
-    }
-  )
-
-  it('prevalidates every element in a multi-element patch before canonical mutation', () => {
-    const firstElement = {
-      get: vi.fn(() => 'element-first'),
-      getAllComputedData: vi.fn(() => ({ x: 0 })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    const invalidSecondElement = {
-      get: vi.fn(() => 'element-invalid-second'),
-      getAllComputedData: vi.fn(() => ({})),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(firstElement)
-    sceneTree.addToMap(invalidSecondElement)
+  ])('rejects a %s record base before mutation', (_case, snapshot) => {
+    const fixture = addElementFixture(sceneTree, 'element-1', snapshot)
+    const { transactionEvents } = captureProjectionEvidence()
 
     expect(() =>
-      sceneTree.patchComputedDataForElements(
-        ['element-first', 'element-invalid-second'],
-        { values: { x: 1 } }
-      )
-    ).toThrow('Computed data patch value base "x" must already exist')
-    expect(firstElement.updateComputedData).not.toHaveBeenCalled()
-    expect(invalidSecondElement.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-1',
+          patch: {
+            records: { mode: { set: { child: 'value' } } }
+          }
+        }
+      ])
+    ).toThrow('Computed data patch record base "mode" must already be a record')
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expectLocalOnly(sceneTree, transactionEvents)
   })
 
-  it('applies a duplicated multi-element patch target only once', () => {
-    let currentX = 0
-    const element = {
-      get: vi.fn(() => 'element-duplicate-target'),
-      getAllComputedData: vi.fn(() => ({ x: currentX })),
-      updateComputedData: vi.fn((_key: string, value: number) => {
-        currentX = value
-      })
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedDataForElements(
-      ['element-duplicate-target', 'element-duplicate-target'],
-      { values: { x: 1 } }
-    )
-
-    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
-    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
-    expect(sceneTree.changes).toHaveLength(1)
-  })
-
-  it('rejects an inherited special-name record base before mutation', () => {
-    const records: Record<string, { set: Record<string, string> }> = {}
-    Object.defineProperty(records, '__proto__', {
-      value: { set: { child: 'value' } },
-      enumerable: true,
-      configurable: true,
-      writable: true
+  it('rejects a record id present in both set and remove before mutation', () => {
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      points: { A: { id: 'A', x: 0, y: 0 } }
     })
-    const element = {
-      get: vi.fn(() => 'element-special-base'),
-      getAllComputedData: vi.fn(() => ({})),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
+    const { transactionEvents } = captureProjectionEvidence()
 
     expect(() =>
-      sceneTree.patchComputedData('element-special-base', {
-        records
-      })
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-1',
+          patch: {
+            records: {
+              points: {
+                set: { A: { id: 'A', x: 1, y: 1 } },
+                remove: ['A']
+              }
+            }
+          }
+        }
+      ])
     ).toThrow(
-      'Computed data patch record base "__proto__" must already be a record'
+      'Computed data patch record "points.A" cannot be both set and removed'
     )
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('publishes one exact ordinary record patch while omitting no-op entries', () => {
+    const keptPoint = { id: 'kept', x: 1, y: 1 }
+    const replacedBefore = { id: 'replaced', x: 2, y: 2 }
+    const replacedAfter = { id: 'replaced', x: 20, y: 20 }
+    const removedPoint = { id: 'removed', x: 3, y: 3 }
+    const addedPoint = { id: 'added', x: 4, y: 4 }
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      x: 10,
+      points: {
+        kept: keptPoint,
+        replaced: replacedBefore,
+        removed: removedPoint
+      }
+    })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          values: { x: 10 },
+          records: {
+            points: {
+              set: {
+                kept: keptPoint,
+                replaced: replacedAfter,
+                added: addedPoint
+              },
+              remove: ['removed', 'missing']
+            }
+          }
+        }
+      }
+    ])
+
+    expect(fixture.updateComputedData).toHaveBeenCalledOnce()
+    expect(fixture.updateComputedData).toHaveBeenCalledWith('points', {
+      kept: keptPoint,
+      replaced: replacedAfter,
+      added: addedPoint
+    })
+    expect(computedBatches).toEqual([
+      [
+        {
+          type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+          payload: {
+            id: 'element-1',
+            patch: {
+              records: {
+                points: {
+                  set: {
+                    replaced: {
+                      before: replacedBefore,
+                      after: replacedAfter
+                    },
+                    added: { after: addedPoint }
+                  },
+                  remove: {
+                    removed: { before: removedPoint }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    ])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('keeps no-op patches inert', () => {
+    const keptPoint = { id: 'kept', x: 1, y: 1 }
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      x: 10,
+      points: { kept: keptPoint }
+    })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          values: { x: 10 },
+          records: {
+            points: {
+              set: { kept: keptPoint },
+              remove: ['missing']
+            }
+          }
+        }
+      }
+    ])
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expect(computedBatches).toEqual([])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('preserves own-property evidence when replacing undefined', () => {
+    const after = { id: 'point-1', x: 10, y: 20 }
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      points: { 'point-1': undefined }
+    })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          records: {
+            points: {
+              set: { 'point-1': after }
+            }
+          }
+        }
+      }
+    ])
+
+    const replacement = (
+      computedBatches[0]?.[0] as {
+        payload?: {
+          patch?: {
+            records?: {
+              points?: {
+                set?: Record<string, { before?: unknown; after?: unknown }>
+              }
+            }
+          }
+        }
+      }
+    ).payload?.patch?.records?.points?.set?.['point-1']
+    expect(replacement).toEqual({ before: undefined, after })
+    expect(Object.prototype.hasOwnProperty.call(replacement, 'before')).toBe(
+      true
+    )
+    expect(fixture.updateComputedData).toHaveBeenCalledOnce()
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('stores an absent explicit undefined record value as an own property', () => {
+    const fixture = addElementFixture(sceneTree, 'element-1', { points: {} })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          records: { points: { set: { 'point-1': undefined } } }
+        }
+      }
+    ])
+
+    const updatedRecord = fixture.updateComputedData.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined
+    expect(updatedRecord).toBeDefined()
+    expect(Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')).toBe(
+      true
+    )
+    expect(updatedRecord?.['point-1']).toBeUndefined()
+    expect(computedBatches).toMatchObject([
+      [
+        {
+          payload: {
+            patch: {
+              records: {
+                points: {
+                  set: { 'point-1': { after: undefined } }
+                }
+              }
+            }
+          }
+        }
+      ]
+    ])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('ignores removal of an inherited record id', () => {
+    const fixture = addElementFixture(sceneTree, 'element-1', { points: {} })
+    const { computedBatches, transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          records: { points: { remove: ['toString'] } }
+        }
+      }
+    ])
+
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expect(computedBatches).toEqual([])
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('stores a __proto__ record id as an own property', () => {
+    const after = { id: '__proto__', x: 10, y: 20 }
+    const set = Object.create(null) as Record<string, typeof after>
+    Object.defineProperty(set, '__proto__', {
+      enumerable: true,
+      value: after
+    })
+    const fixture = addElementFixture(sceneTree, 'element-1', { points: {} })
+    const { transactionEvents } = captureProjectionEvidence()
+
+    sceneTree.patchLocalComputedData([
+      {
+        elementId: 'element-1',
+        patch: {
+          records: { points: { set } }
+        }
+      }
+    ])
+
+    const updatedRecord = fixture.updateComputedData.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined
+    expect(Object.getPrototypeOf(updatedRecord)).toBe(Object.prototype)
+    expect(
+      Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')
+    ).toBe(true)
+    expect(updatedRecord?.__proto__).toEqual(after)
+    expectLocalOnly(sceneTree, transactionEvents)
+  })
+
+  it('rejects a missing top-level value base without reading setter keys', () => {
+    const fixture = addElementFixture(sceneTree, 'element-1', {
+      points: {}
+    })
+    const computedGet = vi.fn(() => {
+      throw new Error('Not allowed to read a missing computed key')
+    })
+    Object.assign(fixture.element, {
+      computed: {
+        get: computedGet
+      }
+    })
+    const { transactionEvents } = captureProjectionEvidence()
+
+    expect(() =>
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-1',
+          patch: {
+            values: {
+              pointCoordinateSpace: 'workspace'
+            }
+          }
+        }
+      ])
+    ).toThrow(
+      'Computed data patch value base "pointCoordinateSpace" must already exist'
+    )
+
+    expect(computedGet).not.toHaveBeenCalled()
+    expect(fixture.updateComputedData).not.toHaveBeenCalled()
+    expectLocalOnly(sceneTree, transactionEvents)
   })
 
   it.each(['value', 'record'] as const)(
-    'commits a mixed patch with a special top-level %s key as one complete envelope',
+    'preserves a special top-level %s key in one ordinary patch envelope',
     (kind) => {
       const computedSnapshot: Record<string, unknown> = { x: 0, points: {} }
       Object.defineProperty(computedSnapshot, '__proto__', {
@@ -502,24 +633,27 @@ describe('SceneTree transaction options', () => {
         configurable: true,
         writable: true
       })
-      const element = {
-        get: vi.fn(() => 'element-special-top-level'),
-        getAllComputedData: vi.fn(() => computedSnapshot),
-        updateComputedData: vi.fn()
-      } as unknown as ElementInstanceTypes
-      sceneTree.addToMap(element)
+      addElementFixture(sceneTree, 'element-special', computedSnapshot)
+      const { computedBatches, transactionEvents } = captureProjectionEvidence()
 
-      sceneTree.patchComputedData('element-special-top-level', {
-        values,
-        records
-      })
+      sceneTree.patchLocalComputedData([
+        {
+          elementId: 'element-special',
+          patch: { values, records }
+        }
+      ])
 
-      const change = sceneTree.changes[0] as UpdateElementPatchChange
-      const specialOutput =
-        kind === 'value' ? change.patch.values : change.patch.records
-      expect(change.action).toBe(
-        SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
-      )
+      const patch = (
+        computedBatches[0]?.[0] as {
+          payload?: {
+            patch?: {
+              values?: Record<string, unknown>
+              records?: Record<string, unknown>
+            }
+          }
+        }
+      ).payload?.patch
+      const specialOutput = kind === 'value' ? patch?.values : patch?.records
       expect(
         Object.prototype.hasOwnProperty.call(specialOutput, '__proto__')
       ).toBe(true)
@@ -528,319 +662,7 @@ describe('SceneTree transaction options', () => {
           ? { before: 'before', after: 'after' }
           : { set: { added: { after: 'after' } } }
       )
+      expectLocalOnly(sceneTree, transactionEvents)
     }
   )
-
-  it('rejects a record id present in both set and remove before mutation', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({
-        points: { A: { id: 'A', x: 0, y: 0 } }
-      })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    expect(() =>
-      sceneTree.patchComputedData('element-1', {
-        records: {
-          points: {
-            set: { A: { id: 'A', x: 1, y: 1 } },
-            remove: ['A']
-          }
-        }
-      })
-    ).toThrow(
-      'Computed data patch record "points.A" cannot be both set and removed'
-    )
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
-  })
-
-  it('commits one exact record patch while omitting equal and missing entries', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    const keptPoint = { id: 'kept', x: 1, y: 1 }
-    const replacedBefore = { id: 'replaced', x: 2, y: 2 }
-    const replacedAfter = { id: 'replaced', x: 20, y: 20 }
-    const removedPoint = { id: 'removed', x: 3, y: 3 }
-    const addedPoint = { id: 'added', x: 4, y: 4 }
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({
-        id: 'element-1',
-        x: 10,
-        points: {
-          kept: keptPoint,
-          replaced: replacedBefore,
-          removed: removedPoint
-        }
-      })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedData('element-1', {
-      values: { x: 10 },
-      records: {
-        points: {
-          set: {
-            kept: keptPoint,
-            replaced: replacedAfter,
-            added: addedPoint
-          },
-          remove: ['removed', 'missing']
-        }
-      }
-    })
-
-    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
-    expect(element.updateComputedData).toHaveBeenCalledWith(
-      'points',
-      {
-        kept: keptPoint,
-        replaced: replacedAfter,
-        added: addedPoint
-      },
-      undefined
-    )
-    expect(sceneTree.changes).toEqual([
-      {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        id: 'element-1',
-        patch: {
-          records: {
-            points: {
-              set: {
-                replaced: {
-                  before: replacedBefore,
-                  after: replacedAfter
-                },
-                added: { after: addedPoint }
-              },
-              remove: {
-                removed: { before: removedPoint }
-              }
-            }
-          }
-        }
-      }
-    ])
-
-    sceneTree.commitSceneTreeTransaction({ undoable: false })
-
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
-        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-          id: 'element-1',
-          patch: {
-            records: {
-              points: {
-                set: {
-                  replaced: {
-                    before: replacedBefore,
-                    after: replacedAfter
-                  },
-                  added: { after: addedPoint }
-                },
-                remove: {
-                  removed: { before: removedPoint }
-                }
-              }
-            }
-          }
-        },
-        options: {
-          undoable: false,
-          shared: SharedDataChannelNames.SCENE_TREE
-        }
-      })
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('preserves own-property existence when replacing an undefined record value', () => {
-    const after = { id: 'point-1', x: 10, y: 20 }
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({
-        points: { 'point-1': undefined }
-      })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedData('element-1', {
-      records: {
-        points: {
-          set: { 'point-1': after }
-        }
-      }
-    })
-
-    const change = sceneTree.changes[0]
-    expect(change.action).toBe(
-      SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
-    )
-    if (
-      change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
-    ) {
-      throw new Error('Expected one computed data patch change')
-    }
-    const replacement = (change as UpdateElementPatchChange).patch.records
-      ?.points.set?.['point-1']
-    expect(replacement).toEqual({ before: undefined, after })
-    expect(Object.prototype.hasOwnProperty.call(replacement, 'before')).toBe(
-      true
-    )
-  })
-
-  it('commits an absent record id whose explicit value is undefined', () => {
-    const updateComputedData = vi.fn()
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({ points: {} })),
-      updateComputedData
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedData('element-1', {
-      records: { points: { set: { 'point-1': undefined } } }
-    })
-
-    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
-    const updatedRecord = updateComputedData.mock.calls[0]?.[1] as
-      | Record<string, unknown>
-      | undefined
-    expect(updatedRecord).toBeDefined()
-    expect(Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')).toBe(
-      true
-    )
-    expect(updatedRecord?.['point-1']).toBeUndefined()
-    expect(sceneTree.changes).toMatchObject([
-      {
-        patch: {
-          records: {
-            points: {
-              set: { 'point-1': { after: undefined } }
-            }
-          }
-        }
-      }
-    ])
-  })
-
-  it('ignores removal of an inherited record id', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({ points: {} })),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedData('element-1', {
-      records: { points: { remove: ['toString'] } }
-    })
-
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
-  })
-
-  it('stores a __proto__ record id as an own property', () => {
-    const after = { id: '__proto__', x: 10, y: 20 }
-    const set = Object.create(null) as Record<string, typeof after>
-    Object.defineProperty(set, '__proto__', {
-      enumerable: true,
-      value: after
-    })
-    const updateComputedData = vi.fn()
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({ points: {} })),
-      updateComputedData
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.patchComputedData('element-1', {
-      records: { points: { set } }
-    })
-
-    const updatedRecord = updateComputedData.mock.calls[0]?.[1] as
-      | Record<string, unknown>
-      | undefined
-    expect(Object.getPrototypeOf(updatedRecord)).toBe(Object.prototype)
-    expect(
-      Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')
-    ).toBe(true)
-    expect(updatedRecord?.__proto__).toBe(after)
-  })
-
-  it('calls updateTransaction without options when neither path provides options', () => {
-    const { events, subscription } = captureUpdateTransactionEvents()
-    const change = createUpdateChange()
-    sceneTree.addChange(change)
-
-    sceneTree.commitSceneTreeTransaction()
-
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
-        eventName: change.eventName,
-        payload: change,
-        options: {
-          shared: SharedDataChannelNames.SCENE_TREE
-        }
-      })
-    ])
-    subscription.unsubscribe()
-  })
-
-  it('passes options through updateComputedData to element level set flow', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    sceneTree.updateComputedData('element-1', 'x', 10, { undoable: false })
-
-    expect(element.updateComputedData).toHaveBeenCalledWith('x', 10, {
-      undoable: false
-    })
-  })
-
-  it('rejects a missing top-level value base without reading setter keys', () => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => ({
-        id: 'element-1',
-        points: {}
-      })),
-      computed: {
-        get: vi.fn(() => {
-          throw new Error('Not allow to get value which is not in entity data.')
-        })
-      },
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
-
-    expect(() =>
-      sceneTree.patchComputedData('element-1', {
-        values: {
-          pointCoordinateSpace: 'workspace'
-        }
-      })
-    ).toThrow(
-      'Computed data patch value base "pointCoordinateSpace" must already exist'
-    )
-
-    expect(element.computed.get).not.toHaveBeenCalled()
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
-  })
 })

@@ -43,23 +43,27 @@ export interface RemoveSubtreeResult {
 
 export type SceneTreeRestoreStrategy = 'reuse' | 'materialize'
 
-export interface SceneTreeRestorePlanEntry {
+export interface SceneTreeRestorePreflightOptions {
+  readonly propertyState?: 'active' | 'pending-restore'
+}
+
+export interface PreparedSceneTreeRestoreEntry {
   readonly elementId: string
   readonly strategy: SceneTreeRestoreStrategy
 }
 
-export interface ElementPropertyOwnerRelation {
+export interface ElementPropertyRelation {
   readonly ownerElementId: string
   readonly ownerElementType: string
   readonly ownerPropertyName: string
   readonly componentId: string
 }
 
-export interface SceneTreeRestorePlan {
-  readonly kind: 'scene-tree-restore-plan'
+export interface PreparedSceneTreeRestore {
+  readonly kind: 'prepared-scene-tree-restore'
   readonly elementId: string
-  readonly entries: readonly SceneTreeRestorePlanEntry[]
-  readonly propertyOwnerRelations: readonly ElementPropertyOwnerRelation[]
+  readonly entries: readonly PreparedSceneTreeRestoreEntry[]
+  readonly propertyOwnerRelations: readonly ElementPropertyRelation[]
 }
 
 export interface SceneTreeRestoreSnapshot {
@@ -79,6 +83,31 @@ export interface AddRemoveElementChange {
   options?: MutationOptions
 }
 
+export interface AddRemoveElementEntry {
+  readonly data: ElementRawData
+  readonly parentId: string
+  readonly index: number
+}
+
+interface ElementBatchChange {
+  readonly eventName: string
+  readonly undoType: string
+  readonly entries: readonly AddRemoveElementEntry[]
+  readonly options?: MutationOptions
+}
+
+export interface AddElementsChange extends ElementBatchChange {
+  readonly action: SCENE_TREE_ACTIONS.ADD_ELEMENTS
+  readonly undoAction: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS
+}
+
+export interface RemoveElementsChange extends ElementBatchChange {
+  readonly action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS
+  readonly undoAction: SCENE_TREE_ACTIONS.ADD_ELEMENTS
+}
+
+export type AddRemoveElementsChange = AddElementsChange | RemoveElementsChange
+
 export interface MoveElementsChange {
   action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS
   eventName: string
@@ -93,8 +122,8 @@ export interface SubtreeChange {
     | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
   eventName: string
   elementId: string
-  removed: SubtreeRemovalEntry[]
-  rootParentChildrenAfter: string[]
+  removed: readonly SubtreeRemovalEntry[]
+  rootParentChildrenAfter: readonly string[]
   options?: MutationOptions
 }
 
@@ -107,6 +136,22 @@ export interface UpdateElementChange {
   before: DataTypes
   after: DataTypes
   options?: MutationOptions
+}
+
+export type ElementDataKey = 'name' | 'visible' | 'lock'
+
+export interface ElementDataFieldChange {
+  readonly key: ElementDataKey
+  readonly before: string | boolean
+  readonly after: string | boolean
+}
+
+export interface UpdateElementDataChange {
+  readonly action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA
+  readonly eventName: string
+  readonly id: string
+  readonly changes: readonly ElementDataFieldChange[]
+  readonly options?: MutationOptions
 }
 
 export interface UpdateElementBatchChange {
@@ -172,8 +217,10 @@ export interface UpdateElementPatchChange {
 
 export type SceneTreeChange =
   | AddRemoveElementChange
+  | AddRemoveElementsChange
   | MoveElementsChange
   | SubtreeChange
+  | UpdateElementDataChange
   | UpdateElementChange
   | UpdateElementBatchChange
   | UpdateElementPatchChange

@@ -4,25 +4,112 @@ import {
   filter,
   share,
   UnaryFunction,
+  OperatorFunction,
   ReplaySubject,
-  OperatorFunction
+  type Observer
 } from 'rxjs'
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
 import { acknowledgeTransactionReplayApplied } from './transaction-replay'
 
-const eventBus = new ReplaySubject<AllEvent>(1)
+type ObserverEventBatchHandler = (events: readonly AllEvent[]) => void
+interface ObserverEventBatchRegistration {
+  readonly handler: ObserverEventBatchHandler
+  active: boolean
+}
+
+const observerEventBatchRegistrations =
+  new Set<ObserverEventBatchRegistration>()
+
+const disposeObserverEventBatchRegistrations = (): void => {
+  observerEventBatchRegistrations.forEach((registration) => {
+    registration.active = false
+  })
+  observerEventBatchRegistrations.clear()
+}
+
+const notifyObserverEventBatch = (events: readonly AllEvent[]): void => {
+  const registrations = [...observerEventBatchRegistrations]
+  registrations.forEach((registration) => {
+    if (!registration.active) return
+    try {
+      registration.handler(events)
+    } catch {
+      // Observer projections cannot invalidate an already-applied batch.
+    }
+  })
+}
+
+class OrderedBatchReplaySubject extends ReplaySubject<AllEvent> {
+  constructor() {
+    super(1)
+  }
+
+  override next(event: AllEvent): void {
+    this.nextBatch([event])
+  }
+
+  nextBatch(sourceEvents: readonly AllEvent[]): void {
+    if (sourceEvents.length === 0) return
+    if (this.closed) {
+      super.next(sourceEvents[0] as AllEvent)
+      return
+    }
+    if (this.isStopped) return
+
+    const events = Object.isFrozen(sourceEvents)
+      ? sourceEvents
+      : Object.freeze([...sourceEvents])
+    const observerSnapshot = [...this.observers]
+    // RxJS 7 caches this snapshot internally for one next(). Resetting the
+    // same snapshot before each source event keeps one batch registry boundary
+    // while retaining ReplaySubject buffering and public next() semantics.
+    const subjectState = this as unknown as {
+      currentObservers: Observer<AllEvent>[] | null
+    }
+    try {
+      for (const event of events) {
+        subjectState.currentObservers = observerSnapshot
+        super.next(event)
+      }
+    } finally {
+      subjectState.currentObservers = null
+    }
+    notifyObserverEventBatch(events)
+  }
+
+  override complete(): void {
+    super.complete()
+    disposeObserverEventBatchRegistrations()
+  }
+
+  override error(error: unknown): void {
+    super.error(error)
+    disposeObserverEventBatchRegistrations()
+  }
+
+  override unsubscribe(): void {
+    super.unsubscribe()
+    disposeObserverEventBatchRegistrations()
+  }
+}
+
+const eventBus = new OrderedBatchReplaySubject()
+
 type SynchronousEventHandler = (event: AllEvent) => unknown
 const synchronousEventHandlers = new Map<
   AllEvent['type'],
   Set<SynchronousEventHandler>
 >()
 
-export const publishEventToObservers = (event: AllEvent) => {
-  eventBus.next(event)
+export const publishEventsToObservers = (events: readonly AllEvent[]): void => {
+  eventBus.nextBatch(events)
 }
 
-export const publishEvent = (event: AllEvent) => {
+export const publishEventToObservers = (event: AllEvent): void =>
+  publishEventsToObservers([event])
+
+export const applyEventToSynchronousOwners = (event: AllEvent): boolean => {
   const handlers = synchronousEventHandlers.get(event.type)
   let applied = false
   if (handlers) {
@@ -34,6 +121,11 @@ export const publishEvent = (event: AllEvent) => {
       }
     })
   }
+  return applied
+}
+
+export const publishEvent = (event: AllEvent) => {
+  const applied = applyEventToSynchronousOwners(event)
   publishEventToObservers(event)
   return applied
 }
@@ -91,6 +183,23 @@ export const subscribeToEvents = (
   subscriber: (event: AllEvent) => void
 ): Subscription => {
   return getEventBusObserve().subscribe(subscriber)
+}
+
+export const subscribeToEventBatches = (
+  subscriber: ObserverEventBatchHandler
+): Subscription => {
+  if (eventBus.closed || eventBus.isStopped) {
+    return new Subscription()
+  }
+  const registration: ObserverEventBatchRegistration = {
+    handler: subscriber,
+    active: true
+  }
+  observerEventBatchRegistrations.add(registration)
+  return new Subscription(() => {
+    registration.active = false
+    observerEventBatchRegistrations.delete(registration)
+  })
 }
 
 export const getEventBus = (): ReplaySubject<AllEvent> => eventBus

@@ -20,7 +20,7 @@ const createStartSnapshot = {
 describe('Asyra Design canonical collaboration delivery timeline', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(elementApis, 'changeComputedData').mockImplementation(
+    vi.spyOn(elementApis, 'updateElementProperties').mockImplementation(
       () => undefined
     )
     vi.spyOn(elementApis, 'changeElementGeometry').mockImplementation(

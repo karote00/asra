@@ -23,6 +23,13 @@ describe('Render', () => {
     expect(render.viewport).toBeInstanceOf(ViewportLayerModule.ViewportLayer)
   })
 
+  it('should expose only the exact viewport projection count', () => {
+    vi.spyOn(render.viewport, 'getProjectedElementCount').mockReturnValue(7077)
+
+    expect(render.getProjectedElementCount()).toBe(7077)
+    expect(render.viewport.getProjectedElementCount).toHaveBeenCalledOnce()
+  })
+
   // Test init method
   it('should initialize the injected engine and set up root layers', async () => {
     const width = 800
@@ -38,6 +45,73 @@ describe('Render', () => {
       'append-child',
       'append-child'
     ])
+  })
+
+  it('coalesces pan, zoom, canonical, and computed invalidations into one demanded frame', async () => {
+    const updateLayer = vi.fn(() => false)
+    await render.init(100, 100, 0)
+    const requestFrame = vi.spyOn(engine, 'requestFrame')
+    const flushCount = () =>
+      engine.getOperations().filter((operation) => operation.type === 'flush')
+        .length
+    vi.spyOn(render.viewport, 'panTo').mockImplementation(() => undefined)
+    vi.spyOn(render.viewport, 'zoomTo').mockImplementation(() => undefined)
+    vi.spyOn(render.viewport, 'updateElement').mockImplementation(
+      () => undefined
+    )
+    render.registerLayer({
+      name: 'demand-driven-layer',
+      layer: {},
+      update: updateLayer
+    })
+
+    render.start()
+    expect(updateLayer).toHaveBeenCalledOnce()
+    expect(flushCount()).toBe(1)
+    expect(requestFrame).not.toHaveBeenCalled()
+
+    engine.emitFrame(1)
+    expect(updateLayer).toHaveBeenCalledOnce()
+    expect(flushCount()).toBe(1)
+
+    render.panTo(12, 24)
+    render.zoomTo(1.5)
+    render.updateElement('canonical-element', 'visible', true, false)
+    render.updateElement(
+      'computed-element',
+      'computed',
+      undefined as never,
+      undefined as never,
+      {
+        id: 'computed-element',
+        type: 'vector'
+      } as RenderElementData
+    )
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(flushCount()).toBe(1)
+
+    engine.emitFrame(2)
+    expect(updateLayer).toHaveBeenCalledTimes(2)
+    expect(flushCount()).toBe(2)
+
+    engine.emitFrame(3)
+    expect(updateLayer).toHaveBeenCalledTimes(2)
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(flushCount()).toBe(2)
+  })
+
+  it('does not loop a failed frame without a new invalidation', async () => {
+    const app = await render.init(100, 100, 0)
+    render.start()
+    const renderFailure = new Error('render failed')
+    app.render = vi.fn(() => {
+      throw renderFailure
+    })
+
+    render.requestRender()
+    expect(() => engine.emitFrame(1)).toThrow(renderFailure)
+    expect(() => engine.emitFrame(2)).not.toThrow()
+    expect(app.render).toHaveBeenCalledOnce()
   })
 
   // Test delegation methods to viewport

@@ -26,7 +26,7 @@
 
 ## Configuration Ownership
 
-- `app-environment.mjs` parses and validates `ASYRA_DESIGN_APP_URL` for Vite,
+- `app-environment.mjs` parses and validates `APP_URL` for Vite,
   Playwright, and reference-server Origin validation. The visual-review
   workflow consumes the same canonical input instead of defining another app
   URL authority.
@@ -49,15 +49,12 @@
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
 - foundation: `initInputSystem()`, `initFeatures()`
 - AI composition is evaluated immediately before `initFeatures()`:
-  - default/disabled creates no runtime and registers no AI Feature
-  - provider-disabled registers the Feature but performs no context/provider
-    work on invocation
-  - provider-enabled passes the one app-composed runtime to the exclusive
-    programmatic AI Feature
-  - explicit mock mode supplies the stable App-owned provider prompt and an
-    abortable same-origin VTracer client; the local tool endpoint remains inert
-    until an accepted attachment accompanies an explicit whole-image
-    vectorization intent
+  - required-file startup composes the one formal server-action-batch provider
+  - the provider receives the pre-ready resident server response and exposes no
+    URL-selected alternate execution mode
+  - the App passes one runtime to the exclusive programmatic AI Feature
+  - the abortable same-origin VTracer client remains inert until an accepted
+    attachment accompanies an explicit whole-image vectorization intent
 - `initApp()` returns the AI composition and an idempotent async disposer;
   disposal aborts/awaits active AI work and disposes only explicitly owned AI
   resources

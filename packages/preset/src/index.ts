@@ -35,13 +35,15 @@ export {
   normalizeGroupsForElements,
   prepareGroupOperation,
   prepareUngroupOperation,
+  projectGroupGeometryPropertyUpdates,
   ungroupElement
 } from './components'
 export type {
   GroupBounds,
+  GroupGeometryProjectionCore,
   GroupOperationCore,
   GroupOperationResult,
-  GroupPlanningCore,
+  GroupHierarchyReadCore,
   NormalizedGroupBounds,
   PreparedGroupOperation,
   PreparedUngroupOperation,

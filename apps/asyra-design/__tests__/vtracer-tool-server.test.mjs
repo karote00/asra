@@ -4,15 +4,15 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
-  AsyraDesignVTracerServerError,
-  convertAsyraDesignVTracerBuffer
+  VTracerServerError,
+  convertVTracerBuffer
 } from '../vtracer-tool-server.mjs'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 test('the same-origin VTracer server converts a checked-in arbitrary PNG without native dependencies', async () => {
   const png = await readFile(path.join(appRoot, 'public/logo192.png'))
-  const svg = await convertAsyraDesignVTracerBuffer({
+  const svg = await convertVTracerBuffer({
     bytes: png,
     contentType: 'image/png',
     profile: 'photo-faithful',
@@ -50,23 +50,23 @@ test('the server rejects unsupported content, profile, empty input, and pre-abor
 
   for (const source of sources) {
     await assert.rejects(
-      convertAsyraDesignVTracerBuffer({
+      convertVTracerBuffer({
         ...source,
         signal: new globalThis.AbortController().signal
       }),
-      AsyraDesignVTracerServerError
+      VTracerServerError
     )
   }
 
   const controller = new globalThis.AbortController()
   controller.abort('cancelled')
   await assert.rejects(
-    convertAsyraDesignVTracerBuffer({
+    convertVTracerBuffer({
       bytes: new Uint8Array([1]),
       contentType: 'image/png',
       profile: 'photo-faithful',
       signal: controller.signal
     }),
-    (error) => error?.code === 'ASYRA_DESIGN_VTRACER_ABORTED'
+    (error) => error?.code === 'VTRACER_ABORTED'
   )
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiHistoryProjection } from '../history'
+import { createAiHistoryProjection } from '../history'
 
 const createHistoryHarness = () => {
   const actionObservers = new Set<(actionId: number) => void>()
@@ -14,7 +14,7 @@ const createHistoryHarness = () => {
   const redo = vi.fn(() => {
     redoObservers.forEach((observer) => observer())
   })
-  const projection = createAsyraDesignAiHistoryProjection({
+  const projection = createAiHistoryProjection({
     redo,
     subscribeToActions: (observer) => {
       actionObservers.add(observer)

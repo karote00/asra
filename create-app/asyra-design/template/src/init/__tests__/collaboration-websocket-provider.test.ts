@@ -17,18 +17,28 @@ interface LoopbackServer {
 
 const publication: SharedPublication = {
   publicationId: 'publication-a',
+  artifactId: 'artifact-a',
   transactionId: 1,
   origin: 'action',
-  deliveries: [
+  mode: 'atomic',
+  slices: [
     {
-      deliveryId: 'delivery-a',
-      transactionId: 1,
-      origin: 'action',
-      kind: 'forward',
-      channel: 'sceneTree',
-      eventName: 'updateComputedData',
-      payload: { value: 1 },
-      sharedDelivery: 'immediate'
+      sliceId: 'slice-a',
+      orderedIds: ['delivery-a'],
+      batches: [
+        {
+          batchId: 'batch-a',
+          channel: 'sceneTree',
+          deliveries: [
+            {
+              deliveryId: 'delivery-a',
+              eventName: 'updateComputedData',
+              orderedIds: ['element-a'],
+              payload: { value: 1 }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
@@ -227,10 +237,20 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     for (const value of unsafeValues) {
       const unsafePublication: SharedPublication = {
         ...publication,
-        deliveries: [
+        slices: [
           {
-            ...publication.deliveries[0],
-            payload: { value }
+            ...publication.slices[0],
+            batches: [
+              {
+                ...publication.slices[0]?.batches[0],
+                deliveries: [
+                  {
+                    ...publication.slices[0]?.batches[0]?.deliveries[0],
+                    payload: { value }
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -256,16 +276,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     })
     const provider = createProvider(server.endpoint)
     const inbound = vi.fn()
-    provider.onPublication(inbound)
+    provider.onPublication(async (received) => inbound(received))
 
     await provider.connect()
     await vi.waitFor(() => expect(inbound).toHaveBeenCalledOnce())
 
-    expect(inbound).toHaveBeenCalledWith({
-      publication,
-      fromActorId: 'actor-b'
-    })
-    expect(inbound.mock.calls[0]?.[0].publication).not.toBe(publication)
+    expect(inbound).toHaveBeenCalledWith(publication)
+    expect(inbound.mock.calls[0]?.[0]).not.toBe(publication)
     await provider.destroy()
   })
 
@@ -276,7 +293,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       socket.send(
         JSON.stringify({
           type: 'publication',
-          publication: { ...publication, deliveries: null }
+          publication: { ...publication, slices: null }
         })
       )
     })
@@ -284,7 +301,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const failures = vi.fn()
     const inbound = vi.fn()
     provider.onFailure(failures)
-    provider.onPublication(inbound)
+    provider.onPublication(async (received) => inbound(received))
 
     await provider.connect()
     await vi.waitFor(() =>

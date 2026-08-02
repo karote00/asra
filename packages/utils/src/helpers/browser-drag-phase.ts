@@ -3,27 +3,49 @@ export type BrowserDragPhaseSink = (
   durationMs: number
 ) => void
 
-const getBrowserDragPhaseSink = (): BrowserDragPhaseSink | undefined =>
-  (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: BrowserDragPhaseSink
+const browserDragPhaseSinks = new Set<BrowserDragPhaseSink>()
+
+export const subscribeToBrowserDragPhases = (
+  sink: BrowserDragPhaseSink
+): (() => void) => {
+  browserDragPhaseSinks.add(sink)
+  return () => browserDragPhaseSinks.delete(sink)
+}
+
+export const emitBrowserDragPhase = (
+  phaseName: string,
+  durationMs: number
+): void => {
+  for (const sink of browserDragPhaseSinks) {
+    try {
+      sink(phaseName, durationMs)
+    } catch {
+      // Diagnostic observers cannot alter the product flow they measure.
     }
-  ).__asyraBrowserDragPhaseSink
+  }
+}
+
+export const beginBrowserDragPhase = (phaseName: string): (() => void) => {
+  if (browserDragPhaseSinks.size === 0) {
+    return () => undefined
+  }
+  const startedAt = performance.now()
+  return () => emitBrowserDragPhase(phaseName, performance.now() - startedAt)
+}
 
 export const measureBrowserDragPhase = <T>(
   phaseName: string,
   run: () => T
 ): T => {
-  const sink = getBrowserDragPhaseSink()
-  if (!sink) {
+  if (browserDragPhaseSinks.size === 0) {
     return run()
   }
 
-  const start = performance.now()
+  const finish = beginBrowserDragPhase(phaseName)
   try {
     return run()
   } finally {
-    sink(phaseName, performance.now() - start)
+    finish()
   }
 }
 
@@ -31,15 +53,14 @@ export const measureBrowserDragAsyncPhase = async <T>(
   phaseName: string,
   run: () => Promise<T>
 ): Promise<T> => {
-  const sink = getBrowserDragPhaseSink()
-  if (!sink) {
+  if (browserDragPhaseSinks.size === 0) {
     return run()
   }
 
-  const start = performance.now()
+  const finish = beginBrowserDragPhase(phaseName)
   try {
     return await run()
   } finally {
-    sink(phaseName, performance.now() - start)
+    finish()
   }
 }

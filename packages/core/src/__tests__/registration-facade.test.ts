@@ -23,6 +23,7 @@ const createCoreForTest = () => {
     inputSystem: {} as never,
     factory: {
       registerTransactionReplayHandler: vi.fn(() => () => undefined),
+      subscribeToCommitCapture: vi.fn(() => () => undefined),
       subscribeToTransactionStatus: vi.fn(() => () => undefined),
       registerSharedDataChannel: vi.fn((name: string, channel: unknown) => {
         sharedChannels.set(name, channel)
@@ -191,6 +192,7 @@ describe('Core registration facade', () => {
       inputSystem: {} as never,
       factory: {
         registerTransactionReplayHandler: vi.fn(() => () => undefined),
+        subscribeToCommitCapture: vi.fn(() => () => undefined),
         subscribeToTransactionStatus: vi.fn(() => () => undefined)
       } as never,
       props: new PropsManager(),

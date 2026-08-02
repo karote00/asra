@@ -8,15 +8,16 @@ import {
   type RemovePropertyEvent,
   type UpdatePropertyEvent
 } from '@asyra/reactive-events'
-import type { PropertyComponentInstanceDataTypes } from '@asyra/utils'
+import type {
+  PropertyComponentInstanceDataTypes,
+  PropertyComponentInstanceTypes
+} from '@asyra/utils'
 import propsManager from './props-manager'
 
 interface UpdatePropertyChangePayload {
   id: string
   key: keyof PropertyComponentInstanceDataTypes
   after: PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
-  ownerElementId?: string
-  ownerPropertyName?: string
 }
 
 const isUpdatePropertyChangePayload = (
@@ -34,27 +35,47 @@ export const initPropXSubscribes = () => {
   subscribeToSynchronousEvent<AddPropertyEvent>(
     EventTypes.ADD_PROPERTY,
     ({ payload, options }) => {
-      const previousProperties = payload.data.map((propData) =>
-        propsManager.getPropertyById(propData.id as string)
-      )
-      const propComponents = payload.data.map((propData) => {
-        let newProperty
-        if (getTransactionReplayMode() !== null) {
-          newProperty = propsManager.getRestoreComponentById(
-            propData.id as string
-          )
-          if (newProperty) {
-            propsManager.addChangeForAddProperty(newProperty)
-          }
-        }
+      const replayMode = getTransactionReplayMode()
+      if (payload.data.length === 0) {
+        propsManager.commitChanges(options)
+        return false
+      }
 
-        if (!newProperty) {
+      if (replayMode === null) {
+        const preparedCreationBatch =
+          propsManager.preflightNormalizedPropertyCreationBatch(
+            payload.data,
+            payload.data.map(({ id }) => id)
+          )
+        const creationBatch = propsManager.runInPropertyCreationBatch(() =>
+          propsManager.applyPropertyCreationBatch(preparedCreationBatch)
+        )
+        try {
+          acknowledgeTransactionReplayApplied()
+          propsManager.commitChanges(options)
+          creationBatch.complete()
+          return true
+        } catch (error) {
+          creationBatch.rollback()
+          throw error
+        }
+      }
+
+      const previousProperties: (PropertyComponentInstanceTypes | undefined)[] =
+        payload.data.map(({ id }) =>
+          typeof id === 'string' ? propsManager.getPropertyById(id) : undefined
+        )
+      const propComponents = payload.data.map((propData) => {
+        let newProperty = propsManager.getRestoreComponentById(
+          propData.id as string
+        )
+        if (newProperty) {
+          propsManager.addChangeForAddProperty(newProperty)
+        } else {
           newProperty = propsManager.createProperty(propData)
         }
-
         return newProperty
       })
-
       propsManager.addProperty(propComponents)
       const applied = propComponents.some(
         (property, index) => property !== previousProperties[index]
@@ -98,12 +119,6 @@ export const initPropXSubscribes = () => {
         payload.id,
         payload.key,
         payload.after,
-        payload.ownerElementId && payload.ownerPropertyName
-          ? {
-              ownerElementId: payload.ownerElementId,
-              ownerPropertyName: payload.ownerPropertyName
-            }
-          : undefined,
         options
       )
       const applied = propsManager.changes.length > previousChangeCount

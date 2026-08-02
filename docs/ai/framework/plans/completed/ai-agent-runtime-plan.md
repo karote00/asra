@@ -37,8 +37,8 @@ Conversational AI plan:
   controls, drawing actions, and incremental follow-up targeting belong to the
   completed successor App plan rather than this completed release gate.
 
-Completed successor:
-`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-plan.md`.
+Current successor:
+`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
 
 ## Product Contract
 

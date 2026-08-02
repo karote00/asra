@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  ASYRA_DESIGN_VTRACER_ENDPOINT,
-  AsyraDesignVTracerError,
-  createAsyraDesignVTracerClient,
-  parseAsyraDesignVTracerSvg
+  VTRACER_ENDPOINT,
+  VTracerError,
+  createVTracerClient,
+  parseVTracerSvg
 } from '../vtracer'
 
 const attachment = Object.freeze({
@@ -23,7 +23,7 @@ const validSvg = `
 
 describe('Asyra Design VTracer adapter', () => {
   it('validates VTracer polygon SVG into finite generic-role editable vectors', () => {
-    const result = parseAsyraDesignVTracerSvg(validSvg)
+    const result = parseVTracerSvg(validSvg)
 
     expect(result).toMatchObject({
       height: 32,
@@ -76,14 +76,12 @@ describe('Asyra Design VTracer adapter', () => {
     ]
 
     invalidSources.forEach((source) => {
-      expect(() => parseAsyraDesignVTracerSvg(source)).toThrow(
-        AsyraDesignVTracerError
-      )
+      expect(() => parseVTracerSvg(source)).toThrow(VTracerError)
     })
   })
 
   it('post-processes an oversized finite trace proportionally into the canonical workspace', () => {
-    const result = parseAsyraDesignVTracerSvg(
+    const result = parseVTracerSvg(
       '<svg xmlns="http://www.w3.org/2000/svg" width="4096" height="2048"><path d="M0,0L4096,0L4096,2048L0,2048Z" fill="#000000"/></svg>'
     )
 
@@ -101,7 +99,7 @@ describe('Asyra Design VTracer adapter', () => {
       { length: 130_000 },
       (_, index) => `L${index},0`
     ).join('')
-    const result = parseAsyraDesignVTracerSvg(
+    const result = parseVTracerSvg(
       `<svg xmlns="http://www.w3.org/2000/svg" width="130000" height="2"><path d="M0,0${topEdge}L129999,2L0,2Z" fill="#000000"/></svg>`
     )
 
@@ -131,7 +129,7 @@ describe('Asyra Design VTracer adapter', () => {
         status: 200
       })
     })
-    const client = createAsyraDesignVTracerClient({
+    const client = createVTracerClient({
       fetch: fetchImplementation
     })
 
@@ -142,7 +140,7 @@ describe('Asyra Design VTracer adapter', () => {
     })
 
     expect(fetchImplementation).toHaveBeenCalledWith(
-      ASYRA_DESIGN_VTRACER_ENDPOINT,
+      VTRACER_ENDPOINT,
       expect.objectContaining({
         signal: expect.any(AbortSignal)
       })
@@ -152,10 +150,10 @@ describe('Asyra Design VTracer adapter', () => {
   })
 
   it('returns one stable tool error for a failed or malformed response', async () => {
-    const failed = createAsyraDesignVTracerClient({
+    const failed = createVTracerClient({
       fetch: vi.fn(async () => new Response('failed', { status: 422 }))
     })
-    const malformed = createAsyraDesignVTracerClient({
+    const malformed = createVTracerClient({
       fetch: vi.fn(
         async () =>
           new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
@@ -170,10 +168,10 @@ describe('Asyra Design VTracer adapter', () => {
     }
 
     await expect(failed.vectorize(request)).rejects.toMatchObject({
-      code: 'ASYRA_DESIGN_VTRACER_FAILED'
+      code: 'VTRACER_FAILED'
     })
     await expect(malformed.vectorize(request)).rejects.toBeInstanceOf(
-      AsyraDesignVTracerError
+      VTracerError
     )
   })
 })

@@ -14,7 +14,7 @@ import {
 import { renderStrategyRegistry } from '@asyra/render'
 import { PropertyTypes, idCounter, nameCounter } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
-import type { ElementInstanceTypes } from '@asyra/utils'
+import type { ElementInstanceTypes, ElementRawData } from '@asyra/utils'
 import {
   definePropertyComponent,
   unregisterPropertyComponent
@@ -44,6 +44,32 @@ const cleanupType = (type: string) => {
   renderStrategyRegistry.unregister(type)
   idCounter.unregisterType(type)
   nameCounter.unregisterType(type)
+}
+
+const createActiveElementFixture = (
+  elementId: string,
+  elementType: string
+): ElementInstanceTypes => {
+  const data = Object.freeze({
+    id: elementId,
+    type: elementType,
+    name: elementId,
+    parentId: '',
+    visible: true,
+    lock: false
+  }) satisfies ElementRawData
+  return {
+    get: vi.fn((key: string) => {
+      if (key === 'id') {
+        return elementId
+      }
+      if (key === 'type') {
+        return elementType
+      }
+      return undefined
+    }),
+    save: vi.fn(() => data)
+  } as unknown as ElementInstanceTypes
 }
 
 describe('defineComponent', () => {
@@ -280,17 +306,7 @@ describe('unregisterComponent', () => {
       properties: []
     })
 
-    const activeElement = {
-      get: vi.fn((key: string) => {
-        if (key === 'id') {
-          return 'star-active'
-        }
-        if (key === 'type') {
-          return 'star'
-        }
-        return
-      })
-    } as unknown as ElementInstanceTypes
+    const activeElement = createActiveElementFixture('star-active', 'star')
     sceneTree.addToMap(activeElement)
 
     const result = unregisterComponent('star', { detailed: true })
@@ -314,17 +330,7 @@ describe('unregisterComponent', () => {
       properties: []
     })
 
-    const activeElement = {
-      get: vi.fn((key: string) => {
-        if (key === 'id') {
-          return 'star-active'
-        }
-        if (key === 'type') {
-          return 'star'
-        }
-        return
-      })
-    } as unknown as ElementInstanceTypes
+    const activeElement = createActiveElementFixture('star-active', 'star')
     sceneTree.addToMap(activeElement)
 
     const result = unregisterComponent('star', { detailed: true, force: true })

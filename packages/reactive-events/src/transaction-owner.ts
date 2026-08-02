@@ -3,7 +3,7 @@ import type { UpdateTransactionEvent } from './app/events'
 
 export interface TransactionOwner {
   startTransaction: () => void
-  updateTransaction: (event: UpdateTransactionEvent) => void
+  updateTransactionBatch: (events: readonly UpdateTransactionEvent[]) => void
   endTransaction: (options?: EndTransactionOptions) => void
   undo: () => void
   redo: () => void

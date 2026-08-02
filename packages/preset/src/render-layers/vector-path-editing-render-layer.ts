@@ -20,6 +20,7 @@ import type {
 } from '@asyra/core'
 import {
   emitDiagnosticCounter,
+  measureBrowserDragPhase,
   projectWorkspacePointToViewport,
   type PositionData
 } from '@asyra/utils'
@@ -165,26 +166,7 @@ interface VectorPathEditingRenderLayerDeps
 const measureVectorEditingOverlayPhase = <T>(
   phaseName: string,
   run: () => T
-): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraVectorRenderPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
+): T => measureBrowserDragPhase(phaseName, run)
 
 const appendPositionSignature = (
   parts: string[],

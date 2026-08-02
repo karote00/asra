@@ -16,13 +16,26 @@ interface MockApplicationRecord {
   ticker: {
     add: MockFunction
     remove: MockFunction
+    start: MockFunction
+    stop: MockFunction
   }
   init: MockFunction
   render: MockFunction
   destroy: MockFunction
 }
 
+interface MockTickerRecord {
+  lastTime: number
+  add: MockFunction
+  remove: MockFunction
+  start: MockFunction
+  stop: MockFunction
+  destroy: MockFunction
+  emit(timestamp: number): void
+}
+
 interface MockGraphicsRecord {
+  context: { batchMode: 'auto' | 'batch' | 'no-batch' }
   drawOperations: { type: string; args: unknown[] }[]
   scale: { set: MockFunction }
   x: number
@@ -78,6 +91,7 @@ const pixiState = vi.hoisted(() => ({
   patterns: [] as MockPatternRecord[],
   matrices: [] as MockMatrixRecord[],
   meshes: [] as MockMeshRecord[],
+  tickers: [] as MockTickerRecord[],
   operationTypes: [] as string[],
   nextInitError: null as Error | null,
   nextDestroyError: null as Error | null
@@ -174,6 +188,9 @@ vi.mock('pixi.js', () => {
   }
 
   class MockGraphics extends MockContainer {
+    readonly context = {
+      batchMode: 'auto' as 'auto' | 'batch' | 'no-batch'
+    }
     readonly drawOperations: { type: string; args: unknown[] }[] = []
 
     constructor() {
@@ -200,6 +217,10 @@ vi.mock('pixi.js', () => {
 
     circle(...args: unknown[]) {
       return this.record('circle', ...args)
+    }
+
+    poly(...args: unknown[]) {
+      return this.record('poly', ...args)
     }
 
     moveTo(...args: unknown[]) {
@@ -378,6 +399,33 @@ vi.mock('pixi.js', () => {
     }
   }
 
+  class MockTicker {
+    private readonly listeners = new Set<(ticker: MockTicker) => void>()
+    lastTime = 0
+    readonly add = vi.fn((listener: (ticker: MockTicker) => void) => {
+      this.listeners.add(listener)
+      return this
+    })
+    readonly remove = vi.fn((listener: (ticker: MockTicker) => void) => {
+      this.listeners.delete(listener)
+      return this
+    })
+    readonly start = vi.fn()
+    readonly stop = vi.fn()
+    readonly destroy = vi.fn(() => {
+      this.listeners.clear()
+    })
+
+    constructor() {
+      pixiState.tickers.push(this)
+    }
+
+    emit(timestamp: number) {
+      this.lastTime = timestamp
+      this.listeners.forEach((listener) => listener(this))
+    }
+  }
+
   return {
     Application: MockApplication,
     CanvasSource: MockCanvasSource,
@@ -388,6 +436,7 @@ vi.mock('pixi.js', () => {
     Matrix: MockMatrix,
     Mesh: MockMesh,
     MeshGeometry: MockMeshGeometry,
+    Ticker: MockTicker,
     Texture: MockTexture
   }
 })
@@ -412,6 +461,7 @@ describe('PixiRenderEngine', () => {
     pixiState.patterns.length = 0
     pixiState.matrices.length = 0
     pixiState.meshes.length = 0
+    pixiState.tickers.length = 0
     pixiState.operationTypes.length = 0
     pixiState.nextInitError = null
     pixiState.nextDestroyError = null
@@ -430,6 +480,7 @@ describe('PixiRenderEngine', () => {
 
     expect(getLastApplication().init).toHaveBeenCalledWith(
       expect.objectContaining({
+        autoStart: false,
         resolution: 2,
         resizeTo: runtimeWindow
       })
@@ -524,6 +575,14 @@ describe('PixiRenderEngine', () => {
       operations: [
         { type: 'clear' },
         { type: 'rect', x: 1, y: 2, width: 20, height: 10 },
+        {
+          type: 'poly',
+          points: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 }
+          ],
+          close: true
+        },
         { type: 'move-to', x: 1, y: 2 },
         { type: 'line-to', x: 3, y: 4 },
         {
@@ -554,6 +613,7 @@ describe('PixiRenderEngine', () => {
     expect(graphic.drawOperations.map((item) => item.type)).toEqual([
       'clear',
       'rect',
+      'poly',
       'move-to',
       'line-to',
       'bezier-curve-to',
@@ -566,6 +626,7 @@ describe('PixiRenderEngine', () => {
     expect(app.stage.position.set).toHaveBeenCalledWith(30, 40)
     expect(app.renderer.resize).toHaveBeenCalledWith(640, 480)
     expect(app.render).toHaveBeenCalledOnce()
+    app.render.mockClear()
 
     const local = await engine.query({
       type: 'to-local',
@@ -575,10 +636,41 @@ describe('PixiRenderEngine', () => {
     expect(local).toEqual({ type: 'point', point: { x: 8, y: 6 } })
 
     const frame = vi.fn()
-    engine.startFrameLoop(frame)
-    expect(app.ticker.add).toHaveBeenCalledWith(expect.any(Function))
-    engine.stopFrameLoop()
-    expect(app.ticker.remove).toHaveBeenCalledWith(expect.any(Function))
+    engine.requestFrame(frame)
+    const frameTicker = pixiState.tickers.at(-1)
+    expect(frameTicker).toBeDefined()
+    expect(app.ticker.add).not.toHaveBeenCalled()
+    expect(app.ticker.start).not.toHaveBeenCalled()
+
+    frameTicker?.emit(123)
+    expect(frame).toHaveBeenCalledOnce()
+    expect(frame).toHaveBeenCalledWith(123)
+    frameTicker?.emit(124)
+    expect(frame).toHaveBeenCalledOnce()
+    expect(frameTicker?.remove).toHaveBeenCalledOnce()
+    expect(frameTicker?.stop).toHaveBeenCalledOnce()
+    expect(app.render).not.toHaveBeenCalled()
+
+    engine.execute({ type: 'flush' })
+    expect(app.render).toHaveBeenCalledOnce()
+
+    engine.requestFrame(frame)
+    engine.cancelFrame()
+    expect(frameTicker?.remove).toHaveBeenCalledTimes(2)
+    expect(frameTicker?.stop).toHaveBeenCalledTimes(2)
+    expect(frameTicker?.destroy).not.toHaveBeenCalled()
+    expect(app.ticker.remove).not.toHaveBeenCalled()
+    expect(app.ticker.stop).not.toHaveBeenCalled()
+    frameTicker?.emit(456)
+    expect(frame).toHaveBeenCalledOnce()
+
+    engine.requestFrame(frame)
+    expect(pixiState.tickers).toHaveLength(1)
+    expect(frameTicker?.start).toHaveBeenCalledTimes(3)
+    engine.destroy()
+    expect(frameTicker?.remove).toHaveBeenCalledTimes(3)
+    expect(frameTicker?.stop).toHaveBeenCalledTimes(3)
+    expect(frameTicker?.destroy).toHaveBeenCalledOnce()
   })
 
   it('omits undefined optional paint fields while preserving explicit alpha', async () => {
@@ -614,6 +706,30 @@ describe('PixiRenderEngine', () => {
       alpha: 0.5,
       width: 2
     })
+  })
+
+  it('maps the engine-neutral Graphics batching property to Pixi batch mode', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const graphics = await engine.execute({
+      type: 'create-object',
+      requestId: 'non-batched-graphics',
+      objectType: 'graphics',
+      properties: { batched: false }
+    })
+    if (!graphics.object) {
+      throw new Error('Expected Pixi graphics handle')
+    }
+
+    expect(pixiState.graphics[0].context.batchMode).toBe('no-batch')
+
+    await engine.execute({
+      type: 'update-object',
+      object: graphics.object,
+      properties: { batched: true }
+    })
+
+    expect(pixiState.graphics[0].context.batchMode).toBe('auto')
   })
 
   it('normalizes Pixi pointer events to opaque handles', async () => {

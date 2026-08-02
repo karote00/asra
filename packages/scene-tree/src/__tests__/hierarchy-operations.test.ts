@@ -7,7 +7,10 @@ import propsManager, {
 } from '@asyra/props-manager'
 import {
   EventTypes,
+  publishEventToObservers,
+  runWithTransactionOwner,
   subscribeToUpdateTransaction,
+  type TransactionOwner,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 import {
@@ -135,6 +138,24 @@ const snapshotHierarchy = () =>
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
 
+const sceneMutationTransactionOwner = {
+  startTransaction: () => undefined,
+  updateTransactionBatch: (events: readonly UpdateTransactionEvent[]) => {
+    events.forEach(publishEventToObservers)
+  },
+  endTransaction: () => undefined,
+  undo: () => undefined,
+  redo: () => undefined
+} as unknown as TransactionOwner
+
+const removeSubtree = (
+  owner: SceneTree,
+  elementId: string
+): ReturnType<SceneTree['removeSubtree']> =>
+  runWithTransactionOwner(sceneMutationTransactionOwner, () =>
+    owner.removeSubtree(elementId)
+  )
+
 beforeEach(() => {
   sceneTree.reset()
   propsManager.reset()
@@ -151,6 +172,7 @@ beforeEach(() => {
       defaults: {}
     })
   }
+
   if (!componentRegistry.has(EntityTypes.GROUP)) {
     componentRegistry.register({
       type: EntityTypes.GROUP,
@@ -309,6 +331,49 @@ describe('canonical hierarchy move', () => {
     ).toThrow()
     expect(snapshotHierarchy()).toEqual(corruptBefore)
   })
+
+  it.each(['mixed target parents', 'duplicate target index'] as const)(
+    'rejects exact hierarchy evidence with %s before mutation',
+    (failureKind) => {
+      const firstTargetId = addElement(new HierarchyTestGroup())
+      const secondTargetId = addElement(new HierarchyTestGroup())
+      const firstId = addElement(new HierarchyTestElement())
+      const secondId = addElement(new HierarchyTestElement())
+      const workspaceChildren = childrenOf(sceneTree.workspace)
+      const before = snapshotHierarchy()
+      const moves = [
+        {
+          elementId: firstId,
+          before: {
+            parentId: sceneTree.workspace,
+            index: workspaceChildren.indexOf(firstId)
+          },
+          after: { parentId: firstTargetId, index: 0 }
+        },
+        {
+          elementId: secondId,
+          before: {
+            parentId: sceneTree.workspace,
+            index: workspaceChildren.indexOf(secondId)
+          },
+          after: {
+            parentId:
+              failureKind === 'mixed target parents'
+                ? secondTargetId
+                : firstTargetId,
+            index: 0
+          }
+        }
+      ]
+
+      expect(() =>
+        runWithTransactionOwner(sceneMutationTransactionOwner, () =>
+          sceneTree.applyHierarchyMoves(moves)
+        )
+      ).toThrow(/canonical target/i)
+      expect(snapshotHierarchy()).toEqual(before)
+    }
+  )
 })
 
 describe('canonical subtree removal', () => {
@@ -321,7 +386,7 @@ describe('canonical subtree removal', () => {
       updates.push(event)
     )
 
-    const result = sceneTree.removeSubtree(groupId)
+    const result = removeSubtree(sceneTree, groupId)
     const published = updates.find(
       ({ eventName, payload }) =>
         eventName === EventTypes.CHANGE_SUBTREE &&
@@ -341,9 +406,8 @@ describe('canonical subtree removal', () => {
       beforeSiblingId,
       afterSiblingId
     ])
-    expect(published?.rootParentChildrenAfter).not.toBe(
-      result.rootParentChildrenAfter
-    )
+    expect(Object.isFrozen(result.rootParentChildrenAfter)).toBe(true)
+    expect(Object.isFrozen(published?.rootParentChildrenAfter)).toBe(true)
 
     addElement(new HierarchyTestElement())
     expect(result.rootParentChildrenAfter).toEqual([
@@ -371,7 +435,8 @@ describe('canonical subtree removal', () => {
       updates.push(event)
     )
     const before = snapshotHierarchy()
-    const result = sceneTree.removeSubtree(groupId)
+    const beforeProps = propsManager.save()
+    const result = removeSubtree(sceneTree, groupId)
 
     expect(result.removed.map(({ elementId }) => elementId)).toEqual([
       childId,
@@ -384,6 +449,7 @@ describe('canonical subtree removal', () => {
     expect(sceneTree.getElementById(childId)).toBeUndefined()
     expect(sceneTree.getElementById(nestedId)).toBeUndefined()
     expect(sceneTree.getElementById(grandchildId)).toBeUndefined()
+    expect(propsManager.save()).toEqual(beforeProps)
     expect(sceneTree.getRestoreElementById(groupId, false)).toBe(group)
     expect(sceneTree.getRestoreElementById(childId, false)).toBe(child)
     expect(sceneTree.getRestoreElementById(nestedId, false)).toBe(nested)
@@ -424,14 +490,17 @@ describe('Scene Tree restore preflight', () => {
         }
       }
     ).preflightRestoreSubtree(snapshot)
-  const apply = (owner: SceneTree, plan: ReturnType<typeof preflight>) =>
+  const apply = (
+    owner: SceneTree,
+    preparedRestore: ReturnType<typeof preflight>
+  ) =>
     (
       owner as unknown as {
         applyRestoreSubtree: (
           artifact: ReturnType<typeof preflight>
         ) => ReturnType<typeof sceneTree.removeSubtree>
       }
-    ).applyRestoreSubtree(plan)
+    ).applyRestoreSubtree(preparedRestore)
   const restorePropertyTombstones = (
     manager: PropsManager,
     snapshot: ReturnType<typeof sceneTree.removeSubtree>
@@ -451,14 +520,14 @@ describe('Scene Tree restore preflight', () => {
     const groupId = addElement(group)
     const childId = addElement(new HierarchyTestElement(), group)
     const afterSiblingId = addElement(new HierarchyTestElement())
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     sceneTree._deletedMap.clear()
     const before = snapshotHierarchy()
 
-    const plan = preflight(snapshot)
+    const preparedRestore = preflight(snapshot)
 
-    expect(plan.elementId).toBe(groupId)
-    expect(plan.entries).toEqual([
+    expect(preparedRestore.elementId).toBe(groupId)
+    expect(preparedRestore.entries).toEqual([
       { elementId: childId, strategy: 'materialize' },
       { elementId: groupId, strategy: 'materialize' }
     ])
@@ -473,7 +542,7 @@ describe('Scene Tree restore preflight', () => {
     const group = new HierarchyTestGroup()
     const groupId = addElement(group)
     const childId = addElement(new HierarchyTestElement(), group)
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     const before = snapshotHierarchy()
 
     expect(preflight(snapshot).entries).toEqual([
@@ -496,7 +565,7 @@ describe('Scene Tree restore preflight', () => {
     const groupId = addElement(group)
     const childId = addElement(new HierarchyTestElement(), group)
     const afterSiblingId = addElement(new HierarchyTestElement())
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     const before = snapshotHierarchy()
     const clone = () => structuredClone(snapshot)
     const expectRejected = (
@@ -550,7 +619,7 @@ describe('Scene Tree restore preflight', () => {
   it('rejects an active stable-id collision before hierarchy mutation', () => {
     const group = new HierarchyTestGroup()
     const groupId = addElement(group)
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     addElement(new HierarchyTestGroup({ id: groupId }))
     const before = snapshotHierarchy()
 
@@ -565,12 +634,12 @@ describe('Scene Tree restore preflight', () => {
     const childId = addElement(new HierarchyTestElement(), group)
     const afterSiblingId = addElement(new HierarchyTestElement())
     const expectedHierarchy = snapshotHierarchy()
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     restorePropertyTombstones(propsManager, snapshot)
     sceneTree._deletedMap.clear()
-    const plan = preflight(snapshot)
+    const preparedRestore = preflight(snapshot)
 
-    expect(apply(sceneTree, plan)).toEqual(snapshot)
+    expect(apply(sceneTree, preparedRestore)).toEqual(snapshot)
     expect(snapshotHierarchy()).toEqual(expectedHierarchy)
     expect(childrenOf(sceneTree.workspace)).toEqual([
       beforeSiblingId,
@@ -581,7 +650,9 @@ describe('Scene Tree restore preflight', () => {
     snapshot.removed.forEach(({ elementId, data }) => {
       expect(sceneTree.getElementById(elementId)?.save()).toEqual(data)
     })
-    expect(() => apply(sceneTree, plan)).toThrow(/owner-issued one-shot/i)
+    expect(() => apply(sceneTree, preparedRestore)).toThrow(
+      /owner-issued one-shot/i
+    )
   })
 
   it('reuses compatible Scene Tree tombstone identities', () => {
@@ -589,29 +660,33 @@ describe('Scene Tree restore preflight', () => {
     const groupId = addElement(group)
     const child = new HierarchyTestElement()
     const childId = addElement(child, group)
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     restorePropertyTombstones(propsManager, snapshot)
-    const plan = preflight(snapshot)
+    const preparedRestore = preflight(snapshot)
 
-    apply(sceneTree, plan)
+    apply(sceneTree, preparedRestore)
 
     expect(sceneTree.getElementById(groupId)).toBe(group)
     expect(sceneTree.getElementById(childId)).toBe(child)
   })
 
-  it('rejects a foreign or stale plan without partial hierarchy', () => {
+  it('rejects a foreign or stale prepared restore without partial hierarchy', () => {
     const groupId = addElement(new HierarchyTestGroup())
-    const snapshot = sceneTree.removeSubtree(groupId)
+    const snapshot = removeSubtree(sceneTree, groupId)
     restorePropertyTombstones(propsManager, snapshot)
     sceneTree._deletedMap.clear()
-    const plan = preflight(snapshot)
+    const preparedRestore = preflight(snapshot)
     const foreignTree = new SceneTree(new PropsManager())
     foreignTree.init()
 
-    expect(() => apply(foreignTree, plan)).toThrow(/owner-issued one-shot/i)
+    expect(() => apply(foreignTree, preparedRestore)).toThrow(
+      /owner-issued one-shot/i
+    )
     const staleSiblingId = addElement(new HierarchyTestElement())
     const before = snapshotHierarchy()
-    expect(() => apply(sceneTree, plan)).toThrow(/stale.*root-parent order/i)
+    expect(() => apply(sceneTree, preparedRestore)).toThrow(
+      /stale.*root-parent order/i
+    )
     expect(snapshotHierarchy()).toEqual(before)
     expect(sceneTree.getElementById(staleSiblingId)).toBeDefined()
   })
@@ -636,12 +711,12 @@ describe('Scene Tree restore preflight', () => {
     secondTree.addNewElement(sharedData)
     const secondIdentity = secondTree.getElementById('shared-group')
     const secondPropsBefore = secondProps.save()
-    const snapshot = firstTree.removeSubtree('shared-group')
+    const snapshot = removeSubtree(firstTree, 'shared-group')
     restorePropertyTombstones(firstProps, snapshot)
     firstTree._deletedMap.clear()
-    const plan = firstTree.preflightRestoreSubtree(snapshot)
+    const preparedRestore = firstTree.preflightRestoreSubtree(snapshot)
 
-    firstTree.applyRestoreSubtree(plan)
+    firstTree.applyRestoreSubtree(preparedRestore)
 
     expect(firstTree.getElementById('shared-group')?.save()).toEqual(
       snapshot.removed[0].data

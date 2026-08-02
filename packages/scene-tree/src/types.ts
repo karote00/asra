@@ -18,6 +18,14 @@ export interface ISceneTreeRegistry {
   addToMap(element: ElementInstanceTypes): void
 
   /**
+   * Atomically assign one canonical parent and register an ordered element batch.
+   */
+  addManyToMap(
+    elements: readonly ElementInstanceTypes[],
+    parentId: string
+  ): void
+
+  /**
    * Remove element from the global registry
    */
   removeFromMap(element: ElementInstanceTypes): void

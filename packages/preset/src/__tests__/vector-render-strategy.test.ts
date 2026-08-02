@@ -1,7 +1,16 @@
-import { RenderContainer, RenderGraphics } from '@asyra/render'
-import { createDefaultStroke } from '@asyra/utils'
-import { describe, expect, it } from 'vitest'
-import { VECTOR_RENDER_STRATEGY } from '../components/vector'
+import {
+  Render,
+  RenderContainer,
+  RenderGraphics,
+  renderStrategyRegistry
+} from '@asyra/render'
+import { RecordingRenderEngine } from '@asyra/render-engine/testing'
+import { createDefaultFill, createDefaultStroke } from '@asyra/utils'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  VECTOR_COMPONENT_DEFINITION,
+  VECTOR_RENDER_STRATEGY
+} from '../components/vector'
 
 describe('vector render strategy', () => {
   it('renders the base one-pixel path for an open vector without fills', () => {
@@ -67,8 +76,14 @@ describe('vector render strategy', () => {
 
     expect(graphic.getDrawOperations()).toEqual([
       { type: 'clear' },
-      { type: 'move-to', x: 0, y: 0 },
-      { type: 'line-to', x: 80, y: 40 },
+      {
+        type: 'poly',
+        points: [
+          { x: 0, y: 0 },
+          { x: 80, y: 40 }
+        ],
+        close: false
+      },
       {
         type: 'stroke',
         paint: { color: 0xcccccc, alpha: 1 },
@@ -164,11 +179,337 @@ describe('vector render strategy', () => {
 
     expect(graphic.getDrawOperations()).toEqual(
       expect.arrayContaining([
-        { type: 'move-to', x: 0, y: 74 },
-        { type: 'line-to', x: 46, y: 0 },
-        { type: 'line-to', x: 94, y: 74 }
+        {
+          type: 'poly',
+          points: [
+            { x: 0, y: 74 },
+            { x: 46, y: 0 },
+            { x: 94, y: 74 },
+            { x: 0, y: 74 }
+          ],
+          close: true
+        }
       ])
     )
     expect(graphic.toGlobal({ x: 0, y: 74 })).toEqual({ x: 232, y: 232 })
+  })
+
+  it('does not renormalize canonical workspace topology before local projection', () => {
+    const ownKeyReads = {
+      points: 0,
+      segments: 0,
+      networks: 0
+    }
+    const trackOwnKeys = <T extends object>(
+      value: T,
+      key: keyof typeof ownKeyReads
+    ): T =>
+      new Proxy(value, {
+        ownKeys: (target) => {
+          ownKeyReads[key] += 1
+          return Reflect.ownKeys(target)
+        }
+      })
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'canonical-workspace-vector',
+      type: 'vector',
+      name: 'Canonical Workspace Vector',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 20,
+      y: 30,
+      width: 80,
+      height: 40,
+      rotation: 0,
+      closed: false,
+      pointCoordinateSpace: 'workspace',
+      fillRule: 'nonzero',
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          color: '#cccccc',
+          visible: true,
+          width: 1
+        })
+      ],
+      points: trackOwnKeys(
+        {
+          start: {
+            id: 'start',
+            kind: 'anchor',
+            x: 20,
+            y: 30,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          },
+          end: {
+            id: 'end',
+            kind: 'anchor',
+            x: 100,
+            y: 70,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          }
+        },
+        'points'
+      ),
+      segments: trackOwnKeys(
+        {
+          segment: {
+            id: 'segment',
+            startId: 'start',
+            endId: 'end'
+          }
+        },
+        'segments'
+      ),
+      networks: trackOwnKeys(
+        {
+          network: {
+            id: 'network',
+            pointIds: ['start', 'end'],
+            segmentIds: ['segment'],
+            closed: false
+          }
+        },
+        'networks'
+      )
+    })
+
+    expect(ownKeyReads).toEqual({
+      points: 0,
+      segments: 0,
+      networks: 1
+    })
+    expect(graphic.getDrawOperations()).toEqual([
+      { type: 'clear' },
+      {
+        type: 'poly',
+        points: [
+          { x: 0, y: 0 },
+          { x: 80, y: 40 }
+        ],
+        close: false
+      },
+      {
+        type: 'stroke',
+        paint: { color: 0xcccccc, alpha: 1 },
+        width: 1
+      }
+    ])
+  })
+
+  it('preserves cubic topology when applying a nonzero fill', () => {
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'filled-cubic',
+      type: 'vector',
+      name: 'Filled cubic',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 80,
+      rotation: 0,
+      closed: true,
+      pointCoordinateSpace: 'workspace',
+      fillRule: 'nonzero',
+      fills: [createDefaultFill({ color: '#336699' })],
+      strokes: [],
+      points: {
+        start: {
+          id: 'start',
+          kind: 'anchor',
+          x: 10,
+          y: 20,
+          anchorType: 'smooth',
+          handleMode: 'mirrored'
+        },
+        end: {
+          id: 'end',
+          kind: 'anchor',
+          x: 110,
+          y: 100,
+          anchorType: 'smooth',
+          handleMode: 'mirrored'
+        },
+        out: {
+          id: 'out',
+          kind: 'control',
+          x: 35,
+          y: 20,
+          controlForId: 'start',
+          controlRole: 'out'
+        },
+        incoming: {
+          id: 'incoming',
+          kind: 'control',
+          x: 85,
+          y: 100,
+          controlForId: 'end',
+          controlRole: 'in'
+        }
+      },
+      segments: {
+        curve: {
+          id: 'curve',
+          startId: 'start',
+          endId: 'end',
+          outControlId: 'out',
+          inControlId: 'incoming'
+        },
+        return: {
+          id: 'return',
+          startId: 'end',
+          endId: 'start'
+        }
+      },
+      networks: {
+        network: {
+          id: 'network',
+          pointIds: ['start', 'end'],
+          segmentIds: ['curve', 'return'],
+          closed: true
+        }
+      }
+    })
+
+    const operations = graphic.getDrawOperations()
+    const firstFillIndex = operations.findIndex(
+      (operation) => operation.type === 'fill'
+    )
+    expect(firstFillIndex).toBeGreaterThan(0)
+    expect(operations.slice(0, firstFillIndex)).toContainEqual({
+      type: 'bezier-curve-to',
+      controlPoint1: { x: 25, y: 0 },
+      controlPoint2: { x: 75, y: 80 },
+      destination: { x: 100, y: 80 }
+    })
+  })
+
+  it('projects each ordinary Vector slice through at most one visible frame', async () => {
+    const engine = new RecordingRenderEngine({
+      name: 'ordinary-vector-slices'
+    })
+    const render = new Render({ engine })
+    const app = await render.init(320, 240, 0xffffff)
+    const appRender = vi.fn()
+    app.render = appRender
+    render.flushFrame()
+    appRender.mockClear()
+
+    const vectorType = VECTOR_COMPONENT_DEFINITION.type
+    const previousStrategy = renderStrategyRegistry.get(vectorType)
+    if (previousStrategy) {
+      renderStrategyRegistry.unregister(vectorType)
+    }
+    const strategy = vi.fn(VECTOR_RENDER_STRATEGY)
+    renderStrategyRegistry.register(vectorType, strategy)
+
+    const createVector = (
+      id: string,
+      offset: number
+    ): Parameters<Render['addElement']>[0] =>
+      ({
+        id,
+        type: vectorType,
+        name: id,
+        parentId: 'workspace-1',
+        visible: true,
+        lock: false,
+        x: offset,
+        y: offset,
+        width: 20,
+        height: 10,
+        rotation: 0,
+        closed: false,
+        pointCoordinateSpace: 'workspace',
+        fillRule: 'nonzero',
+        fills: [],
+        strokes: [
+          createDefaultStroke({
+            color: '#cccccc',
+            visible: true,
+            width: 1
+          })
+        ],
+        points: {
+          start: {
+            id: `${id}-start`,
+            kind: 'anchor',
+            x: offset,
+            y: offset,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          },
+          end: {
+            id: `${id}-end`,
+            kind: 'anchor',
+            x: offset + 20,
+            y: offset + 10,
+            anchorType: 'sharp',
+            handleMode: 'none'
+          }
+        },
+        segments: {
+          segment: {
+            id: `${id}-segment`,
+            startId: `${id}-start`,
+            endId: `${id}-end`
+          }
+        },
+        networks: {
+          network: {
+            id: `${id}-network`,
+            pointIds: [`${id}-start`, `${id}-end`],
+            segmentIds: [`${id}-segment`],
+            closed: false
+          }
+        }
+      }) as Parameters<Render['addElement']>[0]
+
+    try {
+      const firstSlice = [
+        createVector('slice-a', 0),
+        createVector('slice-b', 30),
+        createVector('slice-c', 60)
+      ]
+      firstSlice.forEach((vector) => render.addElement(vector))
+      expect(strategy.mock.calls.map(([, data]) => data)).toEqual(firstSlice)
+
+      render.flushFrame()
+      expect(appRender).toHaveBeenCalledOnce()
+      expect(render.getElementById('slice-c')).toBeDefined()
+      render.flushFrame()
+      expect(appRender).toHaveBeenCalledOnce()
+
+      const secondSlice = [
+        createVector('slice-d', 90),
+        createVector('slice-e', 120)
+      ]
+      secondSlice.forEach((vector) => render.addElement(vector))
+      expect(strategy.mock.calls.map(([, data]) => data)).toEqual([
+        ...firstSlice,
+        ...secondSlice
+      ])
+
+      render.flushFrame()
+      expect(appRender).toHaveBeenCalledTimes(2)
+      expect(render.getElementById('slice-e')).toBeDefined()
+      render.flushFrame()
+      expect(appRender).toHaveBeenCalledTimes(2)
+    } finally {
+      renderStrategyRegistry.unregister(vectorType)
+      if (previousStrategy) {
+        renderStrategyRegistry.register(vectorType, previousStrategy)
+      }
+      render.dispose()
+    }
   })
 })

@@ -1,60 +1,127 @@
-import {
-  createAiAgentRuntime,
-  createGenericHttpAiProvider,
-  type AiProvider
-} from '@asyra/ai-agent-runtime'
-import { getFeature } from '@asyra/feature-system'
+import type { AiActionBatch, AiProvider } from '@asyra/ai-agent-runtime'
+import { createAiAgentRuntime } from '@asyra/ai-agent-runtime'
 import { MouseButton, SystemMode } from '@asyra/utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   elementApis,
-  fillApis,
   hierarchyApis,
   selectionApis,
   systemContextApis,
   transactionApis
 } from '../../common-apis'
-import {
-  ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE,
-  AsyraDesignAiActionNames,
-  type AsyraDesignAiDeliveryMode
-} from '../actions'
-import { createAsyraDesignAiRuntimeInput } from '../composition'
-import { createAsyraDesignAiConversationController } from '../conversation'
-import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
-import {
-  AsyraDesignMockAiPhrases,
-  createAsyraDesignMockAiProvider
-} from '../mock-provider'
-import { createAsyraDesignAiStartup } from '../mode'
-import {
-  registerAiAgentFeature,
-  type AiAgentFeatureApi
-} from '../../features/ai-agent'
-import { FeatureNames } from '../../constants'
+import { AiActionNames } from '../actions'
+import { createAiRuntimeInput } from '../runtime-input'
+import { createAiConfirmationBroker } from '../confirmation'
 import { createDeferred } from './deferred'
 
-const plan = () => ({
-  planId: 'reference-plan',
-  explanation: 'Update the current selection.',
+const referenceBatch = (): AiActionBatch => ({
   actions: [
     {
-      id: 'visibility-1',
-      name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
       arguments: {
         elementId: 'shape-1',
         visible: false
+      },
+      id: 'visibility-1',
+      name: AiActionNames.SET_ELEMENT_VISIBILITY,
+      summary: {
+        affectedCount: 1
       }
     },
     {
-      id: 'selection-1',
-      name: AsyraDesignAiActionNames.SELECT_ELEMENTS,
       arguments: {
         elementIds: ['shape-1', 'shape-2']
+      },
+      id: 'selection-1',
+      name: AiActionNames.SELECT_ELEMENTS,
+      summary: {
+        affectedCount: 2
       }
     }
-  ]
+  ],
+  batchId: 'reference-batch',
+  explanation: 'Update the current selection.'
 })
+
+const providerForBatch = (batch: AiActionBatch): AiProvider => ({
+  requestActionBatch: vi.fn(async () => batch)
+})
+
+const compact16ItemBatch = (): AiActionBatch => {
+  const descriptors = Array.from({ length: 16 }, (_, index) => ({
+    fills: [],
+    height: 10,
+    id: `element-${index}`,
+    lock: false,
+    name: `Item ${index}`,
+    props: {
+      dimension: `element-${index}-dimension`,
+      position: `element-${index}-position`
+    },
+    strokes: [],
+    type: 'oval',
+    visible: true,
+    width: 10,
+    x: index * 10,
+    y: 0
+  }))
+  const roles = descriptors.map((_, index) => `item-${index}`)
+
+  return {
+    actions: [
+      {
+        arguments: {
+          artifactVersion: 1,
+          compositionRole: 'runtime-integration-16',
+          elementCount: descriptors.length,
+          groupBounds: {
+            height: 40,
+            width: 160,
+            x: 0,
+            y: 0
+          },
+          groupDescriptor: {
+            children: [],
+            fills: [],
+            height: 40,
+            id: 'cat-group',
+            lock: false,
+            name: 'Runtime integration group',
+            props: {
+              dimension: 'cat-group-dimension',
+              position: 'cat-group-position'
+            },
+            strokes: [],
+            type: 'group',
+            visible: true,
+            width: 160,
+            x: 0,
+            y: 0
+          },
+          parent: 'workspace',
+          pointCount: 0,
+          roleToElementIds: Object.fromEntries(
+            roles.map((role, index) => [role, [`element-${index}`]])
+          ),
+          skipped: [],
+          slices: [
+            {
+              descriptors,
+              pointCount: 0,
+              roles
+            }
+          ]
+        },
+        id: 'insert-16',
+        name: AiActionNames.INSERT_VECTOR_COMPOSITION,
+        summary: {
+          affectedCount: 16,
+          skippedCount: 0
+        }
+      }
+    ],
+    batchId: 'composition-batch-16'
+  }
+}
 
 const prepareCommonApis = () => {
   vi.spyOn(selectionApis, 'getSelectedIds').mockReturnValue(['shape-1'])
@@ -89,14 +156,17 @@ const prepareCommonApis = () => {
     systemMode: SystemMode.DESIGN,
     systemPermissions: {}
   })
+  vi.spyOn(systemContextApis, 'setAiDrawingProgress').mockImplementation(
+    () => undefined
+  )
   vi.spyOn(elementApis, 'getElementType').mockReturnValue('rectangle')
   vi.spyOn(elementApis, 'isElementVisible').mockReturnValue(true)
   vi.spyOn(elementApis, 'isElementLocked').mockReturnValue(false)
   vi.spyOn(elementApis, 'getElementBounds').mockReturnValue({
-    x: 10,
-    y: 20,
+    height: 80,
     width: 100,
-    height: 80
+    x: 10,
+    y: 20
   })
   vi.spyOn(elementApis, 'setElementVisible').mockReturnValue(true)
   vi.spyOn(transactionApis, 'runTransaction').mockImplementation((execute) =>
@@ -104,16 +174,14 @@ const prepareCommonApis = () => {
   )
 }
 
-const executeReferencePlan = async (
-  provider: AiProvider,
-  deliveryMode: AsyraDesignAiDeliveryMode = 'atomic'
-) => {
+const executeBatch = async (batch: AiActionBatch) => {
+  const provider = providerForBatch(batch)
   const runtime = createAiAgentRuntime(
-    createAsyraDesignAiRuntimeInput({
-      deliveryMode,
+    createAiRuntimeInput({
       permissionRules: {
-        [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
-        [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
+        [AiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
+        [AiActionNames.SELECT_ELEMENTS]: 'allow',
+        [AiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
       },
       provider
     })
@@ -121,7 +189,7 @@ const executeReferencePlan = async (
 
   try {
     return await runtime.run({
-      intent: 'hide shape one and select both shapes',
+      intent: 'execute the resident server response',
       signal: new AbortController().signal
     })
   } finally {
@@ -129,107 +197,57 @@ const executeReferencePlan = async (
   }
 }
 
-const executeMockComposition = async (
-  intent: string,
-  createElement: () => string | null
-) => {
-  const provider = createAsyraDesignMockAiProvider({
-    delay: async () => undefined
+describe('Asyra Design server action-batch runtime integration', () => {
+  beforeEach(() => {
+    prepareCommonApis()
   })
-  vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
-  vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
-    options.map(() => createElement())
-  )
-  vi.spyOn(hierarchyApis, 'groupElements').mockReturnValue({
-    bounds: {
-      height: 320,
-      width: 440,
-      x: 460,
-      y: 158
-    },
-    elementIds: [],
-    groupId: 'legacy-post-hoc-group'
-  })
-  const runtime = createAiAgentRuntime(
-    createAsyraDesignAiRuntimeInput({
-      permissionRules: {
-        [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
-      },
-      provider
-    })
-  )
 
-  try {
-    return await runtime.run({
-      intent,
-      signal: new AbortController().signal
-    })
-  } finally {
-    await runtime.dispose()
-    await provider.dispose()
-  }
-}
-
-describe('Asyra Design AI runtime integration', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('runs the bounded reference actions through one common transaction', async () => {
-    prepareCommonApis()
-    const provider: AiProvider = {
-      generateActionPlan: vi.fn(async () => plan())
-    }
+  it('runs the requested backend batch through one common transaction with bounded preview', async () => {
+    const result = await executeBatch(referenceBatch())
 
-    await expect(executeReferencePlan(provider)).resolves.toMatchObject({
-      status: 'executed',
-      planId: 'reference-plan',
-      transaction: {
-        status: 'committed'
-      },
+    expect(result).toMatchObject({
       actionResults: [
         {
-          actionName: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY
+          actionName: AiActionNames.SET_ELEMENT_VISIBILITY
         },
         {
-          actionName: AsyraDesignAiActionNames.SELECT_ELEMENTS
+          actionName: AiActionNames.SELECT_ELEMENTS
         }
-      ]
-    })
-
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.setElementVisible).toHaveBeenCalledWith(
-      'shape-1',
-      false,
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-    expect(selectionApis.selectElements).toHaveBeenCalledWith(
-      ['shape-1', 'shape-2'],
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      }
-    )
-  })
-
-  it('composes progressive runtime actions through ordinary immediate delivery', async () => {
-    prepareCommonApis()
-    const provider: AiProvider = {
-      generateActionPlan: vi.fn(async () => plan())
-    }
-
-    await expect(
-      executeReferencePlan(provider, 'progressive')
-    ).resolves.toMatchObject({
+      ],
+      batchId: 'reference-batch',
       status: 'executed',
       transaction: {
         status: 'committed'
       }
     })
-
+    if (result.status !== 'executed') {
+      throw new Error('Expected the resident action batch to execute.')
+    }
+    expect(result.preview.actions).toEqual([
+      {
+        id: 'visibility-1',
+        name: AiActionNames.SET_ELEMENT_VISIBILITY,
+        permission: 'allow',
+        summary: {
+          affectedCount: 1
+        }
+      },
+      {
+        id: 'selection-1',
+        name: AiActionNames.SELECT_ELEMENTS,
+        permission: 'allow',
+        summary: {
+          affectedCount: 2
+        }
+      }
+    ])
+    expect(JSON.stringify(result.preview)).not.toMatch(
+      /arguments|elementIds|shape-1|shape-2/
+    )
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
     expect(elementApis.setElementVisible).toHaveBeenCalledWith(
       'shape-1',
@@ -248,424 +266,90 @@ describe('Asyra Design AI runtime integration', () => {
     )
   })
 
-  it('allows the mock startup drawing-detail clarification with detached image metadata and no canonical mutation', async () => {
-    prepareCommonApis()
-    const createElement = vi.spyOn(elementApis, 'createElement')
-    const changeElementGeometry = vi.spyOn(elementApis, 'changeElementGeometry')
-    const provider = createAsyraDesignMockAiProvider({
-      delay: async () => undefined
-    })
-    const confirmation = createAsyraDesignAiConfirmationBroker()
-    const history = {
-      correlateCommittedAction: vi.fn(() => false),
-      dispose: vi.fn(),
-      getCurrentActionId: vi.fn(() => null)
-    }
-    const startup = createAsyraDesignAiStartup('mock', {
-      createConfirmation: () => confirmation,
-      createHistory: () => history as never,
-      createProvider: () => provider
-    })
-    const createRuntimeInput = startup.runtimeOptions.createRuntimeInput
-    if (!createRuntimeInput) {
-      throw new Error('Mock AI startup must provide runtime input.')
-    }
-    const runtime = createAiAgentRuntime(createRuntimeInput())
+  it('creates the inline 16-item server response in one Group and one outer transaction', async () => {
+    vi.spyOn(elementApis, 'createElementsInParent').mockImplementation(
+      (descriptors) => descriptors.map(({ id }) => id)
+    )
 
-    try {
-      await expect(
-        runtime.run({
-          intent: AsyraDesignMockAiPhrases.DRAW_REFERENCE_IMAGE_ZH,
-          metadata: {
-            imageAttachments: [
-              {
-                dataUrl: 'data:image/png;base64,aW50ZWdyYXRpb24=',
-                mediaType: 'image/png',
-                name: 'integration-reference.png',
-                size: 11
-              }
-            ]
-          },
-          signal: new AbortController().signal
-        })
-      ).resolves.toMatchObject({
-        actionResults: [
-          {
-            actionName: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
-            result: {
-              action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
-              clarification: {
-                kind: 'drawing-detail',
-                optionIds: ['balanced', 'maximum']
-              },
-              status: 'no-change'
-            }
-          }
-        ],
-        status: 'executed'
-      })
-      expect(createElement).not.toHaveBeenCalled()
-      expect(changeElementGeometry).not.toHaveBeenCalled()
-      expect(history.correlateCommittedAction).not.toHaveBeenCalled()
-    } finally {
-      await runtime.dispose()
-      await confirmation.dispose()
-      await provider.dispose()
-    }
-  })
-
-  it('replaces the fake provider with generic HTTP without changing app action contracts', async () => {
-    prepareCommonApis()
-    const fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => plan()
-    }))
-    const provider = createGenericHttpAiProvider({
-      endpoint: '/api/ai-agent',
-      fetch
-    })
-
-    await expect(executeReferencePlan(provider)).resolves.toMatchObject({
-      status: 'executed',
-      planId: 'reference-plan'
-    })
-
-    expect(fetch).toHaveBeenCalledOnce()
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.setElementVisible).toHaveBeenCalledOnce()
-    expect(selectionApis.selectElements).toHaveBeenCalledOnce()
-
-    provider.dispose()
-  })
-
-  it('commits one mock drawing turn through one outer common transaction', async () => {
-    prepareCommonApis()
-    let nextElement = 0
-
-    await expect(
-      executeMockComposition(
-        AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH,
-        () => `cat-element-${(nextElement += 1)}`
-      )
-    ).resolves.toMatchObject({
+    await expect(executeBatch(compact16ItemBatch())).resolves.toMatchObject({
       actionResults: [
         {
-          actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          actionName: AiActionNames.INSERT_VECTOR_COMPOSITION,
           result: {
-            compositionId: 'cat-face-group',
-            skipped: [],
+            appliedElementIds: expect.arrayContaining([
+              'element-0',
+              'element-15'
+            ]),
+            compositionId: 'cat-group',
             status: 'complete'
           }
         }
       ],
-      status: 'executed',
-      transaction: {
-        status: 'committed'
-      }
+      batchId: 'composition-batch-16',
+      status: 'executed'
     })
 
     expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElements).toHaveBeenCalledTimes(
-      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-    )
+    expect(elementApis.createElementsInParent).toHaveBeenCalledTimes(2)
     expect(
-      vi
-        .mocked(elementApis.createElements)
-        .mock.calls.flatMap(([options]) => options)
-    ).toHaveLength(7111)
-    expect(elementApis.createElement).toHaveBeenCalledOnce()
-    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
+      vi.mocked(elementApis.createElementsInParent).mock.calls[0]?.[0]
+    ).toEqual([expect.objectContaining({ id: 'cat-group', type: 'group' })])
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[0]?.[1]
+    ).toBe('workspace-1')
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[1]?.[0]
+    ).toHaveLength(16)
+    expect(
+      vi.mocked(elementApis.createElementsInParent).mock.calls[1]?.[1]
+    ).toBe('cat-group')
   })
 
-  it('commits one valid vectorized item inside one Group and one outer transaction', async () => {
-    prepareCommonApis()
-    vi.spyOn(elementApis, 'createElement').mockReturnValue(
-      'vectorized-image-group'
-    )
-    vi.spyOn(elementApis, 'createElements').mockReturnValue([
-      'reference-vector-id'
-    ])
-    const groupElements = vi.spyOn(hierarchyApis, 'groupElements')
-    const provider: AiProvider = {
-      generateActionPlan: vi.fn(async () => ({
-        actions: [
-          {
-            arguments: {
-              compositionRole: 'vectorized-image',
-              items: [
-                {
-                  bounds: {
-                    height: 32,
-                    width: 64,
-                    x: 0,
-                    y: 0
-                  },
-                  paths: [
-                    {
-                      closed: true,
-                      points: [
-                        { x: 0, y: 0 },
-                        { x: 64, y: 0 },
-                        { x: 64, y: 32 },
-                        { x: 0, y: 32 }
-                      ]
-                    }
-                  ],
-                  primitive: 'vector',
-                  role: 'reference-vector-000001',
-                  style: {
-                    fillColor: '#2563EB'
-                  }
-                }
-              ],
-              parent: 'workspace'
-            },
-            id: 'vectorize-one-item',
-            name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-          }
-        ],
-        planId: 'vectorize-one-item-plan'
-      }))
-    }
+  it('requests the provider only when the Runtime turn starts', async () => {
+    const provider = providerForBatch(referenceBatch())
     const runtime = createAiAgentRuntime(
-      createAsyraDesignAiRuntimeInput({
+      createAiRuntimeInput({
         permissionRules: {
-          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
+          [AiActionNames.SELECT_ELEMENTS]: 'allow',
+          [AiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
         },
         provider
       })
     )
+    expect(provider.requestActionBatch).not.toHaveBeenCalled()
 
     try {
       await expect(
         runtime.run({
-          intent: 'Vectorize this image',
+          intent: 'request the backend batch',
           signal: new AbortController().signal
         })
-      ).resolves.toMatchObject({
-        actionResults: [
-          {
-            result: {
-              appliedElementIds: ['reference-vector-id'],
-              compositionId: 'vectorized-image-group',
-              status: 'complete'
-            }
-          }
-        ],
-        status: 'executed',
-        transaction: {
-          status: 'committed'
-        }
-      })
-      expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-      expect(elementApis.createElement).toHaveBeenCalledOnce()
-      expect(elementApis.createElements).toHaveBeenCalledOnce()
-      expect(groupElements).not.toHaveBeenCalled()
+      ).resolves.toMatchObject({ status: 'executed' })
+      expect(provider.requestActionBatch).toHaveBeenCalledOnce()
     } finally {
       await runtime.dispose()
     }
   })
 
-  it('commits recoverable per-object failure as a partial mock result', async () => {
-    prepareCommonApis()
-    let nextElement = 0
-
-    await expect(
-      executeMockComposition(
-        AsyraDesignMockAiPhrases.PARTIAL_RESULT_ZH,
-        () => `partial-element-${(nextElement += 1)}`
-      )
-    ).resolves.toMatchObject({
-      actionResults: [
-        {
-          result: {
-            skipped: [
-              {
-                reason: 'duplicate-role',
-                role: 'right-whisker-000'
-              }
-            ],
-            status: 'partial'
-          }
-        }
-      ],
-      status: 'executed',
-      transaction: {
-        status: 'committed'
-      }
-    })
-
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(elementApis.createElements).toHaveBeenCalledTimes(
-      Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-    )
-    expect(
-      vi
-        .mocked(elementApis.createElements)
-        .mock.calls.flatMap(([options]) => options)
-    ).toHaveLength(7111)
-  })
-
-  it('returns a fatal execution failure so the outer transaction can roll back', async () => {
-    prepareCommonApis()
-    const mutationFailure = new Error('canonical mutation failed')
-    let nextElement = 0
-
-    await expect(
-      executeMockComposition(
-        AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH,
-        () => {
-          nextElement += 1
-          if (nextElement === 2) {
-            throw mutationFailure
-          }
-          return `fatal-element-${nextElement}`
-        }
-      )
-    ).resolves.toMatchObject({
-      code: 'AI_EXECUTION_FAILED',
-      stage: 'execution',
-      status: 'failed'
-    })
-
-    expect(transactionApis.runTransaction).toHaveBeenCalledOnce()
-    expect(hierarchyApis.groupElements).not.toHaveBeenCalled()
-  })
-
-  it('uses revalidated canonical ids for a Feature-owned follow-up instead of regenerating', async () => {
-    prepareCommonApis()
-    const provider = createAsyraDesignMockAiProvider({
-      delay: async () => undefined
-    })
-    let nextElement = 0
-    vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-face-group')
-    vi.spyOn(elementApis, 'createElements').mockImplementation((options) =>
-      options.map(() => `cat-element-${(nextElement += 1)}`)
-    )
-    const scaleVectorElementAroundCenter = vi
-      .spyOn(elementApis, 'scaleVectorElementAroundCenter')
-      .mockReturnValue(true)
-    vi.spyOn(fillApis, 'getPrimaryFillColor').mockReturnValue('#130C06')
-    const updatePrimaryFillColor = vi
-      .spyOn(fillApis, 'updatePrimaryFillColor')
-      .mockReturnValue(true)
-    vi.mocked(elementApis.getElementType).mockImplementation((elementId) => {
-      if (elementId === 'cat-face-group') {
-        return 'group'
-      }
-      return elementId.startsWith('cat-element-') ? 'vector' : undefined
-    })
-    const runtime = createAiAgentRuntime(
-      createAsyraDesignAiRuntimeInput({
-        permissionRules: {
-          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
-          [AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'
-        },
-        provider
-      })
-    )
-    const registration = registerAiAgentFeature({
-      providerEnabled: true,
-      runtime
-    })
-    const feature = getFeature(FeatureNames.AI_AGENT) as AiAgentFeatureApi
-    const conversation = createAsyraDesignAiConversationController({
-      createConversationId: () => 'runtime-conversation',
-      feature,
-      getElementType: (elementId) => elementApis.getElementType(elementId)
-    })
-
-    try {
-      await expect(
-        conversation.submit(AsyraDesignMockAiPhrases.CREATE_CAT_FACE_ZH)
-      ).resolves.toMatchObject({
-        outcome: 'success'
-      })
-      await expect(
-        conversation.submit(AsyraDesignMockAiPhrases.ENLARGE_EYES_ZH)
-      ).resolves.toMatchObject({
-        outcome: 'success'
-      })
-      await expect(
-        conversation.submit(AsyraDesignMockAiPhrases.RECOLOR_PUPILS_EN)
-      ).resolves.toMatchObject({
-        outcome: 'success'
-      })
-
-      expect(elementApis.createElements).toHaveBeenCalledTimes(
-        Math.ceil(7111 / ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE)
-      )
-      expect(
-        vi
-          .mocked(elementApis.createElements)
-          .mock.calls.flatMap(([options]) => options)
-      ).toHaveLength(7111)
-      expect(scaleVectorElementAroundCenter).toHaveBeenCalled()
-      expect(
-        scaleVectorElementAroundCenter.mock.calls.length
-      ).toBeGreaterThanOrEqual(2)
-      scaleVectorElementAroundCenter.mock.calls.forEach(
-        ([elementId, geometry, options]) => {
-          expect(elementId).toMatch(/^cat-element-\d+$/)
-          expect(geometry).toEqual({
-            scaleX: 1.2,
-            scaleY: 1.2
-          })
-          expect(options).toMatchObject({
-            undoable: true
-          })
-        }
-      )
-      expect(updatePrimaryFillColor).toHaveBeenCalledTimes(2)
-      updatePrimaryFillColor.mock.calls.forEach(
-        ([elementId, color, options]) => {
-          expect(elementId).toMatch(/^cat-element-\d+$/)
-          expect(color).toBe('#DC2626')
-          expect(options).toEqual({
-            sharedDelivery: 'transaction-end',
-            undoable: true
-          })
-        }
-      )
-      expect(transactionApis.runTransaction).toHaveBeenCalledTimes(3)
-    } finally {
-      await conversation.dispose()
-      registration.dispose()
-      await runtime.dispose()
-      await provider.dispose()
-    }
-  })
-
-  it('waits for one visible app confirmation and opens no transaction on denial', async () => {
-    prepareCommonApis()
+  it('waits for visible confirmation and opens no transaction on denial', async () => {
     vi.mocked(elementApis.getElementType).mockReturnValue('group')
-    vi.spyOn(hierarchyApis, 'removeSubtree').mockReturnValue({
-      removed: [
+    const batch: AiActionBatch = {
+      actions: [
         {
-          depth: 0,
-          elementId: 'group-cat',
-          index: 0,
-          parentId: 'workspace-1'
+          arguments: {
+            compositionId: 'group-cat'
+          },
+          id: 'remove-cat',
+          name: AiActionNames.REMOVE_AI_COMPOSITION,
+          summary: {
+            affectedCount: 1
+          }
         }
       ],
-      rootId: 'group-cat'
-    })
-    const provider: AiProvider = {
-      generateActionPlan: vi.fn(async () => ({
-        actions: [
-          {
-            arguments: {
-              compositionId: 'group-cat'
-            },
-            id: 'remove-cat',
-            name: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION
-          }
-        ],
-        planId: 'remove-plan'
-      }))
+      batchId: 'remove-batch'
     }
-    const confirmation = createAsyraDesignAiConfirmationBroker()
+    const provider: AiProvider = providerForBatch(batch)
+    const confirmation = createAiConfirmationBroker()
     const pending = createDeferred<undefined>()
     const unsubscribe = confirmation.subscribe((snapshot) => {
       if (snapshot.pending) {
@@ -673,48 +357,42 @@ describe('Asyra Design AI runtime integration', () => {
       }
     })
     const runtime = createAiAgentRuntime(
-      createAsyraDesignAiRuntimeInput({
+      createAiRuntimeInput({
         permissionRules: {
-          [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm'
+          [AiActionNames.REMOVE_AI_COMPOSITION]: 'confirm'
         },
         provider,
         requestConfirmation: confirmation.requestConfirmation
       })
     )
-    const registration = registerAiAgentFeature({
-      providerEnabled: true,
-      runtime
-    })
-    const feature = getFeature(FeatureNames.AI_AGENT) as AiAgentFeatureApi
-    const conversation = createAsyraDesignAiConversationController({
-      confirmation,
-      createConversationId: () => 'confirmation-conversation',
-      feature,
-      getElementType: (elementId) => elementApis.getElementType(elementId)
-    })
+    confirmation.beginTurn('remove-turn')
 
     try {
-      const settlement = conversation.submit('delete')
+      const settlement = runtime.run({
+        intent: 'delete the selected group',
+        signal: new AbortController().signal
+      })
       await pending.promise
 
       expect(confirmation.getSnapshot().pending).toMatchObject({
+        batchId: 'remove-batch',
         summary: {
           actionKind: 'delete',
           destructive: true,
           undoable: true
-        },
-        turnId: 'confirmation-conversation:turn:1'
+        }
       })
       expect(confirmation.resolve(false)).toBe(true)
       await expect(settlement).resolves.toMatchObject({
-        outcome: 'cancelled'
+        audit: {
+          batchId: 'remove-batch'
+        },
+        reason: 'confirmation-cancelled',
+        status: 'cancelled'
       })
       expect(transactionApis.runTransaction).not.toHaveBeenCalled()
-      expect(hierarchyApis.removeSubtree).not.toHaveBeenCalled()
     } finally {
       unsubscribe()
-      await conversation.dispose()
-      registration.dispose()
       await runtime.dispose()
       await confirmation.dispose()
     }

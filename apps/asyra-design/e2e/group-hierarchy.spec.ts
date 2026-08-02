@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import {
+  createTestDocumentURL,
   getContentsPanel,
   getPropertiesPanel,
   resetCanvas,
@@ -19,19 +20,13 @@ test.describe('Group hierarchy product projection', () => {
   test('preserves live geometry and identity across an official Group reparent', async ({
     page
   }, testInfo) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
-    const setup = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      const core = scope.__Core__
-      const elementApis = scope.__AsyraE2E__?.elementApis
-      const hierarchyApis = scope.__AsyraE2E__?.hierarchyApis
-      if (!core || !elementApis || !hierarchyApis) {
-        throw new Error('Asyra hierarchy E2E APIs are not available')
-      }
+    const setup = await page.evaluate(async () => {
+      const { core, elementApis, hierarchyApis, testRuntimeState } =
+        await import('../src/testing/runtime-access')
       if (!core.deps.sceneTree.currentWorkspace) {
         core.sceneTreeInit()
       }
@@ -107,7 +102,7 @@ test.describe('Group hierarchy product projection', () => {
         firstElement: core.deps.sceneTree.getElementById(firstId),
         firstRenderNode: core.deps.render.getElementById(firstId)
       }
-      scope.__Gate3GroupVisualReview = review
+      testRuntimeState.set('gate3-group-visual-review', review)
 
       return {
         firstId,
@@ -149,13 +144,19 @@ test.describe('Group hierarchy product projection', () => {
       clip: canvasClip
     })
 
-    const result = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      const core = scope.__Core__
-      const hierarchyApis = scope.__AsyraE2E__?.hierarchyApis
-      const review = scope.__Gate3GroupVisualReview
-      if (!core || !hierarchyApis || !review) {
+    const result = await page.evaluate(async () => {
+      const { core, hierarchyApis, testRuntimeState } = await import(
+        '../src/testing/runtime-access'
+      )
+      const review = testRuntimeState.get<{
+        firstElement: unknown
+        firstId: string
+        firstRenderNode: unknown
+        secondId: string
+        sourceGroupId: string
+        targetGroupId: string
+      }>('gate3-group-visual-review')
+      if (!review) {
         throw new Error('Gate 3 visual review state is unavailable')
       }
 
@@ -233,7 +234,7 @@ test.describe('Group hierarchy product projection', () => {
           core.deps.render.getElementById(review.firstId) ===
           review.firstRenderNode
       }
-      delete scope.__Gate3GroupVisualReview
+      testRuntimeState.delete('gate3-group-visual-review')
       return response
     })
 

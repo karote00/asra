@@ -3,10 +3,11 @@
  * Used in: create-element, and future features
  */
 
-import { runTransaction } from '@asyra/core'
+import { runTransaction, type ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   moveElementsWithGroupGeometry,
-  normalizeGroupsForElements
+  normalizeGroupsForElements,
+  projectGroupGeometryPropertyUpdates
 } from '@asyra/preset'
 import {
   DEFAULT_ELEMENT_SIZE,
@@ -22,9 +23,13 @@ import {
   DEFAULT_ELEMENT_FILL_COLOR,
   DEFAULT_FRAME_FILL_COLOR
 } from '../../constants'
-import type { CreateElementOptions, ElementBounds } from './types'
+import type {
+  CreateElementOptions,
+  ElementBounds,
+  PreparedElementDescriptor
+} from './types'
 import { vectorApis } from './vector-apis'
-import { changeComputedData as applyComputedDataChange } from './change-computed-data'
+import { updateElementProperties as applyElementPropertyUpdate } from './update-element-properties'
 import { viewportApis } from '../viewport'
 
 export type { VectorPointTarget } from './types'
@@ -200,7 +205,7 @@ const createElementAtWorkspacePos = (
       options
     )
     if (!elementId) {
-      throw new Error('[Asyra Design] Canonical element creation failed')
+      throw new Error('[element-creation] canonical element creation failed')
     }
 
     if (targetIndex !== null && !createDirectlyInParent) {
@@ -491,6 +496,27 @@ export const elementApis = {
     })
   },
 
+  createElementsInParent: (
+    descriptors: readonly PreparedElementDescriptor[],
+    parentId: string,
+    options?: EVENT_OPTIONS
+  ): readonly string[] | null => {
+    if (descriptors.length === 0) {
+      return Object.freeze([])
+    }
+    if (parentId.length === 0) {
+      return null
+    }
+
+    const orderedElementIds = core.createElementsInParent(
+      descriptors,
+      parentId,
+      undefined,
+      options
+    )
+    return Object.freeze([...orderedElementIds])
+  },
+
   createElements: (
     createOptions: readonly CreateElementOptions[],
     options?: EVENT_OPTIONS
@@ -600,8 +626,10 @@ export const elementApis = {
     options?: EVENT_OPTIONS
   ) => {
     runTransaction(() => {
-      core.changeComputedData([elementId], geometry, options)
-      normalizeGroupsForElements(core, [elementId], options)
+      const request = projectGroupGeometryPropertyUpdates(core, [
+        { elementId, values: geometry }
+      ])
+      core.updateElementProperties(request, options)
     })
   },
 
@@ -627,6 +655,15 @@ export const elementApis = {
     }
 
     runTransaction(() => {
+      const propertyUpdates: {
+        elementId: string
+        values: PositionData
+      }[] = []
+      const vectorPositionUpdates: {
+        elementId: string
+        position: PositionData
+      }[] = []
+
       entries.forEach(([elementId, position]) => {
         if (
           typeof position?.x !== 'number' ||
@@ -648,19 +685,29 @@ export const elementApis = {
         }
 
         if (elementApis.getElementType(elementId) === 'vector') {
-          vectorApis.setVectorElementPosition(elementId, position, options)
+          vectorPositionUpdates.push({
+            elementId,
+            position
+          })
           return
         }
 
-        core.changeComputedData(
-          [elementId],
-          {
+        propertyUpdates.push({
+          elementId,
+          values: {
             x: position.x,
             y: position.y
-          },
-          options
-        )
+          }
+        })
       })
+
+      if (vectorPositionUpdates.length > 0) {
+        vectorApis.setVectorElementPositions(vectorPositionUpdates, options)
+      }
+
+      if (propertyUpdates.length > 0) {
+        core.updateElementProperties(propertyUpdates, options)
+      }
     })
   },
 
@@ -688,7 +735,12 @@ export const elementApis = {
     )
   },
 
-  changeComputedData: applyComputedDataChange,
+  updateElementProperties: applyElementPropertyUpdate,
+
+  patchElementProperties: (
+    patches: readonly ElementPropertyPatchUpdate[],
+    options?: EVENT_OPTIONS
+  ) => runTransaction(() => core.patchElementProperties(patches, options)),
 
   ...vectorApis
 }

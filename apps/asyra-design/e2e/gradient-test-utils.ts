@@ -26,9 +26,8 @@ export interface SelectedGradientSnapshot {
 export const getSelectedGradientSnapshot = async (
   page: Page
 ): Promise<SelectedGradientSnapshot | null> =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
     if (!selectedId) {
       return null

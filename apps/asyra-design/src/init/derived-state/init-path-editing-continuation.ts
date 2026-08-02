@@ -1,6 +1,7 @@
 import {
-  subscribeToChangeComputedData,
-  subscribeToUpdateComputedData
+  EventTypes,
+  subscribeToEventBatches,
+  type AllEvent
 } from '@asyra/reactive-events'
 import { VECTOR_TOKENS } from '@asyra/core'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
@@ -12,6 +13,52 @@ import type {
 } from '../../common-apis/system-context'
 
 const VECTOR_TOPOLOGY_KEYS = new Set(['points', 'segments', 'networks'])
+
+const getComputedProjection = (
+  event: AllEvent
+): { id: string; keys: readonly string[] } | null => {
+  if (
+    (event.type !== EventTypes.UPDATE_COMPUTED_DATA &&
+      event.type !== EventTypes.UPDATE_COMPUTED_DATA_PATCH) ||
+    !('payload' in event) ||
+    typeof event.payload !== 'object' ||
+    event.payload === null ||
+    !('id' in event.payload) ||
+    typeof event.payload.id !== 'string'
+  ) {
+    return null
+  }
+  const payload = event.payload as unknown as Record<string, unknown>
+  if (typeof payload.key === 'string') {
+    return { id: event.payload.id, keys: [payload.key] }
+  }
+  if (Array.isArray(payload.changes)) {
+    return {
+      id: event.payload.id,
+      keys: payload.changes.flatMap((change) =>
+        typeof change === 'object' &&
+        change !== null &&
+        'key' in change &&
+        typeof change.key === 'string'
+          ? [change.key]
+          : []
+      )
+    }
+  }
+  const patch =
+    typeof payload.patch === 'object' && payload.patch !== null
+      ? (payload.patch as Record<string, unknown>)
+      : undefined
+  const values =
+    typeof patch?.values === 'object' && patch.values !== null
+      ? Object.keys(patch.values)
+      : []
+  const records =
+    typeof patch?.records === 'object' && patch.records !== null
+      ? Object.keys(patch.records)
+      : []
+  return { id: event.payload.id, keys: [...values, ...records] }
+}
 
 const calculateContinuation = (
   vectorId: string,
@@ -121,27 +168,22 @@ export const initPathEditingContinuation = () => {
   // Sync on selection changes (specifically vector points)
   core.onUIPropertyChange('vectorPointSelection', () => syncContinuation())
 
-  // Sync on topology changes
-  subscribeToUpdateComputedData((event) => {
-    if (VECTOR_TOPOLOGY_KEYS.has(event.payload.key)) {
-      const vectorId = core.getSystemProperty<string | null>(
-        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
-      )
-      if (event.payload.id === vectorId) {
-        syncContinuation()
+  // One ordinary batch route covers scalar, ordered-batch, and patch projection.
+  subscribeToEventBatches((events) => {
+    events.forEach((event) => {
+      const projection = getComputedProjection(event)
+      if (
+        projection &&
+        projection.keys.some((key) => VECTOR_TOPOLOGY_KEYS.has(key))
+      ) {
+        const vectorId = core.getSystemProperty<string | null>(
+          PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+        )
+        if (projection.id === vectorId) {
+          syncContinuation()
+        }
       }
-    }
-  })
-
-  subscribeToChangeComputedData((event) => {
-    if (VECTOR_TOPOLOGY_KEYS.has(event.payload.key)) {
-      const vectorId = core.getSystemProperty<string | null>(
-        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
-      )
-      if (vectorId && event.payload.elementIds.includes(vectorId)) {
-        syncContinuation()
-      }
-    }
+    })
   })
 
   syncContinuation()

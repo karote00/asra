@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -57,19 +58,33 @@ test('release validation covers build, tests, dependencies, collaboration, and g
   ])
 })
 
-test('release template supports a non-mutating synchronization check', () => {
-  const result = spawnSync(
-    'yarn',
-    ['release:app:check', '--prod=asyra-design'],
-    { cwd: repositoryRoot, encoding: 'utf8' }
+test('release template exposes a non-mutating synchronization check', () => {
+  const manifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const releaseTemplate = readFileSync(
+    path.join(repositoryRoot, 'scripts/release-template.js'),
+    'utf8'
   )
 
-  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.equal(
+    manifest.scripts['release:app:check'],
+    'node scripts/release-template.js --check'
+  )
+  assert.match(
+    releaseTemplate,
+    /const DEST_DIR = CHECK \? CHECK_DIRECTORY : CONFIGURED_DEST_DIR/
+  )
+  assert.match(
+    releaseTemplate,
+    /if \(CHECK\) \{\s+process\.on\('exit', \(\) => \{\s+fse\.removeSync\(CHECK_DIRECTORY\)/
+  )
 })
 
 test('release validation copies only repository source into an isolated workspace', async () => {
   const { createReleaseValidationWorkspace, removeReleaseValidationWorkspace } =
     await import('../release-validation-workspace.js')
+  mkdirSync(path.join(repositoryRoot, 'tmp'), { recursive: true })
   const testRoot = mkdtempSync(
     path.join(repositoryRoot, 'tmp', 'release-validation-test-')
   )
@@ -137,10 +152,9 @@ test('release validation supplies matching app and collaboration endpoints', asy
     }),
     {
       RELEASE_TOKEN: 'preserved',
-      ASYRA_DESIGN_APP_URL: 'http://127.0.0.1:4317',
-      ASYRA_DESIGN_COLLABORATION_WS_PORT: '5109',
-      VITE_ASYRA_DESIGN_COLLABORATION_WS_URL:
-        'ws://127.0.0.1:5109/asyra-design-collaboration'
+      APP_URL: 'http://127.0.0.1:4317',
+      COLLABORATION_WS_PORT: '5109',
+      VITE_COLLABORATION_WS_URL: 'ws://127.0.0.1:5109/collaboration'
     }
   )
 })

@@ -1,44 +1,29 @@
 import {
-  ElementPropertyOwnerRelation,
+  ElementPropertyRelation,
   PropsComponentRawData,
-  PropsRestorePlan,
+  PreparedPropsRestore,
   PropsRestoreSnapshot,
-  type EVENT_OPTIONS,
-  type PropertyComponentInstanceDataTypes
+  type EVENT_OPTIONS
 } from '@asyra/utils'
 
-export interface PropertyOwnerRef {
-  ownerElementId: string
-  ownerPropertyName: string
+export interface PropertyComponentValuesUpdate {
+  readonly propertyId: string
+  readonly values: Readonly<Record<string, unknown>>
 }
-
-export type PropertyFieldUpdate<TFields extends object> = TFields extends object
-  ? {
-      [K in Extract<keyof TFields, string>]: [
-        key: K,
-        data: TFields[K],
-        owner?: PropertyOwnerRef,
-        options?: EVENT_OPTIONS
-      ]
-    }[Extract<keyof TFields, string>]
-  : never
 
 export interface PropsRawAPIs {
   propsLoadData: (data: PropsComponentRawData) => void
   propsSaveData: () => PropsComponentRawData
-  updatePropertyById: <
-    TFields extends object = PropertyComponentInstanceDataTypes
-  >(
-    propertyId: string,
-    ...update: PropertyFieldUpdate<TFields>
-  ) => void
-  commitPropertyChanges: (options?: EVENT_OPTIONS) => void
   preflightRestoreProperties: (
     snapshot: PropsRestoreSnapshot,
-    ownerRelations: readonly ElementPropertyOwnerRelation[]
-  ) => PropsRestorePlan
+    ownerRelations: readonly ElementPropertyRelation[]
+  ) => PreparedPropsRestore
   applyRestoreProperties: (
-    plan: PropsRestorePlan,
+    preparedRestore: PreparedPropsRestore,
+    options?: EVENT_OPTIONS
+  ) => readonly string[]
+  updatePropertyComponents: (
+    updates: readonly PropertyComponentValuesUpdate[],
     options?: EVENT_OPTIONS
   ) => readonly string[]
 }

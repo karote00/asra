@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   createElement: vi.fn(),
   createElementInParent: vi.fn(),
+  createElementsInParent: vi.fn(),
   createVectorElement: vi.fn(),
-  createVectorElementsInParent: vi.fn(),
   changeComputedData: vi.fn(),
   getElementById: vi.fn(),
   getMousePosInWorkspace: vi.fn(),
@@ -25,6 +25,7 @@ vi.mock('../../../contexts', () => ({
   default: {
     createElement: mocks.createElement,
     createElementInParent: mocks.createElementInParent,
+    createElementsInParent: mocks.createElementsInParent,
     changeComputedData: mocks.changeComputedData,
     isContainerType: vi.fn((type: string) => type === 'group')
   },
@@ -38,12 +39,16 @@ vi.mock('../../../contexts', () => ({
   }
 }))
 
-vi.mock('../vector-apis', () => ({
-  vectorApis: {
-    createVectorElement: mocks.createVectorElement,
-    createVectorElementsInParent: mocks.createVectorElementsInParent
+vi.mock('../vector-apis', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../vector-apis')>()
+  return {
+    ...actual,
+    vectorApis: {
+      ...actual.vectorApis,
+      createVectorElement: mocks.createVectorElement
+    }
   }
-}))
+})
 
 vi.mock('../change-computed-data', () => ({
   changeComputedData: vi.fn()
@@ -224,29 +229,138 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.moveElementsWithGroupGeometry).not.toHaveBeenCalled()
   })
 
-  it('routes an ordered Vector batch through one explicit parent operation', () => {
-    const elements = [
-      { type: 'vector', parentId: 'workspace' },
-      { type: 'vector', parentId: 'workspace' }
-    ] as const
-    mocks.createVectorElementsInParent.mockReturnValue(['vector-1', 'vector-2'])
+  it('returns frozen ordered ids for one mixed direct-parent request', () => {
+    const options = {
+      sharedDelivery: 'transaction-end',
+      undoable: true
+    } as const
+    const coreResult = ['oval-1', 'vector-1']
+    mocks.createElementsInParent.mockReturnValue(coreResult)
 
-    expect(
-      elementApis.createElements(elements, {
-        sharedDelivery: 'transaction-end',
-        undoable: true
-      })
-    ).toEqual(['vector-1', 'vector-2'])
-    expect(mocks.createVectorElementsInParent).toHaveBeenCalledOnce()
-    expect(mocks.createVectorElementsInParent).toHaveBeenCalledWith(
-      elements,
-      'workspace',
-      {
-        sharedDelivery: 'transaction-end',
-        undoable: true
+    const points = {
+      pointA: {
+        anchorType: 'sharp' as const,
+        handleMode: 'none' as const,
+        id: 'pointA',
+        kind: 'anchor' as const,
+        x: 280,
+        y: 220
+      },
+      pointB: {
+        anchorType: 'sharp' as const,
+        handleMode: 'none' as const,
+        id: 'pointB',
+        kind: 'anchor' as const,
+        x: 310,
+        y: 260
       }
+    }
+    const segments = {
+      segmentA: {
+        endId: 'pointB',
+        id: 'segmentA',
+        inControlId: null,
+        outControlId: null,
+        startId: 'pointA'
+      }
+    }
+    const networks = {
+      networkA: {
+        closed: false,
+        id: 'networkA',
+        pointIds: ['pointA', 'pointB'],
+        segmentIds: ['segmentA']
+      }
+    }
+
+    const result = elementApis.createElementsInParent(
+      [
+        {
+          type: 'oval',
+          workspacePosition: { x: 300, y: 240 },
+          parentId: 'group-2',
+          parentWorkspaceOrigin: { x: 250, y: 200 },
+          width: 80,
+          height: 60
+        },
+        {
+          type: 'vector',
+          parentId: 'group-2',
+          parentWorkspaceOrigin: { x: 250, y: 200 },
+          points,
+          segments,
+          networks
+        }
+      ],
+      'group-2',
+      options
     )
+
+    expect(result).toEqual(coreResult)
+    expect(result).not.toBe(coreResult)
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(mocks.createElementsInParent).toHaveBeenCalledOnce()
+    expect(mocks.createElementsInParent).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          type: 'oval',
+          x: 50,
+          y: 40,
+          width: 80,
+          height: 60
+        }),
+        expect.objectContaining({
+          type: 'vector',
+          x: 30,
+          y: 20,
+          width: 30,
+          height: 40,
+          points
+        })
+      ],
+      'group-2',
+      undefined,
+      options
+    )
+    expect(mocks.createElementInParent).not.toHaveBeenCalled()
     expect(mocks.createVectorElement).not.toHaveBeenCalled()
+  })
+
+  it('keeps an empty direct-parent request inert', () => {
+    const result = elementApis.createElementsInParent([], 'group-2')
+
+    expect(result).toEqual([])
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(mocks.createElementsInParent).not.toHaveBeenCalled()
+    expect(mocks.createElementInParent).not.toHaveBeenCalled()
+  })
+
+  it('does not call Core when a later direct-parent item fails preflight', () => {
+    expect(
+      elementApis.createElementsInParent(
+        [
+          {
+            type: 'oval',
+            workspacePosition: { x: 300, y: 240 },
+            parentId: 'group-2',
+            parentWorkspaceOrigin: { x: 250, y: 200 }
+          },
+          {
+            type: 'rect',
+            workspacePosition: { x: Number.NaN, y: 260 },
+            parentId: 'group-2',
+            parentWorkspaceOrigin: { x: 250, y: 200 }
+          }
+        ],
+        'group-2',
+        {
+          sharedDelivery: 'transaction-end',
+          undoable: true
+        }
+      )
+    ).toBeNull()
+    expect(mocks.createElementsInParent).not.toHaveBeenCalled()
+    expect(mocks.createElementInParent).not.toHaveBeenCalled()
   })
 
   it('converts workspace points through the current viewport and Group transform', () => {

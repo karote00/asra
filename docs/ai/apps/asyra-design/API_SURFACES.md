@@ -2,26 +2,54 @@
 
 This file is the app-level API contract map.
 
-## Optional AI Agent Reference
+## AI Agent Reference
 
-- `initApp({ ai })` defaults to AI-disabled and creates no AI runtime,
-  provider, Feature, network request, listener, timer, or secret read
-- `resolveAsyraDesignAiMode(window.location.search)` accepts only one exact
-  `ai=mock` value; missing, empty, unknown, case-mismatched, or duplicate values
-  keep the App AI-disabled
-- explicit mock startup composes one deterministic provider with no
-  external/model network access,
-  app confirmation broker, app-root-local conversation controller, and current
-  AI history projection; it reads no API key. Its same-origin VTracer demo tool
-  remains inert until an explicit whole-image vectorization turn
-- `composeAiAgentRuntime(...)` supports:
-  - AI-disabled: no runtime and no AI Feature
-  - provider-disabled: the AI Feature returns stable `unavailable` before
-    context or transport
-  - provider-enabled: one isolated `@asyra/ai-agent-runtime` instance
-- `createAsyraDesignAiRuntimeInput(...)` composes the app-owned context,
+- `startApp(...)` requires one non-empty `fileId` as document and Collaboration
+  session identity, then initializes the App without reading, seeding, or
+  preloading any Agent action payload
+- the required `fileId` selects one browser-local document provider. Core loads
+  that document before Collaboration, persists local actions, Agent actions,
+  Undo, and Redo, and the accepted-remote callback persists the resulting
+  document through the same serialized queue
+- `createServerActionBatchProvider(...)` is the single production
+  provider composition. Its only request method is
+  `requestActionBatch(input, { signal })`, which performs one same-origin HTTP
+  request after Actor A presses Send and returns one server-prepared
+  `AiActionBatch`
+- that request carries the submitted intent, exact image attachment, App
+  context, registered backend-facing action descriptions, attempt number, and
+  abort ownership; no fileId, URL parameter, startup branch, resident batch, or
+  IndexedDB response inbox selects its payload
+- the checked-in `samples/crdt-7076` reference contains its exact input image,
+  instruction text, and previously converted 7,075-vector source. Its backend
+  accepts only the exact sample input, reads that converted source without
+  invoking VTracer, and returns one prepared Group plus 7,075 ordered Vector
+  children for 7,076 total canonical elements
+- production startup always composes that provider, the confirmation broker,
+  app-root-local conversation controller, current AI history projection, and
+  one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
+  switch or second provider execution route
+- `createAiRuntimeInput(...)` composes the app-owned context,
   bounded action catalog, permission map, confirmation adapter, and common
-  transaction adapter around an app-selected provider
+  transaction adapter around the formal provider
+- `runtime.run()` requests one `AiActionBatch`, and
+  `runtime.resolveAiActionBatch(batch, { signal })` is the only Runtime
+  resolution entry
+- `AiActionBatch` contains one `batchId`, optional explanation, and ordered
+  actions. Each action contains one id, registered name, server-prepared
+  arguments, and bounded redaction-ready summary
+- Runtime validates only the small control envelope: non-empty `batchId`,
+  optional explanation type, non-empty actions, action id/name presence,
+  duplicate action ids, and registered action names. It does not traverse or
+  reinterpret item, path, point, style, bounds, coordinate, or geometry
+  arguments
+- resolution returns one `ResolvedAiActionBatch`; permission receives one
+  `PermissionReadyAiActionBatch`; confirmation and terminal presentation
+  receive one `AiActionBatchPreview`. Every stage preserves `batchId`
+- Runtime does not recursively clone or freeze server-prepared arguments.
+  Permission and execution receive the exact same arguments identity.
+  `AiActionBatchPreview` retains and redacts only bounded summaries, never the
+  complete arguments or composition geometry
 - the reference action catalog contains only:
   - `request_drawing_detail_choice`
   - `insert_vector_composition`
@@ -29,13 +57,25 @@ This file is the app-level API contract map.
   - `remove_ai_composition`
   - `set_element_visibility`
   - `select_elements`
-- composition descriptors are strict, contain ordinary oval/vector elements
-  inside the 2048×2048 workspace, and never accept provider-selected object
-  ids or arbitrary property paths
-- vector items and complete compositions have no artificial item, subpath,
-  per-path point, or composition point-count ceiling; validation requires
-  finite coordinates, internally consistent topology, unique semantic roles,
-  and available machine resources
+- every registered action definition exposes exactly one backend-facing
+  `inputSchema` plus one `execute(args, context)` function. `inputSchema`
+  describes what the server must prepare; the frontend does not run it against
+  returned action arguments and exposes no client model-prepare or
+  model-validation path
+- the server validates and normalizes accepted/skipped roles, bounds, styles,
+  paths, and points, then builds one `PreparedDrawingArtifact` before returning
+  the `AiActionBatch`
+- `insert_vector_composition` receives one server-prepared Group descriptor and
+  ordered child descriptor slices with complete source creation data, exact
+  loading bounds, stable ids, relationships, point counts, roles, and skipped
+  evidence. The frontend passes those prepared descriptor identities directly
+  to the App common API and plural Core route
+- canonical topology and IDs remain owned by the ordinary App common API and
+  plural Core route. The server-prepared artifact creates no canonical,
+  Render, history, shared-data, or CRDT state directly
+- provider-prepared compositions have no artificial item, subpath, per-path
+  point, or composition point-count ceiling; acceptance is bounded only by the
+  formal server contract and available machine resources
 - `request_drawing_detail_choice` accepts no provider-selected labels, counts,
   warning copy, attachment data, or canonical ids. It resolves with registered
   App option ids and no canonical mutation; the App projects Balanced
@@ -50,40 +90,65 @@ This file is the app-level API contract map.
   executor so the outer runtime transaction rolls back
 - permission rules are explicit and default-deny; confirmation defaults to
   cancellation
-- action executors call `src/common-apis/*` with `undoable: true` and
-  `sharedDelivery: 'transaction-end'`; Factory, canonical owners, Render, and
-  optional Collaboration retain their ordinary ownership
-- composition insertion creates one canonical Group before its ordered child
-  batches. Child create options carry the known parent workspace origin so
-  ordinary Vector topology points remain in workspace coordinates while
-  computed `x/y` are written directly in Group-local coordinates; no post-hoc
+- action executors call `src/common-apis/*` with `undoable: true`. Atomic
+  mutations and composition Group/children use
+  `sharedDelivery: 'transaction-end'`; progressive composition batches and
+  non-composition progressive mutations use ordinary immediate delivery inside
+  the same outer transaction. Factory, canonical owners, Render, and optional
+  Collaboration retain their ordinary ownership
+- after the provider returns server-prepared loading bounds, the App sets one
+  runtime-only `aiDrawingProgress` System Context value and
+  commits an exact-bounds DOM compositor overlay, then crosses a browser paint
+  opportunity before its first canonical mutation. CSS loading activity changes
+  only transform and opacity; it has no JavaScript per-frame loop. The state is
+  not canonical, persistent, shared, Render-owned, or an AI-only renderer and
+  clears on success, failure, cancellation, or teardown
+- composition insertion consumes one server-prepared Group descriptor followed
+  by deterministic ordered server-prepared descriptor slices through the same
+  plural `Core.createElementsInParent(...)` route. The App does not rebuild,
+  validate, normalize, clone, or freeze a second geometry graph. Each successful
+  slice completes ordinary projection and actual progress, then the single
+  serialized action loop crosses a browser paint before the next slice. Vector
+  topology remains in the server-issued coordinate space; no post-hoc
   full-composition move or geometry rewrite is part of the AI action
-- provider selection is replaceable; deterministic fake and generic HTTP
-  providers use the same runtime and app action contracts
-- collected App context includes a stable App-owned provider prompt that
-  requires the provider to analyze the request, choose only App-registered
-  image-preparation tools, pass the original or detached derived raster to the
-  registered vectorizer, validate and post-process its result, estimate
-  resource impact, and construct only registered action candidates. Runtime
-  preflight, App impact presentation, Framework confirmation, and the ordinary
-  executor remain later owners
-- providers may not invent tools. The current Mock catalog exposes only
-  whole-image VTracer; generic crop, segmentation, background removal, or
-  reimage requirements fail before mutation. A future live provider may use
-  those steps only when the App registers them, and all intermediate rasters
-  remain detached from canonical state, persistence, and collaboration
-- an accepted PNG, JPEG, or WebP attachment plus exact
-  `Vectorize this image` or `將這張圖片轉換成可編輯向量圖形` intent invokes
-  the same-origin App VTracer tool exactly once. WebP is decoded locally and
-  normalized to detached in-memory PNG bytes before the tool call so VTracer
-  decoder differences cannot change accepted-input behavior. The adapter
-  validates the
-  complete-raster SVG into deterministic generic-role ordinary Vector items
-  and returns one existing `insert_vector_composition` action. A trace with one
-  valid item still creates one ordinary Group containing that Vector, while an
-  empty trace fails before mutation; it performs no
-  semantic segmentation, background replacement, OCR, bitmap insertion,
-  external/model request, or fixture fallback
+- in this progressive mode, each prepared slice uses a point count limit of
+  2,048 and an element count limit of 32. One indivisible element may exceed
+  only the point-count limit. No range is independently scheduled with a timer,
+  and a pure microtask is not a cooperative host yield. Every slice uses the
+  same plural Core surface; Core, Props Manager, and Scene Tree receive no AI
+  mode, loading, progress, slice-size, or host-yield parameter
+- the Group and every child batch remain inside one outer App transaction and
+  create one intended Undo action. A fatal failure or Feature-owned
+  cancellation rejects the action so ordinary transaction rollback removes the
+  complete composition; already-visible immediate evidence uses Factory's
+  ordinary compensation path
+- the registered bulk action reuses the existing Factory transaction journal
+  and Undo stack. Props and Scene owners emit their ordinary reversible
+  before/after or add/remove changes once; no AI/bulk-specific forward/inverse
+  history artifact or parallel applied-result mirror is created
+- after successful canonical owner apply, the production action path performs
+  no `save`, `isEqual`, finalize-save, full-document comparison, or evidence
+  clone. Render/UI observes the ordinary canonical owner batch, while
+  Collaboration receives only the minimal `SharedPublication`; its
+  `artifactId` is wire correlation rather than a History reference
+- the App AI transaction runner acquires one document-interaction lock before
+  opening that outer transaction and releases it only after commit or rollback
+  plus history correlation. While locked, wheel input on the marked viewport
+  continues through the ordinary pan/zoom Features and the marked Agent Cancel
+  control remains available; every other DOM interaction is stopped before it
+  can enter a Feature, UI mutation handler, canonical API, or History. Viewport
+  navigation may cross its ordinary Feature transaction wrapper but produces no
+  canonical or history evidence. The lock is a fixed App policy, not a second
+  event bus, progress-state side effect, framework mode, or downstream API
+  parameter
+- collected App context supplies the App-owned prompt, registered action
+  descriptions, and registered image-tool descriptors as provider request
+  input. The server owns tool selection, model work, resource analysis, and
+  construction of the returned action batch; the frontend response route does
+  not execute image preparation while resolving that batch
+- providers may use only App-registered tools. Intermediate image data remains
+  outside canonical state, persistence, and collaboration, and the final
+  server result must still enter the ordinary registered action executor
 - conversation progress contains only the runtime's stable operational
   summaries. Settled UI summaries never render raw arguments, provider bodies,
   canonical ids, secrets, or private chain-of-thought
@@ -93,34 +158,49 @@ This file is the app-level API contract map.
 - the reference app does not read, store, or send a browser-held server API
   key. Production providers should use an app/backend endpoint that owns
   vendor credentials and authorization
+- Actor B never executes Actor A's resident server response. It receives the
+  resulting drawing only through Actor A's canonical publications and the
+  ordinary CRDT apply route
 
 ## DEV Runtime Diagnostics
 
+- the explicit `aiPerformance=profile` diagnostic installs the human-only
+  `window.__AiDrawingPerformance__`; retained counter and phase samples use
+  independent 16,384-entry circular buffers, while scalar counter totals and
+  release-eligibility facts remain exact after older samples are evicted.
+  Profiling observes demanded frames and never schedules a frame itself
 - `initCanvasPipelineDebugger()` dynamically imports the optional Core facade
   only when `import.meta.env.DEV` is true
-- `window.__AsyraCanvasPipelineDebugger__` is a disabled-by-default
-  `CanvasPipelineDebugger` console handle, independent from `__AsyraE2E__`
+- `window.__CanvasPipelineDebugger__` is a disabled-by-default
+  `CanvasPipelineDebugger` console handle
 - the console handle's `getSnapshot().fault` retains the latest observation or
   overlay projection failure message until the debugger is re-enabled or
   disposed
 - `destroyCanvasPipelineDebugger()` disposes the handle and is also registered
   for HMR cleanup
-- ordinary and collaboration Playwright suites run the DEV app runtime because
-  their canonical-state assertions use `window.__Core__` and
-  `window.__AsyraE2E__`; production exclusion and bundling remain separate
-  package/build gates
+- ordinary and collaboration Playwright suites use imported test access and a
+  fixed document-event diagnostic operation whitelist. `window.__Core__`,
+  `window.__Collaboration__`, `window.__CanvasPipelineDebugger__`, and
+  `window.__AiDrawingPerformance__` exist only for a human in DevTools; product
+  code and automation never consume them
 - production startup has no debugger handle, trace, layer, or optional debugger
   implementation chunk
 
 ## Public Collaboration Reference Implementation
 
-- `ASYRA_DESIGN_APP_URL` is the one app-origin contract shared by Vite,
+- `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
   WebSocket server's Origin validation
-- a non-empty `fileId` query parameter is the only public collaboration
-  identity accepted by the reference composition
+- one non-empty `fileId` is required to open the App document; it selects the
+  App-owned document session identity and is future server authorization input,
+  but it is never a Collaboration activation flag
+- RenderApp always starts Collaboration after the canonical document selected
+  by `fileId` loads; there is no separate non-Collaboration document route
 - the composition maps `fileId` to both internal document and room identity and
   generates a full UUID actor identity per page
+- one connected Actor is the single-Actor execution case; when another Actor
+  opens the same document session, the same always-on capability becomes the
+  two-Actor CRDT execution case without changing App APIs or URL state
 - the collaboration lifecycle supplies that actor identity to
   `idCounter.setNamespace(...)`; element/component/property IDs generated by
   concurrent pages therefore remain distinct without a transport-owned
@@ -130,30 +210,34 @@ This file is the app-level API contract map.
 - `src/collaboration/protocol.ts` is the app-owned wire
   contract shared by the browser provider and reference server; it owns message
   discriminants, named request/server message variants composed into the
-  public client/server unions, and runtime parsing of untrusted JSON
+  public client/server unions, and runtime parsing of untrusted JSON. Binary
+  publication frames encode and decode the exact minimal
+  publication → slices → channel batches → deliveries hierarchy; decode does
+  not reconstruct Factory records, inverse/history evidence, or removed
+  top-level aliases
+- remote Factory replay metadata remains transaction-control evidence only.
+  Before Core canonical apply, the App reconstructs subtree-removal evidence
+  from the exact canonical fields and does not forward replay mutation options
+  into Scene Tree's exact-evidence comparison; there is no legacy payload
+  branch or alias fallback
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- Core load/save uses app-selected IndexedDB persistence. An ordinary URL
-  retains document identity `FILE`; a non-empty `fileId` selects
-  `FILE:<encoded fileId>`, so the same file shares one browser-local demo
-  snapshot and different files remain isolated. An absent ordinary or
-  collaboration document is initialized as an empty workspace, while an
-  existing IndexedDB snapshot is not overwritten. When IndexedDB is empty, an
-  eligible matching legacy localStorage snapshot is copied and its legacy key
-  is removed only after the durable write succeeds. This is browser-local
-  durability for the open-source reference demo, not a production shared
-  database. A production product derived from Asyra Design must replace the
-  App-selected provider with a server-backed database integration that owns
-  authentication, authorization, backup, and migration policy
-- URLs without `fileId` create no collaboration connection; production builds
-  retain the dynamically loaded reference path so a deployed URL with `fileId`
-  can use it without changing the persistence owner
-- URL-level `document`, `room`, and `actor` parameters are not collaboration
-  identity inputs
-- `window.__AsyraCollaboration__` is an intentionally retained active-runtime
+- Current startup requires `fileId`, configures one file-scoped IndexedDB
+  document provider, starts Core so it loads the stored or valid empty
+  document, and then always starts Collaboration. Core persists local actions,
+  Agent actions, Undo, and Redo. One accepted remote apply saves its resulting
+  document before the peer-applied receipt. A future production product must
+  replace this browser-local reference with its own server database,
+  authorization, recovery, and checkpoint policy
+- production builds retain the dynamically loaded reference path, but that
+  loading boundary is an implementation split rather than an activation flag;
+  the connection always starts after the selected stored or empty canonical document is
+  loaded
+- URL-level `document`, `room`, and `actor` parameters are not identity inputs;
+  `fileId` is the one required document identity
+- `window.__Collaboration__` is an intentionally retained human DevTools
   diagnostic/manual-test handle exposing immutable `identity`, `getStatus()`, `disconnect()`,
-  `reconnect()`, `whenIdle()`, and `dispose()`; it is absent
-  when collaboration is disabled
+  `reconnect()`, `whenIdle()`, and `dispose()` after Collaboration startup
 
 ## Common APIs (`src/common-apis/*`)
 
@@ -225,6 +309,12 @@ Import boundary:
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
+- `discardTransientVectorPreviews(elementIds: readonly string[]): void`
+  - preflights the complete ordered vector batch, clears only App-owned
+    transient topology/computed caches, then asks Core once to reproject the
+    affected canonical Props into local computed data
+  - this is forced-rollback cleanup, not a canonical mutation: it creates no
+    Undo, shared publication, CRDT, or persistence evidence
 - `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: AppendVectorAnchorPointOptions): { point: VectorAnchorPoint; index: number } | null`
   - `AppendVectorAnchorPointOptions` combines subpath/continuation/structural
     intent inputs with ordinary `EVENT_OPTIONS`
@@ -245,6 +335,14 @@ Import boundary:
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
+- `createElementsInParent(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): readonly string[] | null`
+  - preflights and prepares the complete mixed ordinary/Vector batch before
+    calling Core exactly once
+  - direct non-Vector Group children require finite workspace coordinates and
+    a finite parent workspace origin; Vector topology points remain in
+    workspace coordinates while computed bounds become parent-local
+  - returns an isolated frozen copy of Core's ordered canonical IDs; any
+    preparation failure returns `null` before Core mutation
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
   - initializes default `fills` payload by element type
   - an explicit `workspacePosition` bypasses Render/client-coordinate
@@ -263,8 +361,14 @@ Import boundary:
     rather than leaving descendants attached to a missing parent
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
+  - writes one continuous-gesture position sample without rebasing official
+    Group origins; `move-elements` asks Preset to normalize every affected
+    Group deepest-first exactly once after the final sample and before the
+    outer gesture transaction commits
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
+- `updateElementProperties(elementIds: readonly string[], values: Readonly<Record<string, DataTypes>>, options?: EVENT_OPTIONS): void`
+  - projects any Group geometry-dependent property updates, then submits one
+    plural canonical Core property replacement inside one transaction
   - `vectorGeometry` helper (exported from `src/common-apis/element`):
     - `validate(topology, label?)`
     - `addPoint(...)`, `movePoint(...)`, `splitSegment(...)`, `updatePoint(...)`, `removePoint(...)`, `connectEndpoints(...)`, `connectAnchors(...)`
@@ -347,7 +451,7 @@ Import boundary:
 
 - `undo(): void`
 - `redo(): void`
-- `createAsyraDesignAiHistoryProjection()` creates one disposable,
+- `createAiHistoryProjection()` creates one disposable,
   app-root-local observer over canonical user-action, Undo, and Redo events
   - `beginTurn(turnId)` / `endTurn(turnId)` bracket transaction correlation
   - `getCurrentActionId()` exposes only the latest canonical action identity
@@ -407,6 +511,11 @@ Import boundary:
 - `setupInputSystem(canvas: HTMLElement): void`
 - `renderIsReady(): void`
 - `resetData(): void`
+  - loads one fresh App-owned empty canonical document through `Core.load(...)`
+    and persists it through the current file-scoped IndexedDB provider, with no
+    localStorage migration, URL parsing, or page reload
+  - this is a local demo-document reset, not a Factory action or CRDT clear
+    publication
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`
 
 `controllers/element-selection.ts`
@@ -428,9 +537,10 @@ Import boundary:
 
 `controllers/scene-tree.ts`
 
-- `changeElementComputedData(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
+- `updateSelectedElementProperties(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
   - numeric keys (`x`, `y`, `width`, `height`, `rotation`) reject non-finite values
-  - structured keys (for example `fills`) route as-is to runtime schema validation
+  - structured keys (for example `fills`) route through the same plural
+    canonical property replacement and runtime schema validation
 
 ## Input and Feature Trigger Map
 
@@ -491,6 +601,8 @@ Feature registry (`src/features/index.ts`):
   - `resolveCanvasHierarchyTargetAtClientPos`
   - `elementApis.getMousePosInWorkspace` / `isElementLocked`
   - `elementApis.getElementPosition` / `setElementPositions` / `hasMovedBeyondThreshold`
+  - `elementApis.normalizeGroupGeometryForElements` once at gesture
+    finalization
 
 - `delete-element`
 
@@ -527,6 +639,9 @@ Feature registry (`src/features/index.ts`):
 - `pen-tool`
 
   - `elementApis` vector APIs
+  - `elementApis.discardTransientVectorPreviews` only from forced-rollback
+    `onCancel`; ordinary `commit-current` interruption finalizes through
+    `onEnd`
   - `selectionApis.selectVectorPoint` / `selectVectorSegment` and channel readers
   - `systemContextApis` path-editing, hover point, and compatibility point-state APIs
   - `cursorApis` for hover cursor feedback

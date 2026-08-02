@@ -59,10 +59,10 @@ test('Turbo uses exact workspace task relationships generated from manifests', (
   const turbo = readJSON('turbo.json')
 
   assert.deepEqual(turbo.globalEnv, [
-    'ASYRA_DESIGN_APP_URL',
-    'ASYRA_DESIGN_COLLABORATION_WS_HOST',
-    'ASYRA_DESIGN_COLLABORATION_WS_PORT',
-    'VITE_ASYRA_DESIGN_COLLABORATION_WS_URL'
+    'APP_URL',
+    'COLLABORATION_WS_HOST',
+    'COLLABORATION_WS_PORT',
+    'VITE_COLLABORATION_WS_URL'
   ])
 
   for (const [packageName, manifest] of manifests) {
@@ -102,18 +102,60 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
   assert.match(rootManifest.scripts['test:ci'], /test:scripts/)
 })
 
-test('clean, CI, E2E, and Vercel include the collaboration integration gates', () => {
+test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
+  const rootManifest = readJSON('package.json')
+  const appReadme = readText('apps/asyra-design/README.md')
+
+  assert.equal(
+    rootManifest.scripts['dev:all'],
+    'yarn gen:turbo:check && node scripts/dev-all.js'
+  )
+  assert.match(appReadme, /yarn dev:all/)
+  assert.match(
+    appReadme,
+    /`dev:all` builds and starts.*workspace packages.*App\s+dev server only/is
+  )
+  assert.doesNotMatch(
+    appReadme,
+    /workspace packages,\s+the memory-only WebSocket reference server,\s+and the App dev server/i
+  )
+  assert.match(
+    appReadme,
+    /yarn workspace @asyra\/asyra-design collaboration:server/
+  )
+  assert.match(
+    appReadme,
+    /yarn workspace @asyra\/asyra-design collaboration:server:start/
+  )
+  assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
+  assert.match(appReadme, /required non-empty `fileId`/i)
+  assert.match(appReadme, /always starts Collaboration/i)
+  assert.match(appReadme, /browser-local IndexedDB document/i)
+  assert.match(
+    appReadme,
+    /Manual actions, Agent actions, Undo, Redo, accepted remote publications,[\s\S]*Reset persist through one serialized provider queue/i
+  )
+  assert.match(
+    appReadme,
+    /This reference persistence replaces no\s+production database/i
+  )
+  assert.doesNotMatch(appReadme, /no client persistence provider/i)
+})
+
+test('CI, E2E, and release validation own their bounded integration gates', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const vercel = readJSON('vercel.json')
   const ci = readText('.github/workflows/main.yml')
   const e2e = readText('.github/workflows/e2e.yml')
+  const releaseValidation = readText('scripts/release-validate.js')
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
   assert.equal(vercel.buildCommand, 'turbo run react:build')
   assert.match(ci, /yarn gen:turbo:check/)
   assert.match(ci, /yarn deps:validate/)
-  assert.match(ci, /yarn release:app:check --prod=asyra-design/)
+  assert.doesNotMatch(ci, /yarn release:app:check/)
   assert.match(e2e, /test:e2e:collaboration/)
+  assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
 test('E2E automation cancels superseded runs and installs only Chromium', () => {
@@ -134,10 +176,41 @@ test('E2E automation cancels superseded runs and installs only Chromium', () => 
 
 test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace build', () => {
   const runner = readText('scripts/run-e2e.sh')
+  const collaborationBuild = runner.indexOf('build:collaboration-server')
+  const collaborationStart = runner.indexOf('collaboration:server:start')
+  const collaborationReady = runner.indexOf(
+    'npx wait-on "http-get://${ASYRA_E2E_COLLABORATION_HEALTH_URL#http://}"'
+  )
+  const appStart = runner.indexOf(
+    'yarn workspace @asyra/asyra-design react:start'
+  )
 
   assert.match(runner, /yarn react:build/)
   assert.match(runner, /yarn workspace @asyra\/asyra-design react:start/)
   assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
+  assert.ok(
+    collaborationBuild >= 0,
+    'ordinary E2E must build its collaboration server'
+  )
+  assert.ok(
+    collaborationStart > collaborationBuild,
+    'ordinary E2E must start collaboration after its server build'
+  )
+  assert.ok(
+    collaborationReady > collaborationStart,
+    'ordinary E2E must wait for collaboration before App startup'
+  )
+  assert.match(
+    runner,
+    /npx wait-on "http-get:\/\/\$\{ASYRA_E2E_COLLABORATION_HEALTH_URL#http:\/\/\}"/,
+    'Collaboration readiness must use the server GET-only health contract'
+  )
+  assert.ok(
+    appStart > collaborationReady,
+    'ordinary E2E must start the App only after collaboration is ready'
+  )
+  assert.match(runner, /ASYRA_E2E_COLLABORATION_SERVER_PID/)
+  assert.match(runner, /kill "\$ASYRA_E2E_COLLABORATION_SERVER_PID"/)
 })
 
 test('CI isolates the render performance budget before parallel functional E2E', () => {
@@ -212,7 +285,7 @@ test('CI runs balanced AI correctness only for related changes or explicit dispa
   assert.match(e2e, /fetch-depth: 0/)
   assert.match(e2e, /node scripts\/balanced-ai-correctness-scope\.mjs/)
   assert.match(e2e, /run_balanced_ai_correctness/)
-  assert.match(e2e, /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS/)
+  assert.match(e2e, /RUN_BALANCED_AI_CORRECTNESS/)
 })
 
 test('collaboration follows the shared TypeScript library build convention', () => {
@@ -295,6 +368,12 @@ test('dev:all discovers collaboration and orders its Factory dependency first', 
     initialDirectories.indexOf('packages/factory') <
       initialDirectories.indexOf('packages/collaboration')
   )
+  assert.equal('serviceBuilds' in plan, false)
+  assert.equal('services' in plan, false)
+  assert.deepEqual(plan.app, {
+    dir: 'apps/asyra-design',
+    cmd: 'yarn react:start'
+  })
 })
 
 test('workspace version planning includes collaboration without changing files', () => {

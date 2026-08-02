@@ -164,7 +164,11 @@ Render bridge:
 - `registerRenderInteractionHandler(targetId: string | RegExp, registration: RenderInteractionHandlerRegistration): void`
 - `unregisterRenderInteractionHandler(targetId: string, eventType?: RenderInteractionEventType): void`
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
-  - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
+  - registration has exactly one delivery shape:
+    `{ name; channel; onChange(change) }` or
+    `{ name; channel; onBatch(readonlyChanges) }`
+  - `onBatch` receives each injected Factory batch once and in original order;
+    Core does not expand that route into single-change callbacks
 - `unregisterDataChannelObserver(name: string): boolean`
 - `registerSharedDataChannel(name, channel): void`
 - `unregisterSharedDataChannel(name): boolean`
@@ -187,16 +191,58 @@ Scene/model bridge:
 - `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: EVENT_OPTIONS): string`
 - `createElementInParent(data: CreateElementData, parentId: string, index?: number, options?: EVENT_OPTIONS): string`
 - `createElementsInParent(data: readonly CreateElementData[], parentId: string, index?: number, options?: EVENT_OPTIONS): readonly string[]`
-  - prepares every missing id through the same Core owner, invokes the injected
-    Scene Tree batch request without a retained event payload, and preserves
-    input order; the Scene Tree owner applies its validated next parent
-    membership without generic Setter cloning and publishes only the ordered
-    per-element add evidence; an empty input is inert
+  - this is the only plural ordinary creation API; scalar creation is its
+    batch-of-one convenience
+  - Core obtains the complete prepared Props property-graph batch and prepared
+    Scene insertion before it asks either owner to apply, then returns only an
+    isolated frozen ordered-ID result; an empty input is inert
+- `createElementsInParentFromCanonicalData(elements: readonly ElementRawData[], properties: readonly PropertyComponentRawData[], parentId: string, index?: number, options?: EVENT_OPTIONS): readonly string[]`
+  - Scene validates the detached canonical elements and issues the exact
+    element-slot-to-property relations; Core passes those relations unchanged
+    to the prepared Props exact property-graph batch before either owner
+    applies
+- `applyCanonicalChanges(changes: readonly CanonicalChange[]): void`
+  - coordinates one already validated ordered canonical request through the
+    existing origin-neutral Props and Scene Tree facades
+  - `CanonicalChange` is a closed union of `property-components`,
+    `element-data`, `hierarchy-moves`, `subtree-removal`, `subtree-restore`,
+    `element-creation`, and `element-removal`
+  - one `property-components` change may carry ordered structural record
+    mutations together with value updates; Core prepares and applies them as
+    one Props-owned mutation batch
+  - `subtree-restore` first asks Scene Tree to preflight hierarchy and relation
+    evidence with the referenced properties in `pending-restore` state, then
+    preflights and restores Props before Scene Tree applies and revalidates the
+    ordinary active-property contract
+  - the caller owns the one enclosing Factory transaction; Core does not parse
+    `SharedPublication`, start another transaction, or accept transport,
+    local/remote, suppression, publication, receipt, profiling, or
+    compatibility options
+  - owner rejection throws through the caller-owned transaction; no partial
+    observer evidence is released before Factory owner commit
 - `getElementComputedData(elementId: string): Record<string, unknown> | undefined`
+  - reads the current local projection only; the returned data is not canonical
+    property, history, collaboration, or persistence evidence
 - `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
 - `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
-- `refreshComputedDataFromProperty(elementId: string, propertyName: string, options?: EVENT_OPTIONS): void`
+- `removeElementsFromCanonicalData(removals: readonly CanonicalElementRemoval[], options?: EVENT_OPTIONS): readonly string[]`
+  - this is the origin-neutral exact flat-removal API; Core obtains the
+    prepared Scene removal and any prepared Props orphan-graph batch before
+    applying Scene then Props in the caller-owned transaction
+- `updateLocalComputedData(updates: readonly LocalComputedDataUpdate[]): void`
+- `patchLocalComputedData(updates: readonly LocalComputedDataPatchUpdate[]): void`
+- `projectLocalComputedDataFromPropertyIds(propertyIds: readonly string[]): void`
+  - these are mission-specific Core facades over the matching Scene Tree
+    batch APIs; a one-element request uses the same batch-of-one shape and an
+    empty batch is inert
+  - property-ID projection reads current canonical Props values through the
+    Scene-owned property-relation index; it is used when a local-only preview
+    must be replaced with the current canonical projection
+  - none of these APIs accepts `EVENT_OPTIONS`, mutates a property component,
+    enters a Factory transaction, or creates history, shared-channel,
+    Collaboration/CRDT, or persistence evidence
+  - successful semantic changes are delivered as ordinary local
+    `UPDATE_COMPUTED_DATA` or `UPDATE_COMPUTED_DATA_PATCH` event batches
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
 - `selectByChannel(channel: string, ids: string[], options?: EVENT_OPTIONS): void`
@@ -253,16 +299,21 @@ Managed property bridges:
 - `setUIProperty<T>(key: string, value: T): void`
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
-- `updatePropertyById<TFields>(propertyId: string, ...update: { [K in Extract<keyof TFields, string>]: [key: K, value: TFields[K], owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS] }[Extract<keyof TFields, string>]): void`
-  - app code may supply a local custom-field interface; existing builtin calls
-    retain their inferred source-compatible signature
-- `commitPropertyChanges(options?: EVENT_OPTIONS): void`
+- `updateElementProperties(updates: readonly ElementPropertyValuesUpdate[], options?: EVENT_OPTIONS): readonly string[]`
+  - replaces complete canonical property field values for one or many elements
+    after one resolved Scene target set and one prepared Props mutation batch
+- `patchElementProperties(patches: readonly ElementPropertyPatchUpdate[], options?: EVENT_OPTIONS): readonly string[]`
+  - applies typed ordered record set/remove deltas through the same prepared
+    owner boundary; both plural APIs return only isolated frozen ordered
+    element IDs
 - `defineSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (primary declaration API)
 - `defineSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
 - `registerSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (compatibility alias of `defineSystemProperty`)
 - `registerSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>` (compatibility alias)
 - `getSystemProperty<T>(key: string): T | undefined`
 - `setSystemProperty<T>(key: string, value: T): void`
+  - after a successful managed-state update, requests one ordinary frame from
+    the Core-bound Render instance; Render coalesces repeated requests
 - `getSystemPropertyObservable<T>(key: string): BehaviorSubject<T> | undefined`
 
 ## Package Export Map
@@ -275,19 +326,34 @@ Managed property bridges:
   `AiRuntimeCancelledResult`, `AiRuntimeFailedResult`, `AiRuntimeStage`, and
   `AiRuntimeFailureCode`
 - registry/actions: `createAiActionRegistry()`, `AiActionRegistry`,
-  `AiActionDefinition`, `AiActionSchema`, `AiActionSchemaResult`, and
-  `AiActionDescription`
-- provider: `AiProvider`, `AiProviderInput`, `AiProviderError`, and
+  `AiActionDefinition`, and `AiActionDescription`
+  - every definition has one JSON-compatible backend-facing `inputSchema` and
+    one app-owned `execute(args, { signal })`
+- provider: `AiProvider`, `AiProviderInput`, `AiActionBatch`,
+  `AiActionBatchAction`, `AiProviderError`, and
   `createGenericHttpAiProvider(...)`
-- preflight/execution: plan normalization and validation, permission evaluation,
-  confirmation, registered action execution, and transaction-wrapper helpers
-- evidence: `redactAiValue(...)`, `createAiRuntimeAudit(...)`, preview,
-  execution-summary, audit, and redaction types
+  - `AiProvider.requestActionBatch(input, { signal })` is the only provider
+    request and returns one server-prepared action batch identified by
+    `batchId`
+- action-batch resolution: the runtime instance exposes
+  `resolveAiActionBatch(batch, { signal })` and returns
+  `ResolvedAiActionBatch`; permission produces
+  `PermissionReadyAiActionBatch`
+  - Runtime checks only the small control envelope and registered action names
+  - Runtime never traverses, validates, normalizes, clones, or freezes action
+    arguments; permission and execution receive the exact server-prepared
+    arguments identity
+  - there is no top-level resolution helper, client model-preparation API,
+    compatibility wrapper, or alternate payload mode
+- evidence: `redactAiValue(...)`, `createAiRuntimeAudit(...)`, summary-only
+  `AiActionBatchPreview`, execution-summary, audit, and redaction types;
+  confirmation and terminal preview redact only bounded summaries and never
+  retain complete action arguments or geometry
 - importing the package is inert; apps explicitly compose the provider,
   context, actions, permission, confirmation, transaction, and owned resources
 - the generic HTTP adapter uses an app-selected HTTPS or same-origin endpoint;
   it reads no API key or implicit browser credential source
-- one runtime invocation performs provider planning before one accepted
+- one runtime invocation completes its provider request before one accepted
   transaction; provider retry never repeats a transaction or executor
 
 `@asyra/collaboration` (optional runtime)
@@ -302,7 +368,11 @@ Managed property bridges:
 - provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
   `ProviderFailure`, `PROVIDER_FAILURE_CODES`,
   `isProviderFailureCode(...)`, `createProviderIdentitySnapshot(...)`,
-  `InboundPublication`, `MemoryHub`, and `MemoryProvider`
+  `MemoryHub`, and `MemoryProvider`
+  - Provider exposes exactly one required ordered publication send path and one
+    required exclusive async receive path
+  - wire framing, grouping, encode/decode, queue capacity, and backpressure are
+    concrete Provider internals; they do not add framework publication modes
 - Awareness: `Awareness`, `AwarenessOptions`, validation/observation/state
   types, and collaboration `updateAwareness`, `leaveAwareness`,
   `expireAwareness`; `AwarenessStateInput` accepts app-selected JSON-safe
@@ -398,6 +468,9 @@ See `packages/collaboration.md` and
   configuring both providers is rejected
 - `setEngineProvider(provider)` stores a reversible instance-local provider
   without invoking it
+- `Render.getProjectedElementCount()` returns the exact number of ordinary
+  viewport RenderLayer entries as an O(1) read-only scalar; it exposes neither
+  the layer map nor engine objects
 - `MissingRenderEngineProviderError` and
   `InvalidRenderEngineProviderResultError` distinguish provider absence from an
   invalid provider result
@@ -447,10 +520,16 @@ See `packages/collaboration.md` and
 
 - `RenderEngine`, `RenderEngineProvider`
 - opaque `RenderEngineObjectHandle`, `RenderEngineResourceHandle`
-- lifecycle: `initialize`, `startFrameLoop`, `stopFrameLoop`, `destroy`
+- lifecycle: `initialize`, `requestFrame`, `cancelFrame`, `destroy`
+  - `requestFrame` has one one-shot scheduling slot; a delivered callback is
+    consumed before invocation, `cancelFrame` prevents the pending callback,
+    and concrete drawing occurs only through the explicit `flush` command
 - `RenderEngineInitializeResult.runtime`: opaque compatibility runtime identity
 - semantic command/query contracts: `RenderEngineCommand`,
   `RenderEngineCommandResult`, `RenderEngineQuery`, `RenderEngineQueryResult`
+- engine-neutral Graphics draw operations include ordered `poly` points with an
+  explicit close flag for one linear path; curved paths retain the ordered
+  move/line/Bézier operations
 - normalized interaction contracts: `RenderEngineInteractionEvent`,
   `RenderEngineInteractionListener`
 - capabilities: `RenderEngineCapabilities`,
@@ -465,7 +544,9 @@ See `packages/collaboration.md` and
 - `createPixiRenderEngine(): RenderEngine`: fresh engine creator used by the
   preset-owned `2D` provider
 - owns Pixi application, display objects, mesh/graphics translation, resources,
-  surface events, frame loop, and deterministic concrete cleanup
+  surface events, one reusable standalone scheduling ticker, and deterministic
+  concrete cleanup; it never starts `Application.ticker`, and only explicit
+  `flush` invokes `Application.render()`
 - does not expose framework state, render layers, or product feature behavior
 
 `@asyra/factory`
@@ -476,6 +557,8 @@ See `packages/collaboration.md` and
   - `updateTransaction(event)`
   - `endTransaction(options?)`
   - `undo()`, `redo()`
+  - `getUndoHistoryDepth()` (read-only exact depth of this Factory instance's
+    local undo history; it does not expose mutable history entries)
   - `runRemoteTransaction(callback)` (rollbackable, non-undoable remote origin)
   - `applyRemoteEvent(event, apply)` (one detached event forwarded unchanged to
     the registered state-owner apply callback)
@@ -484,6 +567,11 @@ See `packages/collaboration.md` and
   - `registerTransactionInverter(eventName, inverter)`
   - `registerTransactionValidator(name, validator)`
   - `subscribeToTransactionStatus(listener): () => void`
+  - registered bulk actions use this same journal and Undo stack; Factory does
+    not expose an AI/bulk-specific forward/inverse history artifact or a
+    parallel applied-result payload mirror
+  - successful state-owner apply does not invoke a second document
+    save/equality/finalize/evidence-clone pass to reconstruct History
 - default-singleton registration helpers:
   - `registerTransactionInverter(eventName, inverter)`
   - `registerTransactionValidator(name, validator)`
@@ -498,8 +586,14 @@ See `packages/collaboration.md` and
   - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
   - `subscribeToSharedDelivery(handler)` (detached delivery metadata for
     local projection observation; observer failure cannot alter commit)
-  - `subscribeToSharedPublication(handler)` (one detached ordered batch per
-    synchronous immediate delivery action or committed transaction-end batch)
+  - `subscribeToSharedPublication(handler)` (one immutable minimal
+    `SharedPublication` per synchronous immediate delivery action or committed
+    transaction-end batch; the hierarchy is publication → ordered slices →
+    channel batches → ordered payload deliveries; `artifactId` is opaque
+    transport correlation and not a local History-artifact reference)
+  - ordinary transaction observer evidence is buffered until transaction-owner
+    finalization succeeds, then released once as one ordered batch across owner
+    evidence batches; rollback or owner-finalization failure releases no prefix
 
 `@asyra/props-manager`
 
@@ -507,6 +601,12 @@ See `packages/collaboration.md` and
 - load pipeline: `validateLoadData(raw)` returns an owner-issued artifact;
   `applyValidatedLoad(result)` consumes that artifact once without revalidation
 - manager id-first helpers: `getPropertyById(propertyId)`, `updatePropertyById(propertyId, key, value, options?)`
+- `resolvePropertyAncestorIds(propertyIds: readonly string[]): readonly string[]`
+  - read-only, ordered, deduplicated closure containing each requested active
+    property ID and every Props-owned ancestor reached through the
+    property-child graph
+  - invalid IDs, relationship cycles, or inconsistent relationship indexes
+    reject without changing Props state
 - registries: `elementPropertyRegistry`, `stateRegistry`
 - schema APIs: `registerPropertySchema`, `getPropertySchema`, `propertySchemaRegistry`
 - property-component APIs: `registerPropertyComponent`, `getPropertyComponent`, `propertyComponentRegistry`
@@ -519,6 +619,44 @@ See `packages/collaboration.md` and
   `applyValidatedLoad(result)` consumes that artifact once without revalidation
 - `componentRegistry`
 - `createDynamicComponent`, `createDynamicPropsClass`, `createElement`
+- ordinary descriptor creation:
+  - `addNewElement(...)`
+  - `addNewElements(...)` (`addNewElement` delegates to this same ordinary
+    batch owner as a batch of one)
+- lifecycle preparation:
+  - `prepareElementInsertion(...)` validates ordinary Scene insertion evidence
+  - `prepareCanonicalElementInsertion(...)` validates detached canonical
+    insertion and issues exact `ownerRelations`
+  - `prepareCanonicalElementRemoval(...)` and `prepareSubtreeRemoval(...)`
+    validate exact flat or child-first removal evidence without inspecting
+    active Props state
+  - `applyPreparedElementMutation(...)` is the one Scene map, raw-state,
+    relation, and hierarchy apply owner for those prepared mutations
+  - `preflightLoadPropertyRelations(...)` validates Scene relations against
+    detached validated Props data before load apply
+- local computed projection:
+  - `updateLocalComputedData(updates: readonly LocalComputedDataUpdate[]): void`
+  - `patchLocalComputedData(updates: readonly LocalComputedDataPatchUpdate[]): void`
+  - `projectLocalComputedDataFromPropertyIds(propertyIds: readonly string[]): void`
+  - all three accept only plural batch shapes, accept no `EVENT_OPTIONS`, and
+    emit only ordinary local
+    `UPDATE_COMPUTED_DATA` or `UPDATE_COMPUTED_DATA_PATCH` event batches
+  - direct value/patch mutation preflights the complete batch before mutation;
+    property-ID projection resolves current canonical values through the
+    complete ordered relation closure
+  - property-ID projection resolves the ordered Props ancestor closure and
+    replaces affected local computed values from current canonical Props; it
+    does not mutate canonical data
+  - canonical `UPDATE_PROPERTY` evidence is expanded through Props
+    `resolvePropertyAncestorIds(...)`, then Scene's component-to-element
+    reverse relation index projects the current canonical property values to
+    every related element
+  - computed data is local Render/UI projection only; it is excluded from
+    Scene serialization, Factory history/rollback evidence, shared channels,
+    Collaboration/CRDT publications, and persistence
+- direct Scene removal retains Props; a complete element-plus-property
+  lifecycle is coordinated by Core from the Scene-issued release/orphan
+  evidence. No Scene API is selected by local/remote origin.
 
 `@asyra/selection`
 
@@ -579,7 +717,11 @@ See `packages/collaboration.md` and
 - preset completion does not start Core or publish runtime readiness; the first
   `core.start()` remains the permanent composition closure/runtime owner
 - default render wiring lives here:
-  - register default render YJS observers (scene-tree + selection)
+  - register default shared-data observers for canonical scene-tree structure
+    and selection
+  - register one ordinary local computed-event batch consumer that projects
+    each computed change to Render and flushes affected UI Context entries once
+    per observer batch; no shared computed observer remains
   - register default render system subscriptions (`zoom`, `viewportPosition`)
 - exports `InputSystemEvents` and `PresetEventNames` constants for preset-owned event namespaces
 - exports `SelectionChannels` and `SelectionActions` for default canvas selection profile contracts

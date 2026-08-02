@@ -1,7 +1,6 @@
 import type { SharedPublication } from '@asyra/factory'
 
 import { Awareness, type AwarenessStateInput } from './awareness'
-import { clonePublication } from './cloning'
 import type {
   CollaborationFactory,
   CollaborationResourceOwnership,
@@ -9,11 +8,7 @@ import type {
   CreateCollaborationInput,
   ProcessRemotePublication
 } from './composition'
-import type {
-  InboundPublication,
-  Provider,
-  ProviderAwarenessMessage
-} from './provider'
+import type { Provider, ProviderAwarenessMessage } from './provider'
 
 export class DisposalError extends Error {
   readonly failures: readonly unknown[]
@@ -52,13 +47,11 @@ export type CollaborationPublicationOutcome =
       direction: 'remote'
       status: 'processed'
       publicationId: string
-      fromActorId?: string
     }>
   | Readonly<{
       direction: 'remote'
       status: 'process-failed'
       publicationId: string
-      fromActorId?: string
       error: unknown
     }>
 
@@ -104,7 +97,6 @@ const define = (input: CreateCollaborationInput): Definition => {
   if (typeof input.processRemotePublication !== 'function') {
     throw new Error('[collaboration] processRemotePublication is required')
   }
-
   return Object.freeze({
     documentId,
     roomId,
@@ -162,6 +154,7 @@ export class Collaboration {
   >()
   private outboundQueue: Promise<void> = Promise.resolve()
   private inboundQueue: Promise<void> = Promise.resolve()
+  private connectionGeneration = 0
   private observersBound = false
   private started = false
   private disposed = false
@@ -196,6 +189,7 @@ export class Collaboration {
 
   async disconnect(): Promise<void> {
     this.requireUsable()
+    this.invalidateConnection()
     try {
       await this.provider?.disconnect()
     } finally {
@@ -210,6 +204,7 @@ export class Collaboration {
       await this.start()
       return
     }
+    this.invalidateConnection()
     await this.provider.reconnect()
     if (!this.disposed) this.started = true
   }
@@ -264,6 +259,7 @@ export class Collaboration {
   dispose(): Promise<void> {
     if (this.disposePromise) return this.disposePromise
     this.disposed = true
+    this.invalidateConnection()
     this.disposePromise = this.disposeOwnedResources()
     return this.disposePromise
   }
@@ -284,9 +280,9 @@ export class Collaboration {
     )
     if (!this.provider) return
     this.addDisposer(
-      this.provider.onPublication((inbound) => {
-        this.scheduleInbound(inbound)
-      })
+      this.provider.onPublication((publication) =>
+        this.scheduleInbound(publication)
+      )
     )
     this.addDisposer(
       this.provider.onAwareness((message) => {
@@ -301,6 +297,7 @@ export class Collaboration {
     this.addDisposer(
       this.provider.onStatusChange((status) => {
         if (status === 'disconnected' || status === 'failed') {
+          this.invalidateConnection()
           this.awareness.clearRemote('disconnect')
         }
       })
@@ -313,61 +310,90 @@ export class Collaboration {
 
   private scheduleOutbound(publication: SharedPublication): void {
     if (this.disposed) return
-    const detached = clonePublication(publication)
-    this.outboundQueue = this.outboundQueue.then(async () => {
-      if (this.disposed) return
-      if (!this.provider) {
-        this.emitOutcome({
-          direction: 'local',
-          status: 'skipped',
-          publicationId: detached.publicationId
-        })
-        return
-      }
-      try {
-        await this.provider.sendPublication(detached)
-        this.emitOutcome({
-          direction: 'local',
-          status: 'sent',
-          publicationId: detached.publicationId
-        })
-      } catch (error) {
-        this.emitOutcome({
-          direction: 'local',
-          status: 'send-failed',
-          publicationId: detached.publicationId,
-          error
-        })
-      }
-    })
+    const generation = this.connectionGeneration
+    this.outboundQueue = this.outboundQueue.then(() =>
+      this.dispatchOutboundPublication(publication, generation)
+    )
   }
 
-  private scheduleInbound(inbound: InboundPublication): void {
+  private async dispatchOutboundPublication(
+    publication: SharedPublication,
+    generation: number
+  ): Promise<void> {
     if (this.disposed) return
-    const publication = clonePublication(inbound.publication)
-    const context = Object.freeze({
-      ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
-    })
-    this.inboundQueue = this.inboundQueue.then(async () => {
-      if (this.disposed) return
-      try {
-        await this.processRemotePublication(publication, context)
-        this.emitOutcome({
-          direction: 'remote',
-          status: 'processed',
-          publicationId: publication.publicationId,
-          ...context
-        })
-      } catch (error) {
-        this.emitOutcome({
-          direction: 'remote',
-          status: 'process-failed',
-          publicationId: publication.publicationId,
-          ...context,
-          error
-        })
+    if (
+      !this.provider ||
+      !this.started ||
+      generation !== this.connectionGeneration ||
+      this.provider.getStatus() !== 'connected'
+    ) {
+      this.emitOutcome({
+        direction: 'local',
+        status: 'skipped',
+        publicationId: publication.publicationId
+      })
+      return
+    }
+    try {
+      await this.provider.sendPublication(publication)
+      this.emitOutcome({
+        direction: 'local',
+        status: 'sent',
+        publicationId: publication.publicationId
+      })
+    } catch (error) {
+      this.emitOutcome({
+        direction: 'local',
+        status: 'send-failed',
+        publicationId: publication.publicationId,
+        error
+      })
+    }
+  }
+
+  private scheduleInbound(publication: SharedPublication): Promise<void> {
+    if (this.disposed || !this.started) {
+      return Promise.reject(
+        new Error('[collaboration] collaboration is not accepting publications')
+      )
+    }
+    const processing = this.inboundQueue.then(async () => {
+      if (this.disposed || !this.started) {
+        throw new Error(
+          '[collaboration] collaboration is not accepting publications'
+        )
       }
+      await this.processInboundPublication(publication)
     })
+    this.inboundQueue = processing.catch(() => undefined)
+    return processing
+  }
+
+  private async processInboundPublication(
+    publication: SharedPublication
+  ): Promise<void> {
+    try {
+      await this.processRemotePublication(publication)
+      this.emitOutcome({
+        direction: 'remote',
+        status: 'processed',
+        publicationId: publication.publicationId
+      })
+    } catch (error) {
+      this.emitOutcome({
+        direction: 'remote',
+        status: 'process-failed',
+        publicationId: publication.publicationId,
+        error
+      })
+      throw error
+    }
+  }
+
+  private invalidateConnection(): void {
+    if (!this.started) return
+    this.started = false
+    this.connectionGeneration += 1
   }
 
   private emitOutcome(outcome: CollaborationPublicationOutcome): void {

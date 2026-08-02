@@ -1,6 +1,7 @@
 import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
 import { initAreaSelection } from './capabilities/init-area-selection'
+import { initAiDrawingProgress } from './capabilities/init-ai-drawing-progress'
 import { initGradientFillEditing } from './capabilities/init-gradient-fill-editing'
 import { initVectorIconData } from './capabilities/init-vector-icon-data'
 import { initLoadDiagnostics } from './diagnostics/init-load-diagnostics'
@@ -10,42 +11,24 @@ import { initPathEditingContinuation } from './derived-state/init-path-editing-c
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
-import { hierarchyApis } from '../common-apis/hierarchy'
-import { strokeApis } from '../common-apis/strokes'
+import { viewportApis } from '../common-apis/viewport'
 import {
-  composeAiAgentRuntime,
-  type AiRuntimeComposition,
-  type ComposeAiAgentRuntimeOptions
-} from '../ai/composition'
-import type { AiAgentFeatureRuntime } from '../features/ai-agent'
-import {
-  createAsyraDesignAiConversationController,
-  type AsyraDesignAiConversationController
+  createAiConversationController,
+  type AiConversationController
 } from '../ai/conversation'
-import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
-import { createAsyraDesignAiStartup, type AsyraDesignAiMode } from '../ai/mode'
-import type { AsyraDesignAiDeliveryMode } from '../ai/actions'
-import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
-
-export interface InitAppOptions {
-  ai?: ComposeAiAgentRuntimeOptions
-  aiDeliveryMode?: AsyraDesignAiDeliveryMode
-  aiMode?: AsyraDesignAiMode
-}
+import type { AiConfirmationBroker } from '../ai/confirmation'
+import { createAiStartup, type AiStartup } from '../ai/startup'
+import type { AiHistoryProjection } from '../common-apis/history'
+import {
+  attachAiDrawingPerformanceRuntimeEvidence,
+  getActiveAiDrawingPerformanceProfile
+} from './performance/ai-drawing-performance-profile'
 
 export interface AppInitialization {
-  readonly aiConfirmation: AsyraDesignAiConfirmationBroker | null
-  readonly aiConversation: AsyraDesignAiConversationController | null
-  readonly aiHistory: AsyraDesignAiHistoryProjection | null
-  readonly aiMode: AsyraDesignAiMode
-  readonly aiRuntime: AiRuntimeComposition
+  readonly aiConfirmation: AiConfirmationBroker
+  readonly aiConversation: AiConversationController
+  readonly aiHistory: AiHistoryProjection
   dispose(): Promise<void>
-}
-
-const asAiAgentFeatureRuntime = (
-  runtime: AiRuntimeComposition['runtime']
-): AiAgentFeatureRuntime | undefined => {
-  return runtime ?? undefined
 }
 
 /**
@@ -71,7 +54,7 @@ const asAiAgentFeatureRuntime = (
  * }
  * ```
  */
-export const initApp = (options: InitAppOptions = {}): AppInitialization => {
+export const initApp = (): AppInitialization => {
   applyPreset(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
@@ -87,69 +70,78 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
 
   // Capability init.
   initAreaSelection()
+  initAiDrawingProgress()
   initGradientFillEditing()
   initVectorIconData()
 
   // Foundation init.
   initInputSystem()
-  const aiStartup = options.ai
-    ? {
-        confirmation: null,
-        history: null,
-        mode: 'disabled' as const,
-        runtimeOptions: options.ai
-      }
-    : createAsyraDesignAiStartup(
-        options.aiMode ?? 'disabled',
-        undefined,
-        options.aiDeliveryMode
-      )
-  const aiRuntime = composeAiAgentRuntime(aiStartup.runtimeOptions)
-  const aiFeatureRuntime = asAiAgentFeatureRuntime(aiRuntime.runtime)
-  // Initialize feature-system for application-level features
-  const initializedFeatures = initFeatures({
-    ai: {
-      enabled: aiRuntime.enabled,
-      providerEnabled:
-        aiRuntime.providerEnabled && aiFeatureRuntime !== undefined,
-      runtime: aiFeatureRuntime
-    }
-  })
-  const aiConversation = initializedFeatures?.ai
-    ? createAsyraDesignAiConversationController({
-        ...(aiStartup.confirmation
-          ? {
-              confirmation: aiStartup.confirmation
-            }
-          : {}),
-        ...(aiStartup.history
-          ? {
-              history: aiStartup.history
-            }
-          : {}),
-        feature: initializedFeatures.ai.api,
-        getElementType: (elementId) => elementApis.getElementType(elementId)
-      })
-    : null
-
-  if (import.meta.env.DEV) {
-    window.__AsyraE2E__ = {
-      elementApis,
-      hierarchyApis,
-      strokeApis
-    }
+  const aiStartup: AiStartup = createAiStartup()
+  let initializedFeatures: ReturnType<typeof initFeatures>
+  try {
+    initializedFeatures = initFeatures({
+      aiRuntime: aiStartup.runtime
+    })
+  } catch (error) {
+    aiStartup.history.dispose()
+    void Promise.allSettled([
+      aiStartup.confirmation.dispose(),
+      aiStartup.runtime.dispose()
+    ])
+    throw error
   }
+  const aiFeature = initializedFeatures.ai
+  const aiConversation = createAiConversationController({
+    confirmation: aiStartup.confirmation,
+    history: aiStartup.history,
+    feature: aiFeature.api,
+    getElementType: (elementId) => elementApis.getElementType(elementId)
+  })
+
+  const performanceProfile = getActiveAiDrawingPerformanceProfile()
+  const detachPerformanceRuntimeEvidence = performanceProfile
+    ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
+        readCanonicalElementCount: () =>
+          Math.max(
+            0,
+            core.deps.sceneTree.getAllElements().size -
+              core.deps.sceneTree.workspaceList.length
+          ),
+        readCanonicalElements: () =>
+          Array.from(core.deps.sceneTree.getAllElements().entries()).map(
+            ([id, element]) => ({
+              computed: element.getAllComputedData(),
+              id,
+              raw: element.save(),
+              rendered: Boolean(core.deps.render.getElementById(id)),
+              type: String(element.get('type'))
+            })
+          ),
+        readCanonicalOwnerSnapshot: () => ({
+          props: core.deps.props.save(),
+          sceneTree: core.deps.sceneTree.save()
+        }),
+        readHistoryDepth: () => core.deps.factory.getUndoHistoryDepth(),
+        readRenderProjectionElementCount: () =>
+          core.deps.render.getProjectedElementCount(),
+        readViewportPosition: () => viewportApis.getPosition(),
+        readZoom: () => viewportApis.getScale(),
+        subscribeToTransactionStatus: (subscriber) =>
+          core.deps.factory.subscribeToTransactionStatus(subscriber)
+      })
+    : undefined
 
   let disposal: Promise<void> | null = null
   const dispose = (): Promise<void> => {
     if (!disposal) {
       disposal = (async () => {
         window.removeEventListener('pagehide', handlePageHide)
-        await aiConversation?.dispose()
-        await aiStartup.confirmation?.dispose()
-        aiStartup.history?.dispose()
-        initializedFeatures?.ai?.dispose()
-        await aiRuntime.dispose()
+        detachPerformanceRuntimeEvidence?.()
+        await aiConversation.dispose()
+        await aiStartup.confirmation.dispose()
+        aiStartup.history.dispose()
+        aiFeature.dispose()
+        await aiStartup.runtime.dispose()
       })()
     }
     return disposal
@@ -157,16 +149,12 @@ export const initApp = (options: InitAppOptions = {}): AppInitialization => {
   const handlePageHide = () => {
     void dispose()
   }
-  if (aiStartup.mode === 'mock') {
-    window.addEventListener('pagehide', handlePageHide, { once: true })
-  }
+  window.addEventListener('pagehide', handlePageHide, { once: true })
 
   return Object.freeze({
     aiConfirmation: aiStartup.confirmation,
     aiConversation,
     aiHistory: aiStartup.history,
-    aiMode: aiStartup.mode,
-    aiRuntime,
     dispose
   })
 }

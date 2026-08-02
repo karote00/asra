@@ -8,7 +8,8 @@ import {
 } from '../define-property-component'
 import {
   BasePropertyComponent,
-  getPropertyComponent
+  getPropertyComponent,
+  getPropertyComponentCanonicalChildRelation
 } from '@asyra/props-manager'
 import propsManager from '@asyra/props-manager'
 import {
@@ -67,6 +68,37 @@ describe('definePropertyComponent', () => {
     })
 
     expect(getPropertyComponent(TEST_TYPE)).toBe(TestPropertyComponent)
+  })
+
+  it('registers canonical child metadata for a custom property component constructor', () => {
+    definePropertyComponent({
+      type: TEST_CHILD_TYPE,
+      defaults: {
+        x: 0,
+        y: 0
+      }
+    })
+
+    definePropertyComponent({
+      type: TEST_TYPE,
+      constructor: TestPropertyComponent,
+      canonicalChildren: {
+        key: 'children',
+        childType: TEST_CHILD_TYPE,
+        mode: 'ids-or-objects',
+        collection: 'array-or-record'
+      }
+    } as Parameters<typeof definePropertyComponent>[0])
+
+    expect(getPropertyComponentCanonicalChildRelation(TEST_TYPE)).toMatchObject(
+      {
+        key: 'children',
+        childType: TEST_CHILD_TYPE,
+        mode: 'ids-or-objects',
+        collection: 'array-or-record'
+      }
+    )
+    expect(getPropertyChildRelations(TEST_TYPE)).toEqual([])
   })
 
   it('should throw on duplicate property component registration', () => {
@@ -389,6 +421,7 @@ describe('property child relations', () => {
       type: TEST_TYPE,
       childIds: ['relation-child']
     } as Partial<PropertyComponentRawData>)
+    propsManager.addToMap(parent)
     const listener = vi.fn()
     parent.on(listener)
 
@@ -396,7 +429,10 @@ describe('property child relations', () => {
       'x' as keyof PropertyComponentInstanceDataTypes,
       6 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
     )
-    expect(listener).toHaveBeenCalledOnce()
+    expect(listener).not.toHaveBeenCalled()
+    expect(propsManager.resolvePropertyAncestorIds(['relation-child'])).toEqual(
+      ['relation-child', 'relation-parent']
+    )
   })
 
   it('fails before mutation for active and replay-retained parents and invalid relation operations', () => {

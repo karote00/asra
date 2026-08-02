@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AsyraDesignAiActionError,
   AsyraDesignAiActionNames,
-  createAsyraDesignAiActions
+  createAsyraDesignAiActions,
+  type AsyraDesignAiActionApis
 } from '../actions'
 
-const actionApis = () => ({
+const actionApis = (): AsyraDesignAiActionApis => ({
   changeElementGeometry: vi.fn(),
   createCompositionElement: vi.fn(),
   createCompositionElements: vi.fn(),
@@ -14,8 +15,7 @@ const actionApis = () => ({
   getElementFillColor: vi.fn(),
   getElementStrokeColor: vi.fn(),
   getElementType: vi.fn(),
-  groupElements: vi.fn(),
-  removeSubtree: vi.fn(),
+  removeSubtree: vi.fn(() => ({ removed: [] })),
   scaleVectorElementGeometry: vi.fn(() => true),
   selectElements: vi.fn(),
   setElementVisible: vi.fn(() => true),
@@ -23,7 +23,7 @@ const actionApis = () => ({
   updateElementStrokeColor: vi.fn()
 })
 
-const actionByName = (name: string, apis: ReturnType<typeof actionApis>) => {
+const actionByName = (name: string, apis: AsyraDesignAiActionApis) => {
   const action = createAsyraDesignAiActions(apis).find(
     (candidate) => candidate.name === name
   )
@@ -33,8 +33,12 @@ const actionByName = (name: string, apis: ReturnType<typeof actionApis>) => {
   return action
 }
 
+const executionContext = () => ({
+  signal: new AbortController().signal
+})
+
 describe('Asyra Design AI actions', () => {
-  it('publishes one deterministic bounded action catalog', () => {
+  it('publishes one deterministic backend-facing action catalog', () => {
     const actions = createAsyraDesignAiActions(actionApis())
 
     expect(actions.map(({ name }) => name)).toEqual([
@@ -46,35 +50,22 @@ describe('Asyra Design AI actions', () => {
       AsyraDesignAiActionNames.SELECT_ELEMENTS
     ])
     expect(Object.isFrozen(actions)).toBe(true)
-    expect(actions.every((action) => Object.isFrozen(action))).toBe(true)
+    actions.forEach((action) => {
+      expect(Object.isFrozen(action)).toBe(true)
+      expect(action.inputSchema).toEqual(expect.any(Object))
+      expect(action).not.toHaveProperty('schema')
+      expect(action).not.toHaveProperty('prepare')
+    })
   })
 
-  it('returns App-owned drawing-detail option ids without provider wording or mutation', async () => {
+  it('returns App-owned drawing-detail options without mutating the document', async () => {
     const apis = actionApis()
     const action = actionByName(
       AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       apis
     )
 
-    expect(action.schema.parse({})).toEqual({
-      success: true,
-      value: {}
-    })
-    expect(
-      action.schema.parse({
-        maximumLabel: 'Provider-controlled warning'
-      })
-    ).toMatchObject({
-      success: false
-    })
-    await expect(
-      action.execute(
-        {},
-        {
-          signal: new AbortController().signal
-        }
-      )
-    ).resolves.toEqual({
+    await expect(action.execute({}, executionContext())).resolves.toEqual({
       action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       clarification: {
         kind: 'drawing-detail',
@@ -87,76 +78,7 @@ describe('Asyra Design AI actions', () => {
     })
   })
 
-  it('strictly parses visibility arguments without coercion or extra keys', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
-      actionApis()
-    )
-
-    expect(
-      action.schema.parse({
-        elementId: 'shape-1',
-        visible: false
-      })
-    ).toEqual({
-      success: true,
-      value: {
-        elementId: 'shape-1',
-        visible: false
-      }
-    })
-    expect(
-      action.schema.parse({
-        elementId: 'shape-1',
-        visible: 'false'
-      })
-    ).toMatchObject({
-      success: false
-    })
-    expect(
-      action.schema.parse({
-        elementId: 'shape-1',
-        visible: false,
-        arbitraryCode: 'run()'
-      })
-    ).toMatchObject({
-      success: false
-    })
-  })
-
-  it('bounds and validates selection ids without silently repairing them', () => {
-    const action = actionByName(
-      AsyraDesignAiActionNames.SELECT_ELEMENTS,
-      actionApis()
-    )
-
-    expect(
-      action.schema.parse({
-        elementIds: ['shape-1', 'shape-2']
-      })
-    ).toEqual({
-      success: true,
-      value: {
-        elementIds: ['shape-1', 'shape-2']
-      }
-    })
-    expect(
-      action.schema.parse({
-        elementIds: ['shape-1', 'shape-1']
-      })
-    ).toMatchObject({
-      success: false
-    })
-    expect(
-      action.schema.parse({
-        elementIds: []
-      })
-    ).toMatchObject({
-      success: false
-    })
-  })
-
-  it('executes only through injected common API boundaries', async () => {
+  it('executes server-prepared visibility and selection through common APIs', async () => {
     const apis = actionApis()
     const visibility = actionByName(
       AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
@@ -166,9 +88,6 @@ describe('Asyra Design AI actions', () => {
       AsyraDesignAiActionNames.SELECT_ELEMENTS,
       apis
     )
-    const context = Object.freeze({
-      signal: new AbortController().signal
-    })
 
     await expect(
       visibility.execute(
@@ -176,36 +95,35 @@ describe('Asyra Design AI actions', () => {
           elementId: 'shape-1',
           visible: false
         },
-        context
+        executionContext()
       )
     ).resolves.toEqual({
       action: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
-      elementId: 'shape-1',
-      changed: true
+      changed: true,
+      elementId: 'shape-1'
     })
     await expect(
       selection.execute(
         {
           elementIds: ['shape-1', 'shape-2']
         },
-        context
+        executionContext()
       )
     ).resolves.toEqual({
       action: AsyraDesignAiActionNames.SELECT_ELEMENTS,
       selectedCount: 2
     })
-
     expect(apis.setElementVisible).toHaveBeenCalledWith('shape-1', false, {
-      undoable: true,
-      sharedDelivery: 'transaction-end'
+      sharedDelivery: 'immediate',
+      undoable: true
     })
     expect(apis.selectElements).toHaveBeenCalledWith(['shape-1', 'shape-2'], {
-      undoable: true,
-      sharedDelivery: 'transaction-end'
+      sharedDelivery: 'immediate',
+      undoable: true
     })
   })
 
-  it('checks abort before requesting any common API mutation', async () => {
+  it('checks abort before requesting a common API mutation', async () => {
     const apis = actionApis()
     const action = actionByName(
       AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
@@ -220,12 +138,11 @@ describe('Asyra Design AI actions', () => {
           elementId: 'shape-1',
           visible: false
         },
-        Object.freeze({
+        {
           signal: controller.signal
-        })
+        }
       )
     ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
     expect(apis.setElementVisible).not.toHaveBeenCalled()
-    expect(apis.selectElements).not.toHaveBeenCalled()
   })
 })

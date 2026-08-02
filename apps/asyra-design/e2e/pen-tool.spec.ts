@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   getElementCount,
@@ -7,12 +8,15 @@ import {
   clickCanvas,
   dragOnCanvas,
   getActiveTool,
-  getCanvasPosition
+  getCanvasPosition,
+  getCoreDocumentDigest,
+  getCurrentDocumentFileId,
+  getPersistedDocumentDigest
 } from './test-utils'
 
 test.describe('Pen Tool - Editing Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -46,9 +50,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           if (!selected) {
             return null
@@ -80,9 +83,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.click(firstClientPos.x, firstClientPos.y)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    const firstPointRuntime = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const firstPointRuntime = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
       const vectorId = core?.getSystemProperty?.('pathEditingVectorId') ?? null
       return {
@@ -98,9 +100,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     const readFirstSegmentState = async (secondPointId?: string) =>
       page.evaluate(
-        ({ vectorId, firstPointId, secondPointId }) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        async ({ vectorId, firstPointId, secondPointId }) => {
+          const core = (await import('../src/testing/runtime-access')).core
           const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
           const computed = element?.getAllComputedData?.() ?? {}
           const points = computed.points ?? {}
@@ -210,9 +211,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await page.mouse.up()
 
-    const runtime = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const runtime = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
 
       return {
@@ -241,9 +241,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return selected?.target ?? null
         })
@@ -253,9 +252,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(async () =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return {
             pathEditingVectorId:
               core?.getSystemProperty?.('pathEditingVectorId') ?? null,
@@ -272,9 +270,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(async () =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       )
@@ -316,9 +313,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     })
     await page.mouse.up()
 
-    const runtime = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const runtime = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
       const zoom = core?.getSystemProperty?.('zoom') ?? 1
       const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
@@ -359,9 +355,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(expectedP1Client.x, expectedP1Client.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
           return hovered?.target ?? null
         })
@@ -389,9 +384,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     const dragEndPos = await getCanvasPosition(page, 0.1, 0.25)
     await dragOnCanvas(page, 0.18, 0.32, 0.1, 0.25, 8)
 
-    const selectedPointId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const selectedPointId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
       return selected?.pointId ?? null
     })
@@ -403,9 +397,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(dragEndPos.x, dragEndPos.y)
     await expect
       .poll(async () => {
-        const value = await page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        const value = await page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return {
             selectedPointId: selected?.pointId ?? null,
@@ -433,9 +426,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return selected?.target ?? null
         })
@@ -469,9 +461,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return selected?.target ?? null
         })
@@ -497,9 +488,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('v')
     await expect.poll(() => getActiveTool(page)).toBe('select')
 
-    const beforeMove = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeMove = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const pathEditingVectorId =
         core?.getSystemProperty?.('pathEditingVectorId') ?? null
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
@@ -562,9 +552,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect
       .poll(async () => {
         return page.evaluate(
-          ({ pointId, anchorX, inHandle, outHandle, expectedDeltaX }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ pointId, anchorX, inHandle, outHandle, expectedDeltaX }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             const pathEditingVectorId =
               core?.getSystemProperty?.('pathEditingVectorId') ?? null
             if (!pathEditingVectorId) {
@@ -634,9 +623,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('v')
     await expect.poll(() => getActiveTool(page)).toBe('select')
 
-    const beforeMove = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeMove = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const pathEditingVectorId =
         core?.getSystemProperty?.('pathEditingVectorId') ?? null
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
@@ -689,9 +677,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return selected?.target ?? null
         })
@@ -709,9 +696,15 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect
       .poll(async () => {
         return page.evaluate(
-          ({ pointId, anchorX, anchorY, outHandleX, outHandleY, delta }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({
+            pointId,
+            anchorX,
+            anchorY,
+            outHandleX,
+            outHandleY,
+            delta
+          }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             const pathEditingVectorId =
               core?.getSystemProperty?.('pathEditingVectorId') ?? null
             const selected = core?.getSystemProperty?.('selectedVectorPoint')
@@ -784,9 +777,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(anchorClientPos.x, anchorClientPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredSegment = core?.getSystemProperty?.(
             'hoveredVectorSegment'
@@ -806,9 +798,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredSegment = core?.getSystemProperty?.(
             'hoveredVectorSegment'
@@ -845,9 +836,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredSegment = core?.getSystemProperty?.(
             'hoveredVectorSegment'
@@ -874,9 +864,8 @@ test.describe('Pen Tool - Editing Flow', () => {
         hoveredInsertPointSegmentId: expect.any(String)
       })
 
-    const beforeSplit = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeSplit = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const pathEditingVectorId =
         core?.getSystemProperty?.('pathEditingVectorId') ?? null
       const element =
@@ -905,9 +894,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.click(segmentClientPos.x, segmentClientPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
           const selectedSegment = core?.getSystemProperty?.(
             'selectedVectorSegment'
@@ -925,27 +913,34 @@ test.describe('Pen Tool - Editing Flow', () => {
           const primaryNetwork = networks[0]
           const selectedPointId = selectedPoint?.pointId ?? null
           const segmentIds = primaryNetwork?.segmentIds ?? []
+          const pointIds = primaryNetwork?.pointIds ?? []
           const segments = computed.segments ?? {}
-          const selectedPointSegmentDegree = segmentIds.filter((segmentId) => {
-            const segment = segments[segmentId] as
-              | { startId?: string; endId?: string }
-              | undefined
-            return (
-              !!selectedPointId &&
-              (segment?.startId === selectedPointId ||
-                segment?.endId === selectedPointId)
-            )
-          }).length
+          const getSegmentDegree = (pointId: string | null) =>
+            segmentIds.filter((segmentId) => {
+              const segment = segments[segmentId] as
+                | { startId?: string; endId?: string }
+                | undefined
+              return (
+                !!pointId &&
+                (segment?.startId === pointId || segment?.endId === pointId)
+              )
+            }).length
+          const selectedPointSegmentDegree = getSegmentDegree(selectedPointId)
 
           return {
             selectedPointTarget: selectedPoint?.target ?? null,
+            selectedPointMatchesInsertedTopologyPoint:
+              selectedPointId !== null && selectedPointId === pointIds[1],
             selectedSegmentId: selectedSegment?.segmentId ?? null,
             pathEditingVectorId,
             startNewSubpath:
               core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
             networkCount: networks.length,
-            pointCount: (primaryNetwork?.pointIds ?? []).length,
+            pointCount: pointIds.length,
             segmentCount: segmentIds.length,
+            pointSegmentDegrees: pointIds.map((pointId) =>
+              getSegmentDegree(pointId)
+            ),
             selectedPointSegmentDegree,
             isSelectedSegmentOnEditingVector:
               !!selectedSegment?.segmentId &&
@@ -962,6 +957,8 @@ test.describe('Pen Tool - Editing Flow', () => {
         networkCount: 1,
         pointCount: 3,
         segmentCount: 2,
+        pointSegmentDegrees: [1, 2, 1],
+        selectedPointMatchesInsertedTopologyPoint: true,
         selectedPointSegmentDegree: 2
       })
   })
@@ -983,9 +980,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('p')
     await expect.poll(() => getActiveTool(page)).toBe('pen')
 
-    const before = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const before = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const vectorId = core?.getSystemProperty?.('pathEditingVectorId') ?? null
       const element =
         vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
@@ -1019,9 +1015,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(middleAnchorPos.x, middleAnchorPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
           return {
             pointId: hovered?.pointId ?? null,
@@ -1037,9 +1032,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.click(middleAnchorPos.x, middleAnchorPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
           const element =
@@ -1073,9 +1067,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.66, 0.34)
 
     const afterAppend = await page.evaluate(
-      ({ sourcePointId }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      async ({ sourcePointId }) => {
+        const core = (await import('../src/testing/runtime-access')).core
         const vectorId =
           core?.getSystemProperty?.('pathEditingVectorId') ?? null
         const selected = core?.getSystemProperty?.('selectedVectorPoint')
@@ -1128,9 +1121,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect
       .poll(async () => {
         return page.evaluate(
-          ({ sourcePointId, targetPointId }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ sourcePointId, targetPointId }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
             const element =
               vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
@@ -1194,9 +1186,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredInsertPoint = core?.getSystemProperty?.(
             'hoveredVectorSegmentInsertPoint'
           )
@@ -1211,9 +1202,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredInsertPoint = core?.getSystemProperty?.(
             'hoveredVectorSegmentInsertPoint'
           )
@@ -1242,9 +1232,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredSegment = core?.getSystemProperty?.(
             'hoveredVectorSegment'
@@ -1273,9 +1262,8 @@ test.describe('Pen Tool - Editing Flow', () => {
         isHoveredSegmentOnEditingVector: true
       })
 
-    const hoveredSegmentId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const hoveredSegmentId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const hoveredSegment = core?.getSystemProperty?.('hoveredVectorSegment')
       return hoveredSegment?.segmentId ?? null
     })
@@ -1289,9 +1277,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
           const selectedSegment = core?.getSystemProperty?.(
             'selectedVectorSegment'
@@ -1337,9 +1324,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredElementId =
             core?.getSystemProperty?.('hoveredElementId') ?? null
           const pathEditingVectorId =
@@ -1419,9 +1405,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       })
@@ -1442,9 +1427,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('p')
     await expect.poll(() => getActiveTool(page)).toBe('pen')
     await clickCanvas(page, 0.3, 0.3)
-    const firstPointId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const firstPointId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
       return selected?.pointId ?? null
     })
@@ -1467,9 +1451,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           const split = core?.getSystemProperty?.('pathEditingStartNewSubpath')
           return {
@@ -1507,9 +1490,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -1547,9 +1529,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredInsertPoint = core?.getSystemProperty?.(
             'hoveredVectorSegmentInsertPoint'
@@ -1570,9 +1551,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -1629,9 +1609,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredInsertPoint = core?.getSystemProperty?.(
             'hoveredVectorSegmentInsertPoint'
@@ -1652,9 +1631,8 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -1715,9 +1693,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return {
             activeTool: core?.getSystemProperty?.('primaryTool') ?? null,
             pathEditingVectorId:
@@ -1744,9 +1721,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(() => getActiveTool(page)).toBe('select')
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       })
@@ -1774,9 +1750,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return {
             pathEditingVectorId:
               core?.getSystemProperty?.('pathEditingVectorId') ?? null,
@@ -1793,9 +1768,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.73, 0.28)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -1830,9 +1804,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -1875,7 +1848,7 @@ test.describe('Pen Tool - Editing Flow', () => {
     })
   })
 
-  test('refresh keeps one render object per vector element id', async ({
+  test('keeps one render object per persisted vector id after client reload', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -1886,9 +1859,8 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.45, 0.4)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    const beforeReload = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeReload = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const elements = core?.deps?.sceneTree?.getAllElements?.()
       let vectorId: string | null = null
       elements?.forEach?.(
@@ -1934,43 +1906,37 @@ test.describe('Pen Tool - Editing Flow', () => {
     expect(beforeReload).toMatchObject({
       renderItemCount: 1
     })
+    if (!beforeReload) {
+      return
+    }
+
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(() =>
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
+      )
+      .toEqual(finalDocumentDigest)
 
     await page.reload()
     await waitForAppReady(page)
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
-          const elements = core?.deps?.sceneTree?.getAllElements?.()
-          let vectorId: string | null = null
-          elements?.forEach?.(
-            (
-              element: { get?: (key: string) => unknown } | undefined,
-              id: string
-            ) => {
-              if (element?.get?.('type') === 'vector') {
-                vectorId = id
-              }
-            }
-          )
-
+        return page.evaluate(async (previousVectorId) => {
+          const core = (await import('../src/testing/runtime-access')).core
           const root = core?.deps?.render?.viewport?.view as
             | { label?: string; children?: unknown[] }
             | undefined
-          if (!vectorId || !root) {
-            return null
-          }
-
           let renderItemCount = 0
-          const stack: { label?: string; children?: unknown[] }[] = [root]
+          const stack: { label?: string; children?: unknown[] }[] = root
+            ? [root]
+            : []
           while (stack.length > 0) {
             const current = stack.pop()
             if (!current) {
               continue
             }
-            if (current.label === vectorId) {
+            if (current.label === previousVectorId) {
               renderItemCount += 1
             }
             const children = current.children ?? []
@@ -1980,11 +1946,15 @@ test.describe('Pen Tool - Editing Flow', () => {
           }
 
           return {
+            previousVectorExists: Boolean(
+              core?.deps?.sceneTree?.getElementById?.(previousVectorId)
+            ),
             renderItemCount
           }
-        })
+        }, beforeReload.vectorId)
       })
       .toMatchObject({
+        previousVectorExists: true,
         renderItemCount: 1
       })
   })

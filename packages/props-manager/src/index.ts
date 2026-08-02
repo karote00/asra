@@ -7,6 +7,7 @@ import {
   registerPropertyComponent,
   clonePropertyComponentConfigRegistration,
   getPropertyComponent,
+  getPropertyComponentCanonicalChildRelation,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent
 } from './registries/property-component'
@@ -28,6 +29,7 @@ export {
   registerPropertyComponent,
   clonePropertyComponentConfigRegistration,
   getPropertyComponent,
+  getPropertyComponentCanonicalChildRelation,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent,
   BasePropertyComponent,
@@ -35,6 +37,24 @@ export {
   runWithPropertyComponentAccessor
 }
 export type { PropertyDefinition } from './registries/property-definition'
+export type {
+  PreparedActivePropertyBatch,
+  PreparedPropertyCreationBatch,
+  OrdinaryPropertyCreationOwner,
+  PreparedOrdinaryPropertyCreationBatch,
+  PreparedPropsTransactionEvent,
+  CanonicalPropertyDeliveryOwner,
+  CanonicalPropertyDeliveryRecord,
+  PropertyValuesMutation,
+  PropertyRecordsMutation,
+  CreateOwnerPropertiesMutation,
+  CreateExactPropertyGraphMutation,
+  RemoveExactOrphanPropertyGraphsMutation,
+  PropertyMutation,
+  PropertyMutationBatchRequest,
+  PreparedPropertyMutationBatch,
+  PropertyMutationBatchResult
+} from './manager/props-manager'
 export type { PropertyComponentConstructor } from './components'
 export {
   propertySchemaRegistry,

@@ -108,11 +108,8 @@ class Workspace extends Group {
       0,
       ...elements.map((element) => element.get('id'))
     )
+    this.registry.addManyToMap(elements, target.get('id'))
     target.replaceChildrenFromCanonicalBatch(children)
-    elements.forEach((element) => {
-      element.set('parentId', target.get('id'), { undoable: false })
-      this.registry.addToMap(element)
-    })
     return target as GroupInstanceTypes
   }
 
@@ -128,29 +125,39 @@ class Workspace extends Group {
     parent?: GroupInstanceTypes,
     options?: EvnetOptions
   ) {
-    if (!element) {
+    if (!this.detachElement(element, parent)) {
       return
-    }
-
-    const elementId = element.get('id')
-    if (parent && parent.get('children')) {
-      // Remove element from Group type instance
-      if (parent.get('children').indexOf(elementId) < 0) {
-        return
-      }
-      parent.removeElement(element)
-    } else {
-      // Remove element from Workspace
-      if (this.get('children').indexOf(elementId) < 0) {
-        return
-      }
-      super.removeElement(element)
     }
 
     element.cleanup(options)
 
     // Remove element from Workspace
     this.registry.removeFromMap(element)
+  }
+
+  private detachElement(
+    element: IElement,
+    parent?: GroupInstanceTypes
+  ): boolean {
+    if (!element) {
+      return false
+    }
+
+    const elementId = element.get('id')
+    if (parent && parent.get('children')) {
+      // Remove element from Group type instance
+      if (parent.get('children').indexOf(elementId) < 0) {
+        return false
+      }
+      parent.removeElement(element)
+    } else {
+      // Remove element from Workspace
+      if (this.get('children').indexOf(elementId) < 0) {
+        return false
+      }
+      super.removeElement(element)
+    }
+    return true
   }
 }
 

@@ -95,7 +95,9 @@
   one `runTransaction` boundary and forwards mutation options. Create/move
   features use `sharedDelivery: 'immediate'` so one synchronous multi-element
   update becomes one shared publication while the outer session remains one
-  undo commit.
+  undo commit. Continuous move samples intentionally do not normalize Group
+  origins; `move-elements` invokes Preset normalization deepest-first once
+  after its final position write and before that session transaction commits.
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also
   accept optional mutation options and forward them to Core.
 - `elementApis.createElement(...)` accepts an explicit `workspacePosition`

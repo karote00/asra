@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   clickCanvas,
@@ -34,7 +35,7 @@ test.describe('Undo/Redo Actions', () => {
       }
     })
 
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -202,9 +203,8 @@ test.describe('Undo/Redo Actions', () => {
       return
     }
 
-    const beforeUndoCount = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
     const start = await getSelectedElementClientCenter(page)
@@ -213,15 +213,11 @@ test.describe('Undo/Redo Actions', () => {
       return
     }
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__movePreviewPublications = []
-      scope.__disposeMovePreviewObserver =
-        scope.__Core__?.deps?.factory?.subscribeToSharedPublication?.(
-          (publication: unknown) =>
-            scope.__movePreviewPublications.push(publication)
-        )
+    await page.evaluate(async () => {
+      const { startSharedPublicationCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedPublicationCapture('move-preview-publications')
     })
     await page.mouse.move(start.x, start.y)
     await page.mouse.down()
@@ -236,32 +232,43 @@ test.describe('Undo/Redo Actions', () => {
       .toBe(true)
     await expect
       .poll(() =>
-        page.evaluate(
-          () =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).__movePreviewPublications?.length ?? 0
-        )
+        page.evaluate(async () => {
+          const { readTestCapture } = await import(
+            '../src/testing/runtime-access'
+          )
+          return readTestCapture('move-preview-publications').length
+        })
       )
       .toBeGreaterThan(0)
-    const previewPublications = await page.evaluate(
-      () =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__movePreviewPublications ?? []
-    )
+    const previewPublications = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('move-preview-publications')
+    })
     expect(previewPublications).toContainEqual(
       expect.objectContaining({
-        deliveries: expect.arrayContaining(
-          ['x', 'y'].map((key) =>
-            expect.objectContaining({
-              channel: 'sceneTree',
-              sharedDelivery: 'immediate',
-              payload: expect.objectContaining({
-                action: 'updateElementComputedData',
-                key
+        slices: expect.arrayContaining([
+          expect.objectContaining({
+            batches: expect.arrayContaining([
+              expect.objectContaining({
+                channel: 'props',
+                deliveries: expect.arrayContaining(
+                  ['x', 'y'].map((key) =>
+                    expect.objectContaining({
+                      eventName: 'updateProperty',
+                      payload: expect.objectContaining({
+                        action: 'updateProperty',
+                        key,
+                        options: expect.objectContaining({
+                          sharedDelivery: 'immediate'
+                        })
+                      })
+                    })
+                  )
+                )
               })
-            })
-          )
-        )
+            ])
+          })
+        ])
       })
     )
     const interrupted = await getSelectedElementRect(page)
@@ -271,9 +278,8 @@ test.describe('Undo/Redo Actions', () => {
     }
 
     const getPositionById = () =>
-      page.evaluate((elementId) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      page.evaluate(async (elementId) => {
+        const core = (await import('../src/testing/runtime-access')).core
         const element = core?.deps?.sceneTree?.getElementById?.(elementId)
         const computed = element?.getAllComputedData?.()
         return computed
@@ -283,12 +289,9 @@ test.describe('Undo/Redo Actions', () => {
 
     await page.keyboard.press('Escape')
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeMovePreviewObserver?.()
-      delete scope.__disposeMovePreviewObserver
-      delete scope.__movePreviewPublications
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('move-preview-publications')
     })
 
     await expect
@@ -303,9 +306,8 @@ test.describe('Undo/Redo Actions', () => {
         y: Math.round(interrupted.y)
       })
 
-    const afterUndoCount = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const afterUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
     expect(afterUndoCount).toBe(beforeUndoCount + 1)
@@ -327,9 +329,8 @@ test.describe('Undo/Redo Actions', () => {
     await page.keyboard.press('r')
     await page.waitForTimeout(100)
 
-    const beforeSummary = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeSummary = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const stack = core?.deps?.factory?.transact?.undoStack ?? []
       return { count: stack.length }
     })
@@ -339,16 +340,19 @@ test.describe('Undo/Redo Actions', () => {
       expect(await getElementCount(page)).toBe(1)
     }).toPass({ timeout: 2000 })
 
-    const commitSummary = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const commitSummary = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const stack = core?.deps?.factory?.transact?.undoStack ?? []
-      const last = stack[stack.length - 1] ?? []
-      const updateComputedDataEvents = last.filter(
+      const last = stack[stack.length - 1]
+      const events = (last?.entries ?? []).map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (event: any) => event?.type === 'updateComputedData'
+        (entry: any) => entry.event
       )
-      const noOpSelectionEvents = last.filter(
+      const updatePropertyEvents = events.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (event: any) => event?.type === 'updateProperty'
+      )
+      const noOpSelectionEvents = events.filter(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (event: any) =>
           event?.type === 'selectElements' &&
@@ -360,28 +364,28 @@ test.describe('Undo/Redo Actions', () => {
 
       return {
         stackCount: stack.length,
-        changeCount: last.length,
-        updateComputedDataCount: updateComputedDataEvents.length,
+        changeCount: events.length,
+        updatePropertyCount: updatePropertyEvents.length,
         noOpSelectionCount: noOpSelectionEvents.length
       }
     })
 
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
-    expect(commitSummary.updateComputedDataCount).toBeGreaterThan(0)
+    expect(commitSummary.updatePropertyCount).toBeGreaterThan(0)
     expect(commitSummary.changeCount).toBeGreaterThanOrEqual(
-      commitSummary.updateComputedDataCount
+      commitSummary.updatePropertyCount
     )
   })
 
   test('vector point final drag records undo without replaying the final render write', async ({
     page
   }) => {
-    const summary = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const summary = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       if (!core || !elementApis) {
         throw new Error('Asyra E2E APIs are not available')
       }
@@ -484,24 +488,21 @@ test.describe('Undo/Redo Actions', () => {
         : null
 
       const stack = core.deps.factory.transact.undoStack
-      const last = stack[stack.length - 1] ?? []
+      const last = stack[stack.length - 1]
+      const events = (last?.entries ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (entry: any) => entry.event
+      )
       const point = elementApis.getVectorAnchorPointById(elementId, 'A')?.point
 
       return {
         elementId,
         stackBefore,
         stackAfter: stack.length,
-        changeCount: last.length,
-        changeTypes: last.map(
+        changeCount: events.length,
+        changeTypes: events.map(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (event: any) => event?.type
-        ),
-        patchValues:
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (last[0] as any)?.payload?.patch?.values ?? {},
-        pointPatchIds: Object.keys(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (last[0] as any)?.payload?.patch?.records?.points?.set ?? {}
         ),
         beforePoint,
         afterPoint,
@@ -510,20 +511,18 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     expect(summary.stackAfter).toBe(summary.stackBefore + 1)
-    expect(
-      summary.changeTypes.every((type) => type === 'updateComputedDataPatch')
-    ).toBe(true)
-    expect(summary.changeCount).toBe(1)
-    expect(summary.patchValues).not.toHaveProperty('pointCoordinateSpace')
-    expect(summary.pointPatchIds.sort()).toEqual(['A', 'A:in', 'A:out'])
+    expect(summary.changeTypes.every((type) => type === 'updateProperty')).toBe(
+      true
+    )
+    expect(summary.changeCount).toBeGreaterThan(0)
     expect(summary.point).toMatchObject({ x: 80, y: 110 })
 
     await undo(page)
     await expect
       .poll(async () =>
-        page.evaluate((elementId) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const elementApis = (window as any).__AsyraE2E__?.elementApis
+        page.evaluate(async (elementId) => {
+          const elementApis = (await import('../src/testing/runtime-access'))
+            .elementApis
           return elementApis?.getVectorAnchorPointById?.(elementId, 'A')?.point
         }, summary.elementId)
       )
@@ -532,23 +531,23 @@ test.describe('Undo/Redo Actions', () => {
     await redo(page)
     await expect
       .poll(async () =>
-        page.evaluate((elementId) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const elementApis = (window as any).__AsyraE2E__?.elementApis
+        page.evaluate(async (elementId) => {
+          const elementApis = (await import('../src/testing/runtime-access'))
+            .elementApis
           return elementApis?.getVectorAnchorPointById?.(elementId, 'A')?.point
         }, summary.elementId)
       )
       .toMatchObject(summary.afterPoint)
   })
 
-  test('vector structural operations undo and redo through single computed patch commits', async ({
+  test('vector structural operations undo and redo through one canonical property history entry', async ({
     page
   }) => {
-    const setup = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const setup = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       if (!core || !elementApis) {
         throw new Error('Asyra E2E APIs are not available')
       }
@@ -615,9 +614,8 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     const readTopology = async () =>
-      page.evaluate((elementId) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      page.evaluate(async (elementId) => {
+        const core = (await import('../src/testing/runtime-access')).core
         const computed =
           core?.deps?.sceneTree
             ?.getElementById?.(elementId)
@@ -646,56 +644,51 @@ test.describe('Undo/Redo Actions', () => {
       }, setup.elementId)
 
     const readLastUndo = async () =>
-      page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      page.evaluate(async () => {
+        const core = (await import('../src/testing/runtime-access')).core
         const stack = core?.deps?.factory?.transact?.undoStack ?? []
-        const last = stack[stack.length - 1] ?? []
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const patch = ((last[0] as any)?.payload?.patch ?? {}) as Record<
-          string,
+        const last = stack[stack.length - 1]
+        const events = (last?.entries ?? []).map(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          any
-        >
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const removeIds = (value: any) =>
-          Array.isArray(value) ? value : Object.keys(value ?? {})
+          (entry: any) => entry.event
+        )
         return {
-          changeTypes: last.map(
+          changeTypes: events.map(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => event?.type
-          ),
-          pointSetIds: Object.keys(patch.records?.points?.set ?? {}).sort(),
-          pointRemoveIds: removeIds(patch.records?.points?.remove).sort(),
-          segmentRemoveIds: removeIds(patch.records?.segments?.remove).sort(),
-          networkSetIds: Object.keys(patch.records?.networks?.set ?? {}).sort(),
-          valueKeys: Object.keys(patch.values ?? {}).sort()
+          )
         }
       })
 
-    const expectSinglePatchUndo = async () => {
+    const expectCanonicalPropertyUndo = async () => {
       const summary = await readLastUndo()
-      expect(summary.changeTypes).toEqual(['updateComputedDataPatch'])
-      return summary
+      expect(summary.changeTypes.length).toBeGreaterThan(0)
+      expect(
+        summary.changeTypes.every((type) =>
+          ['addProperty', 'removeProperty', 'updateProperty'].includes(type)
+        )
+      ).toBe(true)
     }
     const undoStructuralOperation = async () => {
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(window as any).__Core__?.deps?.factory?.transact?.undo?.()
+      await page.evaluate(async () => {
+        ;(
+          await import('../src/testing/runtime-access')
+        ).core?.deps?.factory?.transact?.undo?.()
       })
       await page.waitForTimeout(120)
     }
     const redoStructuralOperation = async () => {
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(window as any).__Core__?.deps?.factory?.transact?.redo?.()
+      await page.evaluate(async () => {
+        ;(
+          await import('../src/testing/runtime-access')
+        ).core?.deps?.factory?.transact?.redo?.()
       })
       await page.waitForTimeout(120)
     }
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       elementApis.appendVectorAnchorPoint(elementId, {
         id: 'D',
         type: 'sharp',
@@ -706,8 +699,7 @@ test.describe('Undo/Redo Actions', () => {
         outHandle: null
       })
     }, setup.elementId)
-    const appendUndo = await expectSinglePatchUndo()
-    expect(appendUndo.pointSetIds).toEqual(['D'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).not.toMatchObject({
       pointIds: expect.arrayContaining(['D'])
@@ -717,11 +709,11 @@ test.describe('Undo/Redo Actions', () => {
       pointIds: expect.arrayContaining(['D'])
     })
 
-    const splitPointId = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const splitPointId = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const computed =
         core?.deps?.sceneTree
           ?.getElementById?.(elementId)
@@ -740,9 +732,7 @@ test.describe('Undo/Redo Actions', () => {
       return result?.point?.id
     }, setup.elementId)
     expect(splitPointId).toBeTruthy()
-    const splitUndo = await expectSinglePatchUndo()
-    expect(splitUndo.pointSetIds).toEqual([splitPointId])
-    expect(splitUndo.segmentRemoveIds).toContain('AB')
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).not.toMatchObject({
       pointIds: expect.arrayContaining([splitPointId])
@@ -753,15 +743,14 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     await page.evaluate(
-      ({ elementId, pointId }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const elementApis = (window as any).__AsyraE2E__?.elementApis
+      async ({ elementId, pointId }) => {
+        const elementApis = (await import('../src/testing/runtime-access'))
+          .elementApis
         elementApis.removeVectorAnchorPoint(elementId, pointId)
       },
       { elementId: setup.elementId, pointId: splitPointId }
     )
-    const removeUndo = await expectSinglePatchUndo()
-    expect(removeUndo.pointRemoveIds).toEqual([splitPointId])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({
       pointIds: expect.arrayContaining([splitPointId])
@@ -771,23 +760,22 @@ test.describe('Undo/Redo Actions', () => {
       pointIds: expect.arrayContaining([splitPointId])
     })
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       elementApis.updateVectorAnchorPointType(elementId, 'B', 'smooth')
     }, setup.elementId)
-    const typeUndo = await expectSinglePatchUndo()
-    expect(typeUndo.pointSetIds).toEqual(['B'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ bType: 'sharp' })
     await redoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ bType: 'smooth' })
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const point =
         core?.deps?.sceneTree
           ?.getElementById?.(elementId)
@@ -807,8 +795,7 @@ test.describe('Undo/Redo Actions', () => {
         }
       ])
     }, setup.elementId)
-    const handlesUndo = await expectSinglePatchUndo()
-    expect(handlesUndo.pointSetIds).toEqual(['B:in', 'B:out'])
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({
       hasBIn: false,
@@ -820,23 +807,16 @@ test.describe('Undo/Redo Actions', () => {
       hasBOut: true
     })
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       elementApis.setVectorAnchorPointHandleMode(
         elementId,
         'B',
         'mirror-angle-length'
       )
     }, setup.elementId)
-    const handleModeUndo = await expectSinglePatchUndo()
-    expect(handleModeUndo.pointSetIds).toContain('B')
-    expect(handleModeUndo.pointSetIds).toContain('B:in')
-    expect(
-      handleModeUndo.pointSetIds.every((pointId) =>
-        ['B', 'B:in', 'B:out'].includes(pointId)
-      )
-    ).toBe(true)
+    await expectCanonicalPropertyUndo()
     await expect.poll(readTopology).toMatchObject({
       bHandleMode: 'mirror-angle-length'
     })
@@ -853,26 +833,23 @@ test.describe('Undo/Redo Actions', () => {
       hasBOut: true
     })
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       elementApis.connectVectorAnchorEndpoints(elementId, 'D', 'A')
     }, setup.elementId)
-    const mergeUndo = await expectSinglePatchUndo()
-    expect(mergeUndo.valueKeys).not.toContain('closed')
-    expect(mergeUndo.networkSetIds).toHaveLength(1)
+    await expectCanonicalPropertyUndo()
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ closed: false })
     await redoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ closed: false })
 
-    await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (elementId) => {
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       elementApis.setVectorClosed(elementId, true)
     }, setup.elementId)
-    const closeUndo = await expectSinglePatchUndo()
-    expect(closeUndo.valueKeys).toContain('closed')
+    await expectCanonicalPropertyUndo()
     await expect.poll(readTopology).toMatchObject({ closed: true })
   })
 
@@ -883,17 +860,15 @@ test.describe('Undo/Redo Actions', () => {
     await page.keyboard.press('Enter')
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingMode') ?? false
         })
       )
       .toBe(true)
 
-    const before = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const before = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
       const element = vectorId
         ? core?.deps?.sceneTree?.getElementById?.(vectorId)
@@ -932,6 +907,7 @@ test.describe('Undo/Redo Actions', () => {
       return {
         vectorId,
         pointId: anchor.id,
+        undoCount: core?.deps?.factory?.transact?.undoStack?.length ?? 0,
         point: { x: anchor.x, y: anchor.y },
         anchors,
         rect: {
@@ -947,43 +923,68 @@ test.describe('Undo/Redo Actions', () => {
       }
     })
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__vectorPointPreviewDeliveries = []
-      scope.__disposeVectorPointPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'sceneTree',
-          (change: unknown) => scope.__vectorPointPreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedPublicationCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedPublicationCapture('vector-point-preview-publications')
     })
     await page.mouse.move(before.client.x, before.client.y)
     await page.mouse.down()
     await page.mouse.move(before.client.x + 52, before.client.y + 24, {
       steps: 12
     })
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__vectorPointPreviewDeliveries ?? []
+    const previewPublications = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('vector-point-preview-publications')
     })
-    expect(previewDeliveries).toContainEqual(
+    expect(previewPublications).toEqual([])
+    await page.mouse.up()
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { readTestCapture } = await import(
+            '../src/testing/runtime-access'
+          )
+          return readTestCapture('vector-point-preview-publications').length
+        })
+      )
+      .toBeGreaterThan(0)
+    const committedPublications = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('vector-point-preview-publications')
+    })
+    expect(committedPublications).toContainEqual(
       expect.objectContaining({
-        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+        slices: expect.arrayContaining([
+          expect.objectContaining({
+            batches: expect.arrayContaining([
+              expect.objectContaining({
+                channel: 'props',
+                deliveries: expect.arrayContaining([
+                  expect.objectContaining({
+                    eventName: 'updateProperty',
+                    payload: expect.objectContaining({
+                      options: expect.objectContaining({
+                        sharedDelivery: 'immediate'
+                      })
+                    })
+                  })
+                ])
+              })
+            ])
+          })
+        ])
       })
     )
-    await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeVectorPointPreviewObserver?.()
-      delete scope.__disposeVectorPointPreviewObserver
-      delete scope.__vectorPointPreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('vector-point-preview-publications')
     })
     await page.waitForTimeout(80)
 
-    const afterMouseup = await page.evaluate(({ vectorId, pointId }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const afterMouseup = await page.evaluate(async ({ vectorId, pointId }) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
       const computed = element?.getAllComputedData?.() ?? {}
       const point = computed.points?.[pointId]
@@ -1001,6 +1002,7 @@ test.describe('Undo/Redo Actions', () => {
           ])
       )
       return {
+        undoCount: core?.deps?.factory?.transact?.undoStack?.length ?? 0,
         point: point ? { x: point.x, y: point.y } : null,
         anchors,
         rect: {
@@ -1013,6 +1015,7 @@ test.describe('Undo/Redo Actions', () => {
     }, before)
 
     expect(afterMouseup.point?.x).toBeGreaterThan(before.point.x + 20)
+    expect(afterMouseup.undoCount).toBe(before.undoCount + 1)
     Object.entries(before.anchors)
       .filter(([pointId]) => pointId !== before.pointId)
       .forEach(([pointId, point]) => {
@@ -1024,36 +1027,38 @@ test.describe('Undo/Redo Actions', () => {
     })
     await page.waitForTimeout(120)
 
-    const afterReleasedMove = await page.evaluate(({ vectorId, pointId }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
-      const computed = element?.getAllComputedData?.() ?? {}
-      const point = computed.points?.[pointId]
-      const anchors = Object.fromEntries(
-        Object.values(computed.points ?? {})
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((entry: any) => entry?.kind === 'anchor')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((entry: any) => [
-            entry.id,
-            {
-              x: entry.x,
-              y: entry.y
-            }
-          ])
-      )
-      return {
-        point: point ? { x: point.x, y: point.y } : null,
-        anchors,
-        rect: {
-          x: computed.x,
-          y: computed.y,
-          width: computed.width,
-          height: computed.height
+    const afterReleasedMove = await page.evaluate(
+      async ({ vectorId, pointId }) => {
+        const core = (await import('../src/testing/runtime-access')).core
+        const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+        const computed = element?.getAllComputedData?.() ?? {}
+        const point = computed.points?.[pointId]
+        const anchors = Object.fromEntries(
+          Object.values(computed.points ?? {})
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((entry: any) => entry?.kind === 'anchor')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((entry: any) => [
+              entry.id,
+              {
+                x: entry.x,
+                y: entry.y
+              }
+            ])
+        )
+        return {
+          point: point ? { x: point.x, y: point.y } : null,
+          anchors,
+          rect: {
+            x: computed.x,
+            y: computed.y,
+            width: computed.width,
+            height: computed.height
+          }
         }
-      }
-    }, before)
+      },
+      before
+    )
 
     expect(afterReleasedMove.point).toEqual(afterMouseup.point)
     expect(afterReleasedMove.anchors).toEqual(afterMouseup.anchors)
@@ -1062,9 +1067,8 @@ test.describe('Undo/Redo Actions', () => {
     await page.keyboard.press('Escape')
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return {
             pathEditingMode:
               core?.getSystemProperty?.('pathEditingMode') ?? false,
@@ -1163,9 +1167,8 @@ test.describe('Undo/Redo Actions', () => {
     expect(Math.round(selectedAfterUndo.y)).toBe(Math.round(aMoved.y))
 
     // B position should also roll back.
-    const bPositionAfterUndo = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const bPositionAfterUndo = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const x = typeof computed.x === 'number' ? computed.x : null
@@ -1182,9 +1185,8 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     // Keep C referenced to ensure scenario setup is not optimized away.
-    const cCheck = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const cCheck = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.sceneTree?.getElementById?.(elementId) ? true : false
     }, cBefore.id)
     expect(cCheck).toBe(true)
@@ -1257,9 +1259,8 @@ test.describe('Undo/Redo Actions', () => {
       })
       .toBe(bBefore.id)
 
-    const cAfterUndo = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const cAfterUndo = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const x = typeof computed.x === 'number' ? computed.x : null
@@ -1275,9 +1276,8 @@ test.describe('Undo/Redo Actions', () => {
       y: Math.round(cBefore.y)
     })
 
-    const bStillMovedAfterUndo = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const bStillMovedAfterUndo = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const x = typeof computed.x === 'number' ? computed.x : null

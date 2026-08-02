@@ -2,8 +2,7 @@ import { getFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
 import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
-import { clearDocumentPersistence } from '../document-persistence'
-import { getPublicFileId } from '../render-app/collaboration-mode'
+import { resetPersistedDocument } from '../document-persistence'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -26,13 +25,7 @@ export const renderIsReady = () => {
   core.renderIsReady()
 }
 
-export const resetData = (): void => {
-  void clearDocumentPersistence(getPublicFileId())
-    .then(() => location.reload())
-    .catch((error: unknown) => {
-      console.error('[app.controller.resetData] Clear failed:', error)
-    })
-}
+export const resetData = (): Promise<void> => resetPersistedDocument(core)
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
   try {

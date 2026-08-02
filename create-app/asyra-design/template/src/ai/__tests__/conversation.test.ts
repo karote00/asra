@@ -310,7 +310,7 @@ describe('Asyra Design AI conversation controller', () => {
 
     pending.resolve({
       code: 'AI_PROVIDER_TRANSPORT_FAILED',
-      stage: 'planning',
+      stage: 'provider',
       status: 'failed'
     })
     await first
@@ -524,12 +524,11 @@ describe('Asyra Design AI conversation controller', () => {
   })
 
   it.each([
-    [{ reason: 'provider-disabled', status: 'unavailable' }, 'unavailable'],
     [{ reason: 'aborted', status: 'cancelled' }, 'cancelled'],
     [
       {
         code: 'AI_PROVIDER_TRANSPORT_FAILED',
-        stage: 'planning',
+        stage: 'provider',
         status: 'failed'
       },
       'failed'

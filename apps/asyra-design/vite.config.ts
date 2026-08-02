@@ -2,23 +2,40 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import vercel from 'vite-plugin-vercel'
 import tailwindcss from 'tailwindcss'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
-import { createAsyraDesignVTracerMiddleware } from './vtracer-tool-server.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
+import { createDocumentDatabaseMiddleware } from './e2e/document-database-middleware.mjs'
+import { createVTracerMiddleware } from './vtracer-tool-server.mjs'
+import { createActionBatchMiddleware } from './server/action-batch'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment()
-)
+const appEnvironment = resolveEnvironment(loadEnvironment())
+const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
+const enablesE2eDocumentDatabase =
+  process.env.ASYRA_E2E_DOCUMENT_DATABASE === '1'
 
-const asyraDesignVTracer = (): Plugin => ({
-  name: 'asyra-design-vtracer-tool',
+const createVTracerPlugin = (): Plugin => ({
+  name: 'vtracer-tool',
   configureServer(server) {
-    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+    server.middlewares.use(createVTracerMiddleware())
   },
   configurePreviewServer(server) {
-    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+    server.middlewares.use(createVTracerMiddleware())
+  }
+})
+
+const createActionBatchPlugin = (): Plugin => ({
+  name: 'action-batch-server',
+  configureServer(server) {
+    server.middlewares.use(createActionBatchMiddleware())
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use(createActionBatchMiddleware())
+  }
+})
+
+const createDocumentDatabaseTestPlugin = (): Plugin => ({
+  name: 'e2e-document-database',
+  configureServer(server) {
+    server.middlewares.use(createDocumentDatabaseMiddleware())
   }
 })
 
@@ -28,14 +45,17 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [asyraDesignVTracer(), vercel(), react()],
+  plugins: [
+    ...(enablesE2eDocumentDatabase ? [createDocumentDatabaseTestPlugin()] : []),
+    createActionBatchPlugin(),
+    createVTracerPlugin(),
+    vercel(),
+    react()
+  ],
   server: {
     host: appEnvironment.viteHost,
     port: appEnvironment.vitePort,
-    open: true
-  },
-  define: {
-    __APP_ENV__: process.env.VITE_VERCEL_ENV
+    open: opensBrowser
   },
   esbuild: {
     target: 'esnext'

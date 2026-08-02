@@ -932,6 +932,13 @@ export class RenderGraphics extends RenderContainer {
     return this.markDrawDirty()
   }
 
+  poly(points: readonly RenderEnginePoint[], close = false): this {
+    const ownedPoints = points.map(({ x, y }) => ({ x, y }))
+    this.drawOperations.push({ type: 'poly', points: ownedPoints, close })
+    ownedPoints.forEach(({ x, y }) => this.includePoint(x, y))
+    return this.markDrawDirty()
+  }
+
   moveTo(x: number, y: number): this {
     this.drawOperations.push({ type: 'move-to', x, y })
     this.includePoint(x, y)

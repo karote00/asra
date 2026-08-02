@@ -1,4 +1,7 @@
 import type {
+  ElementPropertyPatchUpdate,
+  ElementPropertyRecordFields,
+  ElementPropertyRecordPatch,
   VectorAnchorPoint,
   VectorEndpointSide,
   VectorPathStyle,
@@ -159,6 +162,7 @@ type VectorTopologyOperation =
 
 interface VectorOperationIntentOptions {
   structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
+  transientPreview?: boolean
 }
 
 type VectorPointMutationOptions = EVENT_OPTIONS &
@@ -222,6 +226,7 @@ const toVectorEventOptions = (
     skipResult: _skipResult,
     closed: _closed,
     structuralOperationIntent: _structuralOperationIntent,
+    transientPreview: _transientPreview,
     ...eventOptions
   } = options
   return eventOptions
@@ -229,34 +234,6 @@ const toVectorEventOptions = (
 
 const transientWorkspaceTopologyCache = new Map<string, VectorTopology>()
 const transientComputedSnapshotCache = new Map<string, VectorComputedData>()
-
-const recordVectorCommitError = (error: unknown) => {
-  let message = ''
-  if (typeof error === 'string') {
-    message = error
-  }
-  if (error instanceof Error) {
-    message = error.message
-  }
-  if (!message) {
-    return
-  }
-  const profile = (
-    globalThis as typeof globalThis & {
-      __asyraStrokeDragFrameProfile?: {
-        errors?: { phaseName: string; message: string }[]
-      }
-    }
-  ).__asyraStrokeDragFrameProfile
-  if (!profile) {
-    return
-  }
-  profile.errors = profile.errors ?? []
-  profile.errors.push({
-    phaseName: 'vector-api:commit:build-patch',
-    message
-  })
-}
 
 const getDistanceSquared = (a: PositionData, b: PositionData) => {
   const dx = a.x - b.x
@@ -471,6 +448,64 @@ const getComputedDataPatchOperationCount = (patch: ComputedDataPatch) =>
     0
   )
 
+const toCanonicalPropertyRecordPatches = (
+  patch: ComputedDataPatch
+): readonly ElementPropertyRecordPatch[] =>
+  Object.entries(patch.records ?? {}).map(([key, recordPatch]) => ({
+    key,
+    ...(recordPatch.set === undefined
+      ? {}
+      : {
+          set: Object.fromEntries(
+            Object.entries(recordPatch.set).map(
+              ([recordId, recordDescriptor]) => {
+                const descriptor = recordDescriptor as Readonly<
+                  Record<string, unknown>
+                >
+                if (descriptor.id !== undefined && descriptor.id !== recordId) {
+                  throw new Error(
+                    `Vector record key "${recordId}" does not match its id`
+                  )
+                }
+                const {
+                  id: _recordId,
+                  type: _recordType,
+                  ...recordFields
+                } = descriptor
+                return [
+                  recordId,
+                  recordFields satisfies ElementPropertyRecordFields
+                ]
+              }
+            )
+          )
+        }),
+    ...(recordPatch.remove === undefined
+      ? {}
+      : {
+          remove: recordPatch.remove
+        })
+  }))
+
+const toCanonicalVectorPropertyPatch = (
+  elementId: string,
+  patch: ComputedDataPatch
+): ElementPropertyPatchUpdate => ({
+  elementId,
+  ...(patch.values === undefined ? {} : { values: patch.values }),
+  records: toCanonicalPropertyRecordPatches(patch)
+})
+
+const commitCanonicalVectorPropertyPatch = (
+  elementId: string,
+  patch: ComputedDataPatch,
+  options?: EVENT_OPTIONS
+) =>
+  core.patchElementProperties(
+    [toCanonicalVectorPropertyPatch(elementId, patch)],
+    options
+  )
+
 const setPatchValueIfChanged = (
   patch: ComputedDataPatch,
   computed: Partial<VectorComputedData> | null,
@@ -522,8 +557,8 @@ const createRecordComputedPatch = <T extends Record<string, unknown>>(
   return recordPatch
 }
 
-const isTransientVectorPointDragUpdate = (options?: EVENT_OPTIONS) => {
-  if (options?.undoable !== false) {
+const isTransientVectorPointDragUpdate = (options?: VectorOperationOptions) => {
+  if (options?.transientPreview !== true || options.undoable !== false) {
     return false
   }
 
@@ -1051,7 +1086,6 @@ const commitVectorTopologyOperation = (
       )
     } catch (error) {
       emitDiagnosticCounter('vector-api-operation-build-patch-error-count')
-      recordVectorCommitError(error)
       throw error
     }
 
@@ -1081,16 +1115,23 @@ const commitVectorTopologyOperation = (
           ...validatedPatchRequest.eventOptions
         }
       : toVectorEventOptions(options)
-    runTransaction(() => {
-      if (!transientVectorPointDrag) {
+    if (transientVectorPointDrag) {
+      core.patchLocalComputedData([
+        {
+          elementId,
+          patch: commitPatch
+        }
+      ])
+    } else {
+      runTransaction(() => {
         reconcileVectorSelectionAfterTopologyChange(
           elementId,
           previousTopology,
           nextTopology
         )
-      }
-      core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
-    })
+        commitCanonicalVectorPropertyPatch(elementId, commitPatch, eventOptions)
+      })
+    }
     if (transientVectorPointDrag) {
       transientWorkspaceTopologyCache.set(elementId, nextTopology)
       updateTransientComputedSnapshotFromPatch(elementId, commitPatch)
@@ -1167,9 +1208,18 @@ const commitVectorPointMutation = (
     const eventOptions =
       validatedPatchRequest?.eventOptions ?? toVectorEventOptions(options)
 
-    runTransaction(() =>
-      core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
-    )
+    if (transientVectorPointDrag) {
+      core.patchLocalComputedData([
+        {
+          elementId,
+          patch: commitPatch
+        }
+      ])
+    } else {
+      runTransaction(() => {
+        commitCanonicalVectorPropertyPatch(elementId, commitPatch, eventOptions)
+      })
+    }
 
     if (transientVectorPointDrag) {
       transientWorkspaceTopologyCache.set(elementId, nextTopology)
@@ -1306,7 +1356,7 @@ const createVectorElementAtWorkspacePos = (
   )
 }
 
-const prepareVectorElementData = (
+export const prepareVectorElementData = (
   createOptions: CreateElementOptions
 ): CreateElementData | null => {
   if (!isVectorTopology(createOptions)) {
@@ -1350,6 +1400,40 @@ const prepareVectorElementData = (
 }
 
 export const vectorApis = {
+  discardTransientVectorPreviews: (elementIds: readonly string[]): void => {
+    const seenElementIds = new Set<string>()
+    const seenPropertyIds = new Set<string>()
+    const propertyIds: string[] = []
+
+    elementIds.forEach((elementId) => {
+      if (
+        typeof elementId !== 'string' ||
+        elementId.length === 0 ||
+        seenElementIds.has(elementId)
+      ) {
+        throw new Error(
+          '[Vector APIs] Transient preview cancellation requires unique vector ids'
+        )
+      }
+      seenElementIds.add(elementId)
+      const element = sceneTree.getElementById(elementId)
+      if (!element || element.get('type') !== 'vector') {
+        throw new Error(
+          `[Vector APIs] Transient preview cancellation requires active vector "${elementId}"`
+        )
+      }
+      element.props.getCanonicalRootPropertyIds().forEach((propertyId) => {
+        if (!seenPropertyIds.has(propertyId)) {
+          seenPropertyIds.add(propertyId)
+          propertyIds.push(propertyId)
+        }
+      })
+    })
+
+    elementIds.forEach(clearTransientVectorCaches)
+    core.projectLocalComputedDataFromPropertyIds(propertyIds)
+  },
+
   getVectorAnchorPoints: (elementId: string): VectorAnchorPoint[] => {
     const topology = getVectorTopologyWorkspace(elementId)
     if (Object.keys(topology.points).length === 0) {
@@ -1869,7 +1953,18 @@ export const vectorApis = {
         structuralOperationIntent: options?.structuralOperationIntent
       }
     )
-    return vectorApis.getVectorAnchorPointById(elementId, splitResult.pointId)
+    const anchorPoints = vectorTopologyToAnchorPoints(splitResult.topology)
+    const insertedPointIndex = anchorPoints.findIndex(
+      (point) => point.id === splitResult.pointId
+    )
+    if (insertedPointIndex === -1) {
+      return null
+    }
+
+    return {
+      point: anchorPoints[insertedPointIndex],
+      index: insertedPointIndex
+    }
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {
@@ -1907,45 +2002,81 @@ export const vectorApis = {
     return vectorApis.getVectorAnchorPointById(elementId, pointId)
   },
 
+  setVectorElementPositions: (
+    updates: readonly {
+      elementId: string
+      position: PositionData
+    }[],
+    options?: EVENT_OPTIONS
+  ): readonly string[] => {
+    const patches: ElementPropertyPatchUpdate[] = []
+
+    updates.forEach(({ elementId, position }) => {
+      if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) {
+        return
+      }
+
+      const computed = getVectorComputed(elementId)
+      if (
+        !computed ||
+        typeof computed.x !== 'number' ||
+        typeof computed.y !== 'number'
+      ) {
+        return
+      }
+
+      const dx = position.x - computed.x
+      const dy = position.y - computed.y
+      if (dx === 0 && dy === 0) {
+        return
+      }
+
+      const topology: VectorTopology = {
+        points: computed.points,
+        segments: computed.segments,
+        networks: computed.networks
+      }
+      const nextTopology: VectorTopology = {
+        points: Object.fromEntries(
+          Object.entries(topology.points).map(([pointId, point]) => [
+            pointId,
+            {
+              ...point,
+              x: point.x + dx,
+              y: point.y + dy
+            }
+          ])
+        ),
+        segments: topology.segments,
+        networks: topology.networks
+      }
+      const patch = createVectorPointMutationPatch(
+        elementId,
+        topology,
+        nextTopology
+      )
+      if (!hasComputedDataPatchOperations(patch)) {
+        return
+      }
+
+      patches.push(toCanonicalVectorPropertyPatch(elementId, patch))
+    })
+
+    if (patches.length === 0) {
+      return Object.freeze([])
+    }
+
+    return runTransaction(() => core.patchElementProperties(patches, options))
+  },
+
   setVectorElementPosition: (
     elementId: string,
     position: PositionData,
     options?: EVENT_OPTIONS
-  ): boolean => {
-    const computed = getVectorComputed(elementId)
-    if (
-      !computed ||
-      typeof computed.x !== 'number' ||
-      typeof computed.y !== 'number'
-    ) {
-      return false
-    }
-
-    const dx = position.x - computed.x
-    const dy = position.y - computed.y
-    if (dx === 0 && dy === 0) {
-      return false
-    }
-
-    const topology = getVectorTopologyWorkspace(elementId)
-    const nextTopology: VectorTopology = {
-      points: Object.fromEntries(
-        Object.entries(topology.points).map(([pointId, point]) => [
-          pointId,
-          {
-            ...point,
-            x: point.x + dx,
-            y: point.y + dy
-          }
-        ])
-      ),
-      segments: topology.segments,
-      networks: topology.networks
-    }
-
-    commitVectorPointMutation(elementId, topology, nextTopology, options)
-    return true
-  },
+  ): boolean =>
+    vectorApis
+      .setVectorElementPositions([{ elementId, position }], options)
+      .includes(elementId),
 
   updateVectorAnchorPointType: (
     elementId: string,

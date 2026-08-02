@@ -1,44 +1,37 @@
 import type {
-  ElementPropertyOwnerRelation,
+  PreparedPropertyMutationBatch,
+  PropertyMutationBatchRequest,
+  PropertyMutationBatchResult
+} from '@asyra/props-manager'
+import type {
+  ElementPropertyRelation,
   EVENT_OPTIONS,
-  PropertyComponentInstanceDataTypes,
   PropsComponentRawData,
-  PropsRestorePlan,
+  PreparedPropsRestore,
   PropsRestoreSnapshot
 } from '@asyra/utils'
-import type { PropertyFieldUpdate, PropertyOwnerRef } from '../types/props'
+import type { PropertyComponentValuesUpdate } from '../types/props'
 
 export interface PropsRequests {
-  updatePropertyById: (
-    propertyId: string,
-    key: string,
-    data: unknown,
-    owner?: PropertyOwnerRef,
-    options?: EVENT_OPTIONS
-  ) => void
-  commitPropertyChanges: (options?: EVENT_OPTIONS) => void
   propsLoadData: (data: unknown) => void
   propsSaveData: () => PropsComponentRawData
   preflightRestoreProperties: (
     snapshot: PropsRestoreSnapshot,
-    ownerRelations: readonly ElementPropertyOwnerRelation[]
-  ) => PropsRestorePlan
+    ownerRelations: readonly ElementPropertyRelation[]
+  ) => PreparedPropsRestore
   applyRestoreProperties: (
-    plan: PropsRestorePlan,
+    preparedRestore: PreparedPropsRestore,
     options?: EVENT_OPTIONS
   ) => readonly string[]
+  preparePropertyMutationBatch: (
+    request: PropertyMutationBatchRequest
+  ) => PreparedPropertyMutationBatch
+  applyPreparedPropertyMutationBatch: (
+    preparedBatch: PreparedPropertyMutationBatch
+  ) => PropertyMutationBatchResult
 }
 
 export const createPropsAPIs = (requests: PropsRequests) => ({
-  updatePropertyById<
-    TFields extends object = PropertyComponentInstanceDataTypes
-  >(propertyId: string, ...update: PropertyFieldUpdate<TFields>) {
-    const [key, data, owner, options] = update
-    requests.updatePropertyById(propertyId, key, data, owner, options)
-  },
-  commitPropertyChanges(options?: EVENT_OPTIONS) {
-    requests.commitPropertyChanges(options)
-  },
   propsLoadData(data: unknown) {
     requests.propsLoadData(data)
   },
@@ -47,11 +40,32 @@ export const createPropsAPIs = (requests: PropsRequests) => ({
   },
   preflightRestoreProperties(
     snapshot: PropsRestoreSnapshot,
-    ownerRelations: readonly ElementPropertyOwnerRelation[]
+    ownerRelations: readonly ElementPropertyRelation[]
   ) {
     return requests.preflightRestoreProperties(snapshot, ownerRelations)
   },
-  applyRestoreProperties(plan: PropsRestorePlan, options?: EVENT_OPTIONS) {
-    return requests.applyRestoreProperties(plan, options)
+  applyRestoreProperties(
+    preparedRestore: PreparedPropsRestore,
+    options?: EVENT_OPTIONS
+  ) {
+    return requests.applyRestoreProperties(preparedRestore, options)
+  },
+  updatePropertyComponents(
+    updates: readonly PropertyComponentValuesUpdate[],
+    options?: EVENT_OPTIONS
+  ) {
+    if (updates.length === 0) {
+      return Object.freeze([])
+    }
+    const preparedBatch = requests.preparePropertyMutationBatch({
+      operations: updates.map(({ propertyId, values }) => ({
+        kind: 'values',
+        propertyId,
+        values
+      })),
+      options
+    })
+    const result = requests.applyPreparedPropertyMutationBatch(preparedBatch)
+    return Object.freeze([...result.orderedPropertyIds])
   }
 })

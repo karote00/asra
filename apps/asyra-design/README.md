@@ -2,7 +2,7 @@
 
 Asyra Design is the open-source reference app built on the Asyra Framework. It
 provides a usable design canvas and demonstrates how an app can compose Asyra's
-state, rendering, interaction, persistence, and optional collaboration APIs.
+state, rendering, interaction, and collaboration APIs.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ yarn install
 The app has one URL setting in `apps/asyra-design/.env`:
 
 ```dotenv
-ASYRA_DESIGN_APP_URL=http://localhost:3000
+APP_URL=http://localhost:3000
 ```
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
@@ -31,7 +31,7 @@ maintain separate Vite and test base URLs.
 For example:
 
 ```dotenv
-ASYRA_DESIGN_APP_URL=http://localhost:4317
+APP_URL=http://localhost:4317
 ```
 
 ## Start the App
@@ -39,12 +39,21 @@ ASYRA_DESIGN_APP_URL=http://localhost:4317
 From the repository root:
 
 ```bash
-yarn workspace @asyra/asyra-design react:start
+yarn dev:all
 ```
 
-Open the URL configured by `ASYRA_DESIGN_APP_URL`.
+`dev:all` builds and starts the App's required workspace packages and the App
+dev server only. It does not start the collaboration WebSocket server. Open a
+document with one required non-empty `fileId`, for example:
 
-## Run the Non-Durable Collaboration Demo in Two Windows
+```text
+http://localhost:3000/?fileId=manual-design-file
+```
+
+The App always starts Collaboration for the selected document session. A
+missing or empty `fileId` does not open the App document.
+
+## Use the Non-Durable Collaboration Demo in Two Windows
 
 > [!WARNING]
 > The bundled WebSocket server is a public, memory-only development demo, not a
@@ -57,16 +66,14 @@ The repository includes a live public WebSocket reference server. It runs the
 same Asyra Design, Factory publication, app-owned remote state-application, and
 Provider path that forked apps can use to understand the integration boundary.
 
-Start the server and app in separate terminals:
+Start the collaboration server in a separate terminal:
 
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server
-yarn workspace @asyra/asyra-design react:start
 ```
 
-`collaboration:server` builds the reference server before starting it. To test
-a server restart without rebuilding files or triggering app HMR, stop that
-process and run:
+Then start the frontend in another terminal with `yarn dev:all`. To restart the
+already-built server without rebuilding it, run:
 
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server:start
@@ -78,23 +85,25 @@ Open the same `fileId` in two windows, for example:
 http://localhost:3000/?fileId=crdt-public-reference
 ```
 
-If `ASYRA_DESIGN_APP_URL` uses another origin, keep the same query string on
+If `APP_URL` uses another origin, keep the same query string on
 that URL. Matching `fileId` values join the same live in-memory room; different
 values stay isolated. The server retains no publication history, so reconnect
 receives future publications only. The response to `send-publication` confirms
 only that the running memory transport accepted the request.
 
-The browser-local demo database uses IndexedDB and is isolated by the same
-identity: an ordinary URL uses document key `FILE`, while a URL with `fileId`
-uses `FILE:<encoded fileId>`. On first startup, a matching legacy localStorage
-snapshot migrates only when IndexedDB has no document. Refreshing or switching
-between file URLs therefore restores each file's own local snapshot.
+Every `fileId` also selects an App-owned browser-local IndexedDB document.
+Manual actions, Agent actions, Undo, Redo, accepted remote publications, and
+Reset persist through one serialized provider queue, so reload restores the
+latest accepted work on that browser. This reference persistence replaces no
+production database: it provides no cross-device durability, authentication,
+backup, or missed-publication recovery. A derived app must supply its own
+server/database policy.
 
 You can inspect the connection in DevTools:
 
 ```js
-window.__AsyraCollaboration__?.getStatus()
-window.__AsyraCollaboration__?.identity
+window.__Collaboration__?.getStatus()
+window.__Collaboration__?.identity
 ```
 
 This public reference intentionally has no login, permission check, durable
@@ -115,14 +124,16 @@ yarn workspace @asyra/asyra-design test:e2e:collaboration
 ```
 
 The Playwright suites use the DEV app runtime for their diagnostic
-canonical-state assertions; production bundling remains a separate build gate.
+canonical-state assertions through imported test access and the bounded
+document diagnostic service; the human-only DevTools globals are never an
+automation API. Production bundling remains a separate build gate.
 The collaboration E2E suite may reuse already-running app and WebSocket servers.
 It never replaces the manual two-window test surface.
 
 ## Project Structure
 
 - `src/` — app UI, features, common APIs, and runtime composition
-- `src/collaboration/` — optional collaboration provider and app composition
+- `src/collaboration/` — always-on collaboration provider and app composition
 - `src/render-layers/` — app-owned overlay and preview layers
 - `e2e/` — browser behavior tests, including real multi-window collaboration
 - `collaboration-server.ts` — public memory-only reference server source

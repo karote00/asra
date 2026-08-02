@@ -106,16 +106,6 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
-    id: 'asyra-design-ai-conversational-drawing-live-provider-test',
-    entryPath: path.join(
-      projectRoot,
-      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-live-provider-test-flow-inspector.html'
-    ),
-    dataScript:
-      './ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs',
-    filterLaneTitle: 'Live Provider Boundary'
-  },
-  {
     id: 'asyra-design-ai-conversational-drawing-performance',
     entryPath: path.join(
       projectRoot,
@@ -124,15 +114,6 @@ const targets = [
     dataScript:
       './ai-conversational-drawing-performance-flow-inspector.data.cjs',
     filterLaneTitle: 'Shared Delivery'
-  },
-  {
-    id: 'asyra-design-ai-conversational-drawing',
-    entryPath: path.join(
-      projectRoot,
-      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-flow-inspector.html'
-    ),
-    dataScript: './ai-conversational-drawing-flow-inspector.data.cjs',
-    filterLaneTitle: 'Mock Provider and AI Runtime'
   },
   {
     id: 'asyra-design-group-context-menu',
@@ -178,6 +159,16 @@ const targets = [
     ),
     dataScript: './transaction-flow-inspector.data.cjs',
     filterLaneTitle: 'Factory State'
+  },
+  {
+    id: 'canonical-projection-and-collaboration-contract-realignment',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html'
+    ),
+    dataScript:
+      './canonical-projection-and-collaboration-contract-flow-inspector.data.cjs',
+    filterLaneTitle: 'Canonical State Owners'
   },
   {
     id: 'render-engine-boundary',

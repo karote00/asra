@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
+  applyEventToSynchronousOwners,
   publishEvent,
+  publishEventsToObservers,
   publishEventToObservers,
   createSubscribeEvent,
   subscribeToSynchronousEvent,
+  subscribeToEventBatches,
   subscribeToEvents,
   getEventBus,
   createEventStream
@@ -79,6 +82,32 @@ describe('Event Bus - Communication Backbone', () => {
         applied?.unsubscribe()
         noOp.unsubscribe()
       }
+    })
+
+    it('applies synchronous canonical owners without publishing observer evidence', () => {
+      const synchronousSubscriber = vi.fn(() => true)
+      const observerSubscriber = vi.fn()
+      const synchronousSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.ADD_PROPERTY,
+        synchronousSubscriber
+      )
+      const observerSubscription = subscribeToEvents(observerSubscriber)
+      observerSubscriber.mockClear()
+      const event: TestEvent = {
+        type: EventTypes.ADD_PROPERTY,
+        payload: { message: 'canonical-only' }
+      }
+
+      try {
+        expect(applyEventToSynchronousOwners(event)).toBe(true)
+      } finally {
+        synchronousSubscription.unsubscribe()
+        observerSubscription.unsubscribe()
+      }
+
+      expect(synchronousSubscriber).toHaveBeenCalledOnce()
+      expect(synchronousSubscriber).toHaveBeenCalledWith(event)
+      expect(observerSubscriber).not.toHaveBeenCalled()
     })
   })
 
@@ -354,6 +383,205 @@ describe('Event Bus - Communication Backbone', () => {
       expect(observer).toHaveBeenCalledWith(event)
       synchronousSubscription.unsubscribe()
       observerSubscription.unsubscribe()
+    })
+
+    it('publishes ordered compatibility evidence through one observer batch boundary', () => {
+      const batchSubscriber = vi.fn()
+      const eventSubscriber = vi.fn()
+      const batchSubscription = subscribeToEventBatches(batchSubscriber)
+      const eventSubscription = subscribeToEvents(eventSubscriber)
+      batchSubscriber.mockClear()
+      eventSubscriber.mockClear()
+      const events = [
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'first' }
+        },
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'second' }
+        }
+      ] as const
+
+      publishEventsToObservers(events)
+
+      expect(batchSubscriber).toHaveBeenCalledOnce()
+      expect(batchSubscriber).toHaveBeenCalledWith(events)
+      expect(eventSubscriber.mock.calls.map(([event]) => event)).toEqual(events)
+
+      batchSubscription.unsubscribe()
+      eventSubscription.unsubscribe()
+    })
+
+    it('keeps one observer registry snapshot for the full ordered batch', () => {
+      const lateSubscriber = vi.fn()
+      let lateSubscription: ReturnType<typeof subscribeToEvents> | undefined
+      const firstSubscription = subscribeToEvents((event) => {
+        const message = (event as TestEvent).payload?.message
+        if (message === 'batch-snapshot-first' && !lateSubscription) {
+          lateSubscription = subscribeToEvents(lateSubscriber)
+        }
+      })
+      const events = [
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'batch-snapshot-first' }
+        },
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'batch-snapshot-second' }
+        }
+      ] as const
+
+      try {
+        publishEventsToObservers(events)
+      } finally {
+        firstSubscription.unsubscribe()
+        lateSubscription?.unsubscribe()
+      }
+
+      expect(
+        lateSubscriber.mock.calls.map(
+          ([event]) => (event as TestEvent).payload.message
+        )
+      ).toEqual(['batch-snapshot-first'])
+    })
+
+    it('does not let one batch observer invalidate canonical delivery to later observers', () => {
+      const failure = new Error('batch observer failed')
+      const failingSubscription = subscribeToEventBatches(() => {
+        throw failure
+      })
+      const laterSubscriber = vi.fn()
+      const laterSubscription = subscribeToEventBatches(laterSubscriber)
+      const events = [
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'observer-isolation' }
+        }
+      ] as const
+
+      try {
+        expect(() => publishEventsToObservers(events)).not.toThrow()
+      } finally {
+        failingSubscription.unsubscribe()
+        laterSubscription.unsubscribe()
+      }
+
+      expect(laterSubscriber).toHaveBeenCalledOnce()
+      expect(laterSubscriber).toHaveBeenCalledWith(events)
+    })
+
+    it('keeps the public ReplaySubject ingress connected to helper subscribers', () => {
+      const subscriber = vi.fn()
+      const subscription = subscribeToEvents(subscriber)
+      subscriber.mockClear()
+      const event: TestEvent = {
+        type: EventTypes.ADD_ELEMENT,
+        payload: { message: 'public-subject-ingress' }
+      }
+
+      try {
+        getEventBus().next(event)
+      } finally {
+        subscription.unsubscribe()
+      }
+
+      expect(subscriber).toHaveBeenCalledOnce()
+      expect(subscriber).toHaveBeenCalledWith(event)
+    })
+
+    it('holds one public ReplaySubject observer snapshot across a batch', () => {
+      const lateSubscriber = vi.fn()
+      let lateSubscription: ReturnType<typeof subscribeToEvents> | undefined
+      const firstSubscription = getEventBus().subscribe((event) => {
+        if (
+          (event as TestEvent).payload?.message === 'legacy-snapshot-first' &&
+          !lateSubscription
+        ) {
+          lateSubscription = getEventBus().subscribe(lateSubscriber)
+        }
+      })
+      const events = [
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'legacy-snapshot-first' }
+        },
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'legacy-snapshot-second' }
+        }
+      ] as const
+
+      try {
+        publishEventsToObservers(events)
+      } finally {
+        firstSubscription.unsubscribe()
+        lateSubscription?.unsubscribe()
+      }
+
+      expect(
+        lateSubscriber.mock.calls.map(
+          ([event]) => (event as TestEvent).payload.message
+        )
+      ).toEqual(['legacy-snapshot-first'])
+    })
+
+    it('honors batch observer unsubscription against the active snapshot', () => {
+      const laterSubscriber = vi.fn()
+      const firstSubscription = subscribeToEventBatches(() => {
+        laterSubscription.unsubscribe()
+      })
+      const laterSubscription = subscribeToEventBatches(laterSubscriber)
+
+      try {
+        publishEventsToObservers([
+          {
+            type: EventTypes.ADD_ELEMENT,
+            payload: { message: 'unsubscribe-later-batch-observer' }
+          }
+        ])
+      } finally {
+        firstSubscription.unsubscribe()
+        laterSubscription.unsubscribe()
+      }
+
+      expect(laterSubscriber).not.toHaveBeenCalled()
+    })
+
+    it('isolates the ordered batch array from observer mutation', () => {
+      const source = [
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'immutable-first' }
+        },
+        {
+          type: EventTypes.ADD_ELEMENT,
+          payload: { message: 'immutable-second' }
+        }
+      ] as TestEvent[]
+      const firstSubscription = subscribeToEventBatches((events) => {
+        ;(events as TestEvent[]).reverse()
+      })
+      const laterSubscriber = vi.fn()
+      const laterSubscription = subscribeToEventBatches(laterSubscriber)
+
+      try {
+        publishEventsToObservers(source)
+      } finally {
+        firstSubscription.unsubscribe()
+        laterSubscription.unsubscribe()
+      }
+
+      expect(source.map(({ payload }) => payload.message)).toEqual([
+        'immutable-first',
+        'immutable-second'
+      ])
+      expect(
+        (laterSubscriber.mock.calls[0]?.[0] as readonly TestEvent[])?.map(
+          ({ payload }) => payload.message
+        )
+      ).toEqual(['immutable-first', 'immutable-second'])
     })
   })
 

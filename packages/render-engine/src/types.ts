@@ -62,6 +62,12 @@ export type RenderEngineCircleOperation = Readonly<{
   radius: number
 }>
 
+export type RenderEnginePolyOperation = Readonly<{
+  type: 'poly'
+  points: readonly RenderEnginePoint[]
+  close: boolean
+}>
+
 export type RenderEngineMoveToOperation = Readonly<{
   type: 'move-to'
   x: number
@@ -99,6 +105,7 @@ export type RenderEngineDrawOperation =
   | RenderEngineRectOperation
   | RenderEngineEllipseOperation
   | RenderEngineCircleOperation
+  | RenderEnginePolyOperation
   | RenderEngineMoveToOperation
   | RenderEngineLineToOperation
   | RenderEngineBezierCurveToOperation
@@ -311,8 +318,10 @@ export interface RenderEngine {
   execute(command: RenderEngineCommand): RenderEngineCommandResult
   query(query: RenderEngineQuery): RenderEngineQueryResult
   subscribeToInteraction(listener: RenderEngineInteractionListener): () => void
-  startFrameLoop(callback: RenderEngineFrameCallback): void
-  stopFrameLoop(): void
+  /** Schedules one callback and consumes it before invocation. */
+  requestFrame(callback: RenderEngineFrameCallback): void
+  /** Cancels the one pending frame callback, if present. */
+  cancelFrame(): void
   destroy(): RenderEngineDestroyResult
 }
 

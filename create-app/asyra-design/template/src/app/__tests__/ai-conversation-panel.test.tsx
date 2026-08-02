@@ -33,7 +33,7 @@ const createPanelHarness = () => {
   }
 }
 
-describe('Mock AI conversation panel intent boundary', () => {
+describe('AI Agent conversation panel intent boundary', () => {
   afterEach(() => {
     cleanup()
   })
@@ -49,11 +49,14 @@ describe('Mock AI conversation panel intent boundary', () => {
       />
     )
 
-    expect(screen.queryByText('Mock AI')).toBeNull()
+    expect(screen.getByTestId('ai-agent-panel')).toBeTruthy()
+    expect(screen.queryByTestId('ai-agent-message')).toBeNull()
+    expect(screen.getByText('Agent ready')).toBeTruthy()
     expect(screen.getByRole('complementary').getAttribute('aria-modal')).toBe(
       'false'
     )
     const input = screen.getByLabelText('Message Agent')
+    expect(input.id).toBe('ai-agent-input')
     expect(document.activeElement).toBe(input)
     const send = screen.getByRole('button', { name: 'Send' })
     expect((send as HTMLButtonElement).disabled).toBe(true)
@@ -267,15 +270,15 @@ describe('Mock AI conversation panel intent boundary', () => {
           {
             actions: [
               {
-                arguments: {
-                  compositionId: 'secret-group-id'
+                summary: {
+                  affectedCount: 1
                 },
                 id: 'remove-1',
                 name: 'remove_ai_composition',
                 permission: 'confirm'
               }
             ],
-            planId: 'remove-plan'
+            batchId: 'remove-batch'
           },
           {
             signal: new AbortController().signal
@@ -287,6 +290,9 @@ describe('Mock AI conversation panel intent boundary', () => {
       expect(screen.getByText('Destructive')).toBeTruthy()
       expect(screen.getByText('Undoable')).toBeTruthy()
       expect(screen.queryByText(/secret-group-id/)).toBeNull()
+      expect(JSON.stringify(harness.confirmation.getSnapshot())).not.toMatch(
+        /arguments|compositionId/
+      )
       fireEvent.click(screen.getByRole('button', { name: decision }))
 
       await expect(settlement).resolves.toBe(expected)
@@ -351,12 +357,14 @@ describe('Mock AI conversation panel intent boundary', () => {
     expect(
       await screen.findByText('Drawing updated successfully.')
     ).toBeTruthy()
+    const settledMessage = screen.getByTestId('ai-agent-message')
+    expect(settledMessage.tagName).toBe('ARTICLE')
+    expect(settledMessage.getAttribute('data-outcome')).toBe('success')
     expect(screen.getByText('畫一個貓臉')).toBeTruthy()
     expect(screen.getByText('Understanding the request')).toBeTruthy()
     expect(screen.getByText('Applying changes')).toBeTruthy()
     expect(screen.getByText('Elapsed 1.3s')).toBeTruthy()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
     expect(screen.queryByText(/secret-action-id/)).toBeNull()
     expect(screen.queryByText(/secret-canonical-id/)).toBeNull()
   })
@@ -415,7 +423,6 @@ describe('Mock AI conversation panel intent boundary', () => {
     ).toBeTruthy()
     expect(screen.queryByText(/provider-choice/)).toBeNull()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
   })
 
   it.each([

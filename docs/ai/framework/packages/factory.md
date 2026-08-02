@@ -59,6 +59,16 @@ infrastructure.
   index after placement or before removal, respectively; their internal
   initialization and hierarchy setter changes are not separate reversible
   journal entries
+- a registered bulk action uses this same journal and committed undo stack; it
+  does not create an AI-specific or bulk-specific forward/inverse history
+  artifact beside the ordinary owner events
+- successful owner apply is trusted after the event is recorded; Factory does
+  not run a post-action save, equality comparison, finalize-save,
+  full-document snapshot, or evidence-clone pass
+- a canonical owner-issued frozen Props-then-Scene batch retains the exact
+  detached outer identity declared by Reactive Events, so Factory does not
+  clone or recursively scan that already-owned geometry at handoff; unissued
+  external shallow-frozen batches are still isolated before journal recording
 
 2. Undo/redo replay
 
@@ -134,6 +144,9 @@ infrastructure.
 - local transaction recording is the default
 - changes append to a shared channel only when `options.shared` names a
   registered channel
+- every shared channel implements one exact `appendBatch(...)` /
+  `observeBatch(...)` contract; scalar conveniences delegate to batch-of-one
+  and do not create a second canonical delivery path
 - `sharedDelivery: 'transaction-end'` buffers delivery until outer commit
 - `sharedDelivery: 'immediate'` completes local shared-channel delivery and
   optional collaboration publication during the active transaction
@@ -157,10 +170,10 @@ infrastructure.
   redo publishes the forward replay; only channels actually delivered by the
   original committed action remain eligible
 - transaction-end shared delivery walks committed journal entries in mutation
-  order; each registered observer receives one delivery per entry, and pending
-  rolled-back or uncommitted entries are never exposed; scalar/batch
-  `raw|computed` owner provenance remains part of the detached immutable payload
-  and is never interpreted or rewritten by Factory
+  order; each registered observer receives one ordered canonical batch, and
+  pending rolled-back or uncommitted entries are never exposed; canonical
+  payload metadata remains detached and is never interpreted or rewritten by
+  Factory
 - if a registered transaction-end channel rejects an append before applying it,
   Factory restores the runtime transaction, reverts its provisional history
   transition, leaves no final undo/history or user-action completion effect,
@@ -173,9 +186,31 @@ infrastructure.
 - shared channels transport detached committed payloads only; they do not own
   canonical Scene Tree state, Render snapshots, or an independent revision
   authority
-- `subscribeToSharedPublication(...)` observes one batch per synchronous
-  immediate delivery action or committed transaction-end batch; a batch may
-  contain changes for multiple elements or state owners
+- `subscribeToSharedPublication(...)` observes one immutable minimal
+  `SharedPublication` per synchronous immediate delivery action or committed
+  transaction-end batch. Its exact transport hierarchy is publication
+  identity/origin/mode → ordered slices → channel batches → ordered payload
+  deliveries
+- the transport publication contains no inverse events, local history or
+  rollback evidence, duplicated top-level delivery list, record/change alias,
+  or nested record wrapper. Reversible evidence remains only in the existing
+  transaction journal and inverter contracts; Factory exposes no parallel
+  local History artifact. Only actual compensation publications carry
+  publication and delivery correlation ids
+- `FactoryMutationDeliverySequence` is the already-decided publication order
+  for the active transaction's eligible ordinary shared changes. It carries
+  `atomic` or `progressive` mode plus ordered slice boundaries; it is delivery
+  execution evidence, not History evidence or a planning API
+- `getActiveStagedDeliveryController()` exposes only
+  `setDeliverySequence(...)` and `stageSlice(...)` for a consumer that
+  explicitly owns optional staged publication. The sequence does not create a
+  second transaction, change canonical order, or pass delivery policy into
+  Core
+- consumers that do not own staged publication use the ordinary committed
+  `SharedPublication` path and do not acquire the staged-delivery controller
+- actual shared-delivery outcomes are recorded on the existing journal entries
+  solely to decide whether Undo or Redo emits a replay publication. Factory
+  does not copy canonical payloads into a parallel applied-result object
 
 5. Status contract
 
@@ -212,6 +247,9 @@ infrastructure.
 - Direct `undo()` and `redo()` on a consumer-owned Factory temporarily route
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
+- `getUndoHistoryDepth()` is the sole read-only scalar query for the exact local
+  undo depth owned by that Factory instance. It does not expose, clone, or allow
+  mutation of history entries and does not include remote transactions.
 
 ## Hierarchy Transaction Contract
 

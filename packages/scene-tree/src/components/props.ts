@@ -5,6 +5,7 @@ import {
   type EvnetOptions
 } from '@asyra/utils'
 import type {
+  PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
   PropsRawData
 } from '@asyra/utils'
@@ -56,6 +57,10 @@ class Props implements IProps {
     return this.propertyIds.get(name)
   }
 
+  getCanonicalRootPropertyIds(): readonly string[] {
+    return [...this.propertyIds.values()]
+  }
+
   init() {
     const propertyComponents = PROP_NAMES.map((propName) =>
       this.propsManagerOwner.createProperty({ type: propName })
@@ -75,6 +80,7 @@ class Props implements IProps {
 
   load(data: PropsDataType = {}): void {
     const dataObj = data as Record<string, string | undefined>
+    const createdPropertyComponents: PropertyComponentInstanceTypes[] = []
     const propertyComponents = PROP_NAMES.map((propName) => {
       const propId = dataObj[propName]
       const propComponent = propId
@@ -85,16 +91,19 @@ class Props implements IProps {
         return propComponent
       } else {
         // Create new prop component
-        return this.propsManagerOwner.createProperty({ type: propName })
+        const created = this.propsManagerOwner.createProperty({
+          type: propName
+        })
+        createdPropertyComponents.push(created)
+        return created
       }
     })
-    const propIdsMap = this.propsManagerOwner.addProperty(propertyComponents)
-    if (!propIdsMap) {
-      return
+    if (createdPropertyComponents.length > 0) {
+      this.propsManagerOwner.addProperty(createdPropertyComponents)
     }
 
-    PROP_NAMES.forEach((propName) => {
-      const id = propIdsMap[propName]
+    PROP_NAMES.forEach((propName, index) => {
+      const id = propertyComponents[index]?.get('id')
       if (id) {
         this.propertyIds.set(propName, id)
       }

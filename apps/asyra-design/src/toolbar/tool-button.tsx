@@ -15,7 +15,9 @@ const ToolButton = () => {
   const primaryTool = usePrimaryTool()
 
   const handleReset = useCallback(() => {
-    resetData()
+    void resetData().catch((error: unknown) => {
+      console.error('[toolbar.reset] Failed:', error)
+    })
   }, [])
 
   const handleSwitchToSelectTool = useCallback(() => {

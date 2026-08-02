@@ -239,6 +239,18 @@ export {
   LoadHookExecutionError
 } from './types/load-migration'
 export type { LoadHookExecutionErrorCode } from './types/load-migration'
+export type {
+  ElementPropertyAPIs,
+  ElementPropertyPatchUpdate,
+  ElementPropertyRecordFields,
+  ElementPropertyRecordPatch,
+  ElementPropertyValuesUpdate
+} from './types/element-properties'
+export type {
+  CanonicalChange,
+  CanonicalChangeAPIs
+} from './types/canonical-changes'
+export type { PropertyComponentValuesUpdate } from './types/props'
 type CoreBasicApiKeys =
   | 'setRenderer'
   | 'destroyRenderer'
@@ -256,8 +268,10 @@ type CoreBasicApiKeys =
 
 type CoreExtensionApiKeys =
   | 'setupInputSystem'
-  | 'updatePropertyById'
-  | 'commitPropertyChanges'
+  | 'applyCanonicalChanges'
+  | 'updateElementProperties'
+  | 'patchElementProperties'
+  | 'updatePropertyComponents'
   | 'initRender'
   | 'renderIsReady'
   | 'registerRenderLayer'
@@ -276,11 +290,18 @@ type CoreExtensionApiKeys =
   | 'sceneTreeSaveData'
   | 'createElement'
   | 'createElementInParent'
+  | 'createElementsInParent'
+  | 'createElementsInParentFromCanonicalData'
+  | 'removeElementsFromCanonicalData'
   | 'getElementComputedData'
   | 'moveElements'
+  | 'applyHierarchyMoves'
+  | 'applyElementDataChanges'
   | 'removeSubtree'
-  | 'changeComputedData'
-  | 'refreshComputedDataFromProperty'
+  | 'removeSubtreeFromCanonicalData'
+  | 'updateLocalComputedData'
+  | 'patchLocalComputedData'
+  | 'projectLocalComputedDataFromPropertyIds'
   | 'getAllElementsBounds'
   | 'isContainerType'
   | 'selectByChannel'
