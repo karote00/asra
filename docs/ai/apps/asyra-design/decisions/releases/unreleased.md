@@ -7047,3 +7047,40 @@ join` constrained dashed product path across:
     `modules/ai-development-and-debugging.md`.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
+
+## 2026-08-02 - Close the reopened App/CRDT and request-time Agent corrections
+
+- Context:
+  - The reopened work restored ordinary property projection and Undo/Redo,
+    file-scoped persistence, App-local naming and diagnostic boundaries, and
+    the formal request-time Agent provider.
+  - The checked-in `crdt-7076` sample now keeps its exact image, instruction,
+    and prior 7,075-vector conversion together. After Send, its backend matches
+    the request and reads that conversion without invoking VTracer; Actor B
+    receives the resulting canonical state only through CRDT.
+  - Focused App/backend tests, Inspector contracts, production bundle and build
+    checks, and the headless 16-item two-Actor CRDT case passed. The product
+    owner confirmed the completed functionality and requested closeout.
+- Decision:
+  - Close the reopened conversational drawing performance plan and move its
+    canonical record back to `plans/completed/`.
+  - Keep the retained performance Inspector as architecture authority for the
+    completed CRDT and Agent flow.
+  - Treat the newly mentioned serious Vector issue as a separate future task.
+    Its behavior, owner, and mutation scope remain undefined until the product
+    owner describes it; this closeout does not claim the broader Vector
+    subsystem is defect-free.
+  - Supersede the immediately preceding reopen state without deleting that
+    append-only history.
+- Consequences:
+  - Asyra Design has no active app plan after this closeout.
+  - The only production Agent route requests one backend `AiActionBatch` after
+    Send; URL/file identity never selects or preloads an action payload.
+  - The completed record preserves create-app template parity, a production
+    database backend, and the deferred Vector issue as separate future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
+- Related Commit(s):
+  - `d1f8d2faa` (`fix(app): realign persistent collaboration boundaries`)
+  - `cd423b3a2` (`docs(app): realign Agent and collaboration contracts`)
+  - `354fa5619` (`fix(app): restore request-time Agent sample flow`)

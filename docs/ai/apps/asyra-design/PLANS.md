@@ -4,19 +4,19 @@ Never record completed plans here.
 
 ## Current Status
 
-- Active app plan:
-  `plans/ai-conversational-drawing-performance-plan.md`, reopened by the product
-  owner on 2026-08-02 for bounded property projection, App-local persistence,
-  debug-surface, naming, and documentation corrections.
+- No active app plan.
+- Completed canonical record for the accepted App-level CRDT, persistence,
+  property-projection, and request-time Agent flow:
+  `plans/completed/ai-conversational-drawing-performance-plan.md`.
 - Retained architecture authority for the completed app-level CRDT closure:
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
-- The prior completion evidence remains inside the reopened plan and will move
-  back to `plans/completed/` only after the product owner requests a new
-  closeout.
+- The product owner identified a separate Vector issue on 2026-08-02 and
+  explicitly deferred its description and scope to the next task. No plan has
+  been created or activated for that issue.
 - The framework canonical projection and collaboration prerequisite completed
   on 2026-07-29. Its canonical record is
   `../../framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`.
-- The active performance Inspector owns the only production
+- The retained performance Inspector records the only production
   server-prepared `AiActionBatch` route. Obsolete provider-mode plans,
   Inspectors, and BDD records have been removed.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on

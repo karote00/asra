@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs'
 
@@ -2595,7 +2595,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One file-scoped preloaded server response, one resolved AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, file-scoped App persistence, and exact performance-equivalence proof.'
+        'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, file-scoped App persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,
@@ -2609,7 +2609,7 @@
         id: 'performance-plan',
         kind: 'authority',
         label: 'Performance product contract',
-        href: './ai-conversational-drawing-performance-plan.md'
+        href: './completed/ai-conversational-drawing-performance-plan.md'
       }
     ],
     lanes,

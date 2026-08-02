@@ -38,7 +38,7 @@ Conversational AI plan:
   completed successor App plan rather than this completed release gate.
 
 Current successor:
-`docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`.
+`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
 
 ## Product Contract
 

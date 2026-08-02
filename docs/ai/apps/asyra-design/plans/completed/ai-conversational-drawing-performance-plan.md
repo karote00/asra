@@ -1,21 +1,28 @@
 # Asyra Design Conversational AI Drawing Performance Plan
 
-## Status
+## Completion
 
-Reopened by the product owner on 2026-08-02 for the bounded App/CRDT correction
-described below. The prior CRDT transport and performance closure remains
-accepted evidence; this iteration does not reopen transport, codec, relay,
-backpressure, or high-detail optimization. The plan returns to
-`docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
-until the product owner requests a new closeout.
+Completed on 2026-08-02 after the product owner accepted the corrected
+App/CRDT functionality and explicitly requested closeout.
 
-The retained Inspector data, contract tests, BDD, and prior closure evidence in
-this record remain the app-level architecture and acceptance authority after
-the persistence and property-projection clauses are realigned with the reopened
-product contract.
-Framework package contracts remain authoritative inside their existing owner
-boundaries. Create-app template output parity remains a separate deferred
-follow-up and is not part of this completion claim.
+- Outcome: the App retains the accepted endpoint-ordered CRDT architecture,
+  file-scoped persistence, ordinary property projection and Undo/Redo,
+  minimal `SharedPublication`, and one request-time HTTP Agent provider. The
+  checked-in 7,076 sample reads its existing backend vector conversion only
+  after the exact image and instruction are submitted and never runs VTracer.
+- Final decision: keep the retained Inspector as architecture authority, keep
+  the reference persistence browser-local, and keep create-app template parity
+  outside this completed scope.
+- Canonical record:
+  `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
+- Exit criteria: retained owner-step evidence, focused App and backend tests,
+  Inspector contracts, production bundle/build checks, headless 16-item CRDT,
+  prior accepted high-detail evidence, and explicit product-owner acceptance
+  support this bounded closeout.
+- Deferred issue: the product owner identified a separate serious Vector issue
+  but reserved its description, diagnosis, and scope for the next task. This
+  closeout makes no broader claim that the Vector subsystem has no remaining
+  defects.
 
 ### 2026-08-02 Reopened Bounded Contract
 
@@ -5485,9 +5492,10 @@ never committed.
   session. After Send, one same-origin provider request returns one
   `AiActionBatch`; the `crdt-7076` sample reads its exact checked-in converted
   source only on the backend and never runs VTracer.
-- No prepared response object crosses the Playwright process boundary, no
-  startup response inbox or response overlay exists, and the frontend
-  production bundle contains no sample vector source or action payload.
+- No startup response inbox or response overlay exists. The focused Playwright
+  harness fulfills the same HTTP endpoint instead of injecting a resident
+  browser payload, and the frontend production bundle contains no sample vector
+  source or action payload.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
 - The existing Factory journal and Undo stack serve local action history;
   Render/UI consumes ordinary canonical owner projection, and no AI/bulk
@@ -5496,8 +5504,9 @@ never committed.
   serves Collaboration without `inverseEvents`, History evidence, rollback
   evidence, or payload aliases.
 - Peer queues remain byte-bounded and exact publication order converges.
-- Actor B has no Undo or echo side effects; Actor A and Actor B both have zero
-  client persistence side effects.
+- Actor B has no Undo or echo side effects. Actor A persists accepted local
+  results and Actor B persists accepted remote results through the same
+  file-scoped App-owned serialized persistence route.
 - Existing performance budgets pass without lowering detail or weakening
   canonical, history, cooperative visibility, or publication semantics.
 - The synchronized visual review passes from the same measured live App state.
