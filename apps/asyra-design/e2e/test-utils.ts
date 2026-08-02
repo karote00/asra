@@ -37,6 +37,14 @@ export const createTestDocumentIdentity = (
 export const createTestDocumentURL = (search = ''): string =>
   createTestDocumentIdentity(search).url
 
+export const getCurrentDocumentStorageKey = (page: Page): string => {
+  const fileId = new URL(page.url()).searchParams.get('fileId')?.trim()
+  if (!fileId) {
+    throw new Error('The current page does not have a fileId')
+  }
+  return `FILE:${encodeURIComponent(fileId)}`
+}
+
 export const captureBrowserErrors = (page: Page): void => {
   const browserErrors: string[] = []
   browserErrorsByPage.set(page, browserErrors)

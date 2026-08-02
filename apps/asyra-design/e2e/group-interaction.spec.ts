@@ -3,8 +3,10 @@ import {
   createTestDocumentURL,
   createRectangle,
   getCanvasPosition,
-  getClientPersistenceEvidence,
+  getCoreDocumentDigest,
   getContentsPanel,
+  getCurrentDocumentStorageKey,
+  getPersistedDocumentDigest,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
   redo,
@@ -640,13 +642,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(normalized.outer.height).toBeCloseTo(normalized.inner.height)
   })
 
-  test('groups, nests, projects, restores, and ungroups through memory-only product commands', async ({
+  test('groups, nests, projects, restores, ungroups, and persists through product commands', async ({
     page
   }) => {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
-    const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.25, 0.3)
     await createRectangle(page, 0.5, 0.45)
@@ -800,9 +801,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
       .toEqual(initialIds.slice(0, 2))
     await expect(layerRow(page, firstGroupId)).toHaveCount(0)
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
-    expect(await getClientPersistenceEvidence(page)).toEqual(
-      persistenceBaseline
-    )
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(() =>
+        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+      )
+      .toEqual(finalDocumentDigest)
 
     await page.evaluate(async () => {
       delete (
@@ -814,18 +818,27 @@ test.describe('Asyra Design Group interaction MVP', () => {
 
     await page.reload()
     await waitForAppReady(page)
-    expect(await getLayerIds(page)).toEqual([])
+    expect(await getLayerIds(page)).toEqual(initialIds)
     expect(await getSelectedIds(page)).toEqual([])
     expect(
       await page.evaluate(
-        async (ids) => {
+        async ({ elementIds, removedGroupIds }) => {
           const { core } = await import('../src/testing/runtime-access')
-          return ids.some((id) =>
-            Boolean(core.deps.sceneTree.getElementById(id))
-          )
+          return {
+            elementsExist: elementIds.every((id) =>
+              Boolean(core.deps.sceneTree.getElementById(id))
+            ),
+            groupsExist: removedGroupIds.some((id) =>
+              Boolean(core.deps.sceneTree.getElementById(id))
+            )
+          }
         },
-        [...initialIds, firstGroupId, nestedGroupId]
+        {
+          elementIds: initialIds,
+          removedGroupIds: [firstGroupId, nestedGroupId]
+        }
       )
-    ).toBe(false)
+    ).toEqual({ elementsExist: true, groupsExist: false })
+    expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
   })
 })

@@ -2,8 +2,10 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   createTestDocumentURL,
   createRectangle,
-  getClientPersistenceEvidence,
+  getCoreDocumentDigest,
   getContentsPanel,
+  getCurrentDocumentStorageKey,
+  getPersistedDocumentDigest,
   pressGroupCommandShortcut,
   redo,
   resetCanvas,
@@ -140,7 +142,6 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
-    const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.25, 0.3)
     await createRectangle(page, 0.5, 0.45)
@@ -291,9 +292,12 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       'idle'
     )
 
-    expect(await getClientPersistenceEvidence(page)).toEqual(
-      persistenceBaseline
-    )
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(() =>
+        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+      )
+      .toEqual(finalDocumentDigest)
     await page.evaluate(async () => {
       delete (
         window as typeof window & {
@@ -304,18 +308,21 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
 
     await page.reload()
     await waitForAppReady(page)
-    expect(await getVisibleLayerIds(page)).toEqual([])
     expect(await getSelectedIds(page)).toEqual([])
+    await expect
+      .poll(() => getChildren(page, groupId))
+      .toEqual([firstId, secondId, thirdId])
     expect(
       await page.evaluate(
         async (ids) => {
           const { core } = await import('../src/testing/runtime-access')
-          return ids.some((id) =>
+          return ids.every((id) =>
             Boolean(core.deps.sceneTree.getElementById(id))
           )
         },
         [...initialIds, groupId]
       )
-    ).toBe(false)
+    ).toBe(true)
+    expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
   })
 })
