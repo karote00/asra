@@ -247,7 +247,7 @@ test('input routing has standard shortcuts, no Layers controls, and editable byp
     text,
     /direct hierarchy or selection mutation in React handlers/i
   )
-  assert.match(text, /window\.__AsyraE2E__/i)
+  assert.match(text, /browser-global debug handle/i)
   ;[
     'apps/asyra-design/e2e',
     'create-app/asyra-design/template',

@@ -61,13 +61,14 @@
   - drag-to-bezier handle creation
   - curve-handle selection and point-target property visibility
 
-- `conversational-ai-mock.spec.ts`
+- `conversational-ai.spec.ts`
 
-  - keyless exact `ai=mock` activation, attachment, vectorization, confirmation,
-    failure, partial-result, history, and persistence behavior
+  - required-file startup, server-prepared response consumption, attachment,
+    vectorization, confirmation, failure, partial-result, history, and
+    persistence behavior
   - the 7,112-element balanced correctness case is a change-aware heavy gate,
     excluded unless CI or the caller sets
-    `ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS=1`
+    `RUN_BALANCED_AI_CORRECTNESS=1`
   - `yarn workspace @asyra/asyra-design
     test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
     worker
@@ -88,12 +89,12 @@
 - tests rely on stable `data-testid` selectors
 - tests assume layout constants for safe canvas click positions
 - tests currently use keyboard shortcuts heavily to drive interaction state
-- `ASYRA_DESIGN_APP_URL` is the single base URL for ordinary E2E, visual review,
+- `APP_URL` is the single base URL for ordinary E2E, visual review,
   collaboration E2E, and the Vite server used by those suites
 - ordinary and collaboration E2E run the DEV app runtime after the workspace
-  build because canonical-state assertions intentionally use DEV-only
-  `window.__Core__` and `window.__AsyraE2E__`; production bundle/exclusion
-  behavior stays in separate package and build gates
+  build, but use imported test access and the fixed document diagnostic
+  service. Human DevTools globals are not an E2E API; production
+  bundle/exclusion behavior stays in separate package and build gates
 - pull-request and manual CI use two workers, line reporting, no retry, and stop
   after the first product failure; scheduled CI retains one retry and completes
   the suite without the first-failure cap
@@ -111,8 +112,8 @@
   same single-sample oracle while preserving every formal threshold
 - superseded runs for the same pull request or ref are cancelled, and both E2E
   jobs install only the configured Chromium browser
-- the 7,076-element two-actor Mock AI recording remains the explicit
-  `ASYRA_DESIGN_RUN_AI_CRDT_VIDEO=1` resource gate and is not materialized by
+- the 7,076-element two-actor Agent recording remains the explicit
+  `RUN_AI_CRDT_VIDEO=1` resource gate and is not materialized by
   default ordinary or collaboration CI
 - the collaboration suite may reuse manually started app and WebSocket servers;
   it does not replace the documented two-window manual test

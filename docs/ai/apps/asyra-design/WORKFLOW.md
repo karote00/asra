@@ -68,7 +68,7 @@ Run what matches scope:
 - `yarn workspace @asyra/asyra-design test:e2e` for UI/interaction behavior changes
 - focused manual checks for interactions not fully covered by E2E
 - for canvas/vector/rendering/geometry visual-correctness claims, use `docs/ai/skills/app-visual-review-sync/SKILL.md`
-  - use the app-owned `ASYRA_DESIGN_APP_URL`; Vite and Playwright resolve it
+  - use the app-owned `APP_URL`; Vite and Playwright resolve it
     through `apps/asyra-design/app-environment.mjs`
   - assert runtime computed data before screenshots when the review is tied to supplied computed data
   - inspect the final live-app screenshots before saying `manual app visual review passed`

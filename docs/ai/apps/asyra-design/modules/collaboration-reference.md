@@ -7,7 +7,7 @@
 ## Purpose
 
 Asyra Design includes a real two-window WebSocket collaboration composition.
-It is open-source reference code, not a fake or mock path. The browser app,
+It is open-source reference code, not a fake or alternate path. The browser app,
 Provider, typed wire protocol, and memory-only server all use the same
 publication transport contract available to product apps.
 
@@ -38,15 +38,22 @@ processing. When another Actor opens the same `fileId`, both Actors already
 share its room and the path is classified as two-Actor CRDT processing. This
 classification does not change Core, Factory, Render, or Collaboration APIs.
 
-The demo creates no client persistence provider. Startup always loads a fresh
-canonical empty document; local action, Undo, Redo, and remote apply perform no
-client persistence capture, provider save, IndexedDB read, or IndexedDB write.
-A future production socket server and backend database checkpoint policy remain
-outside this memory-only demo.
+The App configures one browser-local IndexedDB provider selected by `fileId`
+before Core starts. A cache miss loads one valid empty document; otherwise Core
+loads the latest accepted local snapshot. Manual actions, Agent actions, Undo,
+and Redo use Core's ordinary persistence lifecycle. One accepted remote
+publication saves the resulting document through the same serialized provider
+queue before its peer-applied receipt. There is no localStorage migration,
+old-format compatibility, or second persistence route.
+
+This browser-local reference persistence is separate from the memory-only
+WebSocket server. It is not a shared database, server commit, cross-device
+recovery, backup, or reconnect replay. A derived production app must replace it
+with an appropriate backend database and authorization policy.
 
 The browser endpoint comes from
-`VITE_ASYRA_DESIGN_COLLABORATION_WS_URL`. The reference server validates the
-request Origin against `ASYRA_DESIGN_APP_URL`; server host and port remain
+`VITE_COLLABORATION_WS_URL`. The reference server validates the
+request Origin against `APP_URL`; server host and port remain
 separate environment settings because they identify a separate service.
 
 ## Publication Flow
@@ -107,11 +114,12 @@ remote transaction begins. This is Asyra Design app policy, not
 `@asyra/collaboration` policy.
 
 Factory remote origin keeps accepted remote changes out of the receiving
-user's ordinary local undo stack, suppresses a new outbound publication, and
-captures or writes no client persistence snapshot. Owner evidence becomes
-visible to ordinary local observers only after Factory owner finalization
-succeeds, as one ordered batch. Rollback or owner-finalization failure exposes
-no observer prefix.
+user's ordinary local undo stack and suppresses a new outbound publication.
+Owner evidence becomes visible to ordinary local observers only after Factory
+owner finalization succeeds, as one ordered batch. The App then saves the
+accepted result once through the file-scoped serialized persistence queue.
+Rollback or owner-finalization failure exposes no observer prefix and performs
+no save.
 The default reference policy accepts repeated hierarchy publications. Any
 dedupe, last-write-wins, timestamp ordering, or concurrent hierarchy conflict
 policy is an app/backend responsibility and is not added to Collaboration.
@@ -189,10 +197,9 @@ receipt and still does not represent durable storage. Server restart, redeploy,
 or process failure discards every room.
 
 The server's memory-only contract describes live room transport, not browser
-persistence. The Asyra Design demo may save locally originated committed
-snapshots to browser-local IndexedDB; a remote apply never writes it. That
-local durability is not a production shared database or cross-device recovery
-mechanism.
+persistence. The App saves locally originated commits and accepted remote
+results to browser-local IndexedDB. That local durability is not a production
+shared database or cross-device recovery mechanism.
 
 ## Awareness
 
@@ -200,6 +207,19 @@ Awareness is a separate ephemeral route for presence. Disconnect, leave, and
 timeout remove remote observations. Awareness never carries element creation,
 geometry, vector topology, Props changes, permission, save/load data, or undo
 history.
+
+The framework and reference transport already implement Awareness clocks,
+validation, stale-message rejection, room fan-out, disconnect cleanup, and
+timeout-capable state storage. An app can call
+`collaboration.updateAwareness(state)`, observe
+`collaboration.awareness.observe(...)`, query detached snapshots, explicitly
+leave, and expire stale actors without creating a wire protocol.
+
+The App currently does not define a presence schema or UI. A future app
+developer still owns user display identity, document-space cursor coordinates,
+selected element IDs, pointer throttling/coalescing, heartbeat and expiry
+scheduling, privacy/authorization, and cursor/selection/online-user rendering.
+These values remain ephemeral and must never become canonical authority.
 
 ## Production Backend Responsibilities
 
@@ -243,14 +263,15 @@ no default database implementation.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
    For pen drag-to-add, verify the peer receives the real point/segment on
    mouse-down and curve-handle changes during drag, before pointer-up.
-5. Perform a local action, Undo, and Redo and verify the current session
-   performs no client persistence capture, provider save, or IndexedDB write.
-   Verify that merely receiving a remote publication is equally persistence
-   free.
+5. Perform a local action, Undo, Redo, and one accepted remote edit. Reload each
+   browser and verify its file-scoped IndexedDB document restores the latest
+   accepted state without creating a second collaboration publication.
 6. Verify local selection/presence behavior separately from canonical document
    changes.
 7. Disconnect one window, mutate the other, reconnect, and confirm no hidden
-   history replay occurs; a production refresh would be app/backend work.
+   server history replay occurs. A reload may restore that browser's own last
+   locally persisted accepted snapshot, but cannot recover publications it
+   never received.
 
 ## Validation
 

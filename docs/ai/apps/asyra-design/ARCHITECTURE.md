@@ -26,9 +26,9 @@
 
 - `app-environment.mjs` owns parsing and validation of the app origin and the
   reference WebSocket server's host and port.
-- `ASYRA_DESIGN_APP_URL` is the canonical app-origin input consumed by Vite,
+- `APP_URL` is the canonical app-origin input consumed by Vite,
   Playwright, visual review, and reference-server Origin validation.
-- `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL` identifies the browser's WebSocket
+- `VITE_COLLABORATION_WS_URL` identifies the browser's WebSocket
   service endpoint. It is independent from the app origin because the app and
   WebSocket server are separate services.
 - RenderApp does not parse build-tool or test-runner configuration.
@@ -51,7 +51,7 @@
   `core.start()`
 - DEV-only diagnostics dynamically import
   `@asyra/core/canvas-pipeline-debugger` and expose a disabled
-  `window.__AsyraCanvasPipelineDebugger__` handle; HMR disposes the prior
+  `window.__CanvasPipelineDebugger__` handle for human DevTools use; HMR disposes the prior
   handle, while production bypasses the import and runtime entirely
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
@@ -60,17 +60,14 @@
 
 3. `src/render-app/index.tsx`
 
-- owns the runtime collaboration opt-in decision from the app URL's non-empty
-  `fileId`; that value maps to the collaboration document and room identity,
-  while a full UUID actor identity is generated per page and configures the
-  canonical ID-counter namespace before collaborative actions
-- selects app-owned IndexedDB persistence before Core startup; ordinary URLs
-  retain document identity `FILE`, while a collaboration `fileId` selects
-  `FILE:<encoded fileId>` so each public file keeps an independent
-  browser-local demo snapshot; when IndexedDB is empty, RenderApp migrates a
-  matching eligible legacy localStorage snapshot and removes it only after a
-  successful durable write, otherwise it initializes the valid empty workspace
-  once before Core startup
+- requires one non-empty `fileId`; that value maps to the App document,
+  collaboration document, and room identity, while a full UUID actor identity
+  is generated per page and configures the canonical ID-counter namespace
+  before collaborative actions
+- selects App-owned IndexedDB persistence before Core startup. The exact
+  `FILE:<encoded fileId>` key isolates browser-local demo documents. A cache
+  miss loads one valid empty document; there is no localStorage migration,
+  old-format compatibility, or second persistence route
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
@@ -93,9 +90,9 @@
 
 Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-context -> React Providers -> UI
 
-## Optional Collaboration Ownership
+## Collaboration Ownership
 
-- RenderApp owns opt-in timing and mount-lifetime activation/teardown requests;
+- RenderApp owns mount-lifetime activation/teardown requests;
   the collaboration lifecycle module owns instance startup, failure cleanup, and
   disposal, including HMR cleanup. Core and Preset do not activate
   collaboration implicitly.
@@ -122,6 +119,10 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 - Scene Tree and Props remain canonical state owners for local and remote
   changes. Awareness is ephemeral and cannot carry canonical create or move
   geometry; Render remains a downstream projection.
+- Core's persistence lifecycle stores local actions, Agent actions, Undo, and
+  Redo. The App's accepted-remote callback saves the resulting document after
+  the one remote transaction. Both use the same serialized file-scoped
+  provider queue.
 
 ## Module Ownership (App)
 

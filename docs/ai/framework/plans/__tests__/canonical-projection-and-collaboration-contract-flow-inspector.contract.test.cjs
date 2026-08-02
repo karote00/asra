@@ -138,7 +138,7 @@ test('realignment Inspector and completed planning authorities resolve', () => {
   const performancePlan = read(
     path.resolve(
       repoRoot,
-      'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
+      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
     )
   )
 
@@ -147,14 +147,17 @@ test('realignment Inspector and completed planning authorities resolve', () => {
     frameworkPlans,
     /canonical-projection-and-collaboration-contract-realignment-plan\.md/
   )
-  assert.match(appPlans, /Active app plan:\s+none\./)
+  assert.match(
+    appPlans,
+    /Active app plan:[\s\S]*ai-conversational-drawing-performance-plan\.md/
+  )
   assert.match(
     appPlans,
     /completed\/canonical-projection-and-collaboration-contract-realignment-plan\.md/
   )
   assert.match(
     performancePlan,
-    /Completed on 2026-08-02 after product-owner acceptance/
+    /Reopened by the product owner on 2026-08-02/
   )
   assert.match(performancePlan, /Retained architecture artifacts/)
 })

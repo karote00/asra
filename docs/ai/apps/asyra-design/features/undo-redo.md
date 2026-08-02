@@ -15,7 +15,7 @@
 
 - Shift + Undo shortcut -> redo
 - Undo shortcut without Shift -> undo
-- An explicit Mock AI mutating turn may correlate its committed canonical
+- An explicit Agent mutating turn may correlate its committed canonical
   action id with one app-root-local Message Bar.
 - The Message Bar offers Undo only while that AI action remains current, then
   offers Redo after its successful Undo.

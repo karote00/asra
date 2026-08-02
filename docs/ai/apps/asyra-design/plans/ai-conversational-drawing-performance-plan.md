@@ -2,20 +2,191 @@
 
 ## Status
 
-Completed on 2026-08-02 after product-owner acceptance. The canonical completed
-record is
-`docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
-The final result preserves one server-prepared `AiActionBatch`, cooperative
-plural canonical batches, the existing Factory journal and Undo stack, one
-minimal `SharedPublication` transport artifact, Worker-owned binary transport
-and admission, linear remote apply, byte-bounded relay backpressure, ordinary
-Render/UI projection, and zero client persistence for the demo document.
+Reopened by the product owner on 2026-08-02 for the bounded App/CRDT correction
+described below. The prior CRDT transport and performance closure remains
+accepted evidence; this iteration does not reopen transport, codec, relay,
+backpressure, or high-detail optimization. The plan returns to
+`docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`
+until the product owner requests a new closeout.
 
-The retained Inspector data, contract tests, BDD, and final closure evidence in
-this record remain the app-level architecture and acceptance authority.
+The retained Inspector data, contract tests, BDD, and prior closure evidence in
+this record remain the app-level architecture and acceptance authority after
+the persistence and property-projection clauses are realigned with the reopened
+product contract.
 Framework package contracts remain authoritative inside their existing owner
 boundaries. Create-app template output parity remains a separate deferred
 follow-up and is not part of this completion claim.
+
+### 2026-08-02 Reopened Bounded Contract
+
+Objective:
+
+- restore the ordinary canonical property-to-computed-to-Render projection for
+  every Properties panel mutation, including Vector point editing, while
+  preserving one intended Undo/Redo action;
+- restore file-scoped browser persistence for local actions, AI actions,
+  Undo/Redo, and accepted remote publications in this reference App;
+- remove App-internal product-name prefixes from code identifiers, remove
+  production/test consumption of `window.__…` DevTools handles, and synchronize
+  the human-maintenance and architecture documentation requested by the product
+  owner.
+
+Authorized mutation scope:
+
+- the exact App property, collaboration, persistence, diagnostics, AI naming,
+  test, and documentation consumers identified by the pre-edit bounded
+  inventory;
+- the first incorrect framework owner in the existing canonical
+  property-projection route, if the new failing regression proves the App
+  consumer is not the first incorrect step;
+- this plan and its retained Inspector/BDD contracts.
+
+Required gates:
+
+- a formal regression that fails on the current property projection and proves
+  canonical value, visible Render projection, and one-step Undo/Redo;
+- equivalent Vector point-property coverage;
+- file-scoped persistence load/save/remote-apply tests;
+- fixed inventory checks for App-internal product-name identifiers and
+  non-definition `window.__…` consumers;
+- focused unit/integration gates, the requested AI-created 16-item two-Actor
+  CRDT property/Undo/Redo case, then a fresh non-AI two-Actor element
+  property/Undo/Redo case;
+- affected build, lint, and synchronized live visual review.
+
+Exclusions:
+
+- no create-app template parity;
+- no codec Worker, receiver admission, relay, backpressure, server database, or
+  new high-detail performance optimization;
+- no 7,076-, 7,112-, or 27,471-element execution;
+- no compatibility format, dual persistence route, patch render output, or
+  field-by-field Properties workaround;
+- no package installation, runtime upgrade, or generated media commit.
+
+Stop conditions:
+
+- the first formal property regression does not identify a bounded canonical
+  owner path;
+- a fix would require a downstream UI/render patch instead of repairing the
+  canonical property projection;
+- the same focused gate fails three times for the same owner cause;
+- a required file falls outside this frozen inventory or an unrelated user
+  change appears.
+
+### 2026-08-02 Bounded Test Iteration
+
+The requested two-Actor 16-item property/persistence proof reached the case
+timeout three times without exposing its first incomplete assertion. The first
+run retained Playwright's unrelated 30-second default; the next two correctly
+used the 180-second CRDT case limit, but the timeout-triggered browser teardown
+threw from `context.close()` and masked the active test phase. This is
+insufficient evidence to assign a product owner or change implementation.
+
+This iteration remains inside the frozen gate and may change only the formal
+test's diagnostic accountability: teardown must settle idempotently, the case
+must retain one bounded last-checkpoint artifact, and named steps must identify
+whether the incomplete boundary is AI creation, property convergence,
+Undo/Redo, persistence settlement, or reload. After that correction, run the
+same 16-item case once. If it reports a product boundary, repair only that
+owner and rerun once; if it still cannot identify a boundary, stop the commit.
+
+### Reopened Step Execution Card: canonical property projection
+
+- Owner step: `project-visible-canonical-slices`, with
+  `apply-canonical-property-scene-batch` as its upstream source owner.
+- Inputs: one committed canonical Props replacement/record patch from ordinary
+  UI, AI-created content, remote apply, Undo, or Redo.
+- Outputs: one current Scene local-computed projection batch, one ordinary
+  Preset/Render/UI projection, and no computed SharedPublication.
+- Conditions: every Properties field and Vector point edit uses the same
+  canonical Props route; one discrete edit is one Undo entry; Undo and Redo
+  traverse the same owner path.
+- Bypasses: semantic no-op emits no projection or history; invalid input rejects
+  before mutation.
+- Allowed contributors: Core plural property APIs, Props Manager, Scene Tree
+  local computed projection, Preset ordinary event-batch consumers, Render/UI.
+- Forbidden contributors: per-field refresh calls, manual Render mutation,
+  shared computed data, color-picker-only branches, or App-specific fallback
+  projection.
+- Initial implementation boundary:
+  `packages/scene-tree/src`,
+  `packages/preset/src/subscriptions`,
+  `packages/core/src/__tests__`,
+  `apps/asyra-design/src/properties`,
+  `apps/asyra-design/src/common-apis`,
+  `apps/asyra-design/e2e/properties.spec.ts`, and their direct tests.
+- Failure owner: the first owner that drops or delays the canonical
+  Props-to-computed event before ordinary Render/UI consumption.
+
+### Reopened Step Execution Card: file-scoped demo persistence
+
+- Owner step: renamed from `load-empty-demo-document` to
+  `load-file-scoped-demo-document`.
+- Inputs: required `fileId`, the App-local IndexedDB provider, committed local
+  action/Undo/Redo outcomes, and accepted remote-publication settlement.
+- Outputs: one file-scoped durable canonical snapshot that the same App reloads
+  before Collaboration starts.
+- Conditions: local and AI actions reuse Core autosave; accepted remote
+  publications enter one App-owned serial persistence handoff after canonical
+  apply; the response inbox remains a separate read-only server-response
+  adapter; the WebSocket server remains memory-only.
+- Bypasses: no stored document loads the valid empty document once; rejected or
+  rolled-back work is never saved.
+- Allowed contributors: App startup, `@asyra/persistence` public IndexedDB
+  provider, Core save/load facade, App collaboration settlement.
+- Forbidden contributors: server-owned durability claims, response-inbox reuse,
+  Core remote-origin policy changes, dual storage formats, localStorage
+  compatibility, or a second canonical state owner.
+- Initial implementation boundary:
+  `apps/asyra-design/src/document-persistence.ts`,
+  `apps/asyra-design/src/render-app`,
+  `apps/asyra-design/src/collaboration/lifecycle.ts`,
+  their direct tests, and app contract docs.
+- Failure owner: Asyra Design RenderApp/persistence composition.
+
+### Reopened Step Execution Card: App-local naming boundary
+
+- Owner steps: the App-owned contributors of
+  `stage-local-interactive-composition`,
+  `apply-remote-publication-batches`, and
+  `evaluate-performance-and-equivalence`.
+- Inputs: the fixed case-insensitive App source inventory for PascalCase,
+  camelCase, uppercase snake case, and separator variants of the containing
+  product name.
+- Outputs: domain-local identifier, type, API, option, test-helper, and
+  environment-key names that do not repeat the containing App name.
+- Conditions: public product display copy may retain the product brand;
+  workspace package names, directory paths, Inspector identity, and external
+  document titles retain their real target identity. Code symbols and
+  app-internal configuration names use their direct domain purpose.
+- Forbidden contributors: compatibility aliases, duplicate exports, string
+  lookup fallbacks, or create-app template changes.
+- Implementation boundary: `apps/asyra-design/src`,
+  `apps/asyra-design/e2e`, App package/config scripts, and their direct formal
+  tests and docs.
+- Failure owner: the App module that declares the redundant identifier.
+
+### Reopened Step Execution Card: module-owned diagnostics
+
+- Owner step: `evaluate-performance-and-equivalence`, plus the exact App
+  startup and collaboration contributors that define DevTools handles.
+- Inputs: the fixed `window.__`, `globalThis.__`, browser diagnostic sink, and
+  direct-consumer inventory.
+- Outputs: production modules may define bounded DevTools handles for the
+  product owner, while production code, test code, E2E, and automation consume
+  typed module-owned APIs or detached provider evidence instead of reading or
+  mutating those handles.
+- Conditions: production performance evidence remains detached; test access is
+  explicit and module-owned; collaboration debug types match the complete
+  defined handle including publication-outcome observation.
+- Forbidden contributors: hidden aliases, test-only mutable runtime owners,
+  DOM fallback bridges, or a second diagnostic state owner.
+- Implementation boundary: exact App handle definitions and consumers,
+  directly consumed framework diagnostic utilities, App tests/E2E, and
+  production-bundle exclusion tests.
+- Failure owner: the first module that consumes browser-global debug state
+  instead of its module owner.
 
 `Plan` in this title and file names only this implementation-governance
 document. It is not a product artifact, Runtime phase, provider response, API,
@@ -25,15 +196,21 @@ evidence directly with `Prepared…`, `Resolved…`, `…Batch`, `…Artifact`, 
 boundary uses `AiActionBatch`, `batchId`, `requestActionBatch()`, and
 `resolveAiActionBatch()`.
 Production identifiers name the action batch, drawing artifact, canonical batch,
-and wire artifact directly; they never use plan, Mock, fake, or simulated
+and wire artifact directly; they never use plan, fake, or simulated
 vocabulary.
 
 The completed product contract uses one always-on server-backed Runtime route,
 one formal provider, one server-prepared `AiActionBatch` payload, and one fixed
-cooperative progressive plural-batch composition. Production contains no Mock,
-fake, simulated, local-compat, provider-disabled, optional-Runtime, or
+cooperative progressive plural-batch composition. Production contains no fake,
+simulated, local-compat, provider-disabled, optional-Runtime, or
 alternate delivery branch. Credential-gated live-provider and API-key formal
 testing remains outside this performance plan.
+
+Human implementation and diagnostic guidance is retained in
+`modules/ai-development-and-debugging.md`, including action authoring,
+canonical preflight, Property/Vector editing, file-scoped persistence,
+Awareness integration, raw CPU evidence, formal testing, and explicit
+non-goals.
 
 The final 2026-08-01 product-owner correction closed
 `record-and-deliver-transaction-batch`: a bulk action reuses the existing
@@ -118,17 +295,19 @@ independently and cannot borrow a later endpoint's expected improvement. This
 endpoint refactor does not optimize Contents or production persistence, but the
 production App still mounts the ordinary Contents projection.
 
-All current Asyra Design demo documents are intentionally memory-only on the
-client. After Core starts, RenderApp loads one App-owned canonical empty
-document session selected by the required `fileId` through the ordinary Core
-load API and always starts Collaboration after that load. `fileId` identifies
-which document is being opened and will become server authorization input; it
-is never a Collaboration switch. One connected Actor is the single-Actor case;
-a second Actor joining the same `fileId` session makes it the two-Actor CRDT
-case. No Actor creates, initializes, loads, injects, captures, or saves through
-a client persistence provider, and performance routes must not read or hash
-IndexedDB. Production server checkpoints, authorization, and backend database
-durability remain future server-owned work.
+Current demo documents use one App-owned IndexedDB provider scoped by required
+`fileId`. RenderApp injects that provider before Core starts, Core loads the
+stored canonical snapshot or one valid fresh empty document, and Collaboration
+starts only after that load. `fileId` identifies which document is being opened
+and will become server authorization input; it is never a Collaboration switch.
+One connected Actor is the single-Actor case; a second Actor joining the same
+`fileId` session makes it the two-Actor CRDT case. Local and AI actions, Undo,
+and Redo reuse Core autosave. Each accepted remote publication enters one
+App-owned serialized save after canonical apply. The response inbox is separate
+and no localStorage, old-format compatibility, or dual-format branch exists.
+This reference persistence substitutes for a server database only in this App;
+future App developers must implement the production database server and App
+persistence integration.
 
 ## Architecture Replan Evidence
 
@@ -1474,9 +1653,9 @@ The write timeline is fixed:
 5. If an already-published immediate slice rolls back, compensation uses the
    inverse already recorded in the existing transaction journal; no separate
    bulk compensation artifact is created.
-6. Collaboration local action, Undo, Redo, and remote apply trigger no client
-   document persistence capture, save, document IndexedDB read, or document
-   IndexedDB write.
+6. Local action, Agent action, Undo, and Redo use Core autosave. One accepted
+   remote apply saves the resulting document through the same file-scoped
+   serialized provider queue, without remote Undo or echo.
 
 No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
@@ -1617,8 +1796,9 @@ intended transaction or history boundary.
   publication.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
-- Actor B creates no Undo or echo publication. Like Actor A, it has no client
-  document persistence provider and performs no document IndexedDB work.
+- Actor B creates no Undo or echo publication. After one accepted remote apply,
+  it persists the resulting document once through the App's file-scoped
+  provider queue.
 - Disconnection, closed transport, invalid frames, and worker teardown preserve
   existing `ProviderFailure` behavior and never fabricate convergence.
 
@@ -1694,13 +1874,14 @@ intended transaction or history boundary.
   substitute; the existing viewport input path and an explicit App-owned
   interaction policy keep the responsibilities separate.
 
-### Demo Client Persistence Bypass
+### File-Scoped Demo Persistence
 
-- RenderApp receives one required `fileId` URL, starts Core, loads exactly one App-owned
-  canonical empty document session selected by that identity through
-  `Core.load(...)`, then always starts Collaboration. A missing or empty
-  `fileId` cannot open the document. The identity selects the document and is
-  future server authorization input; it never toggles Collaboration.
+- RenderApp receives one required `fileId` URL, derives one file-scoped
+  IndexedDB provider, injects it before `Core.start()`, and lets Core load the
+  stored canonical snapshot or one valid fresh empty document. It then always
+  starts Collaboration. A missing or empty `fileId` cannot open the document.
+  The identity selects the document and is future server authorization input;
+  it never toggles Collaboration.
 - Root `dev:all` starts only workspace package watchers and the App dev server.
   The explicit `collaboration:server` command or collaboration Playwright
   startup separately owns the reference WebSocket server and makes it ready
@@ -1708,27 +1889,30 @@ intended transaction or history boundary.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
-- Every demo Actor starts without creating, initializing, loading, or injecting
-  a client persistence provider.
 - RenderApp startup and `resetData()` obtain independent fresh values from one
   zero-argument App-owned empty-document factory. `resetData()` calls
-  `Core.load(...)` exactly once and performs no IndexedDB, localStorage, URL
-  parsing, or page reload.
+  `Core.load(...)` exactly once, then saves the fresh value through the same
+  file-scoped provider without URL parsing or page reload.
 - Reset Data is a local demo-document reset, not a Factory action or CRDT clear
   command. It does not publish a canonical action and makes no claim that
   another Actor is cleared.
 - `Core.load(...)` is the sole `FILE_LOAD_COMPLETE` publisher for startup and
   reset. App contexts may observe that completed load for zoom-fit, but never
   synthesize file readiness from Render readiness.
-- Local action, Undo, and Redo and Actor B remote apply all produce zero client
-  document persistence capture, provider save, document IndexedDB read, and
-  document IndexedDB write. This does not prohibit the harness-owned pre-ready
-  response inbox lookup outside the production bundle.
-- Collaboration connects only after the empty canonical document is loaded.
-- Demo reload durability is not a correctness or performance gate.
+- Local actions, AI actions, Undo, and Redo reuse Core autosave. Accepted remote
+  publications serialize one App-owned save after canonical apply and before
+  peer-applied settlement; Actor B still creates no Undo or echo publication.
+- The harness-owned pre-ready response inbox remains a separate read-only
+  server-response adapter and never loads or saves the canonical document.
+- No localStorage migration, old-format compatibility, dual-format branch, or
+  second canonical state owner is allowed.
+- Collaboration connects only after the stored or fresh canonical document is
+  loaded.
 - A future production socket server coordinating backend DB checkpoints is
   outside this plan. The current reference server remains an in-memory
-  transport owner, not a durability owner.
+  transport owner, not a durability owner; future App developers must replace
+  the reference App-local provider with their production database server and
+  App persistence integration.
 
 ## Performance Measurement Contract
 
@@ -1743,11 +1927,12 @@ only the low-load 16-item profiling sanity check. No second high-detail
 single-Actor run, Vite development/HMR run, retry, or unguarded 7,000-plus run
 is allowed.
 
-The one guarded run has no Contents projection, document IndexedDB,
-persistence, reload, warm-up, repeated measured creation, follow-up turn,
-Undo/Redo execution, media, trace, CPU profile, or full-state polling.
-WebSocket-server CPU is reported as a separate role rather than attributed to
-the browser product owner.
+The one guarded run has no Contents projection, reload, warm-up, repeated
+measured creation, follow-up turn, Undo/Redo execution, media, trace, CPU
+profile, or full-state polling. File-scoped App persistence remains enabled and
+its save timing is reported separately; the test may not disable product
+durability to improve its result. WebSocket-server CPU is reported as a
+separate role rather than attributed to the browser product owner.
 
 Before Playwright starts, the guard requires two independent attestations:
 one for the canonical production build and one for the generated response
@@ -1775,7 +1960,9 @@ answers the local UX and CRDT endpoint questions without claiming a statistical
 median.
 
 The pre-DOM-compositor cooperative-scheduling baseline completed on 2026-07-29
-with Contents omitted and no client persistence:
+with Contents omitted and persistence disabled at that historical checkpoint.
+Persistence has since been restored and that condition is not current product
+behavior:
 
 - exact-bounds loading frame visible: 1.337 seconds;
 - first ordinary Vector batch visible: 1.391 seconds;
@@ -1799,8 +1986,8 @@ work unit before repeating this one local measurement.
 
 The then-current client-only production run completed on 2026-07-29 with a
 32-element soft cap, one serialized cooperative loop, a connected DOM
-compositor overlay, Contents omitted, and no collaboration or client
-persistence:
+compositor overlay, Contents omitted, and collaboration/persistence disabled
+for that historical measurement only:
 
 - connected exact-bounds DOM loading state: 1.076 seconds; first compositor
   paint opportunity: 1.081 seconds; first ordinary Vector: 1.377 seconds;
@@ -1993,17 +2180,18 @@ capacity, and wire receipt, server acceptance, and peer apply remain distinct.
 ### Remote Batch Apply
 
 Each source publication applies through one remote Factory transaction and one
-batch observer delivery. Actor B converges without Undo, echo, capture, save, or
-document IndexedDB update.
+batch observer delivery. Actor B converges without Undo or echo, then the App
+saves the resulting document once through its serialized file-scoped provider.
 
-### Demo Documents Do Not Persist on Clients
+### Demo Documents Persist by File
 
-The ordinary local demo, Actor A, and Actor B each load one canonical empty
-document, then start without a client persistence provider. Local actions,
-Undo, Redo, remote apply, and the performance harness perform no document
-IndexedDB read or write. The test/manual harness may seed the separate response
-inbox adapter before navigation; that harness adapter remains outside the
-production bundle and completes its exact record lookup before App readiness.
+The ordinary local demo, Actor A, and Actor B each configure one
+`fileId`-scoped IndexedDB provider before Core starts. A stored snapshot or one
+valid empty document loads before Collaboration. Local actions, Agent actions,
+Undo, Redo, accepted remote apply, and Reset persist through one serialized
+provider queue. The test/manual harness may seed the separate response inbox
+adapter before navigation; that harness adapter remains outside the production
+bundle and completes its exact record lookup before App readiness.
 
 ### Fast Server-response AI CRDT Correctness
 
@@ -2141,7 +2329,7 @@ The revised iteration is bounded to:
    review and one guarded two-Actor 16-item proof; and
 5. return to `apply-remote-publication-batches` only after Actor B accepts the
    complete source creation publications with one remote transaction per
-   publication and no Undo, echo, or persistence.
+   publication, no Undo or echo, and one serialized App persistence handoff.
 
 Implementation discovery is fixed to the existing Core creation coordinator,
 Props Manager prepared-batch handoff, Scene Tree prepared-element handoff,
@@ -5192,8 +5380,8 @@ benchmark runs.
   publication survive slow consumer, terminal failure, disconnect, and
   teardown.
 - Remote: one policy pass, one Core request, one remote transaction, no
-  quadratic batch/slice scan, Undo, echo, capture, save, or document IndexedDB
-  work.
+  quadratic batch/slice scan, Undo, or echo, followed by one serialized
+  file-scoped document save.
 - Relay: byte parity, exact queue capacity, FIFO retirement, control fast path,
   and distinct server-admitted/frame-consumed/peer-applied receipts.
 - Codec: exact binary round-trip and worker-only payload validation/ownership
@@ -5240,9 +5428,10 @@ benchmark runs.
   decoded publication, bounded multi-frame ingress and peer-egress windows, opaque
   byte parity, slow peer, disconnect, and ordered receipts.
 - Remote: one publication transaction and one batch observer call, with no
-  Undo, echo, capture, save, or document IndexedDB write.
-- Demo startup: ordinary local and collaboration sessions load one empty
-  canonical document and never configure client persistence.
+  Undo or echo, followed by one serialized App-owned document save.
+- Demo startup: every required `fileId` configures one file-scoped IndexedDB
+  provider and loads its stored or valid empty canonical document before
+  Collaboration.
 
 Each owner step runs focused unit and integration gates first. A guarded
 7,076-element creation-only proof runs only at the explicitly named complete

@@ -6,7 +6,7 @@ Feature: Conversational AI drawing performance
   Background:
     Given the committed 1672 by 941 tabby reference image
     And every production App session has one required fileId and starts one formal server-backed Agent runtime and provider
-    And production identifiers name the action batch, drawing artifact, canonical batch, and wire artifact, not plan, Mock, fake, or simulated data
+    And production identifiers name the action batch, drawing artifact, canonical batch, and wire artifact, not plan, fake, or simulated data
     And product spans are separated from server, browser, assertion, screenshot, and recording overhead
     And the final high-detail reference gate reuses one guarded creation-only endpoint run without warm-up or repeat
 
@@ -31,7 +31,7 @@ Feature: Conversational AI drawing performance
     And permission and execution should receive the same action arguments identity from the resolved batch
     And confirmation and terminal presentation should consume one "AiActionBatchPreview" containing bounded summaries without items, paths, points, or complete geometry
     And Runtime should not recursively detach or freeze the server-prepared arguments
-    And production should expose only the AiActionBatch API without a compatibility conversion, Mock, fake, simulated, or local-only provider path
+    And production should expose only the AiActionBatch API without a compatibility conversion, fake, simulated, or local-only provider path
     And the action definition should receive no large-payload, validation, delivery, progressive, loading, or collaboration mode
     And the front end should perform no item, path, or point validation or drawing-artifact encoding
     And the executor should preserve exact items, roles, order, bounds, point counts, stable IDs, and relationships while submitting only the next prepared progressive descriptor slice through "Core.createElementsInParent(...)" after the server-prepared loading bounds are visible
@@ -136,7 +136,7 @@ Feature: Conversational AI drawing performance
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
     And the completed attribution should route to exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner
-    And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and zero-client-persistence evidence
+    And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and file-scoped persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
     And one design hypothesis should receive at most five materially revised architecture attempts before mandatory root-cause replanning
     But the same focused failure three times should end that attempt loop and start a new bounded owner iteration rather than stopping the task
@@ -169,7 +169,8 @@ Feature: Conversational AI drawing performance
     Then prompt fill, locator resolution, and actionability should have completed outside the product boundary
     And App-owned request acceptance or dispatch should begin operation timing
     And operation should run until Actor B canonical and Render counts are exactly 17
-    And Actor A should retain one Undo action while Actor B retains zero Undo, zero echo, and zero client persistence
+    And Actor A should retain one Undo action while Actor B retains zero Undo and zero echo
+    And both accepted local and remote outcomes should complete their file-scoped persistence handoff
     And after Actor B completes both Actors should idle for exactly 10 seconds without another product action
     And each Actor page-target should use CDP Performance threadTicks deltas for TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration
     And those deltas should report page main-thread task occupancy rather than complete Actor CPU
@@ -324,7 +325,8 @@ Feature: Conversational AI drawing performance
     And a changed relation set between prepare and apply should reject as stale before mutation
     And Undo and Redo should restore and remove the exact relation tuples and canonical component ids
     And remote exact removal should use one origin-neutral Core canonical-data path and consume its Scene and Props batches once
-    And CRDT remote apply should preserve the same shared evidence without computed payloads or client persistence
+    And CRDT remote apply should preserve the same shared evidence without computed payloads
+    And the App should persist the accepted remote canonical result without remote Undo or echo
 
   Scenario: Shared relation boundary remains minimal
     Given Props independently owns property/component identity, lifecycle, and the property-child graph
@@ -493,20 +495,21 @@ Feature: Conversational AI drawing performance
     And the consumer promise should resolve only after canonical apply completes
     And Actor B should create no Undo action
     And Actor B should create no echo publication
-    And Actor B should perform no persistence capture, provider save, or document IndexedDB write
+    And Actor B should serialize one App-owned file-scoped save after canonical apply
+    And peer-applied should settle only after that persistence handoff completes
 
-  Scenario: Demo documents load empty without client persistence
+  Scenario: Demo documents reload from file-scoped App persistence
     Given an App-owned demo document session starts from one required fileId URL
     When RenderApp starts Core for the demo session
-    Then each actor should load one canonical empty document after Core starts
-    And Collaboration should connect only after its empty document is loaded
-    And the single-Actor session should receive no client persistence provider
-    And Actor A should receive no client persistence provider
-    And Actor B should receive no client persistence provider
-    And single-Actor local actions, Undo, and Redo should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
-    And Actor A local actions, Undo, and Redo should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
-    And Actor B remote apply should perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write
-    But demo reload durability and server database checkpoints should remain outside this plan
+    Then each actor should receive one file-scoped IndexedDB provider before Core starts
+    And each actor should load its stored canonical snapshot or one valid fresh empty document
+    And Collaboration should connect only after that document is loaded
+    And local actions and AI actions should reuse Core autosave
+    And Undo and Redo should reuse Core autosave
+    And Actor B accepted remote apply should serialize one App-owned save without Undo or echo
+    And refresh should restore the latest stored canonical snapshot for that fileId
+    But the response inbox should remain separate from document persistence
+    And future App developers should replace this reference provider with their production database server and App persistence integration
 
   Scenario: Required fileId selects the document without toggling Collaboration
     Given RenderApp receives one required fileId URL
@@ -522,16 +525,15 @@ Feature: Conversational AI drawing performance
     But fileId should select the document and never toggle Collaboration
     And a missing or empty fileId should not open a document session
 
-  Scenario: Reset loads a fresh empty demo document without client persistence
+  Scenario: Reset persists a fresh empty demo document
     Given RenderApp startup and resetData use the same App-owned fresh empty-document factory
     When resetData is invoked
     Then it should call Core.load exactly once with a fresh empty canonical document
     And Core.load should be the sole FILE_LOAD_COMPLETE publisher
     And Render readiness should not synthesize another file-load-complete event
-    And it should perform no document IndexedDB access
-    And it should perform no localStorage access
-    And it should perform no URL parsing
-    And it should perform no page reload
+    And it should persist that empty document through the same file-scoped provider
+    And it should perform no localStorage migration or old-format compatibility
+    And it should perform no URL parsing or page reload
     But it should remain a local reset and create no Factory action or CRDT clear publication
 
   Scenario: Required fileId preloads one server response inbox record before App readiness
@@ -553,11 +555,11 @@ Feature: Conversational AI drawing performance
     When Actor A sends the response's expected request through the ordinary Agent route
     Then the provider should call only "requestActionBatch()" and return the server-prepared batch selected by fileId
     And request-time response inbox access, fixture import, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, drawing-artifact encoding, materialization, slicing, and provider deep-freeze should remain zero
-    And production should contain no artificial delay, phrase-selected fixture fallback, failure simulation, or Mock, fake, simulated, and local-compat provider naming
+    And production should contain no artificial delay, phrase-selected fixture fallback, failure simulation, or fake, simulated, and local-compat provider naming
     And deterministic preparation, seed data, and fixture selection should remain test or manual harness concerns excluded from the production bundle
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
     But the IndexedDB response inbox adapter should remain separate from document persistence
-    And local actions, Undo, Redo, and remote apply should perform no document persistence capture, provider save, or document IndexedDB read or write
+    And local actions, Undo, Redo, and accepted remote apply should persist only through the file-scoped document provider
 
   Scenario: Fast server-response AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
@@ -573,7 +575,8 @@ Feature: Conversational AI drawing performance
     Given two production browser actors share one required fileId and Collaboration is ready
     And the 500-percent frontend and 500-percent aggregate high-performance resource guards own the production App, browser, harness, and WebSocket server processes
     And the independently attested response preview overlay is served instead of modifying canonical production dist
-    And Contents, request-time response inbox access, document IndexedDB, HMR, media, warm-up, and repeat are absent
+    And Contents, request-time response inbox access, document reload, IndexedDB inspection, HMR, media, warm-up, and repeat are absent
+    And file-scoped App persistence remains enabled with separate save timing
     When Actor A creates the server-prepared 7076-element high-detail composition once
     Then Actor A should show connected exact-bounds loading and ordinary Vector milestones while pan and zoom remain responsive
     And every other document interaction should leave canonical state and history unchanged until terminal cleanup releases the lock
@@ -607,4 +610,4 @@ Feature: Conversational AI drawing performance
     Then recoverable siblings should still commit as one partial result
     And fatal failure should roll back the complete turn
     And an already-published immediate slice should use the inverse already retained by the existing Factory journal for compensation
-    And no performance path should fabricate success, skip an owner, configure collaboration client persistence, or leave an extra history action
+    And no performance path should fabricate success, skip an owner, move App database policy into Collaboration, or leave an extra history action

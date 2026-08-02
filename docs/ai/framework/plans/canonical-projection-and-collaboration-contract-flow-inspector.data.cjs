@@ -1469,7 +1469,7 @@
         id: 'performance-plan',
         kind: 'completed-successor',
         label: 'Completed Asyra Design drawing performance plan',
-        href: '../../apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
+        href: '../../apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
       },
       {
         id: 'transaction-inspector',

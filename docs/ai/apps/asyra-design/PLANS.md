@@ -4,26 +4,21 @@ Never record completed plans here.
 
 ## Current Status
 
-- Active app plan: none.
-- Proposed next implementation plan, inactive until explicitly started:
-  `plans/ai-conversational-drawing-live-provider-test-plan.md`
+- Active app plan:
+  `plans/ai-conversational-drawing-performance-plan.md`, reopened by the product
+  owner on 2026-08-02 for bounded property projection, App-local persistence,
+  debug-surface, naming, and documentation corrections.
 - Retained architecture authority for the completed app-level CRDT closure:
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
-- The canonical completed record is
-  `plans/completed/ai-conversational-drawing-performance-plan.md`.
+- The prior completion evidence remains inside the reopened plan and will move
+  back to `plans/completed/` only after the product owner requests a new
+  closeout.
 - The framework canonical projection and collaboration prerequisite completed
   on 2026-07-29. Its canonical record is
   `../../framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`.
-- Conversational AI Mock Drawing completed on 2026-07-26. Its canonical record
-  is `plans/completed/ai-conversational-drawing-plan.md`.
-- Its retained architecture authority is
-  `plans/ai-conversational-drawing-flow-inspector.data.cjs`.
-- The remaining proposed successor is a credential-gated, explicitly opt-in
-  formal test against one real provider. A human owner must request a dedicated
-  server-only API key; exact Mock mode stays keyless and deterministic. The
-  successor is not ordinary CI or production provider launch authority; its
-  architecture authority is
-  `plans/ai-conversational-drawing-live-provider-test-flow-inspector.data.cjs`.
+- The active performance Inspector owns the only production
+  server-prepared `AiActionBatch` route. Obsolete provider-mode plans,
+  Inspectors, and BDD records have been removed.
 - Group Interaction MVP and Layer Tree Reparent/Reorder completed on
   2026-07-24. Remote Subtree Restore Snapshot, Group Context Menu, and the
   documentation-only durable collaboration cancellation closeout completed on
@@ -33,7 +28,6 @@ Never record completed plans here.
   3. `plans/completed/remote-subtree-restore-snapshot-plan.md`
   4. `plans/completed/group-context-menu-plan.md`
   5. `plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`
-  6. `plans/completed/ai-conversational-drawing-plan.md`
 - The durable collaboration backend itself was not implemented. The completed
   record closes only the product-owner cancellation and documentation
   correction; it must not be treated as a durable server capability.

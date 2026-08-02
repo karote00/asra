@@ -36,7 +36,7 @@ test('performance Inspector authorities resolve and stay immutable', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
+    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))
@@ -241,7 +241,7 @@ test('file-scoped server response is prepared before request timing', () => {
   )
   assert.match(
     text,
-    /separate.*canonical document persistence.*zero.*read.*write/i
+    /separate.*canonical document persistence.*never.*loads.*saves.*migrates.*aliases/i
   )
   assert.match(
     text,
@@ -279,11 +279,7 @@ test('file-scoped server response is prepared before request timing', () => {
   )
   ;[
     'apps/asyra-design/src/ai/mode.ts',
-    'apps/asyra-design/src/ai/mock-provider.ts',
-    'apps/asyra-design/src/ai/mock-backend-response-store.ts',
     'apps/asyra-design/src/ai/fixtures',
-    'apps/asyra-design/e2e/conversational-ai-mock.spec.ts',
-    'apps/asyra-design/e2e/mock-backend-response-store.ts'
   ].forEach((staleBoundary) =>
     assert.ok(
       !owner.implementationBoundary.includes(staleBoundary),
@@ -440,7 +436,6 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
     'apps/asyra-design/src/ai/composition.ts',
     'apps/asyra-design/src/ai/prepared-composition.ts',
     'create-app/asyra-design/template/src/ai/composition.ts',
-    'create-app/asyra-design/template/e2e/conversational-ai-mock.spec.ts',
     'create-app/asyra-design/template/e2e/collaboration-ai-agent-video.spec.ts'
   ].forEach((staleBoundary) =>
     assert.ok(
@@ -730,11 +725,11 @@ test('production contract identifiers avoid governance and test-source vocabular
   )
   assert.match(
     plan,
-    /production identifiers[\s\S]*action batch[\s\S]*drawing artifact[\s\S]*canonical batch[\s\S]*wire artifact[\s\S]*never[\s\S]*plan[\s\S]*Mock[\s\S]*fake[\s\S]*simulated/i
+    /production identifiers[\s\S]*action batch[\s\S]*drawing artifact[\s\S]*canonical batch[\s\S]*wire artifact[\s\S]*never[\s\S]*plan[\s\S]*fake[\s\S]*simulated/i
   )
   assert.match(
     feature,
-    /production identifiers.*action batch.*drawing artifact.*canonical batch.*wire artifact.*not.*plan.*Mock.*fake.*simulated/i
+    /production identifiers.*action batch.*drawing artifact.*canonical batch.*wire artifact.*not.*plan.*fake.*simulated/i
   )
 })
 
@@ -1479,7 +1474,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.match(proofText, /separately attributed WebSocket-server CPU/i)
   assert.match(
     proofText,
-    /Contents and production persistence are outside.*unguarded.*7,000-plus run/i
+    /Contents is outside.*App-local persistence stays enabled.*separate owner span.*unguarded.*7,000-plus run/i
   )
   assert.match(
     proofText,
@@ -1488,7 +1483,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   assert.doesNotMatch(proofText, /default progressive mode/i)
   ;[
     'snapshot contentsMode or deliveryMode configuration',
-    'aiDelivery, aiPerformanceContents, ai=mock, or another product-mode query'
+    'a delivery, contents, provider, or other product-mode query'
   ].forEach((contributor) =>
     assert.ok(proofOwner.forbiddenContributors.includes(contributor))
   )
@@ -1825,8 +1820,8 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
 })
 
-test('demo documents load empty without client persistence', () => {
-  const owner = step('load-empty-demo-document')
+test('demo documents load and save through file-scoped App persistence', () => {
+  const owner = step('load-file-scoped-demo-document')
   const localProofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
@@ -1836,9 +1831,12 @@ test('demo documents load empty without client persistence', () => {
 
   assert.match(
     text,
-    /App-owned demo document session.*always start Collaboration.*without.*persistence provider.*capture.*save.*IndexedDB/i
+    /fileId.*App-owned.*IndexedDB persistence provider.*before Core starts.*always starts? Collaboration/i
   )
-  assert.match(text, /load.*canonical empty document/i)
+  assert.match(
+    text,
+    /stored canonical snapshot.*valid fresh empty document/i
+  )
   assert.match(
     text,
     /required fileId URL.*document session identity.*always.*Collaboration.*fileId.*selects.*document.*never.*toggle/i
@@ -1849,7 +1847,19 @@ test('demo documents load empty without client persistence', () => {
   )
   assert.match(
     text,
-    /resetData.*fresh.*empty document.*Core\.load.*zero.*IndexedDB.*localStorage.*URL.*reload/i
+    /local actions.*AI actions.*Undo.*Redo.*Core autosave.*accepted remote publication.*App-owned serial persistence handoff/i
+  )
+  assert.match(
+    text,
+    /resetData.*fresh.*empty document.*persist.*same file-scoped provider/i
+  )
+  assert.match(
+    text,
+    /response inbox.*separate.*document persistence/i
+  )
+  assert.match(
+    text,
+    /no localStorage.*old-format compatibility.*future App developer.*database server/i
   )
   ;[
     'apps/asyra-design/package.json',
@@ -1866,20 +1876,7 @@ test('demo documents load empty without client persistence', () => {
     'apps/asyra-design/src/render-app/__tests__/document-persistence.test.ts',
     'apps/asyra-design/src/render-app/__tests__/render-app-strict-mode.test.tsx',
     'apps/asyra-design/playwright.config.ts',
-    'apps/asyra-design/__tests__/playwright-config.test.mjs',
-    'create-app/asyra-design/template/package.json',
-    'create-app/asyra-design/template/src/config/empty-document.ts',
-    'create-app/asyra-design/template/src/controllers/app.ts',
-    'create-app/asyra-design/template/src/controllers/__tests__/app.test.ts',
-    'create-app/asyra-design/template/src/contexts/data-change.tsx',
-    'create-app/asyra-design/template/src/contexts/__tests__/data-change.test.tsx',
-    'create-app/asyra-design/template/src/document-persistence.ts',
-    'create-app/asyra-design/template/src/render-app/index.tsx',
-    'create-app/asyra-design/template/src/render-app/__tests__/document-persistence.test.ts',
-    'create-app/asyra-design/template/src/render-app/__tests__/render-app-strict-mode.test.tsx',
-    'scripts/dev-all-plan.js',
-    'scripts/dev-all.js',
-    'scripts/__tests__/workspace-automation.test.mjs'
+    'apps/asyra-design/__tests__/playwright-config.test.mjs'
   ].forEach((boundary) =>
     assert.ok(owner.implementationBoundary.includes(boundary), boundary)
   )
@@ -1889,12 +1886,14 @@ test('demo documents load empty without client persistence', () => {
   )
   assert.doesNotMatch(text, /ordinary non-collaboration.*FILE.*unchanged/i)
   assert.ok(
-    !localProofOwner.inputs.includes('artifact:empty-memory-demo-document')
+    !localProofOwner.inputs.includes(
+      'artifact:file-scoped-demo-document-snapshot'
+    )
   )
   assert.ok(
     !data.routes.some(
       (route) =>
-        route.from === 'load-empty-demo-document' &&
+        route.from === 'load-file-scoped-demo-document' &&
         route.to === 'evaluate-endpoint-performance'
     )
   )
@@ -1902,22 +1901,19 @@ test('demo documents load empty without client persistence', () => {
     JSON.stringify(data),
     /bypass-collaboration-client-persistence|artifact:collaboration-client-persistence-bypass/
   )
-  assert.doesNotMatch(JSON.stringify(data), /persist-local-commit-snapshots/)
-  assert.doesNotMatch(
-    JSON.stringify(data),
-    /artifact:(?:local-commit-snapshot-trigger|committed-persistence-snapshots|persistence-timing)/
-  )
+  assert.match(JSON.stringify(data), /artifact:file-scoped-demo-document-snapshot/)
+  assert.match(JSON.stringify(data), /artifact:remote-persistence-settlement/)
   assert.match(
     plan,
-    /Demo Client Persistence Bypass[\s\S]*required `fileId` URL[\s\S]*document session[\s\S]*always starts Collaboration[\s\S]*One connected Actor[\s\S]*single-Actor[\s\S]*second Actor[\s\S]*two-Actor CRDT[\s\S]*zero client persistence/i
+    /File-Scoped Demo Persistence[\s\S]*required `fileId` URL[\s\S]*IndexedDB[\s\S]*Core autosave[\s\S]*accepted remote publication[\s\S]*database server/i
   )
   assert.match(
     feature,
-    /Scenario: Demo documents load empty without client persistence[\s\S]*required fileId URL[\s\S]*Collaboration[\s\S]*single-Actor[\s\S]*Actor B[\s\S]*IndexedDB/i
+    /Scenario: Demo documents reload from file-scoped App persistence[\s\S]*required fileId URL[\s\S]*IndexedDB[\s\S]*Collaboration[\s\S]*local actions[\s\S]*AI actions[\s\S]*Undo[\s\S]*Redo[\s\S]*Actor B/i
   )
   assert.match(
     feature,
-    /Scenario: Reset loads a fresh empty demo document without client persistence[\s\S]*resetData[\s\S]*Core\.load[\s\S]*IndexedDB[\s\S]*localStorage[\s\S]*URL[\s\S]*reload[\s\S]*local reset/i
+    /Scenario: Reset persists a fresh empty demo document[\s\S]*resetData[\s\S]*Core\.load[\s\S]*file-scoped provider[\s\S]*local reset/i
   )
   assert.match(
     feature,

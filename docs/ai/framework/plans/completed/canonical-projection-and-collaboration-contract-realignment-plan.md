@@ -12,7 +12,7 @@ performance plan resumed for its remaining performance-equivalence closure.
 
 This plan completed the release-blocking prerequisite for:
 
-- `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`;
+- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md`;
 - Framework Release Gate 5.
 
 Architecture authority:
@@ -1143,7 +1143,7 @@ Final handoff to the app performance plan requires:
 
 1. affected framework package unit/integration tests, Asyra Design focused
    integration tests, lint, and production build;
-2. default 16-item Mock AI CRDT correctness;
+2. default 16-item Agent CRDT correctness;
 3. initial high-detail cat-face creation on Actor A;
 4. Actor B full completion, not only first visible state;
 5. blue-whisker and red-pupil follow-up convergence;

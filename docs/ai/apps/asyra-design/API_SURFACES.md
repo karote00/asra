@@ -4,8 +4,8 @@ This file is the app-level API contract map.
 
 ## AI Agent Reference
 
-- `startAsyraDesignApp(...)` requires one non-empty `fileId`, reads at most one
-  exact versioned `AsyraDesignServerResponseRecord` before App and Agent
+- `startApp(...)` requires one non-empty `fileId`, reads at most one
+  exact versioned `ServerResponseRecord` before App and Agent
   readiness, then passes that resident response into `initApp(...)`
 - the response record has the exact shape
   `{ fileId, schemaVersion: 1, batch: AiActionBatch }`. The startup reader checks
@@ -15,11 +15,12 @@ This file is the app-level API contract map.
   IndexedDB. Its preload, structured clone, and handoff timing are recorded as
   external backend/transport-adapter timing and are excluded from frontend
   product execution timing
-- the response inbox is not canonical document persistence. The selected
-  document still loads as an empty canonical document, and local actions, Undo,
-  Redo, and remote apply perform no document capture, provider save, or
-  document-IndexedDB read/write
-- `createAsyraDesignServerActionBatchProvider(...)` is the single production
+- the response inbox is not canonical document persistence. Independently,
+  the required `fileId` selects one browser-local document provider. Core loads
+  that document before Collaboration, persists local actions, Agent actions,
+  Undo, and Redo, and the accepted-remote callback persists the resulting
+  document through the same serialized queue
+- `createServerActionBatchProvider(...)` is the single production
   provider composition. Its only request method is
   `requestActionBatch(input, { signal })`, which returns the same resident
   server-prepared `AiActionBatch` without request-time inbox access, fixture
@@ -29,7 +30,7 @@ This file is the app-level API contract map.
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
   switch or second provider execution route
-- `createAsyraDesignAiRuntimeInput(...)` composes the app-owned context,
+- `createAiRuntimeInput(...)` composes the app-owned context,
   bounded action catalog, permission map, confirmation adapter, and common
   transaction adapter around the formal provider
 - `runtime.run()` requests one `AiActionBatch`, and
@@ -164,30 +165,31 @@ This file is the app-level API contract map.
 
 ## DEV Runtime Diagnostics
 
-- the explicit `aiPerformance=profile` diagnostic installs
-  `window.__AsyraAiDrawingPerformance__`; retained counter and phase samples use
+- the explicit `aiPerformance=profile` diagnostic installs the human-only
+  `window.__AiDrawingPerformance__`; retained counter and phase samples use
   independent 16,384-entry circular buffers, while scalar counter totals and
   release-eligibility facts remain exact after older samples are evicted.
   Profiling observes demanded frames and never schedules a frame itself
 - `initCanvasPipelineDebugger()` dynamically imports the optional Core facade
   only when `import.meta.env.DEV` is true
-- `window.__AsyraCanvasPipelineDebugger__` is a disabled-by-default
-  `CanvasPipelineDebugger` console handle, independent from `__AsyraE2E__`
+- `window.__CanvasPipelineDebugger__` is a disabled-by-default
+  `CanvasPipelineDebugger` console handle
 - the console handle's `getSnapshot().fault` retains the latest observation or
   overlay projection failure message until the debugger is re-enabled or
   disposed
 - `destroyCanvasPipelineDebugger()` disposes the handle and is also registered
   for HMR cleanup
-- ordinary and collaboration Playwright suites run the DEV app runtime because
-  their canonical-state assertions use `window.__Core__` and
-  `window.__AsyraE2E__`; production exclusion and bundling remain separate
-  package/build gates
+- ordinary and collaboration Playwright suites use imported test access and a
+  fixed document-event diagnostic operation whitelist. `window.__Core__`,
+  `window.__Collaboration__`, `window.__CanvasPipelineDebugger__`, and
+  `window.__AiDrawingPerformance__` exist only for a human in DevTools; product
+  code and automation never consume them
 - production startup has no debugger handle, trace, layer, or optional debugger
   implementation chunk
 
 ## Public Collaboration Reference Implementation
 
-- `ASYRA_DESIGN_APP_URL` is the one app-origin contract shared by Vite,
+- `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
   WebSocket server's Origin validation
 - one non-empty `fileId` is required to open the App document; it selects the
@@ -221,21 +223,21 @@ This file is the app-level API contract map.
   branch or alias fallback
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- The current startup requires `fileId`, finishes the separate read-only server
-  response-inbox lookup, starts Core, loads one App-owned empty canonical
-  document through `Core.load(...)`, and then always starts Collaboration.
-  RenderApp configures no client document-persistence provider, so local
-  actions, Undo, Redo, and remote apply perform no document-IndexedDB read or
-  write and reload durability is intentionally absent. A future production
-  product must connect its server-owned database/checkpoint policy explicitly;
-  the current client does not infer or emulate that policy
+- Current startup requires `fileId`, finishes the separate read-only server
+  response-inbox lookup, configures one file-scoped IndexedDB document
+  provider, starts Core so it loads the stored or valid empty document, and
+  then always starts Collaboration. Core persists local actions, Agent actions,
+  Undo, and Redo. One accepted remote apply saves its resulting document before
+  the peer-applied receipt. A future production product must replace this
+  browser-local reference with its own server database, authorization,
+  recovery, and checkpoint policy
 - production builds retain the dynamically loaded reference path, but that
   loading boundary is an implementation split rather than an activation flag;
-  the connection always starts after the selected empty canonical document is
+  the connection always starts after the selected stored or empty canonical document is
   loaded
 - URL-level `document`, `room`, and `actor` parameters are not identity inputs;
   `fileId` is the one required document identity
-- `window.__AsyraCollaboration__` is an intentionally retained active-runtime
+- `window.__Collaboration__` is an intentionally retained human DevTools
   diagnostic/manual-test handle exposing immutable `identity`, `getStatus()`, `disconnect()`,
   `reconnect()`, `whenIdle()`, and `dispose()` after Collaboration startup
 
@@ -451,7 +453,7 @@ Import boundary:
 
 - `undo(): void`
 - `redo(): void`
-- `createAsyraDesignAiHistoryProjection()` creates one disposable,
+- `createAiHistoryProjection()` creates one disposable,
   app-root-local observer over canonical user-action, Undo, and Redo events
   - `beginTurn(turnId)` / `endTurn(turnId)` bracket transaction correlation
   - `getCurrentActionId()` exposes only the latest canonical action identity
@@ -512,7 +514,8 @@ Import boundary:
 - `renderIsReady(): void`
 - `resetData(): void`
   - loads one fresh App-owned empty canonical document through `Core.load(...)`
-    with no IndexedDB, localStorage, URL parsing, or page reload
+    and persists it through the current file-scoped IndexedDB provider, with no
+    localStorage migration, URL parsing, or page reload
   - this is a local demo-document reset, not a Factory action or CRDT clear
     publication
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`

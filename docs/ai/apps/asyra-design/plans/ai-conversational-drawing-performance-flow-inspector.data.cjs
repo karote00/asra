@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
+    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs'
 
@@ -49,7 +49,7 @@
         'The generated response overlay is ignored test output layered over an attested production build. Canonical production dist contains no response fixture and the overlay is never a production deployment artifact.',
         'The required fileId selects exactly one prepared 16-, 320-, 1,280-, or 7,075-child response, and selecting a smaller response never reads or constructs a larger response.',
         'The response inbox adapter read completes before App and Agent readiness and before the stable performance baseline. IndexedDB is only an implementation detail of that response inbox adapter and is never presented as an App product mode.',
-        'The response inbox is separate from canonical document persistence; the canonical document still loads empty and local or remote document actions perform zero persistence-provider or document-IndexedDB read and write.',
+        'The response inbox is separate from canonical document persistence; it never loads, saves, migrates, or aliases a file-scoped canonical document snapshot.',
         'requestActionBatch() is the only public provider request. It returns one server-prepared AiActionBatch with one batchId and never selects another provider, payload, or execution path.',
         'Request-time provider acquisition performs zero response inbox access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
         'Production provider execution has no artificial delay, phrase fixture fallback, failure simulation, deterministic seed branch, or fixture-selection branch.',
@@ -78,7 +78,7 @@
         'reading or decoding a complete larger response before slicing a smaller response',
         'selecting fixture size from the prompt instead of required fileId',
         'fixture-specific geometry simplification',
-        'production paths or APIs named Mock, fake, simulate, or local-compat',
+        'production paths or APIs named fake, simulate, or local-compat',
         'artificial provider delay, phrase fixture fallback, or failure simulation',
         'deterministic preparation, seed data, or fixture modules in the production bundle',
         'planId, plan API aliases, or compatibility aliases',
@@ -118,8 +118,8 @@
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#file-scoped-server-response-contract',
-        '#server-prepared-ai-action-batch-contract',
+        '#file-scoped-server-response-inbox-contract',
+        '#server-prepared-aiactionbatch-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
@@ -180,7 +180,7 @@
         'front-end regeneration of stable descriptor IDs or relationships',
         'template full-item compatibility input, itemPointCounts, or per-element mixed-type creation fallback',
         'complete geometry in confirmation or terminal preview',
-        'production paths or APIs named Mock, fake, simulate, or local-compat',
+        'production paths or APIs named fake, simulate, or local-compat',
         'planId, plan API aliases, compatibility wrappers, or alternate payload modes',
         'runtime or provider activation flags and optional Agent runtime branches',
         'artificial provider delay, phrase fixture fallback, or failure simulation',
@@ -221,7 +221,7 @@
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#server-prepared-ai-action-batch-contract',
+        '#server-prepared-aiactionbatch-contract',
         '#bulk-mutation-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
@@ -239,6 +239,7 @@
       inputs: [
         'artifact:precanonical-owner-attribution',
         'artifact:resolved-ai-action-batch',
+        'artifact:bounded-ai-action-batch-preview',
         'confirmed drawing bounds and item count'
       ],
       outputs: [
@@ -467,7 +468,7 @@
         'ordinary Factory journal replay event when Undo, Redo, or rollback invokes the canonical owner lifecycle'
       ],
       outputs: [
-        'ordered canonical element IDs',
+        'artifact:ordered-canonical-element-ids',
         'artifact:local-canonical-owner-batch',
         'artifact:canonical-batch-timing'
       ],
@@ -533,7 +534,7 @@
       ],
       specRefs: [
         '#bulk-mutation-contract',
-        '#one-composition-bulk-mutation',
+        '#one-interactive-composition-action',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
@@ -548,10 +549,12 @@
       purpose:
         'Commit one server-prepared PreparedDrawingArtifact containing one Group descriptor and ordered child descriptor slices through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted geometry data, stable descriptor IDs, transaction intent, or failure semantics.',
       inputs: [
+        'artifact:precanonical-owner-attribution',
         'artifact:resolved-ai-action-batch',
         'server-prepared Group descriptor and ordered child descriptor slices in one PreparedDrawingArtifact',
         'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
+        'artifact:ordered-canonical-element-ids',
         'single production Conversational AI runtime with fixed cooperative progressive delivery',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
@@ -729,7 +732,7 @@
       ],
       specRefs: [
         '#projection-and-contents-contract',
-        '#visible-progressive-projection',
+        '#visible-cooperative-projection',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
@@ -812,6 +815,7 @@
       purpose:
         'Admit validated inbound publication bytes independently from main-thread canonical apply, expose one decoded publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
       inputs: [
+        'artifact:precanonical-owner-attribution',
         'artifact:relayed-publication-frames',
         'artifact:decoded-publication-candidates',
         'artifact:server-accepted-receipts',
@@ -965,11 +969,11 @@
         'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
         'The App organizes source slices, batches, delivery order, and batch-to-slice membership in one linear pass per accepted publication; later classification consumes that organization without rescanning slices or merging publications.',
         'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
-        'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
+        'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo or echo publication; App-local persistence begins only after canonical apply succeeds.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
-        'Actor B produces no Undo, no echo publication, no persistence capture, no provider save, and no document IndexedDB write.',
-        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves the active decoded publication and permits the next publication, while failure tears down the active and pending publications and releases none.',
-        'The remote owner emits peer-applied only after canonical apply completes; it remains distinct from frame-consumed credit.'
+        'Actor B produces no Undo and no echo publication, then serializes exactly one current canonical document save through the App-owned file-scoped persistence handoff.',
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves only after canonical apply and the App-local persistence handoff complete, while failure tears down the active and pending publications and releases none.',
+        'The remote owner emits peer-applied only after canonical apply and the App-local persistence handoff complete; it remains distinct from frame-consumed credit.'
       ],
       bypasses: [
         'Disconnected or closed transport performs no remote transaction.',
@@ -980,13 +984,14 @@
         'artifact:decoded-publication-batches',
         '@asyra/collaboration public process contract',
         'Asyra Design App policy',
-        '@asyra/core and @asyra/factory public batch boundaries'
+        '@asyra/core and @asyra/factory public batch boundaries',
+        'artifact:remote-persistence-settlement'
       ],
       forbiddenContributors: [
         'one remote transaction per canonical event',
         'merging different source publications',
         'remote Undo or echo publication',
-        'remote client persistence',
+        'generic Collaboration, Factory, or Core ownership of App database policy',
         'whole-document peer regeneration'
       ],
       cacheDimensions: [],
@@ -1013,57 +1018,66 @@
       failureOwnerStepId: 'apply-remote-publication-batches'
     },
     {
-      id: 'load-empty-demo-document',
+      id: 'load-file-scoped-demo-document',
       order: 1,
       laneId: 'persistence-proof',
-      title: 'Load an empty demo document without client persistence',
-      ownerPackage: 'Asyra Design RenderApp startup',
+      title: 'Load and save one file-scoped demo document',
+      ownerPackage: 'Asyra Design RenderApp persistence composition',
       purpose:
-        'Require fileId to select the App-owned demo document session, load its canonical empty document, always start Collaboration after that load, and omit a client persistence provider so local actions and remote apply perform no persistence capture, provider save, document IndexedDB read, or document IndexedDB write.',
-      inputs: ['required fileId URL', 'Asyra Design RenderApp startup policy'],
-      outputs: ['artifact:empty-memory-demo-document'],
+        'Require fileId to select the App-owned demo document session, inject one App-owned IndexedDB persistence provider before Core starts, load a stored canonical snapshot or one valid fresh empty document, always start Collaboration after load, and durably save local and accepted remote outcomes.',
+      inputs: [
+        'required fileId URL',
+        'Asyra Design RenderApp startup policy',
+        'App-owned IndexedDB persistence provider',
+        'artifact:remote-publication-settlement'
+      ],
+      outputs: [
+        'artifact:file-scoped-demo-document-snapshot',
+        'artifact:remote-persistence-settlement'
+      ],
       conditions: [
         'A missing or empty fileId does not open a document session.',
-        'After Core starts, RenderApp loads exactly one canonical empty document selected by fileId through the ordinary Core load API before Collaboration connects.',
+        'RenderApp derives one file-scoped storage key from required fileId, injects one App-owned IndexedDB persistence provider before Core starts, and lets Core load the stored canonical snapshot or one valid fresh empty document before Collaboration connects.',
         'The required fileId URL supplies the document session identity and always starts Collaboration after load; fileId selects which document opens and is never a Collaboration toggle.',
         'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server and makes it ready before the App document connection begins.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
-        'Every demo document session starts without creating, initializing, loading, or injecting a client persistence provider.',
         'The same fileId may independently select a pre-ready server response through the response inbox adapter, but that response never enters Core.load and creates no canonical prefix.',
-        'Local actions, Undo, and Redo perform zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
-        'Actor B remote apply performs zero client persistence capture, provider save, document IndexedDB read, and document IndexedDB write.',
-        'resetData loads one fresh App-owned empty document through Core.load and performs zero IndexedDB, localStorage, URL parsing, or reload work.',
+        'Ordinary local actions, AI actions, Undo, and Redo reuse the existing Core autosave boundary and save one current canonical snapshot after the committed owner action.',
+        'Each accepted remote publication performs one App-owned serial persistence handoff after canonical apply and before peer-applied settlement, without remote Undo or echo publication.',
+        'resetData loads one fresh App-owned empty document through Core.load and persists it through the same file-scoped provider without URL parsing or page reload.',
         'RenderApp startup and resetData obtain independent fresh values from the same zero-argument App-owned empty-document factory; no shared mutable empty-document singleton exists.',
         'Core.load is the sole FILE_LOAD_COMPLETE publisher for startup and reset. DataContexts observes that completed load for zoom-fit and never synthesizes file readiness from Render readiness.',
         'Reset Data is a local demo-document reset. It creates no Factory action or collaboration publication and makes no claim that another Actor is cleared.',
+        'The response inbox remains a separate read-only server-response adapter and never doubles as document storage.',
+        'There is no localStorage migration, old-format compatibility branch, dual document format, or second canonical state owner.',
+        'This IndexedDB provider is an Asyra Design reference-App substitute for a server database; a future App developer must supply the production database server and App persistence integration.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
       bypasses: [
-        'Formal server checkpoint policy and backend database durability remain outside this plan.',
-        'Demo reload durability is not a correctness or performance gate while client persistence is disabled.'
+        'A missing stored snapshot loads one valid fresh empty canonical document without writing an old-format placeholder.',
+        'Formal server checkpoint policy, authorization, multi-device durability, and backend database ownership remain outside this reference App step.'
       ],
       allowedContributors: [
         'required fileId App startup',
         'fileId-selected App document session identity',
         'Asyra Design RenderApp startup',
-        'Core startup without a persistence provider',
+        '@asyra/persistence public IndexedDB provider',
+        'Core persistence provider and autosave boundaries',
         'App-owned fresh empty-document factory',
         'local reset through the ordinary Core load API',
-        'cheap zero-side-effect runtime counters'
+        'App-owned serial accepted-remote persistence handoff'
       ],
       forbiddenContributors: [
-        'demo client persistence provider',
-        'demo IndexedDB migration or persisted-document load',
-        'demo persistence capture or save',
-        'client document-persistence module or compatibility facade',
-        'commented legacy client-persistence or browser-storage example path',
+        'response inbox as canonical document persistence',
+        'localStorage document storage or migration',
+        'old-format compatibility or dual-format document branches',
+        'Factory, Collaboration, or transport ownership of App database policy',
         'synthetic FILE_LOAD_COMPLETE publication from Render readiness',
-        'reset-time IndexedDB, localStorage, URL parsing, or page reload',
+        'reset-time URL parsing or page reload',
         'treating local Reset Data as a CRDT clear action',
         'a URL route that opens a document without fileId',
         'treating fileId as a Collaboration activation or deactivation toggle',
         'a separate non-Collaboration document startup path',
-        'reload durability assertions',
         'changes to Factory history or transaction semantics'
       ],
       cacheDimensions: [],
@@ -1085,27 +1099,14 @@
         'apps/asyra-design/playwright.config.ts',
         'apps/asyra-design/__tests__/playwright-config.test.mjs',
         'apps/asyra-design/e2e',
-        'create-app/asyra-design/template/package.json',
-        'create-app/asyra-design/template/src/config/empty-document.ts',
-        'create-app/asyra-design/template/src/controllers/app.ts',
-        'create-app/asyra-design/template/src/controllers/__tests__/app.test.ts',
-        'create-app/asyra-design/template/src/contexts/data-change.tsx',
-        'create-app/asyra-design/template/src/contexts/__tests__/data-change.test.tsx',
-        'create-app/asyra-design/template/src/document-persistence.ts',
-        'create-app/asyra-design/template/src/render-app/index.tsx',
-        'create-app/asyra-design/template/src/render-app/__tests__/document-persistence.test.ts',
-        'create-app/asyra-design/template/src/render-app/__tests__/render-app-strict-mode.test.tsx',
-        'scripts/dev-all-plan.js',
-        'scripts/dev-all.js',
-        'scripts/__tests__/workspace-automation.test.mjs',
         'docs/ai/apps/asyra-design'
       ],
       specRefs: [
-        '#demo-client-persistence-bypass',
+        '#file-scoped-demo-persistence',
         '#transaction-boundary',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'load-empty-demo-document'
+      failureOwnerStepId: 'load-file-scoped-demo-document'
     },
     {
       id: 'evaluate-endpoint-performance',
@@ -1125,10 +1126,12 @@
         'artifact:app-bulk-timing',
         'artifact:canonical-batch-timing',
         'artifact:factory-batch-timing',
+        'artifact:frame-consumed-credit',
         'artifact:receiver-handoff-timing',
         'artifact:relay-timing',
         'artifact:codec-timing',
         'artifact:remote-apply-timing',
+        'artifact:visible-canonical-slices',
         'artifact:render-ui-timing',
         'artifact:accepted-endpoint-baseline'
       ],
@@ -1205,7 +1208,7 @@
         'The 2026-07-31 7,076-element attempt terminated by converted 397.203-percent frontend and 401.175-percent aggregate CPU-time interval values is invalid evidence: its raw same-snapshot frontend and aggregate values were 199.4 and 209.2 percent, it crossed neither user-defined limit, it creates no accepted baseline or architecture-attempt count, and it cannot select a CRDT owner.',
         'After the raw CPU contract and guard implementation pass focused formal tests and bounded review, one corrected guarded 16-item proof must pass; any replacement 7,076-element invocation requires explicit product-owner approval because the invalid attempt already consumed the available high-detail test budget.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
-        'Success preserves exact canonical IDs, order, geometry data, complete Render topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and zero client persistence work.',
+        'Success preserves exact canonical IDs, order, geometry data, complete Render topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and file-scoped App persistence for both accepted local and remote outcomes.',
         'Effectiveness requires the owned failing budget to become green or the owned structural, span, or queue metric to improve by at least 15 percent without an adjacent critical owner regressing more than 15 percent.',
         'The raw 251.7-percent frontend and 259.0-percent aggregate local-source observation was below both limits then active for that checkpoint, so it is not an accepted stop or endpoint proof; after focused threshold gates, the local-source guarded 7,076-element proof ran once before remote apply advanced.',
         'The first receiver endpoint uses the retained 940/7,076 elements and 11/35 publications at 30 seconds as its pre-refactor comparison and performs no additional 7,076-element seed run; every later endpoint consumes artifact:accepted-endpoint-baseline.',
@@ -1219,7 +1222,7 @@
         'The bounded 16-item and 1,280-item attribution cases locate the first chronological owner after a pre-canonical resource stop; they do not replace the exact 7,076-element endpoint proof.',
         'The two-Actor 16-item operation-versus-idle diagnostic compares active and settled work only; it does not replace or create artifact:accepted-endpoint-baseline.',
         'An owner proven below five percent of product time remains unchanged rather than receiving a speculative optimization.',
-        'Contents and production persistence are outside this endpoint proof.'
+        'Contents is outside this endpoint proof; App-local persistence stays enabled and is reported as a separate owner span rather than removed from product behavior.'
       ],
       allowedContributors: [
         'production Asyra Design App and collaboration server',
@@ -1247,7 +1250,7 @@
         'running production build commands inside the runtime performance guard or product timing',
         'an ordinary Playwright, Vite development, HMR, unguarded, repeated, or retrying 7,000-plus run',
         'snapshot contentsMode or deliveryMode configuration',
-        'aiDelivery, aiPerformanceContents, ai=mock, or another product-mode query',
+        'a delivery, contents, provider, or other product-mode query',
         'excluding any Chromium renderer PID, GPU, utility, or other subprocess from the browser CPU total',
         'claiming page main-thread or Web Worker ownership for residual renderer CPU without direct evidence',
         'reusing one browser process across single-Actor attribution cases',
@@ -1323,7 +1326,8 @@
         'artifact:visible-canonical-slices',
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
-        'artifact:empty-memory-demo-document',
+        'artifact:file-scoped-demo-document-snapshot',
+        'artifact:remote-persistence-settlement',
         'artifact:endpoint-performance-proof'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
@@ -1332,7 +1336,7 @@
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
         'Response inbox seeding, the fileId-selected response preload, navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
-        'Both collaboration actors expose cheap zero-document-persistence evidence without reading or hashing canonical document IndexedDB state; the source Actor may complete its one dedicated response inbox read only before App readiness.',
+        'Both collaboration actors expose bounded persistence counters without reading or hashing canonical document IndexedDB state; local autosave and accepted-remote serial saves remain distinct from the source Actor response inbox read completed before App readiness.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, the final accepted guarded 7,076-element endpoint proof, and the 27,471-element 295,794-point gate pass.',
         'The maximum-detail 27,471-element 295,794-point gate allows at most 300 seconds from accepted turn to Actor A settled while retaining the ordinary 250-percent single-Actor frontend and 400-percent aggregate current-CPU limits.',
         'Local performance and maximum-detail gates launch background headless Chrome for Testing so automation never steals the product owner desktop focus; they apply no CPU quota, process-count limit, worker-count limit, memory ceiling, software-rendering requirement, or Playwright retry, while workers: 1 limits concurrent test cases only and never limits one browser process group.',
@@ -1398,6 +1402,18 @@
       kind: 'handoff',
       predicate:
         'The server-prepared AiActionBatch resolved to registered actions without client model validation while preserving batchId.',
+      producedArtifacts: [
+        'artifact:resolved-ai-action-batch',
+        'artifact:bounded-ai-action-batch-preview'
+      ]
+    },
+    {
+      id: 'route-resolved-ai-action-batch-to-action-loop',
+      from: 'resolve-server-prepared-action-batch',
+      to: 'stage-local-interactive-composition',
+      kind: 'handoff',
+      predicate:
+        'The bounded preview confirms the same resolved batch before its registered action enters the serialized App transaction.',
       producedArtifacts: [
         'artifact:resolved-ai-action-batch',
         'artifact:bounded-ai-action-batch-preview'
@@ -1490,6 +1506,15 @@
       kind: 'handoff',
       predicate: 'The validated descriptor contains an accepted mutation.',
       producedArtifacts: ['artifact:composition-batch-sequence']
+    },
+    {
+      id: 'route-canonical-identities-to-composition',
+      from: 'apply-canonical-property-scene-batch',
+      to: 'stage-local-interactive-composition',
+      kind: 'result',
+      predicate:
+        'Each accepted plural Core request returns its ordered canonical element identities to the serialized action loop.',
+      producedArtifacts: ['artifact:ordered-canonical-element-ids']
     },
     {
       id: 'route-app-timing-to-proof',
@@ -1623,6 +1648,15 @@
       producedArtifacts: ['artifact:frame-consumed-credit']
     },
     {
+      id: 'route-frame-consumed-credit-to-endpoint-proof',
+      from: 'admit-receiver-publication-frames',
+      to: 'evaluate-endpoint-performance',
+      kind: 'observation',
+      predicate:
+        'The active endpoint proof retains receiver wire-credit timing separately from App apply settlement.',
+      producedArtifacts: ['artifact:frame-consumed-credit']
+    },
+    {
       id: 'route-receiver-handoff-to-full-proof',
       from: 'admit-receiver-publication-frames',
       to: 'evaluate-performance-and-equivalence',
@@ -1696,6 +1730,15 @@
       producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {
+      id: 'route-remote-settlement-to-persistence',
+      from: 'apply-remote-publication-batches',
+      to: 'load-file-scoped-demo-document',
+      kind: 'persistence',
+      predicate:
+        'One accepted remote canonical result enters the App-owned serialized file persistence handoff before peer-applied settlement.',
+      producedArtifacts: ['artifact:remote-publication-settlement']
+    },
+    {
       id: 'route-remote-artifact-to-projection',
       from: 'apply-remote-publication-batches',
       to: 'project-visible-canonical-slices',
@@ -1730,6 +1773,14 @@
       kind: 'projection',
       predicate: 'Affected UI entries and hierarchy order are available.',
       producedArtifacts: ['artifact:ui-context-batch-projection']
+    },
+    {
+      id: 'route-scrollable-contents-window',
+      from: 'project-scrollable-contents-window',
+      kind: 'terminal',
+      predicate:
+        'The bounded virtualized Contents projection reaches its tail without becoming a canonical or collaboration owner.',
+      producedArtifacts: ['artifact:scrollable-contents-window']
     },
     {
       id: 'route-projection-evidence-to-proof',
@@ -1815,13 +1866,16 @@
       producedArtifacts: ['artifact:render-ui-timing']
     },
     {
-      id: 'route-empty-demo-document-to-full-proof',
-      from: 'load-empty-demo-document',
+      id: 'route-file-scoped-demo-document-to-full-proof',
+      from: 'load-file-scoped-demo-document',
       to: 'evaluate-performance-and-equivalence',
       kind: 'policy-proof',
       predicate:
-        'Single-Actor and two-Actor demo sessions always started Collaboration from the App-owned document session without a client persistence provider and retained zero client persistence side effects.',
-      producedArtifacts: ['artifact:empty-memory-demo-document']
+        'Single-Actor and two-Actor demo sessions load and save through the same file-scoped App persistence owner while the response inbox remains separate.',
+      producedArtifacts: [
+        'artifact:file-scoped-demo-document-snapshot',
+        'artifact:remote-persistence-settlement'
+      ]
     },
     {
       id: 'route-local-interactive-drawing-proof',
@@ -1852,7 +1906,7 @@
     {
       id: 'route-resource-guard-stop-proof',
       from: 'evaluate-endpoint-performance',
-      kind: 'terminal-failure',
+      kind: 'terminal',
       predicate:
         'The host resource guard crossed a CPU, heartbeat, or stalled-progress limit and stopped every tracked test process before reporting the last bounded evidence.',
       producedArtifacts: ['artifact:resource-guard-stop-proof']
@@ -2024,6 +2078,13 @@
       terminal: false
     },
     {
+      id: 'artifact:ordered-canonical-element-ids',
+      ownerStepId: 'apply-canonical-property-scene-batch',
+      channel: 'ordered Core creation result identities',
+      consumerStepIds: ['stage-local-interactive-composition'],
+      terminal: false
+    },
+    {
       id: 'artifact:canonical-batch-timing',
       ownerStepId: 'apply-canonical-property-scene-batch',
       channel: 'detached monotonic timing',
@@ -2171,7 +2232,10 @@
       ownerStepId: 'apply-remote-publication-batches',
       channel:
         'decoded-publication settlement outcome: success | terminal failure',
-      consumerStepIds: ['admit-receiver-publication-frames'],
+      consumerStepIds: [
+        'admit-receiver-publication-frames',
+        'load-file-scoped-demo-document'
+      ],
       terminal: false
     },
     {
@@ -2222,9 +2286,16 @@
       terminal: true
     },
     {
-      id: 'artifact:empty-memory-demo-document',
-      ownerStepId: 'load-empty-demo-document',
-      channel: 'RenderApp empty memory-only demo startup policy',
+      id: 'artifact:file-scoped-demo-document-snapshot',
+      ownerStepId: 'load-file-scoped-demo-document',
+      channel: 'RenderApp file-scoped App-local canonical snapshot',
+      consumerStepIds: ['evaluate-performance-and-equivalence'],
+      terminal: false
+    },
+    {
+      id: 'artifact:remote-persistence-settlement',
+      ownerStepId: 'load-file-scoped-demo-document',
+      channel: 'serialized accepted-remote App persistence handoff',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
@@ -2289,16 +2360,16 @@
         'The same required fileId may select both the App document session and one test-prepared server response, but the startup-resident response remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state before Actor A sends the ordinary conversation request.',
       stepIds: [
         'preload-file-scoped-server-response',
-        'load-empty-demo-document',
+        'load-file-scoped-demo-document',
         'resolve-server-prepared-action-batch'
       ],
       artifactIds: [
         'artifact:server-prepared-action-batch',
-        'artifact:empty-memory-demo-document'
+        'artifact:file-scoped-demo-document-snapshot'
       ],
       specRefs: [
-        '#file-scoped-server-response-contract',
-        '#demo-client-persistence-bypass'
+        '#file-scoped-server-response-inbox-contract',
+        '#file-scoped-demo-persistence'
       ]
     },
     {
@@ -2370,22 +2441,23 @@
       ]
     },
     {
-      id: 'demo-has-no-client-persistence-side-effects',
+      id: 'demo-persists-local-and-accepted-remote-outcomes',
       statement:
-        'Ordinary local actions and collaboration remote publications update canonical, Render, and UI state without any client document persistence capture, provider save, document IndexedDB read, or document IndexedDB write; the separate pre-ready response inbox read is not document persistence, and remote apply additionally creates no Undo or echo publication.',
+        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave, while each accepted remote publication updates canonical, Render, and UI state before one serialized App-owned IndexedDB save; the separate pre-ready response inbox is not document persistence, and remote apply creates no Undo or echo publication.',
       stepIds: [
-        'load-empty-demo-document',
+        'load-file-scoped-demo-document',
         'evaluate-endpoint-performance',
         'apply-remote-publication-batches',
         'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
       ],
       artifactIds: [
-        'artifact:empty-memory-demo-document',
+        'artifact:file-scoped-demo-document-snapshot',
+        'artifact:remote-persistence-settlement',
         'artifact:remote-factory-mutation-batch',
         'artifact:visible-canonical-slices'
       ],
-      specRefs: ['#remote-apply-contract', '#demo-client-persistence-bypass']
+      specRefs: ['#remote-apply-contract', '#file-scoped-demo-persistence']
     }
   ]
 
@@ -2402,11 +2474,11 @@
       ],
       stepIds: [
         'preload-file-scoped-server-response',
-        'load-empty-demo-document',
+        'load-file-scoped-demo-document',
         'resolve-server-prepared-action-batch'
       ],
       specRefs: [
-        '#file-scoped-server-response-contract',
+        '#file-scoped-server-response-inbox-contract',
         '#non-negotiable-equivalence'
       ]
     },
@@ -2439,7 +2511,7 @@
         'All 7,076 editable elements remain complete and uncropped.'
       ],
       stepIds: ['project-visible-canonical-slices'],
-      specRefs: ['#visible-progressive-projection', '#product-cases']
+      specRefs: ['#visible-cooperative-projection', '#product-cases']
     },
     {
       id: 'binary-backpressure-and-remote-apply',
@@ -2516,7 +2588,7 @@
         'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [
-        'load-empty-demo-document',
+        'load-file-scoped-demo-document',
         'evaluate-performance-and-equivalence'
       ],
       specRefs: ['#performance-budgets', '#final-gates', '#definition-of-done']
@@ -2530,7 +2602,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One file-scoped preloaded server response, one resolved AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, zero demo document persistence, and exact performance-equivalence proof.'
+        'One file-scoped preloaded server response, one resolved AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, file-scoped App persistence, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,
@@ -2544,13 +2616,7 @@
         id: 'performance-plan',
         kind: 'authority',
         label: 'Performance product contract',
-        href: './completed/ai-conversational-drawing-performance-plan.md'
-      },
-      {
-        id: 'drawing-inspector',
-        kind: 'prerequisite',
-        label: 'Completed drawing behavior authority',
-        href: './ai-conversational-drawing-flow-inspector.html'
+        href: './ai-conversational-drawing-performance-plan.md'
       }
     ],
     lanes,
