@@ -12,12 +12,12 @@ selection-id encoding, plus synthetic handle derivation for missing control
 points. These helpers do not create canonical vector data or move editing
 policy into Utils.
 
-The official Vector component accepts only canonical
-`pointCoordinateSpace: local` topology. Its render strategy draws those local
-records directly and declares the generic transform-only property capability
-for position, dimension, rotation, scale, and skew. Transform deltas retain
-existing path/fill/stroke/hit geometry; selection and path-edit overlays project
-the same local records through Render's current affine transform.
+The official Vector component accepts the existing canonical render snapshot
+without requiring a new coordinate-space marker. Its render strategy derives
+engine-local draw geometry on a geometry/style miss and declares the generic
+transform-only property capability for position, dimension, rotation, scale,
+and skew. Transform deltas retain existing path/fill/stroke/hit geometry;
+selection and path-edit overlays continue to follow the same Render result.
 
 ## Public Contract
 

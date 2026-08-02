@@ -7129,30 +7129,50 @@ join` constrained dashed product path across:
   - `3a88f1dde` (`fix(app): use formal document database persistence`)
   - `cda8b10f0` (`style(app): format service availability boundaries`)
 
-## 2026-08-03 - Make Vector geometry local and whole-element transforms point-free
+## 2026-08-03 - Retain Vector render geometry and make transforms point-free
 
 - Context:
   - Moving a Vector translated every point/control record. A single drag sample
     on a 7,000+ point element could therefore block the app and publish a
     point-count-sized mutation.
-  - The accepted rendering model already treats an element as local geometry
-    plus an affine transform.
+  - Existing persisted Vector values and schema remain the canonical input;
+    this fix belongs to the Render pipeline and cache.
 - Decision:
-  - Store every v2 Vector point/control in one stable element-local coordinate
-    space and accept no runtime workspace-coordinate fallback.
-  - Register one app-owned v1-to-v2 load migration that converts legacy
-    workspace points atomically before Core validation/apply.
-  - Route move, dimension, rotation, scale, skew, Group normalization, and
-    reparent through element/hierarchy transform values only.
-  - Let registered Render strategies declare generic direct property keys, and
-    use one engine-neutral affine transform for Pixi projection, bounds, hit,
-    selection, path-edit overlays, and inverse point editing.
+  - Keep all existing Vector document values unchanged and add no migration,
+    document version, canonical-local marker, or app-owned geometry model.
+  - Route whole-element move, dimension, rotation, scale, and skew through the
+    existing constant-size element values without rewriting points or handles.
+  - Let registered Render strategies declare generic direct transform keys.
+    Preset derives engine-local draw geometry from the existing complete render
+    snapshot, while Render retains that derived geometry across transform-only
+    deltas and rebuilds it for geometry/style changes.
+  - Project selection and path-edit overlays through the same retained Render
+    transform so visible output, bounds, hit data, and editing remain aligned.
 - Consequences:
   - Whole-element mutation and publication size are independent of Vector point
     count; canonical point/control records remain unchanged.
-  - Direct geometry editing still patches the intended local records after
-    inverse projection through the current Render transform.
+  - Direct geometry editing still patches the intended existing records; the
+    Render-owned projection is never persisted or used as canonical edit data.
   - Both a synthetic 7,001-point case and the first 50 checked-in
     `crdt-7076` cat-face elements are formal point-free move regressions.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Make service status toasts dismissible
+
+- Context:
+  - Persistent database and collaboration error banners could cover the canvas
+    indefinitely and offered no direct dismissal.
+- Decision:
+  - Give each status toast an accessible top-right close button.
+  - Start automatic dismissal after 10 seconds and retain the dismissed state
+    while the same unavailable condition remains active.
+  - Collapse a closing row over 200 milliseconds before removal so lower toasts
+    transition upward continuously.
+- Consequences:
+  - Service status ownership and recovery behavior remain unchanged; only the
+    `RenderApp` notification presentation lifecycle changes.
+  - Unit tests own timer and removal semantics, while a live-browser test owns
+    the stacked layout transition and visual evidence.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`

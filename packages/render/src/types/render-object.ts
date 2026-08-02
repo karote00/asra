@@ -874,8 +874,8 @@ export class RenderNode {
       x: this.x,
       y: this.y,
       rotation: this.rotation,
-      scaleX: this.scale.x,
-      scaleY: this.scale.y,
+      scaleX: this.scale.x * this.getDimensionScaleX(),
+      scaleY: this.scale.y * this.getDimensionScaleY(),
       skewX: this.skew.x,
       skewY: this.skew.y
     })

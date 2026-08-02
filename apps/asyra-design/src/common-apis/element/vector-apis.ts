@@ -29,7 +29,11 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
-import { PresetSystemPropertyKeys } from '@asyra/preset'
+import {
+  PresetSystemPropertyKeys,
+  getVectorRenderLocalPoint,
+  getVectorRenderWorkspacePoint
+} from '@asyra/preset'
 import core, { render, sceneTree } from '../../contexts'
 import {
   DEFAULT_VECTOR_STROKE_COLOR,
@@ -594,6 +598,11 @@ const canReadTransientWorkspaceTopologyCache = () => {
   )
 }
 
+const getVectorOffset = (computed: { x?: number; y?: number }) => ({
+  x: typeof computed.x === 'number' ? computed.x : 0,
+  y: typeof computed.y === 'number' ? computed.y : 0
+})
+
 const getVectorComputed = (elementId: string) => {
   const element = sceneTree.getElementById(elementId)
   if (!element) {
@@ -608,9 +617,6 @@ const getVectorComputed = (elementId: string) => {
 
   return computedRaw
 }
-
-const getVectorComputedForMutation = (elementId: string) =>
-  transientComputedSnapshotCache.get(elementId) ?? getVectorComputed(elementId)
 
 const clearTransientVectorCaches = (elementId: string) => {
   transientWorkspaceTopologyCache.delete(elementId)
@@ -662,19 +668,29 @@ const updateTransientComputedSnapshotFromPatch = (
 }
 
 const getVectorTopologyLocal = (elementId: string): VectorTopology => {
-  const computed = getVectorComputedForMutation(elementId)
+  const computed = getVectorComputed(elementId)
   if (!computed) {
     return createEmptyVectorTopology()
   }
 
+  const offset = getVectorOffset(computed)
   return {
-    points: computed.points,
+    points: Object.fromEntries(
+      Object.entries(computed.points).map(([pointId, point]) => [
+        pointId,
+        {
+          ...point,
+          x: point.x - offset.x,
+          y: point.y - offset.y
+        }
+      ])
+    ),
     segments: computed.segments,
     networks: computed.networks
   }
 }
 
-const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
+const getVectorTopologyStored = (elementId: string): VectorTopology => {
   return measureBrowserDragPhase('vector-api:topology-read', () => {
     if (canReadTransientWorkspaceTopologyCache()) {
       const cachedTopology = transientWorkspaceTopologyCache.get(elementId)
@@ -694,74 +710,73 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
       transientComputedSnapshotCache.set(elementId, computed)
     }
 
-    const workspacePoints: VectorTopology['points'] = {}
-    for (const [pointId, point] of Object.entries(computed.points)) {
-      const workspacePosition = render?.elementLocalToWorkspace(elementId, {
-        x: point.x,
-        y: point.y
-      })
-      if (!workspacePosition) {
-        return createEmptyVectorTopology()
-      }
-      workspacePoints[pointId] = {
-        ...point,
-        x: workspacePosition.x,
-        y: workspacePosition.y
-      }
-    }
-
     return {
-      points: workspacePoints,
+      points: computed.points,
       segments: computed.segments,
       networks: computed.networks
     }
   })
 }
 
-const projectWorkspaceTopologyChangesToLocal = (
+const projectStoredVectorPositionToWorkspace = (
   elementId: string,
-  previousWorkspaceTopology: VectorTopology,
-  nextWorkspaceTopology: VectorTopology
-): {
-  previousLocalTopology: VectorTopology
-  nextLocalTopology: VectorTopology
-} | null => {
-  const previousLocalTopology = getVectorTopologyLocal(elementId)
-  const nextLocalPoints: VectorTopology['points'] = {}
+  position: PositionData
+): PositionData | null => {
+  if (!render) {
+    return position
+  }
+  const renderElement = render.getElementById(elementId)
+  if (!renderElement) {
+    return null
+  }
+  const localPosition = getVectorRenderLocalPoint(renderElement, position)
+  return localPosition
+    ? render.elementLocalToWorkspace(elementId, localPosition)
+    : null
+}
 
-  for (const [pointId, point] of Object.entries(nextWorkspaceTopology.points)) {
-    const previousWorkspacePoint = previousWorkspaceTopology.points[pointId]
-    const previousLocalPoint = previousLocalTopology.points[pointId]
-    if (
-      previousLocalPoint &&
-      previousWorkspacePoint &&
-      isEqual(previousWorkspacePoint, point)
-    ) {
-      nextLocalPoints[pointId] = previousLocalPoint
-      continue
-    }
+const projectWorkspacePositionToStoredVector = (
+  elementId: string,
+  position: PositionData
+): PositionData | null => {
+  if (!render) {
+    return position
+  }
+  const renderElement = render.getElementById(elementId)
+  if (!renderElement) {
+    return null
+  }
+  const localPosition = render.workspaceToElementLocal(elementId, position)
+  return localPosition
+    ? getVectorRenderWorkspacePoint(renderElement, localPosition)
+    : null
+}
 
-    const localPosition = render?.workspaceToElementLocal(elementId, {
-      x: point.x,
-      y: point.y
-    })
-    if (!localPosition) {
-      return null
-    }
-    nextLocalPoints[pointId] = {
-      ...point,
-      x: localPosition.x,
-      y: localPosition.y
-    }
+const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
+  const topology = getVectorTopologyStored(elementId)
+  if (!render) {
+    return topology
   }
 
-  return {
-    previousLocalTopology,
-    nextLocalTopology: {
-      points: nextLocalPoints,
-      segments: nextWorkspaceTopology.segments,
-      networks: nextWorkspaceTopology.networks
+  const points: Record<string, VectorPointNode> = {}
+  for (const [pointId, point] of Object.entries(topology.points)) {
+    const workspacePosition = projectStoredVectorPositionToWorkspace(
+      elementId,
+      point
+    )
+    if (!workspacePosition) {
+      return createEmptyVectorTopology()
     }
+    points[pointId] = {
+      ...point,
+      x: workspacePosition.x,
+      y: workspacePosition.y
+    }
+  }
+  return {
+    points,
+    segments: topology.segments,
+    networks: topology.networks
   }
 }
 
@@ -883,27 +898,78 @@ const reconcileVectorSelectionAfterTopologyChange = (
   }
 }
 
+const getVectorGeometryMutationValues = (
+  previousComputed: Partial<VectorComputedData> | null,
+  previousTopology: VectorTopology,
+  nextTopology: VectorTopology
+): Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'> => {
+  const nextBounds = calculateVectorBounds(nextTopology)
+  if (
+    !previousComputed ||
+    typeof previousComputed.x !== 'number' ||
+    !Number.isFinite(previousComputed.x) ||
+    typeof previousComputed.y !== 'number' ||
+    !Number.isFinite(previousComputed.y) ||
+    typeof previousComputed.width !== 'number' ||
+    !Number.isFinite(previousComputed.width) ||
+    previousComputed.width < 0 ||
+    typeof previousComputed.height !== 'number' ||
+    !Number.isFinite(previousComputed.height) ||
+    previousComputed.height < 0
+  ) {
+    return nextBounds
+  }
+
+  const previousBounds = calculateVectorBounds(previousTopology)
+  const finiteOr = (value: unknown, fallback: number) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  const dimensionScaleX =
+    previousBounds.width > 0 ? previousComputed.width / previousBounds.width : 1
+  const dimensionScaleY =
+    previousBounds.height > 0
+      ? previousComputed.height / previousBounds.height
+      : 1
+  const scaleX = dimensionScaleX * finiteOr(previousComputed.scaleX, 1)
+  const scaleY = dimensionScaleY * finiteOr(previousComputed.scaleY, 1)
+  const rotation = finiteOr(previousComputed.rotation, 0)
+  const skewX = finiteOr(previousComputed.skewX, 0)
+  const skewY = finiteOr(previousComputed.skewY, 0)
+  const deltaX = nextBounds.x - previousBounds.x
+  const deltaY = nextBounds.y - previousBounds.y
+  const rotationPlusSkewY = rotation + skewY
+  const rotationMinusSkewX = rotation - skewX
+
+  return {
+    x:
+      previousComputed.x +
+      Math.cos(rotationPlusSkewY) * scaleX * deltaX -
+      Math.sin(rotationMinusSkewX) * scaleY * deltaY,
+    y:
+      previousComputed.y +
+      Math.sin(rotationPlusSkewY) * scaleX * deltaX +
+      Math.cos(rotationMinusSkewX) * scaleY * deltaY,
+    width:
+      previousBounds.width > 0
+        ? previousComputed.width * (nextBounds.width / previousBounds.width)
+        : nextBounds.width,
+    height:
+      previousBounds.height > 0
+        ? previousComputed.height * (nextBounds.height / previousBounds.height)
+        : nextBounds.height
+  }
+}
+
 const createVectorPointMutationPatch = (
   elementId: string,
   previousTopology: VectorTopology,
   nextTopology: VectorTopology,
   closed?: boolean
 ): ComputedDataPatch => {
-  const previousComputed = getVectorComputedForMutation(elementId)
-  const bounds = calculateVectorBounds(nextTopology)
-  const previousBounds = calculateVectorBounds(previousTopology)
-  const dimensionScaleX =
-    typeof previousComputed?.width === 'number' &&
-    Number.isFinite(previousComputed.width) &&
-    previousBounds.width > 0
-      ? previousComputed.width / previousBounds.width
-      : 1
-  const dimensionScaleY =
-    typeof previousComputed?.height === 'number' &&
-    Number.isFinite(previousComputed.height) &&
-    previousBounds.height > 0
-      ? previousComputed.height / previousBounds.height
-      : 1
+  const geometry = getVectorGeometryMutationValues(
+    getVectorComputed(elementId),
+    previousTopology,
+    nextTopology
+  )
   const pointsSet: Record<string, DataTypes> = {}
 
   Object.entries(nextTopology.points).forEach(([pointId, point]) => {
@@ -913,8 +979,7 @@ const createVectorPointMutationPatch = (
   })
 
   const values: Record<string, DataTypes> = {
-    width: bounds.width * dimensionScaleX,
-    height: bounds.height * dimensionScaleY,
+    ...geometry,
     closed: closed ?? isClosedVectorTopology(nextTopology)
   }
   return {
@@ -943,33 +1008,16 @@ export const createVectorComputedPatchFromTopologyChange = ({
 }): ComputedDataPatch => {
   const patch: ComputedDataPatch = {}
   const mustSetAllRecords = !previousComputed
-  const bounds = calculateVectorBounds(nextTopology)
-  const previousBounds = calculateVectorBounds(previousTopology)
-  const dimensionScaleX =
-    typeof previousComputed?.width === 'number' &&
-    Number.isFinite(previousComputed.width) &&
-    previousBounds.width > 0
-      ? previousComputed.width / previousBounds.width
-      : 1
-  const dimensionScaleY =
-    typeof previousComputed?.height === 'number' &&
-    Number.isFinite(previousComputed.height) &&
-    previousBounds.height > 0
-      ? previousComputed.height / previousBounds.height
-      : 1
+  const geometry = getVectorGeometryMutationValues(
+    previousComputed,
+    previousTopology,
+    nextTopology
+  )
 
-  setPatchValueIfChanged(
-    patch,
-    previousComputed,
-    'width',
-    bounds.width * dimensionScaleX
-  )
-  setPatchValueIfChanged(
-    patch,
-    previousComputed,
-    'height',
-    bounds.height * dimensionScaleY
-  )
+  setPatchValueIfChanged(patch, previousComputed, 'x', geometry.x)
+  setPatchValueIfChanged(patch, previousComputed, 'y', geometry.y)
+  setPatchValueIfChanged(patch, previousComputed, 'width', geometry.width)
+  setPatchValueIfChanged(patch, previousComputed, 'height', geometry.height)
   setPatchValueIfChanged(
     patch,
     previousComputed,
@@ -1159,21 +1207,11 @@ const commitVectorTopologyOperation = (
             nextTopology,
             `commitVectorTopologyOperation:${operation.type}`
           )
-          const localTopologies = projectWorkspaceTopologyChangesToLocal(
-            elementId,
-            previousTopology,
-            nextTopology
-          )
-          if (!localTopologies) {
-            throw new Error(
-              `Vector topology operation requires a Render local-coordinate projection for "${elementId}".`
-            )
-          }
           return createVectorTopologyOperationPatch(
             elementId,
             operation,
-            localTopologies.previousLocalTopology,
-            localTopologies.nextLocalTopology,
+            previousTopology,
+            nextTopology,
             options?.closed
           )
         }
@@ -1250,26 +1288,13 @@ const commitVectorPointMutation = (
         : 'vector-api-commit-non-transient-count'
     )
 
-    const patch = measureBrowserDragPhase(
-      'vector-api:commit:build-patch',
-      () => {
-        const localTopologies = projectWorkspaceTopologyChangesToLocal(
-          elementId,
-          previousTopology,
-          nextTopology
-        )
-        if (!localTopologies) {
-          throw new Error(
-            `Vector point mutation requires a Render local-coordinate projection for "${elementId}".`
-          )
-        }
-        return createVectorPointMutationPatch(
-          elementId,
-          localTopologies.previousLocalTopology,
-          localTopologies.nextLocalTopology,
-          options?.closed
-        )
-      }
+    const patch = measureBrowserDragPhase('vector-api:commit:build-patch', () =>
+      createVectorPointMutationPatch(
+        elementId,
+        previousTopology,
+        nextTopology,
+        options?.closed
+      )
     )
     emitDiagnosticCounter('vector-api-commit-build-patch-observed')
 
@@ -1496,11 +1521,11 @@ export const prepareVectorElementData = (
     y: bounds.y - parentOrigin.y,
     width: bounds.width,
     height: bounds.height,
-    points: normalizedTopology.points,
+    points: topology.points,
     segments: normalizedTopology.segments,
     networks: normalizedTopology.networks,
     closed,
-    pointCoordinateSpace: 'local',
+    pointCoordinateSpace: 'workspace',
     fills: createOptions.fills ?? DEFAULT_VECTOR_STYLE.fills ?? [],
     strokes: createOptions.strokes ?? DEFAULT_VECTOR_STYLE.strokes ?? []
   }
@@ -1879,11 +1904,18 @@ export const vectorApis = {
       structuralOperationIntent,
       ...eventOptions
     } = options ?? {}
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
+    const storedPosition = projectWorkspacePositionToStoredVector(
+      elementId,
+      point
+    )
+    if (!storedPosition) {
+      return null
+    }
     const nextTopology = vectorGeometry.addPoint(
       topology,
       point.id,
-      { x: point.x, y: point.y },
+      storedPosition,
       {
         startNewSubpath,
         anchorType: point.type,
@@ -1915,7 +1947,7 @@ export const vectorApis = {
     pointId: string
     side: VectorEndpointSide
   } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     return getAnchorEndpointInTopology(topology, pointId)
   },
 
@@ -1927,7 +1959,7 @@ export const vectorApis = {
     pointId: string
     side: VectorEndpointSide
   } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     return getAnchorContinuationInTopology(topology, pointId)
   },
 
@@ -1937,7 +1969,7 @@ export const vectorApis = {
     targetPointId: string,
     options?: VectorOperationIntentOptions
   ): { closed: boolean } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const connected = vectorGeometry.connectEndpoints(
       topology,
       sourcePointId,
@@ -1972,7 +2004,7 @@ export const vectorApis = {
     targetPointId: string,
     options?: VectorOperationIntentOptions
   ): { closed: boolean } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const connected = vectorGeometry.connectAnchors(
       topology,
       sourcePointId,
@@ -2002,7 +2034,7 @@ export const vectorApis = {
   },
 
   removeLastSinglePointSubpath: (elementId: string): boolean => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const nextTopology = removeLastSinglePointSubpath(topology)
     if (!nextTopology) {
       return false
@@ -2024,7 +2056,7 @@ export const vectorApis = {
     pointId: string,
     options?: VectorOperationIntentOptions
   ): boolean => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const nextTopology = vectorGeometry.removePoint(topology, pointId)
     if (!nextTopology) {
       return false
@@ -2052,11 +2084,18 @@ export const vectorApis = {
     workspacePos: PositionData,
     options?: VectorOperationIntentOptions
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
+    const storedWorkspacePos = projectWorkspacePositionToStoredVector(
+      elementId,
+      workspacePos
+    )
+    if (!storedWorkspacePos) {
+      return null
+    }
     const projectedHit = getVectorSegmentProjection(
       topology,
       segmentId,
-      workspacePos
+      storedWorkspacePos
     )
     if (!projectedHit) {
       return null
@@ -2082,22 +2121,11 @@ export const vectorApis = {
         structuralOperationIntent: options?.structuralOperationIntent
       }
     )
-    const anchorPoints = vectorTopologyToAnchorPoints(splitResult.topology)
-    const insertedPointIndex = anchorPoints.findIndex(
-      (point) => point.id === splitResult.pointId
-    )
-    if (insertedPointIndex === -1) {
-      return null
-    }
-
-    return {
-      point: anchorPoints[insertedPointIndex],
-      index: insertedPointIndex
-    }
+    return vectorApis.getVectorAnchorPointById(elementId, splitResult.pointId)
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const nextTopology = setTopologyClosed(topology, closed)
     commitVectorTopologyOperation(
       elementId,
@@ -2117,9 +2145,16 @@ export const vectorApis = {
     position: PositionData,
     options?: VectorPointMutationOptions
   ): { point: VectorAnchorPoint; index: number } | true | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
+    const storedPosition = projectWorkspacePositionToStoredVector(
+      elementId,
+      position
+    )
+    if (!storedPosition) {
+      return null
+    }
     const nextTopology = measureVectorTopologyUpdate('move-point', () =>
-      vectorGeometry.movePoint(topology, pointId, position)
+      vectorGeometry.movePoint(topology, pointId, storedPosition)
     )
     if (!nextTopology) {
       return null
@@ -2191,7 +2226,7 @@ export const vectorApis = {
     type: 'smooth' | 'sharp',
     options?: VectorOperationIntentOptions
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const nextTopology = setAnchorTypeInTopology(topology, pointId, type)
     commitVectorTopologyOperation(
       elementId,
@@ -2212,7 +2247,7 @@ export const vectorApis = {
     elementId: string,
     pointId: string
   ): VectorHandleMode => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     return getVectorAnchorHandleMode(topology.points[pointId])
   },
 
@@ -2222,7 +2257,7 @@ export const vectorApis = {
     mode: VectorHandleMode,
     options?: VectorOperationIntentOptions
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
     const nextTopology = vectorGeometry.setHandleMode(topology, pointId, mode)
     if (!nextTopology) {
       return null
@@ -2254,14 +2289,21 @@ export const vectorApis = {
     position: PositionData,
     options?: VectorPointMutationOptions
   ): { point: VectorAnchorPoint; index: number } | true | null => {
-    const topology = getVectorTopologyWorkspace(elementId)
+    const topology = getVectorTopologyStored(elementId)
+    const storedPosition = projectWorkspacePositionToStoredVector(
+      elementId,
+      position
+    )
+    if (!storedPosition) {
+      return null
+    }
     const handleMode = getVectorAnchorHandleMode(topology.points[pointId])
     const nextTopology = measureVectorTopologyUpdate('update-handle', () =>
       vectorGeometry.updateHandle(
         topology,
         pointId,
         target,
-        position,
+        storedPosition,
         handleMode
       )
     )
@@ -2285,22 +2327,36 @@ export const vectorApis = {
       return
     }
 
-    const previousTopology = getVectorTopologyWorkspace(elementId)
+    const previousTopology = getVectorTopologyStored(elementId)
     let topology = previousTopology
+    let projectionFailed = false
     updates.forEach((update) => {
+      if (projectionFailed) {
+        return
+      }
       if (update.forceSmooth) {
         topology = setAnchorTypeInTopology(topology, update.pointId, 'smooth')
       }
 
+      const storedPosition = update.position
+        ? projectWorkspacePositionToStoredVector(elementId, update.position)
+        : null
+      if (update.position && !storedPosition) {
+        projectionFailed = true
+        return
+      }
       topology = setAnchorHandleInTopology(
         topology,
         update.pointId,
         update.target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
           ? VECTOR_TOKENS.CONTROL.ROLE.IN
           : VECTOR_TOKENS.CONTROL.ROLE.OUT,
-        update.position
+        storedPosition
       )
     })
+    if (projectionFailed) {
+      return
+    }
 
     commitVectorTopologyOperation(
       elementId,

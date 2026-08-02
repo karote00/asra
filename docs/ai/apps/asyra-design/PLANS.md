@@ -8,9 +8,10 @@ Never record completed plans here.
   `plans/vector-local-geometry-transform-plan.md`.
 - Active architecture authority:
   `plans/vector-local-geometry-transform-flow-inspector.data.cjs`.
-- The accepted contract stores every Vector point/control in one stable local
-  coordinate space and routes whole-element move/dimension/rotation/scale/skew
-  through element transform state without point-record mutation.
+- The accepted contract preserves existing persisted Vector values, derives
+  engine-local geometry only inside Render, and routes whole-element
+  move/dimension/rotation/scale/skew through fixed-size element updates without
+  point-record mutation or geometry-strategy rebuild.
 - Completed canonical record for the accepted App-level CRDT, persistence,
   property-projection, and request-time Agent flow:
   `plans/completed/ai-conversational-drawing-performance-plan.md`.

@@ -393,7 +393,7 @@ describe('stroke common API primary-color boundary', () => {
     expect(mocks.changeComputedData).not.toHaveBeenCalled()
   })
 
-  it('updates Vector stroke fields without rewriting its independent transform', () => {
+  it('coordinates vector bounds values and stroke record fields in the same patch item', () => {
     const currentStroke = {
       id: 'stroke-1',
       type: 'stroke',
@@ -410,7 +410,7 @@ describe('stroke common API primary-color boundary', () => {
             vertexIds: ['point-1']
           }
         },
-        pointCoordinateSpace: 'local',
+        pointCoordinateSpace: 'workspace',
         points: {
           'point-1': {
             id: 'point-1',
@@ -449,7 +449,11 @@ describe('stroke common API primary-color boundary', () => {
                 }
               }
             }
-          ]
+          ],
+          values: {
+            height: 0.1,
+            width: 0.1
+          }
         }
       ],
       { undoable: true }

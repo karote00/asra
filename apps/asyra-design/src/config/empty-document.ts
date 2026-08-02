@@ -1,8 +1,7 @@
 import type { CoreRawData } from '@asyra/utils'
-import { DOCUMENT_VERSION } from './document-version'
 
 export const createEmptyDocument = (): CoreRawData => ({
-  version: DOCUMENT_VERSION,
+  version: '1.0.0',
   sceneTree: {
     workspace: '',
     workspaceList: [],

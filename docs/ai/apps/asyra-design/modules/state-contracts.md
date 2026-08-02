@@ -203,15 +203,13 @@ This file defines app-level state keys, owners, and primary consumers.
 - `pointCoordinateSpace`
 
   - canonical owner: the Vector property component
-  - canonical value: exactly `local` for every v2 document Vector
-  - the app-owned v1-to-v2 load hook converts legacy workspace point/control
-    coordinates before Core validation/apply; production has no dual-coordinate
-    runtime fallback
+  - persisted values retain their existing document contract; Render does not
+    require a new marker or migrate this property for transform caching
 
 - `points`
 
   - canonical owner: the vector element `points` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: active Pen/vector-point drag uses the local computed
@@ -222,7 +220,7 @@ This file defines app-level state keys, owners, and primary consumers.
 - `segments`
 
   - canonical owner: the vector element `segments` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: local computed preview only; it produces no history,
@@ -232,7 +230,7 @@ This file defines app-level state keys, owners, and primary consumers.
 - `networks`
 
   - canonical owner: the vector element `networks` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: local computed preview only; cancellation restores
@@ -246,8 +244,8 @@ This file defines app-level state keys, owners, and primary consumers.
     and reparent operations update only element/hierarchy values
   - these operations never patch, clone, translate, or rebase `points`,
     `segments`, or `networks`
-  - Render composes the current values with local geometry; workspace/client
-    point-edit intent is inverse-projected through that same current transform
+  - Render retains derived engine-local geometry across transform-only deltas;
+    the retained projection is never canonical state
 
 - `fills`
 

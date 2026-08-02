@@ -289,17 +289,15 @@ Import boundary:
 - `isPointInsideElement(elementId: string, point: PositionData, padding?: number): boolean`
 - vector topology contract:
   - canonical runtime/persistence model is `points` + `segments` + `networks`
-  - every canonical point/control coordinate is Vector-local and
-    `pointCoordinateSpace` is exactly `local`
   - no runtime geometry conversion from legacy `anchorPoints` shapes
-  - no runtime fallback accepts legacy workspace-owned Vector points
+  - this transform optimization does not migrate, reformat, or rewrite
+    persisted Vector values
 - `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
 - `getVectorAnchorSubpaths(elementId: string): VectorAnchorPoint[][]`
 - `getVectorTopology(elementId: string): { points: Record<string, VectorPointNode>; segments: Record<string, VectorSegment>; networks: Record<string, VectorNetwork> }`
 - `scaleVectorElementAroundCenter(elementId: string, scale: { scaleX: number; scaleY: number }, mutationOptions?: EVENT_OPTIONS): boolean`
-  - updates only `x/y/width/height` around the current bounds center through the
-    ordinary element property route
-  - preserves every point/control/segment/network record unchanged
+  - applies the existing scale-around-center behavior through the ordinary
+    canonical vector route
 - `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
@@ -341,8 +339,8 @@ Import boundary:
   - preflights and prepares the complete mixed ordinary/Vector batch before
     calling Core exactly once
   - direct non-Vector Group children require finite workspace coordinates and
-    a finite parent workspace origin; Vector topology input is converted once
-    to stable Vector-local coordinates while element bounds become parent-local
+    a finite parent workspace origin; Vector topology points retain their
+    existing values while computed bounds become parent-local
   - returns an isolated frozen copy of Core's ordered canonical IDs; any
     preparation failure returns `null` before Core mutation
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`

@@ -309,18 +309,18 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain('assertVectorTopologyConsistency(')
     expect(source).toContain("'buildVectorComputedPatch'")
     expect(source).toContain(
-      'const bounds = calculateVectorBounds(topologyLocal)'
+      'const bounds = calculateVectorBounds(topologyInWorkspace)'
     )
-    expect(source).not.toContain('normalizeVectorTopology(')
-    expect(source).not.toContain('x: bounds.x')
-    expect(source).not.toContain('y: bounds.y')
+    expect(source).toContain('normalizeVectorTopology(')
+    expect(source).toContain('x: bounds.x')
+    expect(source).toContain('y: bounds.y')
     expect(source).toContain('width: bounds.width')
     expect(source).toContain('height: bounds.height')
-    expect(source).toContain('points: topologyLocal.points')
-    expect(source).toContain('segments: topologyLocal.segments')
-    expect(source).toContain('networks: topologyLocal.networks')
+    expect(source).toContain('points: topologyInWorkspace.points')
+    expect(source).toContain('segments: normalizedTopology.segments')
+    expect(source).toContain('networks: normalizedTopology.networks')
     expect(source).toContain('closed: nextClosed')
-    expect(source).toContain("pointCoordinateSpace: 'local'")
+    expect(source).toContain("pointCoordinateSpace: 'workspace'")
     expect(source).toContain('satisfies Record<string, DataTypes>')
 
     expect(source).not.toMatch(/\banchorPoints\s*:/)

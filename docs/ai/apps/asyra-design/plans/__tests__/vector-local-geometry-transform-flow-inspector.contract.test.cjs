@@ -21,10 +21,10 @@ const anchorForHeading = (heading) =>
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
 
-test('Vector Local Geometry Transform Inspector authorities resolve', () => {
+test('Vector Render Geometry Cache Inspector authorities resolve', () => {
   assert.equal(
     data.target.title,
-    'Asyra Design Vector Local Geometry Transform Inspector'
+    'Asyra Design Vector Render Geometry Cache Inspector'
   )
   assert.equal(
     data.authority.specPath,
@@ -48,7 +48,7 @@ test('Vector Local Geometry Transform Inspector authorities resolve', () => {
   assert.ok(data.steps.every(Object.isFrozen))
 })
 
-test('Inspector exposes the seven accepted owner steps', () => {
+test('Inspector exposes the four accepted owner steps', () => {
   const requiredFields = [
     'id',
     'order',
@@ -68,12 +68,9 @@ test('Inspector exposes the seven accepted owner steps', () => {
     'failureOwnerStepId'
   ]
   const requiredStepIds = [
-    'migrate-workspace-points-to-local',
-    'author-local-vector-geometry',
     'apply-vector-element-transform',
-    'preserve-vector-hierarchy-transform',
-    'project-local-vector-render',
-    'project-vector-editing-interaction',
+    'retain-vector-render-geometry',
+    'project-vector-interaction',
     'settle-vector-action'
   ]
   const laneIds = new Set(data.lanes.map((item) => item.id))
@@ -87,7 +84,6 @@ test('Inspector exposes the seven accepted owner steps', () => {
     assert.deepEqual(Object.keys(item), requiredFields)
     assert.ok(laneIds.has(item.laneId), `${item.id} lane`)
     assert.ok(stepIds.has(item.failureOwnerStepId), `${item.id} failure owner`)
-    assert.deepEqual(item.cacheDimensions, [], `${item.id} unjustified cache`)
     ;[
       'inputs',
       'outputs',
@@ -101,6 +97,13 @@ test('Inspector exposes the seven accepted owner steps', () => {
       assert.ok(item[field].length > 0, `${item.id} empty ${field}`)
     })
   })
+
+  assert.ok(step('retain-vector-render-geometry').cacheDimensions.length > 0)
+  data.steps
+    .filter((item) => item.id !== 'retain-vector-render-geometry')
+    .forEach((item) =>
+      assert.deepEqual(item.cacheDimensions, [], `${item.id} cache owner`)
+    )
 })
 
 test('every route and artifact has one resolvable owner-consumer handoff', () => {
@@ -186,59 +189,55 @@ test('implementation boundaries and specification anchors resolve', () => {
   })
 })
 
-test('whole-element and hierarchy transform owners forbid point patches', () => {
-  ;[
-    'apply-vector-element-transform',
-    'preserve-vector-hierarchy-transform',
-    'settle-vector-action'
-  ].forEach((stepId) => {
-    const text = [
-      step(stepId).purpose,
-      ...step(stepId).conditions,
-      ...step(stepId).forbiddenContributors
-    ].join(' ')
-    assert.match(text, /point|control/i)
-    assert.match(text, /never|no |forbid|unchanged|contains no/i)
-  })
+test('persisted values remain unchanged and migration is forbidden', () => {
+  const allText = JSON.stringify(data)
+
+  assert.doesNotMatch(allText, /migrate-workspace-points-to-local/)
+  assert.doesNotMatch(allText, /artifact:migrated-local-vector-document/)
+  assert.match(allText, /adds no document migration/i)
+  assert.match(allText, /does not require a new canonical local marker/i)
+  assert.match(allText, /never stores Render cache state/i)
 })
 
-test('Render projection is generic and geometry strategy is bypassed only for transform deltas', () => {
-  const owner = step('project-local-vector-render')
+test('whole-element transform owner forbids point and handle patches', () => {
+  const owner = step('apply-vector-element-transform')
   const text = [
     owner.purpose,
     ...owner.conditions,
+    ...owner.forbiddenContributors
+  ].join(' ')
+
+  assert.match(text, /no point or handle record mutation/i)
+  assert.match(text, /No point or handle record is set, replaced, removed/i)
+  assert.match(text, /independent of Vector point count/i)
+})
+
+test('Render owns one profiling-justified retained geometry projection', () => {
+  const owner = step('retain-vector-render-geometry')
+  const text = [
+    owner.purpose,
+    ...owner.conditions,
+    ...owner.bypasses,
     ...owner.allowedContributors,
-    ...owner.forbiddenContributors
+    ...owner.forbiddenContributors,
+    ...owner.cacheDimensions
   ].join(' ')
 
-  assert.match(text, /generic transform-only property capability/i)
-  assert.match(text, /without executing Vector geometry strategy/i)
+  assert.match(text, /without executing the Vector geometry strategy/i)
+  assert.match(text, /geometry.style miss derives engine-local draw geometry/i)
+  assert.match(text, /complete-snapshot strategy once/i)
   assert.match(text, /Vector-specific delta classification/i)
-  assert.match(text, /Pixi imports outside/i)
+  assert.match(text, /renderer instance lifecycle/i)
 })
 
-test('migration is app-owned, atomic, and leaves no workspace runtime fallback', () => {
-  const owner = step('migrate-workspace-points-to-local')
-  const text = [
-    owner.ownerPackage,
-    owner.purpose,
-    ...owner.conditions,
-    ...owner.forbiddenContributors
-  ].join(' ')
-
-  assert.match(text, /Asyra Design app migration/i)
-  assert.match(text, /before package validation and canonical apply/i)
-  assert.match(text, /applies no canonical prefix/i)
-  assert.match(text, /workspace-coordinate runtime fallback/i)
-})
-
-test('dense transform acceptance binds point-free mutation and no strategy rebuild', () => {
+test('dense transform acceptance binds unchanged data and no strategy rebuild', () => {
   const contract = data.acceptanceContracts.find(
     (item) => item.id === 'dense-vector-transform-cost'
   )
   assert.ok(contract)
   const text = contract.assertions.join(' ')
-  assert.match(text, /7,000\+ point Vector/i)
-  assert.match(text, /zero point record patches/i)
+  assert.match(text, /7,001-point Vector/i)
+  assert.match(text, /first 50 items/i)
+  assert.match(text, /load unchanged/i)
   assert.match(text, /zero Vector geometry strategies/i)
 })

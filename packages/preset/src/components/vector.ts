@@ -53,7 +53,7 @@ interface VectorComputedData {
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
   closed: boolean
-  pointCoordinateSpace?: 'local'
+  pointCoordinateSpace?: 'workspace'
   fillRule: 'evenodd' | 'nonzero'
   fills: FillAttrs[]
   strokes?: StrokeAttrs[]
@@ -107,7 +107,7 @@ const isNormalizedVectorRenderDataInput = (
   const segments = data.segments
   const networks = data.networks
   return (
-    data.pointCoordinateSpace === 'local' &&
+    data.pointCoordinateSpace === 'workspace' &&
     isRecord(points) &&
     isRecord(segments) &&
     isRecord(networks)
@@ -127,18 +127,51 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
       skewX: finiteOr(data.skewX, 0),
       skewY: finiteOr(data.skewY, 0),
       points: data.points,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       fillRule: normalizeRawPathTopologyFillRule(data.fillRule),
       fills: Array.isArray(data.fills) ? data.fills : [],
       strokes: Array.isArray(data.strokes) ? data.strokes : []
     }
   }
-  throw new Error(
-    '[Preset Vector] Render data must contain canonical local Vector geometry'
-  )
+  throw new Error('[Preset Vector] Render data must contain Vector geometry')
 }
 
 type Vec2 = PositionData
+
+interface VectorRenderGeometryProjection {
+  workspaceOrigin: PositionData
+}
+
+const vectorRenderGeometryProjectionCache = new WeakMap<
+  object,
+  VectorRenderGeometryProjection
+>()
+
+export const getVectorRenderLocalPoint = (
+  renderElement: object,
+  workspacePoint: PositionData
+): PositionData | null => {
+  const projection = vectorRenderGeometryProjectionCache.get(renderElement)
+  return projection
+    ? {
+        x: workspacePoint.x - projection.workspaceOrigin.x,
+        y: workspacePoint.y - projection.workspaceOrigin.y
+      }
+    : null
+}
+
+export const getVectorRenderWorkspacePoint = (
+  renderElement: object,
+  localPoint: PositionData
+): PositionData | null => {
+  const projection = vectorRenderGeometryProjectionCache.get(renderElement)
+  return projection
+    ? {
+        x: localPoint.x + projection.workspaceOrigin.x,
+        y: localPoint.y + projection.workspaceOrigin.y
+      }
+    : null
+}
 
 interface FillFaceCache {
   faces: Vec2[][]
@@ -1113,7 +1146,7 @@ const renderVectorGraphic = (
     fills,
     x,
     y,
-    points: localPoints,
+    points,
     segments,
     networks,
     rotation,
@@ -1122,24 +1155,31 @@ const renderVectorGraphic = (
     skewX,
     skewY
   } = renderData
-  const pointOffset = {
-    x: 0,
-    y: 0
-  }
-  const points = localPoints
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
-
-  graphic.x = x
-  graphic.y = y
-  graphic.rotation = rotation
-  const localGeometryBounds = calculateVectorLocalBounds(
+  const workspaceGeometryBounds = calculateVectorLocalBounds(
     points,
     segments,
     orderedNetworks
   )
+  const pointOffset = {
+    x: workspaceGeometryBounds.x,
+    y: workspaceGeometryBounds.y
+  }
+  vectorRenderGeometryProjectionCache.set(graphic, {
+    workspaceOrigin: pointOffset
+  })
+
+  graphic.x = x
+  graphic.y = y
+  graphic.rotation = rotation
   setElementGeometryLocalBounds(
     graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
-    localGeometryBounds
+    {
+      x: 0,
+      y: 0,
+      width: workspaceGeometryBounds.width,
+      height: workspaceGeometryBounds.height
+    }
   )
   graphic.width = renderData.width
   graphic.height = renderData.height
@@ -1374,7 +1414,7 @@ export const VECTOR_COMPONENT_DEFINITION: ComponentDefinition = {
     {
       name: 'pointCoordinateSpace',
       type: PropertyTypes.CUSTOM,
-      defaultValue: 'local'
+      defaultValue: 'workspace'
     },
     {
       name: 'fillRule',

@@ -32,6 +32,7 @@ import {
 import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
 import type { PresetDependencies } from '../types'
 import { PresetSystemPropertyKeys } from '../system-property-keys'
+import { getVectorRenderLocalPoint } from '../components/vector'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6
@@ -114,14 +115,7 @@ interface OverlayDrawState {
 interface VectorComputedData {
   x?: number
   y?: number
-  width?: number
-  height?: number
-  rotation?: number
-  scaleX?: number
-  scaleY?: number
-  skewX?: number
-  skewY?: number
-  pointCoordinateSpace?: 'local'
+  pointCoordinateSpace?: 'workspace'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -381,7 +375,7 @@ const buildOverlayVectorDataSignature = (
 ) => {
   const parts = [
     'o',
-    computed.pointCoordinateSpace ?? 'missing-local',
+    computed.pointCoordinateSpace ?? 'missing-workspace',
     String(transform.a),
     String(transform.b),
     String(transform.c),
@@ -426,12 +420,15 @@ const getPathEditingVectorDataWithDeps = (
     }
     return null
   }
-  if (computed.pointCoordinateSpace !== 'local') {
+  if (computed.pointCoordinateSpace !== 'workspace') {
     if (cache) {
       cache.current = null
     }
     return null
   }
+  const canonicalPoints = computed.points
+  const computedSegments = computed.segments
+  const computedNetworks = computed.networks
   const renderElement = deps.render.getElementById(pathEditingVectorId)
   if (!renderElement) {
     if (cache) {
@@ -439,17 +436,12 @@ const getPathEditingVectorDataWithDeps = (
     }
     return null
   }
-  const localPoints = computed.points
-  const computedSegments = computed.segments
-  const computedNetworks = computed.networks
-  const offsetX = 0
-  const offsetY = 0
   const signature = measureVectorEditingOverlayPhase(
     'editing-overlay:model-signature',
     () =>
       buildOverlayVectorDataSignature(
         {
-          points: localPoints,
+          points: canonicalPoints,
           segments: computedSegments,
           networks: computedNetworks,
           x: computed.x,
@@ -473,7 +465,7 @@ const getPathEditingVectorDataWithDeps = (
   emitDiagnosticCounter('editing-overlay-full-topology-walk')
   emitDiagnosticCounter(
     'editing-overlay-walk-point-count',
-    Object.keys(localPoints).length
+    Object.keys(canonicalPoints).length
   )
   emitDiagnosticCounter(
     'editing-overlay-walk-segment-count',
@@ -485,11 +477,11 @@ const getPathEditingVectorDataWithDeps = (
   )
 
   const computedPoints: Record<string, VectorPointNode> = {}
-  for (const [pointId, point] of Object.entries(localPoints)) {
-    const workspacePosition = deps.render.elementLocalToWorkspace(
-      pathEditingVectorId,
-      point
-    )
+  for (const [pointId, point] of Object.entries(canonicalPoints)) {
+    const localPosition = getVectorRenderLocalPoint(renderElement, point)
+    const workspacePosition = localPosition
+      ? deps.render.elementLocalToWorkspace(pathEditingVectorId, localPosition)
+      : null
     if (!workspacePosition) {
       if (cache) {
         cache.current = null
@@ -503,6 +495,8 @@ const getPathEditingVectorDataWithDeps = (
     }
   }
 
+  const offsetX = 0
+  const offsetY = 0
   const orderedNetworks = sortVectorItemsById(Object.values(computedNetworks))
   const subpaths: OverlaySubpath[] = []
   const segmentsById: Record<string, OverlaySegmentGeometry> = {}

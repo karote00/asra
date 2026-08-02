@@ -131,7 +131,7 @@ const targets = [
       'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html'
     ),
     dataScript: './vector-local-geometry-transform-flow-inspector.data.cjs',
-    filterLaneTitle: 'Canonical Geometry and Transform'
+    filterLaneTitle: 'Retained Render Geometry'
   },
   {
     id: 'asyra-design-remote-subtree-restore-snapshot',

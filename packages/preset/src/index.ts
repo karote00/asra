@@ -38,6 +38,10 @@ export {
   projectGroupGeometryPropertyUpdates,
   ungroupElement
 } from './components'
+export {
+  getVectorRenderLocalPoint,
+  getVectorRenderWorkspacePoint
+} from './components/vector'
 export type {
   GroupBounds,
   GroupGeometryProjectionCore,

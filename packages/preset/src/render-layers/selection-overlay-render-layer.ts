@@ -23,6 +23,7 @@ import {
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
 import { PresetSystemPropertyKeys } from '../system-property-keys'
+import { getVectorRenderLocalPoint } from '../components/vector'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7
@@ -45,7 +46,7 @@ interface VectorComputedData {
   y?: number
   width?: number
   height?: number
-  pointCoordinateSpace?: 'local'
+  pointCoordinateSpace?: 'workspace'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -294,12 +295,24 @@ const drawVectorHoverOutline = (
   const segments = computed.segments
   const networks = computed.networks
   if (
-    computed.pointCoordinateSpace !== 'local' ||
+    computed.pointCoordinateSpace !== 'workspace' ||
     !points ||
     !segments ||
     !networks
   ) {
     return false
+  }
+  const renderElement = deps.render.getElementById(elementId)
+  if (!renderElement) {
+    return false
+  }
+  const resolveCurrentWorkspacePoint = (
+    point: PositionData
+  ): PositionData | null => {
+    const localPoint = getVectorRenderLocalPoint(renderElement, point)
+    return localPoint
+      ? deps.render.elementLocalToWorkspace(elementId, localPoint)
+      : null
   }
 
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
@@ -338,11 +351,8 @@ const drawVectorHoverOutline = (
           ? points[segment.inControlId]
           : null
 
-      const startWorkspace = deps.render.elementLocalToWorkspace(
-        elementId,
-        start
-      )
-      const endWorkspace = deps.render.elementLocalToWorkspace(elementId, end)
+      const startWorkspace = resolveCurrentWorkspacePoint(start)
+      const endWorkspace = resolveCurrentWorkspacePoint(end)
       if (!startWorkspace || !endWorkspace) {
         return
       }
@@ -366,14 +376,10 @@ const drawVectorHoverOutline = (
         return
       }
 
-      const control1Workspace = deps.render.elementLocalToWorkspace(
-        elementId,
+      const control1Workspace = resolveCurrentWorkspacePoint(
         outControl ?? start
       )
-      const control2Workspace = deps.render.elementLocalToWorkspace(
-        elementId,
-        inControl ?? end
-      )
+      const control2Workspace = resolveCurrentWorkspacePoint(inControl ?? end)
       if (!control1Workspace || !control2Workspace) {
         return
       }
@@ -608,7 +614,7 @@ const appendVectorComputedSignature = (
 
   const computed = sceneElement.getAllComputedData() as VectorComputedData
   parts.push(
-    computed.pointCoordinateSpace ?? 'missing-local',
+    computed.pointCoordinateSpace ?? 'missing-workspace',
     String(computed.x ?? ''),
     String(computed.y ?? ''),
     String(computed.width ?? ''),

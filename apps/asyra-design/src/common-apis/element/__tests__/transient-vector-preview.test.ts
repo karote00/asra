@@ -2,16 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComputedDataPatch, DataTypes } from '@asyra/utils'
 
 const mocks = vi.hoisted(() => ({
-  elementLocalToWorkspace: vi.fn(
-    (_elementId: string, position: { x: number; y: number }) => position
-  ),
   getSystemProperty: vi.fn(),
   patchLocalComputedData: vi.fn(),
   projectLocalComputedDataFromPropertyIds: vi.fn(),
-  getElementById: vi.fn(),
-  workspaceToElementLocal: vi.fn(
-    (_elementId: string, position: { x: number; y: number }) => position
-  )
+  getElementById: vi.fn()
 }))
 
 vi.mock('../../../contexts', () => ({
@@ -21,10 +15,7 @@ vi.mock('../../../contexts', () => ({
     projectLocalComputedDataFromPropertyIds:
       mocks.projectLocalComputedDataFromPropertyIds
   },
-  render: {
-    elementLocalToWorkspace: mocks.elementLocalToWorkspace,
-    workspaceToElementLocal: mocks.workspaceToElementLocal
-  },
+  render: null,
   sceneTree: {
     getElementById: mocks.getElementById
   }
@@ -69,7 +60,7 @@ const createVectorComputed = (
   width: pointBX,
   height: pointBY,
   closed: false,
-  pointCoordinateSpace: 'local',
+  pointCoordinateSpace: 'workspace',
   points: {
     pointA: {
       anchorType: 'sharp',

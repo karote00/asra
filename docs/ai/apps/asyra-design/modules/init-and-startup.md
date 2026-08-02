@@ -21,7 +21,6 @@
 - `src/init/capabilities/init-vector-icon-data.ts`
 - `src/init/derived-state/init-path-editing-continuation.ts`
 - `src/init/derived-state/init-selection-compatibility.ts`
-- `src/init/migrations/vector-local-geometry-migration.ts`
 - `src/render-app/index.tsx`
 - `src/contexts/data-change.tsx`
 
@@ -41,12 +40,6 @@
 - `applyPreset(core)` selects the `2D` profile, installs all eight official
   defaults, and registers the preset-owned Pixi engine provider without
   constructing the engine
-- `installVectorLocalGeometryMigration(core)` registers the app-owned connected
-  v1 (`workspace` Vector points) to v2 (`local` Vector points) load transition
-  immediately after Preset composition and before Core startup
-- the migration is a detached atomic transform: it preserves ids, topology,
-  style, hierarchy, and visual placement; malformed legacy Vector data fails
-  before canonical apply, while v2 documents bypass conversion unchanged
 - the current app uses the default no-customization route; when app policy
   needs customization, call public Core get/redefine, relation, or
   unregister/define APIs after `applyPreset(core)` and before the remaining init
@@ -122,9 +115,6 @@
 - Redefinition never maps old/new field meaning or rewrites render, UI,
   commands, relations, or persisted data. Register any app semantic migration
   before package validation and adapt each consumer explicitly.
-- New empty documents use app document version `2.0.0`; runtime Vector
-  consumers accept only canonical local geometry and do not retain a v1
-  coordinate fallback.
 - Do not continue redefine after missing target, active usage, or cleanup
   failure; do not add duplicate tolerance or app exceptions to framework code.
 - Init modules must be idempotent (safe to call once, no duplicate registrations).

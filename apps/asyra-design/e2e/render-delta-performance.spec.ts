@@ -1049,20 +1049,12 @@ test.describe('Render delta performance budget', () => {
           throw new Error(`Missing strategy snapshot during ${phase}`)
         }
         const normalizedFresh = clone(fresh)
-        const localPoint = (
-          normalizedFresh.points as Record<string, { x?: unknown; y?: unknown }>
-        )?.A
-        const workspacePoint =
-          typeof localPoint?.x === 'number' && typeof localPoint.y === 'number'
-            ? core.deps.render.elementLocalToWorkspace(elementId, {
-                x: localPoint.x,
-                y: localPoint.y
-              })
-            : null
         return {
           phase,
-          localPointAX: Number(localPoint?.x ?? Number.NaN),
-          workspacePointAX: Number(workspacePoint?.x ?? Number.NaN),
+          pointAX: Number(
+            (normalizedFresh.points as Record<string, { x?: unknown }>)?.A?.x ??
+              Number.NaN
+          ),
           fresh: normalizedFresh,
           rendered: clone(rendered)
         }
@@ -1076,7 +1068,7 @@ test.describe('Render delta performance budget', () => {
               {
                 key: 'points',
                 set: {
-                  A: { x: 40 }
+                  A: { x: 140 }
                 }
               }
             ]
@@ -1104,7 +1096,7 @@ test.describe('Render delta performance budget', () => {
               {
                 key: 'points',
                 set: {
-                  A: { x: 80 }
+                  A: { x: 180 }
                 }
               }
             ]
@@ -1120,12 +1112,7 @@ test.describe('Render delta performance budget', () => {
       return [action, undo, redo, load]
     })
 
-    expect(result.map(({ localPointAX }) => localPointAX)).toEqual([
-      40, 0, 40, 40
-    ])
-    expect(result.map(({ workspacePointAX }) => workspacePointAX)).toEqual([
-      140, 100, 140, 140
-    ])
+    expect(result.map(({ pointAX }) => pointAX)).toEqual([140, 100, 140, 140])
     result.forEach(({ rendered, fresh }) => {
       expect(rendered).toEqual(fresh)
     })

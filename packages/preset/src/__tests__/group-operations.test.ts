@@ -634,13 +634,13 @@ describe('official Preset Group geometry adapters', () => {
       anchor: {
         id: 'anchor',
         kind: 'anchor',
-        x: 0,
+        x: 110,
         y: 0
       },
       control: {
         id: 'control',
         kind: 'control',
-        x: 8,
+        x: 118,
         y: 4
       }
     }
@@ -652,7 +652,7 @@ describe('official Preset Group geometry adapters', () => {
         y: 0,
         width: 10,
         height: 10,
-        pointCoordinateSpace: 'local',
+        pointCoordinateSpace: 'workspace',
         points: vectorPoints
       },
       last: { x: 0, y: 0, width: 20, height: 20 }
@@ -725,7 +725,7 @@ describe('official Preset Group geometry adapters', () => {
       y: 0,
       width: 10,
       height: 10,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       points: vectorPoints
     })
     expect(computed.first.points).toBe(vectorPoints)

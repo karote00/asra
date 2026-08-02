@@ -2,27 +2,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { gunzipSync } from 'node:zlib'
-import { migrateWorkspaceVectorGeometryToLocal } from '../../../init/migrations/vector-local-geometry-migration'
 
 const mocks = vi.hoisted(() => ({
   createElementsInParent: vi.fn(),
-  elementLocalToWorkspace: vi.fn(
-    (_elementId: string, position: { x: number; y: number }) => position
-  ),
   getVectorComputedData: vi.fn(),
   getSystemProperty: vi.fn(),
   patchLocalComputedData: vi.fn(),
   patchElementProperties: vi.fn(),
   updateElementProperties: vi.fn(),
-  runTransaction: vi.fn((operation: () => unknown) => operation()),
-  workspaceToElementLocal: vi.fn(
-    (_elementId: string, position: { x: number; y: number }) => position
-  )
+  getRenderElementById: vi.fn(),
+  workspaceToElementLocal: vi.fn(),
+  elementLocalToWorkspace: vi.fn(),
+  getVectorRenderLocalPoint: vi.fn(),
+  getVectorRenderWorkspacePoint: vi.fn(),
+  runTransaction: vi.fn((operation: () => unknown) => operation())
 }))
 
 vi.mock('@asyra/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@asyra/core')>()),
   runTransaction: mocks.runTransaction
+}))
+
+vi.mock('@asyra/preset', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@asyra/preset')>()),
+  getVectorRenderLocalPoint: mocks.getVectorRenderLocalPoint,
+  getVectorRenderWorkspacePoint: mocks.getVectorRenderWorkspacePoint
 }))
 
 vi.mock('../../../contexts', () => ({
@@ -35,6 +39,7 @@ vi.mock('../../../contexts', () => ({
   },
   render: {
     elementLocalToWorkspace: mocks.elementLocalToWorkspace,
+    getElementById: mocks.getRenderElementById,
     workspaceToElementLocal: mocks.workspaceToElementLocal
   },
   sceneTree: {
@@ -46,7 +51,7 @@ vi.mock('../../../contexts', () => ({
           width: 20,
           height: 10,
           closed: false,
-          pointCoordinateSpace: 'local',
+          pointCoordinateSpace: 'workspace',
           points: {
             pointA: {
               anchorType: 'sharp',
@@ -116,17 +121,24 @@ describe('Vector direct parent creation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getVectorComputedData.mockReset()
-    mocks.elementLocalToWorkspace.mockImplementation(
-      (_elementId, position) => position
-    )
-    mocks.workspaceToElementLocal.mockImplementation(
-      (_elementId, position) => position
-    )
     mocks.createElementsInParent.mockReturnValue(['vector-1'])
     mocks.getSystemProperty.mockReturnValue(false)
+    mocks.getRenderElementById.mockReturnValue({})
+    mocks.workspaceToElementLocal.mockImplementation(
+      (_elementId: string, position: { x: number; y: number }) => position
+    )
+    mocks.elementLocalToWorkspace.mockImplementation(
+      (_elementId: string, position: { x: number; y: number }) => position
+    )
+    mocks.getVectorRenderLocalPoint.mockImplementation(
+      (_element: object, position: { x: number; y: number }) => position
+    )
+    mocks.getVectorRenderWorkspacePoint.mockImplementation(
+      (_element: object, position: { x: number; y: number }) => position
+    )
   })
 
-  it('stores stable Vector-local topology with Group-local element bounds', () => {
+  it('stores the existing workspace-valued topology with Group-local element bounds', () => {
     const points = {
       pointA: {
         anchorType: 'sharp' as const,
@@ -187,19 +199,8 @@ describe('Vector direct parent creation', () => {
       [
         expect.objectContaining({
           height: 40,
-          pointCoordinateSpace: 'local',
-          points: {
-            pointA: {
-              ...points.pointA,
-              x: 0,
-              y: 0
-            },
-            pointB: {
-              ...points.pointB,
-              x: 30,
-              y: 40
-            }
-          },
+          pointCoordinateSpace: 'workspace',
+          points,
           type: 'vector',
           width: 30,
           x: 10,
@@ -220,12 +221,6 @@ describe('Vector canonical property commit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getVectorComputedData.mockReset()
-    mocks.elementLocalToWorkspace.mockImplementation(
-      (_elementId, position) => position
-    )
-    mocks.workspaceToElementLocal.mockImplementation(
-      (_elementId, position) => position
-    )
     mocks.getSystemProperty.mockReturnValue(false)
   })
 
@@ -269,30 +264,30 @@ describe('Vector canonical property commit', () => {
     expect(mocks.runTransaction).toHaveBeenCalledOnce()
   })
 
-  it('inverse-projects a transformed workspace point into one local record patch', () => {
+  it('commits a workspace point edit without changing coordinate semantics', () => {
     mocks.getVectorComputedData.mockReturnValue({
       x: 120,
       y: 50,
       width: 20,
       height: 10,
       closed: false,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       points: {
         pointA: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointA',
           kind: 'anchor',
-          x: 0,
-          y: 0
+          x: 120,
+          y: 50
         },
         pointB: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointB',
           kind: 'anchor',
-          x: 20,
-          y: 10
+          x: 140,
+          y: 60
         }
       },
       segments: {
@@ -313,19 +308,6 @@ describe('Vector canonical property commit', () => {
         }
       }
     })
-    mocks.elementLocalToWorkspace.mockImplementation(
-      (_elementId, position) => ({
-        x: position.x + 120,
-        y: position.y + 50
-      })
-    )
-    mocks.workspaceToElementLocal.mockImplementation(
-      (_elementId, position) => ({
-        x: position.x - 120,
-        y: position.y - 50
-      })
-    )
-
     expect(
       vectorApis.updateVectorAnchorPointPosition(
         'vector-1',
@@ -340,6 +322,8 @@ describe('Vector canonical property commit', () => {
         {
           elementId: 'vector-1',
           values: {
+            x: 140,
+            y: 60,
             width: 10,
             height: 30,
             closed: false
@@ -352,8 +336,8 @@ describe('Vector canonical property commit', () => {
                   anchorType: 'sharp',
                   handleMode: 'none',
                   kind: 'anchor',
-                  x: 30,
-                  y: 40
+                  x: 150,
+                  y: 90
                 }
               }
             }
@@ -364,30 +348,30 @@ describe('Vector canonical property commit', () => {
     )
   })
 
-  it('preserves the current dimension transform while editing local geometry', () => {
+  it('updates workspace geometry bounds while editing a point', () => {
     mocks.getVectorComputedData.mockReturnValue({
       x: 100,
       y: 50,
-      width: 40,
-      height: 30,
+      width: 20,
+      height: 10,
       closed: false,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       points: {
         pointA: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointA',
           kind: 'anchor',
-          x: 0,
-          y: 0
+          x: 100,
+          y: 50
         },
         pointB: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointB',
           kind: 'anchor',
-          x: 20,
-          y: 10
+          x: 120,
+          y: 60
         }
       },
       segments: {
@@ -408,19 +392,6 @@ describe('Vector canonical property commit', () => {
         }
       }
     })
-    mocks.elementLocalToWorkspace.mockImplementation(
-      (_elementId, position) => ({
-        x: position.x * 2 + 100,
-        y: position.y * 3 + 50
-      })
-    )
-    mocks.workspaceToElementLocal.mockImplementation(
-      (_elementId, position) => ({
-        x: (position.x - 100) / 2,
-        y: (position.y - 50) / 3
-      })
-    )
-
     expect(
       vectorApis.updateVectorAnchorPointPosition(
         'vector-1',
@@ -435,6 +406,8 @@ describe('Vector canonical property commit', () => {
         {
           elementId: 'vector-1',
           values: {
+            x: 100,
+            y: 50,
             width: 60,
             height: 60,
             closed: false
@@ -447,8 +420,8 @@ describe('Vector canonical property commit', () => {
                   anchorType: 'sharp',
                   handleMode: 'none',
                   kind: 'anchor',
-                  x: 30,
-                  y: 20
+                  x: 160,
+                  y: 110
                 }
               }
             }
@@ -468,7 +441,7 @@ describe('Vector canonical property commit', () => {
       vectorApis.updateVectorAnchorPointPosition(
         'vector-1',
         'pointB',
-        { x: 25, y: 15 },
+        { x: 26, y: 16 },
         {
           skipResult: true,
           transientPreview: true,
@@ -579,6 +552,8 @@ describe('Vector canonical property commit', () => {
         {
           elementId: 'vector-1',
           values: {
+            x: 0,
+            y: 0,
             width: 25,
             height: 15,
             closed: false
@@ -686,7 +661,7 @@ describe('Vector canonical property commit', () => {
       width: 7_000,
       height: 16,
       closed: false,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       points,
       segments: {},
       networks: {}
@@ -717,12 +692,128 @@ describe('Vector canonical property commit', () => {
     expect(mocks.getVectorComputedData).toHaveBeenCalledOnce()
   })
 
-  it('keeps moves for the first 50 crdt-7076 cat-face elements point-count independent', () => {
+  it('projects moved Vector editing through Render without rewriting stored coordinates', () => {
+    mocks.getVectorComputedData.mockReturnValue({
+      x: 220,
+      y: 130,
+      width: 80,
+      height: 40,
+      closed: false,
+      pointCoordinateSpace: 'workspace',
+      points: {
+        pointA: {
+          anchorType: 'sharp',
+          handleMode: 'none',
+          id: 'pointA',
+          kind: 'anchor',
+          x: 20,
+          y: 30
+        },
+        pointB: {
+          anchorType: 'sharp',
+          handleMode: 'none',
+          id: 'pointB',
+          kind: 'anchor',
+          x: 100,
+          y: 70
+        }
+      },
+      segments: {
+        segmentA: {
+          endId: 'pointB',
+          id: 'segmentA',
+          inControlId: null,
+          outControlId: null,
+          startId: 'pointA'
+        }
+      },
+      networks: {
+        networkA: {
+          closed: false,
+          id: 'networkA',
+          pointIds: ['pointA', 'pointB'],
+          segmentIds: ['segmentA']
+        }
+      }
+    })
+    mocks.getVectorRenderLocalPoint.mockImplementation(
+      (_element: object, position: { x: number; y: number }) => ({
+        x: position.x - 20,
+        y: position.y - 30
+      })
+    )
+    mocks.getVectorRenderWorkspacePoint.mockImplementation(
+      (_element: object, position: { x: number; y: number }) => ({
+        x: position.x + 20,
+        y: position.y + 30
+      })
+    )
+    mocks.elementLocalToWorkspace.mockImplementation(
+      (_elementId: string, position: { x: number; y: number }) => ({
+        x: position.x + 220,
+        y: position.y + 130
+      })
+    )
+    mocks.workspaceToElementLocal.mockImplementation(
+      (_elementId: string, position: { x: number; y: number }) => ({
+        x: position.x - 220,
+        y: position.y - 130
+      })
+    )
+
+    expect(
+      vectorApis.getVectorEditablePointAtWorkspacePos(
+        'vector-1',
+        { x: 220, y: 130 },
+        1
+      )
+    ).toMatchObject({
+      point: { id: 'pointA', x: 220, y: 130 },
+      position: { x: 220, y: 130 }
+    })
+
+    expect(
+      vectorApis.updateVectorAnchorPointPosition(
+        'vector-1',
+        'pointA',
+        { x: 230, y: 135 },
+        { skipResult: true }
+      )
+    ).toBe(true)
+    expect(mocks.patchElementProperties).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          elementId: 'vector-1',
+          values: {
+            x: 230,
+            y: 135,
+            width: 70,
+            height: 35,
+            closed: false
+          },
+          records: [
+            {
+              key: 'points',
+              set: {
+                pointA: expect.objectContaining({
+                  x: 30,
+                  y: 35
+                })
+              }
+            }
+          ]
+        })
+      ],
+      {}
+    )
+  })
+
+  it('keeps moves for the checked-in crdt-7076 first-50 sample point-count independent', () => {
     type RawRecord = Record<string, unknown>
     const legacyDocument = JSON.parse(
       gunzipSync(
         readFileSync(
-          resolve(process.cwd(), 'samples/crdt-7076/document.json.gz')
+          resolve(process.cwd(), 'samples/crdt-7076-first-50/document.json.gz')
         )
       ).toString('utf8')
     ) as {
@@ -794,16 +885,13 @@ describe('Vector canonical property commit', () => {
       },
       props: selectedProps
     }
-    const migrated = migrateWorkspaceVectorGeometryToLocal(
-      boundedLegacyDocument
-    )
-    const migratedProps = migrated.props as unknown as Record<string, RawRecord>
-    const vectorElements = Object.values(migrated.sceneTree.elements).filter(
-      (element) => element.type === 'vector'
-    )
+    const existingProps = boundedLegacyDocument.props
+    const vectorElements = Object.values(
+      boundedLegacyDocument.sceneTree.elements
+    ).filter((element) => element.type === 'vector')
     const readProperty = (element: RawRecord, key: string): RawRecord => {
       const propertyId = (element.props as Record<string, string>)[key]
-      return migratedProps[propertyId]
+      return existingProps[propertyId]
     }
     const readRecordMap = (
       component: RawRecord,
@@ -812,7 +900,7 @@ describe('Vector canonical property commit', () => {
       Object.fromEntries(
         (component[key] as string[]).map((recordId) => [
           recordId,
-          migratedProps[recordId]
+          existingProps[recordId]
         ])
       )
     const computedById = new Map(
@@ -885,23 +973,23 @@ describe('Vector canonical property commit', () => {
       width: 20,
       height: 10,
       closed: false,
-      pointCoordinateSpace: 'local',
+      pointCoordinateSpace: 'workspace',
       points: {
         pointA: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointA',
           kind: 'anchor',
-          x: 0,
-          y: 0
+          x: 100,
+          y: 50
         },
         pointB: {
           anchorType: 'sharp',
           handleMode: 'none',
           id: 'pointB',
           kind: 'anchor',
-          x: 20,
-          y: 10
+          x: 120,
+          y: 60
         }
       },
       segments: {},

@@ -1,13 +1,23 @@
 import {
+  type DataTypes,
   PropertyTypes,
   createDefaultStroke,
   id,
+  isFiniteNumber,
+  isRecord,
   type EVENT_OPTIONS,
   type StrokeAttrs
 } from '@asyra/utils'
-import type { ElementPropertyPatchUpdate } from '@asyra/core'
+import type {
+  ElementPropertyPatchUpdate,
+  VectorNetwork,
+  VectorPointNode,
+  VectorSegment,
+  VectorTopology
+} from '@asyra/core'
 import { STROKE_PATCH_KEYS, type StrokeWritableKey } from '../constants'
 import core from '../contexts'
+import { calculateVectorBounds } from './element/vector-geometry'
 import { getChangedDefinedPatchEntries } from './property-patch'
 import { transactionApis } from './transaction'
 
@@ -18,10 +28,14 @@ export interface PrimaryStrokeColorUpdate {
   readonly elementId: string
 }
 
+const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
+  STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
+
 const createStrokeRecordPatch = (
   elementId: string,
   strokeId: string,
-  fields: Readonly<Record<string, unknown>>
+  fields: Readonly<Record<string, unknown>>,
+  values?: Readonly<Record<string, unknown>>
 ): ElementPropertyPatchUpdate => {
   if (fields.id !== strokeId) {
     throw new Error(`Stroke record key "${strokeId}" does not match its id`)
@@ -36,6 +50,7 @@ const createStrokeRecordPatch = (
 
   return {
     elementId,
+    ...(values === undefined ? {} : { values }),
     records: [
       {
         key: PropertyTypes.STROKES,
@@ -45,6 +60,61 @@ const createStrokeRecordPatch = (
       }
     ]
   }
+}
+
+const nearlyEqual = (left: unknown, right: number) =>
+  isFiniteNumber(left) && Math.abs(left - right) <= 1e-6
+
+const getVectorBoundsRepairPatch = (
+  elementId: string
+): Record<string, DataTypes> | null => {
+  const element = core.deps.sceneTree.getElementById(elementId)
+  if (!element || element.get('type') !== 'vector') {
+    return null
+  }
+
+  const computed = element.getAllComputedData() as {
+    x?: unknown
+    y?: unknown
+    width?: unknown
+    height?: unknown
+    pointCoordinateSpace?: unknown
+    points?: unknown
+    segments?: unknown
+    networks?: unknown
+  }
+
+  if (
+    computed.pointCoordinateSpace !== 'workspace' ||
+    !isRecord(computed.points) ||
+    !isRecord(computed.segments) ||
+    !isRecord(computed.networks)
+  ) {
+    return null
+  }
+
+  const topology: VectorTopology = {
+    points: computed.points as Record<string, VectorPointNode>,
+    segments: computed.segments as Record<string, VectorSegment>,
+    networks: computed.networks as Record<string, VectorNetwork>
+  }
+  const bounds = calculateVectorBounds(topology)
+  const patch: Record<string, DataTypes> = {}
+
+  if (!nearlyEqual(computed.x, bounds.x)) {
+    patch.x = bounds.x
+  }
+  if (!nearlyEqual(computed.y, bounds.y)) {
+    patch.y = bounds.y
+  }
+  if (!nearlyEqual(computed.width, bounds.width)) {
+    patch.width = bounds.width
+  }
+  if (!nearlyEqual(computed.height, bounds.height)) {
+    patch.height = bounds.height
+  }
+
+  return Object.keys(patch).length > 0 ? patch : null
 }
 
 const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
@@ -200,12 +270,22 @@ export const strokeApis = {
     }
 
     transactionApis.runTransaction(() => {
+      const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
+        ? getVectorBoundsRepairPatch(elementId)
+        : null
       const nextStroke = {
         ...currentStroke,
         ...Object.fromEntries(changedEntries)
       } as Readonly<Record<string, unknown>>
       core.patchElementProperties(
-        [createStrokeRecordPatch(elementId, strokeId, nextStroke)],
+        [
+          createStrokeRecordPatch(
+            elementId,
+            strokeId,
+            nextStroke,
+            vectorBoundsRepairPatch ?? undefined
+          )
+        ],
         options
       )
     })

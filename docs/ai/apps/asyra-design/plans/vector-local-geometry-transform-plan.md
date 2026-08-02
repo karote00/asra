@@ -1,447 +1,404 @@
-# Plan: Vector Local Geometry and Element Transform
+# Plan: Vector Render Geometry Cache and Element Transform
 
 ## Status
 
 Active. Accepted by the product owner on 2026-08-03 as the highest-priority
-bug fix outside prior plans.
+bug fix outside prior plans. Revised on 2026-08-03 after product-owner review:
+the persisted Vector schema and values remain unchanged; this plan changes the
+Render pipeline, not the document format.
 
 Semantic and execution authority:
 
 - this plan owns the thin product contract, product cases, bounded execution
   slices, and definition of done;
 - `vector-local-geometry-transform-flow-inspector.data.cjs` owns the exact
-  owner, route, artifact, contributor, failure, and implementation-boundary
-  contract;
-- the retained framework Render Delta Update and App-level Migration
-  Inspectors continue to own their shared framework routes.
+  owner, route, artifact, contributor, cache, failure, and
+  implementation-boundary contract;
+- the retained framework Render Delta Update Inspector continues to own the
+  shared Render delta route.
 
 ## Problem
 
-Vector points and controls are currently stored in workspace coordinates.
-Moving one Vector element therefore translates every point and control,
-creates one record patch per changed point, invalidates geometry-dependent
-Render work, and publishes a payload proportional to point count on every
-pointer sample.
+Moving or resizing one Vector currently treats every point and handle as part
+of the element-transform mutation. A Vector with thousands of points therefore
+creates point-count-dependent property patches and geometry rebuilds during an
+ordinary transform, which can block the application.
 
-A Vector with more than 7,000 points can consequently block the application
-during an ordinary element drag. Throttling, preview-only output, delayed point
-patches, or a renderer fallback would retain the incorrect ownership model and
-are not acceptable fixes.
+The document already contains all Vector geometry and element values required
+to render the element. Rewriting that document into a new coordinate schema,
+adding a migration, or introducing a parallel app business-logic model is not
+part of this fix.
 
 ## Accepted Product Contract
 
-### Canonical coordinate spaces
+### Persisted Vector data stays unchanged
 
-- `points`, `segments`, and `networks` are canonical Vector geometry.
-- Every point and control coordinate is authored in one stable Vector-local
-  coordinate space.
-- A Vector-local origin is established when the Vector is created or migrated.
-  It is never rebased merely because element bounds or transform values change.
-- Local point coordinates and local geometry bounds may be negative or
-  non-zero. Bounds are derived geometry evidence, not permission to normalize
-  every point.
-- `pointCoordinateSpace` is exactly `local` for new and migrated canonical
-  Vector data.
-- Production must not retain parallel workspace/local geometry mutation or
-  Render paths.
+- Existing documents load with exactly the Vector property schema and values
+  they already contain.
+- This task does not add a document version, load hook, migration,
+  `pointCoordinateSpace: local` requirement, or persisted Render-cache field.
+- Existing `points`, handles, segments, networks, position, dimension,
+  rotation, style, hierarchy, ids, and coordinate-space values remain ordinary
+  canonical Props/Scene Tree data.
+- Save, Undo, Redo, collaboration, and accepted remote apply keep using the
+  existing canonical owners and wire shapes.
+- The checked-in `crdt-7076` sample is read as-is and is not regenerated or
+  rewritten for this task.
 
-### Element transform
+### Whole-element transform
 
-- Whole-element translation, dimension change, rotation, scale, skew, Group
-  movement, and identity-preserving reparenting update element transform or
-  hierarchy state only.
-- A whole-element transform must not set, replace, remove, clone, translate,
-  scale, rotate, or skew any canonical point/control record.
-- Current authored `x`, `y`, `width`, `height`, and `rotation` fields remain
-  the public property-panel contract. Dimension and scale requests share one
-  transform owner rather than becoming independent canonical values.
-- Additive skew values, when present through the transform contract, are
-  Render transform inputs and never geometry inputs. This task does not add a
-  new skew UI.
-- Runtime projection may compose the authored values into an affine transform.
-  The affine transform is derived runtime state, not a second persisted
-  geometry source.
-- Pivot behavior remains the current top-left element-transform behavior.
-  A new pivot UI or alternate pivot policy is out of scope.
+- Moving, resizing, rotating, scaling, or skewing a Vector updates only the
+  existing constant-size element transform/dimension values required by that
+  action.
+- A whole-element transform never sets, replaces, removes, clones, translates,
+  scales, rotates, or skews canonical point/handle records.
+- Transform mutation and publication size are independent of point count.
+- Mixed Vector and non-Vector selections retain the existing transaction,
+  ordering, publication, and Undo semantics.
+- Pivot and property-panel semantics remain unchanged. This task adds no new
+  transform UI or canonical transform model.
+
+### Render geometry projection and cache
+
+- On a geometry cache miss, the Vector render strategy consumes the existing
+  complete render snapshot and derives the engine-local draw geometry required
+  by the current Render object.
+- Derived engine-local geometry is Render-owned projection only. It is never
+  written into Props, Scene Tree, persistence, collaboration, Undo, diagnostics,
+  or app state.
+- The retained Render object/geometry is keyed by element identity and the
+  geometry/style inputs that determine its draw result.
+- Geometry/topology/style changes invalidate the matching retained projection
+  and use the ordinary complete-snapshot strategy path.
+- Position, dimension/scale, rotation, and skew deltas update the existing
+  Render object transform directly and do not execute the Vector geometry
+  strategy or recreate point/handle geometry.
+- Element removal, reload, renderer teardown, or a failed projection releases
+  the retained Render geometry. A cache miss always rebuilds through the same
+  canonical snapshot path; there is no fallback geometry.
+- A delta-updated result and a fresh projection of the same unchanged
+  persisted Vector data plus current element transform must be equivalent.
+
+### Engine boundary
+
+- Render exposes a generic strategy capability for direct transform property
+  handling. It must not add a Vector-specific branch to the Scene Tree store or
+  Preset subscription router.
+- Render Engine receives engine-neutral transform/property commands.
+- Render Engine Pixi applies those commands to the existing Pixi display
+  object. App and Preset code do not import Pixi.
+- Fill, stroke, hit geometry, selection bounds, and path-edit overlays continue
+  to agree with the visible Vector after transform.
 
 ### Geometry editing
 
-- Direct point/handle operations may change only the affected canonical
-  point/control records and the constant-size element bounds/transform
-  projection required by the new local bounds.
-- Point/handle mutation converts workspace or client intent through the inverse
-  current element transform before changing local geometry.
-- Hit testing, segment projection, selection overlays, and path-edit overlays
-  consume the same local geometry and current transform. No consumer may
-  reconstruct workspace-owned point data.
-- Geometry operations that intentionally rewrite the complete path, such as a
-  future explicit bake/flatten or Boolean operation, require their own product
-  intent and are not part of ordinary element transforms.
-
-### Rendering and caching
-
-- Vector geometry is drawn from local points. The renderer may normalize the
-  local draw projection without mutating canonical points.
-- Translation and rotation remain direct Render deltas.
-- Dimension/scale/skew changes use an engine-neutral direct transform update
-  and do not execute the Vector geometry strategy again.
-- Geometry/style work is invalidated only by geometry or style changes.
-  Transform-only changes must retain the existing local path, fill, stroke,
-  and hit geometry.
-- Pixi remains a concrete engine. App and Preset code must not import Pixi.
-- A generic Render strategy capability may declare transform-only property
-  handling. Render and Preset must not hard-code a Vector-only delta bypass.
-
-### Hierarchy
-
-- Group, ungroup, move/reorder, and reparent preserve the Vector world result
-  by changing element/hierarchy transform values only.
-- Preset remains the official Group coordinate/bounds adapter.
-- Scene Tree remains the parent membership, ordering, and cycle owner.
-- No hierarchy operation may translate Vector points to compensate for a
-  parent change.
+- Existing point/handle editing inputs and persisted values keep their current
+  workspace-coordinate contract.
+- After a whole-element transform, interaction reads project stored Vector
+  positions through the current Render result. Point/handle writes inverse
+  project the visible workspace input back into the same existing stored
+  coordinate space; no Render-derived record is persisted.
+- If a geometry edit changes the stored geometry bounds, the existing element
+  position/dimension values are adjusted by the current affine projection so
+  the edited point and every unchanged point retain their intended visible
+  positions. Reload derives the same result from ordinary stored values.
+- A point, handle, topology, fill, or stroke edit may rebuild the affected
+  Vector geometry because it is a geometry/style action, not a whole-element
+  transform.
+- No consumer may use the derived Render cache as canonical edit data.
 
 ### Transactions, persistence, and collaboration
 
 - One canvas drag remains one intended Undo commit.
-- Each synchronous drag update remains one ordered immediate shared
-  publication inside the outer session transaction.
-- A transform-only publication has bounded size independent of Vector point
-  count and contains no point record patches.
-- Undo, redo, persistence, collaboration publication, and accepted remote
-  apply use the ordinary canonical property/state-owner path.
-- Awareness, Render state, diagnostics, and caches never carry canonical
-  Vector transform or geometry.
-
-### Load migration
-
-- Asyra Design owns one connected document-version migration from the current
-  workspace-point document version to the local-point document version.
-- The migration resolves each legacy Vector's effective legacy point offset
-  from canonical Scene Tree/Props data, converts every point/control exactly
-  once, preserves ids/topology/style/hierarchy, writes
-  `pointCoordinateSpace: local`, and advances the document version.
-- A malformed legacy Vector fails at the migration owner before partial
-  canonical apply. It is not silently accepted through a workspace-coordinate
-  runtime fallback.
-- New empty documents and newly generated canonical samples use the new
-  version and local geometry directly.
-- The checked-in legacy-version fixture used by migration tests is test
-  evidence only and is not a production fallback path.
+- Each synchronous drag update retains the existing immediate shared
+  publication behavior inside the outer session transaction.
+- Transform-only forward, inverse, persistence, and publication evidence
+  contains no point/handle record patches.
+- Accepted remote transform apply reaches the same direct Render transform
+  route without local Undo or echo publication.
+- Persistence stores the ordinary canonical snapshot and never stores Render
+  cache state.
 
 ## Public Inputs and Outputs
 
 Inputs:
 
-- create/import Vector topology expressed at an app boundary in workspace
-  positions;
-- whole-element position, dimension, rotation, scale, skew, hierarchy, undo,
-  redo, load, and accepted remote-apply requests;
-- point/handle client or workspace editing intent.
+- existing canonical Vector render snapshots without schema conversion;
+- whole-element position, dimension, rotation, scale, skew, hierarchy, Undo,
+  Redo, load, and accepted remote-apply changes;
+- existing point/handle/topology/style edit changes.
 
 Outputs:
 
-- canonical Vector elements whose point/control records are local;
-- constant-size element transform mutations for whole-element transforms;
-- transformed Render output, bounds, hit results, editing overlays, and
-  property-panel values;
-- one ordinary transaction/publication/persistence outcome per existing action
-  contract.
+- unchanged persisted Vector schema and pre-existing values, except for the
+  specific existing transform values intentionally changed by the action;
+- constant-size canonical transform mutations for whole-element transforms;
+- retained engine-local Vector draw geometry across transform-only deltas;
+- transformed visible output, hit results, overlays, and bounds through the
+  ordinary Render pipeline.
 
 Unsupported outputs:
 
-- workspace-owned canonical points;
-- transform-time point record patches;
-- dual coordinate-space runtime adapters;
-- cached or diagnostic geometry used as canonical state;
-- fallback visual output when transform or migration validation fails.
+- migrated or rewritten documents;
+- a canonical `local` marker introduced by this task;
+- transform-time point/handle record patches;
+- app-owned duplicate Vector geometry;
+- fallback or fixture-specific Render output.
 
 ## Product Cases
 
 ### Valid cases
 
-1. Move a 7,000+ point Vector through multiple pointer updates:
-   canonical points remain byte-for-byte equal, no point record patch is
-   emitted, and Render performs transform-only updates.
-2. Move a mixed selection of Vector and ordinary elements:
-   every element reaches the same requested parent-local position in one
-   update/publication and the complete gesture remains one Undo entry.
-3. Change Vector width/height or invoke scale-around-center:
-   local points remain equal while the displayed geometry, selection bounds,
-   fill, stroke, gradient, and hit result transform together.
-4. Rotate or skew a Vector:
-   local points remain equal and all Render/overlay/hit consumers use the same
-   affine result.
-5. Edit an anchor or handle after move, scale, rotation, skew, or Group
-   nesting:
-   the pointer intent is inverse-transformed, only the intended local records
-   change, and the displayed point follows the pointer.
-6. Group, ungroup, or reparent a transformed Vector:
-   the pre-operation world result is preserved and no point records change.
-7. Undo/redo a move or dimension change:
-   the transform and Render result reverse/restore as one action without
-   geometry rewrites.
-8. Apply the same accepted remote transform publication:
-   the peer reaches the same canonical transform and Render result without
-   adding a local Undo entry or echo publication.
-9. Load a valid legacy workspace-point document:
-   every Vector migrates exactly once to local points and renders identically.
-10. Create a new Vector directly in the workspace or an official Group:
-    creation stores local points and the correct parent-local transform without
-    a post-creation whole-point move.
-11. Load and transform the first 50 elements from the checked-in `crdt-7076`
-    cat-face fixture:
-    real dense Vectors, including the confirmed multi-thousand-point cases,
-    produce no point record patches and no transform-only geometry rebuilds.
+1. Move a 7,001-point Vector through multiple pointer updates: canonical
+   points remain byte-for-byte equal, no point record patch is emitted, and the
+   Vector geometry strategy is not executed by transform-only samples.
+2. Move every Vector among the first 50 elements of the checked-in
+   `crdt-7076` cat-face document: existing values load unchanged, including
+   several multi-thousand-point Vectors, and each move remains point-count
+   independent.
+3. Change Vector width/height, rotation, scale, or skew: the existing Render
+   object updates its transform while retained path/fill/stroke/hit geometry is
+   not rebuilt.
+4. Apply a geometry or style edit after a transform: the affected Vector uses
+   one complete-snapshot strategy rebuild and remains visually aligned with
+   the current element transform.
+5. Reload the result of a transform: the unchanged stored geometry plus current
+   stored element values produces the same visible output without a migration
+   or persisted cache.
+6. Move a mixed Vector/non-Vector selection: every element reaches the same
+   requested position through the existing one-action transaction contract.
+7. Undo, Redo, persistence, collaboration publication, and accepted remote
+   apply preserve their current owners while transform evidence stays
+   point-free.
+8. Group, ungroup, reorder, or reparent retains the current hierarchy behavior
+   and does not introduce point patches solely because the child is a Vector.
 
 ### Boundary and empty cases
 
-- A zero-segment one-point Vector retains the existing minimum-dimension
-  contract and remains transformable without point rewrites.
-- Empty topology creates no invalid scale division and no fabricated point.
-- Local geometry whose bounds start at negative coordinates renders and edits
-  correctly without canonical rebasing.
-- No-op transform requests produce no canonical mutation/publication.
-- A drag that returns to its starting transform remains the existing ordered
-  A -> B -> A semantic sequence inside one Undo entry.
+- Empty and one-point Vector topology remains transformable without fabricated
+  geometry or point mutation.
+- A no-op transform produces no canonical mutation/publication or Render
+  rebuild.
+- A style-only change rebuilds style/draw output but does not become a
+  canonical geometry conversion.
+- An element removed before a queued frame cannot retain or reuse stale Render
+  geometry.
 
 ### Invalid cases
 
-- Non-finite transform or local point inputs are rejected before mutation.
-- A singular dimension/scale request follows the existing minimum-dimension
-  validation contract and does not mutate geometry.
-- Missing topology references fail at the geometry owner.
-- An invalid or partially migrated legacy Vector fails the migration/load
-  route before canonical apply.
-- Missing Render identity during coordinate conversion returns the established
-  no-result/failure outcome; it does not fall back to raw workspace arithmetic.
+- Non-finite transform inputs follow existing validation and produce no
+  point/handle mutation.
+- Missing or malformed Render identity fails closed and releases the affected
+  projection; it does not emit fallback graphics.
+- A geometry cache candidate whose geometry/style identity no longer matches
+  is a miss and rebuilds from the complete canonical render snapshot.
+- Render-derived geometry never enters persistence, collaboration, Undo, or
+  app common APIs.
 
 ## Ownership
 
-- `move-elements` feature: session eligibility, threshold, target transform
-  calculation, final sample, cancel policy.
-- Asyra Design element/vector common APIs: local geometry creation/editing,
-  workspace/local intent conversion, and transform mutation requests.
-- Preset: official Vector component/render defaults, editing/selection overlay
-  projection, and official Group coordinate/bounds adapters.
-- Render: generic strategy capabilities, complete derived snapshots, direct
-  transform delta routing, element/world coordinate conversion, and
-  engine-neutral transform handoff.
-- Render Engine: transform command/property contract.
-- Render Engine Pixi: Pixi transform application only.
-- Props/Scene Tree: canonical component values and element hierarchy.
-- Factory: transaction, rollback, Undo/Redo, shared publication, and remote
-  transaction settlement.
-- Asyra Design startup migration: app document-version history and workspace
-  to local conversion.
+- `move-elements` feature: session eligibility, pointer threshold, requested
+  positions, final sample, and cancel policy.
+- Asyra Design element common API: bounded existing transform-value mutation;
+  no Vector point/handle compensation for a whole-element transform.
+- Props/Scene Tree: unchanged canonical Vector data and hierarchy.
+- Render: complete render snapshots, generic direct-transform classification,
+  retained Render-object lifetime, invalidation, and engine-neutral handoff.
+- Preset Vector strategy: derive/draw engine-local Vector geometry from the
+  existing render snapshot on geometry/style rebuild.
+- Render Engine Pixi: update the existing Pixi object transform and draw
+  commands only.
+- Factory/Core persistence: existing transaction, Undo/Redo, publication,
+  remote settlement, and persistence behavior.
 
 Forbidden ownership:
 
-- feature-owned geometry mutation;
-- Preset-owned canonical app document migration;
-- Render/Pixi-owned canonical geometry or transform;
-- Factory-owned Vector semantics;
-- UI-owned point conversion or transform state.
+- Asyra Design document migration or versioning;
+- app-owned duplicate/cached Vector geometry;
+- Preset-owned persistence policy;
+- Render/Pixi-owned canonical data;
+- feature-owned point/handle mutation;
+- fixture-specific Render behavior.
 
 ## Implementation Slices
 
-### Slice 0: Contract activation
+### Slice 0: Contract correction
 
-- add this active plan and route it from `PLANS.md`;
-- add the Vector Local Geometry Transform Flow Inspector and its contract test;
-- register its direct-open viewer entry.
-
-Gate:
-
-- Inspector authorities, anchors, routes, artifacts, owner boundaries, and
-  allowlists resolve.
-
-### Slice 1: Failing formal regression oracles
-
-- replace the existing test that requires every Vector point to move;
-- assert a whole-element move emits only constant-size transform values;
-- add a 7,000-point contract case proving zero point record patches;
-- retain that synthetic oracle and add a real-data oracle over the first 50
-  elements from the checked-in `crdt-7076` cat-face fixture;
-- add Render tests proving transform-only updates do not invoke the geometry
-  strategy;
-- add migration and local-coordinate render/editing cases before production
-  changes.
+- remove migration and canonical-local requirements from this plan and
+  Inspector;
+- bind the architecture to unchanged persisted data and a Render-owned retained
+  projection;
+- remove stale migration statements from direct framework/app contracts.
 
 Gate:
 
-- the new semantic tests fail on the current workspace-point implementation for
-  the expected reason.
+- Inspector authorities, anchors, routes, artifacts, cache ownership, and
+  implementation boundaries resolve;
+- no active contract requires document migration or persisted local markers.
 
-### Slice 2: App-owned load migration and creation contract
+### Slice 1: Failing Render-pipeline regressions
 
-- install one app-owned connected migration during startup;
-- advance the Asyra Design document version;
-- migrate valid workspace-point Vector components to local coordinates;
-- create new workspace/Group Vectors with local points directly;
-- update canonical types and property marker validation.
-
-Gate:
-
-- migration tests prove exact id/topology/style preservation, identical visual
-  placement inputs, atomic invalid failure, direct new-version creation, and no
-  runtime workspace fallback.
-
-### Slice 3: Local geometry mutation owner
-
-- make local topology the direct canonical common-API shape;
-- inverse-transform workspace/client point and segment intent;
-- update anchor/handle/topology mutations without whole-map rebasing;
-- preserve the current authored transform while projecting changed local
-  bounds.
+- add a formal test reproducing the reported Render strategy error when an
+  existing Vector receives a post-load update;
+- assert the original stored coordinate-space value is accepted unchanged;
+- assert transform-only deltas execute zero Vector geometry strategies;
+- retain the 7,001-point case and make the first-50 `crdt-7076` case consume
+  the fixture directly without migration.
 
 Gate:
 
-- point/handle tests cover untransformed, moved, scaled, rotated, skewed, and
-  nested-Group cases; unchanged point ids/records retain identity/equality.
+- the new/strengthened tests fail on the current PR for the reported reason
+  before production code changes.
 
-### Slice 4: Whole-element transform and hierarchy
+### Slice 2: Remove the rejected data/business-logic path
 
-- remove the Vector whole-point translation branch;
-- route move, dimension, scale-around-center, rotation, and skew through the
-  transform owner;
-- keep mixed selections, Group normalization, group/ungroup/reparent, Undo,
-  shared delivery, and collaboration semantics intact.
-
-Gate:
-
-- the 7,000-point and mixed-selection oracles pass;
-- mutation timelines prove one gesture => one Undo commit and one synchronous
-  update => one publication;
-- hierarchy tests prove point maps are unchanged.
-
-### Slice 5: Render, engine, hit, and overlay projection
-
-- draw local Vector geometry;
-- introduce the generic strategy-owned direct transform capability;
-- compose/apply engine-neutral scale/skew without geometry strategy rebuild;
-- update bounds, hit testing, gradient/stroke projection, selection overlay,
-  and path-edit overlay to use the same current transform;
-- keep geometry/style invalidation separate from transform invalidation.
+- remove the app document version, load migration, startup registration, and
+  persisted `local` requirement introduced by the rejected iteration;
+- restore existing point/handle/topology creation and editing data semantics;
+- keep only the bounded whole-element transform mutation needed to prevent
+  point-count-dependent writes.
 
 Gate:
 
-- Render/Preset/unit integration tests prove identical local path output,
-  direct transform updates, no strategy call on transform-only deltas, and
-  shared transform parity across visible/hit/overlay consumers.
+- load/save tests prove the existing document values are passed through
+  unchanged;
+- move tests prove zero point/handle patches for synthetic 7,001-point and real
+  first-50 fixtures.
 
-### Slice 6: End-to-end performance and visual closure
+### Slice 3: Render retained geometry and direct transform route
 
-- add or update the maintained dense-Vector drag E2E case;
-- measure the named move, Render delta, strategy, and engine phases with
-  bounded output;
-- run synchronized live-app review on the same runtime Vector state;
-- inspect final screenshots for initial, moved, transformed, selected, and
-  path-edit states.
-
-Gate:
-
-- 7,000-point transform mutation work is point-count independent;
-- the first 50 `crdt-7076` cat-face elements retain the same point-free
-  transform contract for their real dense Vectors;
-- pointer updates contain zero point record patches and zero Vector geometry
-  strategy executions;
-- existing Render delta budgets do not regress;
-- E2E passed and agent screenshot review passed are reported separately.
-
-#### Slice 6 E2E owner revision
-
-The dense-drag E2E consumes only the Factory shared-publication contract
-(`slices[].batches[].deliveries[]`) and the Render diagnostic phase stream. Its
-canonical mutation oracle reads each delivery's public `eventName` and payload
-`key`; it must not re-open Property entity internals to rediscover metadata
-already carried by the publication. The bounded implementation files remain
-`apps/asyra-design/e2e/render-delta-performance.spec.ts` and
-`apps/asyra-design/e2e/vector-render-invariants.spec.ts`.
-
-The focused gate passes only when a browser pointer drag over the 7,001-point
-Vector publishes immediate `x`/`y` updates, preserves canonical point identity
-and sampled coordinates, records at least one `move-elements:apply-positions`
-phase, records zero `render-layer:strategy:vector` phases, and produces the
-initial, selected, moved, transformed-selected, and path-edit screenshots.
-The app-level transformed state uses the registered `width`, `height`, and
-`rotation` contract; scale remains represented by dimension through the
-transform owner, while skew parity remains a Render/Preset/engine gate because
-this task does not register a new app skew field.
-Failure to observe the public delivery shape stops this slice; it does not
-authorize a production mutation or a private Property lookup.
-
-### Slice 7: Contract/document synchronization
-
-- update current API, state, feature, common-API, architecture, migration,
-  Render/Preset package, and decision-history authorities;
-- remove statements that define Vector points as workspace coordinates or
-  whole-element scale/move as point mutation;
-- keep `PLANS.md` routing-only while the task remains active.
+- make the Preset Vector strategy accept the existing render snapshot without a
+  `local` marker requirement;
+- retain engine-local draw geometry on the existing Render object across
+  transform-only deltas;
+- invalidate/rebuild only for geometry/topology/style changes;
+- use the generic Render strategy direct-property capability for position,
+  dimension/scale, rotation, and skew;
+- keep engine-neutral and Pixi transforms equivalent.
 
 Gate:
 
-- no current authority or direct code comment describes the removed workspace
-  geometry contract.
+- Render/Preset tests prove delta/fresh equivalence, exact invalidation, no
+  strategy execution on transform-only deltas, one strategy execution on a
+  geometry/style miss, and fail-closed invalid input.
 
-## Required Formal Gates
+### Slice 4: Interaction, settlement, E2E, and visual closure
 
-- Flow Inspector contract test and generic viewer-entry test.
-- Focused Asyra Design common-API, feature, init/migration, collaboration, and
-  property tests.
-- Focused Preset Vector component, render-strategy, selection-overlay,
-  path-edit-overlay, Group operation, fill, and stroke tests.
-- Focused Render scene-tree store, scene render layer, Render object/matrix,
-  and engine contract tests.
-- Focused Render Engine Pixi transform tests.
-- Relevant undo/redo, Group hierarchy, Vector invariant, gradient, and dense
-  Render E2E specs.
-- affected package builds, Asyra Design production build, `yarn lint:ci`, and
-  `git diff --check`.
-- synchronized Asyra Design live-app visual review using the app-owned URL.
+- verify hit, bounds, selection, path editing, stroke, and fill projection
+  remain aligned after transform and after a later geometry/style rebuild;
+- verify a moved Vector point can be hit and edited at its current visible
+  workspace position while the written point record remains in the existing
+  stored coordinate space;
+- verify Undo/Redo/publication/persistence/remote apply retain existing owners
+  and point-free transform evidence;
+- run maintained 7,001-point and first-50 `crdt-7076` tests;
+- run synchronized live-app screenshot review on the same runtime state.
+
+Gate:
+
+- focused unit/integration tests pass;
+- transform work and payload size are independent of point count;
+- no `[Preset Vector] Render data must contain canonical local Vector geometry`
+  error occurs;
+- app build and lint pass;
+- E2E and synchronized visual review pass and are reported separately.
+
+## Cache Contract
+
+Retained value:
+
+- the existing Render element and its engine-local Vector draw geometry,
+  including geometry-dependent hit data.
+
+Key and validity:
+
+- element identity;
+- geometry/topology/style snapshot identities or revisions that determine the
+  draw result;
+- current renderer instance/lifecycle.
+
+Invalidation:
+
+- point/handle/segment/network/topology/fill/stroke changes;
+- element removal, document reload, projection failure, or renderer teardown.
+
+Non-invalidation:
+
+- position, dimension/scale, rotation, and skew deltas.
+
+Miss path:
+
+- consume the current complete canonical render snapshot and run the ordinary
+  Preset Vector strategy once.
+
+Equivalence oracle:
+
+- a retained delta-updated result and a fresh projection from the same
+  unchanged persisted geometry plus current element values have equivalent
+  draw operations, bounds, hit result, overlay position, and visible output.
+
+Profiling justification:
+
+- the reported 7,000+ point freeze and the maintained 7,001-point/first-50
+  fixtures establish geometry rebuild cost as material and transform deltas as
+  the required retained case.
 
 ## Definition of Done
 
-- Every new and loaded Vector uses local canonical points.
-- Whole-element move/dimension/rotation/scale/skew and hierarchy transforms
-  never patch canonical point/control records.
-- Transform mutation and shared payload size are independent of point count.
-- Both the 7,001-point synthetic case and the first 50 `crdt-7076` cat-face
-  elements pass the point-free transform regression.
-- Transform-only Render updates do not rebuild Vector geometry.
-- Visible Vector geometry, fill, stroke, gradient, selection, hit testing, and
-  path-edit overlay agree under the same transform.
-- Direct point/handle editing after transforms updates the intended local
-  records and no others.
-- Group/reparent, Undo/Redo, persistence, collaboration, and remote apply retain
-  their existing ownership and action semantics.
-- The app-owned version migration is atomic and no workspace-coordinate runtime
-  fallback remains.
-- Formal tests pass, performance evidence meets the bounded gates, the app
-  builds/lints, and synchronized screenshot review passes.
-- Current source-of-truth documentation describes only the local geometry and
-  transform contract.
+- Existing documents and `crdt-7076` load without migration, version change,
+  persisted local marker, or value rewriting.
+- Whole-element Vector transform mutations contain no point/handle record
+  patches and remain point-count independent.
+- Transform-only Render deltas update the existing Render/Pixi object without
+  executing the Vector geometry strategy.
+- Geometry/topology/style changes rebuild through the ordinary complete
+  snapshot path with exact cache invalidation and no fallback.
+- Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, Undo/Redo,
+  persistence, collaboration, and remote apply gates pass.
+- The reported canonical-local-geometry error is absent from first-50
+  `crdt-7076` updates.
+- Focused tests, build, lint, maintained E2E, and synchronized visual review
+  pass.
+- Current source-of-truth documentation describes only the unchanged-data,
+  Render-owned cache contract.
 
 ## Explicit Exclusions
 
+- Document migration, document-version changes, fixture rewriting, and new
+  persisted coordinate-space values.
+- New Vector business-logic model or canonical geometry source.
 - New skew, pivot, transform-origin, or resize-handle UI.
 - Boolean operations, outline conversion, flatten/bake transform, path
   simplification, or stroke-engine redesign.
-- A general transform rewrite for non-Vector elements beyond the generic
-  Render capability required by Vector.
-- New cache layers without profiling evidence and an exact equivalence oracle.
-- Rewriting unrelated historical completed plans or deleted behavior.
+- A general non-Vector transform rewrite beyond the generic Render capability
+  used by existing strategies.
+- Diagnostic or screenshot geometry used as product output.
+
+## User-authorized completion addendum: status toasts
+
+The product owner added one bounded UI fix after accepting the Vector plan.
+Service-unavailable status toasts must:
+
+- expose an accessible top-right close button;
+- begin closing automatically after 10 seconds;
+- collapse for 200 milliseconds before removal so every lower toast
+  transitions upward instead of jumping;
+- stay dismissed while the same unavailable condition remains active, then be
+  eligible to appear again after that condition clears and later recurs.
+
+This addendum does not change persistence or collaboration status ownership. It
+only changes presentation lifecycle in `RenderApp`. Completion requires focused
+timer/close tests plus a live-browser stacked-toast transition test and visual
+review.
 
 ## Stop Conditions
 
 Stop and request product-owner direction if:
 
-- the implementation requires two canonical transform or geometry sources;
-- preserving current persisted documents cannot be expressed as one connected
-  app-owned migration;
-- the generic Render capability would require changing non-Vector visible
-  semantics;
-- point editing under transform requires an undefined pivot or width/height
-  product decision;
-- an optimization cannot prove exact semantic parity;
+- correct reload equivalence would require changing existing persisted values;
+- the Render cache would become a second canonical geometry source;
+- the generic Render capability changes non-Vector visible semantics;
+- a required fix would introduce an app-owned Vector runtime model;
+- cache equivalence cannot be proven through the ordinary complete-snapshot
+  miss path;
 - the same focused implementation repair fails three times.

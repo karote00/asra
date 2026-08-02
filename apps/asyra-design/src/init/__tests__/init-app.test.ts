@@ -11,7 +11,6 @@ import * as pathEditingContinuation from '../derived-state/init-path-editing-con
 import * as selectionCompatibility from '../derived-state/init-selection-compatibility'
 import * as features from '../foundation/init-features'
 import * as inputSystem from '../foundation/init-input-system'
-import * as vectorLocalGeometryMigration from '../migrations/vector-local-geometry-migration'
 import { viewportApis } from '../../common-apis/viewport'
 import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
@@ -31,12 +30,6 @@ describe('initApp preset composition', () => {
         selectedDefaults: Object.freeze([]),
         appliedDefaults: Object.freeze([])
       })
-    })
-    vi.spyOn(
-      vectorLocalGeometryMigration,
-      'installVectorLocalGeometryMigration'
-    ).mockImplementation(() => {
-      calls.push('vector-local-geometry-migration')
     })
     vi.spyOn(
       canvasPipelineDebugger,
@@ -115,7 +108,6 @@ describe('initApp preset composition', () => {
     expect(initialization.aiHistory).not.toBeNull()
     expect(calls).toEqual([
       'preset',
-      'vector-local-geometry-migration',
       'canvas-pipeline-debugger',
       'diagnostics',
       'selection-compatibility',

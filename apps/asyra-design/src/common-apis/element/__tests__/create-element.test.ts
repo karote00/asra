@@ -542,7 +542,7 @@ describe('create-element explicit parent and coordinates', () => {
             width: 0.1,
             height: 0.1,
             closed: false,
-            pointCoordinateSpace: 'local',
+            pointCoordinateSpace: 'workspace',
             points: {
               pointA: {
                 anchorType: 'sharp',
@@ -583,8 +583,8 @@ describe('create-element explicit parent and coordinates', () => {
                 handleMode: 'none',
                 id: 'pointB',
                 kind: 'anchor',
-                x: 0,
-                y: 0
+                x: 100,
+                y: 200
               }
             },
             segments: {},
@@ -606,15 +606,15 @@ describe('create-element explicit parent and coordinates', () => {
             width: 0.1,
             height: 0.1,
             closed: false,
-            pointCoordinateSpace: 'local',
+            pointCoordinateSpace: 'workspace',
             points: {
               pointC: {
                 anchorType: 'sharp',
                 handleMode: 'none',
                 id: 'pointC',
                 kind: 'anchor',
-                x: 0,
-                y: 0
+                x: 9,
+                y: 11
               }
             },
             segments: {},

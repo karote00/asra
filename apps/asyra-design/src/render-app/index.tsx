@@ -14,6 +14,7 @@ import { createInitialDocumentForFile } from '../config/demo-document'
 import { createEmptyDocument } from '../config/empty-document'
 import { getCollaborationMode, getRequiredFileId } from './collaboration-mode'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
+import { StatusToastStack } from './status-toast-stack'
 
 const COLLABORATION_UNAVAILABLE_MESSAGE =
   'Collaboration server is unavailable. You can keep using the app, but this tab will not receive remote changes.'
@@ -180,22 +181,26 @@ const RenderApp: React.FC<RenderAppProps> = ({
         className="absolute inset-0"
         data-testid="asyra-canvas-render-container"
       />
-      {documentDatabaseUnavailable ? (
-        <div
-          className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded bg-red-700 px-3 py-2 text-sm text-white shadow"
-          role="alert"
-        >
-          {DOCUMENT_DATABASE_UNAVAILABLE_MESSAGE}
-        </div>
-      ) : null}
-      {collaborationUnavailable ? (
-        <div
-          className="pointer-events-none absolute left-1/2 top-16 z-50 -translate-x-1/2 rounded bg-red-700 px-3 py-2 text-sm text-white shadow"
-          role="alert"
-        >
-          {COLLABORATION_UNAVAILABLE_MESSAGE}
-        </div>
-      ) : null}
+      <StatusToastStack
+        toasts={[
+          ...(documentDatabaseUnavailable
+            ? [
+                {
+                  id: 'document-database-unavailable',
+                  message: DOCUMENT_DATABASE_UNAVAILABLE_MESSAGE
+                }
+              ]
+            : []),
+          ...(collaborationUnavailable
+            ? [
+                {
+                  id: 'collaboration-unavailable',
+                  message: COLLABORATION_UNAVAILABLE_MESSAGE
+                }
+              ]
+            : [])
+        ]}
+      />
       <AiDrawingProgressIndicator />
     </div>
   )
