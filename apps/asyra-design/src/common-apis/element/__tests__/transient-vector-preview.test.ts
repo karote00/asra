@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComputedDataPatch, DataTypes } from '@asyra/utils'
 
 const mocks = vi.hoisted(() => ({
+  elementLocalToWorkspace: vi.fn(
+    (_elementId: string, position: { x: number; y: number }) => position
+  ),
   getSystemProperty: vi.fn(),
   patchLocalComputedData: vi.fn(),
   projectLocalComputedDataFromPropertyIds: vi.fn(),
-  getElementById: vi.fn()
+  getElementById: vi.fn(),
+  workspaceToElementLocal: vi.fn(
+    (_elementId: string, position: { x: number; y: number }) => position
+  )
 }))
 
 vi.mock('../../../contexts', () => ({
@@ -15,7 +21,10 @@ vi.mock('../../../contexts', () => ({
     projectLocalComputedDataFromPropertyIds:
       mocks.projectLocalComputedDataFromPropertyIds
   },
-  render: null,
+  render: {
+    elementLocalToWorkspace: mocks.elementLocalToWorkspace,
+    workspaceToElementLocal: mocks.workspaceToElementLocal
+  },
   sceneTree: {
     getElementById: mocks.getElementById
   }
@@ -60,7 +69,7 @@ const createVectorComputed = (
   width: pointBX,
   height: pointBY,
   closed: false,
-  pointCoordinateSpace: 'workspace',
+  pointCoordinateSpace: 'local',
   points: {
     pointA: {
       anchorType: 'sharp',
@@ -209,6 +218,7 @@ describe('Vector transient preview cancellation', () => {
         { x: 25, y: 15 },
         {
           skipResult: true,
+          transientPreview: true,
           undoable: false
         }
       )

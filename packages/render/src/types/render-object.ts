@@ -512,11 +512,17 @@ export class RenderNode {
   })
   readonly scale = new RenderPoint(
     (scaleX, scaleY) => {
-      this.updateEngineProperties({ scaleX, scaleY })
+      this.updateEngineProperties({
+        scaleX: scaleX * this.getDimensionScaleX(),
+        scaleY: scaleY * this.getDimensionScaleY()
+      })
     },
     1,
     1
   )
+  readonly skew = new RenderPoint((skewX, skewY) => {
+    this.updateEngineProperties({ skewX, skewY })
+  })
 
   constructor(readonly objectType: RenderEngineObjectType) {}
 
@@ -546,7 +552,10 @@ export class RenderNode {
 
   set width(value: number) {
     this._width = value
-    this.updateEngineProperties({ width: value })
+    this.updateEngineProperties({
+      width: value,
+      scaleX: this.scale.x * this.getDimensionScaleX()
+    })
   }
 
   get height(): number {
@@ -555,7 +564,10 @@ export class RenderNode {
 
   set height(value: number) {
     this._height = value
-    this.updateEngineProperties({ height: value })
+    this.updateEngineProperties({
+      height: value,
+      scaleY: this.scale.y * this.getDimensionScaleY()
+    })
   }
 
   get visible(): boolean {
@@ -649,13 +661,15 @@ export class RenderNode {
   }
 
   get worldTransform(): RenderMatrix {
-    const cosine = Math.cos(this.rotation)
-    const sine = Math.sin(this.rotation)
+    const rotationPlusSkewY = this.rotation + this.skew.y
+    const rotationMinusSkewX = this.rotation - this.skew.x
+    const scaleX = this.scale.x * this.getDimensionScaleX()
+    const scaleY = this.scale.y * this.getDimensionScaleY()
     const local = new RenderMatrix(
-      cosine * this.scale.x,
-      sine * this.scale.x,
-      -sine * this.scale.y,
-      cosine * this.scale.y,
+      Math.cos(rotationPlusSkewY) * scaleX,
+      Math.sin(rotationPlusSkewY) * scaleX,
+      -Math.sin(rotationMinusSkewX) * scaleY,
+      Math.cos(rotationMinusSkewX) * scaleY,
       this.x,
       this.y
     )
@@ -670,8 +684,10 @@ export class RenderNode {
       y: this.y,
       width: this._width,
       height: this._height,
-      scaleX: this.scale.x,
-      scaleY: this.scale.y,
+      scaleX: this.scale.x * this.getDimensionScaleX(),
+      scaleY: this.scale.y * this.getDimensionScaleY(),
+      skewX: this.skew.x,
+      skewY: this.skew.y,
       visible: this.visible,
       renderable: this.renderable,
       label: this.label,
@@ -683,6 +699,34 @@ export class RenderNode {
       cursor: this.cursor,
       batched: this.batched
     }
+  }
+
+  private getDimensionScaleX(): number {
+    const geometryBounds = (
+      this as RenderNode & {
+        __asyraGeometryLocalBounds?: RenderBounds | null
+      }
+    ).__asyraGeometryLocalBounds
+    return geometryBounds &&
+      geometryBounds.width > 0 &&
+      Number.isFinite(geometryBounds.width) &&
+      this._width > 0
+      ? this._width / geometryBounds.width
+      : 1
+  }
+
+  private getDimensionScaleY(): number {
+    const geometryBounds = (
+      this as RenderNode & {
+        __asyraGeometryLocalBounds?: RenderBounds | null
+      }
+    ).__asyraGeometryLocalBounds
+    return geometryBounds &&
+      geometryBounds.height > 0 &&
+      Number.isFinite(geometryBounds.height) &&
+      this._height > 0
+      ? this._height / geometryBounds.height
+      : 1
   }
 
   bindRuntime(
@@ -831,7 +875,9 @@ export class RenderNode {
       y: this.y,
       rotation: this.rotation,
       scaleX: this.scale.x,
-      scaleY: this.scale.y
+      scaleY: this.scale.y,
+      skewX: this.skew.x,
+      skewY: this.skew.y
     })
   }
 

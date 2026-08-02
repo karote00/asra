@@ -21,6 +21,15 @@ class RenderStrategyRegistry {
   has(type: string): boolean {
     return this.strategies.has(type)
   }
+
+  supportsDirectProperty(type: string, key: string): boolean {
+    return (
+      this.strategies
+        .get(type)
+        ?.directPropertyKeys?.some((propertyKey) => propertyKey === key) ===
+      true
+    )
+  }
 }
 
 export const renderStrategyRegistry = new RenderStrategyRegistry()

@@ -33,6 +33,9 @@
   explicit `sharedDelivery: 'immediate'`; all selected-element changes produced
   by one synchronous update are one ordered canonical publication without
   closing the outer transaction
+- Vector and ordinary elements use this same fixed-size property batch. Vector
+  point/control/segment/network records are neither read nor patched, so
+  pointer-sample mutation cost and publication size do not grow with point count
 - defers official Group origin and bounds normalization across intermediate
   pointer samples so drag-start-local coordinates cannot accumulate against
   repeatedly rebased ancestors
@@ -68,6 +71,8 @@
 - canonical element position never travels through Awareness; one synchronous
   multi-element update becomes one publication, one Yjs update, and one
   provider send
+- a 7,001-point Vector and the dense Vectors among the first 50 checked-in
+  `crdt-7076` cat-face elements use the same point-free move contract
 - `onCancel` performs no canonical write, and Factory reverses failure-path
   mutations
 

@@ -20,6 +20,10 @@ const targetEntries = [
   ),
   path.join(
     projectRoot,
+    'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
     'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
   ),
   path.join(

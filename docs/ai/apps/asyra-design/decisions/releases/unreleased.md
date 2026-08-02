@@ -7128,3 +7128,31 @@ join` constrained dashed product path across:
   - `382605f03` (`fix(collaboration): drop disconnected relay peers`)
   - `3a88f1dde` (`fix(app): use formal document database persistence`)
   - `cda8b10f0` (`style(app): format service availability boundaries`)
+
+## 2026-08-03 - Make Vector geometry local and whole-element transforms point-free
+
+- Context:
+  - Moving a Vector translated every point/control record. A single drag sample
+    on a 7,000+ point element could therefore block the app and publish a
+    point-count-sized mutation.
+  - The accepted rendering model already treats an element as local geometry
+    plus an affine transform.
+- Decision:
+  - Store every v2 Vector point/control in one stable element-local coordinate
+    space and accept no runtime workspace-coordinate fallback.
+  - Register one app-owned v1-to-v2 load migration that converts legacy
+    workspace points atomically before Core validation/apply.
+  - Route move, dimension, rotation, scale, skew, Group normalization, and
+    reparent through element/hierarchy transform values only.
+  - Let registered Render strategies declare generic direct property keys, and
+    use one engine-neutral affine transform for Pixi projection, bounds, hit,
+    selection, path-edit overlays, and inverse point editing.
+- Consequences:
+  - Whole-element mutation and publication size are independent of Vector point
+    count; canonical point/control records remain unchanged.
+  - Direct geometry editing still patches the intended local records after
+    inverse projection through the current Render transform.
+  - Both a synthetic 7,001-point case and the first 50 checked-in
+    `crdt-7076` cat-face elements are formal point-free move regressions.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`

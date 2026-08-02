@@ -29,10 +29,7 @@ import {
   updateAnchorPositionInTopology,
   type VectorTopologyData
 } from './vector-topology'
-import {
-  calculateVectorBounds,
-  normalizeVectorTopology
-} from './vector-geometry'
+import { calculateVectorBounds } from './vector-geometry'
 import {
   resolveHandleModeDragUpdate,
   resolveHandleModeSwitchUpdate
@@ -462,33 +459,23 @@ export const updatePoint = (
 }
 
 export const buildVectorComputedPatch = (
-  topologyInWorkspace: VectorTopology,
+  topologyLocal: VectorTopology,
   options?: {
     closed?: boolean
   }
 ): Record<string, DataTypes> => {
-  assertVectorTopologyConsistency(
-    topologyInWorkspace,
-    'buildVectorComputedPatch'
-  )
-  const bounds = calculateVectorBounds(topologyInWorkspace)
-  const normalizedTopology = normalizeVectorTopology(
-    topologyInWorkspace,
-    bounds
-  )
-  const nextClosed =
-    options?.closed ?? isClosedVectorTopology(normalizedTopology)
+  assertVectorTopologyConsistency(topologyLocal, 'buildVectorComputedPatch')
+  const bounds = calculateVectorBounds(topologyLocal)
+  const nextClosed = options?.closed ?? isClosedVectorTopology(topologyLocal)
 
   return {
-    x: bounds.x,
-    y: bounds.y,
     width: bounds.width,
     height: bounds.height,
-    points: topologyInWorkspace.points,
-    segments: normalizedTopology.segments,
-    networks: normalizedTopology.networks,
+    points: topologyLocal.points,
+    segments: topologyLocal.segments,
+    networks: topologyLocal.networks,
     closed: nextClosed,
-    pointCoordinateSpace: 'workspace'
+    pointCoordinateSpace: 'local'
   } satisfies Record<string, DataTypes>
 }
 
@@ -498,7 +485,7 @@ export interface VectorComputedData {
   width?: number
   height?: number
   closed?: boolean
-  pointCoordinateSpace?: 'workspace'
+  pointCoordinateSpace?: 'local'
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
@@ -510,6 +497,7 @@ export const isVectorComputedData = (
   return (
     !!data &&
     typeof data === 'object' &&
+    data.pointCoordinateSpace === 'local' &&
     data.points !== undefined &&
     data.segments !== undefined &&
     data.networks !== undefined

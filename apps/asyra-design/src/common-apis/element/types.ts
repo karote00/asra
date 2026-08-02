@@ -23,7 +23,7 @@ export interface VectorComputedSnapshot extends Partial<VectorPathStyle> {
   y?: number
   width?: number
   height?: number
-  pointCoordinateSpace?: 'workspace'
+  pointCoordinateSpace?: 'local'
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>

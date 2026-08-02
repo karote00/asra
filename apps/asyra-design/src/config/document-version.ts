@@ -1,0 +1,2 @@
+export const LEGACY_WORKSPACE_VECTOR_VERSION = '1.0.0'
+export const DOCUMENT_VERSION = '2.0.0'

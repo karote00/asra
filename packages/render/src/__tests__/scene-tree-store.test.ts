@@ -6,6 +6,8 @@ import {
 } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import render from '../render'
+import renderStrategyRegistry from '../registries/render-strategy'
+import type { RenderStrategy } from '../types/render-strategy'
 
 let pendingRenderLayer: {
   shouldUpdate?: () => boolean
@@ -2258,6 +2260,78 @@ describe('RenderSceneTree computed data mirror', () => {
       undefined,
       expect.objectContaining({ x: 10, y: 20 })
     )
+  })
+
+  it('routes strategy-owned Vector dimensions without a geometry strategy rebuild', async () => {
+    const strategy = Object.assign(vi.fn(), {
+      directPropertyKeys: Object.freeze(['width', 'height'])
+    }) as RenderStrategy & { readonly directPropertyKeys: readonly string[] }
+    renderStrategyRegistry.register('transform-only-vector', strategy)
+
+    try {
+      const { RenderSceneTree } = await import('../stores/scene-tree')
+      const store = new RenderSceneTree()
+      const element = createElement(
+        'vector-1',
+        { type: 'transform-only-vector', visible: true },
+        {
+          width: 100,
+          height: 80,
+          points: Object.fromEntries(
+            Array.from({ length: 7_001 }, (_, index) => [
+              `point-${index}`,
+              { x: index, y: index % 17 }
+            ])
+          )
+        }
+      )
+      sceneTreeMock.getElementById.mockReturnValue(element)
+      seedStore(store, 'vector-1')
+      element.getAllComputedData.mockClear()
+
+      const outcome = store.updateElementBatch(
+        'vector-1',
+        [
+          {
+            owner: 'computed',
+            key: 'width',
+            before: 100,
+            after: 140
+          },
+          {
+            owner: 'computed',
+            key: 'height',
+            before: 80,
+            after: 120
+          }
+        ],
+        { undoable: false }
+      )
+
+      expect(outcome).toEqual({
+        status: 'applied',
+        elementId: 'vector-1'
+      })
+      expect(renderMock.updateElement).toHaveBeenCalledTimes(2)
+      expect(renderMock.updateElement).toHaveBeenNthCalledWith(
+        1,
+        'vector-1',
+        'width',
+        100,
+        140
+      )
+      expect(renderMock.updateElement).toHaveBeenNthCalledWith(
+        2,
+        'vector-1',
+        'height',
+        80,
+        120
+      )
+      expect(element.getAllComputedData).not.toHaveBeenCalled()
+      expect(strategy).not.toHaveBeenCalled()
+    } finally {
+      renderStrategyRegistry.unregister('transform-only-vector')
+    }
   })
 
   it('should run: route a mixed batch once through the final complete snapshot', async () => {

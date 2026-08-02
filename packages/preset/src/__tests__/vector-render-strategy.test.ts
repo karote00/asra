@@ -5,7 +5,11 @@ import {
   renderStrategyRegistry
 } from '@asyra/render'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
-import { createDefaultFill, createDefaultStroke } from '@asyra/utils'
+import {
+  createDefaultFill,
+  createDefaultStroke,
+  getElementGeometryLocalBounds
+} from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
   VECTOR_COMPONENT_DEFINITION,
@@ -13,6 +17,252 @@ import {
 } from '../components/vector'
 
 describe('vector render strategy', () => {
+  it('restores authored dimensions from local geometry bounds after reload', () => {
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'vector-resized',
+      type: 'vector',
+      name: 'Resized Vector',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 20,
+      y: 30,
+      width: 160,
+      height: 80,
+      rotation: 0,
+      closed: false,
+      pointCoordinateSpace: 'local',
+      fillRule: 'nonzero',
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          color: '#cccccc',
+          visible: true,
+          width: 1
+        })
+      ],
+      points: {
+        start: {
+          id: 'start',
+          kind: 'anchor',
+          x: 0,
+          y: 0,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        },
+        end: {
+          id: 'end',
+          kind: 'anchor',
+          x: 80,
+          y: 40,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        }
+      },
+      segments: {
+        segment: {
+          id: 'segment',
+          startId: 'start',
+          endId: 'end'
+        }
+      },
+      networks: {
+        network: {
+          id: 'network',
+          pointIds: ['start', 'end'],
+          segmentIds: ['segment'],
+          closed: false
+        }
+      }
+    } as never)
+
+    expect(graphic.scale).toMatchObject({ x: 1, y: 1 })
+    expect(graphic.toGlobal({ x: 80, y: 40 })).toEqual({
+      x: 180,
+      y: 110
+    })
+    expect(graphic.getDrawOperations()).toContainEqual({
+      type: 'poly',
+      points: [
+        { x: 0, y: 0 },
+        { x: 80, y: 40 }
+      ],
+      close: false
+    })
+  })
+
+  it('derives the resize basis from cubic extrema rather than control bounds', () => {
+    const graphic = new RenderGraphics()
+    const localHeight = 57.735026918962575
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'vector-cubic-resized',
+      type: 'vector',
+      name: 'Resized Cubic Vector',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 0,
+      y: 0,
+      width: 400,
+      height: localHeight * 2,
+      rotation: 0,
+      closed: false,
+      pointCoordinateSpace: 'local',
+      fillRule: 'nonzero',
+      fills: [],
+      strokes: [],
+      points: {
+        start: {
+          id: 'start',
+          kind: 'anchor',
+          x: 0,
+          y: 0,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        },
+        startControl: {
+          id: 'startControl',
+          kind: 'control',
+          x: 100,
+          y: 100,
+          controlForId: 'start',
+          controlRole: 'out'
+        },
+        endControl: {
+          id: 'endControl',
+          kind: 'control',
+          x: 100,
+          y: -100,
+          controlForId: 'end',
+          controlRole: 'in'
+        },
+        end: {
+          id: 'end',
+          kind: 'anchor',
+          x: 200,
+          y: 0,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        }
+      },
+      segments: {
+        segment: {
+          id: 'segment',
+          startId: 'start',
+          endId: 'end',
+          outControlId: 'startControl',
+          inControlId: 'endControl'
+        }
+      },
+      networks: {
+        network: {
+          id: 'network',
+          pointIds: ['start', 'end'],
+          segmentIds: ['segment'],
+          closed: false
+        }
+      }
+    } as never)
+
+    const localBounds = getElementGeometryLocalBounds(graphic)
+    expect(localBounds.x).toBe(0)
+    expect(localBounds.y).toBeCloseTo(-localHeight / 2)
+    expect(localBounds.width).toBe(200)
+    expect(localBounds.height).toBeCloseTo(localHeight)
+    expect(graphic.worldTransform.a).toBeCloseTo(2)
+    expect(graphic.worldTransform.b).toBeCloseTo(0)
+    expect(graphic.worldTransform.c).toBeCloseTo(0)
+    expect(graphic.worldTransform.d).toBeCloseTo(2)
+  })
+
+  it('applies the Vector affine transform independently from local draw geometry', () => {
+    const graphic = new RenderGraphics()
+
+    VECTOR_RENDER_STRATEGY(graphic, {
+      id: 'vector-affine',
+      type: 'vector',
+      name: 'Affine Vector',
+      parentId: 'workspace-1',
+      visible: true,
+      lock: false,
+      x: 20,
+      y: 30,
+      width: 80,
+      height: 40,
+      rotation: 0.4,
+      scaleX: 2,
+      scaleY: 3,
+      skewX: 0.2,
+      skewY: 0.1,
+      closed: false,
+      pointCoordinateSpace: 'local',
+      fillRule: 'nonzero',
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          color: '#cccccc',
+          visible: true,
+          width: 1
+        })
+      ],
+      points: {
+        start: {
+          id: 'start',
+          kind: 'anchor',
+          x: 0,
+          y: 0,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        },
+        end: {
+          id: 'end',
+          kind: 'anchor',
+          x: 80,
+          y: 40,
+          anchorType: 'sharp',
+          handleMode: 'none'
+        }
+      },
+      segments: {
+        segment: {
+          id: 'segment',
+          startId: 'start',
+          endId: 'end'
+        }
+      },
+      networks: {
+        network: {
+          id: 'network',
+          pointIds: ['start', 'end'],
+          segmentIds: ['segment'],
+          closed: false
+        }
+      }
+    } as never)
+
+    expect(graphic.position).toMatchObject({ x: 20, y: 30 })
+    expect(graphic.rotation).toBe(0.4)
+    expect(graphic.scale).toMatchObject({ x: 2, y: 3 })
+    expect(
+      (
+        graphic as unknown as {
+          skew: { x: number; y: number }
+        }
+      ).skew
+    ).toMatchObject({ x: 0.2, y: 0.1 })
+    expect(graphic.getDrawOperations()).toContainEqual({
+      type: 'poly',
+      points: [
+        { x: 0, y: 0 },
+        { x: 80, y: 40 }
+      ],
+      close: false
+    })
+  })
+
   it('renders the base one-pixel path for an open vector without fills', () => {
     const graphic = new RenderGraphics()
 
@@ -29,7 +279,7 @@ describe('vector render strategy', () => {
       height: 40,
       rotation: 0,
       closed: false,
-      pointCoordinateSpace: 'workspace',
+      pointCoordinateSpace: 'local',
       fillRule: 'nonzero',
       fills: [],
       strokes: [
@@ -43,16 +293,16 @@ describe('vector render strategy', () => {
         start: {
           id: 'start',
           kind: 'anchor',
-          x: 20,
-          y: 30,
+          x: 0,
+          y: 0,
           anchorType: 'sharp',
           handleMode: 'none'
         },
         end: {
           id: 'end',
           kind: 'anchor',
-          x: 100,
-          y: 70,
+          x: 80,
+          y: 40,
           anchorType: 'sharp',
           handleMode: 'none'
         }
@@ -92,7 +342,7 @@ describe('vector render strategy', () => {
     ])
   })
 
-  it('keeps workspace points fixed when the vector is rendered inside a group', () => {
+  it('projects stable local points through the Vector and Group transforms', () => {
     const group = new RenderContainer({ x: 142, y: 158 })
     ;(
       group as RenderContainer & {
@@ -114,7 +364,7 @@ describe('vector render strategy', () => {
       height: 74,
       rotation: 0,
       closed: true,
-      pointCoordinateSpace: 'workspace',
+      pointCoordinateSpace: 'local',
       fillRule: 'nonzero',
       fills: [],
       strokes: [
@@ -128,24 +378,24 @@ describe('vector render strategy', () => {
         start: {
           id: 'start',
           kind: 'anchor',
-          x: 232,
-          y: 232,
+          x: 0,
+          y: 74,
           anchorType: 'sharp',
           handleMode: 'none'
         },
         middle: {
           id: 'middle',
           kind: 'anchor',
-          x: 278,
-          y: 158,
+          x: 46,
+          y: 0,
           anchorType: 'sharp',
           handleMode: 'none'
         },
         end: {
           id: 'end',
           kind: 'anchor',
-          x: 326,
-          y: 232,
+          x: 94,
+          y: 74,
           anchorType: 'sharp',
           handleMode: 'none'
         }
@@ -194,7 +444,7 @@ describe('vector render strategy', () => {
     expect(graphic.toGlobal({ x: 0, y: 74 })).toEqual({ x: 232, y: 232 })
   })
 
-  it('does not renormalize canonical workspace topology before local projection', () => {
+  it('draws canonical local topology without renormalizing it', () => {
     const ownKeyReads = {
       points: 0,
       segments: 0,
@@ -213,9 +463,9 @@ describe('vector render strategy', () => {
     const graphic = new RenderGraphics()
 
     VECTOR_RENDER_STRATEGY(graphic, {
-      id: 'canonical-workspace-vector',
+      id: 'canonical-local-vector',
       type: 'vector',
-      name: 'Canonical Workspace Vector',
+      name: 'Canonical Local Vector',
       parentId: 'workspace-1',
       visible: true,
       lock: false,
@@ -225,7 +475,7 @@ describe('vector render strategy', () => {
       height: 40,
       rotation: 0,
       closed: false,
-      pointCoordinateSpace: 'workspace',
+      pointCoordinateSpace: 'local',
       fillRule: 'nonzero',
       fills: [],
       strokes: [
@@ -240,16 +490,16 @@ describe('vector render strategy', () => {
           start: {
             id: 'start',
             kind: 'anchor',
-            x: 20,
-            y: 30,
+            x: 0,
+            y: 0,
             anchorType: 'sharp',
             handleMode: 'none'
           },
           end: {
             id: 'end',
             kind: 'anchor',
-            x: 100,
-            y: 70,
+            x: 80,
+            y: 40,
             anchorType: 'sharp',
             handleMode: 'none'
           }
@@ -318,7 +568,7 @@ describe('vector render strategy', () => {
       height: 80,
       rotation: 0,
       closed: true,
-      pointCoordinateSpace: 'workspace',
+      pointCoordinateSpace: 'local',
       fillRule: 'nonzero',
       fills: [createDefaultFill({ color: '#336699' })],
       strokes: [],
@@ -326,32 +576,32 @@ describe('vector render strategy', () => {
         start: {
           id: 'start',
           kind: 'anchor',
-          x: 10,
-          y: 20,
+          x: 0,
+          y: 0,
           anchorType: 'smooth',
           handleMode: 'mirrored'
         },
         end: {
           id: 'end',
           kind: 'anchor',
-          x: 110,
-          y: 100,
+          x: 100,
+          y: 80,
           anchorType: 'smooth',
           handleMode: 'mirrored'
         },
         out: {
           id: 'out',
           kind: 'control',
-          x: 35,
-          y: 20,
+          x: 25,
+          y: 0,
           controlForId: 'start',
           controlRole: 'out'
         },
         incoming: {
           id: 'incoming',
           kind: 'control',
-          x: 85,
-          y: 100,
+          x: 75,
+          y: 80,
           controlForId: 'end',
           controlRole: 'in'
         }
@@ -429,7 +679,7 @@ describe('vector render strategy', () => {
         height: 10,
         rotation: 0,
         closed: false,
-        pointCoordinateSpace: 'workspace',
+        pointCoordinateSpace: 'local',
         fillRule: 'nonzero',
         fills: [],
         strokes: [
@@ -443,16 +693,16 @@ describe('vector render strategy', () => {
           start: {
             id: `${id}-start`,
             kind: 'anchor',
-            x: offset,
-            y: offset,
+            x: 0,
+            y: 0,
             anchorType: 'sharp',
             handleMode: 'none'
           },
           end: {
             id: `${id}-end`,
             kind: 'anchor',
-            x: offset + 20,
-            y: offset + 10,
+            x: 20,
+            y: 10,
             anchorType: 'sharp',
             handleMode: 'none'
           }

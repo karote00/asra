@@ -135,6 +135,7 @@ const vectorInvariantProbe = async (page: Page) => {
 
     const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
     const computed = element?.getAllComputedData?.() ?? {}
+    const render = core?.deps?.render
     const renderElement = core?.deps?.render?.getElementById?.(selectedId)
     const points = computed.points ?? {}
     const anchorPoints = Object.values(points).filter(
@@ -249,16 +250,20 @@ const vectorInvariantProbe = async (page: Page) => {
         })
       }
     )
-    const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
-    const overlayBounds = anchorPoints.reduce(
+    const workspaceAnchorBounds = anchorPoints.reduce(
       (bounds, point) => {
-        const x = usesWorkspacePoints ? point.x : point.x + (computed.x ?? 0)
-        const y = usesWorkspacePoints ? point.y : point.y + (computed.y ?? 0)
+        const workspacePoint = render?.elementLocalToWorkspace?.(
+          selectedId,
+          point
+        )
+        if (!workspacePoint) {
+          throw new Error('Missing local-to-workspace Render projection')
+        }
         return {
-          minX: Math.min(bounds.minX, x),
-          minY: Math.min(bounds.minY, y),
-          maxX: Math.max(bounds.maxX, x),
-          maxY: Math.max(bounds.maxY, y)
+          minX: Math.min(bounds.minX, workspacePoint.x),
+          minY: Math.min(bounds.minY, workspacePoint.y),
+          maxX: Math.max(bounds.maxX, workspacePoint.x),
+          maxY: Math.max(bounds.maxY, workspacePoint.y)
         }
       },
       {
@@ -295,11 +300,11 @@ const vectorInvariantProbe = async (page: Page) => {
         width: geometryBounds.maxX - geometryBounds.minX,
         height: geometryBounds.maxY - geometryBounds.minY
       },
-      overlayBounds: {
-        x: overlayBounds.minX,
-        y: overlayBounds.minY,
-        width: overlayBounds.maxX - overlayBounds.minX,
-        height: overlayBounds.maxY - overlayBounds.minY
+      workspaceAnchorBounds: {
+        x: workspaceAnchorBounds.minX,
+        y: workspaceAnchorBounds.minY,
+        width: workspaceAnchorBounds.maxX - workspaceAnchorBounds.minX,
+        height: workspaceAnchorBounds.maxY - workspaceAnchorBounds.minY
       },
       render: {
         exists: Boolean(renderElement),
@@ -327,17 +332,22 @@ const vectorInvariantProbe = async (page: Page) => {
   })
 }
 
-const expectWorkspaceVectorInvariants = async (
+const expectLocalVectorInvariants = async (
   page: Page,
   _label = 'selected vector'
 ) => {
   const summary = await vectorInvariantProbe(page)
-  expect(summary.computed.pointCoordinateSpace).toBe('workspace')
-  expect(summary.computed.x).toBeCloseTo(summary.geometryBounds.x, 4)
-  expect(summary.computed.y).toBeCloseTo(summary.geometryBounds.y, 4)
+  expect(summary.computed.pointCoordinateSpace).toBe('local')
   expect(summary.computed.width).toBeCloseTo(summary.geometryBounds.width, 4)
   expect(summary.computed.height).toBeCloseTo(summary.geometryBounds.height, 4)
-  expect(summary.overlayBounds).toEqual(summary.anchorBounds)
+  expect(summary.workspaceAnchorBounds.width).toBeCloseTo(
+    summary.anchorBounds.width,
+    4
+  )
+  expect(summary.workspaceAnchorBounds.height).toBeCloseTo(
+    summary.anchorBounds.height,
+    4
+  )
   expect(summary.render.exists).toBe(true)
   expect(summary.render.visible).toBe(true)
   expect(summary.render.x).toBeCloseTo(summary.computed.x, 4)
@@ -533,23 +543,10 @@ test.describe('Vector app-flow invariants', () => {
 
     await page.waitForTimeout(250)
 
-    const created = await vectorInvariantProbe(page)
-    expect(created.computed.pointCoordinateSpace).toBe('workspace')
+    const created = await expectLocalVectorInvariants(page, 'star:create')
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(
-      created.geometryBounds.height,
-      4
-    )
-    expect(created.overlayBounds).toEqual(created.anchorBounds)
-    expect(created.render.exists).toBe(true)
-    expect(created.render.visible).toBe(true)
-    expect(created.render.x).toBeCloseTo(created.computed.x, 4)
-    expect(created.render.y).toBeCloseTo(created.computed.y, 4)
 
     await page.evaluate(async () => {
       const core = (await import('../src/testing/runtime-access')).core
@@ -564,31 +561,25 @@ test.describe('Vector app-flow invariants', () => {
       if (!selectedId || !point) {
         throw new Error('Missing selected vector point for update')
       }
+      const workspacePoint = core?.deps?.render?.elementLocalToWorkspace?.(
+        selectedId,
+        point
+      )
+      if (!workspacePoint) {
+        throw new Error('Missing local-to-workspace point projection')
+      }
 
       elementApis.updateVectorAnchorPointPosition(
         selectedId,
         'p0',
-        { x: point.x + 36, y: point.y + 24 },
+        { x: workspacePoint.x + 36, y: workspacePoint.y + 24 },
         { undoable: false, skipResult: true }
       )
     })
 
     await page.waitForTimeout(250)
 
-    const updated = await vectorInvariantProbe(page)
-    expect(updated.computed.pointCoordinateSpace).toBe('workspace')
-    expect(updated.computed.x).toBeCloseTo(updated.geometryBounds.x, 4)
-    expect(updated.computed.y).toBeCloseTo(updated.geometryBounds.y, 4)
-    expect(updated.computed.width).toBeCloseTo(updated.geometryBounds.width, 4)
-    expect(updated.computed.height).toBeCloseTo(
-      updated.geometryBounds.height,
-      4
-    )
-    expect(updated.overlayBounds).toEqual(updated.anchorBounds)
-    expect(updated.render.exists).toBe(true)
-    expect(updated.render.visible).toBe(true)
-    expect(updated.render.x).toBeCloseTo(updated.computed.x, 4)
-    expect(updated.render.y).toBeCloseTo(updated.computed.y, 4)
+    await expectLocalVectorInvariants(page, 'star:update-point')
   })
 
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after pen-created star', async ({
@@ -610,23 +601,10 @@ test.describe('Vector app-flow invariants', () => {
     await setSelectedVectorStrokeData(page)
     await page.waitForTimeout(350)
 
-    const created = await vectorInvariantProbe(page)
-    expect(created.computed.pointCoordinateSpace).toBe('workspace')
+    const created = await expectLocalVectorInvariants(page, 'pen-star:create')
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(
-      created.geometryBounds.height,
-      4
-    )
-    expect(created.overlayBounds).toEqual(created.anchorBounds)
-    expect(created.render.exists).toBe(true)
-    expect(created.render.visible).toBe(true)
-    expect(created.render.x).toBeCloseTo(created.computed.x, 4)
-    expect(created.render.y).toBeCloseTo(created.computed.y, 4)
 
     await page.keyboard.press('v')
     await page.waitForTimeout(100)
@@ -642,20 +620,7 @@ test.describe('Vector app-flow invariants', () => {
     await page.mouse.up()
     await page.waitForTimeout(350)
 
-    const dragged = await vectorInvariantProbe(page)
-    expect(dragged.computed.pointCoordinateSpace).toBe('workspace')
-    expect(dragged.computed.x).toBeCloseTo(dragged.geometryBounds.x, 4)
-    expect(dragged.computed.y).toBeCloseTo(dragged.geometryBounds.y, 4)
-    expect(dragged.computed.width).toBeCloseTo(dragged.geometryBounds.width, 4)
-    expect(dragged.computed.height).toBeCloseTo(
-      dragged.geometryBounds.height,
-      4
-    )
-    expect(dragged.overlayBounds).toEqual(dragged.anchorBounds)
-    expect(dragged.render.exists).toBe(true)
-    expect(dragged.render.visible).toBe(true)
-    expect(dragged.render.x).toBeCloseTo(dragged.computed.x, 4)
-    expect(dragged.render.y).toBeCloseTo(dragged.computed.y, 4)
+    await expectLocalVectorInvariants(page, 'pen-star:drag-point')
   })
 
   test('keeps full topology operations aligned through append, split, remove, and close', async ({
@@ -733,7 +698,7 @@ test.describe('Vector app-flow invariants', () => {
     })
     await setSelectedVectorStrokeData(page)
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:create')
+    await expectLocalVectorInvariants(page, 'full-topology:create')
 
     await page.evaluate(async () => {
       const core = (await import('../src/testing/runtime-access')).core
@@ -756,7 +721,7 @@ test.describe('Vector app-flow invariants', () => {
       })
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:append')
+    await expectLocalVectorInvariants(page, 'full-topology:append')
     const appendUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(appendUndo)
     expect(appendUndo.pointSetIds).toEqual(['D'])
@@ -784,13 +749,20 @@ test.describe('Vector app-flow invariants', () => {
       if (!segment || !start || !end) {
         throw new Error('Missing AB segment for split')
       }
-      const result = elementApis.splitVectorSegmentAtWorkspacePos(
+      const workspacePosition = core?.deps?.render?.elementLocalToWorkspace?.(
         elementId,
-        'AB',
         {
           x: (start.x + end.x) / 2,
           y: (start.y + end.y) / 2
         }
+      )
+      if (!workspacePosition) {
+        throw new Error('Missing local-to-workspace split projection')
+      }
+      const result = elementApis.splitVectorSegmentAtWorkspacePos(
+        elementId,
+        'AB',
+        workspacePosition
       )
       if (!result?.point?.id) {
         throw new Error('Failed to split vector segment')
@@ -798,7 +770,7 @@ test.describe('Vector app-flow invariants', () => {
       return result.point.id
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:split')
+    await expectLocalVectorInvariants(page, 'full-topology:split')
     const splitUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(splitUndo)
     expect(splitUndo.pointSetIds).toEqual([splitPointId])
@@ -821,7 +793,7 @@ test.describe('Vector app-flow invariants', () => {
       }
     }, splitPointId)
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:remove')
+    await expectLocalVectorInvariants(page, 'full-topology:remove')
     const removeUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(removeUndo)
     expect(removeUndo.pointSetIds).toEqual([])
@@ -849,7 +821,7 @@ test.describe('Vector app-flow invariants', () => {
       }
     })
     await page.waitForTimeout(250)
-    const merged = await expectWorkspaceVectorInvariants(
+    const merged = await expectLocalVectorInvariants(
       page,
       'full-topology:merge'
     )
@@ -874,7 +846,7 @@ test.describe('Vector app-flow invariants', () => {
       elementApis.setVectorClosed(elementId, true)
     })
     await page.waitForTimeout(250)
-    const closed = await expectWorkspaceVectorInvariants(
+    const closed = await expectLocalVectorInvariants(
       page,
       'full-topology:close'
     )
@@ -908,7 +880,7 @@ test.describe('Vector app-flow invariants', () => {
       }
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:set-type')
+    await expectLocalVectorInvariants(page, 'full-topology:set-type')
     const setTypeUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(setTypeUndo)
     expect(setTypeUndo.pointSetIds).toEqual(['B'])
@@ -942,24 +914,41 @@ test.describe('Vector app-flow invariants', () => {
       )
         .filter((segment) => segment.startId === 'B' || segment.endId === 'B')
         .map((segment) => segment.id)
+      const inHandle = core?.deps?.render?.elementLocalToWorkspace?.(
+        elementId,
+        {
+          x: point.x - 42,
+          y: point.y + 18
+        }
+      )
+      const outHandle = core?.deps?.render?.elementLocalToWorkspace?.(
+        elementId,
+        {
+          x: point.x + 48,
+          y: point.y - 22
+        }
+      )
+      if (!inHandle || !outHandle) {
+        throw new Error('Missing local-to-workspace handle projection')
+      }
       elementApis.updateVectorAnchorPointHandles(elementId, [
         {
           pointId: 'B',
           target: 'inHandle',
-          position: { x: point.x - 42, y: point.y + 18 },
+          position: inHandle,
           forceSmooth: true
         },
         {
           pointId: 'B',
           target: 'outHandle',
-          position: { x: point.x + 48, y: point.y - 22 },
+          position: outHandle,
           forceSmooth: true
         }
       ])
       return adjacentSegmentIds
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:set-handles')
+    await expectLocalVectorInvariants(page, 'full-topology:set-handles')
     const setHandlesUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(setHandlesUndo)
     expect([...setHandlesUndo.pointSetIds].sort()).toEqual(['B:in', 'B:out'])
@@ -989,7 +978,7 @@ test.describe('Vector app-flow invariants', () => {
       }
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:set-handle-mode')
+    await expectLocalVectorInvariants(page, 'full-topology:set-handle-mode')
     const setHandleModeUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(setHandleModeUndo)
     expect(
@@ -1012,7 +1001,7 @@ test.describe('Vector app-flow invariants', () => {
       elementApis.setVectorClosed(elementId, false)
     })
     await page.waitForTimeout(250)
-    await expectWorkspaceVectorInvariants(page, 'full-topology:set-open')
+    await expectLocalVectorInvariants(page, 'full-topology:set-open')
     const setOpenUndo = await getLastUndoPatchSummary(page)
     expectOnlyComputedPatchUndo(setOpenUndo)
     expect(setOpenUndo.pointSetIds).toEqual([])

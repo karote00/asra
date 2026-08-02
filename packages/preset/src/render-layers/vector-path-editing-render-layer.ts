@@ -114,7 +114,14 @@ interface OverlayDrawState {
 interface VectorComputedData {
   x?: number
   y?: number
-  pointCoordinateSpace?: 'workspace'
+  width?: number
+  height?: number
+  rotation?: number
+  scaleX?: number
+  scaleY?: number
+  skewX?: number
+  skewY?: number
+  pointCoordinateSpace?: 'local'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -363,14 +370,24 @@ const buildOverlayVectorDataSignature = (
     Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
   > &
     Pick<VectorComputedData, 'x' | 'y' | 'pointCoordinateSpace'>,
-  offsetX: number,
-  offsetY: number
+  transform: {
+    a: number
+    b: number
+    c: number
+    d: number
+    tx: number
+    ty: number
+  }
 ) => {
   const parts = [
     'o',
-    computed.pointCoordinateSpace ?? 'missing-workspace',
-    String(offsetX),
-    String(offsetY)
+    computed.pointCoordinateSpace ?? 'missing-local',
+    String(transform.a),
+    String(transform.b),
+    String(transform.c),
+    String(transform.d),
+    String(transform.tx),
+    String(transform.ty)
   ]
   appendSortedVectorPointSignature(parts, computed.points)
   appendSortedVectorSegmentSignature(parts, computed.segments)
@@ -381,7 +398,7 @@ const buildOverlayVectorDataSignature = (
 export const resolveOverlayHandlePosition = resolveSyntheticVectorHandlePosition
 
 const getPathEditingVectorDataWithDeps = (
-  deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>,
   cache?: { current: OverlayVectorDataCache | null }
 ): OverlayVectorData | null => {
   const pathEditingVectorId = deps.systemContext.getManagedProperty<
@@ -409,13 +426,20 @@ const getPathEditingVectorDataWithDeps = (
     }
     return null
   }
-  if (computed.pointCoordinateSpace !== 'workspace') {
+  if (computed.pointCoordinateSpace !== 'local') {
     if (cache) {
       cache.current = null
     }
     return null
   }
-  const computedPoints = computed.points
+  const renderElement = deps.render.getElementById(pathEditingVectorId)
+  if (!renderElement) {
+    if (cache) {
+      cache.current = null
+    }
+    return null
+  }
+  const localPoints = computed.points
   const computedSegments = computed.segments
   const computedNetworks = computed.networks
   const offsetX = 0
@@ -425,15 +449,14 @@ const getPathEditingVectorDataWithDeps = (
     () =>
       buildOverlayVectorDataSignature(
         {
-          points: computedPoints,
+          points: localPoints,
           segments: computedSegments,
           networks: computedNetworks,
           x: computed.x,
           y: computed.y,
           pointCoordinateSpace: computed.pointCoordinateSpace
         },
-        offsetX,
-        offsetY
+        renderElement.worldTransform
       )
   )
   const cached = cache?.current
@@ -450,7 +473,7 @@ const getPathEditingVectorDataWithDeps = (
   emitDiagnosticCounter('editing-overlay-full-topology-walk')
   emitDiagnosticCounter(
     'editing-overlay-walk-point-count',
-    Object.keys(computedPoints).length
+    Object.keys(localPoints).length
   )
   emitDiagnosticCounter(
     'editing-overlay-walk-segment-count',
@@ -460,6 +483,25 @@ const getPathEditingVectorDataWithDeps = (
     'editing-overlay-walk-network-count',
     Object.keys(computedNetworks).length
   )
+
+  const computedPoints: Record<string, VectorPointNode> = {}
+  for (const [pointId, point] of Object.entries(localPoints)) {
+    const workspacePosition = deps.render.elementLocalToWorkspace(
+      pathEditingVectorId,
+      point
+    )
+    if (!workspacePosition) {
+      if (cache) {
+        cache.current = null
+      }
+      return null
+    }
+    computedPoints[pointId] = {
+      ...point,
+      x: workspacePosition.x,
+      y: workspacePosition.y
+    }
+  }
 
   const orderedNetworks = sortVectorItemsById(Object.values(computedNetworks))
   const subpaths: OverlaySubpath[] = []

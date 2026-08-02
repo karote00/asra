@@ -45,7 +45,7 @@ interface VectorComputedData {
   y?: number
   width?: number
   height?: number
-  pointCoordinateSpace?: 'workspace'
+  pointCoordinateSpace?: 'local'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -279,7 +279,7 @@ const drawOvalGeometryOutline = (
 
 const drawVectorHoverOutline = (
   canvas: OverlayCanvas,
-  deps: Pick<PresetDependencies, 'sceneTree'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree'>,
   elementId: string,
   viewportPosition: PositionData,
   viewportScale: number
@@ -294,7 +294,7 @@ const drawVectorHoverOutline = (
   const segments = computed.segments
   const networks = computed.networks
   if (
-    computed.pointCoordinateSpace !== 'workspace' ||
+    computed.pointCoordinateSpace !== 'local' ||
     !points ||
     !segments ||
     !networks
@@ -338,13 +338,21 @@ const drawVectorHoverOutline = (
           ? points[segment.inControlId]
           : null
 
+      const startWorkspace = deps.render.elementLocalToWorkspace(
+        elementId,
+        start
+      )
+      const endWorkspace = deps.render.elementLocalToWorkspace(elementId, end)
+      if (!startWorkspace || !endWorkspace) {
+        return
+      }
       const startPoint = projectWorkspacePointToOverlayScreen(
-        start,
+        startWorkspace,
         viewportPosition,
         viewportScale
       )
       const endPoint = projectWorkspacePointToOverlayScreen(
-        end,
+        endWorkspace,
         viewportPosition,
         viewportScale
       )
@@ -358,13 +366,24 @@ const drawVectorHoverOutline = (
         return
       }
 
+      const control1Workspace = deps.render.elementLocalToWorkspace(
+        elementId,
+        outControl ?? start
+      )
+      const control2Workspace = deps.render.elementLocalToWorkspace(
+        elementId,
+        inControl ?? end
+      )
+      if (!control1Workspace || !control2Workspace) {
+        return
+      }
       const control1 = projectWorkspacePointToOverlayScreen(
-        outControl ?? start,
+        control1Workspace,
         viewportPosition,
         viewportScale
       )
       const control2 = projectWorkspacePointToOverlayScreen(
-        inControl ?? end,
+        control2Workspace,
         viewportPosition,
         viewportScale
       )
@@ -589,7 +608,7 @@ const appendVectorComputedSignature = (
 
   const computed = sceneElement.getAllComputedData() as VectorComputedData
   parts.push(
-    computed.pointCoordinateSpace ?? 'missing-workspace',
+    computed.pointCoordinateSpace ?? 'missing-local',
     String(computed.x ?? ''),
     String(computed.y ?? ''),
     String(computed.width ?? ''),

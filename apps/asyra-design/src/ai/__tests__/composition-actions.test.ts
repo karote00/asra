@@ -201,7 +201,7 @@ const createServerPreparedCompositionArtifact = (
         ...common,
         closed: item.closed === true,
         networks: {},
-        pointCoordinateSpace: 'workspace',
+        pointCoordinateSpace: 'local',
         points: {},
         props: Object.freeze({
           ...common.props,

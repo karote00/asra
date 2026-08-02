@@ -27,7 +27,8 @@
 - `element/vector-apis.ts` and focused `element/vector-*` modules
 
   - vector anchor point queries and updates
-  - center-based whole-vector topology scaling with stable canonical ids
+  - stable local topology plus Render-owned workspace/local projection
+  - center-based whole-vector element scaling without point-record mutation
   - topology validation and repair
   - vector operation intents, handle modes, geometry, and Bezier adaptation
 
@@ -36,7 +37,8 @@
   - repeatable appearance-property mutations
   - first-canonical-fill and first-canonical-stroke color query/update
     boundaries for bounded feature actions
-  - gradient geometry and stroke-related vector-bounds repair
+  - gradient geometry; stroke edits never rewrite independent Vector transform
+    values
 
 - `property-patch.ts`
 
@@ -118,8 +120,9 @@
   topology, style, ordinary render route, rollback evidence, and undo replay.
   The ordered `ADD_ELEMENT` records remain the only externally delivered batch
   evidence. A supplied
-  `parentWorkspaceOrigin` preserves the original workspace topology points
-  while storing the prepared Vector bounds in Group-local coordinates. The AI
+  `parentWorkspaceOrigin` converts the incoming workspace topology to stable
+  Vector-local points while storing the prepared Vector bounds in Group-local
+  coordinates. The AI
   action creates one canonical Group first, bounds only simultaneous transient
   topology representations, streams every accepted chunk directly into that
   Group in order, and remains inside one outer transaction; mixed primitive
@@ -138,11 +141,15 @@
 - `hierarchyApis` keeps one intended group, ungroup, move/reorder, or subtree
   removal in one transaction. Preset owns only official Group coordinates and
   bounds; Scene Tree remains the hierarchy validator/mutator.
-- Vector geometry updates normalize anchor points against computed bounds.
-- `elementApis.scaleVectorElementAroundCenter(...)` scales every canonical
-  workspace anchor/control point around the vector bounds center, preserves
-  point/segment/network ids and subpaths, recomputes bounds, and commits through
-  the ordinary vector patch transaction route.
+- Vector point/control records are canonical local geometry. Element transform
+  values never normalize or rebase that topology.
+- `elementApis.setElementPositions(...)` sends the same constant-size `x/y`
+  update for Vector and ordinary elements; point count is not part of move cost.
+- `elementApis.scaleVectorElementAroundCenter(...)` updates only
+  `x/y/width/height` around the current center and commits through the ordinary
+  element property route. It never patches point/control records.
+- Point/handle edits inverse-project workspace intent through Render, then patch
+  only changed local records plus bounded geometry evidence.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.

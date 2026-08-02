@@ -44,6 +44,9 @@
 
 - `applyPreset(core)` selects profile `2D`, installs all eight official defaults,
   and stores the preset-owned Pixi provider without constructing the engine
+- registers the app-owned connected Vector document migration immediately
+  after Preset composition: v1 workspace point/control records become v2 local
+  records before Core validation/apply, and v2 documents bypass conversion
 - the current app chooses the default no-customization route; an app that
   customizes defaults performs ordinary Core get/redefine, relation, or
   unregister/define calls after `applyPreset(core)` and before diagnostics,
@@ -103,6 +106,11 @@
 ## Data Flow (App)
 
 Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-context -> React Providers -> UI
+
+Vector geometry remains local through this flow. Whole-element and hierarchy
+actions mutate only element transform values; Render projects the local
+topology through one current affine transform, and editing queries use its
+inverse rather than rebasing canonical point/control records.
 
 ## Collaboration Ownership
 

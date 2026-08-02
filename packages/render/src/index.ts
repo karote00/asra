@@ -46,6 +46,7 @@ export type {
 export type {
   EngineNeutralRenderStrategy,
   RenderStrategy,
+  RenderStrategyCapabilities,
   RenderStrategyGraphic
 } from './types/render-strategy'
 export type { RenderLayerRegistration } from './types/render-layer'

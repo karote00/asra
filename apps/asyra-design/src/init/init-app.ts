@@ -10,6 +10,7 @@ import { initSelectionCompatibility } from './derived-state/init-selection-compa
 import { initPathEditingContinuation } from './derived-state/init-path-editing-continuation'
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
+import { installVectorLocalGeometryMigration } from './migrations/vector-local-geometry-migration'
 import { elementApis } from '../common-apis/element'
 import { viewportApis } from '../common-apis/viewport'
 import {
@@ -56,6 +57,7 @@ export interface AppInitialization {
  */
 export const initApp = (): AppInitialization => {
   applyPreset(core)
+  installVectorLocalGeometryMigration(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
   void initCanvasPipelineDebugger()

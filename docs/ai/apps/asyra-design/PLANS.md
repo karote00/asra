@@ -4,15 +4,20 @@ Never record completed plans here.
 
 ## Current Status
 
-- No active app plan.
+- Highest-priority active app plan:
+  `plans/vector-local-geometry-transform-plan.md`.
+- Active architecture authority:
+  `plans/vector-local-geometry-transform-flow-inspector.data.cjs`.
+- The accepted contract stores every Vector point/control in one stable local
+  coordinate space and routes whole-element move/dimension/rotation/scale/skew
+  through element transform state without point-record mutation.
 - Completed canonical record for the accepted App-level CRDT, persistence,
   property-projection, and request-time Agent flow:
   `plans/completed/ai-conversational-drawing-performance-plan.md`.
 - Retained architecture authority for the completed app-level CRDT closure:
   `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
-- The product owner identified a separate Vector issue on 2026-08-02 and
-  explicitly deferred its description and scope to the next task. No plan has
-  been created or activated for that issue.
+- The previously deferred Vector issue was accepted and activated on
+  2026-08-03 through the plan above.
 - The framework canonical projection and collaboration prerequisite completed
   on 2026-07-29. Its canonical record is
   `../../framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`.

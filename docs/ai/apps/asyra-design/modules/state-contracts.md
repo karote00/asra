@@ -200,6 +200,14 @@ This file defines app-level state keys, owners, and primary consumers.
 
 ## Vector Computed Geometry Keys
 
+- `pointCoordinateSpace`
+
+  - canonical owner: the Vector property component
+  - canonical value: exactly `local` for every v2 document Vector
+  - the app-owned v1-to-v2 load hook converts legacy workspace point/control
+    coordinates before Core validation/apply; production has no dual-coordinate
+    runtime fallback
+
 - `points`
 
   - canonical owner: the vector element `points` property component; Scene
@@ -230,6 +238,16 @@ This file defines app-level state keys, owners, and primary consumers.
   - transient drag writer: local computed preview only; cancellation restores
     the current canonical property projection
   - readers: vector render strategy, path-editing subpath flow, vector path-editing render layer
+
+- `x`, `y`, `width`, `height`, `rotation`, and affine Render inputs
+
+  - canonical owner: ordinary element property components
+  - whole-element move, dimension, rotation, scale, skew, Group normalization,
+    and reparent operations update only element/hierarchy values
+  - these operations never patch, clone, translate, or rebase `points`,
+    `segments`, or `networks`
+  - Render composes the current values with local geometry; workspace/client
+    point-edit intent is inverse-projected through that same current transform
 
 - `fills`
 

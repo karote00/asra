@@ -11,7 +11,7 @@ import {
   emitDiagnosticCounter,
   measureBrowserDragPhase
 } from '@asyra/utils'
-import type { RenderPointerPositions } from '@asyra/utils'
+import type { PositionData, RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
 import { RenderLayerRegistry } from './registries/render-layer'
@@ -523,6 +523,37 @@ class Render {
 
   getElementById(elementId: string) {
     return this.viewport.getElementById(elementId)
+  }
+
+  workspaceToElementLocal(
+    elementId: string,
+    workspacePosition: PositionData
+  ): PositionData | null {
+    const element = this.viewport.getElementById(elementId)
+    if (!element) {
+      return null
+    }
+    const canvasPosition = this.viewport.view.toGlobal(workspacePosition)
+    const localPosition = element.toLocal(canvasPosition)
+    return Number.isFinite(localPosition.x) && Number.isFinite(localPosition.y)
+      ? localPosition
+      : null
+  }
+
+  elementLocalToWorkspace(
+    elementId: string,
+    localPosition: PositionData
+  ): PositionData | null {
+    const element = this.viewport.getElementById(elementId)
+    if (!element) {
+      return null
+    }
+    const canvasPosition = element.toGlobal(localPosition)
+    const workspacePosition = this.viewport.view.toLocal(canvasPosition)
+    return Number.isFinite(workspacePosition.x) &&
+      Number.isFinite(workspacePosition.y)
+      ? workspacePosition
+      : null
   }
 
   resize(width: number, height: number): void {

@@ -659,10 +659,6 @@ export const elementApis = {
         elementId: string
         values: PositionData
       }[] = []
-      const vectorPositionUpdates: {
-        elementId: string
-        position: PositionData
-      }[] = []
 
       entries.forEach(([elementId, position]) => {
         if (
@@ -684,14 +680,6 @@ export const elementApis = {
           return
         }
 
-        if (elementApis.getElementType(elementId) === 'vector') {
-          vectorPositionUpdates.push({
-            elementId,
-            position
-          })
-          return
-        }
-
         propertyUpdates.push({
           elementId,
           values: {
@@ -700,10 +688,6 @@ export const elementApis = {
           }
         })
       })
-
-      if (vectorPositionUpdates.length > 0) {
-        vectorApis.setVectorElementPositions(vectorPositionUpdates, options)
-      }
 
       if (propertyUpdates.length > 0) {
         core.updateElementProperties(propertyUpdates, options)

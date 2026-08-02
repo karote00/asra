@@ -1092,6 +1092,30 @@ describe('Render', () => {
     )
   })
 
+  it('converts between workspace and element-local coordinates through Render ancestry', () => {
+    const element = new RenderGraphics()
+    element.x = 10
+    element.y = 20
+    render.viewport.view.x = 100
+    render.viewport.view.y = 50
+    render.viewport.view.scale.set(2, 2)
+    render.viewport.view.addChild(element)
+    vi.spyOn(render.viewport, 'getElementById').mockImplementation(
+      (elementId) => (elementId === 'vector-1' ? element : undefined)
+    )
+
+    expect(
+      render.workspaceToElementLocal('vector-1', { x: 15, y: 27 })
+    ).toEqual({ x: 5, y: 7 })
+    expect(render.elementLocalToWorkspace('vector-1', { x: 5, y: 7 })).toEqual({
+      x: 15,
+      y: 27
+    })
+    expect(
+      render.workspaceToElementLocal('missing', { x: 15, y: 27 })
+    ).toBeNull()
+  })
+
   it('passes complete vector and non-vector snapshots through the same strategy signature', () => {
     const vectorStrategy = vi.fn()
     const rectangleStrategy = vi.fn()
