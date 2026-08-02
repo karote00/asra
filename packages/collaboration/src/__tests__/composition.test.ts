@@ -77,7 +77,10 @@ describe('optional collaboration composition', () => {
     expect(turbo.tasks?.['@asyra/collaboration#build:collaboration']).toEqual({
       cache: false,
       outputs: ['dist/**'],
-      dependsOn: ['@asyra/factory#build:factory']
+      dependsOn: [
+        '@asyra/factory#build:factory',
+        '@asyra/utils#build:utils'
+      ]
     })
   })
 

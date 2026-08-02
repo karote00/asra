@@ -107,6 +107,7 @@ __metadata:
   resolution: "@asyra/collaboration@workspace:packages/collaboration"
   dependencies:
     "@asyra/factory": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"

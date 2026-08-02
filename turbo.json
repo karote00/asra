@@ -67,7 +67,8 @@
         "dist/**"
       ],
       "dependsOn": [
-        "@asyra/factory#build:factory"
+        "@asyra/factory#build:factory",
+        "@asyra/utils#build:utils"
       ]
     },
     "@asyra/core#build:core": {

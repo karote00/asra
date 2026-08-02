@@ -102,7 +102,7 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
   assert.match(rootManifest.scripts['test:ci'], /test:scripts/)
 })
 
-test('Asyra Design keeps frontend and collaboration server startup separate', () => {
+test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
   const rootManifest = readJSON('package.json')
   const appReadme = readText('apps/asyra-design/README.md')
 
@@ -130,8 +130,16 @@ test('Asyra Design keeps frontend and collaboration server startup separate', ()
   assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
   assert.match(appReadme, /required non-empty `fileId`/i)
   assert.match(appReadme, /always starts Collaboration/i)
-  assert.match(appReadme, /no client persistence provider/i)
-  assert.doesNotMatch(appReadme, /browser-local demo database uses IndexedDB/i)
+  assert.match(appReadme, /browser-local IndexedDB document/i)
+  assert.match(
+    appReadme,
+    /Manual actions, Agent actions, Undo, Redo, accepted remote publications,[\s\S]*Reset persist through one serialized provider queue/i
+  )
+  assert.match(
+    appReadme,
+    /This reference persistence replaces no\s+production database/i
+  )
+  assert.doesNotMatch(appReadme, /no client persistence provider/i)
 })
 
 test('CI, E2E, and release validation own their bounded integration gates', () => {
