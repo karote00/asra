@@ -49,6 +49,11 @@ export const startSharedChannelCapture = (key: string, channel: string): void =>
   )
 
 export const clearTestCapture = (key: string): void => {
+  const values = testRuntimeState.get<unknown[]>(key)
+  if (Array.isArray(values)) {
+    values.length = 0
+    return
+  }
   testState.set(key, [])
 }
 
