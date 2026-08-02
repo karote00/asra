@@ -27,6 +27,10 @@ and closed on 2026-08-03.
   persistence tests, 5 backend/sample tests, 15 collaboration-server tests,
   and 21 Inspector contract tests passed; the production App build passed and
   lint completed with zero errors.
+- Playwright-only composition supplies an in-memory implementation of the exact
+  same-origin database contract so save/reload tests exercise formal HTTP
+  persistence. Ordinary development and production startup never enable that
+  fixture and retain visible, nonfatal database-unavailable behavior.
 - Deferred issue: the product owner identified a separate serious Vector issue
   but reserved its description, diagnosis, and scope for the next task. This
   closeout makes no broader claim that the Vector subsystem has no remaining

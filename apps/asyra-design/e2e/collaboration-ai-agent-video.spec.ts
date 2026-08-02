@@ -1378,7 +1378,7 @@ const getPersistedAiDrawingEvidence = (
   fileId: string
 ): Promise<PersistedAiDrawingEvidence | null> =>
   page.evaluate(
-    async ({ key }) => {
+    async ({ requestedFileId }) => {
       interface SavedElement {
         children?: readonly string[]
         id?: string
@@ -1387,26 +1387,27 @@ const getPersistedAiDrawingEvidence = (
         [key: string]: unknown
       }
       type SavedProperty = Record<string, unknown>
-      const saved = await new Promise<{
-        props?: Record<string, SavedProperty>
-        sceneTree?: {
-          elements?: Record<string, SavedElement>
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(requestedFileId)}`,
+        {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' }
         }
-      } | null>((resolve, reject) => {
-        const openRequest = indexedDB.open('asyra-documents')
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction('documents', 'readonly')
-          const request = transaction.objectStore('documents').get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () => resolve(request.result ?? null)
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
-        }
-      })
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Document database load failed with status ${String(response.status)}`
+        )
+      }
+      const payload = (await response.json()) as {
+        document?: {
+          props?: Record<string, SavedProperty>
+          sceneTree?: {
+            elements?: Record<string, SavedElement>
+          }
+        } | null
+      }
+      const saved = payload.document ?? null
       if (!saved) return null
 
       const properties = saved.props ?? {}
@@ -1537,7 +1538,7 @@ const getPersistedAiDrawingEvidence = (
         )
       }
     },
-    { key: `FILE:${fileId}` }
+    { requestedFileId: fileId }
   )
 
 const waitForPersistedAiDrawingEvidence = async (
@@ -2275,20 +2276,10 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     await measureHarnessPhase('runtime-evidence-ready', () =>
       captureProgressiveRuntimeEvidence(actorA)
     )
-    const actorBPersistenceBaseline = await measureHarnessPhase(
-      'peer-persistence-baseline',
-      () => getPersistedAiDrawingEvidence(actorB, fileId)
-    )
     const [actorATransactionBaseline, actorBTransactionBaseline] =
       await measureHarnessPhase('history-baseline', () =>
         Promise.all([getUndoHistoryDepth(actorA), getUndoHistoryDepth(actorB)])
       )
-    const expectActorBPersistenceUnchanged = async (checkpoint: string) => {
-      expect(
-        await getPersistedAiDrawingEvidence(actorB, fileId),
-        `Actor B persistence changed after ${checkpoint}`
-      ).toEqual(actorBPersistenceBaseline)
-    }
 
     if (process.env.CAPTURE_RENDERER_CPU_PROFILE === '1') {
       const actorASession = await actorAContext.newCDPSession(actorA)
@@ -2458,7 +2449,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     expect(canonicalSummary(actorACreated)).toEqual(canonicalSummary(created))
     // eslint-disable-next-line no-console
     console.log(`AI_CRDT_PHASE actor-a-persisted ${actorACreated.totalCount}`)
-    await expectActorBPersistenceUnchanged('creation')
     sourceProfiles.creation = await getPerformanceProfileSnapshot(actorA)
     expectProfileOwnerPhases(sourceProfiles.creation, 'Actor A creation', [
       'ai-app:prepare-composition-bulk-request',
@@ -2472,8 +2462,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       'render:flush-frame',
       'ui-context:flush',
       'core:persistence-capture',
-      'core:persistence-save',
-      'persistence:indexeddb-put'
+      'core:persistence-save'
     ])
     expect(
       sourceProfiles.creation.phases.some(
@@ -2531,11 +2520,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
         )
       ).toBe(0)
     }
-    for (const phase of [
-      'core:persistence-capture',
-      'core:persistence-save',
-      'persistence:indexeddb-put'
-    ]) {
+    for (const phase of ['core:persistence-capture', 'core:persistence-save']) {
       expect(
         peerProfiles.creation.phases.filter(({ name }) => name === phase)
       ).toHaveLength(0)
@@ -2610,7 +2595,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     )
     const whiskerConvergedAtMs = Date.now()
     const whiskerDiagnostics = await getCollaborationDiagnostics(actorA)
-    await expectActorBPersistenceUnchanged('blue-whiskers follow-up')
     sourceProfiles.blueWhiskers = await getPerformanceProfileSnapshot(actorA)
     expect(await getUndoHistoryDepth(actorA)).toBe(
       actorATransactionBaseline + 2
@@ -2659,7 +2643,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     )
     const pupilConvergedAtMs = Date.now()
     const pupilDiagnostics = await getCollaborationDiagnostics(actorA)
-    await expectActorBPersistenceUnchanged('red-pupils follow-up')
     sourceProfiles.redPupils = await getPerformanceProfileSnapshot(actorA)
     expect(await getUndoHistoryDepth(actorA)).toBe(
       actorATransactionBaseline + 3
@@ -2689,7 +2672,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     expect((await getPersistedAiDrawingEvidence(actorA, fileId))?.sha256).toBe(
       actorARedPupils.sha256
     )
-    await expectActorBPersistenceUnchanged('Actor B no-op undo')
 
     await actorA.getByRole('button', { name: 'Undo AI change' }).click()
     await expect(
@@ -2713,7 +2695,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       canonicalSummary(undonePupils)
     )
     expect(actorAUndonePupils.sha256).toBe(actorABlueWhiskers.sha256)
-    await expectActorBPersistenceUnchanged('Actor A undo')
     expect(await getUndoHistoryDepth(actorA)).toBe(
       actorATransactionBaseline + 2
     )
@@ -2739,7 +2720,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       canonicalSummary(redonePupils)
     )
     expect(actorARedonePupils.sha256).toBe(actorARedPupils.sha256)
-    await expectActorBPersistenceUnchanged('Actor A redo')
     expect(await getUndoHistoryDepth(actorA)).toBe(
       actorATransactionBaseline + 3
     )
@@ -2762,8 +2742,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
         'render:flush-frame',
         'ui-context:flush',
         'core:persistence-capture',
-        'core:persistence-save',
-        'persistence:indexeddb-put'
+        'core:persistence-save'
       ])
       expectProfileOwnerPhases(peerProfiles[stage], `Actor B ${stage}`, [
         'collaboration:inbound-receive-to-dispatch',
@@ -2772,6 +2751,14 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
         'render:flush-frame',
         'ui-context:flush'
       ])
+      for (const phase of [
+        'core:persistence-capture',
+        'core:persistence-save'
+      ]) {
+        expect(
+          peerProfiles[stage].phases.filter(({ name }) => name === phase)
+        ).toHaveLength(0)
+      }
     }
     const sourceProfileSnapshots = Object.values(sourceProfiles)
     const peerProfileSnapshots = Object.values(peerProfiles)

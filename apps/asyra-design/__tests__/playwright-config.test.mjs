@@ -85,6 +85,34 @@ test('ordinary Playwright starts the always-on collaboration service before the 
   assert.match(configSource, /webServer:[\s\S]*\? undefined[\s\S]*: \[/)
 })
 
+test('Playwright enables the test-only formal document database without changing ordinary App startup', async () => {
+  const [ordinaryConfig, collaborationConfig, viteConfig, ciScript] =
+    await Promise.all([
+      readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
+      readFile(
+        new URL('../playwright.collaboration.config.ts', import.meta.url),
+        'utf8'
+      ),
+      readFile(new URL('../vite.config.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../../scripts/run-e2e.sh', import.meta.url), 'utf8')
+    ])
+
+  assert.match(
+    ordinaryConfig,
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start/
+  )
+  assert.match(
+    collaborationConfig,
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start/
+  )
+  assert.match(
+    ciScript,
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+  )
+  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
+  assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
+})
+
 test('CI can exclude the isolated render performance gate from the functional suite', () => {
   const ordinary = listTests('playwright.config.ts')
   const functional = listTests('playwright.config.ts', {

@@ -61,7 +61,6 @@ const expectFileScopedPersistenceEvidence = async (
   origin: 'local' | 'remote'
 ) => {
   const evidence = await getClientPersistenceEvidence(page)
-  expect(evidence.indexedDbPutCount).toBeGreaterThan(0)
   if (origin === 'local') {
     expect(evidence.captureCount).toBeGreaterThan(0)
     expect(evidence.saveCount).toBeGreaterThan(0)
@@ -720,7 +719,6 @@ const getClientPersistenceEvidence = (page: Page) =>
       phases.filter((phase) => phase.name === name).length
     return {
       captureCount: count('core:persistence-capture'),
-      indexedDbPutCount: count('persistence:indexeddb-put'),
       saveCount: count('core:persistence-save')
     }
   })
@@ -1084,7 +1082,7 @@ test('16-item AI response converges through the ordinary two-actor publication p
     ])
     checkpoint = 'ai-redo-persistence-evidence-complete'
 
-    await test.step('Actor B reloads its persisted canonical snapshot', async () => {
+    await test.step('Actor B reloads the origin-persisted canonical snapshot', async () => {
       checkpoint = 'actor-b-reload-started'
       await actorB.reload()
       checkpoint = 'actor-b-reload-navigation-complete'
@@ -2137,9 +2135,7 @@ test('vector creation and anchor movement converge through the canonical collabo
 
     const remoteDigest = await getCoreDocumentDigest(second)
     await expect
-      .poll(() =>
-        getPersistedDocumentDigest(second, `FILE:${encodeURIComponent(fileId)}`)
-      )
+      .poll(() => getPersistedDocumentDigest(second, fileId))
       .toEqual(remoteDigest)
     await second.reload()
     await waitForAppReady(second)

@@ -37,12 +37,12 @@ export const createTestDocumentIdentity = (
 export const createTestDocumentURL = (search = ''): string =>
   createTestDocumentIdentity(search).url
 
-export const getCurrentDocumentStorageKey = (page: Page): string => {
+export const getCurrentDocumentFileId = (page: Page): string => {
   const fileId = new URL(page.url()).searchParams.get('fileId')?.trim()
   if (!fileId) {
     throw new Error('The current page does not have a fileId')
   }
-  return `FILE:${encodeURIComponent(fileId)}`
+  return fileId
 }
 
 export const captureBrowserErrors = (page: Page): void => {
@@ -165,35 +165,6 @@ export async function resetCanvas(page: Page) {
   })
 }
 
-export async function readPersistedDocument<T = unknown>(
-  page: Page,
-  storageKey = 'FILE'
-): Promise<T | null> {
-  return page.evaluate(
-    async ({ databaseName, objectStoreName, key }) =>
-      new Promise<T | null>((resolve, reject) => {
-        const openRequest = indexedDB.open(databaseName)
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction(objectStoreName, 'readonly')
-          const request = transaction.objectStore(objectStoreName).get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () => resolve((request.result as T) ?? null)
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
-        }
-      }),
-    {
-      databaseName: 'asyra-documents',
-      objectStoreName: 'documents',
-      key: storageKey
-    }
-  )
-}
-
 export const getClientPersistenceEvidence = (page: Page) =>
   page.evaluate(async () => {
     const phases =
@@ -204,7 +175,6 @@ export const getClientPersistenceEvidence = (page: Page) =>
       phases.filter((phase) => phase.name === name).length
     return {
       captureCount: count('core:persistence-capture'),
-      indexedDbPutCount: count('persistence:indexeddb-put'),
       saveCount: count('core:persistence-save')
     }
   })
@@ -234,49 +204,36 @@ export async function getCoreDocumentDigest(
 
 export async function getPersistedDocumentDigest(
   page: Page,
-  storageKey = 'FILE'
+  fileId = getCurrentDocumentFileId(page)
 ): Promise<DocumentDigest | null> {
   return page.evaluate(
-    async ({ databaseName, objectStoreName, key }) =>
-      new Promise<DocumentDigest | null>((resolve, reject) => {
-        const openRequest = indexedDB.open(databaseName)
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction(objectStoreName, 'readonly')
-          const request = transaction.objectStore(objectStoreName).get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () => {
-            if (request.result === undefined) {
-              resolve(null)
-              return
-            }
-            const bytes = new TextEncoder().encode(
-              JSON.stringify(request.result)
-            )
-            void crypto.subtle
-              .digest('SHA-256', bytes)
-              .then((digest) =>
-                resolve({
-                  byteLength: bytes.byteLength,
-                  sha256: [...new Uint8Array(digest)]
-                    .map((value) => value.toString(16).padStart(2, '0'))
-                    .join('')
-                })
-              )
-              .catch(reject)
-          }
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
+    async ({ requestedFileId }) => {
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(requestedFileId)}`,
+        {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' }
         }
-      }),
-    {
-      databaseName: 'asyra-documents',
-      objectStoreName: 'documents',
-      key: storageKey
-    }
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Document database load failed with status ${String(response.status)}`
+        )
+      }
+      const payload = (await response.json()) as { document?: unknown }
+      if (payload.document === undefined || payload.document === null) {
+        return null
+      }
+      const bytes = new TextEncoder().encode(JSON.stringify(payload.document))
+      const digest = await crypto.subtle.digest('SHA-256', bytes)
+      return {
+        byteLength: bytes.byteLength,
+        sha256: [...new Uint8Array(digest)]
+          .map((value) => value.toString(16).padStart(2, '0'))
+          .join('')
+      }
+    },
+    { requestedFileId: fileId }
   )
 }
 

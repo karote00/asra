@@ -28,7 +28,7 @@ export default defineConfig({
       timeout: 120_000
     },
     {
-      command: `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
+      command: `E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
       url: appEnvironment.appURL,
       reuseExistingServer: !ownsTestServers,
       timeout: 120_000

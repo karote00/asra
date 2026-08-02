@@ -1040,6 +1040,7 @@
         'Each accepted remote publication performs canonical apply and projection with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical apply completion and never waits for receiver durability.',
         'The deployed crdt-7076 URL loads the checked-in compressed canonical document with exactly 7,076 non-workspace elements when the database request fails; it does so without Collaboration when no WebSocket endpoint is configured.',
         'The deployed App still attempts the formal database endpoint. It has no demo-only persistence provider, fake database success, or alternate document route.',
+        'Playwright server commands alone may enable one E2E-only in-memory implementation of the exact same-origin database contract. That test fixture is absent from ordinary development and production startup and never becomes a product persistence fallback.',
         'resetData loads one fresh App-owned empty document through Core.load and persists it through the same file-scoped provider without URL parsing or page reload.',
         'RenderApp startup and resetData obtain independent fresh values from the same zero-argument App-owned empty-document factory; no shared mutable empty-document singleton exists.',
         'Core.load is the sole FILE_LOAD_COMPLETE publisher for startup and reset. DataContexts observes that completed load for zoom-fit and never synthesizes file readiness from Render readiness.',

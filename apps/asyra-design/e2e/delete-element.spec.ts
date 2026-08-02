@@ -6,7 +6,7 @@ import {
   createVectorPath,
   getCoreDocumentDigest,
   getCanvasPosition,
-  getCurrentDocumentStorageKey,
+  getCurrentDocumentFileId,
   getElementCount,
   getPersistedDocumentDigest,
   getSelectedElementClientCenter,
@@ -205,7 +205,7 @@ test.describe('Delete Selected Element', () => {
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
       .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
       )
       .toEqual(finalDocumentDigest)
 

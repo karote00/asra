@@ -10,7 +10,7 @@ import {
   getActiveTool,
   getCanvasPosition,
   getCoreDocumentDigest,
-  getCurrentDocumentStorageKey,
+  getCurrentDocumentFileId,
   getPersistedDocumentDigest
 } from './test-utils'
 
@@ -1913,7 +1913,7 @@ test.describe('Pen Tool - Editing Flow', () => {
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
       .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
       )
       .toEqual(finalDocumentDigest)
 

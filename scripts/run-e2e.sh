@@ -64,7 +64,8 @@ npx wait-on "http-get://${ASYRA_E2E_COLLABORATION_HEALTH_URL#http://}" --timeout
 # 5. Start the diagnostic-enabled app runtime used by the ordinary E2E suite.
 # Production bundle/exclusion behavior is covered by the build and package gates.
 echo "Step 5: Starting E2E App server at $ASYRA_E2E_APP_URL..."
-yarn workspace @asyra/asyra-design react:start \
+E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 \
+  yarn workspace @asyra/asyra-design react:start \
   --port "$ASYRA_E2E_PORT" \
   --host "$ASYRA_E2E_HOST" \
   --strictPort &

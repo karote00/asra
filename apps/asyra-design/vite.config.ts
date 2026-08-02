@@ -3,11 +3,14 @@ import react from '@vitejs/plugin-react'
 import vercel from 'vite-plugin-vercel'
 import tailwindcss from 'tailwindcss'
 import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
+import { createDocumentDatabaseMiddleware } from './e2e/document-database-middleware.mjs'
 import { createVTracerMiddleware } from './vtracer-tool-server.mjs'
 import { createActionBatchMiddleware } from './server/action-batch'
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
+const enablesE2eDocumentDatabase =
+  process.env.ASYRA_E2E_DOCUMENT_DATABASE === '1'
 
 const createVTracerPlugin = (): Plugin => ({
   name: 'vtracer-tool',
@@ -29,6 +32,13 @@ const createActionBatchPlugin = (): Plugin => ({
   }
 })
 
+const createDocumentDatabaseTestPlugin = (): Plugin => ({
+  name: 'e2e-document-database',
+  configureServer(server) {
+    server.middlewares.use(createDocumentDatabaseMiddleware())
+  }
+})
+
 export default defineConfig({
   css: {
     postcss: {
@@ -36,6 +46,7 @@ export default defineConfig({
     }
   },
   plugins: [
+    ...(enablesE2eDocumentDatabase ? [createDocumentDatabaseTestPlugin()] : []),
     createActionBatchPlugin(),
     createVTracerPlugin(),
     vercel(),

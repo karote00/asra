@@ -7115,6 +7115,9 @@ join` constrained dashed product path across:
   - Full CRDT and durable persistence remain explicit local/integrator
     compositions requiring the separately started WebSocket service and an
     implementation of the documented database endpoint.
+  - Playwright server commands alone enable an E2E-only in-memory
+    implementation of that same endpoint. It verifies formal HTTP save/reload
+    without adding a demo, ordinary-development, or production fallback.
   - This decision supersedes the 2026-08-02 IndexedDB and receiver-persistence
     selections without deleting their append-only history.
   - Asyra Design has no active App plan. The separately reported Vector issue

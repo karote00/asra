@@ -5,7 +5,7 @@ import {
   getCanvasPosition,
   getCoreDocumentDigest,
   getContentsPanel,
-  getCurrentDocumentStorageKey,
+  getCurrentDocumentFileId,
   getPersistedDocumentDigest,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
@@ -804,7 +804,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
       .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
       )
       .toEqual(finalDocumentDigest)
 

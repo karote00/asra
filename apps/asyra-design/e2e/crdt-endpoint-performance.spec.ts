@@ -1582,8 +1582,7 @@ const readFinalDiagnostics = async (
       const persistencePhaseCount = snapshot.phases.filter(
         ({ name }) =>
           name === 'core:persistence-capture' ||
-          name === 'core:persistence-save' ||
-          name === 'persistence:indexeddb-put'
+          name === 'core:persistence-save'
       ).length
       return {
         attributionPhaseCounts: Object.fromEntries(

@@ -4,7 +4,7 @@ import {
   createRectangle,
   getCoreDocumentDigest,
   getContentsPanel,
-  getCurrentDocumentStorageKey,
+  getCurrentDocumentFileId,
   getPersistedDocumentDigest,
   pressGroupCommandShortcut,
   redo,
@@ -295,7 +295,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
       .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
       )
       .toEqual(finalDocumentDigest)
     await page.evaluate(async () => {
