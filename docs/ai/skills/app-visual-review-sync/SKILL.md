@@ -32,7 +32,7 @@ Use this skill when requests include:
 - Expected viewport, zoom, selection/editing state, and overlay visibility when relevant.
 
 For Asyra Design:
-- Use `ASYRA_DESIGN_APP_URL` as the single app and visual-review URL variable.
+- Use `APP_URL` as the single app and visual-review URL variable.
 - Read it from `apps/asyra-design/.env` or an explicit shell override.
 - Vite and Playwright resolve it through `apps/asyra-design/app-environment.mjs`.
 - Do not introduce a parallel visual-review or Playwright base URL.
@@ -69,19 +69,19 @@ Default scope:
 
 ## Asyra Design Visual Test Commands
 
-Always resolve `ASYRA_DESIGN_APP_URL` from `apps/asyra-design/.env` or an explicit shell override first.
+Always resolve `APP_URL` from `apps/asyra-design/.env` or an explicit shell override first.
 
 Playwright reads that same value directly:
 
 ```bash
-ASYRA_DESIGN_APP_URL="$ASYRA_DESIGN_APP_URL" \
+APP_URL="$APP_URL" \
 yarn workspace @asyra/asyra-design test:e2e <scope> --reporter=line
 ```
 
 Canonical stroke baseline scope:
 
 ```bash
-ASYRA_DESIGN_APP_URL="$ASYRA_DESIGN_APP_URL" \
+APP_URL="$APP_URL" \
 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-canonical --reporter=line
 ```
 
