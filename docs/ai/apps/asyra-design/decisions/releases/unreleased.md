@@ -7084,3 +7084,44 @@ join` constrained dashed product path across:
   - `d1f8d2faa` (`fix(app): realign persistent collaboration boundaries`)
   - `cd423b3a2` (`docs(app): realign Agent and collaboration contracts`)
   - `354fa5619` (`fix(app): restore request-time Agent sample flow`)
+
+## 2026-08-03 - Finalize formal database and disconnect-safe App/CRDT closure
+
+- Context:
+  - Final review corrected the prior browser-storage and receiver-persistence
+    assumptions: the reference App must attempt its formal same-origin document
+    database even when that service is unavailable, and a collaboration
+    receiver must never persist another client's operation.
+  - A request-start relay peer could disconnect before enqueue and incorrectly
+    prevent the sender and remaining healthy peers from progressing.
+- Decision:
+  - Keep one formal file-scoped HTTP document-database client. Database failure
+    remains visible but nonfatal; the App continues with the file-specific
+    initial document and never claims fake, IndexedDB, or localStorage
+    persistence success.
+  - Persist local actions, Agent actions, Undo, Redo, and Reset only from the
+    client that originated them. Accepted remote publications perform canonical
+    apply and projection with zero persistence, Undo, or echo, and
+    `peer-applied` acknowledges canonical apply rather than durability.
+  - Drop a peer that disconnects or leaves `OPEN` before relay admission while
+    allowing the source and all remaining healthy peers to continue.
+  - Retain the completed plan and Inspector as the architecture authority; a
+    forked production App supplies the matching database server without
+    changing the frontend persistence composition.
+- Consequences:
+  - The deployed 7,076 route remains a standalone, non-CRDT demo: it attempts
+    the formal database request, reports unavailability without crashing, and
+    loads the checked-in canonical sample.
+  - Full CRDT and durable persistence remain explicit local/integrator
+    compositions requiring the separately started WebSocket service and an
+    implementation of the documented database endpoint.
+  - This decision supersedes the 2026-08-02 IndexedDB and receiver-persistence
+    selections without deleting their append-only history.
+  - Asyra Design has no active App plan. The separately reported Vector issue
+    remains outside this completed scope.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
+- Related Commit(s):
+  - `382605f03` (`fix(collaboration): drop disconnected relay peers`)
+  - `3a88f1dde` (`fix(app): use formal document database persistence`)
+  - `cda8b10f0` (`style(app): format service availability boundaries`)

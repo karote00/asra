@@ -3,7 +3,9 @@
 ## Completion
 
 Completed on 2026-08-02 after the product owner accepted the corrected
-App/CRDT functionality and explicitly requested closeout.
+App/CRDT functionality. The final reopened database-availability,
+origin-only-persistence, and disconnect-safe relay corrections were accepted
+and closed on 2026-08-03.
 
 - Outcome: the App retains the accepted endpoint-ordered CRDT architecture,
   a formal file-scoped document-database client, ordinary property projection
@@ -21,6 +23,10 @@ App/CRDT functionality and explicitly requested closeout.
   Inspector contracts, production bundle/build checks, headless 16-item CRDT,
   prior accepted high-detail evidence, and explicit product-owner acceptance
   support this bounded closeout.
+- Final reopened verification: 58 focused App tests, 13 Core transaction and
+  persistence tests, 5 backend/sample tests, 15 collaboration-server tests,
+  and 21 Inspector contract tests passed; the production App build passed and
+  lint completed with zero errors.
 - Deferred issue: the product owner identified a separate serious Vector issue
   but reserved its description, diagnosis, and scope for the next task. This
   closeout makes no broader claim that the Vector subsystem has no remaining
