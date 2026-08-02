@@ -12,7 +12,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
 import { getUndoHistoryDepth, undo, waitForAppReady } from './test-utils'
-import { seedAsyraDesignServerResponse } from './server-response-inbox'
+import { seedServerResponse } from './server-response-inbox'
 
 interface CanonicalAiDrawingSnapshot {
   readonly blueStrokeIds: readonly string[]
@@ -182,10 +182,9 @@ const referenceImagePath = fileURLToPath(
     import.meta.url
   )
 )
-const RUN_HIGH_DETAIL_CRDT =
-  process.env.ASYRA_DESIGN_RUN_HIGH_DETAIL_AI_CRDT === '1'
+const RUN_HIGH_DETAIL_CRDT = process.env.RUN_HIGH_DETAIL_AI_CRDT === '1'
 const CAPTURE_HIGH_DETAIL_CRDT_VISUAL_REVIEW =
-  process.env.ASYRA_DESIGN_CAPTURE_AI_CRDT_VISUAL_REVIEW === '1'
+  process.env.CAPTURE_AI_CRDT_VISUAL_REVIEW === '1'
 const recordingWindowWidth = 1280
 const recordingWindowHeight = 500
 const recordingWindowLeft = 224
@@ -412,9 +411,13 @@ const prepareCompleteCatViewport = async (page: Page) => {
     y: viewport.y + (viewport.height - output.height * scale) / 2
   }
   await page.evaluate(
-    ({ nextPosition, nextScale }) => {
-      window.__Core__.setSystemProperty('zoom', nextScale)
-      window.__Core__.setSystemProperty('viewportPosition', nextPosition)
+    async ({ nextPosition, nextScale }) => {
+      ;(await import('../src/testing/runtime-access')).core
+        .setSystemProperty(
+          'zoom',
+          nextScale
+        )(await import('../src/testing/runtime-access'))
+        .core.setSystemProperty('viewportPosition', nextPosition)
     },
     {
       nextPosition: position,
@@ -429,32 +432,27 @@ const waitForCollaboration = async (page: Page) => {
   await expect
     .poll(() =>
       page.evaluate(
-        () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        async () =>
+          (await import('../src/testing/runtime-access'))
+            .getActiveCollaborationHandle()
+            ?.getStatus() ?? 'missing'
       )
     )
     .toBe('connected')
 }
 
 const captureCollaborationOutcomes = async (page: Page) => {
-  await page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & {
-      __aiCrdtOutcomes?: CollaborationOutcomeEvidence[]
-    }
-    runtime.__aiCrdtOutcomes = []
-    const collaboration = window.__AsyraCollaboration__ as
-      | (NonNullable<Window['__AsyraCollaboration__']> & {
-          observePublicationOutcomes(
-            subscriber: (outcome: {
-              direction: string
-              error?: unknown
-              publicationId: string
-              status: string
-            }) => void
-          ): () => void
-        })
-      | undefined
+  await page.evaluate(async () => {
+    const { getActiveCollaborationHandle, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const outcomes = testRuntimeState.set<CollaborationOutcomeEvidence[]>(
+      'ai-crdt-outcomes',
+      []
+    )
+    const collaboration = getActiveCollaborationHandle()
     collaboration?.observePublicationOutcomes((outcome) => {
-      runtime.__aiCrdtOutcomes?.push({
+      outcomes.push({
         capturedAtMs: performance.timeOrigin + performance.now(),
         direction: outcome.direction,
         ...(outcome.error instanceof Error
@@ -473,26 +471,24 @@ const captureCollaborationOutcomes = async (page: Page) => {
 }
 
 const captureProgressiveRuntimeEvidence = async (page: Page) => {
-  await page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & {
-      __aiCreateDeliveryModes?: string[]
-      __aiFactoryCommits?: FactoryCommitEvidence[]
-      __aiFactoryPublications?: FactoryPublicationEvidence[]
-      __aiFactoryStatuses?: FactoryTransactionStatusEvidence[]
-    }
-    runtime.__aiCreateDeliveryModes = []
-    runtime.__aiFactoryCommits = []
-    runtime.__aiFactoryPublications = []
-    runtime.__aiFactoryStatuses = []
-    if (window.__AsyraAiDrawingPerformance__) {
+  await page.evaluate(async () => {
+    const { core, getActiveAiDrawingPerformanceProfile, testRuntimeState } =
+      await import('../src/testing/runtime-access')
+    testRuntimeState.set<string[]>('ai-create-delivery-modes', [])
+    const factoryCommits = testRuntimeState.set<FactoryCommitEvidence[]>(
+      'ai-factory-commits',
+      []
+    )
+    const factoryPublications = testRuntimeState.set<
+      FactoryPublicationEvidence[]
+    >('ai-factory-publications', [])
+    const factoryStatuses = testRuntimeState.set<
+      FactoryTransactionStatusEvidence[]
+    >('ai-factory-statuses', [])
+    if (getActiveAiDrawingPerformanceProfile()) {
       return
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const scope = window as any
-    const factory = scope.__Core__?.deps?.factory
-    if (!factory) {
-      throw new Error('Progressive runtime evidence owners are unavailable')
-    }
+    const factory = core.deps.factory
     const serializeError = (
       value: unknown
     ): DiagnosticErrorEvidence | string | undefined => {
@@ -543,7 +539,7 @@ const captureProgressiveRuntimeEvidence = async (page: Page) => {
         transactionId: number
         undoableChangeCount: number
       }) => {
-        runtime.__aiFactoryStatuses?.push({
+        factoryStatuses.push({
           capturedAtMs: status.timestamp,
           changeCount: status.changeCount,
           ...(status.error === undefined
@@ -578,7 +574,7 @@ const captureProgressiveRuntimeEvidence = async (page: Page) => {
           batches: readonly { deliveries: readonly unknown[] }[]
         }[]
       }) => {
-        runtime.__aiFactoryPublications?.push({
+        factoryPublications.push({
           capturedAtMs: performance.timeOrigin + performance.now(),
           deliveryCount: publication.slices.reduce(
             (sliceTotal, slice) =>
@@ -602,7 +598,7 @@ const captureProgressiveRuntimeEvidence = async (page: Page) => {
         undoableChangeCount: number
       }) => {
         if (status.status !== 'committed') return
-        runtime.__aiFactoryCommits?.push({
+        factoryCommits.push({
           capturedAtMs: status.timestamp,
           origin: status.origin,
           transactionId: status.transactionId,
@@ -614,46 +610,59 @@ const captureProgressiveRuntimeEvidence = async (page: Page) => {
 }
 
 const getCollaborationDiagnostics = (page: Page) =>
-  page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & {
-      __aiCreateDeliveryModes?: string[]
-      __aiFactoryCommits?: FactoryCommitEvidence[]
-      __aiFactoryPublications?: FactoryPublicationEvidence[]
-      __aiFactoryStatuses?: FactoryTransactionStatusEvidence[]
-      __aiCrdtOutcomes?: CollaborationOutcomeEvidence[]
-    }
+  page.evaluate(async () => {
+    const {
+      getActiveAiDrawingPerformanceProfile,
+      getActiveCollaborationHandle,
+      testRuntimeState
+    } = await import('../src/testing/runtime-access')
     const profileEvidence =
-      window.__AsyraAiDrawingPerformance__?.getRuntimeEvidence()
+      getActiveAiDrawingPerformanceProfile()?.getRuntimeEvidence()
     return {
-      createDeliveryModes: runtime.__aiCreateDeliveryModes ?? [],
+      createDeliveryModes:
+        testRuntimeState.get<string[]>('ai-create-delivery-modes') ?? [],
       factoryCommits:
-        profileEvidence?.factoryCommits ?? runtime.__aiFactoryCommits ?? [],
+        profileEvidence?.factoryCommits ??
+        testRuntimeState.get<FactoryCommitEvidence[]>('ai-factory-commits') ??
+        [],
       factoryPublications:
         profileEvidence?.factoryPublications ??
-        runtime.__aiFactoryPublications ??
+        testRuntimeState.get<FactoryPublicationEvidence[]>(
+          'ai-factory-publications'
+        ) ??
         [],
       factoryStatuses:
-        profileEvidence?.factoryStatuses ?? runtime.__aiFactoryStatuses ?? [],
-      outcomes: runtime.__aiCrdtOutcomes ?? [],
-      status: window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        profileEvidence?.factoryStatuses ??
+        testRuntimeState.get<FactoryTransactionStatusEvidence[]>(
+          'ai-factory-statuses'
+        ) ??
+        [],
+      outcomes:
+        testRuntimeState.get<CollaborationOutcomeEvidence[]>(
+          'ai-crdt-outcomes'
+        ) ?? [],
+      status: getActiveCollaborationHandle()?.getStatus() ?? 'missing'
     }
   })
 
 const getCanonicalAiDrawingSnapshot = (
   page: Page
 ): Promise<CanonicalAiDrawingSnapshot> =>
-  page.evaluate(() => {
+  page.evaluate(async () => {
+    const runtimeAccess = await import('../src/testing/runtime-access')
     const canonicalElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements() ??
-      Array.from(window.__Core__.deps.sceneTree.getAllElements().entries()).map(
-        ([id, element]) => ({
-          computed: element.getAllComputedData(),
-          id,
-          raw: element.save(),
-          rendered: Boolean(window.__Core__.deps.render.getElementById(id)),
-          type: String(element.get('type'))
-        })
-      )
+      runtimeAccess
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCanonicalElements() ??
+      Array.from(
+        runtimeAccess.core.deps.sceneTree.getAllElements().entries()
+      ).map(([id, element]) => ({
+        computed: element.getAllComputedData(),
+        id,
+        raw: element.save(),
+        rendered: Boolean(runtimeAccess.core.deps.render.getElementById(id)),
+        type: String(element.get('type'))
+      }))
 
     const blueStrokeIds: string[] = []
     const ids: string[] = []
@@ -724,17 +733,20 @@ const getCanonicalAiDrawingSnapshot = (
 
 const getLiveAiDrawingEvidence = (page: Page): Promise<LiveAiDrawingEvidence> =>
   page.evaluate(async () => {
+    const runtimeAccess = await import('../src/testing/runtime-access')
     const canonicalElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements() ??
-      Array.from(window.__Core__.deps.sceneTree.getAllElements().entries()).map(
-        ([id, element]) => ({
-          computed: element.getAllComputedData(),
-          id,
-          raw: element.save(),
-          rendered: Boolean(window.__Core__.deps.render.getElementById(id)),
-          type: String(element.get('type'))
-        })
-      )
+      runtimeAccess
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCanonicalElements() ??
+      Array.from(
+        runtimeAccess.core.deps.sceneTree.getAllElements().entries()
+      ).map(([id, element]) => ({
+        computed: element.getAllComputedData(),
+        id,
+        raw: element.save(),
+        rendered: Boolean(runtimeAccess.core.deps.render.getElementById(id)),
+        type: String(element.get('type'))
+      }))
     const normalize = (value: unknown): unknown => {
       if (Array.isArray(value)) return value.map(normalize)
       if (!value || typeof value !== 'object') return value
@@ -822,18 +834,21 @@ const getLiveAiDrawingEvidence = (page: Page): Promise<LiveAiDrawingEvidence> =>
 const getCanonicalElementFingerprints = (
   page: Page
 ): Promise<readonly CanonicalElementFingerprint[]> =>
-  page.evaluate(() => {
+  page.evaluate(async () => {
+    const runtimeAccess = await import('../src/testing/runtime-access')
     const canonicalElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements() ??
-      Array.from(window.__Core__.deps.sceneTree.getAllElements().entries()).map(
-        ([id, element]) => ({
-          computed: element.getAllComputedData(),
-          id,
-          raw: element.save(),
-          rendered: Boolean(window.__Core__.deps.render.getElementById(id)),
-          type: String(element.get('type'))
-        })
-      )
+      runtimeAccess
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCanonicalElements() ??
+      Array.from(
+        runtimeAccess.core.deps.sceneTree.getAllElements().entries()
+      ).map(([id, element]) => ({
+        computed: element.getAllComputedData(),
+        id,
+        raw: element.save(),
+        rendered: Boolean(runtimeAccess.core.deps.render.getElementById(id)),
+        type: String(element.get('type'))
+      }))
     const normalize = (value: unknown): unknown => {
       if (Array.isArray(value)) return value.map(normalize)
       if (!value || typeof value !== 'object') return value
@@ -877,18 +892,21 @@ const getCanonicalElementDetail = (
   page: Page,
   elementId: string
 ): Promise<CanonicalElementDetail | null> =>
-  page.evaluate((targetId) => {
+  page.evaluate(async (targetId) => {
+    const runtimeAccess = await import('../src/testing/runtime-access')
     const canonicalElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements() ??
-      Array.from(window.__Core__.deps.sceneTree.getAllElements().entries()).map(
-        ([id, element]) => ({
-          computed: element.getAllComputedData(),
-          id,
-          raw: element.save(),
-          rendered: Boolean(window.__Core__.deps.render.getElementById(id)),
-          type: String(element.get('type'))
-        })
-      )
+      runtimeAccess
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCanonicalElements() ??
+      Array.from(
+        runtimeAccess.core.deps.sceneTree.getAllElements().entries()
+      ).map(([id, element]) => ({
+        computed: element.getAllComputedData(),
+        id,
+        raw: element.save(),
+        rendered: Boolean(runtimeAccess.core.deps.render.getElementById(id)),
+        type: String(element.get('type'))
+      }))
     const element = canonicalElements.find(({ id }) => id === targetId)
     if (!element) return null
     const normalize = (value: unknown): unknown => {
@@ -1106,8 +1124,12 @@ const summarizeCollaborationDiagnostics = (
 const getLiveHierarchyEvidence = (
   page: Page
 ): Promise<readonly LiveHierarchyEvidence[]> =>
-  page.evaluate(() =>
-    Array.from(window.__Core__.deps.sceneTree.getAllElements().entries())
+  page.evaluate(async () =>
+    Array.from(
+      (await import('../src/testing/runtime-access')).core.deps.sceneTree
+        .getAllElements()
+        .entries()
+    )
       .filter(([, element]) => element.get('type') !== 'workspace')
       .map(([id, element]) => {
         const type = String(element.get('type'))
@@ -1124,15 +1146,17 @@ const getLiveHierarchyEvidence = (
 
 const getAppliedRenderProjectionCount = (page: Page): Promise<number> =>
   page.evaluate(
-    () =>
-      window.__AsyraAiDrawingPerformance__?.readCounterTotal(
-        'render-projection-outcome-applied'
-      ) ?? 0
+    async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCounterTotal('render-projection-outcome-applied') ?? 0
   )
 
 const getLiveCanonicalElementCount = (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const profile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const profile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (!profile) {
       throw new Error('AI drawing performance profile is unavailable')
     }
@@ -1165,7 +1189,10 @@ const waitForAppliedRenderProjection = async (
       sourceDiagnostics
     ] = await Promise.all([
       page.evaluate(
-        () => window.__AsyraAiDrawingPerformance__?.snapshot() ?? null
+        async () =>
+          (await import('../src/testing/runtime-access'))
+            .getActiveAiDrawingPerformanceProfile()
+            ?.snapshot() ?? null
       ),
       getCollaborationDiagnostics(page),
       Promise.race([
@@ -1174,7 +1201,10 @@ const waitForAppliedRenderProjection = async (
       ]),
       sourcePage
         ? sourcePage.evaluate(
-            () => window.__AsyraAiDrawingPerformance__?.snapshot() ?? null
+            async () =>
+              (await import('../src/testing/runtime-access'))
+                .getActiveAiDrawingPerformanceProfile()
+                ?.snapshot() ?? null
           )
         : Promise.resolve(null),
       sourcePage
@@ -1662,11 +1692,17 @@ const expectLivePeerEvidence = async (
 }
 
 const resetPerformanceProfile = async (page: Page) => {
-  await page.evaluate(() => {
-    if (!window.__AsyraAiDrawingPerformance__) {
+  await page.evaluate(async () => {
+    if (
+      !(
+        await import('../src/testing/runtime-access')
+      ).getActiveAiDrawingPerformanceProfile()
+    ) {
       throw new Error('AI drawing performance profile is unavailable')
     }
-    window.__AsyraAiDrawingPerformance__.reset()
+    ;(await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      .reset()
   })
 }
 
@@ -1674,7 +1710,10 @@ const getPerformanceProfileSnapshot = async (
   page: Page
 ): Promise<PerformanceProfileSnapshot> => {
   const snapshot = await page.evaluate(
-    () => window.__AsyraAiDrawingPerformance__?.snapshot() ?? null
+    async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot() ?? null
   )
   if (!snapshot) {
     throw new Error('AI drawing performance profile is unavailable')
@@ -2006,7 +2045,7 @@ const launchIndependentActor = async (
 }
 
 const readNativeWindowBounds = (page: Page): Promise<NativeRecordingBounds> =>
-  page.evaluate(() => ({
+  page.evaluate(async () => ({
     height: outerHeight,
     left: screenX,
     top: screenY,
@@ -2203,7 +2242,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   try {
     const fileId = `ai-crdt-high-detail-${Date.now()}`
     await measureHarnessPhase('server-response-inbox-seeded', () =>
-      seedAsyraDesignServerResponse(actorAContext, {
+      seedServerResponse(actorAContext, {
         appUrl: profiledCollaborationUrl(fileId),
         fileId,
         itemCount: 7075
@@ -2226,7 +2265,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
         captureCollaborationOutcomes(actorB)
       ])
     )
-    if (process.env.ASYRA_DESIGN_CAPTURE_WEBSOCKET_PAYLOAD_PROFILE === '1') {
+    if (process.env.CAPTURE_WEBSOCKET_PAYLOAD_PROFILE === '1') {
       stopWebSocketPayloadProfile = await measureHarnessPhase(
         'websocket-profile-ready',
         () => startWebSocketPayloadProfile(actorAContext, actorA)
@@ -2254,7 +2293,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       ).toEqual(actorBPersistenceBaseline)
     }
 
-    if (process.env.ASYRA_DESIGN_CAPTURE_RENDERER_CPU_PROFILE === '1') {
+    if (process.env.CAPTURE_RENDERER_CPU_PROFILE === '1') {
       const actorASession = await actorAContext.newCDPSession(actorA)
       await actorASession.send('Profiler.enable')
       await actorASession.send('Profiler.setSamplingInterval', {
@@ -2353,8 +2392,9 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
         getCollaborationDiagnostics(actorA),
         getLiveCanonicalElementCount(actorA),
         actorA.evaluate(
-          () =>
-            window.__AsyraAiDrawingPerformance__
+          async () =>
+            (await import('../src/testing/runtime-access'))
+              .getActiveAiDrawingPerformanceProfile()
               ?.readConversationSnapshot()
               ?.settledTurns.at(-1)?.result ?? null
         )
@@ -2977,7 +3017,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
 // eslint-disable-next-line no-empty-pattern
 test('records two live CRDT clients while Agent creates the same cat', async ({}, testInfo) => {
   test.skip(
-    process.env.ASYRA_DESIGN_RUN_AI_CRDT_VIDEO !== '1',
+    process.env.RUN_AI_CRDT_VIDEO !== '1',
     'The dual-client AI recording is an explicit resource-aware visual gate.'
   )
   test.skip(
@@ -3037,7 +3077,7 @@ test('records two live CRDT clients while Agent creates the same cat', async ({}
     actorB = actorBResult.page
 
     const fileId = `ai-crdt-video-${Date.now()}`
-    await seedAsyraDesignServerResponse(actorAContext, {
+    await seedServerResponse(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075
@@ -3100,7 +3140,7 @@ test('records two live CRDT clients while Agent creates the same cat', async ({}
       remainingConvergenceMs
     )
     await actorB.evaluate(
-      () =>
+      async () =>
         new Promise<void>((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         })

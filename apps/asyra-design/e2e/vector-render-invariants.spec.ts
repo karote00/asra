@@ -61,9 +61,8 @@ const getStarWorkspacePoints = () =>
   Object.values(createStarTopology().points) as { x: number; y: number }[]
 
 const workspaceToClient = async (page: Page, point: { x: number; y: number }) =>
-  page.evaluate((workspacePoint) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async (workspacePoint) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const zoom = core?.getSystemProperty?.('zoom') ?? 1
     const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
       x: 0,
@@ -77,11 +76,11 @@ const workspaceToClient = async (page: Page, point: { x: number; y: number }) =>
   }, point)
 
 const setSelectedVectorStrokeData = async (page: Page) => {
-  await page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const elementApis = (window as any).__AsyraE2E__?.elementApis
+  await page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
+
+    const elementApis = (await import('../src/testing/runtime-access'))
+      .elementApis
     const selectedId =
       core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
     if (!selectedId || !elementApis) {
@@ -126,9 +125,8 @@ const setSelectedVectorStrokeData = async (page: Page) => {
 }
 
 const vectorInvariantProbe = async (page: Page) => {
-  return page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  return page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId =
       core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
     if (!selectedId) {
@@ -349,9 +347,8 @@ const expectWorkspaceVectorInvariants = async (
 }
 
 const getLastUndoPatchSummary = async (page: Page) =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const stack = core?.deps?.factory?.transact?.undoStack ?? []
     const last = stack[stack.length - 1]
     const events = (last?.entries ?? []).map(
@@ -458,11 +455,11 @@ test.describe('Vector app-flow invariants', () => {
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after star create and point update', async ({
     page
   }) => {
-    await page.evaluate((topology) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (topology) => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       if (!core || !elementApis) {
         throw new Error('Missing E2E core or element APIs')
       }
@@ -554,11 +551,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(created.render.x).toBeCloseTo(created.computed.x, 4)
     expect(created.render.y).toBeCloseTo(created.computed.y, 4)
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const selectedId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       const point = core?.deps?.sceneTree
@@ -664,11 +661,11 @@ test.describe('Vector app-flow invariants', () => {
   test('keeps full topology operations aligned through append, split, remove, and close', async ({
     page
   }) => {
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       if (!core || !elementApis) {
         throw new Error('Missing E2E core or element APIs')
       }
@@ -738,11 +735,11 @@ test.describe('Vector app-flow invariants', () => {
     await page.waitForTimeout(250)
     await expectWorkspaceVectorInvariants(page, 'full-topology:create')
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -766,11 +763,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(appendUndo.pointRemoveIds).toEqual([])
     expect(appendUndo.networkSetIds).toEqual(['main'])
 
-    const splitPointId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const splitPointId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       const computed = elementId
@@ -809,11 +806,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(splitUndo.segmentRemoveIds).toContain('AB')
     expect(splitUndo.networkSetIds).toEqual(['main'])
 
-    await page.evaluate((pointId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async (pointId) => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -832,11 +829,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(removeUndo.networkSetIds).toEqual(expect.arrayContaining(['main']))
     expect(removeUndo.networkSetIds).toHaveLength(2)
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -864,11 +861,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(mergeUndo.networkSetIds).toHaveLength(1)
     const mergedNetworkId = mergeUndo.networkSetIds[0]
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -891,11 +888,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(closeUndo.valueKeys).toContain('closed')
     expect(closeUndo.networkSetIds).toEqual([mergedNetworkId])
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -919,11 +916,11 @@ test.describe('Vector app-flow invariants', () => {
     expect(setTypeUndo.segmentSetIds).toEqual([])
     expect(setTypeUndo.networkSetIds).toEqual([])
 
-    const handleSegmentIds = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const handleSegmentIds = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       const computed = elementId
@@ -972,11 +969,11 @@ test.describe('Vector app-flow invariants', () => {
     )
     expect(setHandlesUndo.networkSetIds).toEqual([])
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {
@@ -1002,11 +999,11 @@ test.describe('Vector app-flow invariants', () => {
     ).toBe(true)
     expect(setHandleModeUndo.pointRemoveIds).toEqual([])
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       if (!elementId) {

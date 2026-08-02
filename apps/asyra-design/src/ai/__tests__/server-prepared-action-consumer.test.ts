@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  AsyraDesignAiActionNames,
-  createAsyraDesignAiActions,
-  type AsyraDesignAiActionApis
-} from '../actions'
+import { AiActionNames, createAiActions, type AiActionApis } from '../actions'
 import type { PreparedDrawingArtifact } from '../prepared-drawing-artifact'
 import type { PreparedElementDescriptor } from '../../common-apis'
 import { createDeferred } from './deferred'
 
-const actionApis = (): AsyraDesignAiActionApis => ({
+const actionApis = (): AiActionApis => ({
   changeElementGeometry: vi.fn(),
   createCompositionElements: vi.fn(
     (descriptors: readonly PreparedElementDescriptor[]) =>
@@ -110,7 +106,7 @@ const preparedDrawingArtifact = (): PreparedDrawingArtifact => {
 
 describe('server-prepared Asyra Design action consumers', () => {
   it('publishes only the backend input schema and executor contract', () => {
-    const actions = createAsyraDesignAiActions(actionApis())
+    const actions = createAiActions(actionApis())
 
     actions.forEach((action) => {
       expect(Reflect.ownKeys(action).sort()).toEqual([
@@ -146,12 +142,10 @@ describe('server-prepared Asyra Design action consumers', () => {
       return next.promise
     })
     const yieldToHost = vi.fn(async () => undefined)
-    const insert = createAsyraDesignAiActions(apis, {
+    const insert = createAiActions(apis, {
       waitForPaint,
       yieldToHost
-    }).find(
-      ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-    )
+    }).find(({ name }) => name === AiActionNames.INSERT_VECTOR_COMPOSITION)
     if (!insert) {
       throw new Error('Missing insert composition action')
     }

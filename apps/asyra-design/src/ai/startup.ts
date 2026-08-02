@@ -3,64 +3,62 @@ import {
   type AiAgentRuntime,
   type AiProvider
 } from '@asyra/ai-agent-runtime'
-import { AsyraDesignAiActionNames } from '../constants'
+import { AiActionNames } from '../constants'
 import {
-  createAsyraDesignAiHistoryProjection,
-  type AsyraDesignAiHistoryProjection
+  createAiHistoryProjection,
+  type AiHistoryProjection
 } from '../common-apis/history'
-import { createAsyraDesignAiRuntimeInput } from './runtime-input'
+import { createAiRuntimeInput } from './runtime-input'
 import {
-  createAsyraDesignAiConfirmationBroker,
-  type AsyraDesignAiConfirmationBroker
+  createAiConfirmationBroker,
+  type AiConfirmationBroker
 } from './confirmation'
-import { createAsyraDesignServerActionBatchProvider } from './server-action-batch-provider'
-import type { AsyraDesignServerResponseRecord } from './server-response-inbox'
-import { createAsyraDesignAiTransactionRunner } from './transaction'
+import { createServerActionBatchProvider } from './server-action-batch-provider'
+import type { ServerResponseRecord } from './server-response-inbox'
+import { createAiTransactionRunner } from './transaction'
 
-export interface AsyraDesignAiStartup {
-  readonly confirmation: AsyraDesignAiConfirmationBroker
-  readonly history: AsyraDesignAiHistoryProjection
+export interface AiStartup {
+  readonly confirmation: AiConfirmationBroker
+  readonly history: AiHistoryProjection
   readonly runtime: AiAgentRuntime
 }
 
-interface AsyraDesignAiStartupFactories {
-  readonly createConfirmation: () => AsyraDesignAiConfirmationBroker
-  readonly createHistory: () => AsyraDesignAiHistoryProjection
-  readonly createProvider: (
-    response: AsyraDesignServerResponseRecord | null
-  ) => AiProvider
+interface AiStartupFactories {
+  readonly createConfirmation: () => AiConfirmationBroker
+  readonly createHistory: () => AiHistoryProjection
+  readonly createProvider: (response: ServerResponseRecord | null) => AiProvider
 }
 
-const defaultFactories: AsyraDesignAiStartupFactories = {
-  createConfirmation: createAsyraDesignAiConfirmationBroker,
-  createHistory: createAsyraDesignAiHistoryProjection,
-  createProvider: createAsyraDesignServerActionBatchProvider
+const defaultFactories: AiStartupFactories = {
+  createConfirmation: createAiConfirmationBroker,
+  createHistory: createAiHistoryProjection,
+  createProvider: createServerActionBatchProvider
 }
 
-export const createAsyraDesignAiStartup = (
+export const createAiStartup = (
   input: {
-    readonly response: AsyraDesignServerResponseRecord | null
+    readonly response: ServerResponseRecord | null
   },
-  factories: AsyraDesignAiStartupFactories = defaultFactories
-): AsyraDesignAiStartup => {
+  factories: AiStartupFactories = defaultFactories
+): AiStartup => {
   const confirmation = factories.createConfirmation()
   const history = factories.createHistory()
   let runtime: AiAgentRuntime | undefined
   try {
     const provider = factories.createProvider(input.response)
     runtime = createAiAgentRuntime(
-      createAsyraDesignAiRuntimeInput({
+      createAiRuntimeInput({
         permissionRules: {
-          [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
-          [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm',
-          [AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE]: 'allow',
-          [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
-          [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow',
-          [AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'
+          [AiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
+          [AiActionNames.REMOVE_AI_COMPOSITION]: 'confirm',
+          [AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE]: 'allow',
+          [AiActionNames.SELECT_ELEMENTS]: 'allow',
+          [AiActionNames.SET_ELEMENT_VISIBILITY]: 'allow',
+          [AiActionNames.UPDATE_COMPOSITION_ELEMENTS]: 'allow'
         },
         provider,
         requestConfirmation: confirmation.requestConfirmation,
-        transactionRunner: createAsyraDesignAiTransactionRunner({ history })
+        transactionRunner: createAiTransactionRunner({ history })
       })
     )
 

@@ -6,11 +6,11 @@ import {
   waitForAppReady
 } from './test-utils'
 import {
-  seedAsyraDesignServerResponse,
-  type AsyraDesignServerResponseItemCount
+  seedServerResponse,
+  type ServerResponseItemCount
 } from './server-response-inbox'
 
-const RUN_PROFILE = process.env.ASYRA_DESIGN_RUN_AI_DRAWING_PERFORMANCE === '1'
+const RUN_PROFILE = process.env.RUN_AI_DRAWING_PERFORMANCE === '1'
 
 interface ProfileSnapshot {
   counters: readonly {
@@ -29,7 +29,7 @@ interface ProfileSnapshot {
 
 interface ProfiledTurn {
   bootstrap: {
-    preparedResponseItemCount: AsyraDesignServerResponseItemCount
+    preparedResponseItemCount: ServerResponseItemCount
     responseInboxPreload: ProfileSnapshot['phases'][number]
   }
   canonical: {
@@ -47,9 +47,10 @@ interface ProfiledTurn {
 }
 
 const readProfileCanonicalSummary = (page: Page) =>
-  page.evaluate(() => {
-    const elements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
+  page.evaluate(async () => {
+    const elements = (await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      ?.readCanonicalElements()
     if (!elements) {
       throw new Error(
         'AI drawing performance canonical evidence is unavailable'
@@ -101,12 +102,12 @@ const runProfiledTurn = async (
     timeout
   }: {
     intent: string
-    preparedResponseItemCount: AsyraDesignServerResponseItemCount
+    preparedResponseItemCount: ServerResponseItemCount
     timeout: number
   }
 ): Promise<ProfiledTurn> => {
   const identity = createTestDocumentIdentity('aiPerformance=profile')
-  await seedAsyraDesignServerResponse(page.context(), {
+  await seedServerResponse(page.context(), {
     appUrl: identity.url,
     fileId: identity.fileId,
     itemCount: preparedResponseItemCount
@@ -114,7 +115,10 @@ const runProfiledTurn = async (
   await page.goto(identity.url)
   await waitForAppReady(page)
   const bootstrapSnapshot = await page.evaluate(
-    () => window.__AsyraAiDrawingPerformance__?.snapshot() ?? null
+    async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot() ?? null
   )
   if (!bootstrapSnapshot) {
     throw new Error('AI drawing performance bootstrap profile is unavailable')
@@ -131,11 +135,17 @@ const runProfiledTurn = async (
   await page.getByTestId('ai-agent-toolbar-button').click()
   await expect(page.getByRole('complementary')).toBeVisible()
   const historyBefore = await getUndoHistoryDepth(page)
-  await page.evaluate(() => {
-    if (!window.__AsyraAiDrawingPerformance__) {
+  await page.evaluate(async () => {
+    if (
+      !(
+        await import('../src/testing/runtime-access')
+      ).getActiveAiDrawingPerformanceProfile()
+    ) {
       throw new Error('AI drawing performance profile is unavailable')
     }
-    window.__AsyraAiDrawingPerformance__.reset()
+    ;(await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      .reset()
   })
 
   const harnessStart = performance.now()
@@ -148,9 +158,11 @@ const runProfiledTurn = async (
     .toMatch(/^(cancelled|failed|no-change|partial|success)$/)
   const outcome = await settledTurn.getAttribute('data-outcome')
   if (outcome !== 'success') {
-    const conversation = await page.evaluate(() => {
+    const conversation = await page.evaluate(async () => {
       return (
-        window.__AsyraAiDrawingPerformance__?.readConversationSnapshot() ?? null
+        (await import('../src/testing/runtime-access'))
+          .getActiveAiDrawingPerformanceProfile()
+          ?.readConversationSnapshot() ?? null
       )
     })
     throw new Error(
@@ -159,7 +171,10 @@ const runProfiledTurn = async (
   }
   const harnessWallMs = performance.now() - harnessStart
   const snapshot = await page.evaluate(
-    () => window.__AsyraAiDrawingPerformance__?.snapshot() ?? null
+    async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot() ?? null
   )
   expect(snapshot).not.toBeNull()
   const exactSnapshot = snapshot as ProfileSnapshot

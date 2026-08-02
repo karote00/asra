@@ -235,34 +235,6 @@ const toVectorEventOptions = (
 const transientWorkspaceTopologyCache = new Map<string, VectorTopology>()
 const transientComputedSnapshotCache = new Map<string, VectorComputedData>()
 
-const recordVectorCommitError = (error: unknown) => {
-  let message = ''
-  if (typeof error === 'string') {
-    message = error
-  }
-  if (error instanceof Error) {
-    message = error.message
-  }
-  if (!message) {
-    return
-  }
-  const profile = (
-    globalThis as typeof globalThis & {
-      __asyraStrokeDragFrameProfile?: {
-        errors?: { phaseName: string; message: string }[]
-      }
-    }
-  ).__asyraStrokeDragFrameProfile
-  if (!profile) {
-    return
-  }
-  profile.errors = profile.errors ?? []
-  profile.errors.push({
-    phaseName: 'vector-api:commit:build-patch',
-    message
-  })
-}
-
 const getDistanceSquared = (a: PositionData, b: PositionData) => {
   const dx = a.x - b.x
   const dy = a.y - b.y
@@ -1114,7 +1086,6 @@ const commitVectorTopologyOperation = (
       )
     } catch (error) {
       emitDiagnosticCounter('vector-api-operation-build-patch-error-count')
-      recordVectorCommitError(error)
       throw error
     }
 

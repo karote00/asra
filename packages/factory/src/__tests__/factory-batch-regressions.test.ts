@@ -6,7 +6,10 @@ import {
   type AllEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
-import { SharedDataChannelNames } from '@asyra/utils'
+import {
+  SharedDataChannelNames,
+  subscribeToBrowserDragPhases
+} from '@asyra/utils'
 import {
   Factory,
   LocalSharedDataChannel,
@@ -635,12 +638,10 @@ describe('Factory batch regression contracts', () => {
   })
 
   it('selects 16 progressive publication boundaries without rescanning the sequence', () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -689,7 +690,7 @@ describe('Factory batch regression contracts', () => {
       orderedIds.forEach((_, index) => handle?.deliverSlice(`slice-${index}`))
       factory.endTransaction()
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
+      unsubscribe()
     }
 
     expect(fullSequenceFilterCalls).toBe(0)

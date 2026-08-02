@@ -1,7 +1,7 @@
 import type { AiProvider } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { AsyraDesignAiActionNames } from '../actions'
-import { createAsyraDesignAiRuntimeInput } from '../runtime-input'
+import { AiActionNames } from '../actions'
+import { createAiRuntimeInput } from '../runtime-input'
 
 describe('Asyra Design Agent runtime input', () => {
   it('builds one concrete server-provider runtime input without a delivery mode', () => {
@@ -9,9 +9,9 @@ describe('Asyra Design Agent runtime input', () => {
       requestActionBatch: vi.fn()
     }
 
-    const input = createAsyraDesignAiRuntimeInput({
+    const input = createAiRuntimeInput({
       permissionRules: {
-        [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
+        [AiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
       },
       provider
     })
@@ -20,7 +20,7 @@ describe('Asyra Design Agent runtime input', () => {
     expect(input.actionDefinitions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+          name: AiActionNames.INSERT_VECTOR_COMPOSITION
         })
       ])
     )

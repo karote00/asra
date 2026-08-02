@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  projectAsyraDesignAiDrawingDetailChoice,
-  summarizeAsyraDesignAiTurn
-} from '../presentation'
-import {
-  AsyraDesignAiActionNames,
-  AsyraDesignAiDrawingDetailOptionIds
-} from '../../constants'
+import { projectAiDrawingDetailChoice, summarizeAiTurn } from '../presentation'
+import { AiActionNames, AiDrawingDetailOptionIds } from '../../constants'
 
 const turn = (
   outcome: 'cancelled' | 'failed' | 'no-change' | 'partial' | 'success'
@@ -44,7 +38,7 @@ describe('Asyra Design AI presentation summaries', () => {
       'cancelled',
       'failed'
     ].map((outcome) =>
-      summarizeAsyraDesignAiTurn(turn(outcome as Parameters<typeof turn>[0]))
+      summarizeAiTurn(turn(outcome as Parameters<typeof turn>[0]))
     )
 
     expect(summaries.map((summary) => summary.message)).toEqual([
@@ -58,13 +52,13 @@ describe('Asyra Design AI presentation summaries', () => {
       Array.from({ length: 5 }, () => 'Elapsed 1.3s')
     )
     expect(
-      summarizeAsyraDesignAiTurn({
+      summarizeAiTurn({
         ...turn('success'),
         durationMs: 40_500
       }).durationLabel
     ).toBe('Elapsed 41s')
     expect(
-      summarizeAsyraDesignAiTurn({
+      summarizeAiTurn({
         ...turn('success'),
         durationMs: 65_000
       }).durationLabel
@@ -76,7 +70,6 @@ describe('Asyra Design AI presentation summaries', () => {
     expect(JSON.stringify(summaries)).not.toMatch(
       /secret-action|secret-canonical|secret-provider|secret-reason/
     )
-    expect(JSON.stringify(summaries)).not.toMatch(/Mock AI/)
   })
 
   it('projects only the exact registered drawing-detail clarification as App-owned choices', () => {
@@ -86,14 +79,14 @@ describe('Asyra Design AI presentation summaries', () => {
         actionResults: [
           {
             actionId: 'provider-action-id-is-not-presented',
-            actionName: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+            actionName: AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
             result: {
-              action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+              action: AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
               clarification: {
                 kind: 'drawing-detail',
                 optionIds: [
-                  AsyraDesignAiDrawingDetailOptionIds.BALANCED,
-                  AsyraDesignAiDrawingDetailOptionIds.MAXIMUM
+                  AiDrawingDetailOptionIds.BALANCED,
+                  AiDrawingDetailOptionIds.MAXIMUM
                 ]
               },
               status: 'no-change'
@@ -105,15 +98,14 @@ describe('Asyra Design AI presentation summaries', () => {
       }
     }
 
-    const projection =
-      projectAsyraDesignAiDrawingDetailChoice(clarificationTurn)
+    const projection = projectAiDrawingDetailChoice(clarificationTurn)
 
     expect(projection).toEqual({
       choices: [
         {
           description: 'Faster and lighter for editing.',
           elementCount: 7111,
-          id: AsyraDesignAiDrawingDetailOptionIds.BALANCED,
+          id: AiDrawingDetailOptionIds.BALANCED,
           label: 'Balanced detail',
           pointCountLabel: 'At least 115,000 points',
           resourceWarning: null
@@ -121,7 +113,7 @@ describe('Asyra Design AI presentation summaries', () => {
         {
           description: 'Uses the highest live-validated vector detail.',
           elementCount: 27_471,
-          id: AsyraDesignAiDrawingDetailOptionIds.MAXIMUM,
+          id: AiDrawingDetailOptionIds.MAXIMUM,
           label: 'Maximum detail',
           pointCountLabel: '295,794 points',
           resourceWarning:
@@ -130,14 +122,14 @@ describe('Asyra Design AI presentation summaries', () => {
       ],
       kind: 'drawing-detail'
     })
-    expect(summarizeAsyraDesignAiTurn(clarificationTurn).message).toBe(
+    expect(summarizeAiTurn(clarificationTurn).message).toBe(
       'Choose a drawing detail level.'
     )
     expect(JSON.stringify(projection)).not.toMatch(
       /provider-action|provider-detail/
     )
     expect(
-      projectAsyraDesignAiDrawingDetailChoice({
+      projectAiDrawingDetailChoice({
         ...clarificationTurn,
         result: {
           ...clarificationTurn.result,

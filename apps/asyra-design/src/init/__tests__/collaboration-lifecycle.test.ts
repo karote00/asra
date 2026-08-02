@@ -9,10 +9,12 @@ import {
   idCounter
 } from '@asyra/utils'
 import * as collaborationOperations from '../../collaboration/operations'
+import * as documentPersistence from '../../document-persistence'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
   createRemotePublicationHandler,
   disposeCollaboration,
+  getActiveCollaborationHandle,
   startCollaboration
 } from '../../collaboration/lifecycle'
 import core, { factory } from '../../contexts'
@@ -85,7 +87,6 @@ beforeEach(async () => {
     .mockReturnValue(vi.fn())
   harness.collaboration.start.mockReset().mockResolvedValue(undefined)
   harness.collaboration.dispose.mockReset().mockResolvedValue(undefined)
-  delete window.__AsyraCollaboration__
 })
 
 afterEach(async () => {
@@ -95,13 +96,18 @@ afterEach(async () => {
 })
 
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
-  const processRemotePublication = createRemotePublicationHandler(() => false)
+  const persistAcceptedRemoteDocument = vi.fn(async () => undefined)
+  const processRemotePublication = createRemotePublicationHandler(
+    () => false,
+    persistAcceptedRemoteDocument
+  )
 
   await expect(
     processRemotePublication(remotePublication('policy-rejected'))
   ).rejects.toThrow(
     '[collaboration] remote publication policy-rejected was rejected'
   )
+  expect(persistAcceptedRemoteDocument).not.toHaveBeenCalled()
 })
 
 it('starts the real app collaboration composition without an Awareness preview route', async () => {
@@ -112,7 +118,7 @@ it('starts the real app collaboration composition without an Awareness preview r
   await startCollaboration({
     fileId: 'file-lifecycle',
     actorId: 'actor-lifecycle',
-    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
   })
 
   expect(createCollaboration).toHaveBeenCalledOnce()
@@ -130,13 +136,13 @@ it('starts the real app collaboration composition without an Awareness preview r
   expect('conflictPolicies' in composition).toBe(false)
   expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-lifecycle-0')
   expect(harness.collaboration.updateAwareness).not.toHaveBeenCalled()
-  expect(window.__AsyraCollaboration__).toBeDefined()
+  expect(getActiveCollaborationHandle()).toBeDefined()
 })
 
 it('binds one remote canonical request to the Core-owned coordinator', async () => {
   const createPublicationProcessor = vi.spyOn(
     collaborationOperations,
-    'createAsyraDesignPublicationProcessor'
+    'createPublicationProcessor'
   )
   vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
     harness.collaboration as never
@@ -145,7 +151,7 @@ it('binds one remote canonical request to the Core-owned coordinator', async () 
   await startCollaboration({
     fileId: 'file-lifecycle',
     actorId: 'actor-lifecycle',
-    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
   })
 
   expect(createPublicationProcessor).toHaveBeenCalledOnce()
@@ -166,7 +172,7 @@ it('exposes remote publication outcomes through the local collaboration handle',
   const handle = await startCollaboration({
     fileId: 'file-lifecycle',
     actorId: 'actor-lifecycle',
-    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
   })
   const subscriber = vi.fn()
 
@@ -191,6 +197,12 @@ it('settles the consumer promise only after the remote transaction succeeds', as
     order.push('remote-transaction')
     return mutate()
   })
+  vi.spyOn(
+    documentPersistence,
+    'persistAcceptedRemoteDocument'
+  ).mockImplementation(async () => {
+    order.push('persistence')
+  })
   const createCollaboration = vi
     .spyOn(collaborationModule, 'createCollaboration')
     .mockReturnValue(harness.collaboration as never)
@@ -198,7 +210,7 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await startCollaboration({
     fileId: 'file-lifecycle',
     actorId: 'actor-lifecycle',
-    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
   })
   const composition = createCollaboration.mock.calls[0]?.[0]
   if (!composition) throw new Error('Expected collaboration composition')
@@ -206,7 +218,7 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await composition.processRemotePublication(
     remotePublication('remote-success')
   )
-  expect(order).toEqual(['remote-transaction', 'core-apply'])
+  expect(order).toEqual(['remote-transaction', 'core-apply', 'persistence'])
 
   vi.mocked(factory.runRemoteTransaction).mockImplementationOnce(() => {
     throw new Error('remote apply failed')
@@ -214,4 +226,5 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await expect(
     composition.processRemotePublication(remotePublication('remote-failure'))
   ).rejects.toThrow('remote apply failed')
+  expect(order).toEqual(['remote-transaction', 'core-apply', 'persistence'])
 })

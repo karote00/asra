@@ -2,7 +2,7 @@ import { getFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
 import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
-import { createEmptyDocument } from '../config/empty-document'
+import { resetPersistedDocument } from '../document-persistence'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -25,9 +25,7 @@ export const renderIsReady = () => {
   core.renderIsReady()
 }
 
-export const resetData = (): void => {
-  core.load(createEmptyDocument())
-}
+export const resetData = (): Promise<void> => resetPersistedDocument(core)
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
   try {

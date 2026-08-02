@@ -3,13 +3,14 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
+import type { CollaborationDebugHandle } from '../../collaboration/lifecycle'
 import {
   AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
   AiDocumentInteractionTargets
 } from '../../constants'
 import RenderApp, { type CanvasContextMenuInvocation } from '../index'
 
-const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
 const collaborationHandle = {
   identity: Object.freeze({
     actorId: 'actor-canvas-context-menu',
@@ -20,8 +21,9 @@ const collaborationHandle = {
   disconnect: async () => undefined,
   reconnect: async () => undefined,
   whenIdle: async () => undefined,
+  observePublicationOutcomes: () => () => undefined,
   dispose: async () => undefined
-} satisfies NonNullable<Window['__AsyraCollaboration__']>
+} satisfies CollaborationDebugHandle
 
 const setReactActEnvironment = (active: boolean) => {
   ;(
@@ -33,7 +35,7 @@ const setReactActEnvironment = (active: boolean) => {
 
 describe('Render canvas context-menu intake', () => {
   beforeEach(() => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=canvas-context-menu')
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)

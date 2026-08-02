@@ -16,7 +16,7 @@ interface DocumentInteractionEventTarget {
   ): void
 }
 
-export interface AsyraDesignDocumentInteractionLock {
+export interface DocumentInteractionLock {
   acquire(): () => void
   isActive(): boolean
 }
@@ -129,9 +129,9 @@ const isAllowedInteraction = (event: Event): boolean => {
 const getDefaultEventTarget = (): DocumentInteractionEventTarget | null =>
   typeof window === 'undefined' ? null : window
 
-export const createAsyraDesignDocumentInteractionLock = (
+export const createDocumentInteractionLock = (
   getEventTarget: () => DocumentInteractionEventTarget | null = getDefaultEventTarget
-): AsyraDesignDocumentInteractionLock => {
+): DocumentInteractionLock => {
   let acquisitionCount = 0
   let attachedTarget: DocumentInteractionEventTarget | null = null
 
@@ -197,5 +197,4 @@ export const createAsyraDesignDocumentInteractionLock = (
   }
 }
 
-export const asyraDesignDocumentInteractionLock =
-  createAsyraDesignDocumentInteractionLock()
+export const documentInteractionLock = createDocumentInteractionLock()

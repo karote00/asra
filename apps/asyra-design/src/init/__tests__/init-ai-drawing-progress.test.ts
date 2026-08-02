@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AsyraDesignSystemPropertyKeys } from '../../constants'
+import { SystemPropertyKeys } from '../../constants'
 
 const mocks = vi.hoisted(() => ({
   defineSystemProperty: vi.fn(),
@@ -26,7 +26,7 @@ describe('initAiDrawingProgress', () => {
 
     expect(mocks.defineSystemProperty).toHaveBeenCalledOnce()
     expect(mocks.defineSystemProperty).toHaveBeenCalledWith(
-      AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS,
+      SystemPropertyKeys.AI_DRAWING_PROGRESS,
       null,
       {
         runtime: true,

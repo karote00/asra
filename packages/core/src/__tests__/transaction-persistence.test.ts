@@ -10,6 +10,7 @@ import {
   subscribeToUserActionCompleted
 } from '@asyra/reactive-events'
 import type { IPersistenceProvider } from '@asyra/persistence'
+import { subscribeToBrowserDragPhases } from '@asyra/utils'
 import type {
   GroupRawData,
   SceneTreeRawData,
@@ -339,12 +340,10 @@ describe('Core transaction persistence acknowledgement', () => {
   it('attributes snapshot capture separately from the provider save boundary', async () => {
     const { core, commit, provider } = createHarness()
     const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousSink = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phases: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phases.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
     core.setPersistence(provider(save))
 
     try {
@@ -364,7 +363,7 @@ describe('Core transaction persistence acknowledgement', () => {
         )
       )
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previousSink
+      unsubscribe()
     }
   })
 
@@ -419,12 +418,10 @@ describe('Core transaction persistence acknowledgement', () => {
     let hookChildren: string[] | undefined
     const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
     const structuredCloneSpy = vi.spyOn(globalThis, 'structuredClone')
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousSink = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phases: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phases.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
     sceneTree.save.mockImplementation(() => ({
       workspace: 'workspace',
       workspaceList: ['workspace'],
@@ -467,7 +464,7 @@ describe('Core transaction persistence acknowledgement', () => {
       expect(phases).toContain('core:persistence-capture:save-hooks')
     } finally {
       structuredCloneSpy.mockRestore()
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previousSink
+      unsubscribe()
     }
   })
 

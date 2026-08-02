@@ -4,8 +4,8 @@ import type {
   AiPreparedAction
 } from '@asyra/ai-agent-runtime'
 import {
-  AsyraDesignAiPermissionConfigurationError,
-  createAsyraDesignAiPermissionPolicy
+  AiPermissionConfigurationError,
+  createAiPermissionPolicy
 } from '../permission'
 
 const action = (name: string): AiPreparedAction =>
@@ -21,7 +21,7 @@ const action = (name: string): AiPreparedAction =>
 
 describe('Asyra Design AI permission policy', () => {
   it('defaults every action to deny', async () => {
-    const policy = createAsyraDesignAiPermissionPolicy()
+    const policy = createAiPermissionPolicy()
 
     await expect(
       policy.evaluate({
@@ -36,7 +36,7 @@ describe('Asyra Design AI permission policy', () => {
       resize: 'allow',
       delete_elements: 'confirm'
     }
-    const policy = createAsyraDesignAiPermissionPolicy(rules)
+    const policy = createAiPermissionPolicy(rules)
     rules.resize = 'confirm'
 
     await expect(
@@ -61,9 +61,9 @@ describe('Asyra Design AI permission policy', () => {
 
   it('rejects invalid app rule configuration before policy use', () => {
     expect(() =>
-      createAsyraDesignAiPermissionPolicy({
+      createAiPermissionPolicy({
         resize: 'model-allow' as never
       })
-    ).toThrow(AsyraDesignAiPermissionConfigurationError)
+    ).toThrow(AiPermissionConfigurationError)
   })
 })

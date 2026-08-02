@@ -221,18 +221,10 @@ if (fs.existsSync(viteConfigPath)) {
   // Remove vercel plugin from plugins array
   viteConfigContent = viteConfigContent.replace(/vercel\(\)(?:,\s*)?/g, '')
 
-  // Remove define section with __APP_ENV__
-  viteConfigContent = viteConfigContent.replace(
-    /define:\s*\{[\s\S]*?__APP_ENV__:\s*process\.env\.VITE_VERCEL_ENV[\s\S]*?\},?\s*\n/,
-    ''
-  )
-
   // Clean up any duplicate commas after removing elements
   viteConfigContent = viteConfigContent.replace(/,(\s*[}\]])/g, '$1')
 
-  // Fix indentation issues caused by removing define section
-  // When "define: { }\n" is removed, the following top-level property (esbuild:) ends up with 4 spaces
-  // Need to detect top-level properties with wrong indentation and fix to 2 spaces
+  // Fix top-level property indentation after plugin removal.
   // A top-level property with wrong indent will have: 4 spaces, followed by lines with <= 4 spaces (not children)
   const lines = viteConfigContent.split('\n')
   for (let i = 0; i < lines.length; i++) {

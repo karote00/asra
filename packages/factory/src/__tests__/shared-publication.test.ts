@@ -9,7 +9,8 @@ import {
 import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
-  SharedDataChannelNames
+  SharedDataChannelNames,
+  subscribeToBrowserDragPhases
 } from '@asyra/utils'
 import {
   Factory,
@@ -256,12 +257,10 @@ describe('Factory action-level shared publication', () => {
   })
 
   it('emits detached settlement spans for channel delivery and publication', () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
     const { factory } = createHarness()
 
     try {
@@ -270,7 +269,7 @@ describe('Factory action-level shared publication', () => {
       update(factory, 'element-b', 2)
       factory.endTransaction()
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual(
@@ -814,12 +813,10 @@ describe('Factory action-level shared publication', () => {
   })
 
   it('indexes formal slice records once before progressive delivery', () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
     const { factory } = createHarness()
     const orderedIds = Array.from(
       { length: 16 },
@@ -868,7 +865,7 @@ describe('Factory action-level shared publication', () => {
       orderedIds.forEach((_, index) => handle?.deliverSlice(`slice-${index}`))
       factory.endTransaction()
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+      unsubscribe()
     }
 
     expect(
@@ -960,10 +957,6 @@ describe('Factory action-level shared publication', () => {
 
   it('preserves reverse progressive slice semantics for rollback compensation', () => {
     const { factory, publications } = createHarness()
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
@@ -984,11 +977,13 @@ describe('Factory action-level shared publication', () => {
     })
     handle?.deliverSlice('slice-a')
     handle?.deliverSlice('slice-b')
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
     try {
       factory.endTransaction({ outcome: 'rollback' })
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+      unsubscribe()
     }
 
     expect(publications.map(({ origin }) => origin)).toEqual([

@@ -20,8 +20,8 @@ import {
 } from '../../constants'
 import { panFeature } from '../../features/pan'
 import { zoomFeature } from '../../features/zoom'
-import { asyraDesignDocumentInteractionLock } from '../document-interaction-lock'
-import { createAsyraDesignAiTransactionRunner } from '../transaction'
+import { documentInteractionLock } from '../document-interaction-lock'
+import { createAiTransactionRunner } from '../transaction'
 
 const TEST_WHEEL_INPUT = 'test.ai-document-interaction-lock.wheel'
 
@@ -66,13 +66,13 @@ describe('Asyra Design AI document interaction integration', () => {
       panFeature.api.pan(-event.deltaX, -event.deltaY)
     })
 
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       runTransaction: async (execute) => execute()
     })
 
-    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
+    expect(documentInteractionLock.isActive()).toBe(false)
     await runner.run('AI-assisted action', async () => {
-      expect(asyraDesignDocumentInteractionLock.isActive()).toBe(true)
+      expect(documentInteractionLock.isActive()).toBe(true)
       await Promise.resolve()
 
       canvas.dispatchEvent(
@@ -93,7 +93,7 @@ describe('Asyra Design AI document interaction integration', () => {
       )
 
       await Promise.resolve()
-      expect(asyraDesignDocumentInteractionLock.isActive()).toBe(true)
+      expect(documentInteractionLock.isActive()).toBe(true)
       canvas.dispatchEvent(
         new WheelEvent('wheel', {
           bubbles: true,
@@ -113,7 +113,7 @@ describe('Asyra Design AI document interaction integration', () => {
       )
     })
 
-    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
+    expect(documentInteractionLock.isActive()).toBe(false)
     expect(attemptedDocumentMutation).not.toHaveBeenCalled()
     expect(mocks.core.setSystemProperty).toHaveBeenCalledWith(
       PresetSystemPropertyKeys.VIEWPORT_POSITION,
@@ -144,7 +144,7 @@ describe('Asyra Design AI document interaction integration', () => {
       }
     ])
     inputSystem.on(TEST_WHEEL_INPUT, receivedWheel)
-    const release = asyraDesignDocumentInteractionLock.acquire()
+    const release = documentInteractionLock.acquire()
 
     const dispatchWheel = () =>
       canvas.dispatchEvent(

@@ -20,7 +20,7 @@ yarn install
 The app has one URL setting in `apps/asyra-design/.env`:
 
 ```dotenv
-ASYRA_DESIGN_APP_URL=http://localhost:3000
+APP_URL=http://localhost:3000
 ```
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
@@ -31,7 +31,7 @@ maintain separate Vite and test base URLs.
 For example:
 
 ```dotenv
-ASYRA_DESIGN_APP_URL=http://localhost:4317
+APP_URL=http://localhost:4317
 ```
 
 ## Start the App
@@ -85,22 +85,25 @@ Open the same `fileId` in two windows, for example:
 http://localhost:3000/?fileId=crdt-public-reference
 ```
 
-If `ASYRA_DESIGN_APP_URL` uses another origin, keep the same query string on
+If `APP_URL` uses another origin, keep the same query string on
 that URL. Matching `fileId` values join the same live in-memory room; different
 values stay isolated. The server retains no publication history, so reconnect
 receives future publications only. The response to `send-publication` confirms
 only that the running memory transport accepted the request.
 
-The current demo creates no client persistence provider. Every page loads the
-empty App-owned demo document before connecting, and local or remote mutations
-are not saved to IndexedDB. Reload durability and the future socket
-server-to-backend checkpoint policy are intentionally outside this demo.
+Every `fileId` also selects an App-owned browser-local IndexedDB document.
+Manual actions, Agent actions, Undo, Redo, accepted remote publications, and
+Reset persist through one serialized provider queue, so reload restores the
+latest accepted work on that browser. This reference persistence replaces no
+production database: it provides no cross-device durability, authentication,
+backup, or missed-publication recovery. A derived app must supply its own
+server/database policy.
 
 You can inspect the connection in DevTools:
 
 ```js
-window.__AsyraCollaboration__?.getStatus()
-window.__AsyraCollaboration__?.identity
+window.__Collaboration__?.getStatus()
+window.__Collaboration__?.identity
 ```
 
 This public reference intentionally has no login, permission check, durable
@@ -121,7 +124,9 @@ yarn workspace @asyra/asyra-design test:e2e:collaboration
 ```
 
 The Playwright suites use the DEV app runtime for their diagnostic
-canonical-state assertions; production bundling remains a separate build gate.
+canonical-state assertions through imported test access and the bounded
+document diagnostic service; the human-only DevTools globals are never an
+automation API. Production bundling remains a separate build gate.
 The collaboration E2E suite may reuse already-running app and WebSocket servers.
 It never replaces the manual two-window test surface.
 

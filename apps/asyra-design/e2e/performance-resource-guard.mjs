@@ -76,22 +76,20 @@ const CLIENT_BROWSER_PROCESS_ROLES = new Set([
 const TRACKED_PROCESS_REGISTRATION_PATH = '/register-process-group'
 const PHASE_BOUNDARY_PATH = '/phase-boundary'
 const RESOURCE_STATUS_PATH = '/resource-status'
-const ENDPOINT_ARTIFACT_ENV = 'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
-const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR'
-const ENDPOINT_RESPONSE_ARTIFACT_ENV =
-  'ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
-const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV =
-  'ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH'
+const ENDPOINT_ARTIFACT_ENV = 'ENDPOINT_ARTIFACT_ATTESTED'
+const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ENDPOINT_PREVIEW_OUT_DIR'
+const ENDPOINT_RESPONSE_ARTIFACT_ENV = 'ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
+const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV = 'ENDPOINT_RESPONSE_MANIFEST_PATH'
 const GUARD_ENVIRONMENT_KEYS = Object.freeze([
-  'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN',
-  'ASYRA_DESIGN_ENDPOINT_GUARD_URL',
-  'ASYRA_DESIGN_ENDPOINT_OWNER',
+  'ENDPOINT_GUARD_TOKEN',
+  'ENDPOINT_GUARD_URL',
+  'ENDPOINT_OWNER',
   ENDPOINT_ARTIFACT_ENV,
   ENDPOINT_PREVIEW_OUT_DIR_ENV,
   ENDPOINT_RESPONSE_ARTIFACT_ENV,
   ENDPOINT_RESPONSE_MANIFEST_PATH_ENV,
-  'ASYRA_DESIGN_TRACKED_EXECUTABLE',
-  'ASYRA_DESIGN_TRACKED_ROLE'
+  'TRACKED_EXECUTABLE',
+  'TRACKED_ROLE'
 ])
 
 const normalizeRequiredProcessRoles = (value) => {
@@ -778,8 +776,7 @@ const sanitizeHeartbeat = (heartbeat) => {
   }
 }
 
-const collaborationEndpointPattern =
-  /wss?:\/\/[^"'`\s]+\/asyra-design-collaboration/gu
+const collaborationEndpointPattern = /wss?:\/\/[^"'`\s]+\/collaboration/gu
 
 const normalizeCollaborationEndpoint = (value) => {
   if (!isNonEmptyBoundedString(value)) {
@@ -799,7 +796,7 @@ const normalizeCollaborationEndpoint = (value) => {
     !['ws:', 'wss:'].includes(endpoint.protocol) ||
     endpoint.username ||
     endpoint.password ||
-    endpoint.pathname !== '/asyra-design-collaboration' ||
+    endpoint.pathname !== '/collaboration' ||
     endpoint.search ||
     endpoint.hash
   ) {
@@ -2715,8 +2712,8 @@ export const parseRunnerArguments = (argv) => {
 }
 
 const parseTrackedProcessLauncherArguments = (argv, baseEnv = process.env) => {
-  const environmentRole = baseEnv.ASYRA_DESIGN_TRACKED_ROLE?.trim()
-  const environmentExecutable = baseEnv.ASYRA_DESIGN_TRACKED_EXECUTABLE?.trim()
+  const environmentRole = baseEnv.TRACKED_ROLE?.trim()
+  const environmentExecutable = baseEnv.TRACKED_EXECUTABLE?.trim()
   if (environmentRole || environmentExecutable) {
     if (
       !PRODUCT_PROCESS_ROLES.includes(environmentRole) ||
@@ -2783,9 +2780,9 @@ export const runTrackedProcessLauncher = async (
   } = {}
 ) => {
   const parsed = parseTrackedProcessLauncherArguments(argv, baseEnv)
-  const guardUrl = baseEnv.ASYRA_DESIGN_ENDPOINT_GUARD_URL?.trim()
-  const guardToken = baseEnv.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN?.trim()
-  const owner = baseEnv.ASYRA_DESIGN_ENDPOINT_OWNER?.trim()
+  const guardUrl = baseEnv.ENDPOINT_GUARD_URL?.trim()
+  const guardToken = baseEnv.ENDPOINT_GUARD_TOKEN?.trim()
+  const owner = baseEnv.ENDPOINT_OWNER?.trim()
   if (
     !isNonEmptyBoundedString(guardUrl) ||
     !isNonEmptyBoundedString(guardToken) ||
@@ -2840,9 +2837,9 @@ export const buildRunnerSpawnOptions = ({
   stdio: ['ignore', 'pipe', 'pipe'],
   env: {
     ...baseEnv,
-    ASYRA_DESIGN_ENDPOINT_OWNER: owner,
-    ASYRA_DESIGN_ENDPOINT_GUARD_URL: guardUrl,
-    ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: guardToken
+    ENDPOINT_OWNER: owner,
+    ENDPOINT_GUARD_URL: guardUrl,
+    ENDPOINT_GUARD_TOKEN: guardToken
   }
 })
 
@@ -2862,18 +2859,17 @@ export const buildEndpointPerformancePhases = ({
     throw new Error('Endpoint performance pipeline requires an owner')
   }
   const appPort = normalizePort(
-    baseEnv.ASYRA_DESIGN_ENDPOINT_APP_PORT,
+    baseEnv.ENDPOINT_APP_PORT,
     3_021,
-    'ASYRA_DESIGN_ENDPOINT_APP_PORT'
+    'ENDPOINT_APP_PORT'
   )
   const collaborationPort = normalizePort(
-    baseEnv.ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT,
+    baseEnv.ENDPOINT_COLLABORATION_PORT,
     4_121,
-    'ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT'
+    'ENDPOINT_COLLABORATION_PORT'
   )
-  const collaborationUrl = `ws://127.0.0.1:${collaborationPort}/asyra-design-collaboration`
-  const attributionCase =
-    baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
+  const collaborationUrl = `ws://127.0.0.1:${collaborationPort}/collaboration`
+  const attributionCase = baseEnv.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
   const validAttributionCases = new Set([
     '16',
     '16-reduced-motion',
@@ -2885,7 +2881,7 @@ export const buildEndpointPerformancePhases = ({
   ])
   if (attributionCase && !validAttributionCases.has(attributionCase)) {
     throw new Error(
-      'ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, 27471-maximum, 16-two-actor-activity, 1280-two-actor-attribution, or 320-two-actor-attribution'
+      'ENDPOINT_ATTRIBUTION_CASE must be 16, 16-reduced-motion, 1280, 27471-maximum, 16-two-actor-activity, 1280-two-actor-attribution, or 320-two-actor-attribution'
     )
   }
   const twoActorActivityAttribution = [
@@ -2913,15 +2909,15 @@ export const buildEndpointPerformancePhases = ({
   }
   const sharedEnv = {
     ...baseEnv,
-    ASYRA_DESIGN_ENDPOINT_APP_PORT: String(appPort),
-    ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT: String(collaborationPort),
-    ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY: '0',
-    ASYRA_DESIGN_APP_URL: `http://127.0.0.1:${appPort}`,
-    ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort),
-    ASYRA_DESIGN_E2E_OWN_SERVERS: '1',
-    ASYRA_DESIGN_COLLABORATION_PROFILE: '1',
-    ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: attributionCase,
-    VITE_ASYRA_DESIGN_COLLABORATION_WS_URL: collaborationUrl
+    ENDPOINT_APP_PORT: String(appPort),
+    ENDPOINT_COLLABORATION_PORT: String(collaborationPort),
+    ENDPOINT_CONNECTIVITY_ONLY: '0',
+    APP_URL: `http://127.0.0.1:${appPort}`,
+    COLLABORATION_WS_PORT: String(collaborationPort),
+    E2E_OWN_SERVERS: '1',
+    COLLABORATION_PROFILE: '1',
+    ENDPOINT_ATTRIBUTION_CASE: attributionCase,
+    VITE_COLLABORATION_WS_URL: collaborationUrl
   }
   return [
     {
@@ -3870,8 +3866,7 @@ export const runEndpointPerformancePipeline = async (
 
   const [runtimePhase] = phases
   const artifactAttestation = await attestBuild({
-    expectedEndpoint:
-      runtimePhase.baseEnv.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL
+    expectedEndpoint: runtimePhase.baseEnv.VITE_COLLABORATION_WS_URL
   })
   const responsePreviewAttestation =
     normalizePreparedResponsePreviewAttestation(await attestResponsePreview())
@@ -3908,8 +3903,7 @@ const isMain =
 if (isMain) {
   const argv = process.argv.slice(2)
   const trackedLauncher =
-    argv[0] === '--tracked-role' ||
-    Boolean(process.env.ASYRA_DESIGN_TRACKED_ROLE)
+    argv[0] === '--tracked-role' || Boolean(process.env.TRACKED_ROLE)
   let execution
   if (trackedLauncher) {
     execution = runTrackedProcessLauncher(argv)

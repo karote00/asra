@@ -133,7 +133,10 @@ const getLayerIds = async (page: Page): Promise<string[]> =>
 
 const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
-    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+    async () =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps.selection.getElementSelectionIds() ?? []
   )
 
 const selectLayers = async (page: Page, elementIds: readonly string[]) => {
@@ -153,8 +156,8 @@ const getCanonicalSnapshot = async (
   page: Page,
   elementIds: readonly string[]
 ) =>
-  page.evaluate((ids) => {
-    const core = window.__Core__
+  page.evaluate(async (ids) => {
+    const core = (await import('../src/testing/runtime-access')).core
     return {
       selectedIds: core.deps.selection.getElementSelectionIds(),
       elements: ids.map((id) => {
@@ -209,7 +212,7 @@ const captureRuleOverlay = async ({
   elementIds: readonly string[]
 }) => {
   const runtimeWithoutHash = await page.evaluate(
-    ({ expectedPlatform, requestedPosition, ids, currentBaseURL }) => {
+    async ({ expectedPlatform, requestedPosition, ids, currentBaseURL }) => {
       const toRect = (rect: DOMRect): ClientRectSnapshot => ({
         left: rect.left,
         top: rect.top,
@@ -224,7 +227,7 @@ const captureRuleOverlay = async ({
       const rows = [
         ...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
       ]
-      const core = window.__Core__
+      const core = (await import('../src/testing/runtime-access')).core
 
       return {
         baseURL: currentBaseURL,
@@ -676,7 +679,7 @@ for (const fixture of platformFixtures) {
 
       const nativeEventPrevented = await page
         .getByText('Layers', { exact: true })
-        .evaluate((target) => {
+        .evaluate(async (target) => {
           const event = new MouseEvent('contextmenu', {
             bubbles: true,
             cancelable: true,
@@ -704,7 +707,7 @@ for (const fixture of platformFixtures) {
         exact: true
       })
       await expect(disabledUngroup).toBeDisabled()
-      await disabledUngroup.evaluate((row) =>
+      await disabledUngroup.evaluate(async (row) =>
         (row as HTMLButtonElement).click()
       )
       await expect(menu).toBeVisible()
@@ -722,9 +725,12 @@ for (const fixture of platformFixtures) {
       await expect
         .poll(() =>
           page.evaluate(
-            (id) =>
-              window.__Core__?.deps.sceneTree.getElementById(id)?.get('type') ??
-              null,
+            async (id) =>
+              (
+                await import('../src/testing/runtime-access')
+              ).core?.deps.sceneTree
+                .getElementById(id)
+                ?.get('type') ?? null,
             menuGroupId
           )
         )
@@ -740,9 +746,12 @@ for (const fixture of platformFixtures) {
       await expect
         .poll(() =>
           page.evaluate(
-            (id) =>
-              window.__Core__?.deps.sceneTree.getElementById(id)?.get('type') ??
-              null,
+            async (id) =>
+              (
+                await import('../src/testing/runtime-access')
+              ).core?.deps.sceneTree
+                .getElementById(id)
+                ?.get('type') ?? null,
             shortcutGroupId
           )
         )

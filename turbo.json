@@ -1,9 +1,9 @@
 {
   "globalEnv": [
-    "ASYRA_DESIGN_APP_URL",
-    "ASYRA_DESIGN_COLLABORATION_WS_HOST",
-    "ASYRA_DESIGN_COLLABORATION_WS_PORT",
-    "VITE_ASYRA_DESIGN_COLLABORATION_WS_URL"
+    "APP_URL",
+    "COLLABORATION_WS_HOST",
+    "COLLABORATION_WS_PORT",
+    "VITE_COLLABORATION_WS_URL"
   ],
   "tasks": {
     "watch:design-system": {
@@ -53,6 +53,7 @@
         "@asyra/factory#build:factory",
         "@asyra/feature-system#build:feature-system",
         "@asyra/input-system#build:input-system",
+        "@asyra/persistence#build:persistence",
         "@asyra/preset#build:preset",
         "@asyra/reactive-events#build:reactive-events",
         "@asyra/render#build:render",

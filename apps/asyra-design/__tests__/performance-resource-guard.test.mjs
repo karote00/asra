@@ -3278,19 +3278,16 @@ test('builds a detached, shell-free runner command with the fixed guard environm
 
   assert.equal(options.detached, true)
   assert.equal(options.shell, false)
-  assert.equal(options.env.ASYRA_DESIGN_ENDPOINT_OWNER, OWNER)
-  assert.equal(
-    options.env.ASYRA_DESIGN_ENDPOINT_GUARD_URL,
-    'http://127.0.0.1:54321'
-  )
-  assert.equal(options.env.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN, TOKEN)
+  assert.equal(options.env.ENDPOINT_OWNER, OWNER)
+  assert.equal(options.env.ENDPOINT_GUARD_URL, 'http://127.0.0.1:54321')
+  assert.equal(options.env.ENDPOINT_GUARD_TOKEN, TOKEN)
 })
 
 test('builds only the guarded Playwright runtime after separate production setup', () => {
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
     baseEnv: {
-      ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY: '1',
+      ENDPOINT_CONNECTIVITY_ONLY: '1',
       PATH: '/test/bin'
     }
   })
@@ -3328,9 +3325,9 @@ test('builds only the guarded Playwright runtime after separate production setup
   assert.equal(phases[0].baseEnv.GOMAXPROCS, undefined)
   assert.equal(phases[0].baseEnv.NODE_OPTIONS, undefined)
   assert.equal(phases[0].baseEnv.UV_THREADPOOL_SIZE, undefined)
-  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_APP_URL, 'http://127.0.0.1:3021')
-  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_COLLABORATION_WS_PORT, '4121')
-  assert.equal(phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY, '0')
+  assert.equal(phases[0].baseEnv.APP_URL, 'http://127.0.0.1:3021')
+  assert.equal(phases[0].baseEnv.COLLABORATION_WS_PORT, '4121')
+  assert.equal(phases[0].baseEnv.ENDPOINT_CONNECTIVITY_ONLY, '0')
 })
 
 test('builds each single-Actor attribution with the always-on WebSocket service', () => {
@@ -3343,7 +3340,7 @@ test('builds each single-Actor attribution with the always-on WebSocket service'
     const phases = buildEndpointPerformancePhases({
       owner: OWNER,
       baseEnv: {
-        ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: attributionCase,
+        ENDPOINT_ATTRIBUTION_CASE: attributionCase,
         PATH: '/test/bin'
       }
     })
@@ -3361,11 +3358,8 @@ test('builds each single-Actor attribution with the always-on WebSocket service'
     ])
     assert.equal(phases[0].guardConfig.requiredProofKind, 'local-attribution')
     assert.equal(phases[0].guardConfig.maximumFrontendCpuPercent, 250)
-    assert.equal(
-      phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
-      attributionCase
-    )
-    assert.equal(phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_LOCAL_ONLY, undefined)
+    assert.equal(phases[0].baseEnv.ENDPOINT_ATTRIBUTION_CASE, attributionCase)
+    assert.equal(phases[0].baseEnv.ENDPOINT_LOCAL_ONLY, undefined)
     assert.deepEqual(phases[0].argv.slice(-2), [
       '--grep',
       'single-Actor local attribution'
@@ -3381,7 +3375,7 @@ test('builds the two-Actor 16-item operation and idle diagnostic as one endpoint
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
     baseEnv: {
-      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '16-two-actor-activity',
+      ENDPOINT_ATTRIBUTION_CASE: '16-two-actor-activity',
       PATH: '/test/bin'
     }
   })
@@ -3396,7 +3390,7 @@ test('builds the two-Actor 16-item operation and idle diagnostic as one endpoint
     'two-Actor operation and idle attribution'
   ])
   assert.equal(
-    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    phases[0].baseEnv.ENDPOINT_ATTRIBUTION_CASE,
     '16-two-actor-activity'
   )
 })
@@ -3405,7 +3399,7 @@ test('builds the two-Actor 1280-item attribution under the small-case guard', ()
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
     baseEnv: {
-      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '1280-two-actor-attribution',
+      ENDPOINT_ATTRIBUTION_CASE: '1280-two-actor-attribution',
       PATH: '/test/bin'
     }
   })
@@ -3420,7 +3414,7 @@ test('builds the two-Actor 1280-item attribution under the small-case guard', ()
     'two-Actor operation and idle attribution'
   ])
   assert.equal(
-    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    phases[0].baseEnv.ENDPOINT_ATTRIBUTION_CASE,
     '1280-two-actor-attribution'
   )
 })
@@ -3429,7 +3423,7 @@ test('builds the two-Actor 320-item fallback under the small-case guard', () => 
   const phases = buildEndpointPerformancePhases({
     owner: OWNER,
     baseEnv: {
-      ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE: '320-two-actor-attribution',
+      ENDPOINT_ATTRIBUTION_CASE: '320-two-actor-attribution',
       PATH: '/test/bin'
     }
   })
@@ -3444,13 +3438,13 @@ test('builds the two-Actor 320-item fallback under the small-case guard', () => 
     'two-Actor operation and idle attribution'
   ])
   assert.equal(
-    phases[0].baseEnv.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE,
+    phases[0].baseEnv.ENDPOINT_ATTRIBUTION_CASE,
     '320-two-actor-attribution'
   )
 })
 
 test('attests that the emitted production artifact owns exactly the endpoint used by the proof', async () => {
-  const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
+  const expectedEndpoint = 'ws://127.0.0.1:4121/collaboration'
   const assets = new Map([
     [
       'index-current.js',
@@ -3482,7 +3476,7 @@ test('attests that the emitted production artifact owns exactly the endpoint use
 
   assets.set(
     'index-current.js',
-    'const endpoint="ws://127.0.0.1:4101/asyra-design-collaboration"'
+    'const endpoint="ws://127.0.0.1:4101/collaboration"'
   )
   await assert.rejects(
     attestEndpointBuildArtifact(options),
@@ -3725,16 +3719,15 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
     ['--tracked-role', 'app-server', '--', 'yarn', 'preview', '--port', '3021'],
     {
       baseEnv: {
-        ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED:
-          'ws://127.0.0.1:4121/asyra-design-collaboration',
-        ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: TOKEN,
-        ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
-        ASYRA_DESIGN_ENDPOINT_OWNER: OWNER,
-        ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR:
-          '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current',
-        ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
-        ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH:
-          '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
+        ENDPOINT_ARTIFACT_ATTESTED: 'ws://127.0.0.1:4121/collaboration',
+        ENDPOINT_GUARD_TOKEN: TOKEN,
+        ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
+        ENDPOINT_OWNER: OWNER,
+        ENDPOINT_PREVIEW_OUT_DIR:
+          '/project/apps/asyra-design/tmp/endpoint-preview/current',
+        ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
+        ENDPOINT_RESPONSE_MANIFEST_PATH:
+          '/project/apps/asyra-design/tmp/endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
         KEEP_ME: 'yes'
       },
       fetchImpl: async (url, options) => {
@@ -3775,24 +3768,15 @@ test('registers a tracked launcher before spawn and removes guard secrets from i
   assert.equal(spawnCall.options.detached, false)
   assert.equal(spawnCall.options.shell, false)
   assert.equal(spawnCall.options.env.KEEP_ME, 'yes')
+  assert.equal(spawnCall.options.env.ENDPOINT_GUARD_TOKEN, undefined)
+  assert.equal(spawnCall.options.env.ENDPOINT_GUARD_URL, undefined)
+  assert.equal(spawnCall.options.env.ENDPOINT_OWNER, undefined)
+  assert.equal(spawnCall.options.env.ENDPOINT_PREVIEW_OUT_DIR, undefined)
   assert.equal(
-    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN,
+    spawnCall.options.env.ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
     undefined
   )
-  assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_GUARD_URL, undefined)
-  assert.equal(spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_OWNER, undefined)
-  assert.equal(
-    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR,
-    undefined
-  )
-  assert.equal(
-    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
-    undefined
-  )
-  assert.equal(
-    spawnCall.options.env.ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH,
-    undefined
-  )
+  assert.equal(spawnCall.options.env.ENDPOINT_RESPONSE_MANIFEST_PATH, undefined)
 })
 
 test('starts product-group termination before root within one bounded window', async () => {
@@ -3823,9 +3807,9 @@ test('starts product-group termination before root within one bounded window', a
 
 test('attests separate production setup before starting guarded runtime', async () => {
   const events = []
-  const expectedEndpoint = 'ws://127.0.0.1:4121/asyra-design-collaboration'
+  const expectedEndpoint = 'ws://127.0.0.1:4121/collaboration'
   const expectedPreviewOutDir =
-    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current'
+    '/project/apps/asyra-design/tmp/endpoint-preview/current'
   const expectedManifestPath = `${expectedPreviewOutDir}/__endpoint-test__/server-responses/manifest.json`
   const expectedProductionIndexSha256 = 'a'.repeat(64)
   const result = await runEndpointPerformancePipeline(['--owner', OWNER], {
@@ -3858,24 +3842,21 @@ test('attests separate production setup before starting guarded runtime', async 
       const phaseOwner = argv[1]
       assert.equal(phaseOwner, OWNER)
       events.push(`runtime:${phaseOwner}`)
+      assert.equal(options.baseEnv.ENDPOINT_ARTIFACT_ATTESTED, expectedEndpoint)
       assert.equal(
-        options.baseEnv.ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED,
-        expectedEndpoint
-      )
-      assert.equal(
-        options.baseEnv.ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR,
+        options.baseEnv.ENDPOINT_PREVIEW_OUT_DIR,
         expectedPreviewOutDir
       )
       assert.equal(
-        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH,
+        options.baseEnv.ENDPOINT_RESPONSE_MANIFEST_PATH,
         expectedManifestPath
       )
       assert.equal(
-        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
+        options.baseEnv.ENDPOINT_RESPONSE_ARTIFACT_ATTESTED,
         expectedProductionIndexSha256
       )
       assert.equal(
-        options.baseEnv.ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_PAYLOAD,
+        options.baseEnv.ENDPOINT_RESPONSE_ARTIFACT_PAYLOAD,
         undefined
       )
       return {

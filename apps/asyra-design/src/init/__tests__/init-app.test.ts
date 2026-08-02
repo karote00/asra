@@ -12,9 +12,6 @@ import * as pathEditingContinuation from '../derived-state/init-path-editing-con
 import * as selectionCompatibility from '../derived-state/init-selection-compatibility'
 import * as features from '../foundation/init-features'
 import * as inputSystem from '../foundation/init-input-system'
-import { elementApis } from '../../common-apis/element'
-import { hierarchyApis } from '../../common-apis/hierarchy'
-import { strokeApis } from '../../common-apis/strokes'
 import { viewportApis } from '../../common-apis/viewport'
 import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
@@ -95,8 +92,6 @@ describe('initApp preset composition', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
-    delete window.__AsyraE2E__
-    delete window.__AsyraAiDrawingPerformance__
   })
 
   it('applies the default preset with the production AI lifecycle', async () => {
@@ -112,11 +107,6 @@ describe('initApp preset composition', () => {
     expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
     expect(initialization.aiHistory).not.toBeNull()
-    expect(window.__AsyraE2E__).toEqual({
-      elementApis,
-      hierarchyApis,
-      strokeApis
-    })
     expect(calls).toEqual([
       'preset',
       'canvas-pipeline-debugger',
@@ -144,7 +134,7 @@ describe('initApp preset composition', () => {
       fileId: 'file-resident',
       schemaVersion: 1
     } as const
-    const createAiStartup = vi.spyOn(aiStartup, 'createAsyraDesignAiStartup')
+    const createAiStartup = vi.spyOn(aiStartup, 'createAiStartup')
 
     const initialization = initApp({ serverResponse: response })
 
@@ -207,7 +197,7 @@ describe('initApp preset composition', () => {
     const disposeConfirmation = vi.fn(async () => undefined)
     const disposeHistory = vi.fn()
     const disposeRuntime = vi.fn(async () => undefined)
-    vi.spyOn(aiStartup, 'createAsyraDesignAiStartup').mockReturnValue({
+    vi.spyOn(aiStartup, 'createAiStartup').mockReturnValue({
       confirmation: {
         dispose: disposeConfirmation
       },
@@ -247,24 +237,25 @@ describe('initApp preset composition', () => {
     const attachRuntimeEvidence = vi
       .spyOn(aiDrawingPerformance, 'attachAiDrawingPerformanceRuntimeEvidence')
       .mockReturnValue(detachRuntimeEvidence)
-    window.__AsyraAiDrawingPerformance__ = {} as never
+    const profile = {} as aiDrawingPerformance.AiDrawingPerformanceProfile
+    vi.spyOn(
+      aiDrawingPerformance,
+      'getActiveAiDrawingPerformanceProfile'
+    ).mockReturnValue(profile)
 
     const initialization = initApp({ serverResponse: null })
 
     expect(attachRuntimeEvidence).toHaveBeenCalledOnce()
-    expect(attachRuntimeEvidence).toHaveBeenCalledWith(
-      window.__AsyraAiDrawingPerformance__,
-      {
-        readCanonicalElementCount: expect.any(Function),
-        readCanonicalElements: expect.any(Function),
-        readCanonicalOwnerSnapshot: expect.any(Function),
-        readHistoryDepth: expect.any(Function),
-        readRenderProjectionElementCount: expect.any(Function),
-        readViewportPosition: expect.any(Function),
-        readZoom: expect.any(Function),
-        subscribeToTransactionStatus: expect.any(Function)
-      }
-    )
+    expect(attachRuntimeEvidence).toHaveBeenCalledWith(profile, {
+      readCanonicalElementCount: expect.any(Function),
+      readCanonicalElements: expect.any(Function),
+      readCanonicalOwnerSnapshot: expect.any(Function),
+      readHistoryDepth: expect.any(Function),
+      readRenderProjectionElementCount: expect.any(Function),
+      readViewportPosition: expect.any(Function),
+      readZoom: expect.any(Function),
+      subscribeToTransactionStatus: expect.any(Function)
+    })
     const runtimeSource = attachRuntimeEvidence.mock.calls[0][1]
     expect(runtimeSource.readCanonicalElementCount()).toBe(0)
     expect(runtimeSource.readHistoryDepth()).toBe(3)

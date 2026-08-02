@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import type { AsyraDesignAiConversationController } from '../ai/conversation'
+import type { AiConversationController } from '../ai/conversation'
 import type {
-  AsyraDesignAiHistoryProjection,
-  AsyraDesignAiHistorySnapshot
+  AiHistoryProjection,
+  AiHistorySnapshot
 } from '../common-apis/history'
-import { summarizeAsyraDesignAiTurn } from '../ai/presentation'
+import { summarizeAiTurn } from '../ai/presentation'
 
 export interface AiHistoryMessageBarProps {
-  readonly conversation: AsyraDesignAiConversationController
-  readonly history: AsyraDesignAiHistoryProjection
+  readonly conversation: AiConversationController
+  readonly history: AiHistoryProjection
 }
 
 export const AiHistoryMessageBar = ({
@@ -18,8 +18,9 @@ export const AiHistoryMessageBar = ({
   const [conversationSnapshot, setConversationSnapshot] = useState(() =>
     conversation.getSnapshot()
   )
-  const [historySnapshot, setHistorySnapshot] =
-    useState<AsyraDesignAiHistorySnapshot>(() => history.getSnapshot())
+  const [historySnapshot, setHistorySnapshot] = useState<AiHistorySnapshot>(
+    () => history.getSnapshot()
+  )
 
   useEffect(
     () => conversation.subscribe(setConversationSnapshot),
@@ -36,7 +37,7 @@ export const AiHistoryMessageBar = ({
     (settled) => settled.turnId === control.turnId
   )
   const message = turn
-    ? summarizeAsyraDesignAiTurn(turn).message
+    ? summarizeAiTurn(turn).message
     : 'AI drawing change applied.'
   const isUndo = control.direction === 'undo'
 

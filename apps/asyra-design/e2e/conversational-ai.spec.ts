@@ -1,10 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createTestDocumentIdentity,
+  getCoreDocumentDigest,
+  getPersistedDocumentDigest,
   getUndoHistoryDepth,
+  redo,
+  undo,
   waitForAppReady
 } from './test-utils'
-import { seedAsyraDesignServerResponse } from './server-response-inbox'
+import { seedServerResponse } from './server-response-inbox'
 
 interface CanonicalDrawingSummary {
   readonly groupCount: number
@@ -15,9 +19,9 @@ interface CanonicalDrawingSummary {
 const readCanonicalDrawingSummary = async (
   page: Page
 ): Promise<CanonicalDrawingSummary> =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sceneTree = (window as any).__Core__?.deps?.sceneTree
+  page.evaluate(async () => {
+    const sceneTree = (await import('../src/testing/runtime-access')).core?.deps
+      ?.sceneTree
     if (!sceneTree) {
       throw new Error('Asyra Design scene tree is unavailable')
     }
@@ -42,8 +46,8 @@ const readCanonicalDrawingSummary = async (
 const selectFirstEditableFill = async (
   page: Page
 ): Promise<{ readonly color: string; readonly elementId: string }> =>
-  page.evaluate(() => {
-    const core = window.__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const sceneTree = core?.deps.sceneTree
     if (!core || !sceneTree) {
       throw new Error('Asyra Design canonical state is unavailable')
@@ -64,18 +68,29 @@ const selectFirstEditableFill = async (
     throw new Error('The prepared drawing has no editable fill')
   })
 
-const readElementFillColor = async (
+const readElementFillProjection = async (
   page: Page,
   elementId: string
-): Promise<string | null> =>
-  page.evaluate((targetElementId) => {
-    const element =
-      window.__Core__?.deps.sceneTree.getElementById(targetElementId)
+): Promise<{
+  readonly computed: string | null
+  readonly rendered: string | null
+}> =>
+  page.evaluate(async (targetElementId) => {
+    const core = (await import('../src/testing/runtime-access')).core
+    const element = core?.deps.sceneTree.getElementById(targetElementId)
+    const renderElement = core?.deps.render.getElementById(targetElementId)
     const computed = element?.getAllComputedData() as
       | { fills?: readonly { readonly color?: unknown }[] }
       | undefined
-    const color = computed?.fills?.[0]?.color
-    return typeof color === 'string' ? color : null
+    const rendered = renderElement?.__asyraLastRenderDataSnapshot as
+      | { fills?: readonly { readonly color?: unknown }[] }
+      | undefined
+    const computedColor = computed?.fills?.[0]?.color
+    const renderedColor = rendered?.fills?.[0]?.color
+    return {
+      computed: typeof computedColor === 'string' ? computedColor : null,
+      rendered: typeof renderedColor === 'string' ? renderedColor : null
+    }
   }, elementId)
 
 test.describe('Conversational AI drawing', () => {
@@ -85,7 +100,7 @@ test.describe('Conversational AI drawing', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     const identity = createTestDocumentIdentity()
-    await seedAsyraDesignServerResponse(page.context(), {
+    await seedServerResponse(page.context(), {
       appUrl: identity.url,
       fileId: identity.fileId,
       itemCount: 16
@@ -125,6 +140,15 @@ test.describe('Conversational AI drawing', () => {
     expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
 
     const editableFill = await selectFirstEditableFill(page)
+    const fillBefore = await readElementFillProjection(
+      page,
+      editableFill.elementId
+    )
+    expect(fillBefore).toEqual({
+      computed: editableFill.color,
+      rendered: editableFill.color
+    })
+    const editHistoryBefore = await getUndoHistoryDepth(page)
     const nextColor =
       editableFill.color.toLowerCase() === '#ff0000' ? '00FF00' : 'FF0000'
     await page.getByRole('button', { name: 'Close Agent panel' }).click()
@@ -138,7 +162,54 @@ test.describe('Conversational AI drawing', () => {
     expect(pageErrors).toEqual([])
 
     await expect
-      .poll(() => readElementFillColor(page, editableFill.elementId))
-      .toBe(`#${nextColor.toLowerCase()}`)
+      .poll(() => readElementFillProjection(page, editableFill.elementId))
+      .toEqual({
+        computed: `#${nextColor.toLowerCase()}`,
+        rendered: `#${nextColor.toLowerCase()}`
+      })
+    expect(await getUndoHistoryDepth(page)).toBe(editHistoryBefore + 1)
+
+    await undo(page)
+    await expect
+      .poll(() => readElementFillProjection(page, editableFill.elementId))
+      .toEqual(fillBefore)
+
+    await redo(page)
+    await expect
+      .poll(() => readElementFillProjection(page, editableFill.elementId))
+      .toEqual({
+        computed: `#${nextColor.toLowerCase()}`,
+        rendered: `#${nextColor.toLowerCase()}`
+      })
+
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(async () => ({
+        current: await getCoreDocumentDigest(page),
+        persisted: await getPersistedDocumentDigest(
+          page,
+          `FILE:${encodeURIComponent(identity.fileId)}`
+        )
+      }))
+      .toEqual({
+        current: finalDocumentDigest,
+        persisted: finalDocumentDigest
+      })
+
+    await page.reload()
+    await waitForAppReady(page)
+    await expect
+      .poll(() => readCanonicalDrawingSummary(page))
+      .toEqual({
+        groupCount: 1,
+        totalCount: 17,
+        vectorCount: 16
+      })
+    await expect
+      .poll(() => readElementFillProjection(page, editableFill.elementId))
+      .toEqual({
+        computed: `#${nextColor.toLowerCase()}`,
+        rendered: `#${nextColor.toLowerCase()}`
+      })
   })
 })

@@ -1,21 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { TransactionStatusPayload } from '@asyra/utils'
+import {
+  emitBrowserDragPhase,
+  emitDiagnosticCounter,
+  subscribeToBrowserDragPhases,
+  subscribeToDiagnosticCounters,
+  type TransactionStatusPayload
+} from '@asyra/utils'
 import {
   attachAiDrawingPerformanceRuntimeEvidence,
+  getActiveAiDrawingPerformanceProfile,
   isAiDrawingPerformanceProfileRequested,
   installAiDrawingPerformanceProfile,
   recordAiDrawingPerformancePublication
 } from '../performance/ai-drawing-performance-profile'
 
-const runtimeGlobal = globalThis as typeof globalThis & {
-  __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-  __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-}
+const observerDisposers: (() => void)[] = []
 
 afterEach(() => {
-  delete runtimeGlobal.__asyraBrowserDragPhaseSink
-  delete runtimeGlobal.__asyraDiagnosticCounterSink
-  delete window.__AsyraAiDrawingPerformance__
+  getActiveAiDrawingPerformanceProfile()?.dispose()
+  observerDisposers.splice(0).forEach((dispose) => dispose())
 })
 
 describe('AI drawing performance profile', () => {
@@ -44,8 +47,8 @@ describe('AI drawing performance profile', () => {
       throw new Error('diagnostic failure')
     })
     const priorCounter = vi.fn()
-    runtimeGlobal.__asyraBrowserDragPhaseSink = priorPhase
-    runtimeGlobal.__asyraDiagnosticCounterSink = priorCounter
+    observerDisposers.push(subscribeToBrowserDragPhases(priorPhase))
+    observerDisposers.push(subscribeToDiagnosticCounters(priorCounter))
     const now = vi
       .fn<() => number>()
       .mockReturnValueOnce(100)
@@ -57,8 +60,8 @@ describe('AI drawing performance profile', () => {
       runtime: 'production'
     })
 
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.('ui-context:flush', 3.5)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('render:flush', 2)
+    emitBrowserDragPhase('ui-context:flush', 3.5)
+    emitDiagnosticCounter('render:flush', 2)
 
     const first = profile.snapshot()
     expect(first).toEqual({
@@ -80,9 +83,11 @@ describe('AI drawing performance profile', () => {
 
     profile.dispose()
 
-    expect(runtimeGlobal.__asyraBrowserDragPhaseSink).toBe(priorPhase)
-    expect(runtimeGlobal.__asyraDiagnosticCounterSink).toBe(priorCounter)
-    expect(window.__AsyraAiDrawingPerformance__).toBeUndefined()
+    emitBrowserDragPhase('after-dispose', 1)
+    emitDiagnosticCounter('after-dispose', 1)
+    expect(priorPhase).toHaveBeenLastCalledWith('after-dispose', 1)
+    expect(priorCounter).toHaveBeenLastCalledWith('after-dispose', 1)
+    expect(getActiveAiDrawingPerformanceProfile()).toBeNull()
   })
 
   it('reads one accumulated counter without materializing a full profile snapshot', () => {
@@ -91,15 +96,9 @@ describe('AI drawing performance profile', () => {
       runtime: 'production'
     })
 
-    runtimeGlobal.__asyraDiagnosticCounterSink?.(
-      'render-projection-outcome-applied',
-      2
-    )
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('unrelated-counter', 100)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.(
-      'render-projection-outcome-applied',
-      3
-    )
+    emitDiagnosticCounter('render-projection-outcome-applied', 2)
+    emitDiagnosticCounter('unrelated-counter', 100)
+    emitDiagnosticCounter('render-projection-outcome-applied', 3)
 
     expect(profile.readCounterTotal('render-projection-outcome-applied')).toBe(
       5
@@ -122,20 +121,14 @@ describe('AI drawing performance profile', () => {
       runtime: 'production'
     })
 
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
-      'ai-turn:accepted-to-settled',
-      12
-    )
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
-      'ai-app:create-composition-batch',
-      3
-    )
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
+    emitDiagnosticCounter('ai-turn:accepted', 1)
+    emitBrowserDragPhase('ai-turn:accepted-to-settled', 12)
+    emitBrowserDragPhase('ai-app:create-composition-batch', 3)
+    emitDiagnosticCounter('ai-turn:outcome:success', 1)
 
     for (let index = 0; index < evidenceCapacity; index += 1) {
-      runtimeGlobal.__asyraDiagnosticCounterSink?.('render-frame-count', 1)
-      runtimeGlobal.__asyraBrowserDragPhaseSink?.('render:flush-frame', index)
+      emitDiagnosticCounter('render-frame-count', 1)
+      emitBrowserDragPhase('render:flush-frame', index)
     }
 
     const snapshot = profile.snapshot()
@@ -202,13 +195,13 @@ describe('AI drawing performance profile', () => {
     })
 
     for (let index = 0; index < counterKeyCapacity; index += 1) {
-      runtimeGlobal.__asyraDiagnosticCounterSink?.(`counter-${index}`, 1)
+      emitDiagnosticCounter(`counter-${index}`, 1)
     }
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('counter-overflow', 1)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('counter-0', 1)
+    emitDiagnosticCounter('counter-overflow', 1)
+    emitDiagnosticCounter('counter-0', 1)
     const oversizedName = `phase-${'x'.repeat(512)}`
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.(oversizedName, 1)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.(oversizedName, 1)
+    emitBrowserDragPhase(oversizedName, 1)
+    emitDiagnosticCounter(oversizedName, 1)
 
     expect(profile.readCounterTotal('counter-0')).toBe(2)
     expect(profile.readCounterTotal('counter-overflow')).toBe(0)
@@ -412,12 +405,9 @@ describe('AI drawing performance profile', () => {
       runtime: 'development'
     })
 
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
-      'ai-turn:accepted-to-settled',
-      12
-    )
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
+    emitDiagnosticCounter('ai-turn:accepted', 1)
+    emitBrowserDragPhase('ai-turn:accepted-to-settled', 12)
+    emitDiagnosticCounter('ai-turn:outcome:success', 1)
 
     expect(profile.snapshot()).toMatchObject({
       releaseEvidenceEligible: false,
@@ -434,13 +424,10 @@ describe('AI drawing performance profile', () => {
     })
 
     expect(profile.snapshot().releaseEvidenceEligible).toBe(false)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:accepted', 1)
-    runtimeGlobal.__asyraDiagnosticCounterSink?.('ai-turn:outcome:success', 1)
+    emitDiagnosticCounter('ai-turn:accepted', 1)
+    emitDiagnosticCounter('ai-turn:outcome:success', 1)
     expect(profile.snapshot().releaseEvidenceEligible).toBe(false)
-    runtimeGlobal.__asyraBrowserDragPhaseSink?.(
-      'ai-turn:accepted-to-settled',
-      12
-    )
+    emitBrowserDragPhase('ai-turn:accepted-to-settled', 12)
     expect(profile.snapshot().releaseEvidenceEligible).toBe(true)
 
     profile.dispose()

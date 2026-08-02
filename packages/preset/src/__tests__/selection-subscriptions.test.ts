@@ -10,6 +10,7 @@ import {
   EntityTypes,
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
+  subscribeToDiagnosticCounters,
   type PropsChange,
   type SelectionChange
 } from '@asyra/utils'
@@ -629,13 +630,9 @@ describe('Preset Selection Subscriptions', () => {
     subtree.mockReturnValue({ status: 'removed', elementId: 'group-1' })
 
     const counters: string[] = []
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name) => {
       counters.push(name)
-    }
+    })
 
     const dispose = registerDefaultDataChannelObservers(
       core,
@@ -794,7 +791,7 @@ describe('Preset Selection Subscriptions', () => {
       ])
     } finally {
       dispose()
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
       add.mockRestore()
       remove.mockRestore()
       scalar.mockRestore()
@@ -1211,14 +1208,10 @@ describe('Preset Selection Subscriptions', () => {
       ) => observers.set(registration.name, registration),
       unregisterDataChannelObserver: (name: string) => observers.delete(name)
     } as unknown as PresetCoreAPIs
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
     const counters = new Map<string, number>()
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
-    }
+    })
     propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
     propertyRegistry.register('elementDataMap', { defaultValue: {} })
     uiContext.set('flattenedElementIds', [])
@@ -1281,7 +1274,7 @@ describe('Preset Selection Subscriptions', () => {
       ])
     } finally {
       dispose()
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
       propertyRegistry.unregister('flattenedElementIds')
       propertyRegistry.unregister('elementDataMap')
       uiSet.mockRestore()
@@ -1375,14 +1368,10 @@ describe('Preset Selection Subscriptions', () => {
       throw new Error('plural UI projection must not scan canonical state')
     })
     dependencies.sceneTree.getAllElements = getAllElements
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
     const counters = new Map<string, number>()
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
-    }
+    })
     const groupData = {
       children: [] as string[],
       id: 'group-1',
@@ -1453,7 +1442,7 @@ describe('Preset Selection Subscriptions', () => {
       expect(getAllElements).not.toHaveBeenCalled()
     } finally {
       dispose()
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
       propertyRegistry.unregister('flattenedElementIds')
       propertyRegistry.unregister('elementDataMap')
       uiSet.mockRestore()

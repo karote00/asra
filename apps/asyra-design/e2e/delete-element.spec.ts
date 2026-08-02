@@ -34,9 +34,8 @@ test.describe('Delete Selected Element', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const ids = core?.deps?.selection?.getElementSelectionIds?.() ?? []
           return ids.length
         })
@@ -52,16 +51,14 @@ test.describe('Delete Selected Element', () => {
     const persistenceBaseline = await getClientPersistenceEvidence(page)
 
     await createRectangle(page, 0.42, 0.42)
-    const subtree = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const subtree = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const childId = core.deps.selection.getElementSelectionIds()[0]
       return { childId }
     })
     await pressGroupCommandShortcut(page, 'group')
-    const groupId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const groupId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core.deps.selection.getElementSelectionIds()[0] as string
     })
 
@@ -69,9 +66,8 @@ test.describe('Delete Selected Element', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          ({ childId, deletedGroupId }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ childId, deletedGroupId }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             return {
               childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
               flattenedIds:
@@ -97,9 +93,8 @@ test.describe('Delete Selected Element', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          ({ childId, deletedGroupId }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ childId, deletedGroupId }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             return {
               childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
               groupExists: Boolean(
@@ -122,9 +117,8 @@ test.describe('Delete Selected Element', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          ({ childId, deletedGroupId }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ childId, deletedGroupId }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             return {
               childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
               groupExists: Boolean(
@@ -144,9 +138,8 @@ test.describe('Delete Selected Element', () => {
       })
 
     await createRectangle(page, 0.72, 0.48)
-    const survivingId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const survivingId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core.deps.selection.getElementSelectionIds()[0] as string
     })
     const survivingCenter = await getSelectedElementClientCenter(page)
@@ -158,9 +151,8 @@ test.describe('Delete Selected Element', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          ({ center, emptyPoint, expectedSurvivorId }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const core = (window as any).__Core__
+          async ({ center, emptyPoint, expectedSurvivorId }) => {
+            const core = (await import('../src/testing/runtime-access')).core
             return {
               elementDataMapIds: Object.keys(
                 core.getUIProperty('elementDataMap') ?? {}
@@ -193,9 +185,8 @@ test.describe('Delete Selected Element', () => {
     await page.mouse.click(emptyCanvasPoint.x, emptyCanvasPoint.y)
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core.deps.selection.getElementSelectionIds() as string[]
         })
       )
@@ -203,9 +194,8 @@ test.describe('Delete Selected Element', () => {
     await page.mouse.click(survivingCenter.x, survivingCenter.y)
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core.deps.selection.getElementSelectionIds() as string[]
         })
       )
@@ -218,9 +208,8 @@ test.describe('Delete Selected Element', () => {
     await page.reload()
     await waitForAppReady(page)
     const afterReload = await page.evaluate(
-      ({ childId, deletedGroupId, expectedSurvivorId }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      async ({ childId, deletedGroupId, expectedSurvivorId }) => {
+        const core = (await import('../src/testing/runtime-access')).core
         return {
           childExists: Boolean(core.deps.sceneTree.getElementById(childId)),
           groupExists: Boolean(
@@ -299,8 +288,7 @@ test.describe('Delete Selected Element', () => {
   }) => {
     await createRectangle(page, 0.48, 0.42)
     const before = await page.evaluate(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+      const core = (await import('../src/testing/runtime-access')).core
       const selectionIds = core.deps.selection.getElementSelectionIds()
       const elementId = selectionIds[0]
       const element = core.deps.sceneTree.getElementById(elementId)
@@ -310,21 +298,20 @@ test.describe('Delete Selected Element', () => {
       const propComponents = propIds.map((id) =>
         core.deps.props.getPropertyById(id)
       )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(window as any).__deleteRollbackIdentity = {
+      const { testRuntimeState } = await import('../src/testing/runtime-access')
+      testRuntimeState.set('delete-rollback-identity', {
         element,
         elementId,
         propComponents,
         propIds,
         selectionIds
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(window as any).__deleteRollbackStatuses = []
-      core.deps.factory.subscribeToTransactionStatus(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (status: any) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__deleteRollbackStatuses.push(status.status)
+      })
+      const statuses = testRuntimeState.set<string[]>(
+        'delete-rollback-statuses',
+        []
+      )
+      core.deps.factory.subscribeToTransactionStatus((status) =>
+        statuses.push(status.status)
       )
       core.deps.factory.registerTransactionValidator(
         'delete-rollback-e2e',
@@ -345,19 +332,27 @@ test.describe('Delete Selected Element', () => {
     await page.keyboard.press('Delete')
     await expect
       .poll(() =>
-        page.evaluate(
-          () =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).__deleteRollbackStatuses as string[]
-        )
+        page.evaluate(async () => {
+          const { testRuntimeState } = await import(
+            '../src/testing/runtime-access'
+          )
+          return (
+            testRuntimeState.get<string[]>('delete-rollback-statuses') ?? []
+          )
+        })
       )
       .toContain('rolled-back')
 
     const after = await page.evaluate(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const identity = (window as any).__deleteRollbackIdentity
+      const core = (await import('../src/testing/runtime-access')).core
+      const { testRuntimeState } = await import('../src/testing/runtime-access')
+      const identity = testRuntimeState.get<{
+        element: unknown
+        elementId: string
+        propComponents: readonly unknown[]
+        propIds: readonly string[]
+      }>('delete-rollback-identity')
+      if (!identity) throw new Error('Delete rollback identity is unavailable')
       const restoredElement = core.deps.sceneTree.getElementById(
         identity.elementId
       )
@@ -390,9 +385,8 @@ test.describe('Delete Selected Element', () => {
 
     await page.keyboard.press('r')
     await clickCanvas(page, 0.3, 0.3)
-    const firstElement = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const firstElement = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core.deps.selection.getElementSelectionIds()[0] as string
     })
     const firstElementCenter = await getSelectedElementClientCenter(page)
@@ -403,9 +397,8 @@ test.describe('Delete Selected Element', () => {
 
     await page.keyboard.press('o')
     await clickCanvas(page, 0.55, 0.5)
-    const secondElement = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const secondElement = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core.deps.selection.getElementSelectionIds()[0] as string
     })
     const secondElementCenter = await getSelectedElementClientCenter(page)
@@ -421,9 +414,8 @@ test.describe('Delete Selected Element', () => {
     await page.mouse.click(firstElementCenter.x, firstElementCenter.y)
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core.deps.selection.getElementSelectionIds() as string[]
         })
       )
@@ -434,9 +426,8 @@ test.describe('Delete Selected Element', () => {
     await page.mouse.click(secondElementCenter.x, secondElementCenter.y)
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core.deps.selection.getElementSelectionIds() as string[]
         })
       )
@@ -471,9 +462,8 @@ test.describe('Delete Selected Element', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
 
     const overlappingPos = await getCanvasPosition(page, 0.42, 0.42)
-    const runtime = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const runtime = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
 
@@ -488,9 +478,8 @@ test.describe('Delete Selected Element', () => {
     }
 
     await page.evaluate(
-      ({ deletedId, x, y }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      async ({ deletedId, x, y }) => {
+        const core = (await import('../src/testing/runtime-access')).core
         core.setSystemProperty('mousePosition', { x, y })
         core.setSystemProperty('mouseDelta', { x: 0, y: 0 })
         core.setSystemProperty('mouseButton', 'none')
@@ -510,9 +499,8 @@ test.describe('Delete Selected Element', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate((deletedId) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async (deletedId) => {
+          const core = (await import('../src/testing/runtime-access')).core
           const hoveredId =
             core?.getSystemProperty?.('hoveredElementId') ?? null
           return hoveredId !== deletedId
@@ -540,9 +528,8 @@ test.describe('Delete Selected Element', () => {
     }
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    const beforeDelete = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const beforeDelete = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const pathEditingVectorId =
         core?.getSystemProperty?.('pathEditingVectorId') ?? null
       if (!pathEditingVectorId) {
@@ -581,9 +568,8 @@ test.describe('Delete Selected Element', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return {
             pointId: selected?.pointId ?? null,
@@ -601,9 +587,8 @@ test.describe('Delete Selected Element', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate((before) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async (before) => {
+          const core = (await import('../src/testing/runtime-access')).core
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
@@ -657,17 +642,15 @@ test.describe('Delete Selected Element', () => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       })
       .not.toBeNull()
 
-    const pathEditingVectorId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const pathEditingVectorId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.getSystemProperty?.('pathEditingVectorId') ?? null
     })
 
@@ -676,9 +659,8 @@ test.describe('Delete Selected Element', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       })
@@ -692,9 +674,8 @@ test.describe('Delete Selected Element', () => {
     await createRectangle(page, 0.5, 0.5)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       core.setSystemProperty('pathEditingVectorId', null)
       core.setSystemProperty('pathEditingMode', true)
     })
@@ -711,9 +692,8 @@ test.describe('Delete Selected Element', () => {
     await createRectangle(page, 0.55, 0.55)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    const selectedId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const selectedId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const id = core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       core.setSystemProperty('pathEditingVectorId', id)
       core.setSystemProperty('pathEditingMode', false)

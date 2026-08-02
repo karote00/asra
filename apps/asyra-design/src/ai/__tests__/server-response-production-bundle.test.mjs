@@ -44,20 +44,16 @@ test('production bundle contains only the formal server-response Agent route', a
 
   assert.equal(
     moduleIds.some((moduleId) =>
-      /[/\\]src[/\\]ai[/\\](?:fixtures|mode\.ts|mock-provider\.ts|mock-backend-response-store\.ts)/.test(
-        moduleId
-      )
+      /[/\\]src[/\\]ai[/\\](?:fixtures|mode\.ts)/.test(moduleId)
     ),
     false,
     'production graph retained a legacy local response source'
   )
-  ;['Mock mode', 'mock-ai', 'planId', 'generateActionPlan', 'ai=mock'].forEach(
-    (marker) => {
-      assert.equal(
-        bundledCode.includes(marker),
-        false,
-        `production bundle retained a legacy Agent marker: ${marker}`
-      )
-    }
-  )
+  ;['planId', 'generateActionPlan'].forEach((marker) => {
+    assert.equal(
+      bundledCode.includes(marker),
+      false,
+      `production bundle retained a legacy Agent marker: ${marker}`
+    )
+  })
 })

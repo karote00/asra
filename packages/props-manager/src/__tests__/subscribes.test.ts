@@ -12,6 +12,7 @@ import {
   type AddRemovePropertyChange,
   type PropertyComponentRawData,
   PropertyTypes,
+  subscribeToBrowserDragPhases,
   Unit,
   type PropsChange
 } from '@asyra/utils'
@@ -137,19 +138,15 @@ describe('props-manager subscribes', () => {
     const createProperty = vi.spyOn(propsManager, 'createProperty')
     const addProperty = vi.spyOn(propsManager, 'addProperty')
     const addToMap = vi.spyOn(propsManager, 'addToMap')
-    const runtime = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
     propsManager.commitChanges = (options) => {
       pendingChangeCounts.push(propsManager.changes.length)
       originalCommitChanges.call(propsManager, options)
     }
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('props-manager:creation-')) {
         phaseNames.push(name)
       }
-    }
+    })
     committedChanges.length = 0
 
     try {
@@ -207,11 +204,7 @@ describe('props-manager subscribes', () => {
       createProperty.mockRestore()
       addProperty.mockRestore()
       addToMap.mockRestore()
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
       subscription.unsubscribe()
     }
   })
@@ -594,10 +587,6 @@ describe('props-manager subscribes', () => {
       ]
     })
     const phaseNames: string[] = []
-    const runtime = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
     const committedChanges: PropsChange[] = []
     const subscription = subscribeToEvents((event) => {
       if (event.type === EventTypes.UPDATE_TRANSACTION) {
@@ -625,11 +614,11 @@ describe('props-manager subscribes', () => {
       }
     ]
     committedChanges.length = 0
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('props-manager:creation-')) {
         phaseNames.push(name)
       }
-    }
+    })
     let failure: unknown
 
     try {
@@ -644,11 +633,7 @@ describe('props-manager subscribes', () => {
         failure = error
       }
     } finally {
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
       subscription.unsubscribe()
     }
 

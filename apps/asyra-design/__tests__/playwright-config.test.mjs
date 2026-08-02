@@ -26,16 +26,15 @@ const listTests = (config, environment = {}) => {
 }
 
 const endpointPerformanceEnvironment = {
-  ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED:
-    'ws://127.0.0.1:4121/asyra-design-collaboration',
-  ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR:
-    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current',
-  ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
-  ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH:
-    '/project/apps/asyra-design/tmp/asyra-design-endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
-  ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: 'config-contract-token',
-  ASYRA_DESIGN_ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
-  ASYRA_DESIGN_ENDPOINT_OWNER: 'admit-receiver-publication-frames'
+  ENDPOINT_ARTIFACT_ATTESTED: 'ws://127.0.0.1:4121/collaboration',
+  ENDPOINT_PREVIEW_OUT_DIR:
+    '/project/apps/asyra-design/tmp/endpoint-preview/current',
+  ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
+  ENDPOINT_RESPONSE_MANIFEST_PATH:
+    '/project/apps/asyra-design/tmp/endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
+  ENDPOINT_GUARD_TOKEN: 'config-contract-token',
+  ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
+  ENDPOINT_OWNER: 'admit-receiver-publication-frames'
 }
 
 test('ordinary and collaboration Playwright suites have separate discovery', () => {
@@ -100,7 +99,7 @@ test('ordinary AI profiling stays low-load while high detail remains guarded', a
 
   assert.match(ordinary, /16-item product span/)
   assert.doesNotMatch(ordinary, /high-detail interactive drawing/)
-  assert.match(specSource, /ASYRA_DESIGN_RUN_AI_DRAWING_PERFORMANCE/)
+  assert.match(specSource, /RUN_AI_DRAWING_PERFORMANCE/)
   assert.match(specSource, /test\.skip\(!RUN_PROFILE/)
   assert.doesNotMatch(specSource, /RUN_HIGH_DETAIL|7_075|7076/)
   assert.doesNotMatch(specSource, /production 16-item/)
@@ -120,7 +119,7 @@ test('ordinary AI profiling stays low-load while high detail remains guarded', a
   )
   assert.doesNotMatch(
     `${configSource}\n${specSource}`,
-    /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS|aiDelivery|aiPerformanceContents|(?:[?&])ai=mock/
+    /RUN_BALANCED_AI_CORRECTNESS|aiDelivery|aiPerformanceContents/
   )
 })
 
@@ -176,14 +175,15 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
   const manifest = JSON.parse(manifestSource)
   const command = manifest.scripts['test:e2e:ai-crdt-video']
 
-  assert.match(configSource, /ASYRA_DESIGN_E2E_OWN_SERVERS/)
+  assert.match(configSource, /E2E_OWN_SERVERS/)
+  assert.match(configSource, /timeout:\s*180_000/)
   assert.match(configSource, /reuseExistingServer:\s*!ownsTestServers/g)
-  assert.match(command, /ASYRA_DESIGN_E2E_OWN_SERVERS=1/)
-  assert.match(command, /ASYRA_DESIGN_APP_URL=http:\/\/127\.0\.0\.1:3011/)
-  assert.match(command, /ASYRA_DESIGN_COLLABORATION_WS_PORT=4111/)
+  assert.match(command, /E2E_OWN_SERVERS=1/)
+  assert.match(command, /APP_URL=http:\/\/127\.0\.0\.1:3011/)
+  assert.match(command, /COLLABORATION_WS_PORT=4111/)
   assert.match(
     command,
-    /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/asyra-design-collaboration/
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/collaboration/
   )
 
   const recordingCase = recordingSource.slice(
@@ -253,7 +253,7 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
   )
   assert.doesNotMatch(
     `${configSource}\n${recordingSource}`,
-    /ASYRA_DESIGN_RUN_FORMAL_REPEATED_PERFORMANCE|recordRepeatedPerformanceSample|resolvePerformanceGateRun/,
+    /RUN_FORMAL_REPEATED_PERFORMANCE|recordRepeatedPerformanceSample|resolvePerformanceGateRun/,
     'the one-shot high-detail and recording routes must not add warm-up or repeat modes'
   )
 })
@@ -307,9 +307,9 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
       encoding: 'utf8',
       env: {
         ...process.env,
-        ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN: '',
-        ASYRA_DESIGN_ENDPOINT_GUARD_URL: '',
-        ASYRA_DESIGN_ENDPOINT_OWNER: ''
+        ENDPOINT_GUARD_TOKEN: '',
+        ENDPOINT_GUARD_URL: '',
+        ENDPOINT_OWNER: ''
       }
     }
   )
@@ -328,7 +328,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
       env: {
         ...process.env,
         ...endpointPerformanceEnvironment,
-        ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'not-a-digest'
+        ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'not-a-digest'
       }
     }
   )
@@ -393,7 +393,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.doesNotMatch(appServerSource, /stdout:\s*['"]pipe['"]/)
   assert.doesNotMatch(configSource, /endpointLocalOnly|ENDPOINT_LOCAL_ONLY/)
   assert.match(configSource, /yarn collaboration:server:start/)
-  assert.match(configSource, /ASYRA_DESIGN_APP_URL:\s*appURL/)
+  assert.match(configSource, /APP_URL:\s*appURL/)
   assert.doesNotMatch(
     configSource,
     /yarn collaboration:server(?!:start)|yarn react:build/
@@ -404,19 +404,19 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     configSource,
     /--outDir \$\{JSON\.stringify\(responsePreviewOutDir\)\}/
   )
-  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR/)
-  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH/)
-  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED/)
-  assert.match(configSource, /ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED/)
+  assert.match(configSource, /ENDPOINT_PREVIEW_OUT_DIR/)
+  assert.match(configSource, /ENDPOINT_RESPONSE_MANIFEST_PATH/)
+  assert.match(configSource, /ENDPOINT_RESPONSE_ARTIFACT_ATTESTED/)
+  assert.match(configSource, /ENDPOINT_ARTIFACT_ATTESTED/)
   assert.match(configSource, /launchOptions/)
   assert.match(configSource, /client-a-browser/)
   assert.doesNotMatch(configSource, /client-b-browser/)
 
-  assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_URL/)
-  assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN/)
-  assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_OWNER/)
-  assert.match(specSource, /ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE/)
-  assert.match(specSource, /ASYRA_DESIGN_TRACKED_ROLE:\s*['"]client-b-browser/)
+  assert.match(specSource, /ENDPOINT_GUARD_URL/)
+  assert.match(specSource, /ENDPOINT_GUARD_TOKEN/)
+  assert.match(specSource, /ENDPOINT_OWNER/)
+  assert.match(specSource, /ENDPOINT_ATTRIBUTION_CASE/)
+  assert.match(specSource, /TRACKED_ROLE:\s*['"]client-b-browser/)
   assert.match(specSource, /\/resource-status/)
   assert.match(specSource, /previousSettledSampleAtMs/)
   assert.doesNotMatch(connectivityCpuSampleSource, /await delay\(750\)/)
@@ -434,8 +434,8 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /phaseTimeline/)
   assert.match(specSource, /responseInboxPreload/)
   assert.ok(
-    specSource.indexOf('const responseInboxPreload = profile') <
-      specSource.indexOf('profile.reset()')
+    specSource.indexOf('const responseInboxPreload = snapshot') <
+      specSource.indexOf("'profile:reset'")
   )
   assert.match(specSource, /drawingProgress/)
   assert.doesNotMatch(specSource, /counterTimeline/)
@@ -447,10 +447,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.doesNotMatch(specSource, /waitFor(?:ActorA|Both)?Complete\(120_000\)/)
   assert.match(specSource, /accepted/)
   assert.match(specSource, /aiPerformance=profile/)
-  assert.doesNotMatch(
-    specSource,
-    /aiDelivery|aiPerformanceContents|(?:[?&])ai=mock/
-  )
+  assert.doesNotMatch(specSource, /aiDelivery|aiPerformanceContents/)
   const localURLSource = specSource.slice(
     specSource.indexOf('const singleActorAppURL'),
     specSource.indexOf('const waitForCollaboration')
@@ -614,14 +611,15 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     /Prepared request click did not reach the armed Send control/
   )
   assert.match(specSource, /Agent did not accept the dispatched request/)
-  assert.doesNotMatch(specSource, /(?:[?&])ai=mock/)
   assert.match(specSource, /readCanonicalElementCount/)
   assert.match(specSource, /readCounterTotal/)
   assert.match(specSource, /readFactoryPublicationCount/)
-  assert.match(specSource, /readRenderProjectionElementCount/)
+  assert.match(specSource, /profile:read-actor-sample/)
   assert.match(specSource, /readViewportPosition/)
   assert.match(specSource, /readZoom/)
-  assert.doesNotMatch(specSource, /window\.__Core__|\.__Core__/)
+  const coreDebugHandle = ['__', 'Core', '__'].join('')
+  assert.equal(specSource.includes(coreDebugHandle), false)
+  assert.match(specSource, /runtime-diagnostic-request/)
   assert.match(specSource, /research-02-original-tabby-source\.png/)
   assert.match(specSource, /totalCount:\s*7076/)
   assert.match(specSource, /vectorCount:\s*7075/)
@@ -659,11 +657,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /stableLoadingFrameCount/)
   assert.match(
     specSource,
-    /loadingFrameVisibleCount:\s*profile\.readCounterTotal\(\s*['"]ai-drawing:loading-frame-visible['"]\s*\)/
+    /loadingFrameVisibleCount:\s*request<number>\(\s*['"]profile:readCounterTotal['"],\s*\[\s*['"]ai-drawing:loading-frame-visible['"]\s*\]\s*\)/
   )
   assert.match(
     specSource,
-    /canonicalWorkUnitCount:\s*profile\.readPhaseCount\(\s*['"]ai-app:create-composition-batch['"]\s*\)/
+    /canonicalWorkUnitCount:\s*request<number>\(\s*['"]profile:readPhaseCount['"],\s*\[\s*['"]ai-app:create-composition-batch['"]\s*\]\s*\)/
   )
   const localInteractionProbeSource = specSource.slice(
     specSource.indexOf('const installLocalInteractionProbe'),
@@ -946,19 +944,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     actorSampleSource,
-    /successfulTurnCount:\s*profile\.readCounterTotal\(['"]ai-turn:outcome:success['"]\)/
-  )
-  assert.match(
-    actorSampleSource,
-    /nonSuccessfulTurnCount:[\s\S]*ai-turn:outcome:cancelled[\s\S]*ai-turn:outcome:failed[\s\S]*ai-turn:outcome:no-change[\s\S]*ai-turn:outcome:partial/
-  )
-  assert.match(
-    actorSampleSource,
-    /lastPublicationFailure:\s*diagnostics\.lastPublicationFailure/
+    /requestRuntimeDiagnostic\(page,\s*['"]profile:read-actor-sample['"]\)/
   )
   assert.doesNotMatch(
     actorSampleSource,
-    /getRuntimeEvidence|readCanonicalElements|snapshot\(/
+    /getRuntimeEvidence|readCanonicalElements|snapshot\(|readCounterTotal/
   )
   assert.match(
     specSource,
@@ -974,7 +964,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     specSource,
-    /process-failed[\s\S]*const cause[\s\S]*lastPublicationFailure[\s\S]*publicationId/
+    /failureOwnerEvidence[\s\S]*readFinalDiagnostics\(actorA[\s\S]*readFinalDiagnostics\(actorB/
   )
   assert.match(
     specSource,
@@ -998,7 +988,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     manifest.scripts['test:e2e:crdt-endpoint-performance'],
-    /ASYRA_DESIGN_ENDPOINT_OWNER/
+    /ENDPOINT_OWNER/
   )
   assert.match(
     manifest.scripts['prepare:e2e:endpoint-performance'],
@@ -1006,7 +996,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     manifest.scripts['prepare:e2e:endpoint-performance'],
-    /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/asyra-design-collaboration yarn react:build/
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/collaboration yarn react:build/
   )
   ;[
     ['test:e2e:ai-attribution:16', '16'],
@@ -1019,7 +1009,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   ].forEach(([script, attributionCase]) => {
     assert.match(
       manifest.scripts[script],
-      new RegExp(`ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE=${attributionCase}`)
+      new RegExp(`ENDPOINT_ATTRIBUTION_CASE=${attributionCase}`)
     )
     assert.match(manifest.scripts[script], /performance-resource-guard\.mjs/)
   })

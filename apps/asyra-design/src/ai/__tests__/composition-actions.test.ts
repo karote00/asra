@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  AsyraDesignAiActionError,
-  AsyraDesignAiActionNames,
-  createAsyraDesignAiActions,
-  type AsyraDesignAiColorUpdate,
-  type AsyraDesignAiCompositionItem
+  subscribeToBrowserDragPhases,
+  subscribeToDiagnosticCounters
+} from '@asyra/utils'
+import {
+  AiActionError,
+  AiActionNames,
+  createAiActions,
+  type AiColorUpdate,
+  type AiCompositionItem
 } from '../actions'
 import type { PreparedElementDescriptor } from '../../common-apis'
 import {
@@ -86,12 +90,12 @@ const actionApis = () => ({
   setDrawingProgress: vi.fn(),
   setElementVisible: vi.fn(() => true),
   updateElementFillColor: vi.fn(() => true),
-  updateElementFillColors: vi.fn(
-    (updates: readonly AsyraDesignAiColorUpdate[]) => updates.map(() => true)
+  updateElementFillColors: vi.fn((updates: readonly AiColorUpdate[]) =>
+    updates.map(() => true)
   ),
   updateElementStrokeColor: vi.fn(() => true),
-  updateElementStrokeColors: vi.fn(
-    (updates: readonly AsyraDesignAiColorUpdate[]) => updates.map(() => true)
+  updateElementStrokeColors: vi.fn((updates: readonly AiColorUpdate[]) =>
+    updates.map(() => true)
   )
 })
 
@@ -103,7 +107,7 @@ const actionByName = (
     readonly yieldToHost?: () => Promise<void>
   }
 ) => {
-  const action = createAsyraDesignAiActions(apis, {
+  const action = createAiActions(apis, {
     ...options
   }).find((candidate) => candidate.name === name)
   if (!action) {
@@ -118,7 +122,7 @@ const executionContext = () => ({
 
 interface TestCompositionDescriptor {
   readonly compositionRole: string
-  readonly items: readonly AsyraDesignAiCompositionItem[]
+  readonly items: readonly AiCompositionItem[]
   readonly parent: 'workspace'
 }
 
@@ -126,7 +130,7 @@ const createServerPreparedCompositionArtifact = (
   value: unknown
 ): PreparedDrawingArtifact => {
   const descriptor = value as TestCompositionDescriptor
-  const acceptedItems: AsyraDesignAiCompositionItem[] = []
+  const acceptedItems: AiCompositionItem[] = []
   const skipped: {
     reason: 'duplicate-role'
     role: string
@@ -159,7 +163,7 @@ const createServerPreparedCompositionArtifact = (
     }
   }, acceptedItems[0].bounds)
 
-  const pointCountForItem = (item: AsyraDesignAiCompositionItem): number =>
+  const pointCountForItem = (item: AiCompositionItem): number =>
     item.primitive === 'vector'
       ? (item.paths ?? [{ points: item.points ?? [] }]).reduce(
           (total, path) => total + path.points.length,
@@ -311,7 +315,7 @@ const executePrepared = async (
   context = executionContext()
 ) =>
   action.execute(
-    action.name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
+    action.name === AiActionNames.INSERT_VECTOR_COMPOSITION
       ? createServerPreparedCompositionArtifact(value)
       : value,
     context
@@ -319,42 +323,35 @@ const executePrepared = async (
 
 describe('Asyra Design AI composition action catalog', () => {
   it('registers the six server-facing actions in deterministic order', () => {
-    expect(
-      createAsyraDesignAiActions(actionApis()).map(({ name }) => name)
-    ).toEqual([
-      AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
-      AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
-      AsyraDesignAiActionNames.SELECT_ELEMENTS
+    expect(createAiActions(actionApis()).map(({ name }) => name)).toEqual([
+      AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+      AiActionNames.INSERT_VECTOR_COMPOSITION,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.REMOVE_AI_COMPOSITION,
+      AiActionNames.SET_ELEMENT_VISIBILITY,
+      AiActionNames.SELECT_ELEMENTS
     ])
   })
 })
 
 describe('Asyra Design AI composition action execution', () => {
   it('consumes server-prepared composition evidence without client preparation', async () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
     const apis = actionApis()
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
     const prepared = createServerPreparedCompositionArtifact({
       compositionRole: 'cat-face',
       items: [ovalItem(), vectorItem()],
       parent: 'workspace'
     })
-    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
 
     try {
       await action.execute(prepared, executionContext())
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual(
@@ -369,10 +366,7 @@ describe('Asyra Design AI composition action execution', () => {
   it('creates one canonical Group for one valid vectorized item', async () => {
     const apis = actionApis()
     const item = vectorItem('reference-vector-000001')
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
     const argumentsValue = {
       compositionRole: 'vectorized-image',
       items: [item],
@@ -403,10 +397,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.createCompositionElements.mockReturnValue(
       canonicalElementIds(['fur-1-id', 'fur-2-id'])
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -448,10 +439,7 @@ describe('Asyra Design AI composition action execution', () => {
       (batch: readonly PreparedElementDescriptor[]) =>
         canonicalElementIds(batch.map(({ id }) => id))
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -522,11 +510,9 @@ describe('Asyra Design AI composition action execution', () => {
     const yieldToHost = vi.fn(async () => {
       calls.push('paint')
     })
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      { yieldToHost }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost
+    })
 
     await executePrepared(
       action,
@@ -560,13 +546,9 @@ describe('Asyra Design AI composition action execution', () => {
         canonicalElementIds(batch.map(({ id }) => id))
     )
     const yieldToHost = vi.fn(async () => undefined)
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost
+    })
 
     await executePrepared(
       action,
@@ -609,14 +591,10 @@ describe('Asyra Design AI composition action execution', () => {
   })
 
   it('emits post-paint milestones from actual completed progressive batches', async () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
     const counters: (readonly [string, number])[] = []
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) =>
       counters.push([name, value])
-    }
+    )
     const apis = actionApis()
     const items = Array.from({ length: 513 }, (_, index) =>
       ovalItem(`detail-${index}`)
@@ -625,13 +603,9 @@ describe('Asyra Design AI composition action execution', () => {
       (batch: readonly PreparedElementDescriptor[]) =>
         canonicalElementIds(batch.map(({ id }) => id))
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost: async () => undefined
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost: async () => undefined
+    })
 
     try {
       await executePrepared(
@@ -660,7 +634,7 @@ describe('Asyra Design AI composition action execution', () => {
         ['ai-drawing:cooperative-yield-count', 17]
       ])
     } finally {
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
     }
   })
 
@@ -695,13 +669,9 @@ describe('Asyra Design AI composition action execution', () => {
         inFlight -= 1
       })
     })
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost
+    })
 
     const execution = executePrepared(
       action,
@@ -792,13 +762,9 @@ describe('Asyra Design AI composition action execution', () => {
       (batch: readonly PreparedElementDescriptor[]) =>
         canonicalElementIds(batch.map(({ id }) => id))
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost
+    })
 
     await executePrepared(
       action,
@@ -836,7 +802,7 @@ describe('Asyra Design AI composition action execution', () => {
         canonicalElementIds(batch.map(({ id }) => id))
     )
     const progressive = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+      AiActionNames.INSERT_VECTOR_COMPOSITION,
       progressiveApis,
       {
         yieldToHost: async () => undefined
@@ -875,10 +841,7 @@ describe('Asyra Design AI composition action execution', () => {
       (batch: readonly PreparedElementDescriptor[]) =>
         canonicalElementIds(batch.map(({ id }) => id))
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await executePrepared(
       action,
@@ -924,10 +887,7 @@ describe('Asyra Design AI composition action execution', () => {
 
   it('creates ordinary grouped elements and returns detached role/id hints', async () => {
     const apis = actionApis()
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
     const input = {
       compositionRole: 'cat-face',
       items: [ovalItem(), vectorItem()],
@@ -937,7 +897,7 @@ describe('Asyra Design AI composition action execution', () => {
 
     await expect(action.execute(prepared, executionContext())).resolves.toEqual(
       {
-        action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+        action: AiActionNames.INSERT_VECTOR_COMPOSITION,
         appliedElementIds: ['left-eye-id', 'left-whisker-1-id'],
         compositionId: 'cat-group-id',
         roleToElementIds: prepared.roleToElementIds,
@@ -956,10 +916,7 @@ describe('Asyra Design AI composition action execution', () => {
 
   it('aggregates canonical pupil ids without replacing their formal roles', async () => {
     const apis = actionApis()
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -983,10 +940,7 @@ describe('Asyra Design AI composition action execution', () => {
 
   it('skips a duplicate semantic role before mutation and resolves partial evidence', async () => {
     const apis = actionApis()
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
     const descriptor = {
       compositionRole: 'cat-face',
       items: [
@@ -1059,10 +1013,7 @@ describe('Asyra Design AI composition action execution', () => {
       y: 300
     })
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1094,7 +1045,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       appliedElementIds: ['eye-present', 'whisker-present'],
       skipped: [
         {
@@ -1133,7 +1084,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
     const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
         yieldToHost
@@ -1189,7 +1140,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
     const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
         yieldToHost
@@ -1227,7 +1178,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
     const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
         yieldToHost
@@ -1236,7 +1187,7 @@ describe('Asyra Design AI composition action execution', () => {
 
     await expect(
       executePrepared(action, { updates }, { signal: controller.signal })
-    ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
+    ).rejects.toBeInstanceOf(AiActionError)
     expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
     expect(apis.updateElementStrokeColors.mock.calls[0]?.[0]).toHaveLength(256)
     expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
@@ -1248,10 +1199,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementFillColor.mockReturnValue('#050504')
     apis.updateElementFillColors.mockReturnValue([true, false, true])
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1265,7 +1213,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       appliedElementIds: ['pupil-left', 'pupil-right'],
       skipped: [
         {
@@ -1282,10 +1230,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementFillColor.mockReturnValue('#050504')
     apis.updateElementFillColors.mockReturnValue([true])
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1316,7 +1261,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementFillColor.mockReturnValue('#050504')
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
     const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
         yieldToHost
@@ -1368,7 +1313,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementType.mockReturnValue('vector')
     apis.getElementStrokeColor.mockReturnValue('#5B3A29')
     const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       apis,
       {
         yieldToHost
@@ -1388,7 +1333,7 @@ describe('Asyra Design AI composition action execution', () => {
         },
         { signal: controller.signal }
       )
-    ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
+    ).rejects.toBeInstanceOf(AiActionError)
     expect(apis.updateElementStrokeColors).toHaveBeenCalledOnce()
     expect(apis.updateElementStrokeColor).not.toHaveBeenCalled()
     expect(yieldToHost).toHaveBeenCalledOnce()
@@ -1397,10 +1342,7 @@ describe('Asyra Design AI composition action execution', () => {
   it('scales existing vector eye topology without regenerating composition elements', async () => {
     const apis = actionApis()
     apis.getElementType.mockReturnValue('vector')
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1419,7 +1361,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       appliedElementIds: ['vector-eye-left'],
       skipped: [],
       status: 'complete'
@@ -1441,10 +1383,7 @@ describe('Asyra Design AI composition action execution', () => {
     const apis = actionApis()
     apis.getElementType.mockReturnValue('vector')
     apis.getElementFillColor.mockReturnValue('#050504')
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1468,7 +1407,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       appliedElementIds: ['pupil-left', 'pupil-right'],
       skipped: [],
       status: 'complete'
@@ -1498,10 +1437,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.getElementFillColor.mockImplementation((elementId: string) =>
       elementId === 'pupil-left' ? null : '#050504'
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
-      apis
-    )
+    const action = actionByName(AiActionNames.UPDATE_COMPOSITION_ELEMENTS, apis)
 
     await expect(
       executePrepared(
@@ -1525,7 +1461,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       appliedElementIds: ['pupil-right'],
       skipped: [
         {
@@ -1552,7 +1488,7 @@ describe('Asyra Design AI composition action execution', () => {
     const missingApis = actionApis()
     missingApis.getElementType.mockReturnValue(undefined)
     const missing = actionByName(
-      AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+      AiActionNames.REMOVE_AI_COMPOSITION,
       missingApis
     )
 
@@ -1565,7 +1501,7 @@ describe('Asyra Design AI composition action execution', () => {
         executionContext()
       )
     ).resolves.toEqual({
-      action: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+      action: AiActionNames.REMOVE_AI_COMPOSITION,
       appliedElementIds: [],
       skipped: [
         {
@@ -1584,7 +1520,7 @@ describe('Asyra Design AI composition action execution', () => {
       rootId: 'cat-group'
     })
     const existing = actionByName(
-      AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+      AiActionNames.REMOVE_AI_COMPOSITION,
       existingApis
     )
 
@@ -1611,10 +1547,7 @@ describe('Asyra Design AI composition action execution', () => {
     const apis = actionApis()
     const controller = new AbortController()
     controller.abort()
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -1626,7 +1559,7 @@ describe('Asyra Design AI composition action execution', () => {
         },
         { signal: controller.signal }
       )
-    ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
+    ).rejects.toBeInstanceOf(AiActionError)
     expect(apis.setDrawingProgress).not.toHaveBeenCalled()
     expect(apis.createCompositionGroup).not.toHaveBeenCalled()
     expect(apis.createCompositionElements).not.toHaveBeenCalled()
@@ -1635,10 +1568,7 @@ describe('Asyra Design AI composition action execution', () => {
   it('rejects a null canonical child result as fatal', async () => {
     const apis = actionApis()
     apis.createCompositionElements.mockReturnValue(null)
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -1663,10 +1593,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.createCompositionElements.mockReturnValue(
       canonicalElementIds(['face-id'])
     )
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(
@@ -1695,13 +1622,9 @@ describe('Asyra Design AI composition action execution', () => {
         canonicalElementIds(batch.map(({ id }) => id))
       )
       .mockReturnValueOnce(null)
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost: async () => undefined
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost: async () => undefined
+    })
 
     await expect(
       executePrepared(
@@ -1744,13 +1667,9 @@ describe('Asyra Design AI composition action execution', () => {
         controller.abort()
       }
     })
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis,
-      {
-        yieldToHost
-      }
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis, {
+      yieldToHost
+    })
 
     await expect(
       executePrepared(
@@ -1762,7 +1681,7 @@ describe('Asyra Design AI composition action execution', () => {
         },
         { signal: controller.signal }
       )
-    ).rejects.toBeInstanceOf(AsyraDesignAiActionError)
+    ).rejects.toBeInstanceOf(AiActionError)
     expect(apis.createCompositionElements).toHaveBeenCalledOnce()
     expect(
       apis.createCompositionElements.mock.calls[0]?.[0].map(
@@ -1779,10 +1698,7 @@ describe('Asyra Design AI composition action execution', () => {
     apis.createCompositionElements.mockImplementationOnce(() => {
       throw failure
     })
-    const action = actionByName(
-      AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
-      apis
-    )
+    const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)
 
     await expect(
       executePrepared(

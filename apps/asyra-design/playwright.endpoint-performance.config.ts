@@ -30,18 +30,18 @@ const requireGuardPath = (name: string): string => {
   return value
 }
 
-requireGuardValue('ASYRA_DESIGN_ENDPOINT_OWNER')
-requireGuardValue('ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN')
-const guardURL = new URL(requireGuardValue('ASYRA_DESIGN_ENDPOINT_GUARD_URL'))
+requireGuardValue('ENDPOINT_OWNER')
+requireGuardValue('ENDPOINT_GUARD_TOKEN')
+const guardURL = new URL(requireGuardValue('ENDPOINT_GUARD_URL'))
 if (!['http:', 'https:'].includes(guardURL.protocol)) {
   throw new Error(
     'Endpoint performance resource guard URL must use http or https'
   )
 }
 
-const appPort = resolveDedicatedPort('ASYRA_DESIGN_ENDPOINT_APP_PORT', 3_021)
+const appPort = resolveDedicatedPort('ENDPOINT_APP_PORT', 3_021)
 const collaborationPort = resolveDedicatedPort(
-  'ASYRA_DESIGN_ENDPOINT_COLLABORATION_PORT',
+  'ENDPOINT_COLLABORATION_PORT',
   4_121
 )
 if (appPort === collaborationPort) {
@@ -53,21 +53,15 @@ if (appPort === collaborationPort) {
 const appURL = `http://127.0.0.1:${appPort}`
 const collaborationHealthURL = `http://127.0.0.1:${collaborationPort}/health`
 const collaborationWebSocketURL =
-  `ws://127.0.0.1:${collaborationPort}` + '/asyra-design-collaboration'
-const attestedArtifactEndpoint = requireGuardValue(
-  'ASYRA_DESIGN_ENDPOINT_ARTIFACT_ATTESTED'
-)
+  `ws://127.0.0.1:${collaborationPort}` + '/collaboration'
+const attestedArtifactEndpoint = requireGuardValue('ENDPOINT_ARTIFACT_ATTESTED')
 if (attestedArtifactEndpoint !== collaborationWebSocketURL) {
   throw new Error(
     'Endpoint performance production artifact does not match the proof server'
   )
 }
-const responsePreviewOutDir = requireGuardPath(
-  'ASYRA_DESIGN_ENDPOINT_PREVIEW_OUT_DIR'
-)
-const responseManifestPath = requireGuardPath(
-  'ASYRA_DESIGN_ENDPOINT_RESPONSE_MANIFEST_PATH'
-)
+const responsePreviewOutDir = requireGuardPath('ENDPOINT_PREVIEW_OUT_DIR')
+const responseManifestPath = requireGuardPath('ENDPOINT_RESPONSE_MANIFEST_PATH')
 const relativeResponseManifestPath = relative(
   responsePreviewOutDir,
   responseManifestPath
@@ -83,7 +77,7 @@ if (
   )
 }
 const responseArtifactAttestation = requireGuardValue(
-  'ASYRA_DESIGN_ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
+  'ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
 )
 if (!/^[a-f0-9]{64}$/u.test(responseArtifactAttestation)) {
   throw new Error(
@@ -113,9 +107,9 @@ const guardedWebServers = [
       'yarn collaboration:server:start'
     ),
     env: {
-      ASYRA_DESIGN_APP_URL: appURL,
-      ASYRA_DESIGN_COLLABORATION_WS_HOST: '127.0.0.1',
-      ASYRA_DESIGN_COLLABORATION_WS_PORT: String(collaborationPort)
+      APP_URL: appURL,
+      COLLABORATION_WS_HOST: '127.0.0.1',
+      COLLABORATION_WS_PORT: String(collaborationPort)
     },
     url: collaborationHealthURL,
     stdout: 'pipe',
@@ -161,8 +155,8 @@ export default defineConfig({
         launchOptions: {
           env: {
             ...browserLauncherEnvironment,
-            ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
-            ASYRA_DESIGN_TRACKED_ROLE: 'client-a-browser'
+            TRACKED_EXECUTABLE: chromium.executablePath(),
+            TRACKED_ROLE: 'client-a-browser'
           },
           executablePath: guardLauncherPath
         }

@@ -59,10 +59,10 @@ test('Turbo uses exact workspace task relationships generated from manifests', (
   const turbo = readJSON('turbo.json')
 
   assert.deepEqual(turbo.globalEnv, [
-    'ASYRA_DESIGN_APP_URL',
-    'ASYRA_DESIGN_COLLABORATION_WS_HOST',
-    'ASYRA_DESIGN_COLLABORATION_WS_PORT',
-    'VITE_ASYRA_DESIGN_COLLABORATION_WS_URL'
+    'APP_URL',
+    'COLLABORATION_WS_HOST',
+    'COLLABORATION_WS_PORT',
+    'VITE_COLLABORATION_WS_URL'
   ])
 
   for (const [packageName, manifest] of manifests) {
@@ -277,7 +277,7 @@ test('CI runs balanced AI correctness only for related changes or explicit dispa
   assert.match(e2e, /fetch-depth: 0/)
   assert.match(e2e, /node scripts\/balanced-ai-correctness-scope\.mjs/)
   assert.match(e2e, /run_balanced_ai_correctness/)
-  assert.match(e2e, /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS/)
+  assert.match(e2e, /RUN_BALANCED_AI_CORRECTNESS/)
 })
 
 test('collaboration follows the shared TypeScript library build convention', () => {

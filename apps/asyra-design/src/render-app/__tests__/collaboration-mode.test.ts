@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getCollaborationMode } from '../collaboration-mode'
 
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
-const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
 
 describe('collaboration public file identity', () => {
   afterEach(() => {
@@ -12,7 +12,7 @@ describe('collaboration public file identity', () => {
   })
 
   it('requires one public fileId and always prepares the page collaboration identity', () => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=public-crdt-file')
 
@@ -28,7 +28,7 @@ describe('collaboration public file identity', () => {
   })
 
   it('uses fileId as document identity rather than a collaboration toggle', () => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState(
       {},

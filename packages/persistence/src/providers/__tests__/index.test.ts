@@ -1,4 +1,4 @@
-import type { CoreRawData } from '@asyra/utils'
+import { subscribeToBrowserDragPhases, type CoreRawData } from '@asyra/utils'
 import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IndexedDbPersistence, LocalStoragePersistence } from '..'
@@ -70,12 +70,10 @@ describe('IndexedDbPersistence', () => {
       databaseName: 'asyra-persistence-attribution-test',
       factory: indexedDB
     })
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previousSink = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phases: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phases.push(name)
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
 
     try {
       await persistence.save(DOCUMENT_A)
@@ -87,7 +85,7 @@ describe('IndexedDbPersistence', () => {
       ])
       await expect(persistence.load()).resolves.toEqual(DOCUMENT_A)
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previousSink
+      unsubscribe()
     }
   })
 

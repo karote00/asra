@@ -1,19 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
+import { subscribeToBrowserDragPhases } from '@asyra/utils'
 import {
-  createAsyraDesignAiTransactionRunner,
-  type AsyraDesignAiTransactionBoundary
+  createAiTransactionRunner,
+  type AiTransactionBoundary
 } from '../transaction'
-import { asyraDesignDocumentInteractionLock } from '../document-interaction-lock'
+import { documentInteractionLock } from '../document-interaction-lock'
 
 describe('Asyra Design AI transaction adapter', () => {
   it('measures the complete common transaction without changing its result', async () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    const previous = runtimeGlobal.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtimeGlobal.__asyraBrowserDragPhaseSink = (name) => phaseNames.push(name)
-    const runner = createAsyraDesignAiTransactionRunner({
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phaseNames.push(name)
+    )
+    const runner = createAiTransactionRunner({
       runTransaction: async <T>(execute: () => Promise<T>) => execute()
     })
 
@@ -22,7 +21,7 @@ describe('Asyra Design AI transaction adapter', () => {
         runner.run('AI-assisted action', async () => 'complete')
       ).resolves.toBe('complete')
     } finally {
-      runtimeGlobal.__asyraBrowserDragPhaseSink = previous
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual(
@@ -35,13 +34,13 @@ describe('Asyra Design AI transaction adapter', () => {
 
   it('forwards one async callback through the common transaction boundary', async () => {
     const boundaryCalls = vi.fn()
-    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
+    const boundary: AiTransactionBoundary = async <T>(
       execute: () => Promise<T>
     ) => {
       boundaryCalls()
       return execute()
     }
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       runTransaction: boundary
     })
     const execute = vi.fn(async () => 'complete')
@@ -55,25 +54,25 @@ describe('Asyra Design AI transaction adapter', () => {
   })
 
   it('uses the fixed App interaction lock when no test dependency is supplied', async () => {
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       runTransaction: async <T>(execute: () => Promise<T>) => {
-        expect(asyraDesignDocumentInteractionLock.isActive()).toBe(true)
+        expect(documentInteractionLock.isActive()).toBe(true)
         return execute()
       }
     })
 
-    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
+    expect(documentInteractionLock.isActive()).toBe(false)
     await expect(
       runner.run('AI-assisted action', async () => 'complete')
     ).resolves.toBe('complete')
-    expect(asyraDesignDocumentInteractionLock.isActive()).toBe(false)
+    expect(documentInteractionLock.isActive()).toBe(false)
   })
 
   it('preserves callback rejection for the common rollback owner', async () => {
     const failure = new Error('executor failure')
     const timeline: string[] = []
     let interactionLocked = false
-    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
+    const boundary: AiTransactionBoundary = async <T>(
       execute: () => Promise<T>
     ) => {
       timeline.push('transaction:start')
@@ -87,7 +86,7 @@ describe('Asyra Design AI transaction adapter', () => {
       }
     }
     const release = vi.fn()
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       interactionLock: {
         acquire: vi.fn(() => {
           interactionLocked = true
@@ -128,7 +127,7 @@ describe('Asyra Design AI transaction adapter', () => {
       timeline.push('history:correlate')
       return true
     })
-    const boundary: AsyraDesignAiTransactionBoundary = async <T>(
+    const boundary: AiTransactionBoundary = async <T>(
       execute: () => Promise<T>
     ) => {
       timeline.push('transaction:start')
@@ -137,7 +136,7 @@ describe('Asyra Design AI transaction adapter', () => {
       timeline.push('transaction:commit')
       return result
     }
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       history: {
         correlateCommittedAction,
         getCurrentActionId: () => currentActionId
@@ -170,7 +169,7 @@ describe('Asyra Design AI transaction adapter', () => {
 
   it('does not correlate a zero-mutation transaction', async () => {
     const correlateCommittedAction = vi.fn(() => true)
-    const runner = createAsyraDesignAiTransactionRunner({
+    const runner = createAiTransactionRunner({
       history: {
         correlateCommittedAction,
         getCurrentActionId: () => 20

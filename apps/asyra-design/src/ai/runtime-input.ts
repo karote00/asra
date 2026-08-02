@@ -5,41 +5,33 @@ import type {
   AiTransactionRunner,
   CreateAiAgentRuntimeInput
 } from '@asyra/ai-agent-runtime'
-import { createAsyraDesignAiActions } from './actions'
+import { createAiActions } from './actions'
 import {
-  createAsyraDesignAiConfirmationHandler,
-  type AsyraDesignAiConfirmationRequest
+  createAiConfirmationHandler,
+  type AiConfirmationRequest
 } from './confirmation'
-import { createAsyraDesignAiContextProvider } from './context'
-import {
-  createAsyraDesignAiPermissionPolicy,
-  type AsyraDesignAiPermissionRules
-} from './permission'
-import { createAsyraDesignAiTransactionRunner } from './transaction'
+import { createAiContextProvider } from './context'
+import { createAiPermissionPolicy, type AiPermissionRules } from './permission'
+import { createAiTransactionRunner } from './transaction'
 
-export interface CreateAsyraDesignAiRuntimeInputOptions {
+export interface CreateAiRuntimeInputOptions {
   readonly provider: AiProvider
-  readonly permissionRules: AsyraDesignAiPermissionRules
-  readonly requestConfirmation?: AsyraDesignAiConfirmationRequest
+  readonly permissionRules: AiPermissionRules
+  readonly requestConfirmation?: AiConfirmationRequest
   readonly runtimeOptions?: AiRuntimeOptions
   readonly ownedResources?: readonly AiRuntimeOwnedResource[]
   readonly transactionRunner?: AiTransactionRunner
 }
 
-export const createAsyraDesignAiRuntimeInput = (
-  options: CreateAsyraDesignAiRuntimeInputOptions
+export const createAiRuntimeInput = (
+  options: CreateAiRuntimeInputOptions
 ): CreateAiAgentRuntimeInput => ({
-  actionDefinitions: createAsyraDesignAiActions(),
-  confirmationHandler: createAsyraDesignAiConfirmationHandler(
-    options.requestConfirmation
-  ),
-  contextProvider: createAsyraDesignAiContextProvider(),
+  actionDefinitions: createAiActions(),
+  confirmationHandler: createAiConfirmationHandler(options.requestConfirmation),
+  contextProvider: createAiContextProvider(),
   options: options.runtimeOptions,
   ownedResources: options.ownedResources,
-  permissionPolicy: createAsyraDesignAiPermissionPolicy(
-    options.permissionRules
-  ),
+  permissionPolicy: createAiPermissionPolicy(options.permissionRules),
   provider: options.provider,
-  transactionRunner:
-    options.transactionRunner ?? createAsyraDesignAiTransactionRunner()
+  transactionRunner: options.transactionRunner ?? createAiTransactionRunner()
 })

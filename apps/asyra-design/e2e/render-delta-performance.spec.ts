@@ -126,10 +126,13 @@ test.describe('Render delta performance budget', () => {
     const rawProfile = await page.evaluate(
       async ({ pointCount, sampleFrames, intersectionStep }) => {
         // E2E-only access to the currently composed framework runtime.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const elementApis = (window as any).__AsyraE2E__?.elementApis
+
+        const {
+          core,
+          elementApis,
+          subscribeToBrowserDragPhases,
+          subscribeToDiagnosticCounters
+        } = await import('../src/testing/runtime-access')
         if (!core || !elementApis) {
           throw new Error('Asyra E2E runtime is unavailable')
         }
@@ -247,18 +250,13 @@ test.describe('Render delta performance budget', () => {
           phaseSamples.set(phaseName, samples)
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const runtimeGlobal = globalThis as any
-        const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
-        runtimeGlobal.__asyraBrowserDragPhaseSink = pushSample
-        const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+        const unsubscribeFromPhases = subscribeToBrowserDragPhases(pushSample)
         const counters = new Map<string, number>()
-        runtimeGlobal.__asyraDiagnosticCounterSink = (
-          counterName: string,
-          value: number
-        ) => {
-          counters.set(counterName, (counters.get(counterName) ?? 0) + value)
-        }
+        const unsubscribeFromCounters = subscribeToDiagnosticCounters(
+          (counterName, value) => {
+            counters.set(counterName, (counters.get(counterName) ?? 0) + value)
+          }
+        )
 
         const sceneTreeSamples: number[] = []
         const engineSamples: number[] = []
@@ -359,8 +357,8 @@ test.describe('Render delta performance budget', () => {
           engine.execute = originalEngineExecute
           element.save = originalElementSave
           element.getAllComputedData = originalGetAllComputedData
-          runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
-          runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+          unsubscribeFromPhases()
+          unsubscribeFromCounters()
           core.setSystemProperty('mouseDragging', false)
           core.setSystemProperty('mouseDown', false)
           core.setSystemProperty('pathEditingMode', false)
@@ -469,10 +467,10 @@ test.describe('Render delta performance budget', () => {
         summary.engineHandoff.p95Ms
     ).toBeLessThanOrEqual(CRITICAL_PATH_P95_BUDGET_MS)
 
-    const visualReviewState = await page.evaluate((elementId) => {
+    const visualReviewState = await page.evaluate(async (elementId) => {
       // E2E-only access to the currently composed framework runtime.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const renderElement = core?.deps?.render?.getElementById?.(elementId)
@@ -603,10 +601,11 @@ test.describe('Render delta performance budget', () => {
 
     const result = await page.evaluate(async () => {
       // E2E-only access to the currently composed framework runtime.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const factory = core?.deps?.factory
       if (
         !core ||

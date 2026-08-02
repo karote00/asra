@@ -4,10 +4,14 @@ import core from '../../contexts'
 let activeHandle: CanvasPipelineDebugger | undefined
 let initializationId = 0
 
+export const getActiveCanvasPipelineDebugger = ():
+  | CanvasPipelineDebugger
+  | undefined => activeHandle
+
 const disposeActiveHandle = (): void => {
   const handle = activeHandle
   activeHandle = undefined
-  delete window.__AsyraCanvasPipelineDebugger__
+  delete window.__CanvasPipelineDebugger__
   handle?.dispose()
 }
 
@@ -28,13 +32,10 @@ export const initCanvasPipelineDebugger = async (): Promise<
     }
     const handle = createCanvasPipelineDebugger(core, { enabled: false })
     activeHandle = handle
-    window.__AsyraCanvasPipelineDebugger__ = handle
+    window.__CanvasPipelineDebugger__ = handle
     return handle
   } catch (error) {
-    console.error(
-      '[Asyra Design] Canvas Pipeline Debugger failed to load',
-      error
-    )
+    console.error('[canvas-pipeline-debugger] failed to load', error)
     return
   }
 }

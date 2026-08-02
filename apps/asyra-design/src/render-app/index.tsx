@@ -4,7 +4,10 @@ import {
   AiDocumentInteractionTargetProps,
   CANVAS_BACKGROUND_COLOR
 } from '../constants'
-import { createEmptyDocument } from '../config/empty-document'
+import {
+  activateDocumentPersistence,
+  createDocumentPersistence
+} from '../document-persistence'
 import { getCollaborationMode } from './collaboration-mode'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
 
@@ -64,6 +67,11 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
         const collaborationMode = getCollaborationMode()
+        const documentPersistence = createDocumentPersistence(
+          collaborationMode.fileId
+        )
+        activateDocumentPersistence(documentPersistence)
+        core.setPersistence(documentPersistence.provider)
 
         await core.start(container, {
           width: window.innerWidth,
@@ -73,11 +81,6 @@ const RenderApp: React.FC<RenderAppProps> = ({
         })
         if (!active) {
           core.destroyRenderer()
-          return
-        }
-
-        core.load(createEmptyDocument())
-        if (!active) {
           return
         }
 

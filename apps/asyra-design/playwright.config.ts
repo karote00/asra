@@ -1,13 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-policy.mjs'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment()
-)
+const appEnvironment = resolveEnvironment(loadEnvironment())
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
 const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',

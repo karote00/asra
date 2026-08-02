@@ -1,13 +1,13 @@
 import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiStartup } from '../startup'
-import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
+import { createAiStartup } from '../startup'
+import type { ServerResponseRecord } from '../server-response-inbox'
 
 const batch: AiActionBatch = {
   actions: [],
   batchId: 'resident-batch'
 }
-const response: AsyraDesignServerResponseRecord = {
+const response: ServerResponseRecord = {
   batch,
   fileId: 'file-resident',
   schemaVersion: 1
@@ -29,7 +29,7 @@ describe('Asyra Design AI startup', () => {
     }
     const createProvider = vi.fn(() => provider)
 
-    const startup = createAsyraDesignAiStartup(
+    const startup = createAiStartup(
       {
         response
       },
@@ -55,7 +55,7 @@ describe('Asyra Design AI startup', () => {
   })
 
   it('constructs the same runtime when the exact inbox record is absent', () => {
-    const startup = createAsyraDesignAiStartup(
+    const startup = createAiStartup(
       {
         response: null
       },
@@ -81,7 +81,7 @@ describe('Asyra Design AI startup', () => {
     const disposeHistory = vi.fn()
 
     expect(() =>
-      createAsyraDesignAiStartup(
+      createAiStartup(
         {
           response
         },

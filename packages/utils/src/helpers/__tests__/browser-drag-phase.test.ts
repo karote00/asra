@@ -2,15 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase,
+  subscribeToBrowserDragPhases,
   type BrowserDragPhaseSink
 } from '../browser-drag-phase'
 
-const browserDragPhaseGlobal = globalThis as typeof globalThis & {
-  __asyraBrowserDragPhaseSink?: BrowserDragPhaseSink
-}
+const disposers: (() => void)[] = []
 
 afterEach(() => {
-  delete browserDragPhaseGlobal.__asyraBrowserDragPhaseSink
+  disposers.splice(0).forEach((dispose) => dispose())
   vi.restoreAllMocks()
 })
 
@@ -21,7 +20,7 @@ describe('browser drag phase measurement', () => {
 
   it('reports the synchronous phase duration even when the action throws', () => {
     const sink = vi.fn<BrowserDragPhaseSink>()
-    browserDragPhaseGlobal.__asyraBrowserDragPhaseSink = sink
+    disposers.push(subscribeToBrowserDragPhases(sink))
     vi.spyOn(performance, 'now').mockReturnValueOnce(10).mockReturnValueOnce(16)
 
     expect(() =>
@@ -34,7 +33,7 @@ describe('browser drag phase measurement', () => {
 
   it('reports the asynchronous phase duration after the action settles', async () => {
     const sink = vi.fn<BrowserDragPhaseSink>()
-    browserDragPhaseGlobal.__asyraBrowserDragPhaseSink = sink
+    disposers.push(subscribeToBrowserDragPhases(sink))
     vi.spyOn(performance, 'now').mockReturnValueOnce(20).mockReturnValueOnce(29)
 
     await expect(
@@ -45,7 +44,7 @@ describe('browser drag phase measurement', () => {
 
   it('reports the asynchronous phase duration when the action rejects', async () => {
     const sink = vi.fn<BrowserDragPhaseSink>()
-    browserDragPhaseGlobal.__asyraBrowserDragPhaseSink = sink
+    disposers.push(subscribeToBrowserDragPhases(sink))
     vi.spyOn(performance, 'now').mockReturnValueOnce(30).mockReturnValueOnce(42)
 
     await expect(

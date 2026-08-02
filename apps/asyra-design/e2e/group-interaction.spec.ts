@@ -28,12 +28,18 @@ const getLayerIds = async (page: Page): Promise<string[]> =>
 
 const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
-    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+    async () =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps.selection.getElementSelectionIds() ?? []
   )
 
 const getHoveredId = (page: Page): Promise<string | null> =>
   page.evaluate(
-    () => window.__Core__?.getSystemProperty('hoveredElementId') ?? null
+    async () =>
+      (await import('../src/testing/runtime-access')).core?.getSystemProperty(
+        'hoveredElementId'
+      ) ?? null
   )
 
 const groupLayerIds = async (
@@ -61,8 +67,8 @@ const getWorldPositions = (
   page: Page,
   elementIds: string[]
 ): Promise<Record<string, { x: number; y: number }>> =>
-  page.evaluate((ids) => {
-    const core = window.__Core__
+  page.evaluate(async (ids) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const positions: Record<string, { x: number; y: number }> = {}
     for (const elementId of ids) {
       let currentId = elementId
@@ -105,8 +111,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     const initialIds = await getLayerIds(page)
     expect(initialIds).toHaveLength(2)
     const initialWorldPositions = await getWorldPositions(page, initialIds)
-    const initialHierarchy = await page.evaluate((elementIds) => {
-      const sceneTree = window.__Core__.deps.sceneTree
+    const initialHierarchy = await page.evaluate(async (elementIds) => {
+      const sceneTree = (await import('../src/testing/runtime-access')).core
+        .deps.sceneTree
       const workspaceId = String(sceneTree.workspace)
       const workspace = sceneTree.getElementById(workspaceId)
       return {
@@ -123,8 +130,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(initialHierarchy.parentIds).toEqual(
       initialIds.map(() => initialHierarchy.workspaceId)
     )
-    await page.evaluate((elementIds) => {
-      const core = window.__Core__
+    await page.evaluate(async (elementIds) => {
+      const core = (await import('../src/testing/runtime-access')).core
       ;(
         window as typeof window & {
           __BasicGroupUndoIdentity?: {
@@ -148,8 +155,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          ({ createdGroupId, childIds }) => {
-            const sceneTree = window.__Core__.deps.sceneTree
+          async ({ createdGroupId, childIds }) => {
+            const sceneTree = (await import('../src/testing/runtime-access'))
+              .core.deps.sceneTree
             const group = sceneTree.getElementById(createdGroupId)
             return {
               groupExists: Boolean(group),
@@ -175,8 +183,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect.poll(() => getLayerIds(page)).toEqual(initialIds)
     await expect.poll(() => getSelectedIds(page)).toEqual(initialIds)
     const undoHierarchy = await page.evaluate(
-      ({ createdGroupId, elementIds, workspaceId }) => {
-        const sceneTree = window.__Core__.deps.sceneTree
+      async ({ createdGroupId, elementIds, workspaceId }) => {
+        const sceneTree = (await import('../src/testing/runtime-access')).core
+          .deps.sceneTree
         const workspace = sceneTree.getElementById(workspaceId)
         return {
           groupExists: Boolean(sceneTree.getElementById(createdGroupId)),
@@ -206,8 +215,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(await getWorldPositions(page, initialIds)).toEqual(
       initialWorldPositions
     )
-    const undoIdentity = await page.evaluate((elementIds) => {
-      const core = window.__Core__
+    const undoIdentity = await page.evaluate(async (elementIds) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const initial = (
         window as typeof window & {
           __BasicGroupUndoIdentity?: {
@@ -249,7 +258,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(await getWorldPositions(page, initialIds)).toEqual(
       initialWorldPositions
     )
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       delete (
         window as typeof window & {
           __BasicGroupUndoIdentity?: unknown
@@ -286,8 +295,10 @@ test.describe('Asyra Design Group interaction MVP', () => {
       y: nestedCreatePosition.y + 40
     }
     const nestedCreateWorkspacePosition = await page.evaluate(
-      ({ x, y }) =>
-        window.__Core__.deps.render.getMousePosInWorkspace({
+      async ({ x, y }) =>
+        (
+          await import('../src/testing/runtime-access')
+        ).core.deps.render.getMousePosInWorkspace({
           clientX: x,
           clientY: y
         }),
@@ -311,9 +322,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
 
     const nestedCreatedId = (await getSelectedIds(page))[0]
     const nestedCreatedParentId = await page.evaluate(
-      (elementId) =>
+      async (elementId) =>
         String(
-          window.__Core__.deps.sceneTree
+          (await import('../src/testing/runtime-access')).core.deps.sceneTree
             .getElementById(elementId)
             ?.get('parentId') ?? ''
         ),
@@ -326,9 +337,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     )[nestedCreatedId]
     expect(nestedWorldPosition.x).toBeCloseTo(nestedCreateWorkspacePosition.x)
     expect(nestedWorldPosition.y).toBeCloseTo(nestedCreateWorkspacePosition.y)
-    const nestedCreatedBounds = await page.evaluate((elementId) => {
+    const nestedCreatedBounds = await page.evaluate(async (elementId) => {
       const computed =
-        window.__Core__.deps.sceneTree
+        (await import('../src/testing/runtime-access')).core.deps.sceneTree
           .getElementById(elementId)
           ?.getAllComputedData() ?? {}
       return {
@@ -343,8 +354,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          (elementId) =>
-            Boolean(window.__Core__.deps.sceneTree.getElementById(elementId)),
+          async (elementId) =>
+            Boolean(
+              (
+                await import('../src/testing/runtime-access')
+              ).core.deps.sceneTree.getElementById(elementId)
+            ),
           nestedCreatedId
         )
       )
@@ -354,9 +369,11 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect
       .poll(() =>
         page.evaluate(
-          (elementId) =>
+          async (elementId) =>
             String(
-              window.__Core__.deps.sceneTree
+              (
+                await import('../src/testing/runtime-access')
+              ).core.deps.sceneTree
                 .getElementById(elementId)
                 ?.get('parentId') ?? ''
             ),
@@ -370,8 +387,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await page.mouse.click(emptyPosition.x, emptyPosition.y)
 
     const workspaceCreatedId = (await getSelectedIds(page))[0]
-    const workspaceParent = await page.evaluate((elementId) => {
-      const sceneTree = window.__Core__.deps.sceneTree
+    const workspaceParent = await page.evaluate(async (elementId) => {
+      const sceneTree = (await import('../src/testing/runtime-access')).core
+        .deps.sceneTree
       return {
         actual: String(
           sceneTree.getElementById(elementId)?.get('parentId') ?? ''
@@ -485,8 +503,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
       y: middleCenter.y + 24
     }
     const workspaceDelta = await page.evaluate(
-      ({ start, end }) => {
-        const render = window.__Core__.deps.render
+      async ({ start, end }) => {
+        const render = (await import('../src/testing/runtime-access')).core.deps
+          .render
         const startWorkspace = render.getMousePosInWorkspace({
           clientX: start.x,
           clientY: start.y
@@ -552,8 +571,9 @@ test.describe('Asyra Design Group interaction MVP', () => {
       y: rectCenter.y + 32
     }
     const workspaceDelta = await page.evaluate(
-      ({ start, end }) => {
-        const render = window.__Core__.deps.render
+      async ({ start, end }) => {
+        const render = (await import('../src/testing/runtime-access')).core.deps
+          .render
         const startWorkspace = render.getMousePosInWorkspace({
           clientX: start.x,
           clientY: start.y
@@ -593,8 +613,13 @@ test.describe('Asyra Design Group interaction MVP', () => {
     }
 
     const normalized = await page.evaluate(
-      ({ rectId: childId, innerGroupId: innerId, outerGroupId: outerId }) => {
-        const sceneTree = window.__Core__.deps.sceneTree
+      async ({
+        rectId: childId,
+        innerGroupId: innerId,
+        outerGroupId: outerId
+      }) => {
+        const sceneTree = (await import('../src/testing/runtime-access')).core
+          .deps.sceneTree
         const read = (elementId: string) =>
           sceneTree.getElementById(elementId)?.getAllComputedData() ?? {}
         return {
@@ -631,8 +656,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(initialIds).toHaveLength(3)
     const worldBefore = await getWorldPositions(page, initialIds)
 
-    await page.evaluate((ids) => {
-      const core = window.__Core__
+    await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       ;(
         window as typeof window & {
           __GroupInteractionIdentity?: {
@@ -663,8 +688,11 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
 
     await page.evaluate(
-      ({ groupId, siblingId }) => {
-        window.__Core__.selectElements([groupId, siblingId])
+      async ({ groupId, siblingId }) => {
+        ;(await import('../src/testing/runtime-access')).core.selectElements([
+          groupId,
+          siblingId
+        ])
       },
       { groupId: firstGroupId, siblingId: initialIds[2] }
     )
@@ -698,8 +726,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect(layerRow(page, initialIds[0])).toBeVisible()
 
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
-    const identity = await page.evaluate((ids) => {
-      const core = window.__Core__
+    const identity = await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const saved = (
         window as typeof window & {
           __GroupInteractionIdentity?: {
@@ -728,8 +756,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect
       .poll(() => getSelectedIds(page))
       .toEqual([firstGroupId, initialIds[2]])
-    const ungroupProjection = await page.evaluate((removedGroupId) => {
-      const core = window.__Core__
+    const ungroupProjection = await page.evaluate(async (removedGroupId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       return {
         canonicalExists: Boolean(
           core.deps.sceneTree.getElementById(removedGroupId)
@@ -750,8 +778,8 @@ test.describe('Asyra Design Group interaction MVP', () => {
     await expect
       .poll(() => getSelectedIds(page))
       .toEqual([firstGroupId, initialIds[2]])
-    const ungroupedProjection = await page.evaluate((removedGroupId) => {
-      const core = window.__Core__
+    const ungroupedProjection = await page.evaluate(async (removedGroupId) => {
+      const core = (await import('../src/testing/runtime-access')).core
       return {
         canonicalExists: Boolean(
           core.deps.sceneTree.getElementById(removedGroupId)
@@ -776,7 +804,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
       persistenceBaseline
     )
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       delete (
         window as typeof window & {
           __GroupInteractionIdentity?: unknown
@@ -790,10 +818,12 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(await getSelectedIds(page)).toEqual([])
     expect(
       await page.evaluate(
-        (ids) =>
-          ids.some((id) =>
-            Boolean(window.__Core__.deps.sceneTree.getElementById(id))
-          ),
+        async (ids) => {
+          const { core } = await import('../src/testing/runtime-access')
+          return ids.some((id) =>
+            Boolean(core.deps.sceneTree.getElementById(id))
+          )
+        },
         [...initialIds, firstGroupId, nestedGroupId]
       )
     ).toBe(false)

@@ -5,11 +5,11 @@ read -r ASYRA_E2E_HOST ASYRA_E2E_PORT ASYRA_E2E_APP_URL \
   ASYRA_E2E_COLLABORATION_HEALTH_URL <<< "$(
   node --input-type=module -e "
     import {
-      loadAsyraDesignEnvironment,
-      resolveAsyraDesignEnvironment
+      loadEnvironment,
+      resolveEnvironment
     } from './apps/asyra-design/app-environment.mjs'
-    const config = resolveAsyraDesignEnvironment(
-      loadAsyraDesignEnvironment()
+    const config = resolveEnvironment(
+      loadEnvironment()
     )
     process.stdout.write(
       [

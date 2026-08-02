@@ -23,6 +23,7 @@ import {
   PropertyTypes,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
+  subscribeToBrowserDragPhases,
   Unit,
   resetIdCounter,
   type AddRemoveElementChange,
@@ -2282,14 +2283,11 @@ describe('SceneTree', () => {
   it('emits detached owner timings for each canonical element batch stage', () => {
     sceneTree.init()
     const phaseNames: string[] = []
-    const runtime = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('scene-tree:element-batch:')) {
         phaseNames.push(name)
       }
-    }
+    })
 
     try {
       sceneTree.addNewElements(
@@ -2302,7 +2300,7 @@ describe('SceneTree', () => {
         { undoable: true }
       )
     } finally {
-      delete runtime.__asyraBrowserDragPhaseSink
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual([
@@ -2316,12 +2314,9 @@ describe('SceneTree', () => {
 
   it('does not let a failing timing observer change canonical batch behavior', () => {
     sceneTree.init()
-    const runtime = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-    runtime.__asyraBrowserDragPhaseSink = () => {
+    const unsubscribe = subscribeToBrowserDragPhases(() => {
       throw new Error('diagnostic sink failure')
-    }
+    })
 
     try {
       expect(
@@ -2333,7 +2328,7 @@ describe('SceneTree', () => {
         )
       ).toEqual(['observer-safe-batch'])
     } finally {
-      delete runtime.__asyraBrowserDragPhaseSink
+      unsubscribe()
     }
 
     expect(sceneTree.getElementById('observer-safe-batch')?.save()).toEqual(

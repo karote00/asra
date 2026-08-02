@@ -1,7 +1,7 @@
 import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignServerActionBatchProvider } from '../server-action-batch-provider'
-import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
+import { createServerActionBatchProvider } from '../server-action-batch-provider'
+import type { ServerResponseRecord } from '../server-response-inbox'
 
 const input: AiProviderInput = {
   actions: [],
@@ -14,7 +14,7 @@ const batch: AiActionBatch = {
   actions: [],
   batchId: 'resident-batch'
 }
-const response: AsyraDesignServerResponseRecord = {
+const response: ServerResponseRecord = {
   batch,
   fileId: 'file-resident',
   schemaVersion: 1
@@ -22,7 +22,7 @@ const response: AsyraDesignServerResponseRecord = {
 
 describe('Asyra Design server action-batch provider', () => {
   it('exposes only requestActionBatch and returns the same resident batch identity', async () => {
-    const provider = createAsyraDesignServerActionBatchProvider(response)
+    const provider = createServerActionBatchProvider(response)
     const indexedDbOpen = vi.fn(() => {
       throw new Error('request-time IndexedDB access is forbidden')
     })
@@ -44,7 +44,7 @@ describe('Asyra Design server action-batch provider', () => {
 
   it('preserves a present record nullish batch for Runtime envelope resolution', async () => {
     const nullishBatch = null as unknown as AiActionBatch
-    const provider = createAsyraDesignServerActionBatchProvider({
+    const provider = createServerActionBatchProvider({
       batch: nullishBatch,
       fileId: 'file-nullish-batch',
       schemaVersion: 1
@@ -58,7 +58,7 @@ describe('Asyra Design server action-batch provider', () => {
   })
 
   it('fails explicitly when startup has no file-scoped response', async () => {
-    const provider = createAsyraDesignServerActionBatchProvider(null)
+    const provider = createServerActionBatchProvider(null)
 
     await expect(
       provider.requestActionBatch(input, {

@@ -1,30 +1,30 @@
 import { measureBrowserDragAsyncPhase } from '@asyra/utils'
 import {
-  readAsyraDesignServerResponse,
-  type AsyraDesignServerResponseRecord
+  readServerResponse,
+  type ServerResponseRecord
 } from './ai/server-response-inbox'
 import { getRequiredFileId } from './render-app/collaboration-mode'
 import { initApp, type AppInitialization } from './init/init-app'
 
-interface AsyraDesignAppStartupFactories {
+interface AppStartupFactories {
   readonly getRequiredFileId: () => string
   readonly initializeApp: typeof initApp
   readonly readServerResponse: (
     fileId: string
-  ) => Promise<AsyraDesignServerResponseRecord | null>
+  ) => Promise<ServerResponseRecord | null>
 }
 
-const defaultFactories: AsyraDesignAppStartupFactories = {
+const defaultFactories: AppStartupFactories = {
   getRequiredFileId,
   initializeApp: initApp,
-  readServerResponse: readAsyraDesignServerResponse
+  readServerResponse: readServerResponse
 }
 
-export const startAsyraDesignApp = async (
+export const startApp = async (
   input: {
     readonly render: (initialization: AppInitialization) => void
   },
-  factories: AsyraDesignAppStartupFactories = defaultFactories
+  factories: AppStartupFactories = defaultFactories
 ): Promise<AppInitialization> => {
   const fileId = factories.getRequiredFileId()
   const response = await measureBrowserDragAsyncPhase(

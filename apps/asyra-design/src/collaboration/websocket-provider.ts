@@ -11,6 +11,7 @@ import {
 import type { SharedPublication } from '@asyra/factory'
 import {
   emitDiagnosticCounter,
+  emitBrowserDragPhase,
   measureBrowserDragAsyncPhase
 } from '@asyra/utils'
 import {
@@ -92,20 +93,7 @@ const toFailure = (
 
 const recordWorkerTiming = (phase: string, durationMs: number): void => {
   if (!Number.isFinite(durationMs) || durationMs < 0) return
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) return
-  try {
-    sink(phase, durationMs)
-  } catch {
-    // Profiling observers cannot alter transport settlement.
-  }
+  emitBrowserDragPhase(phase, durationMs)
 }
 
 export class CollaborationWebSocketProvider implements Provider {

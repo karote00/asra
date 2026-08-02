@@ -53,11 +53,9 @@ if (!existsSync(path.join(templateRoot, 'package.json'))) {
 
 const buildEnvironment = {
   ...process.env,
-  ASYRA_DESIGN_APP_URL:
-    process.env.ASYRA_DESIGN_APP_URL ?? 'http://127.0.0.1:4173',
-  VITE_ASYRA_DESIGN_COLLABORATION_WS_URL:
-    process.env.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL ??
-    'ws://127.0.0.1:4101/asyra-design-collaboration'
+  APP_URL: process.env.APP_URL ?? 'http://127.0.0.1:4173',
+  VITE_COLLABORATION_WS_URL:
+    process.env.VITE_COLLABORATION_WS_URL ?? 'ws://127.0.0.1:4101/collaboration'
 }
 
 try {

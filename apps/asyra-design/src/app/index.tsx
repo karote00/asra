@@ -25,15 +25,15 @@ import { useAppContextMenuSession } from './context-menu-session'
 import { GroupContextMenu } from './group-context-menu'
 import { AiConversationPanel } from './ai-conversation-panel'
 import { AiHistoryMessageBar } from './ai-history-message-bar'
-import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
-import type { AsyraDesignAiConversationController } from '../ai/conversation'
-import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
+import type { AiConfirmationBroker } from '../ai/confirmation'
+import type { AiConversationController } from '../ai/conversation'
+import type { AiHistoryProjection } from '../common-apis/history'
 
 interface AppProps {
   ai: {
-    readonly confirmation: AsyraDesignAiConfirmationBroker
-    readonly conversation: AsyraDesignAiConversationController
-    readonly history: AsyraDesignAiHistoryProjection
+    readonly confirmation: AiConfirmationBroker
+    readonly conversation: AiConversationController
+    readonly history: AiHistoryProjection
   }
   groupCommandPlatform?: GroupCommandPlatform
 }

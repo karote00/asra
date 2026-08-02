@@ -1,12 +1,15 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
-import { seedAsyraDesignServerResponse } from './server-response-inbox'
+import { seedServerResponse } from './server-response-inbox'
 import {
   createRectangle,
   createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
+  getCoreDocumentDigest,
   getContentsPanel,
   getElementCount,
+  getPersistedDocumentDigest,
+  getPropertiesPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
   redo,
@@ -47,8 +50,26 @@ const getLayerIds = (page: Page): Promise<string[]> =>
 
 const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
-    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+    async () =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps.selection.getElementSelectionIds() ?? []
   )
+
+const expectFileScopedPersistenceEvidence = async (
+  page: Page,
+  origin: 'local' | 'remote'
+) => {
+  const evidence = await getClientPersistenceEvidence(page)
+  expect(evidence.indexedDbPutCount).toBeGreaterThan(0)
+  if (origin === 'local') {
+    expect(evidence.captureCount).toBeGreaterThan(0)
+    expect(evidence.saveCount).toBeGreaterThan(0)
+    return
+  }
+  expect(evidence.captureCount).toBe(0)
+  expect(evidence.saveCount).toBe(0)
+}
 
 const groupLayerIds = async (
   page: Page,
@@ -83,16 +104,21 @@ const waitForCollaboration = async (page: Page) => {
   await expect
     .poll(() =>
       page.evaluate(
-        () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        async () =>
+          (await import('../src/testing/runtime-access'))
+            .getActiveCollaborationHandle()
+            ?.getStatus() ?? 'missing'
       )
     )
     .toBe('connected')
 }
 
 const getCanonicalSnapshot = (page: Page) =>
-  page.evaluate(() => {
-    const profiledElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
+  page.evaluate(async () => {
+    const runtimeAccess = await import('../src/testing/runtime-access')
+    const profiledElements = runtimeAccess
+      .getActiveAiDrawingPerformanceProfile()
+      ?.readCanonicalElements()
     if (profiledElements) {
       return profiledElements
         .filter(({ type }) => type !== 'workspace')
@@ -104,7 +130,7 @@ const getCanonicalSnapshot = (page: Page) =>
         }))
         .sort((left, right) => left.id.localeCompare(right.id))
     }
-    const elements = window.__Core__?.deps?.sceneTree?.getAllElements?.()
+    const elements = runtimeAccess.core?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) return []
     return Array.from(elements.entries())
       .filter(([, element]) => element.get?.('type') !== 'workspace')
@@ -112,7 +138,9 @@ const getCanonicalSnapshot = (page: Page) =>
         id,
         type: String(element.get?.('type') ?? ''),
         computed: element.getAllComputedData?.() ?? {},
-        rendered: Boolean(window.__Core__?.deps?.render?.getElementById?.(id))
+        rendered: Boolean(
+          runtimeAccess.core?.deps?.render?.getElementById?.(id)
+        )
       }))
       .sort((left, right) => left.id.localeCompare(right.id))
   })
@@ -236,10 +264,12 @@ const getCanonicalStrokeIdentityViolations = (
   })
 
 const getCanonicalHierarchyGeometry = (page: Page) =>
-  page.evaluate(() => {
-    const profiledElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
-    const sceneTree = window.__Core__?.deps?.sceneTree
+  page.evaluate(async () => {
+    const profiledElements = (await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      ?.readCanonicalElements()
+    const sceneTree = (await import('../src/testing/runtime-access')).core?.deps
+      ?.sceneTree
     const elements = profiledElements
       ? profiledElements.map(({ computed, id, raw, type }) => ({
           computed,
@@ -323,48 +353,66 @@ const getCanonicalHierarchyGeometry = (page: Page) =>
   })
 
 const getCollaborationDiagnostics = (page: Page) =>
-  page.evaluate(() => {
-    const profiledElements =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalElements()
+  page.evaluate(async () => {
+    const profiledElements = (await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      ?.readCanonicalElements()
     return {
-      status: window.__AsyraCollaboration__?.getStatus() ?? 'missing',
-      identity: window.__AsyraCollaboration__?.identity,
+      status:
+        (await import('../src/testing/runtime-access'))
+          .getActiveCollaborationHandle()
+          ?.getStatus() ?? 'missing',
+      identity: (
+        await import('../src/testing/runtime-access')
+      ).getActiveCollaborationHandle()?.identity,
       canonicalElementCount: profiledElements
         ? profiledElements.filter(({ type }) => type !== 'workspace').length
         : Array.from(
-            window.__Core__?.deps?.sceneTree?.getAllElements?.().values?.() ??
-              []
+            (
+              await import('../src/testing/runtime-access')
+            ).core?.deps?.sceneTree
+              ?.getAllElements?.()
+              .values?.() ?? []
           ).filter((element) => element.get?.('type') !== 'workspace').length
     }
   })
 
 const getCanonicalRenderVisibility = (page: Page, elementId: string) =>
   page.evaluate(
-    (id) =>
-      window.__Core__?.deps?.render?.getElementById?.(id)?.visible ?? null,
+    async (id) =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps?.render?.getElementById?.(id)?.visible ?? null,
     elementId
   )
 
 const getOwnerSave = (page: Page) =>
   page.evaluate(
-    () =>
-      window.__AsyraAiDrawingPerformance__?.readCanonicalOwnerSnapshot() ?? {
-        sceneTree: window.__Core__.deps.sceneTree.save(),
-        props: window.__Core__.deps.props.save()
+    async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCanonicalOwnerSnapshot() ?? {
+        sceneTree: (
+          await import('../src/testing/runtime-access')
+        ).core.deps.sceneTree.save(),
+        props: (
+          await import('../src/testing/runtime-access')
+        ).core.deps.props.save()
       }
   )
 
 const getCanonicalDocumentSave = (page: Page) =>
-  page.evaluate(() => {
-    const profiledSnapshot =
-      window.__AsyraAiDrawingPerformance__?.readCanonicalOwnerSnapshot()
+  page.evaluate(async () => {
+    const profiledSnapshot = (await import('../src/testing/runtime-access'))
+      .getActiveAiDrawingPerformanceProfile()
+      ?.readCanonicalOwnerSnapshot()
     if (profiledSnapshot) return profiledSnapshot
-    const sceneTree = window.__Core__.deps.sceneTree
+    const sceneTree = (await import('../src/testing/runtime-access')).core.deps
+      .sceneTree
     const sceneSave = sceneTree.save()
-    const allProps = window.__Core__.deps.props.save() as Record<
-      string,
-      Record<string, unknown>
-    >
+    const allProps = (
+      await import('../src/testing/runtime-access')
+    ).core.deps.props.save() as Record<string, Record<string, unknown>>
     const referencedPropertyIds = new Set<string>()
     const pendingPropertyIds: string[] = []
     const enqueuePropertyReferences = (value: unknown): void => {
@@ -408,12 +456,15 @@ const getCanonicalDocumentSave = (page: Page) =>
   })
 
 const getUndoDepth = (page: Page) =>
-  page.evaluate(() => {
-    const performanceProfile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (performanceProfile) return performanceProfile.readHistoryDepth()
     return (
       (
-        window.__Core__.deps.factory.transact as unknown as {
+        (await import('../src/testing/runtime-access')).core.deps.factory
+          .transact as unknown as {
           undoStack?: unknown[]
         }
       ).undoStack?.length ?? 0
@@ -421,18 +472,23 @@ const getUndoDepth = (page: Page) =>
   })
 
 const captureTransactionStatuses = (page: Page) =>
-  page.evaluate(() => {
-    const performanceProfile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (performanceProfile) {
       performanceProfile.reset()
       return
     }
-    const runtime = globalThis as typeof globalThis & {
-      __factoryTransactionStatuses?: unknown[]
-    }
-    runtime.__factoryTransactionStatuses = []
-    window.__Core__.deps.factory.subscribeToTransactionStatus((status) => {
-      runtime.__factoryTransactionStatuses?.push({
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const statuses = testRuntimeState.set<unknown[]>(
+      'factory-transaction-statuses',
+      []
+    )
+    core.deps.factory.subscribeToTransactionStatus((status) => {
+      statuses.push({
         transactionId: status.transactionId,
         origin: status.origin,
         status: status.status,
@@ -452,30 +508,39 @@ const captureTransactionStatuses = (page: Page) =>
   })
 
 const getTransactionStatuses = (page: Page) =>
-  page.evaluate(() => {
-    const performanceProfile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (performanceProfile) {
       return performanceProfile.getRuntimeEvidence().factoryStatuses
     }
-    return (
-      (
-        globalThis as typeof globalThis & {
-          __factoryTransactionStatuses?: unknown[]
-        }
-      ).__factoryTransactionStatuses ?? []
-    )
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    return testRuntimeState.get('factory-transaction-statuses') ?? []
   })
 
 const captureFactoryPublicationShapes = (page: Page) =>
-  page.evaluate(() => {
-    if (window.__AsyraAiDrawingPerformance__) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const runtime = globalThis as any
-    runtime.__factoryPublicationShapes = []
-    runtime.__factoryPublications = []
-    window.__Core__.deps.factory.subscribeToSharedPublication((publication) => {
-      runtime.__factoryPublications.push(publication)
-      runtime.__factoryPublicationShapes.push({
+  page.evaluate(async () => {
+    if (
+      (
+        await import('../src/testing/runtime-access')
+      ).getActiveAiDrawingPerformanceProfile()
+    )
+      return
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const shapes = testRuntimeState.set<unknown[]>(
+      'factory-publication-shapes',
+      []
+    )
+    const publications = testRuntimeState.set<unknown[]>(
+      'factory-publications',
+      []
+    )
+    core.deps.factory.subscribeToSharedPublication((publication) => {
+      publications.push(publication)
+      shapes.push({
         publicationId: publication.publicationId,
         origin: publication.origin,
         mode: publication.mode,
@@ -525,27 +590,23 @@ const captureFactoryPublicationShapes = (page: Page) =>
   })
 
 const getFactoryPublicationShapes = (page: Page) =>
-  page.evaluate(() => {
-    const performanceProfile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (performanceProfile) {
       return performanceProfile.getRuntimeEvidence().factoryPublications
     }
-    return (
-      (
-        globalThis as typeof globalThis & {
-          __factoryPublicationShapes?: unknown[]
-        }
-      ).__factoryPublicationShapes ?? []
-    )
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    return testRuntimeState.get('factory-publication-shapes') ?? []
   })
 
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
     const operationsModule = await import('/src/collaboration/operations.ts')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const runtime = globalThis as any
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
     const canonicalRequests: string[][] = []
-    const processor = operationsModule.createAsyraDesignPublicationProcessor({
+    const processor = operationsModule.createPublicationProcessor({
       runRemoteTransaction: (mutate: () => void) => mutate(),
       decideRemotePublication: (publication) => publication,
       applyCanonicalChanges: (
@@ -554,32 +615,26 @@ const classifyFactoryPublicationsInApp = (page: Page) =>
         canonicalRequests.push(changes.map(({ kind }) => kind))
       }
     })
-    for (const publication of runtime.__factoryPublications ?? []) {
+    for (const publication of testRuntimeState.get<
+      Parameters<typeof processor>[0][]
+    >('factory-publications') ?? []) {
       processor(publication)
     }
     return canonicalRequests
   })
 
 const capturePublicationOutcomes = (page: Page) =>
-  page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & {
-      __remoteRestoreOutcomes?: unknown[]
-    }
-    runtime.__remoteRestoreOutcomes = []
-    const handle = window.__AsyraCollaboration__ as
-      | (NonNullable<Window['__AsyraCollaboration__']> & {
-          observePublicationOutcomes(
-            subscriber: (outcome: {
-              direction: string
-              status: string
-              publicationId: string
-              error?: unknown
-            }) => void
-          ): () => void
-        })
-      | undefined
+  page.evaluate(async () => {
+    const { getActiveCollaborationHandle, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const outcomes = testRuntimeState.set<unknown[]>(
+      'remote-restore-outcomes',
+      []
+    )
+    const handle = getActiveCollaborationHandle()
     handle?.observePublicationOutcomes((outcome) => {
-      runtime.__remoteRestoreOutcomes?.push({
+      outcomes.push({
         ...outcome,
         ...(outcome.error instanceof Error
           ? {
@@ -595,14 +650,10 @@ const capturePublicationOutcomes = (page: Page) =>
   })
 
 const getPublicationOutcomes = (page: Page) =>
-  page.evaluate(
-    () =>
-      (
-        globalThis as typeof globalThis & {
-          __remoteRestoreOutcomes?: unknown[]
-        }
-      ).__remoteRestoreOutcomes ?? []
-  )
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    return testRuntimeState.get('remote-restore-outcomes') ?? []
+  })
 
 const getPublicationOutcomeIds = (
   page: Page,
@@ -610,31 +661,33 @@ const getPublicationOutcomeIds = (
   status: string
 ) =>
   page.evaluate(
-    ({ expectedDirection, expectedStatus }) =>
-      (
-        (
-          globalThis as typeof globalThis & {
-            __remoteRestoreOutcomes?: {
-              direction: string
-              publicationId: string
-              status: string
-            }[]
-          }
-        ).__remoteRestoreOutcomes ?? []
+    async ({ expectedDirection, expectedStatus }) => {
+      const { testRuntimeState } = await import('../src/testing/runtime-access')
+      return (
+        testRuntimeState.get<
+          {
+            direction: string
+            publicationId: string
+            status: string
+          }[]
+        >('remote-restore-outcomes') ?? []
       )
         .filter(
           (outcome) =>
             outcome.direction === expectedDirection &&
             outcome.status === expectedStatus
         )
-        .map(({ publicationId }) => publicationId),
+        .map(({ publicationId }) => publicationId)
+    },
     { expectedDirection: direction, expectedStatus: status }
   )
 
 const getRemoteElementBatchEvidence = (page: Page) =>
-  page.evaluate(() => {
+  page.evaluate(async () => {
     const counters =
-      window.__AsyraAiDrawingPerformance__?.snapshot().counters ?? []
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot().counters ?? []
     const sum = (name: string) =>
       counters
         .filter((counter) => counter.name === name)
@@ -647,8 +700,10 @@ const getRemoteElementBatchEvidence = (page: Page) =>
   })
 
 const resetAiDrawingPerformanceEvidence = (page: Page) =>
-  page.evaluate(() => {
-    const profile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const profile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (!profile) {
       throw new Error('AI drawing performance profile is unavailable')
     }
@@ -656,8 +711,11 @@ const resetAiDrawingPerformanceEvidence = (page: Page) =>
   })
 
 const getClientPersistenceEvidence = (page: Page) =>
-  page.evaluate(() => {
-    const phases = window.__AsyraAiDrawingPerformance__?.snapshot().phases ?? []
+  page.evaluate(async () => {
+    const phases =
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot().phases ?? []
     const count = (name: string) =>
       phases.filter((phase) => phase.name === name).length
     return {
@@ -668,8 +726,10 @@ const getClientPersistenceEvidence = (page: Page) =>
   })
 
 const getVectorTopologySummary = (page: Page) =>
-  page.evaluate(() => {
-    const elements = window.__Core__?.deps?.sceneTree?.getAllElements?.()
+  page.evaluate(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) return null
     const vector = Array.from(elements.values()).find(
       (element) => element.get?.('type') === 'vector'
@@ -718,7 +778,7 @@ test('16-item server response keeps ordered minimal publications through one Act
   page
 }, testInfo) => {
   const fileId = `single-actor-fast-${Date.now()}-${testInfo.workerIndex}`
-  await seedAsyraDesignServerResponse(page.context(), {
+  await seedServerResponse(page.context(), {
     appUrl: requireAppUrl(testInfo),
     fileId,
     itemCount: 16
@@ -772,13 +832,14 @@ test('16-item AI response converges through the ordinary two-actor publication p
   browser
 }, testInfo) => {
   const fileId = `e2e-fast-ai-crdt-${Date.now()}-${testInfo.workerIndex}`
+  let checkpoint = 'contexts-created'
   const actorAContext = await browser.newContext()
   const actorBContext = await browser.newContext()
   const actorA = await actorAContext.newPage()
   const actorB = await actorBContext.newPage()
 
   try {
-    await seedAsyraDesignServerResponse(actorAContext, {
+    await seedServerResponse(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
       itemCount: 16
@@ -793,6 +854,7 @@ test('16-item AI response converges through the ordinary two-actor publication p
       waitForCollaboration(actorA),
       waitForCollaboration(actorB)
     ])
+    checkpoint = 'actors-ready'
     await Promise.all([
       capturePublicationOutcomes(actorA),
       capturePublicationOutcomes(actorB),
@@ -830,6 +892,10 @@ test('16-item AI response converges through the ordinary two-actor publication p
         { cause: error }
       )
     }
+    checkpoint = 'initial-ai-convergence-complete'
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeHidden()
+    checkpoint = 'agent-panel-closed-for-property-edit'
 
     const [
       actorASnapshot,
@@ -880,15 +946,67 @@ test('16-item AI response converges through the ordinary two-actor publication p
     expect(
       await getPublicationOutcomeIds(actorA, 'remote', 'processed')
     ).toEqual([])
-    await Promise.all(
-      [actorA, actorB].map(async (page) =>
-        expect(await getClientPersistenceEvidence(page)).toEqual({
-          captureCount: 0,
-          indexedDbPutCount: 0,
-          saveCount: 0
-        })
-      )
-    )
+
+    const targetVector = actorASnapshot.find(({ type }) => type === 'vector')
+    expect(targetVector).toBeDefined()
+    if (!targetVector) {
+      return
+    }
+    await layerRow(actorA, targetVector.id).click()
+    const propertiesPanel = getPropertiesPanel(actorA)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    const colorHexInput = actorA.getByTestId('prop-fill-color-picker-0-hex')
+    const propertyUndoDepthBefore = await getUndoDepth(actorA)
+    await colorHexInput.fill('44AAEE')
+    await colorHexInput.press('Enter')
+
+    await test.step('property change converges', () =>
+      waitForCanonicalSnapshotsToConverge(actorA, actorB))
+    checkpoint = 'property-change-converged'
+    const propertySnapshot = await getCanonicalSnapshot(actorA)
+    expect(
+      (
+        propertySnapshot.find(({ id }) => id === targetVector.id)?.computed as {
+          fills?: { color?: string }[]
+        }
+      )?.fills?.[0]?.color
+    ).toBe('#44aaee')
+    expect(await getUndoDepth(actorA)).toBe(propertyUndoDepthBefore + 1)
+    expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
+
+    await undo(actorA)
+    await test.step('property undo converges', () =>
+      waitForCanonicalSnapshotsToConverge(actorA, actorB))
+    checkpoint = 'property-undo-converged'
+    expect(await getCanonicalSnapshot(actorA)).toEqual(actorASnapshot)
+    await redo(actorA)
+    await test.step('property redo converges', () =>
+      waitForCanonicalSnapshotsToConverge(actorA, actorB))
+    checkpoint = 'property-redo-converged'
+    expect(await getCanonicalSnapshot(actorA)).toEqual(propertySnapshot)
+    await undo(actorA)
+    await test.step('property cleanup undo converges', () =>
+      waitForCanonicalSnapshotsToConverge(actorA, actorB))
+    checkpoint = 'property-cleanup-undo-converged'
+    expect(await getCanonicalSnapshot(actorA)).toEqual(actorASnapshot)
+
+    await test.step('selection history undo leaves canonical data unchanged', async () => {
+      await undo(actorA)
+      await expect
+        .poll(() => getCanonicalSnapshot(actorA))
+        .toEqual(actorASnapshot)
+      await expect
+        .poll(() => getCanonicalSnapshot(actorB))
+        .toEqual(actorASnapshot)
+    })
+
+    await Promise.all([
+      expectFileScopedPersistenceEvidence(actorA, 'local'),
+      expectFileScopedPersistenceEvidence(actorB, 'remote')
+    ])
+    checkpoint = 'property-persistence-evidence-complete'
     expect(await getPublicationOutcomes(actorA)).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ status: 'process-failed' })
@@ -927,15 +1045,11 @@ test('16-item AI response converges through the ordinary two-actor publication p
         { cause: error }
       )
     }
-    await Promise.all(
-      [actorA, actorB].map(async (page) =>
-        expect(await getClientPersistenceEvidence(page)).toEqual({
-          captureCount: 0,
-          indexedDbPutCount: 0,
-          saveCount: 0
-        })
-      )
-    )
+    await Promise.all([
+      expectFileScopedPersistenceEvidence(actorA, 'local'),
+      expectFileScopedPersistenceEvidence(actorB, 'remote')
+    ])
+    checkpoint = 'ai-undo-persistence-evidence-complete'
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
 
     await redo(actorA)
@@ -964,17 +1078,31 @@ test('16-item AI response converges through the ordinary two-actor publication p
     expect(
       await getPublicationOutcomeIds(actorA, 'remote', 'processed')
     ).toEqual([])
-    await Promise.all(
-      [actorA, actorB].map(async (page) =>
-        expect(await getClientPersistenceEvidence(page)).toEqual({
-          captureCount: 0,
-          indexedDbPutCount: 0,
-          saveCount: 0
-        })
-      )
-    )
+    await Promise.all([
+      expectFileScopedPersistenceEvidence(actorA, 'local'),
+      expectFileScopedPersistenceEvidence(actorB, 'remote')
+    ])
+    checkpoint = 'ai-redo-persistence-evidence-complete'
+
+    await test.step('Actor B reloads its persisted canonical snapshot', async () => {
+      checkpoint = 'actor-b-reload-started'
+      await actorB.reload()
+      checkpoint = 'actor-b-reload-navigation-complete'
+      await waitForAppReady(actorB)
+      checkpoint = 'actor-b-reload-app-ready'
+      await waitForCollaboration(actorB)
+      checkpoint = 'actor-b-reload-collaboration-ready'
+      await expect
+        .poll(() => getCanonicalSnapshot(actorB))
+        .toEqual(actorASnapshot)
+      checkpoint = 'actor-b-reload-snapshot-complete'
+    })
   } finally {
-    await Promise.all([actorAContext.close(), actorBContext.close()])
+    await testInfo.attach('16-item-last-checkpoint.txt', {
+      body: Buffer.from(checkpoint),
+      contentType: 'text/plain'
+    })
+    await Promise.allSettled([actorAContext.close(), actorBContext.close()])
   }
 })
 
@@ -989,7 +1117,7 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
   const actorB = await actorBContext.newPage()
 
   try {
-    await seedAsyraDesignServerResponse(actorAContext, {
+    await seedServerResponse(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
       itemCount: 320
@@ -1193,7 +1321,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
   const actorB = await actorBContext.newPage()
 
   try {
-    await seedAsyraDesignServerResponse(actorAContext, {
+    await seedServerResponse(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
       itemCount: 1280
@@ -1211,16 +1339,20 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
     ])
 
     const getCanonicalCount = (page: Page) =>
-      page.evaluate(() => {
-        const profile = window.__AsyraAiDrawingPerformance__
+      page.evaluate(async () => {
+        const profile = (
+          await import('../src/testing/runtime-access')
+        ).getActiveAiDrawingPerformanceProfile()
         if (!profile) {
           throw new Error('AI drawing performance profile is unavailable')
         }
         return profile.readCanonicalElementCount()
       })
     const getAppliedRenderProjectionCount = (page: Page) =>
-      page.evaluate(() => {
-        const profile = window.__AsyraAiDrawingPerformance__
+      page.evaluate(async () => {
+        const profile = (
+          await import('../src/testing/runtime-access')
+        ).getActiveAiDrawingPerformanceProfile()
         if (!profile) {
           throw new Error('AI drawing performance profile is unavailable')
         }
@@ -1444,9 +1576,10 @@ test('two real Asyra Design windows converge while connected and reconnect live-
     await expectSelectedElementInteriorToConverge(first, second)
     expect(
       await second.evaluate(
-        () =>
-          window.__Core__?.deps?.selection?.getElementSelectionIds?.().length ??
-          0
+        async () =>
+          (
+            await import('../src/testing/runtime-access')
+          ).core?.deps?.selection?.getElementSelectionIds?.().length ?? 0
       )
     ).toBe(0)
 
@@ -1501,11 +1634,18 @@ test('two real Asyra Design windows converge while connected and reconnect live-
     }
     expect(await getElementCount(isolated)).toBe(0)
 
-    await second.evaluate(() => window.__AsyraCollaboration__?.disconnect())
+    await second.evaluate(async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveCollaborationHandle()
+        ?.disconnect()
+    )
     await expect
       .poll(() =>
         second.evaluate(
-          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+          async () =>
+            (await import('../src/testing/runtime-access'))
+              .getActiveCollaborationHandle()
+              ?.getStatus() ?? 'missing'
         )
       )
       .toBe('disconnected')
@@ -1515,7 +1655,11 @@ test('two real Asyra Design windows converge while connected and reconnect live-
     expect(await getElementCount(second)).toBe(0)
     expect(await getElementCount(isolated)).toBe(0)
 
-    await second.evaluate(() => window.__AsyraCollaboration__?.reconnect())
+    await second.evaluate(async () =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveCollaborationHandle()
+        ?.reconnect()
+    )
     await waitForCollaboration(second)
     expect(await getElementCount(second)).toBe(0)
 
@@ -1589,11 +1733,13 @@ test('remote undo restores an exact nested Group with and without local tombston
     await expect.poll(() => getElementCount(tombstonePeer)).toBe(0)
     await expect
       .poll(() =>
-        tombstonePeer.evaluate((expectedSceneCount) => {
-          const sceneTree = window.__Core__.deps.sceneTree as unknown as {
+        tombstonePeer.evaluate(async (expectedSceneCount) => {
+          const sceneTree = (await import('../src/testing/runtime-access')).core
+            .deps.sceneTree as unknown as {
             _deletedMap?: Map<string, unknown>
           }
-          const props = window.__Core__.deps.props as unknown as {
+          const props = (await import('../src/testing/runtime-access')).core
+            .deps.props as unknown as {
             _deletedMap?: Map<string, unknown>
           }
           return (
@@ -1610,11 +1756,13 @@ test('remote undo restores an exact nested Group with and without local tombston
     await waitForCollaboration(noTombstonePeer)
     expect(await getElementCount(noTombstonePeer)).toBe(0)
     expect(
-      await noTombstonePeer.evaluate(() => {
-        const sceneTree = window.__Core__.deps.sceneTree as unknown as {
+      await noTombstonePeer.evaluate(async () => {
+        const sceneTree = (await import('../src/testing/runtime-access')).core
+          .deps.sceneTree as unknown as {
           _deletedMap?: Map<string, unknown>
         }
-        const props = window.__Core__.deps.props as unknown as {
+        const props = (await import('../src/testing/runtime-access')).core.deps
+          .props as unknown as {
           _deletedMap?: Map<string, unknown>
         }
         return {
@@ -1624,19 +1772,24 @@ test('remote undo restores an exact nested Group with and without local tombston
       })
     ).toEqual({ scene: 0, props: 0 })
 
-    await noTombstonePeer.evaluate(() => {
-      const runtime = globalThis as typeof globalThis & {
-        __remoteRestorePublications?: unknown[]
-        __remoteRestoreCommits?: unknown[]
-      }
-      runtime.__remoteRestorePublications = []
-      runtime.__remoteRestoreCommits = []
-      window.__Core__.deps.factory.subscribeToSharedPublication((publication) =>
-        runtime.__remoteRestorePublications?.push(publication)
+    await noTombstonePeer.evaluate(async () => {
+      const { core, testRuntimeState } = await import(
+        '../src/testing/runtime-access'
       )
-      window.__Core__.deps.factory.subscribeToTransactionStatus((status) => {
+      const publications = testRuntimeState.set<unknown[]>(
+        'remote-restore-publications',
+        []
+      )
+      const commits = testRuntimeState.set<unknown[]>(
+        'remote-restore-commits',
+        []
+      )
+      core.deps.factory.subscribeToSharedPublication((publication) =>
+        publications.push(publication)
+      )
+      core.deps.factory.subscribeToTransactionStatus((status) => {
         if (status.origin === 'remote' && status.status === 'committed') {
-          runtime.__remoteRestoreCommits?.push(status)
+          commits.push(status)
         }
       })
     })
@@ -1706,14 +1859,17 @@ test('remote undo restores an exact nested Group with and without local tombston
 
     expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
     expect(
-      await noTombstonePeer.evaluate(() => {
-        const runtime = globalThis as typeof globalThis & {
-          __remoteRestorePublications?: unknown[]
-          __remoteRestoreCommits?: unknown[]
-        }
+      await noTombstonePeer.evaluate(async () => {
+        const { testRuntimeState } = await import(
+          '../src/testing/runtime-access'
+        )
         return {
-          publications: runtime.__remoteRestorePublications?.length ?? -1,
-          commits: runtime.__remoteRestoreCommits?.length ?? -1
+          publications:
+            testRuntimeState.get<unknown[]>('remote-restore-publications')
+              ?.length ?? -1,
+          commits:
+            testRuntimeState.get<unknown[]>('remote-restore-commits')?.length ??
+            -1
         }
       })
     ).toEqual({ publications: 0, commits: 1 })
@@ -1889,8 +2045,8 @@ test('vector creation and anchor movement converge through the canonical collabo
       .toEqual(await getCanonicalSnapshot(first))
 
     await first.keyboard.press('Enter')
-    const before = await first.evaluate(() => {
-      const core = window.__Core__
+    const before = await first.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
       const computed = vectorId
         ? core?.deps?.sceneTree
@@ -1923,16 +2079,23 @@ test('vector creation and anchor movement converge through the canonical collabo
       }
     })
 
-    await first.mouse.move(before.client.x, before.client.y)
-    await first.mouse.down()
-    await first.mouse.move(before.client.x + 48, before.client.y + 24, {
-      steps: 12
-    })
-    await first.mouse.up()
+    const canonicalBefore = await getCanonicalSnapshot(first)
+
+    await first.mouse.click(before.client.x, before.client.y)
+    const pointXInput = getPropertiesPanel(first).getByTestId(
+      'prop-vector-point-x'
+    )
+    await expect(pointXInput).toBeVisible()
+    const [firstUndoDepthBefore, secondUndoDepthBefore] = await Promise.all([
+      getUndoDepth(first),
+      getUndoDepth(second)
+    ])
+    const nextX = before.point.x + 48
+    await pointXInput.fill(String(nextX))
+    await pointXInput.press('Enter')
+
     try {
-      await expect
-        .poll(() => getCanonicalSnapshot(second))
-        .toEqual(await getCanonicalSnapshot(first))
+      await waitForCanonicalSnapshotsToConverge(first, second)
     } catch (error) {
       const firstOutcomes = await getPublicationOutcomes(first)
       const secondOutcomes = await getPublicationOutcomes(second)
@@ -1948,14 +2111,40 @@ test('vector creation and anchor movement converge through the canonical collabo
       )
     }
 
-    const remotePoint = await second.evaluate(({ vectorId, pointId }) => {
-      const point = window.__Core__?.deps?.sceneTree
+    const remotePoint = await second.evaluate(async ({ vectorId, pointId }) => {
+      const point = (
+        await import('../src/testing/runtime-access')
+      ).core?.deps?.sceneTree
         ?.getElementById?.(vectorId)
         ?.getAllComputedData?.()?.points?.[pointId]
       return point ? { x: point.x, y: point.y } : null
     }, before)
     expect(remotePoint).not.toBeNull()
-    expect(remotePoint).not.toEqual(before.point)
+    expect(remotePoint).toEqual({ x: nextX, y: before.point.y })
+    expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore + 1)
+    expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
+
+    const canonicalAfter = await getCanonicalSnapshot(first)
+    await undo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalBefore)
+    expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
+
+    await redo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
+    expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
+
+    const remoteDigest = await getCoreDocumentDigest(second)
+    await expect
+      .poll(() =>
+        getPersistedDocumentDigest(second, `FILE:${encodeURIComponent(fileId)}`)
+      )
+      .toEqual(remoteDigest)
+    await second.reload()
+    await waitForAppReady(second)
+    await waitForCollaboration(second)
+    expect(await getCanonicalSnapshot(second)).toEqual(canonicalAfter)
   } finally {
     await Promise.all([firstContext.close(), secondContext.close()])
   }
@@ -2074,7 +2263,9 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
         segmentCount: 0
       })
     const undoDepthBeforeDrag = await first.evaluate(
-      () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+      async () =>
+        (await import('../src/testing/runtime-access')).core?.deps?.factory
+          ?.transact?.undoStack?.length ?? 0
     )
 
     await first.mouse.move(secondPoint.x, secondPoint.y)
@@ -2131,7 +2322,9 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
       )
     }
     const undoDepthAfterDrag = await first.evaluate(
-      () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+      async () =>
+        (await import('../src/testing/runtime-access')).core?.deps?.factory
+          ?.transact?.undoStack?.length ?? 0
     )
     if (undoDepthAfterDrag !== undoDepthBeforeDrag + 1) {
       const firstOutcomes = await getPublicationOutcomes(first)

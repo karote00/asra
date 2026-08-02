@@ -15,9 +15,7 @@ const compiledServerPath = 'dist/collaboration-server/collaboration-server.js'
 const execFileAsync = promisify(execFile)
 
 before(async () => {
-  if (
-    process.env.ASYRA_DESIGN_COLLABORATION_SERVER_FOCUSED_TEST_BUILD === '1'
-  ) {
+  if (process.env.COLLABORATION_SERVER_FOCUSED_TEST_BUILD === '1') {
     await execFileAsync(
       'yarn',
       ['tsc', '-p', 'tsconfig.collaboration-server.json', '--noEmit'],
@@ -121,7 +119,7 @@ const waitForServer = (child) =>
       stderr += chunk.toString()
     })
     child.stdout.on('data', (chunk) => {
-      if (!chunk.toString().includes('[asyra-design collaboration]')) return
+      if (!chunk.toString().includes('[collaboration]')) return
       clearTimeout(timeout)
       resolve()
     })
@@ -260,17 +258,17 @@ const startServer = ({
 }) => {
   const environment = {
     ...process.env,
-    ASYRA_DESIGN_COLLABORATION_WS_PORT: String(port)
+    COLLABORATION_WS_PORT: String(port)
   }
   if (profile) {
-    environment.ASYRA_DESIGN_COLLABORATION_PROFILE = '1'
+    environment.COLLABORATION_PROFILE = '1'
   } else {
-    delete environment.ASYRA_DESIGN_COLLABORATION_PROFILE
+    delete environment.COLLABORATION_PROFILE
   }
   if (origin) {
-    environment.ASYRA_DESIGN_APP_URL = origin
+    environment.APP_URL = origin
   } else {
-    delete environment.ASYRA_DESIGN_APP_URL
+    delete environment.APP_URL
   }
   const useProbe =
     holdPeerWriteCallbacks ||
@@ -433,10 +431,9 @@ const noMessageBefore = async (promise, durationMs = 100) => {
 }
 
 const requestPublicClient = async ({ port, origin, fileId, actorId }) => {
-  const socket = new WebSocket(
-    `ws://127.0.0.1:${port}/asyra-design-collaboration`,
-    { origin }
-  )
+  const socket = new WebSocket(`ws://127.0.0.1:${port}/collaboration`, {
+    origin
+  })
   const ready = waitForMessage(
     socket,
     (message) =>

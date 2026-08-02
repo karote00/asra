@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EntityTypes, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import {
+  EntityTypes,
+  SCENE_TREE_ACTIONS,
+  subscribeToDiagnosticCounters
+} from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import render from '../render'
 
@@ -639,14 +643,10 @@ describe('RenderSceneTree computed data mirror', () => {
 
   it('projects delayed child add envelopes against an already-final parent mirror without resync', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
     const counters = new Map<string, number>()
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
-    }
+    })
     const parentRaw = {
       type: 'group',
       parentId: 'workspace-1',
@@ -697,7 +697,7 @@ describe('RenderSceneTree computed data mirror', () => {
         })
       }
     } finally {
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
     }
 
     expect(
@@ -717,14 +717,10 @@ describe('RenderSceneTree computed data mirror', () => {
 
   it('applies one canonical parent relationship batch while projecting every child', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: (name: string, value: number) => void
-    }
-    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
     const counters = new Map<string, number>()
-    runtimeGlobal.__asyraDiagnosticCounterSink = (name, value) => {
+    const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
-    }
+    })
     const parentRaw = {
       type: 'group',
       parentId: 'workspace-1',
@@ -803,7 +799,7 @@ describe('RenderSceneTree computed data mirror', () => {
       expect(ownKeyEnumerationCount).toBe(0)
       await flushScheduledFrame()
     } finally {
-      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+      unsubscribe()
     }
 
     expect(

@@ -1,8 +1,8 @@
 import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { createDeferred } from './deferred'
-import { startAsyraDesignApp } from '../../startup'
-import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
+import { startApp } from '../../startup'
+import type { ServerResponseRecord } from '../server-response-inbox'
 
 const batch: AiActionBatch = {
   actions: [],
@@ -11,7 +11,7 @@ const batch: AiActionBatch = {
 
 describe('Asyra Design outer startup', () => {
   it('awaits the required file response before App initialization and render', async () => {
-    const response = createDeferred<AsyraDesignServerResponseRecord | null>()
+    const response = createDeferred<ServerResponseRecord | null>()
     const calls: string[] = []
     const initialization = {
       aiConfirmation: {},
@@ -26,7 +26,7 @@ describe('Asyra Design outer startup', () => {
       calls.push('init')
       return initialization as never
     })
-    const start = startAsyraDesignApp(
+    const start = startApp(
       {
         render
       },
@@ -69,7 +69,7 @@ describe('Asyra Design outer startup', () => {
     const render = vi.fn()
 
     await expect(
-      startAsyraDesignApp(
+      startApp(
         {
           render
         },
@@ -93,7 +93,7 @@ describe('Asyra Design outer startup', () => {
     const render = vi.fn()
 
     await expect(
-      startAsyraDesignApp(
+      startApp(
         {
           render
         },

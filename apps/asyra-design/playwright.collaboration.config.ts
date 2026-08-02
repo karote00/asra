@@ -1,17 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment()
-)
-const ownsTestServers = process.env.ASYRA_DESIGN_E2E_OWN_SERVERS === '1'
+const appEnvironment = resolveEnvironment(loadEnvironment())
+const ownsTestServers = process.env.E2E_OWN_SERVERS === '1'
 
 export default defineConfig({
   testDir: './e2e',
   testMatch: ['collaboration.spec.ts', 'collaboration-ai-agent-video.spec.ts'],
+  timeout: 180_000,
   fullyParallel: false,
   reporter: 'line',
   use: {

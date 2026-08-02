@@ -1,23 +1,45 @@
 import {
   createCollaboration,
   type Collaboration,
-  type ProcessRemotePublication
+  type ProcessRemotePublication,
+  type ProviderStatus
 } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
 import { idCounter } from '@asyra/utils'
 import core, { factory } from '../contexts'
+import { persistAcceptedRemoteDocument } from '../document-persistence'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
 import { createDocumentCollaborationFactory } from './factory-adapter'
-import { createAsyraDesignPublicationProcessor } from './operations'
+import { createPublicationProcessor } from './operations'
 import { CollaborationWebSocketProvider } from './websocket-provider'
 
 let activeInstance: Collaboration | undefined
-let startPromise:
-  | Promise<NonNullable<Window['__AsyraCollaboration__']>>
-  | undefined
+let activeHandle: CollaborationDebugHandle | undefined
+let startPromise: Promise<CollaborationDebugHandle> | undefined
+
+export interface CollaborationDebugHandle {
+  readonly identity: Readonly<{
+    readonly documentId: string
+    readonly roomId: string
+    readonly actorId: string
+  }>
+  getStatus(): ProviderStatus
+  disconnect(): Promise<void>
+  reconnect(): Promise<void>
+  whenIdle(): Promise<void>
+  observePublicationOutcomes(
+    subscriber: Parameters<Collaboration['observePublicationOutcomes']>[0]
+  ): () => void
+  dispose(): Promise<void>
+}
+
+export const getActiveCollaborationHandle = ():
+  | CollaborationDebugHandle
+  | undefined => activeHandle
 
 export const createRemotePublicationHandler = (
-  applyRemotePublication: (publication: SharedPublication) => boolean
+  applyRemotePublication: (publication: SharedPublication) => boolean,
+  persistRemoteDocument: () => Promise<void>
 ): ProcessRemotePublication => {
   return async (publication) => {
     const applied = applyRemotePublication(publication)
@@ -26,12 +48,11 @@ export const createRemotePublicationHandler = (
         `[collaboration] remote publication ${publication.publicationId} was rejected`
       )
     }
+    await persistRemoteDocument()
   }
 }
 
-const createHandle = (
-  instance: Collaboration
-): NonNullable<Window['__AsyraCollaboration__']> => {
+const createHandle = (instance: Collaboration): CollaborationDebugHandle => {
   const handle = {
     identity: instance.identity,
     getStatus: () => instance.provider?.getStatus() ?? 'offline',
@@ -48,7 +69,7 @@ const createHandle = (
 
 const start = async (
   mode: CollaborationMode
-): Promise<NonNullable<Window['__AsyraCollaboration__']>> => {
+): Promise<CollaborationDebugHandle> => {
   idCounter.setNamespace(mode.actorId)
   const provider = new CollaborationWebSocketProvider({
     endpoint: mode.endpoint,
@@ -59,13 +80,14 @@ const start = async (
       connectionMetadata: { fileId: mode.fileId }
     }
   })
-  const applyRemotePublication = createAsyraDesignPublicationProcessor({
+  const applyRemotePublication = createPublicationProcessor({
     runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
     decideRemotePublication: (publication) => publication,
     applyCanonicalChanges: core.applyCanonicalChanges.bind(core)
   })
   const processRemotePublication = createRemotePublicationHandler(
-    applyRemotePublication
+    applyRemotePublication,
+    () => persistAcceptedRemoteDocument(core)
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,
@@ -80,20 +102,24 @@ const start = async (
 
   try {
     const handle = createHandle(collaboration)
-    window.__AsyraCollaboration__ = handle
+    activeHandle = handle
+    window.__Collaboration__ = handle
     await collaboration.start()
     return handle
   } catch (error) {
     await collaboration.dispose().catch(() => undefined)
-    if (activeInstance === collaboration) activeInstance = undefined
-    delete window.__AsyraCollaboration__
+    if (activeInstance === collaboration) {
+      activeInstance = undefined
+      activeHandle = undefined
+    }
+    delete window.__Collaboration__
     throw error
   }
 }
 
 export const startCollaboration = (
   mode: CollaborationMode
-): Promise<NonNullable<Window['__AsyraCollaboration__']>> => {
+): Promise<CollaborationDebugHandle> => {
   if (startPromise) return startPromise
   const pendingStart = start(mode).catch((error) => {
     startPromise = undefined
@@ -106,8 +132,9 @@ export const startCollaboration = (
 export const disposeCollaboration = async (): Promise<void> => {
   const instance = activeInstance
   activeInstance = undefined
+  activeHandle = undefined
   startPromise = undefined
-  delete window.__AsyraCollaboration__
+  delete window.__Collaboration__
   await instance?.dispose()
 }
 
@@ -117,6 +144,6 @@ if (import.meta.hot) {
 
 declare global {
   interface ImportMetaEnv {
-    readonly VITE_ASYRA_DESIGN_COLLABORATION_WS_URL?: string
+    readonly VITE_COLLABORATION_WS_URL?: string
   }
 }

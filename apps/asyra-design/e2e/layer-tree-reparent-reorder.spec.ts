@@ -23,12 +23,17 @@ const getVisibleLayerIds = async (page: Page): Promise<string[]> =>
 
 const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
-    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+    async () =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps.selection.getElementSelectionIds() ?? []
   )
 
 const getChildren = (page: Page, parentId: string): Promise<string[]> =>
-  page.evaluate((id) => {
-    const element = window.__Core__.deps.sceneTree.getElementById(id)
+  page.evaluate(async (id) => {
+    const element = (
+      await import('../src/testing/runtime-access')
+    ).core.deps.sceneTree.getElementById(id)
     return [...((element?.get('children') as string[] | undefined) ?? [])]
   }, parentId)
 
@@ -36,7 +41,7 @@ const getWorldPositions = (
   page: Page,
   elementIds: string[]
 ): Promise<Record<string, { x: number; y: number }>> =>
-  page.evaluate((ids) => {
+  page.evaluate(async (ids) => {
     const positions: Record<string, { x: number; y: number }> = {}
     for (const elementId of ids) {
       let currentId = elementId
@@ -48,7 +53,9 @@ const getWorldPositions = (
           throw new Error(`Hierarchy cycle reaches "${currentId}"`)
         }
         visited.add(currentId)
-        const element = window.__Core__.deps.sceneTree.getElementById(currentId)
+        const element = (
+          await import('../src/testing/runtime-access')
+        ).core.deps.sceneTree.getElementById(currentId)
         if (!element) {
           throw new Error(`Missing hierarchy element "${currentId}"`)
         }
@@ -144,8 +151,8 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     const [firstId, secondId, thirdId] = initialIds
     const worldBefore = await getWorldPositions(page, initialIds)
 
-    await page.evaluate((ids) => {
-      const core = window.__Core__
+    await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       ;(
         window as typeof window & {
           __LayerMoveIdentity?: {
@@ -235,8 +242,8 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       thirdId
     ])
 
-    const identity = await page.evaluate((ids) => {
-      const core = window.__Core__
+    const identity = await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const stored = (
         window as typeof window & {
           __LayerMoveIdentity?: {
@@ -287,7 +294,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     expect(await getClientPersistenceEvidence(page)).toEqual(
       persistenceBaseline
     )
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       delete (
         window as typeof window & {
           __LayerMoveIdentity?: unknown
@@ -301,10 +308,12 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     expect(await getSelectedIds(page)).toEqual([])
     expect(
       await page.evaluate(
-        (ids) =>
-          ids.some((id) =>
-            Boolean(window.__Core__.deps.sceneTree.getElementById(id))
-          ),
+        async (ids) => {
+          const { core } = await import('../src/testing/runtime-access')
+          return ids.some((id) =>
+            Boolean(core.deps.sceneTree.getElementById(id))
+          )
+        },
         [...initialIds, groupId]
       )
     ).toBe(false)

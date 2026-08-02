@@ -37,6 +37,7 @@ import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   isRecord,
+  measureBrowserDragPhase,
   setOwnEnumerableValue
 } from '@asyra/utils'
 import {
@@ -87,27 +88,7 @@ type SceneTreeDataType = SceneTreeRawData
 const measureCanonicalSceneBatchPhase = <T>(
   phaseName: string,
   run: () => T
-): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    try {
-      sink(phaseName, performance.now() - start)
-    } catch {
-      // Profiling is detached observation and cannot change owner behavior.
-    }
-  }
-}
+): T => measureBrowserDragPhase(phaseName, run)
 
 const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
   if (Object.keys(patch.values ?? {}).length > 0) {

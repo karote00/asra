@@ -278,8 +278,11 @@ describe('Asyra Design collaboration composition', () => {
         return () => undefined
       })
     }
-    const profile = {} as NonNullable<Window['__AsyraAiDrawingPerformance__']>
-    window.__AsyraAiDrawingPerformance__ = profile
+    const profile = {} as aiDrawingPerformance.AiDrawingPerformanceProfile
+    vi.spyOn(
+      aiDrawingPerformance,
+      'getActiveAiDrawingPerformanceProfile'
+    ).mockReturnValue(profile)
     const recordPublication = vi
       .spyOn(aiDrawingPerformance, 'recordAiDrawingPerformancePublication')
       .mockImplementation(() => {
@@ -362,8 +365,6 @@ describe('Asyra Design collaboration composition', () => {
     expect(received).toHaveBeenCalledWith(
       createPublication('document-action', [propsSlice])
     )
-
-    delete window.__AsyraAiDrawingPerformance__
   })
 
   it('rejects local-only computed evidence before the adapter publishes a document batch', () => {

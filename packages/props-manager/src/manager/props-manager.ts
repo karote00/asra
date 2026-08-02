@@ -3,6 +3,8 @@ import {
   PropertyType,
   PROPS_ACTIONS,
   SharedDataChannelNames,
+  beginBrowserDragPhase,
+  measureBrowserDragPhase,
   id,
   isRecord
 } from '@asyra/utils'
@@ -80,53 +82,9 @@ const clonePropsValue = <T>(data: T): T => {
   return JSON.parse(JSON.stringify(data)) as T
 }
 
-type PropertyBatchPhaseSink = (name: string, durationMs: number) => void
+const beginPropertyBatchPhase = beginBrowserDragPhase
 
-const getPropertyBatchPhaseSink = (): PropertyBatchPhaseSink | undefined =>
-  (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: PropertyBatchPhaseSink
-    }
-  ).__asyraBrowserDragPhaseSink
-
-const finishUnmeasuredPropertyBatchPhase = () => undefined
-
-const beginPropertyBatchPhase = (phaseName: string): (() => void) => {
-  const sink = getPropertyBatchPhaseSink()
-  if (!sink) {
-    return finishUnmeasuredPropertyBatchPhase
-  }
-
-  const start = performance.now()
-  return () => {
-    try {
-      sink(phaseName, performance.now() - start)
-    } catch {
-      // Profiling is detached observation and cannot change owner behavior.
-    }
-  }
-}
-
-export const measurePropertyBatchPhase = <T>(
-  phaseName: string,
-  run: () => T
-): T => {
-  const sink = getPropertyBatchPhaseSink()
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    try {
-      sink(phaseName, performance.now() - start)
-    } catch {
-      // Profiling is detached observation and cannot change owner behavior.
-    }
-  }
-}
+export const measurePropertyBatchPhase = measureBrowserDragPhase
 
 const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData =>
   clonePropsValue(data)

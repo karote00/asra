@@ -10,6 +10,7 @@ import {
   IDTypes,
   Unit,
   SharedDataChannelNames,
+  subscribeToBrowserDragPhases,
   idCounter,
   PropsChange,
   type AddRemovePropertyChange,
@@ -60,10 +61,6 @@ interface UpdateTransactionEvent {
     undoable?: boolean
     shared?: string
   }
-}
-
-interface BrowserDragPhaseRuntime {
-  __asyraBrowserDragPhaseSink?: (name: string, durationMs: number) => void
 }
 
 const captureUpdateTransactionEvents = () => {
@@ -662,13 +659,11 @@ describe('PropsManager', () => {
     const get = vi.spyOn(unrelated, 'get')
     let createdSaveCount = 0
     const phaseNames: string[] = []
-    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('props-manager:')) {
         phaseNames.push(name)
       }
-    }
+    })
 
     try {
       propsManager.runInPropertyCreationBatch(() => {
@@ -686,11 +681,7 @@ describe('PropsManager', () => {
         propsManager.addProperty([property])
       }, prepared)
     } finally {
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
     }
 
     expect(get).not.toHaveBeenCalledWith('type')
@@ -1632,13 +1623,11 @@ describe('PropsManager', () => {
       children: ['profiled-property-child']
     } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
     const phaseNames: string[] = []
-    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('props-manager:')) {
         phaseNames.push(name)
       }
-    }
+    })
 
     try {
       const preparedCreation = propsManager.preflightPropertyCreationBatch(
@@ -1656,11 +1645,7 @@ describe('PropsManager', () => {
       )
       propsManager.runInActivePropertyBatch(preparedActive, () => undefined)
     } finally {
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual([
@@ -1702,11 +1687,9 @@ describe('PropsManager', () => {
       id: 'observer-safe-property-parent',
       children: ['observer-safe-property-child']
     } as unknown as Partial<PropertyComponentInstanceDataTypes>).save()
-    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
-    runtime.__asyraBrowserDragPhaseSink = () => {
+    const unsubscribe = subscribeToBrowserDragPhases(() => {
       throw new Error('diagnostic sink failure')
-    }
+    })
 
     try {
       const preparedCreation = propsManager.preflightPropertyCreationBatch(
@@ -1729,11 +1712,7 @@ describe('PropsManager', () => {
         )
       ).toBe('observer-safe')
     } finally {
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
     }
 
     expect(propsManager.save()).toEqual({
@@ -1749,14 +1728,12 @@ describe('PropsManager', () => {
   })
 
   it('emits bounded owner timings when canonical property preflight rejects', () => {
-    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
     const phaseNames: string[] = []
-    runtime.__asyraBrowserDragPhaseSink = (name) => {
+    const unsubscribe = subscribeToBrowserDragPhases((name) => {
       if (name.startsWith('props-manager:')) {
         phaseNames.push(name)
       }
-    }
+    })
     const child = new PositionComponent({
       id: 'rejected-profile-child',
       x: 1,
@@ -1788,11 +1765,7 @@ describe('PropsManager', () => {
         )
       ).toThrow(/changed exact component data/i)
     } finally {
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
     }
 
     expect(phaseNames).toEqual([
@@ -1803,9 +1776,6 @@ describe('PropsManager', () => {
   })
 
   it('does not read the profiling clock when no timing observer is installed', () => {
-    const runtime = globalThis as typeof globalThis & BrowserDragPhaseRuntime
-    const previousSink = runtime.__asyraBrowserDragPhaseSink
-    delete runtime.__asyraBrowserDragPhaseSink
     const performanceNow = vi.spyOn(performance, 'now')
     const child = new PositionComponent({
       id: 'unprofiled-property-child',
@@ -1832,9 +1802,6 @@ describe('PropsManager', () => {
       expect(performanceNow).not.toHaveBeenCalled()
     } finally {
       performanceNow.mockRestore()
-      if (previousSink) {
-        runtime.__asyraBrowserDragPhaseSink = previousSink
-      }
     }
   })
 

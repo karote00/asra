@@ -11,30 +11,28 @@ import { initPathEditingContinuation } from './derived-state/init-path-editing-c
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
-import { hierarchyApis } from '../common-apis/hierarchy'
-import { strokeApis } from '../common-apis/strokes'
 import { viewportApis } from '../common-apis/viewport'
 import {
-  createAsyraDesignAiConversationController,
-  type AsyraDesignAiConversationController
+  createAiConversationController,
+  type AiConversationController
 } from '../ai/conversation'
-import type { AsyraDesignAiConfirmationBroker } from '../ai/confirmation'
+import type { AiConfirmationBroker } from '../ai/confirmation'
+import { createAiStartup, type AiStartup } from '../ai/startup'
+import type { ServerResponseRecord } from '../ai/server-response-inbox'
+import type { AiHistoryProjection } from '../common-apis/history'
 import {
-  createAsyraDesignAiStartup,
-  type AsyraDesignAiStartup
-} from '../ai/startup'
-import type { AsyraDesignServerResponseRecord } from '../ai/server-response-inbox'
-import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
-import { attachAiDrawingPerformanceRuntimeEvidence } from './performance/ai-drawing-performance-profile'
+  attachAiDrawingPerformanceRuntimeEvidence,
+  getActiveAiDrawingPerformanceProfile
+} from './performance/ai-drawing-performance-profile'
 
 export interface InitAppOptions {
-  serverResponse: AsyraDesignServerResponseRecord | null
+  serverResponse: ServerResponseRecord | null
 }
 
 export interface AppInitialization {
-  readonly aiConfirmation: AsyraDesignAiConfirmationBroker
-  readonly aiConversation: AsyraDesignAiConversationController
-  readonly aiHistory: AsyraDesignAiHistoryProjection
+  readonly aiConfirmation: AiConfirmationBroker
+  readonly aiConversation: AiConversationController
+  readonly aiHistory: AiHistoryProjection
   dispose(): Promise<void>
 }
 
@@ -83,7 +81,7 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
 
   // Foundation init.
   initInputSystem()
-  const aiStartup: AsyraDesignAiStartup = createAsyraDesignAiStartup({
+  const aiStartup: AiStartup = createAiStartup({
     response: options.serverResponse
   })
   let initializedFeatures: ReturnType<typeof initFeatures>
@@ -100,22 +98,14 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
     throw error
   }
   const aiFeature = initializedFeatures.ai
-  const aiConversation = createAsyraDesignAiConversationController({
+  const aiConversation = createAiConversationController({
     confirmation: aiStartup.confirmation,
     history: aiStartup.history,
     feature: aiFeature.api,
     getElementType: (elementId) => elementApis.getElementType(elementId)
   })
 
-  if (import.meta.env.DEV) {
-    window.__AsyraE2E__ = {
-      elementApis,
-      hierarchyApis,
-      strokeApis
-    }
-  }
-
-  const performanceProfile = window.__AsyraAiDrawingPerformance__
+  const performanceProfile = getActiveAiDrawingPerformanceProfile()
   const detachPerformanceRuntimeEvidence = performanceProfile
     ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
         readCanonicalElementCount: () =>

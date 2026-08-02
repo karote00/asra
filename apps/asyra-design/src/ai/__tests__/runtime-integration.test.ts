@@ -9,12 +9,12 @@ import {
   systemContextApis,
   transactionApis
 } from '../../common-apis'
-import { AsyraDesignAiActionNames } from '../actions'
-import { createAsyraDesignAiRuntimeInput } from '../runtime-input'
-import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
-import { createAsyraDesignServerActionBatchProvider } from '../server-action-batch-provider'
-import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
-import { createAsyraDesignAiStartup } from '../startup'
+import { AiActionNames } from '../actions'
+import { createAiRuntimeInput } from '../runtime-input'
+import { createAiConfirmationBroker } from '../confirmation'
+import { createServerActionBatchProvider } from '../server-action-batch-provider'
+import type { ServerResponseRecord } from '../server-response-inbox'
+import { createAiStartup } from '../startup'
 import { createDeferred } from './deferred'
 
 const referenceBatch = (): AiActionBatch => ({
@@ -25,7 +25,7 @@ const referenceBatch = (): AiActionBatch => ({
         visible: false
       },
       id: 'visibility-1',
-      name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
+      name: AiActionNames.SET_ELEMENT_VISIBILITY,
       summary: {
         affectedCount: 1
       }
@@ -35,7 +35,7 @@ const referenceBatch = (): AiActionBatch => ({
         elementIds: ['shape-1', 'shape-2']
       },
       id: 'selection-1',
-      name: AsyraDesignAiActionNames.SELECT_ELEMENTS,
+      name: AiActionNames.SELECT_ELEMENTS,
       summary: {
         affectedCount: 2
       }
@@ -48,7 +48,7 @@ const referenceBatch = (): AiActionBatch => ({
 const serverResponse = (
   batch: AiActionBatch,
   fileId = `file-${batch.batchId}`
-): AsyraDesignServerResponseRecord => ({
+): ServerResponseRecord => ({
   batch,
   fileId,
   schemaVersion: 1
@@ -120,7 +120,7 @@ const compact16ItemBatch = (): AiActionBatch => {
           ]
         },
         id: 'insert-16',
-        name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+        name: AiActionNames.INSERT_VECTOR_COMPOSITION,
         summary: {
           affectedCount: 16,
           skippedCount: 0
@@ -183,15 +183,13 @@ const prepareCommonApis = () => {
 }
 
 const executeBatch = async (batch: AiActionBatch) => {
-  const provider = createAsyraDesignServerActionBatchProvider(
-    serverResponse(batch)
-  )
+  const provider = createServerActionBatchProvider(serverResponse(batch))
   const runtime = createAiAgentRuntime(
-    createAsyraDesignAiRuntimeInput({
+    createAiRuntimeInput({
       permissionRules: {
-        [AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
-        [AsyraDesignAiActionNames.SELECT_ELEMENTS]: 'allow',
-        [AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
+        [AiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow',
+        [AiActionNames.SELECT_ELEMENTS]: 'allow',
+        [AiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
       },
       provider
     })
@@ -222,10 +220,10 @@ describe('Asyra Design server action-batch runtime integration', () => {
     expect(result).toMatchObject({
       actionResults: [
         {
-          actionName: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY
+          actionName: AiActionNames.SET_ELEMENT_VISIBILITY
         },
         {
-          actionName: AsyraDesignAiActionNames.SELECT_ELEMENTS
+          actionName: AiActionNames.SELECT_ELEMENTS
         }
       ],
       batchId: 'reference-batch',
@@ -240,7 +238,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
     expect(result.preview.actions).toEqual([
       {
         id: 'visibility-1',
-        name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
+        name: AiActionNames.SET_ELEMENT_VISIBILITY,
         permission: 'allow',
         summary: {
           affectedCount: 1
@@ -248,7 +246,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
       },
       {
         id: 'selection-1',
-        name: AsyraDesignAiActionNames.SELECT_ELEMENTS,
+        name: AiActionNames.SELECT_ELEMENTS,
         permission: 'allow',
         summary: {
           affectedCount: 2
@@ -284,7 +282,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
     await expect(executeBatch(compact16ItemBatch())).resolves.toMatchObject({
       actionResults: [
         {
-          actionName: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          actionName: AiActionNames.INSERT_VECTOR_COMPOSITION,
           result: {
             appliedElementIds: expect.arrayContaining([
               'element-0',
@@ -316,7 +314,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
   })
 
   it('keeps the runtime available without a resident response and fails only on request', async () => {
-    const startup = createAsyraDesignAiStartup({
+    const startup = createAiStartup({
       response: null
     })
     const runtime = startup.runtime
@@ -348,7 +346,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
             compositionId: 'group-cat'
           },
           id: 'remove-cat',
-          name: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+          name: AiActionNames.REMOVE_AI_COMPOSITION,
           summary: {
             affectedCount: 1
           }
@@ -356,10 +354,10 @@ describe('Asyra Design server action-batch runtime integration', () => {
       ],
       batchId: 'remove-batch'
     }
-    const provider: AiProvider = createAsyraDesignServerActionBatchProvider(
+    const provider: AiProvider = createServerActionBatchProvider(
       serverResponse(batch)
     )
-    const confirmation = createAsyraDesignAiConfirmationBroker()
+    const confirmation = createAiConfirmationBroker()
     const pending = createDeferred<undefined>()
     const unsubscribe = confirmation.subscribe((snapshot) => {
       if (snapshot.pending) {
@@ -367,9 +365,9 @@ describe('Asyra Design server action-batch runtime integration', () => {
       }
     })
     const runtime = createAiAgentRuntime(
-      createAsyraDesignAiRuntimeInput({
+      createAiRuntimeInput({
         permissionRules: {
-          [AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION]: 'confirm'
+          [AiActionNames.REMOVE_AI_COMPOSITION]: 'confirm'
         },
         provider,
         requestConfirmation: confirmation.requestConfirmation

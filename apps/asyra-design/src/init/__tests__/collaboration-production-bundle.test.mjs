@@ -41,13 +41,9 @@ test('production bundle keeps the deployable collaboration reference composition
     true,
     'deployable collaboration modules are missing from the production graph'
   )
-  ;['__AsyraCollaboration__', '/asyra-design-collaboration'].forEach(
-    (marker) => {
-      assert.equal(
-        bundledCode.includes(marker),
-        true,
-        `production bundle is missing collaboration marker: ${marker}`
-      )
-    }
+  assert.equal(
+    bundledCode.includes('/collaboration'),
+    true,
+    'production bundle is missing the collaboration route'
   )
 })

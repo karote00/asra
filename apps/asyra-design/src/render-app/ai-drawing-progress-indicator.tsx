@@ -2,7 +2,7 @@ import React, { useSyncExternalStore } from 'react'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import type { PositionData } from '@asyra/utils'
 import type { AiDrawingProgressState } from '../common-apis/system-context'
-import { AsyraDesignSystemPropertyKeys } from '../constants'
+import { SystemPropertyKeys } from '../constants'
 import core from '../contexts'
 
 const EMPTY_VIEWPORT_POSITION = Object.freeze({ x: 0, y: 0 })
@@ -28,7 +28,7 @@ const useSystemProperty = <T,>(key: string, fallback: T): T => {
 
 const AiDrawingProgressIndicator: React.FC = () => {
   const progress = useSystemProperty<AiDrawingProgressState | null>(
-    AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS,
+    SystemPropertyKeys.AI_DRAWING_PROGRESS,
     null
   )
   const viewportPosition = useSystemProperty<PositionData>(

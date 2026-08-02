@@ -205,7 +205,7 @@ const createElementAtWorkspacePos = (
       options
     )
     if (!elementId) {
-      throw new Error('[Asyra Design] Canonical element creation failed')
+      throw new Error('[element-creation] canonical element creation failed')
     }
 
     if (targetIndex !== null && !createDirectlyInParent) {

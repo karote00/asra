@@ -1,35 +1,33 @@
 import type { AiTransactionRunner } from '@asyra/ai-agent-runtime'
 import { measureBrowserDragAsyncPhase } from '@asyra/utils'
 import { transactionApis } from '../common-apis'
-import type { AsyraDesignAiHistoryProjection } from '../common-apis/history'
+import type { AiHistoryProjection } from '../common-apis/history'
 import {
-  asyraDesignDocumentInteractionLock,
-  type AsyraDesignDocumentInteractionLock
+  documentInteractionLock,
+  type DocumentInteractionLock
 } from './document-interaction-lock'
 
-export type AsyraDesignAiTransactionBoundary = <T>(
-  execute: () => Promise<T>
-) => Promise<T>
+export type AiTransactionBoundary = <T>(execute: () => Promise<T>) => Promise<T>
 
-const runCommonTransaction: AsyraDesignAiTransactionBoundary = <T>(
+const runCommonTransaction: AiTransactionBoundary = <T>(
   execute: () => Promise<T>
 ): Promise<T> => transactionApis.runTransaction(execute)
 
-export interface CreateAsyraDesignAiTransactionRunnerOptions {
+export interface CreateAiTransactionRunnerOptions {
   readonly history?: Pick<
-    AsyraDesignAiHistoryProjection,
+    AiHistoryProjection,
     'correlateCommittedAction' | 'getCurrentActionId'
   >
-  readonly interactionLock?: Pick<AsyraDesignDocumentInteractionLock, 'acquire'>
-  readonly runTransaction?: AsyraDesignAiTransactionBoundary
+  readonly interactionLock?: Pick<DocumentInteractionLock, 'acquire'>
+  readonly runTransaction?: AiTransactionBoundary
 }
 
-export const createAsyraDesignAiTransactionRunner = (
-  options: CreateAsyraDesignAiTransactionRunnerOptions = {}
+export const createAiTransactionRunner = (
+  options: CreateAiTransactionRunnerOptions = {}
 ): AiTransactionRunner => {
   const {
     history,
-    interactionLock = asyraDesignDocumentInteractionLock,
+    interactionLock = documentInteractionLock,
     runTransaction = runCommonTransaction
   } = options
   const runner: AiTransactionRunner = {

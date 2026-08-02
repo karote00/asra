@@ -8,14 +8,14 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiConversationPanel } from '../ai-conversation-panel'
-import { createAsyraDesignAiConversationController } from '../../ai/conversation'
-import { createAsyraDesignAiConfirmationBroker } from '../../ai/confirmation'
+import { createAiConversationController } from '../../ai/conversation'
+import { createAiConfirmationBroker } from '../../ai/confirmation'
 import { createDeferred } from '../../ai/__tests__/deferred'
 import {
   AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
   AiDocumentInteractionTargets
 } from '../../constants'
-import { asyraDesignDocumentInteractionLock } from '../../ai/document-interaction-lock'
+import { documentInteractionLock } from '../../ai/document-interaction-lock'
 
 const createPanelHarness = () => {
   const pending = createDeferred<Record<string, unknown>>()
@@ -23,8 +23,8 @@ const createPanelHarness = () => {
     cancel: vi.fn(() => true),
     execute: vi.fn(() => pending.promise)
   }
-  const confirmation = createAsyraDesignAiConfirmationBroker()
-  const conversation = createAsyraDesignAiConversationController({
+  const confirmation = createAiConfirmationBroker()
+  const conversation = createAiConversationController({
     confirmation,
     createConversationId: () => 'panel-conversation',
     feature,
@@ -54,7 +54,6 @@ describe('AI Agent conversation panel intent boundary', () => {
       />
     )
 
-    expect(screen.queryByText('Mock AI')).toBeNull()
     expect(screen.getByTestId('ai-agent-panel')).toBeTruthy()
     expect(screen.queryByTestId('ai-agent-message')).toBeNull()
     expect(screen.getByText('Agent ready')).toBeTruthy()
@@ -148,7 +147,7 @@ describe('AI Agent conversation panel intent boundary', () => {
     for (const eventType of eventTypes) {
       window.addEventListener(eventType, escapedDocumentInteraction)
     }
-    const release = asyraDesignDocumentInteractionLock.acquire()
+    const release = documentInteractionLock.acquire()
 
     try {
       fireEvent.keyDown(cancelRequest, { code: 'Enter', key: 'Enter' })
@@ -366,8 +365,8 @@ describe('AI Agent conversation panel intent boundary', () => {
 
   it('projects ordered settled progress and a safe result without raw action evidence', async () => {
     let now = 2_000
-    const confirmation = createAsyraDesignAiConfirmationBroker()
-    const conversation = createAsyraDesignAiConversationController({
+    const confirmation = createAiConfirmationBroker()
+    const conversation = createAiConversationController({
       confirmation,
       createConversationId: () => 'panel-progress',
       feature: {
@@ -430,7 +429,6 @@ describe('AI Agent conversation panel intent boundary', () => {
     expect(screen.getByText('Applying changes')).toBeTruthy()
     expect(screen.getByText('Elapsed 1.3s')).toBeTruthy()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
     expect(screen.queryByText(/secret-action-id/)).toBeNull()
     expect(screen.queryByText(/secret-canonical-id/)).toBeNull()
   })
@@ -489,7 +487,6 @@ describe('AI Agent conversation panel intent boundary', () => {
     ).toBeTruthy()
     expect(screen.queryByText(/provider-choice/)).toBeNull()
     expect(screen.queryByText('You')).toBeNull()
-    expect(screen.queryByText('Mock AI')).toBeNull()
   })
 
   it.each([
@@ -530,8 +527,8 @@ describe('AI Agent conversation panel intent boundary', () => {
             status: 'executed'
           })
       }
-      const confirmation = createAsyraDesignAiConfirmationBroker()
-      const conversation = createAsyraDesignAiConversationController({
+      const confirmation = createAiConfirmationBroker()
+      const conversation = createAiConversationController({
         confirmation,
         createConversationId: () => `panel-${label}`,
         feature,

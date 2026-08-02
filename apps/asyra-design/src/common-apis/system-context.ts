@@ -13,7 +13,7 @@ import {
 } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
-import { AsyraDesignSystemPropertyKeys, PrimaryToolType } from '../constants'
+import { SystemPropertyKeys, PrimaryToolType } from '../constants'
 import { selectionApis } from './selection'
 
 export type SelectedVectorPointState = CoreSelectedVectorPointState
@@ -165,16 +165,13 @@ export const systemContextApis = {
   getAiDrawingProgress: (): AiDrawingProgressState | null => {
     return (
       core.getSystemProperty<AiDrawingProgressState | null>(
-        AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS
+        SystemPropertyKeys.AI_DRAWING_PROGRESS
       ) ?? null
     )
   },
 
   setAiDrawingProgress: (progress: AiDrawingProgressState | null) => {
-    core.setSystemProperty(
-      AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS,
-      progress
-    )
+    core.setSystemProperty(SystemPropertyKeys.AI_DRAWING_PROGRESS, progress)
   },
 
   clearAiDrawingProgress: () => {

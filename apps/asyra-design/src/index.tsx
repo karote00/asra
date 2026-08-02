@@ -10,7 +10,8 @@ import {
   isAiDrawingPerformanceProfileRequested,
   installAiDrawingPerformanceProfile
 } from './init/performance/ai-drawing-performance-profile'
-import { startAsyraDesignApp } from './startup'
+import { installRuntimeDiagnosticService } from './init/diagnostics/runtime-diagnostic-service'
+import { startApp as startAppRuntime } from './startup'
 
 const performanceProfileRequested = isAiDrawingPerformanceProfileRequested(
   window.location.search
@@ -20,8 +21,12 @@ const performanceProfile = performanceProfileRequested
       runtime: import.meta.env.PROD ? 'production' : 'development'
     })
   : null
-const startApp = async (): Promise<void> => {
-  await startAsyraDesignApp({
+const disposeRuntimeDiagnosticService = installRuntimeDiagnosticService()
+window.addEventListener('pagehide', disposeRuntimeDiagnosticService, {
+  once: true
+})
+const bootstrapApp = async (): Promise<void> => {
+  await startAppRuntime({
     render: (initialization) => {
       if (performanceProfile) {
         performanceProfile.attachConversation(initialization.aiConversation)
@@ -58,8 +63,9 @@ const startApp = async (): Promise<void> => {
   reportWebVitals()
 }
 
-void startApp().catch((error: unknown) => {
+void bootstrapApp().catch((error: unknown) => {
+  disposeRuntimeDiagnosticService()
   performanceProfile?.dispose()
   // eslint-disable-next-line no-console
-  console.error('[Asyra Design] App startup failed:', error)
+  console.error('[startup] App startup failed:', error)
 })

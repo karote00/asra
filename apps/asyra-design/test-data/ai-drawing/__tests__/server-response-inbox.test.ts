@@ -6,7 +6,7 @@ import {
 } from '../../../src/ai/prepared-drawing-artifact'
 import {
   createPreparedDrawingArtifact,
-  createAsyraDesignServerResponseRecord
+  createServerResponseRecord
 } from '../../../e2e/server-response-inbox'
 
 describe('Asyra Design server response harness', () => {
@@ -15,10 +15,7 @@ describe('Asyra Design server response harness', () => {
   })
 
   it('creates one exact versioned 16-item action batch with directly consumable canonical slices', async () => {
-    const record = await createAsyraDesignServerResponseRecord(
-      'file-fast-16',
-      16
-    )
+    const record = await createServerResponseRecord('file-fast-16', 16)
 
     expect(Reflect.ownKeys(record).sort()).toEqual([
       'batch',
@@ -228,15 +225,12 @@ describe('Asyra Design server response harness', () => {
       /"coordinates"|"items"|"paths"|"properties"|"element":/
     )
 
-    const secondRecord = await createAsyraDesignServerResponseRecord(
-      'file-fast-16',
-      16
-    )
+    const secondRecord = await createServerResponseRecord('file-fast-16', 16)
     expect(secondRecord).toEqual(record)
   })
 
   it('creates the exact maximum-detail response from 27,471 vectors and 295,794 points', async () => {
-    const record = await createAsyraDesignServerResponseRecord(
+    const record = await createServerResponseRecord(
       'file-maximum-27471',
       27_471
     )

@@ -3,6 +3,7 @@ import { Unit } from '../constants'
 export const PropAlias: Record<string, string> = {
   x: 'position',
   y: 'position',
+  rotation: 'position',
   width: 'dimension',
   hieght: 'dimension'
 }
@@ -10,6 +11,7 @@ export const PropAlias: Record<string, string> = {
 export const DefaultPositionData = {
   x: 0,
   y: 0,
+  rotation: 0,
   xUnit: Unit.PX,
   yUnit: Unit.PX
 }

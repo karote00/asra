@@ -6,7 +6,10 @@ import type {
 } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
-import { recordAiDrawingPerformancePublication } from '../init/performance/ai-drawing-performance-profile'
+import {
+  getActiveAiDrawingPerformanceProfile,
+  recordAiDrawingPerformancePublication
+} from '../init/performance/ai-drawing-performance-profile'
 
 const documentChannels = new Set<string>([
   SharedDataChannelNames.SCENE_TREE,
@@ -75,10 +78,10 @@ export const createDocumentCollaborationFactory = (
         )
       ) {
         throw new Error(
-          '[asyra-design collaboration] local-only computed projection cannot enter a shared publication'
+          '[collaboration] local-only computed projection cannot enter a shared publication'
         )
       }
-      const performanceProfile = window.__AsyraAiDrawingPerformance__
+      const performanceProfile = getActiveAiDrawingPerformanceProfile()
       if (performanceProfile) {
         try {
           recordAiDrawingPerformancePublication(performanceProfile, {

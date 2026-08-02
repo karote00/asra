@@ -12,11 +12,12 @@ import {
 import {
   PROPS_ACTIONS,
   SCENE_TREE_ACTIONS,
-  SharedDataChannelNames
+  SharedDataChannelNames,
+  subscribeToBrowserDragPhases
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  createAsyraDesignPublicationProcessor,
+  createPublicationProcessor,
   type DecideRemotePublication
 } from '../../collaboration/operations'
 
@@ -409,7 +410,7 @@ const createHarness = (options: HarnessOptions = {}) => {
   const applyCanonicalChanges = vi.fn<
     (changes: readonly CanonicalChange[]) => void
   >(options.applyCanonicalChanges ?? (() => undefined))
-  const processPublication = createAsyraDesignPublicationProcessor({
+  const processPublication = createPublicationProcessor({
     runRemoteTransaction,
     decideRemotePublication,
     applyCanonicalChanges
@@ -1170,16 +1171,9 @@ describe('Asyra Design app-owned collaboration processing', () => {
   })
 
   it('isolates diagnostic timing observer failures from canonical settlement', () => {
-    const runtime = globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-    const sourceSink = runtime.__asyraBrowserDragPhaseSink
-    runtime.__asyraBrowserDragPhaseSink = () => {
+    const unsubscribe = subscribeToBrowserDragPhases(() => {
       throw new Error('diagnostic sink failed')
-    }
+    })
     const harness = createHarness()
 
     try {
@@ -1192,11 +1186,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
         )
       ).toBe(true)
     } finally {
-      if (sourceSink) {
-        runtime.__asyraBrowserDragPhaseSink = sourceSink
-      } else {
-        delete runtime.__asyraBrowserDragPhaseSink
-      }
+      unsubscribe()
     }
 
     expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()

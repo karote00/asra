@@ -18,21 +18,18 @@ import {
   type PreparedElementDescriptor
 } from '../common-apis'
 import type { AiDrawingProgressState } from '../common-apis/system-context'
-import {
-  AsyraDesignAiActionNames,
-  AsyraDesignAiDrawingDetailOptionIds
-} from '../constants'
+import { AiActionNames, AiDrawingDetailOptionIds } from '../constants'
 import type { PreparedDrawingArtifact } from './prepared-drawing-artifact'
 
-export { AsyraDesignAiActionNames } from '../constants'
+export { AiActionNames } from '../constants'
 
-export const ASYRA_DESIGN_AI_SELECTION_LIMIT = 100
-export const ASYRA_DESIGN_AI_WORKSPACE_LIMIT = 2048
-export const ASYRA_DESIGN_AI_SCALE_MIN = 0.5
-export const ASYRA_DESIGN_AI_SCALE_MAX = 2
-export const ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
+export const AI_SELECTION_LIMIT = 100
+export const AI_WORKSPACE_LIMIT = 2048
+export const AI_SCALE_MIN = 0.5
+export const AI_SCALE_MAX = 2
+export const AI_TRANSIENT_CREATE_CHUNK_SIZE = 256
 
-export interface CreateAsyraDesignAiActionsOptions {
+export interface CreateAiActionsOptions {
   readonly waitForPaint?: () => Promise<void>
   readonly yieldToHost?: () => Promise<void>
 }
@@ -103,37 +100,37 @@ export interface SelectElementsArgs {
   readonly elementIds: readonly string[]
 }
 
-export interface AsyraDesignAiCompositionBounds {
+export interface AiCompositionBounds {
   readonly height: number
   readonly width: number
   readonly x: number
   readonly y: number
 }
 
-export interface AsyraDesignAiCompositionPoint {
+export interface AiCompositionPoint {
   readonly x: number
   readonly y: number
 }
 
-export interface AsyraDesignAiCompositionStyle {
+export interface AiCompositionStyle {
   readonly fillColor?: string
   readonly strokeColor?: string
   readonly strokeWidth?: number
 }
 
-export interface AsyraDesignAiCompositionPath {
+export interface AiCompositionPath {
   readonly closed: boolean
-  readonly points: readonly AsyraDesignAiCompositionPoint[]
+  readonly points: readonly AiCompositionPoint[]
 }
 
-export interface AsyraDesignAiCompositionItem {
-  readonly bounds: AsyraDesignAiCompositionBounds
+export interface AiCompositionItem {
+  readonly bounds: AiCompositionBounds
   readonly closed?: boolean
-  readonly paths?: readonly AsyraDesignAiCompositionPath[]
-  readonly points?: readonly AsyraDesignAiCompositionPoint[]
+  readonly paths?: readonly AiCompositionPath[]
+  readonly points?: readonly AiCompositionPoint[]
   readonly primitive: 'oval' | 'vector'
   readonly role: string
-  readonly style: AsyraDesignAiCompositionStyle
+  readonly style: AiCompositionStyle
 }
 
 export interface UpdateCompositionGeometry {
@@ -163,7 +160,7 @@ export interface UpdateCompositionElementsArgs {
   readonly updates: readonly UpdateCompositionItem[]
 }
 
-export interface AsyraDesignAiColorUpdate {
+export interface AiColorUpdate {
   readonly color: string
   readonly elementId: string
 }
@@ -172,10 +169,10 @@ export interface RemoveAiCompositionArgs {
   readonly compositionId: string
 }
 
-export interface AsyraDesignAiActionApis {
+export interface AiActionApis {
   changeElementGeometry(
     elementId: string,
-    geometry: AsyraDesignAiCompositionBounds,
+    geometry: AiCompositionBounds,
     options?: EVENT_OPTIONS
   ): void
   createCompositionElements(
@@ -189,7 +186,7 @@ export interface AsyraDesignAiActionApis {
     descriptor: PreparedElementDescriptor,
     options?: EVENT_OPTIONS
   ): string | null
-  getElementBounds(elementId: string): AsyraDesignAiCompositionBounds | null
+  getElementBounds(elementId: string): AiCompositionBounds | null
   getElementFillColor(elementId: string): string | null
   getElementStrokeColor(elementId: string): string | null
   getElementType(elementId: string): string | undefined
@@ -222,7 +219,7 @@ export interface AsyraDesignAiActionApis {
     options?: EVENT_OPTIONS
   ): boolean
   updateElementFillColors(
-    updates: readonly AsyraDesignAiColorUpdate[],
+    updates: readonly AiColorUpdate[],
     options?: EVENT_OPTIONS
   ): readonly boolean[]
   updateElementStrokeColor(
@@ -231,26 +228,26 @@ export interface AsyraDesignAiActionApis {
     options?: EVENT_OPTIONS
   ): boolean
   updateElementStrokeColors(
-    updates: readonly AsyraDesignAiColorUpdate[],
+    updates: readonly AiColorUpdate[],
     options?: EVENT_OPTIONS
   ): readonly boolean[]
 }
 
-export class AsyraDesignAiActionError extends Error {
+export class AiActionError extends Error {
   readonly code = 'AI_APP_ACTION_ABORTED' as const
 
   constructor() {
-    super('Asyra Design AI action was aborted.')
-    this.name = 'AsyraDesignAiActionError'
+    super('AI action was aborted.')
+    this.name = 'AiActionError'
   }
 }
 
-export class AsyraDesignAiCompositionError extends Error {
+export class AiCompositionError extends Error {
   readonly code = 'AI_APP_COMPOSITION_INCONSISTENT' as const
 
   constructor(message: string) {
     super(message)
-    this.name = 'AsyraDesignAiCompositionError'
+    this.name = 'AiCompositionError'
   }
 }
 
@@ -263,7 +260,7 @@ const createCompositionElements = (
 ): readonly string[] | null =>
   elementApis.createElementsInParent(descriptors, parent.id, options)
 
-const defaultApis: AsyraDesignAiActionApis = {
+const defaultApis: AiActionApis = {
   changeElementGeometry: (elementId, geometry, options) =>
     elementApis.changeElementGeometry(elementId, geometry, options),
   createCompositionElements,
@@ -307,7 +304,7 @@ const defaultApis: AsyraDesignAiActionApis = {
 
 const assertNotAborted = (context: { readonly signal: AbortSignal }): void => {
   if (context.signal.aborted) {
-    throw new AsyraDesignAiActionError()
+    throw new AiActionError()
   }
 }
 
@@ -322,7 +319,7 @@ const statusForMutation = (
 }
 
 const createDrawingProgressState = (
-  bounds: AsyraDesignAiCompositionBounds,
+  bounds: AiCompositionBounds,
   totalElements: number,
   completedElements = 0
 ): AiDrawingProgressState =>
@@ -334,7 +331,7 @@ const createDrawingProgressState = (
   })
 
 const createCompositionActions = (
-  apis: AsyraDesignAiActionApis,
+  apis: AiActionApis,
   mutationOptions: EVENT_OPTIONS,
   hostYield: () => Promise<void>,
   paintYield: () => Promise<void>
@@ -372,7 +369,7 @@ const createCompositionActions = (
           () => apis.createCompositionGroup(groupDescriptor, mutationOptions)
         )
         if (!groupId || groupId !== groupDescriptor.id) {
-          throw new AsyraDesignAiCompositionError(
+          throw new AiCompositionError(
             'AI composition grouping did not preserve its canonical id.'
           )
         }
@@ -398,7 +395,7 @@ const createCompositionActions = (
               (elementId, index) => elementId !== slice.descriptors[index]?.id
             )
           ) {
-            throw new AsyraDesignAiCompositionError(
+            throw new AiCompositionError(
               'AI composition batch did not preserve its ordered canonical ids.'
             )
           }
@@ -424,7 +421,7 @@ const createCompositionActions = (
         )
 
         return Object.freeze({
-          action: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          action: AiActionNames.INSERT_VECTOR_COMPOSITION,
           appliedElementIds: Object.freeze(appliedElementIds),
           compositionId: groupId,
           roleToElementIds,
@@ -437,7 +434,7 @@ const createCompositionActions = (
         }
       }
     },
-    name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+    name: AiActionNames.INSERT_VECTOR_COMPOSITION,
     inputSchema: Object.freeze({
       additionalProperties: false,
       properties: Object.freeze({
@@ -485,7 +482,7 @@ const createCompositionActions = (
         const prepared: {
           readonly elementId: string
           readonly fillColor?: string
-          readonly geometry?: AsyraDesignAiCompositionBounds
+          readonly geometry?: AiCompositionBounds
           readonly strokeColor?: string
           readonly targetType: string
           readonly vectorScale?: UpdateCompositionGeometry
@@ -657,7 +654,7 @@ const createCompositionActions = (
 
           const isFillBatch = operation.fillColor !== undefined
           if (!isFillBatch && operation.strokeColor === undefined) {
-            throw new AsyraDesignAiCompositionError(
+            throw new AiCompositionError(
               'AI composition update preparation produced an invalid operation.'
             )
           }
@@ -667,8 +664,7 @@ const createCompositionActions = (
               let nextOperationIndex = operationIndex
               while (
                 nextOperationIndex < prepared.length &&
-                batchOperations.length <
-                  ASYRA_DESIGN_AI_TRANSIENT_CREATE_CHUNK_SIZE
+                batchOperations.length < AI_TRANSIENT_CREATE_CHUNK_SIZE
               ) {
                 assertNotAborted(context)
                 const candidate = prepared[nextOperationIndex]
@@ -711,7 +707,7 @@ const createCompositionActions = (
               ? candidate.fillColor
               : candidate.strokeColor
             if (color === undefined) {
-              throw new AsyraDesignAiCompositionError(
+              throw new AiCompositionError(
                 'AI composition update preparation produced an invalid style operation.'
               )
             }
@@ -728,7 +724,7 @@ const createCompositionActions = (
                 : apis.updateElementStrokeColors(colorUpdates, mutationOptions)
           )
           if (batchResults.length !== batchOperations.length) {
-            throw new AsyraDesignAiCompositionError(
+            throw new AiCompositionError(
               'AI composition style batch did not preserve the requested item count.'
             )
           }
@@ -756,13 +752,13 @@ const createCompositionActions = (
         }
         assertNotAborted(context)
         return Object.freeze({
-          action: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+          action: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
           appliedElementIds: Object.freeze(appliedElementIds),
           skipped: Object.freeze(skipped),
           status: statusForMutation(appliedElementIds.length, skipped.length)
         })
       },
-      name: AsyraDesignAiActionNames.UPDATE_COMPOSITION_ELEMENTS,
+      name: AiActionNames.UPDATE_COMPOSITION_ELEMENTS,
       inputSchema: Object.freeze({
         additionalProperties: false,
         properties: Object.freeze({
@@ -787,7 +783,7 @@ const createCompositionActions = (
       const targetType = apis.getElementType(args.compositionId)
       if (targetType !== 'group') {
         return Object.freeze({
-          action: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+          action: AiActionNames.REMOVE_AI_COMPOSITION,
           appliedElementIds: Object.freeze([]),
           skipped: Object.freeze([
             Object.freeze({
@@ -801,7 +797,7 @@ const createCompositionActions = (
       assertNotAborted(context)
       if (apis.getElementType(args.compositionId) !== 'group') {
         return Object.freeze({
-          action: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+          action: AiActionNames.REMOVE_AI_COMPOSITION,
           appliedElementIds: Object.freeze([]),
           skipped: Object.freeze([
             Object.freeze({
@@ -817,13 +813,13 @@ const createCompositionActions = (
         typeof entry === 'string' ? entry : entry.elementId
       )
       return Object.freeze({
-        action: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+        action: AiActionNames.REMOVE_AI_COMPOSITION,
         appliedElementIds: Object.freeze(appliedElementIds),
         skipped: Object.freeze([]),
         status: statusForMutation(appliedElementIds.length, 0)
       })
     },
-    name: AsyraDesignAiActionNames.REMOVE_AI_COMPOSITION,
+    name: AiActionNames.REMOVE_AI_COMPOSITION,
     inputSchema: Object.freeze({
       additionalProperties: false,
       properties: Object.freeze({
@@ -840,9 +836,9 @@ const createCompositionActions = (
   return Object.freeze([insert, update, remove])
 }
 
-export const createAsyraDesignAiActions = (
-  apis: AsyraDesignAiActionApis = defaultApis,
-  options: CreateAsyraDesignAiActionsOptions = {}
+export const createAiActions = (
+  apis: AiActionApis = defaultApis,
+  options: CreateAiActionsOptions = {}
 ): readonly AiActionDefinition[] => {
   const mutationOptions = createAiMutationOptions()
   const hostYield = options.yieldToHost ?? yieldToHost
@@ -850,7 +846,7 @@ export const createAsyraDesignAiActions = (
     options.waitForPaint ?? options.yieldToHost ?? waitForBrowserPaint
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
-      name: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+      name: AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
       description:
         'Request an App-owned choice between supported drawing detail levels without mutating the document.',
       inputSchema: Object.freeze({
@@ -864,12 +860,12 @@ export const createAsyraDesignAiActions = (
       ) => {
         assertNotAborted(context)
         return Object.freeze({
-          action: AsyraDesignAiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
+          action: AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
           clarification: Object.freeze({
             kind: 'drawing-detail',
             optionIds: Object.freeze([
-              AsyraDesignAiDrawingDetailOptionIds.BALANCED,
-              AsyraDesignAiDrawingDetailOptionIds.MAXIMUM
+              AiDrawingDetailOptionIds.BALANCED,
+              AiDrawingDetailOptionIds.MAXIMUM
             ])
           }),
           status: 'no-change'
@@ -878,7 +874,7 @@ export const createAsyraDesignAiActions = (
     })
   const visibility: AiActionDefinition<SetElementVisibilityArgs> =
     Object.freeze({
-      name: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
+      name: AiActionNames.SET_ELEMENT_VISIBILITY,
       description: 'Set whether one existing element is visible.',
       inputSchema: Object.freeze({
         type: 'object',
@@ -905,7 +901,7 @@ export const createAsyraDesignAiActions = (
           mutationOptions
         )
         return Object.freeze({
-          action: AsyraDesignAiActionNames.SET_ELEMENT_VISIBILITY,
+          action: AiActionNames.SET_ELEMENT_VISIBILITY,
           changed,
           elementId: args.elementId
         })
@@ -913,8 +909,8 @@ export const createAsyraDesignAiActions = (
     })
 
   const selection: AiActionDefinition<SelectElementsArgs> = Object.freeze({
-    name: AsyraDesignAiActionNames.SELECT_ELEMENTS,
-    description: `Select from 1 to ${ASYRA_DESIGN_AI_SELECTION_LIMIT} existing elements.`,
+    name: AiActionNames.SELECT_ELEMENTS,
+    description: `Select from 1 to ${AI_SELECTION_LIMIT} existing elements.`,
     inputSchema: Object.freeze({
       type: 'object',
       additionalProperties: false,
@@ -923,7 +919,7 @@ export const createAsyraDesignAiActions = (
         elementIds: Object.freeze({
           type: 'array',
           minItems: 1,
-          maxItems: ASYRA_DESIGN_AI_SELECTION_LIMIT,
+          maxItems: AI_SELECTION_LIMIT,
           uniqueItems: true,
           items: Object.freeze({
             type: 'string',
@@ -936,7 +932,7 @@ export const createAsyraDesignAiActions = (
       assertNotAborted(context)
       apis.selectElements([...args.elementIds], mutationOptions)
       return Object.freeze({
-        action: AsyraDesignAiActionNames.SELECT_ELEMENTS,
+        action: AiActionNames.SELECT_ELEMENTS,
         selectedCount: args.elementIds.length
       })
     }

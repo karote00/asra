@@ -174,11 +174,7 @@ export const getPreparedServerResponseVariant = (itemCount) => {
 }
 
 export const resolvePreparedServerResponsePreviewPaths = ({
-  previewRoot = path.join(
-    defaultWorkspaceRoot,
-    'tmp',
-    'asyra-design-endpoint-preview'
-  ),
+  previewRoot = path.join(defaultWorkspaceRoot, 'tmp', 'endpoint-preview'),
   processId = process.pid,
   productionDistPath = path.join(defaultWorkspaceRoot, 'dist'),
   sourceSvgPath = path.join(
@@ -296,14 +292,12 @@ export const loadServerResponseRecordFactory = async () => {
 
   try {
     const loaded = await server.ssrLoadModule('/e2e/server-response-inbox.ts')
-    if (typeof loaded.createAsyraDesignServerResponseRecord !== 'function') {
-      throw new Error(
-        'Vite did not load createAsyraDesignServerResponseRecord().'
-      )
+    if (typeof loaded.createServerResponseRecord !== 'function') {
+      throw new Error('Vite did not load createServerResponseRecord().')
     }
     return {
       close: () => server.close(),
-      createRecord: loaded.createAsyraDesignServerResponseRecord
+      createRecord: loaded.createServerResponseRecord
     }
   } catch (error) {
     await server.close()

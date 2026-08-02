@@ -65,15 +65,11 @@ test.describe('Gradient Fill Handles', () => {
     const clientDeltaY =
       (beforeSnapshot?.rect.height ?? 0) * (beforeSnapshot?.zoom ?? 1) * 0.25
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__gradientPreviewDeliveries = []
-      scope.__disposeGradientPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'props',
-          (change: unknown) => scope.__gradientPreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('gradient-preview-deliveries', 'props')
     })
     await page.mouse.move(startHandle.x, startHandle.y)
     await page.mouse.down()
@@ -95,9 +91,9 @@ test.describe('Gradient Fill Handles', () => {
     const duringTransaction = await getTransactionSnapshot(page)
     expect(duringTransaction.undoCount).toBe(before.undoCount)
     expect(duringTransaction.isTransacting).toBeGreaterThan(0)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__gradientPreviewDeliveries ?? []
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-preview-deliveries')
     })
     expect(previewDeliveries).toContainEqual(
       expect.objectContaining({
@@ -106,12 +102,9 @@ test.describe('Gradient Fill Handles', () => {
     )
 
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeGradientPreviewObserver?.()
-      delete scope.__disposeGradientPreviewObserver
-      delete scope.__gradientPreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('gradient-preview-deliveries')
     })
     await page.waitForTimeout(180)
 

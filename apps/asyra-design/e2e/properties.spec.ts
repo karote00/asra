@@ -24,10 +24,89 @@ import {
  */
 
 test.describe('Property Management', () => {
+  const getSelectedLayoutProjection = async (page: Page) =>
+    page.evaluate(async () => {
+      // Formal E2E reads use the module-owned test bridge, never DevTools globals.
+      const core = (await import('../src/testing/runtime-access')).core
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return null
+      }
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const renderElement = core?.deps?.render?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      return {
+        computed: {
+          x: computed.x,
+          y: computed.y,
+          width: computed.width,
+          height: computed.height,
+          rotation: computed.rotation
+        },
+        rendered: {
+          x: renderElement?.x,
+          y: renderElement?.y,
+          width: renderElement?.width,
+          height: renderElement?.height,
+          rotation: renderElement?.rotation
+        }
+      }
+    })
+
+  const getSelectedVectorPointProjection = async (page: Page) =>
+    page.evaluate(async () => {
+      // Formal E2E reads use the module-owned test bridge, never DevTools globals.
+      const core = (await import('../src/testing/runtime-access')).core
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      const element = selected?.elementId
+        ? core?.deps?.sceneTree?.getElementById?.(selected.elementId)
+        : null
+      const computed = element?.getAllComputedData?.() ?? {}
+      const point = selected?.pointId
+        ? computed.points?.[selected.pointId]
+        : null
+      const renderElement = selected?.elementId
+        ? core?.deps?.render?.getElementById?.(selected.elementId)
+        : null
+      const renderBounds = renderElement?.getBounds?.()
+
+      if (!selected?.elementId || !selected?.pointId || !point) {
+        return null
+      }
+
+      return {
+        elementId: selected.elementId,
+        pointId: selected.pointId,
+        target: selected.target,
+        selected: {
+          x: selected.x,
+          y: selected.y
+        },
+        computed: {
+          x: point.x,
+          y: point.y,
+          type: point.type,
+          bounds: {
+            x: computed.x,
+            y: computed.y,
+            width: computed.width,
+            height: computed.height
+          }
+        },
+        rendered: renderBounds
+          ? {
+              x: renderBounds.x,
+              y: renderBounds.y,
+              width: renderBounds.width,
+              height: renderBounds.height
+            }
+          : null
+      }
+    })
+
   const getSelectedFillColor = async (page: Page) =>
-    page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
       if (!selectedId) {
         return null
@@ -43,9 +122,8 @@ test.describe('Property Management', () => {
     })
 
   const getSelectedFillCount = async (page: Page) =>
-    page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
       if (!selectedId) {
         return 0
@@ -57,9 +135,8 @@ test.describe('Property Management', () => {
     })
 
   const getSelectedGradientStopColor = async (page: Page, stopIndex: number) =>
-    page.evaluate((targetStopIndex) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    page.evaluate(async (targetStopIndex) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
       if (!selectedId) {
         return null
@@ -73,9 +150,8 @@ test.describe('Property Management', () => {
     }, stopIndex)
 
   const getSelectedStrokeCount = async (page: Page) =>
-    page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
       if (!selectedId) {
         return 0
@@ -87,9 +163,8 @@ test.describe('Property Management', () => {
     })
 
   const getSelectedStroke = async (page: Page, strokeIndex = 0) =>
-    page.evaluate((targetStrokeIndex) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    page.evaluate(async (targetStrokeIndex) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
       if (!selectedId) {
         return null
@@ -108,9 +183,8 @@ test.describe('Property Management', () => {
     strokeIndex = 0
   ) =>
     page.evaluate(
-      ({ strokePatch, strokeIndex }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      async ({ strokePatch, strokeIndex }) => {
+        const core = (await import('../src/testing/runtime-access')).core
         const selectedId =
           core?.deps?.selection?.getElementSelectionIds?.()?.[0]
         if (!selectedId) {
@@ -237,8 +311,10 @@ test.describe('Property Management', () => {
   test('should update element position via properties panel', async ({
     page
   }) => {
-    // Create a rectangle
     await createRectangle(page, 0.3, 0.3)
+    const beforeProjection = await getSelectedLayoutProjection(page)
+    expect(beforeProjection).not.toBeNull()
+    const beforeHistory = await getTransactionSnapshot(page)
 
     // Get the Properties Panel
     const propertiesPanel = getPropertiesPanel(page)
@@ -255,6 +331,27 @@ test.describe('Property Management', () => {
     // Verify the value was updated
     const newXValue = await xInput.inputValue()
     expect(newXValue).toBe('200')
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { x: 200 },
+        rendered: { x: 200 }
+      })
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 1
+    )
+
+    await undo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toEqual(beforeProjection)
+    await redo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { x: 200 },
+        rendered: { x: 200 }
+      })
 
     // Update Y position as well
     const yInput = propertiesPanel.getByTestId('prop-y')
@@ -278,35 +375,90 @@ test.describe('Property Management', () => {
   test('should update element dimensions via properties panel', async ({
     page
   }) => {
-    // Create a rectangle
     await createRectangle(page, 0.3, 0.3)
+    const beforeProjection = await getSelectedLayoutProjection(page)
+    expect(beforeProjection).not.toBeNull()
+    const beforeHistory = await getTransactionSnapshot(page)
 
-    // Get the Properties Panel
     const propertiesPanel = getPropertiesPanel(page)
-
-    // Find and update the Width input (3rd input after X, Y)
     const widthInput = propertiesPanel.getByTestId('prop-width')
-
-    // Clear the current value and type new value
     await widthInput.click()
     await widthInput.fill('300')
     await widthInput.press('Enter')
-    await page.waitForTimeout(200)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { width: 300 },
+        rendered: { width: 300 }
+      })
 
-    // Verify the value was updated
-    const newWidthValue = await widthInput.inputValue()
-    expect(newWidthValue).toBe('300')
-
-    // Update Height as well (4th input)
     const heightInput = propertiesPanel.getByTestId('prop-height')
     await heightInput.click()
     await heightInput.fill('250')
     await heightInput.press('Enter')
-    await page.waitForTimeout(200)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { width: 300, height: 250 },
+        rendered: { width: 300, height: 250 }
+      })
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 2
+    )
 
-    // Verify Height value was updated
-    const newHeightValue = await heightInput.inputValue()
-    expect(newHeightValue).toBe('250')
+    await undo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { width: 300, height: beforeProjection?.computed.height },
+        rendered: { width: 300, height: beforeProjection?.rendered.height }
+      })
+    await undo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toEqual(beforeProjection)
+    await redo(page)
+    await redo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { width: 300, height: 250 },
+        rendered: { width: 300, height: 250 }
+      })
+  })
+
+  test('should project rotation with one-step undo and redo', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    const beforeProjection = await getSelectedLayoutProjection(page)
+    expect(beforeProjection).not.toBeNull()
+    const beforeHistory = await getTransactionSnapshot(page)
+    const rotationInput = getPropertiesPanel(page).getByTestId('prop-rotation')
+
+    await rotationInput.fill('35')
+    await rotationInput.press('Enter')
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { rotation: 35 },
+        rendered: { rotation: 35 }
+      })
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 1
+    )
+
+    await undo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toEqual(beforeProjection)
+    await redo(page)
+    await expect
+      .poll(() => getSelectedLayoutProjection(page))
+      .toMatchObject({
+        computed: { rotation: 35 },
+        rendered: { rotation: 35 }
+      })
   })
 
   test('should show fills section for selected element', async ({ page }) => {
@@ -368,9 +520,8 @@ test.describe('Property Management', () => {
     expect(pageErrors).toEqual([])
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           const selectedId =
             core?.deps?.selection?.getElementSelectionIds?.()?.[0]
           const element =
@@ -437,15 +588,11 @@ test.describe('Property Management', () => {
       return
     }
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__strokePreviewDeliveries = []
-      scope.__disposeStrokePreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'props',
-          (change: unknown) => scope.__strokePreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('stroke-preview-deliveries', 'props')
     })
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
     await page.mouse.down()
@@ -459,9 +606,9 @@ test.describe('Property Management', () => {
     const during = await getTransactionSnapshot(page)
     expect(during.undoCount).toBe(before.undoCount)
     expect(during.isTransacting).toBeGreaterThan(0)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__strokePreviewDeliveries ?? []
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('stroke-preview-deliveries')
     })
     expect(previewDeliveries).toContainEqual(
       expect.objectContaining({
@@ -470,12 +617,9 @@ test.describe('Property Management', () => {
     )
 
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeStrokePreviewObserver?.()
-      delete scope.__disposeStrokePreviewObserver
-      delete scope.__strokePreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('stroke-preview-deliveries')
     })
     await page.waitForTimeout(200)
 
@@ -620,9 +764,8 @@ test.describe('Property Management', () => {
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.2, 0.2)
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       core.setSystemProperty('selectedVectorPoint', null)
       core.setSystemProperty('pathEditingVectorId', null)
       core.setSystemProperty('pathEditingMode', false)
@@ -633,6 +776,54 @@ test.describe('Property Management', () => {
     await expect(
       propertiesPanel.getByTestId('prop-fills-section')
     ).toBeVisible()
+  })
+
+  test('vector point fields project canonical geometry with one-step undo and redo', async ({
+    page
+  }, testInfo) => {
+    await createVectorPath(page, 0.3, 0.3, 0.2, 0.2)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    const xInput = propertiesPanel.getByTestId('prop-vector-point-x')
+    await expect(xInput).toBeVisible()
+
+    const before = await getSelectedVectorPointProjection(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+    const beforeHistory = await getTransactionSnapshot(page)
+    const nextX = before.computed.x + 48
+
+    await xInput.fill(String(nextX))
+    await xInput.press('Enter')
+
+    await expect
+      .poll(() => getSelectedVectorPointProjection(page))
+      .toMatchObject({
+        selected: { x: nextX },
+        computed: { x: nextX }
+      })
+    const after = await getSelectedVectorPointProjection(page)
+    expect(after?.rendered).not.toEqual(before.rendered)
+    expect((await getTransactionSnapshot(page)).undoCount).toBe(
+      beforeHistory.undoCount + 1
+    )
+
+    await undo(page)
+    await expect
+      .poll(() => getSelectedVectorPointProjection(page))
+      .toEqual(before)
+    await expect(xInput).toHaveValue(String(before.computed.x))
+
+    await redo(page)
+    await expect
+      .poll(() => getSelectedVectorPointProjection(page))
+      .toEqual(after)
+    await expect(xInput).toHaveValue(String(nextX))
+    await page.screenshot({
+      path: testInfo.outputPath('vector-point-property-panel.png')
+    })
   })
 
   test('should update fill color via properties panel color picker', async ({
@@ -684,15 +875,11 @@ test.describe('Property Management', () => {
     }
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__fillPreviewDeliveries = []
-      scope.__disposeFillPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'props',
-          (change: unknown) => scope.__fillPreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('fill-preview-deliveries', 'props')
     })
     await page.mouse.down()
     await page.mouse.move(
@@ -724,9 +911,9 @@ test.describe('Property Management', () => {
     expect(duringDragUpdates.isTransacting).toBeGreaterThan(0)
     const finalColor = await getSelectedFillColor(page)
     expect(finalColor).not.toBe(initialFillColor)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__fillPreviewDeliveries ?? []
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('fill-preview-deliveries')
     })
     expect(previewDeliveries).toContainEqual(
       expect.objectContaining({
@@ -735,12 +922,9 @@ test.describe('Property Management', () => {
     )
 
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeFillPreviewObserver?.()
-      delete scope.__disposeFillPreviewObserver
-      delete scope.__fillPreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('fill-preview-deliveries')
     })
     await page.waitForTimeout(200)
 
@@ -812,16 +996,11 @@ test.describe('Property Management', () => {
     }
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__gradientStopPreviewDeliveries = []
-      scope.__disposeGradientStopPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'props',
-          (change: unknown) =>
-            scope.__gradientStopPreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('gradient-stop-preview-deliveries', 'props')
     })
     await page.mouse.down()
     await page.mouse.move(
@@ -838,9 +1017,9 @@ test.describe('Property Management', () => {
     expect(duringDrag.isTransacting).toBeGreaterThan(0)
     const colorDuringDrag = await getSelectedGradientStopColor(page, 1)
     expect(colorDuringDrag).not.toBe(initialStopColor)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__gradientStopPreviewDeliveries ?? []
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-stop-preview-deliveries')
     })
     expect(previewDeliveries).toContainEqual(
       expect.objectContaining({
@@ -849,12 +1028,9 @@ test.describe('Property Management', () => {
     )
 
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeGradientStopPreviewObserver?.()
-      delete scope.__disposeGradientStopPreviewObserver
-      delete scope.__gradientStopPreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('gradient-stop-preview-deliveries')
     })
     await page.waitForTimeout(200)
 

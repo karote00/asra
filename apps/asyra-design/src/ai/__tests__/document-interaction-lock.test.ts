@@ -3,7 +3,7 @@ import {
   AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
   AiDocumentInteractionTargets
 } from '../../constants'
-import { createAsyraDesignDocumentInteractionLock } from '../document-interaction-lock'
+import { createDocumentInteractionLock } from '../document-interaction-lock'
 
 const markTarget = (
   element: HTMLElement,
@@ -54,7 +54,7 @@ describe('Asyra Design AI document interaction lock', () => {
     edit.addEventListener('click', editReceived)
     edit.addEventListener('keydown', shortcutReceived)
 
-    const lock = createAsyraDesignDocumentInteractionLock()
+    const lock = createDocumentInteractionLock()
     const release = lock.acquire()
 
     const wheel = new WheelEvent('wheel', {
@@ -142,7 +142,7 @@ describe('Asyra Design AI document interaction lock', () => {
     document.body.append(edit)
     const received = vi.fn()
     edit.addEventListener('click', received)
-    const lock = createAsyraDesignDocumentInteractionLock()
+    const lock = createDocumentInteractionLock()
     const releaseOuter = lock.acquire()
     const releaseInner = lock.acquire()
 

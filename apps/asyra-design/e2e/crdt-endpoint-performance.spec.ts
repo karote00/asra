@@ -15,9 +15,9 @@ import {
   waitForAppReady
 } from './test-utils'
 import {
-  seedPreparedAsyraDesignServerResponse,
-  type AsyraDesignServerResponseItemCount,
-  type PreparedAsyraDesignServerResponseSeedMetrics
+  seedPreparedServerResponse,
+  type ServerResponseItemCount,
+  type PreparedServerResponseSeedMetrics
 } from './server-response-inbox'
 import { getPreparedServerResponseVariant } from './prepared-server-response-artifacts.mjs'
 
@@ -65,16 +65,15 @@ const requireEnvironment = (name: string): string => {
 }
 
 const endpointGuardEnabled = [
-  'ASYRA_DESIGN_ENDPOINT_OWNER',
-  'ASYRA_DESIGN_ENDPOINT_GUARD_URL',
-  'ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN'
+  'ENDPOINT_OWNER',
+  'ENDPOINT_GUARD_URL',
+  'ENDPOINT_GUARD_TOKEN'
 ].every((name) => Boolean(process.env[name]?.trim()))
-const endpointConnectivityOnly =
-  process.env.ASYRA_DESIGN_ENDPOINT_CONNECTIVITY_ONLY === '1'
+const endpointConnectivityOnly = process.env.ENDPOINT_CONNECTIVITY_ONLY === '1'
 const endpointAttributionCase =
-  process.env.ASYRA_DESIGN_ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
+  process.env.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
 const endpointCpuProfileDiagnostic =
-  process.env.ASYRA_DESIGN_ENDPOINT_CPU_PROFILE_DIAGNOSTIC === '1'
+  process.env.ENDPOINT_CPU_PROFILE_DIAGNOSTIC === '1'
 const CPU_PROFILE_ROTATION_MS = 100
 const endpointLocalAttribution = [
   '16',
@@ -88,7 +87,7 @@ const endpointTwoActorActivityAttribution = [
   '320-two-actor-attribution'
 ].includes(endpointAttributionCase)
 const endpointOwner = endpointGuardEnabled
-  ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_OWNER')
+  ? requireEnvironment('ENDPOINT_OWNER')
   : 'guarded-endpoint-disabled'
 
 interface CpuProfileNode {
@@ -179,10 +178,10 @@ const startRotatingCpuProfileDiagnostic = async (
   }
 }
 const guardURL = endpointGuardEnabled
-  ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_GUARD_URL').replace(/\/+$/, '')
+  ? requireEnvironment('ENDPOINT_GUARD_URL').replace(/\/+$/, '')
   : 'http://127.0.0.1'
 const guardToken = endpointGuardEnabled
-  ? requireEnvironment('ASYRA_DESIGN_ENDPOINT_GUARD_TOKEN')
+  ? requireEnvironment('ENDPOINT_GUARD_TOKEN')
   : 'guarded-endpoint-disabled'
 
 test.skip(
@@ -576,7 +575,7 @@ interface EndpointReport {
     | 'local-attribution'
     | 'collaboration-attribution'
   readonly responseInboxPreload?: EndpointPhaseTiming
-  readonly serverResponseSeed?: PreparedAsyraDesignServerResponseSeedMetrics
+  readonly serverResponseSeed?: PreparedServerResponseSeedMetrics
   readonly status: 'complete'
 }
 
@@ -730,6 +729,68 @@ const singleActorAppURL = (fileId: string) =>
 const profiledSingleActorAppURL = (fileId: string) =>
   `${singleActorAppURL(fileId)}&aiPerformance=profile`
 
+const runtimeDiagnosticEvent = 'asyra:runtime-diagnostic-request'
+const localInteractionProbeEvent = 'asyra:local-interaction-probe-request'
+
+const requestRuntimeDiagnostic = <T>(
+  page: Page,
+  operation: string,
+  args: readonly unknown[] = []
+): Promise<T> =>
+  page.evaluate(
+    async ({ eventName, operationName, operationArgs }) => {
+      const detail: {
+        args: readonly unknown[]
+        error?: string
+        operation: string
+        response?: unknown
+      } = {
+        args: operationArgs,
+        operation: operationName
+      }
+      document.dispatchEvent(
+        new CustomEvent(eventName, {
+          detail
+        })
+      )
+      if (detail.error) throw new Error(detail.error)
+      return detail.response as T
+    },
+    {
+      eventName: runtimeDiagnosticEvent,
+      operationArgs: args,
+      operationName: operation
+    }
+  )
+
+const requestLocalInteractionProbe = <T>(
+  page: Page,
+  operation: string,
+  args: readonly unknown[] = []
+): Promise<T> =>
+  page.evaluate(
+    async ({ eventName, operationArgs, operationName }) => {
+      const detail: {
+        args: readonly unknown[]
+        operation: string
+        promise?: Promise<unknown>
+      } = {
+        args: operationArgs,
+        operation: operationName
+      }
+      document.dispatchEvent(new CustomEvent(eventName, { detail }))
+      if (!detail.promise) {
+        throw new Error('Local interaction probe is unavailable')
+      }
+      return (await detail.promise) as T
+    },
+    {
+      eventName: localInteractionProbeEvent,
+      operationArgs: args,
+      operationName: operation
+    }
+  )
+
 const waitForCollaboration = async (
   page: Page,
   actor: 'Actor A' | 'Actor B'
@@ -738,16 +799,15 @@ const waitForCollaboration = async (
     await expect
       .poll(
         () =>
-          page.evaluate(
-            () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
-          ),
+          requestRuntimeDiagnostic<string>(page, 'collaboration:get-status'),
         { timeout: 30_000 }
       )
       .toBe('connected')
   } catch (error) {
-    const status = await page
-      .evaluate(() => window.__AsyraCollaboration__?.getStatus() ?? 'missing')
-      .catch(() => 'unavailable')
+    const status = await requestRuntimeDiagnostic<string>(
+      page,
+      'collaboration:get-status'
+    ).catch(() => 'unavailable')
     const browserErrors = getCapturedBrowserErrors(page)
       .slice(-4)
       .map((message) => message.slice(0, 300))
@@ -762,114 +822,24 @@ const waitForCollaboration = async (
 
 const installBoundedDiagnostics = async (
   page: Page
-): Promise<EndpointPhaseTiming> =>
-  page.evaluate(() => {
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
-    }
-    const diagnostics: EndpointDiagnostics = {
-      failed: 0,
-      lastPublicationFailure: null,
-      localSent: 0,
-      remoteProcessed: 0
-    }
-    scope.__AsyraEndpointDiagnostics__ = diagnostics
-
-    // The endpoint heartbeat stores only scalar counts. It never clones the
-    // publication payload or the performance profile's evidence arrays.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const collaboration = (window as any).__AsyraCollaboration__
-    collaboration?.observePublicationOutcomes?.(
-      (outcome: {
-        direction?: string
-        error?: unknown
-        publicationId?: string
-        status?: string
-      }) => {
-        if (outcome.direction === 'local' && outcome.status === 'sent') {
-          diagnostics.localSent += 1
-        }
-        if (outcome.direction === 'remote' && outcome.status === 'processed') {
-          diagnostics.remoteProcessed += 1
-        }
-        if (
-          outcome.status === 'send-failed' ||
-          outcome.status === 'process-failed'
-        ) {
-          diagnostics.failed += 1
-          const error =
-            outcome.error &&
-            typeof outcome.error === 'object' &&
-            !Array.isArray(outcome.error)
-              ? (outcome.error as {
-                  cause?: unknown
-                  message?: unknown
-                  name?: unknown
-                })
-              : null
-          const cause =
-            error?.cause &&
-            typeof error.cause === 'object' &&
-            !Array.isArray(error.cause)
-              ? (error.cause as { message?: unknown; name?: unknown })
-              : null
-          diagnostics.lastPublicationFailure = {
-            cause: cause
-              ? {
-                  message:
-                    typeof cause.message === 'string'
-                      ? cause.message.slice(0, 300)
-                      : String(cause.message ?? '').slice(0, 300),
-                  name:
-                    typeof cause.name === 'string'
-                      ? cause.name.slice(0, 80)
-                      : 'Error'
-                }
-              : null,
-            direction:
-              typeof outcome.direction === 'string'
-                ? outcome.direction.slice(0, 40)
-                : null,
-            message:
-              typeof error?.message === 'string'
-                ? error.message.slice(0, 300)
-                : String(outcome.error ?? '').slice(0, 300),
-            name:
-              typeof error?.name === 'string'
-                ? error.name.slice(0, 80)
-                : 'Error',
-            publicationId:
-              typeof outcome.publicationId === 'string'
-                ? outcome.publicationId.slice(0, 160)
-                : null,
-            status:
-              typeof outcome.status === 'string'
-                ? outcome.status.slice(0, 40)
-                : null
-          }
-        }
-      }
-    )
-
-    const profile = window.__AsyraAiDrawingPerformance__
-    if (!profile) {
-      throw new Error('AI drawing performance profile is unavailable')
-    }
-    const responseInboxPreload = profile
-      .snapshot()
-      .phases.find(
-        ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
-      )
-    if (!responseInboxPreload) {
-      throw new Error('Response inbox preload timing is unavailable')
-    }
-    profile.reset()
-    return {
-      atMs: Math.round(responseInboxPreload.atMs * 1000) / 1000,
-      durationMs: Math.round(responseInboxPreload.durationMs * 1000) / 1000,
-      name: responseInboxPreload.name
-    }
-  })
+): Promise<EndpointPhaseTiming> => {
+  const snapshot = await requestRuntimeDiagnostic<{
+    phases: EndpointPhaseTiming[]
+  }>(page, 'profile:snapshot')
+  const responseInboxPreload = snapshot.phases.find(
+    ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
+  )
+  if (!responseInboxPreload) {
+    throw new Error('Response inbox preload timing is unavailable')
+  }
+  await requestRuntimeDiagnostic(page, 'collaboration:reset-outcomes')
+  await requestRuntimeDiagnostic(page, 'profile:reset')
+  return {
+    atMs: Math.round(responseInboxPreload.atMs * 1000) / 1000,
+    durationMs: Math.round(responseInboxPreload.durationMs * 1000) / 1000,
+    name: responseInboxPreload.name
+  }
+}
 
 const readActorSample = async (
   page: Page
@@ -890,40 +860,7 @@ const readActorSample = async (
   remoteProcessed: number
   renderProjectionElements: number
   successfulTurnCount: number
-}> =>
-  page.evaluate(() => {
-    const profile = window.__AsyraAiDrawingPerformance__
-    if (!profile) {
-      throw new Error('AI drawing performance profile is unavailable')
-    }
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointDiagnostics__?: EndpointDiagnostics
-    }
-    const diagnostics = scope.__AsyraEndpointDiagnostics__
-    if (!diagnostics) {
-      throw new Error('Endpoint performance diagnostics are unavailable')
-    }
-    return {
-      canonicalElements: profile.readCanonicalElementCount(),
-      factoryPublications: profile.readFactoryPublicationCount(),
-      failed: diagnostics.failed,
-      historyDepth: profile.readHistoryDepth(),
-      lastPublicationFailure: diagnostics.lastPublicationFailure,
-      latestFactoryTransactionStatus:
-        profile.readLatestFactoryTransactionStatus(),
-      latestOwnerTiming: profile.readLatestPhaseSample(),
-      latestTurnSettlement: profile.readLatestTurnSettlement(),
-      localSent: diagnostics.localSent,
-      nonSuccessfulTurnCount:
-        profile.readCounterTotal('ai-turn:outcome:cancelled') +
-        profile.readCounterTotal('ai-turn:outcome:failed') +
-        profile.readCounterTotal('ai-turn:outcome:no-change') +
-        profile.readCounterTotal('ai-turn:outcome:partial'),
-      remoteProcessed: diagnostics.remoteProcessed,
-      renderProjectionElements: profile.readRenderProjectionElementCount(),
-      successfulTurnCount: profile.readCounterTotal('ai-turn:outcome:success')
-    }
-  })
+}> => requestRuntimeDiagnostic(page, 'profile:read-actor-sample')
 
 const delay = (durationMs: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMs))
@@ -1397,131 +1334,150 @@ const createLocalAttributionHeartbeatController = (
 }
 
 const readCanonicalSummary = (page: Page): Promise<CanonicalSummary> =>
-  page.evaluate(async () => {
-    const profile = window.__AsyraAiDrawingPerformance__
-    if (!profile) {
-      throw new Error('AI drawing performance profile is unavailable')
-    }
-    const normalize = (value: unknown): unknown => {
-      if (Array.isArray(value)) return value.map(normalize)
-      if (!value || typeof value !== 'object') return value
-      return Object.fromEntries(
-        Object.entries(value)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([key, child]) => [key, normalize(child)])
-      )
-    }
-    const canonicalElements = profile
-      .readCanonicalElements()
-      .filter(({ type }) => type !== 'workspace')
-    const hierarchy: {
-      children: readonly string[]
-      id: string
-      parentId: string | null
-      type: string
-    }[] = []
-    const ids: string[] = []
-    const whiteBackgrounds: { height: number; id: string; width: number }[] = []
-    let groupChildren: readonly string[] = []
-    let groupCount = 0
-    let groupId: string | null = null
-    let pointCount = 0
-    let renderedCount = 0
-    let vectorCount = 0
-    for (const element of canonicalElements) {
-      const raw = element.raw as {
-        children?: unknown
-        parentId?: unknown
+  page.evaluate(
+    async ({ eventName }) => {
+      const detail: {
+        args: readonly unknown[]
+        error?: string
+        operation: string
+        response?: unknown
+      } = {
+        args: [],
+        operation: 'profile:readCanonicalElements'
       }
-      const children = Array.isArray(raw.children)
-        ? raw.children.filter(
-            (childId): childId is string => typeof childId === 'string'
-          )
-        : []
-      const parentId = typeof raw.parentId === 'string' ? raw.parentId : null
-      hierarchy.push({
-        children,
-        id: element.id,
-        parentId,
-        type: element.type
-      })
-      ids.push(element.id)
-      if (element.rendered) renderedCount += 1
-      if (element.type === 'group') {
-        groupCount += 1
-        groupChildren = children
-        groupId = element.id
-        continue
+      document.dispatchEvent(new CustomEvent(eventName, { detail }))
+      if (detail.error) throw new Error(detail.error)
+      const normalize = (value: unknown): unknown => {
+        if (Array.isArray(value)) return value.map(normalize)
+        if (!value || typeof value !== 'object') return value
+        return Object.fromEntries(
+          Object.entries(value)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, child]) => [key, normalize(child)])
+        )
       }
-      if (element.type !== 'vector') continue
-      vectorCount += 1
-      const computed = element.computed as {
-        fills?: readonly { color?: string }[]
-        height?: number
-        points?: Record<string, unknown>
-        width?: number
-      }
-      pointCount += Object.keys(computed.points ?? {}).length
-      if (
-        computed.fills?.[0]?.color === '#FFFFFF' &&
-        computed.width === 1672 &&
-        computed.height === 941
-      ) {
-        whiteBackgrounds.push({
-          height: computed.height,
+      const canonicalElements = (
+        detail.response as readonly {
+          computed: unknown
+          id: string
+          raw: unknown
+          rendered: boolean
+          type: string
+        }[]
+      ).filter(({ type }) => type !== 'workspace')
+      const hierarchy: {
+        children: readonly string[]
+        id: string
+        parentId: string | null
+        type: string
+      }[] = []
+      const ids: string[] = []
+      const whiteBackgrounds: { height: number; id: string; width: number }[] =
+        []
+      let groupChildren: readonly string[] = []
+      let groupCount = 0
+      let groupId: string | null = null
+      let pointCount = 0
+      let renderedCount = 0
+      let vectorCount = 0
+      for (const element of canonicalElements) {
+        const raw = element.raw as {
+          children?: unknown
+          parentId?: unknown
+        }
+        const children = Array.isArray(raw.children)
+          ? raw.children.filter(
+              (childId): childId is string => typeof childId === 'string'
+            )
+          : []
+        const parentId = typeof raw.parentId === 'string' ? raw.parentId : null
+        hierarchy.push({
+          children,
           id: element.id,
-          width: computed.width
+          parentId,
+          type: element.type
         })
+        ids.push(element.id)
+        if (element.rendered) renderedCount += 1
+        if (element.type === 'group') {
+          groupCount += 1
+          groupChildren = children
+          groupId = element.id
+          continue
+        }
+        if (element.type !== 'vector') continue
+        vectorCount += 1
+        const computed = element.computed as {
+          fills?: readonly { color?: string }[]
+          height?: number
+          points?: Record<string, unknown>
+          width?: number
+        }
+        pointCount += Object.keys(computed.points ?? {}).length
+        if (
+          computed.fills?.[0]?.color === '#FFFFFF' &&
+          computed.width === 1672 &&
+          computed.height === 941
+        ) {
+          whiteBackgrounds.push({
+            height: computed.height,
+            id: element.id,
+            width: computed.width
+          })
+        }
       }
-    }
-    const vectorIds = canonicalElements
-      .filter(({ type }) => type === 'vector')
-      .map(({ id }) => id)
-    const vectorsInGroupCount =
-      groupId === null
-        ? 0
-        : hierarchy.filter(
-            ({ parentId, type }) => type === 'vector' && parentId === groupId
-          ).length
-    const hierarchyOrderMatches =
-      groupId !== null &&
-      groupChildren.length === vectorIds.length &&
-      groupChildren.every((childId, index) => childId === vectorIds[index])
-    const canonical = canonicalElements.map(({ computed, id, raw, type }) => ({
-      computed: normalize(computed),
-      id,
-      raw: normalize(raw),
-      type
-    }))
-    const digest = async (value: unknown): Promise<string> => {
-      const bytes = new TextEncoder().encode(JSON.stringify(value))
-      const hash = await crypto.subtle.digest('SHA-256', bytes)
-      return [...new Uint8Array(hash)]
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('')
-    }
-    const [canonicalSha256, hierarchySha256, idsSha256] = await Promise.all([
-      digest(canonical),
-      digest(hierarchy),
-      digest(ids)
-    ])
-    return {
-      canonicalSha256,
-      firstId: ids[0] ?? null,
-      groupCount,
-      groupChildCount: groupChildren.length,
-      hierarchyOrderMatches,
-      hierarchySha256,
-      idsSha256,
-      lastId: ids.at(-1) ?? null,
-      pointCount,
-      renderedCount,
-      totalCount: ids.length,
-      vectorCount,
-      vectorsInGroupCount,
-      whiteBackgrounds
-    }
-  })
+      const vectorIds = canonicalElements
+        .filter(({ type }) => type === 'vector')
+        .map(({ id }) => id)
+      const vectorsInGroupCount =
+        groupId === null
+          ? 0
+          : hierarchy.filter(
+              ({ parentId, type }) => type === 'vector' && parentId === groupId
+            ).length
+      const hierarchyOrderMatches =
+        groupId !== null &&
+        groupChildren.length === vectorIds.length &&
+        groupChildren.every((childId, index) => childId === vectorIds[index])
+      const canonical = canonicalElements.map(
+        ({ computed, id, raw, type }) => ({
+          computed: normalize(computed),
+          id,
+          raw: normalize(raw),
+          type
+        })
+      )
+      const digest = async (value: unknown): Promise<string> => {
+        const bytes = new TextEncoder().encode(JSON.stringify(value))
+        const hash = await crypto.subtle.digest('SHA-256', bytes)
+        return [...new Uint8Array(hash)]
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('')
+      }
+      const [canonicalSha256, hierarchySha256, idsSha256] = await Promise.all([
+        digest(canonical),
+        digest(hierarchy),
+        digest(ids)
+      ])
+      return {
+        canonicalSha256,
+        firstId: ids[0] ?? null,
+        groupCount,
+        groupChildCount: groupChildren.length,
+        hierarchyOrderMatches,
+        hierarchySha256,
+        idsSha256,
+        lastId: ids.at(-1) ?? null,
+        pointCount,
+        renderedCount,
+        totalCount: ids.length,
+        vectorCount,
+        vectorsInGroupCount,
+        whiteBackgrounds
+      }
+    },
+    { eventName: runtimeDiagnosticEvent }
+  )
 
 const visibleWorkerTargets = (page: Page): readonly string[] =>
   [...new Set(page.workers().map((worker) => worker.url()))]
@@ -1533,19 +1489,33 @@ const readFinalDiagnostics = async (
   expectedDrawingElements: number | null = null
 ): Promise<FinalActorDiagnostics> => {
   const diagnostics = await page.evaluate(
-    ({ expectedElements, requiredPhaseNames }) => {
-      const profile = window.__AsyraAiDrawingPerformance__
-      if (!profile) {
-        throw new Error('AI drawing performance profile is unavailable')
+    async ({ eventName, expectedElements, requiredPhaseNames }) => {
+      const request = <T>(
+        operation: string,
+        args: readonly unknown[] = []
+      ): T => {
+        const detail: {
+          args: readonly unknown[]
+          error?: string
+          operation: string
+          response?: unknown
+        } = { args, operation }
+        document.dispatchEvent(new CustomEvent(eventName, { detail }))
+        if (detail.error) throw new Error(detail.error)
+        return detail.response as T
       }
-      const scope = globalThis as typeof globalThis & {
-        __AsyraEndpointDiagnostics__?: EndpointDiagnostics
-      }
-      const endpointDiagnostics = scope.__AsyraEndpointDiagnostics__
-      if (!endpointDiagnostics) {
-        throw new Error('Endpoint performance diagnostics are unavailable')
-      }
-      const snapshot = profile.snapshot()
+      const endpointDiagnostics = request<EndpointDiagnostics>(
+        'collaboration:read-outcomes'
+      )
+      const snapshot = request<{
+        counters: readonly { atMs: number; name: string; value: number }[]
+        phases: readonly {
+          atMs: number
+          durationMs: number
+          name: string
+        }[]
+        runtime: 'development' | 'production'
+      }>('profile:snapshot')
       const phaseTotals = new Map<string, number>()
       const firstPhaseByName = new Map<
         string,
@@ -1620,16 +1590,20 @@ const readFinalDiagnostics = async (
       ).length
       return {
         attributionPhaseCounts: Object.fromEntries(
-          requiredPhaseNames.map((name) => [name, profile.readPhaseCount(name)])
+          requiredPhaseNames.map((name) => [
+            name,
+            request<number>('profile:readPhaseCount', [name])
+          ])
         ),
         drawingProgress: {
-          canonicalWorkUnitCount: profile.readPhaseCount(
+          canonicalWorkUnitCount: request<number>('profile:readPhaseCount', [
             'ai-app:create-composition-batch'
-          ),
+          ]),
           cooperativeYieldCount: cooperativeYieldSamples.at(-1)?.value ?? 0,
           cooperativeYieldSampleCount: cooperativeYieldSamples.length,
-          loadingFrameVisibleCount: profile.readCounterTotal(
-            'ai-drawing:loading-frame-visible'
+          loadingFrameVisibleCount: request<number>(
+            'profile:readCounterTotal',
+            ['ai-drawing:loading-frame-visible']
           ),
           longestCanonicalWorkUnitMs:
             canonicalWorkUnitDurations.length === 0
@@ -1644,20 +1618,24 @@ const readFinalDiagnostics = async (
           visibleElementLastCount: visibleElementSamples.at(-1)?.value ?? 0,
           visibleElementSampleCount: visibleElementSamples.length
         },
-        factoryPublicationCount: profile.readFactoryPublicationCount(),
-        historyDepth: profile.readHistoryDepth(),
+        factoryPublicationCount: request<number>(
+          'profile:readFactoryPublicationCount'
+        ),
+        historyDepth: request<number>('profile:readHistoryDepth'),
         localSentCount: endpointDiagnostics.localSent,
         phaseTimeline: [...firstPhaseByName.values()],
         persistencePhaseCount,
         remoteProcessedCount: endpointDiagnostics.remoteProcessed,
         renderProjectionAnomalies: {
-          failed: profile.readCounterTotal('render-projection-outcome-failed'),
-          missing: profile.readCounterTotal(
+          failed: request<number>('profile:readCounterTotal', [
+            'render-projection-outcome-failed'
+          ]),
+          missing: request<number>('profile:readCounterTotal', [
             'render-projection-outcome-missing'
-          ),
-          resynced: profile.readCounterTotal(
+          ]),
+          resynced: request<number>('profile:readCounterTotal', [
             'render-projection-outcome-resynced'
-          )
+          ])
         },
         runtime: snapshot.runtime,
         topPhases: [...phaseTotals.entries()]
@@ -1670,6 +1648,7 @@ const readFinalDiagnostics = async (
       }
     },
     {
+      eventName: runtimeDiagnosticEvent,
       expectedElements: expectedDrawingElements,
       requiredPhaseNames: requiredAttributionPhaseNames
     }
@@ -1711,490 +1690,567 @@ const installLocalInteractionProbe = async (
     throw new Error('Local interaction control bounds are unavailable')
   }
 
-  const initial = await page.evaluate(() => {
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
-    }
-    if (scope.__AsyraEndpointLocalInteractionProbe__) {
-      throw new Error('Local interaction probe is already installed')
-    }
-    const profile = window.__AsyraAiDrawingPerformance__
-    if (!profile) {
-      throw new Error('Local interaction probe owners are unavailable')
-    }
+  const initial = await page.evaluate(
+    async ({ diagnosticEvent, probeEvent }) => {
+      const readProfile = <T>(
+        method: string,
+        args: readonly unknown[] = []
+      ): T => {
+        const detail: {
+          args: readonly unknown[]
+          error?: string
+          operation: string
+          response?: unknown
+        } = {
+          args,
+          operation: `profile:${method}`
+        }
+        document.dispatchEvent(new CustomEvent(diagnosticEvent, { detail }))
+        if (detail.error) throw new Error(detail.error)
+        return detail.response as T
+      }
 
-    const initialViewport = profile.readViewportPosition()
-    const initialZoom = profile.readZoom()
-    const documentEventAttempts = {
-      deleteKey: 0,
-      historyShortcut: 0,
-      rectangleButton: 0,
-      rectangleShortcut: 0
-    }
-    const documentEventDeliveries = {
-      deleteKey: 0,
-      historyShortcut: 0,
-      rectangleButton: 0,
-      rectangleShortcut: 0
-    }
-    const documentEventPreventions = {
-      deleteKey: 0,
-      historyShortcut: 0,
-      rectangleButton: 0,
-      rectangleShortcut: 0
-    }
-    let requestSubmissionClickCount = 0
-    type DocumentActionName = keyof LocalDocumentEventCounts
-    const recordAttempt = (action: DocumentActionName, event: Event): void => {
-      documentEventAttempts[action] += 1
-      requestAnimationFrame(() => {
-        if (event.defaultPrevented) {
-          documentEventPreventions[action] += 1
+      const initialViewport = readProfile<{ x: number; y: number }>(
+        'readViewportPosition'
+      )
+      const initialZoom = readProfile<number>('readZoom')
+      const documentEventAttempts = {
+        deleteKey: 0,
+        historyShortcut: 0,
+        rectangleButton: 0,
+        rectangleShortcut: 0
+      }
+      const documentEventDeliveries = {
+        deleteKey: 0,
+        historyShortcut: 0,
+        rectangleButton: 0,
+        rectangleShortcut: 0
+      }
+      const documentEventPreventions = {
+        deleteKey: 0,
+        historyShortcut: 0,
+        rectangleButton: 0,
+        rectangleShortcut: 0
+      }
+      let requestSubmissionClickCount = 0
+      type DocumentActionName = keyof LocalDocumentEventCounts
+      const recordAttempt = (
+        action: DocumentActionName,
+        event: Event
+      ): void => {
+        documentEventAttempts[action] += 1
+        requestAnimationFrame(() => {
+          if (event.defaultPrevented) {
+            documentEventPreventions[action] += 1
+          }
+        })
+      }
+      const rectangleControl = document.querySelector<HTMLElement>(
+        '[data-testid="tool-rectangle"]'
+      )
+      const preparedSend = document.querySelector<HTMLElement>(
+        '[data-endpoint-prepared-ai-submit="true"]'
+      )
+      if (!rectangleControl || !preparedSend) {
+        throw new Error('Local interaction controls are unavailable')
+      }
+      preparedSend.addEventListener(
+        'click',
+        () => {
+          requestSubmissionClickCount += 1
+        },
+        { capture: true, once: true }
+      )
+      rectangleControl.addEventListener('click', () => {
+        documentEventDeliveries.rectangleButton += 1
+      })
+      window.addEventListener(
+        'click',
+        (event) => {
+          if (
+            event.target instanceof Element &&
+            event.target.closest('[data-testid="tool-rectangle"]')
+          ) {
+            recordAttempt('rectangleButton', event)
+          }
+        },
+        { capture: true }
+      )
+      window.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Delete') {
+            recordAttempt('deleteKey', event)
+          } else if (event.metaKey && event.key.toLowerCase() === 'z') {
+            recordAttempt('historyShortcut', event)
+          } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
+            recordAttempt('rectangleShortcut', event)
+          }
+        },
+        { capture: true }
+      )
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Delete') {
+          documentEventDeliveries.deleteKey += 1
+        } else if (event.metaKey && event.key.toLowerCase() === 'z') {
+          documentEventDeliveries.historyShortcut += 1
+        } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
+          documentEventDeliveries.rectangleShortcut += 1
         }
       })
-    }
-    const rectangleControl = document.querySelector<HTMLElement>(
-      '[data-testid="tool-rectangle"]'
-    )
-    const preparedSend = document.querySelector<HTMLElement>(
-      '[data-endpoint-prepared-ai-submit="true"]'
-    )
-    if (!rectangleControl || !preparedSend) {
-      throw new Error('Local interaction controls are unavailable')
-    }
-    preparedSend.addEventListener(
-      'click',
-      () => {
-        requestSubmissionClickCount += 1
-      },
-      { capture: true, once: true }
-    )
-    rectangleControl.addEventListener('click', () => {
-      documentEventDeliveries.rectangleButton += 1
-    })
-    window.addEventListener(
-      'click',
-      (event) => {
-        if (
-          event.target instanceof Element &&
-          event.target.closest('[data-testid="tool-rectangle"]')
-        ) {
-          recordAttempt('rectangleButton', event)
-        }
-      },
-      { capture: true }
-    )
-    window.addEventListener(
-      'keydown',
-      (event) => {
-        if (event.key === 'Delete') {
-          recordAttempt('deleteKey', event)
-        } else if (event.metaKey && event.key.toLowerCase() === 'z') {
-          recordAttempt('historyShortcut', event)
-        } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
-          recordAttempt('rectangleShortcut', event)
-        }
-      },
-      { capture: true }
-    )
-    window.addEventListener('keydown', (event) => {
-      if (event.key === 'Delete') {
-        documentEventDeliveries.deleteKey += 1
-      } else if (event.metaKey && event.key.toLowerCase() === 'z') {
-        documentEventDeliveries.historyShortcut += 1
-      } else if (!event.metaKey && event.key.toLowerCase() === 'r') {
-        documentEventDeliveries.rectangleShortcut += 1
+      const acceptedTurnBaseline = readProfile<number>('readCounterTotal', [
+        'ai-turn:accepted'
+      ])
+      const turnOutcomeBaselines: Record<EndpointAiTurnOutcome, number> = {
+        cancelled: readProfile<number>('readCounterTotal', [
+          'ai-turn:outcome:cancelled'
+        ]),
+        failed: readProfile<number>('readCounterTotal', [
+          'ai-turn:outcome:failed'
+        ]),
+        'no-change': readProfile<number>('readCounterTotal', [
+          'ai-turn:outcome:no-change'
+        ]),
+        partial: readProfile<number>('readCounterTotal', [
+          'ai-turn:outcome:partial'
+        ]),
+        success: readProfile<number>('readCounterTotal', [
+          'ai-turn:outcome:success'
+        ])
       }
-    })
-    const acceptedTurnBaseline = profile.readCounterTotal('ai-turn:accepted')
-    const turnOutcomeBaselines: Record<EndpointAiTurnOutcome, number> = {
-      cancelled: profile.readCounterTotal('ai-turn:outcome:cancelled'),
-      failed: profile.readCounterTotal('ai-turn:outcome:failed'),
-      'no-change': profile.readCounterTotal('ai-turn:outcome:no-change'),
-      partial: profile.readCounterTotal('ai-turn:outcome:partial'),
-      success: profile.readCounterTotal('ai-turn:outcome:success')
-    }
-    const turnOutcomes: readonly EndpointAiTurnOutcome[] = [
-      'cancelled',
-      'failed',
-      'no-change',
-      'partial',
-      'success'
-    ]
-    let loadingAtZero: LocalInteractionProbeSnapshot['loadingAtZero'] = null
+      const turnOutcomes: readonly EndpointAiTurnOutcome[] = [
+        'cancelled',
+        'failed',
+        'no-change',
+        'partial',
+        'success'
+      ]
+      let loadingAtZero: LocalInteractionProbeSnapshot['loadingAtZero'] = null
 
-    const read = (): LocalInteractionProbeSnapshot => {
-      const indicator = document.querySelector<HTMLElement>(
-        '[data-testid="ai-drawing-progress-indicator"]'
-      )
-      const canonicalElements = profile.readCanonicalElementCount()
-      const turnOutcome =
-        turnOutcomes.find(
-          (outcome) =>
-            profile.readCounterTotal(`ai-turn:outcome:${outcome}`) >
-            turnOutcomeBaselines[outcome]
-        ) ?? null
-      const turnAccepted =
-        profile.readCounterTotal('ai-turn:accepted') > acceptedTurnBaseline
-      const latestFactoryTransactionStatus =
-        profile.readLatestFactoryTransactionStatus()
-      const turnSettlement = profile.readLatestTurnSettlement()
-      if (
-        indicator?.isConnected &&
-        canonicalElements === 0 &&
-        turnAccepted &&
-        turnOutcome === null &&
-        !loadingAtZero
-      ) {
-        const rect = indicator.getBoundingClientRect()
-        const viewport = profile.readViewportPosition()
-        const zoom = profile.readZoom()
-        const projectedLeft = Number.parseFloat(indicator.style.left)
-        const projectedTop = Number.parseFloat(indicator.style.top)
-        const projectedWidth = Number.parseFloat(indicator.style.width)
-        const projectedHeight = Number.parseFloat(indicator.style.height)
-        loadingAtZero = {
-          canonicalElements,
-          connected: true,
-          phase: indicator.getAttribute('data-phase'),
-          rect: {
-            height: rect.height,
-            width: rect.width,
-            x: rect.x,
-            y: rect.y
-          },
-          sourceBounds: {
-            height: projectedHeight / zoom,
-            width: projectedWidth / zoom,
-            x: (projectedLeft - viewport.x) / zoom,
-            y: (projectedTop - viewport.y) / zoom
+      const read = (): LocalInteractionProbeSnapshot => {
+        const indicator = document.querySelector<HTMLElement>(
+          '[data-testid="ai-drawing-progress-indicator"]'
+        )
+        const canonicalElements = readProfile<number>(
+          'readCanonicalElementCount'
+        )
+        const turnOutcome =
+          turnOutcomes.find(
+            (outcome) =>
+              readProfile<number>('readCounterTotal', [
+                `ai-turn:outcome:${outcome}`
+              ]) > turnOutcomeBaselines[outcome]
+          ) ?? null
+        const turnAccepted =
+          readProfile<number>('readCounterTotal', ['ai-turn:accepted']) >
+          acceptedTurnBaseline
+        const latestFactoryTransactionStatus =
+          readProfile<EndpointFactoryTransactionStatusEvidence | null>(
+            'readLatestFactoryTransactionStatus'
+          )
+        const turnSettlement =
+          readProfile<EndpointTurnSettlementEvidence | null>(
+            'readLatestTurnSettlement'
+          )
+        if (
+          indicator?.isConnected &&
+          canonicalElements === 0 &&
+          turnAccepted &&
+          turnOutcome === null &&
+          !loadingAtZero
+        ) {
+          const rect = indicator.getBoundingClientRect()
+          const viewport = readProfile<{ x: number; y: number }>(
+            'readViewportPosition'
+          )
+          const zoom = readProfile<number>('readZoom')
+          const projectedLeft = Number.parseFloat(indicator.style.left)
+          const projectedTop = Number.parseFloat(indicator.style.top)
+          const projectedWidth = Number.parseFloat(indicator.style.width)
+          const projectedHeight = Number.parseFloat(indicator.style.height)
+          loadingAtZero = {
+            canonicalElements,
+            connected: true,
+            phase: indicator.getAttribute('data-phase'),
+            rect: {
+              height: rect.height,
+              width: rect.width,
+              x: rect.x,
+              y: rect.y
+            },
+            sourceBounds: {
+              height: projectedHeight / zoom,
+              width: projectedWidth / zoom,
+              x: (projectedLeft - viewport.x) / zoom,
+              y: (projectedTop - viewport.y) / zoom
+            }
           }
         }
+        return {
+          canonicalElements,
+          documentEventAttempts: { ...documentEventAttempts },
+          documentEventDeliveries: { ...documentEventDeliveries },
+          documentEventPreventions: { ...documentEventPreventions },
+          keyboardTargetActive: document.activeElement === probeRoot,
+          latestFactoryTransactionStatus,
+          loadingAtZero,
+          loadingConnected: indicator?.isConnected === true,
+          rectangleActive:
+            document
+              .querySelector('[data-testid="tool-rectangle"]')
+              ?.getAttribute('data-active') === 'true',
+          requestSubmissionClickCount,
+          turnAccepted,
+          turnOutcome,
+          turnSettlement,
+          viewport: readProfile('readViewportPosition'),
+          zoom: readProfile('readZoom')
+        }
       }
-      return {
-        canonicalElements,
-        documentEventAttempts: { ...documentEventAttempts },
-        documentEventDeliveries: { ...documentEventDeliveries },
-        documentEventPreventions: { ...documentEventPreventions },
-        keyboardTargetActive: document.activeElement === probeRoot,
-        latestFactoryTransactionStatus,
-        loadingAtZero,
-        loadingConnected: indicator?.isConnected === true,
-        rectangleActive:
-          document
-            .querySelector('[data-testid="tool-rectangle"]')
-            ?.getAttribute('data-active') === 'true',
-        requestSubmissionClickCount,
-        turnAccepted,
-        turnOutcome,
-        turnSettlement,
-        viewport: profile.readViewportPosition(),
-        zoom: profile.readZoom()
+      const targetReached = (
+        target: LocalInteractionProbeTarget,
+        snapshot: LocalInteractionProbeSnapshot,
+        observedFrames: number,
+        baseline: LocalNavigationBaseline,
+        stableLoadingFrames: number
+      ): boolean => {
+        switch (target) {
+          case 'first-visible':
+            return (
+              snapshot.canonicalElements > 0 &&
+              snapshot.loadingConnected &&
+              snapshot.turnAccepted &&
+              snapshot.turnOutcome === null &&
+              stableLoadingFrames >= 2
+            )
+          case 'interaction-frame':
+            return observedFrames >= 2
+          case 'loading-at-zero':
+            return (
+              snapshot.loadingAtZero !== null &&
+              snapshot.loadingConnected &&
+              snapshot.turnAccepted &&
+              snapshot.turnOutcome === null &&
+              stableLoadingFrames >= 2
+            )
+          case 'loading-removed':
+            return snapshot.loadingAtZero !== null && !snapshot.loadingConnected
+          case 'pan-changed':
+            return (
+              snapshot.viewport.x !== baseline.viewport.x ||
+              snapshot.viewport.y !== baseline.viewport.y
+            )
+          case 'rectangle-active':
+            return snapshot.rectangleActive
+          case 'zoom-changed':
+            return snapshot.zoom !== baseline.zoom
+        }
       }
-    }
-    const targetReached = (
-      target: LocalInteractionProbeTarget,
-      snapshot: LocalInteractionProbeSnapshot,
-      observedFrames: number,
-      baseline: LocalNavigationBaseline,
-      stableLoadingFrames: number
-    ): boolean => {
-      switch (target) {
-        case 'first-visible':
-          return (
-            snapshot.canonicalElements > 0 &&
-            snapshot.loadingConnected &&
-            snapshot.turnAccepted &&
-            snapshot.turnOutcome === null &&
-            stableLoadingFrames >= 2
-          )
-        case 'interaction-frame':
-          return observedFrames >= 2
-        case 'loading-at-zero':
-          return (
-            snapshot.loadingAtZero !== null &&
-            snapshot.loadingConnected &&
-            snapshot.turnAccepted &&
-            snapshot.turnOutcome === null &&
-            stableLoadingFrames >= 2
-          )
-        case 'loading-removed':
-          return snapshot.loadingAtZero !== null && !snapshot.loadingConnected
-        case 'pan-changed':
-          return (
-            snapshot.viewport.x !== baseline.viewport.x ||
-            snapshot.viewport.y !== baseline.viewport.y
-          )
-        case 'rectangle-active':
-          return snapshot.rectangleActive
-        case 'zoom-changed':
-          return snapshot.zoom !== baseline.zoom
-      }
-    }
 
-    const probeRoot = document.querySelector<HTMLElement>(
-      '[data-testid="asyra-canvas-host"]'
-    )
-    if (!probeRoot) {
-      throw new Error('Local interaction probe root is unavailable')
-    }
-    const waitForBoundedProbeFrames = (frameCount: number): Promise<number> =>
-      new Promise((resolve) => {
-        let observedFrames = 0
-        const advance = (): void => {
-          observedFrames += 1
-          if (observedFrames >= frameCount) {
-            resolve(observedFrames)
-            return
+      const probeRoot = document.querySelector<HTMLElement>(
+        '[data-testid="asyra-canvas-host"]'
+      )
+      if (!probeRoot) {
+        throw new Error('Local interaction probe root is unavailable')
+      }
+      const waitForBoundedProbeFrames = (frameCount: number): Promise<number> =>
+        new Promise((resolve) => {
+          let observedFrames = 0
+          const advance = (): void => {
+            observedFrames += 1
+            if (observedFrames >= frameCount) {
+              resolve(observedFrames)
+              return
+            }
+            requestAnimationFrame(advance)
           }
           requestAnimationFrame(advance)
+        })
+      const assertTurnRemainsActive = (
+        target: LocalInteractionProbeTarget,
+        snapshot: LocalInteractionProbeSnapshot
+      ): void => {
+        if (
+          (target === 'loading-at-zero' ||
+            target === 'first-visible' ||
+            target === 'pan-changed' ||
+            target === 'zoom-changed') &&
+          snapshot.turnOutcome !== null
+        ) {
+          throw new Error(
+            `AI turn settled before "${target}" evidence with outcome "${
+              snapshot.turnOutcome
+            }": ${JSON.stringify({
+              factoryTransaction: snapshot.latestFactoryTransactionStatus,
+              turn: snapshot.turnSettlement
+            })}`
+          )
         }
-        requestAnimationFrame(advance)
-      })
-    const assertTurnRemainsActive = (
-      target: LocalInteractionProbeTarget,
-      snapshot: LocalInteractionProbeSnapshot
-    ): void => {
-      if (
-        (target === 'loading-at-zero' ||
-          target === 'first-visible' ||
-          target === 'pan-changed' ||
-          target === 'zoom-changed') &&
-        snapshot.turnOutcome !== null
-      ) {
-        throw new Error(
-          `AI turn settled before "${target}" evidence with outcome "${
-            snapshot.turnOutcome
-          }": ${JSON.stringify({
-            factoryTransaction: snapshot.latestFactoryTransactionStatus,
-            turn: snapshot.turnSettlement
-          })}`
-        )
       }
-    }
-    const waitForLoadingTarget = (
-      target: 'first-visible' | 'loading-at-zero',
-      timeoutMs: number,
-      navigationBaseline: LocalNavigationBaseline
-    ): Promise<LocalInteractionProbeSnapshot> =>
-      new Promise((resolve, reject) => {
-        let settled = false
-        let frameScheduled = false
-        let observedFrames = 0
-        let stableLoadingFrameCount = 0
-        let observer: MutationObserver | null = null
-        const finish = (
-          result: { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
-        ): void => {
-          if (settled) return
-          settled = true
-          globalThis.clearTimeout(timeoutId)
-          observer?.disconnect()
-          if ('error' in result) {
-            reject(result.error)
-          } else {
-            resolve(result.snapshot)
+      const waitForLoadingTarget = (
+        target: 'first-visible' | 'loading-at-zero',
+        timeoutMs: number,
+        navigationBaseline: LocalNavigationBaseline
+      ): Promise<LocalInteractionProbeSnapshot> =>
+        new Promise((resolve, reject) => {
+          let settled = false
+          let frameScheduled = false
+          let observedFrames = 0
+          let stableLoadingFrameCount = 0
+          let observer: MutationObserver | null = null
+          const finish = (
+            result:
+              | { snapshot: LocalInteractionProbeSnapshot }
+              | { error: Error }
+          ): void => {
+            if (settled) return
+            settled = true
+            globalThis.clearTimeout(timeoutId)
+            observer?.disconnect()
+            if ('error' in result) {
+              reject(result.error)
+            } else {
+              resolve(result.snapshot)
+            }
           }
-        }
-        const inspectLoadingMutation = (): void => {
-          frameScheduled = false
-          if (settled) return
-          observedFrames += 1
-          const snapshot = read()
-          try {
-            assertTurnRemainsActive(target, snapshot)
-          } catch (error) {
+          const inspectLoadingMutation = (): void => {
+            frameScheduled = false
+            if (settled) return
+            observedFrames += 1
+            const snapshot = read()
+            try {
+              assertTurnRemainsActive(target, snapshot)
+            } catch (error) {
+              finish({
+                error: error instanceof Error ? error : new Error(String(error))
+              })
+              return
+            }
+            const targetStable =
+              target === 'loading-at-zero'
+                ? snapshot.loadingConnected &&
+                  snapshot.canonicalElements === 0 &&
+                  snapshot.turnAccepted &&
+                  snapshot.turnOutcome === null
+                : snapshot.loadingConnected &&
+                  snapshot.canonicalElements > 0 &&
+                  snapshot.turnAccepted &&
+                  snapshot.turnOutcome === null
+            if (targetStable) {
+              stableLoadingFrameCount += 1
+            } else {
+              stableLoadingFrameCount = 0
+            }
+            if (
+              targetReached(
+                target,
+                snapshot,
+                observedFrames,
+                navigationBaseline,
+                stableLoadingFrameCount
+              )
+            ) {
+              finish({ snapshot })
+              return
+            }
+            if (stableLoadingFrameCount === 1) {
+              scheduleLoadingInspection()
+            }
+          }
+          const scheduleLoadingInspection = (): void => {
+            if (settled || frameScheduled) return
+            frameScheduled = true
+            requestAnimationFrame(inspectLoadingMutation)
+          }
+          const timeoutId = globalThis.setTimeout(() => {
+            const snapshot = read()
+            let message = 'Agent did not accept the dispatched request.'
+            if (snapshot.requestSubmissionClickCount === 0) {
+              message =
+                'Prepared request click did not reach the armed Send control.'
+            } else if (snapshot.turnAccepted) {
+              message = `Local interaction evidence "${target}" timed out at ${JSON.stringify(
+                snapshot
+              )}`
+            }
             finish({
-              error: error instanceof Error ? error : new Error(String(error))
+              error: new Error(message)
             })
+          }, timeoutMs)
+          observer = new MutationObserver(scheduleLoadingInspection)
+          observer.observe(document.body, {
+            attributes: true,
+            childList: true,
+            subtree: true
+          })
+          scheduleLoadingInspection()
+        })
+      const waitForCanonicalProgress = (
+        minimumCanonicalElements: number,
+        timeoutMs: number
+      ): Promise<LocalInteractionProbeSnapshot> =>
+        new Promise((resolve, reject) => {
+          if (
+            !Number.isSafeInteger(minimumCanonicalElements) ||
+            minimumCanonicalElements <= 0
+          ) {
+            reject(new Error('Invalid local canonical progress target'))
             return
           }
-          const targetStable =
-            target === 'loading-at-zero'
-              ? snapshot.loadingConnected &&
-                snapshot.canonicalElements === 0 &&
-                snapshot.turnAccepted &&
-                snapshot.turnOutcome === null
-              : snapshot.loadingConnected &&
-                snapshot.canonicalElements > 0 &&
-                snapshot.turnAccepted &&
-                snapshot.turnOutcome === null
-          if (targetStable) {
-            stableLoadingFrameCount += 1
-          } else {
-            stableLoadingFrameCount = 0
+          let settled = false
+          let frameScheduled = false
+          let stableProgressFrames = 0
+          let observer: MutationObserver | null = null
+          const finish = (
+            result:
+              | { snapshot: LocalInteractionProbeSnapshot }
+              | { error: Error }
+          ): void => {
+            if (settled) return
+            settled = true
+            globalThis.clearTimeout(timeoutId)
+            observer?.disconnect()
+            if ('error' in result) {
+              reject(result.error)
+            } else {
+              resolve(result.snapshot)
+            }
           }
+          const inspectProgressMutation = (): void => {
+            frameScheduled = false
+            if (settled) return
+            const snapshot = read()
+            if (
+              snapshot.turnOutcome !== null ||
+              !snapshot.turnAccepted ||
+              !snapshot.loadingConnected
+            ) {
+              finish({
+                error: new Error(
+                  `AI turn settled before canonical progress ${String(
+                    minimumCanonicalElements
+                  )}: ${JSON.stringify({
+                    canonicalElements: snapshot.canonicalElements,
+                    factoryTransaction: snapshot.latestFactoryTransactionStatus,
+                    turn: snapshot.turnSettlement,
+                    turnOutcome: snapshot.turnOutcome
+                  })}`
+                )
+              })
+              return
+            }
+            if (snapshot.canonicalElements >= minimumCanonicalElements) {
+              stableProgressFrames += 1
+            } else {
+              stableProgressFrames = 0
+            }
+            if (stableProgressFrames >= 2) {
+              finish({ snapshot })
+              return
+            }
+            if (stableProgressFrames === 1) {
+              scheduleProgressInspection()
+            }
+          }
+          const scheduleProgressInspection = (): void => {
+            if (settled || frameScheduled) return
+            frameScheduled = true
+            requestAnimationFrame(inspectProgressMutation)
+          }
+          const timeoutId = globalThis.setTimeout(() => {
+            const snapshot = read()
+            finish({
+              error: new Error(
+                `Local canonical progress ${String(
+                  minimumCanonicalElements
+                )} timed out at ${JSON.stringify(snapshot)}`
+              )
+            })
+          }, timeoutMs)
+          observer = new MutationObserver(scheduleProgressInspection)
+          observer.observe(document.body, {
+            attributes: true,
+            childList: true,
+            subtree: true
+          })
+          scheduleProgressInspection()
+        })
+      const probe: LocalInteractionProbe = {
+        focusKeyboardTarget: () => {
+          probeRoot.focus({ preventScroll: true })
+          return read()
+        },
+        read,
+        waitForCanonicalProgress,
+        waitFor: async (target, timeoutMs, baseline) => {
+          const navigationBaseline = baseline ?? {
+            viewport: initialViewport,
+            zoom: initialZoom
+          }
+          if (target === 'loading-at-zero' || target === 'first-visible') {
+            return waitForLoadingTarget(target, timeoutMs, navigationBaseline)
+          }
+          const observedFrames = await waitForBoundedProbeFrames(2)
+          const snapshot = read()
+          assertTurnRemainsActive(target, snapshot)
           if (
-            targetReached(
+            !targetReached(
               target,
               snapshot,
               observedFrames,
               navigationBaseline,
-              stableLoadingFrameCount
+              0
             )
           ) {
-            finish({ snapshot })
-            return
-          }
-          if (stableLoadingFrameCount === 1) {
-            scheduleLoadingInspection()
-          }
-        }
-        const scheduleLoadingInspection = (): void => {
-          if (settled || frameScheduled) return
-          frameScheduled = true
-          requestAnimationFrame(inspectLoadingMutation)
-        }
-        const timeoutId = globalThis.setTimeout(() => {
-          const snapshot = read()
-          let message = 'Agent did not accept the dispatched request.'
-          if (snapshot.requestSubmissionClickCount === 0) {
-            message =
-              'Prepared request click did not reach the armed Send control.'
-          } else if (snapshot.turnAccepted) {
-            message = `Local interaction evidence "${target}" timed out at ${JSON.stringify(
-              snapshot
-            )}`
-          }
-          finish({
-            error: new Error(message)
-          })
-        }, timeoutMs)
-        observer = new MutationObserver(scheduleLoadingInspection)
-        observer.observe(document.body, {
-          attributes: true,
-          childList: true,
-          subtree: true
-        })
-        scheduleLoadingInspection()
-      })
-    const waitForCanonicalProgress = (
-      minimumCanonicalElements: number,
-      timeoutMs: number
-    ): Promise<LocalInteractionProbeSnapshot> =>
-      new Promise((resolve, reject) => {
-        if (
-          !Number.isSafeInteger(minimumCanonicalElements) ||
-          minimumCanonicalElements <= 0
-        ) {
-          reject(new Error('Invalid local canonical progress target'))
-          return
-        }
-        let settled = false
-        let frameScheduled = false
-        let stableProgressFrames = 0
-        let observer: MutationObserver | null = null
-        const finish = (
-          result: { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
-        ): void => {
-          if (settled) return
-          settled = true
-          globalThis.clearTimeout(timeoutId)
-          observer?.disconnect()
-          if ('error' in result) {
-            reject(result.error)
-          } else {
-            resolve(result.snapshot)
-          }
-        }
-        const inspectProgressMutation = (): void => {
-          frameScheduled = false
-          if (settled) return
-          const snapshot = read()
-          if (
-            snapshot.turnOutcome !== null ||
-            !snapshot.turnAccepted ||
-            !snapshot.loadingConnected
-          ) {
-            finish({
-              error: new Error(
-                `AI turn settled before canonical progress ${String(
-                  minimumCanonicalElements
-                )}: ${JSON.stringify({
-                  canonicalElements: snapshot.canonicalElements,
-                  factoryTransaction: snapshot.latestFactoryTransactionStatus,
-                  turn: snapshot.turnSettlement,
-                  turnOutcome: snapshot.turnOutcome
-                })}`
-              )
-            })
-            return
-          }
-          if (snapshot.canonicalElements >= minimumCanonicalElements) {
-            stableProgressFrames += 1
-          } else {
-            stableProgressFrames = 0
-          }
-          if (stableProgressFrames >= 2) {
-            finish({ snapshot })
-            return
-          }
-          if (stableProgressFrames === 1) {
-            scheduleProgressInspection()
-          }
-        }
-        const scheduleProgressInspection = (): void => {
-          if (settled || frameScheduled) return
-          frameScheduled = true
-          requestAnimationFrame(inspectProgressMutation)
-        }
-        const timeoutId = globalThis.setTimeout(() => {
-          const snapshot = read()
-          finish({
-            error: new Error(
-              `Local canonical progress ${String(
-                minimumCanonicalElements
-              )} timed out at ${JSON.stringify(snapshot)}`
+            throw new Error(
+              `Local interaction evidence "${target}" did not settle after its bounded frame handoff: ${JSON.stringify(
+                snapshot
+              )}`
             )
-          })
-        }, timeoutMs)
-        observer = new MutationObserver(scheduleProgressInspection)
-        observer.observe(document.body, {
-          attributes: true,
-          childList: true,
-          subtree: true
-        })
-        scheduleProgressInspection()
-      })
-    const probe: LocalInteractionProbe = {
-      focusKeyboardTarget: () => {
-        probeRoot.focus({ preventScroll: true })
-        return read()
-      },
-      read,
-      waitForCanonicalProgress,
-      waitFor: async (target, timeoutMs, baseline) => {
-        const navigationBaseline = baseline ?? {
-          viewport: initialViewport,
-          zoom: initialZoom
+          }
+          return snapshot
         }
-        if (target === 'loading-at-zero' || target === 'first-visible') {
-          return waitForLoadingTarget(target, timeoutMs, navigationBaseline)
-        }
-        const observedFrames = await waitForBoundedProbeFrames(2)
-        const snapshot = read()
-        assertTurnRemainsActive(target, snapshot)
-        if (
-          !targetReached(
-            target,
-            snapshot,
-            observedFrames,
-            navigationBaseline,
-            0
-          )
-        ) {
-          throw new Error(
-            `Local interaction evidence "${target}" did not settle after its bounded frame handoff: ${JSON.stringify(
-              snapshot
-            )}`
-          )
-        }
-        return snapshot
       }
+      document.addEventListener(probeEvent, (event) => {
+        const detail = (
+          event as CustomEvent<{
+            args: readonly unknown[]
+            operation: string
+            promise?: Promise<unknown>
+          }>
+        ).detail
+        if (!detail) return
+        detail.promise = Promise.resolve().then(() => {
+          switch (detail.operation) {
+            case 'focus':
+              return probe.focusKeyboardTarget()
+            case 'read':
+              return probe.read()
+            case 'wait':
+              return probe.waitFor(
+                detail.args[0] as LocalInteractionProbeTarget,
+                Number(detail.args[1]),
+                detail.args[2] as LocalNavigationBaseline | undefined
+              )
+            case 'wait-for-canonical-progress':
+              return probe.waitForCanonicalProgress(
+                Number(detail.args[0]),
+                Number(detail.args[1])
+              )
+            default:
+              throw new Error(
+                `Unsupported local interaction probe operation: ${detail.operation}`
+              )
+          }
+        })
+      })
+      return read()
+    },
+    {
+      diagnosticEvent: runtimeDiagnosticEvent,
+      probeEvent: localInteractionProbeEvent
     }
-    scope.__AsyraEndpointLocalInteractionProbe__ = probe
-    return read()
-  })
+  )
 
   return {
     canvasCenter: {
@@ -2219,77 +2275,27 @@ const waitForLocalInteractionProbe = (
   timeoutMs = 10_000,
   baseline?: LocalNavigationBaseline
 ): Promise<LocalInteractionProbeSnapshot> =>
-  page.evaluate(
-    ({ requestedBaseline, requestedTarget, requestedTimeoutMs }) => {
-      const scope = globalThis as typeof globalThis & {
-        __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
-      }
-      const probe = scope.__AsyraEndpointLocalInteractionProbe__
-      if (!probe) {
-        throw new Error('Local interaction probe is unavailable')
-      }
-      return probe.waitFor(
-        requestedTarget,
-        requestedTimeoutMs,
-        requestedBaseline
-      )
-    },
-    {
-      requestedBaseline: baseline,
-      requestedTarget: target,
-      requestedTimeoutMs: timeoutMs
-    }
-  )
+  requestLocalInteractionProbe(page, 'wait', [target, timeoutMs, baseline])
 
 const waitForLocalCanonicalProgress = (
   page: Page,
   minimumCanonicalElements: number,
   timeoutMs = 10_000
 ): Promise<LocalInteractionProbeSnapshot> =>
-  page.evaluate(
-    ({ minimum, timeout }) => {
-      const scope = globalThis as typeof globalThis & {
-        __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
-      }
-      const probe = scope.__AsyraEndpointLocalInteractionProbe__
-      if (!probe) {
-        throw new Error('Local interaction probe is unavailable')
-      }
-      return probe.waitForCanonicalProgress(minimum, timeout)
-    },
-    {
-      minimum: minimumCanonicalElements,
-      timeout: timeoutMs
-    }
-  )
+  requestLocalInteractionProbe(page, 'wait-for-canonical-progress', [
+    minimumCanonicalElements,
+    timeoutMs
+  ])
 
 const focusLocalInteractionKeyboardTarget = (
   page: Page
 ): Promise<LocalInteractionProbeSnapshot> =>
-  page.evaluate(() => {
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
-    }
-    const probe = scope.__AsyraEndpointLocalInteractionProbe__
-    if (!probe) {
-      throw new Error('Local interaction probe is unavailable')
-    }
-    return probe.focusKeyboardTarget()
-  })
+  requestLocalInteractionProbe(page, 'focus')
 
 const readLocalInteractionProbe = (
   page: Page
 ): Promise<LocalInteractionProbeSnapshot> =>
-  page.evaluate(() => {
-    const scope = globalThis as typeof globalThis & {
-      __AsyraEndpointLocalInteractionProbe__?: LocalInteractionProbe
-    }
-    const probe = scope.__AsyraEndpointLocalInteractionProbe__
-    if (!probe) {
-      throw new Error('Local interaction probe is unavailable')
-    }
-    return probe.read()
-  })
+  requestLocalInteractionProbe(page, 'read')
 
 const prepareAiTurn = async (
   page: Page,
@@ -2305,7 +2311,7 @@ const prepareAiTurn = async (
   if (!bounds) {
     throw new Error('Prepared AI Send button bounds are unavailable')
   }
-  await send.evaluate((element) => {
+  await send.evaluate(async (element) => {
     element.setAttribute('data-endpoint-prepared-ai-submit', 'true')
   })
   return {
@@ -2369,8 +2375,8 @@ const launchTrackedActorBBrowser = async (): Promise<Browser> => {
   return await chromium.launch({
     env: {
       ...env,
-      ASYRA_DESIGN_TRACKED_EXECUTABLE: chromium.executablePath(),
-      ASYRA_DESIGN_TRACKED_ROLE: 'client-b-browser'
+      TRACKED_EXECUTABLE: chromium.executablePath(),
+      TRACKED_ROLE: 'client-b-browser'
     },
     headless: true,
     executablePath: guardLauncherPath
@@ -2387,14 +2393,14 @@ const prepareEndpointActorsSequentially = async ({
   readonly baseURL: string
   readonly browser: Browser
   readonly fileId: string
-  readonly serverResponseItemCount: AsyraDesignServerResponseItemCount
+  readonly serverResponseItemCount: ServerResponseItemCount
   readonly proofKind?: EndpointHeartbeat['proofKind']
 }): Promise<{
   actorA: Page
   actorB: Page
   actorBBrowser: Browser
   contexts: readonly [BrowserContext, BrowserContext]
-  serverResponseSeed: PreparedAsyraDesignServerResponseSeedMetrics
+  serverResponseSeed: PreparedServerResponseSeedMetrics
 }> => {
   const contexts: BrowserContext[] = []
   let actorBBrowser: Browser | null = null
@@ -2418,20 +2424,15 @@ const prepareEndpointActorsSequentially = async ({
         'Endpoint actor fileId must match its prepared server response.'
       )
     }
-    let serverResponseSeed:
-      | PreparedAsyraDesignServerResponseSeedMetrics
-      | undefined
+    let serverResponseSeed: PreparedServerResponseSeedMetrics | undefined
     await waitForConnectivityCpuSample(
       'actor-a-server-response-seed',
       async () => {
-        serverResponseSeed = await seedPreparedAsyraDesignServerResponse(
-          actorA.context,
-          {
-            appUrl: new URL(collaborationURL(fileId), baseURL).href,
-            fileId,
-            publicPath: preparedResponse.publicPath
-          }
-        )
+        serverResponseSeed = await seedPreparedServerResponse(actorA.context, {
+          appUrl: new URL(collaborationURL(fileId), baseURL).href,
+          fileId,
+          publicPath: preparedResponse.publicPath
+        })
       },
       proofKind
     )
@@ -2590,11 +2591,13 @@ test('empty-document two-Actor endpoint connectivity', async ({
     await waitForConnectivityCpuSample('connected')
     expect(
       await Promise.all([
-        actorA.page.evaluate(
-          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        requestRuntimeDiagnostic<string>(
+          actorA.page,
+          'collaboration:get-status'
         ),
-        actorB.page.evaluate(
-          () => window.__AsyraCollaboration__?.getStatus() ?? 'missing'
+        requestRuntimeDiagnostic<string>(
+          actorB.page,
+          'collaboration:get-status'
         )
       ])
     ).toEqual(['connected', 'connected'])
@@ -2615,7 +2618,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   if (!baseURL) {
     throw new Error('Endpoint performance App URL is unavailable')
   }
-  let requestedItems: AsyraDesignServerResponseItemCount = 16
+  let requestedItems: ServerResponseItemCount = 16
   if (endpointAttributionCase === '27471-maximum') {
     requestedItems = 27_471
   } else if (endpointAttributionCase === '1280') {
@@ -2654,20 +2657,15 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   }
 
   try {
-    let serverResponseSeed:
-      | PreparedAsyraDesignServerResponseSeedMetrics
-      | undefined
+    let serverResponseSeed: PreparedServerResponseSeedMetrics | undefined
     await waitForConnectivityCpuSample(
       'local-server-response-seed',
       async () => {
-        serverResponseSeed = await seedPreparedAsyraDesignServerResponse(
-          actor.context,
-          {
-            appUrl: new URL(profiledSingleActorAppURL(fileId), baseURL).href,
-            fileId,
-            publicPath: preparedResponse.publicPath
-          }
-        )
+        serverResponseSeed = await seedPreparedServerResponse(actor.context, {
+          appUrl: new URL(profiledSingleActorAppURL(fileId), baseURL).href,
+          fileId,
+          publicPath: preparedResponse.publicPath
+        })
       },
       'local-attribution'
     )

@@ -1,7 +1,13 @@
-import type { TransactionStatusPayload } from '@asyra/utils'
+import {
+  subscribeToBrowserDragPhases,
+  subscribeToDiagnosticCounters,
+  type BrowserDragPhaseSink,
+  type DiagnosticCounterSink,
+  type TransactionStatusPayload
+} from '@asyra/utils'
 import type {
-  AsyraDesignAiConversationController,
-  AsyraDesignAiConversationSnapshot
+  AiConversationController,
+  AiConversationSnapshot
 } from '../../ai/conversation'
 
 export type AiDrawingPerformanceRuntime = 'development' | 'production'
@@ -105,18 +111,16 @@ export interface AiDrawingPerformanceSnapshot {
 export interface AiDrawingPerformanceTurnSettlementEvidence {
   readonly code: string | null
   readonly message: string | null
-  readonly outcome: AsyraDesignAiConversationSnapshot['settledTurns'][number]['outcome']
+  readonly outcome: AiConversationSnapshot['settledTurns'][number]['outcome']
   readonly stage: string | null
   readonly status: string | null
 }
 
 export interface AiDrawingPerformanceProfile {
-  attachConversation(
-    conversation: AsyraDesignAiConversationController | null
-  ): () => void
+  attachConversation(conversation: AiConversationController | null): () => void
   dispose(): void
   getRuntimeEvidence(): AiDrawingPerformanceRuntimeEvidence
-  readConversationSnapshot(): AsyraDesignAiConversationSnapshot | null
+  readConversationSnapshot(): AiConversationSnapshot | null
   readCounterTotal(name: string): number
   readPhaseCount(name: string): number
   readCanonicalElementCount(): number
@@ -138,14 +142,6 @@ interface InstallAiDrawingPerformanceProfileOptions {
   readonly epochNow?: () => number
   readonly now?: () => number
   readonly runtime: AiDrawingPerformanceRuntime
-}
-
-type PhaseSink = (name: string, durationMs: number) => void
-type CounterSink = (name: string, value: number) => void
-
-type DiagnosticGlobal = typeof globalThis & {
-  __asyraBrowserDragPhaseSink?: PhaseSink
-  __asyraDiagnosticCounterSink?: CounterSink
 }
 
 const RETAINED_EVIDENCE_CAPACITY = 16_384
@@ -174,7 +170,7 @@ const readBoundedOwnString = (
 }
 
 const captureTurnSettlement = (
-  settled: AsyraDesignAiConversationSnapshot['settledTurns'][number]
+  settled: AiConversationSnapshot['settledTurns'][number]
 ): AiDrawingPerformanceTurnSettlementEvidence =>
   Object.freeze({
     code: readBoundedOwnString(settled.result, 'code', 80),
@@ -242,6 +238,10 @@ const runtimeEvidenceOwners = new WeakMap<
   AiDrawingPerformanceProfile,
   AiDrawingPerformanceRuntimeEvidenceOwner
 >()
+let activePerformanceProfile: AiDrawingPerformanceProfile | null = null
+
+export const getActiveAiDrawingPerformanceProfile =
+  (): AiDrawingPerformanceProfile | null => activePerformanceProfile
 
 const serializeDiagnosticValue = (
   value: unknown
@@ -382,9 +382,6 @@ export const installAiDrawingPerformanceProfile = ({
   now = () => performance.now(),
   runtime
 }: InstallAiDrawingPerformanceProfileOptions): AiDrawingPerformanceProfile => {
-  const runtimeGlobal = globalThis as DiagnosticGlobal
-  const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
-  const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
   const counters = new BoundedEvidenceBuffer<AiDrawingPerformanceCounterSample>(
     RETAINED_EVIDENCE_CAPACITY
   )
@@ -413,8 +410,7 @@ export const installAiDrawingPerformanceProfile = ({
   let hasSettledOutcomeEvidence = false
   let latestTurnSettlement: AiDrawingPerformanceTurnSettlementEvidence | null =
     null
-  let previousConversationSnapshot: AsyraDesignAiConversationSnapshot | null =
-    null
+  let previousConversationSnapshot: AiConversationSnapshot | null = null
   let observedRuntimeProgressCount = 0
   let runtimeProgressClock: {
     readonly phase: string
@@ -475,16 +471,14 @@ export const installAiDrawingPerformanceProfile = ({
   const recordCounter = (name: string, value: number) => {
     recordCounterAt(name, value, elapsed())
   }
-  const phaseSink: PhaseSink = (name, durationMs) => {
+  const phaseSink: BrowserDragPhaseSink = (name, durationMs) => {
     recordPhase(name, durationMs)
-    callDetached(previousPhaseSink, name, durationMs)
   }
-  const counterSink: CounterSink = (name, value) => {
+  const counterSink: DiagnosticCounterSink = (name, value) => {
     recordCounter(name, value)
-    callDetached(previousCounterSink, name, value)
   }
-  runtimeGlobal.__asyraBrowserDragPhaseSink = phaseSink
-  runtimeGlobal.__asyraDiagnosticCounterSink = counterSink
+  const detachPhaseSink = subscribeToBrowserDragPhases(phaseSink)
+  const detachCounterSink = subscribeToDiagnosticCounters(counterSink)
 
   const attachRuntimeEvidence = (
     source: AiDrawingPerformanceRuntimeEvidenceSource
@@ -549,9 +543,7 @@ export const installAiDrawingPerformanceProfile = ({
   }
 
   const profile: AiDrawingPerformanceProfile = Object.freeze({
-    attachConversation: (
-      conversation: AsyraDesignAiConversationController | null
-    ) => {
+    attachConversation: (conversation: AiConversationController | null) => {
       conversationDisposer?.()
       conversationDisposer = null
       previousConversationSnapshot = null
@@ -651,14 +643,16 @@ export const installAiDrawingPerformanceProfile = ({
       runtimeEvidenceDisposer?.()
       runtimeEvidenceDisposer = null
       runtimeEvidenceSource = null
-      if (runtimeGlobal.__asyraBrowserDragPhaseSink === phaseSink) {
-        runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
+      detachPhaseSink()
+      detachCounterSink()
+      if (
+        typeof window !== 'undefined' &&
+        window.__AiDrawingPerformance__ === profile
+      ) {
+        delete window.__AiDrawingPerformance__
       }
-      if (runtimeGlobal.__asyraDiagnosticCounterSink === counterSink) {
-        runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
-      }
-      if (window.__AsyraAiDrawingPerformance__ === profile) {
-        delete window.__AsyraAiDrawingPerformance__
+      if (activePerformanceProfile === profile) {
+        activePerformanceProfile = null
       }
       runtimeEvidenceOwners.delete(profile)
     },
@@ -820,6 +814,10 @@ export const installAiDrawingPerformanceProfile = ({
     attach: attachRuntimeEvidence,
     recordPublication
   })
-  window.__AsyraAiDrawingPerformance__ = profile
+  activePerformanceProfile?.dispose()
+  activePerformanceProfile = profile
+  if (typeof window !== 'undefined') {
+    window.__AiDrawingPerformance__ = profile
+  }
   return profile
 }

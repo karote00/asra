@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import type { BrowserContext, Route } from '@playwright/test'
-import { AsyraDesignAiActionNames } from '../src/constants/ai-actions'
+import { AiActionNames } from '../src/constants/ai-actions'
 import type { PreparedElementDescriptor } from '../src/common-apis'
 import {
   PREPARED_DRAWING_ARTIFACT_VERSION,
@@ -19,28 +19,28 @@ import {
   type DetailedTabbyPath
 } from '../test-data/ai-drawing/detailed-tabby'
 import {
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME,
-  ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION,
-  type AsyraDesignServerResponseRecord
+  SERVER_RESPONSE_INBOX_DATABASE_NAME,
+  SERVER_RESPONSE_INBOX_DATABASE_VERSION,
+  SERVER_RESPONSE_INBOX_STORE_NAME,
+  SERVER_RESPONSE_SCHEMA_VERSION,
+  type ServerResponseRecord
 } from '../src/ai/server-response-inbox'
 
-export type AsyraDesignServerResponseItemCount = 16 | 320 | 1280 | 7075 | 27471
+export type ServerResponseItemCount = 16 | 320 | 1280 | 7075 | 27471
 
-export interface SeedAsyraDesignServerResponseOptions {
+export interface SeedServerResponseOptions {
   readonly appUrl: string
   readonly fileId: string
-  readonly itemCount: AsyraDesignServerResponseItemCount
+  readonly itemCount: ServerResponseItemCount
 }
 
-export interface SeedPreparedAsyraDesignServerResponseOptions {
+export interface SeedPreparedServerResponseOptions {
   readonly appUrl: string
   readonly fileId: string
   readonly publicPath: string
 }
 
-export interface PreparedAsyraDesignServerResponseSeedMetrics {
+export interface PreparedServerResponseSeedMetrics {
   readonly compressedBytes: number
   readonly decodeMs: number
   readonly fetchMs: number
@@ -602,7 +602,7 @@ const MAXIMUM_TABBY_SOURCE_URL = new URL(
 )
 
 const metadataForItemCount = (
-  itemCount: AsyraDesignServerResponseItemCount
+  itemCount: ServerResponseItemCount
 ): ServerResponseMetadata => {
   switch (itemCount) {
     case 16:
@@ -649,7 +649,7 @@ const metadataForItemCount = (
 }
 
 const readDetailedTabbyPathPrefix = async (
-  itemCount: AsyraDesignServerResponseItemCount
+  itemCount: ServerResponseItemCount
 ): Promise<string> => {
   const sourceUrl =
     itemCount === 27_471 ? MAXIMUM_TABBY_SOURCE_URL : DETAILED_TABBY_SOURCE_URL
@@ -681,10 +681,10 @@ const readDetailedTabbyPathPrefix = async (
   return pathLines.join('\n')
 }
 
-export const createAsyraDesignServerResponseRecord = async (
+export const createServerResponseRecord = async (
   fileId: string,
-  itemCount: AsyraDesignServerResponseItemCount
-): Promise<AsyraDesignServerResponseRecord> => {
+  itemCount: ServerResponseItemCount
+): Promise<ServerResponseRecord> => {
   if (fileId.trim().length === 0) {
     throw new Error('Server response fileId must not be empty.')
   }
@@ -713,7 +713,7 @@ export const createAsyraDesignServerResponseRecord = async (
         {
           arguments: artifact,
           id: metadata.actionId,
-          name: AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION,
+          name: AiActionNames.INSERT_VECTOR_COMPOSITION,
           summary: {
             affectedCount: artifact.elementCount,
             bounds: artifact.groupBounds,
@@ -726,15 +726,15 @@ export const createAsyraDesignServerResponseRecord = async (
       explanation: metadata.explanation
     },
     fileId,
-    schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION
+    schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION
   }
 }
 
-export const seedAsyraDesignServerResponse = async (
+export const seedServerResponse = async (
   context: BrowserContext,
-  { appUrl, fileId, itemCount }: SeedAsyraDesignServerResponseOptions
-): Promise<AsyraDesignServerResponseRecord> => {
-  const record = await createAsyraDesignServerResponseRecord(fileId, itemCount)
+  { appUrl, fileId, itemCount }: SeedServerResponseOptions
+): Promise<ServerResponseRecord> => {
+  const record = await createServerResponseRecord(fileId, itemCount)
   const action = record.batch.actions[0]
   const artifact = action?.arguments as PreparedDrawingArtifact | undefined
   if (
@@ -761,7 +761,7 @@ export const seedAsyraDesignServerResponse = async (
   try {
     await seedPage.goto(appUrl, { waitUntil: 'domcontentloaded' })
     await seedPage.evaluate(
-      ({
+      async ({
         databaseName,
         databaseVersion,
         response,
@@ -814,11 +814,11 @@ export const seedAsyraDesignServerResponse = async (
           }
         }),
       {
-        databaseName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
-        databaseVersion: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
+        databaseName: SERVER_RESPONSE_INBOX_DATABASE_NAME,
+        databaseVersion: SERVER_RESPONSE_INBOX_DATABASE_VERSION,
         response: record,
         responseFileId: record.fileId,
-        storeName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
+        storeName: SERVER_RESPONSE_INBOX_STORE_NAME
       }
     )
   } finally {
@@ -829,10 +829,10 @@ export const seedAsyraDesignServerResponse = async (
   return record
 }
 
-export const seedPreparedAsyraDesignServerResponse = async (
+export const seedPreparedServerResponse = async (
   context: BrowserContext,
-  { appUrl, fileId, publicPath }: SeedPreparedAsyraDesignServerResponseOptions
-): Promise<PreparedAsyraDesignServerResponseSeedMetrics> => {
+  { appUrl, fileId, publicPath }: SeedPreparedServerResponseOptions
+): Promise<PreparedServerResponseSeedMetrics> => {
   const appOrigin = new URL(appUrl)
   const preparedResponseUrl = new URL(publicPath, appOrigin)
   if (
@@ -871,7 +871,7 @@ export const seedPreparedAsyraDesignServerResponse = async (
         responseFileId,
         schemaVersion,
         storeName
-      }): Promise<PreparedAsyraDesignServerResponseSeedMetrics> => {
+      }): Promise<PreparedServerResponseSeedMetrics> => {
         const isRecord = (value: unknown): value is Record<string, unknown> =>
           typeof value === 'object' && value !== null && !Array.isArray(value)
         const hasExactKeys = (
@@ -1012,12 +1012,12 @@ export const seedPreparedAsyraDesignServerResponse = async (
         }
       },
       {
-        databaseName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
-        databaseVersion: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
+        databaseName: SERVER_RESPONSE_INBOX_DATABASE_NAME,
+        databaseVersion: SERVER_RESPONSE_INBOX_DATABASE_VERSION,
         publicResponsePath: publicPath,
         responseFileId: fileId,
-        schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION,
-        storeName: ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
+        schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION,
+        storeName: SERVER_RESPONSE_INBOX_STORE_NAME
       }
     )
     if (

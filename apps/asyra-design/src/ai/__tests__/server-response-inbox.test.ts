@@ -5,12 +5,12 @@ import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PreparedDrawingArtifact } from '../prepared-drawing-artifact'
 import {
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-  ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME,
-  ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION,
-  readAsyraDesignServerResponse,
-  type AsyraDesignServerResponseRecord
+  SERVER_RESPONSE_INBOX_DATABASE_NAME,
+  SERVER_RESPONSE_INBOX_DATABASE_VERSION,
+  SERVER_RESPONSE_INBOX_STORE_NAME,
+  SERVER_RESPONSE_SCHEMA_VERSION,
+  readServerResponse,
+  type ServerResponseRecord
 } from '../server-response-inbox'
 
 const createInline16ItemBatch = (): AiActionBatch => {
@@ -99,25 +99,21 @@ const seedResponse = (
 ): Promise<void> =>
   new Promise((resolve, reject) => {
     const request = factory.open(
-      ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME,
-      ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION
+      SERVER_RESPONSE_INBOX_DATABASE_NAME,
+      SERVER_RESPONSE_INBOX_DATABASE_VERSION
     )
     request.onupgradeneeded = () => {
-      request.result.createObjectStore(
-        ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
-      )
+      request.result.createObjectStore(SERVER_RESPONSE_INBOX_STORE_NAME)
     }
     request.onerror = () =>
       reject(request.error ?? new Error('Response inbox seed open failed'))
     request.onsuccess = () => {
       const database = request.result
       const transaction = database.transaction(
-        ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME,
+        SERVER_RESPONSE_INBOX_STORE_NAME,
         'readwrite'
       )
-      transaction
-        .objectStore(ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME)
-        .put(value, key)
+      transaction.objectStore(SERVER_RESPONSE_INBOX_STORE_NAME).put(value, key)
       transaction.oncomplete = () => {
         database.close()
         resolve()
@@ -152,9 +148,7 @@ describe('Asyra Design server response inbox', () => {
   })
 
   it('returns null without creating an absent response inbox database', async () => {
-    await expect(
-      readAsyraDesignServerResponse('file-fast-16')
-    ).resolves.toBeNull()
+    await expect(readServerResponse('file-fast-16')).resolves.toBeNull()
 
     await expect(factory.databases()).resolves.toEqual([])
   })
@@ -163,25 +157,21 @@ describe('Asyra Design server response inbox', () => {
     const fast = {
       batch: createInline16ItemBatch(),
       fileId: 'file-fast-16',
-      schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION
-    } as const satisfies AsyraDesignServerResponseRecord
+      schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION
+    } as const satisfies ServerResponseRecord
     const other = {
       batch: {
         actions: [],
         batchId: 'other-batch'
       },
       fileId: 'file-other',
-      schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION
-    } as const satisfies AsyraDesignServerResponseRecord
+      schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION
+    } as const satisfies ServerResponseRecord
     await seedResponse(factory, fast.fileId, fast)
     await seedResponse(factory, other.fileId, other)
 
-    await expect(readAsyraDesignServerResponse(fast.fileId)).resolves.toEqual(
-      fast
-    )
-    await expect(
-      readAsyraDesignServerResponse('file-not-seeded')
-    ).resolves.toBeNull()
+    await expect(readServerResponse(fast.fileId)).resolves.toEqual(fast)
+    await expect(readServerResponse('file-not-seeded')).resolves.toBeNull()
   })
 
   it('checks only the small exact record envelope and leaves batch content opaque', async () => {
@@ -191,22 +181,20 @@ describe('Asyra Design server response inbox', () => {
     const record = {
       batch: opaqueBatch,
       fileId: 'file-opaque',
-      schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION
-    } as unknown as AsyraDesignServerResponseRecord
+      schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION
+    } as unknown as ServerResponseRecord
     await seedResponse(factory, record.fileId, record)
 
-    await expect(readAsyraDesignServerResponse(record.fileId)).resolves.toEqual(
-      record
-    )
+    await expect(readServerResponse(record.fileId)).resolves.toEqual(record)
 
     await seedResponse(factory, 'file-invalid-envelope', {
       batch: createInline16ItemBatch(),
       expectedRequest: 'legacy routing input',
       fileId: 'different-file',
-      schemaVersion: ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION
+      schemaVersion: SERVER_RESPONSE_SCHEMA_VERSION
     })
-    await expect(
-      readAsyraDesignServerResponse('file-invalid-envelope')
-    ).rejects.toThrow(/invalid server response/i)
+    await expect(readServerResponse('file-invalid-envelope')).rejects.toThrow(
+      /invalid server response/i
+    )
   })
 })

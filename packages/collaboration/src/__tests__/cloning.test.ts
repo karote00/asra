@@ -1,19 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { subscribeToBrowserDragPhases } from '@asyra/utils'
 import { clonePublication } from '../cloning'
 import { createSharedPublicationFixture } from './shared-publication-fixture'
 
-const profilerGlobal = globalThis as typeof globalThis & {
-  __asyraBrowserDragPhaseSink?: (phaseName: string, durationMs: number) => void
-}
+const disposers: (() => void)[] = []
 
 afterEach(() => {
-  delete profilerGlobal.__asyraBrowserDragPhaseSink
+  disposers.splice(0).forEach((dispose) => dispose())
 })
 
 describe('collaboration clone profiling', () => {
   it('reports detached clone timing without changing publication data', () => {
     const sink = vi.fn()
-    profilerGlobal.__asyraBrowserDragPhaseSink = sink
+    disposers.push(subscribeToBrowserDragPhases(sink))
     const publication = createSharedPublicationFixture({
       mode: 'progressive',
       publicationId: 'publication-a',

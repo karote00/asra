@@ -152,10 +152,9 @@ test('release validation supplies matching app and collaboration endpoints', asy
     }),
     {
       RELEASE_TOKEN: 'preserved',
-      ASYRA_DESIGN_APP_URL: 'http://127.0.0.1:4317',
-      ASYRA_DESIGN_COLLABORATION_WS_PORT: '5109',
-      VITE_ASYRA_DESIGN_COLLABORATION_WS_URL:
-        'ws://127.0.0.1:5109/asyra-design-collaboration'
+      APP_URL: 'http://127.0.0.1:4317',
+      COLLABORATION_WS_PORT: '5109',
+      VITE_COLLABORATION_WS_URL: 'ws://127.0.0.1:5109/collaboration'
     }
   )
 })

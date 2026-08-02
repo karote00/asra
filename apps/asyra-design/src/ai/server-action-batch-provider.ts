@@ -1,6 +1,6 @@
 import { AiProviderError, type AiProvider } from '@asyra/ai-agent-runtime'
 import { measureBrowserDragPhase } from '@asyra/utils'
-import type { AsyraDesignServerResponseRecord } from './server-response-inbox'
+import type { ServerResponseRecord } from './server-response-inbox'
 
 const unavailableResponse = (): never => {
   throw new AiProviderError({
@@ -16,8 +16,8 @@ const abortedRequest = (): never => {
   })
 }
 
-export const createAsyraDesignServerActionBatchProvider = (
-  response: AsyraDesignServerResponseRecord | null
+export const createServerActionBatchProvider = (
+  response: ServerResponseRecord | null
 ): AiProvider =>
   Object.freeze({
     requestActionBatch: async (_input, { signal }) =>

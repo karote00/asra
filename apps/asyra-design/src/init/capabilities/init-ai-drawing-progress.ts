@@ -2,7 +2,7 @@ import {
   isAiDrawingProgressStateOrNull,
   type AiDrawingProgressState
 } from '../../common-apis/system-context'
-import { AsyraDesignSystemPropertyKeys } from '../../constants'
+import { SystemPropertyKeys } from '../../constants'
 import core from '../../contexts'
 
 let hasInit = false
@@ -13,7 +13,7 @@ export const initAiDrawingProgress = (): void => {
   }
 
   core.defineSystemProperty<AiDrawingProgressState | null>(
-    AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS,
+    SystemPropertyKeys.AI_DRAWING_PROGRESS,
     null,
     {
       runtime: true,

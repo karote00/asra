@@ -6,10 +6,7 @@ import process from 'node:process'
 import { clearTimeout, setTimeout } from 'node:timers'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import { ProviderFailure } from '@asyra/collaboration'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import {
   CollaborationMessageTypes,
   decodeCollaborationControlMessage,
@@ -26,16 +23,15 @@ import {
 } from './src/collaboration/protocol'
 import { isNonBlankString } from './src/collaboration/wire-values'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment(process.env, resolve(process.cwd(), '.env'))
+const appEnvironment = resolveEnvironment(
+  loadEnvironment(process.env, resolve(process.cwd(), '.env'))
 )
 
 const host = appEnvironment.collaborationWebSocketHost
 const port = appEnvironment.collaborationWebSocketPort
-const socketPath = '/asyra-design-collaboration'
+const socketPath = '/collaboration'
 const allowedOrigin = appEnvironment.appURL
-const collaborationProfilingEnabled =
-  process.env.ASYRA_DESIGN_COLLABORATION_PROFILE === '1'
+const collaborationProfilingEnabled = process.env.COLLABORATION_PROFILE === '1'
 
 const PEER_QUEUE_CAPACITY_BYTES = 2 * 1024 * 1024
 const PUBLICATION_FRAME_FIXED_HEADER_BYTES = 44
@@ -1050,9 +1046,7 @@ await new Promise<void>((resolveListen, rejectListen) => {
   })
 })
 
-console.log(
-  `[asyra-design collaboration] ws://${host}:${port}${socketPath} (memory-only)`
-)
+console.log(`[collaboration] ws://${host}:${port}${socketPath} (memory-only)`)
 
 let closing = false
 const close = async (): Promise<void> => {

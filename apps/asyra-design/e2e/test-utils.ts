@@ -126,19 +126,6 @@ export async function waitForAppReady(page: Page) {
   await page.waitForTimeout(500) // Allow rendering to complete
 }
 
-export async function setStrokeDiagnosticsMode(
-  page: Page,
-  mode: 'off' | 'summary' | 'full'
-) {
-  await page.evaluate((nextMode) => {
-    ;(
-      globalThis as unknown as {
-        __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
-      }
-    ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = nextMode
-  }, mode)
-}
-
 /**
  * Reset the canvas by clicking the Reset button
  */
@@ -155,12 +142,19 @@ export async function resetCanvas(page: Page) {
     resetButton = page.getByTestId('reset-button')
   }
 
-  const reloadPromise = page
-    .waitForEvent('load', { timeout: 10_000 })
-    .catch(() => undefined)
   await resetButton.click()
-  await reloadPromise
-  await waitForAppReady(page)
+  await page.waitForFunction(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return false
+    }
+    return Array.from(elements.values()).every(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (element: any) => element.get?.('type') === 'workspace'
+    )
+  })
 }
 
 export async function readPersistedDocument<T = unknown>(
@@ -168,7 +162,7 @@ export async function readPersistedDocument<T = unknown>(
   storageKey = 'FILE'
 ): Promise<T | null> {
   return page.evaluate(
-    ({ databaseName, objectStoreName, key }) =>
+    async ({ databaseName, objectStoreName, key }) =>
       new Promise<T | null>((resolve, reject) => {
         const openRequest = indexedDB.open(databaseName)
         openRequest.onerror = () =>
@@ -193,8 +187,11 @@ export async function readPersistedDocument<T = unknown>(
 }
 
 export const getClientPersistenceEvidence = (page: Page) =>
-  page.evaluate(() => {
-    const phases = window.__AsyraAiDrawingPerformance__?.snapshot().phases ?? []
+  page.evaluate(async () => {
+    const phases =
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot().phases ?? []
     const count = (name: string) =>
       phases.filter((phase) => phase.name === name).length
     return {
@@ -213,7 +210,9 @@ export async function getCoreDocumentDigest(
   page: Page
 ): Promise<DocumentDigest> {
   return page.evaluate(async () => {
-    const data = await window.__Core__.save()
+    const data = await (
+      await import('../src/testing/runtime-access')
+    ).core.save()
     const bytes = new TextEncoder().encode(JSON.stringify(data))
     const digest = await crypto.subtle.digest('SHA-256', bytes)
     return {
@@ -230,7 +229,7 @@ export async function getPersistedDocumentDigest(
   storageKey = 'FILE'
 ): Promise<DocumentDigest | null> {
   return page.evaluate(
-    ({ databaseName, objectStoreName, key }) =>
+    async ({ databaseName, objectStoreName, key }) =>
       new Promise<DocumentDigest | null>((resolve, reject) => {
         const openRequest = indexedDB.open(databaseName)
         openRequest.onerror = () =>
@@ -354,9 +353,8 @@ export interface ElementRect extends Rect {
 export async function getSelectedElementRect(
   page: Page
 ): Promise<ElementRect | null> {
-  return page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  return page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
     if (!selectedId) {
       return null
@@ -387,9 +385,8 @@ export async function getElementRectClientCenter(
   page: Page,
   rect: Rect
 ): Promise<{ x: number; y: number }> {
-  return page.evaluate(({ x, y, width, height }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  return page.evaluate(async ({ x, y, width, height }) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const zoom = core?.getSystemProperty?.('zoom') ?? 1
     const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
       x: 0,
@@ -414,9 +411,9 @@ export async function getSelectedElementClientCenter(
     return null
   }
 
-  return page.evaluate(({ id, width, height }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const render = (window as any).__Core__?.deps?.render
+  return page.evaluate(async ({ id, width, height }) => {
+    const render = (await import('../src/testing/runtime-access')).core?.deps
+      ?.render
     const renderElement = render?.getElementById?.(id)
     if (!renderElement) {
       return null
@@ -458,20 +455,21 @@ export async function dragSelectedElementBy(
 }
 
 export const getUndoHistoryDepth = async (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const performanceProfile = window.__AsyraAiDrawingPerformance__
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
     if (performanceProfile) {
       return performanceProfile.readHistoryDepth()
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+
+    const core = (await import('../src/testing/runtime-access')).core
     return core?.deps?.factory?.transact?.undoStack?.length ?? 0
   })
 
 export const getTransactionSnapshot = async (page: Page) =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const transact = core?.deps?.factory?.transact
     const undoStack = transact?.undoStack ?? []
     return {
@@ -484,9 +482,8 @@ export const setSelectedGradient = async (
   page: Page,
   gradient: unknown
 ): Promise<void> => {
-  await page.evaluate((nextGradient) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  await page.evaluate(async (nextGradient) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
     if (!selectedId) {
       return
@@ -584,7 +581,7 @@ export async function pressGroupCommandShortcut(
   page: Page,
   command: 'group' | 'ungroup'
 ): Promise<void> {
-  const primaryModifier = await page.evaluate(() =>
+  const primaryModifier = await page.evaluate(async () =>
     /mac/i.test(navigator.platform) ? 'Meta' : 'Control'
   )
   const shift = command === 'ungroup' ? 'Shift+' : ''
@@ -657,9 +654,8 @@ export async function createVectorPath(
 
   // Perform a drag to create the vector path
   await dragOnCanvas(page, startX, startY, startX + width, startY + height, 20)
-  await page.waitForFunction(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  await page.waitForFunction(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const elements = core?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) {
       return false

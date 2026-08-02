@@ -40,7 +40,7 @@ export type DecideRemotePublication = (
   publication: SharedPublication
 ) => SharedPublication | false
 
-export interface AsyraDesignPublicationProcessorOptions {
+export interface PublicationProcessorOptions {
   readonly runRemoteTransaction: RunRemoteTransaction
   readonly decideRemotePublication: DecideRemotePublication
   readonly applyCanonicalChanges: CanonicalChangeAPIs['applyCanonicalChanges']
@@ -75,34 +75,6 @@ const publicationReplayMode = (
     return origin
   }
   return origin === 'rollback-compensation' ? 'rollback' : null
-}
-
-type BrowserPhaseSink = (phaseName: string, durationMs: number) => void
-
-const runWithDetachedBrowserTiming = <T>(run: () => T): T => {
-  const runtime = globalThis as typeof globalThis & {
-    __asyraBrowserDragPhaseSink?: BrowserPhaseSink
-  }
-  const sourceSink = runtime.__asyraBrowserDragPhaseSink
-  if (!sourceSink) {
-    return run()
-  }
-
-  const detachedSink: BrowserPhaseSink = (phaseName, durationMs) => {
-    try {
-      sourceSink(phaseName, durationMs)
-    } catch {
-      // Timing observers cannot change remote canonical settlement.
-    }
-  }
-  runtime.__asyraBrowserDragPhaseSink = detachedSink
-  try {
-    return run()
-  } finally {
-    if (runtime.__asyraBrowserDragPhaseSink === detachedSink) {
-      runtime.__asyraBrowserDragPhaseSink = sourceSink
-    }
-  }
 }
 
 const isTypedData = (value: unknown): value is Record<string, unknown> =>
@@ -446,9 +418,7 @@ const classifyRemoteRestore = (
     !validRestoreEnvelope ||
     !isSubtreeChange(restoreDelivery.payload)
   ) {
-    throw new Error(
-      '[asyra-design collaboration] invalid subtree restore publication'
-    )
+    throw new Error('[collaboration] invalid subtree restore publication')
   }
 
   const payload = restoreDelivery.payload
@@ -479,12 +449,12 @@ const assertSupportedDelivery = (
       delivery.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH)
   ) {
     throw new Error(
-      '[asyra-design collaboration] remote publication contains local-only computed projection evidence'
+      '[collaboration] remote publication contains local-only computed projection evidence'
     )
   }
   if (!isSupportedPayload(channel, delivery)) {
     throw new Error(
-      `[asyra-design collaboration] unsupported collaboration delivery ${channel}/${delivery.eventName}`
+      `[collaboration] unsupported collaboration delivery ${channel}/${delivery.eventName}`
     )
   }
 }
@@ -561,7 +531,7 @@ const organizeRemotePublication = (
     isCompensation !== owns(publication, 'compensatesPublicationId')
   ) {
     throw new Error(
-      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+      '[collaboration] publication delivery order does not match Factory batch evidence'
     )
   }
 
@@ -573,7 +543,7 @@ const organizeRemotePublication = (
       sliceBatches.length === 0
     ) {
       throw new Error(
-        '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+        '[collaboration] publication contains invalid direct Factory batch evidence'
       )
     }
     const sliceDeliveryIds: string[] = []
@@ -590,7 +560,7 @@ const organizeRemotePublication = (
         batchDeliveries.length === 0
       ) {
         throw new Error(
-          '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+          '[collaboration] publication contains invalid direct Factory batch evidence'
         )
       }
       batchIds.add(batch.batchId)
@@ -605,12 +575,12 @@ const organizeRemotePublication = (
           delivery.orderedIds.some((orderedId) => !isNonBlankString(orderedId))
         ) {
           throw new Error(
-            '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+            '[collaboration] publication contains invalid direct Factory batch evidence'
           )
         }
         if (isCompensation !== owns(delivery, 'compensatesDeliveryId')) {
           throw new Error(
-            '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+            '[collaboration] publication delivery order does not match Factory batch evidence'
           )
         }
         deliveryIds.add(delivery.deliveryId)
@@ -635,14 +605,14 @@ const organizeRemotePublication = (
       )
     ) {
       throw new Error(
-        '[asyra-design collaboration] publication contains invalid direct Factory batch evidence'
+        '[collaboration] publication contains invalid direct Factory batch evidence'
       )
     }
   }
 
   if (batches.length === 0 || deliveries.length === 0) {
     throw new Error(
-      '[asyra-design collaboration] publication delivery order does not match Factory batch evidence'
+      '[collaboration] publication delivery order does not match Factory batch evidence'
     )
   }
   deliveries.forEach(({ channel, delivery }) =>
@@ -701,9 +671,7 @@ const classifyPropertyComponentBatch = (
     return null
   }
   if (batch.channel !== SharedDataChannelNames.PROPS) {
-    throw new Error(
-      '[asyra-design collaboration] invalid property-component batch evidence'
-    )
+    throw new Error('[collaboration] invalid property-component batch evidence')
   }
   const structuralDeliveries: {
     kind: 'add' | 'remove'
@@ -725,7 +693,7 @@ const classifyPropertyComponentBatch = (
     if (isAddition || isRemoval) {
       if ((isAddition && reachedUpdates) || delivery.orderedIds.length !== 1) {
         throw new Error(
-          '[asyra-design collaboration] invalid property-component batch evidence'
+          '[collaboration] invalid property-component batch evidence'
         )
       }
       structuralDeliveries.push({
@@ -740,7 +708,7 @@ const classifyPropertyComponentBatch = (
       !isUpdateProperty(delivery.payload)
     ) {
       throw new Error(
-        '[asyra-design collaboration] invalid property-component batch evidence'
+        '[collaboration] invalid property-component batch evidence'
       )
     }
     reachedUpdates = true
@@ -759,7 +727,7 @@ const classifyPropertyComponentBatch = (
       )
       if (!relationshipUpdate) {
         throw new Error(
-          '[asyra-design collaboration] invalid property-component batch evidence'
+          '[collaboration] invalid property-component batch evidence'
         )
       }
       const { delivery, payload } = relationshipUpdate
@@ -788,7 +756,7 @@ const classifyPropertyComponentBatch = (
             ))
       if (!validRelationship) {
         throw new Error(
-          '[asyra-design collaboration] invalid property-component batch evidence'
+          '[collaboration] invalid property-component batch evidence'
         )
       }
       consumedUpdates.add(delivery)
@@ -855,9 +823,7 @@ const classifyElementDataBatch = (
         isElementDataChange(payload)
     )
   ) {
-    throw new Error(
-      '[asyra-design collaboration] invalid element-data batch evidence'
-    )
+    throw new Error('[collaboration] invalid element-data batch evidence')
   }
   return Object.freeze(
     batch.deliveries.map(({ payload }) => payload as UpdateElementDataChange)
@@ -881,9 +847,7 @@ const classifyHierarchyMoveBatch = (
         eventName === EventTypes.MOVE_ELEMENTS && isMoveElements(payload)
     )
   ) {
-    throw new Error(
-      '[asyra-design collaboration] invalid hierarchy-move batch evidence'
-    )
+    throw new Error('[collaboration] invalid hierarchy-move batch evidence')
   }
   return Object.freeze(
     batch.deliveries.flatMap(
@@ -912,9 +876,7 @@ const classifySubtreeRemovalBatch = (
     return null
   }
   if (sceneBatch.deliveries.length !== 1) {
-    throw new Error(
-      '[asyra-design collaboration] invalid subtree removal Scene evidence'
-    )
+    throw new Error('[collaboration] invalid subtree removal Scene evidence')
   }
   let consumedBatchCount = 1
   while (true) {
@@ -930,7 +892,7 @@ const classifySubtreeRemovalBatch = (
     }
     if (!propertyBatch.deliveries.every(isRemovePropertyDelivery)) {
       throw new Error(
-        '[asyra-design collaboration] invalid subtree removal property evidence'
+        '[collaboration] invalid subtree removal property evidence'
       )
     }
     consumedBatchCount += 1
@@ -1141,7 +1103,7 @@ const classifyCanonicalRemovalBatch = (
       !sameOrderedIds(orderedIdsFromBatch(propertyBatch), elementIds))
   ) {
     throw new Error(
-      '[asyra-design collaboration] invalid canonical removal property batch evidence'
+      '[collaboration] invalid canonical removal property batch evidence'
     )
   }
 
@@ -1234,22 +1196,22 @@ const createRemoteApplySteps = (
       continue
     }
     throw new Error(
-      `[asyra-design collaboration] unsupported canonical Factory batch evidence at batch ${batchIndex} ${batch.channel}/${batch.deliveries.map(({ eventName }) => eventName).join(',')}`
+      `[collaboration] unsupported canonical Factory batch evidence at batch ${batchIndex} ${batch.channel}/${batch.deliveries.map(({ eventName }) => eventName).join(',')}`
     )
   }
   return Object.freeze(changes)
 }
 
-export const createAsyraDesignPublicationProcessor =
+export const createPublicationProcessor =
   ({
     runRemoteTransaction,
     decideRemotePublication,
     applyCanonicalChanges
-  }: AsyraDesignPublicationProcessorOptions): ((
+  }: PublicationProcessorOptions): ((
     publication: SharedPublication
   ) => boolean) =>
   (publication) => {
-    return runWithDetachedBrowserTiming(() => {
+    return (() => {
       const inboundOrganization = measureBrowserDragPhase(
         'collaboration:remote-input-preflight',
         () => organizeRemotePublication(publication)
@@ -1290,9 +1252,7 @@ export const createAsyraDesignPublicationProcessor =
               () => classifyRemoteRestore(acceptedOrganization)
             )
       if (Boolean(inboundRestore) !== Boolean(acceptedRestore)) {
-        throw new Error(
-          '[asyra-design collaboration] invalid subtree restore publication'
-        )
+        throw new Error('[collaboration] invalid subtree restore publication')
       }
       if (acceptedRestore) {
         const canonicalChanges = Object.freeze([
@@ -1325,5 +1285,5 @@ export const createAsyraDesignPublicationProcessor =
         runCanonicalTransaction(() => applyCanonicalChanges(canonicalChanges))
       )
       return true
-    })
+    })()
   }

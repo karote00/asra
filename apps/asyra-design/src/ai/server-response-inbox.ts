@@ -1,26 +1,23 @@
 import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 
-export const ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME =
-  'asyra-design-server-response-inbox'
-export const ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION = 1
-export const ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME = 'responses'
-export const ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION = 1
+export const SERVER_RESPONSE_INBOX_DATABASE_NAME = 'server-response-inbox'
+export const SERVER_RESPONSE_INBOX_DATABASE_VERSION = 1
+export const SERVER_RESPONSE_INBOX_STORE_NAME = 'responses'
+export const SERVER_RESPONSE_SCHEMA_VERSION = 1
 
-export interface AsyraDesignServerResponseRecord {
+export interface ServerResponseRecord {
   readonly batch: AiActionBatch
   readonly fileId: string
   readonly schemaVersion: 1
 }
 
 const invalidResponse = (reason: string): Error =>
-  new Error(
-    `[Asyra Design server response inbox] invalid server response: ${reason}`
-  )
+  new Error(`[server-response-inbox] invalid server response: ${reason}`)
 
 const asServerResponseRecord = (
   value: unknown,
   expectedFileId: string
-): AsyraDesignServerResponseRecord => {
+): ServerResponseRecord => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw invalidResponse('the stored value is not a record')
   }
@@ -33,25 +30,25 @@ const asServerResponseRecord = (
   ) {
     throw invalidResponse('the record envelope is not exact')
   }
-  if (record.schemaVersion !== ASYRA_DESIGN_SERVER_RESPONSE_SCHEMA_VERSION) {
+  if (record.schemaVersion !== SERVER_RESPONSE_SCHEMA_VERSION) {
     throw invalidResponse('the schema version is unsupported')
   }
   if (record.fileId !== expectedFileId) {
     throw invalidResponse('the stored fileId does not match its key')
   }
-  return value as AsyraDesignServerResponseRecord
+  return value as ServerResponseRecord
 }
 
-export const readAsyraDesignServerResponse = (
+export const readServerResponse = (
   fileId: string
-): Promise<AsyraDesignServerResponseRecord | null> => {
+): Promise<ServerResponseRecord | null> => {
   if (fileId.trim().length === 0) {
     return Promise.reject(invalidResponse('the requested fileId is empty'))
   }
   if (typeof globalThis.indexedDB === 'undefined') {
     return Promise.reject(
       new Error(
-        '[Asyra Design server response inbox] IndexedDB is unavailable during App bootstrap'
+        '[server-response-inbox] IndexedDB is unavailable during App bootstrap'
       )
     )
   }
@@ -61,7 +58,7 @@ export const readAsyraDesignServerResponse = (
     let settled = false
     const settle = (
       outcome:
-        | { readonly value: AsyraDesignServerResponseRecord | null }
+        | { readonly value: ServerResponseRecord | null }
         | { readonly error: unknown }
     ) => {
       if (settled) return
@@ -73,7 +70,7 @@ export const readAsyraDesignServerResponse = (
       }
     }
     const openRequest = globalThis.indexedDB.open(
-      ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_NAME
+      SERVER_RESPONSE_INBOX_DATABASE_NAME
     )
     openRequest.onupgradeneeded = (event) => {
       if ((event as IDBVersionChangeEvent).oldVersion === 0) {
@@ -92,47 +89,38 @@ export const readAsyraDesignServerResponse = (
       settle({
         error:
           openRequest.error ??
-          new Error(
-            '[Asyra Design server response inbox] IndexedDB open failed'
-          )
+          new Error('[server-response-inbox] IndexedDB open failed')
       })
     }
     openRequest.onblocked = () => {
       settle({
-        error: new Error(
-          '[Asyra Design server response inbox] IndexedDB open was blocked'
-        )
+        error: new Error('[server-response-inbox] IndexedDB open was blocked')
       })
     }
     openRequest.onsuccess = () => {
       const database = openRequest.result
       if (
-        database.version !==
-          ASYRA_DESIGN_SERVER_RESPONSE_INBOX_DATABASE_VERSION ||
-        !database.objectStoreNames.contains(
-          ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME
-        )
+        database.version !== SERVER_RESPONSE_INBOX_DATABASE_VERSION ||
+        !database.objectStoreNames.contains(SERVER_RESPONSE_INBOX_STORE_NAME)
       ) {
         database.close()
         settle({ value: null })
         return
       }
 
-      let response: AsyraDesignServerResponseRecord | null = null
+      let response: ServerResponseRecord | null = null
       let readError: unknown
       const transaction = database.transaction(
-        ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME,
+        SERVER_RESPONSE_INBOX_STORE_NAME,
         'readonly'
       )
       const request = transaction
-        .objectStore(ASYRA_DESIGN_SERVER_RESPONSE_INBOX_STORE_NAME)
+        .objectStore(SERVER_RESPONSE_INBOX_STORE_NAME)
         .get(fileId)
       request.onerror = () => {
         readError =
           request.error ??
-          new Error(
-            '[Asyra Design server response inbox] IndexedDB read failed'
-          )
+          new Error('[server-response-inbox] IndexedDB read failed')
       }
       request.onsuccess = () => {
         if (request.result === undefined) {
@@ -158,17 +146,13 @@ export const readAsyraDesignServerResponse = (
         settle({
           error:
             transaction.error ??
-            new Error(
-              '[Asyra Design server response inbox] IndexedDB read was aborted'
-            )
+            new Error('[server-response-inbox] IndexedDB read was aborted')
         })
       }
       transaction.onerror = () => {
         readError =
           transaction.error ??
-          new Error(
-            '[Asyra Design server response inbox] IndexedDB transaction failed'
-          )
+          new Error('[server-response-inbox] IndexedDB transaction failed')
       }
     }
   })

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AiDrawingProgressState } from '../../common-apis/system-context'
-import { AsyraDesignSystemPropertyKeys } from '../../constants'
+import { SystemPropertyKeys } from '../../constants'
 import core from '../../contexts'
 import RenderApp from '../index'
 
@@ -47,7 +47,7 @@ describe('RenderApp AI drawing progress indicator', () => {
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
     vi.spyOn(core, 'getSystemPropertyObservable').mockImplementation((key) => {
-      if (key === AsyraDesignSystemPropertyKeys.AI_DRAWING_PROGRESS) {
+      if (key === SystemPropertyKeys.AI_DRAWING_PROGRESS) {
         return progress as never
       }
       if (key === PresetSystemPropertyKeys.VIEWPORT_POSITION) {

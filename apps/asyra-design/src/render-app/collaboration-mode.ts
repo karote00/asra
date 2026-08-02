@@ -25,12 +25,9 @@ export const getRequiredFileId = (): string => {
 
 export const getCollaborationMode = (): CollaborationMode => {
   const fileId = getRequiredFileId()
-  const endpoint =
-    import.meta.env.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL?.trim()
+  const endpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
   if (!endpoint) {
-    throw new Error(
-      '[collaboration] missing WebSocket URL in apps/asyra-design/.env'
-    )
+    throw new Error('[collaboration] missing WebSocket URL in .env')
   }
 
   return Object.freeze({

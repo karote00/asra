@@ -3,6 +3,7 @@ import {
   PropertyTypes,
   StrokeJoinTypes,
   createDefaultStroke,
+  emitDiagnosticCounter,
   isRecord,
   setElementGeometryLocalBounds
 } from '@asyra/utils'
@@ -34,16 +35,7 @@ import {
 } from './fills'
 import { PRESET_REGISTRATION } from '../registration'
 
-const emitVectorRenderCounter = (counterName: string, value = 1): void => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraVectorRenderCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraVectorRenderCounterSink?.(counterName, value)
-}
+const emitVectorRenderCounter = emitDiagnosticCounter
 
 const normalizeRawPathTopologyFillRule = (
   value: unknown
@@ -1504,7 +1496,7 @@ export const VECTOR_COMPONENT_DEFINITION: ComponentDefinition = {
     {
       name: PropertyTypes.POSITION,
       type: PropertyTypes.POSITION,
-      alias: ['x', 'y']
+      alias: ['x', 'y', 'rotation']
     },
     {
       name: PropertyTypes.DIMENSION,

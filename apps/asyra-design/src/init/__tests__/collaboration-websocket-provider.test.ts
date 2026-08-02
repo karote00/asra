@@ -1,5 +1,9 @@
 import type { Provider } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
+import {
+  subscribeToBrowserDragPhases,
+  subscribeToDiagnosticCounters
+} from '@asyra/utils'
 import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket as NodeWebSocket, WebSocketServer, type RawData } from 'ws'
@@ -50,6 +54,8 @@ interface Deferred<T> {
   resolve(value: T | PromiseLike<T>): void
   reject(error: unknown): void
 }
+
+const diagnosticDisposers: (() => void)[] = []
 
 const createDeferred = <T>(): Deferred<T> => {
   let resolve!: Deferred<T>['resolve']
@@ -368,7 +374,7 @@ const createLoopbackServer = async (
     throw new Error('loopback WebSocket server did not expose a TCP port')
   }
   const loopback: LoopbackServer = {
-    endpoint: `ws://127.0.0.1:${address.port}/asyra-design-collaboration`,
+    endpoint: `ws://127.0.0.1:${address.port}/collaboration`,
     close: async () => {
       sockets.forEach((socket) => socket.terminate())
       await new Promise<void>((resolve) => server.close(() => resolve()))
@@ -425,16 +431,7 @@ afterEach(async () => {
   await Promise.all([...servers].map((server) => server.close()))
   servers.clear()
   transportWorkers.length = 0
-  delete (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: unknown
-    }
-  ).__asyraBrowserDragPhaseSink
-  delete (
-    globalThis as typeof globalThis & {
-      __asyraDiagnosticCounterSink?: unknown
-    }
-  ).__asyraDiagnosticCounterSink
+  diagnosticDisposers.splice(0).forEach((dispose) => dispose())
   Object.defineProperty(globalThis, 'WebSocket', {
     configurable: true,
     writable: true,
@@ -654,22 +651,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const headers: PublicationFrameHeader[] = []
     const phaseSink = vi.fn()
     const counterSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraBrowserDragPhaseSink = phaseSink
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraDiagnosticCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraDiagnosticCounterSink = counterSink
+    diagnosticDisposers.push(subscribeToBrowserDragPhases(phaseSink))
+    diagnosticDisposers.push(subscribeToDiagnosticCounters(counterSink))
     const server = await createLoopbackServer(
       (socket, message) => {
         if (message.type === 'hello') {
@@ -1065,14 +1048,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
   it('forwards worker-owned inbound byte counters as bounded scalars', async () => {
     let sendInbound: (() => void) | undefined
     const counterSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraDiagnosticCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraDiagnosticCounterSink = counterSink
+    diagnosticDisposers.push(subscribeToDiagnosticCounters(counterSink))
     const server = await createLoopbackServer((socket, message) => {
       if (message.type !== 'hello') return
       socket.send(JSON.stringify({ type: 'ready' }))
@@ -1305,14 +1281,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     expect(inboundFrames.length).toBeGreaterThan(1)
     let sendInbound: (() => void) | undefined
     const phaseSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraBrowserDragPhaseSink = phaseSink
+    diagnosticDisposers.push(subscribeToBrowserDragPhases(phaseSink))
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -1481,14 +1450,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     void firstSettlement.promise.catch(() => undefined)
     const received: SharedPublication[] = []
     const phaseSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraBrowserDragPhaseSink = phaseSink
+    diagnosticDisposers.push(subscribeToBrowserDragPhases(phaseSink))
     provider.onPublication(async (inbound) => {
       received.push(inbound)
       if (inbound.publicationId === publications[0]?.publicationId) {
@@ -1816,14 +1778,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     let sendInterleaved: (() => void) | undefined
     const consumedFrameIds: string[] = []
     const phaseSink = vi.fn()
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraBrowserDragPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraBrowserDragPhaseSink = phaseSink
+    diagnosticDisposers.push(subscribeToBrowserDragPhases(phaseSink))
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
