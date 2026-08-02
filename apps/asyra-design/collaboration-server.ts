@@ -527,10 +527,8 @@ const enqueueOutboundFrame = (
   sourceRequestId: string
 ): void => {
   if (peer.closed || peer.socket.readyState !== WebSocket.OPEN) {
-    throw new ProviderFailure(
-      'transport-failed',
-      '[collaboration] publication recipient disconnected before enqueue'
-    )
+    removePeer(peer)
+    return
   }
   peer.queuedBytes += frame.bytes.byteLength
   const outbound = {
@@ -568,19 +566,14 @@ const admitFrameToRecipients = async (
       frame.bytes.byteLength,
       signal
     )
-    if (!available) {
+    if (!available && signal.aborted) {
       throw new ProviderFailure(
         'transport-failed',
-        '[collaboration] publication recipient disconnected before admission'
+        '[collaboration] publication admission was cancelled'
       )
     }
   }
-  if (
-    signal.aborted ||
-    recipients.some(
-      (peer) => peer.closed || peer.socket.readyState !== WebSocket.OPEN
-    )
-  ) {
+  if (signal.aborted) {
     throw new ProviderFailure(
       'transport-failed',
       '[collaboration] publication admission was cancelled'

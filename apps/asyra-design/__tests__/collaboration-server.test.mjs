@@ -1520,7 +1520,7 @@ test('publication queue allows one oversized frame only while the peer queue is 
   }
 })
 
-test('a request-start peer socket outside OPEN cannot produce source admission before close cleanup', async () => {
+test('a request-start peer socket outside OPEN is dropped without blocking source admission', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4330'
   const child = startServer({
@@ -1556,39 +1556,18 @@ test('a request-start peer socket outside OPEN cannot produce source admission b
       publicationId: 'closing-peer-publication',
       payload: new Uint8Array([0xc1])
     })
-    const senderControls = []
-    const captureSenderControl = (data, isBinary) => {
-      if (isBinary) return
-      senderControls.push(JSON.parse(rawDataToBuffer(data).toString('utf8')))
-    }
-    sender.on('message', captureSenderControl)
-    const firstOutcome = waitForMessage(
-      sender,
-      (message) =>
-        message.type === 'connection-error' ||
-        message.type === 'source-frame-admitted' ||
-        (message.type === 'response' && message.requestId === requestId),
-      'closing peer admission outcome'
-    )
-    const senderClosed = new Promise((resolve) => sender.once('close', resolve))
+    const admitted = sourceFrameAdmissionFor(sender, frame)
+    const response = responseFor(sender, requestId)
 
     sender.send(frame, { binary: true })
 
-    const outcome = await firstOutcome
-    assert.equal(outcome.type, 'connection-error')
-    assert.equal(outcome.code, 'transport-failed')
-    await senderClosed
-    sender.off('message', captureSenderControl)
-    assert.equal(
-      senderControls.some(
-        (message) =>
-          message.type === 'source-frame-admitted' ||
-          (message.type === 'response' &&
-            message.requestId === requestId &&
-            message.ok === true)
-      ),
-      false
-    )
+    assert.deepEqual(await admitted, expectedSourceFrameAdmission(frame))
+    assert.deepEqual(await response, {
+      type: 'response',
+      requestId,
+      ok: true
+    })
+    assert.equal(sender.readyState, WebSocket.OPEN)
   } finally {
     if (closeCleanupHeld) {
       await releasePeerCloseCleanup(child, peerActorId)
@@ -1598,7 +1577,7 @@ test('a request-start peer socket outside OPEN cannot produce source admission b
   }
 })
 
-test('a request-start peer disconnect fails admission atomically and releases the room tail', async () => {
+test('a request-start peer disconnect drops only that peer and releases healthy admission', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4324'
   const child = startServer({ port, origin })
@@ -1635,7 +1614,7 @@ test('a request-start peer disconnect fails admission atomically and releases th
       const frame = inspectOpaquePublicationFrame(rawDataToBuffer(data))
       fastPublicationIds.push(frame.publicationId)
       sendFrameConsumed(fast, frame)
-      if (fastPublicationIds.length === 4) resolveFastComplete()
+      if (fastPublicationIds.length === 5) resolveFastComplete()
     })
 
     const payload = new Uint8Array(600 * 1024)
@@ -1654,61 +1633,38 @@ test('a request-start peer disconnect fails admission atomically and releases th
       await sendPublicationFrameAndWaitForAdmission(sender, frame)
     }
     await Promise.all(responses.slice(0, 3))
-    const connectionError = waitForMessage(
-      sender,
-      (message) => message.type === 'connection-error',
-      'request-start peer disconnect failure'
-    )
-    const senderClosed = new Promise((resolve) => sender.once('close', resolve))
-    const senderControls = []
-    const captureSenderControl = (data, isBinary) => {
-      if (isBinary) return
-      senderControls.push(JSON.parse(rawDataToBuffer(data).toString('utf8')))
-    }
-    sender.on('message', captureSenderControl)
+    const fourthAdmission = sourceFrameAdmissionFor(sender, frames[3])
+    const fourthResponse = responseFor(sender, 'slow-4')
     sender.send(frames[3], { binary: true })
     await slowFirst
-    await noMessageBefore(connectionError)
+    await noMessageBefore(fourthAdmission)
 
     await closeSocket(slow)
-    assert.deepEqual(await connectionError, {
-      type: 'connection-error',
-      code: 'transport-failed',
-      message:
-        '[collaboration] publication recipient disconnected before admission'
-    })
-    sender.off('message', captureSenderControl)
-    assert.equal(
-      senderControls.some(
-        (message) =>
-          message.type === 'source-frame-admitted' ||
-          (message.type === 'response' && message.requestId === 'slow-4')
-      ),
-      false
+    assert.deepEqual(
+      await fourthAdmission,
+      expectedSourceFrameAdmission(frames[3])
     )
-    await senderClosed
-    await expectNoBinaryMessage(fast)
-
-    const recoverySender = await connectPublicClient({
-      port,
-      origin,
-      fileId: 'slow-peer-file',
-      actorId: 'recovery-sender'
+    assert.deepEqual(await fourthResponse, {
+      type: 'response',
+      requestId: 'slow-4',
+      ok: true
     })
-    sockets.push(recoverySender)
+    assert.equal(sender.readyState, WebSocket.OPEN)
+
     const recoveryFrame = createOpaquePublicationFrame({
       requestId: 'slow-recovery',
       publicationId: 'slow-recovery-publication',
       payload: new Uint8Array([0x5a])
     })
-    const recoveryResponse = responseFor(recoverySender, 'slow-recovery')
-    await sendPublicationFrameAndWaitForAdmission(recoverySender, recoveryFrame)
+    const recoveryResponse = responseFor(sender, 'slow-recovery')
+    await sendPublicationFrameAndWaitForAdmission(sender, recoveryFrame)
     await recoveryResponse
     await fastComplete
     assert.deepEqual(fastPublicationIds, [
       'slow-publication-1',
       'slow-publication-2',
       'slow-publication-3',
+      'slow-publication-4',
       'slow-recovery-publication'
     ])
   } finally {
