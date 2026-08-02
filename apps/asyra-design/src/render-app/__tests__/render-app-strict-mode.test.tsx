@@ -1,10 +1,7 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { providers } from '@asyra/reactive-events'
-import {
-  ProviderFailure,
-  type ProviderStatus
-} from '@asyra/collaboration'
+import { ProviderFailure, type ProviderStatus } from '@asyra/collaboration'
 import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
@@ -433,10 +430,7 @@ describe('RenderApp StrictMode lifecycle', () => {
 
   it('keeps the App running and reports an initial collaboration connection failure', async () => {
     vi.mocked(collaborationLifecycle.startCollaboration).mockRejectedValueOnce(
-      new ProviderFailure(
-        'connection-failed',
-        'socket server unavailable'
-      )
+      new ProviderFailure('connection-failed', 'socket server unavailable')
     )
     const host = document.createElement('div')
     document.body.append(host)

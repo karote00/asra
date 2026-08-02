@@ -1,8 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import {
-  ProviderFailure,
-  type ProviderStatus
-} from '@asyra/collaboration'
+import { ProviderFailure, type ProviderStatus } from '@asyra/collaboration'
 import core from '../contexts'
 import {
   AiDocumentInteractionTargetProps,
