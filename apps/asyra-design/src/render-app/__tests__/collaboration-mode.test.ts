@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getCollaborationMode } from '../collaboration-mode'
+import { getCollaborationMode, getRequiredFileId } from '../collaboration-mode'
 
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
@@ -44,12 +44,20 @@ describe('collaboration public file identity', () => {
   })
 
   it('rejects a URL that cannot identify the document', () => {
-    expect(() => getCollaborationMode()).toThrow(
+    expect(() => getRequiredFileId()).toThrow(
       '[collaboration] missing required fileId'
     )
     window.history.replaceState({}, '', '/?fileId=%20%20')
-    expect(() => getCollaborationMode()).toThrow(
+    expect(() => getRequiredFileId()).toThrow(
       '[collaboration] missing required fileId'
     )
+  })
+
+  it('keeps the document available without composing CRDT when no socket endpoint is configured', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
+
+    expect(getRequiredFileId()).toBe('crdt-7076-sample')
+    expect(getCollaborationMode()).toBeNull()
   })
 })

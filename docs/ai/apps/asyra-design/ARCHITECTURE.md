@@ -61,13 +61,25 @@
 3. `src/render-app/index.tsx`
 
 - requires one non-empty `fileId`; that value maps to the App document,
-  collaboration document, and room identity, while a full UUID actor identity
-  is generated per page and configures the canonical ID-counter namespace
-  before collaborative actions
-- selects App-owned IndexedDB persistence before Core startup. The exact
-  `FILE:<encoded fileId>` key isolates browser-local demo documents. A cache
-  miss loads one valid empty document; there is no localStorage migration,
-  old-format compatibility, or second persistence route
+  and, when `VITE_COLLABORATION_WS_URL` is configured, the collaboration
+  document and room identity. A full UUID actor identity is generated per page
+  and configures the canonical ID-counter namespace before collaborative
+  actions
+- injects the App-owned same-origin document database provider before Core
+  startup. It uses `GET`, `PUT`, and `DELETE` at
+  `/api/documents/<encoded fileId>`; local actions, Agent actions, Undo, Redo,
+  and Reset use this one provider
+- treats database availability as a visible persistence status, not App
+  availability. A failed database load displays an error and continues through
+  the file-specific initial canonical document; failed saves remain errors but
+  do not roll back the already committed local action or crash Canvas
+- for `fileId=crdt-7076-sample`, the initial source is the checked-in compressed
+  canonical document generated through the ordinary prepared action and
+  Factory path. Other files use one fresh empty canonical document. Core
+  remains the load-validation owner
+- has no IndexedDB, localStorage, demo-only fake persistence, compatibility
+  format, or second persistence route. A fork implements the matching database
+  server without replacing the frontend client
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
@@ -77,8 +89,10 @@
   collaboration lifecycle; the lifecycle disposer owns idempotent resource cleanup.
   Teardown does not reopen composition, and an unmount during pending startup
   cannot activate collaboration afterward
-- collaboration setup has one failure boundary; a partial setup is disposed
-  before the startup failure is reported
+- collaboration setup is optional when no WebSocket endpoint is configured.
+  Initial connection failure and later disconnection display an unavailable
+  status while Core, Canvas, and local editing continue; a partial setup is
+  disposed without turning transport availability into App availability
 - imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
@@ -120,9 +134,10 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
   changes. Awareness is ephemeral and cannot carry canonical create or move
   geometry; Render remains a downstream projection.
 - Core's persistence lifecycle stores local actions, Agent actions, Undo, and
-  Redo. The App's accepted-remote callback saves the resulting document after
-  the one remote transaction. Both use the same serialized file-scoped
-  provider queue.
+  Redo from the client that originated the operation. An accepted remote
+  publication applies canonical state and updates projections without
+  persistence, Undo, or echo publication; `peer-applied` therefore acknowledges
+  remote apply rather than receiver durability.
 
 ## Module Ownership (App)
 

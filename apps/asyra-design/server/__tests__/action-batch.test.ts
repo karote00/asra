@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 import type { AiProviderInput } from '@asyra/ai-agent-runtime'
 import { describe, expect, it } from 'vitest'
 import {
@@ -159,5 +160,26 @@ describe('crdt-7076 action-batch backend sample', () => {
     expect(fileURLToPath(new URL('reference-image.png', sampleRoot))).toContain(
       '/samples/crdt-7076/'
     )
+  })
+
+  it('keeps one canonical 7,076-element document for the serverless demo import', async () => {
+    const compressedDocument = await readFile(
+      new URL('document.json.gz', sampleRoot)
+    )
+    const document = JSON.parse(gunzipSync(compressedDocument).toString()) as {
+      version: string
+      sceneTree: {
+        workspaceList: readonly string[]
+        elements: Readonly<Record<string, unknown>>
+      }
+    }
+    const workspaceIds = new Set(document.sceneTree.workspaceList)
+    const documentElementIds = Object.keys(document.sceneTree.elements).filter(
+      (elementId) => !workspaceIds.has(elementId)
+    )
+
+    expect(compressedDocument.byteLength).toBeLessThan(16 * 1024 * 1024)
+    expect(document.version).toBe('1.0.0')
+    expect(documentElementIds).toHaveLength(7_076)
   })
 })

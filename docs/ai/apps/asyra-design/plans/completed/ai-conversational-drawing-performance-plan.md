@@ -6,12 +6,14 @@ Completed on 2026-08-02 after the product owner accepted the corrected
 App/CRDT functionality and explicitly requested closeout.
 
 - Outcome: the App retains the accepted endpoint-ordered CRDT architecture,
-  file-scoped persistence, ordinary property projection and Undo/Redo,
+  a formal file-scoped document-database client, ordinary property projection
+  and Undo/Redo,
   minimal `SharedPublication`, and one request-time HTTP Agent provider. The
   checked-in 7,076 sample reads its existing backend vector conversion only
   after the exact image and instruction are submitted and never runs VTracer.
-- Final decision: keep the retained Inspector as architecture authority, keep
-  the reference persistence browser-local, and keep create-app template parity
+- Final decision: keep the retained Inspector as architecture authority, let
+  database failure remain visible but nonfatal, persist only operations
+  originated by the current client, and keep create-app template parity
   outside this completed scope.
 - Canonical record:
   `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`.
@@ -31,8 +33,8 @@ Objective:
 - restore the ordinary canonical property-to-computed-to-Render projection for
   every Properties panel mutation, including Vector point editing, while
   preserving one intended Undo/Redo action;
-- restore file-scoped browser persistence for local actions, AI actions,
-  Undo/Redo, and accepted remote publications in this reference App;
+- restore file-scoped persistence for locally originated actions, AI actions,
+  Undo, and Redo while keeping accepted remote publications nonpersistent;
 - remove App-internal product-name prefixes from code identifiers, remove
   production/test consumption of `window.__…` DevTools handles, and synchronize
   the human-maintenance and architecture documentation requested by the product
@@ -53,7 +55,8 @@ Required gates:
 - a formal regression that fails on the current property projection and proves
   canonical value, visible Render projection, and one-step Undo/Redo;
 - equivalent Vector point-property coverage;
-- file-scoped persistence load/save/remote-apply tests;
+- file-scoped database load/save/failure tests plus receiver zero-persistence
+  tests;
 - fixed inventory checks for App-internal product-name identifiers and
   non-definition `window.__…` consumers;
 - focused unit/integration gates, the requested AI-created 16-item two-Actor
@@ -126,25 +129,28 @@ owner and rerun once; if it still cannot identify a boundary, stop the commit.
 - Failure owner: the first owner that drops or delays the canonical
   Props-to-computed event before ordinary Render/UI consumption.
 
-### Reopened Step Execution Card: file-scoped demo persistence
+### Reopened Step Execution Card: file-scoped document persistence
 
 - Owner step: renamed from `load-empty-demo-document` to
   `load-file-scoped-demo-document`.
-- Inputs: required `fileId`, the App-local IndexedDB provider, committed local
-  action/Undo/Redo outcomes, and accepted remote-publication settlement.
-- Outputs: one file-scoped durable canonical snapshot that the same App reloads
-  before Collaboration starts.
-- Conditions: local and AI actions reuse Core autosave; accepted remote
-  publications enter one App-owned serial persistence handoff after canonical
-  apply; request-time Agent transport remains separate from canonical
-  persistence; the WebSocket server remains memory-only.
-- Bypasses: no stored document loads the valid empty document once; rejected or
-  rolled-back work is never saved.
-- Allowed contributors: App startup, `@asyra/persistence` public IndexedDB
-  provider, Core save/load facade, App collaboration settlement.
+- Inputs: required `fileId`, the same-origin document database endpoint,
+  committed local action/Undo/Redo outcomes, and the checked-in compressed
+  standalone 7,076 canonical sample.
+- Outputs: one file-scoped canonical document and one visible database
+  availability status.
+- Conditions: local and AI actions reuse Core autosave from the originating
+  client; accepted remote publications perform zero persistence; request-time
+  Agent transport remains separate from canonical persistence; the WebSocket
+  server remains memory-only.
+- Bypasses: database failure reports unavailable and loads the file-specific
+  initial document; missing WebSocket configuration bypasses Collaboration
+  without bypassing Core or Canvas.
+- Allowed contributors: App startup, the App-owned HTTP database provider,
+  Core save/load facade, the canonical sample generator, and collaboration
+  status observation.
 - Forbidden contributors: server-owned durability claims, Agent transport
-  reuse, Core remote-origin policy changes, dual storage formats, localStorage
-  compatibility, or a second canonical state owner.
+  reuse, receiver persistence, IndexedDB/localStorage fallback, fake database
+  success, dual storage formats, or a second canonical state owner.
 - Initial implementation boundary:
   `apps/asyra-design/src/document-persistence.ts`,
   `apps/asyra-design/src/render-app`,
@@ -262,10 +268,10 @@ visual review, and manual pan/zoom behavior are accepted. The fixed progressive
 element cap has been raised from 32 to 64 with formal 16-, 320-, and 1,280-item
 boundary coverage. The prior timing runs disabled Collaboration and are
 therefore retained only as pure-client diagnostics, not as production
-single-Actor acceptance. The next measurements use one required `fileId` URL
-whose selected document session always starts Collaboration. Contents is
-mounted as the ordinary production projection; earlier measurements that
-omitted it remain diagnostic only.
+single-Actor acceptance. The next measurements use one required `fileId` URL;
+Collaboration starts only when the test supplies the WebSocket endpoint.
+Contents is mounted as the ordinary production projection; earlier
+measurements that omitted it remain diagnostic only.
 
 The first manual navigation check then exposed a startup-policy mismatch in the
 superseded implementation, whose query-selected source could enter a selectable
@@ -302,21 +308,22 @@ independently and cannot borrow a later endpoint's expected improvement. This
 endpoint refactor does not optimize Contents or production persistence, but the
 production App still mounts the ordinary Contents projection.
 
-Current demo documents use one App-owned IndexedDB provider scoped by required
-`fileId`. RenderApp injects that provider before Core starts, Core loads the
-stored canonical snapshot or one valid fresh empty document, and Collaboration
-starts only after that load. `fileId` identifies which document is being opened
-and will become server authorization input; it is never a Collaboration switch.
-One connected Actor is the single-Actor case; a second Actor joining the same
-`fileId` session makes it the two-Actor CRDT case. Local and AI actions, Undo,
-and Redo reuse Core autosave. Each accepted remote publication enters one
-App-owned serialized save after canonical apply. Production Agent transport
-always requests one backend action batch after Send and remains separate from
-canonical persistence; no localStorage, old-format compatibility, or
-dual-format branch exists.
-This reference persistence substitutes for a server database only in this App;
-future App developers must implement the production database server and App
-persistence integration.
+Current documents use one App-owned same-origin database provider scoped by
+required `fileId`. RenderApp injects that provider before Core starts. A
+successful `GET /api/documents/<encoded fileId>` supplies the stored canonical
+snapshot; failure displays an unavailable status and loads the file-specific
+initial canonical document without stopping Core or Canvas. `fileId` identifies
+which document is being opened and is future server authorization input.
+Collaboration is composed only when `VITE_COLLABORATION_WS_URL` is configured;
+missing or failed transport never owns App availability. Local and AI actions,
+Undo, and Redo reuse Core autosave from the client that originated the
+operation. Accepted remote publications apply and project with zero
+persistence, Undo, or echo. Production Agent transport always requests one
+backend action batch after Send and remains separate from canonical
+persistence; no IndexedDB, localStorage, fake database success, old-format
+compatibility, or dual-format branch exists. Future App developers implement
+the matching production database server without changing the frontend
+composition.
 
 ## Architecture Replan Evidence
 
@@ -793,13 +800,13 @@ full-source slicing, or provider deep-freeze. Deterministic preparation, seed
 data, and fixtures belong only to the test/manual harness and are excluded from
 the production bundle.
 
-This fixture database does not restore client document persistence. Local
-actions, Undo, Redo, and remote apply still perform zero persistence capture,
-provider save, or document IndexedDB read/write. Only the source Actor's
-pre-ready response inbox adapter read is permitted, and it is reported as
-separate external-backend/transport-adapter timing rather than frontend product
-execution. Response inbox seed, read, structured clone, and handoff do
-not count against App, Runtime, Render, or CRDT budgets.
+At that superseded checkpoint, the fixture database did not restore client
+document persistence: local actions, Undo, Redo, and remote apply still
+performed zero persistence capture or provider save. Only the source Actor's
+pre-ready response-inbox adapter read was permitted. The current architecture
+below replaces that historical harness design with request-time backend
+delivery plus the formal document-database client; the paragraph is retained
+only as root-cause history.
 
 ### 2026-07-30 pre-navigation payload correction
 
@@ -1439,14 +1446,17 @@ required fileId selects only the persisted document and Collaboration session
   `apps/asyra-design/samples/crdt-7076`. Its documented URL is
   `/?fileId=crdt-7076-sample`; the `7076` name means one Group plus 7,075
   editable Vector children.
-- Opening that URL performs ordinary document and Collaboration startup only.
-  The sample backend reads the previously converted vector source only after
-  the ordinary Agent request contains the exact checked-in image and exact
-  instruction. It does not invoke VTracer, an image converter, or a model for
-  this sample request.
+- On the deployed site, opening that URL attempts the formal database request
+  and, when it fails, loads the checked-in compressed canonical result without
+  Collaboration. In the local full-flow configuration, a WebSocket endpoint
+  makes the same URL start from the database or a fresh empty document; the
+  sample backend reads the previously converted vector source only after the
+  ordinary Agent request contains the exact checked-in image and instruction.
+  It does not invoke VTracer, an image converter, or a model for this sample
+  request.
 - A nonmatching, malformed, or aborted request fails at the provider/backend
-  boundary. It never falls back to a frontend fixture, URL-selected response,
-  IndexedDB response inbox, prompt-only size branch, old payload format, or
+  boundary. It never falls back to a frontend action fixture, URL-selected
+  response, response inbox, prompt-only size branch, old payload format, or
   second provider.
 - The returned `AiActionBatch` remains local, noncanonical, and nonshared.
   Runtime resolves it through the ordinary action catalog; Actor A alone
@@ -1458,8 +1468,8 @@ required fileId selects only the persisted document and Collaboration session
   the frontend.
 - Request-time Agent transport is not document persistence. Actor A persists
   the successful AI action through the existing Core autosave boundary, and
-  Actor B persists accepted remote canonical state through the existing
-  serialized App-owned remote persistence handoff.
+  Actor B applies accepted remote canonical state with zero persistence, Undo,
+  or echo publication.
 
 ### Server-prepared AiActionBatch Contract
 
@@ -1665,9 +1675,9 @@ The write timeline is fixed:
 5. If an already-published immediate slice rolls back, compensation uses the
    inverse already recorded in the existing transaction journal; no separate
    bulk compensation artifact is created.
-6. Local action, Agent action, Undo, and Redo use Core autosave. One accepted
-   remote apply saves the resulting document through the same file-scoped
-   serialized provider queue, without remote Undo or echo.
+6. Local action, Agent action, Undo, and Redo use Core autosave on the client
+   that originated the operation. Accepted remote apply uses zero persistence,
+   Undo, or echo; `peer-applied` acknowledges canonical apply completion.
 
 No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
@@ -1773,11 +1783,13 @@ intended transaction or history boundary.
   retirement leaves exact capacity for the next frame; there is no second
   hysteresis threshold.
 - A JSON `source-frame-admitted` credit is returned only after one source frame
-  enters every request-start peer queue. The provider retains one outbound
-  publication frame in flight and sends the next frame only after the exact
-  credit arrives. This source-ingress stop-and-wait boundary remains distinct
-  from the bounded peer-egress window and bounds source ingress without pausing
-  the whole socket.
+  enters every request-start peer queue whose peer remains open through
+  admission. A peer that disconnects or leaves `OPEN` before enqueue is dropped
+  from that admission without failing the source or another healthy peer. The
+  provider retains one outbound publication frame in flight and sends the next
+  frame only after the exact credit arrives. This source-ingress stop-and-wait
+  boundary remains distinct from the bounded peer-egress window and bounds
+  source ingress without pausing the whole socket.
 - JSON controls, especially receiver `frame-consumed`, remain on a readable fast
   path while publication admission is blocked. The server must not use a
   socket-wide pause as publication backpressure because that can deadlock
@@ -1808,9 +1820,9 @@ intended transaction or history boundary.
   publication.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
-- Actor B creates no Undo or echo publication. After one accepted remote apply,
-  it persists the resulting document once through the App's file-scoped
-  provider queue.
+- Actor B creates no Undo, echo publication, or persistence save. It applies
+  the received canonical changes, updates Render/UI projections, and then
+  acknowledges `peer-applied`.
 - Disconnection, closed transport, invalid frames, and worker teardown preserve
   existing `ProviderFailure` behavior and never fabricate convergence.
 
@@ -1888,16 +1900,25 @@ intended transaction or history boundary.
 
 ### File-Scoped Demo Persistence
 
-- RenderApp receives one required `fileId` URL, derives one file-scoped
-  IndexedDB provider, injects it before `Core.start()`, and lets Core load the
-  stored canonical snapshot or one valid fresh empty document. It then always
-  starts Collaboration. A missing or empty `fileId` cannot open the document.
-  The identity selects the document and is future server authorization input;
-  it never toggles Collaboration.
+- RenderApp receives one required `fileId` URL, derives one same-origin
+  document database URL, injects that provider before `Core.start()`, and lets
+  Core load the stored canonical snapshot or the file-specific initial
+  document. A missing or empty `fileId` cannot open the document. The identity
+  selects the document and is future server authorization input.
+- The provider uses `GET`, `PUT`, and `DELETE` on
+  `/api/documents/<encoded fileId>`. A failed request displays a database
+  unavailable message. Failed load continues with the initial document;
+  failed save remains an error without rolling back the committed local action
+  or crashing the App.
+- When no WebSocket endpoint is configured, the deployed
+  `crdt-7076-sample` document loads the checked-in compressed canonical result
+  with 7,076 non-workspace elements and composes no Collaboration. When the
+  endpoint is configured for the local full-flow test, the same file starts
+  from the database or a fresh empty document before Actor A submits the exact
+  sample request.
 - Root `dev:all` starts only workspace package watchers and the App dev server.
   The explicit `collaboration:server` command or collaboration Playwright
-  startup separately owns the reference WebSocket server and makes it ready
-  before the App begins its required document connection.
+  startup separately owns the reference WebSocket server.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
@@ -1911,20 +1932,20 @@ intended transaction or history boundary.
 - `Core.load(...)` is the sole `FILE_LOAD_COMPLETE` publisher for startup and
   reset. App contexts may observe that completed load for zoom-fit, but never
   synthesize file readiness from Render readiness.
-- Local actions, AI actions, Undo, and Redo reuse Core autosave. Accepted remote
-  publications serialize one App-owned save after canonical apply and before
-  peer-applied settlement; Actor B still creates no Undo or echo publication.
-- The harness-owned pre-ready response inbox remains a separate read-only
-  server-response adapter and never loads or saves the canonical document.
-- No localStorage migration, old-format compatibility, dual-format branch, or
-  second canonical state owner is allowed.
-- Collaboration connects only after the stored or fresh canonical document is
-  loaded.
-- A future production socket server coordinating backend DB checkpoints is
-  outside this plan. The current reference server remains an in-memory
-  transport owner, not a durability owner; future App developers must replace
-  the reference App-local provider with their production database server and
-  App persistence integration.
+- Local actions, AI actions, Undo, and Redo reuse Core autosave only on the
+  client that originated the operation. Accepted remote publications perform
+  zero persistence, Undo, or echo; `peer-applied` acknowledges canonical apply,
+  not durability.
+- No IndexedDB/localStorage fallback, fake database success, old-format
+  compatibility, dual-format branch, or second canonical state owner is
+  allowed.
+- Collaboration connects only after the database or initial canonical document
+  is loaded. A missing endpoint, initial connection failure, or later
+  disconnection displays status while Core, Canvas, and local editing continue.
+- The current reference WebSocket server remains an in-memory transport owner,
+  not a durability owner. Future App developers implement the formal document
+  database server endpoint without changing the frontend persistence
+  composition.
 
 ## Performance Measurement Contract
 
@@ -2044,9 +2065,10 @@ Response inbox adapter seeding and the fileId-selected response lookup,
 navigation, App readiness, collaboration readiness, server AI readiness,
 reference attachment, runtime evidence readiness, and history baseline are
 named E2E harness spans. They remain separate from product execution, owner,
-transport, Render, and UI timing. Collaboration client-document-persistence
-bypass is proven with cheap startup/runtime counters; no canonical document
-IndexedDB state is opened, polled, normalized, stringified, or hashed.
+transport, Render, and UI timing. The source Actor's local persistence and the
+receiving Actor's zero-persistence boundary are proven with cheap
+startup/runtime counters; no canonical database state is opened, polled,
+normalized, stringified, or hashed.
 
 ### Gate Partitioning
 
@@ -2192,18 +2214,19 @@ capacity, and wire receipt, server acceptance, and peer apply remain distinct.
 ### Remote Batch Apply
 
 Each source publication applies through one remote Factory transaction and one
-batch observer delivery. Actor B converges without Undo or echo, then the App
-saves the resulting document once through its serialized file-scoped provider.
+batch observer delivery. Actor B converges without persistence, Undo, or echo,
+then emits `peer-applied` after canonical apply completes.
 
 ### Demo Documents Persist by File
 
-The ordinary local demo, Actor A, and Actor B each configure one
-`fileId`-scoped IndexedDB provider before Core starts. A stored snapshot or one
-valid empty document loads before Collaboration. Local actions, Agent actions,
-Undo, Redo, accepted remote apply, and Reset persist through one serialized
-provider queue. The test/manual harness may seed the separate response inbox
-adapter before navigation; that harness adapter remains outside the production
-bundle and completes its exact record lookup before App readiness.
+Every document configures one `fileId`-scoped same-origin database provider
+before Core starts. A stored snapshot or the file-specific initial document
+loads before optional Collaboration. Local actions, Agent actions, Undo, Redo,
+and Reset persist through one serialized provider queue on the client that
+originated the operation; accepted remote apply performs zero persistence. The
+deployed 7,076 preview attempts this same database contract and, on failure,
+shows an error while loading its checked-in compressed canonical document.
+There is no browser-storage or fake-persistence fallback.
 
 ### Fast Server-response AI CRDT Correctness
 
@@ -3114,8 +3137,9 @@ Step Execution Card:
   evidence.
 - Inputs and outputs: accept one encoded source frame, inspect only its bounded
   wire metadata, preserve canonical payload byte parity, enqueue it in every
-  request-start peer's exact 2 MiB window, and return source admission only
-  after all peer queues accept it.
+  still-open request-start peer's exact 2 MiB window, drop a peer that
+  disconnects before enqueue without failing healthy admission, and return
+  source admission only after all remaining peer queues accept it.
 - Formal oracle: the existing server suite must prove opaque payload relay,
   exact 2 MiB capacity without hysteresis, one oversized-empty-queue exception,
   FIFO sends before contiguous send-callback plus frame-consumed retirement,
@@ -5440,10 +5464,11 @@ benchmark runs.
   decoded publication, bounded multi-frame ingress and peer-egress windows, opaque
   byte parity, slow peer, disconnect, and ordered receipts.
 - Remote: one publication transaction and one batch observer call, with no
-  Undo or echo, followed by one serialized App-owned document save.
-- Demo startup: every required `fileId` configures one file-scoped IndexedDB
-  provider and loads its stored or valid empty canonical document before
-  Collaboration.
+  persistence, Undo, or echo, followed by `peer-applied`.
+- Document startup: every required `fileId` configures one same-origin database
+  provider and loads its stored or file-specific initial canonical document
+  before optional Collaboration. Database and WebSocket failures remain visible
+  without terminating Core or Canvas.
 
 Each owner step runs focused unit and integration gates first. A guarded
 7,076-element creation-only proof runs only at the explicitly named complete
@@ -5504,9 +5529,10 @@ never committed.
   serves Collaboration without `inverseEvents`, History evidence, rollback
   evidence, or payload aliases.
 - Peer queues remain byte-bounded and exact publication order converges.
-- Actor B has no Undo or echo side effects. Actor A persists accepted local
-  results and Actor B persists accepted remote results through the same
-  file-scoped App-owned serialized persistence route.
+- Actor B has no persistence, Undo, or echo side effects. Actor A persists
+  accepted locally originated results through the file-scoped App-owned
+  serialized database route; `peer-applied` on Actor B proves apply, not
+  durability.
 - Existing performance budgets pass without lowering detail or weakening
   canonical, history, cooperative visibility, or publication semantics.
 - The synchronized visual review passes from the same measured live App state.

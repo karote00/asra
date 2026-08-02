@@ -169,7 +169,7 @@ Feature: Conversational AI drawing performance
     And App-owned request acceptance or dispatch should begin operation timing
     And operation should run until Actor B canonical and Render counts are exactly 17
     And Actor A should retain one Undo action while Actor B retains zero Undo and zero echo
-    And both accepted local and remote outcomes should complete their file-scoped persistence handoff
+    And Actor A should complete one originating-client persistence handoff while Actor B should perform zero persistence
     And after Actor B completes both Actors should idle for exactly 10 seconds without another product action
     And each Actor page-target should use CDP Performance threadTicks deltas for TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration
     And those deltas should report page main-thread task occupancy rather than complete Actor CPU
@@ -325,7 +325,7 @@ Feature: Conversational AI drawing performance
     And Undo and Redo should restore and remove the exact relation tuples and canonical component ids
     And remote exact removal should use one origin-neutral Core canonical-data path and consume its Scene and Props batches once
     And CRDT remote apply should preserve the same shared evidence without computed payloads
-    And the App should persist the accepted remote canonical result without remote Undo or echo
+    And the App should apply the accepted remote canonical result with zero persistence, Undo, or echo
 
   Scenario: Shared relation boundary remains minimal
     Given Props independently owns property/component identity, lifecycle, and the property-child graph
@@ -494,34 +494,52 @@ Feature: Conversational AI drawing performance
     And the consumer promise should resolve only after canonical apply completes
     And Actor B should create no Undo action
     And Actor B should create no echo publication
-    And Actor B should serialize one App-owned file-scoped save after canonical apply
-    And peer-applied should settle only after that persistence handoff completes
+    And Actor B should perform zero persistence after canonical apply
+    And peer-applied should settle immediately after that canonical apply completes
 
-  Scenario: Demo documents reload from file-scoped App persistence
-    Given an App-owned demo document session starts from one required fileId URL
-    When RenderApp starts Core for the demo session
-    Then each actor should receive one file-scoped IndexedDB provider before Core starts
-    And each actor should load its stored canonical snapshot or one valid fresh empty document
-    And Collaboration should connect only after that document is loaded
+  Scenario: Documents use the formal database boundary without making availability fatal
+    Given an App document session starts from one required fileId URL
+    When RenderApp starts Core for the document
+    Then the App should inject one same-origin document database provider before Core starts
+    And it should load the database snapshot or the file-specific initial canonical document
+    And a database connection failure should display an error message
+    But that failure should not stop the App and Canvas
     And local actions and AI actions should reuse Core autosave
     And Undo and Redo should reuse Core autosave
-    And Actor B accepted remote apply should serialize one App-owned save without Undo or echo
-    And refresh should restore the latest stored canonical snapshot for that fileId
+    And a successful database connection should let refresh restore the latest snapshot for that fileId
     But request-time Agent transport should remain separate from document persistence
-    And future App developers should replace this reference provider with their production database server and App persistence integration
+    And no IndexedDB, localStorage, or demo-only persistence fallback should exist
+    And future App developers should implement the matching production database server without replacing the frontend client
 
-  Scenario: Required fileId selects the document without toggling Collaboration
+  Scenario: Remote apply never persists on the receiving client
+    Given Actor A originated and persisted one committed canonical operation
+    When Actor B receives and applies the corresponding publication
+    Then Actor B should perform zero persistence
+    And Actor B should create no Undo
+    And Actor B should create no echo publication
+    And peer-applied should acknowledge canonical apply rather than durability
+
+  Scenario: The deployed 7076 sample loads without CRDT
+    Given the deployed URL is "/?fileId=crdt-7076-sample"
+    And no WebSocket endpoint is configured
+    When the formal database request fails
+    Then the App should display the database error
+    And it should load the checked-in compressed canonical document
+    And Core should receive exactly 7076 non-workspace elements
+    And the Canvas should remain usable without Collaboration
+
+  Scenario: Required fileId selects the document while Collaboration remains optional
     Given RenderApp receives one required fileId URL
     And that fileId selects the App-owned document session
-    When the first Actor connects after the document load
-    Then Collaboration should always be active for the opened document
+    When no WebSocket endpoint is configured
+    Then Core and Canvas should start without Collaboration
     And root dev:all should start only frontend workspace processes and the App dev server
-    And the explicit collaboration:server command or collaboration Playwright should separately make the reference WebSocket server ready before the App connects
+    When the explicit collaboration:server command or collaboration Playwright separately supplies the WebSocket endpoint
+    Then the first Actor should connect after the document load
     And one Actor in that document session should be classified as single-Actor processing
     When a second Actor opens the same fileId
     Then both Actors should use the same collaboration room
     And the session should be classified as two-Actor CRDT processing
-    But fileId should select the document and never toggle Collaboration
     And a missing or empty fileId should not open a document session
 
   Scenario: Reset persists a fresh empty demo document
@@ -537,10 +555,11 @@ Feature: Conversational AI drawing performance
 
   Scenario: Actor A requests the checked-in 7076 backend sample after Send
     Given the required URL is "/?fileId=crdt-7076-sample"
-    And fileId selects only the persisted document and Collaboration session
+    And the local action-batch backend, database server, and WebSocket endpoint are configured
+    And fileId selects the persisted document and Collaboration session
     And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and previously converted 7075-vector source
     When App bootstrap and Agent readiness complete
-    Then no action payload should be seeded, preloaded, read from an IndexedDB response inbox, or selected by fileId
+    Then no action payload should be seeded, preloaded, read from a response inbox, or selected by fileId
     And the canonical document should remain unchanged before Actor A sends a conversation request
     When Actor A opens the Agent panel, attaches the exact sample image, enters the exact sample instruction, and presses Send
     Then the provider should call only "requestActionBatch()" through one same-origin HTTP request
@@ -597,7 +616,7 @@ Feature: Conversational AI drawing performance
     Then it should receive detached canonical, history, Factory status, commit, and publication snapshots
     And dev-only "window.__Core__" should not satisfy production evidence
     And navigation, App readiness, collaboration readiness, server AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
-    And the harness should not open, poll, normalize, stringify, or hash document IndexedDB
+    And the harness should not open, poll, normalize, stringify, or hash document database state
 
   Scenario: Performance work preserves cancellation and failure semantics
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down

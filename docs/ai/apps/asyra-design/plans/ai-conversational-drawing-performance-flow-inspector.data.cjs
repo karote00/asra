@@ -48,10 +48,11 @@
         'requestActionBatch() is the only public provider request and performs exactly one same-origin HTTP POST for the accepted turn.',
         'The request carries the submitted intent, attachment metadata and data URL, App context, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
         'The backend owns input matching, model or reference-sample processing, server-side geometry preparation, stable descriptor IDs, relationships, summaries, and construction of one AiActionBatch with one batchId.',
-        'The checked-in crdt-7076 sample is a reproducible backend sample, not a frontend fixture mode: its documented URL uses fileId=crdt-7076-sample only as document and collaboration identity, and the backend accepts its exact checked-in image and instruction through the ordinary request body.',
+        'The checked-in crdt-7076 backend sample remains the local full-flow request path: its documented URL uses fileId=crdt-7076-sample as document identity and, when a WebSocket endpoint is configured, collaboration identity; the backend accepts its exact checked-in image and instruction through the ordinary request body.',
+        'The separately deployed static demo may load the checked-in compressed canonical crdt-7076 document during document bootstrap without issuing an Agent request or composing Collaboration. That document bootstrap is not an AiActionBatch, provider response, or alternate Agent execution path.',
         'The crdt-7076 sample backend reads the checked-in previously converted vector source from the same sample folder after the exact image and instruction match; it never invokes VTracer, image conversion, or a model during this sample request.',
         'The crdt-7076 sample returns 7,075 ordered editable Vector descriptors inside one prepared Group descriptor, for 7,076 total canonical elements; no route, fileId, query parameter, or startup branch is named or counted as 7,075.',
-        'A nonmatching sample request fails explicitly at the backend. It never falls back to a frontend payload, URL-selected response, prompt-only size selection, IndexedDB response inbox, or client-side fixture import.',
+        'A nonmatching sample request fails explicitly at the backend. It never falls back to a frontend action payload, URL-selected response, prompt-only size selection, response inbox, or client-side action fixture import.',
         'The production client contains no server-response inbox, response seeding, response preload, resident batch, or fileId-selected action payload.',
         'Actor B never calls the backend for Actor A turn and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bound, transform, style, stable ID, and relationship prepared by the backend.',
@@ -61,7 +62,7 @@
       bypasses: [
         'An aborted request cancels the same provider/backend attempt and creates no Runtime, canonical, history, persistence, or CRDT result.',
         'A malformed or unsupported request fails at the provider/backend boundary before Runtime resolution.',
-        'An Actor that only opens the sample URL performs ordinary document and collaboration startup with zero action-batch request.'
+        'An Actor that only opens the sample URL performs ordinary document startup with zero action-batch request; Collaboration starts only when the WebSocket endpoint is configured.'
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
@@ -70,13 +71,13 @@
         'backend-owned action-batch preparation',
         'checked-in crdt-7076 sample input and server-owned reference output',
         'checked-in previously converted crdt-7076 vector source',
-        'required fileId as document and collaboration identity only'
+        'required fileId as document identity and configured collaboration identity only'
       ],
       forbiddenContributors: [
-        'canonical document persistence provider or document IndexedDB store',
+        'canonical document database client or document snapshot',
         'server-response inbox, startup response preload, or resident action batch',
         'fileId, URL, query parameter, or App bootstrap selecting an action payload',
-        'frontend fixture import, phrase branch, geometry preparation, materialization, or response construction',
+        'frontend action fixture import, phrase branch, geometry preparation, materialization, or response construction',
         'VTracer or image conversion during the crdt-7076 sample request',
         'frontend item, path, point, style, bounds, role, or model semantic validation',
         'frontend model normalization or drawing-artifact encoding',
@@ -900,14 +901,14 @@
         'Blocked admission resumes as soon as contiguous retirement leaves exact capacity for the next frame; there is no second hysteresis threshold.',
         'The server accepts one outbound publication frame per connection, returns exact source-frame-admitted credit, and accepts the next frame only after that credit.',
         'Source ingress retains one pending frame until exact source-frame-admitted credit permits the next frame; this source admission boundary is distinct from the peer egress byte window.',
-        'After one source frame enters every request-start peer queue, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
+        'After one source frame enters every request-start peer queue whose peer remains open through admission, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
         'The JSON control fast path remains readable while publication admission is blocked; the server does not use socket-wide pause to bound source frames.',
         'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
         'peer-applied remains a separate receipt after main-thread canonical apply.',
         'Client and server explicitly configure perMessageDeflate: false.'
       ],
       bypasses: [
-        'A disconnected or closed peer receives no later frame and reports the existing transport failure.',
+        'A request-start peer that disconnects or leaves OPEN before enqueue is dropped from that admission and receives no later frame; the source and remaining healthy peers continue.',
         'A peer without exact 2 MiB unretired-byte capacity delays server acceptance rather than growing an unbounded queue.',
         'Awareness and other JSON controls retain their ordinary control path.'
       ],
@@ -961,11 +962,11 @@
         'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
         'The App organizes source slices, batches, delivery order, and batch-to-slice membership in one linear pass per accepted publication; later classification consumes that organization without rescanning slices or merging publications.',
         'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
-        'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo or echo publication; App-local persistence begins only after canonical apply succeeds.',
+        'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
-        'Actor B produces no Undo and no echo publication, then serializes exactly one current canonical document save through the App-owned file-scoped persistence handoff.',
-        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves only after canonical apply and the App-local persistence handoff complete, while failure tears down the active and pending publications and releases none.',
-        'The remote owner emits peer-applied only after canonical apply and the App-local persistence handoff complete; it remains distinct from frame-consumed credit.'
+        'Actor B produces no Undo, echo publication, or persistence save; it only applies the received canonical changes and updates downstream projections.',
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves after canonical apply completes, while failure tears down the active and pending publications and releases none.',
+        'The remote owner emits peer-applied after canonical apply completes; it remains distinct from frame-consumed credit and never waits for receiver persistence.'
       ],
       bypasses: [
         'Disconnected or closed transport performs no remote transaction.',
@@ -976,13 +977,13 @@
         'artifact:decoded-publication-batches',
         '@asyra/collaboration public process contract',
         'Asyra Design App policy',
-        '@asyra/core and @asyra/factory public batch boundaries',
-        'artifact:remote-persistence-settlement'
+        '@asyra/core and @asyra/factory public batch boundaries'
       ],
       forbiddenContributors: [
         'one remote transaction per canonical event',
         'merging different source publications',
         'remote Undo or echo publication',
+        'receiver persistence load, save, or clear',
         'generic Collaboration, Factory, or Core ownership of App database policy',
         'whole-document peer regeneration'
       ],
@@ -1013,68 +1014,79 @@
       id: 'load-file-scoped-demo-document',
       order: 1,
       laneId: 'persistence-proof',
-      title: 'Load and save one file-scoped demo document',
+      title: 'Load and save one file-scoped document',
       ownerPackage: 'Asyra Design RenderApp persistence composition',
       purpose:
-        'Require fileId to select the App-owned demo document session, inject one App-owned IndexedDB persistence provider before Core starts, load a stored canonical snapshot or one valid fresh empty document, always start Collaboration after load, and durably save local and accepted remote outcomes.',
+        'Require fileId to select one App document, inject the same-origin document database provider before Core starts, continue with the file-specific initial canonical document and a visible error when the database is unavailable, optionally compose Collaboration only when a WebSocket endpoint is configured, and persist only actions originated by this client.',
       inputs: [
         'required fileId URL',
         'Asyra Design RenderApp startup policy',
-        'App-owned IndexedDB persistence provider',
-        'artifact:remote-publication-settlement'
+        'same-origin document database endpoint',
+        'checked-in compressed crdt-7076 canonical document'
       ],
       outputs: [
         'artifact:file-scoped-demo-document-snapshot',
-        'artifact:remote-persistence-settlement'
+        'artifact:document-database-status'
       ],
       conditions: [
         'A missing or empty fileId does not open a document session.',
-        'RenderApp derives one file-scoped storage key from required fileId, injects one App-owned IndexedDB persistence provider before Core starts, and lets Core load the stored canonical snapshot or one valid fresh empty document before Collaboration connects.',
-        'The required fileId URL supplies the document session identity and always starts Collaboration after load; fileId selects which document opens and is never a Collaboration toggle.',
-        'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server and makes it ready before the App document connection begins.',
+        'RenderApp derives one same-origin document database URL from required fileId, injects that provider before Core starts, and lets Core load the stored canonical snapshot or the file-specific initial canonical document.',
+        'When the document database is unavailable, malformed, or returns a failure, the App exposes a visible unavailable status and continues Core and Canvas startup with the file-specific initial canonical document. Database availability never owns App availability.',
+        'The required fileId supplies document identity. When VITE_COLLABORATION_WS_URL is configured it also supplies document and room identity; a missing endpoint or failed WebSocket connection does not block Core, Canvas, or local editing.',
+        'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
-        'The required fileId selects only the document and collaboration session; it never selects, preloads, or stores an Agent action payload.',
-        'Ordinary local actions, AI actions, Undo, and Redo reuse the existing Core autosave boundary and save one current canonical snapshot after the committed owner action.',
-        'Each accepted remote publication performs one App-owned serial persistence handoff after canonical apply and before peer-applied settlement, without remote Undo or echo publication.',
+        'The required fileId selects only the document and configured collaboration session; it never selects, preloads, or stores an Agent action payload.',
+        'Ordinary local actions, AI actions, Undo, and Redo reuse the existing Core autosave boundary and save one current canonical snapshot from the client that originated the operation.',
+        'Each accepted remote publication performs canonical apply and projection with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical apply completion and never waits for receiver durability.',
+        'The deployed crdt-7076 URL loads the checked-in compressed canonical document with exactly 7,076 non-workspace elements when the database request fails; it does so without Collaboration when no WebSocket endpoint is configured.',
+        'The deployed App still attempts the formal database endpoint. It has no demo-only persistence provider, fake database success, or alternate document route.',
         'resetData loads one fresh App-owned empty document through Core.load and persists it through the same file-scoped provider without URL parsing or page reload.',
         'RenderApp startup and resetData obtain independent fresh values from the same zero-argument App-owned empty-document factory; no shared mutable empty-document singleton exists.',
         'Core.load is the sole FILE_LOAD_COMPLETE publisher for startup and reset. DataContexts observes that completed load for zoom-fit and never synthesizes file readiness from Render readiness.',
         'Reset Data is a local demo-document reset. It creates no Factory action or collaboration publication and makes no claim that another Actor is cleared.',
         'The request-time Agent transport remains separate from document persistence and never doubles as document storage.',
-        'There is no localStorage migration, old-format compatibility branch, dual document format, or second canonical state owner.',
-        'This IndexedDB provider is an Asyra Design reference-App substitute for a server database; a future App developer must supply the production database server and App persistence integration.',
+        'There is no IndexedDB or localStorage fallback, old-format compatibility branch, dual document format, or second canonical state owner.',
+        'The frontend defines the formal database client contract; a future App developer supplies the matching production database server without changing frontend composition.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
       bypasses: [
-        'A missing stored snapshot loads one valid fresh empty canonical document without writing an old-format placeholder.',
+        'A failed document database load reports unavailable and loads one file-specific initial canonical document without claiming persistence success.',
+        'A missing WebSocket endpoint bypasses Collaboration composition while preserving the same document, Core, Canvas, action, and persistence owners.',
         'Formal server checkpoint policy, authorization, multi-device durability, and backend database ownership remain outside this reference App step.'
       ],
       allowedContributors: [
         'required fileId App startup',
-        'fileId-selected App document session identity',
+        'fileId-selected App document identity',
         'Asyra Design RenderApp startup',
-        '@asyra/persistence public IndexedDB provider',
+        'App-owned same-origin document database provider',
         'Core persistence provider and autosave boundaries',
         'App-owned fresh empty-document factory',
+        'checked-in compressed canonical sample generator and asset',
         'local reset through the ordinary Core load API',
-        'App-owned serial accepted-remote persistence handoff'
+        'Collaboration status observation'
       ],
       forbiddenContributors: [
         'Agent action-batch transport as canonical document persistence',
-        'localStorage document storage or migration',
+        'IndexedDB or localStorage document storage, migration, or fallback',
+        'demo-only fake persistence or database success',
+        'receiver-side persistence, Undo, or echo publication',
         'old-format compatibility or dual-format document branches',
         'Factory, Collaboration, or transport ownership of App database policy',
         'synthetic FILE_LOAD_COMPLETE publication from Render readiness',
         'reset-time URL parsing or page reload',
         'treating local Reset Data as a CRDT clear action',
         'a URL route that opens a document without fileId',
-        'treating fileId as a Collaboration activation or deactivation toggle',
-        'a separate non-Collaboration document startup path',
+        'treating fileId alone as proof that a collaboration endpoint exists',
+        'a separate demo-only Core or persistence startup path',
         'changes to Factory history or transaction semantics'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
+        'apps/asyra-design/scripts/generate-crdt-7076-document.ts',
+        'apps/asyra-design/samples/crdt-7076',
+        'apps/asyra-design/server/__tests__/action-batch.test.ts',
+        'apps/asyra-design/src/config/demo-document.ts',
         'apps/asyra-design/src/config/empty-document.ts',
         'apps/asyra-design/src/controllers/app.ts',
         'apps/asyra-design/src/controllers/__tests__/app.test.ts',
@@ -1200,7 +1212,7 @@
         'The 2026-07-31 7,076-element attempt terminated by converted 397.203-percent frontend and 401.175-percent aggregate CPU-time interval values is invalid evidence: its raw same-snapshot frontend and aggregate values were 199.4 and 209.2 percent, it crossed neither user-defined limit, it creates no accepted baseline or architecture-attempt count, and it cannot select a CRDT owner.',
         'After the raw CPU contract and guard implementation pass focused formal tests and bounded review, one corrected guarded 16-item proof must pass; any replacement 7,076-element invocation requires explicit product-owner approval because the invalid attempt already consumed the available high-detail test budget.',
         'If process ownership or heartbeat evidence cannot be established, the 7,000-plus benchmark refuses to start unguarded.',
-        'Success preserves exact canonical IDs, order, geometry data, complete Render topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, and file-scoped App persistence for both accepted local and remote outcomes.',
+        'Success preserves exact canonical IDs, order, geometry data, complete Render topology, hierarchy, styles, one Actor A Undo action, zero Actor B Undo, zero echo, one originating Actor A persistence outcome, and zero receiving Actor B persistence.',
         'Effectiveness requires the owned failing budget to become green or the owned structural, span, or queue metric to improve by at least 15 percent without an adjacent critical owner regressing more than 15 percent.',
         'The raw 251.7-percent frontend and 259.0-percent aggregate local-source observation was below both limits then active for that checkpoint, so it is not an accepted stop or endpoint proof; after focused threshold gates, the local-source guarded 7,076-element proof ran once before remote apply advanced.',
         'The first receiver endpoint uses the retained 940/7,076 elements and 11/35 publications at 30 seconds as its pre-refactor comparison and performs no additional 7,076-element seed run; every later endpoint consumes artifact:accepted-endpoint-baseline.',
@@ -1319,7 +1331,7 @@
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
         'artifact:file-scoped-demo-document-snapshot',
-        'artifact:remote-persistence-settlement',
+        'artifact:document-database-status',
         'artifact:endpoint-performance-proof'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
@@ -1328,7 +1340,7 @@
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
         'Navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution; the provider request and backend action-batch preparation begin only after Actor A submits the turn and remain named product spans.',
-        'Both collaboration actors expose bounded persistence counters without reading or hashing canonical document IndexedDB state; local autosave and accepted-remote serial saves remain distinct from the source Actor request-time Agent transport.',
+        'The source Actor exposes bounded local persistence counters without reading or hashing database state; the receiving Actor proves zero persistence while request-time Agent transport remains separate from document storage.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, the final accepted guarded 7,076-element endpoint proof, and the 27,471-element 295,794-point gate pass.',
         'The maximum-detail 27,471-element 295,794-point gate allows at most 300 seconds from accepted turn to Actor A settled while retaining the ordinary 250-percent single-Actor frontend and 400-percent aggregate current-CPU limits.',
         'Local performance and maximum-detail gates launch background headless Chrome for Testing so automation never steals the product owner desktop focus; they apply no CPU quota, process-count limit, worker-count limit, memory ceiling, software-rendering requirement, or Playwright retry, while workers: 1 limits concurrent test cases only and never limits one browser process group.',
@@ -1680,7 +1692,7 @@
       to: 'admit-receiver-publication-frames',
       kind: 'credit',
       predicate:
-        'One source frame entered every request-start peer queue and the provider may send the next frame.',
+        'One source frame entered every still-open request-start peer queue and the provider may send the next frame.',
       producedArtifacts: ['artifact:source-frame-admitted-credit']
     },
     {
@@ -1719,15 +1731,6 @@
       kind: 'settlement',
       predicate:
         'Success resolves the active remote publication and releases the next decoded publication; terminal failure clears the active and pending publications and releases none.',
-      producedArtifacts: ['artifact:remote-publication-settlement']
-    },
-    {
-      id: 'route-remote-settlement-to-persistence',
-      from: 'apply-remote-publication-batches',
-      to: 'load-file-scoped-demo-document',
-      kind: 'persistence',
-      predicate:
-        'One accepted remote canonical result enters the App-owned serialized file persistence handoff before peer-applied settlement.',
       producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {
@@ -1863,10 +1866,10 @@
       to: 'evaluate-performance-and-equivalence',
       kind: 'policy-proof',
       predicate:
-        'Single-Actor and two-Actor demo sessions load and save through the same file-scoped App persistence owner while request-time Agent transport remains separate.',
+        'Document sessions use the same formal database boundary, the deployed crdt-7076 sample can continue from its checked-in canonical document when that database is unavailable, and receiver-side remote apply remains nonpersistent.',
       producedArtifacts: [
         'artifact:file-scoped-demo-document-snapshot',
-        'artifact:remote-persistence-settlement'
+        'artifact:document-database-status'
       ]
     },
     {
@@ -1969,7 +1972,8 @@
     {
       id: 'artifact:backend-action-batch-preparation-timing',
       ownerStepId: 'request-backend-action-batch',
-      channel: 'request-time backend input matching and action-batch preparation timing',
+      channel:
+        'request-time backend input matching and action-batch preparation timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -2280,14 +2284,15 @@
     {
       id: 'artifact:file-scoped-demo-document-snapshot',
       ownerStepId: 'load-file-scoped-demo-document',
-      channel: 'RenderApp file-scoped App-local canonical snapshot',
+      channel:
+        'RenderApp file-scoped canonical document loaded from the database or file-specific initial source',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
     {
-      id: 'artifact:remote-persistence-settlement',
+      id: 'artifact:document-database-status',
       ownerStepId: 'load-file-scoped-demo-document',
-      channel: 'serialized accepted-remote App persistence handoff',
+      channel: 'visible available or unavailable document database status',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
@@ -2433,9 +2438,9 @@
       ]
     },
     {
-      id: 'demo-persists-local-and-accepted-remote-outcomes',
+      id: 'document-database-persists-originating-client-outcomes',
       statement:
-        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave, while each accepted remote publication updates canonical, Render, and UI state before one serialized App-owned IndexedDB save; request-time Agent transport is not document persistence, and remote apply creates no Undo or echo publication.',
+        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave through the same-origin document database from the originating client. Each accepted remote publication updates canonical, Render, and UI state with zero persistence, Undo, or echo; peer-applied acknowledges canonical apply, and database failure stays visible without taking down the App.',
       stepIds: [
         'load-file-scoped-demo-document',
         'evaluate-endpoint-performance',
@@ -2445,7 +2450,7 @@
       ],
       artifactIds: [
         'artifact:file-scoped-demo-document-snapshot',
-        'artifact:remote-persistence-settlement',
+        'artifact:document-database-status',
         'artifact:remote-factory-mutation-batch',
         'artifact:visible-canonical-slices'
       ],
@@ -2458,10 +2463,10 @@
       id: 'request-time-backend-action-batch',
       title: 'Actor A requests one backend action batch after Send',
       assertions: [
-        'App navigation and Agent readiness perform no action-payload preload; required fileId selects only the persisted document and collaboration session, while the canonical document remains unchanged until Actor A sends an ordinary conversation request.',
+        'App navigation and Agent readiness perform no action-payload preload. Required fileId selects the document and any configured collaboration session; the deployed crdt-7076 document bootstrap may load the checked-in canonical sample, while the local full-flow Agent request still mutates only after Actor A sends.',
         'requestActionBatch() performs exactly one same-origin HTTP request carrying Actor A intent, exact attachment, App context, and registered actions, then returns one server-prepared AiActionBatch with one batchId.',
         'The checked-in crdt-7076 sample accepts only its exact image and instruction, reads its previously converted 7,075-vector data on the backend without VTracer, and returns one Group plus those vectors for 7,076 total canonical elements.',
-        'Production has one provider path and no startup response inbox, URL-selected action payload, resident batch, artificial delay, failure simulation, frontend fixture I/O, frontend model validation, frontend normalization, frontend materialization, compatibility format, or lazy fallback.',
+        'Production has one Agent provider path and no startup response inbox, URL-selected action payload, resident batch, artificial delay, failure simulation, frontend action-fixture I/O, frontend model validation, frontend normalization, frontend materialization, compatibility format, or lazy action fallback.',
         'resolveAiActionBatch() produces one ResolvedAiActionBatch, permission receives one PermissionReadyAiActionBatch, and confirmation receives one AiActionBatchPreview without a plan API alias or compatibility wrapper.',
         'Actor B never requests or executes Actor A backend response and obtains the resulting drawing only through canonical CRDT publications.'
       ],
@@ -2533,7 +2538,7 @@
         'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
         'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
         'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
-        'The one guarded two-Actor 7,076-element production run reports Actor A backend request and preparation, DOM loading, first compositor paint opportunity, first Vector, real milestones, longest work unit, cooperative yield count, settled, Render, UI, harness, Actor B completion and convergence, and separately attributed WebSocket-server timing with no Contents or document IndexedDB inspection.'
+        'The one guarded two-Actor 7,076-element production run reports Actor A backend request and preparation, DOM loading, first compositor paint opportunity, first Vector, real milestones, longest work unit, cooperative yield count, settled, Render, UI, harness, Actor B completion and convergence, and separately attributed WebSocket-server timing with no Contents or document database inspection.'
       ],
       stepIds: [
         'stage-local-interactive-composition',
@@ -2595,7 +2600,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, file-scoped App persistence, and exact performance-equivalence proof.'
+        'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, a formal file-scoped database boundary, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

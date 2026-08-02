@@ -23,11 +23,11 @@ export const getRequiredFileId = (): string => {
   return fileId
 }
 
-export const getCollaborationMode = (): CollaborationMode => {
+export const getCollaborationMode = (): CollaborationMode | null => {
   const fileId = getRequiredFileId()
   const endpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
   if (!endpoint) {
-    throw new Error('[collaboration] missing WebSocket URL in .env')
+    return null
   }
 
   return Object.freeze({

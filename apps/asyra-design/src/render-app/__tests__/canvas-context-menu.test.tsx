@@ -1,6 +1,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ProviderStatus } from '@asyra/collaboration'
 import core from '../../contexts'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
 import type { CollaborationDebugHandle } from '../../collaboration/lifecycle'
@@ -18,6 +19,8 @@ const collaborationHandle = {
     roomId: 'canvas-context-menu'
   }),
   getStatus: () => 'connected' as const,
+  onStatusChange: (_subscriber: (status: ProviderStatus) => void) => () =>
+    undefined,
   disconnect: async () => undefined,
   reconnect: async () => undefined,
   whenIdle: async () => undefined,

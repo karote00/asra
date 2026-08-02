@@ -235,16 +235,13 @@ test('Actor A requests the exact backend sample only after Send', () => {
   )
   assert.match(
     text,
-    /fileId=crdt-7076-sample.*document and collaboration identity/i
+    /fileId=crdt-7076-sample.*document identity.*WebSocket endpoint.*collaboration identity/i
   )
   assert.match(
     text,
     /previously converted vector source.*never invokes VTracer/i
   )
-  assert.match(
-    text,
-    /7,075.*Vector.*Group.*7,076 total canonical elements/i
-  )
+  assert.match(text, /7,075.*Vector.*Group.*7,076 total canonical elements/i)
   assert.match(
     text,
     /nonmatching sample request fails.*never falls back.*URL-selected response/i
@@ -258,22 +255,16 @@ test('Actor A requests the exact backend sample only after Send', () => {
       'apps/asyra-design/src/ai/server-action-batch-provider.ts'
     )
   )
-  assert.ok(
-    owner.implementationBoundary.includes(
-      'apps/asyra-design/server'
-    )
-  )
+  assert.ok(owner.implementationBoundary.includes('apps/asyra-design/server'))
   assert.ok(
     owner.implementationBoundary.includes('apps/asyra-design/src/startup.ts')
   )
   assert.ok(
-    owner.implementationBoundary.includes(
-      'apps/asyra-design/samples/crdt-7076'
-    )
+    owner.implementationBoundary.includes('apps/asyra-design/samples/crdt-7076')
   )
   ;[
     'apps/asyra-design/src/ai/mode.ts',
-    'apps/asyra-design/src/ai/fixtures',
+    'apps/asyra-design/src/ai/fixtures'
   ].forEach((staleBoundary) =>
     assert.ok(
       !owner.implementationBoundary.includes(staleBoundary),
@@ -1824,7 +1815,7 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
 })
 
-test('demo documents load and save through file-scoped App persistence', () => {
+test('documents use the formal database boundary while remote apply stays nonpersistent', () => {
   const owner = step('load-file-scoped-demo-document')
   const localProofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
@@ -1835,24 +1826,25 @@ test('demo documents load and save through file-scoped App persistence', () => {
 
   assert.match(
     text,
-    /fileId.*App-owned.*IndexedDB persistence provider.*before Core starts.*always starts? Collaboration/i
+    /fileId.*same-origin document database.*before Core starts/i
   )
   assert.match(
     text,
-    /stored canonical snapshot.*valid fresh empty document/i
+    /database.*unavailable.*visible.*continue.*initial canonical document/i
   )
   assert.match(
     text,
-    /required fileId URL.*document session identity.*always.*Collaboration.*fileId.*selects.*document.*never.*toggle/i
+    /WebSocket.*configured.*Collaboration.*missing.*failed.*does not block.*Core.*Canvas/i
   )
   assert.match(
     text,
-    /one connected Actor.*single-Actor.*second Actor.*same document session.*two-Actor.*CRDT/i
+    /compressed canonical document.*7,076.*without Collaboration/i
   )
   assert.match(
     text,
-    /local actions.*AI actions.*Undo.*Redo.*Core autosave.*accepted remote publication.*App-owned serial persistence handoff/i
+    /local actions.*AI actions.*Undo.*Redo.*Core autosave.*client that originated/i
   )
+  assert.match(text, /remote publication.*zero persistence/i)
   assert.match(
     text,
     /resetData.*fresh.*empty document.*persist.*same file-scoped provider/i
@@ -1861,12 +1853,14 @@ test('demo documents load and save through file-scoped App persistence', () => {
     text,
     /request-time Agent transport.*separate.*document persistence/i
   )
-  assert.match(
-    text,
-    /no localStorage.*old-format compatibility.*future App developer.*database server/i
-  )
+  assert.match(text, /no IndexedDB.*localStorage/i)
+  assert.match(text, /fake database success/)
+  assert.match(text, /future App developer.*database server/i)
   ;[
     'apps/asyra-design/package.json',
+    'apps/asyra-design/scripts/generate-crdt-7076-document.ts',
+    'apps/asyra-design/samples/crdt-7076',
+    'apps/asyra-design/src/config/demo-document.ts',
     'apps/asyra-design/src/config/empty-document.ts',
     'apps/asyra-design/src/controllers/app.ts',
     'apps/asyra-design/src/controllers/__tests__/app.test.ts',
@@ -1886,7 +1880,7 @@ test('demo documents load and save through file-scoped App persistence', () => {
   )
   assert.match(
     text,
-    /root dev:all.*only workspace package watchers.*App dev server.*explicit collaboration:server.*collaboration Playwright.*separately owns.*reference WebSocket server.*before.*App document connection/i
+    /root dev:all.*only workspace package watchers.*App dev server.*explicit collaboration:server.*separately owns.*reference WebSocket server/i
   )
   assert.doesNotMatch(text, /ordinary non-collaboration.*FILE.*unchanged/i)
   assert.ok(
@@ -1905,15 +1899,29 @@ test('demo documents load and save through file-scoped App persistence', () => {
     JSON.stringify(data),
     /bypass-collaboration-client-persistence|artifact:collaboration-client-persistence-bypass/
   )
-  assert.match(JSON.stringify(data), /artifact:file-scoped-demo-document-snapshot/)
-  assert.match(JSON.stringify(data), /artifact:remote-persistence-settlement/)
+  assert.match(
+    JSON.stringify(data),
+    /artifact:file-scoped-demo-document-snapshot/
+  )
+  assert.doesNotMatch(
+    JSON.stringify(data),
+    /artifact:remote-persistence-settlement/
+  )
   assert.match(
     plan,
-    /File-Scoped Demo Persistence[\s\S]*required `fileId` URL[\s\S]*IndexedDB[\s\S]*Core autosave[\s\S]*accepted remote publication[\s\S]*database server/i
+    /File-Scoped Demo Persistence[\s\S]*required `fileId` URL[\s\S]*same-origin[\s\S]*document database[\s\S]*Core autosave[\s\S]*remote publication[\s\S]*zero persistence[\s\S]*database server/i
   )
   assert.match(
     feature,
-    /Scenario: Demo documents reload from file-scoped App persistence[\s\S]*required fileId URL[\s\S]*IndexedDB[\s\S]*Collaboration[\s\S]*local actions[\s\S]*AI actions[\s\S]*Undo[\s\S]*Redo[\s\S]*Actor B/i
+    /Scenario: Documents use the formal database boundary without making availability fatal[\s\S]*required fileId URL[\s\S]*same-origin document database[\s\S]*error message[\s\S]*App and Canvas[\s\S]*local actions[\s\S]*AI actions[\s\S]*Undo[\s\S]*Redo/i
+  )
+  assert.match(
+    feature,
+    /Scenario: Remote apply never persists on the receiving client[\s\S]*Actor B[\s\S]*zero persistence[\s\S]*no Undo[\s\S]*no echo[\s\S]*peer-applied/i
+  )
+  assert.match(
+    feature,
+    /Scenario: The deployed 7076 sample loads without CRDT[\s\S]*compressed canonical document[\s\S]*7076[\s\S]*without Collaboration/i
   )
   assert.match(
     feature,
@@ -1921,10 +1929,10 @@ test('demo documents load and save through file-scoped App persistence', () => {
   )
   assert.match(
     feature,
-    /Scenario: Required fileId selects the document without toggling Collaboration[\s\S]*required fileId URL[\s\S]*one Actor[\s\S]*single-Actor[\s\S]*second Actor[\s\S]*same fileId[\s\S]*CRDT/i
+    /Scenario: Required fileId selects the document while Collaboration remains optional[\s\S]*required fileId URL[\s\S]*WebSocket endpoint[\s\S]*same fileId[\s\S]*CRDT/i
   )
   assert.match(
     feature,
-    /root dev:all[\s\S]*only frontend workspace processes[\s\S]*App dev server[\s\S]*explicit collaboration:server[\s\S]*collaboration Playwright[\s\S]*separately[\s\S]*reference WebSocket server[\s\S]*App/i
+    /root dev:all[\s\S]*only frontend workspace processes[\s\S]*App dev server[\s\S]*explicit collaboration:server[\s\S]*collaboration Playwright[\s\S]*separately supplies the WebSocket endpoint/i
   )
 })

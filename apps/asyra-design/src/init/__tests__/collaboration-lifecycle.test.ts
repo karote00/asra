@@ -9,7 +9,6 @@ import {
   idCounter
 } from '@asyra/utils'
 import * as collaborationOperations from '../../collaboration/operations'
-import * as documentPersistence from '../../document-persistence'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
   createRemotePublicationHandler,
@@ -66,7 +65,10 @@ const harness = {
       roomId: 'file-lifecycle',
       actorId: 'actor-lifecycle'
     },
-    provider: { getStatus: vi.fn(() => 'idle') },
+    provider: {
+      getStatus: vi.fn(() => 'idle'),
+      onStatusChange: vi.fn(() => vi.fn())
+    },
     updateAwareness: vi.fn(),
     observePublicationOutcomes: vi.fn(() => vi.fn()),
     start: vi.fn(async () => undefined),
@@ -85,6 +87,9 @@ beforeEach(async () => {
   harness.collaboration.observePublicationOutcomes
     .mockReset()
     .mockReturnValue(vi.fn())
+  harness.collaboration.provider.onStatusChange
+    .mockReset()
+    .mockReturnValue(vi.fn())
   harness.collaboration.start.mockReset().mockResolvedValue(undefined)
   harness.collaboration.dispose.mockReset().mockResolvedValue(undefined)
 })
@@ -96,18 +101,13 @@ afterEach(async () => {
 })
 
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
-  const persistAcceptedRemoteDocument = vi.fn(async () => undefined)
-  const processRemotePublication = createRemotePublicationHandler(
-    () => false,
-    persistAcceptedRemoteDocument
-  )
+  const processRemotePublication = createRemotePublicationHandler(() => false)
 
   await expect(
     processRemotePublication(remotePublication('policy-rejected'))
   ).rejects.toThrow(
     '[collaboration] remote publication policy-rejected was rejected'
   )
-  expect(persistAcceptedRemoteDocument).not.toHaveBeenCalled()
 })
 
 it('starts the real app collaboration composition without an Awareness preview route', async () => {
@@ -188,7 +188,26 @@ it('exposes remote publication outcomes through the local collaboration handle',
   expect(unsubscribe).toEqual(expect.any(Function))
 })
 
-it('settles the consumer promise only after the remote transaction succeeds', async () => {
+it('exposes provider status through the local collaboration handle', async () => {
+  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
+    harness.collaboration as never
+  )
+  const handle = await startCollaboration({
+    fileId: 'file-lifecycle',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  const subscriber = vi.fn()
+
+  const unsubscribe = handle.onStatusChange(subscriber)
+
+  expect(harness.collaboration.provider.onStatusChange).toHaveBeenCalledWith(
+    subscriber
+  )
+  expect(unsubscribe).toEqual(expect.any(Function))
+})
+
+it('settles after remote apply without saving the receiving document', async () => {
   const order: string[] = []
   vi.spyOn(core, 'applyCanonicalChanges').mockImplementation(() => {
     order.push('core-apply')
@@ -196,12 +215,6 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   vi.spyOn(factory, 'runRemoteTransaction').mockImplementation((mutate) => {
     order.push('remote-transaction')
     return mutate()
-  })
-  vi.spyOn(
-    documentPersistence,
-    'persistAcceptedRemoteDocument'
-  ).mockImplementation(async () => {
-    order.push('persistence')
   })
   const createCollaboration = vi
     .spyOn(collaborationModule, 'createCollaboration')
@@ -218,7 +231,8 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await composition.processRemotePublication(
     remotePublication('remote-success')
   )
-  expect(order).toEqual(['remote-transaction', 'core-apply', 'persistence'])
+  expect(order).toEqual(['remote-transaction', 'core-apply'])
+  expect(createRemotePublicationHandler).toHaveLength(1)
 
   vi.mocked(factory.runRemoteTransaction).mockImplementationOnce(() => {
     throw new Error('remote apply failed')
@@ -226,5 +240,5 @@ it('settles the consumer promise only after the remote transaction succeeds', as
   await expect(
     composition.processRemotePublication(remotePublication('remote-failure'))
   ).rejects.toThrow('remote apply failed')
-  expect(order).toEqual(['remote-transaction', 'core-apply', 'persistence'])
+  expect(order).toEqual(['remote-transaction', 'core-apply'])
 })

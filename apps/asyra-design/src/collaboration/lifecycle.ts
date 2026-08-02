@@ -7,7 +7,6 @@ import {
 import type { SharedPublication } from '@asyra/factory'
 import { idCounter } from '@asyra/utils'
 import core, { factory } from '../contexts'
-import { persistAcceptedRemoteDocument } from '../document-persistence'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
 import { createDocumentCollaborationFactory } from './factory-adapter'
 import { createPublicationProcessor } from './operations'
@@ -24,6 +23,7 @@ export interface CollaborationDebugHandle {
     readonly actorId: string
   }>
   getStatus(): ProviderStatus
+  onStatusChange(subscriber: (status: ProviderStatus) => void): () => void
   disconnect(): Promise<void>
   reconnect(): Promise<void>
   whenIdle(): Promise<void>
@@ -38,8 +38,7 @@ export const getActiveCollaborationHandle = ():
   | undefined => activeHandle
 
 export const createRemotePublicationHandler = (
-  applyRemotePublication: (publication: SharedPublication) => boolean,
-  persistRemoteDocument: () => Promise<void>
+  applyRemotePublication: (publication: SharedPublication) => boolean
 ): ProcessRemotePublication => {
   return async (publication) => {
     const applied = applyRemotePublication(publication)
@@ -48,7 +47,6 @@ export const createRemotePublicationHandler = (
         `[collaboration] remote publication ${publication.publicationId} was rejected`
       )
     }
-    await persistRemoteDocument()
   }
 }
 
@@ -56,6 +54,8 @@ const createHandle = (instance: Collaboration): CollaborationDebugHandle => {
   const handle = {
     identity: instance.identity,
     getStatus: () => instance.provider?.getStatus() ?? 'offline',
+    onStatusChange: (subscriber: (status: ProviderStatus) => void) =>
+      instance.provider?.onStatusChange(subscriber) ?? (() => undefined),
     disconnect: () => instance.disconnect(),
     reconnect: () => instance.reconnect(),
     whenIdle: () => instance.whenIdle(),
@@ -86,8 +86,7 @@ const start = async (
     applyCanonicalChanges: core.applyCanonicalChanges.bind(core)
   })
   const processRemotePublication = createRemotePublicationHandler(
-    applyRemotePublication,
-    () => persistAcceptedRemoteDocument(core)
+    applyRemotePublication
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,
