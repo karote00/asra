@@ -8,7 +8,10 @@ import {
   clickCanvas,
   dragOnCanvas,
   getActiveTool,
-  getCanvasPosition
+  getCanvasPosition,
+  getCoreDocumentDigest,
+  getCurrentDocumentStorageKey,
+  getPersistedDocumentDigest
 } from './test-utils'
 
 test.describe('Pen Tool - Editing Flow', () => {
@@ -1845,7 +1848,7 @@ test.describe('Pen Tool - Editing Flow', () => {
     })
   })
 
-  test('keeps one render object per vector id in-session without client reload restoration', async ({
+  test('keeps one render object per persisted vector id after client reload', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -1907,6 +1910,13 @@ test.describe('Pen Tool - Editing Flow', () => {
       return
     }
 
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
+    await expect
+      .poll(() =>
+        getPersistedDocumentDigest(page, getCurrentDocumentStorageKey(page))
+      )
+      .toEqual(finalDocumentDigest)
+
     await page.reload()
     await waitForAppReady(page)
 
@@ -1944,8 +1954,8 @@ test.describe('Pen Tool - Editing Flow', () => {
         }, beforeReload.vectorId)
       })
       .toMatchObject({
-        previousVectorExists: false,
-        renderItemCount: 0
+        previousVectorExists: true,
+        renderItemCount: 1
       })
   })
 })
