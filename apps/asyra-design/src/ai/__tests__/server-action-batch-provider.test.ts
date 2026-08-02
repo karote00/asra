@@ -1,71 +1,69 @@
 import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createServerActionBatchProvider } from '../server-action-batch-provider'
-import type { ServerResponseRecord } from '../server-response-inbox'
+import {
+  ACTION_BATCH_ENDPOINT,
+  createServerActionBatchProvider
+} from '../server-action-batch-provider'
 
 const input: AiProviderInput = {
   actions: [],
   attempt: 1,
   context: {},
-  intent: 'draw the prepared response'
+  intent: 'draw the submitted image',
+  metadata: {
+    imageAttachments: [
+      {
+        dataUrl: 'data:image/png;base64,AQID',
+        mediaType: 'image/png',
+        name: 'reference.png',
+        size: 3
+      }
+    ]
+  }
 }
 
 const batch: AiActionBatch = {
   actions: [],
-  batchId: 'resident-batch'
-}
-const response: ServerResponseRecord = {
-  batch,
-  fileId: 'file-resident',
-  schemaVersion: 1
+  batchId: 'backend-batch'
 }
 
-describe('Asyra Design server action-batch provider', () => {
-  it('exposes only requestActionBatch and returns the same resident batch identity', async () => {
-    const provider = createServerActionBatchProvider(response)
-    const indexedDbOpen = vi.fn(() => {
-      throw new Error('request-time IndexedDB access is forbidden')
-    })
-    vi.stubGlobal('indexedDB', { open: indexedDbOpen })
-
-    try {
-      await expect(
-        provider.requestActionBatch(input, {
-          signal: new AbortController().signal
-        })
-      ).resolves.toBe(batch)
-    } finally {
-      vi.unstubAllGlobals()
-    }
-
-    expect(Reflect.ownKeys(provider)).toEqual(['requestActionBatch'])
-    expect(indexedDbOpen).not.toHaveBeenCalled()
-  })
-
-  it('preserves a present record nullish batch for Runtime envelope resolution', async () => {
-    const nullishBatch = null as unknown as AiActionBatch
+describe('server action-batch provider', () => {
+  it('posts the exact Agent request to the one same-origin backend endpoint', async () => {
+    const fetch = vi.fn(async () => ({
+      json: async () => batch,
+      ok: true,
+      status: 200
+    }))
     const provider = createServerActionBatchProvider({
-      batch: nullishBatch,
-      fileId: 'file-nullish-batch',
-      schemaVersion: 1
+      fetch: fetch as never
     })
 
     await expect(
       provider.requestActionBatch(input, {
         signal: new AbortController().signal
       })
-    ).resolves.toBe(nullishBatch)
+    ).resolves.toBe(batch)
+
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledWith(ACTION_BATCH_ENDPOINT, {
+      body: JSON.stringify(input),
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json'
+      },
+      method: 'POST',
+      signal: expect.any(AbortSignal)
+    })
+    expect(ACTION_BATCH_ENDPOINT).toBe('/api/ai/action-batch')
   })
 
-  it('fails explicitly when startup has no file-scoped response', async () => {
-    const provider = createServerActionBatchProvider(null)
-
-    await expect(
-      provider.requestActionBatch(input, {
-        signal: new AbortController().signal
-      })
-    ).rejects.toMatchObject({
-      code: 'AI_PROVIDER_INVALID_CONFIGURATION'
-    })
+  it('does not accept a resident response or fileId-selected payload', () => {
+    expect(createServerActionBatchProvider).toHaveLength(0)
+    expect(
+      Reflect.getOwnPropertyDescriptor(
+        createServerActionBatchProvider,
+        'serverResponse'
+      )
+    ).toBeUndefined()
   })
 })

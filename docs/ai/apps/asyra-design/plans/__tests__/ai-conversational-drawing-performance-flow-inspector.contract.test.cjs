@@ -139,7 +139,7 @@ test('performance plan and BDD retain the production evidence boundary', () => {
 })
 
 test('production conversational AI uses one ActionBatch contract without compatibility modes', () => {
-  const providerOwner = step('preload-file-scoped-server-response')
+  const providerOwner = step('request-backend-action-batch')
   const runtimeOwner = step('resolve-server-prepared-action-batch')
   const providerText = contractText(providerOwner)
   const runtimeText = contractText(runtimeOwner)
@@ -157,7 +157,10 @@ test('production conversational AI uses one ActionBatch contract without compati
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
 
-  assert.match(providerText, /response inbox adapter.*required fileId/i)
+  assert.match(
+    providerText,
+    /after Actor A.*Send.*same-origin.*requestActionBatch\(\)/i
+  )
   assert.match(providerText, /requestActionBatch\(\).*AiActionBatch.*batchId/i)
   assert.match(runtimeText, /resolveAiActionBatch\(\).*AiActionBatch.*batchId/i)
   assert.match(
@@ -180,20 +183,13 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/init/__tests__/init-app.test.ts',
     'apps/asyra-design/src/ai/startup.ts',
     'apps/asyra-design/src/ai/server-action-batch-provider.ts',
-    'apps/asyra-design/src/ai/server-response-inbox.ts',
     'apps/asyra-design/src/ai/app-prompt.ts',
     'apps/asyra-design/src/ai/context.ts',
     'apps/asyra-design/src/ai/__tests__',
     'apps/asyra-design/src/startup.ts',
-    'apps/asyra-design/src/toolbar/index.tsx',
-    'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
-    'apps/asyra-design/src/app/ai-conversation-panel.tsx',
-    'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
-    'apps/asyra-design/test-data/ai-drawing',
-    'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
-    'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
+    'apps/asyra-design/server',
+    'apps/asyra-design/samples/crdt-7076',
     'apps/asyra-design/e2e/server-response-inbox.ts',
-    'apps/asyra-design/__tests__/prepared-server-response-artifacts.test.mjs',
     'apps/asyra-design/e2e/test-utils.ts',
     'apps/asyra-design/e2e/conversational-ai.spec.ts'
   ].forEach((boundary) =>
@@ -201,11 +197,11 @@ test('production conversational AI uses one ActionBatch contract without compati
   )
   assert.match(
     providerText,
-    /deterministic preparation.*seed.*fixture.*test or manual harness.*never.*production bundle/i
+    /crdt-7076.*previously converted.*never invokes VTracer/i
   )
   assert.match(
     providerText,
-    /no artificial delay.*phrase.*fixture fallback.*failure simulation/i
+    /no server-response inbox.*response seeding.*response preload.*resident batch/i
   )
   assert.match(
     plan,
@@ -221,8 +217,8 @@ test('production conversational AI uses one ActionBatch contract without compati
   )
 })
 
-test('file-scoped server response is prepared before request timing', () => {
-  const owner = step('preload-file-scoped-server-response')
+test('Actor A requests the exact backend sample only after Send', () => {
+  const owner = step('request-backend-action-batch')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const feature = read(
@@ -231,33 +227,31 @@ test('file-scoped server response is prepared before request timing', () => {
 
   assert.match(
     text,
-    /required fileId.*versioned server response.*response inbox.*IndexedDB/i
-  )
-  assert.match(text, /before.*App.*Agent.*readiness.*before.*stable.*baseline/i)
-  assert.match(text, /16.*320.*1,280.*7,075.*exact/i)
-  assert.match(
-    text,
-    /request-time.*IndexedDB.*import.*fetch.*JSON.*SVG.*parse.*tokenize.*transform.*materializ/i
+    /starts only when Actor A presses Send.*navigation.*do not request or execute/i
   )
   assert.match(
     text,
-    /separate.*canonical document persistence.*never.*loads.*saves.*migrates.*aliases/i
+    /same-origin HTTP POST.*intent.*attachment.*App context.*registered action/i
   )
   assert.match(
     text,
-    /test or manual harness.*prepares.*versioned server response.*before.*App navigation/i
+    /fileId=crdt-7076-sample.*document and collaboration identity/i
   )
   assert.match(
     text,
-    /compressed.*server response.*preview overlay.*before.*runtime guard.*Playwright.*payload/i
+    /previously converted vector source.*never invokes VTracer/i
   )
   assert.match(
     text,
-    /seed page.*fetch.*decompress.*IndexedDB.*bounded.*timing/i
+    /7,075.*Vector.*Group.*7,076 total canonical elements/i
   )
   assert.match(
     text,
-    /full-detail output.*every item, point, role, order, bounds, transform, and style/i
+    /nonmatching sample request fails.*never falls back.*URL-selected response/i
+  )
+  assert.match(
+    text,
+    /full-detail output.*every item, point, role, order, bound, transform, style, stable ID, and relationship/i
   )
   assert.ok(
     owner.implementationBoundary.includes(
@@ -266,7 +260,7 @@ test('file-scoped server response is prepared before request timing', () => {
   )
   assert.ok(
     owner.implementationBoundary.includes(
-      'apps/asyra-design/src/ai/server-response-inbox.ts'
+      'apps/asyra-design/server'
     )
   )
   assert.ok(
@@ -274,7 +268,7 @@ test('file-scoped server response is prepared before request timing', () => {
   )
   assert.ok(
     owner.implementationBoundary.includes(
-      'apps/asyra-design/e2e/server-response-inbox.ts'
+      'apps/asyra-design/samples/crdt-7076'
     )
   )
   ;[
@@ -289,16 +283,16 @@ test('file-scoped server response is prepared before request timing', () => {
   const actionBatch = data.artifacts.find(
     ({ id }) => id === 'artifact:server-prepared-action-batch'
   )
-  assert.equal(actionBatch?.ownerStepId, 'preload-file-scoped-server-response')
+  assert.equal(actionBatch?.ownerStepId, 'request-backend-action-batch')
   assert.deepEqual(actionBatch?.consumerStepIds, [
     'resolve-server-prepared-action-batch'
   ])
   ;[
-    'artifact:response-inbox-bootstrap-timing',
-    'artifact:provider-response-handoff-timing'
+    'artifact:backend-action-batch-preparation-timing',
+    'artifact:provider-request-timing'
   ].forEach((artifactId) => {
     const artifact = data.artifacts.find(({ id }) => id === artifactId)
-    assert.equal(artifact?.ownerStepId, 'preload-file-scoped-server-response')
+    assert.equal(artifact?.ownerStepId, 'request-backend-action-batch')
     assert.deepEqual(artifact?.consumerStepIds, [
       'evaluate-endpoint-performance',
       'evaluate-performance-and-equivalence'
@@ -307,19 +301,19 @@ test('file-scoped server response is prepared before request timing', () => {
   const actionBatchRoute = data.routes.find(
     ({ id }) => id === 'route-server-prepared-action-batch-to-runtime'
   )
-  assert.equal(actionBatchRoute?.from, 'preload-file-scoped-server-response')
+  assert.equal(actionBatchRoute?.from, 'request-backend-action-batch')
   assert.equal(actionBatchRoute?.to, 'resolve-server-prepared-action-batch')
   assert.deepEqual(actionBatchRoute?.producedArtifacts, [
     'artifact:server-prepared-action-batch'
   ])
   ;[
-    'route-response-inbox-bootstrap-timing-to-endpoint-proof',
-    'route-response-inbox-bootstrap-timing-to-final-proof',
-    'route-provider-response-handoff-timing-to-endpoint-proof',
-    'route-provider-response-handoff-timing-to-final-proof'
+    'route-backend-preparation-timing-to-endpoint-proof',
+    'route-backend-preparation-timing-to-final-proof',
+    'route-provider-request-timing-to-endpoint-proof',
+    'route-provider-request-timing-to-final-proof'
   ].forEach((routeId) => {
     const route = data.routes.find(({ id }) => id === routeId)
-    assert.equal(route?.from, 'preload-file-scoped-server-response')
+    assert.equal(route?.from, 'request-backend-action-batch')
   })
   assert.equal(
     data.artifacts.some(
@@ -327,13 +321,19 @@ test('file-scoped server response is prepared before request timing', () => {
     ),
     false
   )
+  assert.match(plan, /Request-time Backend Action Batch Contract/i)
+  assert.match(plan, /presses\s+Send[\s\S]*same-origin HTTP request/i)
   assert.match(
     plan,
-    /File-scoped Server Response Inbox Contract[\s\S]*test\/manual harness[\s\S]*validat[\s\S]*normaliz[\s\S]*bounded summary[\s\S]*PreparedDrawingArtifact[\s\S]*IndexedDB response inbox[\s\S]*App and Agent readiness[\s\S]*At request time.*requestActionBatch\(\)[\s\S]*no artificial delay/i
+    /fileId[\s\S]*persisted document and Collaboration session/i
+  )
+  assert.match(
+    plan,
+    /crdt-7076[\s\S]*previously converted[\s\S]*vector source[\s\S]*does not invoke VTracer/i
   )
   assert.match(
     feature,
-    /Scenario: Required fileId preloads one server response inbox record before App readiness[\s\S]*builds one PreparedDrawingArtifact.*outside the production bundle[\s\S]*IndexedDB response inbox adapter[\s\S]*canonical document.*empty[\s\S]*request-time response inbox access/i
+    /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without invoking VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
   )
 })
 
@@ -383,7 +383,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*before App readiness.*front.?end.*submits.*createElementsInParent/i
+    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*before returning.*front.?end.*submits.*createElementsInParent/i
   )
   assert.match(
     text,
@@ -465,7 +465,11 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     feature,
-    /test or manual harness.*validates, normalizes[\s\S]*outside the production bundle[\s\S]*before App navigation[\s\S]*resident before App readiness/i
+    /no action payload should be seeded, preloaded[\s\S]*Actor A opens the Agent panel[\s\S]*exact sample image[\s\S]*exact sample instruction/i
+  )
+  assert.match(
+    feature,
+    /sample backend should match[\s\S]*previously converted[\s\S]*vector source/i
   )
   assert.match(feature, /server-prepared action.*PreparedDrawingArtifact/i)
   assert.match(
@@ -1029,7 +1033,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary.*direct non-percentage milliseconds[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*raw operating-system CPU.*never.*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner/i
+    /latest completed phase[\s\S]*currently active started phase[\s\S]*safety sample.*heartbeat age[\s\S]*request-wide cumulative process CPU-time boundary.*direct non-percentage milliseconds[\s\S]*ordered browser-monotonic owner spans[\s\S]*observed process identity change[\s\S]*attribution invalid[\s\S]*raw operating-system CPU.*never.*sole owner-attribution signal[\s\S]*precedes the first completed canonical Group[\s\S]*fresh browser invocation.*required fileId URL.*Collaboration session.*WebSocket server[\s\S]*single-Actor 16-item cat-prefix[\s\S]*reduced-motion[\s\S]*single-Actor 1280-item cat-prefix[\s\S]*two-Actor 1280-item.*only when[\s\S]*exactly one backend\/provider boundary, Runtime, loading, local canonical, or receiver owner/i
   )
   assert.match(
     feature,
@@ -1041,7 +1045,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /response inbox adapter seed, read, structured clone, and handoff[\s\S]*external backend and transport timing[\s\S]*recorded separately[\s\S]*excluded from frontend product execution/i
+    /no action payload should be seeded or preloaded[\s\S]*provider request and backend action-batch preparation[\s\S]*after Actor A submission[\s\S]*inside product execution timing/i
   )
   assert.match(
     feature,
@@ -1186,7 +1190,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
     attributionRoutes.map(({ to }) => to).sort(),
     [
       'admit-receiver-publication-frames',
-      'preload-file-scoped-server-response',
+      'request-backend-action-batch',
       'resolve-server-prepared-action-batch',
       'stage-local-interactive-composition',
       'yield-ai-loading-paint'
@@ -1219,7 +1223,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   assert.equal(ownerAttribution?.ownerStepId, 'evaluate-endpoint-performance')
   assert.deepEqual([...(ownerAttribution?.consumerStepIds ?? [])].sort(), [
     'admit-receiver-publication-frames',
-    'preload-file-scoped-server-response',
+    'request-backend-action-batch',
     'resolve-server-prepared-action-batch',
     'stage-local-interactive-composition',
     'yield-ai-loading-paint'
@@ -1855,7 +1859,7 @@ test('demo documents load and save through file-scoped App persistence', () => {
   )
   assert.match(
     text,
-    /response inbox.*separate.*document persistence/i
+    /request-time Agent transport.*separate.*document persistence/i
   )
   assert.match(
     text,

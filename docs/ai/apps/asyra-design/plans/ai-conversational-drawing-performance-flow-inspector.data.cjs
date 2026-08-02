@@ -24,92 +24,84 @@
 
   const steps = [
     {
-      id: 'preload-file-scoped-server-response',
+      id: 'request-backend-action-batch',
       order: 1,
       laneId: 'app-canonical',
-      title: 'Preload one file-scoped server response',
-      ownerPackage: 'Asyra Design server response inbox',
+      title: 'Request one backend action batch',
+      ownerPackage: 'App server action-batch route',
       purpose:
-        'Read one versioned server-prepared AiActionBatch containing a PreparedDrawingArtifact from the response inbox adapter by required fileId before App and Agent readiness, then hand it through the single formal provider requestActionBatch() contract without request-time model preparation.',
+        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the backend prepares and returns one AiActionBatch containing a PreparedDrawingArtifact before Runtime resolution.',
       inputs: [
         'artifact:precanonical-owner-attribution',
-        'required fileId',
-        'versioned server response record prepared by the test or manual harness before App navigation'
+        'Actor A Agent intent',
+        'one accepted image attachment',
+        'App context and registered backend-facing action descriptions',
+        'request abort signal'
       ],
       outputs: [
         'artifact:server-prepared-action-batch',
-        'artifact:response-inbox-bootstrap-timing',
-        'artifact:provider-response-handoff-timing'
+        'artifact:backend-action-batch-preparation-timing',
+        'artifact:provider-request-timing'
       ],
       conditions: [
-        'This step is selected because guarded evidence identified request-time fixture import, full-source parsing, and materialization before the requested prefix as test-harness contamination at the server response boundary.',
-        'Deterministic preparation, seed data, and fixtures belong only to the test or manual harness and are never imported into the production bundle. The harness prepares one exact versioned server response before product App navigation.',
-        'The harness generates each compressed server response preview overlay after the production build and before the runtime guard; Playwright receives no prepared response payload and never serializes that payload across its process boundary.',
-        'A same-origin blank seed page fetches the exact compressed response, uses the browser decompressor to decode it, and writes it to the response-inbox IndexedDB store while reporting bounded fetch, decompress, parse, and write timing.',
-        'The generated response overlay is ignored test output layered over an attested production build. Canonical production dist contains no response fixture and the overlay is never a production deployment artifact.',
-        'The required fileId selects exactly one prepared 16-, 320-, 1,280-, or 7,075-child response, and selecting a smaller response never reads or constructs a larger response.',
-        'The response inbox adapter read completes before App and Agent readiness and before the stable performance baseline. IndexedDB is only an implementation detail of that response inbox adapter and is never presented as an App product mode.',
-        'The response inbox is separate from canonical document persistence; it never loads, saves, migrates, or aliases a file-scoped canonical document snapshot.',
-        'requestActionBatch() is the only public provider request. It returns one server-prepared AiActionBatch with one batchId and never selects another provider, payload, or execution path.',
-        'Request-time provider acquisition performs zero response inbox access, dynamic import, fetch, JSON parse, SVG parse, path tokenize, geometry transform, fixture materialization, full-source slicing, or provider deep-freeze.',
-        'Production provider execution has no artificial delay, phrase fixture fallback, failure simulation, deterministic seed branch, or fixture-selection branch.',
-        'Actor B never executes the preloaded response and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
-        'Full-detail output preserves every item, point, role, order, bounds, transform, and style.',
+        'This step starts only when Actor A presses Send on an ordinary Agent turn; App navigation, required fileId resolution, document load, Agent readiness, and attachment selection do not request or execute a drawing.',
+        'requestActionBatch() is the only public provider request and performs exactly one same-origin HTTP POST for the accepted turn.',
+        'The request carries the submitted intent, attachment metadata and data URL, App context, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
+        'The backend owns input matching, model or reference-sample processing, server-side geometry preparation, stable descriptor IDs, relationships, summaries, and construction of one AiActionBatch with one batchId.',
+        'The checked-in crdt-7076 sample is a reproducible backend sample, not a frontend fixture mode: its documented URL uses fileId=crdt-7076-sample only as document and collaboration identity, and the backend accepts its exact checked-in image and instruction through the ordinary request body.',
+        'The crdt-7076 sample backend reads the checked-in previously converted vector source from the same sample folder after the exact image and instruction match; it never invokes VTracer, image conversion, or a model during this sample request.',
+        'The crdt-7076 sample returns 7,075 ordered editable Vector descriptors inside one prepared Group descriptor, for 7,076 total canonical elements; no route, fileId, query parameter, or startup branch is named or counted as 7,075.',
+        'A nonmatching sample request fails explicitly at the backend. It never falls back to a frontend payload, URL-selected response, prompt-only size selection, IndexedDB response inbox, or client-side fixture import.',
+        'The production client contains no server-response inbox, response seeding, response preload, resident batch, or fileId-selected action payload.',
+        'Actor B never calls the backend for Actor A turn and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
+        'Full-detail output preserves every item, point, role, order, bound, transform, style, stable ID, and relationship prepared by the backend.',
         'The server-prepared AiActionBatch remains local, noncanonical, and nonshared; it is never passed to Core.load or treated as collaboration state.',
-        'PreparedDrawingArtifact preserves every canonical descriptor, stable ID, relationship, item, path, point, role, order, bound, transform, and style while avoiding a resident duplicate point-object graph.'
+        'PreparedDrawingArtifact avoids a second frontend point-object graph; Runtime and the App action execute the returned server-prepared descriptor identities.'
       ],
       bypasses: [
-        'Live server transport and the response inbox adapter deliver the same server response into the same requestActionBatch() provider contract without selecting different App behavior.',
-        'A test request without its exact harness-prepared response fails explicitly and never falls back to lazy source loading, phrase selection, or materialization.',
-        'An Actor context with no prepared response performs only the bounded empty response inbox lookup during bootstrap.'
+        'An aborted request cancels the same provider/backend attempt and creates no Runtime, canonical, history, persistence, or CRDT result.',
+        'A malformed or unsupported request fails at the provider/backend boundary before Runtime resolution.',
+        'An Actor that only opens the sample URL performs ordinary document and collaboration startup with zero action-batch request.'
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
-        'server-prepared versioned response records',
-        'response inbox adapter',
-        'required fileId App bootstrap identity',
-        'single formal server action-batch provider contract',
-        'test or manual harness preparation outside the production bundle'
+        'single same-origin server action-batch provider',
+        'App server action-batch middleware',
+        'backend-owned action-batch preparation',
+        'checked-in crdt-7076 sample input and server-owned reference output',
+        'checked-in previously converted crdt-7076 vector source',
+        'required fileId as document and collaboration identity only'
       ],
       forbiddenContributors: [
         'canonical document persistence provider or document IndexedDB store',
-        'product App writes to the response inbox',
-        'request-time response inbox access, fixture import, fetch, parse, tokenization, transform, materialization, or deep-freeze',
-        'reading or decoding a complete larger response before slicing a smaller response',
-        'selecting fixture size from the prompt instead of required fileId',
-        'fixture-specific geometry simplification',
-        'production paths or APIs named fake, simulate, or local-compat',
-        'artificial provider delay, phrase fixture fallback, or failure simulation',
-        'deterministic preparation, seed data, or fixture modules in the production bundle',
-        'planId, plan API aliases, or compatibility aliases',
-        'front-end item, path, point, style, bounds, role, or model semantic validation',
-        'front-end model normalization or drawing-artifact encoding',
-        'front-end replacement IDs for server-issued stable descriptor IDs',
+        'server-response inbox, startup response preload, or resident action batch',
+        'fileId, URL, query parameter, or App bootstrap selecting an action payload',
+        'frontend fixture import, phrase branch, geometry preparation, materialization, or response construction',
+        'VTracer or image conversion during the crdt-7076 sample request',
+        'frontend item, path, point, style, bounds, role, or model semantic validation',
+        'frontend model normalization or drawing-artifact encoding',
+        'frontend replacement IDs for server-issued stable descriptor IDs',
+        'a second provider, request method, payload format, compatibility alias, or plan API alias',
+        'artificial provider delay or failure simulation',
         'Runtime, Core, Render, or Collaboration behavior flags'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
+        'apps/asyra-design/vite.config.ts',
         'apps/asyra-design/src/index.tsx',
         'apps/asyra-design/src/init/index.ts',
         'apps/asyra-design/src/init/init-app.ts',
         'apps/asyra-design/src/init/__tests__/init-app.test.ts',
         'apps/asyra-design/src/ai/startup.ts',
         'apps/asyra-design/src/ai/server-action-batch-provider.ts',
-        'apps/asyra-design/src/ai/server-response-inbox.ts',
         'apps/asyra-design/src/ai/app-prompt.ts',
         'apps/asyra-design/src/ai/context.ts',
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/startup.ts',
-        'apps/asyra-design/src/toolbar/index.tsx',
-        'apps/asyra-design/src/toolbar/__tests__/ai-control.test.tsx',
-        'apps/asyra-design/src/app/ai-conversation-panel.tsx',
-        'apps/asyra-design/src/app/__tests__/ai-conversation-panel.test.tsx',
-        'apps/asyra-design/test-data/ai-drawing',
-        'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
-        'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
+        'apps/asyra-design/server',
+        'apps/asyra-design/samples/crdt-7076',
         'apps/asyra-design/e2e/server-response-inbox.ts',
-        'apps/asyra-design/__tests__/prepared-server-response-artifacts.test.mjs',
         'apps/asyra-design/e2e/test-utils.ts',
         'apps/asyra-design/e2e/conversational-ai.spec.ts',
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
@@ -118,12 +110,12 @@
       ],
       specRefs: [
         '#pre-canonical-owner-attribution',
-        '#file-scoped-server-response-inbox-contract',
+        '#request-time-backend-action-batch-contract',
         '#server-prepared-aiactionbatch-contract',
         '#non-negotiable-equivalence',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'preload-file-scoped-server-response'
+      failureOwnerStepId: 'request-backend-action-batch'
     },
     {
       id: 'resolve-server-prepared-action-batch',
@@ -148,13 +140,13 @@
       conditions: [
         'This step is selected because corrected attribution found front-end action-schema geometry preparation before Group creation, while the product contract now assigns model preparation to the backend.',
         'requestActionBatch() is the only public provider request and resolveAiActionBatch() is the only Runtime resolution entry. There is no public or internal plan API, alias, compatibility wrapper, alternate payload mode, or client preparation mode.',
-        'Live server transport and the response inbox adapter hand the same AiActionBatch contract to Runtime; neither source selects another execution or canonical mutation path.',
+        'The same-origin server transport hands the one returned AiActionBatch contract to Runtime; no URL, startup, or alternate source selects another execution or canonical mutation path.',
         'AiActionBatch carries one batchId, explanation, ordered actions, and bounded summaries. Runtime preflights only that small control envelope, including the empty-batch rule, duplicate action ids, and unknown actions; it does not traverse item, path, point, style, bounds, or geometry arguments.',
         'Each action definition exposes one backend-facing inputSchema for server action-batch construction and one executor; it has no client action schema, parse, prepare, validation mode, or payload-size flag.',
         'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
         'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
         'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
-        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact containing one prepared Group descriptor and ordered child descriptor slices with complete source creation data before App readiness; the front end performs none of that model work.',
+        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact containing one prepared Group descriptor and ordered child descriptor slices with complete source creation data before returning the accepted request; the front end performs none of that model work.',
         'The front-end composition executor shows the server-prepared loading bounds first and submits those descriptor slices through the existing Core.createElementsInParent(...) route without materializing a second point-object or geometry relationship graph.',
         'The production App constructs one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
         'Create-app template output parity is deferred to a separate follow-up and is not an implementation boundary or completion claim of this CRDT closure.',
@@ -1041,14 +1033,14 @@
         'The required fileId URL supplies the document session identity and always starts Collaboration after load; fileId selects which document opens and is never a Collaboration toggle.',
         'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server and makes it ready before the App document connection begins.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
-        'The same fileId may independently select a pre-ready server response through the response inbox adapter, but that response never enters Core.load and creates no canonical prefix.',
+        'The required fileId selects only the document and collaboration session; it never selects, preloads, or stores an Agent action payload.',
         'Ordinary local actions, AI actions, Undo, and Redo reuse the existing Core autosave boundary and save one current canonical snapshot after the committed owner action.',
         'Each accepted remote publication performs one App-owned serial persistence handoff after canonical apply and before peer-applied settlement, without remote Undo or echo publication.',
         'resetData loads one fresh App-owned empty document through Core.load and persists it through the same file-scoped provider without URL parsing or page reload.',
         'RenderApp startup and resetData obtain independent fresh values from the same zero-argument App-owned empty-document factory; no shared mutable empty-document singleton exists.',
         'Core.load is the sole FILE_LOAD_COMPLETE publisher for startup and reset. DataContexts observes that completed load for zoom-fit and never synthesizes file readiness from Render readiness.',
         'Reset Data is a local demo-document reset. It creates no Factory action or collaboration publication and makes no claim that another Actor is cleared.',
-        'The response inbox remains a separate read-only server-response adapter and never doubles as document storage.',
+        'The request-time Agent transport remains separate from document persistence and never doubles as document storage.',
         'There is no localStorage migration, old-format compatibility branch, dual document format, or second canonical state owner.',
         'This IndexedDB provider is an Asyra Design reference-App substitute for a server database; a future App developer must supply the production database server and App persistence integration.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
@@ -1068,7 +1060,7 @@
         'App-owned serial accepted-remote persistence handoff'
       ],
       forbiddenContributors: [
-        'response inbox as canonical document persistence',
+        'Agent action-batch transport as canonical document persistence',
         'localStorage document storage or migration',
         'old-format compatibility or dual-format document branches',
         'Factory, Collaboration, or transport ownership of App database policy',
@@ -1117,8 +1109,8 @@
       purpose:
         'Run one guarded 16-item safety proof after each completed endpoint refactor, permit exactly one production two-Actor 7,076-element creation proof only at the named local-source, relay, and final checkpoints, compare only owned evidence with the preceding accepted baseline, and stop all owned work before raw system CPU overload can continue.',
       inputs: [
-        'artifact:response-inbox-bootstrap-timing',
-        'artifact:provider-response-handoff-timing',
+        'artifact:backend-action-batch-preparation-timing',
+        'artifact:provider-request-timing',
         'artifact:ai-action-batch-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:local-drawing-progress-state',
@@ -1173,7 +1165,7 @@
         'Every phase-boundary sample passes through the same active proof-class raw same-snapshot frontend evaluation—500 percent for the exact 7,076-element endpoint or 250 percent for 16-item and 1,280-item safety or attribution—and the proof-class aggregate safety evaluation—500 percent for the exact 7,076-element endpoint or 400 percent for 16-item and 1,280-item safety or attribution—as the periodic sampler and requires exact PID set equality; any observed process identity change before an accepted terminal heartbeat makes attribution invalid, and raw OS CPU can never be the sole owner-attribution signal.',
         'After one valid terminal complete heartbeat is accepted, the product proof window is closed: later Chrome teardown process-identity changes cannot create a resource stop or invalidate the accepted proof, while exact tracked process-group termination must still be confirmed.',
         'Response inbox seed, read, structured clone, and handoff are external backend and transport-adapter timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
-        'After the response inbox, App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs prompt fill, locator resolution, and actionability outside the product boundary, then establishes one complete raw system snapshot for the process identity. App-owned request acceptance or dispatch starts local-request and retains the maximum raw frontend system value observed during the product window; no Playwright locator, visibility, count, text, or attribute polling may execute in that window. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
+        'After App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs attachment selection, prompt fill, locator resolution, and actionability outside the product boundary, then establishes one complete raw system snapshot for the process identity. App-owned request acceptance or dispatch starts local-request and retains the maximum raw frontend system value observed during the product window; the provider request and backend preparation occur inside that product window, and no Playwright locator, visibility, count, text, or attribute polling may execute in it. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
         'In-page interaction evidence uses event-driven observation plus a fixed bounded frame handoff for each requested assertion; it never runs a recursive requestAnimationFrame polling loop or creates a second per-frame workload during the product window.',
         'Playwright progress observation performs at most one O(1) scalar sample in each Actor every five seconds during the product window; the independent 1,000-millisecond current raw operating-system sampler, ten-second heartbeat deadline, and twenty-second progress deadline remain unchanged.',
         'One pre-stall owner snapshot runs only after Actor A is complete and two consecutive five-second samples show no Actor B canonical, Render, or applied-publication progress; it retains bounded scalars and the top 24 phase totals in the guard emergency report before termination, never repeats during the run, and does not change the progress-stale limit.',
@@ -1199,7 +1191,7 @@
         'If the 16-item attribution case remains at or below the 250-percent frontend and 400-percent aggregate limits, one guarded single-Actor 1,280-item cat-prefix case separates the resident provider delay and handoff, Runtime control-envelope resolution, bounded preview, loading paint, Group, and first plural children-batch timing.',
         'A two-Actor 1,280-item attribution case is allowed only when the fresh single-Actor result cannot separate Actor A and client-to-server work from peer relay or Actor B remote apply.',
         'If that two-Actor 1,280-item attribution ends in a resource stop before it can produce a complete Actor A and Actor B page-target operation window, one two-Actor 320-item fallback may run under the same 250-percent frontend and 400-percent aggregate guards. It reuses the exact collaboration-attribution flow, publication and Undo evidence, per-Actor page-target operation window, and ten-second idle control; it cannot create an accepted endpoint baseline or replace a 7,076-element proof.',
-        'The completed attribution artifact selects exactly one next owner route: response inbox or provider request-boundary contamination, Runtime action-batch resolution, App loading paint, local canonical composition, or receiver frame admission.',
+        'The completed attribution artifact selects exactly one next owner route: backend/provider request-boundary contamination, Runtime action-batch resolution, App loading paint, local canonical composition, or receiver frame admission.',
         'Attribution cases retain the fixed 250-percent frontend and 400-percent aggregate guards and exact process termination, but never create an accepted endpoint baseline, never count as a 7,076 architecture attempt, and cannot establish product equivalence.',
         'The maximum-detail 27,471-element 295,794-point gate allows at most 300 seconds from accepted turn to Actor A settled while retaining the ordinary 250-percent single-Actor frontend and 400-percent aggregate current-CPU limits.',
         'The hard CRDT product-flow deadline from Actor A request submission through Actor B convergence is 300 seconds; the guarded Playwright ceiling is 360 seconds so bounded bootstrap, final assertions, and teardown cannot preempt that product deadline.',
@@ -1307,8 +1299,8 @@
       purpose:
         'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
-        'artifact:response-inbox-bootstrap-timing',
-        'artifact:provider-response-handoff-timing',
+        'artifact:backend-action-batch-preparation-timing',
+        'artifact:provider-request-timing',
         'artifact:ai-action-batch-ingestion-timing',
         'artifact:loading-paint-timing',
         'artifact:app-bulk-timing',
@@ -1335,8 +1327,8 @@
         'After the final architecture owner, one final invocation of the same guarded two-Actor 7,076-element endpoint proof reports the accepted observed result against the retained pre-refactor and preceding endpoint baselines; it does not add a warm-up, repeat, or parallel high-detail suite.',
         'Spans report product execution, artifact construction, encode, server queue/drain, worker decode, remote apply, Render, UI, and harness overhead separately.',
         'The production performance profile exposes detached canonical, history, Factory transaction-status, commit, and publication evidence without exposing a mutable runtime owner.',
-        'Response inbox seeding, the fileId-selected response preload, navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution.',
-        'Both collaboration actors expose bounded persistence counters without reading or hashing canonical document IndexedDB state; local autosave and accepted-remote serial saves remain distinct from the source Actor response inbox read completed before App readiness.',
+        'Navigation, App readiness, collaboration readiness, Conversational AI readiness, reference attachment, runtime evidence readiness, and history baselines are named E2E harness spans outside product execution; the provider request and backend action-batch preparation begin only after Actor A submits the turn and remain named product spans.',
+        'Both collaboration actors expose bounded persistence counters without reading or hashing canonical document IndexedDB state; local autosave and accepted-remote serial saves remain distinct from the source Actor request-time Agent transport.',
         'The default 16-item CRDT case, one change-aware 7,112-element balanced correctness run, the final accepted guarded 7,076-element endpoint proof, and the 27,471-element 295,794-point gate pass.',
         'The maximum-detail 27,471-element 295,794-point gate allows at most 300 seconds from accepted turn to Actor A settled while retaining the ordinary 250-percent single-Actor frontend and 400-percent aggregate current-CPU limits.',
         'Local performance and maximum-detail gates launch background headless Chrome for Testing so automation never steals the product owner desktop focus; they apply no CPU quota, process-count limit, worker-count limit, memory ceiling, software-rendering requirement, or Playwright retry, while workers: 1 limits concurrent test cases only and never limits one browser process group.',
@@ -1388,11 +1380,11 @@
   const routes = [
     {
       id: 'route-server-prepared-action-batch-to-runtime',
-      from: 'preload-file-scoped-server-response',
+      from: 'request-backend-action-batch',
       to: 'resolve-server-prepared-action-batch',
       kind: 'handoff',
       predicate:
-        'Actor A handed the fileId-selected resident server-prepared AiActionBatch to resolveAiActionBatch() with zero request-time response inbox access, fixture import, fetch, parse, tokenization, transform, validation, normalization, or materialization.',
+        'Actor A received one backend-prepared AiActionBatch from its submitted intent and attachment, then handed it to resolveAiActionBatch() without client-side geometry preparation.',
       producedArtifacts: ['artifact:server-prepared-action-batch']
     },
     {
@@ -1429,40 +1421,40 @@
       producedArtifacts: ['artifact:visible-loading-boundary']
     },
     {
-      id: 'route-response-inbox-bootstrap-timing-to-endpoint-proof',
-      from: 'preload-file-scoped-server-response',
+      id: 'route-backend-preparation-timing-to-endpoint-proof',
+      from: 'request-backend-action-batch',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The exact fileId-selected response inbox read completed before App and Agent readiness and remained outside product operation timing.',
-      producedArtifacts: ['artifact:response-inbox-bootstrap-timing']
+        'The backend action-batch preparation span started after Actor A submitted the turn and remained separately attributed from frontend execution.',
+      producedArtifacts: ['artifact:backend-action-batch-preparation-timing']
     },
     {
-      id: 'route-response-inbox-bootstrap-timing-to-final-proof',
-      from: 'preload-file-scoped-server-response',
+      id: 'route-backend-preparation-timing-to-final-proof',
+      from: 'request-backend-action-batch',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted architecture reported the fileId-selected response inbox preload as a detached pre-ready harness span.',
-      producedArtifacts: ['artifact:response-inbox-bootstrap-timing']
+        'The accepted architecture reported backend action-batch preparation as a request-time backend span.',
+      producedArtifacts: ['artifact:backend-action-batch-preparation-timing']
     },
     {
-      id: 'route-provider-response-handoff-timing-to-endpoint-proof',
-      from: 'preload-file-scoped-server-response',
+      id: 'route-provider-request-timing-to-endpoint-proof',
+      from: 'request-backend-action-batch',
       to: 'evaluate-endpoint-performance',
       kind: 'observation',
       predicate:
-        'The request-time requestActionBatch() span contained only resident response contract verification and AiActionBatch handoff.',
-      producedArtifacts: ['artifact:provider-response-handoff-timing']
+        'The request-time requestActionBatch() span contains the one same-origin HTTP request and AiActionBatch response handoff.',
+      producedArtifacts: ['artifact:provider-request-timing']
     },
     {
-      id: 'route-provider-response-handoff-timing-to-final-proof',
-      from: 'preload-file-scoped-server-response',
+      id: 'route-provider-request-timing-to-final-proof',
+      from: 'request-backend-action-batch',
       to: 'evaluate-performance-and-equivalence',
       kind: 'observation',
       predicate:
-        'The accepted request-time provider span retained zero fixture acquisition or materialization.',
-      producedArtifacts: ['artifact:provider-response-handoff-timing']
+        'The accepted request-time provider span retained one transport request and no frontend payload construction.',
+      producedArtifacts: ['artifact:provider-request-timing']
     },
     {
       id: 'route-loading-paint-timing-to-endpoint-proof',
@@ -1871,7 +1863,7 @@
       to: 'evaluate-performance-and-equivalence',
       kind: 'policy-proof',
       predicate:
-        'Single-Actor and two-Actor demo sessions load and save through the same file-scoped App persistence owner while the response inbox remains separate.',
+        'Single-Actor and two-Actor demo sessions load and save through the same file-scoped App persistence owner while request-time Agent transport remains separate.',
       producedArtifacts: [
         'artifact:file-scoped-demo-document-snapshot',
         'artifact:remote-persistence-settlement'
@@ -1912,12 +1904,12 @@
       producedArtifacts: ['artifact:resource-guard-stop-proof']
     },
     {
-      id: 'route-attribution-to-server-response-boundary',
+      id: 'route-attribution-to-backend-request-boundary',
       from: 'evaluate-endpoint-performance',
-      to: 'preload-file-scoped-server-response',
+      to: 'request-backend-action-batch',
       kind: 'bounded-attribution',
       predicate:
-        'Fresh single-Actor CPU-time evidence identifies a missing pre-ready response preload or any request-time response inbox access, fixture import, fetch, parse, tokenization, transform, or materialization as the first incorrect boundary.',
+        'Fresh single-Actor CPU-time evidence identifies provider transport or backend action-batch preparation as the first incorrect boundary.',
       producedArtifacts: ['artifact:precanonical-owner-attribution']
     },
     {
@@ -1968,16 +1960,16 @@
   const artifacts = [
     {
       id: 'artifact:server-prepared-action-batch',
-      ownerStepId: 'preload-file-scoped-server-response',
+      ownerStepId: 'request-backend-action-batch',
       channel:
-        'fileId-selected startup-resident server-prepared AiActionBatch returned by requestActionBatch()',
+        'request-time backend-prepared AiActionBatch returned by requestActionBatch() for Actor A submitted intent and attachment',
       consumerStepIds: ['resolve-server-prepared-action-batch'],
       terminal: false
     },
     {
-      id: 'artifact:response-inbox-bootstrap-timing',
-      ownerStepId: 'preload-file-scoped-server-response',
-      channel: 'detached pre-ready response inbox adapter read timing',
+      id: 'artifact:backend-action-batch-preparation-timing',
+      ownerStepId: 'request-backend-action-batch',
+      channel: 'request-time backend input matching and action-batch preparation timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -1985,10 +1977,10 @@
       terminal: false
     },
     {
-      id: 'artifact:provider-response-handoff-timing',
-      ownerStepId: 'preload-file-scoped-server-response',
+      id: 'artifact:provider-request-timing',
+      ownerStepId: 'request-backend-action-batch',
       channel:
-        'detached request-time requestActionBatch() contract verification and resident AiActionBatch handoff timing',
+        'request-time same-origin requestActionBatch() HTTP transport and AiActionBatch response handoff timing',
       consumerStepIds: [
         'evaluate-endpoint-performance',
         'evaluate-performance-and-equivalence'
@@ -2326,9 +2318,9 @@
       id: 'artifact:precanonical-owner-attribution',
       ownerStepId: 'evaluate-endpoint-performance',
       channel:
-        'fresh-process request-wide CPU-time and ordered browser-monotonic attribution that selects exactly one response inbox/provider, Runtime action-batch, loading, canonical, or collaboration owner without endpoint acceptance',
+        'fresh-process request-wide CPU-time and ordered browser-monotonic attribution that selects exactly one backend/provider, Runtime action-batch, loading, canonical, or collaboration owner without endpoint acceptance',
       consumerStepIds: [
-        'preload-file-scoped-server-response',
+        'request-backend-action-batch',
         'resolve-server-prepared-action-batch',
         'yield-ai-loading-paint',
         'stage-local-interactive-composition',
@@ -2355,11 +2347,11 @@
 
   const invariants = [
     {
-      id: 'server-response-is-not-document-state',
+      id: 'agent-response-is-not-document-state',
       statement:
-        'The same required fileId may select both the App document session and one test-prepared server response, but the startup-resident response remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state before Actor A sends the ordinary conversation request.',
+        'The required fileId selects only the App document and collaboration session. A backend response exists only after Actor A submits the ordinary conversation request; it remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state until the returned action executes.',
       stepIds: [
-        'preload-file-scoped-server-response',
+        'request-backend-action-batch',
         'load-file-scoped-demo-document',
         'resolve-server-prepared-action-batch'
       ],
@@ -2368,7 +2360,7 @@
         'artifact:file-scoped-demo-document-snapshot'
       ],
       specRefs: [
-        '#file-scoped-server-response-inbox-contract',
+        '#request-time-backend-action-batch-contract',
         '#file-scoped-demo-persistence'
       ]
     },
@@ -2443,7 +2435,7 @@
     {
       id: 'demo-persists-local-and-accepted-remote-outcomes',
       statement:
-        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave, while each accepted remote publication updates canonical, Render, and UI state before one serialized App-owned IndexedDB save; the separate pre-ready response inbox is not document persistence, and remote apply creates no Undo or echo publication.',
+        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave, while each accepted remote publication updates canonical, Render, and UI state before one serialized App-owned IndexedDB save; request-time Agent transport is not document persistence, and remote apply creates no Undo or echo publication.',
       stepIds: [
         'load-file-scoped-demo-document',
         'evaluate-endpoint-performance',
@@ -2463,22 +2455,23 @@
 
   const acceptanceContracts = [
     {
-      id: 'file-scoped-server-response',
-      title: 'File-scoped server response is ready before product work',
+      id: 'request-time-backend-action-batch',
+      title: 'Actor A requests one backend action batch after Send',
       assertions: [
-        'The test or manual harness prepares and seeds one exact versioned response in the response inbox adapter before App navigation, required fileId selects only that response, and deterministic preparation, seed data, and fixtures never enter the production bundle.',
-        'App and Agent readiness wait for the bounded read, while the canonical document remains empty and nonshared until Actor A sends the ordinary conversation request.',
-        'requestActionBatch() returns exactly one server-prepared AiActionBatch with one batchId. Production has one provider path, no artificial delay, phrase fixture fallback, failure simulation, fixture I/O, model validation, normalization, parse, materialization, deep-freeze, or lazy fallback.',
+        'App navigation and Agent readiness perform no action-payload preload; required fileId selects only the persisted document and collaboration session, while the canonical document remains unchanged until Actor A sends an ordinary conversation request.',
+        'requestActionBatch() performs exactly one same-origin HTTP request carrying Actor A intent, exact attachment, App context, and registered actions, then returns one server-prepared AiActionBatch with one batchId.',
+        'The checked-in crdt-7076 sample accepts only its exact image and instruction, reads its previously converted 7,075-vector data on the backend without VTracer, and returns one Group plus those vectors for 7,076 total canonical elements.',
+        'Production has one provider path and no startup response inbox, URL-selected action payload, resident batch, artificial delay, failure simulation, frontend fixture I/O, frontend model validation, frontend normalization, frontend materialization, compatibility format, or lazy fallback.',
         'resolveAiActionBatch() produces one ResolvedAiActionBatch, permission receives one PermissionReadyAiActionBatch, and confirmation receives one AiActionBatchPreview without a plan API alias or compatibility wrapper.',
-        'The 16-, 320-, 1,280-, and 7,075-child responses preserve exact full detail as prepared Group and ordered child descriptors, while Actor B obtains the resulting drawing only through canonical CRDT publications.'
+        'Actor B never requests or executes Actor A backend response and obtains the resulting drawing only through canonical CRDT publications.'
       ],
       stepIds: [
-        'preload-file-scoped-server-response',
+        'request-backend-action-batch',
         'load-file-scoped-demo-document',
         'resolve-server-prepared-action-batch'
       ],
       specRefs: [
-        '#file-scoped-server-response-inbox-contract',
+        '#request-time-backend-action-batch-contract',
         '#non-negotiable-equivalence'
       ]
     },
@@ -2540,7 +2533,7 @@
         'Exact validated bounds become visible as a connected runtime-only DOM compositor loading state before the first canonical mutation.',
         'Progressive plural Core work units make ordinary editable Vectors visible at real element milestones, return control through one serialized later-task loop, and retain one outer transaction with one intended Undo action.',
         'During cooperative yields, the App-owned document interaction lock keeps ordinary viewport pan and zoom responsive while every other document interaction stays outside canonical mutation and history, then releases at terminal cleanup.',
-        'The one guarded two-Actor 7,076-element production run reports Actor A DOM loading, first compositor paint opportunity, first Vector, real milestones, longest work unit, cooperative yield count, settled, Render, UI, harness, Actor B completion and convergence, and separately attributed WebSocket-server timing with no Contents, request-time response inbox read, or document IndexedDB work.'
+        'The one guarded two-Actor 7,076-element production run reports Actor A backend request and preparation, DOM loading, first compositor paint opportunity, first Vector, real milestones, longest work unit, cooperative yield count, settled, Render, UI, harness, Actor B completion and convergence, and separately attributed WebSocket-server timing with no Contents or document IndexedDB inspection.'
       ],
       stepIds: [
         'stage-local-interactive-composition',

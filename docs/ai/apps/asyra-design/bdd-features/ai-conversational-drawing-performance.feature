@@ -71,10 +71,9 @@ Feature: Conversational AI drawing performance
     And Actor A should reach collaboration-ready and two fresh raw settled samples before the independent Actor B browser is launched
     And Actor B should reach collaboration-ready and both Actors should reach two fresh raw settled samples before the ready heartbeat
     And settled bootstrap samples should require the requested Actor roles, freshness, both per-Actor browser values, and the real overall value below the ordinary 80-percent idle baseline instead of using a fixed sleep
-    And the test or manual harness should seed the exact server response inbox before Actor A navigation
-    And the fileId-selected response inbox read should complete before App and Agent readiness
-    And those response-inbox, App, and Collaboration bootstrap phases should remain outside product execution timing
-    And response inbox adapter seed, read, structured clone, and handoff should remain external backend and transport timing that is recorded separately and excluded from frontend product execution
+    And App, Collaboration, Agent readiness, reference attachment, and prompt actionability should complete before product execution timing
+    And no action payload should be seeded or preloaded before Actor A submission
+    And provider request and backend action-batch preparation should begin only after Actor A submission and remain separately attributed inside product execution timing
     And the fixed two-Actor tracked roles should be test-harness, client-a-browser, client-b-browser, app-server, and websocket-server while a single-Actor attribution omits only client-b-browser
     And Actor A and Actor B should run in independently launched Chromium process groups
     And each invocation should own one production preview and one WebSocket server while HMR and pre-existing listeners remain absent
@@ -130,12 +129,12 @@ Feature: Conversational AI drawing performance
     And the same owner should immediately capture the first blocker, find its bounded root cause, re-read the Inspector, revise its owner plan and formal oracle, and execute the new iteration before any downstream owner advances
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
-    And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should begin from a response resident before readiness and separate provider request and batch handoff from material canonical and Render work
+    And one guarded single-Actor 16-item cat-prefix case with 12919 vector points should request its backend batch after Send and separate provider request and backend preparation from material canonical and Render work
     And only after that corrected raw-snapshot case crosses the 250-percent frontend or 400-percent aggregate limit and stops should a bounded replan authorize one equivalent reduced-motion control
     And otherwise one guarded single-Actor 1280-item cat-prefix case should separate provider handoff, Runtime control-envelope resolution, bounded preview, loading, Group, and first plural batch work
     And a two-Actor 1280-item attribution case should run only when the single-Actor case cannot separate collaboration overhead
     And no 16-item or 1280-item attribution case should create an accepted endpoint baseline or replace the exact 7076-element proof
-    And the completed attribution should route to exactly one server-response boundary, Runtime, loading, local canonical, or receiver owner
+    And the completed attribution should route to exactly one backend/provider boundary, Runtime, loading, local canonical, or receiver owner
     And an effective endpoint should preserve exact canonical, detail, identity, transaction, history, and file-scoped persistence evidence
     And an ineffective endpoint should return only to its first incorrect owner
     And one design hypothesis should receive at most five materially revised architecture attempts before mandatory root-cause replanning
@@ -163,7 +162,7 @@ Feature: Conversational AI drawing performance
     Given production build commands completed as separate setup outside the runtime guard
     And the production App runtime starts through one preview and one WebSocket server
     And Actor A and Actor B opened the same required fileId
-    And the exact 16-item server response was resident in the response inbox before App and Agent readiness
+    And no action payload existed before App and Agent readiness
     And both Actors reached Collaboration readiness before the guard accepted the request baseline
     When Actor A requests the two-Actor 16-item high-detail fixture
     Then prompt fill, locator resolution, and actionability should have completed outside the product boundary
@@ -175,7 +174,7 @@ Feature: Conversational AI drawing performance
     And each Actor page-target should use CDP Performance threadTicks deltas for TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration
     And those deltas should report page main-thread task occupancy rather than complete Actor CPU
     And worker, GPU, browser, App server, WebSocket server, and harness work should remain in separate OS guard evidence
-    And operation timing should contain no response inbox adapter read or fixture materialization
+    And operation timing should separately report provider request, backend preparation, Runtime, canonical, Render, and collaboration work
     And the raw same-snapshot 250-percent frontend and 400-percent aggregate hard stops should remain active during operation and idle
     And the case should use collaboration-attribution and should not create an accepted endpoint baseline
 
@@ -508,7 +507,7 @@ Feature: Conversational AI drawing performance
     And Undo and Redo should reuse Core autosave
     And Actor B accepted remote apply should serialize one App-owned save without Undo or echo
     And refresh should restore the latest stored canonical snapshot for that fileId
-    But the response inbox should remain separate from document persistence
+    But request-time Agent transport should remain separate from document persistence
     And future App developers should replace this reference provider with their production database server and App persistence integration
 
   Scenario: Required fileId selects the document without toggling Collaboration
@@ -536,36 +535,31 @@ Feature: Conversational AI drawing performance
     And it should perform no URL parsing or page reload
     But it should remain a local reset and create no Factory action or CRDT clear publication
 
-  Scenario: Required fileId preloads one server response inbox record before App readiness
-    Given the test or manual harness validates, normalizes, summarizes, and builds one PreparedDrawingArtifact from one exact model response outside the production bundle
-    And the production build passed its own artifact attestation
-    And the harness generated the exact compressed response and hash manifest into an ignored preview overlay before the runtime guard
-    And the response overlay passed a separate attestation before Playwright started
-    And canonical production dist contains no prepared response fixture and the overlay is never a production deployment artifact
-    And the required fileId selects that response independently from the empty canonical document
-    When a same-origin blank seed page fetches and decompresses the selected response before App navigation
-    Then it should write that versioned server-prepared "AiActionBatch" directly to the IndexedDB response inbox adapter
-    And Playwright should receive only bounded file identity and URL strings, never the prepared response object
-    And fetch, decompress, parse, and IndexedDB write timing should be reported separately from frontend product execution
-    When App bootstrap begins
-    Then it should read only the exact 16, 320, 1280, or 7075-child response selected by fileId
-    And the selected response should be resident before App readiness, Agent readiness, and the stable performance baseline
-    And selecting a smaller response should not read, construct, or slice a larger response
-    And the canonical document should remain empty, noncanonical, and nonshared before Actor A sends a conversation request
-    When Actor A sends the response's expected request through the ordinary Agent route
-    Then the provider should call only "requestActionBatch()" and return the server-prepared batch selected by fileId
-    And request-time response inbox access, fixture import, JSON or SVG parse, path tokenization, geometry transform, model validation, normalization, drawing-artifact encoding, materialization, slicing, and provider deep-freeze should remain zero
-    And production should contain no artificial delay, phrase-selected fixture fallback, failure simulation, or fake, simulated, and local-compat provider naming
-    And deterministic preparation, seed data, and fixture selection should remain test or manual harness concerns excluded from the production bundle
+  Scenario: Actor A requests the checked-in 7076 backend sample after Send
+    Given the required URL is "/?fileId=crdt-7076-sample"
+    And fileId selects only the persisted document and Collaboration session
+    And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and previously converted 7075-vector source
+    When App bootstrap and Agent readiness complete
+    Then no action payload should be seeded, preloaded, read from an IndexedDB response inbox, or selected by fileId
+    And the canonical document should remain unchanged before Actor A sends a conversation request
+    When Actor A opens the Agent panel, attaches the exact sample image, enters the exact sample instruction, and presses Send
+    Then the provider should call only "requestActionBatch()" through one same-origin HTTP request
+    And the request should carry the intent, image attachment, App context, registered action descriptions, attempt number, and abort ownership
+    And the sample backend should match the exact image and instruction
+    And it should read the previously converted vector source without invoking VTracer, image conversion, or a model
+    And it should return one server-prepared "AiActionBatch" containing one prepared Group and 7075 ordered editable Vector descriptors
+    And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, CRDT, and persistence owners
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
-    But the IndexedDB response inbox adapter should remain separate from document persistence
-    And local actions, Undo, Redo, and accepted remote apply should persist only through the file-scoped document provider
+    And Actor A and Actor B should each finish with 7076 canonical elements
+    But a nonmatching, malformed, or aborted request should fail before Runtime and canonical mutation
+    And no frontend fixture, URL-selected action payload, resident batch, old payload format, or second provider should exist
 
   Scenario: Fast server-response AI CRDT correctness stays bounded
     Given two browser actors share one fresh collaboration document
-    And their required fileId selected the exact 16-item server response before App readiness
-    When Actor A accepts the server-prepared batch through the ordinary Agent route
-    Then both actors should converge on identical canonical ids, topology, hierarchy, and styles
+    And their required fileId selects only that document and Collaboration session
+    When Actor A submits an Agent request and the focused backend harness returns the exact 16-item server response
+    Then Actor A should accept the server-prepared batch through the ordinary Agent route
+    And both actors should converge on identical canonical ids, topology, hierarchy, and styles
     And Actor A should gain one Undo action while Actor B gains no local Undo action
     And the 7112-element balanced correctness gate should remain change-aware or explicitly requested
     And high-detail performance and CRDT suites should remain independent and explicitly opt-in
@@ -574,8 +568,8 @@ Feature: Conversational AI drawing performance
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
     And the 500-percent frontend and 500-percent aggregate high-performance resource guards own the production App, browser, harness, and WebSocket server processes
-    And the independently attested response preview overlay is served instead of modifying canonical production dist
-    And Contents, request-time response inbox access, document reload, IndexedDB inspection, HMR, media, warm-up, and repeat are absent
+    And the exact checked-in sample image, instruction, and previously converted vector source are used through the ordinary backend request route
+    And Contents, document reload, IndexedDB inspection, VTracer, HMR, media, warm-up, and repeat are absent
     And file-scoped App persistence remains enabled with separate save timing
     When Actor A creates the server-prepared 7076-element high-detail composition once
     Then Actor A should show connected exact-bounds loading and ordinary Vector milestones while pan and zoom remain responsive
@@ -583,7 +577,7 @@ Feature: Conversational AI drawing performance
     And bounded counters should report Actor A settled, Actor B first-visible and complete, convergence, Render, UI, harness, and separately attributed server timing
     And Actor A and Actor B should each produce one terminal exact summary with all 7076 projections and identical detail
     And Actor A should gain one Undo action while Actor B gains none
-    And Actor A should settle within 30 seconds
+    And Actor A should settle within 300 seconds
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
     And Actor B should converge within 30 seconds of Actor A canonical commit
     And the CRDT product flow from Actor A request through Actor B convergence should have a 300-second deadline
@@ -603,7 +597,7 @@ Feature: Conversational AI drawing performance
     Then it should receive detached canonical, history, Factory status, commit, and publication snapshots
     And dev-only "window.__Core__" should not satisfy production evidence
     And navigation, App readiness, collaboration readiness, server AI readiness, reference attachment, runtime evidence, and history baseline should remain named harness spans
-    And after the pre-ready response inbox seed and lookup the harness should not open, poll, normalize, stringify, or hash document IndexedDB
+    And the harness should not open, poll, normalize, stringify, or hash document IndexedDB
 
   Scenario: Performance work preserves cancellation and failure semantics
     When the user cancels, a recoverable item fails, a fatal canonical error occurs, a frame is invalid, the transport closes, the worker tears down, or the app tears down

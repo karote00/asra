@@ -9,7 +9,7 @@ const appRoot = path.resolve(
   '../../..'
 )
 
-test('production bundle contains only the formal server-response Agent route', async () => {
+test('frontend production bundle contains only the formal HTTP Agent provider', async () => {
   const result = await build({
     root: appRoot,
     configFile: path.resolve(appRoot, 'vite.config.ts'),
@@ -32,7 +32,7 @@ test('production bundle contains only the formal server-response Agent route', a
 
   ;[
     'server-action-batch-provider.ts',
-    'server-response-inbox.ts',
+    'action-batch-endpoint.ts',
     'ai/startup.ts'
   ].forEach((marker) => {
     assert.equal(
@@ -44,12 +44,19 @@ test('production bundle contains only the formal server-response Agent route', a
 
   assert.equal(
     moduleIds.some((moduleId) =>
-      /[/\\]src[/\\]ai[/\\](?:fixtures|mode\.ts)/.test(moduleId)
+      /[/\\](?:samples[/\\]crdt-7076|server[/\\]action-batch|src[/\\]ai[/\\](?:fixtures|mode\.ts|server-response-inbox\.ts))/.test(
+        moduleId
+      )
     ),
     false,
-    'production graph retained a legacy local response source'
+    'frontend graph retained a backend sample or legacy response source'
   )
-  ;['planId', 'generateActionPlan'].forEach((marker) => {
+  ;[
+    'planId',
+    'generateActionPlan',
+    'Draw only the cat from the reference image',
+    'server-response-inbox'
+  ].forEach((marker) => {
     assert.equal(
       bundledCode.includes(marker),
       false,

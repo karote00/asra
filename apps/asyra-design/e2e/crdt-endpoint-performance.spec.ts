@@ -43,12 +43,9 @@ const requiredAttributionPhaseNames = [
   'ai-app:create-composition-group',
   'ai-app:create-composition-batch'
 ] as const
-const referenceImageName = 'research-02-original-tabby-source.png'
+const referenceImageName = 'reference-image.png'
 const referenceImagePath = fileURLToPath(
-  new URL(
-    '../visual-review-records/research/research-02-original-tabby-source.png',
-    import.meta.url
-  )
+  new URL('../samples/crdt-7076/reference-image.png', import.meta.url)
 )
 const guardLauncherPath = fileURLToPath(
   new URL('./performance-resource-guard.mjs', import.meta.url)

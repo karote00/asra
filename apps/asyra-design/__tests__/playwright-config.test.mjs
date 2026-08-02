@@ -56,6 +56,19 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.match(collaboration, /Total: [1-9]\d* tests? in 2 files/)
 })
 
+test('owned E2E servers never ask Vite to open a desktop browser', async () => {
+  const viteSource = await readFile(
+    new URL('../vite.config.ts', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    viteSource,
+    /const opensBrowser = process\.env\.E2E_OWN_SERVERS !== '1'/
+  )
+  assert.match(viteSource, /server:\s*\{[\s\S]*open: opensBrowser/)
+})
+
 test('ordinary Playwright starts the always-on collaboration service before the App', async () => {
   const configSource = await readFile(
     new URL('../playwright.config.ts', import.meta.url),
@@ -620,7 +633,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   const coreDebugHandle = ['__', 'Core', '__'].join('')
   assert.equal(specSource.includes(coreDebugHandle), false)
   assert.match(specSource, /runtime-diagnostic-request/)
-  assert.match(specSource, /research-02-original-tabby-source\.png/)
+  assert.match(specSource, /samples[/\\]crdt-7076[/\\]reference-image\.png/)
   assert.match(specSource, /totalCount:\s*7076/)
   assert.match(specSource, /vectorCount:\s*7075/)
   assert.match(specSource, /groupCount:\s*1/)

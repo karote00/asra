@@ -129,14 +129,14 @@ owner and rerun once; if it still cannot identify a boundary, stop the commit.
   before Collaboration starts.
 - Conditions: local and AI actions reuse Core autosave; accepted remote
   publications enter one App-owned serial persistence handoff after canonical
-  apply; the response inbox remains a separate read-only server-response
-  adapter; the WebSocket server remains memory-only.
+  apply; request-time Agent transport remains separate from canonical
+  persistence; the WebSocket server remains memory-only.
 - Bypasses: no stored document loads the valid empty document once; rejected or
   rolled-back work is never saved.
 - Allowed contributors: App startup, `@asyra/persistence` public IndexedDB
   provider, Core save/load facade, App collaboration settlement.
-- Forbidden contributors: server-owned durability claims, response-inbox reuse,
-  Core remote-origin policy changes, dual storage formats, localStorage
+- Forbidden contributors: server-owned durability claims, Agent transport
+  reuse, Core remote-origin policy changes, dual storage formats, localStorage
   compatibility, or a second canonical state owner.
 - Initial implementation boundary:
   `apps/asyra-design/src/document-persistence.ts`,
@@ -303,8 +303,10 @@ and will become server authorization input; it is never a Collaboration switch.
 One connected Actor is the single-Actor case; a second Actor joining the same
 `fileId` session makes it the two-Actor CRDT case. Local and AI actions, Undo,
 and Redo reuse Core autosave. Each accepted remote publication enters one
-App-owned serialized save after canonical apply. The response inbox is separate
-and no localStorage, old-format compatibility, or dual-format branch exists.
+App-owned serialized save after canonical apply. Production Agent transport
+always requests one backend action batch after Send and remains separate from
+canonical persistence; no localStorage, old-format compatibility, or
+dual-format branch exists.
 This reference persistence substitutes for a server database only in this App;
 future App developers must implement the production database server and App
 persistence integration.
@@ -1365,8 +1367,8 @@ new lanes cannot be represented by the current generic viewer.
 
 Excluded scope:
 
-- Live network endpoint and API-key formal testing for the server-backed
-  provider;
+- External model endpoint and API-key integration beyond the checked-in
+  same-origin reference sample backend;
 - production backend DB integration or socket-server checkpoint policy;
 - VTracer detail generation;
 - an AI-only renderer or Render-engine bulk command;
@@ -1379,10 +1381,11 @@ used; any missing capability stops the step for explicit approval.
 ## Target Architecture
 
 ```text
-test/manual harness seeds one exact versioned server response in the response inbox adapter by fileId
-→ response inbox bootstrap completes outside the production bundle and before App/Agent readiness
-→ user conversation request
-→ provider.requestActionBatch()
+required fileId selects only the persisted document and Collaboration session
+→ App and Agent become ready with no action payload
+→ user attaches an image, enters an instruction, and presses Send
+→ provider.requestActionBatch() performs one same-origin HTTP request
+→ backend matches the request and prepares one action batch
 → server-prepared AiActionBatch with batchId
 → Runtime.resolveAiActionBatch()
 → ResolvedAiActionBatch
@@ -1409,45 +1412,47 @@ test/manual harness seeds one exact versioned server response in the response in
 → peer Preset/Render/UI projection
 ```
 
-### File-scoped Server Response Inbox Contract
+### Request-time Backend Action Batch Contract
 
-- Production contains one formal server-backed provider. The provider calls
-  `requestActionBatch()` and knows nothing about fixtures, IndexedDB, test
-  phrases, or local compatibility.
-- The test/manual harness alone may stand in for the backend by validating and
-  normalizing one exact model response, deriving its bounded summary, and
-  building one `PreparedDrawingArtifact` with one prepared Group descriptor,
-  ordered child descriptor slices, stable ordered IDs, complete source creation
-  data, relationships, geometry data, bounds, styles, point counts, and roles.
-  It seeds the versioned `AiActionBatch` into an IndexedDB response inbox
-  adapter under the required `fileId`. That deterministic preparation, seed
-  code, and fixture data are excluded from the production bundle.
-- The response inbox adapter performs at most one bounded lookup for that exact
-  `fileId` before App and Agent readiness, Collaboration performance readiness,
-  and the stable CPU baseline. It is harness transport evidence, not an App
-  provider or a second product execution route.
-- The 16-, 320-, 1,280-, and 7,075-child records are exact response variants.
-  Looking up one key does not read, construct, or slice a larger response.
-- At request time the provider calls only `requestActionBatch()`. Production
-  performs no artificial delay, phrase-selected fixture fallback, failure
-  simulation, response-inbox access, dynamic fixture import, JSON/SVG parsing,
-  path tokenization, coordinate transform, fixture materialization,
-  full-source slicing, model validation, normalization, drawing-artifact
-  encoding, or provider deep-freeze.
-- A harness run without the exact inbox record fails harness setup before
-  product timing. It never creates a production fallback.
-- The response remains local, noncanonical, and nonshared.
-  `Core.load(...)` still receives only the empty document, Actor A and Actor B
-  remain at zero canonical elements before the conversation request, and Actor
-  B receives the drawing only through ordinary canonical CRDT publications.
+- Production contains one formal server-backed provider. After Actor A presses
+  Send, `requestActionBatch()` performs exactly one same-origin HTTP request
+  carrying the submitted intent, exact image attachment, App context,
+  registered backend-facing action descriptions, attempt number, and abort
+  ownership.
+- App navigation and Agent readiness perform no response seeding, response
+  inbox lookup, action-payload preload, or resident batch handoff. The required
+  `fileId` selects only the persisted document and Collaboration session; it
+  never selects an Agent payload or execution mode.
+- The backend owns request matching, model or reference-sample processing,
+  server-side geometry preparation, stable descriptor IDs, relationships,
+  bounded summaries, and construction of one `AiActionBatch` containing one
+  `PreparedDrawingArtifact`.
+- The checked-in `crdt-7076` reference sample keeps its input image,
+  instruction text, and previously converted vector source together under
+  `apps/asyra-design/samples/crdt-7076`. Its documented URL is
+  `/?fileId=crdt-7076-sample`; the `7076` name means one Group plus 7,075
+  editable Vector children.
+- Opening that URL performs ordinary document and Collaboration startup only.
+  The sample backend reads the previously converted vector source only after
+  the ordinary Agent request contains the exact checked-in image and exact
+  instruction. It does not invoke VTracer, an image converter, or a model for
+  this sample request.
+- A nonmatching, malformed, or aborted request fails at the provider/backend
+  boundary. It never falls back to a frontend fixture, URL-selected response,
+  IndexedDB response inbox, prompt-only size branch, old payload format, or
+  second provider.
+- The returned `AiActionBatch` remains local, noncanonical, and nonshared.
+  Runtime resolves it through the ordinary action catalog; Actor A alone
+  executes it, and Actor B receives the resulting canonical state only through
+  ordinary CRDT publications.
 - `PreparedDrawingArtifact` preserves every canonical element and property
   record, stable ID, relationship, item, path, point, role, order, bound,
-  transform, and style without retaining a parallel full point-object or
-  geometry relationship graph in the frontend batch.
-- The response inbox adapter is not document persistence. Production App code
-  neither contains nor writes its deterministic seed/fixture implementation;
-  local actions, Undo, Redo, and remote apply continue to perform zero
-  persistence capture, provider save, or document IndexedDB read/write.
+  transform, and style without retaining a parallel full point-object graph in
+  the frontend.
+- Request-time Agent transport is not document persistence. Actor A persists
+  the successful AI action through the existing Core autosave boundary, and
+  Actor B persists accepted remote canonical state through the existing
+  serialized App-owned remote persistence handoff.
 
 ### Server-prepared AiActionBatch Contract
 
@@ -5396,13 +5401,13 @@ benchmark runs.
 
 - Contract: exact owners, graph routes, artifacts, allowlists, failure owners,
   plan anchors, and BDD scenarios.
-- Server response inbox: required `fileId` selects exactly one versioned 16-,
-  320-, 1,280-, or 7,075-child response from the harness-owned response inbox;
-  preload completes before App/Agent readiness and the stable baseline; the
-  product request performs zero response-inbox/fixture
-  import/parse/materialization; the provider calls `requestActionBatch()` once;
-  the canonical document remains empty before the request; and exact detail is
-  unchanged.
+- Backend action-batch request: `fileId` selects only the document and
+  Collaboration session; no action payload exists before Send; the provider
+  performs one same-origin `requestActionBatch()` call carrying the exact
+  intent and attachment; the `crdt-7076` sample backend accepts only its
+  checked-in image and instruction, reads its previously converted
+  7,075-vector source without VTracer, and returns one Group plus those vectors
+  while the canonical document remains unchanged before action execution.
 - AI action batch resolution: exact `batchId`, complete envelope resolution,
   `ResolvedAiActionBatch` identity through `PermissionReadyAiActionBatch` and
   execution, bounded `AiActionBatchPreview` with no geometry, later-invalid
@@ -5447,7 +5452,7 @@ After all architecture owners are complete, run one heavy closure:
 
 1. Inspector contract, all affected package unit/integration tests, Asyra
    Design full local tests, lint, and production build.
-2. Default 16-item server-response AI CRDT correctness.
+2. Default 16-item backend-request AI CRDT correctness.
 3. One 7,112-element balanced correctness run because canonical and transport
    paths changed.
 4. After explicit product-owner approval, one final invocation of the same
@@ -5476,15 +5481,13 @@ never committed.
   otherwise ineffective attempt is committed.
 - The final formal unit, integration, E2E, CRDT, performance, lint, build, and
   Inspector gates pass.
-- Every performance server response is selected by required `fileId`, resident
-  before App/Agent readiness, and handed off as one `AiActionBatch` without
-  request-time fixture I/O or materialization; response inbox reads remain
-  separately reported harness overhead and the deterministic harness code is
-  absent from the production bundle.
-- The production build and ignored response overlay pass independent
-  pre-Playwright attestations; no prepared response object crosses the
-  Playwright process boundary, and canonical production `dist` remains free of
-  response fixtures.
+- Required `fileId` selects only the persisted document and Collaboration
+  session. After Send, one same-origin provider request returns one
+  `AiActionBatch`; the `crdt-7076` sample reads its exact checked-in converted
+  source only on the backend and never runs VTracer.
+- No prepared response object crosses the Playwright process boundary, no
+  startup response inbox or response overlay exists, and the frontend
+  production bundle contains no sample vector source or action payload.
 - Bulk APIs delegate singles to batch-of-one and preserve canonical evidence.
 - The existing Factory journal and Undo stack serve local action history;
   Render/UI consumes ordinary canonical owner projection, and no AI/bulk

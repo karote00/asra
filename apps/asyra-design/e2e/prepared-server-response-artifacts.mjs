@@ -179,9 +179,9 @@ export const resolvePreparedServerResponsePreviewPaths = ({
   productionDistPath = path.join(defaultWorkspaceRoot, 'dist'),
   sourceSvgPath = path.join(
     defaultAppRoot,
-    'test-data',
-    'ai-drawing',
-    'detailed-tabby-cat-only-white-background.svg'
+    'samples',
+    'crdt-7076',
+    'converted-vector-data.svg'
   )
 } = {}) => {
   if (!Number.isInteger(processId) || processId <= 0) {

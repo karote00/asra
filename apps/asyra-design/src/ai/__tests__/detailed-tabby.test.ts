@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import sourceSvg from '../../../test-data/ai-drawing/detailed-tabby-cat-only-white-background.svg?raw'
+import sourceSvg from '../../../samples/crdt-7076/converted-vector-data.svg?raw'
 import maximumSourceSvg from '../../../test-data/ai-drawing/maximum-tabby-polygon.svg?raw'
 import {
   createCatOnlyWhiteBackgroundItemsAtSource,

@@ -6,14 +6,15 @@ Feature: Conversational Agent drawing
   Background:
     Given the App opened one required non-empty fileId
     And the fileId selected one browser-local document provider
-    And the server response inbox lookup completed before App readiness
     And production composed one server-action-batch provider
     And Collaboration started after the stored or valid empty document loaded
 
   Scenario: One server-prepared action batch enters one registered action route
-    Given the server returned one versioned AiActionBatch
+    Given the user attached one accepted image
     When the user submits one Agent request
-    Then Runtime should validate only the bounded action control envelope
+    Then the provider should POST the exact request to the same-origin backend
+    And the backend should return one versioned AiActionBatch
+    And Runtime should validate only the bounded action control envelope
     And permission, confirmation, and execution should preserve the prepared arguments identity
     And the registered action should call ordinary App common APIs
     And the frontend should not rebuild, normalize, clone, freeze, or compare the complete drawing geometry
@@ -53,7 +54,7 @@ Feature: Conversational Agent drawing
     When the page reloads with the same fileId
     Then Core should load the latest accepted document from the file-scoped IndexedDB provider
     And no old-format or localStorage compatibility route should run
-    And the separate response inbox should not act as document persistence
+    And the Agent transport should not act as document persistence
 
   Scenario: Remote apply has no local History or echo
     Given Actor A and Actor B opened the same fileId

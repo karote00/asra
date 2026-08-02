@@ -175,12 +175,9 @@ interface WebSocketPayloadProfile {
 
 const exactCatOnlyPrompt =
   'Draw only the cat from the reference image. Exclude the original background and place the cat on a pure white background canvas with exactly the same width and height as the uploaded photo.'
-const referenceImageName = 'research-02-original-tabby-source.png'
+const referenceImageName = 'reference-image.png'
 const referenceImagePath = fileURLToPath(
-  new URL(
-    '../visual-review-records/research/research-02-original-tabby-source.png',
-    import.meta.url
-  )
+  new URL('../samples/crdt-7076/reference-image.png', import.meta.url)
 )
 const RUN_HIGH_DETAIL_CRDT = process.env.RUN_HIGH_DETAIL_AI_CRDT === '1'
 const CAPTURE_HIGH_DETAIL_CRDT_VISUAL_REVIEW =

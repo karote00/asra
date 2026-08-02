@@ -12,9 +12,6 @@ import {
 import { AiActionNames } from '../actions'
 import { createAiRuntimeInput } from '../runtime-input'
 import { createAiConfirmationBroker } from '../confirmation'
-import { createServerActionBatchProvider } from '../server-action-batch-provider'
-import type { ServerResponseRecord } from '../server-response-inbox'
-import { createAiStartup } from '../startup'
 import { createDeferred } from './deferred'
 
 const referenceBatch = (): AiActionBatch => ({
@@ -45,13 +42,8 @@ const referenceBatch = (): AiActionBatch => ({
   explanation: 'Update the current selection.'
 })
 
-const serverResponse = (
-  batch: AiActionBatch,
-  fileId = `file-${batch.batchId}`
-): ServerResponseRecord => ({
-  batch,
-  fileId,
-  schemaVersion: 1
+const providerForBatch = (batch: AiActionBatch): AiProvider => ({
+  requestActionBatch: vi.fn(async () => batch)
 })
 
 const compact16ItemBatch = (): AiActionBatch => {
@@ -183,7 +175,7 @@ const prepareCommonApis = () => {
 }
 
 const executeBatch = async (batch: AiActionBatch) => {
-  const provider = createServerActionBatchProvider(serverResponse(batch))
+  const provider = providerForBatch(batch)
   const runtime = createAiAgentRuntime(
     createAiRuntimeInput({
       permissionRules: {
@@ -214,7 +206,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
     vi.restoreAllMocks()
   })
 
-  it('runs the resident batch through one common transaction with bounded preview', async () => {
+  it('runs the requested backend batch through one common transaction with bounded preview', async () => {
     const result = await executeBatch(referenceBatch())
 
     expect(result).toMatchObject({
@@ -313,27 +305,29 @@ describe('Asyra Design server action-batch runtime integration', () => {
     ).toBe('cat-group')
   })
 
-  it('keeps the runtime available without a resident response and fails only on request', async () => {
-    const startup = createAiStartup({
-      response: null
-    })
-    const runtime = startup.runtime
+  it('requests the provider only when the Runtime turn starts', async () => {
+    const provider = providerForBatch(referenceBatch())
+    const runtime = createAiAgentRuntime(
+      createAiRuntimeInput({
+        permissionRules: {
+          [AiActionNames.SELECT_ELEMENTS]: 'allow',
+          [AiActionNames.SET_ELEMENT_VISIBILITY]: 'allow'
+        },
+        provider
+      })
+    )
+    expect(provider.requestActionBatch).not.toHaveBeenCalled()
 
     try {
       await expect(
         runtime.run({
-          intent: 'draw without a prepared response',
+          intent: 'request the backend batch',
           signal: new AbortController().signal
         })
-      ).resolves.toMatchObject({
-        code: 'AI_PROVIDER_INVALID_CONFIGURATION',
-        stage: 'provider',
-        status: 'failed'
-      })
+      ).resolves.toMatchObject({ status: 'executed' })
+      expect(provider.requestActionBatch).toHaveBeenCalledOnce()
     } finally {
       await runtime.dispose()
-      await startup.confirmation.dispose()
-      startup.history.dispose()
     }
   })
 
@@ -354,9 +348,7 @@ describe('Asyra Design server action-batch runtime integration', () => {
       ],
       batchId: 'remove-batch'
     }
-    const provider: AiProvider = createServerActionBatchProvider(
-      serverResponse(batch)
-    )
+    const provider: AiProvider = providerForBatch(batch)
     const confirmation = createAiConfirmationBroker()
     const pending = createDeferred<undefined>()
     const unsubscribe = confirmation.subscribe((snapshot) => {

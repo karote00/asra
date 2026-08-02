@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import * as preset from '@asyra/preset'
 import core from '../../contexts'
 import * as areaSelection from '../capabilities/init-area-selection'
@@ -95,7 +94,7 @@ describe('initApp preset composition', () => {
   })
 
   it('applies the default preset with the production AI lifecycle', async () => {
-    const initialization = initApp({ serverResponse: null })
+    const initialization = initApp()
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
@@ -124,23 +123,12 @@ describe('initApp preset composition', () => {
     await initialization.dispose()
   })
 
-  it('passes the exact resident server response into AI startup', async () => {
-    const batch = {
-      actions: [],
-      batchId: 'resident'
-    } as const satisfies AiActionBatch
-    const response = {
-      batch,
-      fileId: 'file-resident',
-      schemaVersion: 1
-    } as const
+  it('starts AI without a resident action payload', async () => {
     const createAiStartup = vi.spyOn(aiStartup, 'createAiStartup')
 
-    const initialization = initApp({ serverResponse: response })
+    const initialization = initApp()
 
-    expect(createAiStartup).toHaveBeenCalledWith({
-      response
-    })
+    expect(createAiStartup).toHaveBeenCalledWith()
 
     await initialization.dispose()
   })
@@ -163,7 +151,7 @@ describe('initApp preset composition', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
 
-    const initialization = initApp({ serverResponse: null })
+    const initialization = initApp()
 
     expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
@@ -213,9 +201,7 @@ describe('initApp preset composition', () => {
       throw new Error('Agent feature registration failed')
     })
 
-    expect(() => initApp({ serverResponse: null })).toThrow(
-      'Agent feature registration failed'
-    )
+    expect(() => initApp()).toThrow('Agent feature registration failed')
 
     expect(disposeHistory).toHaveBeenCalledOnce()
     expect(disposeConfirmation).toHaveBeenCalledOnce()
@@ -243,7 +229,7 @@ describe('initApp preset composition', () => {
       'getActiveAiDrawingPerformanceProfile'
     ).mockReturnValue(profile)
 
-    const initialization = initApp({ serverResponse: null })
+    const initialization = initApp()
 
     expect(attachRuntimeEvidence).toHaveBeenCalledOnce()
     expect(attachRuntimeEvidence).toHaveBeenCalledWith(profile, {

@@ -4,28 +4,27 @@ This file is the app-level API contract map.
 
 ## AI Agent Reference
 
-- `startApp(...)` requires one non-empty `fileId`, reads at most one
-  exact versioned `ServerResponseRecord` before App and Agent
-  readiness, then passes that resident response into `initApp(...)`
-- the response record has the exact shape
-  `{ fileId, schemaVersion: 1, batch: AiActionBatch }`. The startup reader checks
-  only this transport/control envelope and performs one read-only response-inbox
-  lookup; production App code never writes or repairs the inbox
-- the response inbox currently represents the server-response boundary through
-  IndexedDB. Its preload, structured clone, and handoff timing are recorded as
-  external backend/transport-adapter timing and are excluded from frontend
-  product execution timing
-- the response inbox is not canonical document persistence. Independently,
-  the required `fileId` selects one browser-local document provider. Core loads
+- `startApp(...)` requires one non-empty `fileId` as document and Collaboration
+  session identity, then initializes the App without reading, seeding, or
+  preloading any Agent action payload
+- the required `fileId` selects one browser-local document provider. Core loads
   that document before Collaboration, persists local actions, Agent actions,
   Undo, and Redo, and the accepted-remote callback persists the resulting
   document through the same serialized queue
 - `createServerActionBatchProvider(...)` is the single production
   provider composition. Its only request method is
-  `requestActionBatch(input, { signal })`, which returns the same resident
-  server-prepared `AiActionBatch` without request-time inbox access, fixture
-  I/O, parsing, normalization, compact encoding, artificial delay, or payload
-  selection
+  `requestActionBatch(input, { signal })`, which performs one same-origin HTTP
+  request after Actor A presses Send and returns one server-prepared
+  `AiActionBatch`
+- that request carries the submitted intent, exact image attachment, App
+  context, registered backend-facing action descriptions, attempt number, and
+  abort ownership; no fileId, URL parameter, startup branch, resident batch, or
+  IndexedDB response inbox selects its payload
+- the checked-in `samples/crdt-7076` reference contains its exact input image,
+  instruction text, and previously converted 7,075-vector source. Its backend
+  accepts only the exact sample input, reads that converted source without
+  invoking VTracer, and returns one prepared Group plus 7,075 ordered Vector
+  children for 7,076 total canonical elements
 - production startup always composes that provider, the confirmation broker,
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
@@ -223,14 +222,13 @@ This file is the app-level API contract map.
   branch or alias fallback
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- Current startup requires `fileId`, finishes the separate read-only server
-  response-inbox lookup, configures one file-scoped IndexedDB document
-  provider, starts Core so it loads the stored or valid empty document, and
-  then always starts Collaboration. Core persists local actions, Agent actions,
-  Undo, and Redo. One accepted remote apply saves its resulting document before
-  the peer-applied receipt. A future production product must replace this
-  browser-local reference with its own server database, authorization,
-  recovery, and checkpoint policy
+- Current startup requires `fileId`, configures one file-scoped IndexedDB
+  document provider, starts Core so it loads the stored or valid empty
+  document, and then always starts Collaboration. Core persists local actions,
+  Agent actions, Undo, and Redo. One accepted remote apply saves its resulting
+  document before the peer-applied receipt. A future production product must
+  replace this browser-local reference with its own server database,
+  authorization, recovery, and checkpoint policy
 - production builds retain the dynamically loaded reference path, but that
   loading boundary is an implementation split rather than an activation flag;
   the connection always starts after the selected stored or empty canonical document is

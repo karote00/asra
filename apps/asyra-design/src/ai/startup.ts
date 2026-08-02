@@ -14,7 +14,6 @@ import {
   type AiConfirmationBroker
 } from './confirmation'
 import { createServerActionBatchProvider } from './server-action-batch-provider'
-import type { ServerResponseRecord } from './server-response-inbox'
 import { createAiTransactionRunner } from './transaction'
 
 export interface AiStartup {
@@ -26,7 +25,7 @@ export interface AiStartup {
 interface AiStartupFactories {
   readonly createConfirmation: () => AiConfirmationBroker
   readonly createHistory: () => AiHistoryProjection
-  readonly createProvider: (response: ServerResponseRecord | null) => AiProvider
+  readonly createProvider: () => AiProvider
 }
 
 const defaultFactories: AiStartupFactories = {
@@ -36,16 +35,13 @@ const defaultFactories: AiStartupFactories = {
 }
 
 export const createAiStartup = (
-  input: {
-    readonly response: ServerResponseRecord | null
-  },
   factories: AiStartupFactories = defaultFactories
 ): AiStartup => {
   const confirmation = factories.createConfirmation()
   const history = factories.createHistory()
   let runtime: AiAgentRuntime | undefined
   try {
-    const provider = factories.createProvider(input.response)
+    const provider = factories.createProvider()
     runtime = createAiAgentRuntime(
       createAiRuntimeInput({
         permissionRules: {

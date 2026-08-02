@@ -18,16 +18,11 @@ import {
 } from '../ai/conversation'
 import type { AiConfirmationBroker } from '../ai/confirmation'
 import { createAiStartup, type AiStartup } from '../ai/startup'
-import type { ServerResponseRecord } from '../ai/server-response-inbox'
 import type { AiHistoryProjection } from '../common-apis/history'
 import {
   attachAiDrawingPerformanceRuntimeEvidence,
   getActiveAiDrawingPerformanceProfile
 } from './performance/ai-drawing-performance-profile'
-
-export interface InitAppOptions {
-  serverResponse: ServerResponseRecord | null
-}
 
 export interface AppInitialization {
   readonly aiConfirmation: AiConfirmationBroker
@@ -47,9 +42,9 @@ export interface AppInitialization {
  * ```typescript
  * import { initApp as baseInitApp } from './init'
  *
- * export const initApp = (serverResponse) => {
+ * export const initApp = () => {
  *   // Initialize base framework
- *   const initialization = baseInitApp({ serverResponse })
+ *   const initialization = baseInitApp()
  *
  *   // Add custom initialization
  *   customInputHandlers()
@@ -59,7 +54,7 @@ export interface AppInitialization {
  * }
  * ```
  */
-export const initApp = (options: InitAppOptions): AppInitialization => {
+export const initApp = (): AppInitialization => {
   applyPreset(core)
 
   // DEV runtime diagnostics are loaded from an optional package subpath.
@@ -81,9 +76,7 @@ export const initApp = (options: InitAppOptions): AppInitialization => {
 
   // Foundation init.
   initInputSystem()
-  const aiStartup: AiStartup = createAiStartup({
-    response: options.serverResponse
-  })
+  const aiStartup: AiStartup = createAiStartup()
   let initializedFeatures: ReturnType<typeof initFeatures>
   try {
     initializedFeatures = initFeatures({

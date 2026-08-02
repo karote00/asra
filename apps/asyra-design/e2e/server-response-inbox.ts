@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
+import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import type { BrowserContext, Route } from '@playwright/test'
 import { AiActionNames } from '../src/constants/ai-actions'
@@ -18,13 +19,18 @@ import {
   type DetailedTabbyCompositionItem,
   type DetailedTabbyPath
 } from '../test-data/ai-drawing/detailed-tabby'
-import {
-  SERVER_RESPONSE_INBOX_DATABASE_NAME,
-  SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-  SERVER_RESPONSE_INBOX_STORE_NAME,
-  SERVER_RESPONSE_SCHEMA_VERSION,
-  type ServerResponseRecord
-} from '../src/ai/server-response-inbox'
+import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
+
+export const SERVER_RESPONSE_INBOX_DATABASE_NAME = 'server-response-inbox'
+export const SERVER_RESPONSE_INBOX_DATABASE_VERSION = 1
+export const SERVER_RESPONSE_INBOX_STORE_NAME = 'responses'
+export const SERVER_RESPONSE_SCHEMA_VERSION = 1
+
+export interface ServerResponseRecord {
+  readonly batch: AiActionBatch
+  readonly fileId: string
+  readonly schemaVersion: 1
+}
 
 export type ServerResponseItemCount = 16 | 320 | 1280 | 7075 | 27471
 
@@ -76,14 +82,6 @@ interface CreatePreparedDrawingArtifactOptions {
   readonly batchId: string
   readonly compositionRole: string
   readonly fileId: string
-}
-
-interface ServerResponseSeedPayload {
-  readonly databaseName: string
-  readonly databaseVersion: number
-  readonly response: unknown
-  readonly responseFileId: string
-  readonly storeName: string
 }
 
 const WORKSPACE_LIMIT = 2048
@@ -593,7 +591,7 @@ export const createPreparedDrawingArtifact = (
 }
 
 const DETAILED_TABBY_SOURCE_URL = new URL(
-  '../test-data/ai-drawing/detailed-tabby-cat-only-white-background.svg',
+  '../samples/crdt-7076/converted-vector-data.svg',
   import.meta.url
 )
 const MAXIMUM_TABBY_SOURCE_URL = new URL(
@@ -732,7 +730,7 @@ export const createServerResponseRecord = async (
 
 export const seedServerResponse = async (
   context: BrowserContext,
-  { appUrl, fileId, itemCount }: SeedServerResponseOptions
+  { fileId, itemCount }: SeedServerResponseOptions
 ): Promise<ServerResponseRecord> => {
   const record = await createServerResponseRecord(fileId, itemCount)
   const action = record.batch.actions[0]
@@ -748,83 +746,21 @@ export const seedServerResponse = async (
       'Server response seed requires one prepared drawing artifact action.'
     )
   }
-  const seedPage = await context.newPage()
-  const routePattern = '**/*'
-  const routeHandler = (route: Route) =>
-    route.fulfill({
-      body: '<!doctype html><html><body></body></html>',
-      contentType: 'text/html; charset=utf-8',
+  await context.route(`**${ACTION_BATCH_ENDPOINT}`, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fulfill({
+        body: JSON.stringify({ code: 'ACTION_BATCH_METHOD_NOT_ALLOWED' }),
+        contentType: 'application/json; charset=utf-8',
+        status: 405
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify(record.batch),
+      contentType: 'application/json; charset=utf-8',
       status: 200
     })
-
-  await seedPage.route(routePattern, routeHandler)
-  try {
-    await seedPage.goto(appUrl, { waitUntil: 'domcontentloaded' })
-    await seedPage.evaluate(
-      async ({
-        databaseName,
-        databaseVersion,
-        response,
-        responseFileId,
-        storeName
-      }: ServerResponseSeedPayload): Promise<void> =>
-        new Promise((resolve, reject) => {
-          const openRequest = indexedDB.open(databaseName, databaseVersion)
-          openRequest.onblocked = () =>
-            reject(new Error('Server response inbox seed open was blocked.'))
-          openRequest.onerror = () =>
-            reject(
-              openRequest.error ??
-                new Error('Server response inbox seed open failed.')
-            )
-          openRequest.onupgradeneeded = () => {
-            if (!openRequest.result.objectStoreNames.contains(storeName)) {
-              openRequest.result.createObjectStore(storeName)
-            }
-          }
-          openRequest.onsuccess = () => {
-            const database = openRequest.result
-            try {
-              const transaction = database.transaction(storeName, 'readwrite')
-              transaction.onabort = () => {
-                database.close()
-                reject(
-                  transaction.error ??
-                    new Error(
-                      'Server response inbox seed transaction was aborted.'
-                    )
-                )
-              }
-              transaction.onerror = () => {
-                database.close()
-                reject(
-                  transaction.error ??
-                    new Error('Server response inbox seed transaction failed.')
-                )
-              }
-              transaction.oncomplete = () => {
-                database.close()
-                resolve()
-              }
-              transaction.objectStore(storeName).put(response, responseFileId)
-            } catch (error) {
-              database.close()
-              reject(error)
-            }
-          }
-        }),
-      {
-        databaseName: SERVER_RESPONSE_INBOX_DATABASE_NAME,
-        databaseVersion: SERVER_RESPONSE_INBOX_DATABASE_VERSION,
-        response: record,
-        responseFileId: record.fileId,
-        storeName: SERVER_RESPONSE_INBOX_STORE_NAME
-      }
-    )
-  } finally {
-    await seedPage.unroute(routePattern, routeHandler)
-    await seedPage.close()
-  }
+  })
 
   return record
 }
