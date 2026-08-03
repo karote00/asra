@@ -5,7 +5,9 @@
 Active. Accepted by the product owner on 2026-08-03 as the highest-priority
 bug fix outside prior plans. Revised on 2026-08-03 after product-owner review:
 the persisted Vector schema and values remain unchanged; this plan changes the
-Render pipeline, not the document format.
+Render pipeline, not the document format. Revised again on 2026-08-03 to remove
+the rejected derivative sample, retain the complete `crdt-7076` fixture as the
+real-data gate, and keep canvas drag outside Undo history.
 
 Semantic and execution authority:
 
@@ -109,11 +111,13 @@ part of this fix.
 
 ### Transactions, persistence, and collaboration
 
-- One canvas drag remains one intended Undo commit.
+- Canvas drag position changes are intentionally non-undoable. A completed or
+  commit-current interrupted drag creates zero Undo commits, while failure
+  rollback remains available through the existing session transaction.
 - Each synchronous drag update retains the existing immediate shared
   publication behavior inside the outer session transaction.
-- Transform-only forward, inverse, persistence, and publication evidence
-  contains no point/handle record patches.
+- Transform-only rollback, persistence, and publication evidence contains no
+  point/handle record patches.
 - Accepted remote transform apply reaches the same direct Render transform
   route without local Undo or echo publication.
 - Persistence stores the ordinary canonical snapshot and never stores Render
@@ -152,9 +156,9 @@ Unsupported outputs:
 1. Move a 7,001-point Vector through multiple pointer updates: canonical
    points remain byte-for-byte equal, no point record patch is emitted, and the
    Vector geometry strategy is not executed by transform-only samples.
-2. Move every Vector among the first 50 elements of the checked-in
-   `crdt-7076` cat-face document: existing values load unchanged, including
-   several multi-thousand-point Vectors, and each move remains point-count
+2. Load and render the complete checked-in `crdt-7076` cat-face document, then
+   move its densest Vector: existing values remain unchanged, several
+   multi-thousand-point Vectors are present, and the move remains point-count
    independent.
 3. Change Vector width/height, rotation, scale, or skew: the existing Render
    object updates its transform while retained path/fill/stroke/hit geometry is
@@ -166,10 +170,11 @@ Unsupported outputs:
    stored element values produces the same visible output without a migration
    or persisted cache.
 6. Move a mixed Vector/non-Vector selection: every element reaches the same
-   requested position through the existing one-action transaction contract.
-7. Undo, Redo, persistence, collaboration publication, and accepted remote
-   apply preserve their current owners while transform evidence stays
-   point-free.
+   requested position through the existing non-undoable drag transaction
+   contract.
+7. A completed or commit-current interrupted drag adds no Undo entry;
+   persistence, collaboration publication, and accepted remote apply preserve
+   their current owners while transform evidence stays point-free.
 8. Group, ungroup, reorder, or reparent retains the current hierarchy behavior
    and does not introduce point patches solely because the child is a Vector.
 
@@ -242,8 +247,8 @@ Gate:
   existing Vector receives a post-load update;
 - assert the original stored coordinate-space value is accepted unchanged;
 - assert transform-only deltas execute zero Vector geometry strategies;
-- retain the 7,001-point case and make the first-50 `crdt-7076` case consume
-  the fixture directly without migration.
+- retain the 7,001-point case and make the complete `crdt-7076` case consume
+  the checked-in fixture directly without migration or derivative samples.
 
 Gate:
 
@@ -262,8 +267,8 @@ Gate:
 
 - load/save tests prove the existing document values are passed through
   unchanged;
-- move tests prove zero point/handle patches for synthetic 7,001-point and real
-  first-50 fixtures.
+- move tests prove zero point/handle patches for the synthetic 7,001-point case
+  and the densest Vector in the complete real-data fixture.
 
 ### Slice 3: Render retained geometry and direct transform route
 
@@ -289,9 +294,10 @@ Gate:
 - verify a moved Vector point can be hit and edited at its current visible
   workspace position while the written point record remains in the existing
   stored coordinate space;
-- verify Undo/Redo/publication/persistence/remote apply retain existing owners
-  and point-free transform evidence;
-- run maintained 7,001-point and first-50 `crdt-7076` tests;
+- verify canvas drag creates zero Undo entries while rollback, publication,
+  persistence, and remote apply retain existing owners and point-free transform
+  evidence;
+- run maintained 7,001-point and complete `crdt-7076` tests;
 - run synchronized live-app screenshot review on the same runtime state.
 
 Gate:
@@ -339,9 +345,9 @@ Equivalence oracle:
 
 Profiling justification:
 
-- the reported 7,000+ point freeze and the maintained 7,001-point/first-50
-  fixtures establish geometry rebuild cost as material and transform deltas as
-  the required retained case.
+- the reported 7,000+ point freeze and the maintained 7,001-point/complete
+  `crdt-7076` fixtures establish geometry rebuild cost as material and transform
+  deltas as the required retained case.
 
 ## Definition of Done
 
@@ -353,10 +359,10 @@ Profiling justification:
   executing the Vector geometry strategy.
 - Geometry/topology/style changes rebuild through the ordinary complete
   snapshot path with exact cache invalidation and no fallback.
-- Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, Undo/Redo,
-  persistence, collaboration, and remote apply gates pass.
-- The reported canonical-local-geometry error is absent from first-50
-  `crdt-7076` updates.
+- Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, zero drag
+  Undo entries, persistence, collaboration, and remote apply gates pass.
+- The reported canonical-local-geometry error is absent while loading,
+  rendering, moving, and editing the complete `crdt-7076` sample.
 - Focused tests, build, lint, maintained E2E, and synchronized visual review
   pass.
 - Current source-of-truth documentation describes only the unchanged-data,

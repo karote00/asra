@@ -123,6 +123,12 @@
         'packages/render-engine-pixi/src',
         'packages/preset/src/components',
         'packages/preset/src/__tests__',
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/playwright.config.ts',
+        'apps/asyra-design/__tests__/playwright-config.test.mjs',
+        'apps/asyra-design/samples/crdt-7076',
+        'apps/asyra-design/src/config',
+        'apps/asyra-design/e2e/crdt-7076-render.spec.ts',
         'apps/asyra-design/e2e/render-delta-performance.spec.ts',
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'docs/ai/framework/packages/render.md',
@@ -200,9 +206,10 @@
       order: 1,
       laneId: 'settlement',
       title: 'Settle through existing action owners',
-      ownerPackage: '@asyra/factory and Core persistence',
+      ownerPackage:
+        'Asyra Design move-elements feature with @asyra/factory and Core persistence',
       purpose:
-        'Settle the existing point-free transform delta through ordinary Undo, Redo, publication, remote apply, and persistence without storing Render cache state.',
+        'Settle the existing point-free canvas drag as a rollbackable but non-undoable change through ordinary publication, remote apply, and persistence without storing Render cache state.',
       inputs: [
         'artifact:canonical-vector-transform-delta',
         'outer feature or finite common-API transaction boundary',
@@ -214,8 +221,9 @@
         'artifact:vector-persistence-outcome'
       ],
       conditions: [
-        'One intended gesture creates one intended Undo commit.',
-        'Transform forward, inverse, publication, and persistence evidence contains no point or handle records.',
+        'A completed or commit-current interrupted canvas drag creates zero Undo commits.',
+        'The move feature passes undoable false for drag selection, position, and final Group normalization writes while preserving failure rollback.',
+        'Transform forward, rollback, publication, and persistence evidence contains no point or handle records.',
         'Accepted remote apply creates no local Undo, persistence echo, or publication echo.',
         'Persistence stores the ordinary unchanged-schema canonical snapshot and never stores Render cache state.'
       ],
@@ -224,12 +232,14 @@
         'Rollback reverses the complete rollbackable action.'
       ],
       allowedContributors: [
+        'Asyra Design move-elements feature mutation options',
         '@asyra/factory transaction journal and shared channels',
         '@asyra/core persistence queue',
         'existing collaboration remote-apply adapter',
         'canonical Props and Scene Tree mutation evidence'
       ],
       forbiddenContributors: [
+        'canvas drag writes in the ordinary Undo stack',
         'Vector-specific parallel history',
         'document migration or version transition',
         'Render geometry or cache evidence in persistence',
@@ -237,6 +247,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/src/features/move-elements',
         'apps/asyra-design/src/features/__tests__',
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
@@ -270,7 +281,7 @@
       to: 'settle-vector-action',
       kind: 'canonical',
       predicate:
-        'A non-empty transform delta enters the existing transaction journal.',
+        'A non-empty canvas drag delta enters the existing rollback journal with undoable false.',
       producedArtifacts: ['artifact:canonical-vector-transform-delta']
     },
     {
@@ -481,7 +492,7 @@
       title: 'Dense Vector transform cost is point-count independent',
       assertions: [
         'A 7,001-point Vector transform produces zero point or handle record patches.',
-        'The first 50 items from the checked-in crdt-7076 fixture load unchanged and preserve the same point-free transform contract.',
+        'The complete checked-in crdt-7076 fixture loads unchanged, renders all Vectors, and its densest Vector preserves the same point-free transform contract.',
         'A transform-only update executes zero Vector geometry strategies.',
         'Canonical write and publication size stay bounded independently of point count.'
       ],

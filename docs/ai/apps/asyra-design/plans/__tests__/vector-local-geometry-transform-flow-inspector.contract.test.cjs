@@ -212,6 +212,21 @@ test('whole-element transform owner forbids point and handle patches', () => {
   assert.match(text, /independent of Vector point count/i)
 })
 
+test('canvas drag settlement is rollbackable but creates no Undo entry', () => {
+  const owner = step('settle-vector-action')
+  const text = [
+    owner.ownerPackage,
+    owner.purpose,
+    ...owner.conditions,
+    ...owner.allowedContributors,
+    ...owner.forbiddenContributors
+  ].join(' ')
+
+  assert.match(text, /rollbackable but non-undoable/i)
+  assert.match(text, /creates zero Undo commits/i)
+  assert.match(text, /undoable false/i)
+})
+
 test('Render owns one profiling-justified retained geometry projection', () => {
   const owner = step('retain-vector-render-geometry')
   const text = [
@@ -237,7 +252,8 @@ test('dense transform acceptance binds unchanged data and no strategy rebuild', 
   assert.ok(contract)
   const text = contract.assertions.join(' ')
   assert.match(text, /7,001-point Vector/i)
-  assert.match(text, /first 50 items/i)
-  assert.match(text, /load unchanged/i)
+  assert.match(text, /complete checked-in crdt-7076 fixture/i)
+  assert.match(text, /densest Vector/i)
+  assert.match(text, /loads unchanged/i)
   assert.match(text, /zero Vector geometry strategies/i)
 })

@@ -21,7 +21,8 @@
 - blocked when hovered element is locked (`lock=true`)
 - drag start inside current selection bounds (even on empty space) moves the
   existing selection without replacing it
-- if drag starts on an unselected unlocked element, selects that element as drag target first (undoable; rolls back on drag undo)
+- if drag starts on an unselected unlocked element, selects that element as the
+  drag target with `undoable: false`
 - snapshots unlocked selected element start positions in their canonical
   parent-local coordinates
 
@@ -30,9 +31,9 @@
 - ignores micro movement below `FEATURE_MOVEMENT_THRESHOLD.moveElement`
 - computes workspace delta from drag start to current pointer
 - applies per-element `x/y` position updates for selected elements with
-  explicit `sharedDelivery: 'immediate'`; all selected-element changes produced
-  by one synchronous update are one ordered canonical publication without
-  closing the outer transaction
+  explicit `undoable: false` and `sharedDelivery: 'immediate'`; all
+  selected-element changes produced by one synchronous update are one ordered
+  canonical publication without closing the outer transaction
 - Vector and ordinary elements use this same fixed-size property batch. Vector
   point/control/segment/network records are neither read nor patched, so
   pointer-sample mutation cost and publication size do not grow with point count
@@ -42,11 +43,11 @@
 
 3. End
 
-- if movement occurred, finalizes one intended undoable move commit
+- if movement occurred, keeps the completed move outside the Undo stack
 - does not replay positions that already match the latest applied drag update;
   if pointer-up contains a newer final position, applies all final positions
   once with `sharedDelivery: 'immediate'`
-- keeps final drag position on canvas while preserving one-session undo/redo
+- keeps final drag position on canvas without creating an Undo entry
 - invokes Preset Group normalization deepest-first exactly once after the final
   position write and before the gesture transaction commits
 - if a drag crossed the movement threshold but returns exactly to its initial
@@ -58,7 +59,7 @@
 
 - cancel policy is `commit-current`
 - Escape, tool switching, or a new conflicting action keeps the positions at
-  the interruption moment and creates one move undo entry
+  the interruption moment without creating a move Undo entry
 - handler failure or timeout restores the transaction-start element positions
   and selection without creating a move undo entry
 
@@ -66,13 +67,13 @@
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
-- all applied drag updates remain in one outer undo entry; `onEnd` only fills a
-  missing final pointer update and does not restore/replay state
+- all applied drag updates remain rollbackable but non-undoable; `onEnd` only
+  fills a missing final pointer update and does not restore/replay state
 - canonical element position never travels through Awareness; one synchronous
   multi-element update becomes one publication, one Yjs update, and one
   provider send
-- a 7,001-point Vector and the dense Vectors among the first 50 checked-in
-  `crdt-7076` cat-face elements use the same point-free move contract
+- a 7,001-point Vector and the densest Vector in the complete checked-in
+  `crdt-7076` cat-face sample use the same point-free move contract
 - `onCancel` performs no canonical write, and Factory reverses failure-path
   mutations
 

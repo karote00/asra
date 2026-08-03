@@ -43,10 +43,15 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
     'playwright.config.ts',
     endpointPerformanceEnvironment
   )
+  const crdt7076 = listTests('playwright.config.ts', {
+    ASYRA_E2E_CRDT_7076: 'true'
+  })
   const collaboration = listTests('playwright.collaboration.config.ts')
 
   assert.doesNotMatch(ordinary, /collaboration\.spec\.ts/)
   assert.doesNotMatch(ordinary, /collaboration-ai-agent-video\.spec\.ts/)
+  assert.doesNotMatch(ordinary, /crdt-7076-render\.spec\.ts/)
+  assert.match(crdt7076, /crdt-7076-render\.spec\.ts/)
   assert.doesNotMatch(
     ordinaryWithEndpointGuard,
     /crdt-endpoint-performance\.spec\.ts/

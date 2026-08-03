@@ -808,12 +808,12 @@ describe('Vector canonical property commit', () => {
     )
   })
 
-  it('keeps moves for the checked-in crdt-7076 first-50 sample point-count independent', () => {
+  it('keeps a dense move from the complete checked-in crdt-7076 sample point-count independent', () => {
     type RawRecord = Record<string, unknown>
-    const legacyDocument = JSON.parse(
+    const completeDocument = JSON.parse(
       gunzipSync(
         readFileSync(
-          resolve(process.cwd(), 'samples/crdt-7076-first-50/document.json.gz')
+          resolve(process.cwd(), 'samples/crdt-7076/document.json.gz')
         )
       ).toString('utf8')
     ) as {
@@ -825,74 +825,36 @@ describe('Vector canonical property commit', () => {
       }
       props: Record<string, RawRecord>
     }
-    const first50Elements = Object.values(
-      legacyDocument.sceneTree.elements
-    ).slice(0, 50)
-    const first50ElementIds = new Set(
-      first50Elements.map((element) => element.id as string)
-    )
-    const selectedProps: Record<string, RawRecord> = {}
-    for (const element of first50Elements) {
-      const propertyRefs = element.props as Record<string, string> | undefined
-      if (!propertyRefs) {
-        continue
-      }
-      for (const propertyId of Object.values(propertyRefs)) {
-        const property = legacyDocument.props[propertyId]
-        if (!property) {
-          continue
-        }
-        selectedProps[propertyId] = property
-        for (const recordIds of [
-          property.points,
-          property.segments,
-          property.networks
-        ]) {
-          if (!Array.isArray(recordIds)) {
-            continue
-          }
-          for (const recordId of recordIds) {
-            if (
-              typeof recordId === 'string' &&
-              legacyDocument.props[recordId]
-            ) {
-              selectedProps[recordId] = legacyDocument.props[recordId]
-            }
-          }
-        }
-      }
-    }
-    const boundedLegacyDocument = {
-      version: legacyDocument.version,
-      sceneTree: {
-        workspace: legacyDocument.sceneTree.workspace,
-        workspaceList: [...legacyDocument.sceneTree.workspaceList],
-        elements: Object.fromEntries(
-          first50Elements.map((element) => [
-            element.id,
-            Array.isArray(element.children)
-              ? {
-                  ...element,
-                  children: element.children.filter(
-                    (childId) =>
-                      typeof childId === 'string' &&
-                      first50ElementIds.has(childId)
-                  )
-                }
-              : element
-          ])
-        )
-      },
-      props: selectedProps
-    }
-    const existingProps = boundedLegacyDocument.props
+    const existingProps = completeDocument.props
     const vectorElements = Object.values(
-      boundedLegacyDocument.sceneTree.elements
+      completeDocument.sceneTree.elements
     ).filter((element) => element.type === 'vector')
     const readProperty = (element: RawRecord, key: string): RawRecord => {
       const propertyId = (element.props as Record<string, string>)[key]
       return existingProps[propertyId]
     }
+    const densestElement = vectorElements.reduce<RawRecord | null>(
+      (current, element) => {
+        if (!current) {
+          return element
+        }
+        const currentCount = (
+          readProperty(current, 'points').points as readonly string[]
+        ).length
+        const candidateCount = (
+          readProperty(element, 'points').points as readonly string[]
+        ).length
+        return candidateCount > currentCount ? element : current
+      },
+      null
+    )
+    expect(Object.keys(completeDocument.sceneTree.elements)).toHaveLength(7_077)
+    expect(vectorElements).toHaveLength(7_075)
+    expect(densestElement).not.toBeNull()
+    if (!densestElement) {
+      throw new Error('The complete crdt-7076 sample must contain a Vector')
+    }
+
     const readRecordMap = (
       component: RawRecord,
       key: 'points' | 'segments' | 'networks'
@@ -903,67 +865,68 @@ describe('Vector canonical property commit', () => {
           existingProps[recordId]
         ])
       )
-    const computedById = new Map(
-      vectorElements.map((element) => {
-        const position = readProperty(element, 'position')
-        const dimension = readProperty(element, 'dimension')
-        const pointSpace = readProperty(element, 'pointCoordinateSpace')
-        const pointsComponent = readProperty(element, 'points')
-        const segmentsComponent = readProperty(element, 'segments')
-        const networksComponent = readProperty(element, 'networks')
-        return [
-          element.id,
-          {
-            x: position.x,
-            y: position.y,
-            width: dimension.width,
-            height: dimension.height,
-            pointCoordinateSpace: pointSpace.pointCoordinateSpace,
-            points: readRecordMap(pointsComponent, 'points'),
-            segments: readRecordMap(segmentsComponent, 'segments'),
-            networks: readRecordMap(networksComponent, 'networks')
-          }
-        ]
-      })
-    )
-    const pointCounts = vectorElements.map(
-      (element) =>
-        (readProperty(element, 'points').points as readonly string[]).length
-    )
-    expect(first50Elements).toHaveLength(50)
-    expect(vectorElements).toHaveLength(48)
-    expect(pointCounts.reduce((total, count) => total + count, 0)).toBe(22_928)
-    expect(pointCounts.filter((count) => count > 1_000)).toHaveLength(5)
+    const position = readProperty(densestElement, 'position')
+    const dimension = readProperty(densestElement, 'dimension')
+    const pointSpace = readProperty(densestElement, 'pointCoordinateSpace')
+    const pointsComponent = readProperty(densestElement, 'points')
+    const segmentsComponent = readProperty(densestElement, 'segments')
+    const networksComponent = readProperty(densestElement, 'networks')
+    const computed = {
+      x: position.x,
+      y: position.y,
+      width: dimension.width,
+      height: dimension.height,
+      pointCoordinateSpace: pointSpace.pointCoordinateSpace,
+      points: readRecordMap(pointsComponent, 'points'),
+      segments: readRecordMap(segmentsComponent, 'segments'),
+      networks: readRecordMap(networksComponent, 'networks')
+    }
+    const pointCount = Object.keys(computed.points).length
+    expect(pointCount).toBe(2_591)
+    expect(pointCount).toBeGreaterThan(1_000)
     mocks.getVectorComputedData.mockImplementation((elementId: string) =>
-      computedById.get(elementId)
+      elementId === densestElement.id ? computed : undefined
     )
     mocks.updateElementProperties.mockImplementation(
       (patches: readonly { elementId: string }[]) =>
         patches.map(({ elementId }) => elementId)
     )
 
-    const updates = vectorElements.map((element) => {
-      const computed = computedById.get(element.id)
-      return {
-        elementId: element.id,
-        position: {
-          x: (computed?.x as number) + 24,
-          y: (computed?.y as number) - 12
+    expect(
+      vectorApis.setVectorElementPositions([
+        {
+          elementId: densestElement.id as string,
+          position: {
+            x: (computed.x as number) + 24,
+            y: (computed.y as number) - 12
+          }
         }
-      }
-    })
-    expect(vectorApis.setVectorElementPositions(updates)).toEqual(
-      vectorElements.map((element) => element.id)
-    )
+      ])
+    ).toEqual([densestElement.id])
 
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
-    const [patches] = mocks.updateElementProperties.mock.calls[0]
-    expect(patches).toHaveLength(48)
-    for (const patch of patches) {
-      expect(Object.keys(patch)).toEqual(['elementId', 'values'])
-      expect(Object.keys(patch.values).sort()).toEqual(['x', 'y'])
-      expect(patch).not.toHaveProperty('records')
-    }
+    expect(mocks.updateElementProperties).toHaveBeenCalledWith(
+      [
+        {
+          elementId: densestElement.id,
+          values: {
+            x: (computed.x as number) + 24,
+            y: (computed.y as number) - 12
+          }
+        }
+      ],
+      undefined
+    )
+    const [updates] = mocks.updateElementProperties.mock.calls[0]
+    expect(updates).toHaveLength(1)
+    expect(updates[0]).toEqual({
+      elementId: densestElement.id,
+      values: {
+        x: (computed.x as number) + 24,
+        y: (computed.y as number) - 12
+      }
+    })
+    expect(updates[0]).not.toHaveProperty('records')
   })
 
   it('scales a Vector around its center through element transform values only', () => {

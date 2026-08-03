@@ -172,7 +172,9 @@ const api: MoveElementsApi = {
 
     let hoveredSelectionIds = selectedElementIds
     if (!hoveredSelectionIds.includes(hoveredElementId)) {
-      selectionApis.selectElements([hoveredElementId])
+      selectionApis.selectElements([hoveredElementId], {
+        undoable: false
+      })
       hoveredSelectionIds = [hoveredElementId]
     }
 
@@ -274,6 +276,7 @@ export const moveElementsSession = {
 
     measureBrowserDragPhase('move-elements:apply-positions', () =>
       api.applyPositions(targetPositions, {
+        undoable: false,
         sharedDelivery: 'immediate'
       })
     )
@@ -312,7 +315,10 @@ export const moveElementsSession = {
       return
     }
 
-    const options = { sharedDelivery: 'immediate' } as const
+    const options = {
+      undoable: false,
+      sharedDelivery: 'immediate'
+    } as const
     const currentWorkspacePos = elementApis.getMousePosInWorkspace(
       snapshot.mousePosition
     )

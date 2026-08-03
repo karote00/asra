@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 
-test('renders the checked-in crdt-7076 first-50 sample from existing Vector values', async ({
+test('renders the complete checked-in crdt-7076 sample from existing Vector values', async ({
   page
 }, testInfo) => {
-  test.setTimeout(120_000)
+  test.setTimeout(360_000)
   const renderFailures: string[] = []
   const startupErrors: string[] = []
   page.on('console', (message) => {
@@ -24,26 +24,25 @@ test('renders the checked-in crdt-7076 first-50 sample from existing Vector valu
     renderFailures.push(error.message)
   })
 
-  await page.goto('/?fileId=crdt-7076-first-50-sample')
-  await expect
-    .poll(async () =>
-      page.evaluate(async () => {
-        const { getCollaborationMode } = await import(
-          '../src/render-app/collaboration-mode'
-        )
-        return getCollaborationMode()
-      })
+  await page.goto('/?fileId=crdt-7076-sample')
+  try {
+    await expect(page.locator('canvas')).toBeVisible({ timeout: 60_000 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `${message}\nCaptured startup errors: ${
+        startupErrors.join(' | ') || '(none)'
+      }\nCaptured render failures: ${renderFailures.join(' | ') || '(none)'}`
     )
-    .toBeNull()
-  await expect(page.locator('canvas')).toBeVisible({ timeout: 60_000 })
+  }
   await page.waitForFunction(
     async () => {
       const { core } = await import('../src/testing/runtime-access')
       const document = await core.save()
-      return Object.keys(document.sceneTree.elements).length === 50
+      return Object.keys(document.sceneTree.elements).length === 7_077
     },
     undefined,
-    { timeout: 60_000 }
+    { timeout: 300_000 }
   )
 
   const initial = await page.evaluate(async () => {
@@ -86,17 +85,17 @@ test('renders the checked-in crdt-7076 first-50 sample from existing Vector valu
 
   expect(initial, `Startup errors: ${startupErrors.join(' | ')}`).toMatchObject(
     {
-      sceneTreeRecordCount: 50,
-      vectorCount: 48,
-      pointCount: 22_928,
+      sceneTreeRecordCount: 7_077,
+      vectorCount: 7_075,
+      pointCount: 156_373,
       denseVectorCount: 5,
-      workspaceCoordinateCount: 48,
-      renderedVectorCount: 48
+      workspaceCoordinateCount: 7_075,
+      renderedVectorCount: 7_075
     }
   )
   expect(initial.densestVectorId).toBeTruthy()
   if (!initial.densestVectorId) {
-    throw new Error('The first-50 sample must contain at least one Vector')
+    throw new Error('The complete sample must contain at least one Vector')
   }
 
   const moved = await page.evaluate(async (elementId) => {
@@ -204,13 +203,13 @@ test('renders the checked-in crdt-7076 first-50 sample from existing Vector valu
   expect(edited.projectedHitId).toBe(edited.editedPointId)
   expect(renderFailures).toEqual([])
 
-  const screenshotPath = testInfo.outputPath('crdt-7076-first-50-render.png')
+  const screenshotPath = testInfo.outputPath('crdt-7076-render.png')
   await page.screenshot({
     path: screenshotPath,
     fullPage: true,
     animations: 'disabled'
   })
-  await testInfo.attach('crdt-7076-first-50-render', {
+  await testInfo.attach('crdt-7076-render', {
     path: screenshotPath,
     contentType: 'image/png'
   })

@@ -131,7 +131,7 @@ test.describe('Undo/Redo Actions', () => {
     }).toPass({ timeout: 2000 })
   })
 
-  test('should undo and redo a drag-move element position update', async ({
+  test('drag-move keeps its position without creating an Undo entry', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -141,6 +141,11 @@ test.describe('Undo/Redo Actions', () => {
     if (!before) {
       return
     }
+
+    const beforeUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
 
     await dragSelectedElementBy(page, 120, 70, 20)
 
@@ -154,46 +159,17 @@ test.describe('Undo/Redo Actions', () => {
     expect(moved.x).toBeGreaterThan(before.x)
     expect(moved.y).toBeGreaterThan(before.y)
 
+    const afterUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(afterUndoCount).toBe(beforeUndoCount)
+
     await undo(page)
-
-    await expect
-      .poll(async () => {
-        const rect = await getSelectedElementRect(page)
-        if (!rect) {
-          return null
-        }
-
-        return {
-          x: Math.round(rect.x),
-          y: Math.round(rect.y)
-        }
-      })
-      .toEqual({
-        x: Math.round(before.x),
-        y: Math.round(before.y)
-      })
-
-    await redo(page)
-
-    await expect
-      .poll(async () => {
-        const rect = await getSelectedElementRect(page)
-        if (!rect) {
-          return null
-        }
-
-        return {
-          x: Math.round(rect.x),
-          y: Math.round(rect.y)
-        }
-      })
-      .toEqual({
-        x: Math.round(moved.x),
-        y: Math.round(moved.y)
-      })
+    await expect.poll(() => getElementCount(page)).toBe(0)
   })
 
-  test('pressing Escape during move commits the interruption position as one undoable action', async ({
+  test('pressing Escape keeps the interruption position without creating an Undo entry', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -310,17 +286,7 @@ test.describe('Undo/Redo Actions', () => {
       const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(afterUndoCount).toBe(beforeUndoCount + 1)
-
-    await undo(page)
-    await expect
-      .poll(async () => {
-        const restored = await getPositionById()
-        return restored
-          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
-          : null
-      })
-      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
+    expect(afterUndoCount).toBe(beforeUndoCount)
   })
 
   test('drag-create keeps immediate canonical updates in one undo commit', async ({
@@ -1085,7 +1051,7 @@ test.describe('Undo/Redo Actions', () => {
       })
   })
 
-  test('undo drag on unselected target restores both moved position and previous selection', async ({
+  test('drag on an unselected target moves and selects it without creating an Undo entry', async ({
     page
   }) => {
     await createRectangle(page, 0.22, 0.28) // A (selected)
@@ -1102,19 +1068,16 @@ test.describe('Undo/Redo Actions', () => {
       return
     }
 
-    await createRectangle(page, 0.72, 0.62) // C (selected)
-    const cBefore = await getSelectedElementRect(page)
-    expect(cBefore).not.toBeNull()
-    if (!cBefore) {
-      return
-    }
-
     // Start from "all not selected" state.
     await clickCanvas(page, 0.95, 0.95)
     await page.waitForTimeout(120)
     expect(await getSelectedElementRect(page)).toBeNull()
 
-    // Drag A from unselected state -> should select A and move.
+    const beforeUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+
     const aCenter = await getElementRectClientCenter(page, aBefore)
     await page.mouse.move(aCenter.x, aCenter.y)
     await page.mouse.down()
@@ -1131,166 +1094,16 @@ test.describe('Undo/Redo Actions', () => {
     expect(aMoved.x).toBeGreaterThan(aBefore.x)
     expect(aMoved.y).toBeGreaterThan(aBefore.y)
 
-    // Drag B while B is unselected -> should switch selection to B and move B.
-    const bCenter = await getElementRectClientCenter(page, bBefore)
-    await page.mouse.move(bCenter.x, bCenter.y)
-    await page.mouse.down()
-    await page.mouse.move(bCenter.x + 95, bCenter.y + 60, { steps: 20 })
-    await page.mouse.up()
-    await page.waitForTimeout(150)
-
-    const bMoved = await getSelectedElementRect(page)
-    expect(bMoved).not.toBeNull()
-    if (!bMoved) {
-      return
-    }
-    expect(bMoved.id).toBe(bBefore.id)
-    expect(bMoved.x).toBeGreaterThan(bBefore.x)
-    expect(bMoved.y).toBeGreaterThan(bBefore.y)
-
-    await undo(page)
-
-    // Selection should roll back to A.
-    await expect
-      .poll(async () => {
-        const selected = await getSelectedElementRect(page)
-        return selected?.id ?? null
-      })
-      .toBe(aBefore.id)
-
-    const selectedAfterUndo = await getSelectedElementRect(page)
-    expect(selectedAfterUndo).not.toBeNull()
-    if (!selectedAfterUndo) {
-      return
-    }
-    expect(Math.round(selectedAfterUndo.x)).toBe(Math.round(aMoved.x))
-    expect(Math.round(selectedAfterUndo.y)).toBe(Math.round(aMoved.y))
-
-    // B position should also roll back.
-    const bPositionAfterUndo = await page.evaluate(async (elementId) => {
+    const afterUndoCount = await page.evaluate(async () => {
       const core = (await import('../src/testing/runtime-access')).core
-      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
-      const computed = element?.getAllComputedData?.() ?? {}
-      const x = typeof computed.x === 'number' ? computed.x : null
-      const y = typeof computed.y === 'number' ? computed.y : null
-      if (x === null || y === null) {
-        return null
-      }
-      return { x: Math.round(x), y: Math.round(y) }
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(afterUndoCount).toBe(beforeUndoCount)
+
+    const bStillExists = await page.evaluate(async (elementId) => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return Boolean(core?.deps?.sceneTree?.getElementById?.(elementId))
     }, bBefore.id)
-
-    expect(bPositionAfterUndo).toEqual({
-      x: Math.round(bBefore.x),
-      y: Math.round(bBefore.y)
-    })
-
-    // Keep C referenced to ensure scenario setup is not optimized away.
-    const cCheck = await page.evaluate(async (elementId) => {
-      const core = (await import('../src/testing/runtime-access')).core
-      return core?.deps?.sceneTree?.getElementById?.(elementId) ? true : false
-    }, cBefore.id)
-    expect(cCheck).toBe(true)
-  })
-
-  test('undo after drag A->B->C restores C position and selects B', async ({
-    page
-  }) => {
-    await createRectangle(page, 0.2, 0.25) // A
-    const aBefore = await getSelectedElementRect(page)
-    expect(aBefore).not.toBeNull()
-    if (!aBefore) {
-      return
-    }
-
-    await createRectangle(page, 0.5, 0.45) // B
-    const bBefore = await getSelectedElementRect(page)
-    expect(bBefore).not.toBeNull()
-    if (!bBefore) {
-      return
-    }
-
-    await createRectangle(page, 0.72, 0.62) // C
-    const cBefore = await getSelectedElementRect(page)
-    expect(cBefore).not.toBeNull()
-    if (!cBefore) {
-      return
-    }
-
-    await clickCanvas(page, 0.95, 0.95)
-    await page.waitForTimeout(120)
-
-    const dragRectBy = async (
-      rect: { x: number; y: number; width: number; height: number },
-      dx: number,
-      dy: number
-    ) => {
-      const center = await getElementRectClientCenter(page, rect)
-      await page.mouse.move(center.x, center.y)
-      await page.mouse.down()
-      await page.mouse.move(center.x + dx, center.y + dy, { steps: 20 })
-      await page.mouse.up()
-      await page.waitForTimeout(120)
-    }
-
-    await dragRectBy(aBefore, 80, 45)
-    const aMoved = await getSelectedElementRect(page)
-    expect(aMoved?.id).toBe(aBefore.id)
-
-    await dragRectBy(bBefore, 95, 60)
-    const bMoved = await getSelectedElementRect(page)
-    expect(bMoved?.id).toBe(bBefore.id)
-    if (!bMoved) {
-      return
-    }
-
-    await dragRectBy(cBefore, 110, 70)
-    const cMoved = await getSelectedElementRect(page)
-    expect(cMoved?.id).toBe(cBefore.id)
-    if (!cMoved) {
-      return
-    }
-
-    await undo(page)
-
-    await expect
-      .poll(async () => {
-        const selected = await getSelectedElementRect(page)
-        return selected?.id ?? null
-      })
-      .toBe(bBefore.id)
-
-    const cAfterUndo = await page.evaluate(async (elementId) => {
-      const core = (await import('../src/testing/runtime-access')).core
-      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
-      const computed = element?.getAllComputedData?.() ?? {}
-      const x = typeof computed.x === 'number' ? computed.x : null
-      const y = typeof computed.y === 'number' ? computed.y : null
-      if (x === null || y === null) {
-        return null
-      }
-      return { x: Math.round(x), y: Math.round(y) }
-    }, cBefore.id)
-
-    expect(cAfterUndo).toEqual({
-      x: Math.round(cBefore.x),
-      y: Math.round(cBefore.y)
-    })
-
-    const bStillMovedAfterUndo = await page.evaluate(async (elementId) => {
-      const core = (await import('../src/testing/runtime-access')).core
-      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
-      const computed = element?.getAllComputedData?.() ?? {}
-      const x = typeof computed.x === 'number' ? computed.x : null
-      const y = typeof computed.y === 'number' ? computed.y : null
-      if (x === null || y === null) {
-        return null
-      }
-      return { x: Math.round(x), y: Math.round(y) }
-    }, bBefore.id)
-
-    expect(bStillMovedAfterUndo).toEqual({
-      x: Math.round(bMoved.x),
-      y: Math.round(bMoved.y)
-    })
+    expect(bStillExists).toBe(true)
   })
 })

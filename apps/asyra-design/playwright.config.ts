@@ -8,6 +8,9 @@ const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
   'crdt-endpoint-performance.spec.ts',
+  ...(process.env.ASYRA_E2E_CRDT_7076 === 'true'
+    ? []
+    : ['crdt-7076-render.spec.ts']),
   ...(process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
     ? ['render-delta-performance.spec.ts']
     : [])

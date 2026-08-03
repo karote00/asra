@@ -7176,3 +7176,28 @@ join` constrained dashed product path across:
     the stacked layout transition and visual evidence.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Use complete 7,076 sample and keep canvas drag out of Undo
+
+- Context:
+  - The derivative first-50 sample added an unnecessary route, generator,
+    Playwright configuration, and separate usage path.
+  - Canvas drag position writes were inheriting the mutation default
+    `undoable: true`, even though canvas drag is intentionally outside ordinary
+    Undo history.
+- Decision:
+  - Remove the derivative sample and every first-50-only route, generator,
+    command, test configuration, and active contract.
+  - Use the existing complete `crdt-7076` sample directly for manual testing
+    and the formal real-data render/move/edit regression.
+  - Pass `undoable: false` for move-session selection, position, and final Group
+    normalization writes while retaining normal rollback and immediate shared
+    publication.
+- Consequences:
+  - There is one sample URL and one checked-in 7,076 dataset to maintain.
+  - A completed or commit-current interrupted canvas drag creates zero Undo
+    entries; failure rollback remains transaction-owned.
+  - This entry supersedes the first-50 and undoable-drag statements in earlier
+    2026-08-03 Vector decision text without rewriting append-only history.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`

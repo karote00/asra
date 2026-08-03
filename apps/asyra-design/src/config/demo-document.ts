@@ -2,14 +2,9 @@ import type { CoreRawData } from '@asyra/utils'
 import { createEmptyDocument } from './empty-document'
 
 export const CRDT_7076_DEMO_FILE_ID = 'crdt-7076-sample'
-export const CRDT_7076_FIRST_50_DEMO_FILE_ID = 'crdt-7076-first-50-sample'
 
 const crdt7076DocumentUrl = new URL(
   '../../samples/crdt-7076/document.json.gz',
-  import.meta.url
-).href
-const crdt7076First50DocumentUrl = new URL(
-  '../../samples/crdt-7076-first-50/document.json.gz',
   import.meta.url
 ).href
 
@@ -35,8 +30,6 @@ export const createInitialDocumentForFile = async (
   let sampleUrl: string | null = null
   if (fileId === CRDT_7076_DEMO_FILE_ID) {
     sampleUrl = crdt7076DocumentUrl
-  } else if (fileId === CRDT_7076_FIRST_50_DEMO_FILE_ID) {
-    sampleUrl = crdt7076First50DocumentUrl
   }
   if (!sampleUrl) {
     return createEmptyDocument()
