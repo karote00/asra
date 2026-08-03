@@ -1,5 +1,4 @@
 import {
-  EntityTypes,
   PropertyTypes,
   StrokeJoinTypes,
   createDefaultStroke,
@@ -9,11 +8,9 @@ import {
 } from '@asyra/utils'
 import type { FillAttrs, PositionData, StrokeAttrs } from '@asyra/utils'
 import core, {
-  VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
   isVectorAnchorNode as isAnchorNode,
   isPointInsidePreparedEvenOddShape,
-  isVectorHandleMode,
   prepareEvenOddShape,
   sortVectorItemsById,
   type EvenOddSegment,
@@ -47,6 +44,11 @@ interface VectorComputedData {
   y: number
   width: number
   height: number
+  rotation: number
+  scaleX: number
+  scaleY: number
+  skewX: number
+  skewY: number
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
@@ -57,276 +59,17 @@ interface VectorComputedData {
   strokes?: StrokeAttrs[]
 }
 
-const toFiniteNumber = (value: unknown, defaultValue = 0) =>
-  typeof value === 'number' && Number.isFinite(value) ? value : defaultValue
-
-const toStringArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string')
-    : []
-
-const normalizeVectorPointNodeMap = (
-  value: unknown
-): Record<string, VectorPointNode> => {
-  if (!isRecord(value)) {
-    return {}
-  }
-
-  return Object.entries(value).reduce<Record<string, VectorPointNode>>(
-    (result, [defaultId, rawPoint]) => {
-      if (!isRecord(rawPoint)) {
-        return result
-      }
-
-      const id = typeof rawPoint.id === 'string' ? rawPoint.id : defaultId
-      const kind =
-        rawPoint.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
-          ? VECTOR_TOKENS.POINT.KIND.CONTROL
-          : VECTOR_TOKENS.POINT.KIND.ANCHOR
-      const x = toFiniteNumber(rawPoint.x, Number.NaN)
-      const y = toFiniteNumber(rawPoint.y, Number.NaN)
-      if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        return result
-      }
-
-      if (kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
-        result[id] = {
-          id,
-          kind,
-          x,
-          y,
-          controlForId:
-            typeof rawPoint.controlForId === 'string'
-              ? rawPoint.controlForId
-              : '',
-          controlRole: rawPoint.controlRole === 'in' ? 'in' : 'out'
-        } as VectorPointNode
-        return result
-      }
-
-      const anchorPoint: VectorPointNode = {
-        id,
-        kind,
-        x,
-        y,
-        anchorType: rawPoint.anchorType === 'smooth' ? 'smooth' : 'sharp',
-        handleMode: isVectorHandleMode(rawPoint.handleMode)
-          ? rawPoint.handleMode
-          : VECTOR_HANDLE_MODES.NONE
-      }
-      result[id] = anchorPoint
-      return result
-    },
-    {}
-  )
-}
-
-const normalizeVectorSegmentMap = (
-  value: unknown
-): Record<string, VectorSegment> => {
-  if (!isRecord(value)) {
-    return {}
-  }
-
-  return Object.entries(value).reduce<Record<string, VectorSegment>>(
-    (result, [defaultId, rawSegment]) => {
-      if (!isRecord(rawSegment)) {
-        return result
-      }
-
-      const startId = rawSegment.startId
-      const endId = rawSegment.endId
-      if (typeof startId !== 'string' || typeof endId !== 'string') {
-        return result
-      }
-
-      const id = typeof rawSegment.id === 'string' ? rawSegment.id : defaultId
-      result[id] = {
-        id,
-        startId,
-        endId,
-        outControlId:
-          typeof rawSegment.outControlId === 'string'
-            ? rawSegment.outControlId
-            : null,
-        inControlId:
-          typeof rawSegment.inControlId === 'string'
-            ? rawSegment.inControlId
-            : null
-      }
-      return result
-    },
-    {}
-  )
-}
-
-const normalizeVectorNetworkMap = (
-  value: unknown,
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
-): Record<string, VectorNetwork> => {
-  if (!isRecord(value)) {
-    return {}
-  }
-
-  return Object.entries(value).reduce<Record<string, VectorNetwork>>(
-    (result, [defaultId, rawNetwork]) => {
-      if (!isRecord(rawNetwork)) {
-        return result
-      }
-
-      const id = typeof rawNetwork.id === 'string' ? rawNetwork.id : defaultId
-      const pointIds = toStringArray(rawNetwork.pointIds).filter(
-        (pointId) => points[pointId]?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-      )
-      const segmentIds = toStringArray(rawNetwork.segmentIds).filter(
-        (segmentId) => {
-          const segment = segments[segmentId]
-          return (
-            !!segment && !!points[segment.startId] && !!points[segment.endId]
-          )
-        }
-      )
-
-      if (pointIds.length === 0 && segmentIds.length === 0) {
-        return result
-      }
-
-      result[id] = {
-        id,
-        pointIds,
-        segmentIds,
-        closed: rawNetwork.closed === true
-      }
-      return result
-    },
-    {}
-  )
-}
-
-const isNormalizedVectorPointNodeMap = (
-  value: unknown
-): value is Record<string, VectorPointNode> => {
-  if (!isRecord(value)) {
-    return false
-  }
-
-  return Object.entries(value).every(([defaultId, point]) => {
-    if (!isRecord(point)) {
-      return false
-    }
-    const id = typeof point.id === 'string' ? point.id : defaultId
-    if (
-      point.id !== id ||
-      typeof point.x !== 'number' ||
-      !Number.isFinite(point.x) ||
-      typeof point.y !== 'number' ||
-      !Number.isFinite(point.y)
-    ) {
-      return false
-    }
-
-    if (point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR) {
-      return (
-        (point.anchorType === 'smooth' || point.anchorType === 'sharp') &&
-        isVectorHandleMode(point.handleMode)
-      )
-    }
-
-    return (
-      point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL &&
-      typeof point.controlForId === 'string' &&
-      (point.controlRole === 'in' || point.controlRole === 'out')
-    )
-  })
-}
-
-const isNormalizedVectorSegmentMap = (
-  value: unknown,
-  points: Record<string, VectorPointNode>
-): value is Record<string, VectorSegment> => {
-  if (!isRecord(value)) {
-    return false
-  }
-
-  return Object.entries(value).every(([defaultId, segment]) => {
-    if (!isRecord(segment)) {
-      return false
-    }
-    const id = typeof segment.id === 'string' ? segment.id : defaultId
-    return (
-      segment.id === id &&
-      typeof segment.startId === 'string' &&
-      typeof segment.endId === 'string' &&
-      !!points[segment.startId] &&
-      !!points[segment.endId] &&
-      (segment.outControlId === null ||
-        (typeof segment.outControlId === 'string' &&
-          !!points[segment.outControlId])) &&
-      (segment.inControlId === null ||
-        (typeof segment.inControlId === 'string' &&
-          !!points[segment.inControlId]))
-    )
-  })
-}
-
-const isNormalizedVectorNetworkMap = (
-  value: unknown,
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
-): value is Record<string, VectorNetwork> => {
-  if (!isRecord(value)) {
-    return false
-  }
-
-  return Object.entries(value).every(([defaultId, network]) => {
-    if (!isRecord(network)) {
-      return false
-    }
-    const id = typeof network.id === 'string' ? network.id : defaultId
-    return (
-      network.id === id &&
-      Array.isArray(network.pointIds) &&
-      network.pointIds.every(
-        (pointId) =>
-          typeof pointId === 'string' &&
-          points[pointId]?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-      ) &&
-      Array.isArray(network.segmentIds) &&
-      network.segmentIds.every(
-        (segmentId) => typeof segmentId === 'string' && !!segments[segmentId]
-      ) &&
-      typeof network.closed === 'boolean'
-    )
-  })
-}
-
-const getGroupAncestorOffset = (
-  graphic: Parameters<EngineNeutralRenderStrategy>[0]
-): PositionData => {
-  let x = 0
-  let y = 0
-  let ancestor = graphic.parent as
-    | (NonNullable<typeof graphic.parent> & { __asyraType?: string })
-    | null
-
-  while (ancestor?.__asyraType === EntityTypes.GROUP) {
-    x += ancestor.x
-    y += ancestor.y
-    ancestor = ancestor.parent as
-      | (NonNullable<typeof graphic.parent> & { __asyraType?: string })
-      | null
-  }
-
-  return { x, y }
-}
-
 interface NormalizedVectorRenderDataInput {
   id: string
   x: number
   y: number
   width: number
   height: number
+  rotation?: unknown
+  scaleX?: unknown
+  scaleY?: unknown
+  skewX?: unknown
+  skewY?: unknown
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
@@ -363,23 +106,26 @@ const isNormalizedVectorRenderDataInput = (
   const points = data.points
   const segments = data.segments
   const networks = data.networks
-  if (data.pointCoordinateSpace === 'workspace') {
-    return isRecord(points) && isRecord(segments) && isRecord(networks)
-  }
-  if (!isNormalizedVectorPointNodeMap(points)) {
-    return false
-  }
-  if (!isNormalizedVectorSegmentMap(segments, points)) {
-    return false
-  }
-  return isNormalizedVectorNetworkMap(networks, points, segments)
+  return (
+    data.pointCoordinateSpace === 'workspace' &&
+    isRecord(points) &&
+    isRecord(segments) &&
+    isRecord(networks)
+  )
 }
 
 const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   if (isNormalizedVectorRenderDataInput(data)) {
     emitVectorRenderCounter('vector-render-normalize-fast-path-hit')
+    const finiteOr = (value: unknown, fallback: number) =>
+      typeof value === 'number' && Number.isFinite(value) ? value : fallback
     return {
       ...data,
+      rotation: finiteOr(data.rotation, 0),
+      scaleX: finiteOr(data.scaleX, 1),
+      scaleY: finiteOr(data.scaleY, 1),
+      skewX: finiteOr(data.skewX, 0),
+      skewY: finiteOr(data.skewY, 0),
       points: data.points,
       pointCoordinateSpace: 'workspace',
       fillRule: normalizeRawPathTopologyFillRule(data.fillRule),
@@ -387,35 +133,45 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
       strokes: Array.isArray(data.strokes) ? data.strokes : []
     }
   }
-  emitVectorRenderCounter('vector-render-normalize-full-path-count')
-
-  const rawData = isRecord(data) ? data : {}
-  const rawX = toFiniteNumber(rawData.x)
-  const rawY = toFiniteNumber(rawData.y)
-  const rawWidth = Math.max(0, toFiniteNumber(rawData.width))
-  const rawHeight = Math.max(0, toFiniteNumber(rawData.height))
-  const rawPoints = normalizeVectorPointNodeMap(rawData.points)
-  const points = rawPoints
-  const segments = normalizeVectorSegmentMap(rawData.segments)
-
-  return {
-    id: typeof rawData.id === 'string' ? rawData.id : 'vector:invalid',
-    x: rawX,
-    y: rawY,
-    width: rawWidth,
-    height: rawHeight,
-    points,
-    pointCoordinateSpace: 'workspace',
-    segments,
-    networks: normalizeVectorNetworkMap(rawData.networks, points, segments),
-    closed: rawData.closed === true,
-    fillRule: normalizeRawPathTopologyFillRule(rawData.fillRule),
-    fills: Array.isArray(rawData.fills) ? rawData.fills : [],
-    strokes: Array.isArray(rawData.strokes) ? rawData.strokes : []
-  }
+  throw new Error('[Preset Vector] Render data must contain Vector geometry')
 }
 
 type Vec2 = PositionData
+
+interface VectorRenderGeometryProjection {
+  workspaceOrigin: PositionData
+}
+
+const vectorRenderGeometryProjectionCache = new WeakMap<
+  object,
+  VectorRenderGeometryProjection
+>()
+
+export const getVectorRenderLocalPoint = (
+  renderElement: object,
+  workspacePoint: PositionData
+): PositionData | null => {
+  const projection = vectorRenderGeometryProjectionCache.get(renderElement)
+  return projection
+    ? {
+        x: workspacePoint.x - projection.workspaceOrigin.x,
+        y: workspacePoint.y - projection.workspaceOrigin.y
+      }
+    : null
+}
+
+export const getVectorRenderWorkspacePoint = (
+  renderElement: object,
+  localPoint: PositionData
+): PositionData | null => {
+  const projection = vectorRenderGeometryProjectionCache.get(renderElement)
+  return projection
+    ? {
+        x: localPoint.x + projection.workspaceOrigin.x,
+        y: localPoint.y + projection.workspaceOrigin.y
+      }
+    : null
+}
 
 interface FillFaceCache {
   faces: Vec2[][]
@@ -480,6 +236,8 @@ const NODE_KEY_EPS = 1e-4
 
 const MAX_OPEN_SEGMENTS = 1200
 
+const MIN_VECTOR_RENDER_SIZE = 0.1
+
 const cubicBezierPoint = (
   p0: Vec2,
   p1: Vec2,
@@ -496,6 +254,99 @@ const cubicBezierPoint = (
   return {
     x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
     y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+  }
+}
+
+const getCubicDerivativeRoots = (
+  start: number,
+  control1: number,
+  control2: number,
+  end: number
+): readonly number[] => {
+  const a = -start + 3 * control1 - 3 * control2 + end
+  const b = 2 * (start - 2 * control1 + control2)
+  const c = control1 - start
+  if (Math.abs(a) <= Number.EPSILON) {
+    if (Math.abs(b) <= Number.EPSILON) {
+      return []
+    }
+    const root = -c / b
+    return root > 0 && root < 1 ? [root] : []
+  }
+
+  const discriminant = b * b - 4 * a * c
+  if (discriminant < 0) {
+    return []
+  }
+  const squareRoot = Math.sqrt(discriminant)
+  return [(-b + squareRoot) / (2 * a), (-b - squareRoot) / (2 * a)].filter(
+    (root) => root > 0 && root < 1
+  )
+}
+
+const calculateVectorLocalBounds = (
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>,
+  networks: readonly VectorNetwork[]
+) => {
+  const anchorIds = new Set<string>()
+  const segmentIds = new Set<string>()
+  networks.forEach((network) => {
+    network.pointIds.forEach((pointId) => anchorIds.add(pointId))
+    network.segmentIds.forEach((segmentId) => segmentIds.add(segmentId))
+  })
+  const anchors = [...anchorIds]
+    .map((pointId) => points[pointId])
+    .filter(isAnchorNode)
+  if (anchors.length === 0) {
+    return {
+      x: 0,
+      y: 0,
+      width: MIN_VECTOR_RENDER_SIZE,
+      height: MIN_VECTOR_RENDER_SIZE
+    }
+  }
+
+  const bounds = {
+    minX: anchors[0].x,
+    minY: anchors[0].y,
+    maxX: anchors[0].x,
+    maxY: anchors[0].y
+  }
+  const include = (point: Vec2) => {
+    bounds.minX = Math.min(bounds.minX, point.x)
+    bounds.minY = Math.min(bounds.minY, point.y)
+    bounds.maxX = Math.max(bounds.maxX, point.x)
+    bounds.maxY = Math.max(bounds.maxY, point.y)
+  }
+  anchors.forEach(include)
+
+  segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+    const start = getAnchorNode(points, segment.startId)
+    const end = getAnchorNode(points, segment.endId)
+    if (!start || !end) {
+      return
+    }
+    const outControl = getControlNode(points, segment.outControlId) ?? start
+    const inControl = getControlNode(points, segment.inControlId) ?? end
+    const roots = new Set([
+      ...getCubicDerivativeRoots(start.x, outControl.x, inControl.x, end.x),
+      ...getCubicDerivativeRoots(start.y, outControl.y, inControl.y, end.y)
+    ])
+    roots.forEach((root) =>
+      include(cubicBezierPoint(start, outControl, inControl, end, root))
+    )
+  })
+
+  return {
+    x: bounds.minX,
+    y: bounds.minY,
+    width: bounds.maxX - bounds.minX || MIN_VECTOR_RENDER_SIZE,
+    height: bounds.maxY - bounds.minY || MIN_VECTOR_RENDER_SIZE
   }
 }
 
@@ -1295,24 +1146,45 @@ const renderVectorGraphic = (
     fills,
     x,
     y,
-    points: workspacePoints,
+    points,
     segments,
-    networks
+    networks,
+    rotation,
+    scaleX,
+    scaleY,
+    skewX,
+    skewY
   } = renderData
-  const ancestorOffset = getGroupAncestorOffset(graphic)
-  const pointOffset = {
-    x: x + ancestorOffset.x,
-    y: y + ancestorOffset.y
-  }
-  const points = workspacePoints
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
+  const workspaceGeometryBounds = calculateVectorLocalBounds(
+    points,
+    segments,
+    orderedNetworks
+  )
+  const pointOffset = {
+    x: workspaceGeometryBounds.x,
+    y: workspaceGeometryBounds.y
+  }
+  vectorRenderGeometryProjectionCache.set(graphic, {
+    workspaceOrigin: pointOffset
+  })
 
   graphic.x = x
   graphic.y = y
+  graphic.rotation = rotation
   setElementGeometryLocalBounds(
     graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
-    { x: 0, y: 0, width: renderData.width, height: renderData.height }
+    {
+      x: 0,
+      y: 0,
+      width: workspaceGeometryBounds.width,
+      height: workspaceGeometryBounds.height
+    }
   )
+  graphic.width = renderData.width
+  graphic.height = renderData.height
+  graphic.scale.set(scaleX, scaleY)
+  graphic.skew.set(skewX, skewY)
 
   if (orderedNetworks.length === 0) {
     return
@@ -1480,12 +1352,28 @@ const renderVectorGraphic = (
   )
 }
 
-export const VECTOR_RENDER_STRATEGY: EngineNeutralRenderStrategy = (
-  graphic,
-  data
-) => {
-  renderVectorGraphic(graphic, data)
-}
+export const VECTOR_RENDER_STRATEGY: EngineNeutralRenderStrategy =
+  Object.assign(
+    (
+      graphic: Parameters<EngineNeutralRenderStrategy>[0],
+      data: Parameters<EngineNeutralRenderStrategy>[1]
+    ) => {
+      renderVectorGraphic(graphic, data)
+    },
+    {
+      directPropertyKeys: Object.freeze([
+        'x',
+        'y',
+        'width',
+        'height',
+        'rotation',
+        'scaleX',
+        'scaleY',
+        'skewX',
+        'skewY'
+      ])
+    }
+  )
 
 export const VECTOR_COMPONENT_DEFINITION: ComponentDefinition = {
   type: 'vector',

@@ -95,6 +95,9 @@
         'Reversible scene-tree add and remove journal entries record the actual parent id and child index required to restore graph ownership and order.',
         'A selection state-owner mutation applies canonical state before commit validation; the shared channel remains a projection boundary rather than the delayed owner of canonical selection.',
         'sharedDelivery defaults to transaction-end independently of undo eligibility; undoable false does not imply immediate delivery, which requires an explicit immediate opt-in.',
+        'Ordinary mutations preserve every app-authored semantic change in append-only History order unless they explicitly opt into one gesture-keyed replace-latest History stage.',
+        'A replace-latest stage consumes complete owner-issued History candidate bundles, retains the first complete before bundle, replaces only the latest complete after bundle reference, and does not perform a per-element pending-History merge on each sample.',
+        'Replace-latest control and candidate metadata is local transaction evidence and never enters canonical payloads, shared publications, collaboration wire data, persistence, or replay payloads.',
         'Scene-tree transient batching preserves effective rollbackable, shared, and sharedDelivery semantics, batches only consecutive compatible changes, and flushes a pending batch before any ordinary or incompatible change so journal order matches canonical mutation order.'
       ],
       bypasses: [
@@ -118,7 +121,11 @@
         'packages/core/src/__tests__/element-selection-api.test.ts',
         'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/__tests__/**',
+        'packages/props-manager/src/**',
+        'packages/props-manager/src/__tests__/**',
+        'packages/reactive-events/src/app/events.ts',
         'packages/utils/src/types/scene-tree.ts',
+        'packages/utils/src/types/change.ts',
         'docs/ai/framework/packages/scene-tree.md',
         'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md'
       ],
@@ -248,6 +255,8 @@
       outputs: ['artifact:canonical-transaction-outcome'],
       conditions: [
         'Commit records one undo entry from undoable journal entries.',
+        'Outer commit materializes each finalized replace-latest stage as ordinary state-owner-backed History from its first complete before bundle and latest complete after bundle; ordinary entries before and after the stage preserve their action order.',
+        'Commit-current interruption finalizes the latest complete staged bundle, while rollback discards staged History and restores canonical state through the rollback journal.',
         'Rollback replays inverses in reverse order without undo, redo, or user-action-completed effects.',
         'Undo and redo use the same replay primitive with their own history effects.',
         'Undo and redo inside an existing command boundary retain their replay journal until the outer close.',

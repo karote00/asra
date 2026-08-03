@@ -125,6 +125,15 @@ const targets = [
     filterLaneTitle: 'App Menu and Command Policy'
   },
   {
+    id: 'vector-local-geometry-transform',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html'
+    ),
+    dataScript: './vector-local-geometry-transform-flow-inspector.data.cjs',
+    filterLaneTitle: 'Retained Render Geometry'
+  },
+  {
     id: 'asyra-design-remote-subtree-restore-snapshot',
     entryPath: path.join(
       projectRoot,

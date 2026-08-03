@@ -62,6 +62,13 @@ remains downstream, engine-neutral, and unaware of property meaning. The
 registered strategy alone decides whether and how a custom field affects
 drawing; Render adds no inferred mapping or fallback geometry.
 
+A strategy may also declare `directPropertyKeys`. After canonical snapshot
+validation, those keys update the existing Render object without executing the
+strategy again. The capability is strategy-owned and generic; Render does not
+hard-code a Vector type branch. The engine-neutral object composes position,
+dimension ratio, rotation, scale, and skew into the same affine transform used
+by `worldTransform`, `toGlobal`, `toLocal`, and the concrete engine adapter.
+
 ## Runtime Contracts
 
 1. State-driven rendering
@@ -80,6 +87,10 @@ drawing; Render adds no inferred mapping or fallback geometry.
   frame. `stop()` and teardown cancel any pending frame
 - a failed frame reports the failure and retains dirty state for an explicit
   later invalidation, but it never schedules an automatic failure loop
+- `subscribeToFrameComplete(subscriber)` observes only successfully completed
+  demanded frames, returns an idempotent disposer, isolates subscriber
+  failures, and never requests a frame by itself; successful Render teardown
+  releases these subscribers
 - a settled document performs no layer evaluation or engine flush. Local
   computed changes and Core-managed system-property updates request ordinary
   Render invalidation, so viewport navigation, overlays, and future local
@@ -142,10 +153,13 @@ drawing; Render adds no inferred mapping or fallback geometry.
   rebuild succeeds, and a composition or strategy failure removes stale visual
   output and returns `failed`
 - direct `x`, `y`, `rotation`, and `visible` updates retain the direct property
-  route after projection validation; mixed or computed updates coalesce per
-  element and rerun the unchanged strategy signature once from the final complete
-  snapshot. That complete snapshot also synchronizes generic `parentId` and
-  `children` hierarchy without reordering unchanged siblings
+  route after projection validation. A registered strategy's
+  `directPropertyKeys` extends that route for its own transform fields (for the
+  official Vector strategy: dimension, scale, and skew), without a geometry
+  strategy call. Other mixed or computed updates coalesce per element and rerun
+  the unchanged strategy signature once from the final complete snapshot. That
+  complete snapshot also synchronizes generic `parentId` and `children`
+  hierarchy without reordering unchanged siblings
 - Render does not retain a strategy dependency graph or hard-code vector schema
   keys; profiling permits only the existing `elementId` snapshot dimension
 - initial observer registration and every re-registration invoke the explicit
@@ -212,6 +226,10 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - required capabilities are checked through `@asyra/render-engine`; unsupported
   requirements fail without concrete-engine introspection or fallback
 - adapter API exposes engine-agnostic methods to other packages/app layers
+- `elementLocalToWorkspace(elementId, point)` and
+  `workspaceToElementLocal(elementId, point)` are the identity-safe affine
+  projection boundary for local geometry consumers; a missing element or
+  non-finite result fails closed
 
 5. Engine interaction return
 

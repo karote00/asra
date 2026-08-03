@@ -533,23 +533,10 @@ test.describe('Vector app-flow invariants', () => {
 
     await page.waitForTimeout(250)
 
-    const created = await vectorInvariantProbe(page)
-    expect(created.computed.pointCoordinateSpace).toBe('workspace')
+    const created = await expectWorkspaceVectorInvariants(page, 'star:create')
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(
-      created.geometryBounds.height,
-      4
-    )
-    expect(created.overlayBounds).toEqual(created.anchorBounds)
-    expect(created.render.exists).toBe(true)
-    expect(created.render.visible).toBe(true)
-    expect(created.render.x).toBeCloseTo(created.computed.x, 4)
-    expect(created.render.y).toBeCloseTo(created.computed.y, 4)
 
     await page.evaluate(async () => {
       const core = (await import('../src/testing/runtime-access')).core
@@ -564,7 +551,6 @@ test.describe('Vector app-flow invariants', () => {
       if (!selectedId || !point) {
         throw new Error('Missing selected vector point for update')
       }
-
       elementApis.updateVectorAnchorPointPosition(
         selectedId,
         'p0',
@@ -575,20 +561,7 @@ test.describe('Vector app-flow invariants', () => {
 
     await page.waitForTimeout(250)
 
-    const updated = await vectorInvariantProbe(page)
-    expect(updated.computed.pointCoordinateSpace).toBe('workspace')
-    expect(updated.computed.x).toBeCloseTo(updated.geometryBounds.x, 4)
-    expect(updated.computed.y).toBeCloseTo(updated.geometryBounds.y, 4)
-    expect(updated.computed.width).toBeCloseTo(updated.geometryBounds.width, 4)
-    expect(updated.computed.height).toBeCloseTo(
-      updated.geometryBounds.height,
-      4
-    )
-    expect(updated.overlayBounds).toEqual(updated.anchorBounds)
-    expect(updated.render.exists).toBe(true)
-    expect(updated.render.visible).toBe(true)
-    expect(updated.render.x).toBeCloseTo(updated.computed.x, 4)
-    expect(updated.render.y).toBeCloseTo(updated.computed.y, 4)
+    await expectWorkspaceVectorInvariants(page, 'star:update-point')
   })
 
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after pen-created star', async ({
@@ -610,23 +583,13 @@ test.describe('Vector app-flow invariants', () => {
     await setSelectedVectorStrokeData(page)
     await page.waitForTimeout(350)
 
-    const created = await vectorInvariantProbe(page)
-    expect(created.computed.pointCoordinateSpace).toBe('workspace')
+    const created = await expectWorkspaceVectorInvariants(
+      page,
+      'pen-star:create'
+    )
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(
-      created.geometryBounds.height,
-      4
-    )
-    expect(created.overlayBounds).toEqual(created.anchorBounds)
-    expect(created.render.exists).toBe(true)
-    expect(created.render.visible).toBe(true)
-    expect(created.render.x).toBeCloseTo(created.computed.x, 4)
-    expect(created.render.y).toBeCloseTo(created.computed.y, 4)
 
     await page.keyboard.press('v')
     await page.waitForTimeout(100)
@@ -642,20 +605,7 @@ test.describe('Vector app-flow invariants', () => {
     await page.mouse.up()
     await page.waitForTimeout(350)
 
-    const dragged = await vectorInvariantProbe(page)
-    expect(dragged.computed.pointCoordinateSpace).toBe('workspace')
-    expect(dragged.computed.x).toBeCloseTo(dragged.geometryBounds.x, 4)
-    expect(dragged.computed.y).toBeCloseTo(dragged.geometryBounds.y, 4)
-    expect(dragged.computed.width).toBeCloseTo(dragged.geometryBounds.width, 4)
-    expect(dragged.computed.height).toBeCloseTo(
-      dragged.geometryBounds.height,
-      4
-    )
-    expect(dragged.overlayBounds).toEqual(dragged.anchorBounds)
-    expect(dragged.render.exists).toBe(true)
-    expect(dragged.render.visible).toBe(true)
-    expect(dragged.render.x).toBeCloseTo(dragged.computed.x, 4)
-    expect(dragged.render.y).toBeCloseTo(dragged.computed.y, 4)
+    await expectWorkspaceVectorInvariants(page, 'pen-star:drag-point')
   })
 
   test('keeps full topology operations aligned through append, split, remove, and close', async ({

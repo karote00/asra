@@ -1,6 +1,10 @@
 import type { RenderElementData } from '../types'
 import type { RenderGraphics } from './render-object'
 
+export interface RenderStrategyCapabilities {
+  readonly directPropertyKeys?: readonly string[]
+}
+
 /**
  * @deprecated Use `RenderGraphics`. This independent structural facade keeps
  * existing Pixi-annotated callbacks source-compatible without importing Pixi.
@@ -41,7 +45,8 @@ export interface RenderStrategyGraphic {
 
 export type EngineNeutralRenderStrategy<
   TAppData extends object = Record<never, never>
-> = (graphic: RenderGraphics, data: RenderElementData & TAppData) => void
+> = ((graphic: RenderGraphics, data: RenderElementData & TAppData) => void) &
+  RenderStrategyCapabilities
 
 /**
  * @deprecated Use `EngineNeutralRenderStrategy`. This bivariant compatibility
@@ -50,4 +55,5 @@ export type EngineNeutralRenderStrategy<
  */
 export type RenderStrategy = {
   bivarianceHack(graphic: RenderStrategyGraphic, data: RenderElementData): void
-}['bivarianceHack']
+}['bivarianceHack'] &
+  RenderStrategyCapabilities

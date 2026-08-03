@@ -7128,3 +7128,126 @@ join` constrained dashed product path across:
   - `382605f03` (`fix(collaboration): drop disconnected relay peers`)
   - `3a88f1dde` (`fix(app): use formal document database persistence`)
   - `cda8b10f0` (`style(app): format service availability boundaries`)
+
+## 2026-08-03 - Retain Vector render geometry and make transforms point-free
+
+- Context:
+  - Moving a Vector translated every point/control record. A single drag sample
+    on a 7,000+ point element could therefore block the app and publish a
+    point-count-sized mutation.
+  - Existing persisted Vector values and schema remain the canonical input;
+    this fix belongs to the Render pipeline and cache.
+- Decision:
+  - Keep all existing Vector document values unchanged and add no migration,
+    document version, canonical-local marker, or app-owned geometry model.
+  - Route whole-element move, dimension, rotation, scale, and skew through the
+    existing constant-size element values without rewriting points or handles.
+  - Let registered Render strategies declare generic direct transform keys.
+    Preset derives engine-local draw geometry from the existing complete render
+    snapshot, while Render retains that derived geometry across transform-only
+    deltas and rebuilds it for geometry/style changes.
+  - Project selection and path-edit overlays through the same retained Render
+    transform so visible output, bounds, hit data, and editing remain aligned.
+- Consequences:
+  - Whole-element mutation and publication size are independent of Vector point
+    count; canonical point/control records remain unchanged.
+  - Direct geometry editing still patches the intended existing records; the
+    Render-owned projection is never persisted or used as canonical edit data.
+  - Both a synthetic 7,001-point case and the first 50 checked-in
+    `crdt-7076` cat-face elements are formal point-free move regressions.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Make service status toasts dismissible
+
+- Context:
+  - Persistent database and collaboration error banners could cover the canvas
+    indefinitely and offered no direct dismissal.
+- Decision:
+  - Give each status toast an accessible top-right close button.
+  - Start automatic dismissal after 10 seconds and retain the dismissed state
+    while the same unavailable condition remains active.
+  - Collapse a closing row over 200 milliseconds before removal so lower toasts
+    transition upward continuously.
+- Consequences:
+  - Service status ownership and recovery behavior remain unchanged; only the
+    `RenderApp` notification presentation lifecycle changes.
+  - Unit tests own timer and removal semantics, while a live-browser test owns
+    the stacked layout transition and visual evidence.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Use complete 7,076 sample and keep canvas drag out of Undo
+
+- Context:
+  - The derivative first-50 sample added an unnecessary route, generator,
+    Playwright configuration, and separate usage path.
+  - Canvas drag position writes were inheriting the mutation default
+    `undoable: true`, even though canvas drag is intentionally outside ordinary
+    Undo history.
+- Decision:
+  - Remove the derivative sample and every first-50-only route, generator,
+    command, test configuration, and active contract.
+  - Use the existing complete `crdt-7076` sample directly for manual testing
+    and the formal real-data render/move/edit regression.
+  - Pass `undoable: false` for move-session selection, position, and final Group
+    normalization writes while retaining normal rollback and immediate shared
+    publication.
+- Consequences:
+  - There is one sample URL and one checked-in 7,076 dataset to maintain.
+  - A completed or commit-current interrupted canvas drag creates zero Undo
+    entries; failure rollback remains transaction-owned.
+  - This entry supersedes the first-50 and undoable-drag statements in earlier
+    2026-08-03 Vector decision text without rewriting append-only history.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Stage canvas drag as one complete Undo action
+
+- Context:
+  - The prior zero-Undo canvas-drag decision removed a required user action
+    from History.
+  - Re-appending every pointer sample would preserve correctness but make Undo
+    replay every intermediate position and retain point-sample-sized History
+    work throughout a large multi-selection drag.
+- Decision:
+  - Add an explicit local `replace-latest` History option for continuous
+    gestures; ordinary mutations remain append-only.
+  - PropsManager issues a complete frozen position candidate for every sample.
+    Factory retains the first candidate and replaces only the latest candidate
+    reference, then materializes one History action when the outer transaction
+    commits.
+  - Canvas move samples remain canonical, rollbackable, and immediately shared.
+    Final Group normalization remains an ordinary ordered change in the same
+    Undo action.
+- Consequences:
+  - Completed and commit-current interrupted canvas drags create exactly one
+    Undo entry. Undo restores the complete start bundle and Redo restores the
+    complete final bundle.
+  - Staging metadata remains local and never enters canonical payloads,
+    collaboration wire data, persistence, or replay payloads.
+  - This decision supersedes only the zero-Undo portion of the preceding
+    7,076-sample decision; the removal of the derivative first-50 sample remains
+    in force.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Close Vector Render geometry and element-transform plan
+
+- Context:
+  - The unchanged-data Vector Render pipeline, retained geometry, point-free
+    whole-element transforms, one-action drag History, complete `crdt-7076`
+    regression, and status-toast addendum passed their bounded exit criteria.
+  - The product owner authorized plan closeout on 2026-08-03.
+- Decision:
+  - Mark the Vector Render geometry and element-transform plan completed.
+  - Move its canonical record into the completed-plan archive while retaining
+    the Flow Inspector as architecture history and a redirect for append-only
+    decision references recorded before closeout.
+- Consequences:
+  - No highest-priority Asyra Design plan is currently active.
+  - This closeout changes plan lifecycle state only; it does not alter the
+    accepted product contract or implementation.
+  - Pull request #103 remains the review and integration vehicle.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md`

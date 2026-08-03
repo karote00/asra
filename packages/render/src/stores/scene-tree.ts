@@ -20,6 +20,7 @@ import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
 
 import render from '../render'
+import renderStrategyRegistry from '../registries/render-strategy'
 import type { RenderLayerRegistration } from '../types/render-layer'
 
 const DIRECT_RENDER_PROPERTY_KEYS = new Set(['x', 'y', 'rotation'])
@@ -784,6 +785,17 @@ class RenderSceneTree {
 
   constructor() {
     this.frameAlignedFlush = installPendingRenderLayer(this)
+  }
+
+  private isDirectRenderProperty(elementId: string, key: string): boolean {
+    if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
+      return true
+    }
+    const type = this.computedDataMirror.get(elementId)?.renderDataSnapshot.type
+    return (
+      typeof type === 'string' &&
+      renderStrategyRegistry.supportsDirectProperty(type, key)
+    )
   }
 
   private getCanonicalReloadEntries(
@@ -1599,7 +1611,7 @@ class RenderSceneTree {
       return this.projectionOutcome(elementId, 'applied')
     }
 
-    if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
+    if (this.isDirectRenderProperty(elementId, key)) {
       this.recordDirtyChange(elementId, 1, this.pendingFrameFlush)
       measureBrowserDragPhase('render-scene-tree:update-direct-property', () =>
         render.updateElement(
@@ -1649,7 +1661,7 @@ class RenderSceneTree {
     }
 
     const hasComputedFullUpdate = effectiveChanges.some(
-      ({ key }) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
+      ({ key }) => !this.isDirectRenderProperty(elementId, key)
     )
 
     this.recordDirtyChange(
@@ -1663,7 +1675,7 @@ class RenderSceneTree {
     effectiveChanges.forEach(({ key, before, after }) => {
       if (
         !hasComputedFullUpdate &&
-        (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key))
+        this.isDirectRenderProperty(elementId, key)
       ) {
         measureBrowserDragPhase(
           'render-scene-tree:update-direct-property',
@@ -1700,12 +1712,12 @@ class RenderSceneTree {
     }
 
     const directValueChanges = Object.entries(patch.values ?? {}).filter(
-      ([key]) => key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)
+      ([key]) => this.isDirectRenderProperty(elementId, key)
     )
     const hasComputedFullUpdate =
       Object.keys(patch.records ?? {}).length > 0 ||
       Object.keys(patch.values ?? {}).some(
-        (key) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
+        (key) => !this.isDirectRenderProperty(elementId, key)
       )
 
     const changeCount =

@@ -26,16 +26,14 @@ Feature: Undo and Redo
     Then that drag-created element should be removed
     And no extra drag-move history step should remain to undo
 
-  Scenario: Drag-move position is undoable and redoable
+  Scenario: Drag-move position does not enter Undo history
     Given I drag a selected element to a new position
-    When I trigger Undo
-    Then that element position should return to the previous coordinates
-    When I trigger Redo
-    Then that element position should return to the moved coordinates
+    Then the Undo history count should remain unchanged
+    When I trigger Undo once
+    Then Undo should affect the previous undoable action instead of the drag
 
-  Scenario: Drag-move on unselected target undoes both move and selection switch
+  Scenario: Drag-move on an unselected target does not enter Undo history
     Given element A is selected
     And I drag unselected unlocked element B to a new position
-    When I trigger Undo
-    Then element B position should return to its previous coordinates
-    And selection should return to element A
+    Then element B should be selected at its moved position
+    And the Undo history count should remain unchanged

@@ -290,14 +290,14 @@ Import boundary:
 - vector topology contract:
   - canonical runtime/persistence model is `points` + `segments` + `networks`
   - no runtime geometry conversion from legacy `anchorPoints` shapes
+  - this transform optimization does not migrate, reformat, or rewrite
+    persisted Vector values
 - `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
 - `getVectorAnchorSubpaths(elementId: string): VectorAnchorPoint[][]`
 - `getVectorTopology(elementId: string): { points: Record<string, VectorPointNode>; segments: Record<string, VectorSegment>; networks: Record<string, VectorNetwork> }`
 - `scaleVectorElementAroundCenter(elementId: string, scale: { scaleX: number; scaleY: number }, mutationOptions?: EVENT_OPTIONS): boolean`
-  - scales every existing workspace anchor/control point around the vector's
-    current bounds center, preserves point/segment/network ids and subpath
-    topology, and commits recalculated bounds through the ordinary canonical
-    vector patch route
+  - applies the existing scale-around-center behavior through the ordinary
+    canonical vector route
 - `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
@@ -339,8 +339,8 @@ Import boundary:
   - preflights and prepares the complete mixed ordinary/Vector batch before
     calling Core exactly once
   - direct non-Vector Group children require finite workspace coordinates and
-    a finite parent workspace origin; Vector topology points remain in
-    workspace coordinates while computed bounds become parent-local
+    a finite parent workspace origin; Vector topology points retain their
+    existing values while computed bounds become parent-local
   - returns an isolated frozen copy of Core's ordered canonical IDs; any
     preparation failure returns `null` before Core mutation
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; workspacePosition?: PositionData; width?: number; height?: number; fills?: FillAttrs[]; strokes?: StrokeAttrs[]; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
@@ -361,10 +361,11 @@ Import boundary:
     rather than leaving descendants attached to a missing parent
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
-  - writes one continuous-gesture position sample without rebasing official
-    Group origins; `move-elements` asks Preset to normalize every affected
-    Group deepest-first exactly once after the final sample and before the
-    outer gesture transaction commits
+  - writes one continuous-gesture `x/y` sample for ordinary and Vector elements
+    without inspecting or patching Vector topology
+  - does not rebase official Group origins; `move-elements` asks Preset to
+    normalize every affected Group deepest-first exactly once after the final
+    sample and before the outer gesture transaction commits
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `updateElementProperties(elementIds: readonly string[], values: Readonly<Record<string, DataTypes>>, options?: EVENT_OPTIONS): void`
   - projects any Group geometry-dependent property updates, then submits one

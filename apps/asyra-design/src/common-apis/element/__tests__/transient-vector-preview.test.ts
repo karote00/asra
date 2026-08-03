@@ -209,6 +209,7 @@ describe('Vector transient preview cancellation', () => {
         { x: 25, y: 15 },
         {
           skipResult: true,
+          transientPreview: true,
           undoable: false
         }
       )

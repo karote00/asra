@@ -471,6 +471,9 @@ See `packages/collaboration.md` and
 - `Render.getProjectedElementCount()` returns the exact number of ordinary
   viewport RenderLayer entries as an O(1) read-only scalar; it exposes neither
   the layer map nor engine objects
+- `Render.subscribeToFrameComplete(subscriber)` observes successful demanded
+  frame completion without requesting another frame; subscriber failures are
+  isolated and the returned disposer removes that instance-local observer
 - `MissingRenderEngineProviderError` and
   `InvalidRenderEngineProviderResultError` distinguish provider absence from an
   invalid provider result

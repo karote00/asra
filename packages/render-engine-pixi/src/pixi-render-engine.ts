@@ -478,6 +478,12 @@ export class PixiRenderEngine implements RenderEngine {
       object.scale.set(scaleX ?? object.scale.x, scaleY ?? object.scale.y)
     }
 
+    const skewX = toFiniteNumber(properties.skewX)
+    const skewY = toFiniteNumber(properties.skewY)
+    if (skewX !== undefined || skewY !== undefined) {
+      object.skew.set(skewX ?? object.skew.x, skewY ?? object.skew.y)
+    }
+
     if (object instanceof Mesh) {
       const geometry = properties.geometry as MeshProperties | undefined
       if (geometry && updateGeometry) {

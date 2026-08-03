@@ -35,6 +35,30 @@ describe('RenderStrategyRegistry', () => {
     expect(renderStrategyRegistry.get('test-type')).toBeUndefined()
   })
 
+  it('exposes strategy-owned direct transform property capabilities', () => {
+    const mockStrategy = Object.assign(vi.fn(), {
+      directPropertyKeys: Object.freeze([
+        'x',
+        'y',
+        'width',
+        'height',
+        'rotation'
+      ])
+    }) as RenderStrategy & { readonly directPropertyKeys: readonly string[] }
+
+    renderStrategyRegistry.register('test-type', mockStrategy)
+
+    expect(
+      renderStrategyRegistry.supportsDirectProperty('test-type', 'width')
+    ).toBe(true)
+    expect(
+      renderStrategyRegistry.supportsDirectProperty('test-type', 'points')
+    ).toBe(false)
+    expect(
+      renderStrategyRegistry.supportsDirectProperty('another-type', 'width')
+    ).toBe(false)
+  })
+
   it('should return false when unregistering non-existent strategy', () => {
     const result = renderStrategyRegistry.unregister('non-existent')
     expect(result).toBe(false)

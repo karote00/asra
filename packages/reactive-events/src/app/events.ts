@@ -29,12 +29,18 @@ export interface TransactionCanonicalEvidence {
   readonly sharedRecords?: readonly TransactionCanonicalRecordEvidence[]
 }
 
+export interface ReplaceLatestHistoryCandidate {
+  readonly key: string
+  readonly events: readonly UpdateTransactionEvent[]
+}
+
 export interface UpdateTransactionEvent {
   type: EventTypes
   eventName: string
   payload: unknown
   options?: EVENT_OPTIONS
   canonicalEvidence?: TransactionCanonicalEvidence
+  historyCandidate?: ReplaceLatestHistoryCandidate
 }
 
 export interface EndTransactionEvent {

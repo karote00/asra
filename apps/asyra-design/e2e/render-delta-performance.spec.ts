@@ -35,6 +35,7 @@ interface RenderDeltaProfileSummary {
 
 const SAMPLE_FRAMES = 12
 const DENSE_POINT_COUNT = 56
+const DENSE_TRANSFORM_POINT_COUNT = 7_001
 const SELF_INTERSECTION_STEP = 3
 const PHASE_BUDGETS = {
   sceneTree: { totalMs: 24, p95Ms: 4, maxMs: 6 },
@@ -592,6 +593,350 @@ test.describe('Render delta performance budget', () => {
         pathEditingMode: visualReviewState.pathEditingMode
       })}`
     )
+  })
+
+  test('moves a 7001-point Vector without geometry mutation or strategy execution', async ({
+    page
+  }, testInfo) => {
+    test.setTimeout(120_000)
+
+    const fixture = await page.evaluate(async (pointCount) => {
+      const { core, elementApis } = await import(
+        '../src/testing/runtime-access'
+      )
+      if (!core || !elementApis) {
+        throw new Error('Asyra E2E runtime is unavailable')
+      }
+
+      const center = { x: 420, y: 300 }
+      const radius = 135
+      const pointIds = Array.from(
+        { length: pointCount },
+        (_, index) => `dense-transform-point-${index}`
+      )
+      const points = Object.fromEntries(
+        pointIds.map((id, index) => {
+          const angle = (Math.PI * 2 * index) / pointCount
+          return [
+            id,
+            {
+              id,
+              kind: 'anchor',
+              anchorType: 'sharp',
+              x: center.x + Math.cos(angle) * radius,
+              y: center.y + Math.sin(angle) * radius
+            }
+          ]
+        })
+      )
+      const segments = Object.fromEntries(
+        pointIds.map((pointId, index) => {
+          const id = `dense-transform-segment-${index}`
+          return [
+            id,
+            {
+              id,
+              startId: pointId,
+              endId: pointIds[(index + 1) % pointCount],
+              outControlId: null,
+              inControlId: null
+            }
+          ]
+        })
+      )
+      const networks = {
+        'dense-transform-network': {
+          id: 'dense-transform-network',
+          pointIds,
+          segmentIds: pointIds.map(
+            (_, index) => `dense-transform-segment-${index}`
+          ),
+          closed: true
+        }
+      }
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks,
+          closed: true
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create dense Vector transform fixture')
+      }
+
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'fills',
+                set: {
+                  'dense-transform-fill': {
+                    kind: 'solid',
+                    defaultColorFormat: 'hex',
+                    colorFormat: 'hex',
+                    color: '#2563eb',
+                    opacity: 0.86,
+                    visible: true,
+                    gradient: null
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        { undoable: false }
+      )
+
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      const zoom = core.getSystemProperty?.('zoom') ?? 1
+      const viewport = core.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      return {
+        elementId,
+        pointCount: Object.keys(computed.points ?? {}).length,
+        centerClient: {
+          x:
+            ((computed.x ?? 0) + (computed.width ?? 0) / 2) * zoom + viewport.x,
+          y:
+            ((computed.y ?? 0) + (computed.height ?? 0) / 2) * zoom + viewport.y
+        }
+      }
+    }, DENSE_TRANSFORM_POINT_COUNT)
+
+    expect(fixture.pointCount).toBe(DENSE_TRANSFORM_POINT_COUNT)
+
+    const captureStage = async (label: string) => {
+      const screenshotPath = testInfo.outputPath(`dense-transform-${label}.png`)
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: true,
+        animations: 'disabled'
+      })
+      await testInfo.attach(`dense-transform-${label}`, {
+        path: screenshotPath,
+        contentType: 'image/png'
+      })
+    }
+
+    await captureStage('initial')
+
+    await page.evaluate(async (elementId) => {
+      const { core } = await import('../src/testing/runtime-access')
+      core.selectElements?.([elementId], { undoable: false })
+    }, fixture.elementId)
+    await page.waitForTimeout(100)
+    await captureStage('selected')
+
+    await page.evaluate(async (elementId) => {
+      const {
+        core,
+        startSharedPublicationCapture,
+        subscribeToBrowserDragPhases,
+        testRuntimeState
+      } = await import('../src/testing/runtime-access')
+      const element = core.deps?.sceneTree?.getElementById?.(elementId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const phases: { name: string; durationMs: number }[] = []
+      const unsubscribe = subscribeToBrowserDragPhases((name, durationMs) => {
+        phases.push({ name, durationMs })
+      })
+      startSharedPublicationCapture('dense-transform-publications')
+      testRuntimeState.set('dense-transform-probe', {
+        beforePoints: computed.points,
+        beforePointSamples: [
+          computed.points?.['dense-transform-point-0'],
+          computed.points?.['dense-transform-point-3500'],
+          computed.points?.['dense-transform-point-7000']
+        ].map((point) => ({ x: point?.x, y: point?.y })),
+        phases,
+        unsubscribe
+      })
+    }, fixture.elementId)
+
+    await page.mouse.move(fixture.centerClient.x, fixture.centerClient.y)
+    await page.mouse.down()
+    await page.mouse.move(
+      fixture.centerClient.x + 72,
+      fixture.centerClient.y + 48,
+      { steps: 12 }
+    )
+    await page.mouse.up()
+    await page.waitForTimeout(150)
+
+    const moveProfile = await page.evaluate(async (elementId) => {
+      const { core, readTestCapture, stopTestCapture, testRuntimeState } =
+        await import('../src/testing/runtime-access')
+      const probe = testRuntimeState.get<{
+        beforePoints: unknown
+        beforePointSamples: { x: number; y: number }[]
+        phases: { name: string; durationMs: number }[]
+        unsubscribe: () => void
+      }>('dense-transform-probe')
+      if (!probe) {
+        throw new Error('Dense transform probe was not installed')
+      }
+      probe.unsubscribe()
+
+      const publications = readTestCapture(
+        'dense-transform-publications'
+      ) as readonly unknown[]
+      const canonicalPropertyKeys = new Set<string>()
+      const canonicalRecordTypes = new Set<string>()
+      const visit = (value: unknown): void => {
+        if (Array.isArray(value)) {
+          value.forEach(visit)
+          return
+        }
+        if (!value || typeof value !== 'object') {
+          return
+        }
+        const record = value as Record<string, unknown>
+        const eventName =
+          typeof record.eventName === 'string' ? record.eventName : record.type
+        if (
+          eventName === 'addProperty' ||
+          eventName === 'removeProperty' ||
+          eventName === 'updateProperty'
+        ) {
+          const payload =
+            record.payload && typeof record.payload === 'object'
+              ? (record.payload as Record<string, unknown>)
+              : {}
+          if (typeof payload.key === 'string') {
+            canonicalPropertyKeys.add(payload.key)
+          }
+          if (
+            eventName === 'updateProperty' &&
+            typeof payload.id === 'string'
+          ) {
+            const propertyType = payload.propertyType
+            if (typeof propertyType === 'string') {
+              canonicalRecordTypes.add(propertyType)
+            }
+          }
+          if (Array.isArray(payload.data)) {
+            payload.data.forEach((entry) => {
+              if (
+                entry &&
+                typeof entry === 'object' &&
+                typeof (entry as { type?: unknown }).type === 'string'
+              ) {
+                canonicalRecordTypes.add((entry as { type: string }).type)
+              }
+            })
+          }
+        }
+        Object.values(record).forEach(visit)
+      }
+      publications.forEach(visit)
+
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      const afterPointSamples = [
+        computed.points?.['dense-transform-point-0'],
+        computed.points?.['dense-transform-point-3500'],
+        computed.points?.['dense-transform-point-7000']
+      ].map((point) => ({ x: point?.x, y: point?.y }))
+      const moveSamples = probe.phases
+        .filter(({ name }) => name === 'move-elements:apply-positions')
+        .map(({ durationMs }) => durationMs)
+      const geometryStrategySamples = probe.phases.filter(
+        ({ name }) => name === 'render-layer:strategy:vector'
+      )
+
+      stopTestCapture('dense-transform-publications')
+      testRuntimeState.delete('dense-transform-probe')
+
+      return {
+        pointCount: Object.keys(computed.points ?? {}).length,
+        pointsIdentityPreserved: computed.points === probe.beforePoints,
+        pointSamplesPreserved:
+          JSON.stringify(afterPointSamples) ===
+          JSON.stringify(probe.beforePointSamples),
+        canonicalPropertyKeys: [...canonicalPropertyKeys].sort(),
+        canonicalRecordTypes: [...canonicalRecordTypes].sort(),
+        moveSamples,
+        geometryStrategyCount: geometryStrategySamples.length,
+        x: computed.x,
+        y: computed.y
+      }
+    }, fixture.elementId)
+
+    expect(moveProfile.pointCount).toBe(DENSE_TRANSFORM_POINT_COUNT)
+    expect(moveProfile.pointsIdentityPreserved).toBe(true)
+    expect(moveProfile.pointSamplesPreserved).toBe(true)
+    expect(moveProfile.canonicalPropertyKeys).toEqual(['x', 'y'])
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorPoint')
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorSegment')
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorNetwork')
+    expect(moveProfile.moveSamples.length).toBeGreaterThan(0)
+    expect(moveProfile.geometryStrategyCount).toBe(0)
+
+    // One bounded line is the reviewable performance artifact for the exact
+    // 7,001-point pointer-drag state used by the screenshots below.
+    // eslint-disable-next-line no-console
+    console.info(
+      `DENSE_VECTOR_TRANSFORM_PROFILE ${JSON.stringify({
+        pointCount: moveProfile.pointCount,
+        moveUpdates: moveProfile.moveSamples.length,
+        moveTotalMs: Number(
+          moveProfile.moveSamples
+            .reduce((total, sample) => total + sample, 0)
+            .toFixed(3)
+        ),
+        moveMaxMs: Number(Math.max(...moveProfile.moveSamples, 0).toFixed(3)),
+        geometryStrategyCount: moveProfile.geometryStrategyCount,
+        canonicalPropertyKeys: moveProfile.canonicalPropertyKeys
+      })}`
+    )
+
+    await captureStage('moved')
+
+    await page.evaluate(async (elementId) => {
+      const { core, elementApis } = await import(
+        '../src/testing/runtime-access'
+      )
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      elementApis.changeElementGeometry(
+        elementId,
+        {
+          width: (computed.width ?? 1) * 1.15,
+          height: (computed.height ?? 1) * 0.9,
+          rotation: 0.14
+        },
+        { undoable: false }
+      )
+    }, fixture.elementId)
+    await page.waitForTimeout(150)
+    await captureStage('transformed-selected')
+
+    await page.evaluate(async (elementId) => {
+      const { core } = await import('../src/testing/runtime-access')
+      core.setSystemProperty?.('pathEditingVectorId', elementId)
+      core.setSystemProperty?.('pathEditingMode', true)
+    }, fixture.elementId)
+    await page.waitForTimeout(150)
+    await captureStage('path-edit')
   })
 
   test('preserves fresh snapshot equivalence through action replay and load', async ({

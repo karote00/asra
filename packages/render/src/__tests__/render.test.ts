@@ -114,6 +114,30 @@ describe('Render', () => {
     expect(app.render).toHaveBeenCalledOnce()
   })
 
+  it('notifies isolated frame-complete subscribers after a successful frame', async () => {
+    await render.init(100, 100, 0)
+    render.start()
+    const firstSubscriber = vi.fn()
+    const laterSubscriber = vi.fn()
+    const disposeFirst = render.subscribeToFrameComplete(firstSubscriber)
+    render.subscribeToFrameComplete(() => {
+      throw new Error('frame observer failed')
+    })
+    render.subscribeToFrameComplete(laterSubscriber)
+
+    render.requestRender()
+    expect(() => engine.emitFrame(1)).not.toThrow()
+
+    expect(firstSubscriber).toHaveBeenCalledOnce()
+    expect(laterSubscriber).toHaveBeenCalledOnce()
+
+    disposeFirst()
+    render.requestRender()
+    expect(() => engine.emitFrame(2)).not.toThrow()
+    expect(firstSubscriber).toHaveBeenCalledOnce()
+    expect(laterSubscriber).toHaveBeenCalledTimes(2)
+  })
+
   // Test delegation methods to viewport
   it('should delegate switchWorkspace to viewport', () => {
     const data = {
@@ -1090,6 +1114,30 @@ describe('Render', () => {
       'x',
       after
     )
+  })
+
+  it('converts between workspace and element-local coordinates through Render ancestry', () => {
+    const element = new RenderGraphics()
+    element.x = 10
+    element.y = 20
+    render.viewport.view.x = 100
+    render.viewport.view.y = 50
+    render.viewport.view.scale.set(2, 2)
+    render.viewport.view.addChild(element)
+    vi.spyOn(render.viewport, 'getElementById').mockImplementation(
+      (elementId) => (elementId === 'vector-1' ? element : undefined)
+    )
+
+    expect(
+      render.workspaceToElementLocal('vector-1', { x: 15, y: 27 })
+    ).toEqual({ x: 5, y: 7 })
+    expect(render.elementLocalToWorkspace('vector-1', { x: 5, y: 7 })).toEqual({
+      x: 15,
+      y: 27
+    })
+    expect(
+      render.workspaceToElementLocal('missing', { x: 15, y: 27 })
+    ).toBeNull()
   })
 
   it('passes complete vector and non-vector snapshots through the same strategy signature', () => {

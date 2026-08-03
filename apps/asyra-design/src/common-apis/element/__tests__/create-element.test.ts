@@ -525,7 +525,7 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.runTransaction).toHaveBeenCalledOnce()
   })
 
-  it('coordinates mixed vector and ordinary positions through one owner batch each', () => {
+  it('coordinates mixed Vector and ordinary positions through one transform owner batch', () => {
     mocks.getElementById.mockImplementation((elementId: string) => {
       const fixtures: Record<
         string,
@@ -652,67 +652,22 @@ describe('create-element explicit parent and coordinates', () => {
       options
     )
 
-    expect(mocks.patchElementProperties).toHaveBeenCalledOnce()
-    expect(mocks.patchElementProperties).toHaveBeenCalledWith(
-      [
-        {
-          elementId: 'vector-1',
-          values: {
-            x: 10,
-            y: 20,
-            width: 0.1,
-            height: 0.1,
-            closed: false
-          },
-          records: [
-            {
-              key: 'points',
-              set: {
-                pointA: {
-                  anchorType: 'sharp',
-                  handleMode: 'none',
-                  kind: 'anchor',
-                  x: 10,
-                  y: 20
-                }
-              }
-            }
-          ]
-        },
-        {
-          elementId: 'vector-2',
-          values: {
-            x: 120,
-            y: 230,
-            width: 0.1,
-            height: 0.1,
-            closed: false
-          },
-          records: [
-            {
-              key: 'points',
-              set: {
-                pointB: {
-                  anchorType: 'sharp',
-                  handleMode: 'none',
-                  kind: 'anchor',
-                  x: 120,
-                  y: 230
-                }
-              }
-            }
-          ]
-        }
-      ],
-      options
-    )
+    expect(mocks.patchElementProperties).not.toHaveBeenCalled()
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
     expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
     expect(mocks.updateElementProperties).toHaveBeenCalledWith(
       [
         {
+          elementId: 'vector-1',
+          values: { x: 10, y: 20 }
+        },
+        {
           elementId: 'rect-1',
           values: { x: 7, y: 8 }
+        },
+        {
+          elementId: 'vector-2',
+          values: { x: 120, y: 230 }
         }
       ],
       options

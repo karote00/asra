@@ -96,7 +96,9 @@ describe('move canvas hierarchy target handoff', () => {
       }
     )
     expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(startSnapshot)
-    expect(mocks.selectElements).toHaveBeenCalledWith(['group-1'])
+    expect(mocks.selectElements).toHaveBeenCalledWith(['group-1'], {
+      undoable: false
+    })
     expect(mocks.getElementIdAtClientPos).not.toHaveBeenCalled()
   })
 

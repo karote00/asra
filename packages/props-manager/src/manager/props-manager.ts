@@ -3089,6 +3089,16 @@ class PropsManager {
       sourceRequest.options === undefined
         ? undefined
         : (clonePropertyDefinitionValue(sourceRequest.options) as EVENT_OPTIONS)
+    if (
+      mutationOptions?.history?.mode === 'replace-latest' &&
+      mutations.some(
+        (mutation) => isRecord(mutation) && mutation.kind !== 'values'
+      )
+    ) {
+      throw new Error(
+        '[PropsManager] Replace-latest History accepts only property value mutations'
+      )
+    }
     const activeById = this._components
     const originalSnapshots = new Map<string, PropertyComponentRawData>()
     const workingSnapshots = new Map<string, PropertyComponentRawData>()
@@ -3132,6 +3142,7 @@ class PropsManager {
     let hasExactOrphanRemovalMutation = false
     const relationshipMutationRootIds = new Set<string>()
     const updateEvidence: UpdatePropertyChange[] = []
+    const replaceLatestHistoryEvidence: UpdatePropertyChange[] = []
     const orderedOwnerIds: string[] = []
     const rootPropertyIdsByOwnerId = new Map<string, string[]>()
     const canonicalOwnerIdSetByPropertyId = new Map<string, Set<string>>()
@@ -4394,6 +4405,16 @@ class PropsManager {
           )[key]
           ;(nextSnapshot as unknown as Record<string, unknown>)[key] =
             clonePropsValue(value)
+          if (mutationOptions?.history?.mode === 'replace-latest') {
+            replaceLatestHistoryEvidence.push({
+              action: PROPS_ACTIONS.UPDATE_PROPERTY,
+              eventName: EventTypes.UPDATE_PROPERTY,
+              id: propertyId,
+              key,
+              before: clonePropsValue(before) as UpdatePropertyChange['before'],
+              after: clonePropsValue(value) as UpdatePropertyChange['after']
+            })
+          }
           addUpdateEvidence(propertyId, key, before, value)
         })
         assertRuntimePropertyFields(
@@ -4411,6 +4432,11 @@ class PropsManager {
       if (sourceMutation.kind !== 'records') {
         throw new Error(
           `[PropsManager] Property mutation "${propertyId}" has an invalid kind`
+        )
+      }
+      if (mutationOptions?.history?.mode === 'replace-latest') {
+        throw new Error(
+          '[PropsManager] Replace-latest History accepts only property value mutations'
         )
       }
       const relation = contract.childRelation
@@ -5305,24 +5331,43 @@ class PropsManager {
         }))
       }
     }
+    const transactionOptions: EVENT_OPTIONS = {
+      ...(mutationOptions ?? {}),
+      shared: mutationOptions?.shared ?? SharedDataChannelNames.PROPS
+    }
+    const createTransactionEvent = (
+      change: PropsChange
+    ): PreparedPropsTransactionEvent => {
+      const canonicalEvidence = isUpdatePropertyChange(change)
+        ? {
+            orderedIds: orderedCanonicalOwnerIds(change.id)
+          }
+        : createLifecycleCanonicalEvidence(change)
+      return {
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: transactionOptions,
+        canonicalEvidence
+      }
+    }
+    const replaceLatestHistoryCandidate =
+      mutationOptions?.history?.mode === 'replace-latest' &&
+      replaceLatestHistoryEvidence.length > 0
+        ? {
+            key: mutationOptions.history.key,
+            events: replaceLatestHistoryEvidence.map(createTransactionEvent)
+          }
+        : undefined
     const transactionEvents = deepFreezePropertyContract(
-      frozenEvidence.map((change): PreparedPropsTransactionEvent => {
-        const canonicalEvidence = isUpdatePropertyChange(change)
-          ? {
-              orderedIds: orderedCanonicalOwnerIds(change.id)
-            }
-          : createLifecycleCanonicalEvidence(change)
-        return {
-          type: TransactionEventTypes.UPDATE_TRANSACTION,
-          eventName: change.eventName,
-          payload: change,
-          options: {
-            ...(mutationOptions ?? {}),
-            shared: mutationOptions?.shared ?? SharedDataChannelNames.PROPS
-          },
-          canonicalEvidence
-        }
-      })
+      frozenEvidence.map(
+        (change, index): PreparedPropsTransactionEvent => ({
+          ...createTransactionEvent(change),
+          ...(index === 0 && replaceLatestHistoryCandidate
+            ? { historyCandidate: replaceLatestHistoryCandidate }
+            : {})
+        })
+      )
     )
     this.validatedPropertyMutationArtifacts.set(prepared, {
       owners,

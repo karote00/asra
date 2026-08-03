@@ -57,7 +57,7 @@ describe('vector path editing handle visibility', () => {
     expect(VECTOR_EDITING_SELECTED_SEGMENT_STROKE).not.toHaveProperty('alpha')
   })
 
-  it('projects selected vector workspace points through the viewport only', () => {
+  it('projects Render-resolved Vector workspace points through the viewport', () => {
     expect(
       projectWorkspacePointToOverlayScreen(
         { x: 288.3579534349085, y: 0 },
@@ -311,9 +311,7 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain(
       'const bounds = calculateVectorBounds(topologyInWorkspace)'
     )
-    expect(source).toContain(
-      'const normalizedTopology = normalizeVectorTopology('
-    )
+    expect(source).toContain('normalizeVectorTopology(')
     expect(source).toContain('x: bounds.x')
     expect(source).toContain('y: bounds.y')
     expect(source).toContain('width: bounds.width')

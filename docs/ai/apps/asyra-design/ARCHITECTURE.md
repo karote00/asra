@@ -104,6 +104,11 @@
 
 Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-context -> React Providers -> UI
 
+Existing Vector data remains canonical through this flow. Whole-element
+transforms never compensate by rewriting point/control records; Render derives
+and retains engine-local draw geometry, then applies transform-only deltas to
+the existing Render object.
+
 ## Collaboration Ownership
 
 - RenderApp owns mount-lifetime activation/teardown requests;

@@ -200,10 +200,16 @@ This file defines app-level state keys, owners, and primary consumers.
 
 ## Vector Computed Geometry Keys
 
+- `pointCoordinateSpace`
+
+  - canonical owner: the Vector property component
+  - persisted values retain their existing document contract; Render does not
+    require a new marker or migrate this property for transform caching
+
 - `points`
 
   - canonical owner: the vector element `points` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: active Pen/vector-point drag uses the local computed
@@ -214,7 +220,7 @@ This file defines app-level state keys, owners, and primary consumers.
 - `segments`
 
   - canonical owner: the vector element `segments` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: local computed preview only; it produces no history,
@@ -224,12 +230,22 @@ This file defines app-level state keys, owners, and primary consumers.
 - `networks`
 
   - canonical owner: the vector element `networks` property component; Scene
-    derives its local computed projection
+    derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
   - transient drag writer: local computed preview only; cancellation restores
     the current canonical property projection
   - readers: vector render strategy, path-editing subpath flow, vector path-editing render layer
+
+- `x`, `y`, `width`, `height`, `rotation`, and affine Render inputs
+
+  - canonical owner: ordinary element property components
+  - whole-element move, dimension, rotation, scale, skew, Group normalization,
+    and reparent operations update only element/hierarchy values
+  - these operations never patch, clone, translate, or rebase `points`,
+    `segments`, or `networks`
+  - Render retains derived engine-local geometry across transform-only deltas;
+    the retained projection is never canonical state
 
 - `fills`
 

@@ -23,6 +23,7 @@ import {
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
 import { PresetSystemPropertyKeys } from '../system-property-keys'
+import { getVectorRenderLocalPoint } from '../components/vector'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7
@@ -279,7 +280,7 @@ const drawOvalGeometryOutline = (
 
 const drawVectorHoverOutline = (
   canvas: OverlayCanvas,
-  deps: Pick<PresetDependencies, 'sceneTree'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree'>,
   elementId: string,
   viewportPosition: PositionData,
   viewportScale: number
@@ -300,6 +301,18 @@ const drawVectorHoverOutline = (
     !networks
   ) {
     return false
+  }
+  const renderElement = deps.render.getElementById(elementId)
+  if (!renderElement) {
+    return false
+  }
+  const resolveCurrentWorkspacePoint = (
+    point: PositionData
+  ): PositionData | null => {
+    const localPoint = getVectorRenderLocalPoint(renderElement, point)
+    return localPoint
+      ? deps.render.elementLocalToWorkspace(elementId, localPoint)
+      : null
   }
 
   const orderedNetworks = sortVectorItemsById(Object.values(networks))
@@ -338,13 +351,18 @@ const drawVectorHoverOutline = (
           ? points[segment.inControlId]
           : null
 
+      const startWorkspace = resolveCurrentWorkspacePoint(start)
+      const endWorkspace = resolveCurrentWorkspacePoint(end)
+      if (!startWorkspace || !endWorkspace) {
+        return
+      }
       const startPoint = projectWorkspacePointToOverlayScreen(
-        start,
+        startWorkspace,
         viewportPosition,
         viewportScale
       )
       const endPoint = projectWorkspacePointToOverlayScreen(
-        end,
+        endWorkspace,
         viewportPosition,
         viewportScale
       )
@@ -358,13 +376,20 @@ const drawVectorHoverOutline = (
         return
       }
 
+      const control1Workspace = resolveCurrentWorkspacePoint(
+        outControl ?? start
+      )
+      const control2Workspace = resolveCurrentWorkspacePoint(inControl ?? end)
+      if (!control1Workspace || !control2Workspace) {
+        return
+      }
       const control1 = projectWorkspacePointToOverlayScreen(
-        outControl ?? start,
+        control1Workspace,
         viewportPosition,
         viewportScale
       )
       const control2 = projectWorkspacePointToOverlayScreen(
-        inControl ?? end,
+        control2Workspace,
         viewportPosition,
         viewportScale
       )

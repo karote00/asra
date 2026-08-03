@@ -355,6 +355,26 @@ export class RenderLayer {
             element.rotation = after
           }
           break
+        case 'scaleX':
+          if (isFiniteNumber(after)) {
+            element.scale.set(after, element.scale.y)
+          }
+          break
+        case 'scaleY':
+          if (isFiniteNumber(after)) {
+            element.scale.set(element.scale.x, after)
+          }
+          break
+        case 'skewX':
+          if (isFiniteNumber(after)) {
+            element.skew.set(after, element.skew.y)
+          }
+          break
+        case 'skewY':
+          if (isFiniteNumber(after)) {
+            element.skew.set(element.skew.x, after)
+          }
+          break
       }
     })
   }

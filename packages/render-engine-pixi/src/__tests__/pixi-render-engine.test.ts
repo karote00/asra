@@ -115,6 +115,14 @@ vi.mock('pixi.js', () => {
         this.scale.y = y
       })
     }
+    readonly skew = {
+      x: 0,
+      y: 0,
+      set: vi.fn((x: number, y = x) => {
+        this.skew.x = x
+        this.skew.y = y
+      })
+    }
     parent: MockContainer | null = null
     x = 0
     y = 0
@@ -599,7 +607,15 @@ describe('PixiRenderEngine', () => {
     await engine.execute({
       type: 'update-object',
       object: graphicsHandle,
-      properties: { x: 12, y: 24, visible: false, scaleX: 2, scaleY: 3 }
+      properties: {
+        x: 12,
+        y: 24,
+        visible: false,
+        scaleX: 2,
+        scaleY: 3,
+        skewX: 0.2,
+        skewY: 0.1
+      }
     })
     await engine.execute({
       type: 'set-viewport',
@@ -623,6 +639,7 @@ describe('PixiRenderEngine', () => {
     ])
     expect(graphic).toMatchObject({ x: 12, y: 24, visible: false })
     expect(graphic.scale.set).toHaveBeenCalledWith(2, 3)
+    expect(graphic.skew.set).toHaveBeenCalledWith(0.2, 0.1)
     expect(app.stage.position.set).toHaveBeenCalledWith(30, 40)
     expect(app.renderer.resize).toHaveBeenCalledWith(640, 480)
     expect(app.render).toHaveBeenCalledOnce()

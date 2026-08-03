@@ -12,6 +12,13 @@ selection-id encoding, plus synthetic handle derivation for missing control
 points. These helpers do not create canonical vector data or move editing
 policy into Utils.
 
+The official Vector component accepts the existing canonical render snapshot
+without requiring a new coordinate-space marker. Its render strategy derives
+engine-local draw geometry on a geometry/style miss and declares the generic
+transform-only property capability for position, dimension, rotation, scale,
+and skew. Transform deltas retain existing path/fill/stroke/hit geometry;
+selection and path-edit overlays continue to follow the same Render result.
+
 ## Public Contract
 
 ```ts
@@ -186,6 +193,9 @@ Render projection. Preset also exports the ID-driven Group adapters defined by
 - `moveElementsWithGroupGeometry(...)` delegates hierarchy validation/mutation
   to Core and performs coordinate conversion plus derived bounds-cache
   normalization when direct official Group membership is involved.
+- Vector Group/ungroup/reparent updates contain only hierarchy and bounded
+  element geometry values. They never include Vector point/control/segment/
+  network record patches.
 - `deriveGroupBounds(...)` and `normalizeGroupsForElements(...)` provide the
   one direct-child canonical rectangle-union/bounds path, deepest affected
   Group first.

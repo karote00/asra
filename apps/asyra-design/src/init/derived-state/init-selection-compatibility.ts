@@ -64,6 +64,23 @@ const computedEventUpdatesVectorPoints = (
   )
 }
 
+const eventMarksCommittedReplay = (event: AllEvent): boolean => {
+  if (
+    event.type !== EventTypes.TRANSACTION_STATUS_CHANGED ||
+    !('payload' in event) ||
+    typeof event.payload !== 'object' ||
+    event.payload === null
+  ) {
+    return false
+  }
+
+  const payload = event.payload as unknown as Record<string, unknown>
+  return (
+    payload.status === 'committed' &&
+    (payload.origin === 'undo' || payload.origin === 'redo')
+  )
+}
+
 const toSelectedVectorPointState = (
   selectionIds: Set<string>,
   pathEditingVectorId: string | null
@@ -184,7 +201,20 @@ export const initSelectionCompatibility = () => {
     syncDerivedVectorSelectionProperties()
   })
 
+  let committedReplayRefreshPending = false
+  core.deps.render.subscribeToFrameComplete(() => {
+    if (!committedReplayRefreshPending) {
+      return
+    }
+    committedReplayRefreshPending = false
+    syncDerivedVectorSelectionProperties()
+  })
+
   subscribeToEventBatches((events) => {
+    if (events.some(eventMarksCommittedReplay)) {
+      committedReplayRefreshPending = true
+    }
+
     const pathEditingVectorId =
       core.getSystemProperty<string | null>(
         PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID

@@ -118,8 +118,8 @@
   topology, style, ordinary render route, rollback evidence, and undo replay.
   The ordered `ADD_ELEMENT` records remain the only externally delivered batch
   evidence. A supplied
-  `parentWorkspaceOrigin` preserves the original workspace topology points
-  while storing the prepared Vector bounds in Group-local coordinates. The AI
+  `parentWorkspaceOrigin` preserves the incoming Vector topology values while
+  storing the prepared Vector bounds in Group-local coordinates. The AI
   action creates one canonical Group first, bounds only simultaneous transient
   topology representations, streams every accepted chunk directly into that
   Group in order, and remains inside one outer transaction; mixed primitive
@@ -138,11 +138,11 @@
 - `hierarchyApis` keeps one intended group, ungroup, move/reorder, or subtree
   removal in one transaction. Preset owns only official Group coordinates and
   bounds; Scene Tree remains the hierarchy validator/mutator.
-- Vector geometry updates normalize anchor points against computed bounds.
-- `elementApis.scaleVectorElementAroundCenter(...)` scales every canonical
-  workspace anchor/control point around the vector bounds center, preserves
-  point/segment/network ids and subpaths, recomputes bounds, and commits through
-  the ordinary vector patch transaction route.
+- Vector point/control records retain their existing canonical data contract.
+- `elementApis.setElementPositions(...)` sends the same constant-size `x/y`
+  update for Vector and ordinary elements; point count is not part of move cost.
+- Render retains derived engine-local draw geometry across transform-only
+  deltas; that projection never becomes app or canonical state.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.

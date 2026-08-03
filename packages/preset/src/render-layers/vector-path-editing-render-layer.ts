@@ -32,6 +32,7 @@ import {
 import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
 import type { PresetDependencies } from '../types'
 import { PresetSystemPropertyKeys } from '../system-property-keys'
+import { getVectorRenderLocalPoint } from '../components/vector'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6
@@ -363,14 +364,24 @@ const buildOverlayVectorDataSignature = (
     Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
   > &
     Pick<VectorComputedData, 'x' | 'y' | 'pointCoordinateSpace'>,
-  offsetX: number,
-  offsetY: number
+  transform: {
+    a: number
+    b: number
+    c: number
+    d: number
+    tx: number
+    ty: number
+  }
 ) => {
   const parts = [
     'o',
     computed.pointCoordinateSpace ?? 'missing-workspace',
-    String(offsetX),
-    String(offsetY)
+    String(transform.a),
+    String(transform.b),
+    String(transform.c),
+    String(transform.d),
+    String(transform.tx),
+    String(transform.ty)
   ]
   appendSortedVectorPointSignature(parts, computed.points)
   appendSortedVectorSegmentSignature(parts, computed.segments)
@@ -381,7 +392,7 @@ const buildOverlayVectorDataSignature = (
 export const resolveOverlayHandlePosition = resolveSyntheticVectorHandlePosition
 
 const getPathEditingVectorDataWithDeps = (
-  deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>,
   cache?: { current: OverlayVectorDataCache | null }
 ): OverlayVectorData | null => {
   const pathEditingVectorId = deps.systemContext.getManagedProperty<
@@ -415,25 +426,29 @@ const getPathEditingVectorDataWithDeps = (
     }
     return null
   }
-  const computedPoints = computed.points
+  const canonicalPoints = computed.points
   const computedSegments = computed.segments
   const computedNetworks = computed.networks
-  const offsetX = 0
-  const offsetY = 0
+  const renderElement = deps.render.getElementById(pathEditingVectorId)
+  if (!renderElement) {
+    if (cache) {
+      cache.current = null
+    }
+    return null
+  }
   const signature = measureVectorEditingOverlayPhase(
     'editing-overlay:model-signature',
     () =>
       buildOverlayVectorDataSignature(
         {
-          points: computedPoints,
+          points: canonicalPoints,
           segments: computedSegments,
           networks: computedNetworks,
           x: computed.x,
           y: computed.y,
           pointCoordinateSpace: computed.pointCoordinateSpace
         },
-        offsetX,
-        offsetY
+        renderElement.worldTransform
       )
   )
   const cached = cache?.current
@@ -450,7 +465,7 @@ const getPathEditingVectorDataWithDeps = (
   emitDiagnosticCounter('editing-overlay-full-topology-walk')
   emitDiagnosticCounter(
     'editing-overlay-walk-point-count',
-    Object.keys(computedPoints).length
+    Object.keys(canonicalPoints).length
   )
   emitDiagnosticCounter(
     'editing-overlay-walk-segment-count',
@@ -461,6 +476,27 @@ const getPathEditingVectorDataWithDeps = (
     Object.keys(computedNetworks).length
   )
 
+  const computedPoints: Record<string, VectorPointNode> = {}
+  for (const [pointId, point] of Object.entries(canonicalPoints)) {
+    const localPosition = getVectorRenderLocalPoint(renderElement, point)
+    const workspacePosition = localPosition
+      ? deps.render.elementLocalToWorkspace(pathEditingVectorId, localPosition)
+      : null
+    if (!workspacePosition) {
+      if (cache) {
+        cache.current = null
+      }
+      return null
+    }
+    computedPoints[pointId] = {
+      ...point,
+      x: workspacePosition.x,
+      y: workspacePosition.y
+    }
+  }
+
+  const offsetX = 0
+  const offsetY = 0
   const orderedNetworks = sortVectorItemsById(Object.values(computedNetworks))
   const subpaths: OverlaySubpath[] = []
   const segmentsById: Record<string, OverlaySegmentGeometry> = {}

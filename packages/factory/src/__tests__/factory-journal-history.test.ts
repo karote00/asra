@@ -10,13 +10,64 @@ import { Factory, LocalSharedDataChannel, type SharedPublication } from '..'
 
 const createUpdateEvent = (
   id: string,
-  options: UpdateTransactionEvent['options'] = {}
+  options: UpdateTransactionEvent['options'] = {},
+  before = 0,
+  after = 1
 ): UpdateTransactionEvent => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,
   eventName: EventTypes.UPDATE_PROPERTY,
-  payload: { id, before: 0, after: 1 },
+  payload: { id, before, after },
   options
 })
+
+interface ReplaceLatestHistoryOptions {
+  history: {
+    mode: 'replace-latest'
+    key: string
+  }
+}
+
+interface ReplaceLatestHistoryCandidate {
+  key: string
+  events: readonly UpdateTransactionEvent[]
+}
+
+const createReplaceLatestBatch = (
+  key: string,
+  values: readonly {
+    id: string
+    before: number
+    after: number
+  }[],
+  baseOptions: UpdateTransactionEvent['options'] = {}
+): readonly UpdateTransactionEvent[] => {
+  const options = {
+    ...baseOptions,
+    history: {
+      mode: 'replace-latest',
+      key
+    }
+  } satisfies UpdateTransactionEvent['options'] & ReplaceLatestHistoryOptions
+  const candidateEvents = values.map(({ id, before, after }) => ({
+    ...createUpdateEvent(id, options, before, after),
+    ...(options.shared ? { canonicalEvidence: { orderedIds: [id] } } : {})
+  }))
+  const historyCandidate: ReplaceLatestHistoryCandidate = {
+    key,
+    events: candidateEvents
+  }
+
+  return candidateEvents.map((event, index) =>
+    index === 0
+      ? ({
+          ...event,
+          historyCandidate
+        } as UpdateTransactionEvent & {
+          historyCandidate: ReplaceLatestHistoryCandidate
+        })
+      : event
+  )
+}
 
 describe('Factory journal-backed action history', () => {
   it('records one owner batch as one Undo action and replays the whole action', () => {
@@ -144,5 +195,258 @@ describe('Factory journal-backed action history', () => {
 
     expect(singleFactory.getUndoHistoryDepth()).toBe(1)
     expect(batchFactory.getUndoHistoryDepth()).toBe(1)
+  })
+
+  it('replaces one staged gesture History bundle and replays only its first-before/latest-after values', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 0, after: 10 },
+        { id: 'element-b:x', before: 100, after: 110 }
+      ])
+    )
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 10, after: 25 },
+        { id: 'element-b:x', before: 110, after: 125 }
+      ])
+    )
+    factory.endTransaction()
+
+    expect(factory.getUndoHistoryDepth()).toBe(1)
+
+    factory.undo()
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-b:x', before: 125, after: 100 },
+      { id: 'element-a:x', before: 25, after: 0 }
+    ])
+
+    replayed.length = 0
+    factory.redo()
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:x', before: 0, after: 25 },
+      { id: 'element-b:x', before: 100, after: 125 }
+    ])
+  })
+
+  it('keeps ordinary History append-only when replace-latest is absent', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction(
+      createUpdateEvent('element-a:x', undefined, 0, 10)
+    )
+    factory.updateTransaction(
+      createUpdateEvent('element-a:x', undefined, 10, 25)
+    )
+    factory.endTransaction()
+    factory.undo()
+
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:x', before: 25, after: 10 },
+      { id: 'element-a:x', before: 10, after: 0 }
+    ])
+  })
+
+  it('keeps an ordinary final normalization ordered after one staged gesture bundle', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 0, after: 10 },
+        { id: 'element-a:y', before: 0, after: 20 }
+      ])
+    )
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 10, after: 25 },
+        { id: 'element-a:y', before: 20, after: 35 }
+      ])
+    )
+    factory.updateTransaction(
+      createUpdateEvent('group-normalization', undefined, 1, 2)
+    )
+    factory.endTransaction()
+    factory.undo()
+
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'group-normalization', before: 2, after: 1 },
+      { id: 'element-a:y', before: 35, after: 0 },
+      { id: 'element-a:x', before: 25, after: 0 }
+    ])
+  })
+
+  it('rolls back every applied staged sample without creating History', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 0, after: 10 }
+      ])
+    )
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('move-session', [
+        { id: 'element-a:x', before: 10, after: 25 }
+      ])
+    )
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:x', before: 25, after: 10 },
+      { id: 'element-a:x', before: 10, after: 0 }
+    ])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
+  })
+
+  it('keeps staging metadata local and publishes one final-to-initial shared Undo bundle', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.PROPS,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const options = {
+      shared: SharedDataChannelNames.PROPS,
+      sharedDelivery: 'immediate'
+    } as const
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch(
+        'move-session',
+        [
+          { id: 'element-a:x', before: 0, after: 10 },
+          { id: 'element-a:y', before: 0, after: 20 }
+        ],
+        options
+      )
+    )
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch(
+        'move-session',
+        [
+          { id: 'element-a:x', before: 10, after: 25 },
+          { id: 'element-a:y', before: 20, after: 35 }
+        ],
+        options
+      )
+    )
+    await Promise.resolve()
+    factory.endTransaction()
+
+    expect(JSON.stringify(publications)).not.toContain('replace-latest')
+    expect(JSON.stringify(publications)).not.toContain('move-session')
+    publications.length = 0
+
+    factory.undo()
+    await Promise.resolve()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toMatchObject({ origin: 'undo' })
+    expect(
+      publications[0]?.slices
+        .flatMap(({ batches }) => batches)
+        .flatMap(({ deliveries }) => deliveries)
+        .map(({ payload }) => payload)
+    ).toEqual([
+      expect.objectContaining({
+        id: 'element-a:y',
+        before: 35,
+        after: 0
+      }),
+      expect.objectContaining({
+        id: 'element-a:x',
+        before: 25,
+        after: 0
+      })
+    ])
   })
 })

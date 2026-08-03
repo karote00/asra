@@ -183,7 +183,11 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     moveElementsSession.onUpdate?.(snapshot as never, state as never)
 
     expect(elementApis.setElementPositions).toHaveBeenLastCalledWith(target, {
-      sharedDelivery: 'immediate'
+      sharedDelivery: 'immediate',
+      history: {
+        mode: 'replace-latest',
+        key: 'move-elements:positions'
+      }
     })
 
     vi.mocked(elementApis.setElementPositions).mockClear()
@@ -225,7 +229,13 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
         'element-a': { x: 16, y: 28 },
         'element-b': { x: 36, y: 48 }
       },
-      { sharedDelivery: 'immediate' }
+      {
+        sharedDelivery: 'immediate',
+        history: {
+          mode: 'replace-latest',
+          key: 'move-elements:positions'
+        }
+      }
     )
     expect(elementApis.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
       ['element-a', 'element-b'],

@@ -21,7 +21,8 @@
 - blocked when hovered element is locked (`lock=true`)
 - drag start inside current selection bounds (even on empty space) moves the
   existing selection without replacing it
-- if drag starts on an unselected unlocked element, selects that element as drag target first (undoable; rolls back on drag undo)
+- if drag starts on an unselected unlocked element, selects that element as the
+  drag target with `undoable: false`
 - snapshots unlocked selected element start positions in their canonical
   parent-local coordinates
 
@@ -30,22 +31,32 @@
 - ignores micro movement below `FEATURE_MOVEMENT_THRESHOLD.moveElement`
 - computes workspace delta from drag start to current pointer
 - applies per-element `x/y` position updates for selected elements with
-  explicit `sharedDelivery: 'immediate'`; all selected-element changes produced
-  by one synchronous update are one ordered canonical publication without
-  closing the outer transaction
+  `sharedDelivery: 'immediate'` plus the explicit gesture-keyed
+  `replace-latest` History option; all selected-element changes produced by one
+  synchronous update are one ordered canonical publication without closing the
+  outer transaction
+- Vector and ordinary elements use this same fixed-size property batch. Vector
+  point/control/segment/network records are neither read nor patched, so
+  pointer-sample mutation cost and publication size do not grow with point count
+- each sample opts into one gesture-keyed `replace-latest` History stage; the
+  canonical property owner supplies one complete candidate bundle while
+  Factory replaces only the latest bundle reference instead of merging every
+  element into pending History
 - defers official Group origin and bounds normalization across intermediate
   pointer samples so drag-start-local coordinates cannot accumulate against
   repeatedly rebased ancestors
 
 3. End
 
-- if movement occurred, finalizes one intended undoable move commit
+- if movement occurred, finalizes exactly one Undo action for the complete move
 - does not replay positions that already match the latest applied drag update;
   if pointer-up contains a newer final position, applies all final positions
-  once with `sharedDelivery: 'immediate'`
-- keeps final drag position on canvas while preserving one-session undo/redo
+  once with the same immediate replace-latest History option
+- keeps final drag position on canvas and lets the existing outer transaction
+  commit the first-before/latest-after staged History bundle
 - invokes Preset Group normalization deepest-first exactly once after the final
-  position write and before the gesture transaction commits
+  position write and before the gesture transaction commits; normalization is
+  an ordinary ordered change in the same Undo action
 - if a drag crossed the movement threshold but returns exactly to its initial
   positions, the return update remains a real canonical delivery action
 - if no movement occurred after starting inside selection bounds, selects the
@@ -55,7 +66,7 @@
 
 - cancel policy is `commit-current`
 - Escape, tool switching, or a new conflicting action keeps the positions at
-  the interruption moment and creates one move undo entry
+  the interruption moment and finalizes one move Undo entry
 - handler failure or timeout restores the transaction-start element positions
   and selection without creating a move undo entry
 
@@ -63,13 +74,20 @@
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
-- all applied drag updates remain in one outer undo entry; `onEnd` only fills a
-  missing final pointer update and does not restore/replay state
+- all applied drag updates remain rollbackable and use explicit opt-in
+  replace-latest History staging; `onEnd` only fills a missing final pointer
+  update and does not restore/replay state
+- ordinary mutations without the staging option retain append-only History
+- staged History stores complete owner-issued bundles locally and never enters
+  canonical data, collaboration payloads, persistence, or Render
 - canonical element position never travels through Awareness; one synchronous
   multi-element update becomes one publication, one Yjs update, and one
   provider send
-- `onCancel` performs no canonical write, and Factory reverses failure-path
-  mutations
+- a 7,001-point Vector and the densest Vector in the complete checked-in
+  `crdt-7076` cat-face sample use the same point-free move contract
+- commit-current interruption uses the normal `onEnd` finalization; rollback
+  cancellation performs no canonical cleanup write and Factory reverses
+  failure-path mutations
 
 ## Layers Hierarchy Move
 

@@ -205,6 +205,39 @@ test('shared delivery timing is independent from undo eligibility', () => {
   assert.match(contract, /caller-owned mutation cannot rewrite/i)
 })
 
+test('replace-latest History staging is explicit, bundle-based, and local-only', () => {
+  const journal = step('record-reversible-journal')
+  const finalize = step('finalize-transaction-state')
+  const journalContract = journal.conditions.join(' ')
+  const finalizeContract = finalize.conditions.join(' ')
+
+  assert.match(journalContract, /ordinary mutations preserve every/i)
+  assert.match(journalContract, /explicitly opt into/i)
+  assert.match(journalContract, /gesture-keyed replace-latest History stage/i)
+  assert.match(journalContract, /complete owner-issued History candidate bundles/i)
+  assert.match(journalContract, /first complete before bundle/i)
+  assert.match(journalContract, /latest complete after bundle reference/i)
+  assert.match(journalContract, /does not perform a per-element pending-History merge/i)
+  assert.match(journalContract, /never enters canonical payloads/i)
+  assert.match(journalContract, /collaboration wire data/i)
+  assert.match(finalizeContract, /ordinary state-owner-backed History/i)
+  assert.match(finalizeContract, /Commit-current interruption finalizes/i)
+  assert.match(finalizeContract, /rollback discards staged History/i)
+  assert.ok(
+    journal.implementationBoundary.includes(
+      'packages/utils/src/types/change.ts'
+    )
+  )
+  assert.ok(
+    journal.implementationBoundary.includes(
+      'packages/reactive-events/src/app/events.ts'
+    )
+  )
+  assert.ok(
+    journal.implementationBoundary.includes('packages/props-manager/src/**')
+  )
+})
+
 test('scene-tree inverse add resolves recorded hierarchy metadata', () => {
   const finalize = step('finalize-transaction-state')
   const contract = finalize.conditions.join(' ')

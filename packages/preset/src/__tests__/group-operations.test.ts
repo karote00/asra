@@ -628,11 +628,33 @@ describe('official Preset Group geometry adapters', () => {
       children: ['last']
     }
     snapshot.elements.first.parentId = 'source'
+    snapshot.elements.first.type = 'vector'
     snapshot.elements.last.parentId = 'target'
+    const vectorPoints = {
+      anchor: {
+        id: 'anchor',
+        kind: 'anchor',
+        x: 110,
+        y: 0
+      },
+      control: {
+        id: 'control',
+        kind: 'control',
+        x: 118,
+        y: 4
+      }
+    }
     const computed = {
       source: { x: 100, y: 0, width: 10, height: 10 },
       target: { x: 300, y: 0, width: 20, height: 20 },
-      first: { x: 10, y: 0, width: 10, height: 10 },
+      first: {
+        x: 10,
+        y: 0,
+        width: 10,
+        height: 10,
+        pointCoordinateSpace: 'workspace',
+        points: vectorPoints
+      },
       last: { x: 0, y: 0, width: 20, height: 20 }
     }
     const core = {
@@ -702,8 +724,11 @@ describe('official Preset Group geometry adapters', () => {
       x: 0,
       y: 0,
       width: 10,
-      height: 10
+      height: 10,
+      pointCoordinateSpace: 'workspace',
+      points: vectorPoints
     })
+    expect(computed.first.points).toBe(vectorPoints)
     expect(computed.last).toEqual({
       x: 190,
       y: 0,
@@ -726,5 +751,13 @@ describe('official Preset Group geometry adapters', () => {
       ],
       undefined
     )
+    for (const [updates] of core.updateElementProperties.mock.calls) {
+      for (const update of updates) {
+        expect(update).not.toHaveProperty('records')
+        expect(update.values).not.toHaveProperty('points')
+        expect(update.values).not.toHaveProperty('segments')
+        expect(update.values).not.toHaveProperty('networks')
+      }
+    }
   })
 })
