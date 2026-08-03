@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
   const inspectorPath =
     'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs'
 
@@ -61,7 +61,7 @@
         'apps/asyra-design/src/features/__tests__',
         'apps/asyra-design/src/common-apis/element/__tests__',
         'docs/ai/apps/asyra-design/features/move-elements.md',
-        'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
       ],
       specRefs: [
         '#whole-element-transform',
@@ -135,7 +135,7 @@
         'docs/ai/framework/packages/render-engine.md',
         'docs/ai/framework/packages/render-engine-pixi.md',
         'docs/ai/framework/packages/preset.md',
-        'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
       ],
       specRefs: [
         '#render-geometry-projection-and-cache',
@@ -192,7 +192,7 @@
         'apps/asyra-design/src/common-apis/element/vector-apis.ts',
         'apps/asyra-design/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
-        'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
       ],
       specRefs: [
         '#engine-boundary',
@@ -267,7 +267,7 @@
         'docs/ai/framework/plans/transaction-flow-inspector.data.cjs',
         'docs/ai/apps/asyra-design/modules/collaboration-reference.md',
         'docs/ai/apps/asyra-design/features/move-elements.md',
-        'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
       ],
       specRefs: [
         '#transactions-persistence-and-collaboration',
@@ -564,8 +564,8 @@
       {
         id: 'product-contract',
         kind: 'authority',
-        label: 'Active plan and product contract',
-        href: './vector-local-geometry-transform-plan.md'
+        label: 'Completed plan and product contract',
+        href: './completed/vector-local-geometry-transform-plan.md'
       },
       {
         id: 'render-delta-inspector',

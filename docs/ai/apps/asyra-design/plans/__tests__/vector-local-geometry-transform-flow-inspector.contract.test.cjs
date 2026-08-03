@@ -28,7 +28,7 @@ test('Vector Render Geometry Cache Inspector authorities resolve', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
