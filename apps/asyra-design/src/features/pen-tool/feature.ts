@@ -822,11 +822,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         systemContextApis.enterPathEditingMode(elementId, {
           startNewSubpath: false
         })
-        const selectedPoint = elementApis.getVectorAnchorPointById(
-          elementId,
-          firstPoint.id
-        )
-        setSelectedAnchorPoint(elementId, selectedPoint)
+        setSelectedAnchorPoint(elementId, {
+          point: firstPoint,
+          index: 0
+        })
 
         return {
           elementId,
@@ -863,23 +862,6 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           skipResult: true
         })
 
-        return
-      },
-      onEnd: (snapshot: SystemContextSnapshot, state: PenState) => {
-        if (!hasMovedBeyondPenCurveThreshold(snapshot)) {
-          const selectedPoint = elementApis.getVectorAnchorPointById(
-            state.elementId,
-            state.pointId
-          )
-          setSelectedAnchorPoint(state.elementId, selectedPoint)
-          return
-        }
-
-        const selectedPoint = elementApis.getVectorAnchorPointById(
-          state.elementId,
-          state.pointId
-        )
-        setSelectedAnchorPoint(state.elementId, selectedPoint)
         return
       },
       onCancel: (_snapshot, state): undefined => {

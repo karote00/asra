@@ -191,6 +191,8 @@
         'packages/preset/src/__tests__',
         'apps/asyra-design/src/common-apis/element/vector-apis.ts',
         'apps/asyra-design/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
+        'apps/asyra-design/src/features/pen-tool',
+        'apps/asyra-design/e2e/pen-tool.spec.ts',
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'
       ],

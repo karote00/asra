@@ -746,6 +746,34 @@ const projectStoredVectorPositionToWorkspace = (
     : null
 }
 
+const projectStoredVectorAnchorPointToWorkspace = (
+  elementId: string,
+  point: VectorAnchorPoint
+): VectorAnchorPoint | null => {
+  const anchor = projectStoredVectorPositionToWorkspace(elementId, point)
+  const inHandle = point.inHandle
+    ? projectStoredVectorPositionToWorkspace(elementId, point.inHandle)
+    : null
+  const outHandle = point.outHandle
+    ? projectStoredVectorPositionToWorkspace(elementId, point.outHandle)
+    : null
+  if (
+    !anchor ||
+    (point.inHandle && !inHandle) ||
+    (point.outHandle && !outHandle)
+  ) {
+    return null
+  }
+
+  return {
+    ...point,
+    x: anchor.x,
+    y: anchor.y,
+    inHandle,
+    outHandle
+  }
+}
+
 const projectWorkspacePositionToStoredVector = (
   elementId: string,
   position: PositionData
@@ -2119,6 +2147,21 @@ export const vectorApis = {
       return null
     }
 
+    const anchorPoints = vectorTopologyToAnchorPoints(splitResult.topology)
+    const insertedPointIndex = anchorPoints.findIndex(
+      (point) => point.id === splitResult.pointId
+    )
+    const insertedPoint =
+      insertedPointIndex === -1
+        ? null
+        : projectStoredVectorAnchorPointToWorkspace(
+            elementId,
+            anchorPoints[insertedPointIndex]
+          )
+    if (!insertedPoint) {
+      return null
+    }
+
     commitVectorTopologyOperation(
       elementId,
       {
@@ -2132,7 +2175,10 @@ export const vectorApis = {
         structuralOperationIntent: options?.structuralOperationIntent
       }
     )
-    return vectorApis.getVectorAnchorPointById(elementId, splitResult.pointId)
+    return {
+      point: insertedPoint,
+      index: insertedPointIndex
+    }
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {
