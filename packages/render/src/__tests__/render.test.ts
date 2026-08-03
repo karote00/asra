@@ -114,6 +114,30 @@ describe('Render', () => {
     expect(app.render).toHaveBeenCalledOnce()
   })
 
+  it('notifies isolated frame-complete subscribers after a successful frame', async () => {
+    await render.init(100, 100, 0)
+    render.start()
+    const firstSubscriber = vi.fn()
+    const laterSubscriber = vi.fn()
+    const disposeFirst = render.subscribeToFrameComplete(firstSubscriber)
+    render.subscribeToFrameComplete(() => {
+      throw new Error('frame observer failed')
+    })
+    render.subscribeToFrameComplete(laterSubscriber)
+
+    render.requestRender()
+    expect(() => engine.emitFrame(1)).not.toThrow()
+
+    expect(firstSubscriber).toHaveBeenCalledOnce()
+    expect(laterSubscriber).toHaveBeenCalledOnce()
+
+    disposeFirst()
+    render.requestRender()
+    expect(() => engine.emitFrame(2)).not.toThrow()
+    expect(firstSubscriber).toHaveBeenCalledOnce()
+    expect(laterSubscriber).toHaveBeenCalledTimes(2)
+  })
+
   // Test delegation methods to viewport
   it('should delegate switchWorkspace to viewport', () => {
     const data = {

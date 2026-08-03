@@ -167,6 +167,7 @@
         'A later geometry/style rebuild remains aligned with the current element transform.',
         'Existing point and handle editing inputs remain workspace-valued; Render forward projection supplies visible reads and inverse projection supplies the existing stored-coordinate writes.',
         'A geometry-bounds change adjusts existing element transform values so edited and unchanged points retain their intended visible positions.',
+        'Undo and Redo refresh the selected Vector point compatibility mirror only after the already-demanded Render frame completes its frame-aligned geometry projection.',
         'Render-derived geometry is never used as canonical edit data.'
       ],
       bypasses: [
@@ -191,7 +192,10 @@
         'packages/preset/src/__tests__',
         'apps/asyra-design/src/common-apis/element/vector-apis.ts',
         'apps/asyra-design/src/common-apis/element/__tests__/vector-parent-creation.test.ts',
+        'apps/asyra-design/src/init/derived-state/init-selection-compatibility.ts',
+        'apps/asyra-design/src/init/__tests__/init-selection-compatibility.test.ts',
         'apps/asyra-design/src/features/pen-tool',
+        'apps/asyra-design/e2e/properties.spec.ts',
         'apps/asyra-design/e2e/pen-tool.spec.ts',
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md'

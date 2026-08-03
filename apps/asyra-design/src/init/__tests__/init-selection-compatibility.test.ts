@@ -10,6 +10,7 @@ type BatchSubscriber = (
 const mocks = vi.hoisted(() => ({
   anchorX: 12,
   batchSubscriber: undefined as BatchSubscriber | undefined,
+  frameCompleteSubscriber: undefined as (() => void) | undefined,
   getSystemProperty: vi.fn(),
   getSystemPropertyObservable: vi.fn(),
   getUIProperty: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@asyra/reactive-events', () => ({
   EventTypes: {
+    TRANSACTION_STATUS_CHANGED: 'transactionStatusChanged',
     UPDATE_COMPUTED_DATA: 'updateComputedData',
     UPDATE_COMPUTED_DATA_PATCH: 'updateComputedDataPatch'
   },
@@ -39,6 +41,14 @@ vi.mock('@asyra/preset', () => ({
 
 vi.mock('../../contexts', () => ({
   default: {
+    deps: {
+      render: {
+        subscribeToFrameComplete: (subscriber: () => void) => {
+          mocks.frameCompleteSubscriber = subscriber
+          return vi.fn()
+        }
+      }
+    },
     getSystemProperty: mocks.getSystemProperty,
     getSystemPropertyObservable: mocks.getSystemPropertyObservable,
     getUIProperty: mocks.getUIProperty,
@@ -78,6 +88,7 @@ describe('selection compatibility projection', () => {
   beforeEach(() => {
     mocks.anchorX = 12
     mocks.batchSubscriber = undefined
+    mocks.frameCompleteSubscriber = undefined
     mocks.getUIProperty.mockImplementation((key: string) =>
       key === 'vectorPointSelection'
         ? new Set(['vector-1:point-1:anchor'])
@@ -91,7 +102,7 @@ describe('selection compatibility projection', () => {
     mocks.setUIProperty.mockClear()
   })
 
-  it('refreshes the selected point from the ordinary local computed batch', () => {
+  it('refreshes the selected point after ordinary computed and committed replay batches', () => {
     initSelectionCompatibility()
     mocks.setSystemProperty.mockClear()
     mocks.anchorX = 48
@@ -120,6 +131,39 @@ describe('selection compatibility projection', () => {
         elementId: 'vector-1',
         pointId: 'point-1',
         x: 48,
+        y: 24
+      })
+    )
+
+    mocks.setSystemProperty.mockClear()
+    mocks.anchorX = 72
+
+    mocks.batchSubscriber?.([
+      {
+        type: 'transactionStatusChanged',
+        payload: {
+          changeCount: 1,
+          nonRollbackableChangeCount: 0,
+          origin: 'redo',
+          rollbackableChangeCount: 1,
+          status: 'committed',
+          timestamp: 1,
+          transactionId: 2,
+          undoableChangeCount: 1
+        }
+      }
+    ])
+
+    expect(mocks.setSystemProperty).not.toHaveBeenCalled()
+
+    mocks.frameCompleteSubscriber?.()
+
+    expect(mocks.setSystemProperty).toHaveBeenCalledWith(
+      'selectedVectorPoint',
+      expect.objectContaining({
+        elementId: 'vector-1',
+        pointId: 'point-1',
+        x: 72,
         y: 24
       })
     )

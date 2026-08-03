@@ -100,6 +100,10 @@ part of this fix.
 - Render Engine receives engine-neutral transform/property commands.
 - Render Engine Pixi applies those commands to the existing Pixi display
   object. App and Preset code do not import Pixi.
+- Undo/Redo refreshes the app-owned selected Vector point compatibility mirror
+  only after the already-demanded Render frame completes its frame-aligned
+  geometry projection. This observer creates no frame, canonical write,
+  transaction evidence, or History entry.
 - Fill, stroke, hit geometry, selection bounds, and path-edit overlays continue
   to agree with the visible Vector after transform.
 

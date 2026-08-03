@@ -87,6 +87,10 @@ by `worldTransform`, `toGlobal`, `toLocal`, and the concrete engine adapter.
   frame. `stop()` and teardown cancel any pending frame
 - a failed frame reports the failure and retains dirty state for an explicit
   later invalidation, but it never schedules an automatic failure loop
+- `subscribeToFrameComplete(subscriber)` observes only successfully completed
+  demanded frames, returns an idempotent disposer, isolates subscriber
+  failures, and never requests a frame by itself; successful Render teardown
+  releases these subscribers
 - a settled document performs no layer evaluation or engine flush. Local
   computed changes and Core-managed system-property updates request ordinary
   Render invalidation, so viewport navigation, overlays, and future local

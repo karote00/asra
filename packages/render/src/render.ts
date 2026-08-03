@@ -88,6 +88,7 @@ class Render {
   private currentFrameHandoffCount = 0
   private readonly renderLayerRegistry = new RenderLayerRegistry()
   private readonly teardownCleanups = new Set<() => void>()
+  private readonly frameCompleteSubscribers = new Set<() => void>()
 
   constructor(options: RenderEngineProviderOptions = {}) {
     if (options.engine && options.engineProvider) {
@@ -189,6 +190,13 @@ class Render {
     this.scheduleFrame()
   }
 
+  subscribeToFrameComplete(subscriber: () => void): () => void {
+    this.frameCompleteSubscribers.add(subscriber)
+    return () => {
+      this.frameCompleteSubscribers.delete(subscriber)
+    }
+  }
+
   flushFrame(): void {
     if (!this.app || !this.runtime || this.flushingFrame) {
       return
@@ -202,12 +210,14 @@ class Render {
     emitDiagnosticCounter('render-frame-count')
     emitDiagnosticCounter('render-frame-id', this.renderFrameId)
     let frameFailed = false
+    let completedFrame = false
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()
         const drawsChanged = this.runtime?.flushDraws() ?? false
         if (!this.renderDirty && !layersChanged && !drawsChanged) {
           this.publishFrameEvidence('complete', 'skipped')
+          completedFrame = true
           return
         }
 
@@ -216,6 +226,7 @@ class Render {
         })
         this.renderDirty = false
         this.publishFrameEvidence('complete', 'rendered')
+        completedFrame = true
       })
     } catch (error) {
       frameFailed = true
@@ -230,6 +241,15 @@ class Render {
       if (this.renderDirty && !frameFailed) {
         this.scheduleFrame()
       }
+    }
+    if (completedFrame) {
+      ;[...this.frameCompleteSubscribers].forEach((subscriber) => {
+        try {
+          subscriber()
+        } catch {
+          // Frame observers cannot alter an already completed Render frame.
+        }
+      })
     }
   }
 
@@ -709,6 +729,7 @@ class Render {
     this.runtime = null
     this.engine = null
     this.app = null
+    this.frameCompleteSubscribers.clear()
   }
 
   reset(): void {
