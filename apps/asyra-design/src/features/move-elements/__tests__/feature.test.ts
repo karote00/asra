@@ -188,7 +188,7 @@ describe('move canvas hierarchy target handoff', () => {
 
     expect(mocks.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
       ['selected'],
-      { undoable: false, sharedDelivery: 'immediate' }
+      { sharedDelivery: 'immediate' }
     )
   })
 })

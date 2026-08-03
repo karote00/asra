@@ -57,9 +57,18 @@ interface UpdateTransactionEvent {
       readonly payload: object
     }[]
   }
+  historyCandidate?: {
+    readonly key: string
+    readonly events: readonly UpdateTransactionEvent[]
+  }
   options?: {
     undoable?: boolean
     shared?: string
+    sharedDelivery?: 'transaction-end' | 'immediate'
+    history?: {
+      mode: 'replace-latest'
+      key: string
+    }
   }
 }
 
@@ -6098,6 +6107,77 @@ describe('PropsManager', () => {
     ])
     expect(Object.isFrozen(ownerBatch)).toBe(true)
     expect(ownerBatch?.every((event) => Object.isFrozen(event))).toBe(true)
+  })
+
+  it('hands a complete replace-latest History candidate alongside effective property evidence', () => {
+    const position = createProperty({
+      id: 'staged-history-position',
+      type: PropertyTypes.POSITION,
+      x: 10,
+      y: 2,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }) as PropertyComponentInstanceTypes
+    propsManager.addToMap(position)
+    const updateTransactionBatch = vi.fn()
+
+    ReactiveEventsModule.runWithTransactionOwner(
+      {
+        startTransaction: vi.fn(),
+        updateTransactionBatch,
+        endTransaction: vi.fn(),
+        undo: vi.fn(),
+        redo: vi.fn()
+      },
+      () =>
+        propsManager.updateProperties({
+          operations: [
+            {
+              kind: 'values',
+              propertyId: 'staged-history-position',
+              values: { x: 10, y: 25 }
+            }
+          ],
+          options: {
+            history: {
+              mode: 'replace-latest',
+              key: 'move-session'
+            }
+          }
+        })
+    )
+
+    const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
+      | readonly UpdateTransactionEvent[]
+      | undefined
+    expect(ownerBatch).toHaveLength(1)
+    expect(ownerBatch?.[0]?.payload).toMatchObject({
+      id: 'staged-history-position',
+      key: 'y',
+      before: 2,
+      after: 25
+    })
+    expect(
+      ownerBatch?.[0]?.historyCandidate?.events.map(({ payload }) => payload)
+    ).toEqual([
+      expect.objectContaining({
+        id: 'staged-history-position',
+        key: 'x',
+        before: 10,
+        after: 10
+      }),
+      expect.objectContaining({
+        id: 'staged-history-position',
+        key: 'y',
+        before: 2,
+        after: 25
+      })
+    ])
+    expect(ownerBatch?.[0]?.historyCandidate?.key).toBe('move-session')
+    expect(Object.isFrozen(ownerBatch?.[0]?.historyCandidate)).toBe(true)
+    expect(Object.isFrozen(ownerBatch?.[0]?.historyCandidate?.events)).toBe(
+      true
+    )
   })
 
   it('does not snapshot unrelated registry entries for a property value batch', () => {

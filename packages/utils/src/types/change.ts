@@ -2,11 +2,17 @@ import { DataTypes } from './constants'
 
 export type SharedDeliveryMode = 'transaction-end' | 'immediate'
 
+export interface ReplaceLatestHistoryOptions {
+  mode: 'replace-latest'
+  key: string
+}
+
 export interface MutationOptions {
   undoable?: boolean
   rollbackable?: boolean
   shared?: string
   sharedDelivery?: SharedDeliveryMode
+  history?: ReplaceLatestHistoryOptions
 }
 
 export interface ChangeHandler {

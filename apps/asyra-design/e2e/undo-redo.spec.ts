@@ -131,7 +131,7 @@ test.describe('Undo/Redo Actions', () => {
     }).toPass({ timeout: 2000 })
   })
 
-  test('drag-move keeps its position without creating an Undo entry', async ({
+  test('drag-move creates one Undo entry for the complete gesture', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -163,13 +163,30 @@ test.describe('Undo/Redo Actions', () => {
       const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(afterUndoCount).toBe(beforeUndoCount)
+    expect(afterUndoCount).toBe(beforeUndoCount + 1)
 
     await undo(page)
-    await expect.poll(() => getElementCount(page)).toBe(0)
+    await expect
+      .poll(async () => {
+        const restored = await getSelectedElementRect(page)
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
+
+    await redo(page)
+    await expect
+      .poll(async () => {
+        const restored = await getSelectedElementRect(page)
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(moved.x), y: Math.round(moved.y) })
   })
 
-  test('pressing Escape keeps the interruption position without creating an Undo entry', async ({
+  test('pressing Escape commits the interruption position as one Undo entry', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -247,6 +264,10 @@ test.describe('Undo/Redo Actions', () => {
         ])
       })
     )
+    expect(JSON.stringify(previewPublications)).not.toContain('replace-latest')
+    expect(JSON.stringify(previewPublications)).not.toContain(
+      'move-elements:positions'
+    )
     const interrupted = await getSelectedElementRect(page)
     expect(interrupted).not.toBeNull()
     if (!interrupted) {
@@ -286,7 +307,17 @@ test.describe('Undo/Redo Actions', () => {
       const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(afterUndoCount).toBe(beforeUndoCount)
+    expect(afterUndoCount).toBe(beforeUndoCount + 1)
+
+    await undo(page)
+    await expect
+      .poll(async () => {
+        const restored = await getPositionById()
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
   })
 
   test('drag-create keeps immediate canonical updates in one undo commit', async ({
@@ -1051,7 +1082,7 @@ test.describe('Undo/Redo Actions', () => {
       })
   })
 
-  test('drag on an unselected target moves and selects it without creating an Undo entry', async ({
+  test('drag on an unselected target selects it and creates one move Undo entry', async ({
     page
   }) => {
     await createRectangle(page, 0.22, 0.28) // A (selected)
@@ -1098,7 +1129,25 @@ test.describe('Undo/Redo Actions', () => {
       const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(afterUndoCount).toBe(beforeUndoCount)
+    expect(afterUndoCount).toBe(beforeUndoCount + 1)
+
+    await undo(page)
+    await expect
+      .poll(async () => {
+        const restored = await getSelectedElementRect(page)
+        return restored
+          ? {
+              id: restored.id,
+              x: Math.round(restored.x),
+              y: Math.round(restored.y)
+            }
+          : null
+      })
+      .toEqual({
+        id: aBefore.id,
+        x: Math.round(aBefore.x),
+        y: Math.round(aBefore.y)
+      })
 
     const bStillExists = await page.evaluate(async (elementId) => {
       const core = (await import('../src/testing/runtime-access')).core

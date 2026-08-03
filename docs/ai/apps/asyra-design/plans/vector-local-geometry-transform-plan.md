@@ -12,6 +12,19 @@ the product owner: one completed or commit-current interrupted gesture creates
 one Undo commit from its first complete owner-issued `before` bundle and latest
 complete owner-issued `after` bundle.
 
+Local implementation and validation are complete on the feature branch. The
+plan remains active until pull-request review and merge. Slice 4 now includes
+the opt-in Factory staging contract, complete PropsManager History candidates,
+one-commit Move session integration, ordinary final Group normalization,
+full-sample `crdt-7076` E2E, drag Undo/Redo E2E, and synchronized live-app
+Vector/toast screenshot review.
+
+Validated on 2026-08-03: both Inspector contract suites (25 assertions),
+Factory (227 tests), PropsManager (241 tests), focused App interaction/toast
+tests (13 tests), three canvas-drag Undo E2E cases, the complete `crdt-7076`
+E2E, the stacked-toast visual E2E, lint with zero errors, relevant TypeScript
+builds, and the production App build all pass.
+
 Semantic and execution authority:
 
 - this plan owns the thin product contract, product cases, bounded execution

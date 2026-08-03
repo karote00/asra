@@ -31,9 +31,10 @@
 - ignores micro movement below `FEATURE_MOVEMENT_THRESHOLD.moveElement`
 - computes workspace delta from drag start to current pointer
 - applies per-element `x/y` position updates for selected elements with
-  explicit `undoable: false` and `sharedDelivery: 'immediate'`; all
-  selected-element changes produced by one synchronous update are one ordered
-  canonical publication without closing the outer transaction
+  `sharedDelivery: 'immediate'` plus the explicit gesture-keyed
+  `replace-latest` History option; all selected-element changes produced by one
+  synchronous update are one ordered canonical publication without closing the
+  outer transaction
 - Vector and ordinary elements use this same fixed-size property batch. Vector
   point/control/segment/network records are neither read nor patched, so
   pointer-sample mutation cost and publication size do not grow with point count
@@ -50,11 +51,12 @@
 - if movement occurred, finalizes exactly one Undo action for the complete move
 - does not replay positions that already match the latest applied drag update;
   if pointer-up contains a newer final position, applies all final positions
-  once with `sharedDelivery: 'immediate'`
+  once with the same immediate replace-latest History option
 - keeps final drag position on canvas and lets the existing outer transaction
   commit the first-before/latest-after staged History bundle
 - invokes Preset Group normalization deepest-first exactly once after the final
-  position write and before the gesture transaction commits
+  position write and before the gesture transaction commits; normalization is
+  an ordinary ordered change in the same Undo action
 - if a drag crossed the movement threshold but returns exactly to its initial
   positions, the return update remains a real canonical delivery action
 - if no movement occurred after starting inside selection bounds, selects the

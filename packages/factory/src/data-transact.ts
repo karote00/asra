@@ -1,6 +1,7 @@
 import type {
   EndTransactionOptions,
   PropsChange,
+  ReplaceLatestHistoryOptions,
   SceneTreeChange,
   SharedDeliveryMode,
   ElementSelectionChange,
@@ -18,6 +19,7 @@ interface EffectiveMutationOptions {
   rollbackable: boolean
   shared?: string
   sharedDelivery: SharedDeliveryMode
+  history?: ReplaceLatestHistoryOptions
 }
 
 interface JournalSharedRecord {
@@ -56,6 +58,10 @@ interface TransactionJournalEntry {
 interface FactoryHistoryEntry {
   readonly entries: readonly TransactionJournalEntry[]
   readonly progressiveDeliverySequence?: FactoryMutationDeliverySequence
+}
+interface ReplaceLatestHistoryStage {
+  readonly first: ReplaceLatestHistoryCandidate
+  latest: ReplaceLatestHistoryCandidate
 }
 interface JournalSharedRecordRef {
   entry: TransactionJournalEntry
@@ -117,6 +123,7 @@ interface DataTransactCallbacks {
 }
 import type {
   AllEvent,
+  ReplaceLatestHistoryCandidate,
   TransactionCanonicalEvidence,
   TransactionReplayMode,
   UpdateTransactionEvent,
@@ -327,6 +334,35 @@ const isPlainRecord = (value: unknown): value is object => {
   return prototype === Object.prototype || prototype === null
 }
 
+const areHistoryValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => areHistoryValuesEqual(value, right[index]))
+    )
+  }
+  if (!isPlainRecord(left) || !isPlainRecord(right)) return false
+
+  const leftRecord = left as Record<string, unknown>
+  const rightRecord = right as Record<string, unknown>
+  const leftKeys = Reflect.ownKeys(leftRecord)
+  const rightKeys = Reflect.ownKeys(rightRecord)
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+        areHistoryValuesEqual(
+          Reflect.get(leftRecord, key),
+          Reflect.get(rightRecord, key)
+        )
+    )
+  )
+}
+
 const toReplayFailure = (cause: unknown): TransactionFailure => ({
   kind: 'explicit',
   message: cause instanceof Error ? cause.message : undefined,
@@ -335,6 +371,13 @@ const toReplayFailure = (cause: unknown): TransactionFailure => ({
 
 class DataTransact {
   private journal: TransactionJournalEntry[] = []
+  private readonly replaceLatestHistoryStages = new Map<
+    string,
+    ReplaceLatestHistoryStage
+  >()
+  private preparedActionHistoryEntries:
+    | readonly TransactionJournalEntry[]
+    | null = null
   private undoStack: FactoryHistoryEntry[] = []
   private redoStack: FactoryHistoryEntry[] = []
   private isTransacting = 0
@@ -462,6 +505,8 @@ class DataTransact {
 
     this.activeOrigin = origin ?? 'action'
     this.journal = []
+    this.replaceLatestHistoryStages.clear()
+    this.preparedActionHistoryEntries = null
     this.pendingImmediatePublicationEntries.length = 0
     this.immediatePublicationToken += 1
     this.scheduledImmediatePublicationToken = null
@@ -651,6 +696,7 @@ class DataTransact {
       const recordedEntries = detachedEvents.map((event) =>
         this.recordJournalEntry(event, trustedOwnerValues)
       )
+      this.stageReplaceLatestHistory(detachedEvents)
       batchAccepted = true
       if (
         this.nestedReplaySourceEvents &&
@@ -687,6 +733,42 @@ class DataTransact {
       this.rollbackFailure ??= toReplayFailure(error)
       throw new FactoryMutationBatchAcceptanceError(batchAccepted, error)
     }
+  }
+
+  private stageReplaceLatestHistory(
+    events: readonly UpdateTransactionEvent[]
+  ): void {
+    const firstEvent = events[0]
+    if (!firstEvent) return
+
+    const history = firstEvent.options?.history
+    const candidate = firstEvent.historyCandidate
+    if (!history && !candidate) return
+    if (history?.mode !== 'replace-latest') {
+      throw new Error(
+        'Factory History candidate requires replace-latest transaction options'
+      )
+    }
+    if (!history.key || !candidate || candidate.key !== history.key) {
+      throw new Error(
+        'Factory replace-latest History candidate must match its gesture key'
+      )
+    }
+    if (candidate.events.length === 0) {
+      throw new Error(
+        'Factory replace-latest History candidate requires a complete event bundle'
+      )
+    }
+
+    const existing = this.replaceLatestHistoryStages.get(history.key)
+    if (existing) {
+      existing.latest = candidate
+      return
+    }
+    this.replaceLatestHistoryStages.set(history.key, {
+      first: candidate,
+      latest: candidate
+    })
   }
 
   private validateEventDeliveryEvidence(
@@ -787,6 +869,22 @@ class DataTransact {
     event: UpdateTransactionEvent,
     trustedOwnerValues: boolean
   ): TransactionJournalEntry {
+    const journalEntry = this.createJournalEntry(
+      event,
+      trustedOwnerValues,
+      this.journal.length,
+      this.applyingReplayEvent ? 'replay' : 'action'
+    )
+    this.journal.push(journalEntry)
+    return journalEntry
+  }
+
+  private createJournalEntry(
+    event: UpdateTransactionEvent,
+    trustedOwnerValues: boolean,
+    entryIndex: number,
+    source: TransactionJournalEntry['source']
+  ): TransactionJournalEntry {
     const deliveryEvidence = event.canonicalEvidence
     const newPayload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
@@ -796,12 +894,12 @@ class DataTransact {
     if (deliveryEvidence) {
       this.validateEventDeliveryEvidence(
         deliveryEvidence,
-        this.journal.length,
+        entryIndex,
         trustedOwnerValues
       )
       if (deliveryEvidence.sharedRecords && !event.options?.shared) {
         throw new Error(
-          `Factory mutation shared record evidence ${this.journal.length} requires a shared canonical event`
+          `Factory mutation shared record evidence ${entryIndex} requires a shared canonical event`
         )
       }
     }
@@ -820,7 +918,8 @@ class DataTransact {
       rollbackable:
         origin === 'remote' ? true : event.options?.rollbackable !== false,
       shared: event.options?.shared,
-      sharedDelivery: event.options?.sharedDelivery ?? 'transaction-end'
+      sharedDelivery: event.options?.sharedDelivery ?? 'transaction-end',
+      history: event.options?.history
     }
     if (
       (options.rollbackable || options.undoable) &&
@@ -831,12 +930,12 @@ class DataTransact {
       )
     }
     const journalEntry: TransactionJournalEntry = {
-      index: this.journal.length,
+      index: entryIndex,
       event: newEvent,
       orderedIds:
         deliveryEvidence?.orderedIds ?? deepFreezeValue<readonly string[]>([]),
       options,
-      source: this.applyingReplayEvent ? 'replay' : 'action',
+      source,
       trustedOwnerValues
     }
 
@@ -883,9 +982,189 @@ class DataTransact {
     }
 
     this.prepareEntryInverses(journalEntry)
-    this.journal.push(journalEntry)
 
     return journalEntry
+  }
+
+  private mergeReplaceLatestHistoryPayload(
+    firstPayload: unknown,
+    latestPayload: unknown,
+    candidateIndex: number
+  ): TransactionPayload | null {
+    if (!isPlainRecord(firstPayload) || !isPlainRecord(latestPayload)) {
+      throw new Error(
+        `Factory replace-latest History candidate ${candidateIndex} requires plain record payloads`
+      )
+    }
+    if (
+      !Object.prototype.hasOwnProperty.call(firstPayload, 'before') ||
+      !Object.prototype.hasOwnProperty.call(firstPayload, 'after') ||
+      !Object.prototype.hasOwnProperty.call(latestPayload, 'before') ||
+      !Object.prototype.hasOwnProperty.call(latestPayload, 'after')
+    ) {
+      throw new Error(
+        `Factory replace-latest History candidate ${candidateIndex} requires before and after values`
+      )
+    }
+
+    const firstRecord = firstPayload as Record<string, unknown>
+    const latestRecord = latestPayload as Record<string, unknown>
+    const identityKeys = new Set(
+      [
+        ...Reflect.ownKeys(firstRecord),
+        ...Reflect.ownKeys(latestRecord)
+      ].filter((key) => key !== 'before' && key !== 'after')
+    )
+    if (
+      [...identityKeys].some(
+        (key) =>
+          !Object.prototype.hasOwnProperty.call(firstRecord, key) ||
+          !Object.prototype.hasOwnProperty.call(latestRecord, key) ||
+          !areHistoryValuesEqual(
+            Reflect.get(firstRecord, key),
+            Reflect.get(latestRecord, key)
+          )
+      )
+    ) {
+      throw new Error(
+        `Factory replace-latest History candidate ${candidateIndex} changed identity`
+      )
+    }
+
+    const before = firstRecord.before
+    const after = latestRecord.after
+    if (areHistoryValuesEqual(before, after)) {
+      return null
+    }
+    return {
+      ...latestRecord,
+      before,
+      after
+    } as TransactionPayload
+  }
+
+  private materializeReplaceLatestHistoryStage(
+    key: string,
+    stage: ReplaceLatestHistoryStage,
+    firstSyntheticIndex: number
+  ): TransactionJournalEntry[] {
+    if (stage.first.key !== key || stage.latest.key !== key) {
+      throw new Error(
+        `Factory replace-latest History stage changed gesture key: ${key}`
+      )
+    }
+    if (stage.first.events.length !== stage.latest.events.length) {
+      throw new Error(
+        `Factory replace-latest History stage changed bundle size: ${key}`
+      )
+    }
+
+    const entries: TransactionJournalEntry[] = []
+    stage.first.events.forEach((firstEvent, candidateIndex) => {
+      const latestEvent = stage.latest.events[candidateIndex]
+      if (
+        !latestEvent ||
+        firstEvent.eventName !== latestEvent.eventName ||
+        firstEvent.options?.history?.mode !== 'replace-latest' ||
+        firstEvent.options.history.key !== key ||
+        latestEvent.options?.history?.mode !== 'replace-latest' ||
+        latestEvent.options.history.key !== key
+      ) {
+        throw new Error(
+          `Factory replace-latest History candidate ${candidateIndex} does not preserve its event contract`
+        )
+      }
+      const payload = this.mergeReplaceLatestHistoryPayload(
+        firstEvent.payload,
+        latestEvent.payload,
+        candidateIndex
+      )
+      if (!payload) return
+
+      const { history: _history, ...options } = latestEvent.options
+      entries.push(
+        this.createJournalEntry(
+          {
+            type: latestEvent.type,
+            eventName: latestEvent.eventName,
+            payload,
+            options,
+            canonicalEvidence: latestEvent.canonicalEvidence
+          },
+          false,
+          firstSyntheticIndex + entries.length,
+          'action'
+        )
+      )
+    })
+    return entries
+  }
+
+  private prepareReplaceLatestHistorySourceBatches(
+    entries: readonly TransactionJournalEntry[]
+  ): void {
+    const sharedEntries = entries.filter((entry) => entry.shared)
+    if (sharedEntries.length === 0) return
+    const unsupportedEntry = sharedEntries.find(
+      (entry) => entry.options.sharedDelivery !== 'immediate'
+    )
+    if (unsupportedEntry) {
+      throw new Error(
+        'Factory replace-latest shared History requires immediate delivery'
+      )
+    }
+
+    const currentBatchCount = this.currentSharedDeliveryBatches.length
+    const batches = this.prepareSharedDeliveryBatches(sharedEntries)
+    this.currentSharedDeliveryBatches.splice(currentBatchCount)
+    batches.forEach((batch) =>
+      this.preparedSharedBatchRecords.delete(batch.batchId)
+    )
+    this.sharedRecordRefs(sharedEntries).forEach(({ record }) => {
+      record.delivered = true
+    })
+  }
+
+  private prepareCommittedActionHistoryEntries(): readonly TransactionJournalEntry[] {
+    if (this.replaceLatestHistoryStages.size === 0) {
+      return this.journal
+    }
+
+    const entries: TransactionJournalEntry[] = []
+    const emittedKeys = new Set<string>()
+    const syntheticEntries: TransactionJournalEntry[] = []
+    let nextSyntheticIndex = this.journal.length
+    this.journal.forEach((entry) => {
+      const history = entry.options.history
+      if (history?.mode !== 'replace-latest') {
+        entries.push(entry)
+        return
+      }
+      if (emittedKeys.has(history.key)) return
+
+      const stage = this.replaceLatestHistoryStages.get(history.key)
+      if (!stage) {
+        throw new Error(
+          `Factory replace-latest History stage is missing: ${history.key}`
+        )
+      }
+      emittedKeys.add(history.key)
+      const materialized = this.materializeReplaceLatestHistoryStage(
+        history.key,
+        stage,
+        nextSyntheticIndex
+      )
+      nextSyntheticIndex += materialized.length
+      entries.push(...materialized)
+      syntheticEntries.push(...materialized)
+    })
+    if (emittedKeys.size !== this.replaceLatestHistoryStages.size) {
+      throw new Error(
+        'Factory replace-latest History stage has no canonical journal entry'
+      )
+    }
+    this.prepareReplaceLatestHistorySourceBatches(syntheticEntries)
+    return entries
   }
 
   private prepareEntryInverses(entry: TransactionJournalEntry): void {
@@ -2875,7 +3154,8 @@ class DataTransact {
   }
 
   private validationContext(): TransactionValidationContext {
-    const undoableChangeCount = this.journal.filter(
+    const undoableEntries = this.preparedActionHistoryEntries ?? this.journal
+    const undoableChangeCount = undoableEntries.filter(
       ({ options }) => options.undoable
     ).length
     const rollbackableChangeCount = this.journal.filter(
@@ -3018,6 +3298,8 @@ class DataTransact {
               !this.isInUndo() &&
               !this.isInRedo()
             ) {
+              this.preparedActionHistoryEntries =
+                this.prepareCommittedActionHistoryEntries()
               this.validateRequestedCommit()
             }
           } catch (error) {
@@ -3051,7 +3333,7 @@ class DataTransact {
                 (entry) => entry.options.sharedDelivery === 'transaction-end'
               )
               const history: FactoryHistoryEntry = {
-                entries: this.journal,
+                entries: this.preparedActionHistoryEntries ?? this.journal,
                 ...(this.activeDeliverySequence?.mode === 'progressive'
                   ? {
                       progressiveDeliverySequence: this.activeDeliverySequence
@@ -3130,6 +3412,8 @@ class DataTransact {
         this.unacknowledgedSharedPublications.length = 0
         this.publicationAcknowledgements.clear()
         this.journal = []
+        this.replaceLatestHistoryStages.clear()
+        this.preparedActionHistoryEntries = null
         this.rollbackOnly = false
         this.rollbackFailure = undefined
         this.activeOrigin = 'action'

@@ -7201,3 +7201,33 @@ join` constrained dashed product path across:
     2026-08-03 Vector decision text without rewriting append-only history.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Stage canvas drag as one complete Undo action
+
+- Context:
+  - The prior zero-Undo canvas-drag decision removed a required user action
+    from History.
+  - Re-appending every pointer sample would preserve correctness but make Undo
+    replay every intermediate position and retain point-sample-sized History
+    work throughout a large multi-selection drag.
+- Decision:
+  - Add an explicit local `replace-latest` History option for continuous
+    gestures; ordinary mutations remain append-only.
+  - PropsManager issues a complete frozen position candidate for every sample.
+    Factory retains the first candidate and replaces only the latest candidate
+    reference, then materializes one History action when the outer transaction
+    commits.
+  - Canvas move samples remain canonical, rollbackable, and immediately shared.
+    Final Group normalization remains an ordinary ordered change in the same
+    Undo action.
+- Consequences:
+  - Completed and commit-current interrupted canvas drags create exactly one
+    Undo entry. Undo restores the complete start bundle and Redo restores the
+    complete final bundle.
+  - Staging metadata remains local and never enters canonical payloads,
+    collaboration wire data, persistence, or replay payloads.
+  - This decision supersedes only the zero-Undo portion of the preceding
+    7,076-sample decision; the removal of the derivative first-50 sample remains
+    in force.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md`
