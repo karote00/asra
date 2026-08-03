@@ -6,8 +6,11 @@ Active. Accepted by the product owner on 2026-08-03 as the highest-priority
 bug fix outside prior plans. Revised on 2026-08-03 after product-owner review:
 the persisted Vector schema and values remain unchanged; this plan changes the
 Render pipeline, not the document format. Revised again on 2026-08-03 to remove
-the rejected derivative sample, retain the complete `crdt-7076` fixture as the
-real-data gate, and keep canvas drag outside Undo history.
+the rejected derivative sample and retain the complete `crdt-7076` fixture as
+the real-data gate. The canvas-drag settlement contract was then corrected by
+the product owner: one completed or commit-current interrupted gesture creates
+one Undo commit from its first complete owner-issued `before` bundle and latest
+complete owner-issued `after` bundle.
 
 Semantic and execution authority:
 
@@ -111,9 +114,23 @@ part of this fix.
 
 ### Transactions, persistence, and collaboration
 
-- Canvas drag position changes are intentionally non-undoable. A completed or
-  commit-current interrupted drag creates zero Undo commits, while failure
-  rollback remains available through the existing session transaction.
+- Canvas drag position samples remain ordinary canonical owner updates so
+  computed data, Render, and immediate collaboration receive the current
+  positions during the active gesture.
+- Canvas drag opts into local transaction-history staging through an explicit
+  structured mutation option. Ordinary mutations without that option retain
+  the existing append-only semantic-change history contract.
+- The staged history owner retains the first complete owner-issued `before`
+  bundle and replaces only the reference to the latest complete owner-issued
+  `after` bundle. It does not merge every selected element into pending
+  History on each pointer sample.
+- A completed or commit-current interrupted drag finalizes those two bundles
+  into exactly one Undo commit when the existing outer session transaction
+  closes. Undo restores the complete gesture start and Redo restores the
+  complete final bundle.
+- Staged-history control metadata is local Factory transaction metadata. It
+  never enters canonical payloads, shared publications, collaboration wire
+  data, persistence, or replay payloads.
 - Each synchronous drag update retains the existing immediate shared
   publication behavior inside the outer session transaction.
 - Transform-only rollback, persistence, and publication evidence contains no
@@ -170,11 +187,12 @@ Unsupported outputs:
    stored element values produces the same visible output without a migration
    or persisted cache.
 6. Move a mixed Vector/non-Vector selection: every element reaches the same
-   requested position through the existing non-undoable drag transaction
-   contract.
-7. A completed or commit-current interrupted drag adds no Undo entry;
-   persistence, collaboration publication, and accepted remote apply preserve
-   their current owners while transform evidence stays point-free.
+   requested position through canonical pointer samples while staged History
+   retains only one complete initial bundle and one complete latest bundle.
+7. A completed or commit-current interrupted drag adds exactly one Undo entry;
+   Undo and Redo restore the complete multi-selection start and final positions,
+   while persistence, collaboration publication, and accepted remote apply
+   preserve their current owners and transform evidence stays point-free.
 8. Group, ungroup, reorder, or reparent retains the current hierarchy behavior
    and does not introduce point patches solely because the child is a Vector.
 
@@ -287,16 +305,22 @@ Gate:
   strategy execution on transform-only deltas, one strategy execution on a
   geometry/style miss, and fail-closed invalid input.
 
-### Slice 4: Interaction, settlement, E2E, and visual closure
+### Slice 4: Interaction, staged History, settlement, E2E, and visual closure
 
 - verify hit, bounds, selection, path editing, stroke, and fill projection
   remain aligned after transform and after a later geometry/style rebuild;
 - verify a moved Vector point can be hit and edited at its current visible
   workspace position while the written point record remains in the existing
   stored coordinate space;
-- verify canvas drag creates zero Undo entries while rollback, publication,
-  persistence, and remote apply retain existing owners and point-free transform
-  evidence;
+- add an opt-in Factory history-staging option whose default absence preserves
+  append-only transaction history;
+- require the canonical property owner to issue complete first-before and
+  latest-after history candidate bundles; Factory stores only those two bundle
+  references during the gesture and materializes the final History once at
+  transaction end;
+- verify canvas drag creates exactly one Undo entry while rollback,
+  publication, persistence, and remote apply retain existing owners and
+  point-free transform evidence;
 - run maintained 7,001-point and complete `crdt-7076` tests;
 - run synchronized live-app screenshot review on the same runtime state.
 
@@ -359,8 +383,8 @@ Profiling justification:
   executing the Vector geometry strategy.
 - Geometry/topology/style changes rebuild through the ordinary complete
   snapshot path with exact cache invalidation and no fallback.
-- Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, zero drag
-  Undo entries, persistence, collaboration, and remote apply gates pass.
+- Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, one staged
+  drag Undo entry, persistence, collaboration, and remote apply gates pass.
 - The reported canonical-local-geometry error is absent while loading,
   rendering, moving, and editing the complete `crdt-7076` sample.
 - Focused tests, build, lint, maintained E2E, and synchronized visual review

@@ -197,7 +197,7 @@
       specRefs: [
         '#engine-boundary',
         '#geometry-editing',
-        '#slice-4-interaction-settlement-e2e-and-visual-closure'
+        '#slice-4-interaction-staged-history-settlement-e2e-and-visual-closure'
       ],
       failureOwnerStepId: 'project-vector-interaction'
     },
@@ -209,11 +209,12 @@
       ownerPackage:
         'Asyra Design move-elements feature with @asyra/factory and Core persistence',
       purpose:
-        'Settle the existing point-free canvas drag as a rollbackable but non-undoable change through ordinary publication, remote apply, and persistence without storing Render cache state.',
+        'Settle the point-free canvas drag through opt-in first-before/latest-after History staging, ordinary rollback, publication, remote apply, and persistence without storing Render cache state.',
       inputs: [
         'artifact:canonical-vector-transform-delta',
         'outer feature or finite common-API transaction boundary',
-        'ordinary mutation options'
+        'explicit gesture-keyed replace-latest History option',
+        'complete owner-issued History candidate bundle'
       ],
       outputs: [
         'artifact:settled-vector-action',
@@ -221,8 +222,11 @@
         'artifact:vector-persistence-outcome'
       ],
       conditions: [
-        'A completed or commit-current interrupted canvas drag creates zero Undo commits.',
-        'The move feature passes undoable false for drag selection, position, and final Group normalization writes while preserving failure rollback.',
+        'A completed or commit-current interrupted canvas drag creates exactly one Undo commit from the first complete owner-issued before bundle and latest complete owner-issued after bundle.',
+        'Each canonical pointer sample remains immediately available to computed data, Render, and collaboration while Factory replaces only the latest staged History bundle reference.',
+        'Ordinary mutations without the explicit staging option retain append-only History semantics.',
+        'Staged History control metadata is local-only and never enters canonical payloads, collaboration wire data, persistence, or replay payloads.',
+        'Final Group normalization remains an ordinary ordered change inside the same outer Undo commit.',
         'Transform forward, rollback, publication, and persistence evidence contains no point or handle records.',
         'Accepted remote apply creates no local Undo, persistence echo, or publication echo.',
         'Persistence stores the ordinary unchanged-schema canonical snapshot and never stores Render cache state.'
@@ -239,7 +243,8 @@
         'canonical Props and Scene Tree mutation evidence'
       ],
       forbiddenContributors: [
-        'canvas drag writes in the ordinary Undo stack',
+        'per-element pending-History merge on each pointer sample',
+        'implicit coalescing for ordinary transactions',
         'Vector-specific parallel history',
         'document migration or version transition',
         'Render geometry or cache evidence in persistence',
@@ -251,7 +256,15 @@
         'apps/asyra-design/src/features/__tests__',
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
+        'packages/utils/src/types/change.ts',
+        'packages/reactive-events/src/app/events.ts',
+        'packages/factory/src',
+        'packages/factory/src/__tests__',
+        'packages/props-manager/src',
+        'packages/props-manager/src/__tests__',
         'docs/ai/framework/rules/data-flow-and-transactions.md',
+        'docs/ai/framework/packages/factory.md',
+        'docs/ai/framework/plans/transaction-flow-inspector.data.cjs',
         'docs/ai/apps/asyra-design/modules/collaboration-reference.md',
         'docs/ai/apps/asyra-design/features/move-elements.md',
         'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-plan.md'
@@ -281,7 +294,7 @@
       to: 'settle-vector-action',
       kind: 'canonical',
       predicate:
-        'A non-empty canvas drag delta enters the existing rollback journal with undoable false.',
+        'A non-empty canvas drag delta enters the existing rollback journal and the explicit replace-latest History stage.',
       producedArtifacts: ['artifact:canonical-vector-transform-delta']
     },
     {
@@ -519,6 +532,7 @@
       title: 'Existing data and action settlement remain authoritative',
       assertions: [
         'Existing documents and the crdt-7076 sample require no migration or value rewrite.',
+        'One completed or commit-current canvas drag creates one Undo action from complete first-before and latest-after bundles.',
         'Undo, Redo, persistence, publication, and accepted remote apply keep their existing owners.',
         'No Render cache state enters canonical action evidence.'
       ],

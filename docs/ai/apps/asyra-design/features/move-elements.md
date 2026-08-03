@@ -37,17 +37,22 @@
 - Vector and ordinary elements use this same fixed-size property batch. Vector
   point/control/segment/network records are neither read nor patched, so
   pointer-sample mutation cost and publication size do not grow with point count
+- each sample opts into one gesture-keyed `replace-latest` History stage; the
+  canonical property owner supplies one complete candidate bundle while
+  Factory replaces only the latest bundle reference instead of merging every
+  element into pending History
 - defers official Group origin and bounds normalization across intermediate
   pointer samples so drag-start-local coordinates cannot accumulate against
   repeatedly rebased ancestors
 
 3. End
 
-- if movement occurred, keeps the completed move outside the Undo stack
+- if movement occurred, finalizes exactly one Undo action for the complete move
 - does not replay positions that already match the latest applied drag update;
   if pointer-up contains a newer final position, applies all final positions
   once with `sharedDelivery: 'immediate'`
-- keeps final drag position on canvas without creating an Undo entry
+- keeps final drag position on canvas and lets the existing outer transaction
+  commit the first-before/latest-after staged History bundle
 - invokes Preset Group normalization deepest-first exactly once after the final
   position write and before the gesture transaction commits
 - if a drag crossed the movement threshold but returns exactly to its initial
@@ -59,7 +64,7 @@
 
 - cancel policy is `commit-current`
 - Escape, tool switching, or a new conflicting action keeps the positions at
-  the interruption moment without creating a move Undo entry
+  the interruption moment and finalizes one move Undo entry
 - handler failure or timeout restores the transaction-start element positions
   and selection without creating a move undo entry
 
@@ -67,15 +72,20 @@
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
-- all applied drag updates remain rollbackable but non-undoable; `onEnd` only
-  fills a missing final pointer update and does not restore/replay state
+- all applied drag updates remain rollbackable and use explicit opt-in
+  replace-latest History staging; `onEnd` only fills a missing final pointer
+  update and does not restore/replay state
+- ordinary mutations without the staging option retain append-only History
+- staged History stores complete owner-issued bundles locally and never enters
+  canonical data, collaboration payloads, persistence, or Render
 - canonical element position never travels through Awareness; one synchronous
   multi-element update becomes one publication, one Yjs update, and one
   provider send
 - a 7,001-point Vector and the densest Vector in the complete checked-in
   `crdt-7076` cat-face sample use the same point-free move contract
-- `onCancel` performs no canonical write, and Factory reverses failure-path
-  mutations
+- commit-current interruption uses the normal `onEnd` finalization; rollback
+  cancellation performs no canonical cleanup write and Factory reverses
+  failure-path mutations
 
 ## Layers Hierarchy Move
 

@@ -212,7 +212,7 @@ test('whole-element transform owner forbids point and handle patches', () => {
   assert.match(text, /independent of Vector point count/i)
 })
 
-test('canvas drag settlement is rollbackable but creates no Undo entry', () => {
+test('canvas drag settlement stages one complete Undo action', () => {
   const owner = step('settle-vector-action')
   const text = [
     owner.ownerPackage,
@@ -222,9 +222,14 @@ test('canvas drag settlement is rollbackable but creates no Undo entry', () => {
     ...owner.forbiddenContributors
   ].join(' ')
 
-  assert.match(text, /rollbackable but non-undoable/i)
-  assert.match(text, /creates zero Undo commits/i)
-  assert.match(text, /undoable false/i)
+  assert.match(text, /exactly one Undo commit/i)
+  assert.match(text, /first complete owner-issued before bundle/i)
+  assert.match(text, /latest complete owner-issued after bundle/i)
+  assert.match(text, /replaces only the latest staged History bundle reference/i)
+  assert.match(text, /ordinary mutations.*append-only History/i)
+  assert.match(text, /local-only/i)
+  assert.match(text, /Final Group normalization.*same outer Undo commit/i)
+  assert.match(text, /per-element pending-History merge/i)
 })
 
 test('Render owns one profiling-justified retained geometry projection', () => {

@@ -61,7 +61,20 @@
   outer pointer session may therefore emit mouse-down, drag-update, and
   conditional mouse-up publications while still producing one undo commit.
 - Factory preserves every app-authored semantic change in order. It does not
-  collapse or deduplicate sequences such as A -> B -> C -> B.
+  collapse or deduplicate sequences such as A -> B -> C -> B by default.
+- A continuous gesture may explicitly opt into local `replace-latest` History
+  staging with one gesture key. The canonical state owner must provide a
+  complete owner-issued History candidate bundle for each staged sample.
+  Factory retains the first complete `before` bundle, replaces only the latest
+  complete `after` bundle reference, and materializes one ordinary
+  state-owner-backed History action when the outer transaction commits.
+- Replace-latest staging metadata is local transaction control. It must not
+  enter canonical payloads, shared publications, collaboration wire data,
+  persistence, or replay payloads. Mutations without the explicit option keep
+  append-only History semantics.
+- Commit-current interruption finalizes the latest complete staged bundle.
+  Rollback discards staged History and restores canonical state through the
+  rollback contract.
 - State-owner batching must preserve effective `rollbackable`, `shared`, and
   `sharedDelivery` semantics and partition changes whose options differ.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.

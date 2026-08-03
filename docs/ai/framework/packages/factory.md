@@ -69,6 +69,17 @@ infrastructure.
   detached outer identity declared by Reactive Events, so Factory does not
   clone or recursively scan that already-owned geometry at handoff; unissued
   external shallow-frozen batches are still isolated before journal recording
+- ordinary mutation batches retain append-only History semantics
+- a mutation batch may explicitly opt into local gesture-keyed
+  `replace-latest` History staging; its canonical owner supplies a complete
+  owner-issued candidate bundle, Factory retains the first complete `before`
+  bundle and replaces only the latest complete `after` bundle reference, and
+  outer commit materializes one ordinary state-owner-backed History action
+- replace-latest control and candidate metadata never enters canonical
+  payloads, shared publications, collaboration wire data, persistence, or
+  replay payloads
+- commit-current finalizes the latest staged bundle; rollback discards staged
+  History and retains ordinary canonical restoration semantics
 
 2. Undo/redo replay
 
