@@ -618,6 +618,17 @@ const getVectorComputed = (elementId: string) => {
   return computedRaw
 }
 
+const getVectorComputedForPointMutation = (elementId: string) => {
+  if (canReadTransientWorkspaceTopologyCache()) {
+    const cached = transientComputedSnapshotCache.get(elementId)
+    if (cached) {
+      return cached
+    }
+  }
+
+  return getVectorComputed(elementId)
+}
+
 const clearTransientVectorCaches = (elementId: string) => {
   transientWorkspaceTopologyCache.delete(elementId)
   transientComputedSnapshotCache.delete(elementId)
@@ -966,7 +977,7 @@ const createVectorPointMutationPatch = (
   closed?: boolean
 ): ComputedDataPatch => {
   const geometry = getVectorGeometryMutationValues(
-    getVectorComputed(elementId),
+    getVectorComputedForPointMutation(elementId),
     previousTopology,
     nextTopology
   )
