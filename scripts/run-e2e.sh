@@ -87,3 +87,6 @@ else
   echo "Step 7: Running Playwright tests..."
   yarn test:e2e
 fi
+
+echo "Final step: Running isolated unavailable-service status toast test..."
+yarn workspace @asyra/asyra-design test:e2e:status-toast

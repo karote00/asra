@@ -47,10 +47,12 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
     ASYRA_E2E_CRDT_7076: 'true'
   })
   const collaboration = listTests('playwright.collaboration.config.ts')
+  const statusToast = listTests('playwright.status-toast.config.ts')
 
   assert.doesNotMatch(ordinary, /collaboration\.spec\.ts/)
   assert.doesNotMatch(ordinary, /collaboration-ai-agent-video\.spec\.ts/)
   assert.doesNotMatch(ordinary, /crdt-7076-render\.spec\.ts/)
+  assert.doesNotMatch(ordinary, /status-toast-visual\.spec\.ts/)
   assert.match(crdt7076, /crdt-7076-render\.spec\.ts/)
   assert.doesNotMatch(
     ordinaryWithEndpointGuard,
@@ -59,6 +61,7 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.match(collaboration, /collaboration\.spec\.ts/)
   assert.match(collaboration, /collaboration-ai-agent-video\.spec\.ts/)
   assert.match(collaboration, /Total: [1-9]\d* tests? in 2 files/)
+  assert.match(statusToast, /status-toast-visual\.spec\.ts/)
 })
 
 test('owned E2E servers never ask Vite to open a desktop browser', async () => {
@@ -113,6 +116,10 @@ test('Playwright enables the test-only formal document database without changing
   assert.match(
     ciScript,
     /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+  )
+  assert.match(
+    ciScript,
+    /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
   )
   assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
