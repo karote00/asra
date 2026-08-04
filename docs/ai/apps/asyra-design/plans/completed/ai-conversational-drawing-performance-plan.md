@@ -1932,16 +1932,18 @@ intended transaction or history boundary.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
-- RenderApp startup and `resetData()` obtain independent fresh values from one
-  zero-argument App-owned empty-document factory. `resetData()` calls
-  `Core.load(...)` exactly once, then saves the fresh value through the same
-  file-scoped provider without URL parsing or page reload.
-- Reset Data is a local demo-document reset, not a Factory action or CRDT clear
-  command. It does not publish a canonical action and makes no claim that
-  another Actor is cleared.
-- `Core.load(...)` is the sole `FILE_LOAD_COMPLETE` publisher for startup and
-  reset. App contexts may observe that completed load for zoom-fit, but never
-  synthesize file readiness from Render readiness.
+- Superseding demo-only Reset decision: `resetData()` accepts only
+  `crdt-7076-sample`, writes one fresh App-owned empty document to its
+  file-scoped demo browser key, and forces a page reload only after that write
+  succeeds. The reloaded demo reads that empty document before its bundled
+  sample asset.
+- Reset Data is a temporary public-demo utility, not a Core mutation, Factory
+  action, Undo entry, socket publication, backend persistence request, or CRDT
+  clear command. Ordinary socket files do not use it, and the formal App will
+  remove it.
+- `Core.load(...)` remains the sole `FILE_LOAD_COMPLETE` publisher during the
+  reloaded startup. `resetData()` itself does not call Core or synthesize file
+  readiness.
 - Local actions, AI actions, Undo, and Redo reuse Core autosave only on the
   client that originated the operation. Accepted remote publications perform
   zero persistence, Undo, or echo; `peer-applied` acknowledges canonical apply,

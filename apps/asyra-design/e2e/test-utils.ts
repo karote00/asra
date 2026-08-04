@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { Locator, Page } from '@playwright/test'
 import type { Rect } from '@asyra/utils'
 
@@ -61,6 +61,29 @@ export const captureBrowserErrors = (page: Page): void => {
 
 export const getCapturedBrowserErrors = (page: Page): readonly string[] =>
   browserErrorsByPage.get(page) ?? []
+
+export const startDocumentPublicationCapture = async (
+  page: Page,
+  key: string
+): Promise<void> => {
+  await page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    runtime.startDocumentPublicationCapture(captureKey)
+  }, key)
+}
+
+export const stopDocumentPublicationCaptureAndReadDecodeFailures = async (
+  page: Page,
+  key: string
+) =>
+  page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    try {
+      return runtime.readDocumentPublicationDecodeFailures(captureKey)
+    } finally {
+      runtime.stopTestCapture(captureKey)
+    }
+  }, key)
 
 /**
  * Get a safe canvas position that won't be intercepted by overlays
@@ -135,22 +158,28 @@ export async function waitForAppReady(page: Page) {
 }
 
 /**
- * Reset the canvas by clicking the Reset button
+ * Keep ordinary E2E documents empty without depending on the demo-only Reset
+ * control.
  */
 export async function resetCanvas(page: Page) {
-  let resetButton = page.getByTestId('reset-button')
-  const canReset = await resetButton
-    .waitFor({ state: 'visible', timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false)
+  const isEmpty = await page.evaluate(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
+    return (
+      elements instanceof Map &&
+      Array.from(elements.values()).every(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (element: any) => element.get?.('type') === 'workspace'
+      )
+    )
+  })
 
-  if (!canReset) {
+  if (!isEmpty) {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
-    resetButton = page.getByTestId('reset-button')
   }
 
-  await resetButton.click()
   await page.waitForFunction(async () => {
     const elements = (
       await import('../src/testing/runtime-access')
@@ -184,32 +213,58 @@ interface DocumentDigest {
   sha256: string
 }
 
+const sortDocumentValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sortDocumentValue)
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => {
+        if (left < right) return -1
+        if (left > right) return 1
+        return 0
+      })
+      .map(([key, item]) => [key, sortDocumentValue(item)])
+  )
+}
+
+const createDocumentDigest = (documentState: unknown): DocumentDigest => {
+  const serialized = JSON.stringify(sortDocumentValue(documentState))
+  return {
+    byteLength: Buffer.byteLength(serialized),
+    sha256: createHash('sha256').update(serialized).digest('hex')
+  }
+}
+
 export async function getCoreDocumentDigest(
   page: Page
 ): Promise<DocumentDigest> {
-  return page.evaluate(async () => {
+  const documentState = await page.evaluate(async () => {
     const data = await (
       await import('../src/testing/runtime-access')
     ).core.save()
-    const bytes = new TextEncoder().encode(JSON.stringify(data))
-    const digest = await crypto.subtle.digest('SHA-256', bytes)
     return {
-      byteLength: bytes.byteLength,
-      sha256: [...new Uint8Array(digest)]
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('')
+      version: data.version,
+      sceneTree: data.sceneTree,
+      props: data.props
     }
   })
+  return createDocumentDigest(documentState)
 }
 
 export async function getPersistedDocumentDigest(
   page: Page,
   fileId = getCurrentDocumentFileId(page)
 ): Promise<DocumentDigest | null> {
-  return page.evaluate(
+  const documentState = await page.evaluate(
     async ({ requestedFileId }) => {
       const response = await fetch(
-        `/api/documents/${encodeURIComponent(requestedFileId)}`,
+        `/api/documents/${encodeURIComponent(
+          requestedFileId
+        )}/bootstrap-checkpoint`,
         {
           credentials: 'same-origin',
           headers: { accept: 'application/json' }
@@ -220,21 +275,24 @@ export async function getPersistedDocumentDigest(
           `Document database load failed with status ${String(response.status)}`
         )
       }
-      const payload = (await response.json()) as { document?: unknown }
-      if (payload.document === undefined || payload.document === null) {
+      const payload = (await response.json()) as { checkpoint?: unknown }
+      if (payload.checkpoint === undefined || payload.checkpoint === null) {
         return null
       }
-      const bytes = new TextEncoder().encode(JSON.stringify(payload.document))
-      const digest = await crypto.subtle.digest('SHA-256', bytes)
+      const checkpoint = payload.checkpoint as {
+        version?: unknown
+        sceneTree?: unknown
+        props?: unknown
+      }
       return {
-        byteLength: bytes.byteLength,
-        sha256: [...new Uint8Array(digest)]
-          .map((value) => value.toString(16).padStart(2, '0'))
-          .join('')
+        version: checkpoint.version,
+        sceneTree: checkpoint.sceneTree,
+        props: checkpoint.props
       }
     },
     { requestedFileId: fileId }
   )
+  return documentState === null ? null : createDocumentDigest(documentState)
 }
 
 export function parseStrokeDashAndGapInput(pattern: string): {

@@ -236,25 +236,30 @@
       id: 'normalize-preset-group-geometry',
       order: 2,
       laneId: 'preset',
-      title: 'Normalize Group coordinates and bounds',
+      title: 'Normalize explicit Group operations and expose pure bounds',
       ownerPackage: '@asyra/preset',
       purpose:
-        'Derive and write the official direct-child Group geometry cache and apply coordinate conversion inside the same transaction as the accepted hierarchy or geometry mutation.',
+        'Apply coordinate conversion and operation-produced Group geometry only for explicit Group/Ungroup, identity-preserving reparent, or an official Group-targeted operation that requires it; expose direct-child bounds derivation as a pure read.',
       inputs: [
         'artifact:preset-group-operation-plan',
         'artifact:canonical-hierarchy-mutation',
+        'explicit mutation target and operation kind',
         'registered canonical direct-child x, y, width, and height values'
       ],
       outputs: ['artifact:preset-group-geometry-mutation'],
       conditions: [
-        'Group x, y, width, and height are a derived canonical cache rather than independent shape geometry.',
+        'Group x and y are canonical container translation; width and height are operation-produced snapshots retained for document compatibility rather than live shape geometry.',
         'Grouping preserves child world positions by subtracting the new Group origin from direct-child coordinates.',
         'Ungrouping preserves child world positions by adding the removed Group origin in the target parent coordinate space.',
-        'Every accepted direct-child membership or geometry mutation rederives one canonical rectangle union, deepest affected Group first, without creating a second hierarchy or geometry authority.',
+        'Explicit Group/Ungroup and identity-preserving reparent operations use one canonical rectangle union, deepest affected Group first when ancestors are part of that explicit operation.',
+        'An official Group-targeted geometry operation normalizes only when that operation contract requires it.',
+        'deriveGroupBounds is a pure read and never writes canonical data, creates History, publishes changes, or participates in persistence.',
         'All geometry writes remain in the same Factory transaction and use ordinary property/computed validation.'
       ],
       bypasses: [
         'An empty Group ungroup has no child coordinate writes.',
+        'A descendant-only position or dimension mutation bypasses Group normalization and does not walk ancestors or rebase siblings.',
+        'Selecting or hovering a Group uses read-only projection and never enters this canonical mutation path.',
         'Unregistered rotation, scale, or skew values cannot contribute until component registration, persistence, and Render share their canonical contract.',
         'Generic containers and app-replaced Group capabilities do not use official Group geometry normalization.'
       ],
@@ -262,14 +267,16 @@
         'artifact:preset-group-operation-plan',
         'artifact:canonical-hierarchy-mutation',
         'public Core property/computed APIs',
-        'finite canonical translation, rectangle-union, and coordinate-rebasing math'
+        'finite canonical translation, rectangle-union, and coordinate-rebasing math',
+        'pure read-only direct-child bounds derivation'
       ],
       forbiddenContributors: [
         'Render bounds as canonical input',
         'auto-layout or descendant scaling',
         'unregistered transform values, clipping, symbol, or constraint policy',
         'recursive observer loop',
-        'per-frame Group bounds recomputation',
+        'descendant-only mutation triggering ancestor Group writes',
+        'selection or hover triggering canonical Group mutation',
         'visible-jump fallback'
       ],
       cacheDimensions: [],
@@ -1013,7 +1020,8 @@
       assertions: [
         'Contiguous and non-contiguous siblings group in canonical sibling order at the first selected slot; nested Groups are allowed.',
         'Normal and empty Groups ungroup deterministically, preserve direct-child identities and world positions, and remove the official Group.',
-        'A direct-child geometry mutation writes the deepest affected Group and every ancestor derived bounds cache in the same transaction without a visible jump or per-frame recomputation.',
+        'A descendant-only geometry mutation changes only its explicit targets and bypasses ancestor Group writes, sibling rebasing, and Group-sized History or publication.',
+        'Explicit Group/Ungroup and identity-preserving reparent preserve world positions through one Preset-owned rectangle-union and coordinate-conversion path.',
         'One official GROUP component remains installed and app selection/UI policy remains absent.'
       ]
     },

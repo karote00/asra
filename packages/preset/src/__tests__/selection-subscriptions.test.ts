@@ -2146,6 +2146,126 @@ describe('Preset Selection Subscriptions', () => {
     renderSelectionSpy.mockRestore()
   })
 
+  it('derives selected Group content bounds once without reading complete child data', () => {
+    const observers = new Map<string, TestDataChannelObserver>()
+    const selections = new Map<string, BaseSelection>()
+    const childIds = Array.from(
+      { length: 7075 },
+      (_, index) => `child-${index + 1}`
+    )
+    let childCompleteDataReads = 0
+    const groupSet = vi.fn()
+    const group = {
+      get: (key: string) => {
+        if (key === 'type') return EntityTypes.GROUP
+        if (key === 'children') return childIds
+        return undefined
+      },
+      set: groupSet,
+      save: () => ({
+        id: 'group-1',
+        type: EntityTypes.GROUP,
+        children: childIds
+      }),
+      computed: {
+        get: (key: string) =>
+          ({ x: 100, y: 50, width: 20, height: 20 })[
+            key as 'x' | 'y' | 'width' | 'height'
+          ]
+      },
+      getAllComputedData: () => ({
+        id: 'group-1',
+        type: EntityTypes.GROUP,
+        x: 100,
+        y: 50,
+        width: 20,
+        height: 20,
+        rotation: 0
+      })
+    }
+    const childElements = new Map(
+      childIds.map((elementId, index) => [
+        elementId,
+        {
+          get: (key: string) =>
+            key === 'type' ? EntityTypes.RECTANGLE : undefined,
+          computed: {
+            get: (key: string) =>
+              ({ x: index, y: 0, width: 1, height: 1 })[
+                key as 'x' | 'y' | 'width' | 'height'
+              ]
+          },
+          getAllComputedData: () => {
+            childCompleteDataReads += 1
+            return { x: index, y: 0, width: 1, height: 1 }
+          }
+        }
+      ])
+    )
+    const elements = new Map<string, unknown>([
+      ['group-1', group],
+      ...childElements
+    ])
+    const core = {
+      defineSelection: (type: string, selection: BaseSelection) => {
+        selections.set(type, selection)
+      },
+      unregisterSelection: (type: string) => selections.delete(type),
+      getSelection: (type: string) => selections.get(type),
+      registerDataChannelObserver: (
+        registration: TestDataChannelObserver & { name: string }
+      ) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = {
+      ...createDeps(),
+      sceneTree: {
+        ...createDeps().sceneTree,
+        getElementById: (elementId: string) => elements.get(elementId)
+      }
+    } as unknown as PresetDependencies
+    const disposeSelections = registerSelections(core)
+    const selection = selections.get(SelectionChannels.ELEMENT)
+    expect(selection).toBeDefined()
+    selection?.select(['group-1'])
+    const recompute = vi.spyOn(uiContext, 'recomputeSelectionProperties')
+    const disposeObservers = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { uiContext: true }
+    )
+
+    try {
+      observers.get('preset.uiContext.selection')?.onChange?.({
+        selectionType: SelectionChannels.ELEMENT,
+        action: SelectionActions.SELECT_ELEMENTS,
+        eventName: SelectionEventNames.SELECT_ELEMENTS,
+        before: [],
+        after: ['group-1']
+      } satisfies SelectionChange)
+
+      expect(recompute).toHaveBeenCalledOnce()
+      expect(recompute.mock.calls[0]?.[0]).toEqual({
+        selectedIds: new Set(['group-1']),
+        elements: [
+          expect.objectContaining({
+            x: 100,
+            y: 50,
+            width: 7075,
+            height: 1
+          })
+        ]
+      })
+      expect(childCompleteDataReads).toBe(0)
+      expect(groupSet).not.toHaveBeenCalled()
+    } finally {
+      disposeObservers()
+      disposeSelections()
+      recompute.mockRestore()
+    }
+  })
+
   it('syncs vector-editing selection mirrors without the UI context default', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const selections = new Map<string, BaseSelection>()

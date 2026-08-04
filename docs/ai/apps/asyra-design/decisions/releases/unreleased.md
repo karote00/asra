@@ -2357,10 +2357,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 - Context:
   - Phase 5 had already promoted the bounded `single-edge + outside + round
-cap` constrained dashed product path across:
-    - shape-generated `rect`
-    - closed single-network rectangle-equivalent `vector`
-    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+cap` constrained dashed product path across: - shape-generated `rect` - closed single-network rectangle-equivalent `vector` - closed single-network non-rectangle-equivalent quadrilateral `vector`
   - The next honest work item was the matching Family D closeout for the
     rectangle-equivalent shape/vector source pair.
 - Decision:
@@ -2849,17 +2846,13 @@ join`, but to carry the same outside round-cap slice onto the first
     - closed single-network non-rectangle-equivalent quadrilateral `vector`
       inside/outside
   - Phase 6 had also already promoted the first bounded interval-local
-    single-edge gradient slice on:
-    - shape-generated `rect`
-    - constrained dashed `single-edge + inside + local-bounds linear gradient
+    single-edge gradient slice on: - shape-generated `rect` - constrained dashed `single-edge + inside + local-bounds linear gradient
 paint`
   - The next honest move was to advance to the next source frontier instead of
     staying on the same shape-generated single-edge slice.
 - Decision:
   - Promote the next Phase 6 representative with product-path and app-path
-    contracts for:
-    - closed single-network rectangle-equivalent `vector`
-    - constrained dashed `single-edge + inside + local-bounds linear gradient
+    contracts for: - closed single-network rectangle-equivalent `vector` - constrained dashed `single-edge + inside + local-bounds linear gradient
 paint`
   - Keep this promotion narrow:
     - rectangle-equivalent `vector` only
@@ -2900,9 +2893,7 @@ paint`
     instead of stopping on the rectangle-equivalent vector pair.
 - Decision:
   - Promote the next broader Phase 6 representative with product-path and
-    app-path contracts for:
-    - closed single-network non-rectangle-equivalent quadrilateral `vector`
-    - constrained dashed `single-edge + inside + local-bounds linear gradient
+    app-path contracts for: - closed single-network non-rectangle-equivalent quadrilateral `vector` - constrained dashed `single-edge + inside + local-bounds linear gradient
 paint`
   - Keep this promotion narrow:
     - broader non-rectangle-equivalent quadrilateral `vector` only
@@ -2979,9 +2970,7 @@ paint`
     - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
 - Decision:
   - Promote the next Phase 6 representative with product-path and app-path
-    contracts for:
-    - closed single-network rectangle-equivalent `vector`
-    - constrained dashed `single-edge + outside + local-bounds linear gradient
+    contracts for: - closed single-network rectangle-equivalent `vector` - constrained dashed `single-edge + outside + local-bounds linear gradient
 paint`
   - Keep this promotion narrow:
     - rectangle-equivalent `vector` only
@@ -3020,9 +3009,7 @@ paint`
     - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
 - Decision:
   - Promote the next broader Phase 6 representative with product-path and
-    app-path contracts for:
-    - closed single-network non-rectangle-equivalent quadrilateral `vector`
-    - constrained dashed `single-edge + outside + local-bounds linear gradient
+    app-path contracts for: - closed single-network non-rectangle-equivalent quadrilateral `vector` - constrained dashed `single-edge + outside + local-bounds linear gradient
 paint`
   - Keep this promotion narrow:
     - broader non-rectangle-equivalent quadrilateral `vector` only
@@ -5031,10 +5018,7 @@ join` is promoted here; broader round joins and all round caps remain
 
 - Context:
   - Phase 5 had already promoted the bounded `full-loop + outside + round
-join` constrained dashed product path across:
-    - shape-generated `rect`
-    - closed single-network rectangle-equivalent `vector`
-    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+join` constrained dashed product path across: - shape-generated `rect` - closed single-network rectangle-equivalent `vector` - closed single-network non-rectangle-equivalent quadrilateral `vector`
   - The next honest work item was not another source expansion, but a Family D
     closeout proving the rectangle-equivalent shape/vector pair stays
     equivalent for the exterior round-join path.
@@ -7251,3 +7235,192 @@ join` constrained dashed product path across:
   - Pull request #103 remains the review and integration vehicle.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md`
+
+## 2026-08-03 - Reactivate production persistence as one socket-authoritative flow
+
+- Context:
+  - The earlier durable collaboration proposal was closed without
+    implementation because Asyra Design had not committed to shipping a
+    production backend.
+  - The product owner now requires every document, including one-Actor use, to
+    keep a socket session active and delegates document persistence writes to
+    that server path.
+  - Current Core snapshot capture makes ordinary actions scale with complete
+    document size and materially delays the 7,076-element sample.
+- Decision:
+  - Open a new Level 3 plan instead of modifying the historical cancelled plan.
+  - Load through one checkpoint-plus-pending-tail socket handshake before the
+    document becomes editable.
+  - Send the existing Factory `SharedPublication`, never private Undo History or
+    a full browser snapshot.
+  - Let the socket server assign one document sequence, fan out live changes,
+    and flush one fixed three-second dirty window to the backend.
+  - Permit future interval tuning only within one to three seconds; continuous
+    activity cannot debounce the active deadline.
+  - Accept loss of the not-yet-durable in-memory tail on unexpected
+    socket-process failure. With a healthy backend, exposure is the active
+    three-second window plus request latency; three seconds is not a hard
+    outage bound.
+  - On the first backend flush failure, pause new canonical edits while
+    retaining and retrying the exact batch and already accepted tail.
+  - Remove browser persistence writes in the target. Without a separately
+    approved client outbox, an unavailable socket makes the document
+    temporarily non-editable.
+- Consequences:
+  - One-Actor and multi-Actor sessions use one formal production path.
+  - Reset and import must also publish canonical changes; they cannot retain a
+    hidden snapshot save route.
+  - The accepted target is not yet implemented, and current runtime behavior
+    remains explicitly documented until the plan completes.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Keep local editing active with a durable publication recovery outbox
+
+- Context:
+  - The prior accepted socket-authoritative decision made an unavailable socket
+    block canonical editing and explicitly excluded a browser outbox.
+  - The existing 2 MiB server Peer queue retains frames only for a connected
+    receiver and is cleared when that peer disconnects; generic Collaboration
+    also retains no replay copy.
+- Decision:
+  - Supersede the non-editable disconnect policy.
+  - Keep Core, Canvas, actions, Undo, and Redo available during initial
+    connection failure and later disconnection.
+  - Retain every unaccepted local `SharedPublication` in an App-owned native
+    IndexedDB outbox and remove it only after matching socket acceptance.
+  - Treat this outbox as transport recovery, never as a materialized document,
+    Core snapshot, private History store, or second canonical persistence path.
+  - Retry one non-overlapping socket connection every 30 seconds. Emit one
+    toast for each disconnected epoch and one for its successful reconnect;
+    repeated operation failures remain console-only.
+  - Reconnect through the latest checkpoint/tail handshake and reconcile
+    pending local publications in server sequence. Retain storage failures and
+    invalid structural recovery as explicit sync/conflict states rather than
+    silently dropping entries.
+- Consequences:
+  - The public deployment still executes the ordinary full-stack client path;
+    with no server it remains locally editable and accumulates pending
+    publications instead of entering a separate demo mode.
+  - `crdt-7076-sample` remains the sole non-production socket bypass.
+  - The App lifecycle/outbox owns recovery policy; Core, Factory, generic
+    Collaboration, the server Peer queue, and backend checkpoint ownership do
+    not absorb it.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Implement the socket-authoritative document session
+
+- Context:
+  - The accepted product specification, Level 3 plan, and exact Flow Inspector
+    now have formal implementation and end-to-end evidence.
+- Decision:
+  - Make checkpoint-plus-tail socket bootstrap the ordinary document load path.
+  - Keep Core load-only during runtime settlement and retain explicit
+    serialization only for export and diagnostics.
+  - Persist only App-owned unaccepted `SharedPublication` values in the browser
+    recovery outbox; sequence accepted publications in the socket server and
+    materialize them in the backend on the fixed three-second window.
+  - Keep ordinary editing active through connection loss, retry every 30
+    seconds, and reserve transition toasts for disconnect and reconnect.
+- Consequences:
+  - One-Actor, multi-Actor, cloned-repository, and public frontend deployments
+    execute the same client path; missing services change connection state, not
+    document-session architecture.
+  - The browser no longer writes materialized document snapshots.
+  - `crdt-7076-sample` remains the only explicit socket bypass.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Keep Reset as a temporary 7076 demo reload utility
+
+- Context:
+  - The public deployment has no socket server or backend, while
+    `crdt-7076-sample` must remain repeatable for the Agent demo.
+  - Reset is not intended to survive into the formal App and therefore should
+    not add a second formal socket mutation or persistence contract.
+- Decision:
+  - Show the Reset toolbar control for the demo workflow.
+  - Accept Reset only for `crdt-7076-sample`; store one fresh App-owned empty
+    document under its file-scoped browser key, then force a page refresh only
+    after the write succeeds.
+  - Keep Reset outside Core mutation, Factory action, Undo, collaboration
+    publication, and backend persistence ownership.
+  - Remove the utility from the future formal App rather than promoting it into
+    the socket-authoritative document flow.
+- Consequences:
+  - The public 7076 simulation can be restarted without a backend.
+  - Ordinary socket documents retain one authoritative persistence path and do
+    not acquire a browser snapshot fallback.
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Make Child geometry mutations independent of Group size
+
+- Context:
+  - Editing one property or completing one move/create gesture for a Child of
+    the 7,075-element Group synchronously projected ancestor Group bounds and
+    rebased siblings.
+  - The derived work expanded one explicit Child update into a Group-sized
+    request even though the active property/canvas interaction displayed only
+    the Child result.
+- Decision:
+  - Child-only property, move, and create-drag mutations update only their
+    explicit targets and never invoke ancestor Group normalization.
+  - Explicit Group/Ungroup and identity-preserving cross-Group reparent retain
+    Preset-owned coordinate and bounds normalization.
+  - The property common API passes explicit official Group target ids into the
+    Preset projection boundary; an empty Group-target list bypasses all Group
+    reads.
+  - A selected Group receives read-only descendant content bounds through
+    Preset UI context, while Group hover/selection overlay consumes current
+    engine-neutral presentation bounds. Neither path writes Core data.
+- Consequences:
+  - Child property and gesture mutation size is independent of ancestor Group
+    child count.
+  - Selecting or hovering a Group can still display current content bounds
+    without adding History, publication, or persistence changes.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md`
+- Related Inspector:
+  - `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Close the socket-authoritative document-session plan
+
+- Context:
+  - All ten implementation slices passed their focused unit, server, browser,
+    build, performance, and Inspector contract gates.
+  - The product owner accepted the completed socket handshake, durable local
+    outbox, 30-second reconnect cadence, three-second server persistence
+    window, backend materialization flow, and temporary 7076 demo Reset
+    boundary for closeout.
+- Decision:
+  - Mark the socket-authoritative document persistence plan completed.
+  - Move its canonical record into the completed-plan archive while retaining
+    the Flow Inspector as architecture authority and a redirect for append-only
+    decision references recorded before closeout.
+- Consequences:
+  - No highest-priority Asyra Design plan is currently active.
+  - Core remains load-only during runtime settlement; Factory
+    `SharedPublication`, the App recovery outbox, socket sequencing, and backend
+    materialization remain the single ordinary document flow.
+  - The temporary `crdt-7076-sample` Reset remains a bounded non-production
+    utility and does not become a second formal persistence path.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md`

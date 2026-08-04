@@ -53,7 +53,19 @@ describe('collaboration public file identity', () => {
     )
   })
 
-  it('keeps the document available without composing CRDT when no socket endpoint is configured', () => {
+  it('uses the current deployment socket route when no endpoint is configured', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
+    window.history.replaceState({}, '', '/?fileId=ordinary-document')
+
+    expect(getCollaborationMode()).toEqual({
+      fileId: 'ordinary-document',
+      actorId: `actor-${ACTOR_UUID}`,
+      endpoint: 'ws://localhost:3000/collaboration'
+    })
+  })
+
+  it('keeps only the 7076 AI simulation outside the socket document flow', () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
 

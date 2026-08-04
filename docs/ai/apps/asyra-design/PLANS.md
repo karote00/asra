@@ -4,8 +4,18 @@ Never record completed plans here.
 
 ## Current Status
 
-- No highest-priority app plan is currently active.
-- Most recently completed canonical app plan:
+- No highest-priority App plan is currently active.
+- Most recently completed canonical App plan:
+  `plans/completed/socket-authoritative-document-persistence-plan.md`.
+- Its retained product contract and exact owner flow are:
+  - `specs/socket-authoritative-document-session.md`
+  - `plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+- The completed plan replaced Core-triggered browser snapshot autosave with
+  one mandatory socket handshake, Factory `SharedPublication` stream,
+  App-owned durable outbox for unaccepted publications, fixed 30-second
+  reconnect policy, fixed three-second server persistence window, and backend
+  materialization flow.
+- Previously completed canonical App plan:
   `plans/completed/vector-local-geometry-transform-plan.md`.
 - Retained architecture authority for the completed Vector transform work:
   `plans/vector-local-geometry-transform-flow-inspector.data.cjs`.
@@ -31,9 +41,10 @@ Never record completed plans here.
   3. `plans/completed/remote-subtree-restore-snapshot-plan.md`
   4. `plans/completed/group-context-menu-plan.md`
   5. `plans/completed/durable-collaboration-server-and-continuous-sync-plan.md`
-- The durable collaboration backend itself was not implemented. The completed
-  record closes only the product-owner cancellation and documentation
-  correction; it must not be treated as a durable server capability.
+- The older completed cancellation record closes only its historical
+  documentation decision and must not be treated as the current capability.
+  The implemented reactivation is owned by the completed socket-authoritative
+  plan above.
 - Deferred profiling candidate, neither active nor queued:
   `plans/vector-gradient-move-120fps-plan.md`.
 - Stroke semantics are owned by

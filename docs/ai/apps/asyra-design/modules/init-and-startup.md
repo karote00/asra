@@ -66,23 +66,19 @@
 
 3. RenderApp effect
 
-- app-selected IndexedDB persistence is passed to
-  `core.setPersistence(...)` before Core startup, so refresh loads the app's
-  capacity-appropriate browser demo database instead of an empty in-memory
-  document
-- ordinary URLs use `FILE`; a collaboration URL uses
-  `FILE:<encoded fileId>`, and an absent ordinary or collaboration snapshot is
-  initialized with the canonical empty workspace while an existing snapshot
-  is preserved unchanged; when IndexedDB is empty, an eligible matching legacy
-  localStorage snapshot is migrated and cleared only after a successful write
-- a non-empty `fileId`, including in a deployed production build, additionally
-  supplies collaboration document and room identity while a full UUID actor
-  identity is generated per page and applied to the canonical ID-counter
-  namespace
-- the collaboration lifecycle module subscribes to Factory shared publications after
-  ordinary Core/Render startup; immediate publications may occur during an
-  outer pointer transaction, while transaction-end publications wait for
-  commit
+- a non-empty ordinary `fileId` selects collaboration document/room identity,
+  derives the WebSocket endpoint from configured
+  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, and generates a
+  full UUID actor identity per page
+- the collaboration lifecycle opens the checkpoint/tail handshake before Core
+  startup and RenderApp supplies that checkpoint through
+  `core.setLoadSource(...)`
+- after Core load, the lifecycle applies the bootstrap tail through the
+  ordinary remote canonical processor and activates Factory publication
+  transport; immediate publications may occur during an outer pointer
+  transaction, while transaction-end publications wait for commit
+- `crdt-7076-sample` is the sole non-production socket bypass and supplies its
+  checked-in fixture through a separate load-only source
 - `core.start(container, options)` uses the Core-owned default `RenderAdapter`;
   the app does not call `setRenderer()`
 - if renderer/engine initialization rejects, Core stops before observers,
@@ -92,8 +88,37 @@
   unmount/aborted startup cannot later activate collaboration
 - collaboration disposal detaches publication and Awareness observers, clears
   timers/store state, and destroys only owned collaboration resources
-- setup failure disposes the partially composed instance; no failed setup
-  remains attached to the app
+- setup failure disposes the partially composed instance; an unavailable socket
+  uses the formal provisional local startup and durable pending-publication
+  outbox without claiming an authoritative remote load
+
+## Current Socket-Authoritative Startup Flow
+
+The implemented socket-authoritative session uses this RenderApp startup
+ordering:
+
+1. Require `fileId`, create Actor identity, and open the socket document
+   session.
+2. Receive one checkpoint/durable sequence plus the exact pending tail through
+   a fixed head-sequence cutoff.
+3. Start Core through a load-only checkpoint boundary.
+4. Apply the pending tail through the ordinary App remote canonical processor.
+5. Open the App-owned IndexedDB outbox and submit unaccepted local
+   publications in file-local append order.
+6. Reconcile accepted local and peer publications in the server-assigned
+   sequence without creating duplicate local History or echo.
+7. Enable later live publication send/receive beginning at the next sequence.
+
+The browser does not call canonical document persistence `PUT` or `DELETE` and
+does not register Core autosave. Socket unavailability does not disable the
+local canonical path: actions continue into the durable publication outbox,
+the lifecycle retries once every 30 seconds, and only disconnected/reconnected
+state transitions produce ordinary connection toasts. Repeated operation
+failures remain console-only. The same order applies to one-Actor and
+multi-Actor sessions.
+
+Authority:
+`../specs/socket-authoritative-document-session.md`.
 
 4. DataContexts effects
 
@@ -126,7 +151,12 @@
 - Derived-state init should only mirror or compute state from existing sources.
 - Avoid placing feature behavior or UI logic in init modules; those belong in
   `src/features/*` or `src/common-apis/*`.
-- Do not duplicate persistence load/save orchestration in app when core.start already handles persistence.
+- Current implementation: Core owns load and explicit serialization only; do
+  not restore automatic complete-document save orchestration.
+- Do not add another App autosave route. The mandatory socket session replaces
+  Core autosave; frontend startup keeps only the authoritative load handshake,
+  and the App publication outbox remains distinct from canonical document
+  persistence.
 - Keep startup side effects explicit in init modules.
 - Keep app startup concrete-engine-neutral; Preset owns default provider
   selection/diagnostics, `Render` owns reversible provider state, the concrete

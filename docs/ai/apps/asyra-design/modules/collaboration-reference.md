@@ -1,20 +1,23 @@
 # Collaboration Reference
 
-> **Status: non-durable development demo.** The bundled server is not a
-> production backend. It retains no shared document history, and its successful
-> response means live-memory acceptance rather than durable storage.
+> **Status: active socket-authoritative implementation.** The bundled socket
+> server owns checkpoint/tail bootstrap, document sequence, live fan-out, and
+> the fixed-window backend queue. The App owns durable unaccepted-publication
+> recovery, fixed reconnect scheduling, and connection/sync state; backend
+> durability remains a separate acknowledgement. See
+> `../specs/socket-authoritative-document-session.md`.
 
 ## Purpose
 
 Asyra Design includes a real two-window WebSocket collaboration composition.
-It is open-source reference code, not a fake or alternate path. The browser app,
-Provider, typed wire protocol, and memory-only server all use the same
-publication transport contract available to product apps.
+It is open-source reference code, not a fake or alternate path. The browser
+App, Provider, typed wire protocol, socket sequencer, and App backend use the
+same publication transport and materialization contracts for one-Actor and
+multi-Actor documents.
 
-The reference proves live app collaboration behavior through ordinary app
-changes and remote canonical apply. It intentionally does not implement the
-production backend responsibilities listed below and must not be presented as
-continuous recovery or production-safe shared storage.
+The reference proves live collaboration, disconnected local editing, durable
+unaccepted-publication recovery, reconnect reconciliation, and ordered backend
+materialization through ordinary App changes and remote canonical apply.
 
 ## Activation
 
@@ -24,32 +27,26 @@ continuous recovery or production-safe shared storage.
 http://localhost:3000/?fileId=crdt-public-demo
 ```
 
-It selects the App-owned document session identity and will be the input a
-future production server uses to authorize whether the user may open that file.
-It is not a Collaboration toggle. A missing or empty `fileId` does not open a
-document session.
+It selects the App-owned document session identity and is the input the server
+authorization boundary receives. The repository server accepts it without
+authentication; a deployment may replace that adapter. It is not a
+Collaboration toggle. A missing or empty `fileId` does not open a document
+session.
 
-RenderApp always starts Collaboration after the canonical document selected by
-`fileId` is loaded. There is no separate local/non-Collaboration document route.
-Each page creates its own actor ID and uses it as the canonical ID-counter
-namespace before any collaborative element or property creation. When only one
-Actor is connected, the same production path is classified as single-Actor
-processing. When another Actor opens the same `fileId`, both Actors already
-share its room and the path is classified as two-Actor CRDT processing. This
-classification does not change Core, Factory, Render, or Collaboration APIs.
+RenderApp currently prepares Collaboration before Core for every ordinary
+file. It uses `VITE_COLLABORATION_WS_URL` when configured and otherwise derives
+same-origin `/collaboration`. Each page creates its own actor ID and uses it as
+the canonical ID-counter namespace before collaborative element or property
+creation. The socket returns one checkpoint plus exact pending tail; Core loads
+the checkpoint and the App applies the tail before live activation. One Actor
+and multiple Actors use this same path.
 
-The App configures one browser-local IndexedDB provider selected by `fileId`
-before Core starts. A cache miss loads one valid empty document; otherwise Core
-loads the latest accepted local snapshot. Manual actions, Agent actions, Undo,
-and Redo use Core's ordinary persistence lifecycle. One accepted remote
-publication saves the resulting document through the same serialized provider
-queue before its peer-applied receipt. There is no localStorage migration,
-old-format compatibility, or second persistence route.
-
-This browser-local reference persistence is separate from the memory-only
-WebSocket server. It is not a shared database, server commit, cross-device
-recovery, backup, or reconnect replay. A derived production app must replace it
-with an appropriate backend database and authorization policy.
+Core performs no commit-triggered document snapshot persistence. Manual
+actions, Agent actions, Undo, and Redo produce Factory publications for the
+socket sequence; accepted remote apply updates canonical state without a
+receiver persistence save or echo. When the initial handshake fails, the App
+starts from the formal provisional document, remains editable, stores local
+publications in the outbox, and reconciles after a later handshake.
 
 The browser endpoint comes from
 `VITE_COLLABORATION_WS_URL`. The reference server validates the
@@ -64,7 +61,8 @@ local app mutation
 -> app channel filter (Scene Tree and Props)
 -> Collaboration serial FIFO handoff
 -> WebSocket Provider worker binary encoding
--> reference server opaque frame relay with byte backpressure
+-> socket server validation, dedupe, document sequence, persistence enqueue
+-> ordered frame fan-out with connected-Peer byte backpressure
 -> receiving Provider worker decode and wire-credit return
 -> Collaboration exclusive async app callback once
 -> app validates and classifies the complete publication
@@ -116,10 +114,9 @@ remote transaction begins. This is Asyra Design app policy, not
 Factory remote origin keeps accepted remote changes out of the receiving
 user's ordinary local undo stack and suppresses a new outbound publication.
 Owner evidence becomes visible to ordinary local observers only after Factory
-owner finalization succeeds, as one ordered batch. The App then saves the
-accepted result once through the file-scoped serialized persistence queue.
-Rollback or owner-finalization failure exposes no observer prefix and performs
-no save.
+owner finalization succeeds, as one ordered batch. The receiving browser
+performs no persistence save. Rollback or owner-finalization failure exposes no
+observer prefix.
 The default reference policy accepts repeated hierarchy publications. Any
 dedupe, last-write-wins, timestamp ordering, or concurrent hierarchy conflict
 policy is an app/backend responsibility and is not added to Collaboration.
@@ -132,7 +129,9 @@ failure/connection error, Awareness, source-frame admission,
 only the versioned binary frame route; a JSON publication request is not a
 second data path.
 
-`sendPublication()` is the Provider's only public publication send method.
+Generic Collaboration calls `sendPublication()`. The App lifecycle additionally
+uses `sendPublicationWithAcceptance()` to correlate one source publication
+identity with its server sequence before removing the matching outbox entry.
 The Provider sends the publication object once to a Web Worker. The worker
 validates and encodes ordered transferable `ArrayBuffer` frames with a 1 MiB
 soft target; one indivisible record may exceed that target. Incoming
@@ -161,21 +160,24 @@ Neither wire boundary whitelists app channel, event names, or payload meaning;
 App semantics remain in the app processor. WebSocket per-message compression
 is explicitly disabled.
 
-Disconnect rejects pending requests. Reconnect creates a new live socket and
-does not request a state vector or publication history.
+Disconnect rejects active transport requests. Reconnect creates a new socket
+and opens a fresh authoritative checkpoint-plus-tail bootstrap; it does not ask
+generic Collaboration for a state vector or semantic publication history.
 
 ## Reference Server
 
-`collaboration-server.ts` uses `MemoryHub` and one `MemoryProvider` per accepted
-socket. It:
+`collaboration-server.ts` owns one file-scoped room, sequencer, pending tail,
+and persistence queue plus one session record per accepted socket. It:
 
 - accepts the App-owned document session identity carried by the wire protocol;
 - prevents two simultaneous connections from claiming the same actor in one
   file; each accepted socket owns its reservation until its own cleanup, and a
   rejected duplicate cannot release that reservation;
-- inspects only the versioned binary frame header/identity/order metadata and
-  relays canonical payload bytes unchanged to currently connected peers in the
-  same file room;
+- validates versioned binary frames and App document publications before
+  sequence allocation;
+- assigns one monotonic document sequence, deduplicates publication identity,
+  appends the publication to the persistence queue, and then fans it out in
+  order;
 - bounds each peer's queued publication bytes to 2 MiB while allowing one
   indivisible oversized frame;
 - releases queued byte capacity only after the WebSocket send callback and the
@@ -183,23 +185,54 @@ socket. It:
   independently deliverable;
 - fans Awareness only to currently connected peers in the same file room;
 - excludes sender echo;
-- responds after every current peer queue has admitted the publication's frame
-  set within its bounded capacity;
-- retains no publication history.
+- responds with source acceptance after sequence and persistence enqueue plus
+  every current peer queue's bounded admission;
+- flushes one fixed three-second dirty window to the App backend and retries an
+  unacknowledged contiguous batch; and
+- retains the not-yet-durable ordered tail needed by reconnect bootstrap.
 
-If a peer disconnects, publications sent during that period are missed.
-Reconnect receives future live publications only.
+If a peer disconnects, its old Peer queue receives no later live frames.
+Reconnect creates a new Peer session and recovers through the latest backend
+checkpoint plus exact socket pending tail before later live delivery.
 
-The response to `send-publication` is a live bounded-transport
-acknowledgement. It does not prove peer canonical apply, a disk write, database
-commit, recoverable revision, or remote backup. `peer-applied` is a separate
-receipt and still does not represent durable storage. Server restart, redeploy,
-or process failure discards every room.
+This 2 MiB Peer queue is receiver-side live wire backpressure for a socket that
+is still connected. `removePeer(...)` clears it when that socket disconnects.
+It is not the accepted App recovery mechanism and never retains the
+disconnected browser's local actions.
 
-The server's memory-only contract describes live room transport, not browser
-persistence. The App saves locally originated commits and accepted remote
-results to browser-local IndexedDB. That local durability is not a production
-shared database or cross-device recovery mechanism.
+The active production flow adds a separate App-owned IndexedDB outbox before
+this live transport boundary:
+
+```text
+Factory SharedPublication
+-> App durable unaccepted-publication outbox
+-> current live Provider/server path when connected
+-> remove outbox entry only after matching source acceptance
+```
+
+The outbox stores only immutable local publications and file-local append
+order. It stores no Core snapshot, private History, remote publication,
+Selection, Awareness, or Render/UI projection. Generic
+`@asyra/collaboration`, the Peer queue, and the backend checkpoint remain three
+different owners.
+
+Socket failure leaves local editing available. One
+disconnected epoch emits one toast, repeated publication failures remain
+console-only, and the App retries at most once every 30 seconds. Reconnect
+loads the latest checkpoint/tail and reconciles the pending local publications
+in server order. IndexedDB storage failure and invalid structural recovery
+become explicit sync states; neither permits silent eviction.
+
+The response to `send-publication` is socket source acceptance with its
+assigned sequence. It does not prove peer canonical apply or backend
+durability. `peer-applied` is a separate receipt and still does not represent
+durable storage. An unexpected server restart may lose the accepted in-memory
+tail after the latest backend durable sequence; the three-second window is the
+accepted healthy-backend exposure.
+
+The browser performs no canonical document save. The socket persistence queue
+sends ordered publication batches to the App backend, which materializes the
+checkpoint and returns a contiguous durable sequence.
 
 ## Awareness
 
@@ -221,31 +254,37 @@ selected element IDs, pointer throttling/coalescing, heartbeat and expiry
 scheduling, privacy/authorization, and cursor/selection/online-user rendering.
 These values remain ephemeral and must never become canonical authority.
 
-## Production Backend Responsibilities
+## Remaining Production Deployment Responsibilities
 
-The public memory-only server does not implement:
+The repository-local server/backend path does not yet define:
 
 - user authentication or file permission lookup;
-- durable snapshots or database persistence;
-- missed-publication recovery;
-- timestamp/LWW/domain ordering or late-message policy;
-- app conflict merge/repair policy;
+- production database/vendor selection, backup, or disaster recovery;
+- complete outbox conflict review/export/discard UI;
+- durable socket WAL for already accepted, not-yet-materialized publications;
 - horizontal room coordination or operational monitoring.
 
-A production app/backend owns these decisions. It may load a canonical snapshot
-or request domain changes after reconnect without changing the framework
-transport contract.
+A production app/backend owns these decisions. Asyra Design's implemented
+document session defines socket-authoritative sequencing,
+checkpoint-plus-tail load, an App-owned durable unaccepted-publication outbox,
+a fixed 30-second reconnect cadence, transition-only notifications, a fixed
+three-second persistence window, and backend materialization without changing
+the generic framework transport contract.
 
-Forks may omit collaboration, retain this server only as a development demo, or
-replace it with an app-owned production backend. A production backend must
-define durable commit, ordering, retry, duplicate/collision, recovery, backup,
-security, and deployment-topology policy; Asyra Design intentionally supplies
-no default database implementation.
+A developer who clones the repository can run the frontend, socket server, and
+included App backend to exercise the complete formal path. A deployment may
+replace storage and authorization adapters without changing the frontend
+document-session contract.
 
 ## Manual Test
 
-1. Start the app on the configured app URL, commonly port 3000.
-2. Start the reference server:
+1. Start the App backend:
+
+   ```bash
+   yarn workspace @asyra/asyra-design document:backend
+   ```
+
+2. Start the reference socket server:
 
    ```bash
    yarn workspace @asyra/asyra-design collaboration:server
@@ -258,20 +297,24 @@ no default database implementation.
    yarn workspace @asyra/asyra-design collaboration:server:start
    ```
 
-3. Open the same required `fileId` URL in two windows. Both windows load the
-   same App-owned demo document session and always connect Collaboration.
+3. Start the app on the configured app URL, commonly port 3000, and open the
+   same required ordinary `fileId` URL in two windows. Both windows use the same
+   authoritative document-session flow.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
    For pen drag-to-add, verify the peer receives the real point/segment on
    mouse-down and curve-handle changes during drag, before pointer-up.
-5. Perform a local action, Undo, Redo, and one accepted remote edit. Reload each
-   browser and verify its file-scoped IndexedDB document restores the latest
-   accepted state without creating a second collaboration publication.
+5. Perform a local action, Undo, and Redo. Reload the originating browser and
+   verify socket bootstrap restores the backend checkpoint plus pending tail
+   without creating a duplicate collaboration publication.
 6. Verify local selection/presence behavior separately from canonical document
    changes.
-7. Disconnect one window, mutate the other, reconnect, and confirm no hidden
-   server history replay occurs. A reload may restore that browser's own last
-   locally persisted accepted snapshot, but cannot recover publications it
-   never received.
+7. Disconnect one window, mutate the other, reconnect, and confirm the fresh
+   checkpoint/tail bootstrap catches the returning window up before later live
+   delivery.
+8. After the accepted outbox slice is implemented, stop the socket, continue
+   local actions/Undo/Redo, and verify one disconnect toast, console-only
+   publication failures, 30-second retry, reload-safe pending entries, and
+   server-order reconciliation after restart.
 
 ## Validation
 

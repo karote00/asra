@@ -232,7 +232,8 @@
         'Each canonical pointer sample remains immediately available to computed data, Render, and collaboration while Factory replaces only the latest staged History bundle reference.',
         'Ordinary mutations without the explicit staging option retain append-only History semantics.',
         'Staged History control metadata is local-only and never enters canonical payloads, collaboration wire data, persistence, or replay payloads.',
-        'Final Group normalization remains an ordinary ordered change inside the same outer Undo commit.',
+        'Child-only drag finalization contains only the explicit moved targets and does not invoke ancestor Group normalization, rebase siblings, or append Group property changes.',
+        'Explicit Group/Ungroup or identity-preserving reparent remains owned by its separate hierarchy operation and transaction contract.',
         'Transform forward, rollback, publication, and persistence evidence contains no point or handle records.',
         'Accepted remote apply creates no local Undo, persistence echo, or publication echo.',
         'Persistence stores the ordinary unchanged-schema canonical snapshot and never stores Render cache state.'
@@ -539,6 +540,7 @@
       assertions: [
         'Existing documents and the crdt-7076 sample require no migration or value rewrite.',
         'One completed or commit-current canvas drag creates one Undo action from complete first-before and latest-after bundles.',
+        'A child-only Vector drag does not add ancestor Group normalization, sibling rebasing, or Group-sized publication.',
         'Undo, Redo, persistence, publication, and accepted remote apply keep their existing owners.',
         'No Render cache state enters canonical action evidence.'
       ],

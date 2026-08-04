@@ -30,6 +30,7 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
+import type { DocumentSessionBootstrap } from './protocol'
 
 type RunRemoteTransaction = (mutate: () => void) => void
 type RemoteCanonicalElementRemoval = Extract<
@@ -718,66 +719,92 @@ const classifyPropertyComponentBatch = (
     })
   })
 
-  const consumedUpdates = new Set<SharedPublicationDelivery>()
-  const records = structuralDeliveries.map(
-    ({ kind, ownerPropertyId, components }) => {
-      const relationshipUpdate = updateDeliveries.find(
-        ({ delivery, payload }) =>
-          !consumedUpdates.has(delivery) && payload.id === ownerPropertyId
-      )
-      if (!relationshipUpdate) {
-        throw new Error(
-          '[collaboration] invalid property-component batch evidence'
-        )
-      }
-      const { delivery, payload } = relationshipUpdate
-      const before = payload.before
-      const after = payload.after
-      const componentIds = components.map(({ id }) => id)
-      const validRelationship =
-        Array.isArray(before) &&
-        before.every(isNonBlankString) &&
-        Array.isArray(after) &&
-        after.every(isNonBlankString) &&
-        new Set(componentIds).size === componentIds.length &&
-        (kind === 'add'
-          ? sameOrderedIds(after as string[], [
-              ...(before as string[]),
-              ...componentIds
-            ])
-          : componentIds.every((componentId) =>
-              (before as string[]).includes(componentId)
-            ) &&
-            sameOrderedIds(
-              after as string[],
-              (before as string[]).filter(
-                (propertyId) => !componentIds.includes(propertyId)
-              )
-            ))
-      if (!validRelationship) {
-        throw new Error(
-          '[collaboration] invalid property-component batch evidence'
-        )
-      }
-      consumedUpdates.add(delivery)
-      return Object.freeze({
-        propertyId: ownerPropertyId,
-        key: payload.key as string,
-        ...(kind === 'add'
-          ? {
-              set: Object.freeze(
-                Object.fromEntries(
-                  components.map((component) => [
-                    component.id,
-                    Object.freeze({ ...component })
-                  ])
-                )
-              )
-            }
-          : { remove: Object.freeze(componentIds) })
-      })
+  const structuralOwners: string[] = []
+  const structuralByOwner = new Map<
+    string,
+    {
+      additions: PropertyComponentRawData[]
+      removals: PropertyComponentRawData[]
     }
-  )
+  >()
+  structuralDeliveries.forEach(({ kind, ownerPropertyId, components }) => {
+    let structural = structuralByOwner.get(ownerPropertyId)
+    if (!structural) {
+      structural = { additions: [], removals: [] }
+      structuralByOwner.set(ownerPropertyId, structural)
+      structuralOwners.push(ownerPropertyId)
+    }
+    structural[kind === 'add' ? 'additions' : 'removals'].push(...components)
+  })
+
+  const consumedUpdates = new Set<SharedPublicationDelivery>()
+  const records = structuralOwners.map((ownerPropertyId) => {
+    const structural = structuralByOwner.get(ownerPropertyId)
+    if (!structural) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const addedIds = structural.additions.map(({ id }) => id)
+    const removedIds = structural.removals.map(({ id }) => id)
+    const componentIds = [...addedIds, ...removedIds]
+    if (
+      new Set(componentIds).size !== componentIds.length ||
+      componentIds.length === 0
+    ) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const relationshipUpdate = updateDeliveries.find(
+      ({ delivery, payload }) => {
+        if (
+          consumedUpdates.has(delivery) ||
+          payload.id !== ownerPropertyId ||
+          !Array.isArray(payload.before) ||
+          !payload.before.every(isNonBlankString) ||
+          !Array.isArray(payload.after) ||
+          !payload.after.every(isNonBlankString)
+        ) {
+          return false
+        }
+        const before = payload.before as string[]
+        const after = payload.after as string[]
+        return (
+          addedIds.every((componentId) => !before.includes(componentId)) &&
+          removedIds.every((componentId) => before.includes(componentId)) &&
+          sameOrderedIds(after, [
+            ...before.filter((propertyId) => !removedIds.includes(propertyId)),
+            ...addedIds
+          ])
+        )
+      }
+    )
+    if (!relationshipUpdate) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const { delivery, payload } = relationshipUpdate
+    consumedUpdates.add(delivery)
+    return Object.freeze({
+      propertyId: ownerPropertyId,
+      key: payload.key as string,
+      ...(structural.additions.length > 0
+        ? {
+            set: Object.freeze(
+              Object.fromEntries(
+                structural.additions.map((component) => [
+                  component.id,
+                  Object.freeze({ ...component })
+                ])
+              )
+            )
+          }
+        : {}),
+      ...(removedIds.length > 0 ? { remove: Object.freeze(removedIds) } : {})
+    })
+  })
 
   updateDeliveries.forEach(({ delivery, payload }) => {
     if (consumedUpdates.has(delivery)) {
@@ -1202,6 +1229,76 @@ const createRemoteApplySteps = (
   return Object.freeze(changes)
 }
 
+const canonicalChangesFromOrganizedPublication = (
+  organization: OrganizedRemotePublication,
+  restore: ClassifiedRemoteRestore | undefined
+): readonly CanonicalChange[] =>
+  restore
+    ? Object.freeze([
+        Object.freeze({
+          kind: 'subtree-restore' as const,
+          sceneSnapshot: restore.sceneSnapshot,
+          propsSnapshot: restore.propsSnapshot
+        })
+      ])
+    : createRemoteApplySteps(organization)
+
+export const decodeDocumentPublication = (
+  publication: SharedPublication
+): readonly CanonicalChange[] => {
+  const organization = organizeRemotePublication(publication)
+  return canonicalChangesFromOrganizedPublication(
+    organization,
+    classifyRemoteRestore(organization)
+  )
+}
+
+export interface ApplyDocumentSessionBootstrapTailOptions {
+  readonly bootstrap: DocumentSessionBootstrap
+  readonly applyPublication: (
+    publication: SharedPublication
+  ) => void | Promise<void>
+}
+
+export const applyDocumentSessionBootstrapTail = async ({
+  bootstrap,
+  applyPublication
+}: ApplyDocumentSessionBootstrapTailOptions): Promise<number> => {
+  const { durableSequence, headSequence, pendingTail } = bootstrap
+  if (
+    !Number.isSafeInteger(durableSequence) ||
+    durableSequence < 0 ||
+    !Number.isSafeInteger(headSequence) ||
+    headSequence < durableSequence ||
+    !Array.isArray(pendingTail) ||
+    pendingTail.length !== headSequence - durableSequence
+  ) {
+    throw new Error(
+      '[collaboration] document bootstrap sequence range is invalid'
+    )
+  }
+
+  const publicationIds = new Set<string>()
+  pendingTail.forEach(({ sequence, publication, fromActorId }, index) => {
+    if (
+      sequence !== durableSequence + index + 1 ||
+      !isNonBlankString(fromActorId) ||
+      publicationIds.has(publication.publicationId)
+    ) {
+      throw new Error(
+        '[collaboration] document bootstrap tail is gapped or duplicated'
+      )
+    }
+    publicationIds.add(publication.publicationId)
+    decodeDocumentPublication(publication)
+  })
+
+  for (const { publication } of pendingTail) {
+    await applyPublication(publication)
+  }
+  return headSequence
+}
+
 export const createPublicationProcessor =
   ({
     runRemoteTransaction,
@@ -1255,13 +1352,10 @@ export const createPublicationProcessor =
         throw new Error('[collaboration] invalid subtree restore publication')
       }
       if (acceptedRestore) {
-        const canonicalChanges = Object.freeze([
-          Object.freeze({
-            kind: 'subtree-restore' as const,
-            sceneSnapshot: acceptedRestore.sceneSnapshot,
-            propsSnapshot: acceptedRestore.propsSnapshot
-          })
-        ])
+        const canonicalChanges = canonicalChangesFromOrganizedPublication(
+          acceptedOrganization,
+          acceptedRestore
+        )
         measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
           runCanonicalTransaction(() => applyCanonicalChanges(canonicalChanges))
         )
@@ -1269,7 +1363,11 @@ export const createPublicationProcessor =
       }
       const canonicalChanges = measureBrowserDragPhase(
         'collaboration:remote-canonical-batch-derive',
-        () => createRemoteApplySteps(acceptedOrganization)
+        () =>
+          canonicalChangesFromOrganizedPublication(
+            acceptedOrganization,
+            acceptedRestore
+          )
       )
       canonicalChanges.forEach((change) => {
         if (change.kind !== 'element-creation') {

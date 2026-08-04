@@ -490,7 +490,8 @@ describe('collaboration wire protocol', () => {
     const frames = encodePublicationMessageFrames({
       type: CollaborationMessageTypes.PUBLICATIONS,
       publications: [firstPublication, secondPublication],
-      fromActorId: 'actor-a'
+      fromActorId: 'actor-a',
+      sequences: [11, 12]
     })
     expect(frames).toHaveLength(2)
 
@@ -558,7 +559,8 @@ describe('collaboration wire protocol', () => {
     const frame = encodePublicationMessageFrames({
       type: CollaborationMessageTypes.PUBLICATION,
       publication: replayedPublication,
-      fromActorId: 'actor-a'
+      fromActorId: 'actor-a',
+      sequence: 13
     })[0]
     if (!frame) throw new Error('Expected one publication frame')
 
@@ -619,7 +621,8 @@ describe('collaboration wire protocol', () => {
       {
         type: CollaborationMessageTypes.PUBLICATION,
         publication: oversizedPublication,
-        fromActorId: 'actor-a'
+        fromActorId: 'actor-a',
+        sequence: 14
       },
       { softTargetBytes: 1_200_000 }
     )
@@ -631,7 +634,8 @@ describe('collaboration wire protocol', () => {
     const interleavedFrame = encodePublicationMessageFrames({
       type: CollaborationMessageTypes.PUBLICATION,
       publication: interleavedPublication,
-      fromActorId: 'actor-b'
+      fromActorId: 'actor-b',
+      sequence: 15
     })[0]
     expect(oversizedFrames).toHaveLength(2)
     if (!interleavedFrame) throw new Error('Expected an interleaved frame')
@@ -724,7 +728,8 @@ describe('collaboration wire protocol', () => {
     const relay: CollaborationServerMessage = {
       type: CollaborationMessageTypes.PUBLICATION,
       publication: identifiedPublication,
-      fromActorId
+      fromActorId,
+      sequence: 1
     }
 
     const requestFrames = encodePublicationMessageFrames(request)
@@ -738,6 +743,37 @@ describe('collaboration wire protocol', () => {
     ).toMatchObject({ fromActorId, publicationId })
     expect(decodePublicationMessageFrames(requestFrames)).toEqual(request)
     expect(decodePublicationMessageFrames(relayFrames)).toEqual(relay)
+  })
+
+  it('carries one server-assigned document sequence on every relayed publication frame', () => {
+    const relay = {
+      type: CollaborationMessageTypes.PUBLICATION,
+      publication,
+      fromActorId: 'actor-a',
+      sequence: 7
+    } as unknown as CollaborationServerMessage
+
+    const frames = encodePublicationMessageFrames(relay)
+
+    expect(frames).not.toHaveLength(0)
+    expect(
+      frames.map((frame) => inspectPublicationFrameHeader(frame).sequence)
+    ).toEqual(Array.from({ length: frames.length }, () => 7))
+    expect(decodePublicationMessageFrames(frames)).toEqual(relay)
+  })
+
+  it('keeps client publication frames unsequenced before server acceptance', () => {
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-unsequenced',
+      publication
+    }
+
+    const frames = encodePublicationMessageFrames(request)
+
+    expect(
+      frames.map((frame) => inspectPublicationFrameHeader(frame).sequence)
+    ).toEqual(Array.from({ length: frames.length }, () => 0))
   })
 
   it('keeps frame credit identities unambiguous when canonical IDs contain colons', () => {
@@ -1247,7 +1283,8 @@ describe('collaboration wire protocol', () => {
     const inbound = {
       type: 'publications',
       publications: [publication, secondPublication],
-      fromActorId: 'actor-a'
+      fromActorId: 'actor-a',
+      sequences: [1, 2]
     }
 
     expect(parseCollaborationClientMessage(request)).toEqual(request)
@@ -1270,10 +1307,84 @@ describe('collaboration wire protocol', () => {
     const message: CollaborationServerMessage = {
       type: CollaborationMessageTypes.PUBLICATION,
       publication,
-      fromActorId: 'actor-a'
+      fromActorId: 'actor-a',
+      sequence: 1
     }
 
     expect(parseCollaborationServerMessage(message)).toEqual(message)
+  })
+
+  it('parses a gap-free document-session bootstrap and its completion request', () => {
+    const secondPublication = createPublication({
+      suffix: 'bootstrap-b',
+      transactionId: 2
+    })
+    const ready = {
+      type: CollaborationMessageTypes.READY,
+      bootstrap: {
+        checkpoint: { elements: [{ id: 'element-a' }] },
+        durableSequence: 3,
+        headSequence: 5,
+        pendingTail: [
+          {
+            sequence: 4,
+            publication,
+            fromActorId: 'actor-a'
+          },
+          {
+            sequence: 5,
+            publication: secondPublication,
+            fromActorId: 'actor-b'
+          }
+        ]
+      }
+    }
+    const consumed = {
+      type: CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
+      requestId: 'bootstrap-consumed-1',
+      headSequence: 5
+    }
+
+    expect(parseCollaborationServerMessage(ready)).toEqual(ready)
+    expect(parseCollaborationClientMessage(consumed)).toEqual(consumed)
+  })
+
+  it('rejects document-session bootstrap sequence gaps and stale completion cutoffs', () => {
+    const ready = {
+      type: CollaborationMessageTypes.READY,
+      bootstrap: {
+        checkpoint: null,
+        durableSequence: 0,
+        headSequence: 1,
+        pendingTail: [
+          {
+            sequence: 2,
+            publication,
+            fromActorId: 'actor-a'
+          }
+        ]
+      }
+    }
+
+    expect(parseCollaborationServerMessage(ready)).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        type: CollaborationMessageTypes.READY,
+        bootstrap: {
+          checkpoint: null,
+          durableSequence: 0,
+          headSequence: 0,
+          pendingTail: []
+        }
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationClientMessage({
+        type: CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
+        requestId: 'bootstrap-consumed-2',
+        headSequence: -1
+      })
+    ).toBeUndefined()
   })
 
   it('rejects blank optional transport identifiers instead of omitting them', () => {
@@ -1281,7 +1392,8 @@ describe('collaboration wire protocol', () => {
       parseCollaborationServerMessage({
         type: CollaborationMessageTypes.PUBLICATION,
         publication,
-        fromActorId: ''
+        fromActorId: '',
+        sequence: 1
       })
     ).toBeUndefined()
     expect(
@@ -1392,6 +1504,23 @@ describe('collaboration wire protocol', () => {
     }
 
     expect(parseCollaborationServerMessage(response)).toEqual(response)
+  })
+
+  it('parses the exact server-assigned sequences returned after publication acceptance', () => {
+    const response = {
+      type: CollaborationMessageTypes.RESPONSE,
+      requestId: 'request-sequenced',
+      ok: true,
+      acceptedSequences: [41, 42]
+    }
+
+    expect(parseCollaborationServerMessage(response)).toEqual(response)
+    expect(
+      parseCollaborationServerMessage({
+        ...response,
+        acceptedSequences: [41, 43]
+      })
+    ).toBeUndefined()
   })
 
   it('parses exact source frame admission credit and rejects malformed credit', () => {

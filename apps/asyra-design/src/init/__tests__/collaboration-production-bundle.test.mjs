@@ -46,4 +46,18 @@ test('production bundle keeps the deployable collaboration reference composition
     true,
     'production bundle is missing the collaboration route'
   )
+  assert.equal(
+    moduleIds.some((moduleId) =>
+      /[/\\]apps[/\\]asyra-design[/\\]src[/\\]document-persistence\.ts$/.test(
+        moduleId
+      )
+    ),
+    false,
+    'browser document persistence must not be bundled'
+  )
+  assert.equal(
+    bundledCode.includes('/api/documents/'),
+    false,
+    'the browser bundle must not contain a direct document persistence route'
+  )
 })

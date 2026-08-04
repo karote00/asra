@@ -1,12 +1,16 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { providers } from '@asyra/reactive-events'
-import { ProviderFailure, type ProviderStatus } from '@asyra/collaboration'
+import type { ProviderStatus } from '@asyra/collaboration'
 import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
+import { documentInteractionLock } from '../../ai/document-interaction-lock'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
-import type { CollaborationDebugHandle } from '../../collaboration/lifecycle'
+import type {
+  CollaborationDebugHandle,
+  CollaborationSessionState
+} from '../../collaboration/lifecycle'
 import RenderApp from '../index'
 
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
@@ -25,9 +29,11 @@ const SAMPLE_DOCUMENT = {
   },
   props: {}
 } as const
-let collaborationStatusSubscriber:
-  | ((status: ProviderStatus) => void)
+let collaborationSessionState: CollaborationSessionState
+let collaborationSessionStateSubscriber:
+  | ((state: CollaborationSessionState) => void)
   | undefined
+const releaseInteractionLock = vi.fn()
 const collaborationHandle = {
   identity: Object.freeze({
     documentId: 'file-1',
@@ -35,10 +41,15 @@ const collaborationHandle = {
     actorId: `actor-${ACTOR_UUID}`
   }),
   getStatus: () => 'connected' as const,
-  onStatusChange: (subscriber: (status: ProviderStatus) => void) => {
-    collaborationStatusSubscriber = subscriber
+  onStatusChange: (_subscriber: (status: ProviderStatus) => void) => () =>
+    undefined,
+  getSessionState: () => collaborationSessionState,
+  onSessionStateChange: (
+    subscriber: (state: CollaborationSessionState) => void
+  ) => {
+    collaborationSessionStateSubscriber = subscriber
     return () => {
-      collaborationStatusSubscriber = undefined
+      collaborationSessionStateSubscriber = undefined
     }
   },
   disconnect: async () => undefined,
@@ -47,6 +58,15 @@ const collaborationHandle = {
   observePublicationOutcomes: () => () => undefined,
   dispose: async () => undefined
 } satisfies CollaborationDebugHandle
+const preparedCollaborationSession = {
+  bootstrap: {
+    checkpoint: EMPTY_DOCUMENT,
+    durableSequence: 0,
+    headSequence: 0,
+    pendingTail: []
+  },
+  activate: vi.fn(async () => collaborationHandle)
+}
 
 const setReactActEnvironment = (active: boolean) => {
   ;(
@@ -65,18 +85,34 @@ describe('RenderApp StrictMode lifecycle', () => {
     localStorage.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
+    vi.spyOn(core, 'setLoadSource').mockImplementation(() => undefined)
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
+    vi.spyOn(documentInteractionLock, 'acquire').mockReturnValue(
+      releaseInteractionLock
+    )
     vi.spyOn(providers.memory, 'save')
     vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
       collaborationHandle
     )
+    vi.spyOn(
+      collaborationLifecycle,
+      'prepareCollaborationDocumentSession'
+    ).mockResolvedValue(preparedCollaborationSession)
     vi.spyOn(collaborationLifecycle, 'disposeCollaboration').mockResolvedValue(
       undefined
     )
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
-    collaborationStatusSubscriber = undefined
+    collaborationSessionState = Object.freeze({
+      connection: 'connected',
+      sync: 'synced',
+      pendingCount: 0,
+      disconnectedEpoch: 0
+    })
+    collaborationSessionStateSubscriber = undefined
+    releaseInteractionLock.mockClear()
+    preparedCollaborationSession.activate.mockClear()
 
     document.body.replaceChildren()
     setReactActEnvironment(true)
@@ -108,9 +144,11 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setPersistence).toHaveBeenCalledOnce()
+    expect(core.setLoadSource).toHaveBeenCalledOnce()
     expect(core.destroyRenderer).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledWith(
@@ -121,11 +159,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       })
     )
     expect(
-      vi.mocked(core.setPersistence).mock.invocationCallOrder[0]
+      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(collaborationLifecycle.startCollaboration).mock
-        .invocationCallOrder[0] ?? 0
+      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(core.load).not.toHaveBeenCalled()
 
@@ -136,7 +173,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 
-  it('injects the selected file provider before Core and always starts Collaboration after Core', async () => {
+  it('opens the socket document session before Core load and activates live delivery after Core hydration', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -149,30 +186,69 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledOnce()
     )
-    expect(core.setPersistence).toHaveBeenCalledOnce()
+    expect(core.setLoadSource).toHaveBeenCalledWith({
+      name: 'SocketDocumentSession',
+      load: expect.any(Function)
+    })
+    expect(
+      vi.mocked(collaborationLifecycle.prepareCollaborationDocumentSession).mock
+        .invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
+    expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
+      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
+    )
+
+    const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
+    await expect(loadSource?.load()).resolves.toEqual(EMPTY_DOCUMENT)
+
+    await act(async () => root.unmount())
+  })
+
+  it('injects the selected file load source before Core and activates Collaboration after Core', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+
+    await act(async () => {
+      root.render(<RenderApp />)
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    await vi.waitFor(() =>
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledTimes(1)
+    )
+    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.setPersistence).not.toHaveBeenCalled()
     expect(localStorage.getItem('FILE')).toBeNull()
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(
-      vi.mocked(core.setPersistence).mock.invocationCallOrder[0]
+      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(collaborationLifecycle.startCollaboration).mock
-        .invocationCallOrder[0] ?? 0
+      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(core.load).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
 
-  it('creates an independent empty document for every startup lifetime', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new Error('document database unavailable')
+  it('creates an independent load-only document for every 7076 Agent simulation lifetime', async () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
+    const fetch = vi.fn(async () => {
+      return new Response(gzipSync(JSON.stringify(SAMPLE_DOCUMENT)), {
+        status: 200
       })
-    )
+    })
+    vi.stubGlobal('fetch', fetch)
     const firstHost = document.createElement('div')
     document.body.append(firstHost)
     const firstRoot = createRoot(firstHost)
@@ -183,7 +259,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    await vi.waitFor(() => expect(core.setPersistence).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(core.setLoadSource).toHaveBeenCalledTimes(1))
     await act(async () => firstRoot.unmount())
 
     const secondHost = document.createElement('div')
@@ -195,21 +271,24 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    await vi.waitFor(() => expect(core.setPersistence).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(core.setLoadSource).toHaveBeenCalledTimes(2))
 
-    const firstProvider = vi.mocked(core.setPersistence).mock.calls[0]?.[0]
-    const secondProvider = vi.mocked(core.setPersistence).mock.calls[1]?.[0]
+    const firstLoadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
+    const secondLoadSource = vi.mocked(core.setLoadSource).mock.calls[1]?.[0]
     let firstDocument: unknown
     let secondDocument: unknown
     await act(async () => {
-      firstDocument = await firstProvider?.load()
-      secondDocument = await secondProvider?.load()
+      firstDocument = await firstLoadSource?.load()
+      secondDocument = await secondLoadSource?.load()
     })
-    expect(firstDocument).toEqual(EMPTY_DOCUMENT)
-    expect(secondDocument).toEqual(EMPTY_DOCUMENT)
+    expect(firstLoadSource?.name).toBe('Crdt7076AgentSimulation')
+    expect(secondLoadSource?.name).toBe('Crdt7076AgentSimulation')
+    expect(firstDocument).toEqual(SAMPLE_DOCUMENT)
+    expect(secondDocument).toEqual(SAMPLE_DOCUMENT)
     expect(firstDocument).not.toBe(secondDocument)
     expect(firstDocument?.sceneTree).not.toBe(secondDocument?.sceneTree)
     expect(firstDocument?.props).not.toBe(secondDocument?.props)
+    expect(core.setPersistence).not.toHaveBeenCalled()
 
     await act(async () => secondRoot.unmount())
   })
@@ -240,18 +319,17 @@ describe('RenderApp StrictMode lifecycle', () => {
     )
     expect(core.start).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
-    expect(collaborationLifecycle.startCollaboration).not.toHaveBeenCalled()
+    expect(
+      collaborationLifecycle.prepareCollaborationDocumentSession
+    ).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
 
-  it('loads the bundled demo after database failure without starting CRDT or crashing the App', async () => {
+  it('loads the bundled 7076 Agent simulation without a browser persistence request', async () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
-    const fetch = vi.fn(async (input: string) => {
-      if (input.startsWith('/api/documents/')) {
-        throw new Error('database unavailable')
-      }
+    const fetch = vi.fn(async () => {
       return new Response(gzipSync(JSON.stringify(SAMPLE_DOCUMENT)), {
         status: 200
       })
@@ -259,8 +337,8 @@ describe('RenderApp StrictMode lifecycle', () => {
     vi.stubGlobal('fetch', fetch)
     let loadedDocument: unknown
     vi.mocked(core.start).mockImplementationOnce(async () => {
-      const provider = vi.mocked(core.setPersistence).mock.calls[0]?.[0]
-      loadedDocument = await provider?.load()
+      const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
+      loadedDocument = await loadSource?.load()
     })
     const host = document.createElement('div')
     document.body.append(host)
@@ -273,28 +351,27 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    await vi.waitFor(() =>
-      expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-        'Document database is unavailable. You can keep using the app, but changes cannot be saved.'
-      )
-    )
+    await vi.waitFor(() => expect(loadedDocument).toEqual(SAMPLE_DOCUMENT))
     expect(loadedDocument).toEqual(SAMPLE_DOCUMENT)
-    expect(core.start).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(String(fetch.mock.calls[0]?.[0])).not.toContain('/api/documents/')
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(core.setPersistence).not.toHaveBeenCalled()
     expect(collaborationLifecycle.startCollaboration).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
 
-  it('starts the local CRDT sample from an empty document when the database is unavailable', async () => {
-    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
+  it('starts an ordinary full-stack document from the socket checkpoint without browser persistence', async () => {
+    window.history.replaceState({}, '', '/?fileId=ordinary-document')
     const fetch = vi.fn(async () => {
       throw new Error('database unavailable')
     })
     vi.stubGlobal('fetch', fetch)
     let loadedDocument: unknown
     vi.mocked(core.start).mockImplementationOnce(async () => {
-      const provider = vi.mocked(core.setPersistence).mock.calls[0]?.[0]
-      loadedDocument = await provider?.load()
+      const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
+      loadedDocument = await loadSource?.load()
     })
     const host = document.createElement('div')
     document.body.append(host)
@@ -308,13 +385,14 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledOnce()
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledOnce()
     )
     expect(loadedDocument).toEqual(EMPTY_DOCUMENT)
-    expect(fetch).toHaveBeenCalledTimes(1)
-    expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-      'Document database is unavailable. You can keep using the app, but changes cannot be saved.'
-    )
+    expect(fetch).not.toHaveBeenCalled()
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(core.setPersistence).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
@@ -337,21 +415,25 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setPersistence).toHaveBeenCalledOnce()
+    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.setPersistence).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
     expect(
-      vi.mocked(core.setPersistence).mock.invocationCallOrder[0]
+      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(collaborationLifecycle.startCollaboration).mock
-        .invocationCallOrder[0] ?? 0
+      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(providers.memory.save).not.toHaveBeenCalled()
     expect(localStorage.getItem('FILE:file-1')).toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
+    expect(
+      collaborationLifecycle.prepareCollaborationDocumentSession
+    ).toHaveBeenCalledWith({
       fileId: 'file-1',
       actorId: `actor-${ACTOR_UUID}`,
       endpoint: COLLABORATION_ENDPOINT
@@ -385,15 +467,20 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setPersistence).toHaveBeenCalledOnce()
+    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.setPersistence).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
     expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
       existingDocument
     )
     expect(localStorage.getItem('FILE')).toBeNull()
-    expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+    expect(
+      collaborationLifecycle.prepareCollaborationDocumentSession
+    ).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())
   })
@@ -425,13 +512,22 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(collaborationLifecycle.startCollaboration).not.toHaveBeenCalled()
+    expect(preparedCollaborationSession.activate).not.toHaveBeenCalled()
   })
 
-  it('keeps the App running and reports an initial collaboration connection failure', async () => {
-    vi.mocked(collaborationLifecycle.startCollaboration).mockRejectedValueOnce(
-      new ProviderFailure('connection-failed', 'socket server unavailable')
-    )
+  it('starts the local document and reports one initial disconnected epoch without locking editing', async () => {
+    collaborationSessionState = Object.freeze({
+      connection: 'disconnected',
+      sync: 'synced',
+      pendingCount: 0,
+      disconnectedEpoch: 1,
+      notification: Object.freeze({
+        id: 'collaboration-disconnected-1',
+        message:
+          'The document session is offline. Local editing remains available and changes will sync after reconnection.',
+        type: 'disconnected'
+      })
+    })
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -444,11 +540,12 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-        'Collaboration server is unavailable. You can keep using the app, but this tab will not receive remote changes.'
+        'The document session is offline. Local editing remains available and changes will sync after reconnection.'
       )
     )
     expect(core.start).toHaveBeenCalledOnce()
     expect(core.destroyRenderer).not.toHaveBeenCalled()
+    expect(documentInteractionLock.acquire).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
@@ -457,9 +554,9 @@ describe('RenderApp StrictMode lifecycle', () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)
-    vi.mocked(collaborationLifecycle.startCollaboration).mockRejectedValueOnce(
-      new Error('collaboration composition failed')
-    )
+    vi.mocked(
+      collaborationLifecycle.prepareCollaborationDocumentSession
+    ).mockRejectedValueOnce(new Error('collaboration composition failed'))
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -479,11 +576,12 @@ describe('RenderApp StrictMode lifecycle', () => {
       )
     )
     expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(documentInteractionLock.acquire).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })
 
-  it('keeps the App running and reports a collaboration disconnect after startup', async () => {
+  it('keeps the App editable and emits one transition toast for disconnect and reconnect', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -494,19 +592,57 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
     await vi.waitFor(() =>
-      expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledOnce()
+      expect(preparedCollaborationSession.activate).toHaveBeenCalledOnce()
     )
 
     await act(async () => {
-      collaborationStatusSubscriber?.('disconnected')
+      collaborationSessionState = Object.freeze({
+        connection: 'disconnected',
+        sync: 'pending',
+        pendingCount: 1,
+        disconnectedEpoch: 1,
+        notification: Object.freeze({
+          id: 'collaboration-disconnected-1',
+          message:
+            'The document session is offline. Local editing remains available and changes will sync after reconnection.',
+          type: 'disconnected'
+        })
+      })
+      collaborationSessionStateSubscriber?.(collaborationSessionState)
     })
 
     expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-      'Collaboration server is unavailable. You can keep using the app, but this tab will not receive remote changes.'
+      'The document session is offline. Local editing remains available and changes will sync after reconnection.'
+    )
+    expect(host.querySelectorAll('[role="alert"]')).toHaveLength(1)
+
+    await act(async () => {
+      collaborationSessionStateSubscriber?.(collaborationSessionState)
+    })
+    expect(host.querySelectorAll('[role="alert"]')).toHaveLength(1)
+
+    await act(async () => {
+      collaborationSessionState = Object.freeze({
+        connection: 'connected',
+        sync: 'synced',
+        pendingCount: 0,
+        disconnectedEpoch: 1,
+        notification: Object.freeze({
+          id: 'collaboration-reconnected-1',
+          message: 'The document session is connected and changes are syncing.',
+          type: 'reconnected'
+        })
+      })
+      collaborationSessionStateSubscriber?.(collaborationSessionState)
+    })
+    expect(host.textContent).toContain(
+      'The document session is connected and changes are syncing.'
     )
     expect(core.start).toHaveBeenCalledOnce()
     expect(core.destroyRenderer).not.toHaveBeenCalled()
+    expect(documentInteractionLock.acquire).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
+    expect(releaseInteractionLock).not.toHaveBeenCalled()
   })
 })

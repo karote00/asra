@@ -17,9 +17,15 @@ import {
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  applyDocumentSessionBootstrapTail,
   createPublicationProcessor,
   type DecideRemotePublication
 } from '../../collaboration/operations'
+import {
+  createDocumentMaterializationService,
+  type DocumentMaterializationStore,
+  type MaterializedDocumentRecord
+} from '../../../server/document-materializer'
 
 type TestPublicationDelivery = SharedPublicationDelivery & {
   readonly batchId: string
@@ -425,6 +431,79 @@ const createHarness = (options: HarnessOptions = {}) => {
 }
 
 describe('Asyra Design app-owned collaboration processing', () => {
+  it('applies a gap-free bootstrap tail exactly once in document sequence order', async () => {
+    const first = publication(
+      propertyUpdateDeliveries('position-a', { x: 10 }),
+      'bootstrap-publication-1'
+    )
+    const second = publication(
+      propertyUpdateDeliveries('position-a', { x: 20 }),
+      'bootstrap-publication-2'
+    )
+    const applied: string[] = []
+
+    await expect(
+      applyDocumentSessionBootstrapTail({
+        bootstrap: {
+          checkpoint: { version: '1.0.0' },
+          durableSequence: 4,
+          headSequence: 6,
+          pendingTail: [
+            { sequence: 5, publication: first, fromActorId: 'actor-a' },
+            { sequence: 6, publication: second, fromActorId: 'actor-b' }
+          ]
+        },
+        applyPublication: async (item) => {
+          applied.push(item.publicationId)
+        }
+      })
+    ).resolves.toBe(6)
+    expect(applied).toEqual([
+      'bootstrap-publication-1',
+      'bootstrap-publication-2'
+    ])
+  })
+
+  it('rejects bootstrap gaps, duplicate publication identities, and invalid routes before apply', async () => {
+    const valid = publication(
+      propertyUpdateDeliveries('position-a', { x: 10 }),
+      'bootstrap-valid'
+    )
+    const invalidRoute = publication(
+      [delivery('selection', 'selection.update', {})],
+      'bootstrap-invalid-route'
+    )
+    const applyPublication = vi.fn(async () => undefined)
+
+    for (const pendingTail of [
+      [
+        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
+        { sequence: 4, publication: valid, fromActorId: 'actor-a' }
+      ],
+      [
+        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
+        { sequence: 3, publication: valid, fromActorId: 'actor-b' }
+      ],
+      [
+        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
+        { sequence: 3, publication: invalidRoute, fromActorId: 'actor-b' }
+      ]
+    ]) {
+      await expect(
+        applyDocumentSessionBootstrapTail({
+          bootstrap: {
+            checkpoint: { version: '1.0.0' },
+            durableSequence: 1,
+            headSequence: 3,
+            pendingTail
+          },
+          applyPublication
+        })
+      ).rejects.toThrow(/bootstrap|unsupported collaboration delivery/)
+    }
+    expect(applyPublication).not.toHaveBeenCalled()
+  })
+
   it('applies a minimal nested property publication without legacy aliases', () => {
     const harness = createHarness()
     const minimalPublication: SharedPublication = {
@@ -638,6 +717,100 @@ describe('Asyra Design app-owned collaboration processing', () => {
             propertyId: 'points-root',
             key: 'points',
             remove: ['point-b']
+          }
+        ],
+        updates: []
+      }
+    ])
+  })
+
+  it('preserves one property record replacement with one relationship update', () => {
+    const harness = createHarness()
+    const propertyBatchId = 'batch-vector-topology-replacement'
+    const segmentAddition = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.ADD_PROPERTY,
+        {
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [
+            {
+              id: 'segment-new',
+              type: 'vectorSegment',
+              startId: 'point-a',
+              endId: 'point-b'
+            }
+          ]
+        },
+        'add-segment-new'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+    const segmentRootUpdate = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.UPDATE_PROPERTY,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          id: 'segments-root',
+          key: 'segments',
+          before: ['segment-old'],
+          after: ['segment-new']
+        },
+        'replace-segments-root'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+    const segmentRemoval = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.REMOVE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.REMOVE_PROPERTY,
+          eventName: EventTypes.REMOVE_PROPERTY,
+          data: [
+            {
+              id: 'segment-old',
+              type: 'vectorSegment',
+              startId: 'point-a',
+              endId: 'point-b'
+            }
+          ]
+        },
+        'remove-segment-old'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+
+    expect(
+      harness.processPublication(
+        publication(
+          [segmentAddition, segmentRootUpdate, segmentRemoval],
+          'remote-vector-topology-replacement'
+        )
+      )
+    ).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        records: [
+          {
+            propertyId: 'segments-root',
+            key: 'segments',
+            set: {
+              'segment-new': {
+                id: 'segment-new',
+                type: 'vectorSegment',
+                startId: 'point-a',
+                endId: 'point-b'
+              }
+            },
+            remove: ['segment-old']
           }
         ],
         updates: []
@@ -1303,4 +1476,293 @@ describe('Asyra Design app-owned collaboration processing', () => {
       expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
     }
   )
+})
+
+interface MaterializedTestDocument {
+  readonly appliedValues: readonly number[]
+}
+
+type MaterializationTestRecord =
+  MaterializedDocumentRecord<MaterializedTestDocument>
+
+const createMaterializationHarness = (
+  applyCanonicalChanges: (
+    document: MaterializedTestDocument,
+    changes: readonly CanonicalChange[]
+  ) => MaterializedTestDocument = (document, changes) => ({
+    appliedValues: [
+      ...document.appliedValues,
+      ...changes.flatMap((change) =>
+        change.kind === 'property-components'
+          ? change.updates.flatMap(({ values }) =>
+              typeof values.x === 'number' ? [values.x] : []
+            )
+          : []
+      )
+    ]
+  })
+) => {
+  let record: MaterializationTestRecord = {
+    document: { appliedValues: [] },
+    durableSequence: 0,
+    publicationSequences: {},
+    batches: {}
+  }
+  const store: DocumentMaterializationStore<MaterializedTestDocument> = {
+    async transact<Result>(
+      _documentId: string,
+      execute: (
+        current: MaterializationTestRecord,
+        commit: (next: MaterializationTestRecord) => void
+      ) => Promise<Result>
+    ): Promise<Result> {
+      let next: MaterializationTestRecord | undefined
+      const result = await execute(record, (candidate) => {
+        next = candidate
+      })
+      if (next) record = next
+      return result
+    }
+  }
+  const transact = vi.spyOn(store, 'transact')
+  const apply = vi.fn(applyCanonicalChanges)
+  const authorize = vi.fn(async () => undefined)
+  const service = createDocumentMaterializationService({
+    applyCanonicalChanges: apply,
+    authorize,
+    store
+  })
+
+  return {
+    apply,
+    authorize,
+    getRecord: () => record,
+    service,
+    transact
+  }
+}
+
+const persistenceBatch = (
+  entries: readonly Readonly<{
+    sequence: number
+    publication: SharedPublication
+  }>[],
+  options: Readonly<{
+    batchId?: string
+    documentId?: string
+    expectedDurableSequence?: number
+  }> = {}
+) => ({
+  protocolVersion: 1,
+  batchId: options.batchId ?? 'persistence-batch-a',
+  documentId: options.documentId ?? 'document-a',
+  expectedDurableSequence: options.expectedDurableSequence ?? 0,
+  firstSequence: entries[0]?.sequence ?? 0,
+  lastSequence: entries.at(-1)?.sequence ?? 0,
+  entries: entries.map(({ sequence, publication: item }) => ({
+    documentId: options.documentId ?? 'document-a',
+    sequence,
+    publication: item
+  }))
+})
+
+describe('Asyra Design backend document materialization', () => {
+  it('decodes and applies every publication in sequence before acknowledging the contiguous durable sequence', async () => {
+    const harness = createMaterializationHarness()
+    const batch = persistenceBatch([
+      {
+        sequence: 1,
+        publication: publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'publication-1'
+        )
+      },
+      {
+        sequence: 2,
+        publication: publication(
+          propertyUpdateDeliveries('position-a', { x: 20 }),
+          'publication-2'
+        )
+      }
+    ])
+
+    await expect(harness.service.materialize(batch)).resolves.toEqual({
+      durableSequence: 2
+    })
+    expect(harness.apply).toHaveBeenCalledTimes(2)
+    expect(harness.getRecord()).toMatchObject({
+      document: { appliedValues: [10, 20] },
+      durableSequence: 2,
+      publicationSequences: {
+        'publication-1': 1,
+        'publication-2': 2
+      }
+    })
+  })
+
+  it('returns the existing watermark for exact batch and publication retries without applying twice', async () => {
+    const harness = createMaterializationHarness()
+    const entries = [
+      {
+        sequence: 1,
+        publication: publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'publication-1'
+        )
+      }
+    ]
+    const batch = persistenceBatch(entries)
+
+    await harness.service.materialize(batch)
+    await expect(harness.service.materialize(batch)).resolves.toEqual({
+      durableSequence: 1
+    })
+    await expect(
+      harness.service.materialize(
+        persistenceBatch(entries, { batchId: 'publication-retry-batch' })
+      )
+    ).resolves.toEqual({ durableSequence: 1 })
+    expect(harness.apply).toHaveBeenCalledOnce()
+  })
+
+  it('treats publication identities as own data keys instead of object prototype members', async () => {
+    const harness = createMaterializationHarness()
+
+    await expect(
+      harness.service.materialize(
+        persistenceBatch([
+          {
+            sequence: 1,
+            publication: publication(
+              propertyUpdateDeliveries('position-a', { x: 10 }),
+              '__proto__'
+            )
+          }
+        ])
+      )
+    ).resolves.toEqual({ durableSequence: 1 })
+    expect(
+      Object.hasOwn(harness.getRecord().publicationSequences, '__proto__')
+    ).toBe(true)
+    expect(harness.getRecord().publicationSequences.__proto__).toBe(1)
+  })
+
+  it('rejects a batch whose expected durable sequence conflicts with the stored checkpoint', async () => {
+    const harness = createMaterializationHarness()
+    await harness.service.materialize(
+      persistenceBatch([
+        {
+          sequence: 1,
+          publication: publication(
+            propertyUpdateDeliveries('position-a', { x: 10 }),
+            'publication-1'
+          )
+        }
+      ])
+    )
+
+    await expect(
+      harness.service.materialize(
+        persistenceBatch(
+          [
+            {
+              sequence: 1,
+              publication: publication(
+                propertyUpdateDeliveries('position-a', { x: 20 }),
+                'publication-conflict'
+              )
+            }
+          ],
+          { batchId: 'conflicting-checkpoint-batch' }
+        )
+      )
+    ).rejects.toThrow('expected durable sequence conflicts')
+    expect(harness.getRecord().document.appliedValues).toEqual([10])
+    expect(harness.getRecord().durableSequence).toBe(1)
+  })
+
+  it('rejects sequence gaps and unsupported channels before opening a storage transaction', async () => {
+    const harness = createMaterializationHarness()
+    const gapped = persistenceBatch([
+      {
+        sequence: 1,
+        publication: publication(
+          propertyUpdateDeliveries('position-a', { x: 10 }),
+          'publication-1'
+        )
+      },
+      {
+        sequence: 3,
+        publication: publication(
+          propertyUpdateDeliveries('position-a', { x: 30 }),
+          'publication-3'
+        )
+      }
+    ])
+
+    await expect(harness.service.materialize(gapped)).rejects.toThrow(
+      'contiguous'
+    )
+    await expect(
+      harness.service.materialize(
+        persistenceBatch([
+          {
+            sequence: 1,
+            publication: publication(
+              [delivery('selection', 'selection.update', {})],
+              'selection-publication'
+            )
+          }
+        ])
+      )
+    ).rejects.toThrow('unsupported collaboration delivery')
+    expect(harness.transact).not.toHaveBeenCalled()
+    expect(harness.apply).not.toHaveBeenCalled()
+  })
+
+  it('does not commit any publication or advance durability when a later publication fails', async () => {
+    const harness = createMaterializationHarness((document, changes) => {
+      const nextValue = changes.flatMap((change) =>
+        change.kind === 'property-components'
+          ? change.updates.flatMap(({ values }) =>
+              typeof values.x === 'number' ? [values.x] : []
+            )
+          : []
+      )[0]
+      if (nextValue === 20) throw new Error('backend canonical apply failed')
+      return {
+        appliedValues:
+          nextValue === undefined
+            ? document.appliedValues
+            : [...document.appliedValues, nextValue]
+      }
+    })
+
+    await expect(
+      harness.service.materialize(
+        persistenceBatch([
+          {
+            sequence: 1,
+            publication: publication(
+              propertyUpdateDeliveries('position-a', { x: 10 }),
+              'publication-1'
+            )
+          },
+          {
+            sequence: 2,
+            publication: publication(
+              propertyUpdateDeliveries('position-a', { x: 20 }),
+              'publication-2'
+            )
+          }
+        ])
+      )
+    ).rejects.toThrow('backend canonical apply failed')
+    expect(harness.getRecord()).toEqual({
+      document: { appliedValues: [] },
+      durableSequence: 0,
+      publicationSequences: {},
+      batches: {}
+    })
+  })
 })

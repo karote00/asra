@@ -228,7 +228,14 @@ test('canvas drag settlement stages one complete Undo action', () => {
   assert.match(text, /replaces only the latest staged History bundle reference/i)
   assert.match(text, /ordinary mutations.*append-only History/i)
   assert.match(text, /local-only/i)
-  assert.match(text, /Final Group normalization.*same outer Undo commit/i)
+  assert.match(
+    text,
+    /Child-only drag finalization.*explicit moved targets.*does not invoke ancestor Group normalization.*rebase siblings/i
+  )
+  assert.match(
+    text,
+    /Explicit Group\/Ungroup or identity-preserving reparent.*separate hierarchy operation/i
+  )
   assert.match(text, /per-element pending-History merge/i)
 })
 

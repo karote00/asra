@@ -17,7 +17,7 @@ Purpose: keep app docs aligned with implemented source modules.
 - App environment and optional collaboration composition
 
   - `.env`, `app-environment.mjs`, `vite.config.ts`, `vite.collaboration-server.config.ts`, `tsconfig.collaboration-server.json`, `playwright*.config.ts`, `collaboration-server.ts`, `src/collaboration/*`, `src/render-app/collaboration-mode.ts`
-  - docs: `modules/collaboration-reference.md`, `API_SURFACES.md`, `ARCHITECTURE.md`
+  - docs: `modules/collaboration-reference.md`, `specs/socket-authoritative-document-session.md`, `plans/completed/socket-authoritative-document-persistence-plan.md`, `API_SURFACES.md`, `ARCHITECTURE.md`
 
 - Input/event mapping
 

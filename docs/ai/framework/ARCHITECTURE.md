@@ -124,9 +124,9 @@ Canonical shorthand:
   undo/redo history, and local shared-channel settlement.
 - Feature-system owns cancel/error/timeout outcome decisions and serializes
   interaction operations.
-- Core observes only its injected Factory instance, serializes persistence after
-  committed action/undo/redo outcomes, and reports persistence separately from
-  runtime commit.
+- Core owns load orchestration and explicit detached serialization. It does not
+  observe committed action/undo/redo outcomes to schedule automatic document
+  persistence.
 - Scene-tree owns entity graph and is the canonical owner for parent membership,
   child order, cycle prevention, and group/reparent/subtree invariants. Preset
   owns the optional official Group defaults and basic operation adapters, while
@@ -257,7 +257,7 @@ applyPreset(core, { profile?, defaults? })
 
 ## Persistence and Loading
 
-- Core orchestrates save/load and load hooks.
+- Core orchestrates load, load hooks, and explicit detached serialization.
 - The first instance-local app load hook receives the raw document before Core
   normalization. Direct `core.load(...)`, provider load results, and hook input
   remain `unknown` until app eligibility logic narrows them; synchronous hooks
@@ -288,11 +288,49 @@ applyPreset(core, { profile?, defaults? })
   or state owner. Evidence is assembled only when diagnostics and an observer
   exist; assembly, mutation, or hook failure cannot change migration,
   validation, apply, load success, or later current diagnostic hooks.
-- Committed action, undo, and redo outcomes capture their persistence snapshot
-  at commit time, deeply detach it from live mutable references, then enter a
-  serial provider-I/O queue.
-- Persistence failure is reported but does not reverse already committed
-  runtime state; no automatic retry policy is provided.
+- Committed action, undo, and redo outcomes perform no automatic full-document
+  capture or provider I/O. Apps compose transport acceptance and durable
+  persistence as separate observations that never redefine runtime commit.
+
+### Active socket-authoritative App composition
+
+The active Asyra Design plan changes the pre-release Core persistence boundary
+without changing canonical state ownership:
+
+```text
+App socket bootstrap checkpoint
+-> Core migration / validation / canonical load
+-> App applies exact socket pending tail
+-> Factory SharedPublication
+-> App durable unaccepted-publication outbox
+-> App reconnect reconciliation when required
+-> App socket sequence / live fan-out
+-> fixed three-second App-server persistence batch
+-> App backend materialization and durable watermark
+```
+
+- Core retains load orchestration and explicit serialization, but no longer
+  observes committed transactions to capture, detach, queue, or save complete
+  document snapshots.
+- Factory's existing immutable `SharedPublication` remains the local canonical
+  change output. It does not expose Undo History or gain persistence policy.
+- Generic Collaboration remains provider-neutral live transport. App/server
+  composition owns handshake, sequence, recovery, persistence batching, retry,
+  backend materialization, and durability.
+- Asyra Design recovery is App composition: native IndexedDB retains only
+  immutable local publications until socket acceptance. It is neither Core
+  document persistence nor generic Collaboration history.
+- Connection loss does not disable the local canonical path. The App owns fixed
+  30-second reconnect scheduling, transition-only notifications, and
+  checkpoint/tail plus pending-publication reconciliation.
+- Selection and other non-document state may remain transaction-bounded or
+  undoable but do not enter the document publication/persistence stream.
+- This App composition is implemented. Core, Factory, and generic
+  Collaboration retain the package boundaries above; file-scoped recovery,
+  sequencing, persistence batching, and durability remain App/server policy.
+
+Authority:
+`../apps/asyra-design/specs/socket-authoritative-document-session.md`.
 
 ## Local Transaction ACID Boundary
 

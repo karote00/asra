@@ -58,7 +58,8 @@ export interface DecodedPublicationWorkerResponse {
   readonly jobId: string
   readonly header: PublicationFrameHeader
   readonly publication: SharedPublication
-  readonly fromActorId?: string
+  readonly fromActorId: string
+  readonly sequence: number
   readonly durationMs?: number
   readonly hasPendingPublication: boolean
 }
@@ -130,7 +131,8 @@ const inboundAssemblyKey = (header: PublicationFrameHeader): string =>
     header.fromActorId ?? '',
     header.publicationId,
     header.publicationIndex,
-    header.publicationCount
+    header.publicationCount,
+    header.sequence
   ])
 
 const inboundBurstKey = (header: PublicationFrameHeader): string =>
@@ -359,7 +361,8 @@ export class PublicationCodecWorkerRuntime {
       } else if (
         assembly.header.chunkCount !== header.chunkCount ||
         assembly.header.messageType !== header.messageType ||
-        assembly.header.fromActorId !== header.fromActorId
+        assembly.header.fromActorId !== header.fromActorId ||
+        assembly.header.sequence !== header.sequence
       ) {
         throw new TypeError(
           '[collaboration] inconsistent inbound publication frames'
@@ -403,9 +406,8 @@ export class PublicationCodecWorkerRuntime {
       assembly.decoded = {
         header: decoded.header,
         publication: decoded.publication,
-        ...(decoded.header.fromActorId
-          ? { fromActorId: decoded.header.fromActorId }
-          : {}),
+        fromActorId: decoded.header.fromActorId as string,
+        sequence: decoded.header.sequence,
         durationMs: elapsed(startedAt)
       }
       const burstKey = inboundBurstKey(header)

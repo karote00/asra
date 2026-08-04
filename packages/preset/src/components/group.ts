@@ -451,11 +451,6 @@ const stageInitialPropertyUpdates = (
       return
     }
 
-    const currentValues = getComputedData(projection, update.elementId)
-    projection.projectedValues.set(update.elementId, {
-      ...currentValues,
-      ...stagedGeometryValues
-    })
     geometryElementIds.push(update.elementId)
   })
 
@@ -464,7 +459,8 @@ const stageInitialPropertyUpdates = (
 
 export const projectGroupGeometryPropertyUpdates = (
   core: GroupGeometryProjectionCore,
-  initialUpdates: readonly ElementPropertyValuesUpdate[]
+  initialUpdates: readonly ElementPropertyValuesUpdate[],
+  explicitGroupElementIds: readonly string[] = []
 ): readonly ElementPropertyValuesUpdate[] => {
   if (!Array.isArray(initialUpdates)) {
     return failGroupPreparation('property updates must be an array')
@@ -478,12 +474,47 @@ export const projectGroupGeometryPropertyUpdates = (
     projection,
     initialUpdates
   )
-  if (geometryElementIds.length === 0) {
+  if (geometryElementIds.length === 0 || explicitGroupElementIds.length === 0) {
     return getProjectedPropertyUpdates(projection)
   }
 
+  const geometryElementIdSet = new Set(geometryElementIds)
+  const groupGeometryElementIds = [...new Set(explicitGroupElementIds)]
+  if (
+    groupGeometryElementIds.length !== explicitGroupElementIds.length ||
+    groupGeometryElementIds.some(
+      (elementId) => !geometryElementIdSet.has(elementId)
+    )
+  ) {
+    return failGroupPreparation(
+      'explicit Group ids must be unique geometry update targets'
+    )
+  }
+
   const data = core.sceneTreeSaveData()
-  getAffectedGroupIds(data, geometryElementIds).forEach((groupId) => {
+  groupGeometryElementIds.forEach((elementId) => {
+    if (data.elements[elementId]?.type !== EntityTypes.GROUP) {
+      return failGroupPreparation(
+        `explicit geometry target "${elementId}" is not an official Group`
+      )
+    }
+  })
+
+  geometryElementIds.forEach((elementId) => {
+    const currentValues = getComputedData(projection, elementId)
+    const stagedValues = projection.updatesByElementId.get(elementId) ?? {}
+    const stagedGeometryValues = Object.fromEntries(
+      Object.entries(stagedValues).filter(([key]) =>
+        GROUP_GEOMETRY_PROPERTY_KEYS.has(key)
+      )
+    )
+    projection.projectedValues.set(elementId, {
+      ...currentValues,
+      ...stagedGeometryValues
+    })
+  })
+
+  getAffectedGroupIds(data, groupGeometryElementIds).forEach((groupId) => {
     normalizeGroupBoundsInTransaction(projection, data, groupId)
   })
   return getProjectedPropertyUpdates(projection)

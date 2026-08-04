@@ -63,7 +63,6 @@ __metadata:
     "@asyra/factory": "workspace:*"
     "@asyra/feature-system": "workspace:*"
     "@asyra/input-system": "workspace:*"
-    "@asyra/persistence": "workspace:*"
     "@asyra/preset": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/render": "workspace:*"

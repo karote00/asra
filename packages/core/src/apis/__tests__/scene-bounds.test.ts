@@ -40,6 +40,9 @@ const createCoreWithElements = (elements: TestElement[]): Core => {
       data.id,
       {
         get: (key: keyof TestElement) => data[key],
+        computed: {
+          get: (key: 'x' | 'y' | 'width' | 'height') => data.bounds?.[key]
+        },
         getAllComputedData: () => data.bounds ?? {}
       }
     ])
@@ -100,8 +103,8 @@ describe('Core Scene Tree world-space bounds', () => {
         {
           x: 100,
           y: 50,
-          width: 120,
-          height: 70
+          width: 999,
+          height: 999
         },
         EntityTypes.GROUP
       ),
@@ -158,8 +161,8 @@ describe('Core Scene Tree world-space bounds', () => {
         {
           x: 100,
           y: 50,
-          width: 35,
-          height: 25
+          width: 900,
+          height: 700
         },
         EntityTypes.GROUP
       ),
@@ -175,8 +178,8 @@ describe('Core Scene Tree world-space bounds', () => {
         {
           x: 20,
           y: 10,
-          width: 15,
-          height: 15
+          width: 800,
+          height: 600
         },
         EntityTypes.GROUP
       ),
@@ -274,6 +277,50 @@ describe('Core Scene Tree world-space bounds', () => {
       maxX: 50,
       maxY: 40
     })
+  })
+
+  it('ignores invalid Group snapshot dimensions when visible descendants are valid', () => {
+    expect(
+      getBounds([
+        workspace(),
+        element(
+          'group',
+          WORKSPACE_ID,
+          {
+            x: 100,
+            y: 50,
+            width: Number.NaN,
+            height: Number.POSITIVE_INFINITY
+          },
+          EntityTypes.GROUP
+        ),
+        element('leaf', 'group', {
+          x: 20,
+          y: 10,
+          width: 30,
+          height: 40
+        })
+      ])
+    ).toEqual({
+      minX: 120,
+      minY: 60,
+      maxX: 150,
+      maxY: 100
+    })
+  })
+
+  it('returns no visible bounds for an empty Group', () => {
+    expect(
+      getBounds([
+        workspace(),
+        element(
+          'group',
+          WORKSPACE_ID,
+          { x: 100, y: 50, width: 900, height: 700 },
+          EntityTypes.GROUP
+        )
+      ])
+    ).toBeNull()
   })
 
   it('returns no bounds for an empty workspace', () => {

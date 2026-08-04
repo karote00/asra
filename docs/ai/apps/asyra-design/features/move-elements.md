@@ -42,9 +42,8 @@
   canonical property owner supplies one complete candidate bundle while
   Factory replaces only the latest bundle reference instead of merging every
   element into pending History
-- defers official Group origin and bounds normalization across intermediate
-  pointer samples so drag-start-local coordinates cannot accumulate against
-  repeatedly rebased ancestors
+- leaves official Group origins and operation-produced bounds snapshots
+  unchanged across child-only pointer samples
 
 3. End
 
@@ -54,9 +53,9 @@
   once with the same immediate replace-latest History option
 - keeps final drag position on canvas and lets the existing outer transaction
   commit the first-before/latest-after staged History bundle
-- invokes Preset Group normalization deepest-first exactly once after the final
-  position write and before the gesture transaction commits; normalization is
-  an ordinary ordered change in the same Undo action
+- does not invoke Preset Group normalization after the final child-only
+  position write, so the Undo action and publication contain only the moved
+  targets
 - if a drag crossed the movement threshold but returns exactly to its initial
   positions, the return update remains a real canonical delivery action
 - if no movement occurred after starting inside selection bounds, selects the

@@ -245,7 +245,7 @@
       ownerPackage:
         'asyra-design canvas hierarchy, create-parent, and geometry-mutation handoff policy',
       purpose:
-        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice, then hand accepted child geometry mutations to the Preset-owned Group normalization path.',
+        'Resolve the identity-safe raw Render hit into one canonical canvas target for hover, selection, pointer-down move, and create-element parent choice, while keeping accepted child-only geometry mutations scoped to their explicit targets.',
       inputs: [
         'identity-safe raw Render hit element id',
         'canonical flattenedElementIds and elementDataMap projection',
@@ -275,13 +275,14 @@
         'When a valid projection has a missing raw hit, creation uses the workspace root and passes its id as an explicit parentId instead of leaving parent unspecified.',
         'For a Group create parent, Preset moveElementsWithGroupGeometry performs the identity-preserving reparent and initial coordinate and bounds normalization inside the same transaction as explicit workspace-root creation.',
         'The mouse-down and drag workspace geometry is converted into the chosen parent current local coordinates through that exact identity-safe Render handle for every drag update.',
-        'Preset normalizeGroupsForElements runs after create drag geometry writes in the same transaction so direct-child and ancestor Group bounds remain canonical without app-owned Group origin arithmetic.',
-        'Every accepted discrete child geometry mutation or completed continuous pointer gesture invokes Preset normalizeGroupsForElements after its final geometry write and before the same outer transaction commits; Preset processes the deepest affected Group first.',
+        'Create drag geometry writes only the created child after the initial identity-preserving reparent; it does not normalize ancestor Groups or rebase siblings.',
+        'Every accepted child-only discrete geometry mutation or completed continuous pointer gesture updates only its explicit targets and does not invoke Preset Group normalization before the outer transaction commits.',
+        'Explicit Group/Ungroup and cross-Group identity-preserving reparent remain the only hierarchy-target boundaries in this step that may normalize Group coordinate and bounds snapshots.',
         'Pointer movement refreshes the current modifier snapshot before hover resolution.'
       ],
       bypasses: [
         'Dragging, non-element overlays, and the existing path-editing guard retain their current feature bypass behavior.',
-        'Intermediate pointer-move samples defer Group normalization until gesture finalization so Group-origin rebasing cannot accumulate against drag-start-local coordinates.',
+        'Child-only pointer-move samples and gesture finalization bypass Group normalization so mutation cost and publication size stay proportional to explicit targets.',
         'A missing raw hit emits no canvas target but resolves an explicit workspace-root create parent when the canonical projection is valid.',
         'A Group raw hit in modifier mode or unmatched exact parent scope emits no resolved target and no create parent.',
         'A missing, duplicated, cyclic, stale, or invalid-root canonical projection fails closed before any hover, selection, move, or create handoff.'
@@ -294,7 +295,7 @@
         'System Context Meta and Ctrl key snapshot',
         'identity-safe chosen-parent Render transform for coordinate conversion only',
         'identity-safe selected Render projected bounds for app-owned union selection-box containment only',
-        'public Preset moveElementsWithGroupGeometry and normalizeGroupsForElements adapters for official Group geometry only',
+        'public Preset moveElementsWithGroupGeometry adapter for explicit official Group reparent geometry only',
         'asyra-design hover, selection, move, and create-element features'
       ],
       forbiddenContributors: [
@@ -305,7 +306,8 @@
         'Group hover resolution replacing the current selection after its projected selection box is hit',
         'Group canvas hit geometry or Preset-owned target selection policy',
         'app-owned Group origin arithmetic or Group bounds normalization',
-        'App does not derive or cache Group bounds',
+        'child-only mutation triggering ancestor Group traversal, sibling rebasing, or Group property writes',
+        'selection or hover triggering canonical Group mutation',
         'unspecified create parent or Scene Tree legacy firstFrame fallback'
       ],
       cacheDimensions: [],
@@ -335,44 +337,55 @@
       order: 2,
       laneId: 'verification',
       title: 'Project canonical Group hover and selection bounds',
-      ownerPackage: '@asyra/preset official selection overlay default',
+      ownerPackage:
+        '@asyra/preset selection UI-context and official selection overlay defaults',
       purpose:
-        'Project official Group bounds through the existing registered selection overlay layer without changing canonical geometry, Render hierarchy, or canvas hit policy.',
+        'Derive current Group content bounds only when Group UI consumers need them, then project the ordinary overlay without changing canonical geometry, History, publication, Render hierarchy, or canvas hit policy.',
       inputs: [
         'canonical element selection and canonical hovered element id',
         'artifact:resolved-canvas-hierarchy-target',
-        'official Group computed x, y, width, and height',
+        'canonical Group hierarchy and current descendant geometry for selected-Group UI-context projection',
+        'current engine-neutral Group presentation bounds for overlay projection',
         'current identity-safe Render world transform'
       ],
-      outputs: ['artifact:group-hover-selection-overlay'],
+      outputs: [
+        'artifact:selected-group-read-only-property-context',
+        'artifact:group-hover-selection-overlay'
+      ],
       conditions: [
-        'A selected Group draws the ordinary selection box from canonical computed bounds.',
-        'A hovered unselected Group draws the ordinary hover box from the same canonical computed bounds.',
+        'When an official Group is selected, Preset derives its current descendant content bounds once for the selection UI-context recompute without writing them to the Group.',
+        'A selected Group draws the ordinary selection box from current engine-neutral presentation bounds.',
+        'A hovered unselected Group draws the ordinary hover box from the same current presentation bounds.',
         'A nested Group projects its bounds through the current Render world transform.',
         'Selection takes precedence over hover so one Group is never outlined twice.',
-        'The existing Preset selection overlay registration, z-index, update loop, and cleanup lifecycle remain unchanged.'
+        'A child-only mutation while another element is selected does not derive, write, or publish Group property values.',
+        'The existing Preset selection overlay registration, z-index, update loop, and cleanup lifecycle remain unchanged.',
+        'Read-only Group bounds projection creates no transaction, History entry, shared publication, or persistence change.'
       ],
       bypasses: [
-        'A missing Group, missing Render handle, invalid bounds, or non-finite computed dimension draws no inferred or fallback geometry.',
+        'A missing Group, missing Render handle, invalid bounds, or non-finite current presentation dimension draws no guessed geometry.',
         'A zero-area Group gains no fabricated visible area or canvas hit area.',
         'The existing path-editing guard and selected-id hover suppression remain unchanged.'
       ],
       allowedContributors: [
         'canonical Preset element selection projection',
         'canonical System Context hovered element id',
-        'official Preset Group computed data',
+        'canonical Group hierarchy and descendant geometry at selected-Group UI-context recompute',
+        'current engine-neutral Group presentation bounds',
         'engine-neutral Render world transform',
         'existing registered selection overlay layer'
       ],
       forbiddenContributors: [
         'a second overlay layer or Group-specific mutable state',
         'Group Render-strategy geometry added only to create a canvas hit area',
-        'app-specific or Render fallback bounds',
+        'presentation bounds used as canonical geometry input',
+        'selection or hover causing canonical Group property mutation',
         'direct Pixi or concrete render-engine imports'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/preset/src/render-layers/selection-overlay-render-layer.ts',
+        'packages/preset/src/subscriptions/data-channel.ts',
         'packages/preset/src/__tests__',
         'apps/asyra-design/e2e'
       ],
@@ -391,16 +404,18 @@
       title: 'Derive canonical world-space scene bounds for viewport fit',
       ownerPackage: '@asyra/core Scene Tree facade bounds query',
       purpose:
-        'Derive complete world-space scene bounds from canonical Scene Tree geometry and parent membership, then hand the completed bounds to the existing app zoom-fit consumer without changing shortcut or viewport math.',
+        'Derive complete visible world-space scene bounds from canonical non-Group geometry and parent membership, using Group translation only in descendant parent chains, then hand the result to the existing app zoom-fit consumer.',
       inputs: [
         'canonical Scene Tree element identities, types, and parent ids',
-        'canonical computed x, y, width, and height',
+        'canonical computed x and y for every parent-chain element',
+        'canonical computed width and height for visible non-Group elements',
         'canonical workspace root identity'
       ],
       outputs: ['artifact:canonical-world-scene-bounds'],
       conditions: [
         'Each non-workspace element accumulates nested container offsets along its canonical parent chain until the workspace root.',
-        'Each world-space rectangle preserves existing negative-width and negative-height min/max semantics before the complete scene union.',
+        'Each visible non-Group world-space rectangle preserves existing negative-width and negative-height min/max semantics before the complete scene union.',
+        'An invisible Group contributes canonical x and y to descendant parent chains but its operation-produced width and height snapshot is not unioned as independent visible content.',
         'A normal or nested Group before and after unchanged visible geometry produces exactly equivalent world-space scene bounds.',
         'The existing app common API passes the completed bounds to calculateZoomFit for Cmd+1 without reinterpreting Group-local coordinates.'
       ],
@@ -410,7 +425,7 @@
       ],
       allowedContributors: [
         'canonical Scene Tree parent membership',
-        'canonical element computed geometry',
+        'canonical non-Group computed geometry and Group parent translation',
         'existing Core Scene Tree facade query',
         'existing app viewport common API and calculateZoomFit consumer'
       ],
@@ -418,6 +433,7 @@
         'app-specific hierarchy or coordinate reinterpretation',
         'Render display-object ancestry or Render fallback bounds',
         'a second mutable parent map or retained bounds cache',
+        'Group width or height snapshots unioned as visible scene content',
         'Group-only fixture exceptions'
       ],
       cacheDimensions: [],
@@ -504,6 +520,7 @@
         'artifact:accepted-remote-group-update',
         'serialized canonical document',
         'artifact:visible-layer-rows',
+        'artifact:selected-group-read-only-property-context',
         'artifact:group-hover-selection-overlay',
         'artifact:canonical-world-scene-bounds'
       ],
@@ -516,7 +533,7 @@
         'Save/load preserves exact Group data, parent, index, child order, nested hierarchy, coordinates/bounds, props references, and entity identity.',
         'A valid replace-style load refreshes Layers from canonical data channels and hands the same element identity and engine handle to Render.',
         'Render projects committed hierarchy only, with no duplicate visual, stale parent, or visible coordinate jump.',
-        'Selected and hovered official Group bounds remain aligned with the same canonical geometry after Group, Ungroup, undo, redo, load, and accepted remote apply.'
+        'Selected and hovered official Group read-only content bounds remain aligned with current descendant geometry after Group, Ungroup, undo, redo, load, and accepted remote apply without writing Group properties.'
       ],
       bypasses: [
         'Collapse state is UI-local and is not serialized or required to survive reload.',
@@ -661,8 +678,11 @@
       to: 'verify-group-persistence-and-render',
       kind: 'projection',
       predicate:
-        'canonical Group selection or hover state projects through the existing overlay layer',
-      producedArtifacts: ['artifact:group-hover-selection-overlay']
+        'canonical Group selection projects read-only property context and selection or hover state projects through the existing overlay layer',
+      producedArtifacts: [
+        'artifact:selected-group-read-only-property-context',
+        'artifact:group-hover-selection-overlay'
+      ]
     },
     {
       id: 'world-scene-bounds-to-viewport-verification',
@@ -805,6 +825,13 @@
       channel: 'terminal app target result',
       consumerStepIds: [],
       terminal: true
+    },
+    {
+      id: 'artifact:selected-group-read-only-property-context',
+      ownerStepId: 'project-group-hover-selection-overlay',
+      channel: 'Preset UI-context selection projection',
+      consumerStepIds: ['verify-group-persistence-and-render'],
+      terminal: false
     },
     {
       id: 'artifact:group-hover-selection-overlay',
@@ -983,7 +1010,8 @@
         'Multiple selected parent scopes choose the nearest matching ancestor to the raw hit.',
         'Create-element mouse down uses the same resolved hierarchy target to choose an explicit official Group parent, or the explicit workspace root when there is no raw hit.',
         'Nested Group creation converts the mouse-down workspace position into exact chosen-parent local coordinates without Render ancestry or the legacy firstFrame fallback.',
-        'A nested child pointer move finalizes through Preset before the gesture transaction commits, writes every affected Group bounds cache deepest first, and preserves the child world-space result without a visible jump.',
+        'A nested child property, create-drag, or pointer-move mutation updates only explicit targets without ancestor Group normalization, sibling rebasing, or Group-sized publication.',
+        'Explicit Group reparent performs its one required Preset coordinate and bounds normalization inside the existing transaction.',
         'Missing, duplicated, cyclic, stale, invalid-root, unmatched-scope, and Group modifier hits fail closed without raw-hit fallback or a second hierarchy.'
       ],
       stepIds: ['resolve-canvas-hierarchy-target'],
@@ -997,9 +1025,10 @@
       id: 'group-hover-selection-overlay-product-cases',
       title: 'Canonical Group hover and selection overlay',
       assertions: [
-        'Selected and hovered official Groups use canonical computed bounds and the current Render transform for the ordinary canvas box.',
+        'A selected official Group receives current read-only descendant content bounds in UI context without canonical mutation, History, publication, or persistence changes.',
+        'Selected and hovered official Groups use current engine-neutral presentation bounds and the current Render transform for the ordinary canvas box.',
         'Nested Groups preserve world-transform alignment, and selection suppresses a duplicate hover outline.',
-        'Missing or invalid Group bounds fail closed without a second layer, Group-specific state, fallback geometry, concrete-engine import, or canvas hit area.'
+        'Missing or invalid Group bounds fail closed without a second layer, Group-specific document state, guessed geometry, concrete-engine import, or canvas hit area.'
       ],
       stepIds: ['project-group-hover-selection-overlay'],
       specRefs: [
@@ -1013,7 +1042,7 @@
       title: 'Canonical Group world bounds and Cmd+1 viewport fit',
       assertions: [
         'Cmd+1 preserves Group before and after unchanged visible geometry with exactly equivalent world-space scene bounds.',
-        'Normal and nested Groups accumulate every canonical parent offset to the workspace root without changing existing zoom-fit math.',
+        'Normal and nested Groups contribute canonical translation to descendant parent chains without unioning Group width or height snapshots as visible content.',
         'Empty content remains a no-op, while missing parent, cycle, invalid workspace chain, or non-finite geometry fails closed without partial bounds.',
         'No app-specific hierarchy, Render ancestry, fallback bounds, retained cache, or Group-only fixture exception is introduced.'
       ],

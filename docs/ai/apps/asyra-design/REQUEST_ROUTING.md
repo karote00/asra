@@ -12,53 +12,68 @@ Use this file to quickly map a user request to app docs and source owners.
 ## Request Type -> Primary Docs
 
 - tool switching behavior
+
   - `features/switch-primary-tool.md`
   - `modules/input-mapping.md`
   - `prd/tool-management.md`
 
 - create rectangle/oval behavior
+
   - `features/create-element.md`
   - `modules/common-apis.md`
   - `prd/element-creation.md`
 
 - element hover/selection behavior
+
   - `features/hover-element.md`
   - `features/selection.md`
   - `prd/element-selection.md`
 
 - pen/path editing behavior
+
   - `features/pen-tool.md`
   - `rules/ui-data-flow.md`
   - `prd/pen-tool.md`
   - `epics/vector-editing.md`
 
 - properties panel display/edit behavior
+
   - `modules/providers-and-ui.md`
   - `rules/ui-data-flow.md`
   - `prd/properties-panel.md`
 
 - viewport behavior (zoom/pan/fit)
+
   - `features/viewport.md`
   - `modules/input-mapping.md`
   - `prd/viewport-navigation.md`
 
 - undo/redo behavior
+
   - `features/undo-redo.md`
   - `modules/common-apis.md`
   - `prd/undo-redo.md`
 
 - input shortcut mapping
+
   - `modules/input-mapping.md`
   - `features/*` touched by shortcut
   - `bdd-features/*` related behavior file
 
 - startup/init wiring issues
+
   - `modules/init-and-startup.md`
   - `modules/controllers-and-state.md`
   - `ARCHITECTURE.md`
 
 - collaboration, CRDT, or reference WebSocket composition
+
   - `modules/collaboration-reference.md`
+  - `specs/socket-authoritative-document-session.md` for the accepted
+    production persistence/session contract
+  - `plans/completed/socket-authoritative-document-persistence-plan.md` for the
+    completed socket handshake, sequencing, flush, backend, and Core ownership
+    record
   - `API_SURFACES.md`
   - `ARCHITECTURE.md`
   - `docs/ai/framework/packages/collaboration.md`
@@ -66,11 +81,13 @@ Use this file to quickly map a user request to app docs and source owners.
     is involved
 
 - stale pre-release app flow, legacy product branch, or legacy render/property behavior
+
   - `docs/ai/framework/rules/pre-release-legacy-removal.md`
   - affected `features/*`, `modules/*`, or `rules/*`
   - `PLANS.md` if an active plan/inspector workflow is involved
 
 - app-level rationale history lookup
+
   - `decisions/releases/*`
   - `PLANS.md`
 
@@ -82,6 +99,7 @@ Use this file to quickly map a user request to app docs and source owners.
 ## Routing Rule
 
 If request spans multiple behaviors:
+
 - use the most specific `features/*` contract as primary
 - use `modules/*` for ownership and boundary checks
 - use `prd/*` for requirement intent and success criteria

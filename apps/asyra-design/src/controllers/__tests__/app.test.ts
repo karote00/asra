@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  resetPersistedDocument: vi.fn(async () => undefined)
+  getFeature: vi.fn(),
+  getRequiredFileId: vi.fn(() => 'crdt-7076-sample'),
+  resetDemoDocument: vi.fn()
+}))
+
+vi.mock('@asyra/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@asyra/core')>()),
+  getFeature: mocks.getFeature
 }))
 
 vi.mock('../../states/app', () => ({
@@ -9,22 +16,27 @@ vi.mock('../../states/app', () => ({
   setPixiApp: vi.fn()
 }))
 
-vi.mock('../../document-persistence', () => ({
-  resetPersistedDocument: mocks.resetPersistedDocument
+vi.mock('../../config/demo-document', () => ({
+  resetDemoDocument: mocks.resetDemoDocument
 }))
 
-import core from '../../contexts'
-import { resetData } from '../app'
+vi.mock('../../render-app/collaboration-mode', () => ({
+  getRequiredFileId: mocks.getRequiredFileId
+}))
 
-describe('App controller data reset', () => {
+import * as appController from '../app'
+
+describe('App controller Reset boundary', () => {
   beforeEach(() => {
-    mocks.resetPersistedDocument.mockClear()
+    vi.clearAllMocks()
   })
 
-  it('delegates one reset to the active file-scoped persistence owner', async () => {
-    await resetData()
+  it('delegates the current demo file to the save-empty-and-refresh owner', () => {
+    appController.resetData()
 
-    expect(mocks.resetPersistedDocument).toHaveBeenCalledOnce()
-    expect(mocks.resetPersistedDocument).toHaveBeenCalledWith(core)
+    expect(mocks.getRequiredFileId).toHaveBeenCalledOnce()
+    expect(mocks.resetDemoDocument).toHaveBeenCalledOnce()
+    expect(mocks.resetDemoDocument).toHaveBeenCalledWith('crdt-7076-sample')
+    expect(mocks.getFeature).not.toHaveBeenCalled()
   })
 })

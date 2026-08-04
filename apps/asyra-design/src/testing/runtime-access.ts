@@ -5,6 +5,8 @@ import {
   getActiveCollaborationHandle,
   type CollaborationDebugHandle
 } from '../collaboration/lifecycle'
+import { createDocumentCollaborationFactory } from '../collaboration/factory-adapter'
+import { decodeDocumentPublication } from '../collaboration/operations'
 import core from '../contexts'
 import {
   getActiveAiDrawingPerformanceProfile,
@@ -43,6 +45,13 @@ export const startSharedPublicationCapture = (key: string): void =>
     core.deps.factory.subscribeToSharedPublication(append)
   )
 
+export const startDocumentPublicationCapture = (key: string): void =>
+  startCapture(key, (append) =>
+    createDocumentCollaborationFactory(
+      core.deps.factory
+    ).subscribeToSharedPublication(append)
+  )
+
 export const startSharedChannelCapture = (key: string, channel: string): void =>
   startCapture(key, (append) =>
     core.deps.factory.observeSharedDataChannel(channel, append)
@@ -59,6 +68,37 @@ export const clearTestCapture = (key: string): void => {
 
 export const readTestCapture = (key: string): readonly unknown[] =>
   testRuntimeState.get<readonly unknown[]>(key) ?? []
+
+export interface DocumentPublicationDecodeFailure {
+  readonly publicationId: string
+  readonly message: string
+}
+
+export const readDocumentPublicationDecodeFailures = (
+  key: string
+): readonly DocumentPublicationDecodeFailure[] =>
+  readTestCapture(key).flatMap((publication) => {
+    try {
+      decodeDocumentPublication(
+        publication as Parameters<typeof decodeDocumentPublication>[0]
+      )
+      return []
+    } catch (error) {
+      const publicationId =
+        typeof publication === 'object' &&
+        publication !== null &&
+        'publicationId' in publication &&
+        typeof publication.publicationId === 'string'
+          ? publication.publicationId
+          : 'unknown'
+      return [
+        {
+          publicationId,
+          message: error instanceof Error ? error.message : String(error)
+        }
+      ]
+    }
+  })
 
 export const stopTestCapture = (key: string): void => {
   testCaptureDisposers.get(key)?.()

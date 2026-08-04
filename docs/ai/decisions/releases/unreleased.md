@@ -219,3 +219,76 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
     runtime transaction committed.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-plan.md`
+
+## 2026-08-03 - Move document persistence ownership from Core/browser to the App socket server
+
+- Context:
+  - Core's complete-snapshot commit capture couples action cost to full document
+    size.
+  - Asyra Design now requires one always-connected socket document session for
+    single-Actor and collaborative editing.
+- Decision:
+  - Keep Core as checkpoint load/validation/apply and explicit serialization
+    owner, not automatic durability owner.
+  - Keep Factory `SharedPublication` as the existing canonical client change
+    artifact.
+  - Make the Asyra Design socket server the document sequencer, live fan-out,
+    fixed three-second persistence-window, retry, and durable-watermark owner.
+  - Make the App backend the ordered publication materialization and checkpoint
+    owner.
+- Consequences:
+  - Framework transaction/History contracts stay separate from App persistence
+    and backend merge policy.
+  - The browser performs no persistence write in the accepted target.
+  - The target is pending implementation under one App product specification,
+    Level 3 plan, and Flow Inspector.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Separate App transport recovery from framework and backend persistence
+
+- Context:
+  - Asyra Design requires local canonical editing to continue when its mandatory
+    socket session is unavailable.
+  - Generic `@asyra/collaboration` intentionally owns live transport only, and
+    Core no longer owns automatic complete-document persistence.
+- Decision:
+  - Keep generic Collaboration's no-history/live-only reconnect contract.
+  - Place durable unaccepted-publication retention, 30-second reconnect
+    scheduling, transition notifications, and server-order reconciliation in
+    the Asyra Design collaboration lifecycle.
+  - Keep App IndexedDB outbox records limited to immutable
+    `SharedPublication` values; no materialized document, private History,
+    Selection, Awareness, or Render/UI data enters that outbox.
+- Consequences:
+  - Framework transaction, History, transport, and load owners stay replaceable
+    and free of App persistence policy.
+  - Browser transport recovery and backend canonical document persistence are
+    explicit separate acknowledgement domains.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Activate socket-authoritative persistence end to end
+
+- Context:
+  - The load-only Core boundary, App recovery outbox, socket sequencer,
+    fixed-window persistence queue, and backend materializer now implement the
+    accepted cross-layer contract.
+- Decision:
+  - Treat socket checkpoint-plus-tail bootstrap and Factory publication
+    delivery as the single ordinary document-session path.
+  - Keep browser recovery limited to unaccepted publications and backend
+    persistence limited to server-sequenced canonical batches.
+- Consequences:
+  - Runtime settlement, socket acceptance, peer apply, and backend durability
+    are separate observable states.
+  - Missing public services produce a disconnected but locally editable client,
+    not an alternate frontend-only persistence mode.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Commit(s):
+  - pending

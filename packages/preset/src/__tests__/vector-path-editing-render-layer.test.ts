@@ -378,6 +378,9 @@ describe('vector path editing transaction boundary', () => {
     expect(source).toContain('undoable: false')
     expect(source).toContain('skipResult: true')
     expect(source).toMatch(
+      /elementApis\.discardTransientVectorPreviews\(\[dragTarget\.elementId\]\)\s*updateVectorPointTargetPosition\(\s*dragTarget,\s*computedPatchIntent\.patch\.position,\s*\{\s*undoable: computedPatchIntent\.patch\.undoable,\s*sharedDelivery: 'immediate',\s*skipResult: computedPatchIntent\.patch\.skipResult\s*\}\s*\)/
+    )
+    expect(source).not.toMatch(
       /updateVectorPointTargetPosition\(\s*dragTarget,\s*dragTarget\.initialTargetPos,/
     )
     expect(source).toContain('undoable: true')

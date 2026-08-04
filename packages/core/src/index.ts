@@ -257,6 +257,7 @@ type CoreBasicApiKeys =
   | 'setRenderEngineProvider'
   | 'hasRenderEngineProvider'
   | 'isCompositionOpen'
+  | 'setLoadSource'
   | 'setPersistence'
   | 'registerSaveHook'
   | 'registerLoadHook'

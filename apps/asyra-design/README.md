@@ -15,18 +15,22 @@ Install dependencies from the repository root:
 yarn install
 ```
 
-## App URL
+## Local Service Configuration
 
-The app has one URL setting in `apps/asyra-design/.env`:
+The checked-in `apps/asyra-design/.env` configures the frontend, socket
+listener, and backend origin:
 
 ```dotenv
 APP_URL=http://localhost:3000
+COLLABORATION_WS_HOST=127.0.0.1
+COLLABORATION_WS_PORT=4101
+DOCUMENT_PERSISTENCE_BACKEND_URL=http://127.0.0.1:4201
 ```
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
-and the reference WebSocket server's Origin check all use this value. To use a
-different local port or a deployed domain, override this one variable; do not
-maintain separate Vite and test base URLs.
+and the socket server's Origin check use `APP_URL`. The socket server reads and
+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; it never
+derives that backend origin from the frontend URL.
 
 For example:
 
@@ -34,86 +38,84 @@ For example:
 APP_URL=http://localhost:4317
 ```
 
-## Start the App
+## Start the Complete Local App
 
-From the repository root:
+Start the backend first:
 
 ```bash
-yarn dev:all
+yarn workspace @asyra/asyra-design document:backend
 ```
 
-`dev:all` builds and starts the App's required workspace packages and the App
-dev server only. It does not start the collaboration WebSocket server. Open a
-document with one required non-empty `fileId`, for example:
-
-```text
-http://localhost:3000/?fileId=manual-design-file
-```
-
-The App always starts Collaboration for the selected document session. A
-missing or empty `fileId` does not open the App document.
-
-## Use the Non-Durable Collaboration Demo in Two Windows
-
-> [!WARNING]
-> The bundled WebSocket server is a public, memory-only development demo, not a
-> production collaboration backend. Server restart, redeploy, or process
-> failure discards every live room. A disconnected peer misses publications
-> sent while it is absent, and a successful send response does not mean the
-> document was written to durable storage.
-
-The repository includes a live public WebSocket reference server. It runs the
-same Asyra Design, Factory publication, app-owned remote state-application, and
-Provider path that forked apps can use to understand the integration boundary.
-
-Start the collaboration server in a separate terminal:
+Start the socket server in a second terminal:
 
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server
 ```
 
-Then start the frontend in another terminal with `yarn dev:all`. To restart the
-already-built server without rebuilding it, run:
+Start the frontend in a third terminal:
 
 ```bash
-yarn workspace @asyra/asyra-design collaboration:server:start
+yarn dev:all
 ```
 
-Open the same `fileId` in two windows, for example:
+`dev:all` builds and starts the required workspace packages plus the
+App dev server only. The backend and socket server remain the explicit first
+two terminals above.
+
+Open one required non-empty `fileId`, for example:
 
 ```text
-http://localhost:3000/?fileId=crdt-public-reference
+http://localhost:3000/?fileId=manual-design-file
 ```
 
-If `APP_URL` uses another origin, keep the same query string on
-that URL. Matching `fileId` values join the same live in-memory room; different
-values stay isolated. The server retains no publication history, so reconnect
-receives future publications only. The response to `send-publication` confirms
-only that the running memory transport accepted the request.
+Opening the same `fileId` in two windows joins the same document session;
+different values remain isolated. One Actor and multiple Actors use exactly
+the same checkpoint-plus-tail handshake, Factory publication, socket sequence,
+three-second persistence window, and backend materialization path.
+The frontend always starts Collaboration for every ordinary file; only the
+explicit `crdt-7076-sample` simulation bypasses that session.
 
-Every `fileId` also selects an App-owned browser-local IndexedDB document.
-Manual actions, Agent actions, Undo, Redo, accepted remote publications, and
-Reset persist through one serialized provider queue, so reload restores the
-latest accepted work on that browser. This reference persistence replaces no
-production database: it provides no cross-device durability, authentication,
-backup, or missed-publication recovery. A derived app must supply its own
-server/database policy.
+The browser never writes a materialized document. It stores only unaccepted
+local `SharedPublication` values in an IndexedDB recovery outbox and removes
+each one after matching socket source acceptance. Core remains the load owner
+and provides explicit serialization only for export and diagnostics.
+
+To restart already-built services without rebuilding:
+
+```bash
+yarn workspace @asyra/asyra-design document:backend:start
+yarn workspace @asyra/asyra-design collaboration:server:start
+```
 
 You can inspect the connection in DevTools:
 
 ```js
 window.__Collaboration__?.getStatus()
+window.__Collaboration__?.getSessionState()
 window.__Collaboration__?.identity
 ```
 
-This public reference intentionally has no login, permission check, durable
-history, missed-publication recovery, or protected-document security
-guarantee. It can be run as-is only for public memory-only demonstration and
-development. A production app must supply its own backend, durable store,
-commit acknowledgement, recovery, conflict, security, and operational
-policies. See the complete ownership, data-flow, configuration, and extension
-contract in
+The repository server intentionally has no login or permission database. A
+deployment must supply authorization, backup, and operational policy without
+changing the frontend document-session contract. See the complete ownership,
+data-flow, configuration, and extension contract in
 [`collaboration-reference.md`](../../docs/ai/apps/asyra-design/modules/collaboration-reference.md).
+
+## Public Frontend Deployment
+
+The public deployment ships the same full-stack frontend code but does not
+deploy the socket server or backend. An ordinary `fileId` therefore enters the
+disconnected state, displays one transition toast, and remains locally
+editable. Per-operation send failures stay in the console, and one
+non-overlapping reconnect attempt is scheduled every 30 seconds. This is not a
+second local-only mode.
+
+`crdt-7076-sample` is the only explicit exception. It loads the bundled
+large-document fixture without a socket so visitors can simulate the AI Agent
+flow. Its temporary toolbar Reset stores one empty demo document in browser
+storage and then forces a page refresh so the simulation can be restarted.
+That utility is not part of ordinary file behavior and will be removed from the
+formal App.
 
 ## Tests
 
@@ -136,7 +138,9 @@ It never replaces the manual two-window test surface.
 - `src/collaboration/` — always-on collaboration provider and app composition
 - `src/render-layers/` — app-owned overlay and preview layers
 - `e2e/` — browser behavior tests, including real multi-window collaboration
-- `collaboration-server.ts` — public memory-only reference server source
+- `collaboration-server.ts` — socket session, sequence, fan-out, and
+  persistence-queue server
+- `server/document-backend.ts` — ordered checkpoint materialization backend
 - `vite.collaboration-server.config.ts` — Node server build configuration
 - `app-environment.mjs` — shared app URL and reference server configuration
 

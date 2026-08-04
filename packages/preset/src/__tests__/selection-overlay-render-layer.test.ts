@@ -154,9 +154,9 @@ describe('selection overlay render layer', () => {
     }
   })
 
-  it('projects one selected official Group from canonical computed bounds without a duplicate hover outline', () => {
+  it('projects one selected official Group from current presentation bounds without a duplicate hover outline', () => {
     const renderElement = {
-      getBounds: vi.fn(() => ({ x: 0, y: 0, width: 0, height: 0 })),
+      getBounds: vi.fn(() => ({ x: 125, y: 85, width: 250, height: 170 })),
       worldTransform: {
         a: 1,
         b: 0,
@@ -173,8 +173,8 @@ describe('selection overlay render layer', () => {
       getAllComputedData: vi.fn(() => ({
         x: 120,
         y: 80,
-        width: 240,
-        height: 160
+        width: 20,
+        height: 20
       }))
     }
     const { registration, graphics } = createOverlayProbe({
@@ -189,27 +189,28 @@ describe('selection overlay render layer', () => {
     try {
       expect(registration.update?.()).toBe(true)
       expect(moveToSpy.mock.calls).toEqual([
-        [120, 80],
-        [360, 80],
-        [360, 240],
-        [120, 240]
+        [125, 85],
+        [375, 85],
+        [375, 255],
+        [125, 255]
       ])
       expect(lineToSpy.mock.calls).toEqual([
-        [360, 80],
-        [360, 240],
-        [120, 240],
-        [120, 80]
+        [375, 85],
+        [375, 255],
+        [125, 255],
+        [125, 85]
       ])
-      expect(renderElement.getBounds).not.toHaveBeenCalled()
+      expect(renderElement.getBounds).toHaveBeenCalled()
+      expect(sceneElement.getAllComputedData).not.toHaveBeenCalled()
     } finally {
       moveToSpy.mockRestore()
       lineToSpy.mockRestore()
     }
   })
 
-  it('projects a hovered nested Group through its current world transform', () => {
+  it('projects a hovered nested Group from current world presentation bounds', () => {
     const renderElement = {
-      getBounds: vi.fn(() => ({ x: 0, y: 0, width: 0, height: 0 })),
+      getBounds: vi.fn(() => ({ x: 150, y: 100, width: 50, height: 100 })),
       worldTransform: {
         a: 0,
         b: 1,
@@ -241,27 +242,33 @@ describe('selection overlay render layer', () => {
     try {
       expect(registration.update?.()).toBe(true)
       expect(moveToSpy.mock.calls).toEqual([
+        [150, 100],
+        [200, 100],
+        [200, 200],
+        [150, 200]
+      ])
+      expect(lineToSpy.mock.calls).toEqual([
         [200, 100],
         [200, 200],
         [150, 200],
         [150, 100]
       ])
-      expect(lineToSpy.mock.calls).toEqual([
-        [200, 200],
-        [150, 200],
-        [150, 100],
-        [200, 100]
-      ])
-      expect(renderElement.getBounds).not.toHaveBeenCalled()
+      expect(renderElement.getBounds).toHaveBeenCalled()
+      expect(sceneElement.getAllComputedData).not.toHaveBeenCalled()
     } finally {
       moveToSpy.mockRestore()
       lineToSpy.mockRestore()
     }
   })
 
-  it('does not infer Group overlay geometry from a Render fallback when canonical bounds are invalid', () => {
+  it('fails closed when current Group presentation bounds are invalid', () => {
     const renderElement = {
-      getBounds: vi.fn(() => ({ x: 10, y: 20, width: 240, height: 160 })),
+      getBounds: vi.fn(() => ({
+        x: 10,
+        y: 20,
+        width: Number.NaN,
+        height: 160
+      })),
       worldTransform: {
         a: 1,
         b: 0,
@@ -278,7 +285,7 @@ describe('selection overlay render layer', () => {
       getAllComputedData: vi.fn(() => ({
         x: 10,
         y: 20,
-        width: Number.NaN,
+        width: 240,
         height: 160
       }))
     }
@@ -292,6 +299,7 @@ describe('selection overlay render layer', () => {
     try {
       expect(registration.update?.()).toBe(true)
       expect(lineToSpy).not.toHaveBeenCalled()
+      expect(sceneElement.getAllComputedData).not.toHaveBeenCalled()
     } finally {
       lineToSpy.mockRestore()
     }

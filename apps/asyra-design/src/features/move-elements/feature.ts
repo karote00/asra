@@ -56,10 +56,6 @@ const MOVE_POSITIONS_OPTIONS = {
   }
 } as const satisfies EVENT_OPTIONS
 
-const MOVE_NORMALIZATION_OPTIONS = {
-  sharedDelivery: 'immediate'
-} as const satisfies EVENT_OPTIONS
-
 const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
   return (
     point.x >= bounds.x &&
@@ -342,11 +338,6 @@ export const moveElementsSession = {
         state.latestPositions = targetPositions
       }
     }
-
-    elementApis.normalizeGroupGeometryForElements(
-      Object.keys(state.initialPositions),
-      MOVE_NORMALIZATION_OPTIONS
-    )
   },
   onCancel: () => undefined
 }

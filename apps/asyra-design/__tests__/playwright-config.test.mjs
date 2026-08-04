@@ -77,23 +77,28 @@ test('owned E2E servers never ask Vite to open a desktop browser', async () => {
   assert.match(viteSource, /server:\s*\{[\s\S]*open: opensBrowser/)
 })
 
-test('ordinary Playwright starts the always-on collaboration service before the App', async () => {
+test('ordinary Playwright starts the backend and always-on collaboration service before the App', async () => {
   const configSource = await readFile(
     new URL('../playwright.config.ts', import.meta.url),
     'utf8'
   )
-  const serverStart = configSource.indexOf(
-    "command: 'yarn collaboration:server'"
-  )
+  const backendStart = configSource.indexOf('yarn document:backend')
+  const serverStart = configSource.indexOf('yarn collaboration:server')
   const appStart = configSource.indexOf('command: visualReviewWebServerCommand')
 
-  assert.ok(serverStart >= 0, 'ordinary Playwright must start collaboration')
+  assert.ok(backendStart >= 0, 'ordinary Playwright must start the backend')
+  assert.ok(
+    serverStart > backendStart,
+    'collaboration must be declared after the backend'
+  )
   assert.ok(appStart > serverStart, 'collaboration must be declared before App')
+  assert.match(configSource, /documentBackendURL.*\/health/s)
+  assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
   assert.match(configSource, /collaborationHealthURL/)
   assert.match(configSource, /webServer:[\s\S]*\? undefined[\s\S]*: \[/)
 })
 
-test('Playwright enables the test-only formal document database without changing ordinary App startup', async () => {
+test('Playwright routes the formal backend through the same document-session flow', async () => {
   const [ordinaryConfig, collaborationConfig, viteConfig, ciScript] =
     await Promise.all([
       readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
@@ -107,20 +112,24 @@ test('Playwright enables the test-only formal document database without changing
 
   assert.match(
     ordinaryConfig,
-    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start/
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
   )
   assert.match(
     collaborationConfig,
-    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start/
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
   )
   assert.match(
     ciScript,
-    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+    /ASYRA_E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
   )
+  assert.match(ciScript, /document:backend:start/)
+  assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
   assert.match(
     ciScript,
     /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
   )
+  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(viteConfig, /['"]\/api\/documents['"]/)
   assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
 })

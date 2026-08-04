@@ -5,6 +5,8 @@ import {
   createTestDocumentURL,
   getCapturedBrowserErrors,
   resetCanvas,
+  startDocumentPublicationCapture,
+  stopDocumentPublicationCaptureAndReadDecodeFailures,
   waitForAppReady
 } from './test-utils'
 
@@ -567,6 +569,9 @@ test.describe('Vector app-flow invariants', () => {
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after pen-created star', async ({
     page
   }) => {
+    const publicationCaptureKey = 'pen-star-document-publications'
+    await startDocumentPublicationCapture(page, publicationCaptureKey)
+
     const starPoints = getStarWorkspacePoints()
 
     await page.keyboard.press('p')
@@ -606,6 +611,12 @@ test.describe('Vector app-flow invariants', () => {
     await page.waitForTimeout(350)
 
     await expectWorkspaceVectorInvariants(page, 'pen-star:drag-point')
+    expect(
+      await stopDocumentPublicationCaptureAndReadDecodeFailures(
+        page,
+        publicationCaptureKey
+      )
+    ).toEqual([])
   })
 
   test('keeps full topology operations aligned through append, split, remove, and close', async ({

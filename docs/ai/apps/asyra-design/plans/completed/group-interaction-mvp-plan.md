@@ -248,17 +248,17 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   positions are converted into the chosen parent Group's current local
   coordinates through that exact identity-safe Render handle. The canonical
   hierarchy projection chooses the parent; Render ancestry does not
-  participate in that decision. After the geometry write, Preset
-  `normalizeGroupsForElements` refreshes affected Group bounds and rebases
-  coordinates inside the same transaction.
-- Every accepted discrete child geometry mutation, including a numeric
-  position or dimension property change, invokes Preset
-  `normalizeGroupsForElements` in its transaction. A continuous pointer-move
-  gesture may defer normalization across intermediate samples, but must invoke
-  it once after the final position write and before the same gesture
-  transaction commits. Preset processes the deepest affected Group first and
-  writes every ancestor Group's derived bounds cache; the app does not derive
-  or cache Group bounds.
+  participate in that decision. Drag geometry writes only the created child
+  and does not refresh or rebase any ancestor Group.
+- Every accepted child-only geometry mutation, including a numeric position or
+  dimension property change, create-drag sample, or completed pointer move,
+  updates only its explicit element targets. It does not invoke Preset Group
+  normalization, walk ancestor Groups, rebase siblings, or append Group
+  changes to the outer transaction.
+- Explicit Group/Ungroup and cross-Group identity-preserving reparent remain
+  the boundaries that may invoke Preset coordinate/bounds normalization.
+  A direct official Group-targeted operation may normalize only when its own
+  contract requires it.
 - Input mouse movement refreshes the current modifier snapshot before hover
   resolution. Existing dragging, non-element overlay, path-editing,
   lock/visibility, and selection-mutation behavior remains unchanged around
@@ -275,15 +275,21 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   unselected official Group with the canonical hovered id displays the
   ordinary hover box.
 - The existing registered Preset selection overlay layer owns this projection.
-  It consumes the Group's canonical computed `x`, `y`, `width`, and `height`
-  together with the current identity-safe Render world transform.
+  It consumes the current engine-neutral Group presentation bounds and current
+  identity-safe Render world transform. These bounds are presentation input
+  only and never canonical geometry.
+- When an official Group is selected, Preset derives its current descendant
+  content bounds once for the selection UI-context projection. A child-only
+  mutation while another element is selected does not derive or publish Group
+  property values.
 - Nested Groups project their bounds through the same current transform chain.
   Selection takes precedence over hover so one Group is not outlined twice.
-- Missing, invalid, or non-finite Group bounds fail closed without inferred
-  geometry. A zero-area Group does not gain a fabricated visible area.
+- Missing, invalid, or non-finite current Group content bounds fail closed
+  without guessed geometry. An empty or zero-area Group does not gain a
+  fabricated visible area.
 - This presentation does not make the invisible Group a canvas hit target,
-  create resize handles, mutate Group geometry, or introduce a second overlay
-  layer, Group-specific mutable state, or app/Render fallback bounds.
+  create resize handles, mutate Group geometry, create History/publication, or
+  introduce a second overlay layer or Group-specific mutable document state.
 
 ### World-space scene bounds and viewport fit
 
@@ -291,7 +297,11 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
   bounds from canonical element geometry and canonical parent membership.
 - A non-workspace element's computed `x` and `y` are local to its canonical
   parent. The bounds query accumulates every non-workspace parent offset up to
-  the workspace root before unioning that element's width and height.
+  the workspace root before unioning each visible non-Group element's width and
+  height.
+- Invisible Group containers contribute their canonical `x`/`y` while
+  traversing a descendant parent chain, but their operation-produced
+  `width`/`height` snapshots are not unioned as independent visible content.
 - Grouping must not change the overall world-space scene bounds when the
   visible child geometry is unchanged. Normal and nested Groups therefore
   produce exactly equivalent bounds before and after Group.
@@ -305,7 +315,7 @@ canonical owner through app-only hierarchy state or Render/UI fallback output.
 ### Save/load and collaboration
 
 - Save/load preserves exact Group data, parent, index, child order, nested
-  hierarchy, coordinates/bounds, and entity identity.
+  hierarchy, operation-produced geometry snapshots, and entity identity.
 - Collapse/expand state is not document data and is not required to survive
   reload.
 - One local Group or Ungroup command produces the existing grouped Factory
@@ -330,8 +340,9 @@ Formal product coverage must include:
   selection input without partial state;
 - preserve visible world-space output across Group and Ungroup;
 - project nested rows, depth, canonical child order, expand, and collapse;
-- project normal and nested official Group hover/selection boxes from canonical
-  computed bounds without adding a Group canvas hit area;
+- project normal and nested official Group hover/selection boxes from current
+  read-only content bounds without adding a Group canvas hit area or canonical
+  Group mutation;
 - preserve exactly equivalent world-space scene bounds before and after normal
   or nested Group, and make `Cmd+1` center and fit that complete content;
 - keep hidden-descendant selection stable across collapse/expand;
@@ -346,7 +357,11 @@ Formal product coverage must include:
   ancestor to the raw hit;
 - create inside the official Group selected by the same hierarchy target
   rules, preserving the mouse-down workspace position through exact parent
-  local-coordinate conversion and Preset Group normalization;
+  local-coordinate conversion and one initial Preset reparent normalization,
+  while later create-drag geometry writes only the child;
+- edit or move one child of a Group with thousands of children without
+  ancestor Group normalization, sibling rebasing, or a Group-sized
+  publication;
 - create under the explicit workspace root when mouse down has no raw element
   hit, including an empty workspace, regardless of the current selection or
   the legacy first-Frame fallback;
@@ -410,14 +425,17 @@ steps:
      fallback, unspecified-parent `firstFrame` fallback, numerical-depth
      scope, Render ancestry, or second hierarchy state.
 6. **Group hover/selection overlay projection**
-   - canonical selection and hovered-id inputs, official Group computed bounds,
-     current Render transform, existing overlay-layer output, invalid-bounds
-     bypass, no-hit-area boundary, and forbidden second layer/state/fallback.
+   - canonical selection and hovered-id inputs, current engine-neutral Group
+     presentation bounds, selected-Group read-only UI-context bounds, current
+     Render transform, existing overlay-layer output, invalid-bounds bypass,
+     no-hit-area boundary, and forbidden canonical mutation or second
+     layer/document state.
 7. **Core world-space scene bounds for viewport fit**
    - canonical Scene Tree elements and parent-chain input, accumulated
-     world-space bounds output, workspace-root termination, empty-content
-     bypass, malformed-chain failure owner, exact Group before/after
-     equivalence, and forbidden app/Render fallback.
+     visible non-Group world-space bounds output, Group translation in parent
+     chains, workspace-root termination, empty-content bypass, malformed-chain
+     failure owner, exact Group before/after equivalence, and forbidden
+     app/Render fallback.
 8. **Factory history/publication and app remote apply**
    - one command/undo/redo publication boundary, local selection isolation,
      accepted remote canonical apply, rejected remote bypass, and explicit
@@ -488,14 +506,18 @@ an app fallback.
 - Create feature/common-API tests proving mouse down passes one explicit
   workspace or official Group parent, converts workspace position into nested
   parent-local coordinates for initial creation and drag geometry updates, and
-  routes reparent/bounds normalization through Preset without activating the
-  legacy `firstFrame` fallback.
+  routes only the initial reparent/bounds normalization through Preset without
+  activating the legacy `firstFrame` fallback.
+- Property/common-API and move/create feature tests proving child-only
+  geometry writes never invoke Group normalization, never include ancestor or
+  sibling updates, and remain constant-size with thousands of Group children.
 - Feature/common-API integration tests for one transaction, rollback,
   rejection/no-op, exact post-selection, and undo/redo.
 - Layers component tests for enabled/disabled controls, nested rows,
   expand/collapse, visible-range selection, and stable selectors.
-- Preset selection-overlay tests for selected, hovered, nested, invalid-bounds,
-  duplicate-outline suppression, and unchanged non-Group behavior.
+- Preset selection UI-context/overlay tests for selected, hovered, nested,
+  current read-only content bounds, invalid bounds, duplicate-outline
+  suppression, no canonical mutation, and unchanged non-Group behavior.
 - Core world-bounds tests proving normal and nested Group before/after
   equivalence plus empty, missing-parent, cycle, invalid-workspace-chain, and
   non-finite failure behavior.
@@ -567,8 +589,9 @@ an app fallback.
 - The product contract and Inspector disagree.
 - Readiness contract tests fail.
 - Canonical Group projection is missing and would require an app fallback.
-- Canonical Group computed bounds or the current Render transform are missing
-  and would require fabricated overlay geometry.
+- Current engine-neutral Group presentation bounds or selected-Group
+  descendant geometry are missing and would require guessed overlay/property
+  geometry.
 - Canonical parent membership or computed geometry cannot produce exact
   world-space scene bounds without partial or fallback output.
 - A requested behavior requires layer-tree drag/drop, auto-layout,

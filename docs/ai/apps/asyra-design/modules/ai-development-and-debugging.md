@@ -119,17 +119,21 @@ path.
 
 ## File-Scoped Persistence
 
-Every required `fileId` selects one browser-local IndexedDB document provider.
-Core loads it before Collaboration starts. Local manual actions, Agent actions,
-Undo, and Redo use Core's ordinary persistence lifecycle. An accepted remote
-publication is applied once and then saves the resulting document through the
-same serialized provider queue. Reset stores the valid empty document.
+Every ordinary required `fileId` opens the implemented mandatory socket
+document session. Core loads the checkpoint-plus-tail bootstrap; local manual
+actions, Agent actions, Undo, and Redo publish existing Factory
+`SharedPublication` values; the socket assigns sequence and batches backend
+materialization on the fixed three-second dirty window. The browser never
+writes a materialized ordinary document snapshot.
 
-This is App-owned reference persistence so reload shows the latest accepted
-work. It is not a shared server database, cross-device recovery, authentication,
-backup, reconnect replay, or a production durability guarantee. A derived app
-must replace it with a server/database policy appropriate to that product.
-There is no localStorage migration or old-format compatibility route.
+`crdt-7076-sample` is the sole non-production socket bypass. Its temporary
+toolbar Reset writes one App-owned empty demo document to a file-scoped browser
+key and then forces a refresh. This creates no Core mutation, Factory action,
+Undo entry, socket publication, or backend write. It exists only to restart the
+public Agent simulation and will be removed from the formal App.
+
+Authority:
+`../specs/socket-authoritative-document-session.md`.
 
 ## Awareness Integration
 
@@ -222,8 +226,8 @@ CPU profiling remain explicit opt-ins.
 
 ## Explicit Non-Goals
 
-- no bundled production database, authentication, authorization, backup, or
-  reconnect recovery;
+- no database-vendor, authentication-provider, backup-product, or deployment
+  selection inside the socket-authoritative persistence plan;
 - no built-in presence UI or product-specific Awareness schema;
 - no create-app template parity in this CRDT correction;
 - no alternate AI provider route or client-side response fabrication;

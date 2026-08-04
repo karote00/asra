@@ -16,7 +16,7 @@
   - explicit workspace-position and appearance payload handoff
   - explicit workspace/official-Group create parent handoff
   - workspace-to-parent point conversion for active create geometry
-  - Group-normalized create geometry mutation (`changeElementGeometry`)
+  - child-targeted create geometry mutation (`changeElementGeometry`)
   - ordered ordinary Vector batch creation through
     `elementApis.createElements(...)` and Core `createElementsInParent(...)`
   - renderer-backed geometry hit-test for canvas targeting
@@ -95,9 +95,12 @@
   one `runTransaction` boundary and forwards mutation options. Create/move
   features use `sharedDelivery: 'immediate'` so one synchronous multi-element
   update becomes one shared publication while the outer session remains one
-  undo commit. Continuous move samples intentionally do not normalize Group
-  origins; `move-elements` invokes Preset normalization deepest-first once
-  after its final position write and before that session transaction commits.
+  undo commit. Child-only move samples and gesture finalization do not
+  normalize ancestor Groups, rebase siblings, or append Group changes.
+- `elementApis.updateElementProperties(...)` submits only the explicit
+  element ids and values to the plural Core boundary for child-only geometry
+  edits. Group projection is reserved for an explicit official Group target
+  whose operation contract requires it.
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also
   accept optional mutation options and forward them to Core.
 - `elementApis.createElement(...)` accepts an explicit `workspacePosition`
@@ -127,8 +130,9 @@
   transaction ownership.
 - `elementApis.getPositionInParent(...)` uses the current viewport and
   identity-safe chosen-parent transform only for coordinate conversion.
-  `elementApis.changeElementGeometry(...)` applies the geometry write and
-  Preset ancestor-Group normalization in one transaction.
+  `elementApis.changeElementGeometry(...)` applies only the explicit child
+  geometry write in its transaction; it does not normalize ancestor Groups or
+  rebase siblings.
 - Failure in a finite common-API mutation group rolls back all recorded
   rollbackable scene-tree, props, and selection changes before rethrowing.
 - `strokeApis.getPrimaryStrokeColor(...)` and

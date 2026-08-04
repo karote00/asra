@@ -68,6 +68,10 @@ part of this fix.
 - Transform mutation and publication size are independent of point count.
 - Mixed Vector and non-Vector selections retain the existing transaction,
   ordering, publication, and Undo semantics.
+- When a transformed Vector is a Group child, the child-only action does not
+  normalize ancestor Groups, rebase siblings, or add Group property changes;
+  explicit Group/Ungroup/reparent keeps its separate hierarchy-operation
+  contract.
 - Pivot and property-panel semantics remain unchanged. This task adds no new
   transform UI or canonical transform model.
 
@@ -145,6 +149,8 @@ part of this fix.
   data, persistence, or replay payloads.
 - Each synchronous drag update retains the existing immediate shared
   publication behavior inside the outer session transaction.
+- Child-only drag finalization contains only the explicit moved targets and
+  does not append ancestor Group normalization to History or publication.
 - Transform-only rollback, persistence, and publication evidence contains no
   point/handle record patches.
 - Accepted remote transform apply reaches the same direct Render transform
@@ -206,7 +212,8 @@ Unsupported outputs:
    while persistence, collaboration publication, and accepted remote apply
    preserve their current owners and transform evidence stays point-free.
 8. Group, ungroup, reorder, or reparent retains the current hierarchy behavior
-   and does not introduce point patches solely because the child is a Vector.
+   and does not introduce point patches solely because the child is a Vector;
+   a separate child-only transform does not normalize ancestor Groups.
 
 ### Boundary and empty cases
 
@@ -397,6 +404,8 @@ Profiling justification:
   snapshot path with exact cache invalidation and no fallback.
 - Delta/fresh Render equivalence, hit/overlay alignment, hierarchy, one staged
   drag Undo entry, persistence, collaboration, and remote apply gates pass.
+- A child-only Vector transform remains constant-size with respect to both
+  Vector point count and ancestor Group child count.
 - The reported canonical-local-geometry error is absent while loading,
   rendering, moving, and editing the complete `crdt-7076` sample.
 - Focused tests, build, lint, maintained E2E, and synchronized visual review
