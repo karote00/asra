@@ -199,7 +199,11 @@ const sortDocumentValue = (value: unknown): unknown => {
   }
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .sort(([left], [right]) => {
+        if (left < right) return -1
+        if (left > right) return 1
+        return 0
+      })
       .map(([key, item]) => [key, sortDocumentValue(item)])
   )
 }
