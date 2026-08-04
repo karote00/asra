@@ -343,6 +343,12 @@ vector geometry cache. The existing element-id derived snapshot remains the
 semantic target of the delta projection; its dimension may not expand without new
 profiling.
 
+Before installing the phase timers, the formal fixture creates its vector and
+fill, then waits for the active Collaboration session and publication outbox to
+be idle and confirms that the session remains connected. This excludes fixture
+setup publication work from the measured Render phases without changing the
+ordinary App composition or any formal timing threshold.
+
 For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
 `floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit
 oracle, so the p95 and max budgets remain independent. The first vector
