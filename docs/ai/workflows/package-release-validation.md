@@ -38,9 +38,23 @@ command that does.
 `dev:all` discovers `packages/*` from their manifests and starts every package
 `dev` command plus the Asyra Design dev server in parallel. It does not validate
 the Turbo graph or build workspace packages; existing `dist` outputs are a
-precondition. Use the explicit build commands after a clean checkout or
-`yarn clean`. `clean` remains a Turbo workspace command; every package that
-emits `dist` must provide `clean`.
+precondition. A fresh clone must use this sequence from the repository root:
+
+```bash
+yarn install
+yarn react:build
+yarn dev:all
+```
+
+After `yarn clean`, recreate the outputs before restarting the watchers:
+
+```bash
+yarn react:build
+yarn dev:all
+```
+
+`clean` remains a Turbo workspace command; every package that emits `dist` must
+provide `clean`.
 
 ## Script Tests
 
