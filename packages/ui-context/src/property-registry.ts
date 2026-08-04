@@ -4,8 +4,14 @@ import type {
   ComputedAttrs,
   RegistrationDefinitionMetadata
 } from '@asyra/utils'
-import lodash from 'lodash'
+import * as lodashModule from 'lodash'
 
+const lodash =
+  (
+    lodashModule as unknown as {
+      readonly default?: typeof lodashModule
+    }
+  ).default ?? lodashModule
 const { isEqual } = lodash
 
 export type PropertyValue =

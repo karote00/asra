@@ -1,6 +1,6 @@
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
-import lodash from 'lodash'
+import * as lodashModule from 'lodash'
 import {
   propertyRegistry,
   PropertyValue,
@@ -8,6 +8,12 @@ import {
   PropertyRegistration
 } from './property-registry.js'
 
+const lodash =
+  (
+    lodashModule as unknown as {
+      readonly default?: typeof lodashModule
+    }
+  ).default ?? lodashModule
 const { isEqual } = lodash
 
 class UIContext {

@@ -60,7 +60,7 @@ import propsManager, {
   type PropertyDefinition,
   type PropsManager
 } from '@asyra/props-manager'
-import lodash from 'lodash'
+import * as lodashModule from 'lodash'
 import componentRegistry from './component-registry.js'
 import { createElement, createWorkspace, isGroupEntity } from './entity-data.js'
 import type Element from './components/element.js'
@@ -83,6 +83,12 @@ import type {
 } from './element-mutation.js'
 import { runWithSceneTreeInitialOwnerValues } from './props-manager-context.js'
 
+const lodash =
+  (
+    lodashModule as unknown as {
+      readonly default?: typeof lodashModule
+    }
+  ).default ?? lodashModule
 const { isEqual } = lodash
 
 type SceneTreeDataType = SceneTreeRawData

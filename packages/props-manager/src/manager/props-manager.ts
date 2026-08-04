@@ -34,7 +34,7 @@ import {
   updateTransactionBatch,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
-import lodash from 'lodash'
+import * as lodashModule from 'lodash'
 import {
   createProperty,
   createPropertyWithConstructor
@@ -67,6 +67,12 @@ import {
   type PropertyComponentAccessor
 } from './component-accessor.js'
 
+const lodash =
+  (
+    lodashModule as unknown as {
+      readonly default?: typeof lodashModule
+    }
+  ).default ?? lodashModule
 const { isEqual } = lodash
 
 export type PropsLoadDiagnostic = LoadDiagnostic

@@ -8,10 +8,16 @@ export interface SetterChangeRecord {
   after: DataTypes
   options?: EvnetOptions
 }
-import lodash from 'lodash'
+import * as lodashModule from 'lodash'
 import { ElementInstanceDataTypes } from './sceneTree/index.js'
 import { PropertyComponentInstanceDataTypes } from './propsManager/index.js'
 
+const lodash =
+  (
+    lodashModule as unknown as {
+      readonly default?: typeof lodashModule
+    }
+  ).default ?? lodashModule
 const { cloneDeep, isEqual } = lodash
 
 type InstanceDataType =
