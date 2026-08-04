@@ -45,10 +45,6 @@ async function runAll() {
   try {
     const plan = await createWorkspaceDevAllPlan(repoRoot)
 
-    for (const { dir, cmd } of plan.initialBuilds) {
-      await runCommand(cmd, path.resolve(repoRoot, dir))
-    }
-
     await Promise.all(
       [...plan.devProcesses, plan.app].map(({ dir, cmd }) => {
         return runCommand(cmd, path.resolve(repoRoot, dir))

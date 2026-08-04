@@ -58,9 +58,10 @@ Start the frontend in a third terminal:
 yarn dev:all
 ```
 
-`dev:all` builds and starts the required workspace packages plus the
-App dev server only. The backend and socket server remain the explicit first
-two terminals above.
+`dev:all` starts all workspace package watchers plus the App dev server only.
+It assumes the workspace `dist` outputs already exist; use the explicit build
+commands after a clean checkout or `yarn clean`. The backend and socket server
+remain the explicit first two terminals above.
 
 Open one required non-empty `fileId`, for example:
 
