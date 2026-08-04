@@ -232,6 +232,15 @@ const targets = [
     ),
     dataScript: './framework-release-readiness-flow-inspector.data.cjs',
     filterLaneTitle: 'Package Artifacts'
+  },
+  {
+    id: 'node-24-runtime-upgrade',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html'
+    ),
+    dataScript: './node-24-runtime-upgrade-flow-inspector.data.cjs',
+    filterLaneTitle: 'Runtime Contract'
   }
 ]
 
