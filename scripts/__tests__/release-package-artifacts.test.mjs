@@ -179,7 +179,8 @@ test('every release package manifest declares the publishable artifact contract'
       'dist',
       '!dist/**/__tests__',
       '!dist/**/*.test.*',
-      '!dist/**/*.spec.*'
+      '!dist/**/*.spec.*',
+      '!dist/**/*.stories.*'
     ])
     assert.equal(typeof rootExport, 'object', `${record.packageName} exports`)
     assert.equal(
@@ -234,7 +235,7 @@ test('real package tarballs contain only declared release files and resolvable e
       )
       assert.equal(
         entries.some((entry) =>
-          /(^|\/)(coverage|\.turbo|__tests__|node_modules|test-results|playwright-report)(\/|$)|\.(test|spec)\./.test(
+          /(^|\/)(coverage|\.turbo|__tests__|node_modules|test-results|playwright-report)(\/|$)|\.(test|spec|stories)\./.test(
             entry
           )
         ),

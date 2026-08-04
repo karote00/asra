@@ -2,8 +2,11 @@
 
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import { builtinModules } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import ts from 'typescript'
 
 import { readFrameworkReleaseSource } from './framework-release-packages.js'
 
@@ -66,7 +69,56 @@ const packageEntry = (filePath) => `package/${filePath.replace(/^\.\//, '')}`
 
 const workspaceProtocolPattern = /workspace:|(?:file|link|portal|patch):/
 const repositoryOnlyEntryPattern =
-  /(^|\/)(coverage|\.turbo|__tests__|node_modules|test-results|playwright-report)(\/|$)|\.(test|spec)\./
+  /(^|\/)(coverage|\.git|\.turbo|__tests__|node_modules|test-results|playwright-report)(\/|$)|(^|\/)\.(env|npmrc|yarnrc)(\.|$)|\.(key|pem|spec|stories|test)\./
+const builtinPackageNames = new Set([
+  ...builtinModules,
+  ...builtinModules.map((name) => `node:${name}`)
+])
+
+const importedSpecifiers = (source, entry) => {
+  const sourceFile = ts.createSourceFile(
+    entry,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    entry.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS
+  )
+  const specifiers = []
+  const visit = (node) => {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      specifiers.push(node.moduleSpecifier.text)
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      node.moduleReference.expression &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      specifiers.push(node.moduleReference.expression.text)
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return specifiers
+}
+
+const packageNameForSpecifier = (specifier) =>
+  specifier.startsWith('@')
+    ? specifier.split('/').slice(0, 2).join('/')
+    : specifier.split('/')[0]
+
+const isRelativeSpecifier = (specifier) =>
+  specifier.startsWith('./') || specifier.startsWith('../')
 
 export const createReleasePackageArtifactPlan = ({
   repositoryRoot,
@@ -199,6 +251,7 @@ export const validateFrameworkReleasePackageArtifacts = ({
     }
 
     const entries = tarballEntries(record.tarballPath)
+    const entrySet = new Set(entries)
     const manifest = JSON.parse(
       tarballText(record.tarballPath, 'package/package.json')
     )
@@ -255,6 +308,10 @@ export const validateFrameworkReleasePackageArtifacts = ({
       ...(manifest.dependencies ?? {}),
       ...(manifest.peerDependencies ?? {})
     }
+    const declaredRuntimeDependencies = {
+      ...dependencyFields,
+      ...(manifest.optionalDependencies ?? {})
+    }
     for (const [dependencyName, range] of Object.entries(dependencyFields)) {
       const expectedVersion = packageVersions.get(dependencyName)
       if (expectedVersion && range !== expectedVersion) {
@@ -274,6 +331,48 @@ export const validateFrameworkReleasePackageArtifacts = ({
         throw new Error(
           `${record.packageName} source map does not resolve for ${entry}`
         )
+      }
+    }
+
+    for (const entry of entries.filter(
+      (name) => name.endsWith('.js') || name.endsWith('.d.ts')
+    )) {
+      const source = tarballText(record.tarballPath, entry)
+      for (const specifier of importedSpecifiers(source, entry)) {
+        if (isRelativeSpecifier(specifier)) {
+          if (!path.posix.extname(specifier)) {
+            throw new Error(
+              `${record.packageName} contains an extensionless ESM import in ${entry}: ${specifier}`
+            )
+          }
+          const resolvedEntry = path.posix.normalize(
+            path.posix.join(path.posix.dirname(entry), specifier)
+          )
+          const declarationSubstitution =
+            entry.endsWith('.d.ts') && /\.[cm]?js$/.test(resolvedEntry)
+              ? resolvedEntry.replace(/\.[cm]?js$/, '.d.ts')
+              : null
+          if (
+            !resolvedEntry.startsWith('package/') ||
+            (!entrySet.has(resolvedEntry) &&
+              (!declarationSubstitution ||
+                !entrySet.has(declarationSubstitution)))
+          ) {
+            throw new Error(
+              `${record.packageName} contains an unresolved relative import in ${entry}: ${specifier}`
+            )
+          }
+          continue
+        }
+
+        if (
+          !builtinPackageNames.has(specifier) &&
+          !declaredRuntimeDependencies[packageNameForSpecifier(specifier)]
+        ) {
+          throw new Error(
+            `${record.packageName} imports an undeclared dependency in ${entry}: ${specifier}`
+          )
+        }
       }
     }
 

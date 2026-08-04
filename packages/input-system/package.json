@@ -22,7 +22,8 @@
     "dist",
     "!dist/**/__tests__",
     "!dist/**/*.test.*",
-    "!dist/**/*.spec.*"
+    "!dist/**/*.spec.*",
+    "!dist/**/*.stories.*"
   ],
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
