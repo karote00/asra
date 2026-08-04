@@ -99,6 +99,35 @@ const getWorldPositions = (
     return positions
   }, elementIds)
 
+const getCanonicalGeometries = (
+  page: Page,
+  elementIds: string[]
+): Promise<
+  Record<string, { x: number; y: number; width: number; height: number }>
+> =>
+  page.evaluate(async (ids) => {
+    const sceneTree = (await import('../src/testing/runtime-access')).core.deps
+      .sceneTree
+    const geometries: Record<
+      string,
+      { x: number; y: number; width: number; height: number }
+    > = {}
+    for (const elementId of ids) {
+      const element = sceneTree.getElementById(elementId)
+      if (!element) {
+        throw new Error(`Missing hierarchy element "${elementId}"`)
+      }
+      const computed = element.getAllComputedData()
+      geometries[elementId] = {
+        x: Number(computed.x),
+        y: Number(computed.y),
+        width: Number(computed.width),
+        height: Number(computed.height)
+      }
+    }
+    return geometries
+  }, elementIds)
+
 test.describe('Asyra Design Group interaction MVP', () => {
   test('undoes and redoes a basic two-rectangle Group without losing either rectangle', async ({
     page
@@ -546,7 +575,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     }
   })
 
-  test('writes nested Group bounds after a child pointer move without a visible jump', async ({
+  test('moves only a nested child without a visible jump or eager Group normalization', async ({
     page
   }) => {
     await page.goto(createTestDocumentURL())
@@ -568,6 +597,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
 
     const elementIds = [rectId, innerGroupId, outerGroupId]
     const before = await getWorldPositions(page, elementIds)
+    const canonicalBefore = await getCanonicalGeometries(page, elementIds)
     const dragEnd = {
       x: rectCenter.x + 48,
       y: rectCenter.y + 32
@@ -601,45 +631,32 @@ test.describe('Asyra Design Group interaction MVP', () => {
 
     await expect.poll(() => getSelectedIds(page)).toEqual([rectId])
 
-    for (const elementId of elementIds) {
+    await expect
+      .poll(async () => (await getWorldPositions(page, [rectId]))[rectId].x)
+      .toBeCloseTo(before[rectId].x + workspaceDelta.x, 5)
+    await expect
+      .poll(async () => (await getWorldPositions(page, [rectId]))[rectId].y)
+      .toBeCloseTo(before[rectId].y + workspaceDelta.y, 5)
+    for (const groupId of [innerGroupId, outerGroupId]) {
       await expect
-        .poll(
-          async () => (await getWorldPositions(page, [elementId]))[elementId].x
-        )
-        .toBeCloseTo(before[elementId].x + workspaceDelta.x, 5)
-      await expect
-        .poll(
-          async () => (await getWorldPositions(page, [elementId]))[elementId].y
-        )
-        .toBeCloseTo(before[elementId].y + workspaceDelta.y, 5)
+        .poll(async () => (await getWorldPositions(page, [groupId]))[groupId])
+        .toEqual(before[groupId])
     }
 
-    const normalized = await page.evaluate(
-      async ({
-        rectId: childId,
-        innerGroupId: innerId,
-        outerGroupId: outerId
-      }) => {
-        const sceneTree = (await import('../src/testing/runtime-access')).core
-          .deps.sceneTree
-        const read = (elementId: string) =>
-          sceneTree.getElementById(elementId)?.getAllComputedData() ?? {}
-        return {
-          rect: read(childId),
-          inner: read(innerId),
-          outer: read(outerId)
-        }
-      },
-      { rectId, innerGroupId, outerGroupId }
+    const canonicalAfter = await getCanonicalGeometries(page, elementIds)
+    expect(canonicalAfter[rectId].x).toBeCloseTo(
+      canonicalBefore[rectId].x + workspaceDelta.x,
+      5
     )
-    expect(normalized.rect.x).toBeCloseTo(0)
-    expect(normalized.rect.y).toBeCloseTo(0)
-    expect(normalized.inner.x).toBeCloseTo(0)
-    expect(normalized.inner.y).toBeCloseTo(0)
-    expect(normalized.inner.width).toBeCloseTo(normalized.rect.width)
-    expect(normalized.inner.height).toBeCloseTo(normalized.rect.height)
-    expect(normalized.outer.width).toBeCloseTo(normalized.inner.width)
-    expect(normalized.outer.height).toBeCloseTo(normalized.inner.height)
+    expect(canonicalAfter[rectId].y).toBeCloseTo(
+      canonicalBefore[rectId].y + workspaceDelta.y,
+      5
+    )
+    expect(canonicalAfter[rectId].width).toBe(canonicalBefore[rectId].width)
+    expect(canonicalAfter[rectId].height).toBe(canonicalBefore[rectId].height)
+    for (const groupId of [innerGroupId, outerGroupId]) {
+      expect(canonicalAfter[groupId]).toEqual(canonicalBefore[groupId])
+    }
   })
 
   test('groups, nests, projects, restores, ungroups, and persists through product commands', async ({
