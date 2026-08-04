@@ -29,7 +29,7 @@ const normalizeEnvValue = (value) => {
   return trimmed
 }
 
-export const loadAsyraDesignEnvironment = (
+export const loadEnvironment = (
   environment = process.env,
   environmentPath = defaultEnvironmentPath
 ) => {
@@ -50,23 +50,21 @@ export const loadAsyraDesignEnvironment = (
   return environment
 }
 
-export const resolveAsyraDesignEnvironment = (environment = process.env) => {
-  const appURLValue = environment.ASYRA_DESIGN_APP_URL?.trim()
+export const resolveEnvironment = (environment = process.env) => {
+  const appURLValue = environment.APP_URL?.trim()
   if (!isNonEmptyString(appURLValue)) {
-    throw new Error(
-      'ASYRA_DESIGN_APP_URL must define the Asyra Design app origin'
-    )
+    throw new Error('APP_URL must define the app origin')
   }
 
   let appURL
   try {
     appURL = new URL(appURLValue)
   } catch {
-    throw new Error('ASYRA_DESIGN_APP_URL must be a valid URL')
+    throw new Error('APP_URL must be a valid URL')
   }
 
   if (appURL.protocol !== 'http:' && appURL.protocol !== 'https:') {
-    throw new Error('ASYRA_DESIGN_APP_URL must use http or https')
+    throw new Error('APP_URL must use http or https')
   }
   if (
     appURL.username ||
@@ -76,15 +74,15 @@ export const resolveAsyraDesignEnvironment = (environment = process.env) => {
     appURL.hash
   ) {
     throw new Error(
-      'ASYRA_DESIGN_APP_URL must be an origin without credentials, path, query, or hash'
+      'APP_URL must be an origin without credentials, path, query, or hash'
     )
   }
 
   const collaborationWebSocketHost =
-    environment.ASYRA_DESIGN_COLLABORATION_WS_HOST?.trim() || '127.0.0.1'
+    environment.COLLABORATION_WS_HOST?.trim() || '127.0.0.1'
   const collaborationWebSocketPort = resolvePort(
-    environment.ASYRA_DESIGN_COLLABORATION_WS_PORT ?? '4101',
-    'ASYRA_DESIGN_COLLABORATION_WS_PORT'
+    environment.COLLABORATION_WS_PORT ?? '4101',
+    'COLLABORATION_WS_PORT'
   )
   const healthHost = collaborationWebSocketHost.includes(':')
     ? `[${collaborationWebSocketHost}]`
@@ -95,7 +93,7 @@ export const resolveAsyraDesignEnvironment = (environment = process.env) => {
     viteHost: appURL.hostname,
     vitePort: resolvePort(
       appURL.port || (appURL.protocol === 'https:' ? '443' : '80'),
-      'ASYRA_DESIGN_APP_URL port'
+      'APP_URL port'
     ),
     collaborationWebSocketHost,
     collaborationWebSocketPort,

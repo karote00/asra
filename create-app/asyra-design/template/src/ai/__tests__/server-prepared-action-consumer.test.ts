@@ -1,21 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { elementApis, hierarchyApis } from '../../common-apis'
-import {
-  AsyraDesignAiActionNames,
-  createAsyraDesignAiActions,
-  type AsyraDesignAiActionApis,
-  type ServerPreparedInsertVectorCompositionArgs
-} from '../actions'
+import { describe, expect, it, vi } from 'vitest'
+import { AiActionNames, createAiActions, type AiActionApis } from '../actions'
+import type { PreparedDrawingArtifact } from '../prepared-drawing-artifact'
+import type { PreparedElementDescriptor } from '../../common-apis'
 import { createDeferred } from './deferred'
 
-const actionApis = (): AsyraDesignAiActionApis => ({
+const actionApis = (): AiActionApis => ({
   changeElementGeometry: vi.fn(),
-  createCompositionElement: vi.fn(),
   createCompositionElements: vi.fn(
-    (items: readonly { readonly role: string }[]) =>
-      items.map(({ role }) => `${role}-id`)
+    (descriptors: readonly PreparedElementDescriptor[]) =>
+      descriptors.map(({ id }) => id)
   ),
-  createCompositionGroup: vi.fn(() => 'cat-group-id'),
+  createCompositionGroup: vi.fn(
+    (descriptor: PreparedElementDescriptor) => descriptor.id
+  ),
   getElementBounds: vi.fn(),
   getElementFillColor: vi.fn(),
   getElementStrokeColor: vi.fn(),
@@ -23,299 +20,183 @@ const actionApis = (): AsyraDesignAiActionApis => ({
   removeSubtree: vi.fn(() => ({ removed: [] })),
   scaleVectorElementGeometry: vi.fn(() => true),
   selectElements: vi.fn(),
+  setDrawingProgress: vi.fn(),
   setElementVisible: vi.fn(() => true),
   updateElementFillColor: vi.fn(() => true),
-  updateElementStrokeColor: vi.fn(() => true)
+  updateElementFillColors: vi.fn(() => []),
+  updateElementStrokeColor: vi.fn(() => true),
+  updateElementStrokeColors: vi.fn(() => [])
 })
 
-const compactVectorArtifact = (): ServerPreparedInsertVectorCompositionArgs => {
-  const pointCounts = [2048, 2048, 1] as const
-  const coordinates = new Float64Array(
-    pointCounts.reduce((total, count) => total + count * 2, 0)
-  )
-  const paths: {
-    closed: boolean
-    coordinateOffset: number
-    pointCount: number
-  }[] = []
-  let coordinateOffset = 0
-
-  pointCounts.forEach((pointCount, itemIndex) => {
-    paths.push({
-      closed: false,
-      coordinateOffset,
-      pointCount
-    })
-    for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
-      coordinates[coordinateOffset + pointIndex * 2] =
-        itemIndex * 100 + pointIndex
-      coordinates[coordinateOffset + pointIndex * 2 + 1] = itemIndex * 10
-    }
-    coordinateOffset += pointCount * 2
+const createOvalDescriptor = (
+  id: string,
+  name: string,
+  x: number
+): PreparedElementDescriptor =>
+  Object.freeze({
+    fills: [],
+    height: 20,
+    id,
+    lock: false,
+    name,
+    props: Object.freeze({
+      dimension: `${id}-dimension`,
+      position: `${id}-position`
+    }),
+    strokes: [],
+    type: 'oval',
+    visible: true,
+    width: 20,
+    x,
+    y: 0
   })
 
-  return {
+const preparedDrawingArtifact = (): PreparedDrawingArtifact => {
+  const firstDescriptor = createOvalDescriptor('oval-server-1', 'Detail 1', 0)
+  const secondDescriptor = createOvalDescriptor('oval-server-2', 'Detail 2', 20)
+  return Object.freeze({
     artifactVersion: 1,
     compositionRole: 'cat-face',
-    coordinates: coordinates.buffer,
-    groupBounds: {
-      height: 100,
-      width: 300,
+    elementCount: 2,
+    groupBounds: Object.freeze({
+      height: 20,
+      width: 40,
       x: 0,
       y: 0
-    },
-    items: pointCounts.map((pointCount, index) => ({
-      bounds: {
-        height: 100,
-        width: 100,
-        x: index * 100,
-        y: 0
-      },
-      pathCount: 1,
-      pathStart: index,
-      pointCount,
-      primitive: 'vector' as const,
-      role: `detail-${index}`,
-      style: {
-        strokeColor: '#000000',
-        strokeWidth: 1
-      },
-      vectorEncoding: 'points' as const
-    })),
+    }),
+    groupDescriptor: Object.freeze({
+      children: [],
+      fills: [],
+      height: 20,
+      id: 'group-server-1',
+      lock: false,
+      name: 'Cat face',
+      props: Object.freeze({
+        dimension: 'group-server-1-dimension',
+        position: 'group-server-1-position'
+      }),
+      strokes: [],
+      type: 'group',
+      visible: true,
+      width: 40,
+      x: 0,
+      y: 0
+    }),
     parent: 'workspace',
-    paths,
-    pointCount: pointCounts.reduce((total, count) => total + count, 0),
-    skipped: []
-  }
+    pointCount: 4096,
+    roleToElementIds: Object.freeze({
+      'detail-1': Object.freeze([firstDescriptor.id]),
+      'detail-2': Object.freeze([secondDescriptor.id])
+    }),
+    skipped: Object.freeze([]),
+    slices: Object.freeze([
+      Object.freeze({
+        descriptors: Object.freeze([firstDescriptor]),
+        pointCount: 2048,
+        roles: Object.freeze(['detail-1'])
+      }),
+      Object.freeze({
+        descriptors: Object.freeze([secondDescriptor]),
+        pointCount: 2048,
+        roles: Object.freeze(['detail-2'])
+      })
+    ])
+  })
 }
 
-describe('server-prepared Asyra Design action consumer', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+describe('server-prepared Asyra Design action consumers', () => {
+  it('publishes only the backend input schema and executor contract', () => {
+    const actions = createAiActions(actionApis())
 
-  it('exposes only the compact server artifact instead of the expanded items contract', () => {
-    const insert = createAsyraDesignAiActions(actionApis()).find(
-      ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-    )
-    if (!insert) {
-      throw new Error('Missing insert composition action')
-    }
-
-    expect(insert.inputSchema.required).toEqual([
-      'artifactVersion',
-      'compositionRole',
-      'coordinates',
-      'groupBounds',
-      'items',
-      'parent',
-      'paths',
-      'pointCount',
-      'skipped'
-    ])
-    expect(insert.inputSchema.properties).not.toHaveProperty('itemPointCounts')
-
-    const artifact = compactVectorArtifact()
-    expect(artifact.coordinates).toBeInstanceOf(ArrayBuffer)
-    artifact.items.forEach((item) => {
-      expect(item).not.toHaveProperty('points')
-      expect(item).not.toHaveProperty('paths')
-    })
-    artifact.paths.forEach((path) => {
-      expect(path).not.toHaveProperty('points')
+    actions.forEach((action) => {
+      expect(Reflect.ownKeys(action).sort()).toEqual([
+        'description',
+        'execute',
+        'inputSchema',
+        'name'
+      ])
+      expect(action.inputSchema).toEqual(expect.any(Object))
+      expect(action).not.toHaveProperty('schema')
+      expect(action).not.toHaveProperty('prepare')
     })
   })
 
-  it('materializes only the current progressive slice in one Group', async () => {
+  it('submits prepared descriptor slices after loading paint without frontend rematerialization', async () => {
+    const artifact = preparedDrawingArtifact()
     const apis = actionApis()
-    const firstBoundary = createDeferred<undefined>()
-    const finalBoundary = createDeferred<undefined>()
-    const boundaries = [firstBoundary, finalBoundary]
-    const yieldToHost = vi.fn(() => {
-      const boundary = boundaries.shift()
-      if (!boundary) {
-        throw new Error('Unexpected cooperative boundary')
+    const loadingPaint = createDeferred<undefined>()
+    const groupPaint = createDeferred<undefined>()
+    const firstSlicePaint = createDeferred<undefined>()
+    const secondSlicePaint = createDeferred<undefined>()
+    const paintBoundaries = [
+      loadingPaint,
+      groupPaint,
+      firstSlicePaint,
+      secondSlicePaint
+    ]
+    const waitForPaint = vi.fn(() => {
+      const next = paintBoundaries.shift()
+      if (!next) {
+        throw new Error('Unexpected paint boundary')
       }
-      return boundary.promise
+      return next.promise
     })
-    const insert = createAsyraDesignAiActions(apis, {
+    const yieldToHost = vi.fn(async () => undefined)
+    const insert = createAiActions(apis, {
+      waitForPaint,
       yieldToHost
-    }).find(
-      ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-    )
+    }).find(({ name }) => name === AiActionNames.INSERT_VECTOR_COMPOSITION)
     if (!insert) {
       throw new Error('Missing insert composition action')
     }
 
-    const execution = insert.execute(compactVectorArtifact(), {
+    const execution = insert.execute(artifact, {
       signal: new AbortController().signal
     })
 
-    expect(apis.createCompositionGroup).toHaveBeenCalledOnce()
-    expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
-    expect(
-      vi
-        .mocked(apis.createCompositionElements)
-        .mock.calls[0]?.[0].map(({ role }) => role)
-    ).toEqual(['detail-0'])
+    await Promise.resolve()
+    expect(apis.createCompositionGroup).not.toHaveBeenCalled()
 
-    firstBoundary.resolve(undefined)
+    loadingPaint.resolve(undefined)
+    await vi.waitFor(() =>
+      expect(apis.createCompositionGroup).toHaveBeenCalledTimes(1)
+    )
+    expect(apis.createCompositionElements).not.toHaveBeenCalled()
+    expect(apis.createCompositionGroup).toHaveBeenCalledWith(
+      artifact.groupDescriptor,
+      expect.any(Object)
+    )
+
+    groupPaint.resolve(undefined)
+    await vi.waitFor(() =>
+      expect(apis.createCompositionElements).toHaveBeenCalledTimes(1)
+    )
+    expect(apis.createCompositionElements).toHaveBeenNthCalledWith(
+      1,
+      artifact.slices[0].descriptors,
+      expect.objectContaining({ id: 'group-server-1' }),
+      expect.any(Object)
+    )
+
+    firstSlicePaint.resolve(undefined)
     await vi.waitFor(() =>
       expect(apis.createCompositionElements).toHaveBeenCalledTimes(2)
     )
-    expect(
-      vi
-        .mocked(apis.createCompositionElements)
-        .mock.calls[1]?.[0].map(({ role }) => role)
-    ).toEqual(['detail-1', 'detail-2'])
-    expect(apis.createCompositionElement).not.toHaveBeenCalled()
+    expect(apis.createCompositionElements).toHaveBeenNthCalledWith(
+      2,
+      artifact.slices[1].descriptors,
+      expect.objectContaining({ id: 'group-server-1' }),
+      expect.any(Object)
+    )
 
-    finalBoundary.resolve(undefined)
+    secondSlicePaint.resolve(undefined)
     await expect(execution).resolves.toMatchObject({
-      appliedElementIds: ['detail-0-id', 'detail-1-id', 'detail-2-id'],
-      compositionId: 'cat-group-id',
+      appliedElementIds: ['oval-server-1', 'oval-server-2'],
+      compositionId: 'group-server-1',
+      roleToElementIds: artifact.roleToElementIds,
       status: 'complete'
     })
-    expect(apis.createCompositionGroup).toHaveBeenCalledWith(
-      expect.any(Object),
-      {
-        sharedDelivery: 'immediate',
-        undoable: true
-      }
-    )
-  })
-
-  it('routes every materialized slice through createElementsInParent', async () => {
-    vi.spyOn(hierarchyApis, 'getWorkspaceId').mockReturnValue('workspace-id')
-    vi.spyOn(elementApis, 'createElement').mockReturnValue('cat-group-id')
-    const createElementsInParent = vi
-      .spyOn(elementApis, 'createElementsInParent')
-      .mockImplementation((items) =>
-        items.map((_, index) => `element-${index}`)
-      )
-    const insert = createAsyraDesignAiActions(undefined, {
-      yieldToHost: async () => undefined
-    }).find(
-      ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-    )
-    if (!insert) {
-      throw new Error('Missing insert composition action')
-    }
-
-    await insert.execute(compactVectorArtifact(), {
-      signal: new AbortController().signal
-    })
-
-    expect(createElementsInParent).toHaveBeenCalledTimes(2)
-    expect(
-      createElementsInParent.mock.calls.map(([items]) => items.length)
-    ).toEqual([1, 2])
-    createElementsInParent.mock.calls.forEach(([, parentId, options]) => {
-      expect(parentId).toBe('cat-group-id')
-      expect(options).toEqual({
-        sharedDelivery: 'immediate',
-        undoable: true
-      })
-    })
-    expect(elementApis).not.toHaveProperty('createElements')
-  })
-
-  it('preserves server path order and closed topology while materializing a slice', async () => {
-    const apis = actionApis()
-    apis.createCompositionElements = vi.fn(() => ['topology-id'])
-    const coordinates = new Float64Array([10, 20, 30, 40, 50, 60, 70, 80])
-    const artifact: ServerPreparedInsertVectorCompositionArgs = {
-      artifactVersion: 1,
-      compositionRole: 'topology-reference',
-      coordinates: coordinates.buffer,
-      groupBounds: {
-        height: 60,
-        width: 60,
-        x: 10,
-        y: 20
-      },
-      items: [
-        {
-          bounds: {
-            height: 60,
-            width: 60,
-            x: 10,
-            y: 20
-          },
-          pathCount: 2,
-          pathStart: 0,
-          pointCount: 4,
-          primitive: 'vector',
-          role: 'ordered-paths',
-          style: {
-            strokeColor: '#000000'
-          },
-          vectorEncoding: 'paths'
-        }
-      ],
-      parent: 'workspace',
-      paths: [
-        {
-          closed: true,
-          coordinateOffset: 0,
-          pointCount: 2
-        },
-        {
-          closed: false,
-          coordinateOffset: 4,
-          pointCount: 2
-        }
-      ],
-      pointCount: 4,
-      skipped: []
-    }
-    const insert = createAsyraDesignAiActions(apis, {
-      yieldToHost: async () => undefined
-    }).find(
-      ({ name }) => name === AsyraDesignAiActionNames.INSERT_VECTOR_COMPOSITION
-    )
-    if (!insert) {
-      throw new Error('Missing insert composition action')
-    }
-
-    await insert.execute(artifact, {
-      signal: new AbortController().signal
-    })
-
-    expect(apis.createCompositionElements).toHaveBeenCalledWith(
-      [
-        {
-          bounds: artifact.items[0].bounds,
-          paths: [
-            {
-              closed: true,
-              points: [
-                { x: 10, y: 20 },
-                { x: 30, y: 40 }
-              ]
-            },
-            {
-              closed: false,
-              points: [
-                { x: 50, y: 60 },
-                { x: 70, y: 80 }
-              ]
-            }
-          ],
-          primitive: 'vector',
-          role: 'ordered-paths',
-          style: {
-            strokeColor: '#000000'
-          }
-        }
-      ],
-      expect.objectContaining({
-        id: 'cat-group-id'
-      }),
-      {
-        sharedDelivery: 'immediate',
-        undoable: true
-      }
-    )
+    expect(waitForPaint).toHaveBeenCalledTimes(4)
+    expect(yieldToHost).not.toHaveBeenCalled()
   })
 })

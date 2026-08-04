@@ -1,3 +1,5 @@
+import { CRDT_7076_DEMO_FILE_ID } from '../config/demo-document'
+
 export interface CollaborationMode {
   fileId: string
   actorId: string
@@ -23,15 +25,23 @@ export const getRequiredFileId = (): string => {
   return fileId
 }
 
-export const getCollaborationMode = (): CollaborationMode => {
+export const getCollaborationMode = (): CollaborationMode | null => {
   const fileId = getRequiredFileId()
-  const endpoint =
-    import.meta.env.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL?.trim()
-  if (!endpoint) {
-    throw new Error(
-      '[collaboration] missing WebSocket URL in apps/asyra-design/.env'
-    )
+  if (fileId === CRDT_7076_DEMO_FILE_ID) {
+    return null
   }
+  const configuredEndpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
+  const endpoint =
+    configuredEndpoint ||
+    (() => {
+      const sameDeploymentEndpoint = new URL(
+        '/collaboration',
+        window.location.href
+      )
+      sameDeploymentEndpoint.protocol =
+        sameDeploymentEndpoint.protocol === 'https:' ? 'wss:' : 'ws:'
+      return sameDeploymentEndpoint.toString()
+    })()
 
   return Object.freeze({
     fileId,

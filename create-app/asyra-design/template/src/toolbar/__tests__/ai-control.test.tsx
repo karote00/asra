@@ -20,10 +20,10 @@ describe('AI Agent toolbar activation', () => {
     cleanup()
   })
 
-  it('always exposes one labelled toggle for the required Agent controller', () => {
+  it('always exposes the labelled toggle for the App-owned Agent', () => {
     const onAiToggle = vi.fn()
     const { rerender } = render(
-      <ToolBar aiOpen={false} aiShortcutLabel="⌘I" onAiToggle={onAiToggle} />
+      <ToolBar aiOpen={false} onAiToggle={onAiToggle} />
     )
 
     const button = screen.getByRole('button', { name: 'Open Agent' })
@@ -32,7 +32,7 @@ describe('AI Agent toolbar activation', () => {
     fireEvent.click(button)
     expect(onAiToggle).toHaveBeenCalledWith(button)
 
-    rerender(<ToolBar aiOpen aiShortcutLabel="⌘I" onAiToggle={onAiToggle} />)
+    rerender(<ToolBar aiOpen onAiToggle={onAiToggle} />)
     expect(screen.getByRole('button', { name: 'Close Agent' })).toBeTruthy()
   })
 })

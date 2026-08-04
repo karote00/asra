@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getCollaborationMode } from '../collaboration-mode'
+import { getCollaborationMode, getRequiredFileId } from '../collaboration-mode'
 
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
-const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
 
 describe('collaboration public file identity', () => {
   afterEach(() => {
@@ -12,7 +12,7 @@ describe('collaboration public file identity', () => {
   })
 
   it('requires one public fileId and always prepares the page collaboration identity', () => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=public-crdt-file')
 
@@ -28,7 +28,7 @@ describe('collaboration public file identity', () => {
   })
 
   it('uses fileId as document identity rather than a collaboration toggle', () => {
-    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState(
       {},
@@ -44,12 +44,32 @@ describe('collaboration public file identity', () => {
   })
 
   it('rejects a URL that cannot identify the document', () => {
-    expect(() => getCollaborationMode()).toThrow(
+    expect(() => getRequiredFileId()).toThrow(
       '[collaboration] missing required fileId'
     )
     window.history.replaceState({}, '', '/?fileId=%20%20')
-    expect(() => getCollaborationMode()).toThrow(
+    expect(() => getRequiredFileId()).toThrow(
       '[collaboration] missing required fileId'
     )
+  })
+
+  it('uses the current deployment socket route when no endpoint is configured', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
+    window.history.replaceState({}, '', '/?fileId=ordinary-document')
+
+    expect(getCollaborationMode()).toEqual({
+      fileId: 'ordinary-document',
+      actorId: `actor-${ACTOR_UUID}`,
+      endpoint: 'ws://localhost:3000/collaboration'
+    })
+  })
+
+  it('keeps only the 7076 AI simulation outside the socket document flow', () => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
+
+    expect(getRequiredFileId()).toBe('crdt-7076-sample')
+    expect(getCollaborationMode()).toBeNull()
   })
 })

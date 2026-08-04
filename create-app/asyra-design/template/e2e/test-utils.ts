@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto'
 import type { Locator, Page } from '@playwright/test'
 import type { Rect } from '@asyra/utils'
 
@@ -10,6 +11,39 @@ export const SIDEBAR_WIDTH = 240 // COLUMN_WIDTH * 4 = 60 * 4
 export const HEADER_HEIGHT = 48 // h-12 = 12 * 4 = 48px
 
 const browserErrorsByPage = new WeakMap<Page, string[]>()
+
+export interface TestDocumentIdentity {
+  readonly fileId: string
+  readonly url: string
+}
+
+export const createTestDocumentIdentity = (
+  search = ''
+): TestDocumentIdentity => {
+  const values = new URLSearchParams(
+    search.startsWith('?') ? search.slice(1) : search
+  )
+  if (values.has('fileId')) {
+    throw new Error('createTestDocumentIdentity owns the isolated fileId')
+  }
+  const fileId = `e2e-${randomUUID()}`
+  values.set('fileId', fileId)
+  return Object.freeze({
+    fileId,
+    url: `/?${values.toString()}`
+  })
+}
+
+export const createTestDocumentURL = (search = ''): string =>
+  createTestDocumentIdentity(search).url
+
+export const getCurrentDocumentFileId = (page: Page): string => {
+  const fileId = new URL(page.url()).searchParams.get('fileId')?.trim()
+  if (!fileId) {
+    throw new Error('The current page does not have a fileId')
+  }
+  return fileId
+}
 
 export const captureBrowserErrors = (page: Page): void => {
   const browserErrors: string[] = []
@@ -27,6 +61,29 @@ export const captureBrowserErrors = (page: Page): void => {
 
 export const getCapturedBrowserErrors = (page: Page): readonly string[] =>
   browserErrorsByPage.get(page) ?? []
+
+export const startDocumentPublicationCapture = async (
+  page: Page,
+  key: string
+): Promise<void> => {
+  await page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    runtime.startDocumentPublicationCapture(captureKey)
+  }, key)
+}
+
+export const stopDocumentPublicationCaptureAndReadDecodeFailures = async (
+  page: Page,
+  key: string
+) =>
+  page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    try {
+      return runtime.readDocumentPublicationDecodeFailures(captureKey)
+    } finally {
+      runtime.stopTestCapture(captureKey)
+    }
+  }, key)
 
 /**
  * Get a safe canvas position that won't be intercepted by overlays
@@ -100,139 +157,142 @@ export async function waitForAppReady(page: Page) {
   await page.waitForTimeout(500) // Allow rendering to complete
 }
 
-export async function setStrokeDiagnosticsMode(
-  page: Page,
-  mode: 'off' | 'summary' | 'full'
-) {
-  await page.evaluate((nextMode) => {
-    ;(
-      globalThis as unknown as {
-        __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
-      }
-    ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = nextMode
-  }, mode)
-}
-
 /**
- * Reset the canvas by clicking the Reset button
+ * Keep ordinary E2E documents empty without depending on the demo-only Reset
+ * control.
  */
 export async function resetCanvas(page: Page) {
-  let resetButton = page.getByTestId('reset-button')
-  const canReset = await resetButton
-    .waitFor({ state: 'visible', timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false)
+  const isEmpty = await page.evaluate(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
+    return (
+      elements instanceof Map &&
+      Array.from(elements.values()).every(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (element: any) => element.get?.('type') === 'workspace'
+      )
+    )
+  })
 
-  if (!canReset) {
-    await page.goto('/')
+  if (!isEmpty) {
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
-    resetButton = page.getByTestId('reset-button')
   }
 
-  const reloadPromise = page
-    .waitForEvent('load', { timeout: 10_000 })
-    .catch(() => undefined)
-  await resetButton.click()
-  await reloadPromise
-  await waitForAppReady(page)
+  await page.waitForFunction(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return false
+    }
+    return Array.from(elements.values()).every(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (element: any) => element.get?.('type') === 'workspace'
+    )
+  })
 }
 
-export async function readPersistedDocument<T = unknown>(
-  page: Page,
-  storageKey = 'FILE'
-): Promise<T | null> {
-  return page.evaluate(
-    ({ databaseName, objectStoreName, key }) =>
-      new Promise<T | null>((resolve, reject) => {
-        const openRequest = indexedDB.open(databaseName)
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction(objectStoreName, 'readonly')
-          const request = transaction.objectStore(objectStoreName).get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () => resolve((request.result as T) ?? null)
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
-        }
-      }),
-    {
-      databaseName: 'asyra-documents',
-      objectStoreName: 'documents',
-      key: storageKey
+export const getClientPersistenceEvidence = (page: Page) =>
+  page.evaluate(async () => {
+    const phases =
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.snapshot().phases ?? []
+    const count = (name: string) =>
+      phases.filter((phase) => phase.name === name).length
+    return {
+      captureCount: count('core:persistence-capture'),
+      saveCount: count('core:persistence-save')
     }
-  )
-}
+  })
 
 interface DocumentDigest {
   byteLength: number
   sha256: string
 }
 
+const sortDocumentValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sortDocumentValue)
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => {
+        if (left < right) return -1
+        if (left > right) return 1
+        return 0
+      })
+      .map(([key, item]) => [key, sortDocumentValue(item)])
+  )
+}
+
+const createDocumentDigest = (documentState: unknown): DocumentDigest => {
+  const serialized = JSON.stringify(sortDocumentValue(documentState))
+  return {
+    byteLength: Buffer.byteLength(serialized),
+    sha256: createHash('sha256').update(serialized).digest('hex')
+  }
+}
+
 export async function getCoreDocumentDigest(
   page: Page
 ): Promise<DocumentDigest> {
-  return page.evaluate(async () => {
-    const data = await window.__Core__.save()
-    const bytes = new TextEncoder().encode(JSON.stringify(data))
-    const digest = await crypto.subtle.digest('SHA-256', bytes)
+  const documentState = await page.evaluate(async () => {
+    const data = await (
+      await import('../src/testing/runtime-access')
+    ).core.save()
     return {
-      byteLength: bytes.byteLength,
-      sha256: [...new Uint8Array(digest)]
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('')
+      version: data.version,
+      sceneTree: data.sceneTree,
+      props: data.props
     }
   })
+  return createDocumentDigest(documentState)
 }
 
 export async function getPersistedDocumentDigest(
   page: Page,
-  storageKey = 'FILE'
+  fileId = getCurrentDocumentFileId(page)
 ): Promise<DocumentDigest | null> {
-  return page.evaluate(
-    ({ databaseName, objectStoreName, key }) =>
-      new Promise<DocumentDigest | null>((resolve, reject) => {
-        const openRequest = indexedDB.open(databaseName)
-        openRequest.onerror = () =>
-          reject(openRequest.error ?? new Error('IndexedDB open failed'))
-        openRequest.onsuccess = () => {
-          const database = openRequest.result
-          const transaction = database.transaction(objectStoreName, 'readonly')
-          const request = transaction.objectStore(objectStoreName).get(key)
-          request.onerror = () =>
-            reject(request.error ?? new Error('IndexedDB read failed'))
-          request.onsuccess = () => {
-            if (request.result === undefined) {
-              resolve(null)
-              return
-            }
-            const bytes = new TextEncoder().encode(
-              JSON.stringify(request.result)
-            )
-            void crypto.subtle
-              .digest('SHA-256', bytes)
-              .then((digest) =>
-                resolve({
-                  byteLength: bytes.byteLength,
-                  sha256: [...new Uint8Array(digest)]
-                    .map((value) => value.toString(16).padStart(2, '0'))
-                    .join('')
-                })
-              )
-              .catch(reject)
-          }
-          transaction.oncomplete = () => database.close()
-          transaction.onabort = () => database.close()
+  const documentState = await page.evaluate(
+    async ({ requestedFileId }) => {
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(
+          requestedFileId
+        )}/bootstrap-checkpoint`,
+        {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' }
         }
-      }),
-    {
-      databaseName: 'asyra-documents',
-      objectStoreName: 'documents',
-      key: storageKey
-    }
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Document database load failed with status ${String(response.status)}`
+        )
+      }
+      const payload = (await response.json()) as { checkpoint?: unknown }
+      if (payload.checkpoint === undefined || payload.checkpoint === null) {
+        return null
+      }
+      const checkpoint = payload.checkpoint as {
+        version?: unknown
+        sceneTree?: unknown
+        props?: unknown
+      }
+      return {
+        version: checkpoint.version,
+        sceneTree: checkpoint.sceneTree,
+        props: checkpoint.props
+      }
+    },
+    { requestedFileId: fileId }
   )
+  return documentState === null ? null : createDocumentDigest(documentState)
 }
 
 export function parseStrokeDashAndGapInput(pattern: string): {
@@ -316,9 +376,8 @@ export interface ElementRect extends Rect {
 export async function getSelectedElementRect(
   page: Page
 ): Promise<ElementRect | null> {
-  return page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  return page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
     if (!selectedId) {
       return null
@@ -349,9 +408,8 @@ export async function getElementRectClientCenter(
   page: Page,
   rect: Rect
 ): Promise<{ x: number; y: number }> {
-  return page.evaluate(({ x, y, width, height }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  return page.evaluate(async ({ x, y, width, height }) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const zoom = core?.getSystemProperty?.('zoom') ?? 1
     const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
       x: 0,
@@ -376,9 +434,9 @@ export async function getSelectedElementClientCenter(
     return null
   }
 
-  return page.evaluate(({ id, width, height }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const render = (window as any).__Core__?.deps?.render
+  return page.evaluate(async ({ id, width, height }) => {
+    const render = (await import('../src/testing/runtime-access')).core?.deps
+      ?.render
     const renderElement = render?.getElementById?.(id)
     if (!renderElement) {
       return null
@@ -419,13 +477,24 @@ export async function dragSelectedElementBy(
   await page.mouse.up()
 }
 
+export const getUndoHistoryDepth = async (page: Page): Promise<number> =>
+  page.evaluate(async () => {
+    const performanceProfile = (
+      await import('../src/testing/runtime-access')
+    ).getActiveAiDrawingPerformanceProfile()
+    if (performanceProfile) {
+      return performanceProfile.readHistoryDepth()
+    }
+
+    const core = (await import('../src/testing/runtime-access')).core
+    return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+  })
+
 export const getTransactionSnapshot = async (page: Page) =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const transact = core?.deps?.factory?.transact
     const undoStack = transact?.undoStack ?? []
-
     return {
       undoCount: undoStack.length,
       isTransacting: transact?.isTransacting ?? 0
@@ -436,9 +505,8 @@ export const setSelectedGradient = async (
   page: Page,
   gradient: unknown
 ): Promise<void> => {
-  await page.evaluate((nextGradient) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  await page.evaluate(async (nextGradient) => {
+    const core = (await import('../src/testing/runtime-access')).core
     const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
     if (!selectedId) {
       return
@@ -446,22 +514,32 @@ export const setSelectedGradient = async (
 
     const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
     const computed = element?.getAllComputedData?.() ?? {}
-    const fillId = computed?.fills?.[0]?.id
-    if (!fillId || !nextGradient) {
+    const fill = computed?.fills?.[0]
+    if (!fill?.id || !nextGradient) {
       return
     }
-
-    core.updatePropertyById(
-      fillId,
-      'gradient',
-      nextGradient,
-      {
-        ownerElementId: selectedId,
-        ownerPropertyName: 'fills'
-      },
+    if (typeof core?.patchElementProperties !== 'function') {
+      throw new Error('Typed element-property patch API is unavailable')
+    }
+    core.patchElementProperties(
+      [
+        {
+          elementId: selectedId,
+          records: [
+            {
+              key: 'fills',
+              set: {
+                [fill.id]: {
+                  ...fill,
+                  gradient: nextGradient
+                }
+              }
+            }
+          ]
+        }
+      ],
       { undoable: false }
     )
-    core.commitPropertyChanges({ undoable: false })
   }, gradient)
 }
 
@@ -526,7 +604,7 @@ export async function pressGroupCommandShortcut(
   page: Page,
   command: 'group' | 'ungroup'
 ): Promise<void> {
-  const primaryModifier = await page.evaluate(() =>
+  const primaryModifier = await page.evaluate(async () =>
     /mac/i.test(navigator.platform) ? 'Meta' : 'Control'
   )
   const shift = command === 'ungroup' ? 'Shift+' : ''
@@ -599,9 +677,8 @@ export async function createVectorPath(
 
   // Perform a drag to create the vector path
   await dragOnCanvas(page, startX, startY, startX + width, startY + height, 20)
-  await page.waitForFunction(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  await page.waitForFunction(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const elements = core?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) {
       return false

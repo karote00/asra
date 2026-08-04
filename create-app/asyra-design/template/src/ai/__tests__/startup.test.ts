@@ -1,20 +1,8 @@
-import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiStartup } from '../startup'
-import type { AsyraDesignServerResponseRecord } from '../server-response-inbox'
+import { createAiStartup } from '../startup'
 
-const batch: AiActionBatch = {
-  actions: [],
-  batchId: 'resident-batch'
-}
-const response: AsyraDesignServerResponseRecord = {
-  batch,
-  fileId: 'file-resident',
-  schemaVersion: 1
-}
-
-describe('Asyra Design AI startup', () => {
-  it('always creates one concrete runtime for the server action-batch provider', async () => {
+describe('AI startup', () => {
+  it('always composes the single server action-batch provider route', () => {
     const provider = {
       requestActionBatch: vi.fn()
     }
@@ -29,43 +17,24 @@ describe('Asyra Design AI startup', () => {
     }
     const createProvider = vi.fn(() => provider)
 
-    const startup = createAsyraDesignAiStartup(
-      { response },
-      {
-        createConfirmation: vi.fn(() => confirmation as never),
-        createHistory: vi.fn(() => history as never),
-        createProvider
-      }
-    )
+    const startup = createAiStartup({
+      createConfirmation: vi.fn(() => confirmation as never),
+      createHistory: vi.fn(() => history as never),
+      createProvider
+    })
 
-    expect(createProvider).toHaveBeenCalledWith(response)
+    expect(createProvider).toHaveBeenCalledWith()
     expect(startup).not.toHaveProperty('mode')
+    expect(startup.runtime).toMatchObject({
+      dispose: expect.any(Function),
+      run: expect.any(Function)
+    })
     expect(startup).not.toHaveProperty('runtimeOptions')
-    expect(startup.runtime).toMatchObject({
-      dispose: expect.any(Function),
-      run: expect.any(Function)
-    })
-    expect(startup.runtime).not.toHaveProperty('providerEnabled')
-    await startup.runtime.dispose()
-  })
+    expect(startup).not.toHaveProperty('providerEnabled')
 
-  it('keeps the concrete runtime available when the exact inbox record is absent', async () => {
-    const startup = createAsyraDesignAiStartup(
-      { response: null },
-      {
-        createConfirmation: vi.fn(() => ({}) as never),
-        createHistory: vi.fn(() => ({}) as never),
-        createProvider: vi.fn(() => ({
-          requestActionBatch: vi.fn()
-        }))
-      }
-    )
-
-    expect(startup.runtime).toMatchObject({
-      dispose: expect.any(Function),
-      run: expect.any(Function)
-    })
-    await startup.runtime.dispose()
+    void startup.runtime.dispose()
+    void startup.confirmation.dispose()
+    startup.history.dispose()
   })
 
   it('disposes startup-owned resources when provider construction fails', () => {
@@ -73,27 +42,24 @@ describe('Asyra Design AI startup', () => {
     const disposeHistory = vi.fn()
 
     expect(() =>
-      createAsyraDesignAiStartup(
-        { response },
-        {
-          createConfirmation: vi.fn(
-            () =>
-              ({
-                dispose: disposeConfirmation,
-                requestConfirmation: vi.fn()
-              }) as never
-          ),
-          createHistory: vi.fn(
-            () =>
-              ({
-                dispose: disposeHistory
-              }) as never
-          ),
-          createProvider: vi.fn(() => {
-            throw new Error('provider construction failed')
-          })
-        }
-      )
+      createAiStartup({
+        createConfirmation: vi.fn(
+          () =>
+            ({
+              dispose: disposeConfirmation,
+              requestConfirmation: vi.fn()
+            }) as never
+        ),
+        createHistory: vi.fn(
+          () =>
+            ({
+              dispose: disposeHistory
+            }) as never
+        ),
+        createProvider: vi.fn(() => {
+          throw new Error('provider construction failed')
+        })
+      })
     ).toThrow('provider construction failed')
 
     expect(disposeHistory).toHaveBeenCalledOnce()

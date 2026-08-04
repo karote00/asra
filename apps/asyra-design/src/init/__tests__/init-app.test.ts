@@ -16,13 +16,29 @@ import { initApp } from '../init-app'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 import * as aiStartup from '../../ai/startup'
 
+const presetModuleState = vi.hoisted(() => ({
+  actualApplyPreset: undefined as unknown as typeof preset.applyPreset,
+  applyPreset: undefined as unknown as typeof preset.applyPreset
+}))
+
+vi.mock('@asyra/preset', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asyra/preset')>()
+  presetModuleState.actualApplyPreset = actual.applyPreset
+  presetModuleState.applyPreset = actual.applyPreset
+  return {
+    ...actual,
+    applyPreset: (...args: Parameters<typeof actual.applyPreset>) =>
+      presetModuleState.applyPreset(...args)
+  }
+})
+
 const calls: string[] = []
 
 describe('initApp preset composition', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     calls.length = 0
-    vi.spyOn(preset, 'applyPreset').mockImplementation(() => {
+    presetModuleState.applyPreset = vi.fn(() => {
       calls.push('preset')
       return Object.freeze({
         profile: preset.PresetProfiles.CUSTOM,
@@ -96,8 +112,8 @@ describe('initApp preset composition', () => {
   it('applies the default preset with the production AI lifecycle', async () => {
     const initialization = initApp()
 
-    expect(preset.applyPreset).toHaveBeenCalledOnce()
-    expect(preset.applyPreset).toHaveBeenCalledWith(core)
+    expect(presetModuleState.applyPreset).toHaveBeenCalledOnce()
+    expect(presetModuleState.applyPreset).toHaveBeenCalledWith(core)
     expect(features.initFeatures).toHaveBeenCalledWith({
       aiRuntime: expect.objectContaining({
         run: expect.any(Function)

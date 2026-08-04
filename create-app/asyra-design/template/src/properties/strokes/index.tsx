@@ -1,7 +1,7 @@
-import { MIXED_STRING, createDefaultStroke } from '@asyra/utils'
+import { MIXED_STRING } from '@asyra/utils'
 import { useStrokes } from '../../providers'
 import { useProperty } from '../../hooks'
-import { changeElementComputedData } from '../../controllers/scene-tree'
+import { strokeApis } from '../../common-apis'
 import StrokeList from './list'
 
 const Strokes = () => {
@@ -11,18 +11,10 @@ const Strokes = () => {
   const mixed = strokesValue === MIXED_STRING
   const strokes = mixed ? [] : strokesValue
 
-  const writeStrokes = (
-    nextStrokes: (string | ReturnType<typeof createDefaultStroke>)[]
-  ) => {
-    changeElementComputedData('strokes', nextStrokes)
-  }
-
   const handleAddStroke = () => {
-    const nextStrokes = [
-      ...strokes.map((stroke) => stroke.ids[0]),
-      createDefaultStroke()
-    ]
-    writeStrokes(nextStrokes)
+    if (ownerElementId) {
+      strokeApis.addStroke(ownerElementId)
+    }
   }
 
   const handleRemoveStroke = (index: number) => {
@@ -30,11 +22,10 @@ const Strokes = () => {
       return
     }
 
-    const nextStrokes = strokes
-      .filter((_, currentIndex) => currentIndex !== index)
-      .map((stroke) => stroke.ids[0])
-
-    writeStrokes(nextStrokes)
+    const strokeId = strokes[index]?.ids[0]
+    if (ownerElementId && strokeId) {
+      strokeApis.removeStroke(ownerElementId, strokeId)
+    }
   }
 
   return (

@@ -22,6 +22,26 @@ import {
 } from '../../collaboration/lifecycle'
 import core, { factory } from '../../contexts'
 
+const collaborationModuleState = vi.hoisted(() => ({
+  actualCreateCollaboration:
+    undefined as unknown as typeof collaborationModule.createCollaboration,
+  createCollaboration:
+    undefined as unknown as typeof collaborationModule.createCollaboration
+}))
+
+vi.mock('@asyra/collaboration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asyra/collaboration')>()
+  collaborationModuleState.actualCreateCollaboration =
+    actual.createCollaboration
+  collaborationModuleState.createCollaboration = actual.createCollaboration
+  return {
+    ...actual,
+    createCollaboration: (
+      ...args: Parameters<typeof actual.createCollaboration>
+    ) => collaborationModuleState.createCollaboration(...args)
+  }
+})
+
 const EMPTY_DOCUMENT = {
   version: '1.0.0',
   sceneTree: {
@@ -115,6 +135,8 @@ const harness = {
 beforeEach(async () => {
   await disposeCollaboration()
   vi.restoreAllMocks()
+  collaborationModuleState.createCollaboration =
+    collaborationModuleState.actualCreateCollaboration
   idCounter.clear()
   vi.spyOn(
     CollaborationWebSocketProvider.prototype,
@@ -567,7 +589,8 @@ it('disposes the previous composition before a reconnect replacement becomes liv
     disconnect: vi.fn(async () => undefined),
     dispose: vi.fn(async () => undefined)
   }
-  vi.spyOn(collaborationModule, 'createCollaboration')
+  collaborationModuleState.createCollaboration = vi
+    .fn()
     .mockReturnValueOnce(firstComposition as never)
     .mockReturnValueOnce(secondComposition as never)
 
@@ -640,8 +663,9 @@ it('retains an acknowledgement-rejected publication as an explicit conflict', as
 
 it('starts the real app collaboration composition without an Awareness preview route', async () => {
   const createCollaboration = vi
-    .spyOn(collaborationModule, 'createCollaboration')
+    .fn()
     .mockReturnValue(harness.collaboration as never)
+  collaborationModuleState.createCollaboration = createCollaboration
 
   await startCollaboration({
     fileId: 'file-lifecycle',
@@ -672,8 +696,8 @@ it('binds one remote canonical request to the Core-owned coordinator', async () 
     collaborationOperations,
     'createPublicationProcessor'
   )
-  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
-    harness.collaboration as never
+  collaborationModuleState.createCollaboration = vi.fn(
+    () => harness.collaboration as never
   )
 
   await startCollaboration({
@@ -694,8 +718,8 @@ it('binds one remote canonical request to the Core-owned coordinator', async () 
 })
 
 it('exposes remote publication outcomes through the local collaboration handle', async () => {
-  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
-    harness.collaboration as never
+  collaborationModuleState.createCollaboration = vi.fn(
+    () => harness.collaboration as never
   )
   const handle = await startCollaboration({
     fileId: 'file-lifecycle',
@@ -733,8 +757,8 @@ it('exposes provider status through the local collaboration handle', async () =>
     CollaborationWebSocketProvider.prototype,
     'onStatusChange'
   )
-  vi.spyOn(collaborationModule, 'createCollaboration').mockReturnValue(
-    harness.collaboration as never
+  collaborationModuleState.createCollaboration = vi.fn(
+    () => harness.collaboration as never
   )
   const handle = await startCollaboration({
     fileId: 'file-lifecycle',
@@ -762,8 +786,9 @@ it('settles after remote apply without saving the receiving document', async () 
     return mutate()
   })
   const createCollaboration = vi
-    .spyOn(collaborationModule, 'createCollaboration')
+    .fn()
     .mockReturnValue(harness.collaboration as never)
+  collaborationModuleState.createCollaboration = createCollaboration
 
   await startCollaboration({
     fileId: 'file-lifecycle',

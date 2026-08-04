@@ -1,8 +1,17 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import core from '../contexts'
-import { CANVAS_BACKGROUND_COLOR } from '../constants'
-import { createEmptyDocument } from '../config/empty-document'
-import { getCollaborationMode } from './collaboration-mode'
+import {
+  AiDocumentInteractionTargetProps,
+  CANVAS_BACKGROUND_COLOR
+} from '../constants'
+import type {
+  CollaborationSessionNotification,
+  PreparedCollaborationDocumentSession
+} from '../collaboration/lifecycle'
+import { createInitialDocumentForFile } from '../config/demo-document'
+import { getCollaborationMode, getRequiredFileId } from './collaboration-mode'
+import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
+import { StatusToastStack } from './status-toast-stack'
 
 export interface CanvasContextMenuInvocation {
   clientX: number
@@ -21,6 +30,8 @@ const RenderApp: React.FC<RenderAppProps> = ({
 }) => {
   const renderContainerRef = useRef<HTMLDivElement>(null)
   const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
+  const [collaborationNotification, setCollaborationNotification] =
+    useState<CollaborationSessionNotification>()
 
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     if (
@@ -43,6 +54,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
     let active = true
     let collaborationDisposer: (() => Promise<void>) | undefined
     let collaborationDisposePromise: Promise<void> | undefined
+    let unsubscribeCollaborationState: (() => void) | undefined
     const disposeCollaboration = (): Promise<void> => {
       if (!collaborationDisposer) return Promise.resolve()
       collaborationDisposePromise ??= collaborationDisposer()
@@ -59,7 +71,31 @@ const RenderApp: React.FC<RenderAppProps> = ({
         if (!container) {
           return
         }
+        const fileId = getRequiredFileId()
         const collaborationMode = getCollaborationMode()
+        let preparedCollaboration:
+          | PreparedCollaborationDocumentSession
+          | undefined
+
+        if (collaborationMode) {
+          const collaborationLifecycle = await import(
+            '../collaboration/lifecycle'
+          )
+          collaborationDisposer = collaborationLifecycle.disposeCollaboration
+          preparedCollaboration =
+            await collaborationLifecycle.prepareCollaborationDocumentSession(
+              collaborationMode
+            )
+          core.setLoadSource({
+            name: 'SocketDocumentSession',
+            load: async () => preparedCollaboration?.bootstrap.checkpoint
+          })
+        } else {
+          core.setLoadSource({
+            name: 'Crdt7076AgentSimulation',
+            load: () => createInitialDocumentForFile(fileId)
+          })
+        }
 
         await core.start(container, {
           width: window.innerWidth,
@@ -72,20 +108,24 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        core.load(createEmptyDocument())
-        if (!active) {
+        if (!preparedCollaboration) {
           return
         }
-
-        const collaborationLifecycle = await import(
-          '../collaboration/lifecycle'
-        )
-        collaborationDisposer = collaborationLifecycle.disposeCollaboration
         if (!active) {
           await disposeCollaboration()
           return
         }
-        await collaborationLifecycle.startCollaboration(collaborationMode)
+        const handle = await preparedCollaboration.activate()
+        if (!active) {
+          await disposeCollaboration()
+          return
+        }
+        setCollaborationNotification(handle.getSessionState().notification)
+        unsubscribeCollaborationState = handle.onSessionStateChange((state) => {
+          if (active) {
+            setCollaborationNotification(state.notification)
+          }
+        })
         if (!active) await disposeCollaboration()
       })
     lifecycleRef.current = lifecycle
@@ -97,6 +137,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
 
     return () => {
       active = false
+      unsubscribeCollaborationState?.()
       core.destroyRenderer()
       void disposeCollaboration().catch((error: unknown) => {
         console.error('[RenderApp] collaboration teardown failed:', error)
@@ -113,12 +154,31 @@ const RenderApp: React.FC<RenderAppProps> = ({
 
   return (
     <div
-      ref={renderContainerRef}
-      className="absolute top-0 left-0"
+      {...AiDocumentInteractionTargetProps.VIEWPORT_NAVIGATION}
+      className="absolute inset-0"
       data-testid="asyra-canvas-host"
       tabIndex={-1}
       onContextMenu={handleContextMenu}
-    />
+    >
+      <div
+        ref={renderContainerRef}
+        className="absolute inset-0"
+        data-testid="asyra-canvas-render-container"
+      />
+      <StatusToastStack
+        toasts={[
+          ...(collaborationNotification
+            ? [
+                {
+                  id: collaborationNotification.id,
+                  message: collaborationNotification.message
+                }
+              ]
+            : [])
+        ]}
+      />
+      <AiDrawingProgressIndicator />
+    </div>
   )
 }
 

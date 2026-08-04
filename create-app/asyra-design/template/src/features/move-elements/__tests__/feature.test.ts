@@ -96,7 +96,9 @@ describe('move canvas hierarchy target handoff', () => {
       }
     )
     expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(startSnapshot)
-    expect(mocks.selectElements).toHaveBeenCalledWith(['group-1'])
+    expect(mocks.selectElements).toHaveBeenCalledWith(['group-1'], {
+      undoable: false
+    })
     expect(mocks.getElementIdAtClientPos).not.toHaveBeenCalled()
   })
 
@@ -173,7 +175,7 @@ describe('move canvas hierarchy target handoff', () => {
     expect(mocks.getElementIdAtClientPos).not.toHaveBeenCalled()
   })
 
-  it('normalizes affected Groups once after the final pointer position', () => {
+  it('does not normalize ancestor Groups after the final child position', () => {
     mocks.getMousePosInWorkspace.mockReturnValue({ x: 20, y: 30 })
 
     moveElementsSession.onEnd?.(startSnapshot as never, {
@@ -184,9 +186,6 @@ describe('move canvas hierarchy target handoff', () => {
       startedFromSelectionBounds: true
     })
 
-    expect(mocks.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
-      ['selected'],
-      { sharedDelivery: 'immediate' }
-    )
+    expect(mocks.normalizeGroupGeometryForElements).not.toHaveBeenCalled()
   })
 })

@@ -2,7 +2,8 @@ import { getFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
 import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
-import { createEmptyDocument } from '../config/empty-document'
+import { resetDemoDocument } from '../config/demo-document'
+import { getRequiredFileId } from '../render-app/collaboration-mode'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -26,7 +27,11 @@ export const renderIsReady = () => {
 }
 
 export const resetData = (): void => {
-  core.load(createEmptyDocument())
+  try {
+    resetDemoDocument(getRequiredFileId())
+  } catch (error) {
+    console.error('[app.controller.resetData] Error:', error)
+  }
 }
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {

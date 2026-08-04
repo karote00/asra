@@ -63,6 +63,8 @@ const CHECK_DIRECTORY = path.resolve(
 )
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
+const GENERATED_ENVIRONMENT = config.environment || {}
+const TEMPLATE_README = config.readme ? path.resolve(config.readme) : undefined
 
 if (CHECK) {
   process.on('exit', () => {
@@ -114,6 +116,32 @@ for (const pattern of CLEAN_FILES) {
   }
 }
 
+const generatedEnvironmentPath = path.join(DEST_DIR, '.env')
+fs.writeFileSync(
+  generatedEnvironmentPath,
+  `${Object.entries(GENERATED_ENVIRONMENT)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')}\n`
+)
+if (VERBOSE) console.log('Created standalone public environment defaults')
+
+if (TEMPLATE_README) {
+  const relativeReadmeSource = path.relative(SRC_DIR, TEMPLATE_README)
+  if (
+    relativeReadmeSource.startsWith('..') ||
+    path.isAbsolute(relativeReadmeSource) ||
+    !fs.existsSync(TEMPLATE_README)
+  ) {
+    throw new Error('Template README must be an existing app source file')
+  }
+  fse.copySync(TEMPLATE_README, path.join(DEST_DIR, 'README.md'))
+  const copiedReadmeSource = path.join(DEST_DIR, relativeReadmeSource)
+  if (copiedReadmeSource !== path.join(DEST_DIR, 'README.md')) {
+    fse.removeSync(copiedReadmeSource)
+  }
+  if (VERBOSE) console.log('Created standalone template README')
+}
+
 // ----------------------
 // Copy prod app index.html
 // ----------------------
@@ -161,6 +189,19 @@ if (!fs.existsSync(pkgPath)) {
   updateDeps(pkg.dependencies)
   updateDeps(pkg.devDependencies)
   updateDeps(pkg.peerDependencies)
+
+  pkg.engines = {
+    node: '20.x'
+  }
+  pkg.packageManager = 'yarn@4.3.1'
+
+  if (pkg.scripts) {
+    pkg.scripts['build:collaboration-server'] =
+      'tsc -p tsconfig.collaboration-server.json && vite build --config vite.collaboration-server.config.ts'
+    pkg.scripts['build:document-backend'] =
+      'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
+    delete pkg.scripts['generate:crdt-7076-document']
+  }
 
   // ----------------------
   // Add ESLint v9 flat config packages

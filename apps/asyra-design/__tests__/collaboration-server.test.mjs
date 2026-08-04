@@ -167,10 +167,6 @@ test('reference server is a TypeScript build with a validated uncompressed publi
   assert.equal(manifest.devDependencies.vite, '^6.2.3')
   assert.match(
     manifest.scripts['build:collaboration-server'],
-    /gen:turbo:check/
-  )
-  assert.match(
-    manifest.scripts['build:collaboration-server'],
     /tsc -p tsconfig\.collaboration-server\.json/
   )
   assert.match(

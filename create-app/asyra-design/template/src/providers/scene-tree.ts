@@ -8,6 +8,7 @@ type ElementDataMap = Record<string, Partial<ElementRawData>>
 
 const EMPTY_FLATTENED_IDS: string[] = []
 const EMPTY_ELEMENT_DATA_MAP: ElementDataMap = {}
+const EMPTY_ELEMENT_DATA: Partial<ElementRawData> = {}
 
 const useCanonicalUIProperty = <T extends PropertyValue>(
   key: string,
@@ -40,8 +41,37 @@ export const useElementDataMap = (): ElementDataMap =>
   useCanonicalUIProperty(UI_PROPERTIES.ELEMENT_DATA_MAP, EMPTY_ELEMENT_DATA_MAP)
 
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
-  const elementDataMap = useElementDataMap()
-  return elementDataMap[elementId] ?? {}
+  const getSnapshot = () =>
+    core.getUIProperty<ElementDataMap>(UI_PROPERTIES.ELEMENT_DATA_MAP)?.[
+      elementId
+    ] ?? EMPTY_ELEMENT_DATA
+
+  return useSyncExternalStore(
+    (callback) => {
+      const subject = core.getUIPropertySubject<ElementDataMap>(
+        UI_PROPERTIES.ELEMENT_DATA_MAP
+      )
+      if (!subject) {
+        return () => undefined
+      }
+
+      let previous = subject.getValue()?.[elementId]
+      const subscription = subject.subscribe((next) => {
+        const nextElementData = next?.[elementId]
+        if (previous !== nextElementData) {
+          previous = nextElementData
+          callback()
+          return
+        }
+
+        previous = nextElementData
+      })
+
+      return () => subscription.unsubscribe()
+    },
+    getSnapshot,
+    getSnapshot
+  )
 }
 
 export const useVectorIconPathMap = (elementId: string): string | null => {

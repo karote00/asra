@@ -1,7 +1,7 @@
-import { MIXED_STRING, createDefaultFill } from '@asyra/utils'
+import { MIXED_STRING } from '@asyra/utils'
 import { useFills } from '../../providers'
 import { useProperty } from '../../hooks'
-import { changeElementComputedData } from '../../controllers/scene-tree'
+import { fillApis } from '../../common-apis'
 import FillList from './list'
 
 const Fills = () => {
@@ -11,15 +11,10 @@ const Fills = () => {
   const mixed = fillsValue === MIXED_STRING
   const fills = mixed ? [] : fillsValue
 
-  const writeFills = (
-    nextFills: (string | ReturnType<typeof createDefaultFill>)[]
-  ) => {
-    changeElementComputedData('fills', nextFills)
-  }
-
   const handleAddFill = () => {
-    const nextFills = [...fills.map((fill) => fill.ids[0]), createDefaultFill()]
-    writeFills(nextFills)
+    if (ownerElementId) {
+      fillApis.addFill(ownerElementId)
+    }
   }
 
   const handleRemoveFill = (index: number) => {
@@ -27,11 +22,10 @@ const Fills = () => {
       return
     }
 
-    const nextFills = fills
-      .filter((_, currentIndex) => currentIndex !== index)
-      .map((fill) => fill.ids[0])
-
-    writeFills(nextFills)
+    const fillId = fills[index]?.ids[0]
+    if (ownerElementId && fillId) {
+      fillApis.removeFill(ownerElementId, fillId)
+    }
   }
 
   return (

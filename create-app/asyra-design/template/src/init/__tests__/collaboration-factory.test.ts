@@ -1,43 +1,373 @@
+import type { SharedPublication } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
-import type { SharedPublication, SharedPublicationBatch } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
-import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
-import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
+import { SharedDataChannelNames } from '@asyra/utils'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
+import { isSharedPublication } from '../../collaboration/protocol'
+import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 
-const batch = (
-  channel: string,
-  deliveryId: string,
-  eventName: string,
-  payload: unknown
-): SharedPublicationBatch => ({
-  batchId: `batch-${deliveryId}`,
-  channel,
-  deliveries: [{ deliveryId, eventName, orderedIds: [deliveryId], payload }]
-})
-
-const publication = (
+const createPublication = (
   publicationId: string,
-  batches: readonly SharedPublicationBatch[]
+  slices: SharedPublication['slices']
 ): SharedPublication => ({
   publicationId,
   artifactId: `artifact-${publicationId}`,
   transactionId: 1,
   origin: 'action',
   mode: 'atomic',
-  slices: [
-    {
-      sliceId: `slice-${publicationId}`,
-      orderedIds: batches.flatMap(({ deliveries }) =>
-        deliveries.map(({ deliveryId }) => deliveryId)
-      ),
-      batches
-    }
-  ]
+  slices
+})
+
+const createDelivery = (
+  deliveryId: string,
+  eventName: string,
+  orderedIds: readonly string[]
+) => ({
+  deliveryId,
+  eventName,
+  orderedIds,
+  payload: { id: orderedIds[0] }
 })
 
 describe('Asyra Design collaboration composition', () => {
+  it('forwards an already document-only minimal publication by identity', () => {
+    let publicationSubscriber: ((publication: unknown) => void) | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+    const documentPublication = Object.freeze({
+      publicationId: 'document-only',
+      artifactId: 'artifact-document-only',
+      transactionId: 1,
+      origin: 'action' as const,
+      mode: 'atomic' as const,
+      slices: Object.freeze([
+        Object.freeze({
+          sliceId: 'slice-document-only',
+          orderedIds: Object.freeze(['element-a']),
+          batches: Object.freeze([
+            Object.freeze({
+              batchId: 'batch-document-only',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: Object.freeze([
+                Object.freeze({
+                  deliveryId: 'delivery-document-only',
+                  eventName: EventTypes.UPDATE_ELEMENT_DATA,
+                  orderedIds: Object.freeze(['element-a']),
+                  payload: Object.freeze({ id: 'element-a' })
+                })
+              ])
+            })
+          ])
+        })
+      ])
+    })
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.(documentPublication)
+
+    expect(received).toHaveBeenCalledOnce()
+    expect(received).toHaveBeenCalledWith(documentPublication)
+  })
+
   it('forwards only app-owned document channels', () => {
+    let publicationSubscriber:
+      | ((publication: SharedPublication) => void)
+      | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+    const selectionDelivery = createDelivery(
+      'selection-delivery',
+      'updateSelection',
+      ['selection-a']
+    )
+    const sceneDelivery = createDelivery(
+      'scene-delivery',
+      EventTypes.UPDATE_ELEMENT_DATA,
+      ['element-a']
+    )
+    const propsDelivery = createDelivery(
+      'props-delivery',
+      EventTypes.UPDATE_PROPERTY,
+      ['element-a']
+    )
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.(
+      createPublication('selection-only', [
+        {
+          sliceId: 'selection-slice',
+          orderedIds: ['selection-delivery'],
+          batches: [
+            {
+              batchId: 'selection-batch',
+              channel: 'selection',
+              deliveries: [selectionDelivery]
+            }
+          ]
+        }
+      ])
+    )
+    publicationSubscriber?.(
+      createPublication('mixed-action', [
+        {
+          sliceId: 'selection-slice',
+          orderedIds: ['selection-delivery'],
+          batches: [
+            {
+              batchId: 'selection-batch',
+              channel: 'selection',
+              deliveries: [selectionDelivery]
+            }
+          ]
+        },
+        {
+          sliceId: 'document-slice',
+          orderedIds: ['scene-delivery', 'props-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            },
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
+
+    expect(received).toHaveBeenCalledTimes(1)
+    expect(received).toHaveBeenCalledWith(
+      createPublication('mixed-action', [
+        {
+          sliceId: 'document-slice',
+          orderedIds: ['scene-delivery', 'props-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            },
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
+    expect('runRemoteTransaction' in filtered).toBe(false)
+    expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
+  })
+
+  it('keeps one valid atomic document slice after removing a local selection slice', () => {
+    let publicationSubscriber:
+      | ((publication: SharedPublication) => void)
+      | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+    const selectionDelivery = createDelivery(
+      'selection-delivery',
+      'updateSelection',
+      []
+    )
+    const sceneDelivery = createDelivery(
+      'scene-delivery',
+      EventTypes.CHANGE_SUBTREE,
+      ['element-a']
+    )
+    const propsDelivery = createDelivery(
+      'props-delivery',
+      EventTypes.REMOVE_PROPERTY,
+      ['property-a']
+    )
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.(
+      createPublication('atomic-delete', [
+        {
+          sliceId: 'selection-slice',
+          orderedIds: ['selection-delivery'],
+          batches: [
+            {
+              batchId: 'selection-batch',
+              channel: 'selection',
+              deliveries: [selectionDelivery]
+            }
+          ]
+        },
+        {
+          sliceId: 'scene-slice',
+          orderedIds: ['scene-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            }
+          ]
+        },
+        {
+          sliceId: 'props-slice',
+          orderedIds: ['props-delivery'],
+          batches: [
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
+
+    expect(received).toHaveBeenCalledOnce()
+    const publication = received.mock.calls[0]?.[0]
+    expect(isSharedPublication(publication)).toBe(true)
+    expect(publication).toEqual(
+      createPublication('atomic-delete', [
+        {
+          sliceId: 'scene-slice',
+          orderedIds: ['scene-delivery', 'props-delivery'],
+          batches: [
+            {
+              batchId: 'scene-batch',
+              channel: SharedDataChannelNames.SCENE_TREE,
+              deliveries: [sceneDelivery]
+            },
+            {
+              batchId: 'props-batch',
+              channel: SharedDataChannelNames.PROPS,
+              deliveries: [propsDelivery]
+            }
+          ]
+        }
+      ])
+    )
+  })
+
+  it('records profiling evidence from retained Factory batches without affecting transport', () => {
+    let publicationSubscriber:
+      | ((publication: SharedPublication) => void)
+      | undefined
+    const owner = {
+      subscribeToSharedPublication: vi.fn((subscriber) => {
+        publicationSubscriber = subscriber
+        return () => undefined
+      })
+    }
+    const profile = {} as aiDrawingPerformance.AiDrawingPerformanceProfile
+    vi.spyOn(
+      aiDrawingPerformance,
+      'getActiveAiDrawingPerformanceProfile'
+    ).mockReturnValue(profile)
+    const recordPublication = vi
+      .spyOn(aiDrawingPerformance, 'recordAiDrawingPerformancePublication')
+      .mockImplementation(() => {
+        throw new Error('diagnostic failure')
+      })
+    const filtered = createDocumentCollaborationFactory(owner as never)
+    const received = vi.fn()
+    const selectionDelivery = createDelivery(
+      'selection-delivery',
+      'updateSelection',
+      ['selection-a']
+    )
+    const sceneDelivery = createDelivery(
+      'scene-delivery',
+      EventTypes.UPDATE_ELEMENT_DATA,
+      ['element-a']
+    )
+    const propsDelivery = createDelivery(
+      'props-delivery',
+      EventTypes.UPDATE_PROPERTY,
+      ['element-a']
+    )
+
+    filtered.subscribeToSharedPublication(received as never)
+    publicationSubscriber?.(
+      createPublication('selection-only', [
+        {
+          sliceId: 'selection-slice',
+          orderedIds: ['selection-delivery'],
+          batches: [
+            {
+              batchId: 'selection-batch',
+              channel: 'selection',
+              deliveries: [selectionDelivery]
+            }
+          ]
+        }
+      ])
+    )
+    const mixedPublication = createPublication('document-action', [
+      {
+        sliceId: 'selection-slice',
+        orderedIds: ['selection-delivery'],
+        batches: [
+          {
+            batchId: 'selection-batch',
+            channel: 'selection',
+            deliveries: [selectionDelivery]
+          }
+        ]
+      },
+      {
+        sliceId: 'document-slice',
+        orderedIds: ['scene-delivery', 'props-delivery'],
+        batches: [
+          {
+            batchId: 'scene-batch',
+            channel: SharedDataChannelNames.SCENE_TREE,
+            deliveries: [sceneDelivery]
+          },
+          {
+            batchId: 'props-batch',
+            channel: SharedDataChannelNames.PROPS,
+            deliveries: [propsDelivery]
+          }
+        ]
+      }
+    ])
+    publicationSubscriber?.(mixedPublication)
+
+    expect(owner.subscribeToSharedPublication).toHaveBeenCalledOnce()
+    expect(recordPublication).toHaveBeenCalledOnce()
+    expect(recordPublication).toHaveBeenCalledWith(profile, {
+      deliveryCount: 2,
+      publicationId: 'document-action'
+    })
+    const propsSlice = mixedPublication.slices[1]
+    if (!propsSlice) throw new Error('Expected retained Props slice')
+    expect(received).toHaveBeenCalledOnce()
+    expect(received).toHaveBeenCalledWith(
+      createPublication('document-action', [propsSlice])
+    )
+  })
+
+  it('rejects local-only computed evidence before the adapter publishes a document batch', () => {
     let publicationSubscriber:
       | ((publication: SharedPublication) => void)
       | undefined
@@ -51,101 +381,35 @@ describe('Asyra Design collaboration composition', () => {
     const received = vi.fn()
 
     filtered.subscribeToSharedPublication(received as never)
-    publicationSubscriber?.(
-      publication('selection-only', [
-        batch('selection', 'selection-only', 'selection.change', {})
-      ])
-    )
-    const mixed = publication('mixed-action', [
-      batch('selection', 'selection-local', 'selection.change', {}),
-      batch('sceneTree', 'scene-document', 'scene.change', {}),
-      batch('props', 'props-document', 'props.change', {})
-    ])
-    publicationSubscriber?.(mixed)
 
-    expect(received).toHaveBeenCalledTimes(1)
-    expect(received).toHaveBeenCalledWith({
-      ...mixed,
-      slices: [
-        {
-          ...mixed.slices[0],
-          orderedIds: ['scene-document', 'props-document'],
-          batches: mixed.slices[0]?.batches.slice(1)
-        }
-      ]
-    })
-    expect('runRemoteTransaction' in filtered).toBe(false)
-    expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
-  })
-
-  it('applies accepted Group hierarchy deliveries once without remote selection takeover', () => {
-    let publicationSubscriber:
-      | ((publication: SharedPublication) => void)
-      | undefined
-    const owner = {
-      subscribeToSharedPublication: vi.fn((subscriber) => {
-        publicationSubscriber = subscriber
-        return () => undefined
-      })
-    }
-    const filtered = createDocumentCollaborationFactory(owner as never)
-    const runRemoteTransaction = vi.fn(<T>(mutate: () => T): T => mutate())
-    const process = vi.fn(() => true)
-    const processPublication = createAsyraDesignPublicationProcessor(
-      runRemoteTransaction,
-      process
-    )
-    filtered.subscribeToSharedPublication(processPublication)
-
-    publicationSubscriber?.(
-      publication('group-command', [
-        batch('selection', 'selection-local-only', 'selection.change', {
-          selectedIds: ['group-a']
-        }),
-        batch(
-          SharedDataChannelNames.SCENE_TREE,
-          'group-created',
-          EventTypes.ADD_ELEMENT,
-          {
-            action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-            eventName: EventTypes.ADD_ELEMENT,
-            data: {
-              id: 'group-a',
-              type: 'group',
-              parentId: 'workspace-a',
-              children: []
-            },
-            parentId: 'workspace-a',
-            index: 0
-          }
-        ),
-        batch(
-          SharedDataChannelNames.SCENE_TREE,
-          'children-moved',
-          EventTypes.MOVE_ELEMENTS,
-          {
-            action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
-            eventName: EventTypes.MOVE_ELEMENTS,
-            moves: [
-              {
-                elementId: 'rect-a',
-                before: { parentId: 'workspace-a', index: 1 },
-                after: { parentId: 'group-a', index: 0 }
-              }
-            ]
-          }
+    for (const eventName of [
+      EventTypes.UPDATE_COMPUTED_DATA,
+      EventTypes.UPDATE_COMPUTED_DATA_PATCH
+    ]) {
+      const computedDelivery = createDelivery(
+        `computed-delivery-${eventName}`,
+        eventName,
+        ['element-a']
+      )
+      expect(() =>
+        publicationSubscriber?.(
+          createPublication(`computed-${eventName}`, [
+            {
+              sliceId: `computed-slice-${eventName}`,
+              orderedIds: [`computed-delivery-${eventName}`],
+              batches: [
+                {
+                  batchId: `computed-batch-${eventName}`,
+                  channel: SharedDataChannelNames.SCENE_TREE,
+                  deliveries: [computedDelivery]
+                }
+              ]
+            }
+          ])
         )
-      ])
-    )
+      ).toThrow(/local-only computed projection/i)
+    }
 
-    expect(runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(process).toHaveBeenCalledTimes(2)
-    expect(process.mock.calls.map(([event]) => event.type)).toEqual([
-      EventTypes.ADD_ELEMENT,
-      EventTypes.MOVE_ELEMENTS
-    ])
-    expect(
-      process.mock.calls.some(([event]) => event.type === 'selection.change')
-    ).toBe(false)
+    expect(received).not.toHaveBeenCalled()
   })
 })

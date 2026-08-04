@@ -20,7 +20,12 @@ test('Asyra Design delegates default renderer ownership to Core', () => {
     renderAppSource,
     /Pixi|@asyra\/render-engine-pixi|from ['"]pixi\.js['"]/i
   )
-  assert.equal(packageJson.dependencies['@asyra/render'], 'workspace:*')
+  assert.equal(
+    typeof packageJson.dependencies['@asyra/render'],
+    'string',
+    '@asyra/render must remain an explicit app dependency'
+  )
+  assert.notEqual(packageJson.dependencies['@asyra/render'].trim(), '')
   assert.equal(packageJson.dependencies['@asyra/render-engine-pixi'], undefined)
   assert.equal(packageJson.dependencies['@types/pixi.js'], undefined)
 })

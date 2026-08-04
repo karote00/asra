@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   getToolbar,
   getContentsPanel,
   getPropertiesPanel
 } from './test-utils'
+import { CRDT_7076_DEMO_RESET_STORAGE_KEY } from '../src/config/demo-document'
 
 /**
  * E2E Tests for basic application loading and layout
@@ -12,7 +14,7 @@ import {
 
 test.describe('Asyra Design Tool', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
   })
 
   test('should load the application', async ({ page }) => {
@@ -72,13 +74,59 @@ test.describe('Asyra Design Tool', () => {
     await expect(propertiesPanel).toBeVisible()
   })
 
-  test('should have Reset button in toolbar', async ({ page }) => {
+  test('should omit the demo-only Reset button for ordinary documents', async ({
+    page
+  }) => {
     await waitForAppReady(page)
 
-    // Reset button should be visible
     const toolbar = getToolbar(page)
     const resetButton = toolbar.getByTestId('reset-button')
-    await expect(resetButton).toBeVisible()
+    await expect(resetButton).toHaveCount(0)
+  })
+
+  test('should save an empty 7076 demo document before forcing reload', async ({
+    page
+  }) => {
+    const emptyDocument = {
+      version: '1.0.0',
+      sceneTree: {
+        workspace: '',
+        workspaceList: [],
+        elements: {}
+      },
+      props: {}
+    }
+    let sampleRequestCount = 0
+    await page.route('**/samples/crdt-7076/document.json.gz', async (route) => {
+      sampleRequestCount += 1
+      await route.fulfill({
+        body: JSON.stringify(emptyDocument),
+        contentType: 'application/json',
+        status: 200
+      })
+    })
+    await page.goto('/?fileId=crdt-7076-sample')
+    await waitForAppReady(page)
+    expect(sampleRequestCount).toBe(1)
+
+    await Promise.all([
+      page.waitForEvent(
+        'framenavigated',
+        (frame) => frame === page.mainFrame()
+      ),
+      page.getByTestId('reset-button').click()
+    ])
+    await waitForAppReady(page)
+
+    expect(sampleRequestCount).toBe(1)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (storageKey) => localStorage.getItem(storageKey),
+          CRDT_7076_DEMO_RESET_STORAGE_KEY
+        )
+      )
+      .toBe(JSON.stringify(emptyDocument))
   })
 
   test('should have Zoom display in toolbar', async ({ page }) => {

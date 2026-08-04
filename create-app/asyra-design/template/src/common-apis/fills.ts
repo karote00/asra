@@ -1,6 +1,9 @@
+import type { ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   FillGradientTypes,
   PropertyTypes,
+  createDefaultFill,
+  id,
   type EVENT_OPTIONS,
   type FillAttrs,
   type FillGradientData,
@@ -9,21 +12,43 @@ import {
 import { FILL_PATCH_KEYS, type FillWritableKey } from '../constants'
 import core, { render, sceneTree } from '../contexts'
 import { getChangedDefinedPatchEntries } from './property-patch'
+import { transactionApis } from './transaction'
 
 export type FillPatch = Partial<Pick<FillAttrs, FillWritableKey>>
 
-const updateFillPropertyById = core.updatePropertyById as <
-  K extends FillWritableKey
->(
-  propertyId: string,
-  key: K,
-  data: FillAttrs[K],
-  owner: {
-    ownerElementId: string
-    ownerPropertyName: string
-  },
-  options?: EVENT_OPTIONS
-) => void
+export interface PrimaryFillColorUpdate {
+  readonly color: string
+  readonly elementId: string
+}
+
+const createFillRecordPatch = (
+  elementId: string,
+  fillId: string,
+  fill: FillAttrs
+): ElementPropertyPatchUpdate => {
+  if (fill.id !== fillId) {
+    throw new Error(`Fill record key "${fillId}" does not match its id`)
+  }
+  const fields: Record<string, unknown> = {}
+  for (const key of FILL_PATCH_KEYS) {
+    const value = fill[key]
+    if (value !== undefined) {
+      fields[key] = value
+    }
+  }
+
+  return {
+    elementId,
+    records: [
+      {
+        key: PropertyTypes.FILLS,
+        set: {
+          [fillId]: fields
+        }
+      }
+    ]
+  }
+}
 
 interface RenderElementShape {
   toGlobal: (point: PositionData) => PositionData
@@ -226,6 +251,59 @@ const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
 }
 
 export const fillApis = {
+  addFill: (elementId: string, options?: EVENT_OPTIONS): string | null => {
+    if (!sceneTree.getElementById(elementId)) {
+      return null
+    }
+    const fill = createDefaultFill({ id: id() })
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [createFillRecordPatch(elementId, fill.id, fill)],
+        options
+      )
+    })
+    return fill.id
+  },
+
+  removeFill: (
+    elementId: string,
+    fillId: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const element = sceneTree.getElementById(elementId)
+    const fills = element?.getAllComputedData?.()?.fills
+    if (
+      !fillId ||
+      !Array.isArray(fills) ||
+      !fills.some(
+        (candidate) =>
+          candidate &&
+          typeof candidate === 'object' &&
+          (candidate as { id?: unknown }).id === fillId
+      )
+    ) {
+      return false
+    }
+
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: PropertyTypes.FILLS,
+                remove: [fillId]
+              }
+            ]
+          }
+        ],
+        options
+      )
+    })
+    return true
+  },
+
   getCanvasBounds: (): DOMRect | null => {
     return render.app?.canvas?.getBoundingClientRect() ?? null
   },
@@ -551,32 +629,66 @@ export const fillApis = {
     return nextGradient
   },
 
+  updatePrimaryFillColors: (
+    updates: readonly PrimaryFillColorUpdate[],
+    options?: EVENT_OPTIONS
+  ): readonly boolean[] => {
+    const prepared = updates.map(({ color, elementId }) => {
+      const fill = getPrimaryFill(elementId)
+      if (
+        !fill ||
+        typeof color !== 'string' ||
+        color.length === 0 ||
+        fill.color === color
+      ) {
+        return null
+      }
+      return {
+        elementId,
+        fillId: fill.id,
+        nextFill: {
+          ...fill,
+          color
+        }
+      }
+    })
+    if (!prepared.some((update) => update !== null)) {
+      return Object.freeze(prepared.map(() => false))
+    }
+
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        prepared.flatMap((update) =>
+          update
+            ? [
+                createFillRecordPatch(
+                  update.elementId,
+                  update.fillId,
+                  update.nextFill
+                )
+              ]
+            : []
+        ),
+        options
+      )
+    })
+    return Object.freeze(prepared.map((update) => update !== null))
+  },
+
   updatePrimaryFillColor: (
     elementId: string,
     color: string,
     options?: EVENT_OPTIONS
-  ): boolean => {
-    const fill = getPrimaryFill(elementId)
-    if (
-      !fill ||
-      typeof color !== 'string' ||
-      color.length === 0 ||
-      fill.color === color
-    ) {
-      return false
-    }
-
-    fillApis.updateFillFields(
-      elementId,
-      fill.id,
-      fill,
-      {
-        color
-      },
+  ): boolean =>
+    fillApis.updatePrimaryFillColors(
+      [
+        {
+          color,
+          elementId
+        }
+      ],
       options
-    )
-    return true
-  },
+    )[0] ?? false,
 
   updateFillFields: (
     elementId: string,
@@ -594,19 +706,16 @@ export const fillApis = {
       return
     }
 
-    changedEntries.forEach(([key, value]) => {
-      updateFillPropertyById(
-        fillId,
-        key,
-        value,
-        {
-          ownerElementId: elementId,
-          ownerPropertyName: PropertyTypes.FILLS
-        },
+    const nextFill = {
+      ...currentFill,
+      ...Object.fromEntries(changedEntries)
+    } as FillAttrs
+    transactionApis.runTransaction(() => {
+      core.patchElementProperties(
+        [createFillRecordPatch(elementId, fillId, nextFill)],
         options
       )
     })
-    core.commitPropertyChanges(options)
   },
   updateFillField: <K extends FillWritableKey>(
     elementId: string,

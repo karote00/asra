@@ -25,14 +25,113 @@ const listTests = (config, environment = {}) => {
   return result.stdout
 }
 
+const endpointPerformanceEnvironment = {
+  ENDPOINT_ARTIFACT_ATTESTED: 'ws://127.0.0.1:4121/collaboration',
+  ENDPOINT_PREVIEW_OUT_DIR:
+    '/project/apps/asyra-design/tmp/endpoint-preview/current',
+  ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'a'.repeat(64),
+  ENDPOINT_RESPONSE_MANIFEST_PATH:
+    '/project/apps/asyra-design/tmp/endpoint-preview/current/__endpoint-test__/server-responses/manifest.json',
+  ENDPOINT_GUARD_TOKEN: 'config-contract-token',
+  ENDPOINT_GUARD_URL: 'http://127.0.0.1:4319',
+  ENDPOINT_OWNER: 'admit-receiver-publication-frames'
+}
+
 test('ordinary and collaboration Playwright suites have separate discovery', () => {
   const ordinary = listTests('playwright.config.ts')
+  const ordinaryWithEndpointGuard = listTests(
+    'playwright.config.ts',
+    endpointPerformanceEnvironment
+  )
+  const crdt7076 = listTests('playwright.config.ts', {
+    ASYRA_E2E_CRDT_7076: 'true'
+  })
   const collaboration = listTests('playwright.collaboration.config.ts')
+  const statusToast = listTests('playwright.status-toast.config.ts')
 
   assert.doesNotMatch(ordinary, /collaboration\.spec\.ts/)
+  assert.doesNotMatch(ordinary, /collaboration-ai-agent-video\.spec\.ts/)
+  assert.doesNotMatch(ordinary, /crdt-7076-render\.spec\.ts/)
+  assert.doesNotMatch(ordinary, /status-toast-visual\.spec\.ts/)
+  assert.match(crdt7076, /crdt-7076-render\.spec\.ts/)
+  assert.doesNotMatch(
+    ordinaryWithEndpointGuard,
+    /crdt-endpoint-performance\.spec\.ts/
+  )
   assert.match(collaboration, /collaboration\.spec\.ts/)
   assert.match(collaboration, /collaboration-ai-agent-video\.spec\.ts/)
   assert.match(collaboration, /Total: [1-9]\d* tests? in 2 files/)
+  assert.match(statusToast, /status-toast-visual\.spec\.ts/)
+})
+
+test('owned E2E servers never ask Vite to open a desktop browser', async () => {
+  const viteSource = await readFile(
+    new URL('../vite.config.ts', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    viteSource,
+    /const opensBrowser = process\.env\.E2E_OWN_SERVERS !== '1'/
+  )
+  assert.match(viteSource, /server:\s*\{[\s\S]*open: opensBrowser/)
+})
+
+test('ordinary Playwright starts the backend and always-on collaboration service before the App', async () => {
+  const configSource = await readFile(
+    new URL('../playwright.config.ts', import.meta.url),
+    'utf8'
+  )
+  const backendStart = configSource.indexOf('yarn document:backend')
+  const serverStart = configSource.indexOf('yarn collaboration:server')
+  const appStart = configSource.indexOf('command: visualReviewWebServerCommand')
+
+  assert.ok(backendStart >= 0, 'ordinary Playwright must start the backend')
+  assert.ok(
+    serverStart > backendStart,
+    'collaboration must be declared after the backend'
+  )
+  assert.ok(appStart > serverStart, 'collaboration must be declared before App')
+  assert.match(configSource, /documentBackendURL.*\/health/s)
+  assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
+  assert.match(configSource, /collaborationHealthURL/)
+  assert.match(configSource, /webServer:[\s\S]*\? undefined[\s\S]*: \[/)
+})
+
+test('Playwright routes the formal backend through the same document-session flow', async () => {
+  const [ordinaryConfig, collaborationConfig, viteConfig, ciScript] =
+    await Promise.all([
+      readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
+      readFile(
+        new URL('../playwright.collaboration.config.ts', import.meta.url),
+        'utf8'
+      ),
+      readFile(new URL('../vite.config.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../../scripts/run-e2e.sh', import.meta.url), 'utf8')
+    ])
+
+  assert.match(
+    ordinaryConfig,
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
+  )
+  assert.match(
+    collaborationConfig,
+    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
+  )
+  assert.match(
+    ciScript,
+    /ASYRA_E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+  )
+  assert.match(ciScript, /document:backend:start/)
+  assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
+  assert.match(
+    ciScript,
+    /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
+  )
+  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(viteConfig, /['"]\/api\/documents['"]/)
+  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
+  assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
 })
 
 test('CI can exclude the isolated render performance gate from the functional suite', () => {
@@ -45,22 +144,44 @@ test('CI can exclude the isolated render performance gate from the functional su
   assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
 })
 
-test('the balanced AI correctness gate requires an explicit heavy-test flag', async () => {
-  const ordinary = listTests('playwright.config.ts')
-  const heavy = listTests('playwright.config.ts', {
-    ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS: '1'
-  })
-  const manifest = JSON.parse(
-    await readFile(new URL('../package.json', import.meta.url), 'utf8')
-  )
-  const balancedCase =
-    /attaches a reference, chooses balanced detail, and incrementally edits/
+test('ordinary AI profiling stays low-load while high detail remains guarded', async () => {
+  const [ordinary, configSource, endpointSource, specSource] =
+    await Promise.all([
+      Promise.resolve(listTests('playwright.config.ts')),
+      readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
+      readFile(
+        new URL('../e2e/crdt-endpoint-performance.spec.ts', import.meta.url),
+        'utf8'
+      ),
+      readFile(
+        new URL('../e2e/ai-drawing-performance.spec.ts', import.meta.url),
+        'utf8'
+      )
+    ])
 
-  assert.doesNotMatch(ordinary, balancedCase)
-  assert.match(heavy, balancedCase)
+  assert.match(ordinary, /16-item product span/)
+  assert.doesNotMatch(ordinary, /high-detail interactive drawing/)
+  assert.match(specSource, /RUN_AI_DRAWING_PERFORMANCE/)
+  assert.match(specSource, /test\.skip\(!RUN_PROFILE/)
+  assert.doesNotMatch(specSource, /RUN_HIGH_DETAIL|7_075|7076/)
+  assert.doesNotMatch(specSource, /production 16-item/)
   assert.match(
-    manifest.scripts['test:e2e:balanced-ai-correctness'],
-    /ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS=1/
+    specSource,
+    /releaseEvidenceEligible\)\.toBe\(\s*result\.snapshot\.runtime === 'production'/
+  )
+  assert.match(endpointSource, /creation-only high-detail endpoint proof/)
+  assert.match(endpointSource, /ai-drawing-progress-indicator/)
+  assert.match(endpointSource, /'pan-changed'/)
+  assert.match(endpointSource, /'zoom-changed'/)
+  assert.match(endpointSource, /const CPU_PROFILE_ROTATION_MS = 100/)
+  assert.match(endpointSource, /await delay\(CPU_PROFILE_ROTATION_MS\)/)
+  assert.match(
+    specSource,
+    /createTestDocumentIdentity\(['"]aiPerformance=profile['"]\)/
+  )
+  assert.doesNotMatch(
+    `${configSource}\n${specSource}`,
+    /RUN_BALANCED_AI_CORRECTNESS|aiDelivery|aiPerformanceContents/
   )
 })
 
@@ -102,23 +223,865 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
 })
 
 test('the AI CRDT recording owns dedicated fresh app and collaboration servers', async () => {
-  const [configSource, manifestSource] = await Promise.all([
+  const [configSource, manifestSource, recordingSource] = await Promise.all([
     readFile(
       new URL('../playwright.collaboration.config.ts', import.meta.url),
       'utf8'
     ),
-    readFile(new URL('../package.json', import.meta.url), 'utf8')
+    readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    readFile(
+      new URL('../e2e/collaboration-ai-agent-video.spec.ts', import.meta.url),
+      'utf8'
+    )
   ])
   const manifest = JSON.parse(manifestSource)
   const command = manifest.scripts['test:e2e:ai-crdt-video']
 
-  assert.match(configSource, /ASYRA_DESIGN_E2E_OWN_SERVERS/)
+  assert.match(configSource, /E2E_OWN_SERVERS/)
+  assert.match(configSource, /timeout:\s*180_000/)
   assert.match(configSource, /reuseExistingServer:\s*!ownsTestServers/g)
-  assert.match(command, /ASYRA_DESIGN_E2E_OWN_SERVERS=1/)
-  assert.match(command, /ASYRA_DESIGN_APP_URL=http:\/\/127\.0\.0\.1:3011/)
-  assert.match(command, /ASYRA_DESIGN_COLLABORATION_WS_PORT=4111/)
+  assert.match(command, /E2E_OWN_SERVERS=1/)
+  assert.match(command, /APP_URL=http:\/\/127\.0\.0\.1:3011/)
+  assert.match(command, /COLLABORATION_WS_PORT=4111/)
   assert.match(
     command,
-    /VITE_ASYRA_DESIGN_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/asyra-design-collaboration/
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4111\/collaboration/
+  )
+
+  const recordingCase = recordingSource.slice(
+    recordingSource.indexOf(
+      "test('records two live CRDT clients while Agent creates"
+    )
+  )
+  assert.match(
+    recordingSource,
+    /chromium\.launchPersistentContext\([\s\S]*--window-position=\$\{left\},\$\{top\}[\s\S]*--window-size=\$\{width\},\$\{height\}/
+  )
+  assert.match(
+    recordingSource,
+    /deviceScaleFactor:\s*undefined,[\s\S]*viewport:\s*null/
+  )
+  assert.match(
+    recordingCase,
+    /launchIndependentActor\([\s\S]*actor-a-profile[\s\S]*launchIndependentActor\([\s\S]*actor-b-profile/
+  )
+  assert.match(
+    recordingSource,
+    /spawn\('\/usr\/sbin\/screencapture',[\s\S]*-R\$\{left\},\$\{top\},\$\{width\},\$\{height\}/
+  )
+  assert.match(recordingSource, /captureProcess\.kill\('SIGINT'\)/)
+  assert.doesNotMatch(recordingSource, /captureProcess\.stdin\.(?:write|end)/)
+  assert.match(
+    recordingSource,
+    /'\/usr\/bin\/avconvert'[\s\S]*PresetHighestQuality/
+  )
+  assert.match(
+    recordingCase,
+    /prepareCompleteCatViewport\(actorA\)[\s\S]*prepareCompleteCatViewport\(actorB\)[\s\S]*startNativeScreenRecording\([\s\S]*await openAgent\(actorA\)[\s\S]*submitTurn\(\s*actorA,\s*exactCatOnlyPrompt,\s*1\s*\)/
+  )
+  assert.match(
+    recordingCase,
+    /await actorA\.bringToFront\(\)[\s\S]*await actorB\.bringToFront\(\)[\s\S]*startNativeScreenRecording\(/
+  )
+  assert.match(recordingSource, /const recordingOperationDeadlineMs = 300_000/)
+  assert.match(
+    recordingCase,
+    /recordingOperationDeadlineMs - \(Date\.now\(\) - operationStartedAt\)[\s\S]*expectPeerSnapshot\(\s*actorA,\s*actorB,\s*remainingConvergenceMs\s*\)/
+  )
+  assert.ok(
+    recordingCase.indexOf('prepareCompleteCatViewport(actorB)') <
+      recordingCase.indexOf('startNativeScreenRecording('),
+    'recording must begin only after both live clients are framed'
+  )
+  assert.ok(
+    recordingCase.indexOf('startNativeScreenRecording(') <
+      recordingCase.indexOf('await openAgent(actorA)'),
+    'recording must still include the complete Agent interaction'
+  )
+  assert.match(
+    recordingCase,
+    /reportRecordingStage\('actor-b-rendered'\)[\s\S]*actorB\.waitForTimeout\(1000\)[\s\S]*nativeRecording\.stop\(\)/
+  )
+  assert.match(recordingCase, /ai-cat-crdt-progressive-side-by-side\.mp4/)
+  assert.match(recordingCase, /contentType:\s*'video\/mp4'/)
+  assert.doesNotMatch(
+    recordingSource,
+    /createSideBySideRecorder|recordVideo:|type:\s*'jpeg'|left\.toString\('base64'\)|right\.toString\('base64'\)/
+  )
+  assert.doesNotMatch(recordingCase, /beforeSendDelayMs/)
+  assert.doesNotMatch(
+    recordingCase,
+    /make the whiskers blue|make the pupils red|observeProgressiveCreation/
+  )
+  assert.doesNotMatch(
+    `${configSource}\n${recordingSource}`,
+    /RUN_FORMAL_REPEATED_PERFORMANCE|recordRepeatedPerformanceSample|resolvePerformanceGateRun/,
+    'the one-shot high-detail and recording routes must not add warm-up or repeat modes'
+  )
+})
+
+test('endpoint performance discovery is isolated, guarded, and resource-bounded', async () => {
+  const configURL = new URL(
+    '../playwright.endpoint-performance.config.ts',
+    import.meta.url
+  )
+  const specURL = new URL(
+    '../e2e/crdt-endpoint-performance.spec.ts',
+    import.meta.url
+  )
+  const guardURL = new URL(
+    '../e2e/performance-resource-guard.mjs',
+    import.meta.url
+  )
+  const serverResponseInboxURL = new URL(
+    '../e2e/server-response-inbox.ts',
+    import.meta.url
+  )
+  const [
+    configSource,
+    guardSource,
+    specSource,
+    serverResponseInboxSource,
+    manifestSource
+  ] = await Promise.all([
+    readFile(configURL, 'utf8'),
+    readFile(guardURL, 'utf8'),
+    readFile(specURL, 'utf8'),
+    readFile(serverResponseInboxURL, 'utf8'),
+    readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ])
+  const connectivityCpuSampleSource = specSource.slice(
+    specSource.indexOf('const waitForConnectivityCpuSample'),
+    specSource.indexOf('const createConnectivityHeartbeat')
+  )
+  const manifest = JSON.parse(manifestSource)
+  const unguarded = spawnSync(
+    'yarn',
+    [
+      'playwright',
+      'test',
+      '--list',
+      '--config',
+      'playwright.endpoint-performance.config.ts'
+    ],
+    {
+      cwd: appDirectory,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ENDPOINT_GUARD_TOKEN: '',
+        ENDPOINT_GUARD_URL: '',
+        ENDPOINT_OWNER: ''
+      }
+    }
+  )
+  const invalidResponseAttestation = spawnSync(
+    'yarn',
+    [
+      'playwright',
+      'test',
+      '--list',
+      '--config',
+      'playwright.endpoint-performance.config.ts'
+    ],
+    {
+      cwd: appDirectory,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...endpointPerformanceEnvironment,
+        ENDPOINT_RESPONSE_ARTIFACT_ATTESTED: 'not-a-digest'
+      }
+    }
+  )
+  const guarded = listTests(
+    'playwright.endpoint-performance.config.ts',
+    endpointPerformanceEnvironment
+  )
+
+  assert.notEqual(unguarded.status, 0)
+  assert.match(
+    `${unguarded.stdout}\n${unguarded.stderr}`,
+    /endpoint performance resource guard/i
+  )
+  assert.notEqual(invalidResponseAttestation.status, 0)
+  assert.match(
+    `${invalidResponseAttestation.stdout}\n${invalidResponseAttestation.stderr}`,
+    /response artifact attestation must be one SHA-256 digest/i
+  )
+  assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
+  assert.doesNotMatch(
+    serverResponseInboxSource,
+    /MAXIMUM_COMPRESSED_RESPONSE_BYTES|maximumCompressedBytes/,
+    'the attested response must not gain an arbitrary payload ceiling'
+  )
+  assert.match(guarded, /empty-document two-Actor endpoint connectivity/)
+  assert.match(guarded, /single-Actor local attribution/)
+  assert.match(guarded, /two-Actor operation and idle attribution/)
+  assert.match(guarded, /creation-only high-detail endpoint proof/)
+  assert.match(guarded, /Total: 4 tests in 1 file/)
+
+  assert.match(
+    configSource,
+    /testMatch:\s*['"]crdt-endpoint-performance\.spec\.ts['"]/
+  )
+  assert.match(configSource, /fullyParallel:\s*false/)
+  assert.match(configSource, /repeatEach:\s*1/)
+  assert.match(configSource, /retries:\s*0/)
+  assert.match(configSource, /workers:\s*1/)
+  assert.match(configSource, /timeout:\s*360_000/)
+  assert.match(configSource, /reporter:\s*['"]line['"]/)
+  assert.match(configSource, /trace:\s*['"]off['"]/)
+  assert.match(configSource, /screenshot:\s*['"]off['"]/)
+  assert.match(configSource, /video:\s*['"]off['"]/)
+  assert.match(configSource, /headless:\s*true/)
+  assert.doesNotMatch(
+    configSource,
+    /renderer-process-limit|single-process|disable-gpu|disable-software-rasterizer|max-old-space|memory-pressure|num-raster-threads/
+  )
+  assert.match(configSource, /reuseExistingServer:\s*false/g)
+  assert.match(
+    configSource,
+    /trackedServerCommand\(\s*['"]websocket-server['"]/
+  )
+  const websocketServerSource = configSource.slice(
+    configSource.indexOf("trackedServerCommand(\n      'websocket-server'"),
+    configSource.indexOf("trackedServerCommand(\n      'app-server'")
+  )
+  const appServerSource = configSource.slice(
+    configSource.indexOf("trackedServerCommand(\n      'app-server'")
+  )
+  assert.match(websocketServerSource, /stdout:\s*['"]pipe['"]/)
+  assert.doesNotMatch(appServerSource, /stdout:\s*['"]pipe['"]/)
+  assert.doesNotMatch(configSource, /endpointLocalOnly|ENDPOINT_LOCAL_ONLY/)
+  assert.match(configSource, /yarn collaboration:server:start/)
+  assert.match(configSource, /APP_URL:\s*appURL/)
+  assert.doesNotMatch(
+    configSource,
+    /yarn collaboration:server(?!:start)|yarn react:build/
+  )
+  assert.match(configSource, /trackedServerCommand\(\s*['"]app-server['"]/)
+  assert.match(configSource, /yarn preview/)
+  assert.match(
+    configSource,
+    /--outDir \$\{JSON\.stringify\(responsePreviewOutDir\)\}/
+  )
+  assert.match(configSource, /ENDPOINT_PREVIEW_OUT_DIR/)
+  assert.match(configSource, /ENDPOINT_RESPONSE_MANIFEST_PATH/)
+  assert.match(configSource, /ENDPOINT_RESPONSE_ARTIFACT_ATTESTED/)
+  assert.match(configSource, /ENDPOINT_ARTIFACT_ATTESTED/)
+  assert.match(configSource, /launchOptions/)
+  assert.match(configSource, /client-a-browser/)
+  assert.doesNotMatch(configSource, /client-b-browser/)
+
+  assert.match(specSource, /ENDPOINT_GUARD_URL/)
+  assert.match(specSource, /ENDPOINT_GUARD_TOKEN/)
+  assert.match(specSource, /ENDPOINT_OWNER/)
+  assert.match(specSource, /ENDPOINT_ATTRIBUTION_CASE/)
+  assert.match(specSource, /TRACKED_ROLE:\s*['"]client-b-browser/)
+  assert.match(specSource, /\/resource-status/)
+  assert.match(specSource, /previousSettledSampleAtMs/)
+  assert.doesNotMatch(connectivityCpuSampleSource, /await delay\(750\)/)
+  assert.match(
+    specSource,
+    /chromium\.launch\([\s\S]{0,500}executablePath:\s*guardLauncherPath/
+  )
+  assert.match(
+    specSource,
+    /chromium\.launch\(\{[\s\S]{0,500}headless:\s*true[\s\S]{0,500}executablePath:\s*guardLauncherPath/
+  )
+  assert.match(specSource, /postPhaseBoundary/)
+  assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
+  assert.match(specSource, /actorB:\s*null/)
+  assert.match(specSource, /phaseTimeline/)
+  assert.match(specSource, /responseInboxPreload/)
+  assert.ok(
+    specSource.indexOf('const responseInboxPreload = snapshot') <
+      specSource.indexOf("'profile:reset'")
+  )
+  assert.match(specSource, /drawingProgress/)
+  assert.doesNotMatch(specSource, /counterTimeline/)
+  assert.match(specSource, /postHeartbeat\(['"]ready['"]/)
+  assert.match(specSource, /postHeartbeat\(['"]progress['"]/)
+  assert.match(specSource, /postHeartbeat\(['"]complete['"]/)
+  assert.match(specSource, /postHeartbeat\(['"]failed['"]/)
+  assert.match(specSource, /const CRDT_FLOW_TIMEOUT_MS = 300_000/)
+  assert.doesNotMatch(specSource, /waitFor(?:ActorA|Both)?Complete\(120_000\)/)
+  assert.match(specSource, /accepted/)
+  assert.match(specSource, /aiPerformance=profile/)
+  assert.doesNotMatch(specSource, /aiDelivery|aiPerformanceContents/)
+  const localURLSource = specSource.slice(
+    specSource.indexOf('const singleActorAppURL'),
+    specSource.indexOf('const waitForCollaboration')
+  )
+  assert.match(localURLSource, /fileId/)
+  assert.match(
+    specSource,
+    /single-Actor local attribution[\s\S]*profiledSingleActorAppURL\(fileId\)[\s\S]*waitForCollaboration\(actor\.page,\s*['"]Actor A['"]\)/
+  )
+  const localAttributionSource = specSource.slice(
+    specSource.indexOf("test('single-Actor local attribution'"),
+    specSource.indexOf("test('creation-only high-detail endpoint proof'")
+  )
+  assert.ok(
+    localAttributionSource.indexOf('await createActor(') <
+      localAttributionSource.indexOf('await waitForGuardReady('),
+    'the blank Actor must exist before the stable process baseline is accepted'
+  )
+  assert.match(
+    localAttributionSource,
+    /startGuardPhase\(['"]local-request['"]\)[\s\S]*endGuardPhase\(['"]local-request['"]\)/
+  )
+  assert.ok(
+    localAttributionSource.indexOf('prepareAiTurn(actor.page, prompt)') <
+      localAttributionSource.indexOf('await waitForGuardReady('),
+    'prompt fill and locator actionability must finish before request timing'
+  )
+  assert.ok(
+    localAttributionSource.indexOf("startGuardPhase('local-request')") <
+      localAttributionSource.indexOf('triggerPreparedAiTurn(preparedTurn)'),
+    'the prepared request dispatch must begin inside local-request'
+  )
+  assert.ok(
+    localAttributionSource.indexOf("endGuardPhase('local-request')") <
+      localAttributionSource.indexOf(
+        'assertPreparedAiTurnSettled(preparedTurn)'
+      ),
+    'UI correctness assertions must run after product timing'
+  )
+  const measuredLocalRequestSource = localAttributionSource.slice(
+    localAttributionSource.indexOf("startGuardPhase('local-request')"),
+    localAttributionSource.indexOf("endGuardPhase('local-request')")
+  )
+  assert.doesNotMatch(
+    measuredLocalRequestSource,
+    /getBy|\.locator\(|expect\(|\.fill\(|\.boundingBox\(/
+  )
+  assert.match(
+    measuredLocalRequestSource,
+    /triggerPreparedAiTurn\(preparedTurn\)[\s\S]*heartbeat\.waitForComplete/
+  )
+  assert.doesNotMatch(
+    localAttributionSource,
+    /startGuardPhase\(['"](?:app|collaboration|agent)/
+  )
+  assert.ok(
+    localAttributionSource.indexOf('await installBoundedDiagnostics(') <
+      localAttributionSource.indexOf('await waitForGuardReady('),
+    'harness diagnostics must be installed before request identity is frozen'
+  )
+  assert.ok(
+    localAttributionSource.indexOf(
+      "waitForCollaboration(actor.page, 'Actor A')"
+    ) < localAttributionSource.indexOf('await waitForGuardReady('),
+    'Collaboration must be ready before request identity is frozen'
+  )
+  assert.ok(
+    localAttributionSource.indexOf('await openAgent(actor.page)') <
+      localAttributionSource.indexOf('await waitForGuardReady('),
+    'Agent bootstrap must complete before request identity is frozen'
+  )
+  const localHeartbeatControllerSource = specSource.slice(
+    specSource.indexOf('const createLocalAttributionHeartbeatController'),
+    specSource.indexOf('const readCanonicalSummary')
+  )
+  assert.match(localHeartbeatControllerSource, /latestCompletedPhase/)
+  assert.match(localHeartbeatControllerSource, /activeHeartbeatPhase/)
+  assert.match(
+    localHeartbeatControllerSource,
+    /activePhase:\s*activeHeartbeatPhase[\s\S]*phase:\s*latestCompletedPhase/
+  )
+  assert.doesNotMatch(
+    localAttributionSource,
+    /finally\s*{[\s\S]{0,500}postPhaseBoundary\(['"]end['"]/
+  )
+  assert.match(
+    specSource,
+    /completed\.publications\.actorALocalSent\)\.toBeGreaterThan\(0\)[\s\S]*actorBRemoteProcessed\)\.toBe\(0\)/
+  )
+  const twoActorActivitySource = specSource.slice(
+    specSource.indexOf("test('two-Actor operation and idle attribution'"),
+    specSource.indexOf("test('creation-only high-detail endpoint proof'")
+  )
+  assert.match(twoActorActivitySource, /Performance\.getMetrics/)
+  assert.match(twoActorActivitySource, /summarizeRendererPerformanceWindow/)
+  assert.match(twoActorActivitySource, /prepareAiTurn\(\s*actorA/)
+  assert.match(twoActorActivitySource, /triggerPreparedAiTurn\(preparedTurn\)/)
+  assert.match(
+    twoActorActivitySource,
+    /completePhase\(['"]post-completion-idle['"]\)[\s\S]*assertPreparedAiTurnSettled\(preparedTurn\)/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /waitForBothComplete[\s\S]*endGuardPhase\(['"]operation['"]\)[\s\S]*startPhase\(['"]post-completion-idle['"]\)[\s\S]*delay\(10_000\)[\s\S]*completePhase\(['"]post-completion-idle['"]\)/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /let requestedItems\s*=\s*16[\s\S]*endpointAttributionCase\s*===\s*['"]1280-two-actor-attribution['"][\s\S]{0,80}requestedItems\s*=\s*1280[\s\S]*expectedTotal\s*=\s*requestedItems\s*\+\s*1/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /requestedItems\s*===\s*1280[\s\S]*create the 1280-item CRDT performance fixture/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /endpointAttributionCase\s*===\s*['"]320-two-actor-attribution['"][\s\S]{0,80}requestedItems\s*=\s*320/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /requestedItems\s*===\s*320[\s\S]*create the 320-item CRDT performance fixture/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /proofKind:\s*['"]collaboration-attribution['"]/
+  )
+  assert.match(twoActorActivitySource, /actorAOperation/)
+  assert.match(twoActorActivitySource, /actorBOperation/)
+  assert.match(twoActorActivitySource, /actorAIdle/)
+  assert.match(twoActorActivitySource, /actorBIdle/)
+  assert.match(
+    twoActorActivitySource,
+    /actorAIdleStart[\s\S]*delay\(10_000\)[\s\S]*summarizeRendererPerformanceWindow\(\s*actorAIdleStart/
+  )
+  assert.match(
+    twoActorActivitySource,
+    /idleDurationMs:\s*idleCompletedAtMs\s*-\s*idleStartedAtMs/
+  )
+  assert.match(specSource, /visibleWorkerTargets/)
+  const preparedTurnSource = specSource.slice(
+    specSource.indexOf('const prepareAiTurn'),
+    specSource.indexOf('const triggerPreparedAiTurn')
+  )
+  assert.match(
+    preparedTurnSource,
+    /\.fill\(prompt\)[\s\S]*click\(\{\s*trial:\s*true\s*\}\)[\s\S]*boundingBox\(\)[\s\S]*data-endpoint-prepared-ai-submit/
+  )
+  const triggerPreparedTurnSource = specSource.slice(
+    specSource.indexOf('const triggerPreparedAiTurn'),
+    specSource.indexOf('const assertPreparedAiTurnSettled')
+  )
+  assert.match(triggerPreparedTurnSource, /page\.mouse\.click/)
+  assert.match(specSource, /turnAccepted/)
+  assert.match(specSource, /readLatestTurnSettlement/)
+  assert.match(specSource, /readLatestFactoryTransactionStatus/)
+  assert.match(
+    specSource,
+    /AI turn settled before[\s\S]*snapshot\.turnSettlement/
+  )
+  assert.match(
+    specSource,
+    /Prepared request click did not reach the armed Send control/
+  )
+  assert.match(specSource, /Agent did not accept the dispatched request/)
+  assert.match(specSource, /readCanonicalElementCount/)
+  assert.match(specSource, /readCounterTotal/)
+  assert.match(specSource, /readFactoryPublicationCount/)
+  assert.match(specSource, /profile:read-actor-sample/)
+  assert.match(specSource, /readViewportPosition/)
+  assert.match(specSource, /readZoom/)
+  const coreDebugHandle = ['__', 'Core', '__'].join('')
+  assert.equal(specSource.includes(coreDebugHandle), false)
+  assert.match(specSource, /runtime-diagnostic-request/)
+  assert.match(specSource, /samples[/\\]crdt-7076[/\\]reference-image\.png/)
+  assert.match(specSource, /totalCount:\s*7076/)
+  assert.match(specSource, /vectorCount:\s*7075/)
+  assert.match(specSource, /groupCount:\s*1/)
+  assert.match(specSource, /115_000/)
+  assert.match(specSource, /test\.skip\(\s*!endpointGuardEnabled/)
+  assert.doesNotMatch(specSource, /renderLayer|getAllElements\(\)\.size/)
+  assert.match(specSource, /hierarchySha256/)
+  assert.match(specSource, /hierarchyOrderMatches/)
+  assert.match(specSource, /equivalenceProofMs/)
+  assert.match(
+    specSource,
+    /actorASample\.localSent\s*===\s*actorBSample\.remoteProcessed/
+  )
+  const highDetailSource = specSource.slice(
+    specSource.indexOf("test('creation-only high-detail endpoint proof'")
+  )
+  assert.match(highDetailSource, /sourceBounds/)
+  assert.match(highDetailSource, /documentEventAttempts/)
+  assert.match(highDetailSource, /documentEventDeliveries/)
+  assert.match(highDetailSource, /documentEventPreventions/)
+  const interactionAttemptObserverSource = specSource.slice(
+    specSource.indexOf('const recordAttempt ='),
+    specSource.indexOf('const rectangleControl')
+  )
+  assert.match(interactionAttemptObserverSource, /requestAnimationFrame/)
+  assert.doesNotMatch(interactionAttemptObserverSource, /queueMicrotask/)
+  assert.match(highDetailSource, /deleteKeyBlocked/)
+  assert.match(highDetailSource, /historyShortcutBlocked/)
+  assert.match(highDetailSource, /rectangleShortcutBlocked/)
+  assert.match(highDetailSource, /ordinaryKeyboardToolSwitchAccepted/)
+  assert.match(highDetailSource, /focusLocalInteractionKeyboardTarget/)
+  assert.match(highDetailSource, /loadingConnected\)\.toBe\(true\)/)
+  assert.match(highDetailSource, /canonicalElements\)\.toBeLessThan\(7076\)/)
+  assert.match(specSource, /stableLoadingFrameCount/)
+  assert.match(
+    specSource,
+    /loadingFrameVisibleCount:\s*request<number>\(\s*['"]profile:readCounterTotal['"],\s*\[\s*['"]ai-drawing:loading-frame-visible['"]\s*\]\s*\)/
+  )
+  assert.match(
+    specSource,
+    /canonicalWorkUnitCount:\s*request<number>\(\s*['"]profile:readPhaseCount['"],\s*\[\s*['"]ai-app:create-composition-batch['"]\s*\]\s*\)/
+  )
+  const localInteractionProbeSource = specSource.slice(
+    specSource.indexOf('const installLocalInteractionProbe'),
+    specSource.indexOf('const waitForLocalInteractionProbe')
+  )
+  assert.match(localInteractionProbeSource, /MutationObserver/)
+  assert.match(localInteractionProbeSource, /waitForBoundedProbeFrames/)
+  assert.match(
+    localInteractionProbeSource,
+    /case ['"]first-visible['"]:[\s\S]*canonicalElements\s*>\s*0[\s\S]*loadingConnected/
+  )
+  assert.doesNotMatch(
+    localInteractionProbeSource,
+    /requestAnimationFrame\(inspect\)/
+  )
+  assert.match(specSource, /const ENDPOINT_HEARTBEAT_INTERVAL_MS = 5_000/)
+  const heartbeatControllerSource = specSource.slice(
+    specSource.indexOf('const createHeartbeatController ='),
+    specSource.indexOf('const installLocalInteractionProbe =')
+  )
+  assert.equal(
+    heartbeatControllerSource.match(/delay\(ENDPOINT_HEARTBEAT_INTERVAL_MS\)/g)
+      ?.length,
+    2
+  )
+  assert.doesNotMatch(heartbeatControllerSource, /delay\(1_000\)/)
+  assert.match(heartbeatControllerSource, /unchangedActorBProgressSamples/)
+  assert.match(
+    heartbeatControllerSource,
+    /unchangedActorBProgressSamples\s*>=\s*2/
+  )
+  assert.equal(
+    heartbeatControllerSource.match(
+      /readFinalDiagnostics\(\s*actorA,\s*expectedFixture\.vectorCount/g
+    )?.length,
+    1
+  )
+  assert.equal(
+    heartbeatControllerSource.match(/readFinalDiagnostics\(\s*actorB/g)?.length,
+    1
+  )
+  assert.match(
+    heartbeatControllerSource,
+    /ownerEvidence:\s*stalledOwnerEvidence/
+  )
+  assert.match(specSource, /turnOutcome/)
+  assert.match(specSource, /AI turn settled before/)
+  assert.match(
+    highDetailSource,
+    /blockedState\.turnAccepted\)\.toBe\(true\)[\s\S]*blockedState\.turnOutcome\)\.toBeNull\(/
+  )
+  assert.match(
+    highDetailSource,
+    /blockedState\.documentEventPreventions[\s\S]*rectangleShortcut:\s*1[\s\S]*keyboardReleasedState\.documentEventPreventions\.rectangleShortcut[\s\S]*toBe\(2\)/
+  )
+  assert.match(highDetailSource, /readLocalInteractionProbe/)
+  assert.match(highDetailSource, /settleFailureEvidenceWithin/)
+  const highDetailFailureSource = highDetailSource.slice(
+    highDetailSource.indexOf('} catch (error) {')
+  )
+  assert.equal(
+    highDetailFailureSource.match(/readFinalDiagnostics\(\s*actorA/g)?.length,
+    1
+  )
+  assert.equal(
+    highDetailFailureSource.match(/readFinalDiagnostics\(\s*actorB/g)?.length,
+    1
+  )
+  assert.match(highDetailFailureSource, /ownerEvidence:\s*failureOwnerEvidence/)
+  assert.doesNotMatch(specSource, /readConversationSnapshot/)
+  assert.match(
+    highDetailSource,
+    /const browserErrors[\s\S]*getCapturedBrowserErrors\(actorA\)[\s\S]*getCapturedBrowserErrors\(actorB\)/
+  )
+  assert.match(highDetailSource, /\.slice\(-4\)/)
+  assert.match(highDetailSource, /drawingProgress\.milestones/)
+  assert.match(
+    highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
+  assert.match(
+    highDetailSource,
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
+  assert.match(
+    highDetailSource,
+    /peerConvergenceHeartbeat\s*=\s*await heartbeat\.assertGuarded\(\s*heartbeat\.sample\(\)/
+  )
+  assert.match(
+    highDetailSource,
+    /assertGuarded\(\s*postHeartbeat\('progress', peerConvergenceHeartbeat\)/
+  )
+  const creationPhaseIndex = highDetailSource.indexOf(
+    "heartbeat.startPhase('creation')"
+  )
+  const guardedCreationHeartbeatIndex = highDetailSource.indexOf(
+    "createConnectivityHeartbeat('actors-ready', 'endpoint', 'creation')"
+  )
+  const creationStartedAtIndex = highDetailSource.indexOf(
+    'const creationStartedAtMs = Date.now()'
+  )
+  const creationMarkIndex = highDetailSource.indexOf(
+    'heartbeat.markCreationStarted(creationStartedAtMs)'
+  )
+  assert.ok(creationPhaseIndex >= 0)
+  assert.ok(guardedCreationHeartbeatIndex > creationPhaseIndex)
+  assert.ok(creationStartedAtIndex > guardedCreationHeartbeatIndex)
+  assert.ok(creationMarkIndex > creationStartedAtIndex)
+  assert.ok(
+    highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)') >
+      creationMarkIndex
+  )
+  const requestReadyToDispatchSource = highDetailSource.slice(
+    highDetailSource.indexOf(
+      "waitForGuardReady(createConnectivityHeartbeat('request-ready'))"
+    ),
+    highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)')
+  )
+  assert.doesNotMatch(requestReadyToDispatchSource, /heartbeat\.sample\(\)/)
+  assert.equal(
+    requestReadyToDispatchSource.match(
+      /createConnectivityHeartbeat\('actors-ready', 'endpoint', 'creation'\)/g
+    )?.length,
+    1
+  )
+  const firstVisibleHandoffIndex = highDetailSource.indexOf(
+    "waitForLocalInteractionProbe(actorA, 'first-visible'"
+  )
+  const firstMouseMoveIndex = highDetailSource.indexOf('actorA.mouse.move(')
+  const quarterProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.25)'
+  )
+  const halfProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.5)'
+  )
+  const threeQuarterProgressIndex = highDetailSource.indexOf(
+    'waitForLocalCanonicalProgress(\n        actorA,\n        Math.ceil(expectedFixture.vectorCount * 0.75)'
+  )
+  const zoomInputIndex = highDetailSource.indexOf(
+    "actorA.keyboard.down('Meta')"
+  )
+  const rectangleShortcutIndex = highDetailSource.indexOf(
+    "actorA.keyboard.press('r')"
+  )
+  const deleteInputIndex = highDetailSource.indexOf(
+    "actorA.keyboard.press('Delete')"
+  )
+  assert.ok(firstVisibleHandoffIndex > creationMarkIndex)
+  assert.ok(firstMouseMoveIndex > firstVisibleHandoffIndex)
+  assert.ok(quarterProgressIndex > firstMouseMoveIndex)
+  assert.ok(zoomInputIndex > quarterProgressIndex)
+  assert.ok(halfProgressIndex > zoomInputIndex)
+  assert.ok(rectangleShortcutIndex > halfProgressIndex)
+  assert.ok(threeQuarterProgressIndex > rectangleShortcutIndex)
+  assert.ok(deleteInputIndex > threeQuarterProgressIndex)
+  assert.match(
+    highDetailSource,
+    /firstVisibleState\.canonicalElements\)\.toBeGreaterThan\(0\)[\s\S]*firstVisibleState\.canonicalElements\)\.toBeLessThan\(7076\)[\s\S]*firstVisibleState\.loadingConnected\)\.toBe\(true\)/
+  )
+  assert.ok(
+    highDetailSource.indexOf(
+      "waitForLocalInteractionProbe(actorA, 'loading-at-zero')"
+    ) < highDetailSource.indexOf('triggerPreparedAiTurn(preparedTurn)'),
+    'the loading-at-zero observer must be armed before the prepared request is dispatched'
+  )
+  const stagedBootstrapSource = specSource.slice(
+    specSource.indexOf('const prepareEndpointActorsSequentially = async ('),
+    specSource.indexOf("test('empty-document two-Actor endpoint connectivity'")
+  )
+  const actorACreateIndex = stagedBootstrapSource.indexOf(
+    'const actorA = await createActor'
+  )
+  const actorACollaborationReadyIndex = stagedBootstrapSource.indexOf(
+    "'actor-a-collaboration-ready'"
+  )
+  const actorBCreateIndex = stagedBootstrapSource.indexOf(
+    'const actorB = await createActor'
+  )
+  const actorBBrowserLaunchIndex = stagedBootstrapSource.indexOf(
+    'actorBBrowser = await launchTrackedActorBBrowser()'
+  )
+  const preparedActorsIndex = highDetailSource.indexOf(
+    'await prepareEndpointActorsSequentially'
+  )
+  const referenceReadyIndex = highDetailSource.indexOf(
+    "waitForConnectivityCpuSample('reference-ready'"
+  )
+  const guardReadyIndex = highDetailSource.indexOf(
+    "waitForGuardReady(createConnectivityHeartbeat('request-ready'))"
+  )
+  const highDetailCreationIndex = highDetailSource.indexOf(
+    "heartbeat.startPhase('creation')"
+  )
+  const actorANavigationIndex = stagedBootstrapSource.indexOf(
+    "'actor-a-navigation'"
+  )
+  const actorBNavigationIndex = stagedBootstrapSource.indexOf(
+    "'actor-b-navigation'"
+  )
+  assert.ok(actorACreateIndex >= 0)
+  assert.ok(actorBBrowserLaunchIndex > actorACollaborationReadyIndex)
+  assert.ok(actorBCreateIndex > actorBBrowserLaunchIndex)
+  assert.ok(actorBCreateIndex > actorACreateIndex)
+  assert.match(
+    stagedBootstrapSource,
+    /const actorB = await createActor\(actorBBrowser,\s*baseURL\)/
+  )
+  assert.doesNotMatch(
+    stagedBootstrapSource,
+    /const actorB = await createActor\(browser,\s*baseURL\)/
+  )
+  assert.ok(actorANavigationIndex > actorACreateIndex)
+  assert.ok(actorACollaborationReadyIndex > actorANavigationIndex)
+  assert.ok(actorBNavigationIndex > actorACollaborationReadyIndex)
+  assert.ok(preparedActorsIndex >= 0)
+  assert.ok(referenceReadyIndex > preparedActorsIndex)
+  assert.ok(guardReadyIndex > referenceReadyIndex)
+  assert.ok(highDetailCreationIndex > preparedActorsIndex)
+  assert.doesNotMatch(
+    stagedBootstrapSource,
+    /Promise\.all\(\[\s*actorA\.goto\([\s\S]*actorB\.goto\(/
+  )
+  const createActorSource = specSource.slice(
+    specSource.indexOf('const createActor = async ('),
+    specSource.indexOf('const prepareEndpointActorsSequentially = async (')
+  )
+  assert.match(
+    createActorSource,
+    /const context = await browser\.newContext[\s\S]*try\s*{[\s\S]*await context\.newPage\(\)[\s\S]*catch[\s\S]*await context\.close\(\)/
+  )
+  assert.match(guardSource, /child\.once\(['"]close['"]/)
+  assert.doesNotMatch(guardSource, /child\.once\(['"]exit['"]/)
+  assert.match(guardSource, /child-close-timeout/)
+  assert.match(
+    guardSource,
+    /request\.url === PHASE_BOUNDARY_PATH[\s\S]{0,5000}recordResourceSampleFailure[\s\S]{0,1000}phase-boundary-sample-failed/
+  )
+  assert.match(
+    specSource,
+    /const RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS\s*=\s*7_000/
+  )
+  const phaseBoundarySource = specSource.slice(
+    specSource.indexOf('const postPhaseBoundary'),
+    specSource.indexOf('const waitForGuardReady')
+  )
+  assert.match(
+    phaseBoundarySource,
+    /AbortSignal\.timeout\(RESOURCE_GUARD_PHASE_BOUNDARY_TIMEOUT_MS\)/
+  )
+  assert.doesNotMatch(phaseBoundarySource, /CRDT_FLOW_TIMEOUT_MS/)
+  const initialHeartbeatIndex = highDetailSource.indexOf(
+    'const initialHeartbeat = await heartbeat.sample()'
+  )
+  assert.ok(initialHeartbeatIndex >= 0)
+  assert.ok(initialHeartbeatIndex < guardReadyIndex)
+  assert.match(specSource, /browserErrors/)
+  assert.match(
+    specSource,
+    /waitForGuardReady\(\s*createConnectivityHeartbeat\(['"]browser-launched['"]\)/
+  )
+  assert.match(
+    specSource,
+    /browser-launched[\s\S]*single-a-ordinary-blank-idle[\s\S]*single-a-ordinary-navigation[\s\S]*single-a-ordinary-app-ready[\s\S]*single-a-ordinary-collaboration-ready[\s\S]*single-a-ordinary-idle[\s\S]*single-a-profiled-blank-idle[\s\S]*single-a-profiled-navigation[\s\S]*single-a-profiled-app-ready[\s\S]*single-a-profiled-collaboration-ready[\s\S]*single-a-profiled-idle[\s\S]*actor-a-blank-idle[\s\S]*actor-a-navigation[\s\S]*actor-a-app-ready[\s\S]*actor-a-collaboration-ready[\s\S]*actor-b-blank-idle[\s\S]*actor-b-navigation[\s\S]*actor-b-app-ready[\s\S]*actor-b-collaboration-ready[\s\S]*connected/
+  )
+  assert.match(specSource, /const waitForConnectivityCpuSample/)
+  assert.doesNotMatch(specSource, /\bindexedDB\b|\bscreenshot\(|\bvideo\(/)
+  assert.doesNotMatch(specSource, /\bundo\(|testInfo\.attach\(/)
+
+  const actorSampleSource = specSource.slice(
+    specSource.indexOf('const readActorSample'),
+    specSource.indexOf('const delay')
+  )
+  assert.match(
+    actorSampleSource,
+    /requestRuntimeDiagnostic\(page,\s*['"]profile:read-actor-sample['"]\)/
+  )
+  assert.doesNotMatch(
+    actorSampleSource,
+    /getRuntimeEvidence|readCanonicalElements|snapshot\(|readCounterTotal/
+  )
+  assert.match(
+    specSource,
+    /requestSubmissionClickCount[\s\S]*data-endpoint-prepared-ai-submit/
+  )
+  assert.match(
+    specSource,
+    /nonSuccessfulTurnCount\s*>\s*0[\s\S]*settled without success/
+  )
+  assert.match(
+    specSource,
+    /actorASample\.failed\s*\+\s*actorBSample\.failed\s*>\s*0[\s\S]*Collaboration publication failed/
+  )
+  assert.match(
+    specSource,
+    /failureOwnerEvidence[\s\S]*readFinalDiagnostics\(actorA[\s\S]*readFinalDiagnostics\(actorB/
+  )
+  assert.match(
+    specSource,
+    /failureTimeEvidence\?:\s*LocalInteractionProbeSnapshot\s*\|\s*null/
+  )
+  assert.match(
+    specSource,
+    /error\?:\s*EndpointHeartbeatFailure[\s\S]*response\.json[\s\S]*!response\.ok\s*\|\|\s*result\.accepted\s*!==\s*true[\s\S]*result\.reason\s*\?\?\s*response\.status/
+  )
+  assert.match(
+    specSource,
+    /preparedSend\.addEventListener\([\s\S]*once:\s*true/
+  )
+  assert.doesNotMatch(
+    specSource,
+    /closest\(['"]\[data-endpoint-prepared-ai-submit/
+  )
+  assert.match(
+    manifest.scripts['test:e2e:crdt-endpoint-performance'],
+    /performance-resource-guard\.mjs/
+  )
+  assert.match(
+    manifest.scripts['test:e2e:crdt-endpoint-performance'],
+    /ENDPOINT_OWNER/
+  )
+  assert.match(
+    manifest.scripts['prepare:e2e:endpoint-performance'],
+    /react:build.*prepare-server-response-preview\.mjs/
+  )
+  assert.match(
+    manifest.scripts['prepare:e2e:endpoint-performance'],
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/collaboration yarn react:build/
+  )
+  ;[
+    ['test:e2e:ai-attribution:16', '16'],
+    ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],
+    ['test:e2e:ai-attribution:1280', '1280'],
+    ['test:e2e:ai-attribution:maximum', '27471-maximum'],
+    ['test:e2e:ai-crdt-activity:16', '16-two-actor-activity'],
+    ['test:e2e:ai-crdt-attribution:1280', '1280-two-actor-attribution'],
+    ['test:e2e:ai-crdt-attribution:320', '320-two-actor-attribution']
+  ].forEach(([script, attributionCase]) => {
+    assert.match(
+      manifest.scripts[script],
+      new RegExp(`ENDPOINT_ATTRIBUTION_CASE=${attributionCase}`)
+    )
+    assert.match(manifest.scripts[script], /performance-resource-guard\.mjs/)
+  })
+  assert.match(specSource, /MAXIMUM_DETAIL_TIMEOUT_MS\s*=\s*300_000/)
+  assert.match(
+    specSource,
+    /endpointAttributionCase\s*===\s*['"]27471-maximum['"][\s\S]{0,80}requestedItems\s*=\s*27_471/
+  )
+  assert.match(
+    manifest.scripts['test:local'],
+    /performance-resource-guard\.test\.mjs/
   )
 })

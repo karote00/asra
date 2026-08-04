@@ -3,32 +3,30 @@ import type {
   AiPermissionPolicy
 } from '@asyra/ai-agent-runtime'
 
-export type AsyraDesignAiPermissionRules = Readonly<
-  Record<string, AiPermissionDecision>
->
+export type AiPermissionRules = Readonly<Record<string, AiPermissionDecision>>
 
-export class AsyraDesignAiPermissionConfigurationError extends Error {
+export class AiPermissionConfigurationError extends Error {
   readonly code = 'AI_PERMISSION_CONFIGURATION_INVALID' as const
 
   constructor() {
     super(
-      'Asyra Design AI permission rules require non-empty action names and explicit allow, confirm, or deny decisions.'
+      'AI permission rules require non-empty action names and explicit allow, confirm, or deny decisions.'
     )
-    this.name = 'AsyraDesignAiPermissionConfigurationError'
+    this.name = 'AiPermissionConfigurationError'
   }
 }
 
 const isDecision = (value: unknown): value is AiPermissionDecision =>
   value === 'allow' || value === 'confirm' || value === 'deny'
 
-export const createAsyraDesignAiPermissionPolicy = (
-  rules: AsyraDesignAiPermissionRules = {}
+export const createAiPermissionPolicy = (
+  rules: AiPermissionRules = {}
 ): AiPermissionPolicy => {
   const decisions = new Map<string, AiPermissionDecision>()
 
   for (const key of Reflect.ownKeys(rules)) {
     if (typeof key !== 'string') {
-      throw new AsyraDesignAiPermissionConfigurationError()
+      throw new AiPermissionConfigurationError()
     }
 
     const descriptor = Object.getOwnPropertyDescriptor(rules, key)
@@ -38,7 +36,7 @@ export const createAsyraDesignAiPermissionPolicy = (
       key.trim().length === 0 ||
       !isDecision(descriptor.value)
     ) {
-      throw new AsyraDesignAiPermissionConfigurationError()
+      throw new AiPermissionConfigurationError()
     }
     decisions.set(key, descriptor.value)
   }

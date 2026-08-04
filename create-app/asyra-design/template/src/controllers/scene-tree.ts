@@ -1,20 +1,20 @@
 import { DataTypes, type EVENT_OPTIONS } from '@asyra/utils'
 import { elementApis, selectionApis } from '../common-apis'
 
-const NUMERIC_COMPUTED_KEYS = new Set(['x', 'y', 'width', 'height', 'rotation'])
+const NUMERIC_PROPERTY_KEYS = new Set(['x', 'y', 'width', 'height', 'rotation'])
 
-export const changeElementComputedData = (
+export const updateSelectedElementProperties = (
   key: string,
   data: DataTypes,
   options?: EVENT_OPTIONS
 ) => {
-  if (NUMERIC_COMPUTED_KEYS.has(key)) {
+  if (NUMERIC_PROPERTY_KEYS.has(key)) {
     if (typeof data !== 'number' || !Number.isFinite(data)) {
       return
     }
   }
 
-  elementApis.changeComputedData(
+  elementApis.updateElementProperties(
     selectionApis.getSelectedIds(),
     {
       [key]: data

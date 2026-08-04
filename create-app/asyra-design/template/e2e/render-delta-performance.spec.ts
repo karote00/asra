@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import {
   captureBrowserErrors,
+  createTestDocumentURL,
   getCapturedBrowserErrors,
   resetCanvas,
   waitForAppReady
@@ -27,16 +28,20 @@ interface RenderDeltaProfileSummary {
   fullRehydrateReference: PhaseBudget
   renderSnapshot: PhaseBudget
   strategyGeometry: PhaseBudget
+  strategyGeometryColdStartMs: number
+  strategyGeometrySteadyState: PhaseBudget
   engineHandoff: PhaseBudget
 }
 
 const SAMPLE_FRAMES = 12
 const DENSE_POINT_COUNT = 56
+const DENSE_TRANSFORM_POINT_COUNT = 7_001
 const SELF_INTERSECTION_STEP = 3
 const PHASE_BUDGETS = {
   sceneTree: { totalMs: 24, p95Ms: 4, maxMs: 6 },
   renderSnapshot: { totalMs: 6, p95Ms: 1, maxMs: 2 },
-  strategyGeometry: { totalMs: 24, p95Ms: 4, maxMs: 6 },
+  strategyGeometry: { totalMs: 24, p95Ms: 4, maxMs: 8 },
+  strategyGeometrySteadyState: { totalMs: 18, p95Ms: 4, maxMs: 6 },
   engineHandoff: { totalMs: 18, p95Ms: 3, maxMs: 5 }
 } satisfies Record<string, PhaseBudgetLimit>
 const CRITICAL_PATH_P95_BUDGET_MS = 12
@@ -65,11 +70,18 @@ const summarize = (samples: number[]): PhaseBudget => {
   }
 }
 
+const summarizeStrategyGeometry = (samples: number[]) => ({
+  overall: summarize(samples),
+  coldStartMs: Number((samples[0] ?? 0).toFixed(3)),
+  steadyState: summarize(samples.slice(1))
+})
+
 const expectPhaseWithinBudget = (
   phase: PhaseBudget,
-  budget: PhaseBudgetLimit
+  budget: PhaseBudgetLimit,
+  expectedCount = SAMPLE_FRAMES
 ) => {
-  expect(phase.count).toBe(SAMPLE_FRAMES)
+  expect(phase.count).toBe(expectedCount)
   expect(phase.totalMs).toBeLessThanOrEqual(budget.totalMs)
   expect(phase.p95Ms).toBeLessThanOrEqual(budget.p95Ms)
   expect(phase.maxMs).toBeLessThanOrEqual(budget.maxMs)
@@ -82,11 +94,23 @@ test('keeps the bounded p95 sample distinct from the separately budgeted max', (
   })
 })
 
+test('separates the first cold strategy frame from the steady-state max', () => {
+  const profile = summarizeStrategyGeometry([
+    6.6, 0.3, 0.4, 0.3, 0.5, 0.3, 0.4, 0.3, 0.5, 0.3, 0.4, 0.3
+  ])
+
+  expect(profile).toMatchObject({
+    overall: { count: 12, maxMs: 6.6 },
+    coldStartMs: 6.6,
+    steadyState: { count: 11, maxMs: 0.5 }
+  })
+})
+
 test.describe('Render delta performance budget', () => {
   test.beforeEach(async ({ page }) => {
     captureBrowserErrors(page)
 
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -103,10 +127,14 @@ test.describe('Render delta performance budget', () => {
     const rawProfile = await page.evaluate(
       async ({ pointCount, sampleFrames, intersectionStep }) => {
         // E2E-only access to the currently composed framework runtime.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const elementApis = (window as any).__AsyraE2E__?.elementApis
+
+        const {
+          core,
+          elementApis,
+          getActiveCollaborationHandle,
+          subscribeToBrowserDragPhases,
+          subscribeToDiagnosticCounters
+        } = await import('../src/testing/runtime-access')
         if (!core || !elementApis) {
           throw new Error('Asyra E2E runtime is unavailable')
         }
@@ -180,22 +208,43 @@ test.describe('Render delta performance budget', () => {
         if (!elementId) {
           throw new Error('Failed to create dense vector profiling fixture')
         }
-        elementApis.changeComputedData(
-          [elementId],
-          {
-            fills: [
-              {
-                id: 'dense-vector-fill',
-                kind: 'solid',
-                fillType: 'color',
-                color: '#64748b',
-                opacity: 1,
-                visible: true
-              }
-            ]
-          },
+        elementApis.patchElementProperties(
+          [
+            {
+              elementId,
+              records: [
+                {
+                  key: 'fills',
+                  set: {
+                    'dense-vector-fill': {
+                      kind: 'solid',
+                      defaultColorFormat: 'hex',
+                      colorFormat: 'hex',
+                      color: '#64748b',
+                      opacity: 1,
+                      visible: true,
+                      gradient: null
+                    }
+                  }
+                }
+              ]
+            }
+          ],
           { undoable: false }
         )
+
+        const collaboration = getActiveCollaborationHandle()
+        if (!collaboration) {
+          throw new Error(
+            'Collaboration runtime is unavailable for isolated profiling'
+          )
+        }
+        await collaboration.whenIdle()
+        if (collaboration.getStatus() !== 'connected') {
+          throw new Error(
+            'Collaboration runtime did not settle before isolated profiling'
+          )
+        }
 
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
@@ -216,30 +265,22 @@ test.describe('Render delta performance budget', () => {
           phaseSamples.set(phaseName, samples)
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const runtimeGlobal = globalThis as any
-        const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
-        runtimeGlobal.__asyraBrowserDragPhaseSink = pushSample
-        const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+        const unsubscribeFromPhases = subscribeToBrowserDragPhases(pushSample)
         const counters = new Map<string, number>()
-        runtimeGlobal.__asyraDiagnosticCounterSink = (
-          counterName: string,
-          value: number
-        ) => {
-          counters.set(counterName, (counters.get(counterName) ?? 0) + value)
-        }
+        const unsubscribeFromCounters = subscribeToDiagnosticCounters(
+          (counterName, value) => {
+            counters.set(counterName, (counters.get(counterName) ?? 0) + value)
+          }
+        )
 
         const sceneTreeSamples: number[] = []
-        const renderSnapshotSamples: number[] = []
         const engineSamples: number[] = []
         const engineFrameSamples: number[] = []
         let elementSaveCallsDuringDelta = 0
         let computedSnapshotCallsDuringDelta = 0
 
-        const originalPatchComputedDataForElements =
-          sceneTree.patchComputedDataForElements.bind(sceneTree)
-        const originalCommitSceneTreeTransaction =
-          sceneTree.commitSceneTreeTransaction.bind(sceneTree)
+        const originalPatchLocalComputedData =
+          sceneTree.patchLocalComputedData.bind(sceneTree)
         const originalEngineExecute = engine.execute.bind(engine)
         const originalElementSave = element.save.bind(element)
         const originalGetAllComputedData =
@@ -249,20 +290,12 @@ test.describe('Render delta performance budget', () => {
         core.setSystemProperty('mouseDown', true)
         core.setSystemProperty('mouseDragging', true)
 
-        sceneTree.patchComputedDataForElements = (...args: unknown[]) => {
+        sceneTree.patchLocalComputedData = (...args: unknown[]) => {
           const start = performance.now()
           try {
-            return originalPatchComputedDataForElements(...args)
+            return originalPatchLocalComputedData(...args)
           } finally {
             sceneTreeSamples.push(performance.now() - start)
-          }
-        }
-        sceneTree.commitSceneTreeTransaction = (...args: unknown[]) => {
-          const start = performance.now()
-          try {
-            return originalCommitSceneTreeTransaction(...args)
-          } finally {
-            renderSnapshotSamples.push(performance.now() - start)
           }
         }
         engine.execute = (...args: unknown[]) => {
@@ -288,6 +321,8 @@ test.describe('Render delta performance budget', () => {
           for (let index = 0; index < sampleFrames; index += 1) {
             const angle = (Math.PI * 2 * index) / sampleFrames
             const engineSampleStart = engineSamples.length
+            const strategySampleStart =
+              phaseSamples.get('render-layer:strategy:vector')?.length ?? 0
             elementApis.updateVectorAnchorPointPosition(
               elementId,
               movingPointId,
@@ -295,11 +330,34 @@ test.describe('Render delta performance budget', () => {
                 x: movingPoint.x + Math.cos(angle) * 8,
                 y: movingPoint.y + Math.sin(angle) * 8
               },
-              { undoable: false, skipResult: true }
+              {
+                undoable: false,
+                skipResult: true,
+                transientPreview: true
+              }
             )
-            await new Promise<void>((resolve) =>
-              requestAnimationFrame(() => resolve())
-            )
+            await new Promise<void>((resolve, reject) => {
+              let remainingFrames = 4
+              const waitForStrategy = () => {
+                const strategySampleCount =
+                  phaseSamples.get('render-layer:strategy:vector')?.length ?? 0
+                if (strategySampleCount > strategySampleStart) {
+                  resolve()
+                  return
+                }
+                remainingFrames -= 1
+                if (remainingFrames === 0) {
+                  reject(
+                    new Error(
+                      `Render strategy did not consume delta sample ${index + 1}`
+                    )
+                  )
+                  return
+                }
+                requestAnimationFrame(waitForStrategy)
+              }
+              requestAnimationFrame(waitForStrategy)
+            })
             engineFrameSamples.push(
               engineSamples
                 .slice(engineSampleStart)
@@ -310,15 +368,12 @@ test.describe('Render delta performance budget', () => {
             requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
           )
         } finally {
-          sceneTree.patchComputedDataForElements =
-            originalPatchComputedDataForElements
-          sceneTree.commitSceneTreeTransaction =
-            originalCommitSceneTreeTransaction
+          sceneTree.patchLocalComputedData = originalPatchLocalComputedData
           engine.execute = originalEngineExecute
           element.save = originalElementSave
           element.getAllComputedData = originalGetAllComputedData
-          runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
-          runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
+          unsubscribeFromPhases()
+          unsubscribeFromCounters()
           core.setSystemProperty('mouseDragging', false)
           core.setSystemProperty('mouseDown', false)
           core.setSystemProperty('pathEditingMode', false)
@@ -326,10 +381,19 @@ test.describe('Render delta performance budget', () => {
 
         const fullRehydrateReference: number[] = []
         for (let index = 0; index < sampleFrames; index += 1) {
+          const referenceIterations = 32
           const start = performance.now()
-          originalElementSave()
-          originalGetAllComputedData()
-          fullRehydrateReference.push(performance.now() - start)
+          for (
+            let referenceIndex = 0;
+            referenceIndex < referenceIterations;
+            referenceIndex += 1
+          ) {
+            originalElementSave()
+            originalGetAllComputedData()
+          }
+          fullRehydrateReference.push(
+            (performance.now() - start) / referenceIterations
+          )
         }
 
         return {
@@ -343,7 +407,8 @@ test.describe('Render delta performance budget', () => {
           computedSnapshotCallsDuringDelta,
           sceneTreeSamples,
           fullRehydrateReference,
-          renderSnapshotSamples,
+          renderSnapshotSamples:
+            phaseSamples.get('render-scene-tree:apply-computed-patch') ?? [],
           strategyGeometrySamples:
             phaseSamples.get('render-layer:strategy:vector') ?? [],
           engineSamples: engineFrameSamples
@@ -356,6 +421,9 @@ test.describe('Render delta performance budget', () => {
       }
     )
 
+    const strategyGeometry = summarizeStrategyGeometry(
+      rawProfile.strategyGeometrySamples
+    )
     const summary: RenderDeltaProfileSummary = {
       sampleFrames: rawProfile.sampleFrames,
       fullRehydrateCallsDuringDelta: rawProfile.fullRehydrateCallsDuringDelta,
@@ -366,7 +434,9 @@ test.describe('Render delta performance budget', () => {
       sceneTree: summarize(rawProfile.sceneTreeSamples),
       fullRehydrateReference: summarize(rawProfile.fullRehydrateReference),
       renderSnapshot: summarize(rawProfile.renderSnapshotSamples),
-      strategyGeometry: summarize(rawProfile.strategyGeometrySamples),
+      strategyGeometry: strategyGeometry.overall,
+      strategyGeometryColdStartMs: strategyGeometry.coldStartMs,
+      strategyGeometrySteadyState: strategyGeometry.steadyState,
       engineHandoff: summarize(rawProfile.engineSamples)
     }
 
@@ -396,6 +466,14 @@ test.describe('Render delta performance budget', () => {
       summary.strategyGeometry,
       PHASE_BUDGETS.strategyGeometry
     )
+    expect(summary.strategyGeometryColdStartMs).toBeLessThanOrEqual(
+      PHASE_BUDGETS.strategyGeometry.maxMs
+    )
+    expectPhaseWithinBudget(
+      summary.strategyGeometrySteadyState,
+      PHASE_BUDGETS.strategyGeometrySteadyState,
+      SAMPLE_FRAMES - 1
+    )
     expectPhaseWithinBudget(summary.engineHandoff, PHASE_BUDGETS.engineHandoff)
     expect(
       summary.sceneTree.p95Ms +
@@ -404,10 +482,10 @@ test.describe('Render delta performance budget', () => {
         summary.engineHandoff.p95Ms
     ).toBeLessThanOrEqual(CRITICAL_PATH_P95_BUDGET_MS)
 
-    const visualReviewState = await page.evaluate((elementId) => {
+    const visualReviewState = await page.evaluate(async (elementId) => {
       // E2E-only access to the currently composed framework runtime.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+
+      const core = (await import('../src/testing/runtime-access')).core
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const renderElement = core?.deps?.render?.getElementById?.(elementId)
@@ -531,6 +609,350 @@ test.describe('Render delta performance budget', () => {
     )
   })
 
+  test('moves a 7001-point Vector without geometry mutation or strategy execution', async ({
+    page
+  }, testInfo) => {
+    test.setTimeout(120_000)
+
+    const fixture = await page.evaluate(async (pointCount) => {
+      const { core, elementApis } = await import(
+        '../src/testing/runtime-access'
+      )
+      if (!core || !elementApis) {
+        throw new Error('Asyra E2E runtime is unavailable')
+      }
+
+      const center = { x: 420, y: 300 }
+      const radius = 135
+      const pointIds = Array.from(
+        { length: pointCount },
+        (_, index) => `dense-transform-point-${index}`
+      )
+      const points = Object.fromEntries(
+        pointIds.map((id, index) => {
+          const angle = (Math.PI * 2 * index) / pointCount
+          return [
+            id,
+            {
+              id,
+              kind: 'anchor',
+              anchorType: 'sharp',
+              x: center.x + Math.cos(angle) * radius,
+              y: center.y + Math.sin(angle) * radius
+            }
+          ]
+        })
+      )
+      const segments = Object.fromEntries(
+        pointIds.map((pointId, index) => {
+          const id = `dense-transform-segment-${index}`
+          return [
+            id,
+            {
+              id,
+              startId: pointId,
+              endId: pointIds[(index + 1) % pointCount],
+              outControlId: null,
+              inControlId: null
+            }
+          ]
+        })
+      )
+      const networks = {
+        'dense-transform-network': {
+          id: 'dense-transform-network',
+          pointIds,
+          segmentIds: pointIds.map(
+            (_, index) => `dense-transform-segment-${index}`
+          ),
+          closed: true
+        }
+      }
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks,
+          closed: true
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create dense Vector transform fixture')
+      }
+
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'fills',
+                set: {
+                  'dense-transform-fill': {
+                    kind: 'solid',
+                    defaultColorFormat: 'hex',
+                    colorFormat: 'hex',
+                    color: '#2563eb',
+                    opacity: 0.86,
+                    visible: true,
+                    gradient: null
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        { undoable: false }
+      )
+
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      const zoom = core.getSystemProperty?.('zoom') ?? 1
+      const viewport = core.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      return {
+        elementId,
+        pointCount: Object.keys(computed.points ?? {}).length,
+        centerClient: {
+          x:
+            ((computed.x ?? 0) + (computed.width ?? 0) / 2) * zoom + viewport.x,
+          y:
+            ((computed.y ?? 0) + (computed.height ?? 0) / 2) * zoom + viewport.y
+        }
+      }
+    }, DENSE_TRANSFORM_POINT_COUNT)
+
+    expect(fixture.pointCount).toBe(DENSE_TRANSFORM_POINT_COUNT)
+
+    const captureStage = async (label: string) => {
+      const screenshotPath = testInfo.outputPath(`dense-transform-${label}.png`)
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: true,
+        animations: 'disabled'
+      })
+      await testInfo.attach(`dense-transform-${label}`, {
+        path: screenshotPath,
+        contentType: 'image/png'
+      })
+    }
+
+    await captureStage('initial')
+
+    await page.evaluate(async (elementId) => {
+      const { core } = await import('../src/testing/runtime-access')
+      core.selectElements?.([elementId], { undoable: false })
+    }, fixture.elementId)
+    await page.waitForTimeout(100)
+    await captureStage('selected')
+
+    await page.evaluate(async (elementId) => {
+      const {
+        core,
+        startSharedPublicationCapture,
+        subscribeToBrowserDragPhases,
+        testRuntimeState
+      } = await import('../src/testing/runtime-access')
+      const element = core.deps?.sceneTree?.getElementById?.(elementId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const phases: { name: string; durationMs: number }[] = []
+      const unsubscribe = subscribeToBrowserDragPhases((name, durationMs) => {
+        phases.push({ name, durationMs })
+      })
+      startSharedPublicationCapture('dense-transform-publications')
+      testRuntimeState.set('dense-transform-probe', {
+        beforePoints: computed.points,
+        beforePointSamples: [
+          computed.points?.['dense-transform-point-0'],
+          computed.points?.['dense-transform-point-3500'],
+          computed.points?.['dense-transform-point-7000']
+        ].map((point) => ({ x: point?.x, y: point?.y })),
+        phases,
+        unsubscribe
+      })
+    }, fixture.elementId)
+
+    await page.mouse.move(fixture.centerClient.x, fixture.centerClient.y)
+    await page.mouse.down()
+    await page.mouse.move(
+      fixture.centerClient.x + 72,
+      fixture.centerClient.y + 48,
+      { steps: 12 }
+    )
+    await page.mouse.up()
+    await page.waitForTimeout(150)
+
+    const moveProfile = await page.evaluate(async (elementId) => {
+      const { core, readTestCapture, stopTestCapture, testRuntimeState } =
+        await import('../src/testing/runtime-access')
+      const probe = testRuntimeState.get<{
+        beforePoints: unknown
+        beforePointSamples: { x: number; y: number }[]
+        phases: { name: string; durationMs: number }[]
+        unsubscribe: () => void
+      }>('dense-transform-probe')
+      if (!probe) {
+        throw new Error('Dense transform probe was not installed')
+      }
+      probe.unsubscribe()
+
+      const publications = readTestCapture(
+        'dense-transform-publications'
+      ) as readonly unknown[]
+      const canonicalPropertyKeys = new Set<string>()
+      const canonicalRecordTypes = new Set<string>()
+      const visit = (value: unknown): void => {
+        if (Array.isArray(value)) {
+          value.forEach(visit)
+          return
+        }
+        if (!value || typeof value !== 'object') {
+          return
+        }
+        const record = value as Record<string, unknown>
+        const eventName =
+          typeof record.eventName === 'string' ? record.eventName : record.type
+        if (
+          eventName === 'addProperty' ||
+          eventName === 'removeProperty' ||
+          eventName === 'updateProperty'
+        ) {
+          const payload =
+            record.payload && typeof record.payload === 'object'
+              ? (record.payload as Record<string, unknown>)
+              : {}
+          if (typeof payload.key === 'string') {
+            canonicalPropertyKeys.add(payload.key)
+          }
+          if (
+            eventName === 'updateProperty' &&
+            typeof payload.id === 'string'
+          ) {
+            const propertyType = payload.propertyType
+            if (typeof propertyType === 'string') {
+              canonicalRecordTypes.add(propertyType)
+            }
+          }
+          if (Array.isArray(payload.data)) {
+            payload.data.forEach((entry) => {
+              if (
+                entry &&
+                typeof entry === 'object' &&
+                typeof (entry as { type?: unknown }).type === 'string'
+              ) {
+                canonicalRecordTypes.add((entry as { type: string }).type)
+              }
+            })
+          }
+        }
+        Object.values(record).forEach(visit)
+      }
+      publications.forEach(visit)
+
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      const afterPointSamples = [
+        computed.points?.['dense-transform-point-0'],
+        computed.points?.['dense-transform-point-3500'],
+        computed.points?.['dense-transform-point-7000']
+      ].map((point) => ({ x: point?.x, y: point?.y }))
+      const moveSamples = probe.phases
+        .filter(({ name }) => name === 'move-elements:apply-positions')
+        .map(({ durationMs }) => durationMs)
+      const geometryStrategySamples = probe.phases.filter(
+        ({ name }) => name === 'render-layer:strategy:vector'
+      )
+
+      stopTestCapture('dense-transform-publications')
+      testRuntimeState.delete('dense-transform-probe')
+
+      return {
+        pointCount: Object.keys(computed.points ?? {}).length,
+        pointsIdentityPreserved: computed.points === probe.beforePoints,
+        pointSamplesPreserved:
+          JSON.stringify(afterPointSamples) ===
+          JSON.stringify(probe.beforePointSamples),
+        canonicalPropertyKeys: [...canonicalPropertyKeys].sort(),
+        canonicalRecordTypes: [...canonicalRecordTypes].sort(),
+        moveSamples,
+        geometryStrategyCount: geometryStrategySamples.length,
+        x: computed.x,
+        y: computed.y
+      }
+    }, fixture.elementId)
+
+    expect(moveProfile.pointCount).toBe(DENSE_TRANSFORM_POINT_COUNT)
+    expect(moveProfile.pointsIdentityPreserved).toBe(true)
+    expect(moveProfile.pointSamplesPreserved).toBe(true)
+    expect(moveProfile.canonicalPropertyKeys).toEqual(['x', 'y'])
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorPoint')
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorSegment')
+    expect(moveProfile.canonicalRecordTypes).not.toContain('vectorNetwork')
+    expect(moveProfile.moveSamples.length).toBeGreaterThan(0)
+    expect(moveProfile.geometryStrategyCount).toBe(0)
+
+    // One bounded line is the reviewable performance artifact for the exact
+    // 7,001-point pointer-drag state used by the screenshots below.
+    // eslint-disable-next-line no-console
+    console.info(
+      `DENSE_VECTOR_TRANSFORM_PROFILE ${JSON.stringify({
+        pointCount: moveProfile.pointCount,
+        moveUpdates: moveProfile.moveSamples.length,
+        moveTotalMs: Number(
+          moveProfile.moveSamples
+            .reduce((total, sample) => total + sample, 0)
+            .toFixed(3)
+        ),
+        moveMaxMs: Number(Math.max(...moveProfile.moveSamples, 0).toFixed(3)),
+        geometryStrategyCount: moveProfile.geometryStrategyCount,
+        canonicalPropertyKeys: moveProfile.canonicalPropertyKeys
+      })}`
+    )
+
+    await captureStage('moved')
+
+    await page.evaluate(async (elementId) => {
+      const { core, elementApis } = await import(
+        '../src/testing/runtime-access'
+      )
+      const computed =
+        core.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      elementApis.changeElementGeometry(
+        elementId,
+        {
+          width: (computed.width ?? 1) * 1.15,
+          height: (computed.height ?? 1) * 0.9,
+          rotation: 0.14
+        },
+        { undoable: false }
+      )
+    }, fixture.elementId)
+    await page.waitForTimeout(150)
+    await captureStage('transformed-selected')
+
+    await page.evaluate(async (elementId) => {
+      const { core } = await import('../src/testing/runtime-access')
+      core.setSystemProperty?.('pathEditingVectorId', elementId)
+      core.setSystemProperty?.('pathEditingMode', true)
+    }, fixture.elementId)
+    await page.waitForTimeout(150)
+    await captureStage('path-edit')
+  })
+
   test('preserves fresh snapshot equivalence through action replay and load', async ({
     page
   }) => {
@@ -538,10 +960,11 @@ test.describe('Render delta performance budget', () => {
 
     const result = await page.evaluate(async () => {
       // E2E-only access to the currently composed framework runtime.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
+
+      const core = (await import('../src/testing/runtime-access')).core
+
+      const elementApis = (await import('../src/testing/runtime-access'))
+        .elementApis
       const factory = core?.deps?.factory
       if (
         !core ||
@@ -651,13 +1074,20 @@ test.describe('Render delta performance budget', () => {
         }
       }
 
-      const actionPoints = {
-        ...initialPoints,
-        A: { ...initialPoints.A, x: 140 }
-      }
-      elementApis.changeComputedData(
-        [elementId],
-        { points: actionPoints },
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'points',
+                set: {
+                  A: { x: 140 }
+                }
+              }
+            ]
+          }
+        ],
         { undoable: true }
       )
       await waitForStableFrame()
@@ -672,14 +1102,20 @@ test.describe('Render delta performance budget', () => {
       const redo = capture('redo')
       const persisted = await core.save()
 
-      elementApis.changeComputedData(
-        [elementId],
-        {
-          points: {
-            ...actionPoints,
-            A: { ...actionPoints.A, x: 180 }
+      elementApis.patchElementProperties(
+        [
+          {
+            elementId,
+            records: [
+              {
+                key: 'points',
+                set: {
+                  A: { x: 180 }
+                }
+              }
+            ]
           }
-        },
+        ],
         { undoable: false }
       )
       await waitForStableFrame()

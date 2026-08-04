@@ -3,12 +3,12 @@ import type {
   AiConfirmationHandler
 } from '@asyra/ai-agent-runtime'
 
-export type AsyraDesignAiConfirmationRequest = (
+export type AiConfirmationRequest = (
   preview: AiActionBatchPreview,
   options: { signal: AbortSignal }
 ) => Promise<boolean>
 
-export type AsyraDesignAiConfirmationActionKind =
+export type AiConfirmationActionKind =
   | 'create'
   | 'delete'
   | 'mixed'
@@ -16,8 +16,8 @@ export type AsyraDesignAiConfirmationActionKind =
   | 'selection'
   | 'visibility'
 
-export interface AsyraDesignAiConfirmationSummary {
-  readonly actionKind: AsyraDesignAiConfirmationActionKind
+export interface AiConfirmationSummary {
+  readonly actionKind: AiConfirmationActionKind
   readonly affectedCount: number | null
   readonly destructive: boolean
   readonly externalImpact: false
@@ -25,30 +25,30 @@ export interface AsyraDesignAiConfirmationSummary {
   readonly undoable: true
 }
 
-export interface AsyraDesignAiPendingConfirmation {
+export interface AiPendingConfirmation {
   readonly batchId: string
   readonly confirmationId: string
-  readonly summary: AsyraDesignAiConfirmationSummary
+  readonly summary: AiConfirmationSummary
   readonly turnId: string
 }
 
-export interface AsyraDesignAiConfirmationSnapshot {
+export interface AiConfirmationSnapshot {
   readonly activeTurnId: string | null
   readonly disposed: boolean
-  readonly pending: AsyraDesignAiPendingConfirmation | null
+  readonly pending: AiPendingConfirmation | null
 }
 
 interface PendingConfirmation {
   readonly abort: () => void
-  readonly publicValue: AsyraDesignAiPendingConfirmation
+  readonly publicValue: AiPendingConfirmation
   readonly resolve: (accepted: boolean) => void
   readonly signal: AbortSignal
 }
 
-const cancelByDefault: AsyraDesignAiConfirmationRequest = async () => false
+const cancelByDefault: AiConfirmationRequest = async () => false
 
-export const createAsyraDesignAiConfirmationHandler = (
-  requestConfirmation: AsyraDesignAiConfirmationRequest = cancelByDefault
+export const createAiConfirmationHandler = (
+  requestConfirmation: AiConfirmationRequest = cancelByDefault
 ): AiConfirmationHandler =>
   Object.freeze({
     confirm: (
@@ -87,7 +87,7 @@ const countForAction = (summary: unknown): number | null => {
 
 const kindForAction = (
   actionName: string
-): Exclude<AsyraDesignAiConfirmationActionKind, 'mixed'> => {
+): Exclude<AiConfirmationActionKind, 'mixed'> => {
   switch (actionName) {
     case 'insert_vector_composition':
       return 'create'
@@ -104,7 +104,7 @@ const kindForAction = (
 }
 
 const messageForSummary = (
-  actionKind: AsyraDesignAiConfirmationActionKind,
+  actionKind: AiConfirmationActionKind,
   affectedCount: number | null
 ): string => {
   const count = affectedCount ?? 'the selected'
@@ -129,9 +129,9 @@ const messageForSummary = (
   }
 }
 
-export const createAsyraDesignAiConfirmationSummary = (
+export const createAiConfirmationSummary = (
   preview: AiActionBatchPreview
-): AsyraDesignAiConfirmationSummary => {
+): AiConfirmationSummary => {
   const kinds = new Set(
     preview.actions.map((action) => kindForAction(action.name))
   )
@@ -151,15 +151,13 @@ export const createAsyraDesignAiConfirmationSummary = (
   })
 }
 
-export const createAsyraDesignAiConfirmationBroker = () => {
-  const observers = new Set<
-    (snapshot: AsyraDesignAiConfirmationSnapshot) => void
-  >()
+export const createAiConfirmationBroker = () => {
+  const observers = new Set<(snapshot: AiConfirmationSnapshot) => void>()
   let activeTurnId: string | null = null
   let disposed = false
   let pending: PendingConfirmation | null = null
 
-  const getSnapshot = (): AsyraDesignAiConfirmationSnapshot =>
+  const getSnapshot = (): AiConfirmationSnapshot =>
     Object.freeze({
       activeTurnId,
       disposed,
@@ -167,8 +165,8 @@ export const createAsyraDesignAiConfirmationBroker = () => {
     })
 
   const observeSafely = (
-    observer: (snapshot: AsyraDesignAiConfirmationSnapshot) => void,
-    snapshot: AsyraDesignAiConfirmationSnapshot
+    observer: (snapshot: AiConfirmationSnapshot) => void,
+    snapshot: AiConfirmationSnapshot
   ) => {
     try {
       observer(snapshot)
@@ -234,7 +232,7 @@ export const createAsyraDesignAiConfirmationBroker = () => {
           publicValue: Object.freeze({
             batchId: preview.batchId,
             confirmationId: `${activeTurnId}:confirmation`,
-            summary: createAsyraDesignAiConfirmationSummary(preview),
+            summary: createAiConfirmationSummary(preview),
             turnId: activeTurnId as string
           }),
           resolve,
@@ -246,7 +244,7 @@ export const createAsyraDesignAiConfirmationBroker = () => {
     },
     resolve: (accepted: boolean): boolean => settle(accepted),
     subscribe: (
-      observer: (snapshot: AsyraDesignAiConfirmationSnapshot) => void
+      observer: (snapshot: AiConfirmationSnapshot) => void
     ): (() => void) => {
       if (disposed) {
         return () => undefined
@@ -274,6 +272,4 @@ export const createAsyraDesignAiConfirmationBroker = () => {
   return Object.freeze(broker)
 }
 
-export type AsyraDesignAiConfirmationBroker = ReturnType<
-  typeof createAsyraDesignAiConfirmationBroker
->
+export type AiConfirmationBroker = ReturnType<typeof createAiConfirmationBroker>

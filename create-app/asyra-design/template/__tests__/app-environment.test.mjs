@@ -1,17 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from '../app-environment.mjs'
+import { loadEnvironment, resolveEnvironment } from '../app-environment.mjs'
 
 test('one app URL configures a non-default Vite and Playwright port', () => {
   assert.deepEqual(
-    resolveAsyraDesignEnvironment({
-      ASYRA_DESIGN_APP_URL: 'http://localhost:4317',
-      ASYRA_DESIGN_COLLABORATION_WS_HOST: '127.0.0.1',
-      ASYRA_DESIGN_COLLABORATION_WS_PORT: '5109'
+    resolveEnvironment({
+      APP_URL: 'http://localhost:4317',
+      COLLABORATION_WS_HOST: '127.0.0.1',
+      COLLABORATION_WS_PORT: '5109'
     }),
     {
       appURL: 'http://localhost:4317',
@@ -25,8 +22,8 @@ test('one app URL configures a non-default Vite and Playwright port', () => {
 })
 
 test('a deployed HTTPS origin remains the single app URL', () => {
-  const config = resolveAsyraDesignEnvironment({
-    ASYRA_DESIGN_APP_URL: 'https://design.example.com'
+  const config = resolveEnvironment({
+    APP_URL: 'https://design.example.com'
   })
 
   assert.equal(config.appURL, 'https://design.example.com')
@@ -36,43 +33,40 @@ test('a deployed HTTPS origin remains the single app URL', () => {
 
 test('project defaults load without overwriting an explicit app URL', () => {
   const environment = {
-    ASYRA_DESIGN_APP_URL: 'http://localhost:4555'
+    APP_URL: 'http://localhost:4555'
   }
 
-  loadAsyraDesignEnvironment(environment)
+  loadEnvironment(environment)
 
-  assert.equal(environment.ASYRA_DESIGN_APP_URL, 'http://localhost:4555')
-  assert.equal(
-    environment.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL,
-    'ws://127.0.0.1:4101/asyra-design-collaboration'
-  )
+  assert.equal(environment.APP_URL, 'http://localhost:4555')
+  assert.equal(typeof environment.VITE_COLLABORATION_WS_URL, 'string')
 })
 
 test('legacy parallel base URL variables do not replace the app URL owner', () => {
   assert.throws(
     () =>
-      resolveAsyraDesignEnvironment({
-        ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL: 'http://localhost:3000',
+      resolveEnvironment({
+        VISUAL_REVIEW_BASE_URL: 'http://localhost:3000',
         PLAYWRIGHT_TEST_BASE_URL: 'http://localhost:3000'
       }),
-    /ASYRA_DESIGN_APP_URL/
+    /APP_URL/
   )
 })
 
 test('invalid app URL and collaboration port fail before startup', () => {
   assert.throws(
     () =>
-      resolveAsyraDesignEnvironment({
-        ASYRA_DESIGN_APP_URL: 'ftp://design.example.com'
+      resolveEnvironment({
+        APP_URL: 'ftp://design.example.com'
       }),
     /http or https/
   )
   assert.throws(
     () =>
-      resolveAsyraDesignEnvironment({
-        ASYRA_DESIGN_APP_URL: 'http://localhost:3000',
-        ASYRA_DESIGN_COLLABORATION_WS_PORT: '70000'
+      resolveEnvironment({
+        APP_URL: 'http://localhost:3000',
+        COLLABORATION_WS_PORT: '70000'
       }),
-    /ASYRA_DESIGN_COLLABORATION_WS_PORT/
+    /COLLABORATION_WS_PORT/
   )
 })

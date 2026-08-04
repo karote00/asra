@@ -1,10 +1,39 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { IndexedDbPersistence } from '@asyra/reactive-events'
-import { indexedDB } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ProviderStatus } from '@asyra/collaboration'
 import core from '../../contexts'
+import * as collaborationLifecycle from '../../collaboration/lifecycle'
+import type { CollaborationDebugHandle } from '../../collaboration/lifecycle'
+import {
+  AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE,
+  AiDocumentInteractionTargets
+} from '../../constants'
 import RenderApp, { type CanvasContextMenuInvocation } from '../index'
+
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
+const collaborationHandle = {
+  identity: Object.freeze({
+    actorId: 'actor-canvas-context-menu',
+    documentId: 'canvas-context-menu',
+    roomId: 'canvas-context-menu'
+  }),
+  getStatus: () => 'connected' as const,
+  onStatusChange: (_subscriber: (status: ProviderStatus) => void) => () =>
+    undefined,
+  getSessionState: () => ({
+    connection: 'connected' as const,
+    sync: 'synced' as const,
+    pendingCount: 0,
+    disconnectedEpoch: 0
+  }),
+  onSessionStateChange: () => () => undefined,
+  disconnect: async () => undefined,
+  reconnect: async () => undefined,
+  whenIdle: async () => undefined,
+  observePublicationOutcomes: () => () => undefined,
+  dispose: async () => undefined
+} satisfies CollaborationDebugHandle
 
 const setReactActEnvironment = (active: boolean) => {
   ;(
@@ -15,23 +44,27 @@ const setReactActEnvironment = (active: boolean) => {
 }
 
 describe('Render canvas context-menu intake', () => {
-  beforeEach(async () => {
-    vi.stubGlobal('indexedDB', indexedDB)
-    await new IndexedDbPersistence('FILE', { factory: indexedDB }).clear()
-    vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
+  beforeEach(() => {
+    vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    window.history.replaceState({}, '', '/?fileId=canvas-context-menu')
+    vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
-    localStorage.clear()
+    vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
+      collaborationHandle
+    )
+    vi.spyOn(collaborationLifecycle, 'disposeCollaboration').mockResolvedValue(
+      undefined
+    )
     document.body.replaceChildren()
     setReactActEnvironment(true)
   })
 
-  afterEach(async () => {
+  afterEach(() => {
     document.body.replaceChildren()
-    localStorage.clear()
-    await new IndexedDbPersistence('FILE', { factory: indexedDB }).clear()
+    window.history.replaceState({}, '', '/')
     setReactActEnvironment(false)
-    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
@@ -55,6 +88,9 @@ describe('Render canvas context-menu intake', () => {
       '[data-testid="asyra-canvas-host"]'
     )
     expect(canvasHost).toBeInstanceOf(HTMLDivElement)
+    expect(
+      canvasHost?.getAttribute(AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE)
+    ).toBe(AiDocumentInteractionTargets.VIEWPORT_NAVIGATION)
     const canvas = document.createElement('canvas')
     canvasHost?.append(canvas)
     const event = new MouseEvent('contextmenu', {

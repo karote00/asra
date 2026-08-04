@@ -29,8 +29,8 @@ export const initFeatures = (
     inputSystem,
     systemContext
   })
-  const registration = registerAiAgentFeature(options.aiRuntime)
+  const ai = registerAiAgentFeature(options.aiRuntime)
   return Object.freeze({
-    ai: registration
+    ai
   })
 }

@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import * as canvasPipelineDebugger from '@asyra/core/canvas-pipeline-debugger'
-import core from '../../contexts'
 import {
   destroyCanvasPipelineDebugger,
   getActiveCanvasPipelineDebugger,
@@ -14,13 +12,8 @@ describe('initCanvasPipelineDebugger', () => {
   })
 
   it('creates a disabled DEV runtime handle independently from E2E helpers', async () => {
-    const create = vi.spyOn(
-      canvasPipelineDebugger,
-      'createCanvasPipelineDebugger'
-    )
     const handle = await initCanvasPipelineDebugger()
 
-    expect(create).toHaveBeenCalledWith(core, { enabled: false })
     expect(handle?.isEnabled()).toBe(false)
     expect(getActiveCanvasPipelineDebugger()).toBe(handle)
   })

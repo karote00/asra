@@ -1,6 +1,6 @@
 import type { AiActionBatchPreview } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiConfirmationBroker } from '../confirmation'
+import { createAiConfirmationBroker } from '../confirmation'
 
 const removalPreview: AiActionBatchPreview = Object.freeze({
   actions: Object.freeze([
@@ -13,13 +13,13 @@ const removalPreview: AiActionBatchPreview = Object.freeze({
       permission: 'confirm'
     })
   ]),
-  batchId: 'remove-batch',
-  explanation: 'Remove the current cat face.'
+  explanation: 'Remove the current cat face.',
+  batchId: 'remove-batch'
 })
 
 describe('Asyra Design AI confirmation broker', () => {
   it('resolves false immediately when no mounted presentation consumer exists', async () => {
-    const broker = createAsyraDesignAiConfirmationBroker()
+    const broker = createAiConfirmationBroker()
     broker.beginTurn('conversation-1:turn:1')
 
     await expect(
@@ -31,7 +31,7 @@ describe('Asyra Design AI confirmation broker', () => {
   })
 
   it('projects one concise impact summary without low-level arguments', async () => {
-    const broker = createAsyraDesignAiConfirmationBroker()
+    const broker = createAiConfirmationBroker()
     const snapshots: unknown[] = []
     broker.subscribe((snapshot) => snapshots.push(snapshot))
     broker.beginTurn('conversation-1:turn:1')
@@ -63,7 +63,7 @@ describe('Asyra Design AI confirmation broker', () => {
   })
 
   it('settles rejection exactly once without retaining the preview', async () => {
-    const broker = createAsyraDesignAiConfirmationBroker()
+    const broker = createAiConfirmationBroker()
     broker.subscribe(() => undefined)
     broker.beginTurn('conversation-2:turn:1')
     const settlement = broker.requestConfirmation(removalPreview, {
@@ -77,7 +77,7 @@ describe('Asyra Design AI confirmation broker', () => {
   })
 
   it('releases the pending wait and abort listener on Feature abort', async () => {
-    const broker = createAsyraDesignAiConfirmationBroker()
+    const broker = createAiConfirmationBroker()
     broker.subscribe(() => undefined)
     broker.beginTurn('conversation-3:turn:1')
     const controller = new AbortController()
@@ -100,7 +100,7 @@ describe('Asyra Design AI confirmation broker', () => {
   })
 
   it('denies pending work when the panel unmounts or broker disposes', async () => {
-    const broker = createAsyraDesignAiConfirmationBroker()
+    const broker = createAiConfirmationBroker()
     const unsubscribe = broker.subscribe(() => undefined)
     broker.beginTurn('conversation-4:turn:1')
     const unmounted = broker.requestConfirmation(removalPreview, {
@@ -126,8 +126,8 @@ describe('Asyra Design AI confirmation broker', () => {
   })
 
   it('keeps confirmation state isolated between mounted app roots', async () => {
-    const first = createAsyraDesignAiConfirmationBroker()
-    const second = createAsyraDesignAiConfirmationBroker()
+    const first = createAiConfirmationBroker()
+    const second = createAiConfirmationBroker()
     first.subscribe(() => undefined)
     second.subscribe(() => undefined)
     first.beginTurn('first:turn:1')
