@@ -129,7 +129,7 @@
       title: 'Validate package and release scripts',
       ownerPackage: 'Framework release runtime validation',
       purpose:
-        'Make package packing, packed metadata validation, clean-consumer execution, and release-record validation accept only Node.js 24.x while retaining the existing diagnostic and publication boundaries.',
+        'Make package packing, packed metadata validation, clean-consumer execution, and generated-template readiness accept only Node.js 24.x while retaining the existing diagnostic and publication boundaries.',
       inputs: ['artifact:runtime-contract', 'artifact:manifest-compatibility'],
       outputs: [
         'artifact:release-runtime-contract',
@@ -138,7 +138,7 @@
       conditions: [
         'Package artifact validation requires Node.js 24.x metadata for every one of the 19 tarballs.',
         'Clean-consumer and generated-template readiness reject a non-24 execution runtime unless the existing diagnostic-only override is explicitly selected.',
-        'Release records and focused tests name Node.js 24.x without changing candidate package versions or granting publication.',
+        'Focused release runtime tests name Node.js 24.x without changing candidate package versions or granting publication; public release-record support assertions remain owned by synchronize-runtime-support.',
         'Cleanup owner: validate-package-release-scripts retains the existing release harness ownership for project-local tarballs, isolated consumers, evidence, child processes, and cleanup.'
       ],
       bypasses: [
@@ -148,7 +148,7 @@
       allowedContributors: [
         'artifact:runtime-contract',
         'artifact:manifest-compatibility',
-        'release package, clean-consumer, template-readiness, and record scripts',
+        'release package, clean-consumer, and template-readiness scripts',
         'focused release automation tests'
       ],
       forbiddenContributors: [
@@ -162,12 +162,10 @@
         'scripts/release-package-artifacts.js',
         'scripts/release-readiness.js',
         'scripts/release-template-readiness.js',
-        'scripts/release-records.js',
         'scripts/__tests__/release-automation.test.mjs',
         'scripts/__tests__/release-package-artifacts.test.mjs',
         'scripts/__tests__/release-clean-consumer.test.mjs',
         'scripts/__tests__/release-template-readiness.test.mjs',
-        'scripts/__tests__/release-records.test.mjs',
         'scripts/__tests__/node-runtime-contract.test.mjs'
       ],
       specRefs: [
@@ -470,7 +468,8 @@
         'docs/ai/framework/RELEASE_SUPPORT.md',
         'docs/ai/workflows/package-release-validation.md',
         'scripts/release-records.js',
-        'scripts/__tests__/release-records.test.mjs'
+        'scripts/__tests__/release-records.test.mjs',
+        'scripts/__tests__/node-runtime-contract.test.mjs'
       ],
       specRefs: ['#7-synchronize-support-records', '#definition-of-done'],
       failureOwnerStepId: 'synchronize-runtime-support'
@@ -903,7 +902,7 @@
       title: 'Workspace, package, artifact, and consumer contract',
       assertions: [
         'Root, 19 Framework packages, Asyra Design, and the durable consumer fixture require Node.js 24.x without version or dependency changes.',
-        'Package artifacts, packed-only clean consumers, and release records enforce the same runtime.'
+        'Package artifacts and packed-only clean consumers enforce the same runtime.'
       ],
       stepIds: [
         'validate-manifest-compatibility',

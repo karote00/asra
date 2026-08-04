@@ -145,8 +145,8 @@ export const validateGeneratedTemplateContract = ({
   }
   const serializedManifest = JSON.stringify(manifest)
 
-  if (manifest.engines?.node !== '20.x') {
-    throw new Error('Generated template must require Node 20.x')
+  if (manifest.engines?.node !== '24.x') {
+    throw new Error('Generated template must require Node 24.x')
   }
   if (manifest.packageManager !== 'yarn@4.3.1') {
     throw new Error('Generated template must use Yarn 4.3.1')
@@ -302,9 +302,9 @@ const runCommandDefault = (command, args, options) => {
 
 const assertSupportedRuntime = ({ allowUnsupportedNode }) => {
   const major = Number.parseInt(process.versions.node.split('.')[0], 10)
-  if (major !== 20 && !allowUnsupportedNode) {
+  if (major !== 24 && !allowUnsupportedNode) {
     throw new Error(
-      `Framework release verification requires Node 20.x; current runtime is ${process.version}`
+      `Framework release verification requires Node 24.x; current runtime is ${process.version}`
     )
   }
 }

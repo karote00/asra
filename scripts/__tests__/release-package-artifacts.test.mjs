@@ -174,7 +174,7 @@ test('every release package manifest declares the publishable artifact contract'
 
     assert.equal(manifest.license, 'MIT', `${record.packageName} license`)
     assert.equal(manifest.type, 'module', `${record.packageName} type`)
-    assert.deepEqual(manifest.engines, { node: '20.x' })
+    assert.deepEqual(manifest.engines, { node: '24.x' })
     assert.deepEqual(manifest.files, [
       'dist',
       '!dist/**/__tests__',

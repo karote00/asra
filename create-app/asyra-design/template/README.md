@@ -6,7 +6,7 @@ artifacts and imports only declared public entrypoints.
 
 ## Requirements
 
-- Node.js 20.x
+- Node.js 24.x
 - Yarn 4.3.1
 
 ## Install and verify

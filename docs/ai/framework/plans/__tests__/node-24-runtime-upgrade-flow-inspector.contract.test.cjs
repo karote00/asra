@@ -250,6 +250,12 @@ test('implementation boundaries preserve generator, CI, Vercel, and closeout own
       'scripts/release-template.js'
     )
   )
+  assert.equal(
+    step('validate-package-release-scripts').implementationBoundary.includes(
+      'scripts/release-records.js'
+    ),
+    false
+  )
   assert.ok(
     step('validate-ci-runtime').implementationBoundary.includes(
       '.github/workflows/main.yml'
@@ -263,6 +269,11 @@ test('implementation boundaries preserve generator, CI, Vercel, and closeout own
   assert.ok(
     step('decide-node-24-readiness').implementationBoundary.includes(
       'docs/ai/framework/PLANS.md'
+    )
+  )
+  assert.ok(
+    step('synchronize-runtime-support').implementationBoundary.includes(
+      'scripts/release-records.js'
     )
   )
 })
