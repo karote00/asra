@@ -52,7 +52,7 @@ test('Gate 5 Inspector and product authorities resolve', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md'
+    'docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

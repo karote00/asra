@@ -20,10 +20,18 @@ socket-authoritative document-session record is:
 
 ## Framework Release Gates
 
-None.
+Complete and close these plans in order before the first public Asyra Framework
+release. A release gate may begin implementation only after its product contract
+and matching Inspector owner flow satisfy
+`docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-No Framework Release Gate remains active. Release readiness is separate from
-merge, tag, registry publication, deployment, and formal release authority.
+5. Framework Release Readiness Audit and Closeout
+
+- Freeze and audit the supported public surface, package artifacts, dependency
+  boundaries, clean-consumer installation, generated templates, release
+  documentation, and full formal gate matrix without publishing automatically.
+- Reference:
+  `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
 
 ## Post-Release Roadmap
 
