@@ -140,3 +140,27 @@ test('the Vercel project-root manifest selects Node.js 24 without a conflicting 
   assert.equal(vercelConfig.functions, undefined)
   assert.doesNotMatch(JSON.stringify(vercelConfig), /nodejs20|20\.x/i)
 })
+
+test('current public support records require Node.js 24 without a legacy-major fallback', () => {
+  const supportPaths = [
+    'README.md',
+    'CHANGELOG.md',
+    'RELEASE_NOTES.md',
+    ...FRAMEWORK_RELEASE_PACKAGE_NAMES.map(
+      (name) => `packages/${name.slice('@asyra/'.length)}/README.md`
+    ),
+    'apps/asyra-design/README.md',
+    'apps/asyra-design/TEMPLATE.md',
+    'create-app/asyra-design/template/README.md',
+    'docs/ai/framework/RELEASE_SUPPORT.md',
+    'docs/ai/workflows/package-release-validation.md',
+    'scripts/release-records.js'
+  ]
+
+  for (const supportPath of supportPaths) {
+    const contents = readText(supportPath)
+
+    assert.match(contents, /Node\.js 24\.x/, supportPath)
+    assert.doesNotMatch(contents, /Node(?:\.js)? 20(?:\.x)?/, supportPath)
+  }
+})

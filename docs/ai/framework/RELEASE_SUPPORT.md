@@ -38,7 +38,7 @@ dependency hoisting are not part of the public contract.
 
 | Surface            | Release contract                                                        |
 | ------------------ | ----------------------------------------------------------------------- |
-| Node.js            | Node.js 20.x                                                            |
+| Node.js            | Node.js 24.x                                                            |
 | Package manager    | Yarn 4.3.1 for repository and generated-template gates                  |
 | TypeScript         | Declared `^5.7.2`; artifact declarations verified with TypeScript 5.8.3 |
 | React              | React 19 for `@asyra/design-system` and Asyra Design                    |
@@ -46,7 +46,7 @@ dependency hoisting are not part of the public contract.
 | Browser evidence   | Current Playwright Chromium from `@playwright/test` 1.57                |
 | Framework profiles | 2D and engine-neutral CUSTOM composition                                |
 
-The formal artifact and generated-template gates run on Node.js 20.x. A run on
+The formal artifact and generated-template gates run on Node.js 24.x. A run on
 another Node version is diagnostic evidence only and cannot produce the final
 `READY` decision.
 
@@ -102,7 +102,7 @@ generated declarations and this migration table.
 
 ## Reproducible readiness commands
 
-From a clean Node.js 20.x checkout:
+From a clean Node.js 24.x checkout:
 
 ```bash
 yarn install --immutable

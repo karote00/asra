@@ -48,7 +48,7 @@ for complete composition, lifecycle, provider, and app-ownership details.
 
 ## Release support
 
-The `@asyra/collaboration` `0.2.5` ESM artifact supports Node.js 20.x. Use only
+The `@asyra/collaboration` `0.2.5` ESM artifact supports Node.js 24.x. Use only
 package-root exports. The package is opt-in and creates no provider or network
 side effect until an app explicitly composes and connects it. See the
 [Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).

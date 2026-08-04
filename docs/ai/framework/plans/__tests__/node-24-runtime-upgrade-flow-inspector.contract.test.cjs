@@ -49,7 +49,7 @@ test('Node.js 24 Inspector authorities and entry resolve', () => {
   assert.equal(data.target.title, 'Node.js 24 Runtime Upgrade Flow Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md'
+    'docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

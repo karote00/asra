@@ -2,12 +2,62 @@
 
 ## Status
 
-Queued as the first post-Gate-5 release prerequisite.
+Completed with a reproducible local, CI, and Vercel Preview `READY` decision
+on 2026-08-05.
 
-No Framework package version may be bumped or published until this plan reaches
-`READY`. If local, CI, or Vercel validation fails on Node.js 24, package
-publication remains blocked and the failure returns to the first incorrect
-runtime, dependency, build, test, or deployment owner.
+Node.js 24.x is now the single current runtime contract for the repository,
+Framework packages, Asyra Design, release automation, CI, generated template,
+public support records, and the existing Vercel project. Yarn remains 4.3.1.
+This result does not authorize merge, package version changes, Changesets,
+registry or create-app publication, tag, production deployment, or a formal
+release.
+
+## Completion Record
+
+- Baseline: local Node.js `v24.13.0`, Corepack `0.29.3`, Yarn `4.3.1`, and
+  Darwin arm64. No runtime manager, dependency, package manager, or
+  development tool was installed or upgraded.
+- Runtime contract: root, all 19 Framework packages, Asyra Design, the durable
+  clean-consumer fixture, release validators, CI, the official template
+  generator, generated output, and current public support records require
+  Node.js `24.x`. Package versions remain `0.2.5`.
+- Test-first evidence: the formal runtime contract failed against the previous
+  Node.js 20 declarations before canonical owners changed, then passed after
+  migration. The public-support oracle likewise failed before the support
+  records changed and passed after synchronization.
+- Local evidence: immutable install, Turbo graph, 21 dependency boundaries,
+  clean 20-target workspace build, full tests, lint, 69 Inspector/viewer
+  contracts, fresh 19-package artifacts, packed-only clean consumer, and the
+  12-package generated-template consumer passed on Node.js 24.
+- App evidence: the isolated render-performance gate passed 5 cases; ordinary
+  E2E passed 135 cases with 3 contract-scoped skips; collaboration E2E passed
+  10 cases with 2 explicit opt-in skips; the unavailable-service visual case
+  passed. Agent inspection of the live-app dense-vector, transformed-vector,
+  Group source/peer, reconnect, and status-toast screenshots found no visual
+  regression. All agent-started processes and ports were cleaned.
+- CI evidence: pull request
+  [`#107`](https://github.com/karote00/asyra/pull/107) at migration commit
+  `e24c021b2f93ba200c728761d400d0ac0a87379d` passed validation and release
+  readiness in run
+  [`30942427036`](https://github.com/karote00/asyra/actions/runs/30942427036)
+  and ordinary/collaboration E2E in run
+  [`30942427298`](https://github.com/karote00/asyra/actions/runs/30942427298).
+- Vercel evidence: existing project `prj_rMVZ3Pq4G3cb0dPDZmDpYfZNAElJ` now
+  selects Node.js `24.x` for builds and Serverless Functions. Preview
+  [`HUktFsbih`](https://vercel.com/karote00s-projects/asyra/HUktFsbihYsvXbZ5mqMwd5DYomD8)
+  built the reviewed branch and commit with Node.js `24.x`, completed all 20
+  workspace build targets, and is available at the stable
+  [feature-branch Preview](https://asyra-git-codex-node-24-runtime-upgrade-karote00s-projects.vercel.app).
+- Preview smoke: the deployed frontend loaded with the required `fileId`,
+  remained locally editable while its separately owned collaboration service
+  was unavailable, and created and rendered a selected rectangle with matching
+  Layers and Properties state. Deployment resources contain 18 static assets
+  and no Vercel Function or Middleware, so function-path smoke is explicitly
+  not applicable. The app declares no required Vercel environment variable;
+  the optional collaboration endpoint retains its documented same-origin
+  fallback, and the project has no custom environment variables to migrate.
+- Review result: no unresolved P0/P1/P2 finding remains. Final decision:
+  `READY` for the Node.js 24 runtime prerequisite only.
 
 ## Goal
 

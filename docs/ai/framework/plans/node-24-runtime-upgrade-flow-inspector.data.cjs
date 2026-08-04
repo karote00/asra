@@ -4,7 +4,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md'
+    'docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs'
 
@@ -59,7 +59,7 @@
       implementationBoundary: [
         'package.json',
         'scripts/__tests__/node-runtime-contract.test.mjs',
-        'docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md',
+        'docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md',
         'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs',
         'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html',
         'docs/ai/framework/plans/__tests__/node-24-runtime-upgrade-flow-inspector.contract.test.cjs'
@@ -529,7 +529,6 @@
       cacheDimensions: [],
       implementationBoundary: [
         'docs/ai/framework/PLANS.md',
-        'docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md',
         'docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md',
         'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs',
         'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html',
@@ -987,7 +986,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './node-24-runtime-upgrade-and-vercel-validation-plan.md',
+        href: './completed/node-24-runtime-upgrade-and-vercel-validation-plan.md',
         kind: 'authority'
       },
       {

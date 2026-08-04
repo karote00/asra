@@ -31,15 +31,15 @@ release, deployment, and the formal release remain separately owned work.
 Complete these plans in order unless a plan explicitly allows read-only
 research to proceed without mutating the repository or an external system.
 
-1. Node.js 24 runtime upgrade and Vercel validation
+The Node.js 24 runtime prerequisite completed with local, CI, and Vercel
+Preview `READY` evidence on 2026-08-05. The retained records are:
 
-- Move the local, package, CI, release-validation, generated-app, and Vercel
-  runtime contract to Node.js 24.
-- Any local, CI, or Vercel failure blocks package publication.
-- Reference:
-  `docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
+- Completed plan:
+  `docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md`.
+- Retained Inspector:
+  `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`.
 
-2. Local exact-version package installation research
+1. Local exact-version package installation research
 
 - Determine the exact proof boundary of local tarballs and whether a local
   registry is justified for registry-style `name@version` resolution.
@@ -47,7 +47,7 @@ research to proceed without mutating the repository or an external system.
 - Reference:
   `docs/ai/framework/plans/local-versioned-package-install-research-plan.md`
 
-3. Framework package patch release
+2. Framework package patch release
 
 - First publish the seven never-published Framework packages once at `0.2.5`,
   then prove all 19 packages share the public `0.2.5` baseline.
@@ -57,7 +57,7 @@ research to proceed without mutating the repository or an external system.
 - Reference:
   `docs/ai/framework/plans/framework-package-patch-release-plan.md`
 
-4. Formal `create-asyra-design-app` release
+3. Formal `create-asyra-design-app` release
 
 - Begin only after the Framework patch set is publicly installable.
 - Apply user-specified Asyra/Asyra Design versions, regenerate through the
@@ -66,7 +66,7 @@ research to proceed without mutating the repository or an external system.
 - Reference:
   `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
 
-5. Asyra Framework marketing and documentation website
+4. Asyra Framework marketing and documentation website
 
 - Build the public Next.js/Tailwind documentation experience after public
   package and create-app contracts are stable.

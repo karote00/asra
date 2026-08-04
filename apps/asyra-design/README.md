@@ -6,7 +6,7 @@ state, rendering, interaction, and collaboration APIs.
 
 ## Requirements
 
-- Node.js 20.x
+- Node.js 24.x
 - Yarn 4.3.1
 
 Install dependencies from the repository root:
