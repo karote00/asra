@@ -3,10 +3,10 @@
 This file tracks releases for Asyra. Previous releases under Asyra (v0.1.0,
 etc.) are not included here.
 
-## Framework 0.2.5 release-readiness candidate
+## Framework 0.2.5 release-readiness result: READY
 
-Framework Release Gate 5 audits the already-versioned `0.2.5` candidate. A
-reproducible `READY` result proves that all 19 public packages can be packed,
+Framework Release Gate 5 produced a reproducible `READY` result for the
+already-versioned `0.2.5` candidate. All 19 public packages can be packed,
 installed, typechecked, built, and exercised by clean consumers and by the
 generated Asyra Design template. Release readiness does not authorize merge,
 tagging, registry publication, deployment, or a formal release.

@@ -1,9 +1,9 @@
 # Framework Release Support
 
 This document freezes the public support and migration contract for the
-Framework `0.2.5` release candidate. Framework Release Gate 5 proves release
-readiness; it does not publish packages, create a tag, deploy an app, or grant
-release authority.
+Framework `0.2.5` release candidate. Framework Release Gate 5 produced a
+reproducible `READY` result; it did not publish packages, create a tag, deploy
+an app, or grant release authority.
 
 ## Supported package set
 

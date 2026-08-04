@@ -38,6 +38,11 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
   'apps/asyra-design/README.md': ['Node.js 20.x', 'Yarn 4.3.1']
 })
 
+const COMPLETED_READINESS_PLAN =
+  'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md'
+const READINESS_INSPECTOR =
+  'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs'
+
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
 
 const assertFileContains = (repositoryRoot, relativePath, tokens) => {
@@ -67,6 +72,15 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
   )) {
     assertFileContains(resolvedRoot, relativePath, tokens)
   }
+  assertFileContains(resolvedRoot, COMPLETED_READINESS_PLAN, [
+    'Final decision: `READY`',
+    'does not grant merge, tag'
+  ])
+  assertFileContains(resolvedRoot, READINESS_INSPECTOR, [
+    COMPLETED_READINESS_PLAN,
+    'artifact:ready-result',
+    'publication'
+  ])
 
   const rootManifest = readJson(path.join(resolvedRoot, 'package.json'))
   if (rootManifest.version !== FRAMEWORK_RELEASE_CANDIDATE_VERSION) {
@@ -137,6 +151,7 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     packages,
     pendingChangesets: readPendingChangesets(resolvedRoot),
     releaseSnapshot: null,
+    readinessStatus: 'READY',
     publicationAuthorized: false
   }
 }
@@ -162,6 +177,6 @@ if (isDirectExecution) {
     `${JSON.stringify(evidence, null, 2)}\n`
   )
   console.log(
-    `Release records PASS: ${evidence.packages.length} packages at ${evidence.candidateVersion}`
+    `Framework release readiness ${evidence.readinessStatus}: ${evidence.packages.length} packages at ${evidence.candidateVersion}; publication not authorized`
   )
 }

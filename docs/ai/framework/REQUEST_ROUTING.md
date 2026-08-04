@@ -86,7 +86,8 @@ Use this file to route a new framework request to the right docs first.
 
 - framework release readiness/package publication closeout
   - `PLANS.md`
-  - `plans/framework-release-readiness-and-closeout-plan.md`
+  - `plans/completed/framework-release-readiness-and-closeout-plan.md`
+  - `plans/framework-release-readiness-flow-inspector.data.cjs`
   - `rules/generated-artifacts.md`
   - `rules/pre-release-legacy-removal.md`
   - `decisions/releases/README.md`
