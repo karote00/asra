@@ -56,8 +56,22 @@ authorization, or UI behavior.
 
 - Documentation map: [`docs/README.md`](docs/README.md)
 - Framework contracts: [`docs/ai/framework/README.md`](docs/ai/framework/README.md)
+- Release support: [`docs/ai/framework/RELEASE_SUPPORT.md`](docs/ai/framework/RELEASE_SUPPORT.md)
 - App contracts: [`docs/ai/apps/README.md`](docs/ai/apps/README.md)
 - Supported examples: [`docs/examples/README.md`](docs/examples/README.md)
+
+## Release support
+
+Framework `0.2.5` is the release-readiness candidate for the 19 public
+`@asyra/*` packages. The formal environment is Node.js 20.x and Yarn 4.3.1.
+The release supports the official 2D preset and engine-neutral CUSTOM
+composition; production 3D, HYBRID, auto-layout, and unit-aware aggregation are
+not available in this release.
+
+See the [release support contract](docs/ai/framework/RELEASE_SUPPORT.md) for
+the exact package set, TypeScript/React/browser support, public composition
+paths, migration/deprecation guidance, artifact-only verification, and the
+boundary between a `READY` audit and an authorized publication.
 
 ## 🤝 Contribution Policy
 

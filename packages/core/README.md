@@ -41,3 +41,13 @@ and an observer exist; assembly failure skips emission and preserves load succes
 
 See `docs/examples/app-owned-versioned-load-migration.mjs` for a reusable
 connected-registry example.
+
+`core.setPersistence(...)` is a warn-once, load-only compatibility adapter for
+`core.setLoadSource(...)`. It remains available through the `0.2.x` migration
+window and is planned for removal in the next major release.
+
+## Release support
+
+The `@asyra/core` `0.2.5` ESM artifact supports Node.js 20.x. Use only
+package-root or explicitly exported subpath APIs. See the
+[Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).

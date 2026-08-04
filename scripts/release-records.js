@@ -1,0 +1,167 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { FRAMEWORK_RELEASE_PACKAGE_NAMES } from './framework-release-packages.js'
+
+export const FRAMEWORK_RELEASE_CANDIDATE_VERSION = '0.2.5'
+
+const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
+  'README.md': ['Release support', '0.2.5'],
+  'CHANGELOG.md': ['## [Unreleased]', '0.2.5'],
+  'RELEASE_NOTES.md': ['0.2.5', 'release readiness', 'does not authorize'],
+  'SECURITY.md': ['private security advisory', 'Framework Security Boundaries'],
+  'docs/ai/framework/RELEASE_SUPPORT.md': [
+    'Node.js 20.x',
+    'Yarn 4.3.1',
+    'TypeScript 5.8.3',
+    'React 19',
+    '2D',
+    'CUSTOM',
+    '3D',
+    'HYBRID',
+    'setPersistence',
+    'RenderGraphics',
+    'EngineNeutralRenderStrategy'
+  ],
+  'docs/ai/framework/API_SURFACES.md': [
+    'setPersistence',
+    'RenderGraphics',
+    'EngineNeutralRenderStrategy',
+    'next major release'
+  ],
+  'docs/ai/workflows/package-release-validation.md': [
+    'release:packages',
+    'release:consumer',
+    'release:template',
+    'release:records'
+  ],
+  'apps/asyra-design/README.md': ['Node.js 20.x', 'Yarn 4.3.1']
+})
+
+const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
+
+const assertFileContains = (repositoryRoot, relativePath, tokens) => {
+  const absolutePath = path.join(repositoryRoot, relativePath)
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`Release record is missing ${relativePath}`)
+  }
+  const contents = fs.readFileSync(absolutePath, 'utf8')
+  for (const token of tokens) {
+    if (!contents.toLowerCase().includes(token.toLowerCase())) {
+      throw new Error(`Release record ${relativePath} is missing "${token}"`)
+    }
+  }
+}
+
+const readPendingChangesets = (repositoryRoot) =>
+  fs
+    .readdirSync(path.join(repositoryRoot, '.changeset'))
+    .filter((entry) => entry.endsWith('.md') && entry !== 'README.md')
+    .sort()
+
+export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
+  const resolvedRoot = path.resolve(repositoryRoot)
+
+  for (const [relativePath, tokens] of Object.entries(
+    REQUIRED_DOCUMENT_TOKENS
+  )) {
+    assertFileContains(resolvedRoot, relativePath, tokens)
+  }
+
+  const rootManifest = readJson(path.join(resolvedRoot, 'package.json'))
+  if (rootManifest.version !== FRAMEWORK_RELEASE_CANDIDATE_VERSION) {
+    throw new Error(
+      `Root release candidate must be ${FRAMEWORK_RELEASE_CANDIDATE_VERSION}, found ${rootManifest.version}`
+    )
+  }
+
+  const packages = FRAMEWORK_RELEASE_PACKAGE_NAMES.map((name) => {
+    const directory = name.slice('@asyra/'.length)
+    const manifestPath = path.join(
+      resolvedRoot,
+      'packages',
+      directory,
+      'package.json'
+    )
+    const manifest = readJson(manifestPath)
+    if (manifest.version !== FRAMEWORK_RELEASE_CANDIDATE_VERSION) {
+      throw new Error(
+        `${name} must be ${FRAMEWORK_RELEASE_CANDIDATE_VERSION}, found ${manifest.version}`
+      )
+    }
+    assertFileContains(
+      resolvedRoot,
+      path.join('packages', directory, 'README.md'),
+      [name, 'Node.js 20.x', 'RELEASE_SUPPORT.md']
+    )
+    return {
+      name,
+      version: manifest.version,
+      readme: `packages/${directory}/README.md`
+    }
+  })
+
+  const changesetConfig = readJson(
+    path.join(resolvedRoot, '.changeset', 'config.json')
+  )
+  if (
+    changesetConfig.access !== 'public' ||
+    changesetConfig.baseBranch !== 'main'
+  ) {
+    throw new Error(
+      'Changesets must retain public access with main as the release base'
+    )
+  }
+
+  const releaseSnapshotPath = path.join(
+    resolvedRoot,
+    'docs',
+    'ai',
+    'framework',
+    'decisions',
+    'releases',
+    `v${FRAMEWORK_RELEASE_CANDIDATE_VERSION}.md`
+  )
+  if (fs.existsSync(releaseSnapshotPath)) {
+    throw new Error(
+      `Release-readiness audit must not create ${path.relative(
+        resolvedRoot,
+        releaseSnapshotPath
+      )}; that snapshot belongs to an authorized release cut`
+    )
+  }
+
+  return {
+    status: 'PASS',
+    candidateVersion: FRAMEWORK_RELEASE_CANDIDATE_VERSION,
+    packages,
+    pendingChangesets: readPendingChangesets(resolvedRoot),
+    releaseSnapshot: null,
+    publicationAuthorized: false
+  }
+}
+
+const isDirectExecution =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isDirectExecution) {
+  const repositoryRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..'
+  )
+  const evidence = validateFrameworkReleaseRecords({ repositoryRoot })
+  const evidenceDirectory = path.join(
+    repositoryRoot,
+    'tmp',
+    'framework-release-evidence'
+  )
+  fs.mkdirSync(evidenceDirectory, { recursive: true })
+  fs.writeFileSync(
+    path.join(evidenceDirectory, 'release-records.json'),
+    `${JSON.stringify(evidence, null, 2)}\n`
+  )
+  console.log(
+    `Release records PASS: ${evidence.packages.length} packages at ${evidence.candidateVersion}`
+  )
+}

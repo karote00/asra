@@ -76,6 +76,27 @@ owned by Framework Release Gate 5. It must cover every published framework
 package under one release contract rather than introducing a package-specific
 publication rule for Collaboration.
 
+Gate 5 uses these artifact-only commands:
+
+```bash
+yarn release:packages --prebuilt
+yarn release:consumer
+yarn release:template --prod=asyra-design
+yarn release:records
+```
+
+`release:packages` creates and validates exactly 19 tarballs in the ignored
+project-local artifact directory. `release:consumer` and `release:template`
+install only those tarballs in isolated Yarn `node_modules` consumers; neither
+may resolve monorepo workspaces, aliases, private source paths, or hoisted
+dependencies. `release:records` freezes the candidate versions, public support
+documents, package READMEs, Changesets configuration, and the distinction
+between readiness and publication.
+
+The formal commands require Node.js 20.x to report `READY`. The explicit
+`--allow-unsupported-node` option is local diagnostic evidence only and cannot
+authorize the release decision.
+
 ## Generated App Template
 
 `create-app/*` remains generated output.

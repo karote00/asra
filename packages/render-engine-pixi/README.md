@@ -1,10 +1,10 @@
-# `@asyra/scene-tree`
+# `@asyra/render-engine-pixi`
 
-Canonical hierarchy, element records, ownership relations, and detached scene
-serialization for Asyra documents.
+Official Pixi-backed render-engine provider for the supported Asyra 2D
+composition.
 
 ```ts
-import sceneTree from '@asyra/scene-tree'
+import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 ```
 
 ## Release support
