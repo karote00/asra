@@ -74,13 +74,14 @@ test.describe('Asyra Design Tool', () => {
     await expect(propertiesPanel).toBeVisible()
   })
 
-  test('should have Reset button in toolbar', async ({ page }) => {
+  test('should omit the demo-only Reset button for ordinary documents', async ({
+    page
+  }) => {
     await waitForAppReady(page)
 
-    // Reset button should be visible
     const toolbar = getToolbar(page)
     const resetButton = toolbar.getByTestId('reset-button')
-    await expect(resetButton).toBeVisible()
+    await expect(resetButton).toHaveCount(0)
   })
 
   test('should save an empty 7076 demo document before forcing reload', async ({

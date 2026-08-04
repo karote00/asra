@@ -135,22 +135,28 @@ export async function waitForAppReady(page: Page) {
 }
 
 /**
- * Reset the canvas by clicking the Reset button
+ * Keep ordinary E2E documents empty without depending on the demo-only Reset
+ * control.
  */
 export async function resetCanvas(page: Page) {
-  let resetButton = page.getByTestId('reset-button')
-  const canReset = await resetButton
-    .waitFor({ state: 'visible', timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false)
+  const isEmpty = await page.evaluate(async () => {
+    const elements = (
+      await import('../src/testing/runtime-access')
+    ).core?.deps?.sceneTree?.getAllElements?.()
+    return (
+      elements instanceof Map &&
+      Array.from(elements.values()).every(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (element: any) => element.get?.('type') === 'workspace'
+      )
+    )
+  })
 
-  if (!canReset) {
+  if (!isEmpty) {
     await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
-    resetButton = page.getByTestId('reset-button')
   }
 
-  await resetButton.click()
   await page.waitForFunction(async () => {
     const elements = (
       await import('../src/testing/runtime-access')
