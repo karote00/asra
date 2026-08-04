@@ -9,8 +9,8 @@ import {
   type PositionData,
   type RGBAColor
 } from '@asyra/utils'
-import type { RenderFillStyle } from './gradient-fill'
-import { createRenderResourceStyle } from '../types/render-object'
+import type { RenderFillStyle } from './gradient-fill.js'
+import { createRenderResourceStyle } from '../types/render-object.js'
 
 export interface EvenOddSegment {
   type: 'line' | 'cubicBezier'

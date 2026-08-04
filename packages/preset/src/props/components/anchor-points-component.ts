@@ -6,7 +6,7 @@ import {
   isAnchorPointType,
   type AnchorPointType
 } from '@asyra/utils'
-import { toNumberValue } from './number-value'
+import { toNumberValue } from './number-value.js'
 
 const toPointType = (value: unknown): AnchorPointType =>
   isAnchorPointType(value) ? value : AnchorPointTypes.SHARP

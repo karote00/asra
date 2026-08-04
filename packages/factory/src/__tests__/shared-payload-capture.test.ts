@@ -5,7 +5,7 @@ const { cloneAndDeepFreezeValueSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('../value-clone', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../value-clone')>()
+  const actual = await importOriginal<typeof import('../value-clone.js')>()
   cloneAndDeepFreezeValueSpy.mockImplementation(actual.cloneAndDeepFreezeValue)
   return {
     ...actual,
@@ -14,11 +14,11 @@ vi.mock('../value-clone', async (importOriginal) => {
 })
 
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
-import DataTransact from '../data-transact'
+import DataTransact from '../data-transact.js'
 import {
   LocalSharedDataChannel,
   SharedDataChannelRegistry
-} from '../shared-data-channel'
+} from '../shared-data-channel.js'
 
 describe('Factory shared payload capture budget', () => {
   beforeEach(() => {

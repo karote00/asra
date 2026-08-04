@@ -14,6 +14,6 @@ export type {
   SessionState,
   ActiveSession,
   SessionParticipant
-} from './feature'
+} from './feature.js'
 
 // Additional session-specific types can be added here if needed

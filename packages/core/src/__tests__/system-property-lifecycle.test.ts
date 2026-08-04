@@ -1,6 +1,6 @@
 import systemContext from '@asyra/system-context'
 import { describe, expect, it, vi } from 'vitest'
-import { Core } from '../core'
+import { Core } from '../core.js'
 
 const PROPERTY_KEY = 'preset-cleanup-test-property'
 

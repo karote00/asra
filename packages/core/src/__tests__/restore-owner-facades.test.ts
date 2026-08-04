@@ -6,8 +6,8 @@ import type {
   PreparedSceneTreeRestore,
   SceneTreeRestoreSnapshot
 } from '@asyra/utils'
-import { createSceneTreeAPIs } from '../apis/scene-tree'
-import { createPropsAPIs } from '../apis/props'
+import { createSceneTreeAPIs } from '../apis/scene-tree.js'
+import { createPropsAPIs } from '../apis/props.js'
 
 describe('remote restore owner facades', () => {
   it('delegates prepared Scene Tree restores only to the supplied owner requests', () => {

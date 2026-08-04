@@ -24,7 +24,7 @@ import {
   type SubtreeChange,
   type UpdateElementDataChange
 } from '@asyra/utils'
-import { createAPIs } from '../apis/create-apis'
+import { createAPIs } from '../apis/create-apis.js'
 
 const COMPONENT_TYPE = 'core-owner-coordinate-element'
 const PROPERTY_TYPE = 'core-owner-coordinate-property'

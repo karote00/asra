@@ -4,8 +4,8 @@ import {
   PropertyTypes,
   setElementGeometryLocalBounds
 } from '@asyra/utils'
-import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
-import { PRESET_REGISTRATION } from '../registration'
+import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 export const FRAME_COMPONENT_DEFINITION: ComponentDefinition = {
   type: EntityTypes.FRAME,

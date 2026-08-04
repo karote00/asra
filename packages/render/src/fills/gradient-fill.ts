@@ -2,7 +2,7 @@ import type { PositionData } from '@asyra/utils'
 import {
   createRenderResourceStyle,
   type RenderResourceStyle
-} from '../types/render-object'
+} from '../types/render-object.js'
 
 export type RenderGradientPoint = PositionData
 

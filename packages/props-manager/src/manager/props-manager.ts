@@ -34,12 +34,12 @@ import {
   updateTransactionBatch,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
-import { isEqual } from 'lodash'
+import lodash from 'lodash'
 import {
   createProperty,
   createPropertyWithConstructor
-} from '../factories/create-property'
-import type { PropertyComponentConstructor } from '../components'
+} from '../factories/create-property.js'
+import type { PropertyComponentConstructor } from '../components/index.js'
 import {
   arePropertyChildRelationsEqual,
   getPropertyComponent,
@@ -50,22 +50,24 @@ import {
   isPropertyComponentBatchRebindable,
   resolvePropertyComponentConfigRoles,
   type PropertyChildRelationDefinition
-} from '../registries/property-component'
-import { clonePropertyDefinitionValue } from '../registries/property-definition-value'
+} from '../registries/property-component.js'
+import { clonePropertyDefinitionValue } from '../registries/property-definition-value.js'
 import elementPropertyRegistry, {
   type PropertyDefinition
-} from '../registries/property-definition'
-import { matchesPropertyValueKind } from '../registries/property-value-kind'
+} from '../registries/property-definition.js'
+import { matchesPropertyValueKind } from '../registries/property-value-kind.js'
 import {
   getPropertySchemaRegistrationRevision,
   getRegisteredPropertySchema,
   runWithPropertySchemaResolver
-} from '../registries/property-schema'
+} from '../registries/property-schema.js'
 import {
   runWithPropertyComponentAccessor,
   setComponentAccessor,
   type PropertyComponentAccessor
-} from './component-accessor'
+} from './component-accessor.js'
+
+const { isEqual } = lodash
 
 export type PropsLoadDiagnostic = LoadDiagnostic
 

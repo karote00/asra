@@ -9,9 +9,12 @@ import {
   RenderContainerData,
   RenderElementData,
   SceneElement
-} from '../../types'
-import { RenderLayer } from '../scene'
-import { RenderContainer, type RenderGraphics } from '../../types/render-object'
+} from '../../types.js'
+import { RenderLayer } from '../scene/index.js'
+import {
+  RenderContainer,
+  type RenderGraphics
+} from '../../types/render-object.js'
 
 export class ViewportLayer {
   layer: RenderContainer

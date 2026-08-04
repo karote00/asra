@@ -1,11 +1,11 @@
 export {
   CanvasPipelineDebuggerDisposedError,
   createCanvasPipelineDebuggerAdapter
-} from './trace-projector'
+} from './trace-projector.js'
 export {
   CANVAS_PIPELINE_DEBUGGER_LAYER_NAME,
   createCanvasPipelineDebuggerOverlay
-} from './overlay'
+} from './overlay.js'
 export type {
   CanvasPipelineDebuggerAdapter,
   CanvasPipelineDebuggerAdapterOptions,
@@ -19,4 +19,4 @@ export type {
   CanvasPipelineSnapshot,
   CanvasPipelineTraceEntry,
   CanvasPipelineViewportSnapshot
-} from './types'
+} from './types.js'

@@ -1,4 +1,4 @@
-import type { AiJsonValue } from './types'
+import type { AiJsonValue } from './types.js'
 
 export const AI_REDACTED_VALUE = '[REDACTED]'
 

@@ -1,2 +1,2 @@
-export { default as Icon } from './Icon'
-export type { IconName } from './svgs-components'
+export { default as Icon } from './Icon.js'
+export type { IconName } from './svgs-components.js'

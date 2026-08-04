@@ -16,9 +16,9 @@ import {
   type RegistrationOwnerMetadata
 } from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { unregisterComponent as unregisterComponentDirect } from '../define-component'
-import { Core } from '../core'
-import { expectRelationError } from './registration-test-utils'
+import { unregisterComponent as unregisterComponentDirect } from '../define-component.js'
+import { Core } from '../core.js'
+import { expectRelationError } from './registration-test-utils.js'
 
 const STYLE = 'redefinition-style'
 const CHILD = 'redefinition-child'

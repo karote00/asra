@@ -7,7 +7,7 @@ import type {
   SceneTreeRawData,
   TransactionStatusPayload
 } from '@asyra/utils'
-import { Core } from '../core'
+import { Core } from '../core.js'
 
 const createHarness = (factory = new Factory()) => {
   const props = {

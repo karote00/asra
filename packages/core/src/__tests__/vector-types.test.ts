@@ -10,7 +10,7 @@ import {
   isVectorHandleMode,
   sortVectorItemsById,
   type VectorPointNode
-} from '../index'
+} from '../index.js'
 
 const anchor: VectorPointNode = {
   id: 'anchor-1',

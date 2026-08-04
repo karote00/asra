@@ -10,12 +10,12 @@ import type {
 } from '@asyra/utils'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import { Setter, Unit, isNil } from '@asyra/utils'
-import { getPropertySchema } from '../registries/property-schema'
-import { matchesPropertyValueKind } from '../registries/property-value-kind'
+import { getPropertySchema } from '../registries/property-schema.js'
+import { matchesPropertyValueKind } from '../registries/property-value-kind.js'
 import {
   getPropertyComponentAccessor,
   type PropertyComponentAccessor
-} from '../manager/component-accessor'
+} from '../manager/component-accessor.js'
 
 const cloneFallbackValue = (value: unknown): unknown => {
   if (Array.isArray(value)) {

@@ -5,12 +5,12 @@ import {
   type IRenderer,
   type RenderOptions
 } from '@asyra/render'
-import defaultCore, { Core } from '../core'
+import defaultCore, { Core } from '../core.js'
 import {
   defineDataChannelObserver,
   registerDataChannelObserver,
   unregisterDataChannelObserver
-} from '../data-channel-observer'
+} from '../data-channel-observer.js'
 
 const createCoreForTest = (
   factoryOverrides: Record<string, unknown> = {},

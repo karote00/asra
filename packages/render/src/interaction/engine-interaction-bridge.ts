@@ -2,7 +2,7 @@ import type {
   RenderEngineInteractionEvent,
   RenderEngineObjectHandle
 } from '@asyra/render-engine'
-import { ElementInteractionHandlers } from '../handlers'
+import { ElementInteractionHandlers } from '../handlers/index.js'
 
 type EngineInteractionTargetResolver = (
   handle: RenderEngineObjectHandle | null

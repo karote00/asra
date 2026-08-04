@@ -3,14 +3,17 @@ import { EntityTypes, PropertyTypes } from '@asyra/utils'
 import {
   createPresetPropertyDependencies,
   createPresetRegistration
-} from '../registration'
+} from '../registration.js'
 import {
   RECTANGLE_COMPONENT_DEFINITION,
   RECTANGLE_RENDER_STRATEGY
-} from './rectangle'
-import { OVAL_COMPONENT_DEFINITION, OVAL_RENDER_STRATEGY } from './oval'
-import { VECTOR_COMPONENT_DEFINITION, VECTOR_RENDER_STRATEGY } from './vector'
-import { FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY } from './frame'
+} from './rectangle.js'
+import { OVAL_COMPONENT_DEFINITION, OVAL_RENDER_STRATEGY } from './oval.js'
+import {
+  VECTOR_COMPONENT_DEFINITION,
+  VECTOR_RENDER_STRATEGY
+} from './vector.js'
+import { FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY } from './frame.js'
 import {
   GROUP_COMPONENT_DEFINITION,
   GROUP_RENDER_STRATEGY,
@@ -22,7 +25,7 @@ import {
   prepareUngroupOperation,
   projectGroupGeometryPropertyUpdates,
   ungroupElement
-} from './group'
+} from './group.js'
 
 export {
   RECTANGLE_COMPONENT_DEFINITION,
@@ -54,7 +57,7 @@ export type {
   PreparedGroupOperation,
   PreparedUngroupOperation,
   UngroupOperationResult
-} from './group'
+} from './group.js'
 
 export const DEFAULT_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
   RECTANGLE_COMPONENT_DEFINITION,

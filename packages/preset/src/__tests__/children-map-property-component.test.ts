@@ -5,9 +5,9 @@ import {
   PropertyTypes,
   type SetterChangeRecord
 } from '@asyra/utils'
-import { fillsPropertyComponentDefinition } from '../props/components/fills-component'
-import { strokesPropertyComponentDefinition } from '../props/components/strokes-component'
-import { vectorPointsPropertyComponentDefinition } from '../props/components/vector-points-component'
+import { fillsPropertyComponentDefinition } from '../props/components/fills-component.js'
+import { strokesPropertyComponentDefinition } from '../props/components/strokes-component.js'
+import { vectorPointsPropertyComponentDefinition } from '../props/components/vector-points-component.js'
 
 const createVectorPointsComponent = () => {
   if (!('constructor' in vectorPointsPropertyComponentDefinition)) {

@@ -1,7 +1,7 @@
 import type { ChangeHandler, DataTypes, EvnetOptions } from '@asyra/utils'
 import { PROPS_ACTIONS } from '@asyra/utils'
 import { EventTypes } from '@asyra/reactive-events'
-import propsManager from '../manager/props-manager'
+import propsManager from '../manager/props-manager.js'
 
 export default class PropsChangeHandler implements ChangeHandler {
   addChange(data: {

@@ -44,6 +44,7 @@
     "release:app:check": "node scripts/release-template.js --check",
     "release:validate": "node scripts/release-validate.js",
     "release:packages": "node scripts/release-package-artifacts.js",
+    "release:consumer": "node scripts/release-readiness.js",
     "release:full": "node scripts/release-full.js",
     "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design",
     "dev:description": "Run in watch mode: all packages including design-system, asyra-design app"

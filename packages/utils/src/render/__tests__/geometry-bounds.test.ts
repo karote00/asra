@@ -5,7 +5,7 @@ import {
   getElementGeometryLocalBounds,
   getElementGeometryWorldBounds,
   setElementGeometryLocalBounds
-} from '../geometry-bounds'
+} from '../geometry-bounds.js'
 
 describe('geometry bounds helpers', () => {
   it('prefers authored geometry bounds over rendered local bounds', () => {

@@ -48,6 +48,7 @@
     "@asyra/render-engine-pixi": "workspace:*",
     "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*",
-    "bezier-js": "^6.1.4"
+    "bezier-js": "^6.1.4",
+    "rxjs": "^7.8.1"
   }
 }

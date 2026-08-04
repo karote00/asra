@@ -4,10 +4,10 @@ import {
   applyRenderableFill,
   DEFAULT_RECTANGLE_FILLS,
   getRenderableFills
-} from './fills'
-import { createRectangleHitArea } from './shape-hit-area'
-import { DEFAULT_RECTANGLE_STROKES } from './stroke-defaults'
-import { PRESET_REGISTRATION } from '../registration'
+} from './fills.js'
+import { createRectangleHitArea } from './shape-hit-area.js'
+import { DEFAULT_RECTANGLE_STROKES } from './stroke-defaults.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 export const RECTANGLE_COMPONENT_DEFINITION: ComponentDefinition = {
   type: 'rect',

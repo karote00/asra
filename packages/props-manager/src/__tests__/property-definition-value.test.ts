@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clonePropertyDefinitionRecord,
   clonePropertyDefinitionValue
-} from '../registries/property-definition-value'
+} from '../registries/property-definition-value.js'
 
 describe('property definition value cloning', () => {
   it('detaches nested record and array values', () => {

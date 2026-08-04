@@ -1,10 +1,10 @@
-import { registerUIContextProperties } from '../../ui/register-properties'
-import type { PresetDefaultInstallContext } from '../types'
+import { registerUIContextProperties } from '../../ui/register-properties.js'
+import type { PresetDefaultInstallContext } from '../types.js'
 import {
   acquireBaseProperties,
   acquireFrameworkEvents,
   acquireUIContextProjection
-} from '../installation'
+} from '../installation.js'
 
 export const installUIContextDefault = (
   context: PresetDefaultInstallContext

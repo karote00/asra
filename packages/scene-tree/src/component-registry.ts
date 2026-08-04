@@ -1,6 +1,6 @@
 import { MapRegistry } from '@asyra/utils'
 import type { ElementRawData } from '@asyra/utils'
-import type Element from './components/element'
+import type Element from './components/element.js'
 import type { PropertyDefinition } from '@asyra/props-manager'
 
 interface ComponentRegistration {

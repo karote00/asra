@@ -4,11 +4,11 @@ import {
   ElementRawData,
   EntityTypes
 } from '@asyra/utils'
-import Workspace from './components/workspace'
-import componentRegistry from './component-registry'
-import type { ISceneTreeRegistry } from './types'
+import Workspace from './components/workspace.js'
+import componentRegistry from './component-registry.js'
+import type { ISceneTreeRegistry } from './types.js'
 import propsManager, { type PropsManager } from '@asyra/props-manager'
-import { runWithSceneTreePropsManager } from './props-manager-context'
+import { runWithSceneTreePropsManager } from './props-manager-context.js'
 
 const initWorkspaceData = {
   type: EntityTypes.WORKSPACE

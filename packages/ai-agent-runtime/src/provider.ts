@@ -1,4 +1,4 @@
-import type { AiActionDescription, AiJsonValue } from './types'
+import type { AiActionDescription, AiJsonValue } from './types.js'
 
 export interface AiActionBatchAction {
   readonly id: string

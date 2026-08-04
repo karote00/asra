@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import SelectionManager from '../selection-manager'
-import BaseSelection from '../selections/base-selection'
+import SelectionManager from '../selection-manager.js'
+import BaseSelection from '../selections/base-selection.js'
 
 // Mock BaseSelection
 const mockBaseSelection = {

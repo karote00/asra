@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Awareness, AwarenessValidationError } from '../awareness'
+import { Awareness, AwarenessValidationError } from '../awareness.js'
 import { createCollaboration } from '..'
 
 const factory = () => ({

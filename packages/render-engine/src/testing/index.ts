@@ -1,2 +1,2 @@
-export * from './recording-render-engine'
-export * from './run-render-engine-contract'
+export * from './recording-render-engine.js'
+export * from './run-render-engine-contract.js'

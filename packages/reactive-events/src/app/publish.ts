@@ -8,16 +8,16 @@ import type {
   TransactionFailureKind,
   TransactionStatusPayload
 } from '@asyra/utils'
-import { publishEvent, publishEventsToObservers } from '../event-bus'
-import { EventTypes } from '../types'
+import { publishEvent, publishEventsToObservers } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 import {
   getTransactionOwner,
   type TransactionOwner
-} from '../transaction-owner'
+} from '../transaction-owner.js'
 import type {
   UpdateTransactionEvent,
   UserActionCompletedPayload
-} from './events'
+} from './events.js'
 
 export const renderIsReady = () => {
   publishEvent({

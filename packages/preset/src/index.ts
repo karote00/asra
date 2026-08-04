@@ -1,11 +1,11 @@
-export { applyPreset } from './preset'
-export { PresetCatalog } from './catalog'
+export { applyPreset } from './preset.js'
+export { PresetCatalog } from './catalog.js'
 export {
   PresetDefaults,
   PresetProfiles,
   PRESET_APPLY_ERROR_CODES
-} from './constants'
-export { PresetApplyError } from './composition/error'
+} from './constants.js'
+export { PresetApplyError } from './composition/error.js'
 export type {
   ApplyPresetOptions,
   PresetApplyErrorCode,
@@ -15,7 +15,7 @@ export type {
   PresetDefaultId,
   PresetProfile,
   PresetProfileCatalogEntry
-} from './types'
+} from './types.js'
 export {
   DEFAULT_COMPONENT_DEFINITIONS,
   DEFAULT_RENDER_STRATEGY_REGISTRATIONS,
@@ -37,11 +37,11 @@ export {
   prepareUngroupOperation,
   projectGroupGeometryPropertyUpdates,
   ungroupElement
-} from './components'
+} from './components/index.js'
 export {
   getVectorRenderLocalPoint,
   getVectorRenderWorkspacePoint
-} from './components/vector'
+} from './components/vector.js'
 export type {
   GroupBounds,
   GroupGeometryProjectionCore,
@@ -52,8 +52,8 @@ export type {
   PreparedGroupOperation,
   PreparedUngroupOperation,
   UngroupOperationResult
-} from './components'
-export { PRESET_REGISTRATION_OWNER } from './registration'
+} from './components/index.js'
+export { PRESET_REGISTRATION_OWNER } from './registration.js'
 export {
   InputSystemPropertyKeys,
   PRESET_SYSTEM_PROPERTY_KEYS,
@@ -62,8 +62,8 @@ export {
   VectorEditingSystemPropertyKeys,
   ViewportSystemPropertyKeys,
   type PresetSystemPropertyKey
-} from './system-property-keys'
-export * from './events'
-export * from './selection/channels'
-export * from './selection/ids'
-export * from './vector/synthetic-handle'
+} from './system-property-keys.js'
+export * from './events/index.js'
+export * from './selection/channels.js'
+export * from './selection/ids.js'
+export * from './vector/synthetic-handle.js'

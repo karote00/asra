@@ -11,13 +11,13 @@ import type {
   RemoveElementsChange,
   SceneTreeRawData
 } from '@asyra/utils'
-import { publishEvent, publishEventsToObservers } from '../event-bus'
-import { EventTypes } from '../types'
+import { publishEvent, publishEventsToObservers } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 import type {
   UpdateComputedDataBatchEvent,
   UpdateComputedDataEvent,
   UpdateComputedDataPatchEvent
-} from './events'
+} from './events.js'
 
 export const publishLocalComputedDataEvents = (
   events: readonly (

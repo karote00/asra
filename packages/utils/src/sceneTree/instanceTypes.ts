@@ -1,9 +1,9 @@
-import { EntityType } from './enum'
-import type { ElementRawData, PropsRawData } from './rawDataTypes'
-import { ISetter } from '../setter'
-import { Style } from '../types'
-import type { EvnetOptions } from '../types/change'
-import { FillAttrs, StrokeAttrs } from '../propsManager'
+import { EntityType } from './enum.js'
+import type { ElementRawData, PropsRawData } from './rawDataTypes.js'
+import { ISetter } from '../setter.js'
+import { Style } from '../types/index.js'
+import type { EvnetOptions } from '../types/change.js'
+import { FillAttrs, StrokeAttrs } from '../propsManager/index.js'
 
 export interface ComputedAttrs extends Style {
   id: string

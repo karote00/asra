@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { UIContext } from '../ui-context'
-import { propertyRegistry } from '../property-registry'
+import { UIContext } from '../ui-context.js'
+import { propertyRegistry } from '../property-registry.js'
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
 

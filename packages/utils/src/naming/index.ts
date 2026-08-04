@@ -1,3 +1,3 @@
-export * from './nameCounter'
-export * from './name'
-export * from './enum'
+export * from './nameCounter.js'
+export * from './name.js'
+export * from './enum.js'

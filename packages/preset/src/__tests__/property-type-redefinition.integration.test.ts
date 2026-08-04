@@ -6,7 +6,7 @@ import {
   type Unit
 } from '@asyra/utils'
 import { describe, expect, it } from 'vitest'
-import { applyPreset, PresetDefaults, PresetProfiles } from '../index'
+import { applyPreset, PresetDefaults, PresetProfiles } from '../index.js'
 
 interface AppPositionFields {
   x: number

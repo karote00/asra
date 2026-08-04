@@ -1,4 +1,4 @@
-import type { RenderEngineCapability } from './types'
+import type { RenderEngineCapability } from './types.js'
 
 export class UnsupportedRenderEngineCapabilityError extends Error {
   readonly engineName: string

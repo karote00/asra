@@ -17,17 +17,17 @@ import {
   type PropsChange
 } from '@asyra/utils'
 import propsManager from '..'
-import { getPropertyComponentAccessor } from '../manager/component-accessor'
+import { getPropertyComponentAccessor } from '../manager/component-accessor.js'
 import {
   propertyComponentRegistry,
   registerPropertyComponent
-} from '../registries/property-component'
+} from '../registries/property-component.js'
 import {
   propertySchemaRegistry,
   registerPropertySchema
-} from '../registries/property-schema'
-import { createPropertyComponentFromConfig } from '../registries/declarative-property-type'
-import { PositionComponent } from './helpers/test-property-components'
+} from '../registries/property-schema.js'
+import { createPropertyComponentFromConfig } from '../registries/declarative-property-type.js'
+import { PositionComponent } from './helpers/test-property-components.js'
 
 const NESTED_PARENT_TYPE = 'subscriber-nested-parent'
 const nestedParentDefinition = {

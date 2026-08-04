@@ -4,8 +4,8 @@ import {
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
   type ProviderIdentity
-} from '../../provider'
-import { cloneAwareness, clonePublication } from '../../cloning'
+} from '../../provider.js'
+import { cloneAwareness, clonePublication } from '../../cloning.js'
 
 export interface MemoryHubOptions {
   authorizeConnection?: (

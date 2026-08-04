@@ -1,9 +1,9 @@
-import Element from './components/element'
-import Group from './components/group'
+import Element from './components/element.js'
+import Group from './components/group.js'
 import type { ElementRawData, ElementAttrs, PropsRawData } from '@asyra/utils'
 import type { PropertyDefinition } from '@asyra/props-manager'
-import { createDynamicPropsClass } from './create-dynamic-props'
-import Computed from './components/computed'
+import { createDynamicPropsClass } from './create-dynamic-props.js'
+import Computed from './components/computed.js'
 
 export function createDynamicComponent(
   type: string,

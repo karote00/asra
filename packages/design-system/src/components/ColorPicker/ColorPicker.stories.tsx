@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
-import ColorPicker from './ColorPicker'
+import ColorPicker from './ColorPicker.js'
 
 const meta: Meta<typeof ColorPicker> = {
   title: 'Example/ColorPicker',

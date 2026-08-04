@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { PresetEventDefinitions } from '../events'
-import { registerEvents } from '../events/register-events'
+import { PresetEventDefinitions } from '../events/index.js'
+import { registerEvents } from '../events/register-events.js'
 
 describe('Preset Event Registration', () => {
   it('registers and reverses the official event definitions', () => {

@@ -2,8 +2,8 @@ import type {
   RegistrationDefinitionMetadata,
   SystemContextSnapshot
 } from '@asyra/utils'
-import type { ExecutionHandler } from './execution'
-import type { FeatureTaskHandler } from './task'
+import type { ExecutionHandler } from './execution.js'
+import type { FeatureTaskHandler } from './task.js'
 
 export type FeatureKeyMap = string | undefined
 

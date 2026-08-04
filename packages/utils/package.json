@@ -38,5 +38,8 @@
     "@vitest/coverage-v8": "^2.1.8",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
   }
 }

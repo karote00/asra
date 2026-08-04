@@ -1,5 +1,5 @@
 import { MapRegistry } from '@asyra/utils'
-import type { RenderStrategy } from '../types/render-strategy'
+import type { RenderStrategy } from '../types/render-strategy.js'
 
 class RenderStrategyRegistry {
   private strategies = new MapRegistry<string, RenderStrategy>()

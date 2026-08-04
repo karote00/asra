@@ -1,10 +1,10 @@
-import type { RenderElementData } from '../types'
+import type { RenderElementData } from '../types.js'
 import type {
   EngineNeutralRenderStrategy,
   RenderStrategy,
   RenderStrategyGraphic
-} from './render-strategy'
-import type { RenderGraphics } from './render-object'
+} from './render-strategy.js'
+import type { RenderGraphics } from './render-object.js'
 
 type Assert<T extends true> = T
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PresetDefaults, PRESET_APPLY_ERROR_CODES } from '../constants'
-import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
-import type { PrivatePrerequisiteInstaller } from '../defaults/types'
+import { PresetDefaults, PRESET_APPLY_ERROR_CODES } from '../constants.js'
+import { createPrivatePrerequisiteManager } from '../defaults/private-manager.js'
+import type { PrivatePrerequisiteInstaller } from '../defaults/types.js'
 
 const loadInstallHarness = async () => {
   vi.resetModules()
@@ -15,14 +15,14 @@ const loadInstallHarness = async () => {
     viewport,
     uiContext
   ] = await Promise.all([
-    import('../defaults/modules/basic-shapes'),
-    import('../defaults/modules/containers'),
-    import('../defaults/modules/vector'),
-    import('../defaults/modules/input'),
-    import('../defaults/modules/selection'),
-    import('../defaults/modules/vector-editing'),
-    import('../defaults/modules/viewport'),
-    import('../defaults/modules/ui-context')
+    import('../defaults/modules/basic-shapes.js'),
+    import('../defaults/modules/containers.js'),
+    import('../defaults/modules/vector.js'),
+    import('../defaults/modules/input.js'),
+    import('../defaults/modules/selection.js'),
+    import('../defaults/modules/vector-editing.js'),
+    import('../defaults/modules/viewport.js'),
+    import('../defaults/modules/ui-context.js')
   ])
   const installers = {
     basicShapes: vi
@@ -50,8 +50,8 @@ const loadInstallHarness = async () => {
       .spyOn(uiContext, 'installUIContextDefault')
       .mockImplementation(() => undefined)
   }
-  const installModule = await import('../defaults/install')
-  const { PresetApplyError } = await import('../composition/error')
+  const installModule = await import('../defaults/install.js')
+  const { PresetApplyError } = await import('../composition/error.js')
 
   return { installers, PresetApplyError, ...installModule }
 }

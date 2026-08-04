@@ -1,4 +1,4 @@
-import type { DataTypes, EvnetOptions } from './types'
+import type { DataTypes, EvnetOptions } from './types/index.js'
 
 /** Change record passed to Setter callback */
 export interface SetterChangeRecord {
@@ -8,9 +8,11 @@ export interface SetterChangeRecord {
   after: DataTypes
   options?: EvnetOptions
 }
-import { isEqual, cloneDeep } from 'lodash'
-import { ElementInstanceDataTypes } from './sceneTree'
-import { PropertyComponentInstanceDataTypes } from './propsManager'
+import lodash from 'lodash'
+import { ElementInstanceDataTypes } from './sceneTree/index.js'
+import { PropertyComponentInstanceDataTypes } from './propsManager/index.js'
+
+const { cloneDeep, isEqual } = lodash
 
 type InstanceDataType =
   | ElementInstanceDataTypes

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RenderLayer } from '../layers/scene'
-import { ViewportLayer } from '../layers/viewport'
-import type { RenderElementData } from '../types'
+import { RenderLayer } from '../layers/scene/index.js'
+import { ViewportLayer } from '../layers/viewport/index.js'
+import type { RenderElementData } from '../types.js'
 
 describe('ViewportLayer', () => {
   it('reports the exact number of projected RenderLayer elements without exposing the map', () => {

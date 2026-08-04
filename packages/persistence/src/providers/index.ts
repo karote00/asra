@@ -3,7 +3,7 @@ import {
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase
 } from '@asyra/utils'
-import type { IPersistenceProvider } from '../persistence'
+import type { IPersistenceProvider } from '../persistence.js'
 
 const INDEXED_DB_DATABASE_NAME = 'asyra-documents'
 const INDEXED_DB_OBJECT_STORE_NAME = 'documents'

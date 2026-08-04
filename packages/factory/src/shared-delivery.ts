@@ -1,6 +1,6 @@
 import type { SharedDeliveryMode, TransactionOrigin } from '@asyra/utils'
-import type { FactoryMutationSharedRecordEvidence } from './mutation-batch'
-import { cloneValue } from './value-clone'
+import type { FactoryMutationSharedRecordEvidence } from './mutation-batch.js'
+import { cloneValue } from './value-clone.js'
 
 export type SharedDeliveryOrigin = TransactionOrigin | 'rollback-compensation'
 

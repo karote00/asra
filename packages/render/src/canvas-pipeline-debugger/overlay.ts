@@ -1,10 +1,10 @@
-import { markCanvasPipelineDebuggerOwned } from '../diagnostics/canvas-pipeline'
-import { RenderContainer, RenderGraphics } from '../types/render-object'
+import { markCanvasPipelineDebuggerOwned } from '../diagnostics/canvas-pipeline.js'
+import { RenderContainer, RenderGraphics } from '../types/render-object.js'
 import type {
   CanvasPipelineDebuggerAdapter,
   CanvasPipelineDebuggerOverlay,
   CanvasPipelineDebuggerOverlayOptions
-} from './types'
+} from './types.js'
 
 export const CANVAS_PIPELINE_DEBUGGER_LAYER_NAME =
   'canvas-pipeline-debugger:overlay'

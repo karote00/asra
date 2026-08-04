@@ -4,10 +4,10 @@ import {
   applyRenderableFill,
   DEFAULT_OVAL_FILLS,
   getRenderableFills
-} from './fills'
-import { createEllipseHitArea } from './shape-hit-area'
-import { DEFAULT_OVAL_STROKES } from './stroke-defaults'
-import { PRESET_REGISTRATION } from '../registration'
+} from './fills.js'
+import { createEllipseHitArea } from './shape-hit-area.js'
+import { DEFAULT_OVAL_STROKES } from './stroke-defaults.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 export const OVAL_COMPONENT_DEFINITION: ComponentDefinition = {
   type: 'oval',

@@ -14,11 +14,11 @@ import type {
 } from '@asyra/persistence'
 import { subscribeToFileLoadComplete } from '@asyra/reactive-events'
 import type { CoreRawData, LoadDiagnostic } from '@asyra/utils'
-import { Core } from '../core'
+import { Core } from '../core.js'
 import {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
   LoadHookExecutionError
-} from '../types/load-migration'
+} from '../types/load-migration.js'
 
 const createCoreForTest = () => {
   const props = {

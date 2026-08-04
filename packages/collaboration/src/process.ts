@@ -1,14 +1,14 @@
 import type { SharedPublication } from '@asyra/factory'
 
-import { Awareness, type AwarenessStateInput } from './awareness'
+import { Awareness, type AwarenessStateInput } from './awareness.js'
 import type {
   CollaborationFactory,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap,
   CreateCollaborationInput,
   ProcessRemotePublication
-} from './composition'
-import type { Provider, ProviderAwarenessMessage } from './provider'
+} from './composition.js'
+import type { Provider, ProviderAwarenessMessage } from './provider.js'
 
 export class DisposalError extends Error {
   readonly failures: readonly unknown[]

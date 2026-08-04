@@ -1,7 +1,7 @@
 import { MapRegistry, isRecord } from '@asyra/utils'
-import type { PropertyComponentConstructor } from '../components'
-import { clonePropertyDefinitionRecord } from './property-definition-value'
-import type { PropertyRegistrationOptions } from './registration-options'
+import type { PropertyComponentConstructor } from '../components/index.js'
+import { clonePropertyDefinitionRecord } from './property-definition-value.js'
+import type { PropertyRegistrationOptions } from './registration-options.js'
 
 export interface PropertyChildRelationDefinition {
   key: string

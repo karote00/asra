@@ -1,6 +1,6 @@
 import { MapRegistry } from '@asyra/utils'
 import type { PropertySchema } from '@asyra/utils'
-import type { PropertyRegistrationOptions } from './registration-options'
+import type { PropertyRegistrationOptions } from './registration-options.js'
 
 type PropertySchemaResolver = (type: string) => PropertySchema | undefined
 

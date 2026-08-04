@@ -1,5 +1,5 @@
 import { MapRegistry } from '@asyra/utils'
-import Selection from './selections/base-selection'
+import Selection from './selections/base-selection.js'
 
 class SelectionManager {
   private selections = new MapRegistry<string, Selection>()

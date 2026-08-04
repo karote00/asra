@@ -1,5 +1,5 @@
-import { SceneTreeRawData } from '../sceneTree/rawDataTypes'
-import { PropsComponentRawData } from '../propsManager/rawDataTypes'
+import { SceneTreeRawData } from '../sceneTree/rawDataTypes.js'
+import { PropsComponentRawData } from '../propsManager/rawDataTypes.js'
 
 /**
  * Core data structure for the entire application state.

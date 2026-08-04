@@ -1,1 +1,1 @@
-export * from './viewport-layer'
+export * from './viewport-layer.js'

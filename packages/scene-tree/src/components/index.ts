@@ -1,4 +1,4 @@
-import Group from './group'
-import Workspace from './workspace'
+import Group from './group.js'
+import Workspace from './workspace.js'
 
 export { Group, Workspace }

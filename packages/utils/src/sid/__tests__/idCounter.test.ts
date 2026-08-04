@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { idCounter } from '../idCounter'
-import { CODE_SPLIT, FIRST_ID } from '../constants'
-import { IDTypes } from '../enum'
+import { idCounter } from '../idCounter.js'
+import { CODE_SPLIT, FIRST_ID } from '../constants.js'
+import { IDTypes } from '../enum.js'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 

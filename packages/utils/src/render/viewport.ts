@@ -1,5 +1,5 @@
-import { PositionData } from '../types'
-import { DEFAULT_CANVAS_PADDING } from './constants'
+import { PositionData } from '../types/index.js'
+import { DEFAULT_CANVAS_PADDING } from './constants.js'
 
 export interface Bounds {
   minX: number

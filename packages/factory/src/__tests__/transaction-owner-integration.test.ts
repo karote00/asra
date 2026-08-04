@@ -10,9 +10,9 @@ import {
   updateTransactionBatch
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
-import { Factory } from '../factory'
-import { FactoryMutationBatchAcceptanceError } from '../mutation-batch'
-import { TransactionValidationError } from '../transaction'
+import { Factory } from '../factory.js'
+import { FactoryMutationBatchAcceptanceError } from '../mutation-batch.js'
+import { TransactionValidationError } from '../transaction.js'
 
 const registerFactoryAsOwner = (factory: Factory) =>
   registerTransactionOwner({

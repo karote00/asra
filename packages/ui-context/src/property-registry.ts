@@ -4,7 +4,9 @@ import type {
   ComputedAttrs,
   RegistrationDefinitionMetadata
 } from '@asyra/utils'
-import { isEqual } from 'lodash'
+import lodash from 'lodash'
+
+const { isEqual } = lodash
 
 export type PropertyValue =
   | string

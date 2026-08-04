@@ -6,8 +6,8 @@ import {
 } from '@asyra/core'
 import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
-import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component'
-import { toNumberValue } from './number-value'
+import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component.js'
+import { toNumberValue } from './number-value.js'
 
 type VectorPointKind = VectorPointNode['kind']
 

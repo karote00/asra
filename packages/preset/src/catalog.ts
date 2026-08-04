@@ -1,9 +1,9 @@
-import { PresetDefaults, PresetProfiles } from './constants'
+import { PresetDefaults, PresetProfiles } from './constants.js'
 import type {
   PresetCatalogContract,
   PresetDefaultCatalogEntry,
   PresetProfileCatalogEntry
-} from './types'
+} from './types.js'
 
 const profiles: readonly PresetProfileCatalogEntry[] = [
   {

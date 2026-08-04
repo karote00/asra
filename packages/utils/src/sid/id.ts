@@ -1,4 +1,4 @@
-import { idCounter } from './idCounter'
+import { idCounter } from './idCounter.js'
 
 export const id = (type: string): string => idCounter.increase(type)
 

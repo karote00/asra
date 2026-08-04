@@ -1,7 +1,10 @@
 import './index.css'
-export { Text } from './components/Text'
-export { Icon, type IconName } from './components/Icon'
-export { IconButton, type IconButtonProps } from './components/IconButton'
+export { Text } from './components/Text/index.js'
+export { Icon, type IconName } from './components/Icon/index.js'
+export {
+  IconButton,
+  type IconButtonProps
+} from './components/IconButton/index.js'
 export {
   ContextMenu,
   type ContextMenuDismissReason,
@@ -9,9 +12,9 @@ export {
   type ContextMenuPosition,
   type ContextMenuProps,
   type ContextMenuViewport
-} from './components/ContextMenu'
-export { Button } from './components/Button'
-export { Input } from './components/Input'
-export { ColorPicker } from './components/ColorPicker'
-export { PropertyControl } from './components/PropertyControl'
-export * from './components/ColorPicker'
+} from './components/ContextMenu/index.js'
+export { Button } from './components/Button/index.js'
+export { Input } from './components/Input/index.js'
+export { ColorPicker } from './components/ColorPicker/index.js'
+export { PropertyControl } from './components/PropertyControl/index.js'
+export * from './components/ColorPicker/index.js'

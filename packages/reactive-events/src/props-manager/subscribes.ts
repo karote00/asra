@@ -2,9 +2,9 @@ import type {
   AddPropertyEvent,
   RemovePropertyEvent,
   UpdatePropertyEvent
-} from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+} from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToAddProperty = createSubscribeEvent<AddPropertyEvent>(
   EventTypes.ADD_PROPERTY

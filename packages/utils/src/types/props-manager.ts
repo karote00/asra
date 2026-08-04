@@ -1,9 +1,9 @@
-import { PROPS_ACTIONS } from '../constants'
-import { PropertyComponentRawData } from '../propsManager'
-import { DataTypes } from './constants'
-import type { ElementPropertyRelation } from './scene-tree'
-import type { MutationOptions } from './change'
-import type { YjsChange } from './yjs'
+import { PROPS_ACTIONS } from '../constants/index.js'
+import { PropertyComponentRawData } from '../propsManager/index.js'
+import { DataTypes } from './constants.js'
+import type { ElementPropertyRelation } from './scene-tree.js'
+import type { MutationOptions } from './change.js'
+import type { YjsChange } from './yjs.js'
 
 export interface AddRemovePropertyChange {
   action: PROPS_ACTIONS

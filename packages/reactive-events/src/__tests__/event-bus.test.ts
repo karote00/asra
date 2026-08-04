@@ -10,13 +10,13 @@ import {
   subscribeToEvents,
   getEventBus,
   createEventStream
-} from '../event-bus'
-import { EventTypes } from '../types'
+} from '../event-bus.js'
+import { EventTypes } from '../types.js'
 import {
   acknowledgeTransactionReplayApplied,
   runInTransactionReplayMode,
   wasTransactionReplayApplied
-} from '../transaction-replay'
+} from '../transaction-replay.js'
 
 // Mock event for testing
 interface TestEvent {

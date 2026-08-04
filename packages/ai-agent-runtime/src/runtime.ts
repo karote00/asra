@@ -1,19 +1,19 @@
 import {
   AiActionRegistryError,
   createAiActionRegistry
-} from './action-registry'
+} from './action-registry.js'
 import {
   AiAuditError,
   createAiRuntimeAudit,
   type AiRuntimeAudit
-} from './audit'
+} from './audit.js'
 import {
   AiActionBatchResolutionError,
   resolveAiActionBatchWithRegistry,
   type AiActionBatchResolutionErrorCode,
   type ResolvedAiAction,
   type ResolvedAiActionBatch
-} from './action-batch'
+} from './action-batch.js'
 import {
   AiRetryPolicyError,
   MAX_AI_PROVIDER_ATTEMPTS,
@@ -21,19 +21,19 @@ import {
   toAiProviderRequestFailure,
   type AiProviderRequestFailure,
   type AiRetryPolicy
-} from './provider-retry'
-import type { AiActionBatch, AiProvider } from './provider'
+} from './provider-retry.js'
+import type { AiActionBatch, AiProvider } from './provider.js'
 import {
   AI_REDACTED_VALUE,
   redactAiValue,
   type AiRedactionOptions
-} from './redaction'
+} from './redaction.js'
 import type {
   AiActionDefinition,
   AiActionRegistry,
   AiActionRegistryErrorCode,
   AiJsonValue
-} from './types'
+} from './types.js'
 
 export interface AiContextProvider {
   getContext(input: { intent: string; signal: AbortSignal }): Promise<unknown>

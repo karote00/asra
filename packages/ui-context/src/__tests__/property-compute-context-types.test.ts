@@ -3,7 +3,7 @@ import { describe, expectTypeOf, it } from 'vitest'
 import type {
   PropertyComputeContext,
   PropertyRegistration
-} from '../property-registry'
+} from '../property-registry.js'
 
 interface AppElementFields {
   customCount: number

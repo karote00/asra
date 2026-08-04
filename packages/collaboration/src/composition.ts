@@ -1,6 +1,6 @@
 import type { Factory, SharedPublication } from '@asyra/factory'
-import type { Awareness } from './awareness'
-import type { Provider } from './provider'
+import type { Awareness } from './awareness.js'
+import type { Provider } from './provider.js'
 
 export type CollaborationResourceOwnership = 'owned' | 'borrowed'
 

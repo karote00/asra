@@ -1,7 +1,7 @@
 import type { EventDefinition } from '@asyra/core'
-import { PresetEventDefinitions } from './preset-event-names'
-import type { PresetCoreAPIs } from '../types'
-import { createCleanupReporter } from '../cleanup-reporter'
+import { PresetEventDefinitions } from './preset-event-names.js'
+import type { PresetCoreAPIs } from '../types.js'
+import { createCleanupReporter } from '../cleanup-reporter.js'
 
 export const registerEvents = (
   core: Pick<PresetCoreAPIs, 'registerEvent' | 'unregisterEvent'>,

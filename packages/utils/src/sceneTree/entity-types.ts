@@ -1,4 +1,4 @@
-import { EntityType, EntityTypes } from './enum'
+import { EntityType, EntityTypes } from './enum.js'
 
 const GroupTypesSet: Set<string> = new Set([
   EntityTypes.WORKSPACE,

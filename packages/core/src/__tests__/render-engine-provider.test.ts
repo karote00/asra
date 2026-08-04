@@ -1,7 +1,7 @@
 import type { RenderEngineProvider } from '@asyra/render-engine'
 import type { IRenderer } from '@asyra/render'
 import { describe, expect, it, vi } from 'vitest'
-import { Core } from '../core'
+import { Core } from '../core.js'
 
 const createCoreForTest = () => {
   const renderCleanup = vi.fn()

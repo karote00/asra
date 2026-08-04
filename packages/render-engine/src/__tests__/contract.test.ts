@@ -6,8 +6,11 @@ import {
   type RenderEngine,
   type RenderEngineCommand,
   type RenderEngineInteractionEvent
-} from '../index'
-import { RecordingRenderEngine, runRenderEngineContract } from '../testing'
+} from '../index.js'
+import {
+  RecordingRenderEngine,
+  runRenderEngineContract
+} from '../testing/index.js'
 
 describe('@asyra/render-engine contract', () => {
   it('records the current lifecycle and semantic command surface', async () => {

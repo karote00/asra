@@ -7,7 +7,7 @@ import type {
 } from '@asyra/utils'
 import { IDTypes, NameTypes } from '@asyra/utils'
 import type { PropsManager } from '@asyra/props-manager'
-import Element from './element'
+import Element from './element.js'
 
 type GroupDataType = Partial<GroupRawData>
 

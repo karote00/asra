@@ -14,7 +14,7 @@ import type {
   TransactionStatusPayload
 } from '@asyra/utils'
 import { measureBrowserDragPhase } from '@asyra/utils'
-import DataTransact from './data-transact'
+import DataTransact from './data-transact.js'
 import {
   LocalSharedDataChannel,
   SharedDataChannelRegistry,
@@ -22,20 +22,20 @@ import {
   type SharedDataChannelBatchChangeHandler,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
-} from './shared-data-channel'
+} from './shared-data-channel.js'
 import {
   type SharedDeliveryBatch,
   type SharedDeliveryBatchSubscriber,
   type SharedPublication,
   type SharedPublicationSubscriber
-} from './shared-delivery'
-import type { FactoryMutationBatchDeliveryHandle } from './mutation-batch'
+} from './shared-delivery.js'
+import type { FactoryMutationBatchDeliveryHandle } from './mutation-batch.js'
 import type {
   CanonicalEventApply,
   TransactionInverter,
   TransactionReplayHandler,
   TransactionValidator
-} from './transaction'
+} from './transaction.js'
 
 export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean

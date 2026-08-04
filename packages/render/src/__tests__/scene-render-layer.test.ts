@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { RenderLayer } from '../layers/scene'
-import renderStrategyRegistry from '../registries/render-strategy'
-import type { RenderElementData } from '../types'
+import { RenderLayer } from '../layers/scene/index.js'
+import renderStrategyRegistry from '../registries/render-strategy.js'
+import type { RenderElementData } from '../types.js'
 import { setElementGeometryLocalBounds } from '@asyra/utils'
 
 const NESTED_TEST_TYPE = 'nested-render-order-test'

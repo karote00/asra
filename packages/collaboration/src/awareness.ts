@@ -1,8 +1,8 @@
 import type {
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage
-} from './provider'
-import { deepFreeze } from './deep-freeze'
+} from './provider.js'
+import { deepFreeze } from './deep-freeze.js'
 
 export interface AwarenessRecord {
   [key: string]: AwarenessValue

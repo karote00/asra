@@ -16,9 +16,9 @@ import type {
   RenderPointerUpEvent,
   RenderPointerCaptureStartEvent,
   RenderPointerCaptureEndEvent
-} from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+} from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToRenderIsReady =
   createSubscribeEvent<RenderIsReadyEvent>(EventTypes.RENDER_IS_READY)

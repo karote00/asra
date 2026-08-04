@@ -7,7 +7,7 @@ import {
   type MockInstance,
   type Mock
 } from 'vitest'
-import { InputSystem } from '../input-system'
+import { InputSystem } from '../input-system.js'
 
 import {
   InputType,
@@ -16,8 +16,8 @@ import {
   PointerEventData,
   PointerKey
 } from '@asyra/utils'
-import keyMap from '../keymap'
-import { CLEAR_KEY_TIME } from '../constants'
+import keyMap from '../keymap.js'
+import { CLEAR_KEY_TIME } from '../constants.js'
 
 describe('InputSystem', () => {
   let inputSystem: InputSystem

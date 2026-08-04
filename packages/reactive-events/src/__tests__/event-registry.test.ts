@@ -3,7 +3,7 @@ import {
   defineEvent,
   eventRegistry,
   registerEventDefinitions
-} from '../event-registry'
+} from '../event-registry.js'
 
 describe('eventRegistry', () => {
   beforeEach(() => {

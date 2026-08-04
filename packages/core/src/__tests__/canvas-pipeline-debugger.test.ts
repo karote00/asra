@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { PropsManager } from '@asyra/props-manager'
 import { Render, RenderContainer, RenderGraphics } from '@asyra/render'
-import { Core } from '../core'
-import { createCanvasPipelineDebugger } from '../canvas-pipeline-debugger'
+import { Core } from '../core.js'
+import { createCanvasPipelineDebugger } from '../canvas-pipeline-debugger/index.js'
 
 const createCoreWithRender = (_name: string) => {
   const render = new Render()

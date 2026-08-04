@@ -1,9 +1,9 @@
-import type { AppEvent } from './app'
-import type { SceneTreeEvents } from './scene-tree'
-import type { SelectionEvents } from './selection'
-import type { PropEvents } from './props-manager'
-import type { RenderEvents } from './render'
-import type { InputSystemEvents } from './input-system'
+import type { AppEvent } from './app/index.js'
+import type { SceneTreeEvents } from './scene-tree/index.js'
+import type { SelectionEvents } from './selection/index.js'
+import type { PropEvents } from './props-manager/index.js'
+import type { RenderEvents } from './render/index.js'
+import type { InputSystemEvents } from './input-system/index.js'
 
 export type AllEvent =
   | AppEvent

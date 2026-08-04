@@ -34,12 +34,12 @@ import {
   type PropertyComponentRawData,
   type PropsChange
 } from '@asyra/utils'
-import sceneTreeSingleton, { SceneTree } from '../sceneTree'
-import Element from '../components/element'
-import Workspace from '../components/workspace'
-import componentRegistry from '../component-registry'
-import { createDynamicComponent } from '../create-dynamic-component'
-import { initSceneTreeSubscribes } from '../subscribes'
+import sceneTreeSingleton, { SceneTree } from '../sceneTree.js'
+import Element from '../components/element.js'
+import Workspace from '../components/workspace.js'
+import componentRegistry from '../component-registry.js'
+import { createDynamicComponent } from '../create-dynamic-component.js'
+import { initSceneTreeSubscribes } from '../subscribes.js'
 import {
   EventTypes,
   isDetachedTransactionValue,

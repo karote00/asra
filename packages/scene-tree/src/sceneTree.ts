@@ -60,11 +60,11 @@ import propsManager, {
   type PropertyDefinition,
   type PropsManager
 } from '@asyra/props-manager'
-import { isEqual } from 'lodash'
-import componentRegistry from './component-registry'
-import { createElement, createWorkspace, isGroupEntity } from './entity-data'
-import type Element from './components/element'
-import type Workspace from './components/workspace'
+import lodash from 'lodash'
+import componentRegistry from './component-registry.js'
+import { createElement, createWorkspace, isGroupEntity } from './entity-data.js'
+import type Element from './components/element.js'
+import type Workspace from './components/workspace.js'
 import type {
   PreparedCanonicalElementInsertion,
   CanonicalElementInsertionRequest,
@@ -80,8 +80,10 @@ import type {
   ElementPropertyTargetRequest,
   PreparedElementRemoval,
   PreparedSubtreeRemoval
-} from './element-mutation'
-import { runWithSceneTreeInitialOwnerValues } from './props-manager-context'
+} from './element-mutation.js'
+import { runWithSceneTreeInitialOwnerValues } from './props-manager-context.js'
+
+const { isEqual } = lodash
 
 type SceneTreeDataType = SceneTreeRawData
 

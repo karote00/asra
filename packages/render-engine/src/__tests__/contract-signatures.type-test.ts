@@ -1,4 +1,4 @@
-import type { RenderEngine, RenderEngineProvider } from '../index'
+import type { RenderEngine, RenderEngineProvider } from '../index.js'
 
 type AsyncPart<Value> = Extract<Value, PromiseLike<unknown>>
 type AssertNever<Value extends never> = Value

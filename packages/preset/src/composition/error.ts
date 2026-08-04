@@ -1,4 +1,4 @@
-import type { PresetApplyErrorCode, PresetDefaultId } from '../types'
+import type { PresetApplyErrorCode, PresetDefaultId } from '../types.js'
 
 export interface PresetApplyErrorDetails {
   readonly cause?: unknown

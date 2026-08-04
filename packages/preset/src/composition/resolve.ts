@@ -1,12 +1,12 @@
-import { PresetCatalog } from '../catalog'
-import { PRESET_APPLY_ERROR_CODES, PresetProfiles } from '../constants'
+import { PresetCatalog } from '../catalog.js'
+import { PRESET_APPLY_ERROR_CODES, PresetProfiles } from '../constants.js'
 import type {
   ApplyPresetOptions,
   PresetCoreAPIs,
   PresetDefaultId,
   PresetProfile
-} from '../types'
-import { PresetApplyError } from './error'
+} from '../types.js'
+import { PresetApplyError } from './error.js'
 
 export interface PresetRequestResolutionState {
   readonly alreadyApplied?: boolean

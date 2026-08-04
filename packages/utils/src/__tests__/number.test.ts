@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampUnit, roundFloat } from '../number'
+import { clampUnit, roundFloat } from '../number.js'
 
 describe('Number Utilities - Precision Handling', () => {
   describe('roundFloat', () => {

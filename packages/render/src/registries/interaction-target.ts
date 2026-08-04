@@ -4,7 +4,7 @@ import type {
   RenderInteractionTarget,
   RenderInteractionTargetBounds,
   RenderInteractionTargetSpace
-} from '../types/render-interaction'
+} from '../types/render-interaction.js'
 
 type StoredTarget = RenderInteractionTarget & { __order: number }
 

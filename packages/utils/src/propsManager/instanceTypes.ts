@@ -1,11 +1,11 @@
-import { PropertyType } from './enum'
-import type { PropertyComponentRawData } from './rawDataTypes'
-import type { ISetter } from '../setter'
-import { Unit } from '../constants'
-import { DataTypes, DimensionData, PositionData } from '../types'
-import type { AnchorPointType } from './constants'
-import type { FillAttrs, FillsAttrs } from './fills'
-import type { StrokeAttrs, StrokesAttrs } from './strokes'
+import { PropertyType } from './enum.js'
+import type { PropertyComponentRawData } from './rawDataTypes.js'
+import type { ISetter } from '../setter.js'
+import { Unit } from '../constants/index.js'
+import { DataTypes, DimensionData, PositionData } from '../types/index.js'
+import type { AnchorPointType } from './constants.js'
+import type { FillAttrs, FillsAttrs } from './fills.js'
+import type { StrokeAttrs, StrokesAttrs } from './strokes.js'
 
 export interface BasePropertyAttrs {
   id: string

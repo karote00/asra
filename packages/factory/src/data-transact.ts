@@ -146,7 +146,7 @@ import {
 import {
   pushFactoryOwnedBatchToSharedChannel,
   SharedDataChannelRegistry
-} from './shared-data-channel'
+} from './shared-data-channel.js'
 import {
   TransactionRollbackError,
   TransactionValidationError,
@@ -154,7 +154,7 @@ import {
   type CanonicalEventApply,
   type TransactionValidationContext,
   type TransactionValidator
-} from './transaction'
+} from './transaction.js'
 import type {
   FactoryMutationDeliverySequence,
   SharedDelivery,
@@ -164,13 +164,13 @@ import type {
   SharedPublicationBatch,
   SharedPublicationDelivery,
   SharedPublicationSlice
-} from './shared-delivery'
+} from './shared-delivery.js'
 import {
   FactoryMutationBatchAcceptanceError,
   type FactoryMutationBatchDeliveryHandle,
   type FactoryMutationSharedRecordEvidence,
   type FactoryStagedDeliveryController
-} from './mutation-batch'
+} from './mutation-batch.js'
 import {
   adoptDeeplyFrozenValue,
   cloneAndDeepFreezeValue,
@@ -178,7 +178,7 @@ import {
   deepFreezeValue,
   freezeTrustedValue,
   isDeeplyFrozenValue
-} from './value-clone'
+} from './value-clone.js'
 
 const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.ADD_ELEMENT,

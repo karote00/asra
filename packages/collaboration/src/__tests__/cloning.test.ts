@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { subscribeToBrowserDragPhases } from '@asyra/utils'
-import { clonePublication } from '../cloning'
-import { createSharedPublicationFixture } from './shared-publication-fixture'
+import { clonePublication } from '../cloning.js'
+import { createSharedPublicationFixture } from './shared-publication-fixture.js'
 
 const disposers: (() => void)[] = []
 

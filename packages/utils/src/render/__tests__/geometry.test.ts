@@ -4,7 +4,7 @@ import {
   getPointDistanceSquared,
   subdivideCubicBezierAtHalf,
   transformGeometryPoint
-} from '../geometry'
+} from '../geometry.js'
 
 describe('geometry helpers', () => {
   it('projects points and measures distance', () => {

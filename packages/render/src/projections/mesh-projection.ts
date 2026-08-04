@@ -4,7 +4,7 @@ import {
   type Bounds,
   type PositionData
 } from '@asyra/utils'
-import { RenderContainer, RenderMesh } from '../types/render-object'
+import { RenderContainer, RenderMesh } from '../types/render-object.js'
 
 export type GeometryPoint = PositionData
 

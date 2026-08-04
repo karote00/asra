@@ -1,5 +1,5 @@
 import { SystemContextSnapshot } from '@asyra/utils'
-import { HandlerDeps, RootAPIs } from '../types'
+import { HandlerDeps, RootAPIs } from '../types/index.js'
 
 const cloneManagedValue = <T>(value: T): T => {
   if (Array.isArray(value)) {

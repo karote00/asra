@@ -1,5 +1,5 @@
 import { MapRegistry } from '@asyra/utils'
-import { InputEventCombo } from './event-mappings'
+import { InputEventCombo } from './event-mappings.js'
 
 export class InputSystemRegistry {
   private mappings = new MapRegistry<string, InputEventCombo[]>()

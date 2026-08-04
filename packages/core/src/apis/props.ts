@@ -10,7 +10,7 @@ import type {
   PreparedPropsRestore,
   PropsRestoreSnapshot
 } from '@asyra/utils'
-import type { PropertyComponentValuesUpdate } from '../types/props'
+import type { PropertyComponentValuesUpdate } from '../types/props.js'
 
 export interface PropsRequests {
   propsLoadData: (data: unknown) => void

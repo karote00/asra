@@ -27,10 +27,10 @@ import {
   type PositionComponentRawData,
   type Unit
 } from '@asyra/utils'
-import sceneTree, { SceneTree } from '../sceneTree'
-import Element from '../components/element'
-import Group from '../components/group'
-import componentRegistry from '../component-registry'
+import sceneTree, { SceneTree } from '../sceneTree.js'
+import Element from '../components/element.js'
+import Group from '../components/group.js'
+import componentRegistry from '../component-registry.js'
 
 class HierarchyTestElement extends Element {
   _init(): void {

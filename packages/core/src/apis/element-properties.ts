@@ -12,7 +12,7 @@ import type {
   ElementPropertyAPIs,
   ElementPropertyPatchUpdate,
   ElementPropertyValuesUpdate
-} from '../types/element-properties'
+} from '../types/element-properties.js'
 
 export interface ElementPropertyRequests {
   resolveElementPropertyTargets: (

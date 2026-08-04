@@ -20,10 +20,10 @@ import {
   type PositionData,
   type Rect
 } from '@asyra/utils'
-import { SelectionChannels } from '../selection/channels'
-import type { PresetDependencies } from '../types'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
-import { getVectorRenderLocalPoint } from '../components/vector'
+import { SelectionChannels } from '../selection/channels.js'
+import type { PresetDependencies } from '../types.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
+import { getVectorRenderLocalPoint } from '../components/vector.js'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7

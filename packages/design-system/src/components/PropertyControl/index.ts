@@ -1,1 +1,1 @@
-export { default as PropertyControl } from './PropertyControl'
+export { default as PropertyControl } from './PropertyControl.js'

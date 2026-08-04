@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { SystemContext } from '../system-context'
-import { ManagedPropertyState } from '../states/managed-property-state'
+import { SystemContext } from '../system-context.js'
+import { ManagedPropertyState } from '../states/managed-property-state.js'
 import {
   DefaultKeySnapshot,
   DefaultMoseSnapshot,

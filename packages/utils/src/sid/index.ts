@@ -1,3 +1,3 @@
-export * from './idCounter'
-export * from './id'
-export * from './enum'
+export * from './idCounter.js'
+export * from './id.js'
+export * from './enum.js'

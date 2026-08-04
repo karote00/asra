@@ -5,8 +5,8 @@ import {
   ExtensionRegistry,
   type ExtensionCleanup,
   type ExtensionStrategy
-} from '../extension-registry'
-import type { RegistrationOwnerMetadata } from '../registration-owner'
+} from '../extension-registry.js'
+import type { RegistrationOwnerMetadata } from '../registration-owner.js'
 
 interface TestContext {
   events: string[]

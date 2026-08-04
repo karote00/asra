@@ -1,4 +1,4 @@
-import type { PositionData } from '../types'
+import type { PositionData } from '../types/index.js'
 
 export interface GeometryTransformMatrix {
   a: number

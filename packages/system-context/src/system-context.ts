@@ -1,11 +1,11 @@
-import { createAllAPIs } from './apis'
-import { managedPropertyState } from './states'
+import { createAllAPIs } from './apis/index.js'
+import { managedPropertyState } from './states/index.js'
 import {
   HandlerDeps,
   SystemContextAPIs,
   RootAPIs,
   ManagedPropertyStateAPIs
-} from './types'
+} from './types/index.js'
 
 export class SystemContext implements SystemContextAPIs {
   getSystemContextSnapshot!: RootAPIs['getSystemContextSnapshot']

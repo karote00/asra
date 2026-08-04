@@ -225,6 +225,8 @@
         'fixtures/framework-release-consumer',
         'scripts/release-readiness.js',
         'scripts/__tests__/release-clean-consumer.test.mjs',
+        'package.json',
+        'yarn.lock',
         'packages/*/package.json',
         'packages/*/src',
         'docs/ai/framework/golden-paths',

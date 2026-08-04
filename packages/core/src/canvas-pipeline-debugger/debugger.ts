@@ -7,7 +7,7 @@ import {
   createCanvasPipelineDebuggerAdapter,
   createCanvasPipelineDebuggerOverlay
 } from '@asyra/render/canvas-pipeline-debugger'
-import type { Core } from '../core'
+import type { Core } from '../core.js'
 
 export interface CanvasPipelineDebuggerOptions {
   enabled?: boolean

@@ -1,4 +1,4 @@
-import { DataTypes } from './constants'
+import { DataTypes } from './constants.js'
 
 export type SharedDeliveryMode = 'transaction-end' | 'immediate'
 

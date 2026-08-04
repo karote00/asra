@@ -3,7 +3,7 @@
  * Defines how features are registered and queried
  */
 
-import type { FeatureDefinition, FeatureAPI } from './feature'
+import type { FeatureDefinition, FeatureAPI } from './feature.js'
 
 /**
  * Feature entry stored in registry

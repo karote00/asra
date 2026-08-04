@@ -33,7 +33,7 @@ import {
 import {
   createPixiOwnedResource,
   type PixiOwnedResource
-} from './pixi-resources'
+} from './pixi-resources.js'
 
 type PixiObject = Container | Graphics | Mesh
 

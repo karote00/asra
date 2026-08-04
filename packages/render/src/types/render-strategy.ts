@@ -1,5 +1,5 @@
-import type { RenderElementData } from '../types'
-import type { RenderGraphics } from './render-object'
+import type { RenderElementData } from '../types.js'
+import type { RenderGraphics } from './render-object.js'
 
 export interface RenderStrategyCapabilities {
   readonly directPropertyKeys?: readonly string[]

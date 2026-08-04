@@ -1,4 +1,4 @@
-import { nameCounter } from './nameCounter'
+import { nameCounter } from './nameCounter.js'
 
 export const name = (type: string): string => nameCounter.increase(type)
 

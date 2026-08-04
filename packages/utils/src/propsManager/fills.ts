@@ -1,5 +1,5 @@
-import type { BasePropertyAttrs } from './instanceTypes'
-import type { PositionData } from '../types'
+import type { BasePropertyAttrs } from './instanceTypes.js'
+import type { PositionData } from '../types/index.js'
 
 export const FillColorFormats = {
   HEX: 'hex',

@@ -15,10 +15,10 @@ import {
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
 import { PointerKey } from '@asyra/utils'
-import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
-import { InputEventCombo } from './event-mappings'
-import { InputSystemRegistry } from './registry'
-import keymap, { KeyMap } from './keymap'
+import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants.js'
+import { InputEventCombo } from './event-mappings.js'
+import { InputSystemRegistry } from './registry.js'
+import keymap, { KeyMap } from './keymap.js'
 
 type Callback = (raw: RawInputEvent) => void | Promise<void>
 type Combinations = Record<string, string[]>

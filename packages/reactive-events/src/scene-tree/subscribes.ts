@@ -11,9 +11,9 @@ import {
   AddElementEvent,
   MoveElementsEvent,
   ChangeSubtreeEvent
-} from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+} from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToSceneTreeInit =
   createSubscribeEvent<SceneTreeInitEvent>(EventTypes.SCENE_TREE_INIT)

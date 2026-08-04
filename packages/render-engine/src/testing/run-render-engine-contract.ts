@@ -1,13 +1,13 @@
 import {
   RenderEngineCapabilities,
   assertRenderEngineCapabilities
-} from '../capabilities'
+} from '../capabilities.js'
 import type {
   RenderEngine,
   RenderEngineDestroyResult,
   RenderEngineInitializeResult,
   RenderEngineInteractionEvent
-} from '../types'
+} from '../types.js'
 
 export type RenderEngineContractOptions<Engine extends RenderEngine> =
   Readonly<{

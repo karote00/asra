@@ -1,12 +1,14 @@
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
-import { isEqual } from 'lodash'
+import lodash from 'lodash'
 import {
   propertyRegistry,
   PropertyValue,
   PropertyComputeContext,
   PropertyRegistration
-} from './property-registry'
+} from './property-registry.js'
+
+const { isEqual } = lodash
 
 class UIContext {
   registerProperty<

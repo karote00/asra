@@ -5,7 +5,7 @@ import {
   getPropertyChildRelations,
   removePropertyChildRelation,
   unregisterPropertyComponent
-} from '../define-property-component'
+} from '../define-property-component.js'
 import {
   BasePropertyComponent,
   getPropertyComponent,
@@ -18,7 +18,7 @@ import {
   type PropertyComponentRawData,
   Unit
 } from '@asyra/utils'
-import { expectRelationError } from './registration-test-utils'
+import { expectRelationError } from './registration-test-utils.js'
 
 const TEST_TYPE = 'test-property-type'
 const TEST_CHILD_TYPE = 'test-property-child-type'

@@ -31,7 +31,7 @@ import {
 } from '@asyra/feature-system'
 import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
-import type { FeatureSystemAPIs } from './types/feature-system'
+import type { FeatureSystemAPIs } from './types/feature-system.js'
 import render, {
   Render,
   RenderAdapter,
@@ -65,18 +65,18 @@ import {
   SceneTreeAPIs,
   UIContextAPIs,
   SystemManagedPropertyAPIs
-} from './types'
-import { createAPIs } from './apis'
+} from './types/index.js'
+import { createAPIs } from './apis/index.js'
 import type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic
-} from './types/load-validation'
+} from './types/load-validation.js'
 import {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
   LoadHookExecutionError
-} from './types/load-migration'
-import type { DataChannelObserverRegistration } from './data-channel-observer'
-import * as dataChannelObserver from './data-channel-observer'
+} from './types/load-migration.js'
+import type { DataChannelObserverRegistration } from './data-channel-observer.js'
+import * as dataChannelObserver from './data-channel-observer.js'
 import {
   definePropertyComponent as definePropertyComponentRuntime,
   definePropertyChildRelation as definePropertyChildRelationRuntime,
@@ -84,7 +84,7 @@ import {
   removePropertyChildRelation as removePropertyChildRelationRuntime,
   type PropertyChildRelationMetadata,
   type PropertyComponentDefinition
-} from './define-property-component'
+} from './define-property-component.js'
 import type { PropertyChildRelationDefinition } from '@asyra/props-manager'
 import {
   defineComponent as defineComponentRuntime,
@@ -97,7 +97,7 @@ import {
   type ComponentPropertyRelationMetadata,
   type UnregisterComponentOptions,
   type UnregisterComponentResult
-} from './define-component'
+} from './define-component.js'
 import {
   RegistrationGraph,
   RegistrationRelationError,

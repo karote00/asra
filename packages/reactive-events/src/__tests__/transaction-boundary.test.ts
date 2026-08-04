@@ -6,10 +6,10 @@ import {
   startTransaction,
   subscribeToEndTransaction,
   subscribeToStartTransaction
-} from '../app'
-import { updateTransaction } from '../app'
-import { registerTransactionOwner } from '../transaction-owner'
-import { EventTypes } from '../types'
+} from '../app/index.js'
+import { updateTransaction } from '../app/index.js'
+import { registerTransactionOwner } from '../transaction-owner.js'
+import { EventTypes } from '../types.js'
 
 describe('transaction boundary publishing', () => {
   it('publishes boundary events only for the outermost transaction', () => {

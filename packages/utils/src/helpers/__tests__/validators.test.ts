@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isNumber, isFiniteNumber, arrEqual } from '../validators'
+import { isNumber, isFiniteNumber, arrEqual } from '../validators.js'
 
 describe('Validators - Input Validation for Design Tools', () => {
   describe('isNumber', () => {

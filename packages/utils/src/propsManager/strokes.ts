@@ -1,5 +1,5 @@
-import type { BasePropertyAttrs } from './instanceTypes'
-import { type FillAttrs, createDefaultFill } from './fills'
+import type { BasePropertyAttrs } from './instanceTypes.js'
+import { type FillAttrs, createDefaultFill } from './fills.js'
 
 export const StrokeStyles = {
   SOLID: 'solid',

@@ -29,8 +29,8 @@ import {
   applyRenderableFill,
   getRenderableFill,
   getRenderableFills
-} from './fills'
-import { PRESET_REGISTRATION } from '../registration'
+} from './fills.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 const emitVectorRenderCounter = emitDiagnosticCounter
 

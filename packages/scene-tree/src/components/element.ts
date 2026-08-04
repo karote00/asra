@@ -19,14 +19,14 @@ import {
   name,
   loadName
 } from '@asyra/utils'
-import Props from './props'
-import Computed from './computed'
-import ElementChangeHandler from './element-change-handler'
+import Props from './props.js'
+import Computed from './computed.js'
+import ElementChangeHandler from './element-change-handler.js'
 import type { PropertyDefinition, PropsManager } from '@asyra/props-manager'
 import {
   getSceneTreeInitialOwnerValues,
   getSceneTreePropsManager
-} from '../props-manager-context'
+} from '../props-manager-context.js'
 
 const elementChangeHandler = new ElementChangeHandler()
 

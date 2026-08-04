@@ -1,7 +1,7 @@
 import type { SharedPublication } from '@asyra/factory'
 import { measureBrowserDragPhase } from '@asyra/utils'
 
-import type { ProviderAwarenessMessage } from './provider'
+import type { ProviderAwarenessMessage } from './provider.js'
 
 const measureClone = <T>(phaseName: string, clone: () => T): T =>
   measureBrowserDragPhase(phaseName, clone)

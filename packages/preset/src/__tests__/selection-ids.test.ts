@@ -5,7 +5,7 @@ import {
   decodeVectorSegmentSelectionId,
   encodeVectorPointSelectionId,
   encodeVectorSegmentSelectionId
-} from '../selection/ids'
+} from '../selection/ids.js'
 
 describe('preset selection ids', () => {
   it('round-trips vector point and segment references with escaped ids', () => {

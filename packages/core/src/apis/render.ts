@@ -13,7 +13,7 @@ import type { EvenOddFillOptions, EvenOddFillResult } from '@asyra/render'
 import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration
-} from '../types/render'
+} from '../types/render.js'
 
 export interface RenderRequests {
   initRender: (width: number, height: number, color: number) => Promise<unknown>

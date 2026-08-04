@@ -1,11 +1,11 @@
-import type { Render } from '../render'
+import type { Render } from '../render.js'
 import { transformGeometryPoint } from '@asyra/utils'
 import {
   subscribeToCanvasPipelineEvidence,
   type CanvasPipelineEvidence,
   type CanvasPipelineMatrixSnapshot,
   type CanvasPipelineProjectionSnapshot
-} from '../diagnostics/canvas-pipeline'
+} from '../diagnostics/canvas-pipeline.js'
 import type {
   CanvasPipelineDebuggerAdapter,
   CanvasPipelineDebuggerAdapterOptions,
@@ -13,8 +13,8 @@ import type {
   CanvasPipelineFocusedProjection,
   CanvasPipelineSnapshot,
   CanvasPipelineTraceEntry
-} from './types'
-import { freezeEvidence as freezeDeep } from '../diagnostics/freeze-evidence'
+} from './types.js'
+import { freezeEvidence as freezeDeep } from '../diagnostics/freeze-evidence.js'
 
 const DEFAULT_TRACE_CAPACITY = 256
 

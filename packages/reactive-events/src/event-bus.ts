@@ -8,9 +8,9 @@ import {
   ReplaySubject,
   type Observer
 } from 'rxjs'
-import { EventTypes } from './types'
-import { AllEvent } from './constants'
-import { acknowledgeTransactionReplayApplied } from './transaction-replay'
+import { EventTypes } from './types.js'
+import { AllEvent } from './constants.js'
+import { acknowledgeTransactionReplayApplied } from './transaction-replay.js'
 
 type ObserverEventBatchHandler = (events: readonly AllEvent[]) => void
 interface ObserverEventBatchRegistration {

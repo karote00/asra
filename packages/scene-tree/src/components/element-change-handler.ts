@@ -1,7 +1,7 @@
 import type { ChangeHandler, DataTypes, EvnetOptions } from '@asyra/utils'
 import { SCENE_TREE_ACTIONS } from '@asyra/utils'
 import { EventTypes } from '@asyra/reactive-events'
-import sceneTree from '../sceneTree'
+import sceneTree from '../sceneTree.js'
 
 export default class ElementChangeHandler implements ChangeHandler {
   addChange = (data: {

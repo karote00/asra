@@ -2,7 +2,7 @@ import type {
   FeatureTaskHandler,
   FeatureTaskRegistration,
   InvokeFeatureTaskOptions
-} from '../types/task'
+} from '../types/task.js'
 
 export class FeatureTaskNotFoundError extends Error {
   readonly code = 'FEATURE_TASK_NOT_FOUND'

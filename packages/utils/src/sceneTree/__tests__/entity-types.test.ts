@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { isElementEntity, isGroupEntity } from '../entity-types'
-import { EntityType, EntityTypes } from '../enum'
+import { isElementEntity, isGroupEntity } from '../entity-types.js'
+import { EntityType, EntityTypes } from '../enum.js'
 
 describe('Scene Tree Utils - Entity Type Classification', () => {
   describe('isElementEntity', () => {

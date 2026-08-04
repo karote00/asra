@@ -16,7 +16,7 @@ import {
   VECTOR_RENDER_STRATEGY,
   getVectorRenderLocalPoint,
   getVectorRenderWorkspacePoint
-} from '../components/vector'
+} from '../components/vector.js'
 
 describe('vector render strategy', () => {
   it('derives Render-local draw geometry from existing workspace-valued data without rewriting it', () => {

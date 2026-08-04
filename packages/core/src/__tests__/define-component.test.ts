@@ -5,7 +5,7 @@ import {
   getComponentPropertyRelations,
   removeComponentPropertyRelation,
   unregisterComponent
-} from '../define-component'
+} from '../define-component.js'
 import sceneTree, { componentRegistry } from '@asyra/scene-tree'
 import {
   elementPropertyRegistry,
@@ -18,8 +18,8 @@ import type { ElementInstanceTypes, ElementRawData } from '@asyra/utils'
 import {
   definePropertyComponent,
   unregisterPropertyComponent
-} from '../define-property-component'
-import { expectRelationError } from './registration-test-utils'
+} from '../define-property-component.js'
+import { expectRelationError } from './registration-test-utils.js'
 
 // Use actual package imports without mocks to source files
 

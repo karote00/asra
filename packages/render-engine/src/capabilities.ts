@@ -1,5 +1,5 @@
-import { UnsupportedRenderEngineCapabilityError } from './errors'
-import type { RenderEngine, RenderEngineCapability } from './types'
+import { UnsupportedRenderEngineCapabilityError } from './errors.js'
+import type { RenderEngine, RenderEngineCapability } from './types.js'
 
 export const RenderEngineCapabilities = {
   OBJECTS: 'objects',

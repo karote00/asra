@@ -42,6 +42,7 @@
   "dependencies": {
     "@asyra/props-manager": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
-    "@asyra/utils": "workspace:*"
+    "@asyra/utils": "workspace:*",
+    "lodash": "^4.17.21"
   }
 }

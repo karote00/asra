@@ -239,6 +239,14 @@ test('Inspector assigns each required Gate 5 owner exactly once', () => {
       'packages/*/LICENSE'
     )
   )
+  assert.ok(
+    step('verify-clean-consumer').implementationBoundary.includes(
+      'package.json'
+    )
+  )
+  assert.ok(
+    step('verify-clean-consumer').implementationBoundary.includes('yarn.lock')
+  )
 })
 
 test('package and consumer steps forbid workspace-only proof', () => {

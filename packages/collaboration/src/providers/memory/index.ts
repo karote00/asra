@@ -1,3 +1,3 @@
-export { MemoryHub } from './hub'
-export type { MemoryHubOptions } from './hub'
-export { MemoryProvider } from './provider'
+export { MemoryHub } from './hub.js'
+export type { MemoryHubOptions } from './hub.js'
+export { MemoryProvider } from './provider.js'

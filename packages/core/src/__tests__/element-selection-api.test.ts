@@ -6,7 +6,7 @@ import {
 import { SharedDataChannelNames } from '@asyra/utils'
 import { BaseSelection } from '@asyra/selection'
 import { Factory, TransactionValidationError } from '@asyra/factory'
-import { createElementSelectionAPIs } from '../apis/element-selection'
+import { createElementSelectionAPIs } from '../apis/element-selection.js'
 
 describe('createElementSelectionAPIs.selectElements', () => {
   const channels = {

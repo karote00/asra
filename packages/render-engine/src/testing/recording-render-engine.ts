@@ -1,7 +1,7 @@
 import {
   RenderEngineCapabilities,
   assertRenderEngineCapabilities
-} from '../capabilities'
+} from '../capabilities.js'
 import type {
   RenderEngine,
   RenderEngineCapability,
@@ -17,7 +17,7 @@ import type {
   RenderEngineQuery,
   RenderEngineQueryResult,
   RenderEngineResourceHandle
-} from '../types'
+} from '../types.js'
 
 type StoredObjectHandle = RenderEngineObjectHandle &
   Readonly<{ kind: 'object'; id: string }>

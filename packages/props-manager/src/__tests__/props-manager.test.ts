@@ -18,33 +18,33 @@ import {
   type DataTypes,
   type ElementPropertyRelation
 } from '@asyra/utils'
-import { BasePropertyComponent } from '../components'
+import { BasePropertyComponent } from '../components/index.js'
 import {
   PropsManager,
   type PropertyMutation,
   type PropertyMutationBatchRequest
-} from '../manager/props-manager'
-import { getPropertyComponentAccessor } from '../manager/component-accessor'
-import { createProperty } from '../factories/create-property'
+} from '../manager/props-manager.js'
+import { getPropertyComponentAccessor } from '../manager/component-accessor.js'
+import { createProperty } from '../factories/create-property.js'
 import elementPropertyRegistry, {
   type PropertyDefinition
-} from '../registries/property-definition'
+} from '../registries/property-definition.js'
 import {
   propertySchemaRegistry,
   registerPropertySchema
-} from '../registries/property-schema'
+} from '../registries/property-schema.js'
 import {
   propertyComponentRegistry,
   registerPropertyComponent
-} from '../registries/property-component'
-import { createPropertyComponentFromConfig } from '../registries/declarative-property-type'
+} from '../registries/property-component.js'
+import { createPropertyComponentFromConfig } from '../registries/declarative-property-type.js'
 import {
   PositionComponent,
   DimensionComponent,
   CustomComponent,
   AnchorPointComponent,
   AnchorPointsComponent
-} from './helpers/test-property-components'
+} from './helpers/test-property-components.js'
 
 interface UpdateTransactionEvent {
   type: string

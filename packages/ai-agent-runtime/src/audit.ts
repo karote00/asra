@@ -1,10 +1,10 @@
-import type { AiActionExecutionResult } from './runtime'
+import type { AiActionExecutionResult } from './runtime.js'
 import {
   AI_REDACTED_VALUE,
   redactAiValue,
   type AiRedactionOptions
-} from './redaction'
-import type { AiJsonValue } from './types'
+} from './redaction.js'
+import type { AiJsonValue } from './types.js'
 
 export type AiAuditOutcome = 'cancelled' | 'executed' | 'failed'
 

@@ -3,7 +3,7 @@ import type {
   PRESET_APPLY_ERROR_CODES,
   PresetDefaults,
   PresetProfiles
-} from './constants'
+} from './constants.js'
 
 export type PresetProfile = (typeof PresetProfiles)[keyof typeof PresetProfiles]
 

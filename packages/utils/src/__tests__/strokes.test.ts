@@ -3,7 +3,7 @@ import {
   FillKinds,
   createDefaultFill,
   createDefaultStroke
-} from '../propsManager'
+} from '../propsManager/index.js'
 
 describe('stroke props manager', () => {
   it('should run: create canonical stroke fill from legacy flat paint input', () => {

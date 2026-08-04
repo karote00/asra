@@ -7,7 +7,7 @@ import {
   createDefaultFill,
   type FillAttrs
 } from '@asyra/utils'
-import { toRenderableGradient } from '../components/fills'
+import { toRenderableGradient } from '../components/fills.js'
 
 const createGradientFill = (overrides: Partial<FillAttrs> = {}): FillAttrs => ({
   ...createDefaultFill({

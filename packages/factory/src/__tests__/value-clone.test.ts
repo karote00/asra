@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deepFreezeValue, isDeeplyFrozenValue } from '../value-clone'
+import { deepFreezeValue, isDeeplyFrozenValue } from '../value-clone.js'
 
 describe('Factory owned deep-freeze evidence', () => {
   it('does not traverse the same immutable graph again at later handoff layers', () => {

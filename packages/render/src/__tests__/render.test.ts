@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MouseData } from '@asyra/utils'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
-import { Render } from '../render'
-import * as ViewportLayerModule from '../layers/viewport'
-import { RenderContainerData, RenderElementData, SceneElement } from '../types'
-import { RenderContainer, RenderGraphics } from '../types/render-object'
-import renderStrategyRegistry from '../registries/render-strategy'
+import { Render } from '../render.js'
+import * as ViewportLayerModule from '../layers/viewport/index.js'
+import {
+  RenderContainerData,
+  RenderElementData,
+  SceneElement
+} from '../types.js'
+import { RenderContainer, RenderGraphics } from '../types/render-object.js'
+import renderStrategyRegistry from '../registries/render-strategy.js'
 
 describe('Render', () => {
   let render: Render

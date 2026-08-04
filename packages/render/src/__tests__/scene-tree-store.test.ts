@@ -5,9 +5,9 @@ import {
   subscribeToDiagnosticCounters
 } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
-import render from '../render'
-import renderStrategyRegistry from '../registries/render-strategy'
-import type { RenderStrategy } from '../types/render-strategy'
+import render from '../render.js'
+import renderStrategyRegistry from '../registries/render-strategy.js'
+import type { RenderStrategy } from '../types/render-strategy.js'
 
 let pendingRenderLayer: {
   shouldUpdate?: () => boolean
@@ -91,7 +91,7 @@ describe('RenderSceneTree computed data mirror', () => {
   }
 
   it('should run: reset projection before rebuilding a scene-tree reload', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const vector = createElement(
       'vector-1',
@@ -140,7 +140,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail a reload and clear partial projection when visual add fails', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const first = createElement(
       'vector-1',
@@ -179,7 +179,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: exclude workspace elements from reload snapshots', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const workspace = createElement(
       'workspace-1',
@@ -213,7 +213,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: rebuild workspace-root siblings in canonical order instead of map insertion order', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const rootA = createElement(
       'root-a',
@@ -262,7 +262,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: rebuild a leaf without reading an absent hierarchy field', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const leafRaw = {
       type: 'rectangle',
@@ -300,7 +300,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: rebuild nested siblings after their parent in canonical order', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const group = createElement(
       'group-1',
@@ -360,7 +360,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('projects exact hierarchy moves target-first without add/remove recreation', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const workspaceRaw = {
       id: 'workspace-1',
@@ -424,7 +424,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('projects moved children into the workspace when the settled source parent is already removed', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const workspaceRaw = {
       id: 'workspace-1',
@@ -487,7 +487,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('projects subtree removal descendant-first and restoration parent-first', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const workspaceRaw = {
       id: 'workspace-1',
@@ -580,7 +580,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: synchronize parent mirrors from add and remove hierarchy envelopes', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const parentRaw = {
       type: 'group',
@@ -644,7 +644,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('projects delayed child add envelopes against an already-final parent mirror without resync', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const counters = new Map<string, number>()
     const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
@@ -718,7 +718,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('applies one canonical parent relationship batch while projecting every child', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const counters = new Map<string, number>()
     const unsubscribe = subscribeToDiagnosticCounters((name, value) => {
       counters.set(name, (counters.get(name) ?? 0) + value)
@@ -824,7 +824,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('projects exact addition and removal batches without reading future raw snapshots', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const groupRaw = {
       type: EntityTypes.GROUP,
       parentId: 'workspace-1',
@@ -900,7 +900,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('rejects missing parents and stale batch indexes without canonical resync', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const missingParentChildRaw = {
       id: 'missing-parent-child',
       type: 'rectangle',
@@ -983,7 +983,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('compensates a failed visual batch removal so the same evidence can retry', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const groupRaw = {
       type: EntityTypes.GROUP,
       parentId: 'workspace-1',
@@ -1059,7 +1059,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail closed for invalid explicit add snapshots', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const cases = [
       {
         elementId: 'vector-1',
@@ -1104,7 +1104,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: return failed when explicit add composition throws', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     sceneTreeMock.getElementById.mockReturnValue({
       save: vi.fn(() => {
@@ -1123,7 +1123,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: remove stale output and pending work for a missing explicit add target', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1155,7 +1155,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: explicitly resync a missing update base from Scene Tree', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1183,7 +1183,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: add a missing visual from a successful complete resync', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1214,7 +1214,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail a resync when rebuilding an existing visual fails', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1251,7 +1251,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a scalar before mismatch without mutating the published snapshot', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1284,7 +1284,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a dense before value for a cached sparse array', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'generic-1',
@@ -1309,7 +1309,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: resync an own undefined slot for a cached sparse array', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'generic-1',
@@ -1337,7 +1337,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: compare enumerable named own properties on arrays', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const cachedSamples = Object.assign([123], { source: 'cached' })
     const suppliedBefore = Object.assign([123], { source: 'stale' })
@@ -1370,7 +1370,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: compare enumerable symbol own properties on arrays', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const source = Symbol('sample-source')
     const createSamples = (value: number, metadata: string) => {
@@ -1414,7 +1414,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a scalar without declared owner provenance', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1442,7 +1442,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a whole batch when a later before value mismatches', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1495,7 +1495,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a whole batch when any owner provenance is invalid', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1536,7 +1536,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: resync a value patch whose top-level base is absent', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1572,7 +1572,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: resync a record patch whose special-name base is inherited', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1615,7 +1615,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: reject a record patch without an existing record base', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1655,7 +1655,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: treat an inherited record before value as an addition', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const initialPoint = { id: 'A', x: 0, y: 0 }
     const canonicalPoint = { id: 'A', x: 20, y: 20 }
@@ -1698,7 +1698,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: compare distinct cyclic scalar values without overflowing', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const cachedBefore: Record<string, unknown> = { label: 'before' }
     cachedBefore.self = cachedBefore
@@ -1735,7 +1735,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: resync when cyclic before values have different topology', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const cachedBefore: Record<string, unknown> = { label: 'before' }
     cachedBefore.next = cachedBefore
@@ -1769,7 +1769,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: store a __proto__ record id as an own projected value', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1804,7 +1804,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: remove stale output when a mismatch has no canonical element', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1831,7 +1831,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail closed when authoritative resync composition throws', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1860,7 +1860,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail closed when a scalar candidate changes the element identity', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1890,7 +1890,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail closed when a batch candidate clears the element type', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1925,7 +1925,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: fail closed when a patch candidate becomes a workspace', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1959,7 +1959,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: install a new snapshot without mutating the previously published value', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -1991,7 +1991,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: stage multiple computed changes and render once from the mirror', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2058,7 +2058,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: schedule the next computed update after an empty commit', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2093,7 +2093,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: schedule the next computed update after an empty delta', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const emptyDeltaRoutes: ((
       store: InstanceType<typeof RenderSceneTree>
     ) => unknown)[] = [
@@ -2139,7 +2139,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply a computed change batch as one pending render update', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2204,7 +2204,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: route a direct-only batch through individual property updates', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'rectangle-1',
@@ -2269,7 +2269,7 @@ describe('RenderSceneTree computed data mirror', () => {
     renderStrategyRegistry.register('transform-only-vector', strategy)
 
     try {
-      const { RenderSceneTree } = await import('../stores/scene-tree')
+      const { RenderSceneTree } = await import('../stores/scene-tree.js')
       const store = new RenderSceneTree()
       const element = createElement(
         'vector-1',
@@ -2335,7 +2335,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: route a mixed batch once through the final complete snapshot', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2376,7 +2376,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: preserve commit order while coalescing one element to one frame', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const initialPoints = { p1: { x: 0, y: 0 } }
     const middlePoints = { p1: { x: 10, y: 10 } }
@@ -2418,7 +2418,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply a computed patch as one pending render update', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2484,7 +2484,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply record replacement, addition, and removal atomically', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const pointA = { id: 'A', x: 0, y: 0 }
     const pointB = { id: 'B', x: 20, y: 20 }
@@ -2536,7 +2536,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: keep changes staged during a frame flush for the next frame', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2595,7 +2595,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: retain a complete snapshot for the next frame when its handoff fails', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2645,7 +2645,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: keep direct property updates mirrored for later full renders', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2707,7 +2707,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply raw-owner scalar changes without authoritative resync', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2747,7 +2747,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply a same-name computed owner without changing the raw slice', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2781,7 +2781,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: keep a shadowed raw direct change out of the visual route', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2806,7 +2806,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: atomically apply mixed same-name raw and computed owners', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2842,7 +2842,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: atomically apply mixed raw and computed batch keys', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2885,7 +2885,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: mirror computed stroke fill changes into the next render snapshot', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const initialStrokes = [
       {
@@ -2950,7 +2950,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: apply an undoable update without rebuilding an explicit base', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -2988,7 +2988,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: preserve fresh-snapshot equivalence through action, undo, redo, and replay', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const pointBefore = { id: 'A', x: 0, y: 0 }
     const pointAfter = { id: 'A', x: 20, y: 16 }
@@ -3044,7 +3044,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: remove pending mirror data when an element is removed', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -3081,7 +3081,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: keep projection entries bounded across repeated lifecycle routes', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const first = createElement(
       'vector-1',
@@ -3158,7 +3158,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: clear snapshots and pending frame work idempotently', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -3189,7 +3189,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: clear only Scene Tree-projected visual ids', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -3214,7 +3214,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: retain failed cleanup ownership and retry without skipping other ids', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const elements = new Map([
       [
@@ -3266,7 +3266,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: retry a single remove whose visual release fails', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'remove-retry',
@@ -3295,7 +3295,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: retry visual cleanup after an add rebuild and release both fail', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'add-retry',
@@ -3321,7 +3321,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: retry visual cleanup after a resync seed and release both fail', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'resync-retry',
@@ -3358,7 +3358,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: clear projection state on Render teardown', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',
@@ -3392,7 +3392,7 @@ describe('RenderSceneTree computed data mirror', () => {
   })
 
   it('should run: clear stale projection state when reload has no workspace', async () => {
-    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const store = new RenderSceneTree()
     const element = createElement(
       'vector-1',

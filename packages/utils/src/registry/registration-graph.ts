@@ -1,4 +1,4 @@
-import type { RegistrationOwnerMetadata } from './registration-owner'
+import type { RegistrationOwnerMetadata } from './registration-owner.js'
 
 export const REGISTRATION_CONTRACT_ERROR_CODES = [
   'COMPOSITION_CLOSED',

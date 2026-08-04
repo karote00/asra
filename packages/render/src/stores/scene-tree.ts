@@ -17,11 +17,11 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
-import { RenderElementData } from '../types'
+import { RenderElementData } from '../types.js'
 
-import render from '../render'
-import renderStrategyRegistry from '../registries/render-strategy'
-import type { RenderLayerRegistration } from '../types/render-layer'
+import render from '../render.js'
+import renderStrategyRegistry from '../registries/render-strategy.js'
+import type { RenderLayerRegistration } from '../types/render-layer.js'
 
 const DIRECT_RENDER_PROPERTY_KEYS = new Set(['x', 'y', 'rotation'])
 const SCENE_TREE_PENDING_RENDER_LAYER = 'render-scene-tree-pending-updates'

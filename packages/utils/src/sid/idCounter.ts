@@ -1,6 +1,6 @@
-import { IDTypes } from './enum'
-import { FIRST_ID, CODE_SPLIT } from './constants'
-import { isNumber } from '../helpers'
+import { IDTypes } from './enum.js'
+import { FIRST_ID, CODE_SPLIT } from './constants.js'
+import { isNumber } from '../helpers/index.js'
 
 class IDCounter {
   counter: Record<string, string> = {}

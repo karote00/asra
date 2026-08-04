@@ -26,17 +26,17 @@ import {
   EntityTypes
 } from '@asyra/utils'
 
-import { createPropsAPIs, type PropsRequests } from './props'
-import { createRenderAPIs, type RenderRequests } from './render'
-import { createSceneTreeAPIs, type SceneTreeRequests } from './scene-tree'
-import { createElementSelectionAPIs } from './element-selection'
-import { createInputSystemAPIs } from './input-system'
-import { createFeatureSystemAPIs } from './feature-system'
-import { createUIContextAPIs } from './ui-context'
-import { createSystemPropertyAPIs } from './system-properties'
-import { createElementPropertyAPIs } from './element-properties'
-import { getAllElementsWorldBounds } from './scene-bounds'
-import type { CanonicalChange, CoreAPIs } from '../types'
+import { createPropsAPIs, type PropsRequests } from './props.js'
+import { createRenderAPIs, type RenderRequests } from './render.js'
+import { createSceneTreeAPIs, type SceneTreeRequests } from './scene-tree.js'
+import { createElementSelectionAPIs } from './element-selection.js'
+import { createInputSystemAPIs } from './input-system.js'
+import { createFeatureSystemAPIs } from './feature-system.js'
+import { createUIContextAPIs } from './ui-context.js'
+import { createSystemPropertyAPIs } from './system-properties.js'
+import { createElementPropertyAPIs } from './element-properties.js'
+import { getAllElementsWorldBounds } from './scene-bounds.js'
+import type { CanonicalChange, CoreAPIs } from '../types/index.js'
 
 export const createAPIs = (
   sceneTree: SceneTree,

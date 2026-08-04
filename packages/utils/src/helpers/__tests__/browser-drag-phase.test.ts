@@ -4,7 +4,7 @@ import {
   measureBrowserDragPhase,
   subscribeToBrowserDragPhases,
   type BrowserDragPhaseSink
-} from '../browser-drag-phase'
+} from '../browser-drag-phase.js'
 
 const disposers: (() => void)[] = []
 

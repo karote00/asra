@@ -1,6 +1,6 @@
-import type { RenderElementData } from '../types'
-import type { EngineNeutralRenderStrategy } from '../types/render-strategy'
-import type { RenderGraphics } from '../types/render-object'
+import type { RenderElementData } from '../types.js'
+import type { EngineNeutralRenderStrategy } from '../types/render-strategy.js'
+import type { RenderGraphics } from '../types/render-object.js'
 
 const randomHexColorCode = () => {
   const n = (Math.random() * 0xfffff * 1000000).toString(16)

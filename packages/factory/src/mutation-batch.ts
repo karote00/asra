@@ -1,5 +1,5 @@
 import type { AllEvent } from '@asyra/reactive-events'
-import type { FactoryMutationDeliverySequence } from './shared-delivery'
+import type { FactoryMutationDeliverySequence } from './shared-delivery.js'
 
 export class FactoryMutationBatchAcceptanceError extends Error {
   readonly batchAccepted: boolean
