@@ -62,6 +62,8 @@
         'docs/ai/framework/plans/__tests__/framework-release-readiness-flow-inspector.contract.test.cjs',
         'tools/flow-inspector/embed-viewer.cjs',
         'tools/flow-inspector/__tests__/viewer-entry.test.cjs',
+        'scripts/framework-release-packages.js',
+        'scripts/__tests__/framework-release-packages.test.mjs',
         'packages/*/package.json',
         'packages/*/src/index.ts',
         'docs/ai/framework/{API_SURFACES.md,ARCHITECTURE.md,CONSTRAINTS.md,PLANS.md}',

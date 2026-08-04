@@ -224,6 +224,16 @@ test('Inspector assigns each required Gate 5 owner exactly once', () => {
     step('decide-release-readiness').ownerPackage,
     'Framework Release Gate 5 decision owner'
   )
+  assert.ok(
+    step('freeze-release-source').implementationBoundary.includes(
+      'scripts/framework-release-packages.js'
+    )
+  )
+  assert.ok(
+    step('freeze-release-source').implementationBoundary.includes(
+      'scripts/__tests__/framework-release-packages.test.mjs'
+    )
+  )
 })
 
 test('package and consumer steps forbid workspace-only proof', () => {
