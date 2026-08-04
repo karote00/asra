@@ -24,5 +24,6 @@ test('release records freeze the candidate version, public docs, and publication
   )
   assert.deepEqual(result.pendingChangesets, [])
   assert.equal(result.releaseSnapshot, null)
+  assert.equal(result.readinessStatus, 'READY')
   assert.equal(result.publicationAuthorized, false)
 })

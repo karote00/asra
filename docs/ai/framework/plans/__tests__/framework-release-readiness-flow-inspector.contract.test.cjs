@@ -52,7 +52,7 @@ test('Gate 5 Inspector and product authorities resolve', () => {
   )
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md'
+    'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -67,6 +67,15 @@ test('Gate 5 Inspector and product authorities resolve', () => {
         '..',
         'framework-release-readiness-flow-inspector.html'
       )
+    )
+  )
+  const decisionStep = step('decide-release-readiness')
+  assert.ok(
+    decisionStep.implementationBoundary.includes('scripts/release-records.js')
+  )
+  assert.ok(
+    decisionStep.implementationBoundary.includes(
+      'scripts/__tests__/release-records.test.mjs'
     )
   )
 })

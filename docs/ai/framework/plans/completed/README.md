@@ -30,6 +30,8 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
   - `group-component-and-hierarchy-behaviors-plan.md`
 - Completed optional AI agent runtime:
   - `ai-agent-runtime-plan.md`
+- Completed Framework release-readiness audit:
+  - `framework-release-readiness-and-closeout-plan.md`
 
 ## Update Rule
 

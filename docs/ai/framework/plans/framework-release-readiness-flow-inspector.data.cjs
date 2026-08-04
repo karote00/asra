@@ -4,7 +4,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md'
+    'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs'
 
@@ -56,7 +56,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md',
+        'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md',
         'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs',
         'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html',
         'docs/ai/framework/plans/__tests__/framework-release-readiness-flow-inspector.contract.test.cjs',
@@ -511,7 +511,9 @@
         'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs',
         'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html',
         'docs/ai/framework/decisions/releases/unreleased.md',
-        'RELEASE_NOTES.md'
+        'RELEASE_NOTES.md',
+        'scripts/release-records.js',
+        'scripts/__tests__/release-records.test.mjs'
       ],
       specRefs: [
         '#7-release-records-and-handoff',
@@ -1001,7 +1003,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './framework-release-readiness-and-closeout-plan.md',
+        href: './completed/framework-release-readiness-and-closeout-plan.md',
         kind: 'authority'
       },
       {

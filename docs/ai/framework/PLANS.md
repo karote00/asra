@@ -20,18 +20,60 @@ socket-authoritative document-session record is:
 
 ## Framework Release Gates
 
-Complete and close these plans in order before the first public Asyra Framework
-release. A release gate may begin implementation only after its product contract
-and matching Inspector owner flow satisfy
-`docs/ai/framework/rules/inspector-contract-readiness.md`.
+None.
 
-5. Framework Release Readiness Audit and Closeout
+Framework Release Gate 5 closed with a pre-publication artifact `READY` result
+on 2026-08-05. Merge, Node.js 24 migration, registry publication, create-app
+release, deployment, and the formal release remain separately owned work.
 
-- Freeze and audit the supported public surface, package artifacts, dependency
-  boundaries, clean-consumer installation, generated templates, release
-  documentation, and full formal gate matrix without publishing automatically.
+## Release and Distribution Sequence
+
+Complete these plans in order unless a plan explicitly allows read-only
+research to proceed without mutating the repository or an external system.
+
+1. Node.js 24 runtime upgrade and Vercel validation
+
+- Move the local, package, CI, release-validation, generated-app, and Vercel
+  runtime contract to Node.js 24.
+- Any local, CI, or Vercel failure blocks package publication.
 - Reference:
-  `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
+  `docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
+
+2. Local exact-version package installation research
+
+- Determine the exact proof boundary of local tarballs and whether a local
+  registry is justified for registry-style `name@version` resolution.
+- Research only; no tool installation or implementation is authorized.
+- Reference:
+  `docs/ai/framework/plans/local-versioned-package-install-research-plan.md`
+
+3. Framework package patch release
+
+- First publish the seven never-published Framework packages once at `0.2.5`,
+  then prove all 19 packages share the public `0.2.5` baseline.
+- Use the canonical all-package Changeset generator and patch-only version
+  policy until the release path is stable.
+- Keep root `asyra` and private `@asyra/asyra-design` unchanged.
+- Reference:
+  `docs/ai/framework/plans/framework-package-patch-release-plan.md`
+
+4. Formal `create-asyra-design-app` release
+
+- Begin only after the Framework patch set is publicly installable.
+- Apply user-specified Asyra/Asyra Design versions, regenerate through the
+  official script, prove the real registry-backed user path, and publish the
+  CLI only with separate authorization.
+- Reference:
+  `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
+
+5. Asyra Framework marketing and documentation website
+
+- Build the public Next.js/Tailwind documentation experience after public
+  package and create-app contracts are stable.
+- Include the landing page, developer docs/tutorials, examples, and the
+  verified Asyra Design case study and deployment link.
+- Reference:
+  `docs/ai/framework/plans/asyra-framework-website-plan.md`
 
 ## Post-Release Roadmap
 

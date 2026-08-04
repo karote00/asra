@@ -86,7 +86,13 @@ Use this file to route a new framework request to the right docs first.
 
 - framework release readiness/package publication closeout
   - `PLANS.md`
-  - `plans/framework-release-readiness-and-closeout-plan.md`
+  - `plans/completed/framework-release-readiness-and-closeout-plan.md`
+  - `plans/framework-release-readiness-flow-inspector.data.cjs`
+  - `plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
+  - `plans/local-versioned-package-install-research-plan.md`
+  - `plans/framework-package-patch-release-plan.md`
+  - `plans/create-asyra-design-app-release-plan.md`
+  - `plans/asyra-framework-website-plan.md`
   - `rules/generated-artifacts.md`
   - `rules/pre-release-legacy-removal.md`
   - `decisions/releases/README.md`
