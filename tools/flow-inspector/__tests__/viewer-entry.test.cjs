@@ -223,6 +223,15 @@ const targets = [
     ),
     dataScript: './group-component-and-hierarchy-flow-inspector.data.cjs',
     filterLaneTitle: 'App Intent and Remote Policy'
+  },
+  {
+    id: 'framework-release-readiness',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html'
+    ),
+    dataScript: './framework-release-readiness-flow-inspector.data.cjs',
+    filterLaneTitle: 'Package Artifacts'
   }
 ]
 
