@@ -131,6 +131,7 @@ test.describe('Render delta performance budget', () => {
         const {
           core,
           elementApis,
+          getActiveCollaborationHandle,
           subscribeToBrowserDragPhases,
           subscribeToDiagnosticCounters
         } = await import('../src/testing/runtime-access')
@@ -231,6 +232,19 @@ test.describe('Render delta performance budget', () => {
           ],
           { undoable: false }
         )
+
+        const collaboration = getActiveCollaborationHandle()
+        if (!collaboration) {
+          throw new Error(
+            'Collaboration runtime is unavailable for isolated profiling'
+          )
+        }
+        await collaboration.whenIdle()
+        if (collaboration.getStatus() !== 'connected') {
+          throw new Error(
+            'Collaboration runtime did not settle before isolated profiling'
+          )
+        }
 
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))

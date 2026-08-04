@@ -35,9 +35,26 @@ Any root, app, CI, E2E, or deployment command that directly depends on a
 package-specific Turbo task must first pass `gen:turbo:check` or call a root
 command that does.
 
-`dev:all` discovers `packages/*` from their manifests, builds them in workspace
-dependency order, and starts each package's `dev` command. `clean` remains a
-Turbo workspace command; every package that emits `dist` must provide `clean`.
+`dev:all` discovers `packages/*` from their manifests and starts every package
+`dev` command plus the Asyra Design dev server in parallel. It does not validate
+the Turbo graph or build workspace packages; existing `dist` outputs are a
+precondition. A fresh clone must use this sequence from the repository root:
+
+```bash
+yarn install
+yarn react:build
+yarn dev:all
+```
+
+After `yarn clean`, recreate the outputs before restarting the watchers:
+
+```bash
+yarn react:build
+yarn dev:all
+```
+
+`clean` remains a Turbo workspace command; every package that emits `dist` must
+provide `clean`.
 
 ## Script Tests
 

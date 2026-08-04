@@ -15,6 +15,15 @@ Install dependencies from the repository root:
 yarn install
 ```
 
+On a fresh clone, build the workspace outputs once before starting development:
+
+```bash
+yarn react:build
+```
+
+After running `yarn clean`, run `yarn react:build` again before starting
+development. Ordinary development sessions can reuse the existing outputs.
+
 ## Local Service Configuration
 
 The checked-in `apps/asyra-design/.env` configures the frontend, socket
@@ -58,9 +67,11 @@ Start the frontend in a third terminal:
 yarn dev:all
 ```
 
-`dev:all` builds and starts the required workspace packages plus the
-App dev server only. The backend and socket server remain the explicit first
-two terminals above.
+`dev:all` starts all workspace package watchers plus the App dev server only.
+It does not create missing workspace `dist` outputs. On a fresh clone, run
+`yarn install` and `yarn react:build` before `yarn dev:all`; after `yarn clean`,
+run `yarn react:build` before `yarn dev:all`. The backend and socket server
+remain the explicit first two terminals above.
 
 Open one required non-empty `fileId`, for example:
 

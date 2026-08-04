@@ -105,16 +105,17 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
 test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
   const rootManifest = readJSON('package.json')
   const appReadme = readText('apps/asyra-design/README.md')
+  const devAllRunner = readText('scripts/dev-all.js')
 
-  assert.equal(
-    rootManifest.scripts['dev:all'],
-    'yarn gen:turbo:check && node scripts/dev-all.js'
-  )
+  assert.equal(rootManifest.scripts['dev:all'], 'node scripts/dev-all.js')
+  assert.doesNotMatch(rootManifest.scripts['dev:all'], /gen:turbo/)
+  assert.doesNotMatch(devAllRunner, /initialBuilds/)
   assert.match(appReadme, /yarn dev:all/)
   assert.match(
     appReadme,
-    /`dev:all` builds and starts.*workspace packages.*App\s+dev server only/is
+    /`dev:all` starts.*workspace package watchers.*App\s+dev server only/is
   )
+  assert.doesNotMatch(appReadme, /`dev:all` builds/i)
   assert.doesNotMatch(
     appReadme,
     /workspace packages,\s+the memory-only WebSocket reference server,\s+and the App dev server/i
@@ -358,17 +359,20 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   )
 })
 
-test('dev:all discovers collaboration and orders its Factory dependency first', async () => {
+test('dev:all discovers all package watchers without scheduling builds', async () => {
   const plan = await createWorkspaceDevAllPlan(repositoryRoot)
-  const initialDirectories = plan.initialBuilds.map(({ dir }) => dir)
   const devDirectories = plan.devProcesses.map(({ dir }) => dir)
+  const expectedDirectories = fs
+    .readdirSync(path.join(repositoryRoot, 'packages'), {
+      withFileTypes: true
+    })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join('packages', entry.name))
+    .sort()
 
-  assert.ok(initialDirectories.includes('packages/collaboration'))
-  assert.ok(devDirectories.includes('packages/collaboration'))
-  assert.ok(
-    initialDirectories.indexOf('packages/factory') <
-      initialDirectories.indexOf('packages/collaboration')
-  )
+  assert.deepEqual(devDirectories, expectedDirectories)
+  assert.ok(plan.devProcesses.every(({ cmd }) => cmd === 'yarn dev'))
+  assert.equal('initialBuilds' in plan, false)
   assert.equal('serviceBuilds' in plan, false)
   assert.equal('services' in plan, false)
   assert.deepEqual(plan.app, {

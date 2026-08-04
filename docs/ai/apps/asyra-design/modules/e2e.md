@@ -102,6 +102,10 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
 - CI runs the dense-vector Render timing budget first with one isolated worker,
   then excludes that file while parallelizing the remaining functional suite;
   the formal timing thresholds are not relaxed to absorb runner contention
+- after creating the dense-vector fixture, the timing test waits for the active
+  Collaboration session and publication outbox to become idle before installing
+  phase timers; setup publication work is excluded without changing the normal
+  App composition or timing thresholds
 - pull-request CI resolves the balanced AI heavy gate from the exact
   base-to-head changed paths in
   `scripts/balanced-ai-correctness-scope.mjs`; unrelated changes and scheduled
