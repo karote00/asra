@@ -33,7 +33,9 @@ Lifecycle and integration:
     resolved `null` or `undefined` means no persisted document
 - `setPersistence(provider: IPersistenceProvider): void` is a deprecated
   load-only compatibility surface; Core uses only `provider.load()` and never
-  calls `save()` or `clear()`
+  calls `save()` or `clear()`. It warns once at runtime, remains available
+  through the `0.2.x` migration window, and is planned for removal in the next
+  major release.
 - `definePropertyComponent(definition: PropertyComponentDefinition): PropertyComponentConstructor`
 - `PropertyComponentDefinition` supports:
   - constructor mode: `{ type, constructor, options? }`
@@ -193,6 +195,16 @@ Render bridge:
     explicit `@asyra/collaboration` composition may transport their completed
     publications
 - `renderIsReady(): void`
+
+Compatibility render names remain available through the `0.2.x` migration
+window and are planned for removal in the next major release:
+
+- `PixiJSRenderer` warns once and is replaced by `RenderAdapter`.
+- `RenderStrategyGraphic` is replaced by `RenderGraphics`.
+- `RenderStrategy` is replaced by `EngineNeutralRenderStrategy`.
+
+See [`RELEASE_SUPPORT.md`](RELEASE_SUPPORT.md) for the complete supported
+environment and migration table.
 
 Scene/model bridge:
 

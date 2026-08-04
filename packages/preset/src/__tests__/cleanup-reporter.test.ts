@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCleanupReporter } from '../cleanup-reporter'
+import { createCleanupReporter } from '../cleanup-reporter.js'
 
 describe('cleanup reporter', () => {
   it('reports the owned disposer once', () => {

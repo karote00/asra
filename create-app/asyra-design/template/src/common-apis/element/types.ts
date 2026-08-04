@@ -8,7 +8,13 @@ import type {
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
-import type { EntityType, PositionData, Rect } from '@asyra/utils'
+import type {
+  CreateElementData,
+  EntityType,
+  PositionData,
+  PropsRawData,
+  Rect
+} from '@asyra/utils'
 
 export type ElementBounds = Rect
 
@@ -38,6 +44,15 @@ export interface CreateElementOptions {
   networks?: Record<string, VectorNetwork>
   closed?: boolean
 }
+
+export type PreparedElementDescriptor = Readonly<
+  CreateElementData & {
+    readonly id: string
+    readonly name: string
+    readonly props: Readonly<PropsRawData>
+    readonly type: EntityType
+  }
+>
 
 export type VectorPointTarget = CoreVectorPointTarget
 

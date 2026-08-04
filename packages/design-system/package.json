@@ -1,20 +1,31 @@
 {
   "name": "@asyra/design-system",
   "version": "0.2.5",
+  "description": "Official React component library for Asyra applications",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "packageManager": "yarn@4.3.1",
-  "main": "./dist/index.js",
-  "module": "./dist/index.esm.js",
+  "main": "./dist/index.es.js",
+  "module": "./dist/index.es.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.es.js",
-      "require": "./dist/index.umd.js"
+      "default": "./dist/index.es.js"
     },
     "./index.css": "./dist/design-system.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/__tests__",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*",
+    "!dist/**/*.stories.*"
   ],
   "scripts": {
     "clean": "rm -rf dist",

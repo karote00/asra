@@ -1,5 +1,9 @@
-import type { AiActionBatch } from './provider'
-import type { AiActionDefinition, AiActionRegistry, AiJsonValue } from './types'
+import type { AiActionBatch } from './provider.js'
+import type {
+  AiActionDefinition,
+  AiActionRegistry,
+  AiJsonValue
+} from './types.js'
 
 export type AiActionBatchContractErrorCode = 'AI_ACTION_BATCH_MALFORMED'
 

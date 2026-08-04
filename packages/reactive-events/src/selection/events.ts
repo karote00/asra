@@ -1,4 +1,4 @@
-import { EventTypes } from '../types'
+import { EventTypes } from '../types.js'
 import type { EVENT_OPTIONS } from '@asyra/utils'
 
 export interface SelectionIdsEvent {

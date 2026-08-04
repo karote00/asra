@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
-import { Render } from '../render'
+import { Render } from '../render.js'
 import {
   markCanvasPipelineDebuggerOwned,
   publishCanvasPipelineEvidence,
   subscribeToCanvasPipelineEvidence,
   type CanvasPipelineEvidence
-} from '../diagnostics/canvas-pipeline'
-import { RenderContainer } from '../types/render-object'
+} from '../diagnostics/canvas-pipeline.js'
+import { RenderContainer } from '../types/render-object.js'
 
 const createRender = (name: string) =>
   new Render({ engine: new RecordingRenderEngine({ name }) })

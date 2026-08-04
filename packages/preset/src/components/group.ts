@@ -15,8 +15,8 @@ import {
   type RemoveSubtreeResult,
   type SceneTreeRawData
 } from '@asyra/utils'
-import { DEFAULT_GROUP_STROKES } from './stroke-defaults'
-import { PRESET_REGISTRATION } from '../registration'
+import { DEFAULT_GROUP_STROKES } from './stroke-defaults.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 export const GROUP_COMPONENT_DEFINITION: ComponentDefinition = {
   type: EntityTypes.GROUP,

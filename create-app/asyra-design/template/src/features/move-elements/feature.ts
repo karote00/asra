@@ -48,6 +48,14 @@ interface MoveElementsApi {
   [key: string]: unknown
 }
 
+const MOVE_POSITIONS_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'move-elements:positions'
+  }
+} as const satisfies EVENT_OPTIONS
+
 const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
   return (
     point.x >= bounds.x &&
@@ -172,7 +180,9 @@ const api: MoveElementsApi = {
 
     let hoveredSelectionIds = selectedElementIds
     if (!hoveredSelectionIds.includes(hoveredElementId)) {
-      selectionApis.selectElements([hoveredElementId])
+      selectionApis.selectElements([hoveredElementId], {
+        undoable: false
+      })
       hoveredSelectionIds = [hoveredElementId]
     }
 
@@ -273,9 +283,7 @@ export const moveElementsSession = {
     )
 
     measureBrowserDragPhase('move-elements:apply-positions', () =>
-      api.applyPositions(targetPositions, {
-        sharedDelivery: 'immediate'
-      })
+      api.applyPositions(targetPositions, MOVE_POSITIONS_OPTIONS)
     )
     state.latestPositions = targetPositions
     state.isMoving = true
@@ -312,7 +320,6 @@ export const moveElementsSession = {
       return
     }
 
-    const options = { sharedDelivery: 'immediate' } as const
     const currentWorkspacePos = elementApis.getMousePosInWorkspace(
       snapshot.mousePosition
     )
@@ -327,15 +334,10 @@ export const moveElementsSession = {
         !state.latestPositions ||
         !positionsMatch(targetPositions, state.latestPositions)
       ) {
-        api.applyPositions(targetPositions, options)
+        api.applyPositions(targetPositions, MOVE_POSITIONS_OPTIONS)
         state.latestPositions = targetPositions
       }
     }
-
-    elementApis.normalizeGroupGeometryForElements(
-      Object.keys(state.initialPositions),
-      options
-    )
   },
   onCancel: () => undefined
 }

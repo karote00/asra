@@ -1,10 +1,10 @@
-import factory, { Factory } from './factory'
-import { initFactorySubscribe } from './subscribes'
+import factory, { Factory } from './factory.js'
+import { initFactorySubscribe } from './subscribes.js'
 import type {
   SharedDataChannelBatchChangeHandler,
   SharedDataChannelChangeHandler,
   SharedDataChannelName
-} from './shared-data-channel'
+} from './shared-data-channel.js'
 
 initFactorySubscribe()
 
@@ -69,7 +69,7 @@ export const getActiveStagedDeliveryController = () =>
 
 export default factory
 export { Factory }
-export type { FactoryTransactionOwner } from './factory'
+export type { FactoryTransactionOwner } from './factory.js'
 export {
   LocalSharedDataChannel,
   SharedDataChannelRegistry,
@@ -77,7 +77,7 @@ export {
   type SharedDataChannelBatchChangeHandler,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
-} from './shared-data-channel'
-export * from './shared-delivery'
-export * from './mutation-batch'
-export * from './transaction'
+} from './shared-data-channel.js'
+export * from './shared-delivery.js'
+export * from './mutation-batch.js'
+export * from './transaction.js'

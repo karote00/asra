@@ -14,7 +14,7 @@ import {
   type SelectionChange
 } from '@asyra/utils'
 import type { SelectionManager } from '@asyra/selection'
-import { ElementSelectionActionAPIs } from '../types'
+import { ElementSelectionActionAPIs } from '../types/index.js'
 
 const toSharedSelectionOptions = (options?: EVENT_OPTIONS): EVENT_OPTIONS => ({
   ...(options ?? {}),

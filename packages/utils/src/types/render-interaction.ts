@@ -1,5 +1,5 @@
-import type { PositionData } from './geometry'
-import type { MouseButton } from '../constants'
+import type { PositionData } from './geometry.js'
+import type { MouseButton } from '../constants/index.js'
 
 export type RenderPointerTargetKind = 'element' | 'overlay'
 

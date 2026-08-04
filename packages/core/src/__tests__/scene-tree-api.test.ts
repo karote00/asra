@@ -8,7 +8,10 @@ import type {
   ElementRawData,
   PropertyComponentRawData
 } from '@asyra/utils'
-import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
+import {
+  createSceneTreeAPIs,
+  type SceneTreeRequests
+} from '../apis/scene-tree.js'
 
 interface LocalComputedDataEntry {
   readonly elementId: string

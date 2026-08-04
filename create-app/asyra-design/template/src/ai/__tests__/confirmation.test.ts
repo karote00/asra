@@ -1,15 +1,15 @@
-import type { AiActionBatchPreview } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiConfirmationHandler } from '../confirmation'
+import type { AiActionBatchPreview } from '@asyra/ai-agent-runtime'
+import { createAiConfirmationHandler } from '../confirmation'
 
 const preview: AiActionBatchPreview = Object.freeze({
-  actions: Object.freeze([]),
-  batchId: 'batch-1'
+  batchId: 'batch-1',
+  actions: Object.freeze([])
 })
 
 describe('Asyra Design AI confirmation adapter', () => {
   it('defaults to safe cancellation when no UI callback is composed', async () => {
-    const handler = createAsyraDesignAiConfirmationHandler()
+    const handler = createAiConfirmationHandler()
 
     await expect(
       handler.confirm(preview, {
@@ -20,7 +20,7 @@ describe('Asyra Design AI confirmation adapter', () => {
 
   it('forwards one immutable preview and Feature signal to the app callback', async () => {
     const requestConfirmation = vi.fn(async () => true)
-    const handler = createAsyraDesignAiConfirmationHandler(requestConfirmation)
+    const handler = createAiConfirmationHandler(requestConfirmation)
     const signal = new AbortController().signal
 
     await expect(

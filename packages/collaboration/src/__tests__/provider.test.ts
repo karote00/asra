@@ -6,12 +6,12 @@ import type { InboundPublication } from '..'
 import type { InboundPublicationLease } from '..'
 // @ts-expect-error InboundPublicationLeaseSettlement was removed from the public contract.
 import type { InboundPublicationLeaseSettlement } from '..'
-import type { Provider } from '../provider'
-import * as providerContract from '../provider'
-import { PROVIDER_FAILURE_CODES, isProviderFailureCode } from '../provider'
-import { MemoryHub, MemoryProvider } from '../providers/memory'
-import type { MemoryHubOptions } from '../providers/memory'
-import { createSharedPublicationFixture } from './shared-publication-fixture'
+import type { Provider } from '../provider.js'
+import * as providerContract from '../provider.js'
+import { PROVIDER_FAILURE_CODES, isProviderFailureCode } from '../provider.js'
+import { MemoryHub, MemoryProvider } from '../providers/memory/index.js'
+import type { MemoryHubOptions } from '../providers/memory/index.js'
+import { createSharedPublicationFixture } from './shared-publication-fixture.js'
 
 type RemovedProviderCapability = Extract<
   keyof Provider,

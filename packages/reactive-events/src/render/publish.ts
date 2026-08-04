@@ -1,8 +1,8 @@
 import { Subscription } from 'rxjs'
-import { publishEvent } from '../event-bus'
-import { EventTypes } from '../types'
-import { EmitInitRenderEvent } from './events'
-import { subscribeToEmitInitRender } from './subscribes'
+import { publishEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
+import { EmitInitRenderEvent } from './events.js'
+import { subscribeToEmitInitRender } from './subscribes.js'
 import { generateRequestId } from '@asyra/utils'
 
 export const initRender = async (

@@ -5,9 +5,9 @@ import {
   createEvenOddFillStyle,
   isPointInsidePreparedEvenOddShape,
   prepareEvenOddShape
-} from '../fills/even-odd-fill'
-import { createRenderGradientFillStyle } from '../fills/gradient-fill'
-import { RenderGraphics, RenderObjectRuntime } from '../types/render-object'
+} from '../fills/even-odd-fill.js'
+import { createRenderGradientFillStyle } from '../fills/gradient-fill.js'
+import { RenderGraphics, RenderObjectRuntime } from '../types/render-object.js'
 
 class TestOffscreenCanvas {
   readonly context = {

@@ -1,4 +1,7 @@
-import type { PrivatePrerequisiteManager, RegisterPresetCleanup } from './types'
+import type {
+  PrivatePrerequisiteManager,
+  RegisterPresetCleanup
+} from './types.js'
 
 export const createPrivatePrerequisiteManager = (
   registerCleanup: RegisterPresetCleanup

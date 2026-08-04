@@ -41,6 +41,41 @@ jobs:
         if: success()
         run: yarn test:ci
 
+  framework-release-readiness:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build release packages
+        run: yarn react:build
+
+      - name: Pack and validate release packages
+        run: yarn release:packages --prebuilt
+
+      - name: Verify packed clean consumer
+        run: yarn release:consumer
+
+      - name: Verify generated template from packed artifacts
+        run: yarn release:template --prod=asyra-design
+
+      - name: Verify release records
+        run: yarn release:records
+
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: validate

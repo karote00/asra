@@ -42,15 +42,15 @@ import type {
   UpdateComputedDataPatchEvent
 } from '@asyra/reactive-events'
 import { subscribeToEventBatches } from '@asyra/reactive-events'
-import type { PresetCoreAPIs, PresetDependencies } from '../types'
-import { createCleanupReporter } from '../cleanup-reporter'
-import { deriveGroupBounds, type GroupBounds } from '../components/group'
+import type { PresetCoreAPIs, PresetDependencies } from '../types.js'
+import { createCleanupReporter } from '../cleanup-reporter.js'
+import { deriveGroupBounds, type GroupBounds } from '../components/group.js'
 import {
   SelectionActions,
   SelectionChannels,
   SelectionEventNames,
   type SelectionChannel
-} from '../selection/channels'
+} from '../selection/channels.js'
 
 const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
   'name',

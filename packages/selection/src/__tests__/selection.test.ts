@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import BaseSelection from '../selections/base-selection'
+import BaseSelection from '../selections/base-selection.js'
 
 describe('Selection', () => {
   let selection: BaseSelection

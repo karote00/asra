@@ -1,9 +1,9 @@
-export * from './persistence'
+export * from './persistence.js'
 export {
   IndexedDbPersistence,
   LocalStoragePersistence,
   MemoryPersistence,
   providers
-} from './providers'
-export type { IndexedDbPersistenceOptions } from './providers'
-export * from './hooks'
+} from './providers/index.js'
+export type { IndexedDbPersistenceOptions } from './providers/index.js'
+export * from './hooks/index.js'

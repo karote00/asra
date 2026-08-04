@@ -1,23 +1,41 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from 'tailwindcss'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
-import { createAsyraDesignVTracerMiddleware } from './vtracer-tool-server.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
+import { createDocumentDatabaseMiddleware } from './e2e/document-database-middleware.mjs'
+import { createVTracerMiddleware } from './vtracer-tool-server.mjs'
+import { createActionBatchMiddleware } from './server/action-batch'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment()
-)
+const appEnvironment = resolveEnvironment(loadEnvironment())
+const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
+const enablesE2eDocumentDatabase =
+  process.env.ASYRA_E2E_DOCUMENT_DATABASE === '1'
+const e2eDocumentBackendURL = process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim()
 
-const asyraDesignVTracer = (): Plugin => ({
-  name: 'asyra-design-vtracer-tool',
+const createVTracerPlugin = (): Plugin => ({
+  name: 'vtracer-tool',
   configureServer(server) {
-    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+    server.middlewares.use(createVTracerMiddleware())
   },
   configurePreviewServer(server) {
-    server.middlewares.use(createAsyraDesignVTracerMiddleware())
+    server.middlewares.use(createVTracerMiddleware())
+  }
+})
+
+const createActionBatchPlugin = (): Plugin => ({
+  name: 'action-batch-server',
+  configureServer(server) {
+    server.middlewares.use(createActionBatchMiddleware())
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use(createActionBatchMiddleware())
+  }
+})
+
+const createDocumentDatabaseTestPlugin = (): Plugin => ({
+  name: 'e2e-document-database',
+  configureServer(server) {
+    server.middlewares.use(createDocumentDatabaseMiddleware())
   }
 })
 
@@ -27,11 +45,26 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [asyraDesignVTracer(), react()],
+  plugins: [
+    ...(enablesE2eDocumentDatabase ? [createDocumentDatabaseTestPlugin()] : []),
+    createActionBatchPlugin(),
+    createVTracerPlugin(),
+    react()
+  ],
   server: {
     host: appEnvironment.viteHost,
     port: appEnvironment.vitePort,
-    open: true
+    open: opensBrowser,
+    ...(e2eDocumentBackendURL
+      ? {
+          proxy: {
+            '/api/documents': {
+              target: e2eDocumentBackendURL,
+              changeOrigin: true
+            }
+          }
+        }
+      : {})
   },
   esbuild: {
     target: 'esnext'

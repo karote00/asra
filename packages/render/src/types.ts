@@ -1,5 +1,5 @@
 import { ComputedAttrs, ElementRawData } from '@asyra/utils'
-import type { RenderContainer, RenderGraphics } from './types/render-object'
+import type { RenderContainer, RenderGraphics } from './types/render-object.js'
 
 export type RenderElementData = Omit<ElementRawData, 'props'> & ComputedAttrs
 

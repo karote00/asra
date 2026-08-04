@@ -3,7 +3,7 @@ import {
   subscribeToRenderPointerCaptureStart,
   subscribeToRenderPointerCaptureEnd
 } from '@asyra/reactive-events'
-import inputSystem from './input-system'
+import inputSystem from './input-system.js'
 
 export const initInputSystemSubscribe = () => {
   subscribeToSwitchInputSystemWatchedElement(({ payload }) => {

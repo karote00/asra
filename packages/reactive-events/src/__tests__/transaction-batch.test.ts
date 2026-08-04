@@ -10,7 +10,7 @@ import {
   updateTransactionBatch,
   type UpdateTransactionEvent
 } from '..'
-import { registerTransactionOwner } from '../transaction-owner'
+import { registerTransactionOwner } from '../transaction-owner.js'
 
 const createTransactionEvent = (
   eventName: string,

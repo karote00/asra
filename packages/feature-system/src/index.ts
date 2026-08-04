@@ -20,26 +20,26 @@ export {
   getFeatureRegistry,
   getSessionManager,
   setCorePackages
-} from './core/feature'
+} from './core/feature.js'
 
-export { FeatureRegistry } from './core/feature-registry'
+export { FeatureRegistry } from './core/feature-registry.js'
 export {
   FeatureHandlerTimeoutError,
   SessionManager
-} from './core/session-manager'
-export { InteractionQueue, interactionQueue } from './core/interaction-queue'
+} from './core/session-manager.js'
+export { InteractionQueue, interactionQueue } from './core/interaction-queue.js'
 export {
   FeatureTaskActiveError,
   FeatureTaskNotFoundError
-} from './core/feature-task-registry'
+} from './core/feature-task-registry.js'
 
-export * from './types'
+export * from './types/index.js'
 
-export * from './utils'
+export * from './utils/index.js'
 
 export type {
   FeatureDefinition,
   FeatureAPI,
   ActiveSession
-} from './types/feature'
-export type { CorePackages } from './types/core-packages'
+} from './types/feature.js'
+export type { CorePackages } from './types/core-packages.js'

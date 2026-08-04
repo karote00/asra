@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
-import { PresetProfiles, PRESET_APPLY_ERROR_CODES } from '../constants'
+import { PresetProfiles, PRESET_APPLY_ERROR_CODES } from '../constants.js'
 
-import { PresetApplyError } from '../composition/error'
-import { bindPresetProfileProvider } from '../composition/profile-provider'
+import { PresetApplyError } from '../composition/error.js'
+import { bindPresetProfileProvider } from '../composition/profile-provider.js'
 
 describe('Preset profile provider', () => {
   beforeEach(() => {

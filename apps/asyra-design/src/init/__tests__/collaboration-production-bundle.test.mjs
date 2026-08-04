@@ -33,10 +33,10 @@ test('production bundle keeps the deployable collaboration reference composition
   assert.equal(
     moduleIds.some(
       (moduleId) =>
-        /[/\\]apps[/\\]asyra-design[/\\]src[/\\]collaboration[/\\]/.test(
+        /[/\\]src[/\\]collaboration[/\\]/.test(moduleId) ||
+        /[/\\](?:packages[/\\]collaboration|node_modules[/\\]@asyra[/\\]collaboration)[/\\](?:src|dist)[/\\]/.test(
           moduleId
-        ) ||
-        /[/\\]packages[/\\]collaboration[/\\](?:src|dist)[/\\]/.test(moduleId)
+        )
     ),
     true,
     'deployable collaboration modules are missing from the production graph'

@@ -1,6 +1,6 @@
-import { createRootAPIs } from './root'
-import { createManagedPropertyStateAPIs } from './managed-property-state'
-import { HandlerDeps } from '../types'
+import { createRootAPIs } from './root.js'
+import { createManagedPropertyStateAPIs } from './managed-property-state.js'
+import { HandlerDeps } from '../types/index.js'
 
 export const createAllAPIs = (deps: HandlerDeps) => ({
   ...createRootAPIs(deps),

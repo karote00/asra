@@ -1,5 +1,5 @@
 import React from 'react'
-import type { HSVAColor, RGBAColor } from './color-utils'
+import type { HSVAColor, RGBAColor } from './color-utils.js'
 
 interface ColorPickerSlidersProps {
   hsva: HSVAColor

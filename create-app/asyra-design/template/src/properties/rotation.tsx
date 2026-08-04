@@ -1,7 +1,7 @@
 import { Input, PropertyControl } from '@asyra/design-system'
 import { useRotation } from '../providers'
 import { useCallback } from 'react'
-import { changeElementComputedData } from '../controllers/scene-tree'
+import { updateSelectedElementProperties } from '../controllers/scene-tree'
 import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const Rotation = () => {
@@ -14,10 +14,10 @@ const Rotation = () => {
         return false
       }
 
-      changeElementComputedData('rotation', nextValue)
+      updateSelectedElementProperties('rotation', nextValue)
       return true
     },
-    [changeElementComputedData]
+    [updateSelectedElementProperties]
   )
 
   return (

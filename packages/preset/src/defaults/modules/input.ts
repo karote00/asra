@@ -1,6 +1,6 @@
-import { registerInputProperties } from '../../ui/register-properties'
-import type { PresetDefaultInstallContext } from '../types'
-import { acquireInputEvents } from '../installation'
+import { registerInputProperties } from '../../ui/register-properties.js'
+import type { PresetDefaultInstallContext } from '../types.js'
+import { acquireInputEvents } from '../installation.js'
 
 export const installInputDefault = (
   context: PresetDefaultInstallContext

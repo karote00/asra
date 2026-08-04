@@ -24,11 +24,11 @@ import {
   type PropertyComponentRawData,
   type Unit
 } from '@asyra/utils'
-import sceneTree, { type SceneTree } from '../sceneTree'
-import componentRegistry from '../component-registry'
-import Element from '../components/element'
-import { createDynamicComponent } from '../create-dynamic-component'
-import { initSceneTreeSubscribes } from '../subscribes'
+import sceneTree, { type SceneTree } from '../sceneTree.js'
+import componentRegistry from '../component-registry.js'
+import Element from '../components/element.js'
+import { createDynamicComponent } from '../create-dynamic-component.js'
+import { initSceneTreeSubscribes } from '../subscribes.js'
 
 const LOCAL_COMPUTED_ELEMENT_TYPE = 'local-computed-projection-element'
 const SHARED_PROJECTION_ROOT_TYPE = 'shared-projection-root'

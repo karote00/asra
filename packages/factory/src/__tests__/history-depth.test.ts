@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
-import DataTransact from '../data-transact'
-import { Factory } from '../factory'
+import DataTransact from '../data-transact.js'
+import { Factory } from '../factory.js'
 
 const createUndoableEvent = () => ({
   type: TransactionEventTypes.UPDATE_TRANSACTION,

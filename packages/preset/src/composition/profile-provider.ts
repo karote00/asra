@@ -1,8 +1,8 @@
 import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
-import { PresetCatalog } from '../catalog'
-import { PRESET_APPLY_ERROR_CODES, PresetProfiles } from '../constants'
-import type { PresetCoreAPIs, PresetProfile } from '../types'
-import { PresetApplyError } from './error'
+import { PresetCatalog } from '../catalog.js'
+import { PRESET_APPLY_ERROR_CODES, PresetProfiles } from '../constants.js'
+import type { PresetCoreAPIs, PresetProfile } from '../types.js'
+import { PresetApplyError } from './error.js'
 
 export interface PresetProfileProviderResult {
   readonly presetEngineId: string | null

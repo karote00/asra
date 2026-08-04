@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EntityTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import type { RenderLayerRegistration } from '@asyra/core'
-import { registerSelectionOverlayRenderLayer } from '../render-layers/selection-overlay-render-layer'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
+import { registerSelectionOverlayRenderLayer } from '../render-layers/selection-overlay-render-layer.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
 
 interface OverlayGraphicsProbe {
   moveTo: (x: number, y: number) => unknown

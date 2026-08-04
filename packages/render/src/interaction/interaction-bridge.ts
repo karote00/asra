@@ -14,12 +14,12 @@ import {
   renderPointerCaptureStart,
   renderPointerCaptureEnd
 } from '@asyra/reactive-events'
-import interactionTargetRegistry from '../registries/interaction-target'
-import renderInteractionHandlerRegistry from '../registries/render-interaction-handler'
+import interactionTargetRegistry from '../registries/interaction-target.js'
+import renderInteractionHandlerRegistry from '../registries/render-interaction-handler.js'
 import type {
   RenderInteractionEventType,
   RenderInteractionTarget
-} from '../types/render-interaction'
+} from '../types/render-interaction.js'
 
 type PositionResolver = (event: PointerEvent) => RenderPointerPositions | null
 

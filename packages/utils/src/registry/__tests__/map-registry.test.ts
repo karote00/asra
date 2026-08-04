@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MapRegistry } from '../map-registry'
+import { MapRegistry } from '../map-registry.js'
 
 describe('MapRegistry.register', () => {
   it('throws when key already exists', () => {

@@ -3,7 +3,7 @@ import type {
   ExecutionHandler,
   ExecutionParticipant,
   ExecutionRegistry
-} from '../types/execution'
+} from '../types/execution.js'
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { runTransaction } from '@asyra/reactive-events'
 

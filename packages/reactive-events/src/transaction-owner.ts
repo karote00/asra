@@ -1,5 +1,5 @@
 import type { EndTransactionOptions } from '@asyra/utils'
-import type { UpdateTransactionEvent } from './app/events'
+import type { UpdateTransactionEvent } from './app/events.js'
 
 export interface TransactionOwner {
   startTransaction: () => void

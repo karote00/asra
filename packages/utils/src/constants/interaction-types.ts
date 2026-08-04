@@ -1,4 +1,4 @@
-import type { EVENT_OPTIONS } from './constants'
+import type { EVENT_OPTIONS } from './constants.js'
 
 /**
  * Simple interaction event interface

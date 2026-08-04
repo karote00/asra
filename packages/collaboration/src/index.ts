@@ -1,7 +1,7 @@
-export { Collaboration, DisposalError, createCollaboration } from './process'
-export type { CollaborationPublicationOutcome } from './process'
+export { Collaboration, DisposalError, createCollaboration } from './process.js'
+export type { CollaborationPublicationOutcome } from './process.js'
 
-export { Awareness, AwarenessValidationError } from './awareness'
+export { Awareness, AwarenessValidationError } from './awareness.js'
 export type {
   AwarenessObservation,
   AwarenessOptions,
@@ -14,14 +14,14 @@ export type {
   AwarenessValidationErrorCode,
   AwarenessValue,
   RemoteAwarenessSnapshot
-} from './awareness'
+} from './awareness.js'
 
 export {
   PROVIDER_FAILURE_CODES,
   ProviderFailure,
   createProviderIdentitySnapshot,
   isProviderFailureCode
-} from './provider'
+} from './provider.js'
 export type {
   Provider,
   ProviderAwarenessDisconnect,
@@ -29,10 +29,10 @@ export type {
   ProviderFailureCode,
   ProviderIdentity,
   ProviderStatus
-} from './provider'
+} from './provider.js'
 
-export { MemoryHub, MemoryProvider } from './providers/memory'
-export type { MemoryHubOptions } from './providers/memory'
+export { MemoryHub, MemoryProvider } from './providers/memory/index.js'
+export type { MemoryHubOptions } from './providers/memory/index.js'
 
 export type {
   CollaborationFactory,
@@ -40,4 +40,4 @@ export type {
   CollaborationResourceOwnershipMap,
   CreateCollaborationInput,
   ProcessRemotePublication
-} from './composition'
+} from './composition.js'

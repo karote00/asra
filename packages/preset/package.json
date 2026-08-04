@@ -4,10 +4,28 @@
   "description": "Framework preset package for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "packageManager": "yarn@4.3.1",
   "keywords": [],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/__tests__",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*",
+    "!dist/**/*.stories.*"
+  ],
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build:preset": "tsc",
@@ -31,6 +49,7 @@
     "@asyra/render-engine-pixi": "workspace:*",
     "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*",
-    "bezier-js": "^6.1.4"
+    "bezier-js": "^6.1.4",
+    "rxjs": "^7.8.1"
   }
 }

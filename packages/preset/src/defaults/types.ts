@@ -1,4 +1,4 @@
-import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import type { PresetCoreAPIs, PresetDependencies } from '../types.js'
 
 export type RegisterPresetCleanup = (key: string, dispose: () => void) => void
 

@@ -6,7 +6,7 @@ import {
 } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import { createCollaboration, MemoryHub, MemoryProvider } from '..'
-import { createSharedPublicationFixture } from './shared-publication-fixture'
+import { createSharedPublicationFixture } from './shared-publication-fixture.js'
 
 const CHANNEL = 'document'
 const SET_VALUE = 'set-value'

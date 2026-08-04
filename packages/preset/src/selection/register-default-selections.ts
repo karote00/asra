@@ -1,12 +1,12 @@
 import { BaseSelection, type SelectionDefinition } from '@asyra/core'
-import type { PresetCoreAPIs } from '../types'
-import { createCleanupReporter } from '../cleanup-reporter'
+import type { PresetCoreAPIs } from '../types.js'
+import { createCleanupReporter } from '../cleanup-reporter.js'
 import {
   SelectionActions,
   SelectionChannels,
   SelectionEventNames,
   type SelectionChannel
-} from './channels'
+} from './channels.js'
 
 type SelectionFactory = () => BaseSelection
 

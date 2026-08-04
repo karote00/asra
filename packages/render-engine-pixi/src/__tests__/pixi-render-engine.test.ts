@@ -449,7 +449,7 @@ vi.mock('pixi.js', () => {
   }
 })
 
-import { PixiRenderEngine } from '../index'
+import { PixiRenderEngine } from '../index.js'
 import { Texture } from 'pixi.js'
 
 const getLastApplication = (): MockApplicationRecord => {

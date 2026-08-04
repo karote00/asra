@@ -10,8 +10,8 @@ import {
 } from '@asyra/props-manager'
 import type { PropertyComponentInstanceDataTypes } from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Core } from '../core'
-import type { CorePresetInstallAPIs } from '../index'
+import { Core } from '../core.js'
+import type { CorePresetInstallAPIs } from '../index.js'
 
 const FEATURE_NAME = 'core-facade-feature'
 const PROPERTY_TYPE = 'core-facade-property'

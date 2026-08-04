@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { projectWorkspacePointToViewport, rectFromPoints } from '../viewport'
+import { projectWorkspacePointToViewport, rectFromPoints } from '../viewport.js'
 
 describe('rectFromPoints', () => {
   it('normalizes positive and negative pointer directions into one Rect', () => {

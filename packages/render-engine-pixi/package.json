@@ -4,10 +4,21 @@
   "description": "Pixi implementation of the Asyra render engine contract",
   "author": "Asa Tsai",
   "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "packageManager": "yarn@4.3.1",
   "keywords": [],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/__tests__",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*",
+    "!dist/**/*.stories.*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

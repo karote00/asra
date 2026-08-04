@@ -24,15 +24,15 @@ import {
   projectWorkspacePointToViewport,
   type PositionData
 } from '@asyra/utils'
-import { SelectionChannels } from '../selection/channels'
+import { SelectionChannels } from '../selection/channels.js'
 import {
   decodeVectorPointSelectionId,
   type VectorPointSelectionRef
-} from '../selection/ids'
-import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
-import type { PresetDependencies } from '../types'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
-import { getVectorRenderLocalPoint } from '../components/vector'
+} from '../selection/ids.js'
+import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle.js'
+import type { PresetDependencies } from '../types.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
+import { getVectorRenderLocalPoint } from '../components/vector.js'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6

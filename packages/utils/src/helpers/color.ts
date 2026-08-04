@@ -1,4 +1,4 @@
-import { clampUnit } from '../number'
+import { clampUnit } from '../number.js'
 
 export interface RGBAColor extends Record<string, unknown> {
   r: number

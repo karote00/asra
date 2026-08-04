@@ -1,11 +1,11 @@
-import uiContext, { UIContext } from './ui-context'
+import uiContext, { UIContext } from './ui-context.js'
 
 export { UIContext }
-export { propertyRegistry } from './property-registry'
+export { propertyRegistry } from './property-registry.js'
 export type {
   PropertyValue,
   PropertyRegistration,
   TriggerConfig,
   PropertyComputeContext
-} from './property-registry'
+} from './property-registry.js'
 export default uiContext

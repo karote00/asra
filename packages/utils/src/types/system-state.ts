@@ -1,4 +1,4 @@
-import { SystemMode } from '../constants'
+import { SystemMode } from '../constants/index.js'
 
 export interface SystemSnapshot {
   mode: SystemMode

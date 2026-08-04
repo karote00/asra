@@ -2,20 +2,20 @@ import { BaseSelection } from '@asyra/core'
 import { PropertyTypes, type RegistrationNodeMetadata } from '@asyra/utils'
 import { BehaviorSubject } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
-import { createOwnedStateCleanup } from '../defaults/owned-state'
-import { installSelectionDefault } from '../defaults/modules/selection'
-import { installUIContextDefault } from '../defaults/modules/ui-context'
-import { installVectorEditingDefault } from '../defaults/modules/vector-editing'
-import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
-import type { PrivatePrerequisiteInstaller } from '../defaults/types'
-import { PRESET_REGISTRATION_OWNER } from '../registration'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
-import { SelectionChannels } from '../selection/channels'
+import { createOwnedStateCleanup } from '../defaults/owned-state.js'
+import { installSelectionDefault } from '../defaults/modules/selection.js'
+import { installUIContextDefault } from '../defaults/modules/ui-context.js'
+import { installVectorEditingDefault } from '../defaults/modules/vector-editing.js'
+import { createPrivatePrerequisiteManager } from '../defaults/private-manager.js'
+import type { PrivatePrerequisiteInstaller } from '../defaults/types.js'
+import { PRESET_REGISTRATION_OWNER } from '../registration.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
+import { SelectionChannels } from '../selection/channels.js'
 import {
   BASE_PROPERTY_COMPONENT_DEFINITIONS,
   VECTOR_PROPERTY_COMPONENT_DEFINITIONS
-} from '../props/components'
-import type { PresetCoreAPIs } from '../types'
+} from '../props/components/index.js'
+import type { PresetCoreAPIs } from '../types.js'
 
 const appOwner = { packageName: '@app/test', name: 'test' }
 

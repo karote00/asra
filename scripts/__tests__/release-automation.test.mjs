@@ -81,6 +81,61 @@ test('release template exposes a non-mutating synchronization check', () => {
   )
 })
 
+test('generated template manifest is standalone on the supported release runtime', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/package.json'
+      ),
+      'utf8'
+    )
+  )
+  const serializedScripts = JSON.stringify(manifest.scripts ?? {})
+
+  assert.deepEqual(manifest.engines, { node: '20.x' })
+  assert.equal(manifest.packageManager, 'yarn@4.3.1')
+  assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
+  assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
+  assert.equal(manifest.dependencies['@asyra/core'], '0.2.5')
+  assert.equal(manifest.dependencies['@asyra/preset'], '0.2.5')
+
+  const environment = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/template/.env'),
+    'utf8'
+  )
+  assert.match(environment, /^APP_URL=http:\/\/localhost:3000$/m)
+  assert.match(environment, /^VITE_COLLABORATION_WS_URL=$/m)
+  assert.doesNotMatch(environment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
+})
+
+test('generated template documents its verified standalone commands and opt-ins', () => {
+  const source = readFileSync(
+    path.join(repositoryRoot, 'apps/asyra-design/TEMPLATE.md'),
+    'utf8'
+  )
+  const generated = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/template/README.md'),
+    'utf8'
+  )
+
+  assert.equal(generated, source)
+  assert.match(generated, /Node\.js 20\.x/)
+  for (const command of [
+    'yarn install',
+    'yarn react:build',
+    'yarn test',
+    'yarn react:start'
+  ]) {
+    assert.match(generated, new RegExp(command.replace(' ', String.raw`\s+`)))
+  }
+  assert.match(generated, /Preset/)
+  assert.match(generated, /migration/i)
+  assert.match(generated, /Group/)
+  assert.match(generated, /opt in to Collaboration/i)
+  assert.match(generated, /opt in to AI/i)
+})
+
 test('release validation copies only repository source into an isolated workspace', async () => {
   const { createReleaseValidationWorkspace, removeReleaseValidationWorkspace } =
     await import('../release-validation-workspace.js')

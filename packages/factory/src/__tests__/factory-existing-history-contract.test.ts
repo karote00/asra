@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import * as factoryApi from '..'
-import { Factory } from '../factory'
+import { Factory } from '../factory.js'
 
 describe('Factory existing action history contract', () => {
   it('does not expose a parallel mutation artifact or applied-result API', () => {

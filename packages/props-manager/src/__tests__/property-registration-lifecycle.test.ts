@@ -1,7 +1,7 @@
 import type { PropertySchema } from '@asyra/utils'
 import { PropertyTypes } from '@asyra/utils'
 import { beforeEach, describe, expect, it } from 'vitest'
-import * as propsManagerPublic from '../index'
+import * as propsManagerPublic from '../index.js'
 import {
   getPropertyComponent,
   getPropertySchema,
@@ -11,9 +11,9 @@ import {
   registerPropertyComponent,
   registerPropertySchema,
   unregisterPropertyRegistration
-} from '../index'
-import { PropsManager } from '../manager/props-manager'
-import { CustomComponent } from './helpers/test-property-components'
+} from '../index.js'
+import { PropsManager } from '../manager/props-manager.js'
+import { CustomComponent } from './helpers/test-property-components.js'
 
 const TYPE = PropertyTypes.CUSTOM
 

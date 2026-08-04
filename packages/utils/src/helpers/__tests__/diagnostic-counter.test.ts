@@ -3,7 +3,7 @@ import {
   emitDiagnosticCounter,
   subscribeToDiagnosticCounters,
   type DiagnosticCounterSink
-} from '../diagnostic-counter'
+} from '../diagnostic-counter.js'
 
 const disposers: (() => void)[] = []
 

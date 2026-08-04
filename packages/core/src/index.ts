@@ -1,10 +1,10 @@
-import core, { Core } from './core'
+import core, { Core } from './core.js'
 import uiContext, { UIContext, propertyRegistry } from '@asyra/ui-context'
 export {
   initFeatureSystem,
   getFeatureRegistry,
   getSessionManager
-} from './feature-integration'
+} from './feature-integration.js'
 
 export {
   defineComponent,
@@ -12,25 +12,25 @@ export {
   getComponentPropertyRelations,
   removeComponentPropertyRelation,
   unregisterComponent
-} from './define-component'
+} from './define-component.js'
 export type {
   ComponentPropertyRelationMetadata,
   ComponentDefinition,
   UnregisterComponentOptions,
   UnregisterComponentResult,
   UnregisterComponentSkippedEntry
-} from './define-component'
+} from './define-component.js'
 export {
   definePropertyChildRelation,
   definePropertyComponent,
   getPropertyChildRelations,
   removePropertyChildRelation,
   unregisterPropertyComponent
-} from './define-property-component'
+} from './define-property-component.js'
 export type {
   PropertyChildRelationMetadata,
   PropertyComponentDefinition
-} from './define-property-component'
+} from './define-property-component.js'
 export {
   defineFeature,
   FeatureUnregisterError,
@@ -184,8 +184,8 @@ export {
   defineDataChannelObserver,
   registerDataChannelObserver,
   unregisterDataChannelObserver
-} from './data-channel-observer'
-export type { DataChannelObserverRegistration } from './data-channel-observer'
+} from './data-channel-observer.js'
+export type { DataChannelObserverRegistration } from './data-channel-observer.js'
 export { uiContext, UIContext, propertyRegistry }
 export {
   VECTOR_TOKENS,
@@ -202,7 +202,7 @@ export {
   getVectorPointTargetPosition,
   sortVectorItemsById,
   getVectorNetworkAnchorHandleRefs
-} from './types/vector'
+} from './types/vector.js'
 export type {
   VectorAnchorPoint,
   VectorAnchorPointNode,
@@ -223,34 +223,34 @@ export type {
   SelectedVectorPointState,
   SelectedVectorSegmentState,
   HoveredVectorSegmentInsertPointState
-} from './types/vector'
+} from './types/vector.js'
 export type {
   RenderLayerRegistration,
   RegisterRenderLayerOptions,
   RegisterRenderLayer
-} from './types/render'
+} from './types/render.js'
 export type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic,
   LoadValidationScope
-} from './types/load-validation'
+} from './types/load-validation.js'
 export {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
   LoadHookExecutionError
-} from './types/load-migration'
-export type { LoadHookExecutionErrorCode } from './types/load-migration'
+} from './types/load-migration.js'
+export type { LoadHookExecutionErrorCode } from './types/load-migration.js'
 export type {
   ElementPropertyAPIs,
   ElementPropertyPatchUpdate,
   ElementPropertyRecordFields,
   ElementPropertyRecordPatch,
   ElementPropertyValuesUpdate
-} from './types/element-properties'
+} from './types/element-properties.js'
 export type {
   CanonicalChange,
   CanonicalChangeAPIs
-} from './types/canonical-changes'
-export type { PropertyComponentValuesUpdate } from './types/props'
+} from './types/canonical-changes.js'
+export type { PropertyComponentValuesUpdate } from './types/props.js'
 type CoreBasicApiKeys =
   | 'setRenderer'
   | 'destroyRenderer'

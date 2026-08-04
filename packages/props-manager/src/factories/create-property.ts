@@ -6,8 +6,8 @@ import {
   isNil
 } from '@asyra/utils'
 import type { PropertyComponentInstanceTypes } from '@asyra/utils'
-import type { PropertyComponentConstructor } from '../components'
-import { getPropertyComponent } from '../registries/property-component'
+import type { PropertyComponentConstructor } from '../components/index.js'
+import { getPropertyComponent } from '../registries/property-component.js'
 
 export const createPropertyWithConstructor = (
   data: Partial<PropertyComponentRawData>,

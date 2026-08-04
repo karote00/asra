@@ -1,8 +1,8 @@
 import type {
   CanvasPipelineDetachedValue,
   CanvasPipelineEvidence
-} from '../diagnostics/canvas-pipeline'
-import type { RenderLayerRegistration } from '../types/render-layer'
+} from '../diagnostics/canvas-pipeline.js'
+import type { RenderLayerRegistration } from '../types/render-layer.js'
 import type { Rect } from '@asyra/utils'
 
 export type CanvasPipelineTraceEntry = CanvasPipelineEvidence & {

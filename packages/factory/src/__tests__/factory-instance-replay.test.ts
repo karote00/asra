@@ -9,8 +9,8 @@ import {
 } from '@asyra/reactive-events'
 import type { TransactionStatusPayload } from '@asyra/utils'
 import { SharedDataChannelNames } from '@asyra/utils'
-import defaultFactory, { Factory } from '../index'
-import { LocalSharedDataChannel } from '../shared-data-channel'
+import defaultFactory, { Factory } from '../index.js'
+import { LocalSharedDataChannel } from '../shared-data-channel.js'
 
 type TestPropertyEvent = AllEvent & {
   payload: { id: string; before: number; after: number }

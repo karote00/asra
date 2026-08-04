@@ -3,7 +3,7 @@
  * Used in: create-element, and future features
  */
 
-import { runTransaction } from '@asyra/core'
+import { runTransaction, type ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   moveElementsWithGroupGeometry,
   normalizeGroupsForElements
@@ -12,7 +12,6 @@ import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
   createDefaultFills,
-  type CreateElementData,
   type DataTypes,
   type EntityType,
   type EVENT_OPTIONS,
@@ -23,9 +22,13 @@ import {
   DEFAULT_ELEMENT_FILL_COLOR,
   DEFAULT_FRAME_FILL_COLOR
 } from '../../constants'
-import type { CreateElementOptions, ElementBounds } from './types'
-import { prepareVectorElementData, vectorApis } from './vector-apis'
-import { changeComputedData as applyComputedDataChange } from './change-computed-data'
+import type {
+  CreateElementOptions,
+  ElementBounds,
+  PreparedElementDescriptor
+} from './types'
+import { vectorApis } from './vector-apis'
+import { updateElementProperties as applyElementPropertyUpdate } from './update-element-properties'
 import { viewportApis } from '../viewport'
 
 export type { VectorPointTarget } from './types'
@@ -201,7 +204,7 @@ const createElementAtWorkspacePos = (
       options
     )
     if (!elementId) {
-      throw new Error('[Asyra Design] Canonical element creation failed')
+      throw new Error('[element-creation] canonical element creation failed')
     }
 
     if (targetIndex !== null && !createDirectlyInParent) {
@@ -218,65 +221,6 @@ const createElementAtWorkspacePos = (
 
     return elementId
   })
-}
-
-const isFinitePosition = (
-  position: PositionData | undefined
-): position is PositionData =>
-  position !== undefined &&
-  Number.isFinite(position.x) &&
-  Number.isFinite(position.y)
-
-const prepareDirectParentElementData = (
-  createOptions: CreateElementOptions,
-  parentId: string
-): CreateElementData | null => {
-  const workspaceId = sceneTree.workspace
-  const requestedParentId = createOptions.parentId ?? parentId
-  if (!workspaceId || requestedParentId !== parentId) {
-    return null
-  }
-
-  const parentWorkspaceOrigin = createOptions.parentWorkspaceOrigin
-  if (
-    parentWorkspaceOrigin !== undefined &&
-    !isFinitePosition(parentWorkspaceOrigin)
-  ) {
-    return null
-  }
-  if (parentId !== workspaceId && !parentWorkspaceOrigin) {
-    return null
-  }
-
-  if (createOptions.type === 'vector') {
-    return prepareVectorElementData(createOptions)
-  }
-  if (!isFinitePosition(createOptions.workspacePosition)) {
-    return null
-  }
-
-  const parentOrigin =
-    parentId === workspaceId
-      ? { x: 0, y: 0 }
-      : (parentWorkspaceOrigin as PositionData)
-  const data: CreateElementData = {
-    type: createOptions.type,
-    x: createOptions.workspacePosition.x - parentOrigin.x,
-    y: createOptions.workspacePosition.y - parentOrigin.y,
-    fills: createOptions.fills ?? getDefaultFillsForType(createOptions.type)
-  }
-
-  if (createOptions.width !== undefined) {
-    data.width = createOptions.width
-  }
-  if (createOptions.height !== undefined) {
-    data.height = createOptions.height
-  }
-  if (createOptions.strokes !== undefined) {
-    data.strokes = createOptions.strokes
-  }
-
-  return data
 }
 
 export const elementApis = {
@@ -552,33 +496,55 @@ export const elementApis = {
   },
 
   createElementsInParent: (
-    createOptions: readonly CreateElementOptions[],
+    descriptors: readonly PreparedElementDescriptor[],
     parentId: string,
     options?: EVENT_OPTIONS
   ): readonly string[] | null => {
-    if (createOptions.length === 0) {
+    if (descriptors.length === 0) {
       return Object.freeze([])
     }
     if (parentId.length === 0) {
       return null
     }
 
-    const data: CreateElementData[] = []
-    for (const elementOptions of createOptions) {
-      const prepared = prepareDirectParentElementData(elementOptions, parentId)
-      if (!prepared) {
-        return null
-      }
-      data.push(prepared)
-    }
-
     const orderedElementIds = core.createElementsInParent(
-      data,
+      descriptors,
       parentId,
       undefined,
       options
     )
     return Object.freeze([...orderedElementIds])
+  },
+
+  createElements: (
+    createOptions: readonly CreateElementOptions[],
+    options?: EVENT_OPTIONS
+  ): readonly (string | null)[] => {
+    if (createOptions.length === 0) {
+      return []
+    }
+    if (createOptions.every(({ type }) => type === 'vector')) {
+      const parentId = createOptions[0].parentId ?? sceneTree.workspace
+      if (
+        !parentId ||
+        createOptions.some(
+          (elementOptions) =>
+            (elementOptions.parentId ?? sceneTree.workspace) !== parentId
+        )
+      ) {
+        return createOptions.map(() => null)
+      }
+      return (
+        vectorApis.createVectorElementsInParent(
+          createOptions,
+          parentId,
+          options
+        ) ?? createOptions.map(() => null)
+      )
+    }
+    return createOptions.map((elementOptions) =>
+      elementApis.createElement(elementOptions, options)
+    )
   },
 
   createElement: (
@@ -658,10 +624,7 @@ export const elementApis = {
     geometry: Partial<ElementBounds>,
     options?: EVENT_OPTIONS
   ) => {
-    runTransaction(() => {
-      core.changeComputedData([elementId], geometry, options)
-      normalizeGroupsForElements(core, [elementId], options)
-    })
+    applyElementPropertyUpdate([elementId], geometry, options)
   },
 
   normalizeGroupGeometryForElements: (
@@ -686,6 +649,11 @@ export const elementApis = {
     }
 
     runTransaction(() => {
+      const propertyUpdates: {
+        elementId: string
+        values: PositionData
+      }[] = []
+
       entries.forEach(([elementId, position]) => {
         if (
           typeof position?.x !== 'number' ||
@@ -706,20 +674,18 @@ export const elementApis = {
           return
         }
 
-        if (elementApis.getElementType(elementId) === 'vector') {
-          vectorApis.setVectorElementPosition(elementId, position, options)
-          return
-        }
-
-        core.changeComputedData(
-          [elementId],
-          {
+        propertyUpdates.push({
+          elementId,
+          values: {
             x: position.x,
             y: position.y
-          },
-          options
-        )
+          }
+        })
       })
+
+      if (propertyUpdates.length > 0) {
+        core.updateElementProperties(propertyUpdates, options)
+      }
     })
   },
 
@@ -747,7 +713,12 @@ export const elementApis = {
     )
   },
 
-  changeComputedData: applyComputedDataChange,
+  updateElementProperties: applyElementPropertyUpdate,
+
+  patchElementProperties: (
+    patches: readonly ElementPropertyPatchUpdate[],
+    options?: EVENT_OPTIONS
+  ) => runTransaction(() => core.patchElementProperties(patches, options)),
 
   ...vectorApis
 }

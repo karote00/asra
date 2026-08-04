@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
-import { Render } from '../render'
+import { Render } from '../render.js'
 import {
   createCanvasPipelineDebuggerAdapter,
   createCanvasPipelineDebuggerOverlay,
   type CanvasPipelineDebuggerAdapter
-} from '../canvas-pipeline-debugger'
-import { RenderContainer, RenderGraphics } from '../types/render-object'
-import { isCanvasPipelineDebuggerOwned } from '../diagnostics/canvas-pipeline'
+} from '../canvas-pipeline-debugger/index.js'
+import { RenderContainer, RenderGraphics } from '../types/render-object.js'
+import { isCanvasPipelineDebuggerOwned } from '../diagnostics/canvas-pipeline.js'
 
 const createAdapter = (
   name: string,

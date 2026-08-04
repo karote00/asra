@@ -1,14 +1,14 @@
 import {
   VECTOR_COMPONENT_DEFINITIONS,
   VECTOR_RENDER_STRATEGY_REGISTRATIONS
-} from '../../components'
-import type { PresetDefaultInstallContext } from '../types'
+} from '../../components/index.js'
+import type { PresetDefaultInstallContext } from '../types.js'
 import {
   acquireFrameworkEvents,
   acquireRenderSceneProjection,
   acquireVectorProperties,
   installComponentsAndStrategies
-} from '../installation'
+} from '../installation.js'
 
 export const installVectorDefault = (
   context: PresetDefaultInstallContext

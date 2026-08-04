@@ -1,8 +1,8 @@
-import inputSystem, { InputSystem } from './input-system'
-import { InputSystemRegistry } from './registry'
-import { InputEventCombo } from './event-mappings'
-import keyMap from './keymap'
-import { initInputSystemSubscribe } from './subscribe'
+import inputSystem, { InputSystem } from './input-system.js'
+import { InputSystemRegistry } from './registry.js'
+import { InputEventCombo } from './event-mappings.js'
+import keyMap from './keymap.js'
+import { initInputSystemSubscribe } from './subscribe.js'
 
 initInputSystemSubscribe()
 

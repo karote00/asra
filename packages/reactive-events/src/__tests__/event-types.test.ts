@@ -3,7 +3,7 @@ import {
   EventTypes,
   SceneTreeEventTypes,
   TransactionEventTypes
-} from '../types'
+} from '../types.js'
 
 describe('Event Types - System Communication Contract', () => {
   describe('scene tree events', () => {

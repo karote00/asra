@@ -1,10 +1,10 @@
 import {
   transformGeometryPoint,
   type GeometryTransformMatrix
-} from './geometry'
-import type { Rect } from './viewport'
+} from './geometry.js'
+import type { Rect } from './viewport.js'
 
-export type { GeometryTransformMatrix } from './geometry'
+export type { GeometryTransformMatrix } from './geometry.js'
 
 export type GeometryBounds = Rect
 

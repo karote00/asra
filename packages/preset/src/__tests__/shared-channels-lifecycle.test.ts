@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import core, * as coreFacade from '@asyra/core'
 import { SharedDataChannelNames } from '@asyra/utils'
-import { registerDefaultSharedDataChannels } from '../subscriptions'
+import { registerDefaultSharedDataChannels } from '../subscriptions/index.js'
 
 const channelNames = [
   SharedDataChannelNames.SCENE_TREE,

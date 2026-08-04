@@ -7,12 +7,12 @@ import {
   VECTOR_EDITING_SELECTED_SEGMENT_STROKE,
   getVisibleHandleAnchorIds,
   resolveOverlayHandlePosition
-} from '../render-layers/vector-path-editing-render-layer'
+} from '../render-layers/vector-path-editing-render-layer.js'
 import {
   SELECTION_OVERLAY_STROKE_WIDTH,
   SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH,
   projectWorkspacePointToOverlayScreen
-} from '../render-layers/selection-overlay-render-layer'
+} from '../render-layers/selection-overlay-render-layer.js'
 
 const penToolFeatureSource = () =>
   readFileSync(

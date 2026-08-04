@@ -24,12 +24,12 @@ import type {
   PropertyRegistration,
   PropertyValue
 } from '@asyra/ui-context'
-import type { PresetCoreAPIs } from '../types'
+import type { PresetCoreAPIs } from '../types.js'
 import {
   createPresetPropertyDependencies,
   createPresetRegistration
-} from '../registration'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
+} from '../registration.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
 

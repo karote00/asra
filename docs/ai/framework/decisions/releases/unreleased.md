@@ -2173,3 +2173,36 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending
+
+## 2026-08-05 - Close Framework Release Gate 5 as pre-publication READY
+
+- Context:
+  - The first-release package set, public API boundaries, optional
+    Collaboration and AI side-effect contracts, generated Asyra Design
+    template, support records, and retained Gate 1 through Gate 4 authorities
+    required one artifact-only release audit.
+  - Node.js 20 CI built and validated all release packages, installed only
+    project-local packed artifacts into isolated consumers, ran the generated
+    template, and passed the formal and E2E gates.
+- Decision:
+  - Record Framework `0.2.5` pre-publication artifact readiness as `READY` with
+    no unresolved P0/P1/P2 finding.
+  - Close Gate 5 under completed plans while retaining the release-readiness
+    Inspector as architecture authority.
+  - Keep artifact readiness distinct from merge, Node.js 24 migration, public
+    registry availability, registry publication, deployment, create-app
+    release, and formal release authority.
+- Consequences:
+  - All 19 public Framework packages have one frozen artifact owner and
+    reproducible metadata, declaration, import, clean-consumer, and template
+    evidence.
+  - `PLANS.md` has no active Framework Release Gate.
+  - Separately authorized plans own Node.js 24 validation, initial `0.2.5`
+    publication for never-published packages, synchronized patch bumps,
+    registry-backed consumer proof, and create-app publication.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md`
+- Related Inspector:
+  - `docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs`
+- Related Pull Request:
+  - [#106](https://github.com/karote00/asyra/pull/106)

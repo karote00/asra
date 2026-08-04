@@ -1,6 +1,14 @@
 {
   "src": "apps/asyra-design",
   "dest": "create-app/asyra-design/template",
+  "readme": "apps/asyra-design/TEMPLATE.md",
+  "environment": {
+    "APP_URL": "http://localhost:3000",
+    "COLLABORATION_WS_HOST": "127.0.0.1",
+    "COLLABORATION_WS_PORT": "4101",
+    "DOCUMENT_PERSISTENCE_BACKEND_URL": "http://127.0.0.1:4201",
+    "VITE_COLLABORATION_WS_URL": ""
+  },
   "cleanFiles": [
     "node_modules",
     "yarn.lock",

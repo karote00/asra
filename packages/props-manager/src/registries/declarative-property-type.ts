@@ -10,10 +10,10 @@ import {
   type PropertyValueKind,
   type Unit
 } from '@asyra/utils'
-import { BasePropertyComponent } from '../components'
-import type { PropertyComponentConstructor } from '../components'
-import propsManager, { PropsManager } from '../manager/props-manager'
-import type { PropertyComponentAccessor } from '../manager/component-accessor'
+import { BasePropertyComponent } from '../components/index.js'
+import type { PropertyComponentConstructor } from '../components/index.js'
+import propsManager, { PropsManager } from '../manager/props-manager.js'
+import type { PropertyComponentAccessor } from '../manager/component-accessor.js'
 import {
   clonePropertyComponentConfigRegistration,
   getPropertyComponent,
@@ -24,19 +24,19 @@ import {
   resolvePropertyComponentConfigRoles,
   restorePropertyComponentAfterFailedDeclarativeCommit,
   type PropertyComponentConfigRegistration
-} from './property-component'
+} from './property-component.js'
 import {
   clonePropertyDefinitionRecord,
   clonePropertyDefinitionValue
-} from './property-definition-value'
-import { PropertyRegistrationError } from './property-registration'
+} from './property-definition-value.js'
+import { PropertyRegistrationError } from './property-registration.js'
 import {
   getPropertySchema,
   propertySchemaRegistry,
   registerPropertySchema,
   restorePropertySchemaAfterFailedDeclarativeCommit
-} from './property-schema'
-import { matchesPropertyValueKind } from './property-value-kind'
+} from './property-schema.js'
+import { matchesPropertyValueKind } from './property-value-kind.js'
 
 export interface PropertyTypeFieldDefinition<T = unknown> {
   readonly key: string

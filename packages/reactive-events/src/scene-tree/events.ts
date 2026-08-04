@@ -15,7 +15,7 @@ import type {
   SubtreeChange,
   UpdateElementBatchChange
 } from '@asyra/utils'
-import { EventTypes } from '../types'
+import { EventTypes } from '../types.js'
 
 export interface SceneTreeInitEvent {
   type: EventTypes

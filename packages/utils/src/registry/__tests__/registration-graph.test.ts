@@ -5,7 +5,7 @@ import {
   getRegistrationRefKey,
   type RegistrationNodeDefinition,
   type RegistrationRef
-} from '../registration-graph'
+} from '../registration-graph.js'
 
 const ref = (kind: string, key: string): RegistrationRef => ({ kind, key })
 

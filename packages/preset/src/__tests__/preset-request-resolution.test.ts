@@ -1,15 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { PresetCatalog } from '../catalog'
+import { PresetCatalog } from '../catalog.js'
 import {
   PresetDefaults,
   PresetProfiles,
   PRESET_APPLY_ERROR_CODES
-} from '../constants'
-import { PresetApplyError } from '../composition/error'
-import { resolvePresetRequest } from '../composition/resolve'
-import type { ApplyPresetOptions, PresetCoreAPIs } from '../types'
+} from '../constants.js'
+import { PresetApplyError } from '../composition/error.js'
+import { resolvePresetRequest } from '../composition/resolve.js'
+import type { ApplyPresetOptions, PresetCoreAPIs } from '../types.js'
 
 const allDefaults = [
   PresetDefaults.BASIC_SHAPES,

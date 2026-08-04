@@ -6,7 +6,7 @@ import type {
   Unit
 } from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import BasePropertyComponent from '../components/base'
+import BasePropertyComponent from '../components/base.js'
 import {
   commitDeclarativePropertyTypeDefinition,
   getDeclarativePropertyTypeDefinition,
@@ -21,8 +21,8 @@ import {
   registerPropertySchema,
   type PropertyComponentConfigRegistration,
   type PropertyTypeDefinition
-} from '../index'
-import { PropsManager } from '../manager/props-manager'
+} from '../index.js'
+import { PropsManager } from '../manager/props-manager.js'
 
 const TYPE = 'test-declarative-property'
 const CHILD_TYPE = 'test-child-property'

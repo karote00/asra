@@ -1,5 +1,5 @@
-import { AiActionBatchContractError } from './action-batch'
-import { AiProviderError, type AiProviderErrorCode } from './provider'
+import { AiActionBatchContractError } from './action-batch.js'
+import { AiProviderError, type AiProviderErrorCode } from './provider.js'
 
 export interface AiProviderRequestFailure {
   readonly attempt: number

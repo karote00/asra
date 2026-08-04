@@ -1,9 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  createTestDocumentURL,
   createRectangle,
+  getCoreDocumentDigest,
   getContentsPanel,
+  getCurrentDocumentFileId,
+  getPersistedDocumentDigest,
   pressGroupCommandShortcut,
-  readPersistedDocument,
   redo,
   resetCanvas,
   undo,
@@ -22,12 +25,17 @@ const getVisibleLayerIds = async (page: Page): Promise<string[]> =>
 
 const getSelectedIds = (page: Page): Promise<string[]> =>
   page.evaluate(
-    () => window.__Core__?.deps.selection.getElementSelectionIds() ?? []
+    async () =>
+      (
+        await import('../src/testing/runtime-access')
+      ).core?.deps.selection.getElementSelectionIds() ?? []
   )
 
 const getChildren = (page: Page, parentId: string): Promise<string[]> =>
-  page.evaluate((id) => {
-    const element = window.__Core__.deps.sceneTree.getElementById(id)
+  page.evaluate(async (id) => {
+    const element = (
+      await import('../src/testing/runtime-access')
+    ).core.deps.sceneTree.getElementById(id)
     return [...((element?.get('children') as string[] | undefined) ?? [])]
   }, parentId)
 
@@ -35,7 +43,7 @@ const getWorldPositions = (
   page: Page,
   elementIds: string[]
 ): Promise<Record<string, { x: number; y: number }>> =>
-  page.evaluate((ids) => {
+  page.evaluate(async (ids) => {
     const positions: Record<string, { x: number; y: number }> = {}
     for (const elementId of ids) {
       let currentId = elementId
@@ -47,7 +55,9 @@ const getWorldPositions = (
           throw new Error(`Hierarchy cycle reaches "${currentId}"`)
         }
         visited.add(currentId)
-        const element = window.__Core__.deps.sceneTree.getElementById(currentId)
+        const element = (
+          await import('../src/testing/runtime-access')
+        ).core.deps.sceneTree.getElementById(currentId)
         if (!element) {
           throw new Error(`Missing hierarchy element "${currentId}"`)
         }
@@ -129,7 +139,7 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
   test('moves canonical identities through Layers pointer interactions without canvas jump', async ({
     page
   }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
 
@@ -142,8 +152,8 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
     const [firstId, secondId, thirdId] = initialIds
     const worldBefore = await getWorldPositions(page, initialIds)
 
-    await page.evaluate((ids) => {
-      const core = window.__Core__
+    await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       ;(
         window as typeof window & {
           __LayerMoveIdentity?: {
@@ -233,8 +243,8 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       thirdId
     ])
 
-    const identity = await page.evaluate((ids) => {
-      const core = window.__Core__
+    const identity = await page.evaluate(async (ids) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const stored = (
         window as typeof window & {
           __LayerMoveIdentity?: {
@@ -282,31 +292,37 @@ test.describe('Asyra Design Layer Tree reparent and reorder', () => {
       'idle'
     )
 
-    const beforeReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
+    const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
-      .poll(async () =>
-        JSON.stringify(await readPersistedDocument(page)).includes(groupId)
+      .poll(() =>
+        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
       )
-      .toBe(true)
-    await page.reload()
-    await waitForAppReady(page)
-    const afterReload = await page.evaluate(async () => {
-      const data = await window.__Core__.save()
-      return data.sceneTree
-    })
-    expect(afterReload).toEqual(beforeReload)
-    expect(await getChildren(page, groupId)).toEqual(orderBeforeCancel)
-    expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
-
-    await page.evaluate(() => {
+      .toEqual(finalDocumentDigest)
+    await page.evaluate(async () => {
       delete (
         window as typeof window & {
           __LayerMoveIdentity?: unknown
         }
       ).__LayerMoveIdentity
     })
+
+    await page.reload()
+    await waitForAppReady(page)
+    expect(await getSelectedIds(page)).toEqual([])
+    await expect
+      .poll(() => getChildren(page, groupId))
+      .toEqual([firstId, secondId, thirdId])
+    expect(
+      await page.evaluate(
+        async (ids) => {
+          const { core } = await import('../src/testing/runtime-access')
+          return ids.every((id) =>
+            Boolean(core.deps.sceneTree.getElementById(id))
+          )
+        },
+        [...initialIds, groupId]
+      )
+    ).toBe(true)
+    expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
   })
 })

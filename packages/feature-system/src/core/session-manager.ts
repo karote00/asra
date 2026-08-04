@@ -5,7 +5,7 @@ import type {
   SessionHandler,
   SessionParticipant,
   SessionState
-} from '../types/feature'
+} from '../types/feature.js'
 import {
   measureBrowserDragAsyncPhase,
   type SystemContextSnapshot,
@@ -13,7 +13,7 @@ import {
   type TransactionFailure
 } from '@asyra/utils'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
-import { interactionQueue } from './interaction-queue'
+import { interactionQueue } from './interaction-queue.js'
 
 const DEFAULT_HANDLER_TIMEOUT_MS = 5000
 

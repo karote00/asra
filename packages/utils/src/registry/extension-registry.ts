@@ -1,5 +1,5 @@
-import { MapRegistry } from './map-registry'
-import type { RegistrationOwnerMetadata } from './registration-owner'
+import { MapRegistry } from './map-registry.js'
+import type { RegistrationOwnerMetadata } from './registration-owner.js'
 
 export const EXTENSION_STRATEGIES = ['before', 'after', 'append'] as const
 

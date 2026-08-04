@@ -5,49 +5,52 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type FormEvent
+  type FormEvent,
+  type SyntheticEvent
 } from 'react'
 import type {
-  AsyraDesignAiConfirmationBroker,
-  AsyraDesignAiConfirmationSnapshot
+  AiConfirmationBroker,
+  AiConfirmationSnapshot
 } from '../ai/confirmation'
 import type {
-  AsyraDesignAiConversationController,
-  AsyraDesignAiConversationSnapshot,
-  AsyraDesignAiImageAttachment,
-  AsyraDesignAiImageMediaType
+  AiConversationController,
+  AiConversationSnapshot,
+  AiImageAttachment,
+  AiImageMediaType
 } from '../ai/conversation'
 import {
-  projectAsyraDesignAiDrawingDetailChoice,
-  summarizeAsyraDesignAiTurn,
-  type AsyraDesignAiDrawingDetailChoice,
-  type AsyraDesignAiDrawingDetailOptionId
+  projectAiDrawingDetailChoice,
+  summarizeAiTurn,
+  type AiDrawingDetailChoice,
+  type AiDrawingDetailOptionId
 } from '../ai/presentation'
 import {
-  AsyraDesignAiDrawingDetailOptionIds,
-  AsyraDesignAiDrawingDetailSelectionIntents
+  AiDrawingDetailOptionIds,
+  AiDrawingDetailSelectionIntents,
+  AiDocumentInteractionTargetProps
 } from '../constants'
 
-const ACCEPTED_IMAGE_TYPES = new Set<AsyraDesignAiImageMediaType>([
+const ACCEPTED_IMAGE_TYPES = new Set<AiImageMediaType>([
   'image/jpeg',
   'image/png',
   'image/webp'
 ])
 
 const DRAWING_DETAIL_SELECTION_INTENTS: Readonly<
-  Record<AsyraDesignAiDrawingDetailOptionId, string>
+  Record<AiDrawingDetailOptionId, string>
 > = Object.freeze({
-  [AsyraDesignAiDrawingDetailOptionIds.BALANCED]:
-    AsyraDesignAiDrawingDetailSelectionIntents.BALANCED_ZH,
-  [AsyraDesignAiDrawingDetailOptionIds.MAXIMUM]:
-    AsyraDesignAiDrawingDetailSelectionIntents.MAXIMUM_ZH
+  [AiDrawingDetailOptionIds.BALANCED]:
+    AiDrawingDetailSelectionIntents.BALANCED_ZH,
+  [AiDrawingDetailOptionIds.MAXIMUM]: AiDrawingDetailSelectionIntents.MAXIMUM_ZH
 })
 
-const readImageAttachment = (
-  file: File
-): Promise<AsyraDesignAiImageAttachment> =>
+const stopAgentCancelActivationPropagation = (event: SyntheticEvent): void => {
+  event.stopPropagation()
+}
+
+const readImageAttachment = (file: File): Promise<AiImageAttachment> =>
   new Promise((resolve, reject) => {
-    const mediaType = file.type as AsyraDesignAiImageMediaType
+    const mediaType = file.type as AiImageMediaType
     const reader = new FileReader()
     reader.onerror = () => {
       reject(new Error('image-read-failed'))
@@ -76,7 +79,7 @@ const ImageAttachmentStrip = ({
   attachments,
   onRemove
 }: {
-  readonly attachments: readonly AsyraDesignAiImageAttachment[]
+  readonly attachments: readonly AiImageAttachment[]
   readonly onRemove?: (index: number) => void
 }) => (
   <ul
@@ -112,7 +115,7 @@ const DrawingDetailChoiceCard = ({
   choice,
   onChoose
 }: {
-  readonly choice: AsyraDesignAiDrawingDetailChoice
+  readonly choice: AiDrawingDetailChoice
   readonly onChoose?: () => void
 }) => {
   const content = (
@@ -163,8 +166,8 @@ const DrawingDetailChoiceCard = ({
 }
 
 export interface AiConversationPanelProps {
-  readonly confirmation: AsyraDesignAiConfirmationBroker
-  readonly conversation: AsyraDesignAiConversationController
+  readonly confirmation: AiConfirmationBroker
+  readonly conversation: AiConversationController
   readonly onClose: () => void
 }
 
@@ -178,18 +181,14 @@ export const AiConversationPanel = ({
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const [draft, setDraft] = useState('')
   const [draftAttachments, setDraftAttachments] = useState<
-    readonly AsyraDesignAiImageAttachment[]
+    readonly AiImageAttachment[]
   >([])
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [draggingImages, setDraggingImages] = useState(false)
   const [conversationSnapshot, setConversationSnapshot] =
-    useState<AsyraDesignAiConversationSnapshot>(() =>
-      conversation.getSnapshot()
-    )
+    useState<AiConversationSnapshot>(() => conversation.getSnapshot())
   const [confirmationSnapshot, setConfirmationSnapshot] =
-    useState<AsyraDesignAiConfirmationSnapshot>(() =>
-      confirmation.getSnapshot()
-    )
+    useState<AiConfirmationSnapshot>(() => confirmation.getSnapshot())
 
   useEffect(
     () => conversation.subscribe(setConversationSnapshot),
@@ -219,7 +218,7 @@ export const AiConversationPanel = ({
       }
       const selectedFiles = Array.from(files)
       const acceptedFiles = selectedFiles.filter((file) =>
-        ACCEPTED_IMAGE_TYPES.has(file.type as AsyraDesignAiImageMediaType)
+        ACCEPTED_IMAGE_TYPES.has(file.type as AiImageMediaType)
       )
       setAttachmentError(
         acceptedFiles.length === selectedFiles.length
@@ -298,8 +297,8 @@ export const AiConversationPanel = ({
   const submitDrawingDetailChoice = useCallback(
     (
       turnId: string,
-      attachments: readonly AsyraDesignAiImageAttachment[],
-      optionId: AsyraDesignAiDrawingDetailOptionId
+      attachments: readonly AiImageAttachment[],
+      optionId: AiDrawingDetailOptionId
     ) => {
       const snapshot = conversation.getSnapshot()
       const latestSettled =
@@ -372,9 +371,8 @@ export const AiConversationPanel = ({
         ) : null}
 
         {conversationSnapshot.settledTurns.map((turn, turnIndex) => {
-          const summary = summarizeAsyraDesignAiTurn(turn)
-          const drawingDetailChoice =
-            projectAsyraDesignAiDrawingDetailChoice(turn)
+          const summary = summarizeAiTurn(turn)
+          const drawingDetailChoice = projectAiDrawingDetailChoice(turn)
           const canChooseDrawingDetail =
             drawingDetailChoice !== null &&
             turnIndex === conversationSnapshot.settledTurns.length - 1 &&
@@ -635,9 +633,21 @@ export const AiConversationPanel = ({
           <div className="flex items-center gap-2">
             {active ? (
               <button
+                {...AiDocumentInteractionTargetProps.AGENT_CANCEL}
                 aria-label="Cancel request"
                 className="rounded-md border border-[#6c4d4d] bg-[#382727] px-3 py-1.5 text-[10px] text-[#ffb8b8] hover:bg-[#472e2e]"
-                onClick={() => conversation.cancel('user-cancelled')}
+                onClick={(event) => {
+                  stopAgentCancelActivationPropagation(event)
+                  conversation.cancel('user-cancelled')
+                }}
+                onKeyDown={stopAgentCancelActivationPropagation}
+                onKeyUp={stopAgentCancelActivationPropagation}
+                onMouseDown={stopAgentCancelActivationPropagation}
+                onMouseUp={stopAgentCancelActivationPropagation}
+                onPointerDown={stopAgentCancelActivationPropagation}
+                onPointerUp={stopAgentCancelActivationPropagation}
+                onTouchEnd={stopAgentCancelActivationPropagation}
+                onTouchStart={stopAgentCancelActivationPropagation}
                 type="button"
               >
                 Cancel

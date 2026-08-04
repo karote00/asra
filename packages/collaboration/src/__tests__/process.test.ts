@@ -10,7 +10,7 @@ import {
   type CreateCollaborationInput,
   type Provider
 } from '..'
-import { createSharedPublicationFixture } from './shared-publication-fixture'
+import { createSharedPublicationFixture } from './shared-publication-fixture.js'
 
 const publication: SharedPublication = createSharedPublicationFixture({
   mode: 'progressive',

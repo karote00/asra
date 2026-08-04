@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { componentRegistry } from '../component-registry'
+import { componentRegistry } from '../component-registry.js'
 
-import { ComponentRegistration } from '../component-registry'
+import { ComponentRegistration } from '../component-registry.js'
 
 // Mock constructor for testing
 class MockComponent {

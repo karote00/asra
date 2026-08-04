@@ -1,3 +1,3 @@
-export * from './capabilities'
-export * from './errors'
-export * from './types'
+export * from './capabilities.js'
+export * from './errors.js'
+export * from './types.js'

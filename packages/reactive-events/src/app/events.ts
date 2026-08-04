@@ -5,7 +5,7 @@ import type {
   TransactionBoundaryPayload,
   TransactionStatusPayload
 } from '@asyra/utils'
-import type { EventTypes } from '../types'
+import type { EventTypes } from '../types.js'
 
 export interface RenderIsReadyEvent {
   type: EventTypes

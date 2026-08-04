@@ -12,14 +12,14 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import type { PositionData, RenderPointerPositions } from '@asyra/utils'
-import { RenderElementData, RenderContainerData } from './types'
-import { ViewportLayer } from './layers/viewport'
-import { RenderLayerRegistry } from './registries/render-layer'
-import type { RenderLayerRegistration } from './types/render-layer'
-import RenderInteractionBridge from './interaction/interaction-bridge'
-import RenderEngineInteractionBridge from './interaction/engine-interaction-bridge'
-import interactionTargetRegistry from './registries/interaction-target'
-import renderInteractionHandlerRegistry from './registries/render-interaction-handler'
+import { RenderElementData, RenderContainerData } from './types.js'
+import { ViewportLayer } from './layers/viewport/index.js'
+import { RenderLayerRegistry } from './registries/render-layer.js'
+import type { RenderLayerRegistration } from './types/render-layer.js'
+import RenderInteractionBridge from './interaction/interaction-bridge.js'
+import RenderEngineInteractionBridge from './interaction/engine-interaction-bridge.js'
+import interactionTargetRegistry from './registries/interaction-target.js'
+import renderInteractionHandlerRegistry from './registries/render-interaction-handler.js'
 import {
   CanvasPipelineEvidenceKinds,
   hasCanvasPipelineEvidenceSubscribers,
@@ -27,23 +27,23 @@ import {
   publishCanvasPipelineEvidence,
   snapshotCanvasPipelineCommand,
   snapshotCanvasPipelineValue
-} from './diagnostics/canvas-pipeline'
+} from './diagnostics/canvas-pipeline.js'
 import type { RenderEngineCommand } from '@asyra/render-engine'
 import {
   RenderContainer,
   RenderGraphics,
   type RenderNode,
   RenderObjectRuntime
-} from './types/render-object'
+} from './types/render-object.js'
 import type {
   RenderInteractionTarget,
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
-} from './types/render-interaction'
+} from './types/render-interaction.js'
 import {
   InvalidRenderEngineProviderResultError,
   MissingRenderEngineProviderError
-} from './errors'
+} from './errors.js'
 
 const isPointerSurface = (value: unknown): value is HTMLCanvasElement =>
   typeof value === 'object' &&

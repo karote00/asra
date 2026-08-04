@@ -1,25 +1,29 @@
-import type { AiActionBatch } from '@asyra/ai-agent-runtime'
+import type { AiProvider } from '@asyra/ai-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignAiRuntimeInput } from '../runtime-input'
+import { AiActionNames } from '../actions'
+import { createAiRuntimeInput } from '../runtime-input'
 
-describe('Asyra Design AI runtime input', () => {
-  it('composes one fixed action-batch runtime input without product modes', () => {
-    const batch: AiActionBatch = {
-      actions: [],
-      batchId: 'runtime-input'
-    }
-    const provider = {
-      requestActionBatch: vi.fn(async () => batch)
+describe('Asyra Design Agent runtime input', () => {
+  it('builds one concrete server-provider runtime input without a delivery mode', () => {
+    const provider: AiProvider = {
+      requestActionBatch: vi.fn()
     }
 
-    const input = createAsyraDesignAiRuntimeInput({
-      permissionRules: {},
+    const input = createAiRuntimeInput({
+      permissionRules: {
+        [AiActionNames.INSERT_VECTOR_COMPOSITION]: 'allow'
+      },
       provider
     })
 
     expect(input.provider).toBe(provider)
-    expect(input.actionDefinitions).toEqual(expect.any(Array))
+    expect(input.actionDefinitions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: AiActionNames.INSERT_VECTOR_COMPOSITION
+        })
+      ])
+    )
     expect(input).not.toHaveProperty('deliveryMode')
-    expect(input).not.toHaveProperty('providerEnabled')
   })
 })

@@ -1,4 +1,4 @@
-import BasePropertyComponent from './base'
+import BasePropertyComponent from './base.js'
 import type {
   PropertyComponentRawData,
   PropertyComponentInstanceTypes

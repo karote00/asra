@@ -1,6 +1,6 @@
-import { registerDefaultRenderSystemSubscriptions } from '../../subscriptions'
-import { registerViewportProperties } from '../../ui/register-properties'
-import type { PresetDefaultInstallContext } from '../types'
+import { registerDefaultRenderSystemSubscriptions } from '../../subscriptions/index.js'
+import { registerViewportProperties } from '../../ui/register-properties.js'
+import type { PresetDefaultInstallContext } from '../types.js'
 
 export const installViewportDefault = (
   context: PresetDefaultInstallContext

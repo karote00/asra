@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EntityTypes, type Bounds } from '@asyra/utils'
-import { Core } from '../../core'
+import { Core } from '../../core.js'
 
 interface TestElement {
   id: string

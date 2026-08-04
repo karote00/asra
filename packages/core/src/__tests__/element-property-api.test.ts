@@ -7,7 +7,7 @@ import type {
   ResolvedElementPropertyTargets,
   ElementPropertyTargetRequest
 } from '@asyra/scene-tree'
-import { createElementPropertyAPIs } from '../apis/element-properties'
+import { createElementPropertyAPIs } from '../apis/element-properties.js'
 
 const emptyPreparedProps: PreparedPropertyMutationBatch = Object.freeze({
   kind: 'prepared-property-mutation-batch',

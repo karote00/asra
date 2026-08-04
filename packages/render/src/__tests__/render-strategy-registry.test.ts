@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderStrategyRegistry } from '../registries/render-strategy'
-import type { RenderStrategy } from '../types/render-strategy'
-import type { RenderGraphics } from '../types/render-object'
-import type { RenderElementData } from '../types'
+import { renderStrategyRegistry } from '../registries/render-strategy.js'
+import type { RenderStrategy } from '../types/render-strategy.js'
+import type { RenderGraphics } from '../types/render-object.js'
+import type { RenderElementData } from '../types.js'
 
 describe('RenderStrategyRegistry', () => {
   beforeEach(() => {

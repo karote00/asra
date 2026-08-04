@@ -2,24 +2,24 @@ import { Buffer } from 'node:buffer'
 import { createRequire } from 'node:module'
 import { Worker } from 'node:worker_threads'
 
-export const ASYRA_DESIGN_VTRACER_ENDPOINT = '/api/ai-tools/vtracer'
+export const VTRACER_ENDPOINT = '/api/ai-tools/vtracer'
 
 const require = createRequire(import.meta.url)
 const vtracerModulePath = require.resolve('@visioncortex/vtracer')
 const acceptedContentTypes = new Set(['image/jpeg', 'image/png'])
 
-export class AsyraDesignVTracerServerError extends Error {
+export class VTracerServerError extends Error {
   constructor(code, message) {
     super(message)
-    this.name = 'AsyraDesignVTracerServerError'
+    this.name = 'VTracerServerError'
     this.code = code
   }
 }
 
 const optionsForProfile = (profile) => {
   if (profile !== 'photo-faithful') {
-    throw new AsyraDesignVTracerServerError(
-      'ASYRA_DESIGN_VTRACER_INVALID_INPUT',
+    throw new VTracerServerError(
+      'VTRACER_INVALID_INPUT',
       'VTracer profile is invalid.'
     )
   }
@@ -72,8 +72,8 @@ const convertInWorker = (bytes, options, signal) =>
       void worker.terminate()
       settle(() =>
         reject(
-          new AsyraDesignVTracerServerError(
-            'ASYRA_DESIGN_VTRACER_ABORTED',
+          new VTracerServerError(
+            'VTRACER_ABORTED',
             'VTracer conversion was aborted.'
           )
         )
@@ -89,8 +89,8 @@ const convertInWorker = (bytes, options, signal) =>
           typeof message.svg !== 'string'
         ) {
           reject(
-            new AsyraDesignVTracerServerError(
-              'ASYRA_DESIGN_VTRACER_FAILED',
+            new VTracerServerError(
+              'VTRACER_FAILED',
               'VTracer conversion failed.'
             )
           )
@@ -102,10 +102,7 @@ const convertInWorker = (bytes, options, signal) =>
     worker.once('error', () => {
       settle(() =>
         reject(
-          new AsyraDesignVTracerServerError(
-            'ASYRA_DESIGN_VTRACER_FAILED',
-            'VTracer conversion failed.'
-          )
+          new VTracerServerError('VTRACER_FAILED', 'VTracer conversion failed.')
         )
       )
     })
@@ -113,8 +110,8 @@ const convertInWorker = (bytes, options, signal) =>
       if (code !== 0) {
         settle(() =>
           reject(
-            new AsyraDesignVTracerServerError(
-              'ASYRA_DESIGN_VTRACER_FAILED',
+            new VTracerServerError(
+              'VTRACER_FAILED',
               'VTracer conversion failed.'
             )
           )
@@ -123,15 +120,15 @@ const convertInWorker = (bytes, options, signal) =>
     })
   })
 
-export const convertAsyraDesignVTracerBuffer = async ({
+export const convertVTracerBuffer = async ({
   bytes,
   contentType,
   profile,
   signal
 }) => {
   if (signal.aborted) {
-    throw new AsyraDesignVTracerServerError(
-      'ASYRA_DESIGN_VTRACER_ABORTED',
+    throw new VTracerServerError(
+      'VTRACER_ABORTED',
       'VTracer conversion was aborted.'
     )
   }
@@ -140,8 +137,8 @@ export const convertAsyraDesignVTracerBuffer = async ({
     !(bytes instanceof Uint8Array) ||
     bytes.byteLength === 0
   ) {
-    throw new AsyraDesignVTracerServerError(
-      'ASYRA_DESIGN_VTRACER_INVALID_INPUT',
+    throw new VTracerServerError(
+      'VTRACER_INVALID_INPUT',
       'VTracer request is invalid.'
     )
   }
@@ -157,18 +154,15 @@ const sendJson = (response, statusCode, code) => {
   response.end(JSON.stringify({ code }))
 }
 
-export const createAsyraDesignVTracerMiddleware =
+export const createVTracerMiddleware =
   () => async (request, response, next) => {
-    const url = new globalThis.URL(
-      request.url ?? '/',
-      'http://asyra-design.local'
-    )
-    if (url.pathname !== ASYRA_DESIGN_VTRACER_ENDPOINT) {
+    const url = new globalThis.URL(request.url ?? '/', 'http://app.local')
+    if (url.pathname !== VTRACER_ENDPOINT) {
       next()
       return
     }
     if (request.method !== 'POST') {
-      sendJson(response, 405, 'ASYRA_DESIGN_VTRACER_METHOD_NOT_ALLOWED')
+      sendJson(response, 405, 'VTRACER_METHOD_NOT_ALLOWED')
       return
     }
 
@@ -195,7 +189,7 @@ export const createAsyraDesignVTracerMiddleware =
       const profile = Array.isArray(profileHeader)
         ? profileHeader[0]
         : profileHeader
-      const svg = await convertAsyraDesignVTracerBuffer({
+      const svg = await convertVTracerBuffer({
         bytes: Buffer.concat(chunks),
         contentType,
         profile,
@@ -208,17 +202,17 @@ export const createAsyraDesignVTracerMiddleware =
       }
     } catch (error) {
       if (
-        error instanceof AsyraDesignVTracerServerError &&
-        error.code === 'ASYRA_DESIGN_VTRACER_ABORTED'
+        error instanceof VTracerServerError &&
+        error.code === 'VTRACER_ABORTED'
       ) {
         sendJson(response, 499, error.code)
       } else if (
-        error instanceof AsyraDesignVTracerServerError &&
-        error.code === 'ASYRA_DESIGN_VTRACER_INVALID_INPUT'
+        error instanceof VTracerServerError &&
+        error.code === 'VTRACER_INVALID_INPUT'
       ) {
         sendJson(response, 400, error.code)
       } else {
-        sendJson(response, 422, 'ASYRA_DESIGN_VTRACER_FAILED')
+        sendJson(response, 422, 'VTRACER_FAILED')
       }
     } finally {
       request.removeListener('aborted', abort)

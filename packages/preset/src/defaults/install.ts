@@ -1,24 +1,24 @@
-import { PRESET_APPLY_ERROR_CODES, PresetDefaults } from '../constants'
-import { PresetApplyError } from '../composition/error'
+import { PRESET_APPLY_ERROR_CODES, PresetDefaults } from '../constants.js'
+import { PresetApplyError } from '../composition/error.js'
 import type {
   PresetCoreAPIs,
   PresetDefaultId,
   PresetDependencies
-} from '../types'
-import { installBasicShapesDefault } from './modules/basic-shapes'
-import { installContainersDefault } from './modules/containers'
-import { installVectorDefault } from './modules/vector'
-import { installInputDefault } from './modules/input'
-import { installSelectionDefault } from './modules/selection'
-import { installVectorEditingDefault } from './modules/vector-editing'
-import { installViewportDefault } from './modules/viewport'
-import { installUIContextDefault } from './modules/ui-context'
-import { createPrivatePrerequisiteManager } from './private-manager'
-import { createOwnedStateCleanup } from './owned-state'
+} from '../types.js'
+import { installBasicShapesDefault } from './modules/basic-shapes.js'
+import { installContainersDefault } from './modules/containers.js'
+import { installVectorDefault } from './modules/vector.js'
+import { installInputDefault } from './modules/input.js'
+import { installSelectionDefault } from './modules/selection.js'
+import { installVectorEditingDefault } from './modules/vector-editing.js'
+import { installViewportDefault } from './modules/viewport.js'
+import { installUIContextDefault } from './modules/ui-context.js'
+import { createPrivatePrerequisiteManager } from './private-manager.js'
+import { createOwnedStateCleanup } from './owned-state.js'
 import type {
   PresetDefaultInstallContext,
   RegisterPresetCleanup
-} from './types'
+} from './types.js'
 
 interface PresetDefaultModule {
   readonly id: PresetDefaultId

@@ -1,6 +1,6 @@
-import type { SwitchInputSystemWatchedElementEvent } from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+import type { SwitchInputSystemWatchedElementEvent } from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToSwitchInputSystemWatchedElement =
   createSubscribeEvent<SwitchInputSystemWatchedElementEvent>(

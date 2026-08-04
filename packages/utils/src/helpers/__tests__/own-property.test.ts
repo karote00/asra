@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { setOwnEnumerableValue } from '../own-property'
+import { setOwnEnumerableValue } from '../own-property.js'
 
 describe('setOwnEnumerableValue', () => {
   it('materializes special keys as writable enumerable own values', () => {

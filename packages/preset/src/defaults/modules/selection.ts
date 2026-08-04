@@ -1,13 +1,13 @@
-import { registerSelectionOverlayRenderLayer } from '../../render-layers'
-import { SelectionChannels } from '../../selection/channels'
-import { registerSelections } from '../../selection/register-default-selections'
-import { registerSelectionProperties } from '../../ui/register-properties'
-import type { PresetDefaultInstallContext } from '../types'
+import { registerSelectionOverlayRenderLayer } from '../../render-layers/index.js'
+import { SelectionChannels } from '../../selection/channels.js'
+import { registerSelections } from '../../selection/register-default-selections.js'
+import { registerSelectionProperties } from '../../ui/register-properties.js'
+import type { PresetDefaultInstallContext } from '../types.js'
 import {
   acquireFrameworkEvents,
   acquireSelectionProjection,
   registerTrackedRenderLayer
-} from '../installation'
+} from '../installation.js'
 
 export const installSelectionDefault = (
   context: PresetDefaultInstallContext

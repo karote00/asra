@@ -1,7 +1,7 @@
 import type {
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
-} from '../types/render-interaction'
+} from '../types/render-interaction.js'
 
 type InteractionHandlerMap = Record<
   string,

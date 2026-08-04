@@ -18,8 +18,8 @@ import {
   isFiniteNumber,
   Unit
 } from '@asyra/utils'
-import type { PresetCoreAPIs } from '../types'
-import { PRESET_REGISTRATION } from '../registration'
+import type { PresetCoreAPIs } from '../types.js'
+import { PRESET_REGISTRATION } from '../registration.js'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
 const isStringArray = (value: unknown) =>

@@ -1,6 +1,10 @@
-import type { Render } from './render'
-import render from './render'
-import type { IRenderer, RenderOptions, RenderResult } from './types/renderer'
+import type { Render } from './render.js'
+import render from './render.js'
+import type {
+  IRenderer,
+  RenderOptions,
+  RenderResult
+} from './types/renderer.js'
 
 let didWarnAboutPixiJSRenderer = false
 

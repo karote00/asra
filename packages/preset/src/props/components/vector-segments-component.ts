@@ -1,6 +1,6 @@
 import { VECTOR_TOPOLOGY_SEGMENT_ID_TYPE } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
-import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component'
+import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component.js'
 
 const toString = (value: unknown, defaultValue = '') =>
   typeof value === 'string' ? value : defaultValue

@@ -19,11 +19,11 @@ import {
   type SubtreeChange,
   type UpdateElementDataChange
 } from '@asyra/utils'
-import { SceneTree } from '../sceneTree'
-import Element from '../components/element'
-import Group from '../components/group'
-import type Workspace from '../components/workspace'
-import componentRegistry from '../component-registry'
+import { SceneTree } from '../sceneTree.js'
+import Element from '../components/element.js'
+import Group from '../components/group.js'
+import type Workspace from '../components/workspace.js'
+import componentRegistry from '../component-registry.js'
 
 const RAW_ELEMENT_TYPE = 'scene-raw-mutation-element'
 const RAW_GROUP_TYPE = 'scene-raw-mutation-group'

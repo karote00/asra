@@ -61,6 +61,10 @@ const targetEntries = [
   path.join(
     projectRoot,
     'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
+    'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html'
   )
 ]
 

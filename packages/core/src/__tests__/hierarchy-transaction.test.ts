@@ -32,7 +32,7 @@ import {
   type PropertyComponentRawData,
   type TransactionStatusPayload
 } from '@asyra/utils'
-import { Core } from '../core'
+import { Core } from '../core.js'
 
 const LEAF_TYPE = 'gate3-factory-leaf'
 const CONTAINER_TYPE = 'gate3-factory-container'

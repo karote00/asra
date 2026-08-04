@@ -11,7 +11,7 @@ import {
   type PropertyComponentRawData,
   type Unit
 } from '@asyra/utils'
-import { createPresetRegistration } from '../../registration'
+import { createPresetRegistration } from '../../registration.js'
 
 interface ChildrenMapAttrs {
   id: string

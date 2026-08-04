@@ -1,8 +1,8 @@
-import { SCENE_TREE_ACTIONS } from '../constants'
-import type { ElementRawData, GroupRawData } from '../sceneTree'
-import { DataTypes } from './constants'
-import type { MutationOptions } from './change'
-import type { YjsChange } from './yjs'
+import { SCENE_TREE_ACTIONS } from '../constants/index.js'
+import type { ElementRawData, GroupRawData } from '../sceneTree/index.js'
+import { DataTypes } from './constants.js'
+import type { MutationOptions } from './change.js'
+import type { YjsChange } from './yjs.js'
 
 export type SceneTreeDataOwner = 'raw' | 'computed'
 

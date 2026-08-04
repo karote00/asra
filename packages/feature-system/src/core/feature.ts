@@ -8,18 +8,18 @@ import type {
   FeatureDefinition,
   FeatureAPI,
   FeatureKeyMap
-} from '../types/feature'
-import type { CorePackages } from '../types/core-packages'
-import type { InputSystemLike } from '../types/core-packages'
-import { FeatureRegistry } from './feature-registry'
-import { SessionManager } from './session-manager'
-import executionRegistry from './execution-registry'
-import { interactionQueue } from './interaction-queue'
-import { featureTaskRegistry } from './feature-task-registry'
+} from '../types/feature.js'
+import type { CorePackages } from '../types/core-packages.js'
+import type { InputSystemLike } from '../types/core-packages.js'
+import { FeatureRegistry } from './feature-registry.js'
+import { SessionManager } from './session-manager.js'
+import executionRegistry from './execution-registry.js'
+import { interactionQueue } from './interaction-queue.js'
+import { featureTaskRegistry } from './feature-task-registry.js'
 import type {
   FeatureTaskHandler,
   InvokeFeatureTaskOptions
-} from '../types/task'
+} from '../types/task.js'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
@@ -412,5 +412,5 @@ export function cancelFeatureTask(
   return featureTaskRegistry.cancel(featureName, reason)
 }
 
-export { FeatureRegistry } from './feature-registry'
-export { SessionManager } from './session-manager'
+export { FeatureRegistry } from './feature-registry.js'
+export { SessionManager } from './session-manager.js'

@@ -2,14 +2,14 @@ import type {
   ApplyPresetOptions,
   PresetApplyResult,
   PresetCoreAPIs
-} from './types'
-import { PRESET_APPLY_ERROR_CODES } from './constants'
-import { resolvePresetRequest } from './composition/resolve'
-import { bindPresetProfileProvider } from './composition/profile-provider'
-import { createPresetApplyResult } from './composition/result'
-import { PresetApplyError } from './composition/error'
-import { installPresetDefaults } from './defaults/install'
-import type { RegisterPresetCleanup } from './defaults/types'
+} from './types.js'
+import { PRESET_APPLY_ERROR_CODES } from './constants.js'
+import { resolvePresetRequest } from './composition/resolve.js'
+import { bindPresetProfileProvider } from './composition/profile-provider.js'
+import { createPresetApplyResult } from './composition/result.js'
+import { PresetApplyError } from './composition/error.js'
+import { installPresetDefaults } from './defaults/install.js'
+import type { RegisterPresetCleanup } from './defaults/types.js'
 
 interface PresetCleanupEntry {
   readonly key: string

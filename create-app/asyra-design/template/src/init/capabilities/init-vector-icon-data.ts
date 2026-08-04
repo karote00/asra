@@ -1,12 +1,13 @@
 import {
+  EventTypes,
   type AddElementEvent,
+  type AllEvent,
   type RemoveElementEvent,
   subscribeToAddElement,
-  subscribeToChangeComputedData,
+  subscribeToEventBatches,
   subscribeToFileLoadComplete,
   subscribeToRemoveElement,
-  subscribeToSceneTreeLoadComplete,
-  subscribeToUpdateComputedData
+  subscribeToSceneTreeLoadComplete
 } from '@asyra/reactive-events'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core, { sceneTree } from '../../contexts'
@@ -18,6 +19,52 @@ type VectorIconPathMap = Record<string, string>
 type VectorIconInvalidationEvent = AddElementEvent | RemoveElementEvent
 
 const VECTOR_ICON_KEYS = new Set(['points', 'segments', 'networks', 'closed'])
+
+const getComputedProjection = (
+  event: AllEvent
+): { id: string; keys: readonly string[] } | null => {
+  if (
+    (event.type !== EventTypes.UPDATE_COMPUTED_DATA &&
+      event.type !== EventTypes.UPDATE_COMPUTED_DATA_PATCH) ||
+    !('payload' in event) ||
+    typeof event.payload !== 'object' ||
+    event.payload === null ||
+    !('id' in event.payload) ||
+    typeof event.payload.id !== 'string'
+  ) {
+    return null
+  }
+  const payload = event.payload as unknown as Record<string, unknown>
+  if (typeof payload.key === 'string') {
+    return { id: event.payload.id, keys: [payload.key] }
+  }
+  if (Array.isArray(payload.changes)) {
+    return {
+      id: event.payload.id,
+      keys: payload.changes.flatMap((change) =>
+        typeof change === 'object' &&
+        change !== null &&
+        'key' in change &&
+        typeof change.key === 'string'
+          ? [change.key]
+          : []
+      )
+    }
+  }
+  const patch =
+    typeof payload.patch === 'object' && payload.patch !== null
+      ? (payload.patch as Record<string, unknown>)
+      : undefined
+  const values =
+    typeof patch?.values === 'object' && patch.values !== null
+      ? Object.keys(patch.values)
+      : []
+  const records =
+    typeof patch?.records === 'object' && patch.records !== null
+      ? Object.keys(patch.records)
+      : []
+  return { id: event.payload.id, keys: [...values, ...records] }
+}
 
 const isVectorElement = (elementId: string): boolean => {
   const element = sceneTree.getElementById(elementId)
@@ -170,21 +217,15 @@ export const initVectorIconData = (): void => {
   subscribeToAddElement(enqueueElementIconPathUpdateFromEvent)
   subscribeToRemoveElement(enqueueElementIconPathUpdateFromEvent)
 
-  subscribeToUpdateComputedData((event) => {
-    if (!VECTOR_ICON_KEYS.has(event.payload.key)) {
-      return
-    }
-
-    enqueueElementIconPathUpdate(event.payload.id)
-  })
-
-  subscribeToChangeComputedData((event) => {
-    if (!VECTOR_ICON_KEYS.has(event.payload.key)) {
-      return
-    }
-
-    event.payload.elementIds.forEach((elementId) => {
-      enqueueElementIconPathUpdate(elementId)
+  subscribeToEventBatches((events) => {
+    events.forEach((event) => {
+      const projection = getComputedProjection(event)
+      if (
+        projection &&
+        projection.keys.some((key) => VECTOR_ICON_KEYS.has(key))
+      ) {
+        enqueueElementIconPathUpdate(projection.id)
+      }
     })
   })
 }

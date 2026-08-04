@@ -1,6 +1,6 @@
 import type { PropertyComponentRawData } from '@asyra/utils'
 import type { EVENT_OPTIONS } from '@asyra/utils'
-import type { EventTypes } from '../types'
+import type { EventTypes } from '../types.js'
 
 export interface PropertyCollectionEvent {
   type: EventTypes

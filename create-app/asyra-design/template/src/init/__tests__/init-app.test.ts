@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AiActionBatch } from '@asyra/ai-agent-runtime'
 import * as preset from '@asyra/preset'
 import core from '../../contexts'
 import * as areaSelection from '../capabilities/init-area-selection'
+import * as aiDrawingProgress from '../capabilities/init-ai-drawing-progress'
 import * as gradientFillEditing from '../capabilities/init-gradient-fill-editing'
 import * as vectorIconData from '../capabilities/init-vector-icon-data'
 import * as canvasPipelineDebugger from '../diagnostics/init-canvas-pipeline-debugger'
@@ -11,33 +11,34 @@ import * as pathEditingContinuation from '../derived-state/init-path-editing-con
 import * as selectionCompatibility from '../derived-state/init-selection-compatibility'
 import * as features from '../foundation/init-features'
 import * as inputSystem from '../foundation/init-input-system'
-import { elementApis } from '../../common-apis/element'
-import { hierarchyApis } from '../../common-apis/hierarchy'
-import { strokeApis } from '../../common-apis/strokes'
+import { viewportApis } from '../../common-apis/viewport'
 import { initApp } from '../init-app'
+import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 import * as aiStartup from '../../ai/startup'
-import { startAsyraDesignApp } from '../../startup'
 
-const calls: string[] = []
-const createInitializedAiFeature = () => ({
-  ai: {
-    api: {
-      cancel: vi.fn(() => false),
-      execute: vi.fn(async () => ({
-        code: 'AI_PROVIDER_TRANSPORT_FAILED',
-        stage: 'provider',
-        status: 'failed'
-      }))
-    },
-    dispose: vi.fn(() => true)
+const presetModuleState = vi.hoisted(() => ({
+  actualApplyPreset: undefined as unknown as typeof preset.applyPreset,
+  applyPreset: undefined as unknown as typeof preset.applyPreset
+}))
+
+vi.mock('@asyra/preset', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asyra/preset')>()
+  presetModuleState.actualApplyPreset = actual.applyPreset
+  presetModuleState.applyPreset = actual.applyPreset
+  return {
+    ...actual,
+    applyPreset: (...args: Parameters<typeof actual.applyPreset>) =>
+      presetModuleState.applyPreset(...args)
   }
 })
+
+const calls: string[] = []
 
 describe('initApp preset composition', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     calls.length = 0
-    vi.spyOn(preset, 'applyPreset').mockImplementation(() => {
+    presetModuleState.applyPreset = vi.fn(() => {
       calls.push('preset')
       return Object.freeze({
         profile: preset.PresetProfiles.CUSTOM,
@@ -71,6 +72,11 @@ describe('initApp preset composition', () => {
     vi.spyOn(areaSelection, 'initAreaSelection').mockImplementation(() => {
       calls.push('area-selection')
     })
+    vi.spyOn(aiDrawingProgress, 'initAiDrawingProgress').mockImplementation(
+      () => {
+        calls.push('ai-drawing-progress')
+      }
+    )
     vi.spyOn(gradientFillEditing, 'initGradientFillEditing').mockImplementation(
       () => {
         calls.push('gradient-fill-editing')
@@ -84,20 +90,30 @@ describe('initApp preset composition', () => {
     })
     vi.spyOn(features, 'initFeatures').mockImplementation(() => {
       calls.push('features')
-      return createInitializedAiFeature()
+      return {
+        ai: {
+          api: {
+            cancel: vi.fn(() => false),
+            execute: vi.fn(async () => ({
+              reason: 'provider-unavailable',
+              status: 'unavailable'
+            }))
+          },
+          dispose: vi.fn(() => true)
+        }
+      } as never
     })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    delete window.__AsyraE2E__
   })
 
   it('applies the default preset with the production AI lifecycle', async () => {
-    const initialization = initApp({ serverResponse: null })
+    const initialization = initApp()
 
-    expect(preset.applyPreset).toHaveBeenCalledOnce()
-    expect(preset.applyPreset).toHaveBeenCalledWith(core)
+    expect(presetModuleState.applyPreset).toHaveBeenCalledOnce()
+    expect(presetModuleState.applyPreset).toHaveBeenCalledWith(core)
     expect(features.initFeatures).toHaveBeenCalledWith({
       aiRuntime: expect.objectContaining({
         run: expect.any(Function)
@@ -106,11 +122,6 @@ describe('initApp preset composition', () => {
     expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
     expect(initialization.aiHistory).not.toBeNull()
-    expect(window.__AsyraE2E__).toEqual({
-      elementApis,
-      hierarchyApis,
-      strokeApis
-    })
     expect(calls).toEqual([
       'preset',
       'canvas-pipeline-debugger',
@@ -118,6 +129,7 @@ describe('initApp preset composition', () => {
       'selection-compatibility',
       'path-editing-continuation',
       'area-selection',
+      'ai-drawing-progress',
       'gradient-fill-editing',
       'vector-icon-data',
       'input-system',
@@ -127,33 +139,14 @@ describe('initApp preset composition', () => {
     await initialization.dispose()
   })
 
-  it('passes the exact resident server response into AI startup', async () => {
-    const batch = {
-      actions: [],
-      batchId: 'resident'
-    } as const satisfies AiActionBatch
-    const response = {
-      batch,
-      fileId: 'file-resident',
-      schemaVersion: 1
-    } as const
-    const createAiStartup = vi.spyOn(aiStartup, 'createAsyraDesignAiStartup')
+  it('starts AI without a resident action payload', async () => {
+    const createAiStartup = vi.spyOn(aiStartup, 'createAiStartup')
 
-    const initialization = initApp({ serverResponse: response })
+    const initialization = initApp()
 
-    expect(createAiStartup).toHaveBeenCalledWith({ response })
+    expect(createAiStartup).toHaveBeenCalledWith()
 
     await initialization.dispose()
-  })
-
-  it('propagates required Agent Feature initialization failure', () => {
-    vi.spyOn(features, 'initFeatures').mockImplementation(() => {
-      throw new Error('[Asyra Design] Agent feature failed to initialize')
-    })
-
-    expect(() => initApp({ serverResponse: null })).toThrow(
-      '[Asyra Design] Agent feature failed to initialize'
-    )
   })
 
   it('constructs the complete production Agent composition by default', async () => {
@@ -163,7 +156,7 @@ describe('initApp preset composition', () => {
         api: {
           cancel: vi.fn(() => false),
           execute: vi.fn(async () => ({
-            code: 'AI_PROVIDER_TRANSPORT_FAILED',
+            code: 'AI_PROVIDER_INVALID_CONFIGURATION',
             stage: 'provider',
             status: 'failed'
           }))
@@ -174,7 +167,7 @@ describe('initApp preset composition', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
 
-    const initialization = initApp({ serverResponse: null })
+    const initialization = initApp()
 
     expect(initialization).not.toHaveProperty('aiRuntime')
     expect(initialization.aiConfirmation).not.toBeNull()
@@ -203,131 +196,81 @@ describe('initApp preset composition', () => {
     })
     expect(disposeFeature).toHaveBeenCalledOnce()
   })
-})
 
-describe('Asyra Design outer startup', () => {
-  const createInitialization = (): ReturnType<typeof initApp> =>
-    ({
-      aiConfirmation: {},
-      aiConversation: {},
-      aiHistory: {},
-      dispose: vi.fn()
-    }) as ReturnType<typeof initApp>
-
-  it('awaits one exact required-file response before initialization and render', async () => {
-    let resolveResponse:
-      | ((value: {
-          readonly batch: AiActionBatch
-          readonly fileId: string
-          readonly schemaVersion: 1
-        }) => void)
-      | undefined
-    const responsePromise = new Promise<{
-      readonly batch: AiActionBatch
-      readonly fileId: string
-      readonly schemaVersion: 1
-    }>((resolve) => {
-      resolveResponse = resolve
-    })
-    const order: string[] = []
-    const initialization = createInitialization()
-    const render = vi.fn(() => {
-      order.push('render')
-    })
-    const initializeApp = vi.fn(() => {
-      order.push('init')
-      return initialization
-    })
-    const readServerResponse = vi.fn(() => {
-      order.push('read')
-      return responsePromise
-    })
-    const getRequiredFileId = vi.fn(() => {
-      order.push('fileId')
-      return 'file-fast-16'
-    })
-    const start = startAsyraDesignApp(
-      {
-        render
+  it('fails startup and disposes Agent resources when feature registration is unavailable', async () => {
+    const disposeConfirmation = vi.fn(async () => undefined)
+    const disposeHistory = vi.fn()
+    const disposeRuntime = vi.fn(async () => undefined)
+    vi.spyOn(aiStartup, 'createAiStartup').mockReturnValue({
+      confirmation: {
+        dispose: disposeConfirmation
       },
-      {
-        getRequiredFileId,
-        initializeApp,
-        readServerResponse
+      history: {
+        dispose: disposeHistory
+      },
+      runtime: {
+        dispose: disposeRuntime,
+        run: vi.fn()
       }
-    )
-
-    await Promise.resolve()
-    expect(order).toEqual(['fileId', 'read'])
-    expect(initializeApp).not.toHaveBeenCalled()
-    expect(render).not.toHaveBeenCalled()
-
-    const response = {
-      batch: {
-        actions: [],
-        batchId: 'resident-batch'
-      },
-      fileId: 'file-fast-16',
-      schemaVersion: 1
-    } as const
-    resolveResponse?.(response)
-
-    await expect(start).resolves.toBe(initialization)
-    expect(order).toEqual(['fileId', 'read', 'init', 'render'])
-    expect(readServerResponse).toHaveBeenCalledOnce()
-    expect(readServerResponse).toHaveBeenCalledWith('file-fast-16')
-    expect(initializeApp).toHaveBeenCalledWith({
-      serverResponse: response
+    } as never)
+    vi.spyOn(features, 'initFeatures').mockImplementation(() => {
+      throw new Error('Agent feature registration failed')
     })
-    expect(render).toHaveBeenCalledWith(initialization)
+
+    expect(() => initApp()).toThrow('Agent feature registration failed')
+
+    expect(disposeHistory).toHaveBeenCalledOnce()
+    expect(disposeConfirmation).toHaveBeenCalledOnce()
+    expect(disposeRuntime).toHaveBeenCalledOnce()
   })
 
-  it('does not initialize or render when required file identity fails', async () => {
-    const initializeApp = vi.fn()
-    const readServerResponse = vi.fn()
-    const render = vi.fn()
+  it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {
+    const detachRuntimeEvidence = vi.fn()
+    const readProjectedElementCount = vi
+      .spyOn(core.deps.render, 'getProjectedElementCount')
+      .mockReturnValue(7)
+    const readUndoHistoryDepth = vi
+      .spyOn(core.deps.factory, 'getUndoHistoryDepth')
+      .mockReturnValue(3)
+    const readViewportPosition = vi
+      .spyOn(viewportApis, 'getPosition')
+      .mockReturnValue({ x: 12, y: 34 })
+    const readZoom = vi.spyOn(viewportApis, 'getScale').mockReturnValue(1.25)
+    const attachRuntimeEvidence = vi
+      .spyOn(aiDrawingPerformance, 'attachAiDrawingPerformanceRuntimeEvidence')
+      .mockReturnValue(detachRuntimeEvidence)
+    const profile = {} as aiDrawingPerformance.AiDrawingPerformanceProfile
+    vi.spyOn(
+      aiDrawingPerformance,
+      'getActiveAiDrawingPerformanceProfile'
+    ).mockReturnValue(profile)
 
-    await expect(
-      startAsyraDesignApp(
-        {
-          render
-        },
-        {
-          getRequiredFileId: () => {
-            throw new Error('[collaboration] missing required fileId')
-          },
-          initializeApp,
-          readServerResponse
-        }
-      )
-    ).rejects.toThrow('[collaboration] missing required fileId')
-    expect(readServerResponse).not.toHaveBeenCalled()
-    expect(initializeApp).not.toHaveBeenCalled()
-    expect(render).not.toHaveBeenCalled()
-  })
+    const initialization = initApp()
 
-  it('does not initialize or render when the response read fails', async () => {
-    const initialization = createInitialization()
-    const initializeApp = vi.fn(() => initialization)
-    const readServerResponse = vi.fn(async () => {
-      throw new Error('response-read-failed')
+    expect(attachRuntimeEvidence).toHaveBeenCalledOnce()
+    expect(attachRuntimeEvidence).toHaveBeenCalledWith(profile, {
+      readCanonicalElementCount: expect.any(Function),
+      readCanonicalElements: expect.any(Function),
+      readCanonicalOwnerSnapshot: expect.any(Function),
+      readHistoryDepth: expect.any(Function),
+      readRenderProjectionElementCount: expect.any(Function),
+      readViewportPosition: expect.any(Function),
+      readZoom: expect.any(Function),
+      subscribeToTransactionStatus: expect.any(Function)
     })
-    const render = vi.fn()
+    const runtimeSource = attachRuntimeEvidence.mock.calls[0][1]
+    expect(runtimeSource.readCanonicalElementCount()).toBe(0)
+    expect(runtimeSource.readHistoryDepth()).toBe(3)
+    expect(runtimeSource.readRenderProjectionElementCount()).toBe(7)
+    expect(runtimeSource.readViewportPosition()).toEqual({ x: 12, y: 34 })
+    expect(runtimeSource.readZoom()).toBe(1.25)
+    expect(readUndoHistoryDepth).toHaveBeenCalledOnce()
+    expect(readProjectedElementCount).toHaveBeenCalledOnce()
+    expect(readViewportPosition).toHaveBeenCalledOnce()
+    expect(readZoom).toHaveBeenCalledOnce()
 
-    await expect(
-      startAsyraDesignApp(
-        {
-          render
-        },
-        {
-          getRequiredFileId: () => 'file-fast-16',
-          initializeApp,
-          readServerResponse
-        }
-      )
-    ).rejects.toThrow('response-read-failed')
-    expect(readServerResponse).toHaveBeenCalledOnce()
-    expect(initializeApp).not.toHaveBeenCalled()
-    expect(render).not.toHaveBeenCalled()
+    await initialization.dispose()
+
+    expect(detachRuntimeEvidence).toHaveBeenCalledOnce()
   })
 })

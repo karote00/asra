@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   createRectangle,
@@ -25,7 +26,7 @@ import {
 
 test.describe('Element Selection', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -96,20 +97,15 @@ test.describe('Element Selection', () => {
 
     await clickCanvas(page, 0.9, 0.9)
     await expect.poll(() => hasSelectedElement(page)).toBe(false)
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__selectionPreviewDeliveries = []
-      scope.__disposeSelectionPreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'selection',
-          (change: unknown) => scope.__selectionPreviewDeliveries.push(change)
-        )
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('selection-preview-deliveries', 'selection')
     })
 
-    const drag = await page.evaluate(({ x, y, width, height }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const drag = await page.evaluate(async ({ x, y, width, height }) => {
+      const core = (await import('../src/testing/runtime-access')).core
       const zoom = core?.getSystemProperty?.('zoom') ?? 1
       const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
         x: 0,
@@ -132,9 +128,9 @@ test.describe('Element Selection', () => {
     await page.mouse.move(drag.end.x, drag.end.y, { steps: 12 })
 
     await expect.poll(() => hasSelectedElement(page)).toBe(true)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__selectionPreviewDeliveries ?? []
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('selection-preview-deliveries')
     })
     expect(previewDeliveries).toContainEqual(
       expect.objectContaining({
@@ -142,12 +138,9 @@ test.describe('Element Selection', () => {
       })
     )
     await page.mouse.up()
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      scope.__disposeSelectionPreviewObserver?.()
-      delete scope.__disposeSelectionPreviewObserver
-      delete scope.__selectionPreviewDeliveries
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('selection-preview-deliveries')
     })
   })
 
@@ -215,9 +208,8 @@ test.describe('Element Selection', () => {
   }) => {
     await createRectangle(page, 0.32, 0.34)
 
-    const selectedId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const selectedId = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
     })
 
@@ -236,9 +228,8 @@ test.describe('Element Selection', () => {
     await page.mouse.move(elementPos.x, elementPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('hoveredElementId') ?? null
         })
       })
@@ -248,9 +239,8 @@ test.describe('Element Selection', () => {
     await page.mouse.move(emptyPos.x, emptyPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        return page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('hoveredElementId') ?? null
         })
       })
@@ -275,9 +265,8 @@ test.describe('Element Selection', () => {
     }
 
     const centers = await page.evaluate(
-      ({ dragOwner, crossedElement }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
+      async ({ dragOwner, crossedElement }) => {
+        const core = (await import('../src/testing/runtime-access')).core
         const zoom = core?.getSystemProperty?.('zoom') ?? 1
         const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
           x: 0,
@@ -304,33 +293,22 @@ test.describe('Element Selection', () => {
     await page.mouse.move(centers.dragOwner.x, centers.dragOwner.y)
     await expect
       .poll(() =>
-        page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
+        page.evaluate(async () => {
+          const core = (await import('../src/testing/runtime-access')).core
           return core?.getSystemProperty?.('hoveredElementId') ?? null
         })
       )
       .toBe(dragOwner.id)
     await page.mouse.click(centers.dragOwner.x, centers.dragOwner.y)
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scope = window as any
-      const core = scope.__Core__
-      const originalSetSystemProperty = core.setSystemProperty
-      scope.__dragHoverWrites = []
-      scope.__restoreSetSystemProperty = () => {
-        core.setSystemProperty = originalSetSystemProperty
-      }
-      core.setSystemProperty = (propertyName: string, value: unknown) => {
-        if (
-          propertyName === 'hoveredElementId' &&
-          core.getSystemProperty('mouseDragging')
-        ) {
-          scope.__dragHoverWrites.push(value)
-        }
-        return originalSetSystemProperty.call(core, propertyName, value)
-      }
+    await page.evaluate(async () => {
+      const { startSystemPropertyWriteCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSystemPropertyWriteCapture('drag-hover-writes', {
+        propertyName: 'hoveredElementId',
+        whileMouseDragging: true
+      })
     })
 
     let dragHoverWrites: (string | null)[] = []
@@ -344,25 +322,26 @@ test.describe('Element Selection', () => {
         { steps: 20 }
       )
       await page.waitForTimeout(100)
-      const dragHoverState = await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scope = window as any
+      const dragHoverState = await page.evaluate(async () => {
+        const { core, readTestCapture } = await import(
+          '../src/testing/runtime-access'
+        )
         return {
-          writes: scope.__dragHoverWrites ?? [],
-          hoveredElementId:
-            scope.__Core__?.getSystemProperty?.('hoveredElementId') ?? null
+          writes: readTestCapture('drag-hover-writes').map(
+            (entry) => (entry as readonly [string, string | null])[1]
+          ),
+          hoveredElementId: core.getSystemProperty('hoveredElementId') ?? null
         }
       })
       dragHoverWrites = dragHoverState.writes
       hoveredElementIdDuringDrag = dragHoverState.hoveredElementId
     } finally {
       await page.mouse.up()
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scope = window as any
-        scope.__restoreSetSystemProperty?.()
-        delete scope.__restoreSetSystemProperty
-        delete scope.__dragHoverWrites
+      await page.evaluate(async () => {
+        const { stopTestCapture } = await import(
+          '../src/testing/runtime-access'
+        )
+        stopTestCapture('drag-hover-writes')
       })
     }
 
@@ -473,9 +452,8 @@ test.describe('Element Selection', () => {
     await page.keyboard.up('Shift')
     await page.waitForTimeout(200)
 
-    const selectedIds = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const selectedIds = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.selection?.getElementSelectionIds?.() ?? []
     })
 

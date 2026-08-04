@@ -1,23 +1,23 @@
 import { defineConfig, devices } from '@playwright/test'
-import {
-  loadAsyraDesignEnvironment,
-  resolveAsyraDesignEnvironment
-} from './app-environment.mjs'
+import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-policy.mjs'
 
-const appEnvironment = resolveAsyraDesignEnvironment(
-  loadAsyraDesignEnvironment()
-)
+const appEnvironment = resolveEnvironment(loadEnvironment())
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
-const ordinaryTestIgnore =
-  process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
-    ? ['collaboration.spec.ts', 'render-delta-performance.spec.ts']
-    : 'collaboration.spec.ts'
-const ordinaryGrepInvert =
-  process.env.ASYRA_DESIGN_RUN_BALANCED_AI_CORRECTNESS === '1'
-    ? undefined
-    : /attaches a reference, chooses balanced detail, and incrementally edits/
-const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const documentBackendURL = 'http://127.0.0.1:4201'
+const ordinaryTestIgnore = [
+  'collaboration-ai-agent-video.spec.ts',
+  'collaboration.spec.ts',
+  'crdt-endpoint-performance.spec.ts',
+  'status-toast-visual.spec.ts',
+  ...(process.env.ASYRA_E2E_CRDT_7076 === 'true'
+    ? []
+    : ['crdt-7076-render.spec.ts']),
+  ...(process.env.ASYRA_E2E_SKIP_PERFORMANCE === 'true'
+    ? ['render-delta-performance.spec.ts']
+    : [])
+]
+const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -25,7 +25,6 @@ const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.v
 export default defineConfig({
   testDir: './e2e',
   testIgnore: ordinaryTestIgnore,
-  grepInvert: ordinaryGrepInvert,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -67,10 +66,25 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: process.env.CI
     ? undefined
-    : {
-        command: visualReviewWebServerCommand,
-        url: appEnvironment.appURL,
-        reuseExistingServer: true,
-        timeout: 120 * 1000
-      }
+    : [
+        {
+          command:
+            'DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend',
+          url: `${documentBackendURL}/health`,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        },
+        {
+          command: `DOCUMENT_PERSISTENCE_BACKEND_URL=${documentBackendURL} yarn collaboration:server`,
+          url: appEnvironment.collaborationHealthURL,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        },
+        {
+          command: visualReviewWebServerCommand,
+          url: appEnvironment.appURL,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        }
+      ]
 })

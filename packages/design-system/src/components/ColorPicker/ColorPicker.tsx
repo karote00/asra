@@ -16,10 +16,10 @@ import {
   hsvaToHsla,
   formatColor,
   type HSVAColor
-} from './color-utils'
-import { ColorPickerSaturation } from './ColorPickerSaturation'
-import { ColorPickerSliders } from './ColorPickerSliders'
-import { ColorPickerInputGroup } from './ColorPickerInputGroup'
+} from './color-utils.js'
+import { ColorPickerSaturation } from './ColorPickerSaturation.js'
+import { ColorPickerSliders } from './ColorPickerSliders.js'
+import { ColorPickerInputGroup } from './ColorPickerInputGroup.js'
 
 export interface ColorFormatDefinition {
   id: string

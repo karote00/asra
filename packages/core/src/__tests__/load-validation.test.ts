@@ -14,11 +14,11 @@ import type {
 } from '@asyra/persistence'
 import { subscribeToFileLoadComplete } from '@asyra/reactive-events'
 import type { CoreRawData, LoadDiagnostic } from '@asyra/utils'
-import { Core } from '../core'
+import { Core } from '../core.js'
 import {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
   LoadHookExecutionError
-} from '../types/load-migration'
+} from '../types/load-migration.js'
 
 const createCoreForTest = () => {
   const props = {
@@ -119,6 +119,31 @@ describe('Core load validation pipeline', () => {
     expectTypeOf<
       ReturnType<Parameters<Core['registerLoadHook']>[0]>
     >().toEqualTypeOf<VersionedLoadDocument>()
+  })
+
+  it('keeps setPersistence as a warn-once load-source adapter', () => {
+    const { core } = createCoreForTest()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const firstProvider = {
+      name: 'first-provider',
+      load: vi.fn(async () => null),
+      save: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined)
+    }
+    const secondProvider = {
+      name: 'second-provider',
+      load: vi.fn(async () => null),
+      save: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined)
+    }
+
+    core.setPersistence(firstProvider)
+    core.setPersistence(secondProvider)
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(
+      'Core.setPersistence is deprecated. Use Core.setLoadSource; Core never saves or clears through this compatibility surface.'
+    )
   })
 
   it('passes every non-nullish direct raw payload to the first app hook', () => {

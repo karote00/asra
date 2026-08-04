@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createProviderIdentitySnapshot, ProviderFailure } from '../provider'
-import { MemoryHub, MemoryProvider } from '../providers/memory'
-import { createSharedPublicationFixture } from './shared-publication-fixture'
+import { createProviderIdentitySnapshot, ProviderFailure } from '../provider.js'
+import { MemoryHub, MemoryProvider } from '../providers/memory/index.js'
+import { createSharedPublicationFixture } from './shared-publication-fixture.js'
 
 const publication = createSharedPublicationFixture({
   mode: 'progressive',

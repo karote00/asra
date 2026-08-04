@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Setter } from '../setter'
-import type { ComputedAttrs } from '../sceneTree/instanceTypes'
-import { EntityTypes } from '../sceneTree'
+import { Setter } from '../setter.js'
+import type { ComputedAttrs } from '../sceneTree/instanceTypes.js'
+import { EntityTypes } from '../sceneTree/index.js'
 
 // Mock data structure representing an element with required ComputedAttrs
 interface MockElementData extends ComputedAttrs {

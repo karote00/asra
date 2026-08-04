@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { nameCounter } from '../nameCounter'
-import { CODE_SPLIT, FIRST_NAME } from '../constants'
-import { NameTypes } from '../enum'
-import { capitalizeFirstLetter } from '../../helpers'
+import { nameCounter } from '../nameCounter.js'
+import { CODE_SPLIT, FIRST_NAME } from '../constants.js'
+import { NameTypes } from '../enum.js'
+import { capitalizeFirstLetter } from '../../helpers/index.js'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 

@@ -6,9 +6,9 @@ import type {
   IElement
 } from '@asyra/utils'
 import { IDTypes, NameTypes, EntityTypes, loadId, loadName } from '@asyra/utils'
-import { isGroupEntity } from '../entity-data'
-import Group from './group'
-import type { ISceneTreeRegistry } from '../types'
+import { isGroupEntity } from '../entity-data.js'
+import Group from './group.js'
+import type { ISceneTreeRegistry } from '../types.js'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 

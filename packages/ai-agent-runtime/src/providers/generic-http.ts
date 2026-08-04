@@ -3,7 +3,7 @@ import {
   type AiActionBatch,
   type AiProvider,
   type AiProviderInput
-} from '../provider'
+} from '../provider.js'
 
 export interface AiFetchRequestInit {
   readonly body: string

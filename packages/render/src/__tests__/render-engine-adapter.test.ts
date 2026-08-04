@@ -10,10 +10,10 @@ import {
   MissingRenderEngineProviderError,
   RenderAdapter,
   RenderErrorCodes
-} from '../index'
-import renderStrategyRegistry from '../registries/render-strategy'
-import { Render } from '../render'
-import type { RenderElementData } from '../types'
+} from '../index.js'
+import renderStrategyRegistry from '../registries/render-strategy.js'
+import { Render } from '../render.js'
+import type { RenderElementData } from '../types.js'
 
 describe('Render engine adapter', () => {
   beforeEach(() => {

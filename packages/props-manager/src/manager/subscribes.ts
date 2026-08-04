@@ -12,7 +12,7 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes
 } from '@asyra/utils'
-import propsManager from './props-manager'
+import propsManager from './props-manager.js'
 
 interface UpdatePropertyChangePayload {
   id: string

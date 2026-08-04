@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ContextMenu, type ContextMenuItem } from '../ContextMenu'
+import { ContextMenu, type ContextMenuItem } from '../ContextMenu.js'
 
 const items: ContextMenuItem[] = [
   {

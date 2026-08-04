@@ -5,9 +5,9 @@ import {
   type ElementInstanceTypes,
   type PropertyComponentInstanceTypes
 } from '@asyra/utils'
-import { SceneTree } from '../sceneTree'
-import Element from '../components/element'
-import componentRegistry from '../component-registry'
+import { SceneTree } from '../sceneTree.js'
+import Element from '../components/element.js'
+import componentRegistry from '../component-registry.js'
 
 const TARGET_ELEMENT_TYPE = 'scene-target-resolution-element'
 

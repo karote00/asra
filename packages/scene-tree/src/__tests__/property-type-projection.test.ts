@@ -5,9 +5,9 @@ import propsManager, {
 } from '@asyra/props-manager'
 import type { ComputedAttrs, DataTypes, Unit } from '@asyra/utils'
 import { beforeEach, describe, expect, it } from 'vitest'
-import sceneTree from '../sceneTree'
-import Computed from '../components/computed'
-import { createDynamicPropsClass } from '../create-dynamic-props'
+import sceneTree from '../sceneTree.js'
+import Computed from '../components/computed.js'
+import { createDynamicPropsClass } from '../create-dynamic-props.js'
 
 const CUSTOM_TYPE = 'scene-tree-custom-property'
 

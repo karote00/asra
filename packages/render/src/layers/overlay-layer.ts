@@ -1,6 +1,6 @@
 import type { PositionData } from '@asyra/utils'
-import type { RenderLayerRegistration } from '../types/render-layer'
-import { RenderContainer, RenderGraphics } from '../types/render-object'
+import type { RenderLayerRegistration } from '../types/render-layer.js'
+import { RenderContainer, RenderGraphics } from '../types/render-object.js'
 
 const OVERLAY_BEZIER_FLATNESS_TOLERANCE = 0.35
 const OVERLAY_BEZIER_MAX_SUBDIVISION_DEPTH = 10

@@ -1,12 +1,12 @@
-import propsManager, { PropsManager } from '../manager/props-manager'
+import propsManager, { PropsManager } from '../manager/props-manager.js'
 import {
   propertyComponentRegistry,
   unregisterPropertyComponent
-} from './property-component'
+} from './property-component.js'
 import {
   propertySchemaRegistry,
   unregisterPropertySchema
-} from './property-schema'
+} from './property-schema.js'
 
 export const PROPERTY_REGISTRATION_ERROR_CODES = [
   'PROPERTY_REGISTRATION_NOT_FOUND',

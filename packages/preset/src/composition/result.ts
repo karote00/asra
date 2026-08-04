@@ -1,4 +1,4 @@
-import type { PresetApplyResult } from '../types'
+import type { PresetApplyResult } from '../types.js'
 
 export const createPresetApplyResult = ({
   profile,

@@ -1,31 +1,31 @@
-import render, { Render } from './render'
-import RenderAdapter, { PixiJSRenderer } from './renderer'
-import renderSceneTreeStore from './stores/scene-tree'
-import renderSelectionStore from './stores/selection'
+import render, { Render } from './render.js'
+import RenderAdapter, { PixiJSRenderer } from './renderer.js'
+import renderSceneTreeStore from './stores/scene-tree.js'
+import renderSelectionStore from './stores/selection.js'
 
-export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
+export { IRenderer, RenderOptions, RenderResult } from './types/renderer.js'
 export {
   InvalidRenderEngineProviderResultError,
   MissingRenderEngineProviderError,
   RenderErrorCodes,
   type RenderErrorCode
-} from './errors'
+} from './errors.js'
 export { RenderAdapter, PixiJSRenderer }
-export { renderStrategyRegistry } from './registries/render-strategy'
-export { interactionTargetRegistry } from './registries/interaction-target'
-export { renderInteractionHandlerRegistry } from './registries/render-interaction-handler'
+export { renderStrategyRegistry } from './registries/render-strategy.js'
+export { interactionTargetRegistry } from './registries/interaction-target.js'
+export { renderInteractionHandlerRegistry } from './registries/render-interaction-handler.js'
 export {
   createRenderGradientFillStyle,
   type CreateRenderGradientFillOptions,
   type RenderGradientColorStop,
   type RenderGradientPoint,
   type RenderFillStyle
-} from './fills/gradient-fill'
+} from './fills/gradient-fill.js'
 export {
   createEvenOddFillStyle,
   isPointInsidePreparedEvenOddShape,
   prepareEvenOddShape
-} from './fills/even-odd-fill'
+} from './fills/even-odd-fill.js'
 export {
   createMeshProjection,
   type GeometryPoint,
@@ -33,7 +33,7 @@ export {
   type MeshProjectionPaint,
   type CreateMeshProjectionOptions,
   type MeshProjection
-} from './projections/mesh-projection'
+} from './projections/mesh-projection.js'
 export type {
   EvenOddSegment,
   EvenOddPath,
@@ -42,41 +42,41 @@ export type {
   PreparedEvenOddShape,
   EvenOddFillOptions,
   EvenOddFillResult
-} from './fills/even-odd-fill'
+} from './fills/even-odd-fill.js'
 export type {
   EngineNeutralRenderStrategy,
   RenderStrategy,
   RenderStrategyCapabilities,
   RenderStrategyGraphic
-} from './types/render-strategy'
-export type { RenderLayerRegistration } from './types/render-layer'
+} from './types/render-strategy.js'
+export type { RenderLayerRegistration } from './types/render-layer.js'
 export type {
   RenderApplication,
   RenderEngineProviderCleanup,
   RenderEngineProviderOptions
-} from './render'
+} from './render.js'
 export {
   RenderContainer,
   RenderGraphics,
   RenderMesh
-} from './types/render-object'
+} from './types/render-object.js'
 export {
   defaultStrategy,
   defaultRectangleStrategy
-} from './strategies/default-strategy'
+} from './strategies/default-strategy.js'
 export {
   createOverlayLayerRegistration,
   sampleOverlayBezierPoints,
   type OverlayCanvas,
   type OverlayStrokeStyle,
   type CreateOverlayLayerOptions
-} from './layers/overlay-layer'
+} from './layers/overlay-layer.js'
 export {
   createRenderInteractionPointTarget,
   createRenderInteractionCircleTarget,
   createRenderInteractionSegmentTarget,
   createRenderInteractionPolylineTarget
-} from './interaction/target-helpers'
+} from './interaction/target-helpers.js'
 export type {
   RenderInteractionTarget,
   RenderInteractionTargetBounds,
@@ -84,7 +84,7 @@ export type {
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType,
   RenderInteractionEvent
-} from './types/render-interaction'
+} from './types/render-interaction.js'
 export { renderSceneTreeStore, renderSelectionStore }
 
 export default render

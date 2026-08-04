@@ -1,7 +1,7 @@
-import { MouseSnapshot } from './mouse-state'
-import { KeySnapshot } from './key-state'
-import { SystemSnapshot } from './system-state'
-import { TargetSnapshot } from './target-state'
+import { MouseSnapshot } from './mouse-state.js'
+import { KeySnapshot } from './key-state.js'
+import { SystemSnapshot } from './system-state.js'
+import { TargetSnapshot } from './target-state.js'
 
 export interface SystemContextSnapshot {
   primaryTool: string

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  createTestDocumentURL,
   waitForAppReady,
   resetCanvas,
   createRectangle,
@@ -25,9 +26,8 @@ interface CreateProjectionSnapshot {
 const getCreateProjectionSnapshot = async (
   page: Parameters<typeof getCanvasPosition>[0]
 ): Promise<CreateProjectionSnapshot | null> =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
+  page.evaluate(async () => {
+    const core = (await import('../src/testing/runtime-access')).core
     const elements = core?.deps?.sceneTree?.getAllElements?.()
     if (!(elements instanceof Map)) {
       return null
@@ -69,7 +69,7 @@ const getCreateProjectionSnapshot = async (
 
 test.describe('Element Creation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto(createTestDocumentURL())
     await waitForAppReady(page)
     await resetCanvas(page)
   })
@@ -86,15 +86,11 @@ test.describe('Element Creation', () => {
       const end = await getCanvasPosition(page, 0.3, 0.25)
 
       await page.keyboard.press(key)
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scope = window as any
-        scope.__createPreviewPublications = []
-        scope.__disposeCreatePreviewObserver =
-          scope.__Core__?.deps?.factory?.subscribeToSharedPublication?.(
-            (publication: unknown) =>
-              scope.__createPreviewPublications.push(publication)
-          )
+      await page.evaluate(async () => {
+        const { startSharedPublicationCapture } = await import(
+          '../src/testing/runtime-access'
+        )
+        startSharedPublicationCapture('create-preview-publications')
       })
       await page.mouse.move(start.x, start.y)
       await page.mouse.down()
@@ -127,9 +123,11 @@ test.describe('Element Creation', () => {
         await page.screenshot({
           path: testInfo.outputPath(`${label}-pointer-down.png`)
         })
-        await page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(window as any).__createPreviewPublications = []
+        await page.evaluate(async () => {
+          const { clearTestCapture } = await import(
+            '../src/testing/runtime-access'
+          )
+          clearTestCapture('create-preview-publications')
         })
 
         await page.mouse.move(end.x, end.y, { steps: 2 })
@@ -153,32 +151,45 @@ test.describe('Element Creation', () => {
         expect(await hasSelectedElement(page)).toBe(true)
         await expect
           .poll(() =>
-            page.evaluate(
-              () =>
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (window as any).__createPreviewPublications?.length ?? 0
-            )
+            page.evaluate(async () => {
+              const { readTestCapture } = await import(
+                '../src/testing/runtime-access'
+              )
+              return readTestCapture('create-preview-publications').length
+            })
           )
           .toBeGreaterThan(0)
-        const previewPublications = await page.evaluate(
-          () =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).__createPreviewPublications ?? []
-        )
+        const previewPublications = await page.evaluate(async () => {
+          const { readTestCapture } = await import(
+            '../src/testing/runtime-access'
+          )
+          return readTestCapture('create-preview-publications')
+        })
         expect(previewPublications).toContainEqual(
           expect.objectContaining({
-            deliveries: expect.arrayContaining(
-              ['x', 'y', 'width', 'height'].map((key) =>
-                expect.objectContaining({
-                  channel: 'sceneTree',
-                  sharedDelivery: 'immediate',
-                  payload: expect.objectContaining({
-                    action: 'updateElementComputedData',
-                    key
+            slices: expect.arrayContaining([
+              expect.objectContaining({
+                batches: expect.arrayContaining([
+                  expect.objectContaining({
+                    channel: 'props',
+                    deliveries: expect.arrayContaining(
+                      ['x', 'y', 'width', 'height'].map((key) =>
+                        expect.objectContaining({
+                          eventName: 'updateProperty',
+                          payload: expect.objectContaining({
+                            action: 'updateProperty',
+                            key,
+                            options: expect.objectContaining({
+                              sharedDelivery: 'immediate'
+                            })
+                          })
+                        })
+                      )
+                    )
                   })
-                })
-              )
-            )
+                ])
+              })
+            ])
           })
         )
         await page.screenshot({
@@ -186,12 +197,11 @@ test.describe('Element Creation', () => {
         })
       } finally {
         await page.mouse.up()
-        await page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const scope = window as any
-          scope.__disposeCreatePreviewObserver?.()
-          delete scope.__disposeCreatePreviewObserver
-          delete scope.__createPreviewPublications
+        await page.evaluate(async () => {
+          const { stopTestCapture } = await import(
+            '../src/testing/runtime-access'
+          )
+          stopTestCapture('create-preview-publications')
         })
       }
     })
@@ -292,19 +302,19 @@ test.describe('Element Creation', () => {
     page
   }) => {
     const initialCount = await getElementCount(page)
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(window as any).__transactionStatuses = []
-      core?.deps?.factory?.subscribeToTransactionStatus?.(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (status: any) => (window as any).__transactionStatuses.push(status)
+    await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const { testRuntimeState } = await import('../src/testing/runtime-access')
+      const statuses = testRuntimeState.set<unknown[]>(
+        'create-transaction-statuses',
+        []
+      )
+      core?.deps?.factory?.subscribeToTransactionStatus?.((status) =>
+        statuses.push(status)
       )
     })
-    const initialUndoCount = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const initialUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
     const start = await getCanvasPosition(page, 0.25, 0.25)
@@ -326,9 +336,13 @@ test.describe('Element Creation', () => {
 
     await expect
       .poll(() =>
-        page.evaluate(() =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__transactionStatuses.map(
+        page.evaluate(async () => {
+          const { testRuntimeState } = await import(
+            '../src/testing/runtime-access'
+          )
+          return (
+            testRuntimeState.get<unknown[]>('create-transaction-statuses') ?? []
+          ).map(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (status: any) => ({
               status: status.status,
@@ -340,7 +354,7 @@ test.describe('Element Creation', () => {
                 ) ?? []
             })
           )
-        )
+        })
       )
       .toContainEqual({ status: 'committed', error: null, failures: [] })
     await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
@@ -362,9 +376,8 @@ test.describe('Element Creation', () => {
         height: Math.round(interruptedSnapshot.modelHeight),
         renderExists: true
       })
-    const finalUndoCount = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
+    const finalUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
     expect(finalUndoCount).toBe(initialUndoCount + 1)

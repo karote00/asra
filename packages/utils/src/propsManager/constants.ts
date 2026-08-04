@@ -1,4 +1,4 @@
-import { Unit } from '../constants'
+import { Unit } from '../constants/index.js'
 
 export const PropAlias: Record<string, string> = {
   x: 'position',

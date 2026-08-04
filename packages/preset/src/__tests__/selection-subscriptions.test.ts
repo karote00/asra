@@ -19,18 +19,18 @@ import {
   publishEvent,
   publishEventsToObservers
 } from '@asyra/reactive-events'
-import { registerSelections } from '../selection/register-default-selections'
+import { registerSelections } from '../selection/register-default-selections.js'
 import {
   projectLocalComputedEventToRender,
   registerDefaultDataChannelObservers
-} from '../subscriptions/data-channel'
-import type { PresetCoreAPIs, PresetDependencies } from '../types'
-import { VECTOR_COMPONENT_DEFINITION } from '../components/vector'
+} from '../subscriptions/data-channel.js'
+import type { PresetCoreAPIs, PresetDependencies } from '../types.js'
+import { VECTOR_COMPONENT_DEFINITION } from '../components/vector.js'
 import {
   SelectionActions,
   SelectionChannels,
   SelectionEventNames
-} from '../selection/channels'
+} from '../selection/channels.js'
 
 interface TestDataChannelObserver {
   onBatch?: (changes: readonly unknown[]) => void

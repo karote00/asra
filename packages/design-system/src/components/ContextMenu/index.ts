@@ -5,4 +5,4 @@ export {
   type ContextMenuPosition,
   type ContextMenuProps,
   type ContextMenuViewport
-} from './ContextMenu'
+} from './ContextMenu.js'

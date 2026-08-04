@@ -7,10 +7,10 @@ import {
   type ProviderAwarenessMessage,
   type ProviderIdentity,
   type ProviderStatus
-} from '../../provider'
-import { cloneAwareness } from '../../cloning'
-import { deepFreeze } from '../../deep-freeze'
-import { MemoryHub, type MemoryPeer } from './hub'
+} from '../../provider.js'
+import { cloneAwareness } from '../../cloning.js'
+import { deepFreeze } from '../../deep-freeze.js'
+import { MemoryHub, type MemoryPeer } from './hub.js'
 
 export class MemoryProvider implements Provider, MemoryPeer {
   readonly identity: ProviderIdentity

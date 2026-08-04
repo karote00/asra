@@ -1,8 +1,8 @@
-import { RootAPIs } from './root'
-import { ManagedPropertyStateAPIs } from './managed-property-state'
+import { RootAPIs } from './root.js'
+import { ManagedPropertyStateAPIs } from './managed-property-state.js'
 
 export { RootAPIs, ManagedPropertyStateAPIs }
 
 export type SystemContextAPIs = RootAPIs & ManagedPropertyStateAPIs
 
-export * from './deps'
+export * from './deps.js'

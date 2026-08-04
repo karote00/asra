@@ -71,6 +71,12 @@ the repository root README for the current contribution policy.
 
 This project is licensed under the MIT License.
 
+## Release support
+
+The `@asyra/input-system` `0.2.5` ESM artifact supports Node.js 20.x. Use only
+package-root exports. See the
+[Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
+
 ## Acknowledgments
 
 - Inspired by various input handling libraries and frameworks.

@@ -1,4 +1,4 @@
-import { MouseButton } from '../constants'
+import { MouseButton } from '../constants/index.js'
 
 // export interface KeyPressSnapshot {
 //   key: string

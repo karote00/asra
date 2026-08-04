@@ -1,5 +1,5 @@
-import { publishEvent } from '../event-bus'
-import { EventTypes } from '../types'
+import { publishEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 import type { EVENT_OPTIONS } from '@asyra/utils'
 
 export const selectElements = (

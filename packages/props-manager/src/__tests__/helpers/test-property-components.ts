@@ -1,5 +1,5 @@
-import BasePropertyComponent from '../../components/base'
-import { getPropertyComponentAccessor } from '../../manager/component-accessor'
+import BasePropertyComponent from '../../components/base.js'
+import { getPropertyComponentAccessor } from '../../manager/component-accessor.js'
 import type {
   AnchorPointType,
   AnchorPointsAttrs,

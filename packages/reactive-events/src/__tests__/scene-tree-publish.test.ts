@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   subscribeToEventBatches,
   subscribeToSynchronousEvent
-} from '../event-bus'
-import * as sceneTreeEvents from '../scene-tree'
+} from '../event-bus.js'
+import * as sceneTreeEvents from '../scene-tree/index.js'
 import {
   addElements,
   removeElements,
@@ -18,8 +18,8 @@ import {
   type UpdateElementDataEvent,
   type UpdateComputedDataEvent,
   type UpdateComputedDataPatchEvent
-} from '../scene-tree'
-import { EventTypes } from '../types'
+} from '../scene-tree/index.js'
+import { EventTypes } from '../types.js'
 import { SCENE_TREE_ACTIONS, type AddRemoveElementsChange } from '@asyra/utils'
 
 type LocalComputedProjectionEvent =

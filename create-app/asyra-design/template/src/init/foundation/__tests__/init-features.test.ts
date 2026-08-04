@@ -19,42 +19,23 @@ vi.mock('../../../features/ai-agent', () => ({
 
 import { initFeatures } from '../init-features'
 
-describe('required Agent Feature initialization', () => {
+describe('production Feature initialization', () => {
   beforeEach(() => {
     mocks.initFeatureSystem.mockReset()
     mocks.registerAiAgentFeature.mockReset()
   })
 
-  it('registers the single required runtime and returns its Feature handle', () => {
+  it('always registers the one App-owned Agent runtime', () => {
     const runtime = {
       run: vi.fn()
     }
-    const registration = {
-      api: {},
-      dispose: vi.fn()
-    }
-    mocks.registerAiAgentFeature.mockReturnValue(registration)
 
-    const initialized = initFeatures({ aiRuntime: runtime })
+    initFeatures({
+      aiRuntime: runtime
+    })
 
     expect(mocks.initFeatureSystem).toHaveBeenCalledOnce()
     expect(mocks.registerAiAgentFeature).toHaveBeenCalledOnce()
     expect(mocks.registerAiAgentFeature).toHaveBeenCalledWith(runtime)
-    expect(initialized.ai).toBe(registration)
-  })
-
-  it('propagates Agent registration failure instead of returning a nullable fallback', () => {
-    const failure = new Error('agent-registration-failed')
-    mocks.registerAiAgentFeature.mockImplementation(() => {
-      throw failure
-    })
-
-    expect(() =>
-      initFeatures({
-        aiRuntime: {
-          run: vi.fn()
-        }
-      })
-    ).toThrow(failure)
   })
 })

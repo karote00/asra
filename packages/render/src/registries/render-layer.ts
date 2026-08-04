@@ -1,5 +1,5 @@
 import { MapRegistry } from '@asyra/utils'
-import type { RenderLayerRegistration } from '../types/render-layer'
+import type { RenderLayerRegistration } from '../types/render-layer.js'
 
 export class RenderLayerRegistry {
   private layers = new MapRegistry<string, RenderLayerRegistration>()

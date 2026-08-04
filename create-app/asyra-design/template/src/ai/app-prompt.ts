@@ -1,10 +1,10 @@
-export const AsyraDesignAiImageToolIds = Object.freeze({
+export const AiImageToolIds = Object.freeze({
   VTRACER: 'vtracer'
 } as const)
 
-export interface AsyraDesignAiImageToolDescriptor {
+export interface AiImageToolDescriptor {
   readonly capabilities: readonly string[]
-  readonly id: (typeof AsyraDesignAiImageToolIds)[keyof typeof AsyraDesignAiImageToolIds]
+  readonly id: (typeof AiImageToolIds)[keyof typeof AiImageToolIds]
   readonly inputMediaTypes: readonly (
     | 'image/jpeg'
     | 'image/png'
@@ -12,16 +12,16 @@ export interface AsyraDesignAiImageToolDescriptor {
   )[]
 }
 
-export const ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG: readonly AsyraDesignAiImageToolDescriptor[] =
+export const AI_IMAGE_TOOL_CATALOG: readonly AiImageToolDescriptor[] =
   Object.freeze([
     Object.freeze({
       capabilities: Object.freeze(['whole-image-raster-vectorization']),
-      id: AsyraDesignAiImageToolIds.VTRACER,
+      id: AiImageToolIds.VTRACER,
       inputMediaTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp'])
     })
   ])
 
-export const ASYRA_DESIGN_AI_APP_PROMPT = `
+export const AI_APP_PROMPT = `
 You operate Asyra Design only through the registered App actions and image tools
 supplied with the current request.
 

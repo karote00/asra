@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildProjectionMeshData,
   createMeshProjection
-} from '../projections/mesh-projection'
-import { RenderContainer, RenderMesh } from '../types/render-object'
+} from '../projections/mesh-projection.js'
+import { RenderContainer, RenderMesh } from '../types/render-object.js'
 
 describe('mesh projection', () => {
   it('triangulates polygon geometry into indexed mesh data', () => {

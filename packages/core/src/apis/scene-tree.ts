@@ -19,7 +19,7 @@ import {
   SubtreeChange,
   UpdateElementDataChange
 } from '@asyra/utils'
-import { SceneTreeAPIs } from '../types'
+import { SceneTreeAPIs } from '../types/index.js'
 import type {
   CanonicalElementRemoval,
   LocalComputedDataPatchUpdate,

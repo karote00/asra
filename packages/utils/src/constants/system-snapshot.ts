@@ -1,12 +1,12 @@
-import { MouseButton } from './pointer'
-import { SystemMode } from './system-mode'
+import { MouseButton } from './pointer.js'
+import { SystemMode } from './system-mode.js'
 import {
   KeySnapshot,
   MouseSnapshot,
   SystemContextSnapshot,
   SystemSnapshot,
   TargetSnapshot
-} from '../types'
+} from '../types/index.js'
 
 export const DefaultPosition = { x: 0, y: 0 }
 

@@ -1,0 +1,43 @@
+{
+  "name": "framework-release-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "test": "vitest run --environment jsdom --no-file-parallelism"
+  },
+  "dependencies": {
+    "@asyra/ai-agent-runtime": "0.2.5",
+    "@asyra/collaboration": "0.2.5",
+    "@asyra/core": "0.2.5",
+    "@asyra/design-system": "0.2.5",
+    "@asyra/factory": "0.2.5",
+    "@asyra/feature-system": "0.2.5",
+    "@asyra/input-system": "0.2.5",
+    "@asyra/persistence": "0.2.5",
+    "@asyra/preset": "0.2.5",
+    "@asyra/props-manager": "0.2.5",
+    "@asyra/reactive-events": "0.2.5",
+    "@asyra/render": "0.2.5",
+    "@asyra/render-engine": "0.2.5",
+    "@asyra/render-engine-pixi": "0.2.5",
+    "@asyra/scene-tree": "0.2.5",
+    "@asyra/selection": "0.2.5",
+    "@asyra/system-context": "0.2.5",
+    "@asyra/ui-context": "0.2.5",
+    "@asyra/utils": "0.2.5",
+    "jsdom": "16.7.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "2.1.9"
+  }
+}

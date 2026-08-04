@@ -2,9 +2,9 @@ import type {
   SelectElementsEvent,
   SelectVectorPointsEvent,
   SelectVectorSegmentsEvent
-} from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+} from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToSelectElements =
   createSubscribeEvent<SelectElementsEvent>(EventTypes.SELECT_ELEMENTS)

@@ -1,5 +1,5 @@
 import { EventTypes, defineEvent, type EventDefinition } from '@asyra/core'
-import { InputSystemEvents } from './input-events'
+import { InputSystemEvents } from './input-events.js'
 
 type EventNamesMap = Record<string, string>
 

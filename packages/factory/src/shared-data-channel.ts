@@ -1,5 +1,5 @@
 import { MapRegistry, measureBrowserDragPhase } from '@asyra/utils'
-import { cloneAndDeepFreezeValue, isDeeplyFrozenValue } from './value-clone'
+import { cloneAndDeepFreezeValue, isDeeplyFrozenValue } from './value-clone.js'
 
 export type SharedDataChannelName = string
 

@@ -1,7 +1,7 @@
-export { default as ColorPicker } from './ColorPicker'
+export { default as ColorPicker } from './ColorPicker.js'
 export type {
   ColorPickerChange,
   ColorPickerProps,
   ColorFormatDefinition
-} from './ColorPicker'
-export * from './color-utils'
+} from './ColorPicker.js'
+export * from './color-utils.js'

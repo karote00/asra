@@ -1,8 +1,8 @@
 import type { Subscription } from 'rxjs'
 import type { PositionData } from '@asyra/utils'
-import type { PresetCoreAPIs, PresetDependencies } from '../types'
-import { createCleanupReporter } from '../cleanup-reporter'
-import { PresetSystemPropertyKeys } from '../system-property-keys'
+import type { PresetCoreAPIs, PresetDependencies } from '../types.js'
+import { createCleanupReporter } from '../cleanup-reporter.js'
+import { PresetSystemPropertyKeys } from '../system-property-keys.js'
 
 export const registerDefaultRenderSystemSubscriptions = (
   core: PresetCoreAPIs,

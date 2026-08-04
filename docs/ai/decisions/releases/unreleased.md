@@ -292,3 +292,43 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
   - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
 - Related Commit(s):
   - pending
+
+## 2026-08-05 - Sequence runtime migration, package publication, create-app, and public docs
+
+- Context:
+  - Framework Release Gate 5 proved project-local artifact readiness without
+    merging the implementation or publishing every package.
+  - Seven Framework packages still need their initial public `0.2.5`
+    publication before one synchronized patch release can be attempted.
+  - Asyra Design generated output must follow the canonical app version and
+    publicly available Framework dependency versions.
+  - Node.js 24 compatibility and Vercel operation must be proven before any
+    package publication.
+- Decision:
+  - Complete Node.js 24 local/CI/Vercel validation first and block publication
+    on any failure.
+  - Research local exact-version installation separately without implementing
+    a new registry or dependency.
+  - Establish the missing public `0.2.5` package baseline, then use the
+    intentional all-package Changeset patch flow.
+  - Defer root Asyra and private Asyra Design version changes, template
+    regeneration, and create-app publication until the Framework patch set is
+    publicly installable.
+  - Build the public Framework marketing/docs site only after package,
+    create-app, example, and public documentation versions are stable.
+- Consequences:
+  - Package release work cannot hide Node.js 24 or Vercel failures.
+  - Generated output is never manually repaired or used ahead of its canonical
+    source version.
+  - Patch versions may advance repeatedly while the process stabilizes; a
+    correct minor release remains a later explicit decision.
+  - Registry publication, create-app publication, and production deployment
+    remain separate irreversible authorization checkpoints.
+- Related Plans:
+  - `docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
+  - `docs/ai/framework/plans/local-versioned-package-install-research-plan.md`
+  - `docs/ai/framework/plans/framework-package-patch-release-plan.md`
+  - `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
+  - `docs/ai/framework/plans/asyra-framework-website-plan.md`
+- Related Commit(s):
+  - pending

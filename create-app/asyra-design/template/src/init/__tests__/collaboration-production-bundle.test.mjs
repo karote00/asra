@@ -33,21 +33,31 @@ test('production bundle keeps the deployable collaboration reference composition
   assert.equal(
     moduleIds.some(
       (moduleId) =>
-        /[/\\]apps[/\\]asyra-design[/\\]src[/\\]collaboration[/\\]/.test(
+        /[/\\]src[/\\]collaboration[/\\]/.test(moduleId) ||
+        /[/\\](?:packages[/\\]collaboration|node_modules[/\\]@asyra[/\\]collaboration)[/\\](?:src|dist)[/\\]/.test(
           moduleId
-        ) ||
-        /[/\\]packages[/\\]collaboration[/\\](?:src|dist)[/\\]/.test(moduleId)
+        )
     ),
     true,
     'deployable collaboration modules are missing from the production graph'
   )
-  ;['__AsyraCollaboration__', '/asyra-design-collaboration'].forEach(
-    (marker) => {
-      assert.equal(
-        bundledCode.includes(marker),
-        true,
-        `production bundle is missing collaboration marker: ${marker}`
+  assert.equal(
+    bundledCode.includes('/collaboration'),
+    true,
+    'production bundle is missing the collaboration route'
+  )
+  assert.equal(
+    moduleIds.some((moduleId) =>
+      /[/\\]apps[/\\]asyra-design[/\\]src[/\\]document-persistence\.ts$/.test(
+        moduleId
       )
-    }
+    ),
+    false,
+    'browser document persistence must not be bundled'
+  )
+  assert.equal(
+    bundledCode.includes('/api/documents/'),
+    false,
+    'the browser bundle must not contain a direct document persistence route'
   )
 })

@@ -1,5 +1,5 @@
 import React from 'react'
-import type { HSVAColor } from './color-utils'
+import type { HSVAColor } from './color-utils.js'
 
 interface ColorPickerSaturationProps {
   hsva: HSVAColor

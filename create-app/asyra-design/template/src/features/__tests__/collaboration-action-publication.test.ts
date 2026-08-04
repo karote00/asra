@@ -20,7 +20,7 @@ const createStartSnapshot = {
 describe('Asyra Design canonical collaboration delivery timeline', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(elementApis, 'changeComputedData').mockImplementation(
+    vi.spyOn(elementApis, 'updateElementProperties').mockImplementation(
       () => undefined
     )
     vi.spyOn(elementApis, 'changeElementGeometry').mockImplementation(
@@ -183,16 +183,17 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     moveElementsSession.onUpdate?.(snapshot as never, state as never)
 
     expect(elementApis.setElementPositions).toHaveBeenLastCalledWith(target, {
-      sharedDelivery: 'immediate'
+      sharedDelivery: 'immediate',
+      history: {
+        mode: 'replace-latest',
+        key: 'move-elements:positions'
+      }
     })
 
     vi.mocked(elementApis.setElementPositions).mockClear()
     moveElementsSession.onEnd?.(snapshot as never, state as never)
     expect(elementApis.setElementPositions).not.toHaveBeenCalled()
-    expect(elementApis.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
-      ['element-a', 'element-b'],
-      { sharedDelivery: 'immediate' }
-    )
+    expect(elementApis.normalizeGroupGeometryForElements).not.toHaveBeenCalled()
   })
 
   it('delivers a newer final multi-element pointer position on mouse up', () => {
@@ -225,11 +226,14 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
         'element-a': { x: 16, y: 28 },
         'element-b': { x: 36, y: 48 }
       },
-      { sharedDelivery: 'immediate' }
+      {
+        sharedDelivery: 'immediate',
+        history: {
+          mode: 'replace-latest',
+          key: 'move-elements:positions'
+        }
+      }
     )
-    expect(elementApis.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
-      ['element-a', 'element-b'],
-      { sharedDelivery: 'immediate' }
-    )
+    expect(elementApis.normalizeGroupGeometryForElements).not.toHaveBeenCalled()
   })
 })

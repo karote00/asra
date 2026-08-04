@@ -6,8 +6,8 @@ import {
   type ElementAttrs
 } from '@asyra/utils'
 import { EventTypes } from '@asyra/reactive-events'
-import sceneTree from '../sceneTree'
-import ElementChangeHandler from '../components/element-change-handler'
+import sceneTree from '../sceneTree.js'
+import ElementChangeHandler from '../components/element-change-handler.js'
 
 describe('ElementChangeHandler canonical owner provenance', () => {
   beforeEach(() => {

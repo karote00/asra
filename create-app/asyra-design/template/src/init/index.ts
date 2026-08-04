@@ -8,7 +8,7 @@
  * Usage:
  * ```typescript
  * import { initApp } from './init'
- * initApp({ serverResponse })
+ * initApp()
  * ```
  */
 

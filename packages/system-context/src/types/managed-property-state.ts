@@ -3,7 +3,7 @@ import type {
   ManagedPropertyLoadDiagnostic,
   ManagedPropertyLoadValidationResult,
   ManagedPropertyRegistrationOptions
-} from '../states/managed-property-state'
+} from '../states/managed-property-state.js'
 
 export interface ManagedPropertyStateAPIs {
   registerProperty: <T>(

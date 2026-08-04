@@ -6,9 +6,9 @@ import {
   systemContextApis
 } from '../common-apis'
 import {
-  ASYRA_DESIGN_AI_APP_PROMPT,
-  ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG,
-  type AsyraDesignAiImageToolDescriptor
+  AI_APP_PROMPT,
+  AI_IMAGE_TOOL_CATALOG,
+  type AiImageToolDescriptor
 } from './app-prompt'
 
 export const AI_CONTEXT_SELECTED_ELEMENT_LIMIT = 50
@@ -31,36 +31,35 @@ export class AiContextCollectionError extends Error {
   }
 }
 
-export interface AsyraDesignAiElementBounds {
+export interface AiElementBounds {
   readonly x: number
   readonly y: number
   readonly width: number
   readonly height: number
 }
 
-export interface AsyraDesignAiElementContext {
+export interface AiElementContext {
   readonly id: string
   readonly type: string
   readonly visible: boolean
   readonly locked: boolean
-  readonly bounds: AsyraDesignAiElementBounds | null
+  readonly bounds: AiElementBounds | null
 }
 
-export interface AsyraDesignAiContext {
-  readonly app: 'asyra-design'
+export interface AiContext {
   readonly appPrompt: string
-  readonly imageTools: readonly AsyraDesignAiImageToolDescriptor[]
+  readonly imageTools: readonly AiImageToolDescriptor[]
   readonly workspaceId: string | null
   readonly primaryTool: string
   readonly systemMode: string
   readonly elementCount: number
   readonly selectedElementCount: number
-  readonly selectedElements: readonly AsyraDesignAiElementContext[]
+  readonly selectedElements: readonly AiElementContext[]
 }
 
 type MaybePromise<T> = T | Promise<T>
 
-export interface AsyraDesignAiElementContextSource {
+export interface AiElementContextSource {
   readonly id?: unknown
   readonly type?: unknown
   readonly visible?: unknown
@@ -69,17 +68,15 @@ export interface AsyraDesignAiElementContextSource {
   readonly [key: string]: unknown
 }
 
-export interface AsyraDesignAiContextQueries {
+export interface AiContextQueries {
   getSelectedElementIds(): MaybePromise<readonly string[]>
   getWorkspaceId(): MaybePromise<string | null>
   getElementCount(): MaybePromise<number>
   getSystemSnapshot(): MaybePromise<Record<string, unknown>>
-  getElementSummary(
-    elementId: string
-  ): MaybePromise<AsyraDesignAiElementContextSource>
+  getElementSummary(elementId: string): MaybePromise<AiElementContextSource>
 }
 
-const defaultQueries: AsyraDesignAiContextQueries = {
+const defaultQueries: AiContextQueries = {
   getSelectedElementIds: () => selectionApis.getSelectedIds(),
   getWorkspaceId: () => hierarchyApis.getWorkspaceId(),
   getElementCount: () => hierarchyApis.getFlattenedElementIds().length,
@@ -99,7 +96,7 @@ const assertNotAborted = (signal: AbortSignal): void => {
   }
 }
 
-const toBounds = (value: unknown): AsyraDesignAiElementBounds | null => {
+const toBounds = (value: unknown): AiElementBounds | null => {
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -120,8 +117,8 @@ const toBounds = (value: unknown): AsyraDesignAiElementBounds | null => {
 
 const toElementContext = (
   elementId: string,
-  source: AsyraDesignAiElementContextSource
-): AsyraDesignAiElementContext =>
+  source: AiElementContextSource
+): AiElementContext =>
   Object.freeze({
     id: elementId,
     type: typeof source.type === 'string' ? source.type : 'unknown',
@@ -130,8 +127,8 @@ const toElementContext = (
     bounds: toBounds(source.bounds)
   })
 
-export const createAsyraDesignAiContextProvider = (
-  queries: AsyraDesignAiContextQueries = defaultQueries
+export const createAiContextProvider = (
+  queries: AiContextQueries = defaultQueries
 ) => {
   const provider = {
     getContext: async ({
@@ -140,7 +137,7 @@ export const createAsyraDesignAiContextProvider = (
     }: {
       intent: string
       signal: AbortSignal
-    }): Promise<AsyraDesignAiContext> => {
+    }): Promise<AiContext> => {
       if (!intent.trim()) {
         throw new AiContextCollectionError('AI_CONTEXT_INVALID_INTENT')
       }
@@ -176,9 +173,8 @@ export const createAsyraDesignAiContextProvider = (
       assertNotAborted(signal)
 
       return Object.freeze({
-        app: 'asyra-design',
-        appPrompt: ASYRA_DESIGN_AI_APP_PROMPT,
-        imageTools: ASYRA_DESIGN_AI_IMAGE_TOOL_CATALOG,
+        appPrompt: AI_APP_PROMPT,
+        imageTools: AI_IMAGE_TOOL_CATALOG,
         workspaceId:
           typeof workspaceIdValue === 'string' && workspaceIdValue.length > 0
             ? workspaceIdValue

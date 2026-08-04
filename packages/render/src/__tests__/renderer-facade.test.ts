@@ -14,9 +14,9 @@ const renderRuntime = {
   dispose: vi.fn()
 }
 
-import { PixiJSRenderer, RenderAdapter } from '../index'
-import type { Render } from '../render'
-import PixiJSRendererDefault from '../pixi-renderer'
+import { PixiJSRenderer, RenderAdapter } from '../index.js'
+import type { Render } from '../render.js'
+import PixiJSRendererDefault from '../pixi-renderer.js'
 
 describe('Framework renderer facade', () => {
   beforeEach(() => {

@@ -8,7 +8,7 @@ import type {
   SubtreeChange,
   UpdateElementDataChange
 } from '@asyra/utils'
-import type { PropertyComponentValuesUpdate } from './props'
+import type { PropertyComponentValuesUpdate } from './props.js'
 
 export type CanonicalChange =
   | Readonly<{

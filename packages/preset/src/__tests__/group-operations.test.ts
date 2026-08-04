@@ -4,8 +4,8 @@ import { EntityTypes } from '@asyra/utils'
 import {
   CONTAINER_COMPONENT_DEFINITIONS,
   GROUP_COMPONENT_DEFINITION
-} from '../components'
-import * as presetPublicApi from '../index'
+} from '../components/index.js'
+import * as presetPublicApi from '../index.js'
 import {
   prepareGroupOperation,
   prepareUngroupOperation,
@@ -15,7 +15,7 @@ import {
   normalizeGroupsForElements,
   ungroupElement,
   type GroupHierarchyReadCore
-} from '../components/group'
+} from '../components/group.js'
 
 const createSnapshot = (): SceneTreeRawData => ({
   workspace: 'workspace',

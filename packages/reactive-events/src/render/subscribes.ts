@@ -1,6 +1,6 @@
-import type { EmitInitRenderEvent, InitRenderEvent } from './events'
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
+import type { EmitInitRenderEvent, InitRenderEvent } from './events.js'
+import { createSubscribeEvent } from '../event-bus.js'
+import { EventTypes } from '../types.js'
 
 export const subscribeToInitRender = createSubscribeEvent<InitRenderEvent>(
   EventTypes.INIT_RENDER

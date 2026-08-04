@@ -1,4 +1,4 @@
-import type { EventTypes } from '../types'
+import type { EventTypes } from '../types.js'
 
 export interface SwitchInputSystemWatchedElementEvent {
   type: EventTypes

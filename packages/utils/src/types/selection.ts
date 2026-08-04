@@ -1,5 +1,5 @@
-import type { MutationOptions } from './change'
-import type { YjsChange } from './yjs'
+import type { MutationOptions } from './change.js'
+import type { YjsChange } from './yjs.js'
 
 export type SelectionChannel = string
 export type SelectionAction = string

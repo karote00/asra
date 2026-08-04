@@ -1,0 +1,13 @@
+# `@asyra/render-engine-pixi`
+
+Official Pixi-backed render-engine provider for the supported Asyra 2D
+composition.
+
+```ts
+import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
+```
+
+## Release support
+
+The `0.2.5` ESM artifact supports Node.js 20.x. Use only package-root exports.
+See the [Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).

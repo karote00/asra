@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineEvent, eventRegistry } from '@asyra/reactive-events'
-import { Core } from '../core'
+import { Core } from '../core.js'
 
 const createCoreForTest = () =>
   new Core({

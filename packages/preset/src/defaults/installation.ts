@@ -8,21 +8,21 @@ import {
   BASE_PROPERTY_COMPONENT_DEFINITIONS,
   registerPropertyComponents,
   VECTOR_PROPERTY_COMPONENT_DEFINITIONS
-} from '../props/components'
+} from '../props/components/index.js'
 import {
   BASE_PROPERTY_SCHEMAS,
   registerPropertySchemas,
   VECTOR_PROPERTY_SCHEMAS
-} from '../props/register-property-schemas'
+} from '../props/register-property-schemas.js'
 import {
   FrameworkEventDefinitions,
   BasicInputEventDefinitions
-} from '../events/preset-event-names'
-import { registerEvents } from '../events/register-events'
-import { registerDefaultSharedDataChannels } from '../subscriptions/shared-channels'
-import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel'
-import type { PresetRenderStrategyRegistration } from '../components'
-import type { PresetDefaultInstallContext } from './types'
+} from '../events/preset-event-names.js'
+import { registerEvents } from '../events/register-events.js'
+import { registerDefaultSharedDataChannels } from '../subscriptions/shared-channels.js'
+import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel.js'
+import type { PresetRenderStrategyRegistration } from '../components/index.js'
+import type { PresetDefaultInstallContext } from './types.js'
 
 export const acquireFrameworkEvents = (
   context: PresetDefaultInstallContext

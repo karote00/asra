@@ -1,6 +1,6 @@
-import { PointerEventData } from './input'
-import { InputType, ModifierKey, PointerKey } from '../constants'
-import { ModifierKeys } from './key-state'
+import { PointerEventData } from './input.js'
+import { InputType, ModifierKey, PointerKey } from '../constants/index.js'
+import { ModifierKeys } from './key-state.js'
 
 export type KeyboardKey = string
 

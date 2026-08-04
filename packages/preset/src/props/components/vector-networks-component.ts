@@ -1,6 +1,6 @@
 import { VECTOR_TOPOLOGY_NETWORK_ID_TYPE } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
-import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component'
+import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component.js'
 
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {

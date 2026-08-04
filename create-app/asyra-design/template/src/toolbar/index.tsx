@@ -4,7 +4,7 @@ import ToolButton from './tool-button'
 
 export interface ToolBarProps {
   readonly aiOpen: boolean
-  readonly aiShortcutLabel: string
+  readonly aiShortcutLabel?: string
   readonly onAiToggle: (invoker: HTMLButtonElement) => void
 }
 
@@ -33,7 +33,11 @@ const ToolBar = ({ aiOpen, aiShortcutLabel, onAiToggle }: ToolBarProps) => {
           }`}
           data-testid="ai-agent-toolbar-button"
           onClick={(event) => onAiToggle(event.currentTarget)}
-          title={`Toggle Agent Panel (${aiShortcutLabel})`}
+          title={
+            aiShortcutLabel
+              ? `Toggle Agent Panel (${aiShortcutLabel})`
+              : 'Toggle Agent Panel'
+          }
           type="button"
         >
           <span aria-hidden="true" className="text-[11px]">

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Factory } from '../factory'
-import { LocalSharedDataChannel } from '../shared-data-channel'
-import type _DataTransact from '../data-transact' // Keep this import for type inference
+import { Factory } from '../factory.js'
+import { LocalSharedDataChannel } from '../shared-data-channel.js'
+import type _DataTransact from '../data-transact.js' // Keep this import for type inference
 import {
   type AllEvent,
   EventTypes,

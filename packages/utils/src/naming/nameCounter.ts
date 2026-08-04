@@ -1,6 +1,6 @@
-import { NameTypes } from './enum'
-import { FIRST_NAME, CODE_SPLIT } from './constants'
-import { capitalizeFirstLetter, isNumber } from '../helpers'
+import { NameTypes } from './enum.js'
+import { FIRST_NAME, CODE_SPLIT } from './constants.js'
+import { capitalizeFirstLetter, isNumber } from '../helpers/index.js'
 
 class NameCounter {
   counter: Record<string, string> = {}

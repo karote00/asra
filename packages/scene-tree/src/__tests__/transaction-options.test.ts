@@ -14,7 +14,7 @@ import {
   type ElementRawData,
   type SceneTreeChange
 } from '@asyra/utils'
-import { SceneTree } from '../sceneTree'
+import { SceneTree } from '../sceneTree.js'
 
 interface TestSubscription {
   unsubscribe(): void

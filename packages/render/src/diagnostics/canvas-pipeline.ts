@@ -4,7 +4,7 @@ import type {
   RenderEngineObjectType
 } from '@asyra/render-engine'
 import type { GeometryTransformMatrix, Rect } from '@asyra/utils'
-import { freezeEvidence as freezeDeep } from './freeze-evidence'
+import { freezeEvidence as freezeDeep } from './freeze-evidence.js'
 
 let canvasPipelineDebuggerOwnedObjects: WeakSet<object> | undefined
 

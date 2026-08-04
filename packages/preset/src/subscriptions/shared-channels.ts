@@ -1,6 +1,6 @@
 import { SharedDataChannelNames } from '@asyra/utils'
-import type { PresetCoreAPIs } from '../types'
-import { createCleanupReporter } from '../cleanup-reporter'
+import type { PresetCoreAPIs } from '../types.js'
+import { createCleanupReporter } from '../cleanup-reporter.js'
 
 type SharedDataChannelName = string
 

@@ -8,4 +8,4 @@ export {
   withSelection,
   withUndoRedo,
   withContextSnapshot
-} from './micro-features'
+} from './micro-features.js'

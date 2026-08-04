@@ -46,7 +46,6 @@ interface PenState extends Record<string, unknown> {
   connectedPointId: string | null
   connectionSide: VectorEndpointSide
   autoUpdateConnectedHandleTarget: VectorHandleTarget | null
-  initialHandlePositions: VectorHandleInitialPosition[]
   structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
   runtimeBefore: VectorEditingRuntimeState
 }
@@ -113,12 +112,6 @@ type VectorHandleTarget = Exclude<
   VectorPointTarget,
   typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
 >
-
-interface VectorHandleInitialPosition {
-  pointId: string
-  target: VectorHandleTarget
-  position: Vec2 | null
-}
 
 const PenHoverPreviewMode = {
   NONE: 'none',
@@ -261,10 +254,11 @@ const computeFirstSegmentStyleHandles = (
 
 const setSelectedAnchorPoint = (
   elementId: string,
-  selectedPoint: { point: VectorAnchorPoint; index: number } | null
+  selectedPoint: { point: VectorAnchorPoint; index: number } | null,
+  options?: EVENT_OPTIONS
 ) => {
   if (!selectedPoint) {
-    selectionApis.clearVectorPointSelection()
+    selectionApis.clearVectorPointSelection(options)
     systemContextApis.setSelectedVectorPoint(null)
     return
   }
@@ -283,11 +277,14 @@ const setSelectedAnchorPoint = (
   }
 
   selectionApis.clearVectorSegmentSelection()
-  selectionApis.selectVectorPoint({
-    elementId,
-    pointId: selectedState.pointId,
-    target: selectedState.target
-  })
+  selectionApis.selectVectorPoint(
+    {
+      elementId,
+      pointId: selectedState.pointId,
+      target: selectedState.target
+    },
+    options
+  )
   // Compatibility mirror during SelectionManager migration.
   systemContextApis.setSelectedVectorPoint(selectedState)
 }
@@ -326,19 +323,6 @@ const hasMovedBeyondVectorPointDragThreshold = (
   )
 }
 
-const getHandleTargetPosition = (
-  point: VectorAnchorPoint | null | undefined,
-  target: VectorHandleTarget
-): Vec2 | null => {
-  if (!point) {
-    return null
-  }
-
-  return target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-    ? point.inHandle
-    : point.outHandle
-}
-
 const getNewPointSegmentHandleTarget = (
   connectionSide: VectorEndpointSide
 ): VectorHandleTarget =>
@@ -359,67 +343,6 @@ const getAutoUpdatedConnectedHandleTarget = (
 ): VectorHandleTarget =>
   autoUpdateConnectedHandleTarget ??
   getConnectedHandleTargetForSide(connectionSide)
-
-const getBezierDragInitialHandlePositions = (
-  elementId: string,
-  pointId: string,
-  connectedPointId: string | null,
-  connectionSide: VectorEndpointSide,
-  autoUpdateConnectedHandleTarget: VectorHandleTarget | null
-): VectorHandleInitialPosition[] => {
-  const newPoint = elementApis.getVectorAnchorPointById(elementId, pointId)
-  const connectedPoint = connectedPointId
-    ? elementApis.getVectorAnchorPointById(elementId, connectedPointId)
-    : null
-  const positions: VectorHandleInitialPosition[] = []
-
-  if (connectedPointId) {
-    const target = getAutoUpdatedConnectedHandleTarget(
-      connectionSide,
-      autoUpdateConnectedHandleTarget
-    )
-    positions.push({
-      pointId: connectedPointId,
-      target,
-      position: getHandleTargetPosition(connectedPoint?.point, target)
-    })
-  }
-
-  const segmentTarget = getNewPointSegmentHandleTarget(connectionSide)
-  positions.push({
-    pointId,
-    target: segmentTarget,
-    position: getHandleTargetPosition(newPoint?.point, segmentTarget)
-  })
-
-  const oppositeTarget = getNewPointOppositeHandleTarget(connectionSide)
-  positions.push({
-    pointId,
-    target: oppositeTarget,
-    position: getHandleTargetPosition(newPoint?.point, oppositeTarget)
-  })
-
-  return positions
-}
-
-const resetBezierDragHandlesToInitial = (state: PenState) => {
-  if (state.initialHandlePositions.length === 0) {
-    return
-  }
-
-  elementApis.updateVectorAnchorPointHandles(
-    state.elementId,
-    state.initialHandlePositions.map((handle) => ({
-      pointId: handle.pointId,
-      target: handle.target,
-      position: handle.position
-    })),
-    {
-      undoable: false,
-      skipResult: true
-    }
-  )
-}
 
 const syncSelectedVectorPointMirror = (
   elementId: string,
@@ -458,7 +381,10 @@ const syncSelectedVectorPointMirror = (
 const updateVectorPointTargetPosition = (
   targetState: VectorPointDragTargetState,
   position: { x: number; y: number },
-  options?: EVENT_OPTIONS & { skipResult?: boolean }
+  options?: EVENT_OPTIONS & {
+    skipResult?: boolean
+    transientPreview?: boolean
+  }
 ) => {
   if (targetState.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
     return elementApis.updateVectorAnchorPointPosition(
@@ -806,13 +732,22 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 
             if (insertedPoint) {
               selectionApis.selectElements([pathEditingVectorId])
-              setSelectedAnchorPoint(pathEditingVectorId, insertedPoint)
               systemContextApis.setSelectedVectorSegment(null)
               systemContextApis.setHoveredVectorSegment(null)
               systemContextApis.setHoveredVectorSegmentInsertPoint(null)
               // Keep split mode active after split actions. Non-endpoint
               // continuation is intentionally deferred to network editing.
               systemContextApis.setPathEditingStartNewSubpath(true)
+              requestAnimationFrame(() => {
+                if (
+                  systemContextApis.getPathEditingVectorId() ===
+                  pathEditingVectorId
+                ) {
+                  setSelectedAnchorPoint(pathEditingVectorId, insertedPoint, {
+                    undoable: false
+                  })
+                }
+              })
             }
 
             return null
@@ -868,13 +803,6 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             connectedPointId,
             connectionSide,
             autoUpdateConnectedHandleTarget,
-            initialHandlePositions: getBezierDragInitialHandlePositions(
-              pathEditingVectorId,
-              newPoint.id,
-              connectedPointId,
-              connectionSide,
-              autoUpdateConnectedHandleTarget
-            ),
             structuralOperationIntent,
             runtimeBefore
           } as PenState
@@ -894,11 +822,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         systemContextApis.enterPathEditingMode(elementId, {
           startNewSubpath: false
         })
-        const selectedPoint = elementApis.getVectorAnchorPointById(
-          elementId,
-          firstPoint.id
-        )
-        setSelectedAnchorPoint(elementId, selectedPoint)
+        setSelectedAnchorPoint(elementId, {
+          point: firstPoint,
+          index: 0
+        })
 
         return {
           elementId,
@@ -906,7 +833,6 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           connectedPointId: null,
           connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
           autoUpdateConnectedHandleTarget: null,
-          initialHandlePositions: [],
           structuralOperationIntent: createStructuralVectorOperationPatchIntent(
             {
               elementId,
@@ -931,40 +857,15 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         }
 
         applyBezierDragForNewPoint(state, mouseWorkspacePos, {
-          undoable: false,
+          undoable: true,
           sharedDelivery: 'immediate',
           skipResult: true
         })
 
         return
       },
-      onEnd: (snapshot: SystemContextSnapshot, state: PenState) => {
-        if (!hasMovedBeyondPenCurveThreshold(snapshot)) {
-          const selectedPoint = elementApis.getVectorAnchorPointById(
-            state.elementId,
-            state.pointId
-          )
-          setSelectedAnchorPoint(state.elementId, selectedPoint)
-          return
-        }
-
-        const mouseWorkspacePos = getCurrentMouseWorkspacePos()
-        if (mouseWorkspacePos) {
-          resetBezierDragHandlesToInitial(state)
-          applyBezierDragForNewPoint(state, mouseWorkspacePos, {
-            undoable: true,
-            skipResult: true
-          })
-        }
-
-        const selectedPoint = elementApis.getVectorAnchorPointById(
-          state.elementId,
-          state.pointId
-        )
-        setSelectedAnchorPoint(state.elementId, selectedPoint)
-        return
-      },
       onCancel: (_snapshot, state): undefined => {
+        elementApis.discardTransientVectorPreviews([state.elementId])
         restoreVectorEditingRuntimeState(state.runtimeBefore)
         cursorApis.resetCanvasCursor()
       }
@@ -1169,7 +1070,7 @@ export const selectVectorPointFeature = defineFeature<
             computedPatchIntent.patch.position,
             {
               undoable: computedPatchIntent.patch.undoable,
-              sharedDelivery: 'immediate',
+              transientPreview: true,
               skipResult: computedPatchIntent.patch.skipResult
             }
           )
@@ -1212,41 +1113,13 @@ export const selectVectorPointFeature = defineFeature<
           return
         }
 
-        const currentPoint = elementApis.getVectorAnchorPointById(
-          dragTarget.elementId,
-          dragTarget.pointId
-        )
-        const currentTargetPos =
-          currentPoint &&
-          getVectorPointTargetPosition(currentPoint.point, dragTarget.target)
-        if (
-          !currentTargetPos ||
-          currentTargetPos.x !== computedPatchIntent.patch.position.x ||
-          currentTargetPos.y !== computedPatchIntent.patch.position.y
-        ) {
-          updateVectorPointTargetPosition(
-            dragTarget,
-            computedPatchIntent.patch.position,
-            {
-              undoable: false,
-              skipResult: true
-            }
-          )
-        }
-
-        updateVectorPointTargetPosition(
-          dragTarget,
-          dragTarget.initialTargetPos,
-          {
-            undoable: false,
-            skipResult: true
-          }
-        )
+        elementApis.discardTransientVectorPreviews([dragTarget.elementId])
         updateVectorPointTargetPosition(
           dragTarget,
           computedPatchIntent.patch.position,
           {
             undoable: computedPatchIntent.patch.undoable,
+            sharedDelivery: 'immediate',
             skipResult: computedPatchIntent.patch.skipResult
           }
         )
@@ -1269,6 +1142,10 @@ export const selectVectorPointFeature = defineFeature<
       return
     },
     onCancel: (_snapshot, state): undefined => {
+      const previewElementId = state.dragTarget?.elementId
+      if (previewElementId) {
+        elementApis.discardTransientVectorPreviews([previewElementId])
+      }
       state.dragTarget = null
       restoreVectorEditingRuntimeState(state.runtimeBefore)
       cursorApis.resetCanvasCursor()

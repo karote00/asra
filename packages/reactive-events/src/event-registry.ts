@@ -1,7 +1,7 @@
 import { MapRegistry } from '@asyra/utils'
-import { publishEvent, subscribeToEvents } from './event-bus'
+import { publishEvent, subscribeToEvents } from './event-bus.js'
 import type { Subscription } from 'rxjs'
-import type { AllEvent } from './constants'
+import type { AllEvent } from './constants.js'
 
 export interface EventDefinition<TPayload = unknown, TOptions = unknown> {
   eventName: string

@@ -6,7 +6,7 @@ import {
   type AiFetchRequestInit,
   type AiFetchResponse,
   type AiProviderInput
-} from '../..'
+} from '../../index.js'
 
 const providerInput = (): AiProviderInput => ({
   intent: 'resize the selected element',

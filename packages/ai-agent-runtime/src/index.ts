@@ -1,21 +1,21 @@
 export {
   AiActionRegistryError,
   createAiActionRegistry
-} from './action-registry'
-export { AiAuditError, createAiRuntimeAudit } from './audit'
+} from './action-registry.js'
+export { AiAuditError, createAiRuntimeAudit } from './audit.js'
 export {
   AiActionBatchContractError,
   AiActionBatchResolutionError
-} from './action-batch'
+} from './action-batch.js'
 export {
   AiRetryPolicyError,
   MAX_AI_PROVIDER_ATTEMPTS,
   shouldRetryAiProviderFailure,
   toAiProviderRequestFailure
-} from './provider-retry'
-export { AiProviderError } from './provider'
-export { createGenericHttpAiProvider } from './providers/generic-http'
-export { AI_REDACTED_VALUE, redactAiValue } from './redaction'
+} from './provider-retry.js'
+export { AiProviderError } from './provider.js'
+export { createGenericHttpAiProvider } from './providers/generic-http.js'
+export { AI_REDACTED_VALUE, redactAiValue } from './redaction.js'
 export {
   AI_ACTION_BATCH_TRANSACTION_LABEL,
   AiConfirmationError,
@@ -27,24 +27,24 @@ export {
   evaluateAiActionBatchPermissions,
   executeAiActions,
   runAiActionBatchTransaction
-} from './runtime'
+} from './runtime.js'
 export type {
   AiAuditActionSummary,
   AiAuditOutcome,
   AiRuntimeAudit,
   CreateAiRuntimeAuditInput
-} from './audit'
+} from './audit.js'
 export type {
   AiActionBatchContractErrorCode,
   AiActionBatchResolutionErrorCode,
   ResolvedAiAction,
   ResolvedAiActionBatch
-} from './action-batch'
+} from './action-batch.js'
 export type {
   AiProviderRequestFailure,
   AiProviderRetryContext,
   AiRetryPolicy
-} from './provider-retry'
+} from './provider-retry.js'
 export type {
   AiActionBatch,
   AiActionBatchAction,
@@ -52,15 +52,15 @@ export type {
   AiProviderErrorCode,
   AiProviderErrorOptions,
   AiProviderInput
-} from './provider'
+} from './provider.js'
 export type {
   AiFetch,
   AiFetchRequestInit,
   AiFetchResponse,
   GenericHttpAiProvider,
   GenericHttpAiProviderOptions
-} from './providers/generic-http'
-export type { AiRedactionOptions } from './redaction'
+} from './providers/generic-http.js'
+export type { AiRedactionOptions } from './redaction.js'
 export type {
   AiAgentRuntime,
   AiActionBatchPreview,
@@ -92,7 +92,7 @@ export type {
   AiRuntimeStage,
   AiTransactionRunner,
   CreateAiAgentRuntimeInput
-} from './runtime'
+} from './runtime.js'
 export type {
   AiActionDefinition,
   AiActionDescription,
@@ -102,4 +102,4 @@ export type {
   AiExecutionContext,
   AiJsonPrimitive,
   AiJsonValue
-} from './types'
+} from './types.js'

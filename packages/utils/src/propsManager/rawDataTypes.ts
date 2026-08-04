@@ -1,6 +1,6 @@
-import { Unit } from '../constants'
-import { PropertyType } from './enum'
-import type { AnchorPointType } from './constants'
+import { Unit } from '../constants/index.js'
+import { PropertyType } from './enum.js'
+import type { AnchorPointType } from './constants.js'
 
 export interface PropertyRawData {
   id: string

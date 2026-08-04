@@ -6,7 +6,7 @@ import {
   SelectionSystemPropertyKeys,
   VectorEditingSystemPropertyKeys,
   ViewportSystemPropertyKeys
-} from '../system-property-keys'
+} from '../system-property-keys.js'
 
 describe('Preset system property keys', () => {
   it('exposes one frozen flattened contract derived from owner groups', () => {

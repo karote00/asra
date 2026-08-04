@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
+import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle.js'
 
 describe('resolveSyntheticVectorHandlePosition', () => {
   it('preserves an existing visible handle', () => {

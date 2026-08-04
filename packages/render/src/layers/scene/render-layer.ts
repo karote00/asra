@@ -2,16 +2,16 @@ import {
   SceneElement,
   RenderContainerData,
   RenderElementData
-} from '../../types'
+} from '../../types.js'
 import {
   DataTypes,
   getElementGeometryLocalBounds,
   isFiniteNumber,
   measureBrowserDragPhase
 } from '@asyra/utils'
-import renderStrategyRegistry from '../../registries/render-strategy'
-import { defaultStrategy } from '../../strategies/default-strategy'
-import { RenderContainer, RenderGraphics } from '../../types/render-object'
+import renderStrategyRegistry from '../../registries/render-strategy.js'
+import { defaultStrategy } from '../../strategies/default-strategy.js'
+import { RenderContainer, RenderGraphics } from '../../types/render-object.js'
 
 export class RenderLayer {
   private currentWorkspace: RenderContainer

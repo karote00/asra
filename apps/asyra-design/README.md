@@ -6,8 +6,8 @@ state, rendering, interaction, and collaboration APIs.
 
 ## Requirements
 
-- Node.js 18 or newer
-- Yarn
+- Node.js 20.x
+- Yarn 4.3.1
 
 Install dependencies from the repository root:
 
@@ -35,6 +35,12 @@ COLLABORATION_WS_HOST=127.0.0.1
 COLLABORATION_WS_PORT=4101
 DOCUMENT_PERSISTENCE_BACKEND_URL=http://127.0.0.1:4201
 ```
+
+This repository reference app intentionally composes its complete document
+session. The generated standalone template instead leaves
+`VITE_COLLABORATION_WS_URL` empty so Collaboration is opt-in and creates no
+provider/network side effect until the consumer explicitly configures it. See
+[`TEMPLATE.md`](TEMPLATE.md) for the generated-app contract.
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
 and the socket server's Origin check use `APP_URL`. The socket server reads and

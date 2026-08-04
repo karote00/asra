@@ -21,8 +21,8 @@ import {
   type ElementRawData,
   type GroupInstanceTypes
 } from '@asyra/utils'
-import sceneTree from './sceneTree'
-import { isGroupEntity } from './entity-data'
+import sceneTree from './sceneTree.js'
+import { isGroupEntity } from './entity-data.js'
 
 const isUpdatePropertyChange = (
   payload: unknown

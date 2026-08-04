@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
 import type { RenderEngineInteractionEvent } from '@asyra/render-engine'
 import * as reactiveEvents from '@asyra/reactive-events'
-import { Render } from '../render'
-import type { RenderElementData } from '../types'
+import { Render } from '../render.js'
+import type { RenderElementData } from '../types.js'
 
 const createInteraction = (
   type: RenderEngineInteractionEvent['type'],

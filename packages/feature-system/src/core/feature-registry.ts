@@ -1,6 +1,6 @@
 import { MapRegistry } from '@asyra/utils'
-import type { FeatureDefinition, FeatureAPI } from '../types/feature'
-import type { FeatureEntry } from '../types/registry'
+import type { FeatureDefinition, FeatureAPI } from '../types/feature.js'
+import type { FeatureEntry } from '../types/registry.js'
 
 /**
  * Feature Registry

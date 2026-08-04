@@ -1,1 +1,1 @@
-export * from './pixi-render-engine'
+export * from './pixi-render-engine.js'

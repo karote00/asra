@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RenderGraphics } from '../types/render-object'
+import { RenderGraphics } from '../types/render-object.js'
 import {
   createOverlayLayerRegistration,
   sampleOverlayBezierPoints
-} from '../layers/overlay-layer'
+} from '../layers/overlay-layer.js'
 
 describe('overlay layer', () => {
   it('samples bezier overlay curves into a dense polyline including both endpoints', () => {

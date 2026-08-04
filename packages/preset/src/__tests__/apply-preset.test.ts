@@ -4,11 +4,11 @@ import {
   PresetDefaults,
   PresetProfiles,
   PRESET_APPLY_ERROR_CODES
-} from '../constants'
-import * as defaults from '../defaults/install'
+} from '../constants.js'
+import * as defaults from '../defaults/install.js'
 
-import { PresetApplyError } from '../composition/error'
-import { applyPreset } from '../preset'
+import { PresetApplyError } from '../composition/error.js'
+import { applyPreset } from '../preset.js'
 
 const allDefaults = Object.values(PresetDefaults)
 

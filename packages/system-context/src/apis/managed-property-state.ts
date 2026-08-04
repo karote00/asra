@@ -1,5 +1,5 @@
-import { ManagedPropertyState } from '../states/managed-property-state'
-import type { ManagedPropertyRegistrationOptions } from '../states/managed-property-state'
+import { ManagedPropertyState } from '../states/managed-property-state.js'
+import type { ManagedPropertyRegistrationOptions } from '../states/managed-property-state.js'
 
 export const createManagedPropertyStateAPIs = (
   managedPropertyState: ManagedPropertyState

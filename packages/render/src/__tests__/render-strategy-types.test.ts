@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { RenderElementData } from '../types'
-import type { EngineNeutralRenderStrategy } from '../types/render-strategy'
+import type { RenderElementData } from '../types.js'
+import type { EngineNeutralRenderStrategy } from '../types/render-strategy.js'
 
 interface AppRenderFields {
   customCount: number

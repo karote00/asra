@@ -5,7 +5,7 @@ import type {
   AiActionRegistryErrorCode,
   AiActionResult,
   AiJsonValue
-} from './types'
+} from './types.js'
 
 export class AiActionRegistryError extends Error {
   readonly code: AiActionRegistryErrorCode

@@ -17,12 +17,12 @@ import {
   type SubtreeRemovalEntry,
   type TransactionStatusPayload
 } from '@asyra/utils'
-import DataTransact from '../data-transact'
-import { SharedDataChannelRegistry } from '../shared-data-channel'
+import DataTransact from '../data-transact.js'
+import { SharedDataChannelRegistry } from '../shared-data-channel.js'
 import {
   TransactionRollbackError,
   TransactionValidationError
-} from '../transaction'
+} from '../transaction.js'
 
 interface ObservedPayloadEvent {
   type: string

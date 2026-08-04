@@ -1,57 +1,55 @@
 import {
-  ASYRA_DESIGN_AI_WORKSPACE_LIMIT,
-  type AsyraDesignAiCompositionItem,
-  type AsyraDesignAiCompositionPath,
-  type AsyraDesignAiCompositionPoint
+  AI_WORKSPACE_LIMIT,
+  type AiCompositionItem,
+  type AiCompositionPath,
+  type AiCompositionPoint
 } from './actions'
 
-export const ASYRA_DESIGN_VTRACER_ENDPOINT = '/api/ai-tools/vtracer'
+export const VTRACER_ENDPOINT = '/api/ai-tools/vtracer'
 
-export type AsyraDesignVTracerProfile = 'photo-faithful'
+export type VTracerProfile = 'photo-faithful'
 
-export type AsyraDesignVTracerErrorCode =
-  | 'ASYRA_DESIGN_VTRACER_ABORTED'
-  | 'ASYRA_DESIGN_VTRACER_FAILED'
-  | 'ASYRA_DESIGN_VTRACER_INVALID_INPUT'
-  | 'ASYRA_DESIGN_VTRACER_INVALID_OUTPUT'
+export type VTracerErrorCode =
+  | 'VTRACER_ABORTED'
+  | 'VTRACER_FAILED'
+  | 'VTRACER_INVALID_INPUT'
+  | 'VTRACER_INVALID_OUTPUT'
 
-export class AsyraDesignVTracerError extends Error {
-  readonly code: AsyraDesignVTracerErrorCode
+export class VTracerError extends Error {
+  readonly code: VTracerErrorCode
 
-  constructor(code: AsyraDesignVTracerErrorCode, message: string) {
+  constructor(code: VTracerErrorCode, message: string) {
     super(message)
-    this.name = 'AsyraDesignVTracerError'
+    this.name = 'VTracerError'
     this.code = code
   }
 }
 
-export interface AsyraDesignVTracerAttachment {
+export interface VTracerAttachment {
   readonly dataUrl: string
   readonly mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
   readonly name: string
   readonly size: number
 }
 
-export interface AsyraDesignVTracerRequest {
-  readonly attachment: AsyraDesignVTracerAttachment
-  readonly profile: AsyraDesignVTracerProfile
+export interface VTracerRequest {
+  readonly attachment: VTracerAttachment
+  readonly profile: VTracerProfile
   readonly signal: AbortSignal
 }
 
-export interface AsyraDesignVTracerResult {
+export interface VTracerResult {
   readonly height: number
-  readonly items: readonly AsyraDesignAiCompositionItem[]
+  readonly items: readonly AiCompositionItem[]
   readonly pointCount: number
   readonly width: number
 }
 
-export interface AsyraDesignVTracer {
-  vectorize(
-    request: AsyraDesignVTracerRequest
-  ): Promise<AsyraDesignVTracerResult>
+export interface VTracer {
+  vectorize(request: VTracerRequest): Promise<VTracerResult>
 }
 
-interface CreateAsyraDesignVTracerClientOptions {
+interface CreateVTracerClientOptions {
   readonly endpoint?: string
   readonly fetch?: typeof globalThis.fetch
 }
@@ -61,10 +59,7 @@ const PATH_TOKEN_PATTERN = new RegExp(`[A-Za-z]|${NUMBER_PATTERN}`, 'g')
 const SUPPORTED_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const invalidOutput = (message: string): never => {
-  throw new AsyraDesignVTracerError(
-    'ASYRA_DESIGN_VTRACER_INVALID_OUTPUT',
-    message
-  )
+  throw new VTracerError('VTRACER_INVALID_OUTPUT', message)
 }
 
 const parsePositiveDimension = (value: string | null): number => {
@@ -78,9 +73,7 @@ const parsePositiveDimension = (value: string | null): number => {
   return number
 }
 
-const polygonArea = (
-  points: readonly AsyraDesignAiCompositionPoint[]
-): number => {
+const polygonArea = (points: readonly AiCompositionPoint[]): number => {
   let area = 0
   points.forEach((point, index) => {
     const next = points[(index + 1) % points.length]
@@ -89,7 +82,7 @@ const polygonArea = (
   return Math.abs(area / 2)
 }
 
-const isValidPath = (path: AsyraDesignAiCompositionPath): boolean => {
+const isValidPath = (path: AiCompositionPath): boolean => {
   if (path.closed) {
     return path.points.length >= 3 && polygonArea(path.points) > 0
   }
@@ -99,16 +92,16 @@ const isValidPath = (path: AsyraDesignAiCompositionPath): boolean => {
 const parsePolygonPath = (
   source: string,
   scale: number
-): AsyraDesignAiCompositionPath[] => {
+): AiCompositionPath[] => {
   const tokens = source.match(PATH_TOKEN_PATTERN) ?? []
   const remainder = source.replace(PATH_TOKEN_PATTERN, '').replace(/[,\s]/g, '')
   if (tokens.length === 0 || remainder.length > 0) {
     return invalidOutput('VTracer SVG path data is invalid.')
   }
 
-  const paths: AsyraDesignAiCompositionPath[] = []
+  const paths: AiCompositionPath[] = []
   let command = ''
-  let current: AsyraDesignAiCompositionPoint[] | null = null
+  let current: AiCompositionPoint[] | null = null
   let index = 0
 
   const finish = (closed: boolean) => {
@@ -170,7 +163,7 @@ const parsePolygonPath = (
   return paths
 }
 
-const boundsForPaths = (paths: readonly AsyraDesignAiCompositionPath[]) => {
+const boundsForPaths = (paths: readonly AiCompositionPath[]) => {
   let x = Number.POSITIVE_INFINITY
   let y = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
@@ -194,17 +187,15 @@ const boundsForPaths = (paths: readonly AsyraDesignAiCompositionPath[]) => {
     y < 0 ||
     width <= 0 ||
     height <= 0 ||
-    x + width > ASYRA_DESIGN_AI_WORKSPACE_LIMIT ||
-    y + height > ASYRA_DESIGN_AI_WORKSPACE_LIMIT
+    x + width > AI_WORKSPACE_LIMIT ||
+    y + height > AI_WORKSPACE_LIMIT
   ) {
     return null
   }
   return Object.freeze({ height, width, x, y })
 }
 
-export const parseAsyraDesignVTracerSvg = (
-  source: string
-): AsyraDesignVTracerResult => {
+export const parseVTracerSvg = (source: string): VTracerResult => {
   const document = new DOMParser().parseFromString(source, 'image/svg+xml')
   if (document.querySelector('parsererror')) {
     return invalidOutput('VTracer returned malformed SVG.')
@@ -217,10 +208,10 @@ export const parseAsyraDesignVTracerSvg = (
   const sourceHeight = parsePositiveDimension(svg.getAttribute('height'))
   const scale = Math.min(
     1,
-    ASYRA_DESIGN_AI_WORKSPACE_LIMIT / sourceWidth,
-    ASYRA_DESIGN_AI_WORKSPACE_LIMIT / sourceHeight
+    AI_WORKSPACE_LIMIT / sourceWidth,
+    AI_WORKSPACE_LIMIT / sourceHeight
   )
-  const items: AsyraDesignAiCompositionItem[] = []
+  const items: AiCompositionItem[] = []
   let pointCount = 0
 
   Array.from(document.querySelectorAll('path')).forEach((element) => {
@@ -257,9 +248,7 @@ export const parseAsyraDesignVTracerSvg = (
   })
 }
 
-const decodeAttachment = (
-  attachment: AsyraDesignVTracerAttachment
-): Uint8Array => {
+const decodeAttachment = (attachment: VTracerAttachment): Uint8Array => {
   if (
     !SUPPORTED_MEDIA_TYPES.has(attachment.mediaType) ||
     !Number.isSafeInteger(attachment.size) ||
@@ -268,8 +257,8 @@ const decodeAttachment = (
       `data:${attachment.mediaType as string};base64,`
     )
   ) {
-    throw new AsyraDesignVTracerError(
-      'ASYRA_DESIGN_VTRACER_INVALID_INPUT',
+    throw new VTracerError(
+      'VTRACER_INVALID_INPUT',
       'VTracer attachment is invalid.'
     )
   }
@@ -286,18 +275,15 @@ const decodeAttachment = (
     }
     return bytes
   } catch {
-    throw new AsyraDesignVTracerError(
-      'ASYRA_DESIGN_VTRACER_INVALID_INPUT',
+    throw new VTracerError(
+      'VTRACER_INVALID_INPUT',
       'VTracer attachment is invalid.'
     )
   }
 }
 
-const aborted = (): AsyraDesignVTracerError =>
-  new AsyraDesignVTracerError(
-    'ASYRA_DESIGN_VTRACER_ABORTED',
-    'VTracer request was aborted.'
-  )
+const aborted = (): VTracerError =>
+  new VTracerError('VTRACER_ABORTED', 'VTracer request was aborted.')
 
 const normalizeWebpToPng = async (
   bytes: Uint8Array,
@@ -315,8 +301,8 @@ const normalizeWebpToPng = async (
     if (signal.aborted) {
       throw aborted()
     }
-    throw new AsyraDesignVTracerError(
-      'ASYRA_DESIGN_VTRACER_INVALID_INPUT',
+    throw new VTracerError(
+      'VTRACER_INVALID_INPUT',
       'VTracer attachment is invalid.'
     )
   }
@@ -329,10 +315,7 @@ const normalizeWebpToPng = async (
     canvas.height = bitmap.height
     const context = canvas.getContext('2d')
     if (!context) {
-      throw new AsyraDesignVTracerError(
-        'ASYRA_DESIGN_VTRACER_FAILED',
-        'VTracer request failed.'
-      )
+      throw new VTracerError('VTRACER_FAILED', 'VTracer request failed.')
     }
     context.drawImage(bitmap, 0, 0)
     const png = await new Promise<Blob>((resolve, reject) => {
@@ -341,10 +324,7 @@ const normalizeWebpToPng = async (
           result
             ? resolve(result)
             : reject(
-                new AsyraDesignVTracerError(
-                  'ASYRA_DESIGN_VTRACER_FAILED',
-                  'VTracer request failed.'
-                )
+                new VTracerError('VTRACER_FAILED', 'VTracer request failed.')
               ),
         'image/png'
       )
@@ -362,17 +342,13 @@ const normalizeWebpToPng = async (
   }
 }
 
-export const createAsyraDesignVTracerClient = (
-  options: CreateAsyraDesignVTracerClientOptions = {}
-): AsyraDesignVTracer => {
+export const createVTracerClient = (
+  options: CreateVTracerClientOptions = {}
+): VTracer => {
   const fetchImplementation = options.fetch ?? globalThis.fetch
-  const endpoint = options.endpoint ?? ASYRA_DESIGN_VTRACER_ENDPOINT
+  const endpoint = options.endpoint ?? VTRACER_ENDPOINT
   return Object.freeze({
-    vectorize: async ({
-      attachment,
-      profile,
-      signal
-    }: AsyraDesignVTracerRequest) => {
+    vectorize: async ({ attachment, profile, signal }: VTracerRequest) => {
       if (signal.aborted) {
         throw aborted()
       }
@@ -393,10 +369,8 @@ export const createAsyraDesignVTracerClient = (
           signal
         })
       } catch {
-        throw new AsyraDesignVTracerError(
-          signal.aborted
-            ? 'ASYRA_DESIGN_VTRACER_ABORTED'
-            : 'ASYRA_DESIGN_VTRACER_FAILED',
+        throw new VTracerError(
+          signal.aborted ? 'VTRACER_ABORTED' : 'VTRACER_FAILED',
           signal.aborted
             ? 'VTracer request was aborted.'
             : 'VTracer request failed.'
@@ -409,12 +383,9 @@ export const createAsyraDesignVTracerClient = (
           ?.toLocaleLowerCase('en-US')
           .startsWith('image/svg+xml')
       ) {
-        throw new AsyraDesignVTracerError(
-          'ASYRA_DESIGN_VTRACER_FAILED',
-          'VTracer request failed.'
-        )
+        throw new VTracerError('VTRACER_FAILED', 'VTracer request failed.')
       }
-      return parseAsyraDesignVTracerSvg(await response.text())
+      return parseVTracerSvg(await response.text())
     }
   })
 }
