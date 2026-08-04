@@ -160,6 +160,23 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
+test('CI reproduces Framework Release Gate 5 from packed artifacts on Node 20', () => {
+  const ci = readText('.github/workflows/main.yml')
+  const releaseJob = ci.slice(ci.indexOf('framework-release-readiness:'))
+
+  assert.match(releaseJob, /node-version: 20\.17\.0/)
+  assert.match(releaseJob, /yarn install --immutable/)
+  assert.match(releaseJob, /yarn react:build/)
+  assert.match(releaseJob, /yarn release:packages --prebuilt/)
+  assert.match(releaseJob, /yarn release:consumer/)
+  assert.match(releaseJob, /yarn release:template --prod=asyra-design/)
+  assert.match(releaseJob, /yarn release:records/)
+  assert.doesNotMatch(
+    releaseJob,
+    /--allow-unsupported-node|changeset publish|npm publish/
+  )
+})
+
 test('E2E automation cancels superseded runs and installs only Chromium', () => {
   const e2e = readText('.github/workflows/e2e.yml')
   const chromiumInstallCount = (
