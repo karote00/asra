@@ -278,6 +278,12 @@ const positionSchema: PropertySchema = {
       defaultValue: 0
     },
     {
+      key: 'rotation',
+      kind: 'number',
+      validate: isFiniteNumber,
+      defaultValue: 0
+    },
+    {
       key: 'xUnit',
       kind: 'string',
       validate: isUnit,

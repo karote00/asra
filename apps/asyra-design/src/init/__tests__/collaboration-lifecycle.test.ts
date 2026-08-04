@@ -32,6 +32,16 @@ const EMPTY_DOCUMENT = {
   props: {}
 } as const
 
+const createDeferred = <Value>() => {
+  let resolve!: (value: Value | PromiseLike<Value>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<Value>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, reject, resolve }
+}
+
 const remotePublication = (publicationId: string): SharedPublication => {
   const artifactId = `artifact-${publicationId}`
   const batchId = `batch-${publicationId}`
@@ -292,7 +302,7 @@ it('keeps a provisional local session active and retries an unavailable socket a
     .spyOn(console, 'error')
     .mockImplementation(() => undefined)
   const retry =
-    Promise.withResolvers<
+    createDeferred<
       Awaited<ReturnType<CollaborationWebSocketProvider['openDocumentSession']>>
     >()
   vi.mocked(CollaborationWebSocketProvider.prototype.openDocumentSession)
@@ -456,7 +466,7 @@ it('retains disconnected Factory publications and removes them after reconnect s
 
 it('includes a queued local publication in the reconnect recovery cutoff before replacing Core state', async () => {
   const reconnectBootstrap =
-    Promise.withResolvers<
+    createDeferred<
       Awaited<ReturnType<CollaborationWebSocketProvider['openDocumentSession']>>
     >()
   vi.mocked(CollaborationWebSocketProvider.prototype.openDocumentSession)

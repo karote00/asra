@@ -11,6 +11,7 @@ import { applyPreset, PresetDefaults, PresetProfiles } from '../index'
 interface AppPositionFields {
   x: number
   y: number
+  rotation: number
   xUnit: Unit
   yUnit: Unit
   customAxis: number
@@ -39,6 +40,7 @@ describe('preset property type redefinition integration', () => {
     expect(current?.fields.map((field) => field.key)).toEqual([
       'x',
       'y',
+      'rotation',
       'xUnit',
       'yUnit'
     ])
