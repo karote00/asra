@@ -724,6 +724,100 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
+  it('preserves one property record replacement with one relationship update', () => {
+    const harness = createHarness()
+    const propertyBatchId = 'batch-vector-topology-replacement'
+    const segmentAddition = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.ADD_PROPERTY,
+        {
+          action: PROPS_ACTIONS.ADD_PROPERTY,
+          eventName: EventTypes.ADD_PROPERTY,
+          data: [
+            {
+              id: 'segment-new',
+              type: 'vectorSegment',
+              startId: 'point-a',
+              endId: 'point-b'
+            }
+          ]
+        },
+        'add-segment-new'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+    const segmentRootUpdate = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.UPDATE_PROPERTY,
+          eventName: EventTypes.UPDATE_PROPERTY,
+          id: 'segments-root',
+          key: 'segments',
+          before: ['segment-old'],
+          after: ['segment-new']
+        },
+        'replace-segments-root'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+    const segmentRemoval = {
+      ...delivery(
+        SharedDataChannelNames.PROPS,
+        EventTypes.REMOVE_PROPERTY,
+        {
+          action: PROPS_ACTIONS.REMOVE_PROPERTY,
+          eventName: EventTypes.REMOVE_PROPERTY,
+          data: [
+            {
+              id: 'segment-old',
+              type: 'vectorSegment',
+              startId: 'point-a',
+              endId: 'point-b'
+            }
+          ]
+        },
+        'remove-segment-old'
+      ),
+      batchId: propertyBatchId,
+      orderedIds: ['segments-root']
+    }
+
+    expect(
+      harness.processPublication(
+        publication(
+          [segmentAddition, segmentRootUpdate, segmentRemoval],
+          'remote-vector-topology-replacement'
+        )
+      )
+    ).toBe(true)
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'property-components',
+        records: [
+          {
+            propertyId: 'segments-root',
+            key: 'segments',
+            set: {
+              'segment-new': {
+                id: 'segment-new',
+                type: 'vectorSegment',
+                startId: 'point-a',
+                endId: 'point-b'
+              }
+            },
+            remove: ['segment-old']
+          }
+        ],
+        updates: []
+      }
+    ])
+  })
+
   it('preserves mixed canonical batch order in one Core request', () => {
     const harness = createHarness()
     const hierarchy = delivery(

@@ -719,66 +719,92 @@ const classifyPropertyComponentBatch = (
     })
   })
 
-  const consumedUpdates = new Set<SharedPublicationDelivery>()
-  const records = structuralDeliveries.map(
-    ({ kind, ownerPropertyId, components }) => {
-      const relationshipUpdate = updateDeliveries.find(
-        ({ delivery, payload }) =>
-          !consumedUpdates.has(delivery) && payload.id === ownerPropertyId
-      )
-      if (!relationshipUpdate) {
-        throw new Error(
-          '[collaboration] invalid property-component batch evidence'
-        )
-      }
-      const { delivery, payload } = relationshipUpdate
-      const before = payload.before
-      const after = payload.after
-      const componentIds = components.map(({ id }) => id)
-      const validRelationship =
-        Array.isArray(before) &&
-        before.every(isNonBlankString) &&
-        Array.isArray(after) &&
-        after.every(isNonBlankString) &&
-        new Set(componentIds).size === componentIds.length &&
-        (kind === 'add'
-          ? sameOrderedIds(after as string[], [
-              ...(before as string[]),
-              ...componentIds
-            ])
-          : componentIds.every((componentId) =>
-              (before as string[]).includes(componentId)
-            ) &&
-            sameOrderedIds(
-              after as string[],
-              (before as string[]).filter(
-                (propertyId) => !componentIds.includes(propertyId)
-              )
-            ))
-      if (!validRelationship) {
-        throw new Error(
-          '[collaboration] invalid property-component batch evidence'
-        )
-      }
-      consumedUpdates.add(delivery)
-      return Object.freeze({
-        propertyId: ownerPropertyId,
-        key: payload.key as string,
-        ...(kind === 'add'
-          ? {
-              set: Object.freeze(
-                Object.fromEntries(
-                  components.map((component) => [
-                    component.id,
-                    Object.freeze({ ...component })
-                  ])
-                )
-              )
-            }
-          : { remove: Object.freeze(componentIds) })
-      })
+  const structuralOwners: string[] = []
+  const structuralByOwner = new Map<
+    string,
+    {
+      additions: PropertyComponentRawData[]
+      removals: PropertyComponentRawData[]
     }
-  )
+  >()
+  structuralDeliveries.forEach(({ kind, ownerPropertyId, components }) => {
+    let structural = structuralByOwner.get(ownerPropertyId)
+    if (!structural) {
+      structural = { additions: [], removals: [] }
+      structuralByOwner.set(ownerPropertyId, structural)
+      structuralOwners.push(ownerPropertyId)
+    }
+    structural[kind === 'add' ? 'additions' : 'removals'].push(...components)
+  })
+
+  const consumedUpdates = new Set<SharedPublicationDelivery>()
+  const records = structuralOwners.map((ownerPropertyId) => {
+    const structural = structuralByOwner.get(ownerPropertyId)
+    if (!structural) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const addedIds = structural.additions.map(({ id }) => id)
+    const removedIds = structural.removals.map(({ id }) => id)
+    const componentIds = [...addedIds, ...removedIds]
+    if (
+      new Set(componentIds).size !== componentIds.length ||
+      componentIds.length === 0
+    ) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const relationshipUpdate = updateDeliveries.find(
+      ({ delivery, payload }) => {
+        if (
+          consumedUpdates.has(delivery) ||
+          payload.id !== ownerPropertyId ||
+          !Array.isArray(payload.before) ||
+          !payload.before.every(isNonBlankString) ||
+          !Array.isArray(payload.after) ||
+          !payload.after.every(isNonBlankString)
+        ) {
+          return false
+        }
+        const before = payload.before as string[]
+        const after = payload.after as string[]
+        return (
+          addedIds.every((componentId) => !before.includes(componentId)) &&
+          removedIds.every((componentId) => before.includes(componentId)) &&
+          sameOrderedIds(after, [
+            ...before.filter((propertyId) => !removedIds.includes(propertyId)),
+            ...addedIds
+          ])
+        )
+      }
+    )
+    if (!relationshipUpdate) {
+      throw new Error(
+        '[collaboration] invalid property-component batch evidence'
+      )
+    }
+    const { delivery, payload } = relationshipUpdate
+    consumedUpdates.add(delivery)
+    return Object.freeze({
+      propertyId: ownerPropertyId,
+      key: payload.key as string,
+      ...(structural.additions.length > 0
+        ? {
+            set: Object.freeze(
+              Object.fromEntries(
+                structural.additions.map((component) => [
+                  component.id,
+                  Object.freeze({ ...component })
+                ])
+              )
+            )
+          }
+        : {}),
+      ...(removedIds.length > 0 ? { remove: Object.freeze(removedIds) } : {})
+    })
+  })
 
   updateDeliveries.forEach(({ delivery, payload }) => {
     if (consumedUpdates.has(delivery)) {
