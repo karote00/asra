@@ -62,6 +62,29 @@ export const captureBrowserErrors = (page: Page): void => {
 export const getCapturedBrowserErrors = (page: Page): readonly string[] =>
   browserErrorsByPage.get(page) ?? []
 
+export const startDocumentPublicationCapture = async (
+  page: Page,
+  key: string
+): Promise<void> => {
+  await page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    runtime.startDocumentPublicationCapture(captureKey)
+  }, key)
+}
+
+export const stopDocumentPublicationCaptureAndReadDecodeFailures = async (
+  page: Page,
+  key: string
+) =>
+  page.evaluate(async (captureKey) => {
+    const runtime = await import('../src/testing/runtime-access')
+    try {
+      return runtime.readDocumentPublicationDecodeFailures(captureKey)
+    } finally {
+      runtime.stopTestCapture(captureKey)
+    }
+  }, key)
+
 /**
  * Get a safe canvas position that won't be intercepted by overlays
  * @param page - The Playwright page
