@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { Locator, Page } from '@playwright/test'
 import type { Rect } from '@asyra/utils'
 
@@ -190,34 +190,49 @@ interface DocumentDigest {
   sha256: string
 }
 
+const sortDocumentValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sortDocumentValue)
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, item]) => [key, sortDocumentValue(item)])
+  )
+}
+
+const createDocumentDigest = (documentState: unknown): DocumentDigest => {
+  const serialized = JSON.stringify(sortDocumentValue(documentState))
+  return {
+    byteLength: Buffer.byteLength(serialized),
+    sha256: createHash('sha256').update(serialized).digest('hex')
+  }
+}
+
 export async function getCoreDocumentDigest(
   page: Page
 ): Promise<DocumentDigest> {
-  return page.evaluate(async () => {
+  const documentState = await page.evaluate(async () => {
     const data = await (
       await import('../src/testing/runtime-access')
     ).core.save()
-    const documentState = {
+    return {
       version: data.version,
       sceneTree: data.sceneTree,
       props: data.props
     }
-    const bytes = new TextEncoder().encode(JSON.stringify(documentState))
-    const digest = await crypto.subtle.digest('SHA-256', bytes)
-    return {
-      byteLength: bytes.byteLength,
-      sha256: [...new Uint8Array(digest)]
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('')
-    }
   })
+  return createDocumentDigest(documentState)
 }
 
 export async function getPersistedDocumentDigest(
   page: Page,
   fileId = getCurrentDocumentFileId(page)
 ): Promise<DocumentDigest | null> {
-  return page.evaluate(
+  const documentState = await page.evaluate(
     async ({ requestedFileId }) => {
       const response = await fetch(
         `/api/documents/${encodeURIComponent(
@@ -242,22 +257,15 @@ export async function getPersistedDocumentDigest(
         sceneTree?: unknown
         props?: unknown
       }
-      const documentState = {
+      return {
         version: checkpoint.version,
         sceneTree: checkpoint.sceneTree,
         props: checkpoint.props
       }
-      const bytes = new TextEncoder().encode(JSON.stringify(documentState))
-      const digest = await crypto.subtle.digest('SHA-256', bytes)
-      return {
-        byteLength: bytes.byteLength,
-        sha256: [...new Uint8Array(digest)]
-          .map((value) => value.toString(16).padStart(2, '0'))
-          .join('')
-      }
     },
     { requestedFileId: fileId }
   )
+  return documentState === null ? null : createDocumentDigest(documentState)
 }
 
 export function parseStrokeDashAndGapInput(pattern: string): {
