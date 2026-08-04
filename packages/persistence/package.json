@@ -4,10 +4,27 @@
   "description": "Persistence providers and hooks for Asyra framework",
   "author": "Asa Tsai",
   "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "packageManager": "yarn@4.3.1",
   "keywords": [],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/__tests__",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*"
+  ],
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build:persistence": "tsc",

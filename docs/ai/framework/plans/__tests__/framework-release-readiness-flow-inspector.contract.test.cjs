@@ -234,6 +234,11 @@ test('Inspector assigns each required Gate 5 owner exactly once', () => {
       'scripts/__tests__/framework-release-packages.test.mjs'
     )
   )
+  assert.ok(
+    step('validate-package-artifacts').implementationBoundary.includes(
+      'packages/*/LICENSE'
+    )
+  )
 })
 
 test('package and consumer steps forbid workspace-only proof', () => {

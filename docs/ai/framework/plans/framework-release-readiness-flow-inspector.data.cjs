@@ -171,6 +171,7 @@
         'scripts/release-readiness.js',
         'scripts/__tests__/release-package-artifacts.test.mjs',
         'packages/*/package.json',
+        'packages/*/LICENSE',
         'packages/*/src/index.ts',
         'LICENSE',
         '.gitignore'
