@@ -387,7 +387,7 @@ const runStartupSmokeDefault = async ({ consumerDirectory }) => {
         )
       }
       try {
-        const response = await fetch(`http://127.0.0.1:${port}/`)
+        const response = await globalThis.fetch(`http://127.0.0.1:${port}/`)
         if (response.ok && (await response.text()).includes('id="root"')) {
           return
         }

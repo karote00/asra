@@ -1022,7 +1022,8 @@
         'required fileId URL',
         'Asyra Design RenderApp startup policy',
         'same-origin document database endpoint',
-        'checked-in compressed crdt-7076 canonical document'
+        'checked-in compressed crdt-7076 canonical document',
+        'artifact:remote-publication-settlement'
       ],
       outputs: [
         'artifact:file-scoped-demo-document-snapshot',
@@ -1731,6 +1732,15 @@
       kind: 'settlement',
       predicate:
         'Success resolves the active remote publication and releases the next decoded publication; terminal failure clears the active and pending publications and releases none.',
+      producedArtifacts: ['artifact:remote-publication-settlement']
+    },
+    {
+      id: 'route-remote-settlement-to-persistence-proof',
+      from: 'apply-remote-publication-batches',
+      to: 'load-file-scoped-demo-document',
+      kind: 'observation',
+      predicate:
+        'Remote canonical apply settlement proves that receiver-side persistence, Undo, and echo remained absent.',
       producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {

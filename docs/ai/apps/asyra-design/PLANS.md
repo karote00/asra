@@ -4,7 +4,7 @@ Never record completed plans here.
 
 ## Current Status
 
-- No highest-priority App plan is currently active.
+- No active app plan.
 - Most recently completed canonical App plan:
   `plans/completed/socket-authoritative-document-persistence-plan.md`.
 - Its retained product contract and exact owner flow are:

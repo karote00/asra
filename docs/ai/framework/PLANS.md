@@ -6,6 +6,8 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Active Pre-Release Blockers
 
+None.
+
 No active App persistence blocker remains. The completed
 socket-authoritative document-session record is:
 
