@@ -124,6 +124,7 @@ interface CoreDeps {
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
 const INLINE_COMPONENT_RENDER_RELATION = 'component-owner'
+let didWarnAboutSetPersistence = false
 const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
   workspace: '',
   workspaceList: [],
@@ -378,8 +379,16 @@ class Core implements CoreAPIs {
 
   /**
    * @deprecated Use setLoadSource. Core does not call provider save or clear.
+   * This compatibility adapter remains available through the 0.2.x migration
+   * window and is planned for removal in the next major release.
    */
   setPersistence(provider: IPersistenceProvider): void {
+    if (!didWarnAboutSetPersistence) {
+      console.warn(
+        'Core.setPersistence is deprecated. Use Core.setLoadSource; Core never saves or clears through this compatibility surface.'
+      )
+      didWarnAboutSetPersistence = true
+    }
     this.setLoadSource(provider)
   }
 

@@ -121,6 +121,31 @@ describe('Core load validation pipeline', () => {
     >().toEqualTypeOf<VersionedLoadDocument>()
   })
 
+  it('keeps setPersistence as a warn-once load-source adapter', () => {
+    const { core } = createCoreForTest()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const firstProvider = {
+      name: 'first-provider',
+      load: vi.fn(async () => null),
+      save: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined)
+    }
+    const secondProvider = {
+      name: 'second-provider',
+      load: vi.fn(async () => null),
+      save: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined)
+    }
+
+    core.setPersistence(firstProvider)
+    core.setPersistence(secondProvider)
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(
+      'Core.setPersistence is deprecated. Use Core.setLoadSource; Core never saves or clears through this compatibility surface.'
+    )
+  })
+
   it('passes every non-nullish direct raw payload to the first app hook', () => {
     const { core } = createCoreForTest()
     const observed: unknown[] = []
